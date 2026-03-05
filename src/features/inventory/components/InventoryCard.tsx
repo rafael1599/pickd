@@ -18,6 +18,7 @@ interface InventoryCardProps {
     available?: number | null;
     lastUpdateSource?: 'local' | 'remote';
     is_active?: boolean;
+    sku_metadata?: import('../../../schemas/skuMetadata.schema').SKUMetadata | null;
 }
 
 export const InventoryCard = memo(
@@ -36,6 +37,7 @@ export const InventoryCard = memo(
         available = null,
         lastUpdateSource,
         is_active = true,
+        sku_metadata = null,
     }: InventoryCardProps) => {
         const [flash, setFlash] = useState(false);
         const prevQuantityRef = useRef(quantity);
@@ -130,8 +132,20 @@ export const InventoryCard = memo(
                             </span>
                         )}
                         {detail && (
-                            <div className="px-1.5 py-0.5 rounded-[4px] bg-main text-muted text-[9px] font-bold uppercase tracking-tight inline-flex items-center border border-subtle">
-                                {detail}
+                            <div className="flex items-center gap-2">
+                                <div className="px-1.5 py-0.5 rounded-[4px] bg-main text-muted text-[9px] font-bold uppercase tracking-tight inline-flex items-center border border-subtle">
+                                    {detail}
+                                </div>
+                                {sku_metadata && (sku_metadata.length_in || sku_metadata.width_in || sku_metadata.height_in) && (
+                                    <div className="hidden md:inline-flex px-1.5 py-0.5 rounded-[4px] bg-accent/5 text-accent/70 text-[9px] font-black uppercase tracking-widest border border-accent/10 whitespace-nowrap">
+                                        {sku_metadata.length_in || 0} x {sku_metadata.width_in || 0} x {sku_metadata.height_in || 0} in
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {!detail && sku_metadata && (sku_metadata.length_in || sku_metadata.width_in || sku_metadata.height_in) && (
+                            <div className="hidden md:inline-flex px-1.5 py-0.5 rounded-[4px] bg-accent/5 text-accent/70 text-[9px] font-black uppercase tracking-widest border border-accent/10 whitespace-nowrap">
+                                {sku_metadata.length_in || 0} x {sku_metadata.width_in || 0} x {sku_metadata.height_in || 0} in
                             </div>
                         )}
                     </div>

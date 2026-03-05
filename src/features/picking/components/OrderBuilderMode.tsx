@@ -11,15 +11,7 @@ import { useAutoSelect } from '../../../hooks/useAutoSelect';
 import toast from 'react-hot-toast';
 
 // Define Interface for Cart Items matches PickingSessionView definition
-interface CartItem {
-    sku: string;
-    location: string;
-    pickingQty?: number;
-    quantity: string | number;
-    warehouse?: string;
-    notes?: string;
-    [key: string]: any;
-}
+import { type CartItem } from '../../../hooks/picking/usePickingCart';
 
 interface OrderBuilderModeProps {
     cartItems: CartItem[];
@@ -132,9 +124,14 @@ export const OrderBuilderMode: React.FC<OrderBuilderModeProps> = ({ cartItems, o
                                         {item.warehouse}
                                     </span>
                                 )}
-                                {item.notes && (
+                                {item.sku_note && (
                                     <span className="bg-yellow-50 text-yellow-700 px-1 rounded border border-yellow-100 text-[10px] truncate max-w-[120px]">
-                                        {item.notes}
+                                        {item.sku_note}
+                                    </span>
+                                )}
+                                {item.sku_metadata && (item.sku_metadata.length_in || item.sku_metadata.width_in || item.sku_metadata.height_in) && (
+                                    <span className="hidden md:inline-block bg-accent/5 text-accent/70 text-[9px] px-1 rounded border border-accent/10 font-bold whitespace-nowrap">
+                                        {item.sku_metadata.length_in || 0} x {item.sku_metadata.width_in || 0} x {item.sku_metadata.height_in || 0} in
                                     </span>
                                 )}
                             </div>

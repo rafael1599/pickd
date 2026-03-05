@@ -23,14 +23,7 @@ import { useAutoSelect } from '../../../hooks/useAutoSelect';
 import toast from 'react-hot-toast';
 
 // Define explicit interfaces
-interface CartItem {
-    sku: string;
-    location: string;
-    pickingQty: number;
-    quantity: string | number; // sometimes API returns strings
-    warehouse?: string;
-    [key: string]: any;
-}
+import { type CartItem } from '../../../hooks/picking/usePickingCart';
 
 interface PickingSessionViewProps {
     cartItems: CartItem[];
@@ -564,8 +557,15 @@ export const PickingSessionView: React.FC<PickingSessionViewProps> = ({
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <div className="text-[9px] text-muted font-bold uppercase tracking-tighter">
-                                                        Stock: {maxStock}
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[9px] text-muted font-bold uppercase tracking-tighter">
+                                                            Stock: {maxStock}
+                                                        </span>
+                                                        {item.sku_metadata && (item.sku_metadata.length_in || item.sku_metadata.width_in || item.sku_metadata.height_in) && (
+                                                            <span className="hidden md:inline-block bg-accent/5 text-accent/70 text-[8px] px-1 rounded border border-accent/10 font-bold">
+                                                                {item.sku_metadata.length_in || 0} x {item.sku_metadata.width_in || 0} x {item.sku_metadata.height_in || 0} in
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>

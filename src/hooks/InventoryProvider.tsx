@@ -25,7 +25,7 @@ import { type InventoryLog } from '../schemas/log.schema';
 import { updateInventoryCache, type InventoryFilters, type RealtimeInventoryEvent } from '../utils/inventorySync';
 
 interface InventoryContextType {
-  inventoryData: InventoryItem[];
+  inventoryData: InventoryItemWithMetadata[];
   ludlowData: InventoryItem[];
   atsData: InventoryItem[];
   ludlowInventory: InventoryItem[];

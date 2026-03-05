@@ -289,31 +289,28 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                                 </span>
                                             </div>
 
-                                            <div className="flex flex-col min-w-0 flex-1 gap-1">
-                                                <div className="flex items-baseline gap-1.5 flex-wrap">
-                                                    <span className={`font-black text-xl tracking-tight leading-none break-all ${isChecked ? (item.sku_not_found || item.insufficient_stock ? 'text-red-400' : 'text-green-400') : (item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-white')}`}>
-                                                        {similarity?.prefix ? (
-                                                            <span className="animate-pulse-highlight">{item.sku.substring(0, 2)}</span>
-                                                        ) : (
-                                                            item.sku.substring(0, 2)
-                                                        )}
-                                                        {item.sku.substring(2, item.sku.length - 2)}
-                                                        {similarity?.suffix ? (
-                                                            <span className="animate-pulse-highlight">{item.sku.substring(item.sku.length - 2)}</span>
-                                                        ) : (
-                                                            item.sku.substring(item.sku.length - 2)
-                                                        )}
-                                                    </span>
-                                                    {item.sku_not_found && (
-                                                        <span className="text-[8px] bg-red-500 text-white px-1 py-0.5 rounded font-black uppercase tracking-tighter animate-pulse">
-                                                            UNREG
-                                                        </span>
+                                            <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                                <span className={`font-black text-xl tracking-tight leading-none break-all ${isChecked ? (item.sku_not_found || item.insufficient_stock ? 'text-red-400' : 'text-green-400') : (item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-white')}`}>
+                                                    {similarity?.prefix ? (
+                                                        <span className="animate-pulse-highlight">{item.sku.substring(0, 2)}</span>
+                                                    ) : (
+                                                        item.sku.substring(0, 2)
                                                     )}
-                                                </div>
+                                                    {item.sku.substring(2, item.sku.length - 2)}
+                                                    {similarity?.suffix ? (
+                                                        <span className="animate-pulse-highlight">{item.sku.substring(item.sku.length - 2)}</span>
+                                                    ) : (
+                                                        item.sku.substring(item.sku.length - 2)
+                                                    )}
+                                                </span>
                                                 {item.sku_note && (
-                                                    <span className="text-[9px] font-bold text-white/60 uppercase tracking-wide leading-none">
-                                                        {item.sku_note.slice(0, 7)}
-                                                        {item.sku_note.length > 7 ? '...' : ''}
+                                                    <span className="text-[10px] font-bold text-accent/70 bg-accent/10 px-1.5 py-0.5 rounded border border-accent/20 uppercase tracking-widest leading-none">
+                                                        {item.sku_note.slice(0, 9)}
+                                                    </span>
+                                                )}
+                                                {item.sku_not_found && (
+                                                    <span className="text-[8px] bg-red-500 text-white px-1 py-0.5 rounded font-black uppercase tracking-tighter animate-pulse">
+                                                        UNREG
                                                     </span>
                                                 )}
                                             </div>
@@ -411,6 +408,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                     disabled={false}
                 />
             </div>
-        </div>
+        </div >
     );
 };

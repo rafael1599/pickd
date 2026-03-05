@@ -1,9 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import type { InventoryItem } from '../../schemas/inventory.schema';
+import type { InventoryItem, InventoryItemWithMetadata } from '../../schemas/inventory.schema';
 import type { Customer } from '../../types/schema';
 
-export interface CartItem extends InventoryItem {
+export interface CartItem extends InventoryItemWithMetadata {
   pickingQty: number;
 }
 

@@ -725,6 +725,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                           mode={viewMode === 'picking' ? sessionMode : 'stock'}
                           reservedByOthers={stockInfo?.reservedByOthers || 0}
                           available={stockInfo?.available}
+                          sku_metadata={item.sku_metadata}
                           lastUpdateSource={(item as any)._lastUpdateSource}
                           is_active={item.is_active}
                         />
