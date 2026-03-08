@@ -145,10 +145,35 @@ export function useInventoryMutations() {
         }
     });
 
+    const processPickingList = useMutation({
+        mutationKey: ['picking', 'processList'],
+        mutationFn: async (vars: { listId: string; palletsQty: number; totalUnits: number }) => {
+            const { data, error } = await (inventoryService as any).supabase.rpc('process_picking_list', {
+                p_list_id: vars.listId,
+                p_performed_by: userName,
+                p_user_id: user?.id || null,
+                p_pallets_qty: vars.palletsQty,
+                p_total_units: vars.totalUnits,
+                p_user_role: profile?.role || 'staff'
+            });
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: () => {
+            toast.success('Inventory balance updated and session completed');
+            // We don't invalidate inventory here because process_picking_list triggers triggers/realtime
+            // that will update useInventoryRealtime.
+        },
+        onError: (err) => {
+            toast.error(`Failed to process picking list: ${err.message}`);
+        }
+    });
+
     return {
         updateQuantity,
         addItem,
         updateItem,
-        deleteItem
+        deleteItem,
+        processPickingList
     };
 }

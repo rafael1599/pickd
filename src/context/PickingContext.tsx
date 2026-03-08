@@ -274,6 +274,9 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       if (current?.status === 'ready_to_double_check' || current?.status === 'double_checking') {
         // Just move it back to 'active' (picking) so it doesn't disappear from the DB
         await supabase.from('picking_lists').update({ status: 'active', checked_by: null }).eq('id', targetId);
+      } else if (current?.status === 'completed') {
+        // Already finished, don't touch DB
+        console.log('⚠️ [returnToBuilding] List is already completed. Skipping DB update.');
       } else {
         // For other states (like initial picking), we might still want to delete to release reservations 
         // IF the user is specifically wanting to go back to "Building" (free form adding)

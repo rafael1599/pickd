@@ -43,6 +43,8 @@ export const PickingCartDrawer: React.FC = () => {
         addNote,
         returnToBuilding,
         deleteList,
+        resetSession,
+        listStatus,
     } = usePickingSession();
 
     const { inventoryData, processPickingList } = useInventory();
@@ -74,6 +76,14 @@ export const PickingCartDrawer: React.FC = () => {
             setCurrentView('double-check');
         }
     }, [sessionMode, activeListId]);
+
+    // 1. Auto-close if completed from elsewhere
+    useEffect(() => {
+        if (listStatus === 'completed' && isOpen) {
+            setIsOpen(false);
+            resetSession();
+        }
+    }, [listStatus, isOpen, resetSession]);
 
     // 1. Handle External Trigger (from Header)
     useEffect(() => {
@@ -239,10 +249,8 @@ export const PickingCartDrawer: React.FC = () => {
                 totalUnits
             );
 
-            if (activeListId) {
-                localStorage.removeItem(`double_check_progress_${activeListId}`);
-                setIsOpen(false);
-            }
+            resetSession();
+            setIsOpen(false);
             return true;
         } catch (error: any) {
             console.error('Operation failed:', error);
@@ -314,6 +322,7 @@ export const PickingCartDrawer: React.FC = () => {
                                 isNotesLoading={isNotesLoading}
                                 onAddNote={addNote}
                                 onSelectAll={handleSelectAll}
+                                status={listStatus}
                                 onBack={async () => {
                                     await returnToBuilding(activeListId ?? null);
                                 }}

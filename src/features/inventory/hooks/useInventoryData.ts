@@ -27,7 +27,8 @@ export const useInventory = () => {
         updateQuantity: mutUpdateQuantity,
         addItem: mutAddItem,
         updateItem: mutUpdateItem,
-        deleteItem: mutDeleteItem
+        deleteItem: mutDeleteItem,
+        processPickingList: mutProcessPickingList
     } = useInventoryMutations();
 
     // Carga Global Agrupada (Con StaleTime infinito, para que solo Websocket actualice)
@@ -98,7 +99,10 @@ export const useInventory = () => {
         await mutDeleteItem.mutateAsync({ warehouse, sku, location });
     };
 
-    const processPickingList = async (_listId: string, _palletsQty: number, _totalUnits: number) => { };
+    const processPickingList = async (listId: string, palletsQty: number, totalUnits: number) => {
+        await mutProcessPickingList.mutateAsync({ listId, palletsQty, totalUnits });
+    };
+
     const exportData = () => { };
     const syncInventoryLocations = async () => { return { successCount: 0, failCount: 0 }; };
 

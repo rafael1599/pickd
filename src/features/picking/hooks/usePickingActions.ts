@@ -255,7 +255,8 @@ export const usePickingActions = ({
           status: 'double_checking',
           checked_by: user.id,
         } as any)
-        .eq('id', listId);
+        .eq('id', listId)
+        .neq('status', 'completed');
       if (error) throw error;
     },
     [user]
@@ -269,7 +270,8 @@ export const usePickingActions = ({
           status: 'ready_to_double_check',
           checked_by: null,
         } as any)
-        .eq('id', listId);
+        .eq('id', listId)
+        .neq('status', 'completed');
       if (error) throw error;
 
       resetSession();
@@ -292,7 +294,8 @@ export const usePickingActions = ({
             status: 'needs_correction',
             checked_by: null,
           } as any)
-          .eq('id', listId);
+          .eq('id', listId)
+          .neq('status', 'completed');
 
         if (listError) throw listError;
 

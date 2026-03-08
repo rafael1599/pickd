@@ -44,6 +44,7 @@ interface DoubleCheckViewProps {
     onAddNote: (note: string) => Promise<void> | void;
     customer?: { name: string } | null;
     onSelectAll?: (keys: string[]) => void;
+    status?: string | null;
 }
 
 export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
@@ -61,6 +62,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     isNotesLoading = false,
     onAddNote,
     onSelectAll,
+    status,
 }) => {
     const { ludlowData, atsData, inventoryData } = useInventory();
     const { showConfirmation } = useConfirmation();
@@ -279,7 +281,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 </div>
 
                 <div className="flex items-center gap-1">
-                    {!correctionNotes.trim() && (
+                    {!correctionNotes.trim() && status !== 'completed' && (
                         <button
                             onClick={onRelease}
                             className="p-2 hover:bg-white/10 rounded-full text-white/50 transition-colors"

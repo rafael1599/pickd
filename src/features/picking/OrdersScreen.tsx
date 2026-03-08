@@ -144,6 +144,29 @@ export const OrdersScreen = () => {
 
     useEffect(() => {
         fetchOrders();
+
+        // Subscribe to changes in picking lists to keep the UI in sync
+        const channel = supabase
+            .channel('orders_realtime_sync')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'picking_lists',
+                },
+                (payload) => {
+                    console.log('🔄 [OrdersScreen] Realtime update received:', payload.event);
+                    fetchOrders();
+                }
+            )
+            .subscribe((status) => {
+                console.log('📡 [OrdersScreen] Realtime status:', status);
+            });
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [fetchOrders]);
 
     // Handle external selections (e.g. from DoubleCheckHeader)
@@ -543,7 +566,7 @@ export const OrdersScreen = () => {
             {/* Main Content Area */}
             <main className="flex-1 flex flex-col relative overflow-hidden h-full">
                 {/* Top Navigation Bar */}
-                <header className="h-24 ios-glass !border-none !shadow-none shrink-0 flex items-center px-4 md:px-8 z-50 overflow-hidden">
+                <header className="h-24 ios-glass !border-none !shadow-none shrink-0 flex items-center px-4 md:px-8 z-[100]">
                     <div className="flex items-center w-full gap-3 md:gap-6 min-w-0 h-full">
                         {/* Search Section */}
                         <div className={`transition-all duration-500 ease-in-out shrink-0 ${isSearchExpanded ? 'flex-1 md:flex-none md:w-80' : 'w-12'}`}>
@@ -574,7 +597,7 @@ export const OrdersScreen = () => {
                                     <ChevronDown size={16} className={`text-muted transition-transform duration-300 ${isMobileOrderListOpen ? 'rotate-180' : ''}`} />
                                 </button>
                                 {isMobileOrderListOpen && (
-                                    <div className="absolute top-14 left-0 w-64 max-h-80 overflow-y-auto bg-surface border border-subtle rounded-[2rem] shadow-2xl p-3 z-[60] animate-soft-in no-scrollbar">
+                                    <div className="absolute top-16 left-0 w-[calc(100vw-2rem)] md:w-80 max-h-[70vh] overflow-y-auto bg-surface border border-subtle rounded-[2rem] shadow-2xl p-4 z-[110] animate-soft-in no-scrollbar">
                                         <p className="text-[10px] font-black uppercase tracking-widest text-muted/30 px-4 mb-2">Orders ({filteredOrders.length})</p>
                                         {filteredOrders.map(order => (
                                             <button
@@ -588,11 +611,14 @@ export const OrdersScreen = () => {
                                                     : 'hover:bg-main text-muted'
                                                     }`}
                                             >
-                                                <span>#{order.order_number}</span>
-                                                {order.customer?.name && (
-                                                    <span className={`text-[10px] font-bold normal-case tracking-normal ${selectedOrder?.id === order.id ? 'text-white/60' : 'text-muted/30'
-                                                        }`}>{order.customer.name}</span>
-                                                )}
+                                                <span className="truncate">
+                                                    #{order.order_number}
+                                                    {order.customer?.name && (
+                                                        <span className={`ml-1 font-bold normal-case tracking-normal ${selectedOrder?.id === order.id ? 'text-white/60' : 'text-muted/40'}`}>
+                                                            : {order.customer.name}
+                                                        </span>
+                                                    )}
+                                                </span>
                                             </button>
                                         ))}
                                     </div>
