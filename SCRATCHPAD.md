@@ -6,9 +6,9 @@ Quick, transient notes for the current session. Move permanent insights to `.age
 
 ## 🕒 Current Focus
 
-- **Feature Stability**: Monitoring the new TypeScript-based Smart Picking engine.
-- **Type Adoption**: Converting remaining UI components to `.tsx`.
-- **Performance**: Ensuring Supabase real-time sync doesn't hit throttle limits during peak picking.
+- **Feature Stability**: Monitoring the new React Query integration and picking flow.
+- **Security**: Planning RLS policies and server-side validation.
+- **Inventory Precision**: Ensuring `process_picking_list` correctly handles stock across multiple locations.
 
 ## 📝 Pending Tasks
 

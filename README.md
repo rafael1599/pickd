@@ -58,14 +58,13 @@ The app is accessible at http://localhost:5173/ and automatically broadcasts to 
 
 ## Technical Architecture
 
+The project follows a **Feature-Sliced Design (FSD)** inspired architecture for maximum modularity. For a deep dive into the internal structure, see [ARCHITECTURE.md](./ARCHITECTURE.md).
+
 - **Frontend**: React 19 + Vite + Tailwind CSS + **TypeScript**.
-- **State & Data**: TanStack Query (React Query) + Supabase Client.
+- **State & Data**: TanStack Query (React Query) + Supabase Client with Optimistic Updates.
 - **Storage**: PostgreSQL (via Supabase) with Row Level Security (RLS).
 - **Communication**: Real-time Postgres changes for instant multi-user updates.
-- **Utilities**: 
-  - `@dnd-kit` for visual map configuration.
-  - `Lucide React` for high-fidelity iconography.
-  - `jsPDF` for automated picking reports.
+- **Project Structure**: Organized by `features/` (Inventory, Picking, Smart-Picking, etc.).
 
 ## Usage Guide
 
