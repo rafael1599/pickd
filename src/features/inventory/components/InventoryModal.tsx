@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { z } from 'zod';
 import { createPortal } from 'react-dom';
 import X from 'lucide-react/dist/esm/icons/x';
 import Save from 'lucide-react/dist/esm/icons/save';
@@ -20,7 +19,7 @@ import { useViewMode } from '../../../context/ViewModeContext';
 import { useAutoSelect } from '../../../hooks/useAutoSelect';
 
 import AutocompleteInput from '../../../components/ui/AutocompleteInput.tsx';
-import { InventoryItemWithMetadata, InventoryItemInput, InventoryItemInputSchema, type DistributionItem, STORAGE_TYPE_LABELS } from '../../../schemas/inventory.schema';
+import { InventoryItemWithMetadata, InventoryItemInput, InventoryFormSchema, type InventoryFormValues, type DistributionItem, STORAGE_TYPE_LABELS } from '../../../schemas/inventory.schema';
 import { predictLocation } from '../../../utils/locationPredictor';
 import { inventoryService } from '../api/inventory.service';
 
@@ -32,24 +31,6 @@ interface InventoryModalProps {
     initialData?: InventoryItemWithMetadata | null;
     mode?: 'add' | 'edit';
     screenType?: string;
-}
-
-const extendedSchema = InventoryItemInputSchema.extend({
-    length_in: z.coerce.number().optional().nullable(),
-    width_in: z.coerce.number().optional().nullable(),
-    height_in: z.coerce.number().optional().nullable(),
-});
-
-interface InventoryFormValues {
-    sku: string;
-    location: string;
-    quantity: number;
-    item_name: string | null;
-    warehouse: 'LUDLOW' | 'ATS' | 'DELETED ITEMS';
-    length_in?: number | null;
-    width_in?: number | null;
-    height_in?: number | null;
-    internal_note?: string | null;
 }
 
 export const InventoryModal: React.FC<InventoryModalProps> = ({
@@ -69,9 +50,6 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     const [distribution, setDistribution] = useState<DistributionItem[]>([]);
     const [isDistributionOpen, setIsDistributionOpen] = useState(false);
 
-    // const [confirmCreateNew, setConfirmCreateNew] = useState(false); // REMOVED: Ghost Location simplification
-
-
     const {
         register,
         handleSubmit,
@@ -80,7 +58,10 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         reset,
         formState: { errors, isValid }
     } = useForm<InventoryFormValues>({
-        resolver: zodResolver(extendedSchema) as any,
+        // Zod v3 z.coerce/z.preprocess produces `unknown` output types that don't align
+        // with RHF's Resolver generics. This is a known compatibility issue. The runtime
+        // validation is correct — only the TS inference needs the cast.
+        resolver: zodResolver(InventoryFormSchema) as any,
         mode: 'onChange',
         defaultValues: {
             sku: '',
@@ -95,14 +76,17 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         }
     });
 
-    const formData = watch();
+    // Selective watches — only these fields trigger component re-renders
+    const sku = watch('sku');
+    const location = watch('location');
+    const warehouse = watch('warehouse');
+    const quantity = watch('quantity');
+    const itemName = watch('item_name');
 
     // 2. Sync Initial Data
     useEffect(() => {
         if (isOpen) {
             setIsNavHidden?.(true);
-            // setConfirmCreateNew(false); // REMOVED
-
 
             if (mode === 'edit' && initialData) {
                 reset({
@@ -143,27 +127,24 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     const validLocationNames = useMemo(() => {
         if (!locations) return [];
         return Array.from(new Set(locations
-            .filter((l) => l.warehouse === formData.warehouse)
+            .filter((l) => l.warehouse === warehouse)
             .map((l) => l.location)));
-    }, [locations, formData.warehouse]);
+    }, [locations, warehouse]);
 
     const prediction = useMemo(
-        () => predictLocation(formData.location || '', validLocationNames),
-        [formData.location, validLocationNames]
+        () => predictLocation(location || '', validLocationNames),
+        [location, validLocationNames]
     );
 
-    // const isNewLocation = useMemo(() => {
-    //     if (!formData.location) return false;
-    //     return !prediction.exactMatch;
-    // }, [formData.location, prediction]);
+    const currentInventory = warehouse === 'ATS' ? atsData : ludlowData;
 
-
-    // useEffect(() => {
-    //     setConfirmCreateNew(false);
-    // }, [formData.location]);
-
-
-    const currentInventory = formData.warehouse === 'ATS' ? atsData : ludlowData;
+    // TIER 1: Instant local SKU presence — pure computation, no side-effect
+    const foundLocations = useMemo(() => {
+        const currentSKU = (sku || '').trim();
+        if (currentSKU.length < 2) return [] as string[];
+        const existingEntries = currentInventory.filter(i => (i.sku || '').trim() === currentSKU);
+        return [...new Set(existingEntries.map(i => i.location || 'Unknown').filter(Boolean))];
+    }, [sku, currentInventory]);
 
     const skuSuggestions = useMemo(() => {
         const uniqueSKUs = new Map<string, { value: string; info: string }>();
@@ -180,7 +161,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     }, [currentInventory]);
 
     const locationSuggestions = useMemo(() => {
-        if (formData.location && prediction.matches.length > 0) {
+        if (location && prediction.matches.length > 0) {
             return Array.from(new Set(prediction.matches)).map(l => ({ value: l, info: 'DB Location' }));
         }
         const counts = new Map<string, number>();
@@ -189,7 +170,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
             value: loc,
             info: `${count} items here`
         }));
-    }, [currentInventory, formData.location, prediction.matches]);
+    }, [currentInventory, location, prediction.matches]);
 
     // 3.5 Dynamic Warehouse List
     const availableWarehouses = useMemo(() => {
@@ -202,28 +183,26 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         message?: string;
     }>({ status: 'idle' });
 
-    const [foundLocations, setFoundLocations] = useState<string[]>([]);
-
     // Constants for Validation Rules
     const MIN_SKU_CHARS = 7;
 
     const isSkuChanged = useMemo(() => {
         if (mode !== 'edit' || !initialData) return false;
-        return formData.sku.trim() !== (initialData.sku || '').trim();
-    }, [formData.sku, initialData, mode]);
+        return sku.trim() !== (initialData.sku || '').trim();
+    }, [sku, initialData, mode]);
 
     // Use a custom debounce hook or simple timeout for now
     useEffect(() => {
         // LEVEL 1: DIRTY CHECK (Has anything changed?)
         const normalize = (str: any) => (String(str || '')).trim();
 
-        const currentSKU = normalize(formData.sku);
+        const currentSKU = normalize(sku);
         const originalSKU = normalize(initialData?.sku);
 
-        const currentLocation = normalize(formData.location);
+        const currentLocation = normalize(location);
         const originalLocation = normalize(initialData?.location);
 
-        const currentWh = normalize(formData.warehouse);
+        const currentWh = normalize(warehouse);
         const originalWh = normalize((screenType as any) || 'LUDLOW');
 
 
@@ -231,15 +210,6 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         const locationChanged = currentLocation !== originalLocation;
         const warehouseChanged = currentWh !== originalWh;
         const hasAnyChange = skuChanged || locationChanged || warehouseChanged;
-
-        // TIER 1: INSTANT LOCAL PRESENCE (Independent of everything)
-        if (currentSKU.length >= 2) {
-            const existingEntries = currentInventory.filter(i => normalize(i.sku) === currentSKU);
-            const locs = Array.from(new Set(existingEntries.map(i => i.location || 'Unknown'))).filter(Boolean);
-            setFoundLocations(locs);
-        } else {
-            setFoundLocations([]);
-        }
 
         // TIER 2: COORDINATED SERVER VALIDATION (Debounced)
         if (mode === 'edit' && !hasAnyChange) {
@@ -339,7 +309,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         }, 800);
 
         return () => clearTimeout(timer);
-    }, [formData.sku, formData.location, formData.warehouse, mode, initialData, screenType, currentInventory, isSkuChanged]);
+    }, [sku, location, warehouse, mode, initialData, screenType, currentInventory, isSkuChanged]);
 
     // 4. Handlers
     const handleLocationBlur = (val: string) => {
@@ -405,23 +375,19 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
 
     const executeSave = async (data: any) => {
         // 1. Update SKU Metadata (dimensions)
-        try {
-            await updateSKUMetadata({
-                sku: data.sku,
-                length_in: data.length_in,
-                width_in: data.width_in,
-                height_in: data.height_in,
-            });
-        } catch (e) {
-            console.error('Metadata update failed:', e);
-        }
+        updateSKUMetadata({ // Fire and forget
+            sku: data.sku,
+            length_in: data.length_in,
+            width_in: data.width_in,
+            height_in: data.height_in,
+        }).catch(e => console.error('Metadata update failed:', e));
 
         // 2. Attach distribution and internal_note to save payload
         data.internal_note = data.internal_note || null;
         data.distribution = distribution.filter(d => d.count > 0 && d.units_each > 0);
 
         // 3. CREATE/UPDATE ITEM
-        await onSave(data);
+        onSave(data); // Fire and forget
         onClose();
     };
 
@@ -457,7 +423,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                                         key={wh}
                                         type="button"
                                         onClick={() => setValue('warehouse', wh as 'LUDLOW' | 'ATS')}
-                                        className={`px-4 py-2 rounded-lg font-bold text-xs transition-all border ${formData.warehouse === wh
+                                        className={`px-4 py-2 rounded-lg font-bold text-xs transition-all border ${warehouse === wh
                                             ? 'bg-accent text-main border-accent shadow-[0_0_15px_rgba(var(--accent-rgb),0.3)]'
                                             : 'bg-surface text-muted border-subtle hover:border-muted'
                                             }`}
@@ -470,7 +436,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                         <AutocompleteInput
                             id="inventory_sku"
                             label="SKU"
-                            value={formData.sku}
+                            value={sku}
                             onChange={(v: string) => setValue('sku', v, { shouldValidate: true })}
                             suggestions={skuSuggestions}
                             placeholder="Enter SKU..."
@@ -527,7 +493,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                             <AutocompleteInput
                                 id="inventory_location"
                                 label="Location"
-                                value={formData.location || ''}
+                                value={location || ''}
                                 onChange={(v: string) => setValue('location', v, { shouldValidate: true })}
                                 onBlur={handleLocationBlur}
                                 suggestions={locationSuggestions}
@@ -542,7 +508,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                         <AutocompleteInput
                             id="item_name"
                             label="Item Name"
-                            value={formData.item_name || ''}
+                            value={itemName || ''}
                             onChange={(v: string) => setValue('item_name', v, { shouldValidate: true })}
                             suggestions={[]}
                             placeholder="e.g. Desk Frame, Monitor Stand..."
@@ -647,21 +613,21 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
 
                                     {/* Distribution Summary */}
                                     {distribution.length > 0 && (
-                                        <div className={`flex items-center justify-between px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${distributionTotal > (formData.quantity || 0)
+                                        <div className={`flex items-center justify-between px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${distributionTotal > (quantity || 0)
                                             ? 'bg-red-500/10 border border-red-500/20 text-red-400'
-                                            : distributionTotal === (formData.quantity || 0)
+                                            : distributionTotal === (quantity || 0)
                                                 ? 'bg-green-500/10 border border-green-500/20 text-green-400'
                                                 : 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
                                             }`}>
                                             <span>
-                                                Accounted: {distributionTotal} / {formData.quantity || 0} units
+                                                Accounted: {distributionTotal} / {quantity || 0} units
                                             </span>
                                             <span>
-                                                {distributionTotal > (formData.quantity || 0)
-                                                    ? `⚠ ${distributionTotal - (formData.quantity || 0)} over`
-                                                    : distributionTotal === (formData.quantity || 0)
+                                                {distributionTotal > (quantity || 0)
+                                                    ? `⚠ ${distributionTotal - (quantity || 0)} over`
+                                                    : distributionTotal === (quantity || 0)
                                                         ? '✓ Perfect'
-                                                        : `${(formData.quantity || 0) - distributionTotal} loose`
+                                                        : `${(quantity || 0) - distributionTotal} loose`
                                                 }
                                             </span>
                                         </div>
@@ -710,9 +676,9 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                         </button>
                     )}
                     <button
-                        disabled={!isValid || !formData.sku?.trim() || !formData.location?.trim() || validationState.status === 'error' || validationState.status === 'checking'}
+                        disabled={!isValid || !sku?.trim() || !location?.trim() || validationState.status === 'error' || validationState.status === 'checking'}
                         onClick={handleSubmit(onFormSubmit)}
-                        className={`flex-1 font-black uppercase tracking-widest h-14 rounded-2xl flex items-center justify-center gap-2 transition-transform shadow-lg shadow-accent/20 ${(!isValid || !formData.sku?.trim() || !formData.location?.trim() || validationState.status === 'error' || validationState.status === 'checking')
+                        className={`flex-1 font-black uppercase tracking-widest h-14 rounded-2xl flex items-center justify-center gap-2 transition-transform shadow-lg shadow-accent/20 ${(!isValid || !sku?.trim() || !location?.trim() || validationState.status === 'error' || validationState.status === 'checking')
                             ? 'bg-neutral-800 text-neutral-500 border border-neutral-700 cursor-not-allowed opacity-50'
                             : 'bg-accent hover:opacity-90 text-main active:scale-95'
                             }`}

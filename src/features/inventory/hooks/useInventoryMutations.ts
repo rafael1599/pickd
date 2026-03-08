@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { inventoryService } from '../api/inventory.service';
-import { type InventoryItem, type InventoryItemInput, type InventoryItemWithMetadata } from '../../../schemas/inventory.schema';
+import { type InventoryItemInput, type InventoryItemWithMetadata } from '../../../schemas/inventory.schema';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocationManagement } from './useLocationManagement';
 import { INVENTORY_ROOT_KEY } from './useInventoryRealtime';
@@ -20,14 +20,15 @@ export function useInventoryMutations() {
     });
 
     const updateQuantity = useMutation({
+        mutationKey: ['inventory', 'updateQuantity'],
         mutationFn: async (vars: { sku: string; delta: number; warehouse: string; location: string | null; isReversal?: boolean }) => {
-            const { data, error } = await inventoryService.supabase.rpc('adjust_inventory_quantity', {
+            const { data, error } = await (inventoryService as any).supabase.rpc('adjust_inventory_quantity', {
                 p_sku: vars.sku,
                 p_warehouse: vars.warehouse,
                 p_location: vars.location || '',
                 p_delta: vars.delta,
                 p_performed_by: userName,
-                p_user_id: user?.id,
+                p_user_id: user?.id || null,
                 p_user_role: profile?.role || 'staff'
             });
             if (error) throw error;
@@ -49,7 +50,7 @@ export function useInventoryMutations() {
 
             return { previousData };
         },
-        onError: (err, vars, context) => {
+        onError: (err, _vars, context) => {
             if (context?.previousData) {
                 queryClient.setQueryData(INVENTORY_ROOT_KEY, context.previousData);
             }
@@ -61,6 +62,7 @@ export function useInventoryMutations() {
     });
 
     const addItem = useMutation({
+        mutationKey: ['inventory', 'addItem'],
         mutationFn: async (vars: { warehouse: string; newItem: InventoryItemInput }) => {
             return inventoryService.addItem(vars.warehouse, vars.newItem, locations, getServiceContext() as any);
         },
@@ -79,21 +81,23 @@ export function useInventoryMutations() {
                     quantity: vars.newItem.quantity,
                     item_name: vars.newItem.item_name,
                     is_active: true,
-                    created_at: new Date(),
-                    _lastLocalUpdateAt: Date.now()
+                    created_at: new Date() as any,
+                    _lastLocalUpdateAt: Date.now(),
+                    distribution: []
                 };
                 return old ? [newItemMock, ...old] : [newItemMock];
             });
 
             return { previousData };
         },
-        onError: (err, vars, context) => {
+        onError: (err, _vars, context) => {
             if (context?.previousData) queryClient.setQueryData(INVENTORY_ROOT_KEY, context.previousData);
             toast.error(`Error adding item: ${err.message}`);
         }
     });
 
     const updateItem = useMutation({
+        mutationKey: ['inventory', 'updateItem'],
         mutationFn: async (vars: { originalItem: InventoryItemWithMetadata; updatedFormData: InventoryItemInput }) => {
             return inventoryService.updateItem(vars.originalItem, vars.updatedFormData, locations, getServiceContext() as any);
         },
@@ -111,13 +115,14 @@ export function useInventoryMutations() {
             });
             return { previousData };
         },
-        onError: (err, vars, context) => {
+        onError: (err, _vars, context) => {
             if (context?.previousData) queryClient.setQueryData(INVENTORY_ROOT_KEY, context.previousData);
             toast.error(`Error updating item: ${err.message}`);
         }
     });
 
     const deleteItem = useMutation({
+        mutationKey: ['inventory', 'deleteItem'],
         mutationFn: async (vars: { sku: string; warehouse: string; location?: string | null }) => {
             const items = queryClient.getQueryData<InventoryItemWithMetadata[]>(INVENTORY_ROOT_KEY) || [];
             const item = items.find(i => i.sku === vars.sku && i.warehouse === vars.warehouse && (vars.location ? i.location === vars.location : true));
@@ -134,7 +139,7 @@ export function useInventoryMutations() {
             });
             return { previousData };
         },
-        onError: (err, vars, context) => {
+        onError: (err, _vars, context) => {
             if (context?.previousData) queryClient.setQueryData(INVENTORY_ROOT_KEY, context.previousData);
             toast.error(`Error deleting item: ${err.message}`);
         }

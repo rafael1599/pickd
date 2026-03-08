@@ -1,5 +1,5 @@
 import Wand2 from 'lucide-react/dist/esm/icons/wand-2';
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { useError } from '../../../context/ErrorContext';
 import { useConfirmation } from '../../../context/ConfirmationContext';
 import toast from 'react-hot-toast';
@@ -21,7 +21,6 @@ export const ZoneManagementPanel = ({
   autoAssignZones,
 }: ZoneManagementProps) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const [filterZone, setFilterZone] = useState('ALL');
   const [isAutoAssigning, setIsAutoAssigning] = useState(false);
   const { showError } = useError();

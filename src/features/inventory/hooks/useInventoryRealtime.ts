@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
-import { inventoryKeys } from '../../../lib/query-keys';
 import { type InventoryItemWithMetadata } from '../../../schemas/inventory.schema';
 
 export const INVENTORY_ROOT_KEY = ['inventory', 'grouped-all'];

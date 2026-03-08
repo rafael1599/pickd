@@ -1,12 +1,10 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import X from 'lucide-react/dist/esm/icons/x';
-import MapIcon from 'lucide-react/dist/esm/icons/map';
 import Layers from 'lucide-react/dist/esm/icons/layers';
 import LinkIcon from 'lucide-react/dist/esm/icons/link';
 import Check from 'lucide-react/dist/esm/icons/check';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
-import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 
 import { useInventorySnapshot, type SnapshotItem } from '../hooks/useInventorySnapshot';
 import { toast } from 'react-hot-toast';
@@ -19,7 +17,6 @@ export const InventorySnapshotModal = ({ isOpen, onClose }: { isOpen: boolean; o
     const { loading, data, fetchSnapshot } = useInventorySnapshot();
     const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [searchQuery, setSearchQuery] = useState('');
-    const searchInputRef = useRef<HTMLInputElement>(null);
 
     const [copiedLink, setCopiedLink] = useState(false);
     const [copiedMarkdown, setCopiedMarkdown] = useState(false);

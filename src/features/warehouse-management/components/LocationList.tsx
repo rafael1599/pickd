@@ -1,7 +1,5 @@
-import Search from 'lucide-react/dist/esm/icons/search';
-import X from 'lucide-react/dist/esm/icons/x';
 import MapPin from 'lucide-react/dist/esm/icons/map-pin';
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Package from 'lucide-react/dist/esm/icons/package';
 import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
 import { useLocationManagement } from '../../inventory/hooks/useLocationManagement';
@@ -18,8 +16,7 @@ export const LocationList = () => {
   const { locations, loading, updateLocation, refresh, deactivateLocation } = useLocationManagement();
   const { ludlowData, atsData } = useInventory();
   const [searchTerm, setSearchTerm] = useState('');
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const [selectedWarehouse, setSelectedWarehouse] = useState<Location['warehouse']>('LUDLOW');
+  const [selectedWarehouse, setSelectedWarehouse] = useState<"LUDLOW" | "ATS">('LUDLOW');
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
@@ -35,9 +32,9 @@ export const LocationList = () => {
   // Update selected warehouse if it no longer exists in the list or on initial load
   useEffect(() => {
     if (warehouses.length > 0) {
-      if (!warehouses.includes(selectedWarehouse)) {
+      if (!(warehouses as string[]).includes(selectedWarehouse)) {
         // If current selection doesn't exist, default to LUDLOW or first available
-        setSelectedWarehouse(warehouses.includes('LUDLOW') ? 'LUDLOW' : warehouses[0]);
+        setSelectedWarehouse((warehouses as string[]).includes('LUDLOW') ? 'LUDLOW' : warehouses[0] as "LUDLOW" | "ATS");
       }
     }
   }, [warehouses, selectedWarehouse]);

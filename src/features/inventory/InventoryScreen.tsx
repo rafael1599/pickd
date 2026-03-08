@@ -378,7 +378,6 @@ export const InventoryScreen = () => {
   // Picking Mode State
   const {
     cartItems,
-    setCartItems,
     addToCart,
     getAvailableStock,
     onStartSession,

@@ -84,6 +84,18 @@ export type InventoryItem = z.infer<typeof InventoryItemSchema>;
 export type InventoryItemDB = z.infer<typeof InventoryItemDBSchema>;
 export type InventoryItemInput = z.infer<typeof InventoryItemInputSchema>;
 
+/**
+ * Form Schema — extends InventoryItemInput with SKU dimension fields.
+ * Used by InventoryModal for the combined inventory + metadata form.
+ */
+export const InventoryFormSchema = InventoryItemInputSchema.extend({
+  length_in: z.coerce.number().optional().nullable(),
+  width_in: z.coerce.number().optional().nullable(),
+  height_in: z.coerce.number().optional().nullable(),
+});
+
+export type InventoryFormValues = z.infer<typeof InventoryFormSchema>;
+
 export const InventoryItemWithMetadataSchema = InventoryItemSchema.extend({
   sku_metadata: SKUMetadataSchema.nullable().optional(),
   _lastUpdateSource: z.enum(['local', 'remote']).optional(),

@@ -1,5 +1,6 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
 import { inventoryApi } from '../api/inventoryApi';
 import { INVENTORY_ROOT_KEY } from './useInventoryRealtime';
 import { useInventoryMutations } from './useInventoryMutations';
@@ -21,8 +22,6 @@ export const useInventory = () => {
     const { isAdmin, user, profile } = useAuth();
     const [showInactive, setShowInactive] = useState(false);
     const { fetchLogs, undoAction } = useInventoryLogs();
-    const queryClient = useQueryClient();
-
     // Motores de Mutación (Optimizados y Radicals)
     const {
         updateQuantity: mutUpdateQuantity,
@@ -64,8 +63,8 @@ export const useInventory = () => {
         return filtered.filter(item => item.warehouse === 'ATS');
     }, [globalData, showInactive]);
 
-    const locationCapacities = useMemo(() => { return {}; }, []); // Simplificado para acelerar refactor
-    const reservedQuantities = useMemo(() => { return {}; }, []); // Simplificado
+    const locationCapacities = useMemo(() => { return {} as Record<string, any>; }, []); // Simplificado para acelerar refactor
+    const reservedQuantities = useMemo(() => { return {} as Record<string, any>; }, []); // Simplificado
 
     // Wrappers para la interfaz antigua
     const updateQuantity = async (
@@ -90,7 +89,7 @@ export const useInventory = () => {
         await mutUpdateItem.mutateAsync({ originalItem, updatedFormData });
     };
 
-    const moveItem = async (sourceItem: any, targetWarehouse: string, targetLocation: string, qty: number, isReversal?: boolean) => {
+    const moveItem = async (_sourceItem: any, _targetWarehouse: string, _targetLocation: string, _qty: number, _isReversal?: boolean) => {
         // Usa la misma lógica general de actualizar original (-qty) y sumar a la nueva (+qty)
         toast('Move item relies on RPC in backend or custom logical mutator hook! Function currently mapped for completion.');
     };
@@ -99,20 +98,20 @@ export const useInventory = () => {
         await mutDeleteItem.mutateAsync({ warehouse, sku, location });
     };
 
-    const processPickingList = async () => { };
+    const processPickingList = async (_listId: string, _palletsQty: number, _totalUnits: number) => { };
     const exportData = () => { };
     const syncInventoryLocations = async () => { return { successCount: 0, failCount: 0 }; };
 
     // Estos metodos no tienen sentido en React Query porque la caché manda:
     const updateInventory = () => { };
-    const updateLudlowInventory = () => { };
-    const updateAtsInventory = () => { };
+    const updateLudlowInventory = (_updates: any) => { };
+    const updateAtsInventory = (_updates: any) => { };
 
     const updateSKUMetadata = async (metadata: SKUMetadataInput) => {
         await inventoryApi.upsertMetadata(metadata);
     };
 
-    const syncFilters = () => { };
+    const syncFilters = (_filters?: any) => { };
 
     const getAvailableStock = (sku: string, warehouse = 'LUDLOW') => {
         const item = globalData.find(i => i.sku === sku && i.warehouse === warehouse);

@@ -107,7 +107,7 @@ BEGIN
       v_new_qty := p_delta;
     END IF;
     
-    INSERT INTO inventory (sku, warehouse, location, location_id, quantity, is_active, sku_note)
+    INSERT INTO inventory (sku, warehouse, location, location_id, quantity, is_active, item_name)
     VALUES (p_sku, p_warehouse, v_location_name, v_location_id, v_new_qty, (v_new_qty > 0), p_merge_note)
     RETURNING id INTO v_item_id;
   ELSE
@@ -123,14 +123,14 @@ BEGIN
       location = v_location_name,
       is_active = CASE WHEN v_new_qty > 0 THEN true ELSE is_active END,
       updated_at = NOW(),
-      sku_note = CASE 
+      item_name = CASE 
         WHEN p_merge_note IS NOT NULL AND LENGTH(TRIM(p_merge_note)) > 0 THEN 
             CASE 
-                WHEN sku_note IS NULL OR LENGTH(TRIM(sku_note)) = 0 THEN p_merge_note
-                WHEN sku_note != p_merge_note AND sku_note NOT LIKE '%' || p_merge_note || '%' THEN sku_note || ' | ' || p_merge_note
-                ELSE sku_note
+                WHEN item_name IS NULL OR LENGTH(TRIM(item_name)) = 0 THEN p_merge_note
+                WHEN item_name != p_merge_note AND item_name NOT LIKE '%' || p_merge_note || '%' THEN item_name || ' | ' || p_merge_note
+                ELSE item_name
             END
-        ELSE sku_note
+        ELSE item_name
       END
     WHERE id = v_item_id;
   END IF;
@@ -380,7 +380,7 @@ $$;
 ALTER FUNCTION "public"."enforce_uppercase_log_locations"() OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."get_snapshot"("p_target_date" "date") RETURNS TABLE("warehouse" "text", "location" "text", "sku" "text", "quantity" integer, "location_id" "uuid", "sku_note" "text")
+CREATE OR REPLACE FUNCTION "public"."get_snapshot"("p_target_date" "date") RETURNS TABLE("warehouse" "text", "location" "text", "sku" "text", "quantity" integer, "location_id" "uuid", "item_name" "text")
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
 BEGIN
@@ -391,7 +391,7 @@ BEGIN
     s.sku,
     s.quantity,
     s.location_id,
-    s.sku_note
+    s.item_name
   FROM daily_inventory_snapshots s
   WHERE s.snapshot_date = p_target_date
   ORDER BY s.warehouse, s.location, s.sku;
@@ -569,7 +569,7 @@ BEGIN
   p_from_location := NULLIF(TRIM(UPPER(p_from_location)), '');
   p_to_location := NULLIF(TRIM(UPPER(p_to_location)), '');
 
-  SELECT id, quantity, sku_note INTO v_src_id, v_src_prev_qty, v_src_note
+  SELECT id, quantity, item_name INTO v_src_id, v_src_prev_qty, v_src_note
   FROM public.inventory WHERE sku = p_sku AND warehouse = p_from_warehouse 
   AND ((p_from_location IS NULL AND (location IS NULL OR location = '')) OR (location = p_from_location))
   AND is_active = TRUE FOR UPDATE;
@@ -763,12 +763,12 @@ BEGIN
           location = (v_log.snapshot_before->>'location'),
           location_id = NULLIF(v_log.snapshot_before->>'location_id', '')::uuid,
           warehouse = (v_log.snapshot_before->>'warehouse'),
-          sku_note = (v_log.snapshot_before->>'sku_note'),
+          item_name = (v_log.snapshot_before->>'item_name'),
           is_active = (v_log.snapshot_before->>'is_active')::boolean -- Restore exact active state
       WHERE id = v_item_id;
 
       IF NOT FOUND THEN
-          INSERT INTO inventory (id, sku, quantity, location, location_id, warehouse, is_active, sku_note)
+          INSERT INTO inventory (id, sku, quantity, location, location_id, warehouse, is_active, item_name)
           VALUES (
               v_item_id,
               COALESCE(v_log.snapshot_before->>'sku', v_log.sku),
@@ -777,7 +777,7 @@ BEGIN
               NULLIF(v_log.snapshot_before->>'location_id', '')::uuid,
               v_log.snapshot_before->>'warehouse',
               (v_log.snapshot_before->>'is_active')::boolean,
-              (v_log.snapshot_before->>'sku_note')
+              (v_log.snapshot_before->>'item_name')
           );
       END IF;
       
@@ -953,7 +953,7 @@ CREATE TABLE IF NOT EXISTS "public"."daily_inventory_snapshots" (
     "quantity" integer NOT NULL,
     "location_id" "uuid",
     "created_at" timestamp with time zone DEFAULT "now"(),
-    "sku_note" "text",
+    "item_name" "text",
     CONSTRAINT "snapshot_quantity_check" CHECK (("quantity" >= 0))
 );
 
