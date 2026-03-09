@@ -145,6 +145,69 @@ export function useInventoryMutations() {
         }
     });
 
+    const moveItem = useMutation({
+        mutationKey: ['inventory', 'moveItem'],
+        mutationFn: async (vars: {
+            sourceItem: InventoryItemWithMetadata;
+            targetWarehouse: string;
+            targetLocation: string;
+            qty: number;
+        }) => {
+            return inventoryService.moveItem(
+                vars.sourceItem as any,
+                vars.targetWarehouse,
+                vars.targetLocation,
+                vars.qty,
+                getServiceContext() as any
+            );
+        },
+        onMutate: async (vars) => {
+            await queryClient.cancelQueries({ queryKey: INVENTORY_ROOT_KEY });
+            const previousData = queryClient.getQueryData<InventoryItemWithMetadata[]>(INVENTORY_ROOT_KEY);
+
+            queryClient.setQueryData(INVENTORY_ROOT_KEY, (old: InventoryItemWithMetadata[] | undefined) => {
+                if (!old) return old;
+                const srcLoc = (vars.sourceItem.location || '').toUpperCase();
+                const tgtLoc = vars.targetLocation.toUpperCase();
+                const tgtWh  = vars.targetWarehouse;
+
+                const hasTarget = old.some(
+                    i => i.sku === vars.sourceItem.sku && i.warehouse === tgtWh && (i.location || '').toUpperCase() === tgtLoc
+                );
+
+                return old.flatMap(item => {
+                    if (item.sku === vars.sourceItem.sku && item.warehouse === vars.sourceItem.warehouse && (item.location || '').toUpperCase() === srcLoc) {
+                        const newQty = (item.quantity || 0) - vars.qty;
+                        return [{ ...item, quantity: Math.max(0, newQty), is_active: newQty > 0, _lastLocalUpdateAt: Date.now() }];
+                    }
+                    if (item.sku === vars.sourceItem.sku && item.warehouse === tgtWh && (item.location || '').toUpperCase() === tgtLoc) {
+                        return [{ ...item, quantity: (item.quantity || 0) + vars.qty, is_active: true, _lastLocalUpdateAt: Date.now() }];
+                    }
+                    return [item];
+                }).concat(
+                    !hasTarget ? [{
+                        ...vars.sourceItem,
+                        id: -Math.floor(Math.random() * 1000000),
+                        warehouse: tgtWh as any,
+                        location: tgtLoc,
+                        quantity: vars.qty,
+                        is_active: true,
+                        _lastLocalUpdateAt: Date.now(),
+                    }] : []
+                );
+            });
+
+            return { previousData };
+        },
+        onError: (err, _vars, context) => {
+            if (context?.previousData) queryClient.setQueryData(INVENTORY_ROOT_KEY, context.previousData);
+            toast.error(`Error moving item: ${err.message}`);
+        },
+        onSuccess: () => {
+            toast.success('Item moved successfully');
+        }
+    });
+
     const processPickingList = useMutation({
         mutationKey: ['picking', 'processList'],
         mutationFn: async (vars: { listId: string; palletsQty: number; totalUnits: number }) => {
@@ -173,6 +236,7 @@ export function useInventoryMutations() {
         updateQuantity,
         addItem,
         updateItem,
+        moveItem,
         deleteItem,
         processPickingList
     };

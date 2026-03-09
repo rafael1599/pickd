@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import toast from 'react-hot-toast';
+
 import { inventoryApi } from '../api/inventoryApi';
 import { INVENTORY_ROOT_KEY } from './useInventoryRealtime';
 import { useInventoryMutations } from './useInventoryMutations';
@@ -27,6 +27,7 @@ export const useInventory = () => {
         updateQuantity: mutUpdateQuantity,
         addItem: mutAddItem,
         updateItem: mutUpdateItem,
+        moveItem: mutMoveItem,
         deleteItem: mutDeleteItem,
         processPickingList: mutProcessPickingList
     } = useInventoryMutations();
@@ -90,9 +91,8 @@ export const useInventory = () => {
         await mutUpdateItem.mutateAsync({ originalItem, updatedFormData });
     };
 
-    const moveItem = async (_sourceItem: any, _targetWarehouse: string, _targetLocation: string, _qty: number, _isReversal?: boolean) => {
-        // Usa la misma lógica general de actualizar original (-qty) y sumar a la nueva (+qty)
-        toast('Move item relies on RPC in backend or custom logical mutator hook! Function currently mapped for completion.');
+    const moveItem = async (sourceItem: any, targetWarehouse: string, targetLocation: string, qty: number, _isReversal?: boolean) => {
+        await mutMoveItem.mutateAsync({ sourceItem, targetWarehouse, targetLocation, qty });
     };
 
     const deleteItem = async (warehouse: string, sku: string, location?: string | null) => {

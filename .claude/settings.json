@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker exec -i -e PGPASSWORD=postgres supabase_db_Roman-app psql -U supabase_admin -d postgres)"
+    ]
+  }
+}
