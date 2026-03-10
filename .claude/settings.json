@@ -2,10 +2,19 @@
   "permissions": {
     "allow": [
       "Bash(docker exec -i -e PGPASSWORD=postgres supabase_db_Roman-app psql -U supabase_admin -d postgres)",
-      "Read(//Users/rafaellopez/.claude/**)"
+      "Read(//Users/rafaellopez/.claude/**)",
+      "Read(//private/tmp/claude-skills/**)",
+      "Bash(mkdir -p skills/general)",
+      "Bash(mv skills/commit-craft skills/general/)",
+      "Bash(mkdir -p skills/roman-app)"
     ],
     "additionalDirectories": [
-      "/Users/rafaellopez/Documents/Antigravity/Roman-app/.claude"
+      "/Users/rafaellopez/Documents/Antigravity/Roman-app/.claude",
+      "/tmp/claude-skills/.claude-plugin",
+      "/private/tmp/claude-skills/.claude-plugin"
     ]
+  },
+  "enabledPlugins": {
+    "roman-app-skills@rafael-skills": true
   }
 }
