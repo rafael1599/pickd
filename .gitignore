@@ -41,6 +41,7 @@ tsc_output_expert.txt
 .agent/skills/
 .agents/skills/
 .claude/
+claude-skills/
 
 # Local Dev Data
 supabase/seed.sql
