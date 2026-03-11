@@ -9,6 +9,8 @@ interface ViewModeContextType {
   setExternalDoubleCheckId: (id: string | number | null) => void;
   externalOrderId: string | number | null;
   setExternalOrderId: (id: string | number | null) => void;
+  externalShowPickingSummary: boolean;
+  setExternalShowPickingSummary: (show: boolean) => void;
   isNavHidden: boolean;
   setIsNavHidden: (hidden: boolean) => void;
   isSearching: boolean;
@@ -21,6 +23,7 @@ export const ViewModeProvider = ({ children }: { children: ReactNode }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('stock');
   const [externalDoubleCheckId, setExternalDoubleCheckId] = useState<string | number | null>(null);
   const [externalOrderId, setExternalOrderId] = useState<string | number | null>(null);
+  const [externalShowPickingSummary, setExternalShowPickingSummary] = useState(false);
   const [isNavHidden, setIsNavHidden] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
 
@@ -31,11 +34,13 @@ export const ViewModeProvider = ({ children }: { children: ReactNode }) => {
     setExternalDoubleCheckId,
     externalOrderId,
     setExternalOrderId,
+    externalShowPickingSummary,
+    setExternalShowPickingSummary,
     isNavHidden,
     setIsNavHidden,
     isSearching,
     setIsSearching,
-  }), [viewMode, externalDoubleCheckId, externalOrderId, isNavHidden, isSearching]);
+  }), [viewMode, externalDoubleCheckId, externalOrderId, externalShowPickingSummary, isNavHidden, isSearching]);
 
   return (
     <ViewModeContext.Provider value={value}>

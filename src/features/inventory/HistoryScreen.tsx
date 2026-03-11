@@ -25,6 +25,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useError } from '../../context/ErrorContext';
 import { useConfirmation } from '../../context/ConfirmationContext';
 import { useViewMode } from '../../context/ViewModeContext';
+import { useNavigate } from 'react-router-dom';
 
 import type { InventoryLog, LogActionTypeValue } from '../../schemas/log.schema';
 
@@ -43,7 +44,8 @@ export const HistoryScreen = () => {
   const [timeFilter, setTimeFilter] = useState('TODAY');
   const [searchQuery, setSearchQuery] = useState('');
   const [undoingId, setUndoingId] = useState<string | null>(null);
-  const { isSearching } = useViewMode();
+  const { isSearching, setExternalOrderId, setExternalShowPickingSummary } = useViewMode();
+  const navigate = useNavigate();
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   // Auto-scroll to top when searching to ensure results are visible
@@ -541,11 +543,13 @@ export const HistoryScreen = () => {
           : log.list_id
             ? `ORDER #${log.list_id.slice(-6).toUpperCase()}`
             : 'Manual Pick';
+        const hasOrder = !!(log.list_id || log.order_number);
         return {
           icon: <Minus size={14} />,
           color: 'text-red-500',
           bg: 'bg-red-500/10',
           label: orderLabel,
+          orderId: hasOrder ? log.list_id : null,
         };
       case 'DELETE':
         return {
@@ -1039,7 +1043,13 @@ export const HistoryScreen = () => {
                                 {log.sku}
                               </span>
                               <span
-                                className={`text-[10px] font-black px-2 py-1 rounded-none border ${info.bg} ${info.color} border-current/20`}
+                                className={`text-[10px] font-black px-2 py-1 rounded-none border ${info.bg} ${info.color} border-current/20 ${(info as any).orderId ? 'cursor-pointer hover:underline hover:brightness-125 active:scale-95 transition-all' : ''}`}
+                                onClick={(info as any).orderId ? (e: any) => {
+                                  e.stopPropagation();
+                                  setExternalOrderId((info as any).orderId);
+                                  setExternalShowPickingSummary(true);
+                                  navigate('/orders');
+                                } : undefined}
                               >
                                 {info.label}
                               </span>
