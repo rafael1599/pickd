@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { inventoryApi } from '../api/inventoryApi';
 import { INVENTORY_ROOT_KEY } from './useInventoryRealtime';
@@ -15,6 +15,12 @@ export { InventoryProvider };
 // Stable empty array to prevent re-render loops when query data hasn't loaded yet.
 // Using `data ?? []` creates a new [] on every render, destabilizing downstream useMemos.
 const EMPTY_INVENTORY: InventoryItemWithMetadata[] = [];
+
+// Stable no-op stubs — module-level constants, same reference across all renders and instances.
+const noop = () => { };
+const noopAsync = async () => ({ successCount: 0, failCount: 0 });
+const noopUpdater = (_updates: any) => { };
+const noopFilters = (_filters?: any) => { };
 
 /**
  * PUENTE DE TRANSICIÓN:
@@ -73,59 +79,49 @@ export const useInventory = () => {
     const locationCapacities = useMemo(() => { return {} as Record<string, any>; }, []); // Simplificado para acelerar refactor
     const reservedQuantities = useMemo(() => { return {} as Record<string, any>; }, []); // Simplificado
 
-    // Wrappers para la interfaz antigua
-    const updateQuantity = async (
+    // Wrappers estables — mutation handles de React Query son estables por diseño
+    const updateQuantity = useCallback(async (
         sku: string, delta: number, warehouse?: string | null, location?: string | null, isReversal?: boolean
     ) => {
         await mutUpdateQuantity.mutateAsync({ sku, delta, warehouse: warehouse || 'LUDLOW', location: location || '', isReversal });
-    };
+    }, [mutUpdateQuantity]);
 
-    const updateLudlowQuantity = async (sku: string, delta: number, location?: string | null) => {
-        await updateQuantity(sku, delta, 'LUDLOW', location);
-    };
+    const updateLudlowQuantity = useCallback(async (sku: string, delta: number, location?: string | null) => {
+        await mutUpdateQuantity.mutateAsync({ sku, delta, warehouse: 'LUDLOW', location: location || '' });
+    }, [mutUpdateQuantity]);
 
-    const updateAtsQuantity = async (sku: string, delta: number, location?: string | null) => {
-        await updateQuantity(sku, delta, 'ATS', location);
-    };
+    const updateAtsQuantity = useCallback(async (sku: string, delta: number, location?: string | null) => {
+        await mutUpdateQuantity.mutateAsync({ sku, delta, warehouse: 'ATS', location: location || '' });
+    }, [mutUpdateQuantity]);
 
-    const addItem = async (warehouse: string, newItem: any) => {
+    const addItem = useCallback(async (warehouse: string, newItem: any) => {
         await mutAddItem.mutateAsync({ warehouse, newItem });
-    };
+    }, [mutAddItem]);
 
-    const updateItem = async (originalItem: any, updatedFormData: any) => {
+    const updateItem = useCallback(async (originalItem: any, updatedFormData: any) => {
         await mutUpdateItem.mutateAsync({ originalItem, updatedFormData });
-    };
+    }, [mutUpdateItem]);
 
-    const moveItem = async (sourceItem: any, targetWarehouse: string, targetLocation: string, qty: number, _isReversal?: boolean) => {
+    const moveItem = useCallback(async (sourceItem: any, targetWarehouse: string, targetLocation: string, qty: number, _isReversal?: boolean) => {
         await mutMoveItem.mutateAsync({ sourceItem, targetWarehouse, targetLocation, qty });
-    };
+    }, [mutMoveItem]);
 
-    const deleteItem = async (warehouse: string, sku: string, location?: string | null) => {
+    const deleteItem = useCallback(async (warehouse: string, sku: string, location?: string | null) => {
         await mutDeleteItem.mutateAsync({ warehouse, sku, location });
-    };
+    }, [mutDeleteItem]);
 
-    const processPickingList = async (listId: string, palletsQty: number, totalUnits: number) => {
+    const processPickingList = useCallback(async (listId: string, palletsQty: number, totalUnits: number) => {
         await mutProcessPickingList.mutateAsync({ listId, palletsQty, totalUnits });
-    };
+    }, [mutProcessPickingList]);
 
-    const exportData = () => { };
-    const syncInventoryLocations = async () => { return { successCount: 0, failCount: 0 }; };
-
-    // Estos metodos no tienen sentido en React Query porque la caché manda:
-    const updateInventory = () => { };
-    const updateLudlowInventory = (_updates: any) => { };
-    const updateAtsInventory = (_updates: any) => { };
-
-    const updateSKUMetadata = async (metadata: SKUMetadataInput) => {
+    const updateSKUMetadata = useCallback(async (metadata: SKUMetadataInput) => {
         await inventoryApi.upsertMetadata(metadata);
-    };
+    }, []);
 
-    const syncFilters = (_filters?: any) => { };
-
-    const getAvailableStock = (sku: string, warehouse = 'LUDLOW') => {
+    const getAvailableStock = useCallback((sku: string, warehouse = 'LUDLOW') => {
         const item = globalData.find(i => i.sku === sku && i.warehouse === warehouse);
         return item?.quantity || 0;
-    };
+    }, [globalData]);
 
     return {
         // Datos
@@ -154,12 +150,12 @@ export const useInventory = () => {
 
         // Utils / Stubs (Para no romper componentes viejos)
         processPickingList,
-        exportData,
-        syncInventoryLocations,
-        updateInventory,
-        updateLudlowInventory,
-        updateAtsInventory,
-        syncFilters,
+        exportData: noop,
+        syncInventoryLocations: noopAsync,
+        updateInventory: noop,
+        updateLudlowInventory: noopUpdater,
+        updateAtsInventory: noopUpdater,
+        syncFilters: noopFilters,
         showInactive,
         setShowInactive,
         isAdmin,
