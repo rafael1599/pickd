@@ -1,6 +1,14 @@
 {
-  "last_sync": null,
+  "last_sync": "2026-03-11T00:00:00Z",
   "rpc_signatures": {},
   "hot_columns": {},
-  "drift_history": []
+  "drift_history": [
+    {
+      "date": "2026-03-11",
+      "direction": "prod→local",
+      "diffs_found": [],
+      "diffs_resolved": [],
+      "notes": "No schema changes found — prod and local already in sync"
+    }
+  ]
 }
