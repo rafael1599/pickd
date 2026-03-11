@@ -207,13 +207,13 @@ export const useInventoryLogs = () => {
     }
   });
 
-  const trackLog = async (
+  const trackLog = useCallback(async (
     logData: InventoryLogInput,
     userInfo: UserInfo = {},
     candidateLogId: string | null = null
   ) => {
     return trackLogMutation.mutateAsync({ logData, userInfo, candidateLogId });
-  };
+  }, [trackLogMutation]);
 
   /**
    * Fetches the last 100 activity logs

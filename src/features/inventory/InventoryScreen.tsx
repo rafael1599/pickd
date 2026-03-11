@@ -56,7 +56,6 @@ export const InventoryScreen = () => {
     moveItem,
     deleteItem,
     loading,
-    syncFilters,
     showInactive,
     setShowInactive,
   } = useInventory();
@@ -71,11 +70,6 @@ export const InventoryScreen = () => {
     }
   }, [localSearch]);
   const debouncedSearch = useDebounce(localSearch, 300);
-
-  // Sync filters with provider for Context-Aware Realtime updates
-  useEffect(() => {
-    syncFilters({ search: debouncedSearch, showInactive });
-  }, [debouncedSearch, showInactive, syncFilters]);
 
   // Client-side filtering and pagination logic (by location)
   const [displayLocationCount, setDisplayLocationCount] = useState(50);
