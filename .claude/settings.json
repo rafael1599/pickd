@@ -15,7 +15,5 @@
       "/private/tmp/claude-skills/.claude-plugin"
     ]
   },
-  "enabledPlugins": {
-    "roman-app-skills@rafael-skills": false
-  }
+  "enabledPlugins": {}
 }

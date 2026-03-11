@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 import {
@@ -218,7 +218,7 @@ export const useInventoryLogs = () => {
   /**
    * Fetches the last 100 activity logs
    */
-  const fetchLogs = async (): Promise<InventoryLog[]> => {
+  const fetchLogs = useCallback(async (): Promise<InventoryLog[]> => {
     try {
       let query = supabase
         .from('inventory_logs')
@@ -241,7 +241,7 @@ export const useInventoryLogs = () => {
       console.error('Fetch logs failed:', err);
       return [];
     }
-  };
+  }, [isAdmin]);
 
   /**
    * Mutation for reversing a previously performed action using Database RPC

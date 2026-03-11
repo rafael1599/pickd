@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useInventory } from './InventoryProvider';
 import { useWarehouseZones } from './useWarehouseZones';
 import { useLocationManagement } from './useLocationManagement';
@@ -33,6 +33,10 @@ export const useLocationSuggestions = (
   const [allVelocities, setAllVelocities] = useState<number[]>([]);
   const [isLoadingVelocity, setIsLoadingVelocity] = useState(false);
 
+  // Stable ref to inventoryData to avoid re-triggering the effect on every render
+  const inventoryDataRef = React.useRef(inventoryData);
+  inventoryDataRef.current = inventoryData;
+
   // 1. Calculate Velocity for the specific SKU
   useEffect(() => {
     if (!sku) {
@@ -56,8 +60,8 @@ export const useLocationSuggestions = (
           const v = calculateSkuVelocity(sku, simpleLogs);
           setSkuVelocity(v);
 
-          // Sample velocities for normalization
-          const sampleVelocities = inventoryData
+          // Sample velocities for normalization (use ref to avoid dependency)
+          const sampleVelocities = inventoryDataRef.current
             .slice(0, 50)
             .map((i) => calculateSkuVelocity(i.sku, simpleLogs))
             .filter((val): val is number => val !== null);
@@ -72,7 +76,7 @@ export const useLocationSuggestions = (
     };
 
     loadVelocity();
-  }, [sku, fetchLogs, inventoryData]);
+  }, [sku, fetchLogs]);
 
   // 2. Generate Suggestions
   const suggestions = useMemo(() => {
