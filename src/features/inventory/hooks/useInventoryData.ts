@@ -12,6 +12,10 @@ import { InventoryProvider } from './InventoryProvider';
 
 export { InventoryProvider };
 
+// Stable empty array to prevent re-render loops when query data hasn't loaded yet.
+// Using `data ?? []` creates a new [] on every render, destabilizing downstream useMemos.
+const EMPTY_INVENTORY: InventoryItemWithMetadata[] = [];
+
 /**
  * PUENTE DE TRANSICIÓN:
  * Este hook expone LA MISA FIRMA EXACTA que el viejo InventoryContext.
@@ -33,7 +37,7 @@ export const useInventory = () => {
     } = useInventoryMutations();
 
     // Carga Global Agrupada (Con StaleTime infinito, para que solo Websocket actualice)
-    const { data: globalData = [], isLoading, error } = useQuery<InventoryItemWithMetadata[]>({
+    const { data: rawData, isLoading, error } = useQuery<InventoryItemWithMetadata[]>({
         queryKey: INVENTORY_ROOT_KEY,
         queryFn: async () => {
             const rawData = await inventoryApi.fetchInventoryWithMetadata(true); // Trae Inactivos y limpiamos local
@@ -47,6 +51,7 @@ export const useInventory = () => {
         staleTime: Infinity, // Dependemos estricta y únicamente de Websockets (useInventoryRealtime)
         refetchOnWindowFocus: false,
     });
+    const globalData = rawData ?? EMPTY_INVENTORY;
 
     // Filtros Locales Ultrarrápidos: El useQuery trae Ludlow y ATS temporalmente.
     // Separamos LUDLOW

@@ -366,7 +366,7 @@ test.describe('Distribution Auto-Adjustment on Deduction', () => {
 
     /**
      * UI test: Edit quantity down and verify distribution adjusts in the modal.
-     * Skipped: depends on infinite loop fix being deployed first.
+     * Skipped: UI search/navigation needs adjustment to find dynamically inserted items.
      */
     test.skip('should show updated distribution in modal after quantity edit', async ({
         inventoryPage, supabaseAdmin, page

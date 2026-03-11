@@ -230,7 +230,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
 
         // TIER 2: COORDINATED SERVER VALIDATION (Debounced)
         if (mode === 'edit' && !hasAnyChange) {
-            setValidationState({ status: 'idle' });
+            setValidationState(prev => prev.status === 'idle' ? prev : { status: 'idle' });
             return;
         }
 
@@ -252,7 +252,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         // Length guard for server validation
         if (mode === 'add' || skuChanged) {
             if (currentSKU.length < MIN_SKU_CHARS) {
-                setValidationState({ status: 'idle' });
+                setValidationState(prev => prev.status === 'idle' ? prev : { status: 'idle' });
                 return;
             }
         }
@@ -267,7 +267,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                         message: 'ℹ️ Renaming: History will be transferred to the new SKU.'
                     });
                 } else {
-                    setValidationState({ status: 'idle' });
+                    setValidationState(prev => prev.status === 'idle' ? prev : { status: 'idle' });
                 }
                 return;
             }
@@ -316,12 +316,12 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                             message: 'ℹ️ Renaming: History will be transferred to the new SKU.'
                         });
                     } else {
-                        setValidationState({ status: 'idle' });
+                        setValidationState(prev => prev.status === 'idle' ? prev : { status: 'idle' });
                     }
                 }
             } catch (err) {
                 console.error('Validation check failed', err);
-                setValidationState({ status: 'idle' });
+                setValidationState(prev => prev.status === 'idle' ? prev : { status: 'idle' });
             }
         }, 800);
 
