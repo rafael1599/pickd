@@ -5,6 +5,7 @@ import { inventoryApi } from '../api/inventoryApi';
 import { INVENTORY_ROOT_KEY } from './useInventoryRealtime';
 import { useInventoryMutations } from './useInventoryMutations';
 import { useInventoryLogs } from './useInventoryLogs';
+import { useLocationManagement } from './useLocationManagement';
 import { useAuth } from '../../../context/AuthContext';
 import { type InventoryItemWithMetadata } from '../../../schemas/inventory.schema';
 import { type SKUMetadataInput } from '../../../schemas/skuMetadata.schema';
@@ -32,6 +33,7 @@ export const useInventory = () => {
     const { isAdmin, user, profile } = useAuth();
     const [showInactive, setShowInactive] = useState(false);
     const { fetchLogs, undoAction } = useInventoryLogs();
+    const { locations } = useLocationManagement();
     // Motores de Mutación (Optimizados y Radicals)
     const {
         updateQuantity: mutUpdateQuantity,
@@ -76,7 +78,21 @@ export const useInventory = () => {
         return filtered.filter(item => item.warehouse === 'ATS');
     }, [globalData, showInactive]);
 
-    const locationCapacities = useMemo(() => { return {} as Record<string, any>; }, []); // Simplificado para acelerar refactor
+    const locationCapacities = useMemo(() => {
+        const caps: Record<string, { current: number; max: number }> = {};
+        globalData.forEach((item) => {
+            if (!item.warehouse || !item.location) return;
+            const key = `${item.warehouse}-${item.location.trim().toUpperCase()}`;
+            if (!caps[key]) {
+                const loc = locations?.find(
+                    (l) => l.warehouse === item.warehouse && l.location?.toUpperCase() === item.location?.toUpperCase()
+                );
+                caps[key] = { current: 0, max: loc?.max_capacity || 550 };
+            }
+            caps[key].current += Number(item.quantity) || 0;
+        });
+        return caps;
+    }, [globalData, locations]);
     const reservedQuantities = useMemo(() => { return {} as Record<string, any>; }, []); // Simplificado
 
     // Wrappers estables — mutation handles de React Query son estables por diseño
