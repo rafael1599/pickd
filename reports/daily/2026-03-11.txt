@@ -1,0 +1,55 @@
+Progress Update — March 11, 2026
+
+
+Summary:
+
+Big day for the app — we improved the order verification screen so it's easier to use and more transparent about who handled each order. We also fixed several data accuracy issues that were causing wrong counts and slow loading. On the warehouse floor, tower building for two SKUs in Row 34 is about 70% done. Rafael handled 46 units across 30 movements throughout the day.
+
+
+--- Details below ---
+
+
+Order Verification (Double Check):
+
+- The system now shows who picked the order and who verified it, so there's clear accountability on every order.
+- Long-pressing any item lets you see its details and edit it right there, without leaving the double check screen.
+- Total units per pallet are now highlighted in blue so they're easier to spot at a glance.
+- Print labels now include the order number, so when you're handling pallets on the floor you always know which order they belong to.
+
+
+Order History:
+
+- Order numbers in the history screen are now tappable — just tap one and it opens the picking details instead of having to search for it.
+
+
+Data Accuracy:
+
+- Fixed an issue where the app would get stuck loading when editing how inventory is distributed across locations.
+- Cleaned up old records that showed zero quantities, which was causing confusing counts.
+- When inventory gets deducted from an order, the location breakdown now updates automatically instead of going stale.
+- The app overall feels faster — we reduced unnecessary recalculations happening in the background.
+
+
+Warehouse Floor:
+
+- Built towers for SKUs 03-3870BL and 03-3869BL in Row 34, approximately 70% completed.
+
+
+Internal Tools:
+
+- Created a tool to copy production data to our test environment, so we can investigate issues without touching the live system.
+- Added automated tests for inventory deductions, which reduces the chance of breaking things when we make future changes.
+
+
+Rafael Lopez Activity Summary:
+
+- 30 logged movements throughout the day, totaling 46 units handled.
+- Morning (10:13 a.m. - 10:58 a.m.): Picked orders across Rows 7, 20, 25, 27, 32, and 34 — 8 picks.
+- Midday (12:31 p.m. - 12:32 p.m.): Palletized SKU 03-4982BL (11 units moved to Row 43 for Ludlow), then picked 1 unit from same location.
+- Afternoon (2:56 p.m. - 3:22 p.m.): Largest picking run of the day — 17 picks across Rows 2, 6, 9, 11, 15, 22, 27, 28, 29, 31, 33, 42, and 43.
+- Late afternoon (5:07 p.m.): Final 3 picks from Rows 3, 32, and 41.
+
+
+Coming Up:
+
+- Right now, when someone takes over an order for picking, the system shows "Warehouse Team" as the picker. We'll be updating this so it shows the actual person who picked up the order — that way you always know exactly who handled it.
