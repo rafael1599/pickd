@@ -40,8 +40,8 @@ export const test = base.extend<MyFixtures>({
 
         try {
             // Only delete TEST data (scoped by prefixes)
-            await supabase.from('inventory_logs').delete().or('sku.ilike.TEST-%,sku.ilike.GHOST-%,sku.ilike.FIX-%');
-            await supabase.from('inventory').delete().or('sku.ilike.TEST-%,sku.ilike.GHOST-%,sku.ilike.FIX-%');
+            await supabase.from('inventory_logs').delete().or('sku.ilike.TEST-%,sku.ilike.GHOST-%,sku.ilike.FIX-%,sku.ilike.DURABLE-%,sku.ilike.SKU-ADD%,sku.ilike.STAFF-%,sku.ilike.UNDO-RPC-%,sku.ilike.LIFO-%');
+            await supabase.from('inventory').delete().or('sku.ilike.TEST-%,sku.ilike.GHOST-%,sku.ilike.FIX-%,sku.ilike.DURABLE-%,sku.ilike.SKU-ADD%,sku.ilike.STAFF-%,sku.ilike.UNDO-RPC-%,sku.ilike.LIFO-%');
 
             console.log('✅ [Fixture] Test data cleaned up (TEST-* only)');
         } catch (err) {

@@ -122,7 +122,8 @@ describe('InventoryService', () => {
                 quantity: 15,
                 location_id: 'loc-2',
                 item_name: 'Original | NUEVA DESCRIPCIÓN',
-                is_active: true
+                is_active: true,
+                distribution: []
             });
             // Verify that we targeted the correct ID for update and delete
             expect(mockSupabase.eq).toHaveBeenCalledWith('id', 202);

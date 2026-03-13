@@ -41,6 +41,7 @@ export const usePickingActions = ({
   setListStatus,
   setCheckedBy,
   setOwnerId,
+  ownerId,
   setCorrectionNotes,
   setSessionMode,
   setIsSaving,
@@ -589,6 +590,42 @@ export const usePickingActions = ({
     [customer, setCustomer]
   );
 
+  // Claim the order as picker if the current owner is "Warehouse Team" (script account)
+  const claimAsPicker = useCallback(
+    async (listIdOverride?: string) => {
+      const targetId = listIdOverride || activeListId;
+      if (!targetId || !user) return;
+
+      // Already the owner — nothing to claim
+      if (ownerId === user.id) return;
+
+      // Check if the current owner is the script account ("Warehouse Team")
+      if (ownerId) {
+        const { data: ownerProfile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', ownerId)
+          .single();
+
+        if (ownerProfile?.full_name !== 'Warehouse Team') return;
+      }
+
+      // Claim: update user_id to the current user
+      const { error } = await supabase
+        .from('picking_lists')
+        .update({ user_id: user.id } as any)
+        .eq('id', targetId);
+
+      if (error) {
+        console.error('Failed to claim order as picker:', error);
+        return;
+      }
+
+      setOwnerId(user.id);
+    },
+    [activeListId, user, ownerId, setOwnerId]
+  );
+
   const takeOverOrder = useCallback(
     async (listId: string) => {
       if (!user) return;
@@ -626,5 +663,6 @@ export const usePickingActions = ({
     generatePickingPath,
     updateCustomerDetails,
     takeOverOrder,
+    claimAsPicker,
   };
 };

@@ -20,7 +20,7 @@ export class InventoryPage extends BasePage {
         await expect(addBtn).toBeVisible({ timeout: 15000 });
         await addBtn.click();
 
-        const modal = this.page.locator('.fixed.inset-0');
+        const modal = this.page.locator('.fixed.inset-0.z-\\[100020\\]');
         await expect(modal).toBeVisible({ timeout: 5000 });
 
         await this.page.locator('#inventory_sku').fill(data.sku);

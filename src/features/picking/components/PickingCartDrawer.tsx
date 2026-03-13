@@ -45,6 +45,7 @@ export const PickingCartDrawer: React.FC = () => {
         deleteList,
         resetSession,
         listStatus,
+        claimAsPicker,
     } = usePickingSession();
 
     const { inventoryData, processPickingList } = useInventory();
@@ -213,13 +214,24 @@ export const PickingCartDrawer: React.FC = () => {
         setCheckedItems(newChecked);
     };
 
+    const handleReleaseOrder = async () => {
+        if (sessionMode === 'double_checking' && activeListId) {
+            await claimAsPicker(activeListId);
+            releaseCheck(activeListId);
+        }
+        setIsOpen(false);
+    };
+
     const handleDeduct = async (items: PickingItem[], isVerified: boolean) => {
         if (isProcessingDeduction) return false;
         setIsProcessingDeduction(true);
 
         try {
+            // Claim as picker if current owner is Warehouse Team (script account)
+            await claimAsPicker(activeListId!);
+
             if (!isVerified) {
-                // Rule: All-or-nothing verification. 
+                // Rule: All-or-nothing verification.
                 await releaseCheck(activeListId!);
                 toast('Order released to queue (No deduction made)', {
                     icon: '📋',
@@ -274,12 +286,7 @@ export const PickingCartDrawer: React.FC = () => {
             {isOpen && (
                 <div
                     className="fixed inset-0 z-[100010] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200"
-                    onClick={() => {
-                        if (sessionMode === 'double_checking' && activeListId) {
-                            releaseCheck(activeListId);
-                        }
-                        setIsOpen(false);
-                    }}
+                    onClick={handleReleaseOrder}
                 >
                     <div
                         className={`bg-surface border-subtle shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col ${currentView === 'double-check'
@@ -326,16 +333,8 @@ export const PickingCartDrawer: React.FC = () => {
                                 onBack={async () => {
                                     await returnToBuilding(activeListId ?? null);
                                 }}
-                                onRelease={() => {
-                                    if (activeListId) {
-                                        releaseCheck(activeListId);
-                                        setIsOpen(false);
-                                    }
-                                }}
-                                onClose={() => {
-                                    if (sessionMode === 'double_checking' && activeListId) releaseCheck(activeListId);
-                                    setIsOpen(false);
-                                }}
+                                onRelease={handleReleaseOrder}
+                                onClose={handleReleaseOrder}
                             />
                         )}
                     </div>

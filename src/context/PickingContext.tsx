@@ -56,6 +56,7 @@ interface PickingContextType {
   revertToPicking: () => Promise<void>;
   deleteList: (id: string | null, keepLocalState?: boolean) => Promise<void>;
   takeOverOrder: (id: string) => Promise<void>;
+  claimAsPicker: (listId?: string) => Promise<void>;
 
   loadExternalList: (id: string) => Promise<any>;
 
@@ -221,6 +222,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
     generatePickingPath,
     updateCustomerDetails,
     takeOverOrder,
+    claimAsPicker,
   } = usePickingActions({
     user,
     activeListId,
@@ -424,6 +426,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
     loadExternalList,
     generatePickingPath,
     takeOverOrder,
+    claimAsPicker,
     returnToBuilding,
     isLoaded,
     isSaving,
@@ -474,6 +477,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
     returnToPicker,
     revertToPicking,
     takeOverOrder,
+    claimAsPicker,
     deleteList,
     loadExternalList,
     generatePickingPath,
