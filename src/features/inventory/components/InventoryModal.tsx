@@ -611,8 +611,9 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                                             </select>
                                             <input
                                                 type="number"
-                                                value={row.count}
-                                                onChange={(e) => updateDistributionRow(idx, 'count', Math.max(1, parseInt(e.target.value) || 1))}
+                                                value={row.count === 0 ? '' : row.count}
+                                                onChange={(e) => updateDistributionRow(idx, 'count', e.target.value === '' ? 0 : Math.max(1, parseInt(e.target.value) || 0))}
+                                                onBlur={(e) => { if (e.target.value === '' || Number(e.target.value) < 1) updateDistributionRow(idx, 'count', 1); }}
                                                 {...autoSelect}
                                                 className="w-14 bg-surface border border-subtle rounded-lg px-2 py-2 text-content text-center text-xs font-mono font-bold focus:border-accent focus:outline-none"
                                                 min={1}
@@ -621,8 +622,9 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                                             <span className="text-muted text-[10px] font-black">×</span>
                                             <input
                                                 type="number"
-                                                value={row.units_each}
-                                                onChange={(e) => updateDistributionRow(idx, 'units_each', Math.max(1, parseInt(e.target.value) || 1))}
+                                                value={row.units_each === 0 ? '' : row.units_each}
+                                                onChange={(e) => updateDistributionRow(idx, 'units_each', e.target.value === '' ? 0 : Math.max(1, parseInt(e.target.value) || 0))}
+                                                onBlur={(e) => { if (e.target.value === '' || Number(e.target.value) < 1) updateDistributionRow(idx, 'units_each', 1); }}
                                                 {...autoSelect}
                                                 className="w-14 bg-surface border border-subtle rounded-lg px-2 py-2 text-content text-center text-xs font-mono font-bold focus:border-accent focus:outline-none"
                                                 min={1}

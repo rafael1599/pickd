@@ -1,0 +1,40 @@
+Progress Update — March 13, 2026
+
+
+Summary:
+
+We completed the picker identification feature mentioned in the last update, fixed a visual bug in the inventory screen, improved how inventory edits are tracked, and updated the PDF import tool so it sends the correct product names to the verification list.
+
+
+--- Details below ---
+
+
+Order Picking:
+
+- When someone picks up an order that was created by the system (not by a person), the app now records who actually did the picking. Previously it would just say "Warehouse Team" — now the real person's name shows up in the order history. This means better accountability and you always know who handled what.
+
+
+Inventory Tracking:
+
+- When you manually change how items are organized at a location (for example, splitting a pallet into lines), the system now logs that change with a "Physical Distribution" label. You can see these entries in the History screen, so there's a clear trail of what was reorganized and when.
+- Fixed an issue where editing an item's distribution (pallets, lines, towers) would not save properly in certain situations. Edits now stick every time.
+- The Update button in the item editor is now grayed out when nothing has changed, so you don't accidentally save without making edits.
+- Fixed the capacity bar on inventory locations — it was showing empty after a recent update. It now correctly shows how full each location is again.
+
+
+PDF Import Tool (Watchdog):
+
+- We did a full audit of the PDF import system against recent app changes. The good news: the core functionality (stock deductions, order creation, location assignment) was working correctly the whole time.
+- Fixed one issue: product names were not showing up on the verification screen for PDF-imported orders. The system was sending the name under an old label that the app no longer recognized.
+- Product names now come from our database first. If a product doesn't have a name stored yet, it falls back to whatever name the PDF contains. This means verifiers see consistent, familiar names rather than the sometimes-abbreviated names from the PDF.
+
+
+Coming Up:
+
+- Set up the PDF import tool to start automatically when the computer turns on, so no one has to remember to launch it manually.
+- Look into combining two separate orders into one picking session for cases where the same customer has multiple orders going out together.
+
+
+Backlog Status:
+
+0 completed today — 11 pending — 0 new items added today
