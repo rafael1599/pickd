@@ -438,26 +438,32 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                                 {/* Product name — item_name from DB, or description from PDF */}
                                                 {(item.item_name || item.description) && (
                                                     <span className="text-[11px] font-semibold text-white/45 uppercase tracking-wide leading-none">
-                                                        {item.item_name || item.description}
+                                                        {(item.item_name || item.description || '').slice(0, 17)}
                                                     </span>
                                                 )}
                                                 {/* Distribution-based pick plan */}
-                                                {pickPlanMap[item.sku] && (
-                                                    <div className={`flex flex-col gap-0.5 ${
+                                                {pickPlanMap[item.sku] ? (
+                                                    <div className={`${
                                                         distributionInconsistencyMap[item.sku] === 'over'
                                                             ? 'text-red-400/90'
                                                             : distributionInconsistencyMap[item.sku] === 'under'
                                                                 ? 'text-orange-400/90'
                                                                 : 'text-emerald-400/70'
                                                     }`}>
-                                                        {pickPlanMap[item.sku].map((step, i) => (
-                                                            <span key={i} className="text-[10px] font-bold uppercase tracking-wider leading-none">
-                                                                {i === 0 ? 'Pick from' : 'then'} {step.icon} {step.type} with {step.units_each} units
-                                                            </span>
-                                                        ))}
+                                                        <span className="text-[10px] font-bold uppercase tracking-wider leading-none">
+                                                            {pickPlanMap[item.sku].map((step, i) => (
+                                                                <span key={i}>
+                                                                    {i > 0 && ', '}{step.icon} {step.type} has {step.units_each}u
+                                                                </span>
+                                                            ))}
+                                                        </span>
                                                         {distributionInconsistencyMap[item.sku] === 'over' && <span className="text-[9px]"> ⚠ dist mismatch</span>}
                                                         {distributionInconsistencyMap[item.sku] === 'under' && <span className="text-[9px]"> ~ approx</span>}
                                                     </div>
+                                                ) : item.insufficient_stock && (
+                                                    <span className="text-[10px] font-black text-red-500 uppercase tracking-wider leading-none">
+                                                        No inventory
+                                                    </span>
                                                 )}
                                             </div>
                                         </div>

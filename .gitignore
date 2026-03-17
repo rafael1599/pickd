@@ -38,6 +38,7 @@ playwright/.auth/
 test-results/
 supabase/.temp/
 tsc_output_expert.txt
+test_db.*
 .agent/skills/
 .agents/skills/
 .claude/*
