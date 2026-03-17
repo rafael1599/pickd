@@ -1,0 +1,56 @@
+Progress Update — March 17, 2026
+
+
+Summary:
+
+Investigated and resolved picking screen display issues, improved pick instructions for warehouse team, and continued 3D number printing.
+
+
+--- Details below ---
+
+
+Double Check Screen Fixes:
+
+- Investigated why product names were not showing on the verification screen for some orders. After a thorough audit, we confirmed the system is working correctly — the issue only affected older orders that were imported before a recent update. All new orders already include product names from our database.
+- As a safety net, the screen now always shows the product name: it pulls from our database first, and if that's empty (for older imports), it uses the name from the PDF. This means no order will ever show up without a product name again.
+- The pick instructions below each item now show useful information. Before, it was just repeating the quantity to pick (which was already visible). Now it tells the picker where to grab items from — for example, "Pick from LINE with 4 units" or "Pick from TOWER with 30 units." This helps the team know exactly which storage unit to go to.
+- Long-pressing an item now opens the edit form directly instead of showing an intermediate detail screen first. One less tap to make quick corrections.
+
+
+Testing Needed:
+
+- These changes still need to be tested in production. To test: drop a PDF order into the computer running watchdog-pickd in Bay 2 the same way you normally would, then open the order on the verification screen and confirm that (1) product names show up for every item, (2) the pick-from instructions make sense and match the actual storage layout, and (3) long-pressing an item opens the edit form directly.
+
+
+3D Printing — Location Numbers:
+
+- Finished designing the full set of 3D numbers for warehouse locations.
+- Currently printing on the 3D printer — numbers 0, 1, and 2 are fully done. Number 3 is printing now.
+
+
+Developer Tools:
+
+- Set up shared command shortcuts for the project so that common operations (database queries, daily reports, commit messages) are available to any developer working on the project, not just stored locally.
+
+
+Coming Up:
+
+- Continue 3D printing numbers 4 through 9.
+- Test the picking screen changes in production through Bay 2.
+- Look into combining multiple orders from the same shop into a single picking session.
+- Set up the PDF import tool to start automatically when the computer turns on.
+
+
+Backlog Status:
+
+0 completed today — 11 pending — 0 new items added today
+
+
+Ideas Under Consideration:
+
+The following are early-stage ideas we've identified as potentially valuable. Each one needs further thought on the best way to bring it to life before any work begins — we want to make sure we approach them the right way rather than rush into building something that doesn't fit the workflow.
+
+1. Combine orders from the same shop into a single picking session, so the team doesn't have to pick and verify the same customer's items separately across multiple orders.
+2. Warehouse session lock — after 5 minutes of no activity, the app locks and asks who is using it. This way every action is tied to the right person, not whoever was logged in last.
+3. Daily activity dashboard for supervisors — a view that shows what each warehouse team member did during the day (orders picked, items verified, inventory moved) without needing manual reports.
+4. Auto-start the PDF import tool when the computer turns on, so no one has to remember to launch it manually each morning.

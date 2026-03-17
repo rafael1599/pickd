@@ -40,7 +40,8 @@ supabase/.temp/
 tsc_output_expert.txt
 .agent/skills/
 .agents/skills/
-.claude/
+.claude/*
+!.claude/commands/
 claude-skills/
 
 # Local Dev Data
