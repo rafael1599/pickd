@@ -6,6 +6,12 @@ Summary:
 Investigated and resolved picking screen display issues, improved pick instructions for warehouse team, and continued 3D number printing.
 
 
+Still Pending:
+
+- Update the database with the latest changes so everything stays in sync and working correctly.
+- Set up the Bay 2 computer with the latest improvements so that when multiple orders come in from the same shop, their PDFs get combined automatically into one. That way the team won't have to search for each order separately — everything from the same shop will be together in one place, ready to pick.
+
+
 --- Details below ---
 
 
@@ -25,7 +31,7 @@ Testing Needed:
 3D Printing — Location Numbers:
 
 - Finished designing the full set of 3D numbers for warehouse locations.
-- Currently printing on the 3D printer — numbers 0, 1, and 2 are fully done. Number 3 is printing now.
+- Numbers 0 through 7 are fully printed. Number 8 was left printing at the end of the day.
 
 
 Developer Tools:
@@ -35,7 +41,7 @@ Developer Tools:
 
 Coming Up:
 
-- Continue 3D printing numbers 4 through 9.
+- Finish printing number 8 and print number 9.
 - Test the picking screen changes in production through Bay 2.
 - Look into combining multiple orders from the same shop into a single picking session.
 - Set up the PDF import tool to start automatically when the computer turns on.
@@ -44,13 +50,3 @@ Coming Up:
 Backlog Status:
 
 0 completed today — 11 pending — 0 new items added today
-
-
-Ideas Under Consideration:
-
-The following are early-stage ideas we've identified as potentially valuable. Each one needs further thought on the best way to bring it to life before any work begins — we want to make sure we approach them the right way rather than rush into building something that doesn't fit the workflow.
-
-1. Combine orders from the same shop into a single picking session, so the team doesn't have to pick and verify the same customer's items separately across multiple orders.
-2. Warehouse session lock — after 5 minutes of no activity, the app locks and asks who is using it. This way every action is tied to the right person, not whoever was logged in last.
-3. Daily activity dashboard for supervisors — a view that shows what each warehouse team member did during the day (orders picked, items verified, inventory moved) without needing manual reports.
-4. Auto-start the PDF import tool when the computer turns on, so no one has to remember to launch it manually each morning.
