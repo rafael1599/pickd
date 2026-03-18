@@ -170,7 +170,7 @@ export const OrdersScreen = () => {
                     table: 'picking_lists',
                 },
                 (payload) => {
-                    console.log('🔄 [OrdersScreen] Realtime update received:', payload.event);
+                    console.log('🔄 [OrdersScreen] Realtime update received:', payload.eventType);
                     fetchOrders();
                 }
             )
