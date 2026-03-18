@@ -1,7 +1,7 @@
 # Roman-app — Backlog de Mejoras
 
 > Mejoras pendientes ordenadas por impacto en el usuario final.
-> Actualizado: 2026-03-11 15:00 EDT
+> Actualizado: 2026-03-18 10:00 EDT
 >
 > **Formato:** cada item incluye `[fecha hora]` de creación para trazabilidad.
 
@@ -9,11 +9,11 @@
 
 ## Prioridad 1 — Impacto Alto (operación diaria / integridad de datos)
 
-### 1. Combinar órdenes del mismo shop
-- **Creado:** `[2026-03-11 10:00]`
-- **Estado:** Por hacer.
-- Permitir **combinar varias órdenes** cuando pertenecen al mismo shop, consolidando sus items en una sola orden.
-- **Impacto:** reduce trabajo duplicado de picking y verificación; ahorra tiempo significativo en el día a día.
+### 1. Combinar órdenes del mismo shop — PENDIENTE PRUEBA MANUAL
+- **Creado:** `[2026-03-11 10:00]` · **Desarrollado:** `[2026-03-18 09:00]`
+- **Estado:** Desarrollado y desplegado — pendiente prueba manual en producción con órdenes reales del mismo cliente.
+- Órdenes del mismo customer se combinan automáticamente en watchdog-pickd. Items se tagean con `source_order` para poder separarlas desde el UI con el Split Modal. Indicador 🔗 en OrderChip para órdenes combinadas.
+- **Archivos:** `watchdog-pickd/supabase_client.py`, `watchdog-pickd/watcher.py`, `SplitOrderModal.tsx`, `OrderChip.tsx`, `OrderSidebar.tsx`, migración `20260317000001_add_combine_meta.sql`
 
 ### 2. Order number en label de pallets (vista de órdenes) — COMPLETADO
 - **Creado:** `[2026-03-11 10:00]` · **Completado:** `[2026-03-11 14:28]`
@@ -21,24 +21,20 @@
 - `ORDER #:` agregado en Page A del PDF de la vista de órdenes, debajo de la dirección y encima de PALLETS/UNITS/LOAD.
 - **Archivo:** `OrdersScreen.tsx:413`
 
-### 3. Barra de capacidad de locations no refleja correctamente el uso
-- **Creado:** `[2026-03-11 10:00]`
-- **Estado:** Regresión — funcionaba correctamente hace ~4 semanas.
-- La barra de progreso de capacidad (actual vs total) **no se actualiza correctamente en ninguna location** (no solo row 18, aplica a todas).
-- **Impacto:** el equipo no puede confiar en la capacidad reportada; decisiones de almacenamiento se toman a ciegas.
+### 3. Barra de capacidad de locations no refleja correctamente el uso — RESUELTO
+- **Creado:** `[2026-03-11 10:00]` · **Resuelto:** `[2026-03-18 10:00]`
+- **Estado:** Resuelto — la regresión fue corregida por los fixes de performance (memoize contexts, infinite re-render fix) del 2026-03-11. Auditoría de DB local confirma que los datos de capacidad son consistentes y el cálculo del frontend coincide con la DB. Solo 2 locations (ROW 34, ROW 19B) tienen más stock que su max_capacity, lo cual es un tema operativo, no un bug.
 
-### 4. Sesión de warehouse: inactividad 5min + selector de perfil
-- **Creado:** `[2026-03-11 10:00]`
-- **Estado:** Por hacer.
-- La cuenta de warehouse debe bloquearse tras **5 minutos de inactividad**.
-- Al reactivarse, mostrar un **selector de perfil sin contraseña**.
-- **Impacto:** actualmente cualquiera puede operar bajo la sesión de otro usuario sin que se registre quién hizo qué.
+### 4. Sesión de warehouse: inactividad 5min + selector de perfil — DESCARTADO
+- **Creado:** `[2026-03-11 10:00]` · **Descartado:** `[2026-03-18 10:30]`
+- **Estado:** Descartado — no aplica a la dinámica actual del almacén.
+- Cada picker usa su propio dispositivo con su propia cuenta. La cuenta "warehouse" solo se usa en Bay 2 para el import automático de PDFs (watchdog-pickd). No hay rotación de tablets ni problema de identidad que resolver. Si la dinámica cambia en el futuro, se puede reconsiderar.
 
-### 5. Takeover muestra al picker real en vez de "Warehouse Team"
-- **Creado:** `[2026-03-11 15:30]`
-- **Estado:** Por hacer.
-- Cuando alguien hace takeover de una orden, el sistema debe registrar y mostrar el nombre de esa persona como "Picked by" en vez del genérico "Warehouse Team".
-- **Impacto:** trazabilidad completa de quién recogió cada orden.
+### 5. Takeover muestra al picker real en vez de "Warehouse Team" — COMPLETADO
+- **Creado:** `[2026-03-11 15:30]` · **Completado:** `[2026-03-13 13:12]`
+- **Estado:** Completado — pendiente prueba manual en producción.
+- `claimAsPicker` actualiza el `user_id` al usuario real cuando alguien pickea una orden creada por script. Handlers unificados en `handleReleaseOrder`. Tests unitarios incluidos.
+- **Archivos:** `usePickingActions.ts`, `PickingCartDrawer.tsx`, `PickingContext.tsx`, commit `c4e0b3e`
 
 ### 6. Vista de reporte diario por usuario de almacén
 - **Creado:** `[2026-03-11 15:30]`
@@ -50,11 +46,10 @@
 
 ## Prioridad 2 — Impacto Bajo (mejoras de conveniencia)
 
-### 5. Auto-inicio del script al reiniciar laptop
-- **Creado:** `[2026-03-11 10:00]`
-- **Estado:** Por hacer.
-- Configurar el script de sincronización para que se ejecute automáticamente al encender/reiniciar (launchd plist en macOS).
-- **Impacto:** evita olvido manual; solo afecta al admin.
+### 5. Auto-inicio del script al reiniciar laptop — COMPLETADO
+- **Creado:** `[2026-03-11 10:00]` · **Completado:** `[2026-03-18 09:30]`
+- **Estado:** Completado.
+- watchdog-pickd se instala como servicio launchd (`com.antigravity.watchdog-pickd`) con `RunAtLoad` y `KeepAlive`. Arranca solo al login y se resucita si muere.
 
 ---
 

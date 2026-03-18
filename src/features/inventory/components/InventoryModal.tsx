@@ -73,6 +73,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
             length_in: 54,
             width_in: 8,
             height_in: 30,
+            weight_lbs: 45,
             internal_note: '',
         }
     });
@@ -100,6 +101,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                     length_in: initialData.sku_metadata?.length_in ?? 54,
                     width_in: initialData.sku_metadata?.width_in ?? 8,
                     height_in: initialData.sku_metadata?.height_in ?? 30,
+                    weight_lbs: initialData.sku_metadata?.weight_lbs ?? null,
                     internal_note: (initialData as any).internal_note || '',
                 });
                 setDistribution(Array.isArray((initialData as any).distribution) ? (initialData as any).distribution : []);
@@ -115,6 +117,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                     length_in: 54,
                     width_in: 8,
                     height_in: 30,
+                    weight_lbs: 45,
                     internal_note: '',
                 });
                 setDistribution([]);
@@ -140,6 +143,22 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
             setDistribution(liveDist);
         }
     }, [isOpen, mode, initialData, ludlowData, atsData, userEditedDistribution]);
+
+    // 2b2. Sync sku_metadata from realtime data (dimensions + weight)
+    useEffect(() => {
+        if (!isOpen || mode !== 'edit' || !initialData) return;
+        const allItems = [...ludlowData, ...atsData];
+        const liveItem = allItems.find(i => i.id === (initialData as any).id) as any;
+        if (!liveItem?.sku_metadata) return;
+        const liveMeta = liveItem.sku_metadata;
+        const initMeta = (initialData as any).sku_metadata;
+        if (JSON.stringify(liveMeta) !== JSON.stringify(initMeta)) {
+            if (liveMeta.length_in != null) setValue('length_in', liveMeta.length_in);
+            if (liveMeta.width_in != null) setValue('width_in', liveMeta.width_in);
+            if (liveMeta.height_in != null) setValue('height_in', liveMeta.height_in);
+            if (liveMeta.weight_lbs != null) setValue('weight_lbs', liveMeta.weight_lbs);
+        }
+    }, [isOpen, mode, initialData, ludlowData, atsData, setValue]);
 
     // 2c. Dirty check — has any field changed from initial values?
     const hasChanges = useMemo(() => {
@@ -417,6 +436,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
             length_in: data.length_in,
             width_in: data.width_in,
             height_in: data.height_in,
+            weight_lbs: data.weight_lbs,
         }).catch(e => console.error('Metadata update failed:', e));
 
         // 2. Attach distribution and internal_note to save payload
@@ -489,6 +509,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                                         setValue('length_in', match.sku_metadata.length_in ?? 54);
                                         setValue('width_in', match.sku_metadata.width_in ?? 8);
                                         setValue('height_in', match.sku_metadata.height_in ?? 30);
+                                        setValue('weight_lbs', match.sku_metadata.weight_lbs ?? null);
                                     }
                                 }
                             }}
@@ -676,7 +697,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                         </div>
 
                         {isAdmin && (
-                            <div className="grid grid-cols-3 gap-3 p-4 bg-accent/5 rounded-2xl border border-accent/10">
+                            <div className="grid grid-cols-4 gap-3 p-4 bg-accent/5 rounded-2xl border border-accent/10">
                                 <div>
                                     <label className="block text-[10px] font-black text-accent mb-2 uppercase tracking-widest">Length (in)</label>
                                     <input type="number" {...register('length_in', { valueAsNumber: true })} {...autoSelect} step="0.1" className="w-full bg-main border border-subtle rounded-lg px-2 py-2 text-content focus:border-accent focus:outline-none font-mono text-center text-xs" />
@@ -688,6 +709,10 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                                 <div>
                                     <label className="block text-[10px] font-black text-accent mb-2 uppercase tracking-widest">Height (in)</label>
                                     <input type="number" {...register('height_in', { valueAsNumber: true })} {...autoSelect} step="0.1" className="w-full bg-main border border-subtle rounded-lg px-2 py-2 text-content focus:border-accent focus:outline-none font-mono text-center text-xs" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black text-accent mb-2 uppercase tracking-widest">Weight (lbs)</label>
+                                    <input type="number" {...register('weight_lbs', { valueAsNumber: true })} {...autoSelect} step="0.1" className="w-full bg-main border border-subtle rounded-lg px-2 py-2 text-content focus:border-accent focus:outline-none font-mono text-center text-xs" />
                                 </div>
                             </div>
                         )}

@@ -8,6 +8,7 @@ export const SKUMetadataSchema = z.object({
   length_in: z.number().nullish().optional(),
   width_in: z.number().nullish().optional(),
   height_in: z.number().nullish().optional(),
+  weight_lbs: z.number().nullish().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
 });
