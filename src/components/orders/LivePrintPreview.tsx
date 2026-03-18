@@ -11,6 +11,7 @@ interface LivePrintPreviewProps {
     pallets: number | string;
     units: number | string;
     loadNumber: string;
+    totalWeight: number;
     completedAt?: string;
 }
 
@@ -24,6 +25,7 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
     pallets,
     units,
     loadNumber,
+    totalWeight,
     completedAt
 }) => {
     const palletCount = parseInt(pallets?.toString() || '1');
@@ -49,6 +51,7 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
         contentLines.push(`PALLETS: ${palletCount}`);
         contentLines.push(`UNITS: ${units}`);
         contentLines.push(`LOAD: ${loadNumber || 'N/A'}`);
+        contentLines.push(`WEIGHT: ${totalWeight > 0 ? `${totalWeight} LBS` : 'N/A'}`);
         contentLines.push(''); // spacer
 
         const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -84,7 +87,7 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
             }
         }
         return fontSize;
-    }, [customerName, street, city, state, zip, palletCount, units, loadNumber, cityStateZip, orderNumber]);
+    }, [customerName, street, city, state, zip, palletCount, units, loadNumber, totalWeight, cityStateZip, orderNumber]);
 
     const pages = useMemo(() => {
         const p = [];
@@ -113,6 +116,7 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
                         <p>PALLETS: {palletCount}</p>
                         <p>UNITS: {units}</p>
                         <p>LOAD: {loadNumber || 'N/A'}</p>
+                        <p>WEIGHT: {totalWeight > 0 ? `${totalWeight} LBS` : 'N/A'}</p>
                     </div>
 
                     <div className="mt-auto font-bold uppercase" style={{ fontSize: `${fontSizePt * 0.7}pt` }}>
@@ -142,7 +146,7 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
             }
         }
         return p;
-    }, [customerName, street, city, state, zip, palletCount, units, loadNumber, fontSizePt, cityStateZip]);
+    }, [customerName, street, city, state, zip, palletCount, units, loadNumber, totalWeight, fontSizePt, cityStateZip]);
 
     return (
         <div className="flex flex-col items-center w-full min-h-full pt-8 px-4 bg-transparent">

@@ -84,6 +84,17 @@ export const OrdersScreen = () => {
         loadNumber: ''
     });
 
+    // Calculate total weight from order items' sku_metadata.weight_lbs
+    const totalWeight = useMemo(() => {
+        const items = selectedOrder?.items;
+        if (!Array.isArray(items)) return 0;
+        return Math.round(items.reduce((sum: number, item: any) => {
+            const weight = item.sku_metadata?.weight_lbs ?? 0;
+            const qty = item.pickingQty ?? 0;
+            return sum + weight * qty;
+        }, 0));
+    }, [selectedOrder?.items]);
+
     // Track the selected customer ID to link/unlink
     const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
     // Track original params to detect changes (Name vs Address)
@@ -416,6 +427,7 @@ export const OrdersScreen = () => {
                 contentLines.push(`PALLETS: ${pallets}`);
                 contentLines.push(`UNITS: ${unitsNum}`);
                 contentLines.push(`LOAD: ${formData.loadNumber || 'N/A'}`);
+                contentLines.push(`WEIGHT: ${totalWeight > 0 ? `${totalWeight} LBS` : 'N/A'}`);
                 contentLines.push(''); // spacer
                 const thankYouMsg = 'Please count your shipment carefully that there are no damages due to shipping. Jamis Bicycles thanks you for your order.';
 
@@ -701,6 +713,7 @@ export const OrdersScreen = () => {
                                 pallets={formData.pallets}
                                 units={formData.units}
                                 loadNumber={formData.loadNumber}
+                                totalWeight={totalWeight}
                                 completedAt={selectedOrder.updated_at}
                             />
                         </div>
