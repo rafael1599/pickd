@@ -92,7 +92,7 @@ export const InventoryFormSchema = InventoryItemInputSchema.extend({
   length_in: z.coerce.number().optional().nullable(),
   width_in: z.coerce.number().optional().nullable(),
   height_in: z.coerce.number().optional().nullable(),
-  weight_lbs: z.coerce.number().optional().nullable(),
+  weight_lbs: z.coerce.number().nonnegative('Weight cannot be negative').optional().nullable(),
 });
 
 export type InventoryFormValues = z.infer<typeof InventoryFormSchema>;

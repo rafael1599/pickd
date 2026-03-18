@@ -3,7 +3,7 @@ Progress Update — March 18, 2026
 
 Summary:
 
-Set up watchdog-pickd as a persistent service on the Bay 2 MacBook, deployed the auto-combine orders feature to production, applied the database migration, added total weight display to shipping labels, finalized correct weights for all bike categories, and added a missing-weight warning in the orders view with inline editing.
+Set up watchdog-pickd as a persistent service on the Bay 2 MacBook, deployed the auto-combine orders feature to production, added total weight display to shipping labels with missing-weight warnings, finalized correct weights for all bike categories, and improved the distribution editor with smart defaults and UX fixes.
 
 
 --- Details below ---
@@ -51,6 +51,14 @@ Backlog Review:
 - Session lock (#4): descartado — each picker uses their own device, no shared tablet rotation.
 - Takeover shows real picker (#5): confirmed already implemented (commit c4e0b3e from March 13).
 - Remaining active item: #6 (daily activity dashboard for supervisors) — on standby.
+
+
+Distribution Editor — Smart Defaults:
+
+- New distribution rows now copy the type from the previous row (instead of always defaulting to TOWER). First row defaults to LINE.
+- units_each auto-fills with the type's standard amount (LINE=5, TOWER=30, PALLET=10) but caps at remaining units to avoid over-distributing. Example: 21 units with 20 already distributed → new row gets units_each=1.
+- Number fields (count, units_each) now allow clearing to type a new value. Previously the minimum-1 constraint blocked deleting the last digit.
+- Weight field in Edit Item now rejects negative values (schema validation). The Update button also correctly detects weight and dimension changes.
 
 
 Realtime Sync Improvement:

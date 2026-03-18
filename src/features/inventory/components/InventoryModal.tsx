@@ -85,6 +85,10 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     const quantity = watch('quantity');
     const itemName = watch('item_name');
     const internalNote = watch('internal_note');
+    const lengthIn = watch('length_in');
+    const widthIn = watch('width_in');
+    const heightIn = watch('height_in');
+    const weightLbs = watch('weight_lbs');
 
     // 2. Sync Initial Data
     useEffect(() => {
@@ -164,6 +168,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     const hasChanges = useMemo(() => {
         if (mode !== 'edit' || !initialData) return true; // Always allow in add mode
         const n = (v: any) => String(v ?? '').trim();
+        const num = (v: any) => Number(v ?? 0);
         const formChanged =
             n(sku) !== n(initialData.sku) ||
             n(location) !== n(initialData.location) ||
@@ -172,9 +177,17 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
             n(itemName) !== n(initialData.item_name) ||
             n(internalNote) !== n((initialData as any).internal_note);
         if (formChanged) return true;
+        // Check metadata changes (dimensions + weight)
+        const meta = initialData.sku_metadata;
+        const metaChanged =
+            num(lengthIn) !== num(meta?.length_in) ||
+            num(widthIn) !== num(meta?.width_in) ||
+            num(heightIn) !== num(meta?.height_in) ||
+            num(weightLbs) !== num(meta?.weight_lbs);
+        if (metaChanged) return true;
         const initDist = Array.isArray((initialData as any).distribution) ? (initialData as any).distribution : [];
         return JSON.stringify(distribution) !== JSON.stringify(initDist);
-    }, [mode, initialData, sku, location, warehouse, quantity, itemName, internalNote, distribution, screenType]);
+    }, [mode, initialData, sku, location, warehouse, quantity, itemName, internalNote, distribution, screenType, lengthIn, widthIn, heightIn, weightLbs]);
 
     // 3. Location Predictions & Suggestions
     const validLocationNames = useMemo(() => {
@@ -406,7 +419,15 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     );
 
     const addDistributionRow = () => {
-        setDistribution(prev => [...prev, { type: 'TOWER', count: 1, units_each: DEFAULT_UNITS['TOWER'] }]);
+        const totalQty = quantity || 0;
+        const currentTotal = distribution.reduce((sum, d) => sum + (d.count * d.units_each), 0);
+        const remaining = totalQty - currentTotal;
+        // Copy type from last row, or default to LINE
+        const type = distribution.length > 0 ? distribution[distribution.length - 1].type : 'LINE' as const;
+        const typeDefault = DEFAULT_UNITS[type] || 1;
+        // units_each: type default unless remaining is smaller (but > 0)
+        const unitsEach = remaining <= 0 ? 1 : Math.min(typeDefault, remaining);
+        setDistribution(prev => [...prev, { type, count: 1, units_each: unitsEach }]);
         setIsDistributionOpen(true);
         setUserEditedDistribution(true);
     };
@@ -633,7 +654,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                                             <input
                                                 type="number"
                                                 value={row.count === 0 ? '' : row.count}
-                                                onChange={(e) => updateDistributionRow(idx, 'count', e.target.value === '' ? 0 : Math.max(1, parseInt(e.target.value) || 0))}
+                                                onChange={(e) => updateDistributionRow(idx, 'count', e.target.value === '' ? 0 : (parseInt(e.target.value) || 0))}
                                                 onBlur={(e) => { if (e.target.value === '' || Number(e.target.value) < 1) updateDistributionRow(idx, 'count', 1); }}
                                                 {...autoSelect}
                                                 className="w-14 bg-surface border border-subtle rounded-lg px-2 py-2 text-content text-center text-xs font-mono font-bold focus:border-accent focus:outline-none"
@@ -644,7 +665,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                                             <input
                                                 type="number"
                                                 value={row.units_each === 0 ? '' : row.units_each}
-                                                onChange={(e) => updateDistributionRow(idx, 'units_each', e.target.value === '' ? 0 : Math.max(1, parseInt(e.target.value) || 0))}
+                                                onChange={(e) => updateDistributionRow(idx, 'units_each', e.target.value === '' ? 0 : (parseInt(e.target.value) || 0))}
                                                 onBlur={(e) => { if (e.target.value === '' || Number(e.target.value) < 1) updateDistributionRow(idx, 'units_each', 1); }}
                                                 {...autoSelect}
                                                 className="w-14 bg-surface border border-subtle rounded-lg px-2 py-2 text-content text-center text-xs font-mono font-bold focus:border-accent focus:outline-none"

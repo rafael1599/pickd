@@ -87,9 +87,11 @@ export const OrdersScreen = () => {
 
     // SKU weight map fetched from sku_metadata
     const [skuWeights, setSkuWeights] = useState<Record<string, number | null>>({});
+    const [weightsReady, setWeightsReady] = useState(false);
 
     // Fetch sku_metadata weights when selected order changes
     useEffect(() => {
+        setWeightsReady(false);
         if (!selectedOrder?.items || !Array.isArray(selectedOrder.items)) {
             setSkuWeights({});
             return;
@@ -103,9 +105,10 @@ export const OrdersScreen = () => {
             .in('sku', skus)
             .then(({ data }) => {
                 const map: Record<string, number | null> = {};
-                skus.forEach(s => { map[s] = null; }); // default null for missing
+                skus.forEach(s => { map[s] = null; });
                 data?.forEach((row: any) => { map[row.sku] = row.weight_lbs; });
                 setSkuWeights(map);
+                setWeightsReady(true);
             });
     }, [selectedOrder?.id, selectedOrder?.items]);
 
@@ -120,6 +123,15 @@ export const OrdersScreen = () => {
             return skuWeights[item.sku] == null;
         });
     }, [selectedOrder?.items, skuWeights]);
+
+    // Debounced flag — only show warning after weights confirmed missing for 1s
+    const [showWeightWarning, setShowWeightWarning] = useState(false);
+    useEffect(() => {
+        setShowWeightWarning(false);
+        if (!weightsReady || itemsMissingWeight.length === 0) return;
+        const timer = setTimeout(() => setShowWeightWarning(true), 1000);
+        return () => clearTimeout(timer);
+    }, [weightsReady, itemsMissingWeight.length, selectedOrder?.id]);
 
     // Calculate total weight from sku_metadata weights
     const totalWeight = useMemo(() => {
@@ -740,8 +752,8 @@ export const OrdersScreen = () => {
                                 />
                             </div>
 
-                            {/* Weight Warning Banner */}
-                            {itemsMissingWeight.length > 0 && (
+                            {/* Weight Warning Banner — debounced 1s after fetch confirms missing weights */}
+                            {showWeightWarning && itemsMissingWeight.length > 0 && (
                                 <div className="mb-6 bg-amber-50 border border-amber-300 rounded-2xl p-4 animate-soft-in">
                                     <div className="flex items-center gap-2 mb-3">
                                         <AlertTriangle size={18} className="text-amber-600 shrink-0" />
@@ -751,23 +763,27 @@ export const OrdersScreen = () => {
                                     </div>
                                     <div className="space-y-2">
                                         {itemsMissingWeight.map((item: any) => (
-                                            <div key={item.sku} className="flex items-center gap-3 bg-white rounded-xl px-3 py-2 border border-amber-200">
+                                            <div key={item.sku} className="flex items-center gap-3 bg-amber-100 rounded-xl px-3 py-2 border border-amber-300">
                                                 <div className="flex-1 min-w-0">
-                                                    <span className="font-mono text-xs font-bold text-gray-800">{item.sku}</span>
+                                                    <span className="font-mono text-xs font-bold text-amber-900">{item.sku}</span>
                                                     {item.description && (
-                                                        <span className="ml-2 text-xs text-gray-500 truncate">{item.description}</span>
+                                                        <span className="ml-2 text-xs text-amber-700 truncate">{item.description}</span>
                                                     )}
                                                 </div>
                                                 <div className="flex items-center gap-2 shrink-0">
                                                     <input
                                                         type="number"
                                                         step="0.1"
+                                                        min="0.1"
                                                         placeholder="lbs"
-                                                        className="w-20 bg-amber-50 border border-amber-300 rounded-lg px-2 py-1.5 text-xs font-mono text-center focus:border-amber-500 focus:outline-none"
+                                                        className="w-20 bg-white border border-amber-400 rounded-lg px-2 py-1.5 text-xs font-mono text-center text-amber-900 focus:border-amber-600 focus:outline-none"
                                                         onKeyDown={(e) => {
                                                             if (e.key !== 'Enter') return;
                                                             const val = parseFloat((e.target as HTMLInputElement).value);
-                                                            if (isNaN(val) || val <= 0) return;
+                                                            if (isNaN(val) || val <= 0) {
+                                                                toast.error('Weight must be greater than 0');
+                                                                return;
+                                                            }
                                                             supabase
                                                                 .from('sku_metadata')
                                                                 .upsert({ sku: item.sku, weight_lbs: val }, { onConflict: 'sku' })

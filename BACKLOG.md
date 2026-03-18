@@ -43,6 +43,11 @@
 - **Consideración clave:** integridad de datos para auditoría futura — cada item debe conservar trazabilidad a su orden original (`source_order`), y el merge debe ser reversible (split). Evaluar si reusar `combine_meta` o crear un campo separado para distinguir combines automáticos (mismo cliente) de merges manuales (FedEx).
 - **Archivos estimados:** `DoubleCheckView.tsx` (drag-and-drop), nuevo `MergeOrderModal.tsx`, `picking.schema.ts` (nuevo tipo), posible migración para `order_type` o similar.
 
+### 8. 📦 Distribución física inteligente
+- **Creado:** `[2026-03-18 17:00]`
+- **Estado:** Por hacer — pendiente análisis a fondo.
+- Hacer más inteligente la distribución de inventario entre locations (LINE, PALLET, ROW). Definir alcance y enfoque en una sesión futura.
+
 ### 6. Vista de reporte diario por usuario de almacén
 - **Creado:** `[2026-03-11 15:30]`
 - **Estado:** Por hacer.
