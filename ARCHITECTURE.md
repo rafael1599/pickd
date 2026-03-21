@@ -71,12 +71,23 @@ Zod validation schemas. **Must match DB columns exactly.**
 ### 2. Picking Lifecycle
 
 ```
-Building → Ready (ready_to_double_check) → Double Check → Completed
+idle (UI) → building (UI-only, carrito local, no DB record)
+  → active (primer insert en DB via generatePickingPath)
+    → ready_to_double_check (esperando verificador)
+      → double_checking (verificador trabajando)
+        → completed       (terminal — deducción server-side)
+        → needs_correction → active (loop con notas de corrección)
+      → cancelled         (terminal — manual o auto-cancel)
 ```
+
+**6 estados en DB:** `active`, `ready_to_double_check`, `double_checking`, `needs_correction`, `completed`, `cancelled`.
+`building` es solo estado de UI (carrito en memoria, sin registro en DB).
+
+**Auto-cancel:** building >15min idle, verificación >24hrs sin actividad → `cancelled` + inventario liberado.
 
 - **claimAsPicker**: Transfers order ownership from automation account to human picker
 - **Triple-layer protection** prevents completed orders from being reverted (DB filter + UI guard + Realtime sync)
-- **Picking notes**: Attach correction notes with timeline audit trail
+- **Picking notes**: Attach correction notes with timeline audit trail (`needs_correction` loop)
 - **Server-side deduction**: `process_picking_list` RPC ensures no race conditions
 
 ### 3. Smart Picking (AI)

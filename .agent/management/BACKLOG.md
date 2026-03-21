@@ -1,7 +1,7 @@
 # Roman-app — Backlog de Mejoras
 
 > Mejoras pendientes ordenadas por impacto en el usuario final.
-> Actualizado: 2026-03-20
+> Actualizado: 2026-03-21
 >
 > **Formato:** cada item incluye `[fecha hora]` de creación para trazabilidad y `<!-- id: xxx -->` para tracking.
 > **Single source of truth** — no editar BACKLOG.md en la raíz del proyecto (es un puntero a este archivo).
@@ -57,6 +57,33 @@
 ---
 
 ## 🐛 Bug Tracker
+
+### Bugs confirmados en producción (2026-03-21)
+
+- [ ] **[bug-002] Undo borra en vez de mover** — `[2026-03-21]`
+  Al mover un item (ej. 62 uds.) y hacer Undo, el item no regresa a la location original sino que queda con qty=0 sin distribución. El usuario tuvo que editar manualmente la qty y volver a mover.
+  **Archivos:** `useInventoryMutations.ts` → `undoInventoryAction`, RPC `undo_inventory_action`.
+
+- [ ] **[bug-003] Watcher envía items con qty=0** — `[2026-03-21]`
+  El watchdog-pickd crea órdenes incluyendo SKUs que tienen qty=0 en la location seleccionada (ej. location con stock movido o agotado). El picker llega y no encuentra el item.
+  **Causa probable:** el watcher no filtra `quantity > 0` al elegir locations.
+  **Archivos:** `watchdog-pickd/watcher.py`, lógica de selección de location.
+
+- [ ] **[bug-004] Órdenes duplicadas al retroceder de double-check a building** — `[2026-03-21]`
+  Reproducido con orden 878695: al retroceder de double-check → building para corregir un SKU, luego volver a double-check y completar, el sistema genera un segundo registro en `picking_lists` con el mismo order number. La orden original queda sin completar. El usuario ve dos entradas en la lista; el teléfono sigue mostrando la original después de completar la copia.
+  **Causa probable:** retroceder a building crea un nuevo `picking_list` en vez de reusar el existente.
+  **Archivos:** `usePickingActions.ts` → flujo building→active, `PickingCartDrawer.tsx`.
+  **Riesgo:** doble deducción de inventario si el usuario completa ambas.
+
+- [ ] **[bug-005] Items con qty=0 aparecen en double-check sin advertencia** — `[2026-03-21]`
+  En la vista de verificación se muestran items con qty=0 sin ningún indicador visual de problema. El picker no sabe que no hay stock hasta que busca físicamente.
+  **Fix deseado:** ocultar el item si qty=0 Y existe en otra location con stock. Mostrar advertencia solo si no hay stock en ninguna location.
+  **Archivos:** componentes de `double-check`, query de items en picking.
+
+- [ ] **[bug-006] Orden completada reaparece desde estado original (watcher vs edición manual)** — `[2026-03-21]`
+  Reproducido con orden 878662: usuario edita manualmente una orden que el watcher creó mal, la completa. Al reabrir la app, aparece la orden original sin los cambios manuales (como si el estado local se hubiera restaurado). Casi causó doble deducción.
+  **Investigar:** si el watcher tiene algún mecanismo de re-envío, o si hay un estado local (localStorage/context) que no se limpió al completar.
+  **Archivos:** `watchdog-pickd/watcher.py`, `PickingContext.tsx`, manejo de `activeListId` post-completion.
 
 - [ ] **Offline Sync Edge Cases**: Handle complex rollback scenarios in InventoryProvider. <!-- id: bug-001 -->
 

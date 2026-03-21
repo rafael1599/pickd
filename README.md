@@ -24,8 +24,7 @@ The system has matured from a CSV-based prototype into a full-scale warehouse or
 
 - 📸 **AI Order Extraction** - Scan physical invoices; Gemini extracts items and quantities automatically.
 - 🧠 **Hybrid Reasoning** - Powered by Gemini 2.5 Flash with automatic fallback to OpenAI GPT-4o.
-- 📦 **Auto Palletization** - Intelligent order splitting into pallets (max 13 items) with footprint calculation.
-- 🗺️ **Visual Map Builder** - Drag-and-drop picking route optimizer.
+- 📦 **Auto Palletization** - Order splitting into pallets (max 13 items per pallet) with footprint calculation.
 - 🏷️ **Pallet Labels** - Print shipping labels with order number, item list, and weights.
 - 🔀 **Warehouse Selection** - Choose between Ludlow/ATS when SKUs exist in both warehouses.
 - ✏️ **Picking Notes & Corrections** - Attach notes to picks; correction timeline for audit trail.
@@ -34,7 +33,7 @@ The system has matured from a CSV-based prototype into a full-scale warehouse or
 
 ### Planned
 
-- ✅ **Photo Verification** - AI-driven validation of completed pallets (not yet implemented).
+- 📸 **Photo Verification** - AI-driven validation of completed pallets.
 - 📊 **Performance Analytics Dashboard** - Supervisor view with per-user productivity metrics.
 
 ## Installation

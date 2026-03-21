@@ -30,7 +30,13 @@ PWA de gestión de inventario y warehouse operations. Multi-usuario con sync en 
 
 ## Picking workflow
 
-Building → Ready (`ready_to_double_check`) → Double Check → Completed (deducción server-side). Órdenes completadas tienen triple protección contra reversión.
+```
+idle (UI) → building (UI-only, no DB) → active (DB)
+  → ready_to_double_check → double_checking
+    → completed (terminal) | needs_correction → active (loop)
+  → cancelled (terminal — manual o auto-cancel >15min/24hrs)
+```
+6 estados DB: `active`, `ready_to_double_check`, `double_checking`, `needs_correction`, `completed`, `cancelled`. Órdenes completadas tienen triple protección contra reversión.
 
 ## Skills
 
