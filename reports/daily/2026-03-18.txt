@@ -28,6 +28,12 @@ Auto-Combine Orders — Deployed:
 - All numbers (0–9) are now fully printed and ready to go. Next step is to start labeling the warehouse aisles/islands with them.
 
 
+Warehouse — Physical Activity:
+
+- Moved a tower to location ROW 17.
+- Picked 5 orders.
+
+
 Shipping Labels — Weight Display:
 
 - Shipping labels now show "WEIGHT: X LBS" after the LOAD field, both in the on-screen preview and the printed PDF.
