@@ -18,7 +18,7 @@ Ejecuta en paralelo:
 
 Escribe el reporte en `reports/daily/YYYY-MM-DD.txt` con estas reglas:
 
-- **Formato:** texto plano, SIN markdown (no #, no **, no `, no |). Listo para copiar y pegar en un email.
+- **Formato:** texto plano, SIN markdown (no #, no \*\*, no `, no |). Listo para copiar y pegar en un email.
 - **Idioma:** inglés
 - **Tono:** no técnico, lenguaje natural. El lector es un project manager que trabaja en el almacén con sus manos, no en tecnología.
 - **NO mencionar:** nombres de archivos, funciones, commits, migraciones, ni términos técnicos como "memoize", "re-render", "hooks", "context", "refs", etc.
@@ -73,11 +73,13 @@ Las categorías se generan orgánicamente según lo que se hizo (no usar siempre
 "Backlog Status" va después de "Coming Up". "Ideas Under Consideration" es SIEMPRE la última sección.
 
 Backlog Status — Cuenta los items del BACKLOG.md:
+
 - Completed today: items marcados como completados con fecha de hoy
 - Pending: items con estado "Por hacer" o sin completar
 - New items added: items cuya fecha de creación es hoy
 
 Ideas Under Consideration — Pull de items no completados del BACKLOG.md:
+
 - Cada item: una oración corta describiendo qué hace y por qué importa
 - Lenguaje no técnico, entendible para alguien que no trabaja en tecnología
 - No repetir items que ya están en "Coming Up"

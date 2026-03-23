@@ -42,7 +42,9 @@ test_db.*
 .agent/skills/
 .agents/skills/
 .claude/*
-!.claude/commands/
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/project-skills/
 claude-skills/
 
 # Local Dev Data

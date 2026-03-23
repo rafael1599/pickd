@@ -41,4 +41,5 @@ idle (UI) → building (UI-only, no DB) → active (DB)
 
 ## Skills
 
-Este proyecto usa skills de `.claude/skills/`. Para actualizar: `cd .claude/skills && git pull`
+Skills compartidas via symlinks en `.claude/skills/` (personal-skills, external-skills, template).
+Skills de proyecto en `.claude/skills/project-skills/pickd/` (daily-report, supabase).
