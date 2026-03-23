@@ -12,13 +12,12 @@ PickD (Roman Inv) is a multi-user inventory management and warehouse operations 
 
 Each folder is a self-contained business domain with its own `hooks/`, `components/`, and optionally `api/`, `context/`, `types.ts`.
 
-| Feature | Purpose | Key files |
-|---------|---------|-----------|
-| **inventory/** | Stock management, CRUD, location capacity | `useInventoryData.ts`, `useInventoryMutations.ts`, `useInventoryLogs.ts`, `useLocationManagement.ts`, `useOptimizationReports.ts` |
-| **picking/** | Order fulfillment lifecycle | `usePickingActions.ts` (claim, ready, double-check, complete), `usePickingNotes.ts`, `CorrectionNotesTimeline.tsx` |
-| **smart-picking/** | AI invoice scanning, palletization, route optimization | `useOrderProcessing.ts`, `MapBuilder.tsx`, `CamScanner.tsx` |
-| **warehouse-management/** | Zone configuration (HOT/WARM/COLD) | Zone editor components |
-| **settings/** | App configuration, AI keys, warehouse map | Settings screen |
+| Feature                   | Purpose                                   | Key files                                                                                                                         |
+| ------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **inventory/**            | Stock management, CRUD, location capacity | `useInventoryData.ts`, `useInventoryMutations.ts`, `useInventoryLogs.ts`, `useLocationManagement.ts`, `useOptimizationReports.ts` |
+| **picking/**              | Order fulfillment lifecycle               | `usePickingActions.ts` (claim, ready, double-check, complete), `usePickingNotes.ts`, `CorrectionNotesTimeline.tsx`                |
+| **warehouse-management/** | Zone configuration (HOT/WARM/COLD)        | Zone editor components                                                                                                            |
+| **settings/**             | App configuration, AI keys, warehouse map | Settings screen                                                                                                                   |
 
 ### `src/context/`
 
@@ -28,6 +27,7 @@ Each folder is a self-contained business domain with its own `hooks/`, `componen
 ### `src/components/`
 
 Shared UI components (feature-agnostic):
+
 - `SearchInput.tsx` — Global search
 - `ConfirmationModal.tsx` — Standardized dialogs
 - `AutocompleteInput.tsx` — Smart autocomplete with metadata (SKU shows qty + location; Location shows item count)
@@ -36,6 +36,7 @@ Shared UI components (feature-agnostic):
 ### `src/schemas/`
 
 Zod validation schemas. **Must match DB columns exactly.**
+
 - `inventory.schema.ts` — Inventory items, locations, `weight_lbs`
 - `skuMetadata.schema.ts` — SKU metadata including weight
 - `picking.schema.ts` — Picking list types and statuses
@@ -43,10 +44,6 @@ Zod validation schemas. **Must match DB columns exactly.**
 ### `src/utils/`
 
 - `pickingLogic.ts` — Path optimization algorithm and palletization (max 13 items, footprint calculation)
-
-### `src/services/`
-
-- `aiScanner.ts` — Multi-provider AI integration (Gemini primary, OpenAI fallback)
 
 ### `supabase/`
 
@@ -90,16 +87,7 @@ idle (UI) → building (UI-only, carrito local, no DB record)
 - **Picking notes**: Attach correction notes with timeline audit trail (`needs_correction` loop)
 - **Server-side deduction**: `process_picking_list` RPC ensures no race conditions
 
-### 3. Smart Picking (AI)
-
-1. User scans invoice → Gemini extracts SKUs + quantities
-2. System validates against inventory in both warehouses
-3. If SKU exists in Ludlow AND ATS → warehouse selection modal
-4. `processOrder(items, warehousePreferences)` applies selections
-5. Items split into pallets (max 13) with route optimization
-6. Labels printed via `PalletLabelsPrinter` with weight data
-
-### 4. Weight System
+### 3. Weight System
 
 - `weight_lbs` field on inventory items and SKU metadata
 - Inline editing in inventory modal
@@ -117,13 +105,17 @@ idle (UI) → building (UI-only, carrito local, no DB record)
 ## Lessons Learned
 
 ### Completed Order Regression (2026-03-08)
+
 Users could revert finished orders. Fixed with triple-layer protection: DB `.neq('status', 'completed')` filter, UI button hidden, Realtime `resetSession()`.
 
 ### RPC Argument Mismatch
+
 Frontend passing removed parameters caused 400 errors. **Rule**: Always verify `v_` parameter names match the Postgres function signature.
 
 ### Schema Drift: `sku_note` → `item_name` (2026-03-09)
+
 Four RPCs referenced a renamed column. **Rule**: Before any column rename, audit all RPCs with `SELECT proname FROM pg_proc WHERE pg_get_functiondef(oid) LIKE '%column_name%'`.
 
 ### Z-Index on Mobile
+
 Order dropdown hidden by `overflow-hidden` header. Fixed by removing overflow constraint and boosting z-index to 110.
