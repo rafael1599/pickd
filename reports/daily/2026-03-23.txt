@@ -32,6 +32,13 @@ Warehouse Visualizer — Early Prototype (pickd-2d):
 - Started building a 2D visual map of the warehouse that pulls live data from the inventory system. The idea is to see the entire warehouse layout on screen — which locations have stock, which ones are empty, where things are concentrated, and where there is open space. This will help make smarter decisions about consolidation, better use of available space, and quickly spotting where new stock can go without having to walk the floor first.
 
 
+Physical Warehouse — Pallet Work:
+
+- Downloaded pallets and worked through rows 15 and 14 on the floor.
+
+- Completed the row 15 report and left it at Michelle's door for her to update the AS400.
+
+
 Coming Up:
 
 - Continue developing the warehouse visualizer prototype with real location data.

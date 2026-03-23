@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker exec -i -e PGPASSWORD=postgres supabase_db_Roman-app psql -U supabase_admin -d postgres)",
+      "Bash(npx vite build)",
+      "Bash(npx vitest:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
+    ],
+    "additionalDirectories": []
+  },
+  "enabledPlugins": {}
+}
