@@ -1,11 +1,11 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { InventoryProvider, useInventory } from './features/inventory/hooks/InventoryProvider';
-import { LayoutMain } from './components/layout/LayoutMain';
-import { ErrorProvider, useError } from './context/ErrorContext'; // Import ErrorProvider and useError
-import { ConfirmationProvider, useConfirmation } from './context/ConfirmationContext'; // Import ConfirmationProvider and useConfirmation
-import { ErrorModal } from './components/ui/ErrorModal'; // Import ErrorModal
-import { ConfirmationModal } from './components/ui/ConfirmationModal'; // Import ConfirmationModal
+import { InventoryProvider, useInventory } from './features/inventory/hooks/InventoryProvider.tsx';
+import { LayoutMain } from './components/layout/LayoutMain.tsx';
+import { ErrorProvider, useError } from './context/ErrorContext.tsx'; // Import ErrorProvider and useError
+import { ConfirmationProvider, useConfirmation } from './context/ConfirmationContext.tsx'; // Import ConfirmationProvider and useConfirmation
+import { ErrorModal } from './components/ui/ErrorModal.tsx'; // Import ErrorModal
+import { ConfirmationModal } from './components/ui/ConfirmationModal.tsx'; // Import ConfirmationModal
 const InventoryScreen = React.lazy(() =>
   import('./features/inventory/InventoryScreen.tsx').then((m) => ({ default: m.InventoryScreen }))
 );
@@ -13,16 +13,24 @@ const HistoryScreen = React.lazy(() =>
   import('./features/inventory/HistoryScreen.tsx').then((m) => ({ default: m.HistoryScreen }))
 );
 const Settings = React.lazy(() => import('./features/settings/Settings.tsx'));
-const LoginScreen = React.lazy(() => import('./features/auth/LoginScreen').then(m => ({ default: m.LoginScreen })));
-const OrdersScreen = React.lazy(() => import('./features/picking/OrdersScreen').then(m => ({ default: m.OrdersScreen })));
-const SnapshotViewer = React.lazy(() => import('./features/inventory/SnapshotViewer').then(m => ({ default: m.SnapshotViewer })));
-const StockCountScreen = React.lazy(() => import('./features/inventory/StockCountScreen').then(m => ({ default: m.StockCountScreen })));
+const LoginScreen = React.lazy(() =>
+  import('./features/auth/LoginScreen.tsx').then((m) => ({ default: m.LoginScreen }))
+);
+const OrdersScreen = React.lazy(() =>
+  import('./features/picking/OrdersScreen.tsx').then((m) => ({ default: m.OrdersScreen }))
+);
+const SnapshotViewer = React.lazy(() =>
+  import('./features/inventory/SnapshotViewer.tsx').then((m) => ({ default: m.SnapshotViewer }))
+);
+const StockCountScreen = React.lazy(() =>
+  import('./features/inventory/StockCountScreen.tsx').then((m) => ({ default: m.StockCountScreen }))
+);
 
-import { ViewModeProvider } from './context/ViewModeContext';
-import { PickingProvider } from './context/PickingContext';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { ViewModeProvider } from './context/ViewModeContext.tsx';
+import { PickingProvider } from './context/PickingContext.tsx';
+import { AuthProvider, useAuth } from './context/AuthContext.tsx';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
-import { ThemeProvider } from './context/ThemeContext';
+import { ThemeProvider } from './context/ThemeContext.tsx';
 import { Suspense } from 'react';
 
 // Content accessible only after login
@@ -59,7 +67,7 @@ const AuthenticatedContent = () => {
 };
 
 // Handles session state and loader
-import { usePresence } from './hooks/usePresence';
+import { usePresence } from './hooks/usePresence.ts';
 
 const AuthGuard = () => {
   const { user, loading } = useAuth();
@@ -79,11 +87,13 @@ const AuthGuard = () => {
 
   if (!user) {
     return (
-      <Suspense fallback={
-        <div className="min-h-screen bg-main flex items-center justify-center">
-          <Loader2 className="animate-spin text-accent w-10 h-10 opa-20" />
-        </div>
-      }>
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-main flex items-center justify-center">
+            <Loader2 className="animate-spin text-accent w-10 h-10 opa-20" />
+          </div>
+        }
+      >
         <LoginScreen />
       </Suspense>
     );
@@ -120,7 +130,7 @@ const AuthGuard = () => {
   );
 };
 
-import { cleanupCorruptedMutations } from './lib/query-client';
+import { cleanupCorruptedMutations } from './lib/query-client.ts';
 
 function App() {
   React.useEffect(() => {
@@ -136,11 +146,20 @@ function App() {
             <ConfirmationProvider>
               <Routes>
                 {/* Public Snapshot View - No Layout, No Auth */}
-                <Route path="/snapshot/:fileName" element={
-                  <Suspense fallback={<div className="min-h-screen bg-main flex items-center justify-center"><Loader2 className="animate-spin text-accent w-10 h-10" /></div>}>
-                    <SnapshotViewer />
-                  </Suspense>
-                } />
+                <Route
+                  path="/snapshot/:fileName"
+                  element={
+                    <Suspense
+                      fallback={
+                        <div className="min-h-screen bg-main flex items-center justify-center">
+                          <Loader2 className="animate-spin text-accent w-10 h-10" />
+                        </div>
+                      }
+                    >
+                      <SnapshotViewer />
+                    </Suspense>
+                  }
+                />
 
                 {/* All other routes protected by AuthGuard */}
                 <Route path="*" element={<AuthGuard />} />

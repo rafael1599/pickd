@@ -6,13 +6,17 @@ import X from 'lucide-react/dist/esm/icons/x';
 import Send from 'lucide-react/dist/esm/icons/send';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
-import { CorrectionNotesTimeline, Note } from './CorrectionNotesTimeline';
+import { CorrectionNotesTimeline, Note } from './CorrectionNotesTimeline.tsx';
 import { SlideToConfirm } from '../../../components/ui/SlideToConfirm.tsx';
-import { useConfirmation } from '../../../context/ConfirmationContext';
-import { usePickingSession } from '../../../context/PickingContext';
-import { useInventory } from '../../inventory/hooks/InventoryProvider';
-import { type DistributionItem, STORAGE_TYPE_LABELS, type InventoryItemWithMetadata } from '../../../schemas/inventory.schema';
-import { InventoryModal } from '../../inventory/components/InventoryModal';
+import { useConfirmation } from '../../../context/ConfirmationContext.tsx';
+import { usePickingSession } from '../../../context/PickingContext.tsx';
+import { useInventory } from '../../inventory/hooks/InventoryProvider.tsx';
+import {
+  type DistributionItem,
+  STORAGE_TYPE_LABELS,
+  type InventoryItemWithMetadata,
+} from '../../../schemas/inventory.schema.ts';
+import { InventoryModal } from '../../inventory/components/InventoryModal.tsx';
 import toast from 'react-hot-toast';
 
 /** Priority: lower number = pick first. Pallets are overstock we want gone ASAP. */
@@ -20,579 +24,656 @@ const DISTRIBUTION_PRIORITY: Record<string, number> = { PALLET: 0, LINE: 1, TOWE
 
 // Define PickingItem Interface
 export interface PickingItem {
-    sku: string;
-    location: string | null;
-    pickingQty: number;
-    quantity: string | number;
-    warehouse?: string;
-    [key: string]: any;
+  sku: string;
+  location: string | null;
+  pickingQty: number;
+  quantity: string | number;
+  warehouse?: string;
+  [key: string]: any;
 }
 
 interface DoubleCheckViewProps {
-    cartItems: PickingItem[];
-    orderNumber?: string | null;
-    activeListId?: string | null;
-    checkedItems: Set<string>;
-    onToggleCheck: (item: PickingItem, palletId: number | string) => void;
-    onDeduct: (items: PickingItem[], isFullyVerified: boolean) => Promise<boolean>;
-    onClose: () => void;
-    onBack: (id?: string | null) => void;
-    onRelease: () => void;
-    onReturnToPicker: (notes: string) => void;
-    isOwner?: boolean;
-    notes?: Note[];
-    isNotesLoading?: boolean;
-    onAddNote: (note: string) => Promise<void> | void;
-    customer?: { name: string } | null;
-    onSelectAll?: (keys: string[]) => void;
-    status?: string | null;
+  cartItems: PickingItem[];
+  orderNumber?: string | null;
+  activeListId?: string | null;
+  checkedItems: Set<string>;
+  onToggleCheck: (item: PickingItem, palletId: number | string) => void;
+  onDeduct: (items: PickingItem[], isFullyVerified: boolean) => Promise<boolean>;
+  onClose: () => void;
+  onBack: (id?: string | null) => void;
+  onRelease: () => void;
+  onReturnToPicker: (notes: string) => void;
+  isOwner?: boolean;
+  notes?: Note[];
+  isNotesLoading?: boolean;
+  onAddNote: (note: string) => Promise<void> | void;
+  customer?: { name: string } | null;
+  onSelectAll?: (keys: string[]) => void;
+  status?: string | null;
 }
 
 export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
-    cartItems,
-    orderNumber,
-    activeListId,
-    checkedItems,
-    onToggleCheck,
-    onDeduct,
-    onClose,
-    onBack,
-    onRelease,
-    onReturnToPicker,
-    notes = [],
-    isNotesLoading = false,
-    onAddNote,
-    onSelectAll,
-    status,
+  cartItems,
+  orderNumber,
+  activeListId,
+  checkedItems,
+  onToggleCheck,
+  onDeduct,
+  onClose,
+  onBack,
+  onRelease,
+  onReturnToPicker,
+  notes = [],
+  isNotesLoading = false,
+  onAddNote,
+  onSelectAll,
+  status,
 }) => {
-    const { ludlowData, atsData, inventoryData, updateItem, deleteItem } = useInventory();
-    const { showConfirmation } = useConfirmation();
-    const { pallets } = usePickingSession();
-    const [isDeducting, setIsDeducting] = useState(false);
-    const [correctionNotes, setCorrectionNotes] = useState('');
-    const [isNotesExpanded, setIsNotesExpanded] = useState(false);
-    const [editModalItem, setEditModalItem] = useState<InventoryItemWithMetadata | null>(null);
-    const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const prevItemCountRef = useRef(cartItems.length);
+  const { ludlowData, atsData, inventoryData, updateItem, deleteItem } = useInventory();
+  const { showConfirmation } = useConfirmation();
+  const { pallets } = usePickingSession();
+  const [isDeducting, setIsDeducting] = useState(false);
+  const [correctionNotes, setCorrectionNotes] = useState('');
+  const [isNotesExpanded, setIsNotesExpanded] = useState(false);
+  const [editModalItem, setEditModalItem] = useState<InventoryItemWithMetadata | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevItemCountRef = useRef(cartItems.length);
 
-    // Detect when new items are added (e.g., from auto-combine)
-    useEffect(() => {
-        if (cartItems.length > prevItemCountRef.current) {
-            toast('New items added to this order', { icon: '🔗', duration: 4000 });
-        }
-        prevItemCountRef.current = cartItems.length;
-    }, [cartItems.length]);
-    const longPressTriggered = useRef(false);
+  // Detect when new items are added (e.g., from auto-combine)
+  useEffect(() => {
+    if (cartItems.length > prevItemCountRef.current) {
+      toast('New items added to this order', { icon: '🔗', duration: 4000 });
+    }
+    prevItemCountRef.current = cartItems.length;
+  }, [cartItems.length]);
+  const longPressTriggered = useRef(false);
 
-    const handlePointerDown = useCallback((item: any) => {
-        longPressTriggered.current = false;
-        longPressTimer.current = setTimeout(() => {
-            longPressTriggered.current = true;
-            if (navigator.vibrate) navigator.vibrate(100);
-            // Go directly to edit — skip intermediate detail sheet
-            const invMatch = inventoryData.find(inv => inv.sku === item.sku && inv.location === item.location);
-            if (invMatch) {
-                setEditModalItem(invMatch as InventoryItemWithMetadata);
-            } else {
-                toast.error('Item not found in inventory');
-            }
-        }, 500);
-    }, [inventoryData]);
-
-    const handlePointerUp = useCallback(() => {
-        if (longPressTimer.current) {
-            clearTimeout(longPressTimer.current);
-            longPressTimer.current = null;
-        }
-    }, []);
-
-    const totalUnitsCount = useMemo(() => {
-        return pallets.reduce((sum: number, p: any) =>
-            sum + p.items.reduce((pSum: number, i: any) => pSum + (i.pickingQty || 0), 0)
-            , 0);
-    }, [pallets]);
-
-    const verifiedUnitsCount = useMemo(() => {
-        let count = 0;
-        pallets.forEach(p => {
-            p.items.forEach(item => {
-                const itemKey = `${p.id}-${item.sku}-${item.location}`;
-                if (checkedItems.has(itemKey)) {
-                    count += (item.pickingQty || 0);
-                }
-            });
-        });
-        return count;
-    }, [pallets, checkedItems]);
-
-    // SKU Similarity Mapping (Now checks against ALL known SKUs in warehouse)
-    const skuSimilarityMap = useMemo(() => {
-        const orderSkus = pallets.flatMap((p: any) => p.items.map((i: any) => i.sku));
-        const warehouseSkus = Array.from(new Set([...ludlowData, ...atsData].map(i => i.sku)));
-        const map: Record<string, { prefix: boolean; suffix: boolean }> = {};
-
-        orderSkus.forEach(sku => {
-            if (!sku || sku.length < 5) return;
-            if (!map[sku]) map[sku] = { prefix: false, suffix: false };
-
-            const core = sku.substring(2, sku.length - 2);
-
-            // Check against warehouse inventory for ANY confusable twins
-            for (const other of warehouseSkus) {
-                if (sku === other) continue;
-                if (other.length !== sku.length) continue;
-
-                if (other.substring(2, other.length - 2) === core) {
-                    if (sku.substring(0, 2) !== other.substring(0, 2)) {
-                        map[sku].prefix = true;
-                    }
-                    if (sku.substring(sku.length - 2) !== other.substring(other.length - 2)) {
-                        map[sku].suffix = true;
-                    }
-                }
-            }
-        });
-        return map;
-    }, [pallets, ludlowData, atsData]);
-
-    /**
-     * Pick Plan Map: For each SKU, build a full picking plan that covers the order quantity.
-     * Priority: PALLET > LINE > TOWER > OTHER, then fewest units_each within same type.
-     * Returns an array of pick steps per SKU instead of a single suggestion.
-     */
-    const pickPlanMap = useMemo(() => {
-        const map: Record<string, { type: string; units: number; units_each: number; icon: string }[]> = {};
-
-        // Aggregate total pickingQty per SKU across all pallets
-        const skuQtyMap: Record<string, number> = {};
-        pallets.forEach((p: any) => p.items.forEach((i: any) => {
-            skuQtyMap[i.sku] = (skuQtyMap[i.sku] || 0) + (i.pickingQty || 0);
-        }));
-
-        Object.entries(skuQtyMap).forEach(([sku, neededQty]) => {
-            const entries = inventoryData.filter(
-                inv => inv.sku === sku && Array.isArray((inv as any).distribution) && (inv as any).distribution.length > 0
-            );
-            if (entries.length === 0) return;
-
-            // Flatten all distribution groups with count × units_each
-            const groups: { type: string; count: number; units_each: number; priority: number }[] = [];
-            entries.forEach(inv => {
-                const dist = (inv as any).distribution as DistributionItem[];
-                dist.forEach(d => {
-                    groups.push({
-                        type: d.type,
-                        count: d.count,
-                        units_each: d.units_each,
-                        priority: DISTRIBUTION_PRIORITY[d.type] ?? 99,
-                    });
-                });
-            });
-
-            // Sort: by priority (PALLET first), then fewest units_each
-            groups.sort((a, b) => {
-                if (a.priority !== b.priority) return a.priority - b.priority;
-                return a.units_each - b.units_each;
-            });
-
-            // Build pick plan consuming groups until neededQty is covered
-            let remaining = neededQty;
-            const steps: { type: string; units: number; units_each: number; icon: string }[] = [];
-
-            for (const g of groups) {
-                if (remaining <= 0) break;
-                const availableUnits = g.count * g.units_each;
-                const take = Math.min(remaining, availableUnits);
-                steps.push({
-                    type: g.type,
-                    units: take,
-                    units_each: g.units_each,
-                    icon: STORAGE_TYPE_LABELS[g.type as keyof typeof STORAGE_TYPE_LABELS]?.icon || '🔹',
-                });
-                remaining -= take;
-            }
-
-            if (steps.length > 0) map[sku] = steps;
-        });
-
-        return map;
-    }, [pallets, inventoryData]);
-
-    /** Detect distribution ↔ quantity inconsistencies per SKU+location */
-    const distributionInconsistencyMap = useMemo(() => {
-        const map: Record<string, 'over' | 'under'> = {};
-        const orderSkus = new Set(pallets.flatMap((p: any) => p.items.map((i: any) => i.sku)));
-
-        orderSkus.forEach(sku => {
-            const entries = inventoryData.filter(inv => inv.sku === sku);
-            entries.forEach(inv => {
-                // Skip zero-quantity entries — stale distribution data is irrelevant
-                if (inv.quantity === 0) return;
-                const dist = (inv as any).distribution as DistributionItem[] | undefined;
-                if (!dist || dist.length === 0) return;
-                const distTotal = dist.reduce((sum, d) => sum + d.count * d.units_each, 0);
-                if (distTotal > inv.quantity) {
-                    map[sku] = 'over';
-                } else if (distTotal < inv.quantity) {
-                    if (!map[sku]) map[sku] = 'under';
-                }
-            });
-        });
-
-        return map;
-    }, [pallets, inventoryData]);
-
-    const handleConfirm = async () => {
-        const isFullyVerified = verifiedUnitsCount === totalUnitsCount;
-        setIsDeducting(true);
-        try {
-            await onDeduct(cartItems, isFullyVerified);
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setIsDeducting(false);
-        }
-    };
-
-    const handleReturnToPicker = async () => {
-        if (!correctionNotes.trim()) return;
-        showConfirmation(
-            'Confirm Return',
-            'Are you sure you want to return this order to the verification list?',
-            async () => {
-                try {
-                    await onAddNote(correctionNotes.trim());
-                    onReturnToPicker(correctionNotes.trim());
-                    setCorrectionNotes('');
-                    setIsNotesExpanded(false);
-                    onClose();
-                    toast.success('Order returned for correction');
-                } catch (error) {
-                    console.error('Failed to send for correction:', error);
-                    toast.error('Failed to return order');
-                }
-            },
-            () => { },
-            'Return to Verification List',
-            'Cancel',
-            'warning'
+  const handlePointerDown = useCallback(
+    (item: any) => {
+      longPressTriggered.current = false;
+      longPressTimer.current = setTimeout(() => {
+        longPressTriggered.current = true;
+        if (navigator.vibrate) navigator.vibrate(100);
+        // Go directly to edit — skip intermediate detail sheet
+        const invMatch = inventoryData.find(
+          (inv) => inv.sku === item.sku && inv.location === item.location
         );
-    };
+        if (invMatch) {
+          setEditModalItem(invMatch as InventoryItemWithMetadata);
+        } else {
+          toast.error('Item not found in inventory');
+        }
+      }, 500);
+    },
+    [inventoryData]
+  );
 
-    return (
-        <div className="flex flex-col h-full bg-black relative">
-            {/* Minimalist Header */}
-            <div className="px-5 py-4 flex items-center justify-between shrink-0 bg-black/90 backdrop-blur-md sticky top-0 z-10 touch-none border-b border-white/10">
-                <button
-                    onClick={() => onBack()}
-                    className="p-2 -ml-2 hover:bg-white/10 rounded-full text-white/70 transition-colors shrink-0"
-                    title="Back to Picking"
-                >
-                    <ChevronLeft size={28} />
-                </button>
+  const handlePointerUp = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
 
-                <div className="flex flex-col items-center">
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono font-bold text-accent/90 tracking-widest bg-accent/10 px-2 py-0.5 rounded border border-accent/20">
-                            {orderNumber ? `#${orderNumber}` : activeListId ? `#${activeListId.slice(-6).toUpperCase()}` : 'STOCK DEDUCTION'}
-                        </span>
-                    </div>
-                    {/* Progress Text */}
-                    <div className="flex items-center gap-3 mt-1">
-                        <span className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em]">
-                            {verifiedUnitsCount} / {totalUnitsCount} Units Verified
-                        </span>
-                        {onSelectAll && totalUnitsCount > 0 && (
-                            <button
-                                onClick={() => {
-                                    if (verifiedUnitsCount === totalUnitsCount) {
-                                        onSelectAll([]);
-                                    } else {
-                                        const allKeys = pallets.flatMap(p =>
-                                            p.items.map(item => `${p.id}-${item.sku}-${item.location}`)
-                                        );
-                                        onSelectAll(allKeys);
-                                    }
-                                }}
-                                className="text-[10px] text-accent font-black uppercase tracking-widest hover:opacity-70 transition-opacity flex items-center gap-1.5 bg-accent/5 px-2 py-0.5 rounded-full border border-accent/10"
-                            >
-                                {verifiedUnitsCount === totalUnitsCount ? (
-                                    <>
-                                        <X size={10} strokeWidth={4} />
-                                        Deselect All
-                                    </>
-                                ) : (
-                                    <>
-                                        <Check size={10} strokeWidth={4} />
-                                        Select All
-                                    </>
-                                )}
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Order Summary Brief */}
-                    <div className="flex items-center gap-2 mt-2">
-                        <div className="flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded border border-white/5">
-                            <span className="text-[9px] font-black text-white/30 uppercase tracking-tighter">Units:</span>
-                            <span className="text-[9px] font-black text-blue-400 uppercase">{totalUnitsCount}</span>
-                        </div>
-                        <div className="flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded border border-white/5">
-                            <span className="text-[9px] font-black text-white/30 uppercase tracking-tighter">SKUs:</span>
-                            <span className="text-[9px] font-black text-white/70 uppercase">{cartItems.length}</span>
-                        </div>
-                        <div className="flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded border border-white/5">
-                            <span className="text-[9px] font-black text-white/30 uppercase tracking-tighter">Pallets:</span>
-                            <span className="text-[9px] font-black text-white/70 uppercase">{pallets.length}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-1">
-                    {!correctionNotes.trim() && status !== 'completed' && (
-                        <button
-                            onClick={onRelease}
-                            className="p-2 hover:bg-white/10 rounded-full text-white/50 transition-colors"
-                            title="Release to Queue"
-                        >
-                            <X size={24} />
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {/* Clean Item List */}
-            <div className="flex-1 overflow-y-auto p-4 bg-black min-h-0 pb-32">
-                {pallets.length === 0 && cartItems.length > 0 && (
-                    <div className="flex flex-col items-center justify-center py-20 text-center">
-                        <AlertCircle className="text-amber-500 mb-4 opacity-30" size={48} />
-                        <p className="text-sm font-black text-white/50 uppercase tracking-widest">
-                            No pallets generated
-                        </p>
-                    </div>
-                )}
-
-                {pallets.map((pallet: any) => (
-                    <section key={pallet.id} className="mb-8">
-                        {/* Pallet Header */}
-                        <div className="flex items-center gap-3 mb-4 sticky top-0 bg-black/95 py-2 z-5 backdrop-blur-sm">
-                            <div className="h-[1px] flex-1 bg-white/10" />
-                            <div className="flex flex-col items-center">
-                                <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] border border-white/10 px-3 py-1 rounded-full">
-                                    Pallet {pallet.id}
-                                </span>
-                                <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest mt-1">
-                                    {pallet.items.reduce((sum: number, i: any) => sum + (i.pickingQty || 0), 0)} Units
-                                </span>
-                            </div>
-                            <div className="h-[1px] flex-1 bg-white/10" />
-                        </div>
-
-                        <div className="flex flex-col gap-3">
-                            {pallet.items.map((item: any) => {
-                                const itemKey = `${pallet.id}-${item.sku}-${item.location}`;
-                                const isChecked = checkedItems.has(itemKey);
-                                const similarity = skuSimilarityMap[item.sku];
-
-                                return (
-                                    <div
-                                        key={itemKey}
-                                        onPointerDown={() => handlePointerDown(item)}
-                                        onPointerUp={handlePointerUp}
-                                        onPointerCancel={handlePointerUp}
-                                        onClick={() => {
-                                            if (longPressTriggered.current) return;
-                                            if (navigator.vibrate) navigator.vibrate(50);
-                                            onToggleCheck(item, pallet.id)
-                                        }}
-                                        className={`transition-all duration-200 rounded-2xl p-4 flex items-center justify-between gap-3 active:scale-[0.98] cursor-pointer border ${isChecked
-                                            ? item.sku_not_found ? 'bg-red-500/20 border-red-500/50' : 'bg-green-500/10 border-green-500/30'
-                                            : item.sku_not_found ? 'bg-red-500/5 border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.1)]' : 'bg-white/5 border-white/5 hover:border-white/10'
-                                            }`}
-                                    >
-                                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                                            {/* Qty on the far left */}
-                                            <div className="flex flex-col items-center justify-center min-w-[3rem] shrink-0 border-r border-white/10 pr-3">
-                                                <span className="text-[8px] font-black uppercase tracking-widest text-white/30 mb-0.5">QTY</span>
-                                                <span className={`text-xl font-black leading-none transition-all ${item.pickingQty !== 1
-                                                    ? 'text-amber-500 animate-pulse-warning'
-                                                    : isChecked ? 'text-white/60' : 'text-white'
-                                                    }`}>
-                                                    {item.pickingQty}
-                                                </span>
-                                            </div>
-
-                                            <div className="flex flex-col gap-1 min-w-0">
-                                                {/* SKU row */}
-                                                <div className="flex items-center gap-2 flex-wrap">
-                                                    <span className={`font-black text-xl tracking-tight leading-none break-all ${isChecked ? (item.sku_not_found || item.insufficient_stock ? 'text-red-400' : 'text-green-400') : (item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-white')}`}>
-                                                        {similarity?.prefix ? (
-                                                            <span className="animate-pulse-highlight">{item.sku.substring(0, 2)}</span>
-                                                        ) : (
-                                                            item.sku.substring(0, 2)
-                                                        )}
-                                                        {item.sku.substring(2, item.sku.length - 2)}
-                                                        {similarity?.suffix ? (
-                                                            <span className="animate-pulse-highlight">{item.sku.substring(item.sku.length - 2)}</span>
-                                                        ) : (
-                                                            item.sku.substring(item.sku.length - 2)
-                                                        )}
-                                                    </span>
-                                                    {item.sku_not_found && (
-                                                        <span className="text-[8px] bg-red-500 text-white px-1 py-0.5 rounded font-black uppercase tracking-tighter animate-pulse">
-                                                            UNREG
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {/* Product name — item_name from DB, or description from PDF */}
-                                                {(item.item_name || item.description) && (
-                                                    <span className="text-[11px] font-semibold text-white/45 uppercase tracking-wide leading-none">
-                                                        {(item.item_name || item.description || '').slice(0, 17)}
-                                                    </span>
-                                                )}
-                                                {/* Distribution-based pick plan */}
-                                                {pickPlanMap[item.sku] ? (
-                                                    <div className={`${
-                                                        distributionInconsistencyMap[item.sku] === 'over'
-                                                            ? 'text-red-400/90'
-                                                            : distributionInconsistencyMap[item.sku] === 'under'
-                                                                ? 'text-orange-400/90'
-                                                                : 'text-emerald-400/70'
-                                                    }`}>
-                                                        <span className="text-[10px] font-bold uppercase tracking-wider leading-none">
-                                                            {pickPlanMap[item.sku].map((step, i) => (
-                                                                <span key={i}>
-                                                                    {i > 0 && ', '}{step.icon} {step.type} has {step.units_each}u
-                                                                </span>
-                                                            ))}
-                                                        </span>
-                                                        {distributionInconsistencyMap[item.sku] === 'over' && <span className="text-[9px]"> ⚠ dist mismatch</span>}
-                                                        {distributionInconsistencyMap[item.sku] === 'under' && <span className="text-[9px]"> ~ approx</span>}
-                                                    </div>
-                                                ) : item.insufficient_stock && (
-                                                    <span className="text-[10px] font-black text-red-500 uppercase tracking-wider leading-none">
-                                                        No inventory
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* Location Info on the right - No checkbox to maximize space */}
-                                        <div className="flex items-center gap-3 shrink-0 ml-auto pl-2 border-l border-white/5">
-                                            <div className="flex flex-col items-end">
-                                                <span className="text-[8px] text-white/30 font-black uppercase tracking-widest mb-0.5">
-                                                    {item.location?.toLowerCase().includes('row') ? 'ROW' : 'LOC'}
-                                                </span>
-                                                <div className="flex items-center gap-1.5">
-                                                    <div className={`font-mono font-black text-amber-500 leading-none ${(item.location || '').length > 8 ? 'text-lg' : 'text-2xl'
-                                                        }`}>
-                                                        {(item.location || '').toLowerCase().replace('row', '').trim().slice(0, 5) || '-'}
-                                                    </div>
-                                                    {isChecked && (
-                                                        <div className={`flex items-center justify-center ${item.sku_not_found ? 'text-red-500' : 'text-green-500'}`}>
-                                                            <Check size={16} strokeWidth={4} />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </section>
-                ))}
-
-                <div className="mt-8 mb-6 mx-1">
-                    <CorrectionNotesTimeline notes={notes} isLoading={isNotesLoading} />
-                </div>
-
-                <section className={`mt-4 mb-12 border rounded-2xl mx-1 transition-all duration-300 ${isNotesExpanded ? 'bg-amber-500/5 border-amber-500/20' : 'bg-surface border-subtle'}`}>
-                    <button onClick={() => setIsNotesExpanded(!isNotesExpanded)} className="w-full flex items-center justify-between p-4">
-                        <div className="flex items-center gap-2">
-                            <MessageSquare size={16} className={isNotesExpanded ? 'text-amber-500' : 'text-muted'} />
-                            <h3 className={`text-[11px] font-black uppercase tracking-widest ${isNotesExpanded ? 'text-amber-500/70' : 'text-muted'}`}>
-                                {notes.length > 0 ? 'Add Another Note' : 'Add Verification Notes'}
-                            </h3>
-                        </div>
-                        <ChevronDown size={14} className={`text-muted transition-transform duration-300 ${isNotesExpanded ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {isNotesExpanded && (
-                        <div className="px-4 pb-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                            <textarea
-                                value={correctionNotes}
-                                onChange={(e) => setCorrectionNotes(e.target.value)}
-                                placeholder="Explain what needs to be fixed..."
-                                className="w-full h-24 bg-card border border-subtle rounded-xl p-3 text-sm text-content focus:outline-none focus:border-amber-500/30 resize-none transition-all mb-3 placeholder:text-muted/50"
-                                autoFocus
-                            />
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => {
-                                        onAddNote(correctionNotes.trim());
-                                        setCorrectionNotes('');
-                                    }}
-                                    disabled={!correctionNotes.trim()}
-                                    className="flex-1 py-3 bg-surface border border-subtle text-muted font-black uppercase tracking-widest text-[9px] rounded-xl active:scale-95 transition-all disabled:opacity-30"
-                                >
-                                    Save Note Only
-                                </button>
-                                <button
-                                    onClick={handleReturnToPicker}
-                                    disabled={!correctionNotes.trim()}
-                                    className="flex-[2] py-3 bg-amber-500 text-main font-black uppercase tracking-widest text-[9px] rounded-xl shadow-lg shadow-amber-500/10 active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
-                                >
-                                    <Send size={14} />
-                                    Return to Verification List
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </section>
-            </div>
-
-            <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black via-black/90 to-transparent shrink-0 z-20">
-                {verifiedUnitsCount < totalUnitsCount && (
-                    <div className="mb-4 flex items-center justify-center gap-2 animate-pulse">
-                        <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">
-                            {totalUnitsCount - verifiedUnitsCount} units remaining
-                        </span>
-                    </div>
-                )}
-                <SlideToConfirm
-                    onConfirm={handleConfirm}
-                    isLoading={isDeducting}
-                    text={verifiedUnitsCount === totalUnitsCount ? "SLIDE TO COMPLETE" : "SEND TO VERIFY"}
-                    confirmedText={verifiedUnitsCount === totalUnitsCount ? "COMPLETING..." : "SENDING..."}
-                    variant={verifiedUnitsCount === totalUnitsCount ? "default" : "info"}
-                    disabled={false}
-                />
-            </div>
-
-
-            {/* Edit Item Modal (reuses InventoryModal from stock view) */}
-            <InventoryModal
-                isOpen={!!editModalItem}
-                onClose={() => setEditModalItem(null)}
-                onSave={async (formData) => {
-                    if (editModalItem) {
-                        await updateItem(editModalItem, formData);
-                        toast.success(`Updated ${editModalItem.sku}`);
-                        setEditModalItem(null);
-                    }
-                }}
-                onDelete={() => {
-                    if (editModalItem) {
-                        deleteItem(editModalItem.warehouse, editModalItem.sku, editModalItem.location);
-                        toast.success(`Deleted ${editModalItem.sku}`);
-                        setEditModalItem(null);
-                    }
-                }}
-                initialData={editModalItem}
-                mode="edit"
-                screenType={editModalItem?.warehouse}
-            />
-        </div >
+  const totalUnitsCount = useMemo(() => {
+    return pallets.reduce(
+      (sum: number, p: any) =>
+        sum + p.items.reduce((pSum: number, i: any) => pSum + (i.pickingQty || 0), 0),
+      0
     );
+  }, [pallets]);
+
+  const verifiedUnitsCount = useMemo(() => {
+    let count = 0;
+    pallets.forEach((p) => {
+      p.items.forEach((item) => {
+        const itemKey = `${p.id}-${item.sku}-${item.location}`;
+        if (checkedItems.has(itemKey)) {
+          count += item.pickingQty || 0;
+        }
+      });
+    });
+    return count;
+  }, [pallets, checkedItems]);
+
+  // SKU Similarity Mapping (Now checks against ALL known SKUs in warehouse)
+  const skuSimilarityMap = useMemo(() => {
+    const orderSkus = pallets.flatMap((p: any) => p.items.map((i: any) => i.sku));
+    const warehouseSkus = Array.from(new Set([...ludlowData, ...atsData].map((i) => i.sku)));
+    const map: Record<string, { prefix: boolean; suffix: boolean }> = {};
+
+    orderSkus.forEach((sku) => {
+      if (!sku || sku.length < 5) return;
+      if (!map[sku]) map[sku] = { prefix: false, suffix: false };
+
+      const core = sku.substring(2, sku.length - 2);
+
+      // Check against warehouse inventory for ANY confusable twins
+      for (const other of warehouseSkus) {
+        if (sku === other) continue;
+        if (other.length !== sku.length) continue;
+
+        if (other.substring(2, other.length - 2) === core) {
+          if (sku.substring(0, 2) !== other.substring(0, 2)) {
+            map[sku].prefix = true;
+          }
+          if (sku.substring(sku.length - 2) !== other.substring(other.length - 2)) {
+            map[sku].suffix = true;
+          }
+        }
+      }
+    });
+    return map;
+  }, [pallets, ludlowData, atsData]);
+
+  /**
+   * Pick Plan Map: For each SKU, build a full picking plan that covers the order quantity.
+   * Priority: PALLET > LINE > TOWER > OTHER, then fewest units_each within same type.
+   * Returns an array of pick steps per SKU instead of a single suggestion.
+   */
+  const pickPlanMap = useMemo(() => {
+    const map: Record<string, { type: string; units: number; units_each: number; icon: string }[]> =
+      {};
+
+    // Aggregate total pickingQty per SKU across all pallets
+    const skuQtyMap: Record<string, number> = {};
+    pallets.forEach((p: any) =>
+      p.items.forEach((i: any) => {
+        skuQtyMap[i.sku] = (skuQtyMap[i.sku] || 0) + (i.pickingQty || 0);
+      })
+    );
+
+    Object.entries(skuQtyMap).forEach(([sku, neededQty]) => {
+      const entries = inventoryData.filter(
+        (inv) =>
+          inv.sku === sku &&
+          Array.isArray((inv as any).distribution) &&
+          (inv as any).distribution.length > 0
+      );
+      if (entries.length === 0) return;
+
+      // Flatten all distribution groups with count × units_each
+      const groups: { type: string; count: number; units_each: number; priority: number }[] = [];
+      entries.forEach((inv) => {
+        const dist = (inv as any).distribution as DistributionItem[];
+        dist.forEach((d) => {
+          groups.push({
+            type: d.type,
+            count: d.count,
+            units_each: d.units_each,
+            priority: DISTRIBUTION_PRIORITY[d.type] ?? 99,
+          });
+        });
+      });
+
+      // Sort: by priority (PALLET first), then fewest units_each
+      groups.sort((a, b) => {
+        if (a.priority !== b.priority) return a.priority - b.priority;
+        return a.units_each - b.units_each;
+      });
+
+      // Build pick plan consuming groups until neededQty is covered
+      let remaining = neededQty;
+      const steps: { type: string; units: number; units_each: number; icon: string }[] = [];
+
+      for (const g of groups) {
+        if (remaining <= 0) break;
+        const availableUnits = g.count * g.units_each;
+        const take = Math.min(remaining, availableUnits);
+        steps.push({
+          type: g.type,
+          units: take,
+          units_each: g.units_each,
+          icon: STORAGE_TYPE_LABELS[g.type as keyof typeof STORAGE_TYPE_LABELS]?.icon || '🔹',
+        });
+        remaining -= take;
+      }
+
+      if (steps.length > 0) map[sku] = steps;
+    });
+
+    return map;
+  }, [pallets, inventoryData]);
+
+  /** Detect distribution ↔ quantity inconsistencies per SKU+location */
+  const distributionInconsistencyMap = useMemo(() => {
+    const map: Record<string, 'over' | 'under'> = {};
+    const orderSkus = new Set(pallets.flatMap((p: any) => p.items.map((i: any) => i.sku)));
+
+    orderSkus.forEach((sku) => {
+      const entries = inventoryData.filter((inv) => inv.sku === sku);
+      entries.forEach((inv) => {
+        // Skip zero-quantity entries — stale distribution data is irrelevant
+        if (inv.quantity === 0) return;
+        const dist = (inv as any).distribution as DistributionItem[] | undefined;
+        if (!dist || dist.length === 0) return;
+        const distTotal = dist.reduce((sum, d) => sum + d.count * d.units_each, 0);
+        if (distTotal > inv.quantity) {
+          map[sku] = 'over';
+        } else if (distTotal < inv.quantity) {
+          if (!map[sku]) map[sku] = 'under';
+        }
+      });
+    });
+
+    return map;
+  }, [pallets, inventoryData]);
+
+  const handleConfirm = async () => {
+    const isFullyVerified = verifiedUnitsCount === totalUnitsCount;
+    setIsDeducting(true);
+    try {
+      await onDeduct(cartItems, isFullyVerified);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsDeducting(false);
+    }
+  };
+
+  const handleReturnToPicker = async () => {
+    if (!correctionNotes.trim()) return;
+    showConfirmation(
+      'Confirm Return',
+      'Are you sure you want to return this order to the verification list?',
+      async () => {
+        try {
+          await onAddNote(correctionNotes.trim());
+          onReturnToPicker(correctionNotes.trim());
+          setCorrectionNotes('');
+          setIsNotesExpanded(false);
+          onClose();
+          toast.success('Order returned for correction');
+        } catch (error) {
+          console.error('Failed to send for correction:', error);
+          toast.error('Failed to return order');
+        }
+      },
+      () => {},
+      'Return to Verification List',
+      'Cancel',
+      'warning'
+    );
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-black relative">
+      {/* Minimalist Header */}
+      <div className="px-5 py-4 flex items-center justify-between shrink-0 bg-black/90 backdrop-blur-md sticky top-0 z-10 touch-none border-b border-white/10">
+        <button
+          onClick={() => onBack()}
+          className="p-2 -ml-2 hover:bg-white/10 rounded-full text-white/70 transition-colors shrink-0"
+          title="Back to Picking"
+        >
+          <ChevronLeft size={28} />
+        </button>
+
+        <div className="flex flex-col items-center">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono font-bold text-accent/90 tracking-widest bg-accent/10 px-2 py-0.5 rounded border border-accent/20">
+              {orderNumber
+                ? `#${orderNumber}`
+                : activeListId
+                  ? `#${activeListId.slice(-6).toUpperCase()}`
+                  : 'STOCK DEDUCTION'}
+            </span>
+          </div>
+          {/* Progress Text */}
+          <div className="flex items-center gap-3 mt-1">
+            <span className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em]">
+              {verifiedUnitsCount} / {totalUnitsCount} Units Verified
+            </span>
+            {onSelectAll && totalUnitsCount > 0 && (
+              <button
+                onClick={() => {
+                  if (verifiedUnitsCount === totalUnitsCount) {
+                    onSelectAll([]);
+                  } else {
+                    const allKeys = pallets.flatMap((p) =>
+                      p.items.map((item) => `${p.id}-${item.sku}-${item.location}`)
+                    );
+                    onSelectAll(allKeys);
+                  }
+                }}
+                className="text-[10px] text-accent font-black uppercase tracking-widest hover:opacity-70 transition-opacity flex items-center gap-1.5 bg-accent/5 px-2 py-0.5 rounded-full border border-accent/10"
+              >
+                {verifiedUnitsCount === totalUnitsCount ? (
+                  <>
+                    <X size={10} strokeWidth={4} />
+                    Deselect All
+                  </>
+                ) : (
+                  <>
+                    <Check size={10} strokeWidth={4} />
+                    Select All
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+
+          {/* Order Summary Brief */}
+          <div className="flex items-center gap-2 mt-2">
+            <div className="flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded border border-white/5">
+              <span className="text-[9px] font-black text-white/30 uppercase tracking-tighter">
+                Units:
+              </span>
+              <span className="text-[9px] font-black text-blue-400 uppercase">
+                {totalUnitsCount}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded border border-white/5">
+              <span className="text-[9px] font-black text-white/30 uppercase tracking-tighter">
+                SKUs:
+              </span>
+              <span className="text-[9px] font-black text-white/70 uppercase">
+                {cartItems.length}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded border border-white/5">
+              <span className="text-[9px] font-black text-white/30 uppercase tracking-tighter">
+                Pallets:
+              </span>
+              <span className="text-[9px] font-black text-white/70 uppercase">
+                {pallets.length}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1">
+          {!correctionNotes.trim() && status !== 'completed' && (
+            <button
+              onClick={onRelease}
+              className="p-2 hover:bg-white/10 rounded-full text-white/50 transition-colors"
+              title="Release to Queue"
+            >
+              <X size={24} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Clean Item List */}
+      <div className="flex-1 overflow-y-auto p-4 bg-black min-h-0 pb-32">
+        {pallets.length === 0 && cartItems.length > 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <AlertCircle className="text-amber-500 mb-4 opacity-30" size={48} />
+            <p className="text-sm font-black text-white/50 uppercase tracking-widest">
+              No pallets generated
+            </p>
+          </div>
+        )}
+
+        {pallets.map((pallet: any) => (
+          <section key={pallet.id} className="mb-8">
+            {/* Pallet Header */}
+            <div className="flex items-center gap-3 mb-4 sticky top-0 bg-black/95 py-2 z-5 backdrop-blur-sm">
+              <div className="h-[1px] flex-1 bg-white/10" />
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] border border-white/10 px-3 py-1 rounded-full">
+                  Pallet {pallet.id}
+                </span>
+                <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest mt-1">
+                  {pallet.items.reduce((sum: number, i: any) => sum + (i.pickingQty || 0), 0)} Units
+                </span>
+              </div>
+              <div className="h-[1px] flex-1 bg-white/10" />
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {pallet.items.map((item: any) => {
+                const itemKey = `${pallet.id}-${item.sku}-${item.location}`;
+                const isChecked = checkedItems.has(itemKey);
+                const similarity = skuSimilarityMap[item.sku];
+
+                return (
+                  <div
+                    key={itemKey}
+                    onPointerDown={() => handlePointerDown(item)}
+                    onPointerUp={handlePointerUp}
+                    onPointerCancel={handlePointerUp}
+                    onClick={() => {
+                      if (longPressTriggered.current) return;
+                      if (navigator.vibrate) navigator.vibrate(50);
+                      onToggleCheck(item, pallet.id);
+                    }}
+                    className={`transition-all duration-200 rounded-2xl p-4 flex items-center justify-between gap-3 active:scale-[0.98] cursor-pointer border ${
+                      isChecked
+                        ? item.sku_not_found
+                          ? 'bg-red-500/20 border-red-500/50'
+                          : 'bg-green-500/10 border-green-500/30'
+                        : item.sku_not_found
+                          ? 'bg-red-500/5 border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.1)]'
+                          : 'bg-white/5 border-white/5 hover:border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      {/* Qty on the far left */}
+                      <div className="flex flex-col items-center justify-center min-w-[3rem] shrink-0 border-r border-white/10 pr-3">
+                        <span className="text-[8px] font-black uppercase tracking-widest text-white/30 mb-0.5">
+                          QTY
+                        </span>
+                        <span
+                          className={`text-xl font-black leading-none transition-all ${
+                            item.pickingQty !== 1
+                              ? 'text-amber-500 animate-pulse-warning'
+                              : isChecked
+                                ? 'text-white/60'
+                                : 'text-white'
+                          }`}
+                        >
+                          {item.pickingQty}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col gap-1 min-w-0">
+                        {/* SKU row */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={`font-black text-xl tracking-tight leading-none break-all ${isChecked ? (item.sku_not_found || item.insufficient_stock ? 'text-red-400' : 'text-green-400') : item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-white'}`}
+                          >
+                            {similarity?.prefix ? (
+                              <span className="animate-pulse-highlight">
+                                {item.sku.substring(0, 2)}
+                              </span>
+                            ) : (
+                              item.sku.substring(0, 2)
+                            )}
+                            {item.sku.substring(2, item.sku.length - 2)}
+                            {similarity?.suffix ? (
+                              <span className="animate-pulse-highlight">
+                                {item.sku.substring(item.sku.length - 2)}
+                              </span>
+                            ) : (
+                              item.sku.substring(item.sku.length - 2)
+                            )}
+                          </span>
+                          {item.sku_not_found && (
+                            <span className="text-[8px] bg-red-500 text-white px-1 py-0.5 rounded font-black uppercase tracking-tighter animate-pulse">
+                              UNREG
+                            </span>
+                          )}
+                        </div>
+                        {/* Product name — item_name from DB, or description from PDF */}
+                        {(item.item_name || item.description) && (
+                          <span className="text-[11px] font-semibold text-white/45 uppercase tracking-wide leading-none">
+                            {(item.item_name || item.description || '').slice(0, 17)}
+                          </span>
+                        )}
+                        {/* Distribution-based pick plan */}
+                        {pickPlanMap[item.sku] ? (
+                          <div
+                            className={`${
+                              distributionInconsistencyMap[item.sku] === 'over'
+                                ? 'text-red-400/90'
+                                : distributionInconsistencyMap[item.sku] === 'under'
+                                  ? 'text-orange-400/90'
+                                  : 'text-emerald-400/70'
+                            }`}
+                          >
+                            <span className="text-[10px] font-bold uppercase tracking-wider leading-none">
+                              {pickPlanMap[item.sku].map((step, i) => (
+                                <span key={i}>
+                                  {i > 0 && ', '}
+                                  {step.icon} {step.type} has {step.units_each}u
+                                </span>
+                              ))}
+                            </span>
+                            {distributionInconsistencyMap[item.sku] === 'over' && (
+                              <span className="text-[9px]"> ⚠ dist mismatch</span>
+                            )}
+                            {distributionInconsistencyMap[item.sku] === 'under' && (
+                              <span className="text-[9px]"> ~ approx</span>
+                            )}
+                          </div>
+                        ) : (
+                          item.insufficient_stock && (
+                            <span className="text-[10px] font-black text-red-500 uppercase tracking-wider leading-none">
+                              No inventory
+                            </span>
+                          )
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Location Info on the right - No checkbox to maximize space */}
+                    <div className="flex items-center gap-3 shrink-0 ml-auto pl-2 border-l border-white/5">
+                      <div className="flex flex-col items-end">
+                        <span className="text-[8px] text-white/30 font-black uppercase tracking-widest mb-0.5">
+                          {item.location?.toLowerCase().includes('row') ? 'ROW' : 'LOC'}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <div
+                            className={`font-mono font-black text-amber-500 leading-none ${
+                              (item.location || '').length > 8 ? 'text-lg' : 'text-2xl'
+                            }`}
+                          >
+                            {(item.location || '')
+                              .toLowerCase()
+                              .replace('row', '')
+                              .trim()
+                              .slice(0, 5) || '-'}
+                          </div>
+                          {isChecked && (
+                            <div
+                              className={`flex items-center justify-center ${item.sku_not_found ? 'text-red-500' : 'text-green-500'}`}
+                            >
+                              <Check size={16} strokeWidth={4} />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+
+        <div className="mt-8 mb-6 mx-1">
+          <CorrectionNotesTimeline notes={notes} isLoading={isNotesLoading} />
+        </div>
+
+        <section
+          className={`mt-4 mb-12 border rounded-2xl mx-1 transition-all duration-300 ${isNotesExpanded ? 'bg-amber-500/5 border-amber-500/20' : 'bg-surface border-subtle'}`}
+        >
+          <button
+            onClick={() => setIsNotesExpanded(!isNotesExpanded)}
+            className="w-full flex items-center justify-between p-4"
+          >
+            <div className="flex items-center gap-2">
+              <MessageSquare
+                size={16}
+                className={isNotesExpanded ? 'text-amber-500' : 'text-muted'}
+              />
+              <h3
+                className={`text-[11px] font-black uppercase tracking-widest ${isNotesExpanded ? 'text-amber-500/70' : 'text-muted'}`}
+              >
+                {notes.length > 0 ? 'Add Another Note' : 'Add Verification Notes'}
+              </h3>
+            </div>
+            <ChevronDown
+              size={14}
+              className={`text-muted transition-transform duration-300 ${isNotesExpanded ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          {isNotesExpanded && (
+            <div className="px-4 pb-4 animate-in fade-in slide-in-from-top-2 duration-300">
+              <textarea
+                value={correctionNotes}
+                onChange={(e) => setCorrectionNotes(e.target.value)}
+                placeholder="Explain what needs to be fixed..."
+                className="w-full h-24 bg-card border border-subtle rounded-xl p-3 text-sm text-content focus:outline-none focus:border-amber-500/30 resize-none transition-all mb-3 placeholder:text-muted/50"
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    onAddNote(correctionNotes.trim());
+                    setCorrectionNotes('');
+                  }}
+                  disabled={!correctionNotes.trim()}
+                  className="flex-1 py-3 bg-surface border border-subtle text-muted font-black uppercase tracking-widest text-[9px] rounded-xl active:scale-95 transition-all disabled:opacity-30"
+                >
+                  Save Note Only
+                </button>
+                <button
+                  onClick={handleReturnToPicker}
+                  disabled={!correctionNotes.trim()}
+                  className="flex-[2] py-3 bg-amber-500 text-main font-black uppercase tracking-widest text-[9px] rounded-xl shadow-lg shadow-amber-500/10 active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+                >
+                  <Send size={14} />
+                  Return to Verification List
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black via-black/90 to-transparent shrink-0 z-20">
+        {verifiedUnitsCount < totalUnitsCount && (
+          <div className="mb-4 flex items-center justify-center gap-2 animate-pulse">
+            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">
+              {totalUnitsCount - verifiedUnitsCount} units remaining
+            </span>
+          </div>
+        )}
+        <SlideToConfirm
+          onConfirm={handleConfirm}
+          isLoading={isDeducting}
+          text={verifiedUnitsCount === totalUnitsCount ? 'SLIDE TO COMPLETE' : 'SEND TO VERIFY'}
+          confirmedText={verifiedUnitsCount === totalUnitsCount ? 'COMPLETING...' : 'SENDING...'}
+          variant={verifiedUnitsCount === totalUnitsCount ? 'default' : 'info'}
+          disabled={false}
+        />
+      </div>
+
+      {/* Edit Item Modal (reuses InventoryModal from stock view) */}
+      <InventoryModal
+        isOpen={!!editModalItem}
+        onClose={() => setEditModalItem(null)}
+        onSave={async (formData) => {
+          if (editModalItem) {
+            await updateItem(editModalItem, formData);
+            toast.success(`Updated ${editModalItem.sku}`);
+            setEditModalItem(null);
+          }
+        }}
+        onDelete={() => {
+          if (editModalItem) {
+            deleteItem(editModalItem.warehouse, editModalItem.sku, editModalItem.location);
+            toast.success(`Deleted ${editModalItem.sku}`);
+            setEditModalItem(null);
+          }
+        }}
+        initialData={editModalItem}
+        mode="edit"
+        screenType={editModalItem?.warehouse}
+      />
+    </div>
+  );
 };

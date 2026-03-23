@@ -1,29 +1,29 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { useInventory } from './hooks/InventoryProvider';
-import { useViewMode } from '../../context/ViewModeContext';
+import { useInventory } from './hooks/InventoryProvider.tsx';
+import { useViewMode } from '../../context/ViewModeContext.tsx';
 import { SearchInput } from '../../components/ui/SearchInput.tsx';
-import { useDebounce } from '../../hooks/useDebounce';
-import { InventoryCard } from './components/InventoryCard';
-import { InventoryModal } from './components/InventoryModal';
-import { naturalSort } from '../../utils/sortUtils';
+import { useDebounce } from '../../hooks/useDebounce.ts';
+import { InventoryCard } from './components/InventoryCard.tsx';
+import { InventoryModal } from './components/InventoryModal.tsx';
+import { naturalSort } from '../../utils/sortUtils.ts';
 import Plus from 'lucide-react/dist/esm/icons/plus';
 import Warehouse from 'lucide-react/dist/esm/icons/warehouse';
-import { MovementModal } from './components/MovementModal';
+import { MovementModal } from './components/MovementModal.tsx';
 import { CapacityBar } from '../../components/ui/CapacityBar.tsx';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import FileDown from 'lucide-react/dist/esm/icons/file-down';
 
-import { usePickingSession } from '../../context/PickingContext';
-import { useAuth } from '../../context/AuthContext';
-import { useLocationManagement } from './hooks/useLocationManagement';
-import LocationEditorModal from '../warehouse-management/components/LocationEditorModal';
-import { useError } from '../../context/ErrorContext';
-import { useConfirmation } from '../../context/ConfirmationContext';
-import { SessionInitializationModal } from '../picking/components/SessionInitializationModal';
-import { InventoryItemWithMetadata } from '../../schemas/inventory.schema';
-import { Location } from '../../schemas/location.schema';
+import { usePickingSession } from '../../context/PickingContext.tsx';
+import { useAuth } from '../../context/AuthContext.tsx';
+import { useLocationManagement } from './hooks/useLocationManagement.ts';
+import LocationEditorModal from '../warehouse-management/components/LocationEditorModal.tsx';
+import { useError } from '../../context/ErrorContext.tsx';
+import { useConfirmation } from '../../context/ConfirmationContext.tsx';
+import { SessionInitializationModal } from '../picking/components/SessionInitializationModal.tsx';
+import { InventoryItemWithMetadata } from '../../schemas/inventory.schema.ts';
+import { Location } from '../../schemas/location.schema.ts';
 
 const SEARCHING_MESSAGE = (
   <div className="py-20 text-center text-muted font-bold uppercase tracking-widest animate-pulse">
@@ -120,11 +120,11 @@ export const InventoryScreen = () => {
     });
 
     // Second pass: Consolidate items within each location by SKU
-    Object.keys(groups).forEach(wh => {
-      Object.keys(groups[wh]).forEach(loc => {
+    Object.keys(groups).forEach((wh) => {
+      Object.keys(groups[wh]).forEach((loc) => {
         const consolidated: Record<string, InventoryItemWithMetadata> = {};
 
-        groups[wh][loc].items.forEach(item => {
+        groups[wh][loc].items.forEach((item) => {
           const skuKey = item.sku.toUpperCase().trim();
 
           if (!consolidated[skuKey]) {
@@ -137,7 +137,9 @@ export const InventoryScreen = () => {
             // but keep the local flag if either is local.
             const existingId = existing.id as any;
             const itemId = item.id as any;
-            const isExistingTemp = (typeof existingId === 'string' && (existingId.startsWith('add-') || existingId.startsWith('move-'))) ||
+            const isExistingTemp =
+              (typeof existingId === 'string' &&
+                (existingId.startsWith('add-') || existingId.startsWith('move-'))) ||
               (typeof existingId === 'number' && existingId < 0);
             const isItemReal = typeof itemId === 'number' && itemId > 0;
 
@@ -162,7 +164,10 @@ export const InventoryScreen = () => {
             // Preservation of flags
             if ((item as any)._lastUpdateSource === 'local') {
               (existing as any)._lastUpdateSource = 'local';
-              (existing as any)._lastLocalUpdateAt = Math.max((existing as any)._lastLocalUpdateAt || 0, (item as any)._lastLocalUpdateAt || 0);
+              (existing as any)._lastLocalUpdateAt = Math.max(
+                (existing as any)._lastLocalUpdateAt || 0,
+                (item as any)._lastLocalUpdateAt || 0
+              );
             }
           }
         });
@@ -171,7 +176,7 @@ export const InventoryScreen = () => {
 
         // Filter out zero-quantity items unless showing inactive
         if (!showInactive) {
-          consolidatedItems = consolidatedItems.filter(item => item.quantity > 0);
+          consolidatedItems = consolidatedItems.filter((item) => item.quantity > 0);
         }
 
         groups[wh][loc].items = consolidatedItems;
@@ -183,9 +188,9 @@ export const InventoryScreen = () => {
 
   const allSortedWarehouses = useMemo(() => {
     // Only include warehouses that have entries in allGroupedData and aren't effectively empty
-    const warehouses = Object.keys(allGroupedData).filter(wh => {
+    const warehouses = Object.keys(allGroupedData).filter((wh) => {
       const locs = allGroupedData[wh];
-      return Object.values(locs).some(loc => loc.items.length > 0);
+      return Object.values(locs).some((loc) => loc.items.length > 0);
     });
 
     return warehouses.sort((a, b) => {
@@ -196,16 +201,17 @@ export const InventoryScreen = () => {
   }, [allGroupedData]);
 
   const allLocationBlocks = useMemo(() => {
-    return allSortedWarehouses.flatMap((wh) =>
-      Object.keys(allGroupedData[wh])
-        .sort(naturalSort)
-        .map((location) => ({
-          wh,
-          location,
-          items: allGroupedData[wh][location].items,
-          locationId: allGroupedData[wh][location].locationId,
-        }))
-        .filter(block => block.items.length > 0) // Remove empty locations from view
+    return allSortedWarehouses.flatMap(
+      (wh) =>
+        Object.keys(allGroupedData[wh])
+          .sort(naturalSort)
+          .map((location) => ({
+            wh,
+            location,
+            items: allGroupedData[wh][location].items,
+            locationId: allGroupedData[wh][location].locationId,
+          }))
+          .filter((block) => block.items.length > 0) // Remove empty locations from view
     );
   }, [allSortedWarehouses, allGroupedData]);
 
@@ -245,7 +251,6 @@ export const InventoryScreen = () => {
     deactivateLocation,
   } = useLocationManagement();
 
-
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   // Calculate stats for the filtered view
@@ -253,8 +258,8 @@ export const InventoryScreen = () => {
     const uniqueSkus = new Set<string>();
     let totalQty = 0;
 
-    allLocationBlocks.forEach(block => {
-      block.items.forEach(item => {
+    allLocationBlocks.forEach((block) => {
+      block.items.forEach((item) => {
         uniqueSkus.add(item.sku);
         totalQty += item.quantity;
       });
@@ -282,13 +287,16 @@ export const InventoryScreen = () => {
       const today = new Date().toLocaleDateString('es-ES');
 
       // Group items by Warehouse -> SKU (Aggregate locations)
-      const whAggregates: Record<string, Record<string, { qty: number, locations: Set<string>, notes: Set<string> }>> = {};
+      const whAggregates: Record<
+        string,
+        Record<string, { qty: number; locations: Set<string>; notes: Set<string> }>
+      > = {};
 
-      allLocationBlocks.forEach(block => {
+      allLocationBlocks.forEach((block) => {
         if (!whAggregates[block.wh]) whAggregates[block.wh] = {};
         const whGroup = whAggregates[block.wh];
 
-        block.items.forEach(item => {
+        block.items.forEach((item) => {
           if (!whGroup[item.sku]) {
             whGroup[item.sku] = { qty: 0, locations: new Set(), notes: new Set() };
           }
@@ -336,7 +344,7 @@ export const InventoryScreen = () => {
             minCellHeight: 20,
             textColor: [0, 0, 0],
             lineColor: [0, 0, 0],
-            lineWidth: 1.12
+            lineWidth: 1.12,
           },
           columnStyles: {
             0: { cellWidth: 100, fontStyle: 'bold' },
@@ -352,7 +360,7 @@ export const InventoryScreen = () => {
             doc.setFontSize(14);
             doc.text(metadataLine, 292, 205, { align: 'right' });
             currentY = (doc as any).lastAutoTable?.finalY || 15;
-          }
+          },
         });
 
         currentY = (doc as any).lastAutoTable.finalY + 15;
@@ -370,15 +378,8 @@ export const InventoryScreen = () => {
   }, [allLocationBlocks, profile, authUser, localSearch, showInactive, filteredStats]);
 
   // Picking Mode State
-  const {
-    cartItems,
-    addToCart,
-    getAvailableStock,
-    onStartSession,
-    sessionMode,
-  } = usePickingSession();
-
-
+  const { cartItems, addToCart, getAvailableStock, onStartSession, sessionMode } =
+    usePickingSession();
 
   // --- Stock Mode Handlers ---
   const handleAddItem = useCallback((warehouse = 'LUDLOW') => {
@@ -413,7 +414,12 @@ export const InventoryScreen = () => {
   );
 
   const handleMoveStock = useCallback(
-    async (moveData: { sourceItem: InventoryItemWithMetadata; targetWarehouse: 'LUDLOW' | 'ATS'; targetLocation: string; quantity: number }) => {
+    async (moveData: {
+      sourceItem: InventoryItemWithMetadata;
+      targetWarehouse: 'LUDLOW' | 'ATS';
+      targetLocation: string;
+      quantity: number;
+    }) => {
       try {
         await moveItem(
           moveData.sourceItem,
@@ -468,7 +474,7 @@ export const InventoryScreen = () => {
     async (formData: any) => {
       let result;
       if (locationBeingEdited?.isNew) {
-        const { isNew, ...dataToCreate } = formData;
+        const { isNew: _IsNew, ...dataToCreate } = formData;
         result = await createLocation(dataToCreate);
       } else {
         result = await updateLocation(locationBeingEdited.id, formData);
@@ -542,14 +548,10 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
     [viewMode, handleEditItem, addToCart]
   );
 
-
-
   // REMOVED EARLY LOADING RETURN TO PREVENT KEYBOARD DISMISSAL
   // Layout must remain stable while charging
 
   // Removed isError check as we are using local data now
-
-
 
   return (
     <div className="pb-4 relative">
@@ -561,10 +563,11 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
           <button
             onClick={handleDownloadView}
             disabled={isGeneratingPDF}
-            className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all ${isGeneratingPDF
-              ? 'bg-subtle text-muted cursor-wait'
-              : 'bg-surface text-accent border border-accent/20 hover:bg-blue-500 hover:text-white hover:border-blue-500 hover:shadow-blue-500/20'
-              }`}
+            className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all ${
+              isGeneratingPDF
+                ? 'bg-subtle text-muted cursor-wait'
+                : 'bg-surface text-accent border border-accent/20 hover:bg-blue-500 hover:text-white hover:border-blue-500 hover:shadow-blue-500/20'
+            }`}
             title="Download Filtered Stock PDF"
           >
             {isGeneratingPDF ? (
@@ -573,11 +576,8 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
               <FileDown size={20} />
             )}
           </button>
-
         </div>
       )}
-
-
 
       <SearchInput
         ref={searchInputRef}
@@ -596,121 +596,136 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
       )}
 
       {(!isSearching || (allLocationBlocks.length === 0 && localSearch.trim() !== '')) && (
-        <div className={`px-4 pt-2 flex items-center gap-2 transition-all duration-300 ${allLocationBlocks.length === 0 && localSearch.trim() !== '' ? 'bg-blue-500/10 p-3 rounded-xl border border-blue-500/20 animate-in fade-in zoom-in-95 duration-500' : ''}`}>
+        <div
+          className={`px-4 pt-2 flex items-center gap-2 transition-all duration-300 ${allLocationBlocks.length === 0 && localSearch.trim() !== '' ? 'bg-blue-500/10 p-3 rounded-xl border border-blue-500/20 animate-in fade-in zoom-in-95 duration-500' : ''}`}
+        >
           <input
             type="checkbox"
             id="show-inactive"
             checked={showInactive}
             onChange={(e) => setShowInactive(e.target.checked)}
-            className={`rounded transition-colors h-4 w-4 ${allLocationBlocks.length === 0 && localSearch.trim() !== ''
-              ? 'border-blue-500 text-blue-500 focus:ring-blue-500'
-              : 'border-neutral-600 bg-surface text-accent focus:ring-accent focus:ring-offset-0'
-              }`}
+            className={`rounded transition-colors h-4 w-4 ${
+              allLocationBlocks.length === 0 && localSearch.trim() !== ''
+                ? 'border-blue-500 text-blue-500 focus:ring-blue-500'
+                : 'border-neutral-600 bg-surface text-accent focus:ring-accent focus:ring-offset-0'
+            }`}
           />
           <label
             htmlFor="show-inactive"
-            className={`text-sm font-medium cursor-pointer select-none transition-colors ${allLocationBlocks.length === 0 && localSearch.trim() !== ''
-              ? 'text-blue-500 font-black uppercase tracking-wider'
-              : 'text-muted'
-              }`}
+            className={`text-sm font-medium cursor-pointer select-none transition-colors ${
+              allLocationBlocks.length === 0 && localSearch.trim() !== ''
+                ? 'text-blue-500 font-black uppercase tracking-wider'
+                : 'text-muted'
+            }`}
           >
             Show Deleted Items & Qty 0 SKUs
           </label>
         </div>
       )}
 
-
       <div className="p-4 space-y-12 min-h-[50vh]">
-        {isLoading && !locationBlocks.length ? (
-          SEARCHING_MESSAGE
-        ) : (
-          locationBlocks.map(({ wh, location, items, locationId }, index) => {
-            const isFirstInWarehouse = index === 0 || locationBlocks[index - 1].wh !== wh;
+        {isLoading && !locationBlocks.length
+          ? SEARCHING_MESSAGE
+          : locationBlocks.map(({ wh, location, items, locationId }, index) => {
+              const isFirstInWarehouse = index === 0 || locationBlocks[index - 1].wh !== wh;
 
-            return (
-              <div key={`${wh}-${location}`} className="space-y-4">
-                {isFirstInWarehouse && !isSearching && (
-                  <div className="flex items-center gap-4 pt-8 pb-2">
-                    <div className="h-px flex-1 bg-subtle" />
-                    <h2 className="text-2xl font-black uppercase tracking-tighter text-content bg-surface px-6 py-2 rounded-full border border-subtle shadow-sm flex items-center gap-3" style={{ fontFamily: 'var(--font-heading)' }}>
-                      <Warehouse className="text-accent" size={24} />
-                      {wh === 'DELETED ITEMS' ? 'Deleted Items' : wh}
-                    </h2>
-                    <div className="h-px flex-1 bg-subtle" />
-                  </div>
-                )}
-
-                <div className="sticky top-[84px] bg-main/95 backdrop-blur-sm z-30 py-3 border-b border-subtle group">
-                  <div className="flex items-center gap-4 px-1">
-                    <div className="flex-[3]">
-                      <CapacityBar
-                        current={locationCapacities[`${wh}-${(location || '').trim().toUpperCase()}`]?.current || 0}
-                        max={locationCapacities[`${wh}-${(location || '').trim().toUpperCase()}`]?.max || 550}
-                      />
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <h3
-                        className={`text-content text-xl font-black uppercase tracking-tighter truncate ${isAdmin && viewMode === 'stock' ? 'cursor-pointer hover:text-accent transition-colors' : ''}`}
+              return (
+                <div key={`${wh}-${location}`} className="space-y-4">
+                  {isFirstInWarehouse && !isSearching && (
+                    <div className="flex items-center gap-4 pt-8 pb-2">
+                      <div className="h-px flex-1 bg-subtle" />
+                      <h2
+                        className="text-2xl font-black uppercase tracking-tighter text-content bg-surface px-6 py-2 rounded-full border border-subtle shadow-sm flex items-center gap-3"
                         style={{ fontFamily: 'var(--font-heading)' }}
-                        title={isAdmin && viewMode === 'stock' ? 'Click to edit location' : location}
-                        onClick={() => handleOpenLocationEditor(wh, location, locationId)}
                       >
-                        {location}
-                      </h3>
+                        <Warehouse className="text-accent" size={24} />
+                        {wh === 'DELETED ITEMS' ? 'Deleted Items' : wh}
+                      </h2>
+                      <div className="h-px flex-1 bg-subtle" />
                     </div>
-                  </div>
-                </div>
+                  )}
 
-                <div className="grid grid-cols-1 gap-1">
-                  {items.map((item) => {
-                    const isInCart = cartItems.some(
-                      (c) =>
-                        c.sku === item.sku &&
-                        c.warehouse === item.warehouse &&
-                        c.location === item.location
-                    );
-
-                    // Calculate availability for picking mode
-                    const stockInfo = viewMode === 'picking' ? getAvailableStock(item) : null;
-
-                    return (
-                      <div
-                        key={`inv-row-${item.id}-${item.sku}`}
-                        className={`animate-staggered-fade-in ${isInCart && viewMode === 'picking' ? 'ring-1 ring-accent rounded-lg' : ''
-                          }`}
-                        style={{ animationDelay: `${(index % 10) * 0.05}s` }}
-                      >
-                        <InventoryCard
-                          sku={item.sku}
-                          quantity={item.quantity}
-                          detail={item.item_name}
-                          warehouse={item.warehouse}
-                          onIncrement={() =>
-                            updateQuantity(item.sku, 1, item.warehouse, item.location)
+                  <div className="sticky top-[84px] bg-main/95 backdrop-blur-sm z-30 py-3 border-b border-subtle group">
+                    <div className="flex items-center gap-4 px-1">
+                      <div className="flex-[3]">
+                        <CapacityBar
+                          current={
+                            locationCapacities[`${wh}-${(location || '').trim().toUpperCase()}`]
+                              ?.current || 0
                           }
-                          onDecrement={() =>
-                            updateQuantity(item.sku, -1, item.warehouse, item.location)
+                          max={
+                            locationCapacities[`${wh}-${(location || '').trim().toUpperCase()}`]
+                              ?.max || 550
                           }
-                          onMove={() => handleQuickMove(item)}
-                          onClick={() => handleCardClick(item)}
-                          mode={viewMode === 'picking' ? sessionMode : 'stock'}
-                          reservedByOthers={stockInfo?.reservedByOthers || 0}
-                          available={stockInfo?.available}
-                          sku_metadata={item.sku_metadata}
-                          internal_note={(item as any).internal_note}
-                          distribution={(item as any).distribution}
-                          lastUpdateSource={(item as any)._lastUpdateSource}
-                          is_active={item.is_active}
                         />
                       </div>
-                    );
-                  })}
+
+                      <div className="flex-1 min-w-0">
+                        <h3
+                          className={`text-content text-xl font-black uppercase tracking-tighter truncate ${isAdmin && viewMode === 'stock' ? 'cursor-pointer hover:text-accent transition-colors' : ''}`}
+                          style={{ fontFamily: 'var(--font-heading)' }}
+                          title={
+                            isAdmin && viewMode === 'stock' ? 'Click to edit location' : location
+                          }
+                          onClick={() => handleOpenLocationEditor(wh, location, locationId)}
+                        >
+                          {location}
+                        </h3>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-1">
+                    {items.map((item) => {
+                      const isInCart = cartItems.some(
+                        (c) =>
+                          c.sku === item.sku &&
+                          c.warehouse === item.warehouse &&
+                          c.location === item.location
+                      );
+
+                      // Calculate availability for picking mode
+                      const stockInfo = viewMode === 'picking' ? getAvailableStock(item) : null;
+
+                      return (
+                        <div
+                          key={`inv-row-${item.id}-${item.sku}`}
+                          className={`animate-staggered-fade-in ${
+                            isInCart && viewMode === 'picking'
+                              ? 'ring-1 ring-accent rounded-lg'
+                              : ''
+                          }`}
+                          style={{ animationDelay: `${(index % 10) * 0.05}s` }}
+                        >
+                          <InventoryCard
+                            sku={item.sku}
+                            quantity={item.quantity}
+                            detail={item.item_name}
+                            warehouse={item.warehouse}
+                            onIncrement={() =>
+                              updateQuantity(item.sku, 1, item.warehouse, item.location)
+                            }
+                            onDecrement={() =>
+                              updateQuantity(item.sku, -1, item.warehouse, item.location)
+                            }
+                            onMove={() => handleQuickMove(item)}
+                            onClick={() => handleCardClick(item)}
+                            mode={viewMode === 'picking' ? sessionMode : 'stock'}
+                            reservedByOthers={stockInfo?.reservedByOthers || 0}
+                            available={stockInfo?.available}
+                            sku_metadata={item.sku_metadata}
+                            internal_note={(item as any).internal_note}
+                            distribution={(item as any).distribution}
+                            lastUpdateSource={(item as any)._lastUpdateSource}
+                            is_active={item.is_active}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            );
-          })
-        )}
+              );
+            })}
 
         {hasNextPage ? (
           <div className="flex flex-col items-center gap-4 py-8">
@@ -745,7 +760,6 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
         </div>
       ) : null}
 
-
       <InventoryModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -755,7 +769,6 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
         mode={modalMode}
         screenType={selectedWarehouseForAdd || editingItem?.warehouse}
       />
-
 
       <MovementModal
         isOpen={isMovementModalOpen}
