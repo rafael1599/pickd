@@ -57,10 +57,11 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
   if (!selectedOrder) return null;
 
   // Auto-parse full US address pasted into street field
-  // Supports: "123 Main St, Miami, FL 33101" or "123 Main St, Miami FL 33101"
+  // Supports: "123 Main St, Miami, FL 33101", "123 Main St, Miami FL 33101",
+  //           "37 OCEAN ST South Portland, ME 04106 USA"
   const handleStreetChange = (value: string) => {
-    // Match: street, city, state zip (with optional comma before state)
-    const match = value.match(/^(.+?),\s*(.+?)[,\s]+([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/i);
+    // Pattern 1: street, city[,] STATE ZIP [COUNTRY] (comma between street and city)
+    const match = value.match(/^(.+?),\s*(.+?)[,\s]+([A-Z]{2})\s+(\d{5}(?:-\d{4})?)(?:\s+\w+)?$/i);
     if (match) {
       setFormData({
         ...formData,
@@ -69,9 +70,40 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
         state: match[3].toUpperCase(),
         zip: match[4],
       });
-    } else {
-      setFormData({ ...formData, street: value });
+      return;
     }
+
+    // Pattern 2: street city, STATE ZIP [COUNTRY] (single comma before state)
+    // Split street from city using common street suffixes
+    const match2 = value.match(/^(.+),\s*([A-Z]{2})\s+(\d{5}(?:-\d{4})?)(?:\s+\w+)?$/i);
+    if (match2) {
+      const beforeComma = match2[1].trim();
+      const state = match2[2].toUpperCase();
+      const zip = match2[3];
+      const suffixRx =
+        /\b(ST|AVE|AVENUE|BLVD|BOULEVARD|DR|DRIVE|LN|LANE|RD|ROAD|CT|COURT|PL|PLACE|WAY|CIR|CIRCLE|TER|TERRACE|PKWY|PARKWAY|HWY|HIGHWAY|SQ|SQUARE|LOOP|TRL|TRAIL|PT|POINT|RUN|PASS|XING|CROSSING|ALY|ALLEY)\b/i;
+      const suffixMatch = beforeComma.match(suffixRx);
+      if (suffixMatch) {
+        const idx = beforeComma.indexOf(suffixMatch[0]) + suffixMatch[0].length;
+        const afterSuffix = beforeComma.substring(idx).trim();
+        const aptMatch = afterSuffix.match(/^((?:APT|SUITE|STE|UNIT|#)\s*\S+)\s+(.+)$/i);
+        let street: string, city: string;
+        if (aptMatch) {
+          street = beforeComma.substring(0, idx).trim() + ' ' + aptMatch[1];
+          city = aptMatch[2].trim();
+        } else if (afterSuffix) {
+          street = beforeComma.substring(0, idx).trim();
+          city = afterSuffix;
+        } else {
+          street = beforeComma;
+          city = '';
+        }
+        setFormData({ ...formData, street, city, state, zip });
+        return;
+      }
+    }
+
+    setFormData({ ...formData, street: value });
   };
 
   const handleDelete = () => {
