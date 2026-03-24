@@ -53,6 +53,7 @@ export const PickingCartDrawer: React.FC = () => {
   const isOwner = user?.id === ownerId;
   const isConfirmingRef = React.useRef(false);
   const [isProcessingDeduction, setIsProcessingDeduction] = useState(false);
+  const overriddenPalletCountRef = React.useRef<number | null>(null);
 
   const totalItems = cartItems.length;
   const totalQty = cartItems.reduce((acc, item) => acc + (item.pickingQty || 0), 0);
@@ -269,23 +270,28 @@ export const PickingCartDrawer: React.FC = () => {
         0
       );
 
-      // Re-map locations for path optimization
-      const allLocations: Location[] = inventoryData.map((i) => ({
-        id: i.location_id || '',
-        location: i.location || '',
-        warehouse: i.warehouse as Location['warehouse'],
-        zone: null,
-        max_capacity: null,
-        picking_order: null,
-        is_active: true,
-        created_at: '',
-        length_ft: null,
-        bike_line: null,
-      }));
-
-      const optimizedPath = getOptimizedPickingPath(items, allLocations);
-      const calculatedPallets = calculatePallets(optimizedPath);
-      const pallets_qty = calculatedPallets.length;
+      // Use overridden pallet count if user edited pallets in double-check,
+      // otherwise recalculate from items
+      let pallets_qty: number;
+      if (overriddenPalletCountRef.current !== null) {
+        pallets_qty = overriddenPalletCountRef.current;
+      } else {
+        const allLocations: Location[] = inventoryData.map((i) => ({
+          id: i.location_id || '',
+          location: i.location || '',
+          warehouse: i.warehouse as Location['warehouse'],
+          zone: null,
+          max_capacity: null,
+          picking_order: null,
+          is_active: true,
+          created_at: '',
+          length_ft: null,
+          bike_line: null,
+        }));
+        const optimizedPath = getOptimizedPickingPath(items, allLocations);
+        const calculatedPallets = calculatePallets(optimizedPath);
+        pallets_qty = calculatedPallets.length;
+      }
 
       await processPickingList(activeListId!, pallets_qty, totalUnits);
 
@@ -361,6 +367,9 @@ export const PickingCartDrawer: React.FC = () => {
                 isNotesLoading={isNotesLoading}
                 onAddNote={addNote}
                 onSelectAll={handleSelectAll}
+                onPalletCountChange={(count) => {
+                  overriddenPalletCountRef.current = count;
+                }}
                 status={listStatus}
                 onBack={async () => {
                   await returnToBuilding(activeListId ?? null);

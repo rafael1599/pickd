@@ -137,3 +137,110 @@ export const calculatePallets = (items: PickingItem[]): Pallet[] => {
 
   return pallets;
 };
+
+/**
+ * Redistributes items across pallets respecting user overrides.
+ *
+ * Locked pallets (user-edited) keep their exact item counts.
+ * Remaining items are redistributed across unlocked pallets using greedy fill.
+ * May create new pallets or remove empty ones as needed.
+ *
+ * @param originalPallets - The current pallet distribution
+ * @param overrides - Map of palletId → desired total units for that pallet
+ * @returns New pallet array with overrides applied and remainder redistributed
+ */
+export const redistributeWithOverrides = (
+  originalPallets: Pallet[],
+  overrides: Map<number, number>
+): Pallet[] => {
+  if (overrides.size === 0) return originalPallets;
+
+  // Collect ALL items as a flat pool (preserving SKU + location identity)
+  const itemPool: PickingItem[] = [];
+  originalPallets.forEach((p) => {
+    p.items.forEach((item) => {
+      const existing = itemPool.find(
+        (i) =>
+          i.sku === item.sku &&
+          (i.location || '').trim().toUpperCase() === (item.location || '').trim().toUpperCase()
+      );
+      if (existing) {
+        existing.pickingQty += item.pickingQty;
+      } else {
+        itemPool.push({ ...item, pickingQty: item.pickingQty });
+      }
+    });
+  });
+
+  const totalUnits = itemPool.reduce((sum, i) => sum + i.pickingQty, 0);
+
+  // Build locked pallets first: fill them from the pool up to their override limit
+  const lockedPallets: Pallet[] = [];
+  const remainingPool = itemPool.map((i) => ({ ...i, pickingQty: i.pickingQty }));
+
+  // Process overrides in original pallet order
+  originalPallets.forEach((p) => {
+    const overrideQty = overrides.get(p.id);
+    if (overrideQty === undefined) return;
+
+    const locked: Pallet = {
+      id: p.id,
+      items: [],
+      totalUnits: 0,
+      footprint_in2: 0,
+      limitPerPallet: overrideQty,
+    };
+
+    // Fill locked pallet from pool, preserving original item order
+    let needed = overrideQty;
+    for (const poolItem of remainingPool) {
+      if (needed <= 0) break;
+      if (poolItem.pickingQty <= 0) continue;
+
+      const take = Math.min(poolItem.pickingQty, needed);
+      const existing = locked.items.find(
+        (i) =>
+          i.sku === poolItem.sku &&
+          (i.location || '').trim().toUpperCase() === (poolItem.location || '').trim().toUpperCase()
+      );
+      if (existing) {
+        existing.pickingQty += take;
+      } else {
+        locked.items.push({ ...poolItem, pickingQty: take });
+      }
+      locked.totalUnits += take;
+      poolItem.pickingQty -= take;
+      needed -= take;
+    }
+
+    lockedPallets.push(locked);
+  });
+
+  // Calculate remaining units to distribute
+  const lockedUnits = lockedPallets.reduce((sum, p) => sum + p.totalUnits, 0);
+  const remainingUnits = totalUnits - lockedUnits;
+
+  if (remainingUnits <= 0) {
+    // All items consumed by locked pallets — renumber and return
+    return lockedPallets.map((p, i) => ({ ...p, id: i + 1 }));
+  }
+
+  // Filter pool to only items with remaining qty
+  const unlockedItems = remainingPool.filter((i) => i.pickingQty > 0);
+
+  // Redistribute remaining items using standard algorithm
+  const unlockedPallets = calculatePallets(unlockedItems);
+
+  // Merge: locked pallets first, then unlocked, renumbered sequentially
+  const result: Pallet[] = [];
+  let nextId = 1;
+
+  for (const locked of lockedPallets) {
+    result.push({ ...locked, id: nextId++ });
+  }
+  for (const unlocked of unlockedPallets) {
+    result.push({ ...unlocked, id: nextId++ });
+  }
+
+  return result;
+};
