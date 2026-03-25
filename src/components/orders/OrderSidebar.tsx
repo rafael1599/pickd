@@ -8,7 +8,7 @@ import Scissors from 'lucide-react/dist/esm/icons/scissors';
 import { CustomerAutocomplete } from '../../features/picking/components/CustomerAutocomplete';
 import { usePickingSession } from '../../context/PickingContext';
 import { useConfirmation } from '../../context/ConfirmationContext';
-import type { CombineMeta, PickingList } from '../../schemas/picking.schema';
+import type { CombineMeta, PickingList, PickingListItem } from '../../schemas/picking.schema';
 import type { Customer } from '../../types/schema';
 import type { User } from '@supabase/supabase-js';
 
@@ -81,7 +81,7 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
       const state = match2[2].toUpperCase();
       const zip = match2[3];
       const suffixRx =
-        /\b(ST|AVE|AVENUE|BLVD|BOULEVARD|DR|DRIVE|LN|LANE|RD|ROAD|CT|COURT|PL|PLACE|WAY|CIR|CIRCLE|TER|TERRACE|PKWY|PARKWAY|HWY|HIGHWAY|SQ|SQUARE|LOOP|TRL|TRAIL|PT|POINT|RUN|PASS|XING|CROSSING|ALY|ALLEY)\b/i;
+        /\b(STREET|ST|AVENUE|AVE|BOULEVARD|BLVD|DRIVE|DR|LANE|LN|ROAD|RD|COURT|CT|PLACE|PL|WAY|CIRCLE|CIR|TERRACE|TER|PARKWAY|PKWY|HIGHWAY|HWY|SQUARE|SQ|LOOP|TRAIL|TRL|POINT|PT|RUN|PASS|CROSSING|XING|ALLEY|ALY)\b/i;
       const suffixMatch = beforeComma.match(suffixRx);
       if (suffixMatch) {
         const idx = beforeComma.indexOf(suffixMatch[0]) + suffixMatch[0].length;
@@ -290,11 +290,20 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
             🔗 Combined Order
           </p>
           <div className="flex flex-col gap-1">
-            {selectedOrder.combine_meta?.source_orders?.map((src, i) => (
-              <span key={i} className="text-xs text-blue-300/70 font-mono">
-                #{src.order_number} — {src.item_count || '?'} items
-              </span>
-            ))}
+            {selectedOrder.combine_meta?.source_orders?.map((src, i) => {
+              const unitCount = (selectedOrder.items || [])
+                .filter(
+                  (item) =>
+                    (item as PickingListItem & { source_order?: string }).source_order ===
+                    src.order_number
+                )
+                .reduce((sum, item) => sum + (item.pickingQty || 0), 0);
+              return (
+                <span key={i} className="text-xs text-blue-300/70 font-mono">
+                  #{src.order_number} — {unitCount || src.item_count || '?'} units
+                </span>
+              );
+            })}
           </div>
           {onSplitOrder && selectedOrder.status !== 'completed' && (
             <button
