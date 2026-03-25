@@ -1,4 +1,4 @@
-Progress Update — March 25, 2026 at 6:30 PM
+Progress Update — March 25, 2026 at 5:24 PM
 
 WIN OF THE DAY:
 You can now group orders together by dragging one on top of another — perfect for FedEx shipments that need to go out together.
@@ -7,16 +7,12 @@ WHAT'S BETTER NOW:
 - Order grouping in the verification screen — hold an order, drag it onto another, and choose FedEx or General. When you complete one, all orders in the group complete together
 - All inventory items now show how they're physically organized in the warehouse (towers and lines). Items that were missing this info got it automatically
 - Combined orders now show how many units each original order has, instead of just how many different products
-- Pasting an address like "107 EAST BROAD STREET PALMYRA, NJ 08065" now works correctly — previously it would choke on full words like STREET or AVENUE
+- Pasting an address like "107 EAST BROAD STREET PALMYRA, NJ 08065" now works correctly — and there's a manual "Parse" button as a backup if auto-fill doesn't kick in
 - Orders waiting for verification no longer disappear from the list if nobody touches them for a while
 - The "Take Over" button in Orders now works properly — the order shows up in your verification screen right away
-
-BUGS FIXED:
-- Orders ready for double-check were vanishing from the list after sitting untouched for a day
-- Clicking "Take Over" on an order didn't make it appear in the verification queue
 
 COMING UP NEXT:
 - Daily activity report so supervisors can see what each warehouse user did
 - Smoother screen updates when changing quantities
 
-9 done today / 12 in the queue
+9 done today / 11 in the queue

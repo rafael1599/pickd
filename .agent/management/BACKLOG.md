@@ -90,7 +90,7 @@
 - [ ] **Barcode/QR Integration**: Scan items directly. <!-- id: idea-001 -->
 - [ ] **Order List View**: When reviewing orders, show the picking list first with an option to print. <!-- id: idea-006 -->
 - [ ] **Automatic Inventory Email**: Send full inventory table to Jamis's email. Plain list only, NO links. <!-- id: idea-007 -->
-- [ ] **Order Merging**: Combine 2 separate orders into one picking session. <!-- id: idea-010 -->
+- [x] ~~**Order Merging**: Combine 2 separate orders into one picking session.~~ — Cubierto por task-007 (auto-combine same shop) + idea-010b (drag-and-drop grouping). <!-- id: idea-010 -->
 - [ ] **Multi-Address Customers**: Handle multiple shipping/billing addresses per client. <!-- id: idea-012 -->
 - [ ] **Inventory Heatmaps**: Visualize picking frequency. <!-- id: idea-002 -->
 - [ ] **Advanced Analytics**: Dashboard for warehouse efficiency. <!-- id: idea-003 -->
