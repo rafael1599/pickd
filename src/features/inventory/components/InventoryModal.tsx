@@ -28,6 +28,7 @@ import {
   STORAGE_TYPE_LABELS,
 } from '../../../schemas/inventory.schema.ts';
 import { predictLocation } from '../../../utils/locationPredictor.ts';
+import { isBikeSku, calculateBikeDistribution } from '../../../utils/distributionCalculator.ts';
 import { inventoryService } from '../api/inventory.service.ts';
 
 interface InventoryModalProps {
@@ -162,6 +163,16 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
       setDistribution(liveDist);
     }
   }, [isOpen, mode, initialData, ludlowData, atsData, userEditedDistribution, distribution]);
+
+  // 2b1b. Auto-distribution for bike SKUs in Add mode
+  useEffect(() => {
+    if (!isOpen || mode !== 'add' || userEditedDistribution) return;
+    if (!sku || !quantity || quantity <= 0) return;
+    if (isBikeSku(sku)) {
+      setDistribution(calculateBikeDistribution(quantity));
+      setIsDistributionOpen(true);
+    }
+  }, [isOpen, mode, sku, quantity, userEditedDistribution]);
 
   // 2b2. Sync sku_metadata from realtime data (dimensions + weight)
   useEffect(() => {
