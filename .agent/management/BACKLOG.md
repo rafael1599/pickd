@@ -16,13 +16,12 @@
 - **Estado:** En producción. Migración aplicada, auto-combine en watchdog, SplitOrderModal, OrderChip con 🔗.
 - **Archivos:** `watchdog-pickd/supabase_client.py`, `watchdog-pickd/watcher.py`, `SplitOrderModal.tsx`, `OrderChip.tsx`, `OrderSidebar.tsx`, migración `20260317000001_add_combine_meta.sql`
 
-### 2. Merge de órdenes FedEx (drag-and-drop en vista de verificación) <!-- id: idea-010b -->
+### ~~2. Agrupación visual de órdenes FedEx/General (drag-and-drop)~~ — COMPLETADO <!-- id: idea-010b -->
 
-- **Creado:** `[2026-03-18 16:00]`
-- **Estado:** Por hacer.
-- Permitir arrastrar una orden sobre otra en la lista de verificación para disparar un popup que permita elegir "FedEx" como tipo de envío y combinar ambas órdenes. Los SKUs de ambas órdenes se fusionan, los diferentes order numbers se concatenan (similar a la lógica de auto-combine por cliente: `"878279 / 878280"`), y la orden resultante se marca con un nuevo tipo `fedex`.
-- **Consideración clave:** integridad de datos para auditoría futura — cada item debe conservar trazabilidad a su orden original (`source_order`), y el merge debe ser reversible (split). Evaluar si reusar `combine_meta` o crear un campo separado para distinguir combines automáticos (mismo cliente) de merges manuales (FedEx).
-- **Archivos estimados:** `DoubleCheckView.tsx` (drag-and-drop), nuevo `MergeOrderModal.tsx`, `picking.schema.ts` (nuevo tipo), posible migración para `order_type` o similar.
+- **Creado:** `[2026-03-18 16:00]` · **Completado:** `[2026-03-25]`
+- **Estado:** En producción. Drag-and-drop con @dnd-kit en la verification queue.
+- Agrupación visual (no merge de items): cada orden mantiene independencia pero se asocian para completarse juntas. Long-press (300ms) inicia drag, drop sobre otra orden abre GroupOrderModal para seleccionar tipo (FedEx/General). Batch completion: completar una orden del grupo completa todas. Group-aware returnToPicker y deleteList para lifecycle limpio.
+- **Archivos:** migración `20260325000003_order_groups.sql`, `GroupOrderModal.tsx`, `useOrderGroups.ts`, `DoubleCheckHeader.tsx`, `PickingCartDrawer.tsx`, `usePickingActions.ts`, `useDoubleCheckList.ts`, `usePickingSync.ts`
 
 ### ~~3. 📦 Distribución física inteligente~~ — COMPLETADO <!-- id: idea-015 -->
 
@@ -124,6 +123,10 @@
       Causa raíz compartida con bug-004: `returnToBuilding()` creaba registros zombie en `active` que sobrevivían post-completion. El fix de bug-004 (preservar `activeListId` + UPDATE en vez de INSERT) elimina la creación de zombies. Adicionalmente, el watcher ya tenía protección: hash SHA-256 para PDFs duplicados, lookup por `order_number` antes de insertar, y `reopen_completed_order()` que hace UPDATE (no INSERT). `usePickingSync` también purga IDs stale que apuntan a órdenes completadas al recargar la app.
       **Archivos:** Mismo fix que bug-004 — no requirió cambios adicionales.
 
+- [x] **[bug-007] Verification list no muestra órdenes ready_to_double_check >24h** — `[2026-03-25]` · **Fix:** `[2026-03-25]`
+      El query de `useDoubleCheckList` tenía `.gt('updated_at', 24h)` que descartaba órdenes no tocadas en 24+ horas. También `takeOverOrder` no actualizaba `updated_at`, así que el takeover no "revivía" la orden. Fix: eliminar filtro de 24h (auto-cancel ya limpia stale orders), y takeover ahora actualiza `updated_at`.
+      **Archivos:** `useDoubleCheckList.ts`, `usePickingActions.ts`
+
 - [ ] **Offline Sync Edge Cases**: Handle complex rollback scenarios in InventoryProvider. <!-- id: bug-001 -->
 
 ---
@@ -143,6 +146,12 @@
 | Override cantidad por pallet en double-check (idea-018)     | `[2026-03-24]` | `[2026-03-24]`       | Completado — override manual + redistribución automática             |
 | Preservar internal_note en moves (idea-017)                 | `[2026-03-24]` | `[2026-03-25]`       | Completado — herencia auto, diálogo merge, undo restore              |
 | Distribución física inteligente para bikes (idea-015)       | `[2026-03-18]` | `[2026-03-25]`       | Completado — TOWER×30, LINE×5, LINE×residuo; trigger + frontend      |
+| Agrupación visual de órdenes FedEx/General (idea-010b)      | `[2026-03-18]` | `[2026-03-25]`       | Completado — DnD grouping, batch completion, group lifecycle         |
+| Backfill distribución para items legacy (idea-015b)         | `[2026-03-25]` | `[2026-03-25]`       | Completado — auto-gen para items sin dist, TOWER<16→LINE             |
+| 25 errores TypeScript strict-mode corregidos                | `[2026-03-25]` | `[2026-03-25]`       | Completado — AutocompleteInput genérico, casts en tests, etc.        |
+| Unidades en vez de SKUs en combined orders (OrderSidebar)   | `[2026-03-25]` | `[2026-03-25]`       | Completado — muestra unit count por orden fuente                     |
+| Parser robusto de direcciones US con fuzzy matching         | `[2026-03-25]` | `[2026-03-25]`       | Completado — parseUSAddress.ts con sufijos completos + abreviados    |
+| Fix: verification list no mostraba órdenes >24h (bug-007)   | `[2026-03-25]` | `[2026-03-25]`       | Completado — eliminado filtro 24h, takeover actualiza updated_at     |
 | Order number en label de pallets                            | `[2026-03-11]` | `[2026-03-11 14:28]` | Completado                                                           |
 | Barra de capacidad de locations                             | `[2026-03-11]` | `[2026-03-18 10:00]` | Resuelto (fix de performance)                                        |
 | Takeover muestra picker real                                | `[2026-03-11]` | `[2026-03-13 13:12]` | Completado                                                           |

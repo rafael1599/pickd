@@ -1,0 +1,23 @@
+Progress Update — March 25, 2026 at 6:30 PM
+
+WIN OF THE DAY:
+Drag-and-drop order grouping for FedEx shipments is live — long-press an order, drop it on another, and they're linked for batch completion.
+
+WHAT'S BETTER NOW:
+- Drag-and-drop order grouping in the verification queue — long-press to grab an order, drop on another to create a FedEx or General group. All orders in a group complete together when any one is finished
+- Smart distribution backfill — all existing inventory items now have proper physical distribution (towers/lines). Small "towers" of less than 16 units were converted to lines to match reality
+- Combined order detail now shows unit count per source order instead of SKU count — more useful for the warehouse team
+- Robust US address parser with fuzzy matching — handles full suffixes like STREET, AVENUE, BOULEVARD (not just abbreviations ST, AVE, BLVD)
+- 25 TypeScript strict-mode errors fixed across 8 files — cleaner codebase, safer refactors
+- Verification list now shows all ready orders regardless of age — previously orders untouched for 24+ hours would silently disappear
+- Takeover button in Orders view now properly refreshes the order so it appears immediately in the verification queue
+
+BUGS FIXED:
+- Orders in ready_to_double_check status were invisible if untouched for 24+ hours due to an overly aggressive time filter
+- Takeover wasn't updating the order timestamp, so realtime subscribers didn't pick up the change
+
+COMING UP NEXT:
+- Daily user activity report for warehouse supervisors
+- Optimistic UI fixes for quantity update flashes
+
+9 done today / 12 in the queue
