@@ -8,6 +8,7 @@ import Scissors from 'lucide-react/dist/esm/icons/scissors';
 import { CustomerAutocomplete } from '../../features/picking/components/CustomerAutocomplete';
 import { usePickingSession } from '../../context/PickingContext';
 import { useConfirmation } from '../../context/ConfirmationContext';
+import { parseUSAddress } from '../../utils/parseUSAddress';
 import type { CombineMeta, PickingList, PickingListItem } from '../../schemas/picking.schema';
 import type { Customer } from '../../types/schema';
 import type { User } from '@supabase/supabase-js';
@@ -56,53 +57,12 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
 
   if (!selectedOrder) return null;
 
-  // Auto-parse full US address pasted into street field
-  // Supports: "123 Main St, Miami, FL 33101", "123 Main St, Miami FL 33101",
-  //           "37 OCEAN ST South Portland, ME 04106 USA"
   const handleStreetChange = (value: string) => {
-    // Pattern 1: street, city[,] STATE ZIP [COUNTRY] (comma between street and city)
-    const match = value.match(/^(.+?),\s*(.+?)[,\s]+([A-Z]{2})\s+(\d{5}(?:-\d{4})?)(?:\s+\w+)?$/i);
-    if (match) {
-      setFormData({
-        ...formData,
-        street: match[1].trim(),
-        city: match[2].trim(),
-        state: match[3].toUpperCase(),
-        zip: match[4],
-      });
+    const parsed = parseUSAddress(value);
+    if (parsed) {
+      setFormData({ ...formData, ...parsed });
       return;
     }
-
-    // Pattern 2: street city, STATE ZIP [COUNTRY] (single comma before state)
-    // Split street from city using common street suffixes
-    const match2 = value.match(/^(.+),\s*([A-Z]{2})\s+(\d{5}(?:-\d{4})?)(?:\s+\w+)?$/i);
-    if (match2) {
-      const beforeComma = match2[1].trim();
-      const state = match2[2].toUpperCase();
-      const zip = match2[3];
-      const suffixRx =
-        /\b(STREET|ST|AVENUE|AVE|BOULEVARD|BLVD|DRIVE|DR|LANE|LN|ROAD|RD|COURT|CT|PLACE|PL|WAY|CIRCLE|CIR|TERRACE|TER|PARKWAY|PKWY|HIGHWAY|HWY|SQUARE|SQ|LOOP|TRAIL|TRL|POINT|PT|RUN|PASS|CROSSING|XING|ALLEY|ALY)\b/i;
-      const suffixMatch = beforeComma.match(suffixRx);
-      if (suffixMatch) {
-        const idx = beforeComma.indexOf(suffixMatch[0]) + suffixMatch[0].length;
-        const afterSuffix = beforeComma.substring(idx).trim();
-        const aptMatch = afterSuffix.match(/^((?:APT|SUITE|STE|UNIT|#)\s*\S+)\s+(.+)$/i);
-        let street: string, city: string;
-        if (aptMatch) {
-          street = beforeComma.substring(0, idx).trim() + ' ' + aptMatch[1];
-          city = aptMatch[2].trim();
-        } else if (afterSuffix) {
-          street = beforeComma.substring(0, idx).trim();
-          city = afterSuffix;
-        } else {
-          street = beforeComma;
-          city = '';
-        }
-        setFormData({ ...formData, street, city, state, zip });
-        return;
-      }
-    }
-
     setFormData({ ...formData, street: value });
   };
 
