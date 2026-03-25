@@ -391,7 +391,7 @@ export const InventoryScreen = () => {
     } finally {
       setIsGeneratingPDF(false);
     }
-  }, [allLocationBlocks, profile, authUser]);  
+  }, [allLocationBlocks, profile, authUser]);
 
   // Picking Mode State
   const { cartItems, addToCart, getAvailableStock, onStartSession, sessionMode } =
@@ -437,13 +437,16 @@ export const InventoryScreen = () => {
       targetWarehouse: string;
       targetLocation: string;
       quantity: number;
+      internalNote?: string | null;
     }) => {
       try {
         await moveItem(
           moveData.sourceItem,
           moveData.targetWarehouse,
           moveData.targetLocation,
-          moveData.quantity
+          moveData.quantity,
+          undefined,
+          moveData.internalNote
         );
         toast.success('Stock successfully moved!');
       } catch (err: unknown) {

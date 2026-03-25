@@ -173,10 +173,17 @@ export const useInventory = () => {
       targetWarehouse: string,
       targetLocation: string,
       qty: number,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      _isReversal?: boolean
+       
+      _isReversal?: boolean,
+      internalNote?: string | null
     ) => {
-      await mutMoveItem.mutateAsync({ sourceItem, targetWarehouse, targetLocation, qty });
+      await mutMoveItem.mutateAsync({
+        sourceItem,
+        targetWarehouse,
+        targetLocation,
+        qty,
+        internalNote,
+      });
     },
     [mutMoveItem]
   );

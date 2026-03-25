@@ -689,6 +689,7 @@ export type Database = {
       adjust_inventory_quantity: {
         Args: {
           p_delta: number;
+          p_internal_note?: string;
           p_list_id?: string;
           p_location: string;
           p_merge_note?: string;
@@ -747,6 +748,7 @@ export type Database = {
         Args: {
           p_from_location: string;
           p_from_warehouse: string;
+          p_internal_note?: string;
           p_performed_by: string;
           p_qty: number;
           p_sku: string;

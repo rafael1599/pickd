@@ -758,7 +758,8 @@ class InventoryService extends BaseService<
     targetWarehouse: string,
     targetLocation: string,
     qty: number,
-    ctx: InventoryServiceContext
+    ctx: InventoryServiceContext,
+    internalNote?: string | null
   ) {
     const { userInfo } = ctx;
 
@@ -774,6 +775,7 @@ class InventoryService extends BaseService<
       p_performed_by: userInfo.performed_by,
       p_user_id: userInfo.user_id,
       p_user_role: 'staff',
+      ...(internalNote !== undefined && { p_internal_note: internalNote ?? undefined }),
     });
 
     if (error) {

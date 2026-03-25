@@ -216,13 +216,15 @@ export function useInventoryMutations() {
       targetWarehouse: string;
       targetLocation: string;
       qty: number;
+      internalNote?: string | null;
     }) => {
       return inventoryService.moveItem(
         vars.sourceItem as InventoryItem,
         vars.targetWarehouse,
         vars.targetLocation,
         vars.qty,
-        getServiceContext() as InventoryServiceContext
+        getServiceContext() as InventoryServiceContext,
+        vars.internalNote
       );
     },
     onMutate: async (vars) => {
@@ -273,6 +275,7 @@ export function useInventoryMutations() {
                     quantity: (item.quantity || 0) + vars.qty,
                     is_active: true,
                     _lastLocalUpdateAt: Date.now(),
+                    ...(vars.internalNote !== undefined && { internal_note: vars.internalNote }),
                   },
                 ];
               }
