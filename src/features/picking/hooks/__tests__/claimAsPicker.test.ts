@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { usePickingActions } from '../usePickingActions';
+import type { User } from '@supabase/supabase-js';
 
 // --- Supabase mock -----------------------------------------------------------
 const mockSingle = vi.fn();
@@ -14,11 +15,11 @@ const mockFrom = vi.fn((table: string) => {
 });
 
 vi.mock('../../../../lib/supabase', () => ({
-  supabase: { from: (...args: string[]) => mockFrom(...args) },
+  supabase: { from: (table: string) => mockFrom(table) },
 }));
 
 // --- Helpers -----------------------------------------------------------------
-const REAL_USER = { id: 'user-real-abc' };
+const REAL_USER = { id: 'user-real-abc' } as User;
 const SCRIPT_USER = 'user-script-xyz';
 
 function makeProps(overrides: Record<string, unknown> = {}) {

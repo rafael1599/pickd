@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { inventoryService } from '../inventory.service';
 import { mockSupabase } from '../../../../test/mocks/supabase';
 import type { InventoryServiceContext } from '../inventory.service';
-import type { InventoryItem, InventoryItemInput } from '../../../../schemas/inventory.schema';
+import type { InventoryItem } from '../../../../schemas/inventory.schema';
 import type { Location } from '../../../../schemas/location.schema';
 
 describe('InventoryService', () => {
@@ -42,10 +42,10 @@ describe('InventoryService', () => {
       trackLog: vi.fn().mockResolvedValue(null),
     };
 
-    const mockLocations: Pick<Location, 'id' | 'warehouse' | 'location'>[] = [
+    const mockLocations = [
       { id: 'loc-1', warehouse: 'LUDLOW', location: 'Row 1' },
       { id: 'loc-2', warehouse: 'LUDLOW', location: 'Row 2' },
-    ];
+    ] as unknown as Location[];
 
     const originalItem = {
       id: 101, // Must be number per schema
@@ -75,9 +75,10 @@ describe('InventoryService', () => {
 
       const updatedData = {
         sku: 'SKU-B',
-        warehouse: 'LUDLOW',
+        warehouse: 'LUDLOW' as const,
         location: 'Row 1',
         quantity: 5,
+        distribution: [],
       };
 
       await expect(
@@ -105,10 +106,11 @@ describe('InventoryService', () => {
 
       const updatedData = {
         sku: 'SKU-A',
-        warehouse: 'LUDLOW',
+        warehouse: 'LUDLOW' as const,
         location: 'Row 2',
         quantity: 5,
         item_name: 'NUEVA DESCRIPCIÓN',
+        distribution: [],
       };
 
       const result = await inventoryService.updateItem(
@@ -155,10 +157,11 @@ describe('InventoryService', () => {
 
       const updatedData = {
         sku: 'SKU-A',
-        warehouse: 'LUDLOW',
+        warehouse: 'LUDLOW' as const,
         location: 'Row 2',
         quantity: 5,
         item_name: '   ', // Empty spaces
+        distribution: [],
       };
 
       await inventoryService.updateItem(originalItem, updatedData, mockLocations, mockCtx);

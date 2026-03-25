@@ -10,7 +10,10 @@ import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import MapPin from 'lucide-react/dist/esm/icons/map-pin';
 import { useInventory } from '../hooks/useInventoryData.ts';
 import { useMovementForm } from '../hooks/useMovementForm.ts';
-import { useLocationSuggestions } from '../hooks/useLocationSuggestions.ts';
+import {
+  useLocationSuggestions,
+  type LocationSuggestion,
+} from '../hooks/useLocationSuggestions.ts';
 import AutocompleteInput from '../../../components/ui/AutocompleteInput.tsx';
 import { CapacityBar } from '../../../components/ui/CapacityBar.tsx';
 import { useLocationManagement } from '../hooks/useLocationManagement.ts';
@@ -100,9 +103,9 @@ export const MovementModal: React.FC<MovementModalProps> = ({
     return () => setIsNavHidden!(false);
   }, [formData.targetLocation, isOpen, setIsNavHidden]);
 
-  const displaySuggestions = useMemo(() => {
+  const displaySuggestions: LocationSuggestion[] = useMemo(() => {
     if (formData.targetLocation && formData.targetLocation.length > 0) {
-      return prediction.matches.map((locName) => {
+      return prediction.matches.map((locName): LocationSuggestion => {
         const locObj = locations.find(
           (l) =>
             (l.warehouse || '').toUpperCase() === (formData.targetWarehouse || '').toUpperCase() &&
@@ -112,11 +115,11 @@ export const MovementModal: React.FC<MovementModalProps> = ({
 
         return {
           value: locName,
-          priorityLabel: 'Match' as const,
+          priorityLabel: 'Match',
           score: 100,
           current: cap?.current || 0,
           max: cap?.max || locObj?.max_capacity || 550,
-          zone_type: locObj?.zone || 'UNKNOWN',
+          zone: (locObj?.zone || 'UNKNOWN') as LocationSuggestion['zone'],
         };
       });
     }
@@ -477,7 +480,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                 </button>
               )}
 
-              <AutocompleteInput
+              <AutocompleteInput<LocationSuggestion>
                 id="inventory_location"
                 label="Target Location"
                 value={formData.targetLocation}
@@ -493,11 +496,11 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                     <div className="flex justify-between items-center mb-1.5">
                       <div className="flex items-center gap-2">
                         <span className="font-black text-content">{suggestion.value}</span>
-                        {suggestion.zone_type && (
+                        {suggestion.zone && (
                           <span
-                            className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-surface border border-subtle ${getZoneColor(suggestion.zone_type)}`}
+                            className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-surface border border-subtle ${getZoneColor(suggestion.zone)}`}
                           >
-                            {suggestion.zone_type}
+                            {suggestion.zone}
                           </span>
                         )}
                       </div>

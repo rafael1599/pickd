@@ -42,8 +42,7 @@ export function QueryProvider({ children }: QueryProviderProps) {
               console.log(
                 `[QueryProvider] Restoring in-flight mutation for resumption: ${JSON.stringify(m.options.mutationKey)}`
               );
-              // @ts-expect-error - Direct state manipulation for durability restoration
-              m.state.isPaused = true;
+              (m.state as unknown as { isPaused: boolean }).isPaused = true;
             }
           });
 

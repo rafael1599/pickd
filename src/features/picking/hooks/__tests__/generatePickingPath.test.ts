@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { usePickingActions } from '../usePickingActions';
+import type { User } from '@supabase/supabase-js';
+import type { CartItem } from '../usePickingCart';
 
 // --- Supabase mock -----------------------------------------------------------
 const mockSingle = vi.fn();
@@ -9,14 +11,15 @@ const mockUpdate = vi.fn(() => ({ eq: mockEq }));
 const mockInsert = vi.fn(() => ({ select: vi.fn(() => ({ single: mockSingle })) }));
 const mockIn = vi.fn();
 const mockSelect = vi.fn(() => ({ in: mockIn, eq: mockEq }));
-const mockFrom = vi.fn(() => ({
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const mockFrom = vi.fn((_table?: string) => ({
   select: mockSelect,
   insert: mockInsert,
   update: mockUpdate,
 }));
 
 vi.mock('../../../../lib/supabase', () => ({
-  supabase: { from: (...args: string[]) => mockFrom(...args) },
+  supabase: { from: (table: string) => mockFrom(table) },
 }));
 
 vi.mock('react-hot-toast', () => ({
@@ -24,12 +27,12 @@ vi.mock('react-hot-toast', () => ({
 }));
 
 // --- Helpers -----------------------------------------------------------------
-const USER = { id: 'user-1', user_id: 'user-1' };
+const USER = { id: 'user-1', user_id: 'user-1' } as unknown as User;
 const EXISTING_LIST_ID = 'list-existing-uuid';
 
 const CART_ITEMS = [
   { sku: 'SKU-001', warehouse: 'WH1', location: 'LINE-A', pickingQty: 2, item_name: 'Widget' },
-];
+] as unknown as CartItem[];
 
 const STOCK_ROWS = [{ sku: 'SKU-001', quantity: 10, warehouse: 'WH1', location: 'LINE-A' }];
 

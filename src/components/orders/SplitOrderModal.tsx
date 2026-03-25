@@ -3,6 +3,7 @@ import X from 'lucide-react/dist/esm/icons/x';
 import Scissors from 'lucide-react/dist/esm/icons/scissors';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
+import type { Json } from '../../integrations/supabase/types';
 import type { CombineMeta, PickingList, PickingListItem } from '../../schemas/picking.schema';
 
 interface SplitOrder extends PickingList {
@@ -57,12 +58,12 @@ export const SplitOrderModal: React.FC<SplitOrderModalProps> = ({
         if (items.length === 0) continue;
 
         await supabase.from('picking_lists').insert({
-          user_id: order.user_id,
+          user_id: order.user_id!,
           order_number: orderNum,
           status: 'ready_to_double_check',
-          source: order.source || 'pdf_import',
+          source: order.source ?? 'pdf_import',
           is_addon: false,
-          items,
+          items: items as unknown as Json,
           customer_id: order.customer_id,
           combine_meta: null,
         });

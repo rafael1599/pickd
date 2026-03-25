@@ -10,7 +10,7 @@ import {
 import { SLOTTING_CONFIG } from '../../../config/slotting';
 import { type ZoneType } from '../../../schemas/zone.schema';
 
-interface LocationSuggestion {
+export interface LocationSuggestion {
   value: string;
   current: number;
   max: number;
@@ -85,7 +85,7 @@ export const useLocationSuggestions = (
     const targetInv = targetWarehouse === 'ATS' ? atsData : ludlowData;
     // Ensure targetWarehouse is strictly typed as 'LUDLOW' | 'ATS'
     // If it's effectively one of them, types should work with a cast or check
-    /* eslint-disable-next-line @typescript-eslint/consistent-type-assertions */
+     
     const shippingArea = SLOTTING_CONFIG.SHIPPING_AREAS[targetWarehouse as 'LUDLOW' | 'ATS'];
 
     const locationMap = new Map<string, LocationSuggestion>();
