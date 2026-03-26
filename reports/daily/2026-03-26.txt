@@ -1,21 +1,17 @@
-Progress Update — March 26, 2026 at 9:53 AM
+Progress Update — March 26, 2026 at 10:34 AM
 
 WIN OF THE DAY:
-You can now take photos of inventory items directly from the app — snap a picture and it shows up everywhere that item appears.
+Two major upgrades in one morning — item photos across the app and a bike bins filter so warehouse rows stay clean.
 
 WHAT'S BETTER NOW:
-- Item photos show in Stock View, the picking screen, and the verification screen so the team always knows what they're looking for
-- Photos are compressed automatically so they load fast on any device
-- All 98 automated tests passing — nothing broke with the latest changes
+- Snap a photo of any item and it shows up everywhere: Stock View, picking screen, and verification screen
+- New "Show bike bins" toggle in Stock View hides D17/D13 clutter by default — search still finds everything
+- Photos compress automatically so they load fast on any device
+- Scrolling on modals now locks the background so the page doesn't jump around while you're working
+- Touch scrolling fixed in the verification queue and order sidebar — no more stuck screens on iPad
+- Behind the scenes: 39 code quality fixes to prevent future issues
 
 COMING UP NEXT:
 - Preventing double-assignment when two orders come in at the same time for the same item
-- Filter to hide bike bins in Stock View for users who don't work with bikes
 
-STORAGE CHECK:
-- Database is at 61 MB out of 500 MB (12%) — at the current pace, we have roughly 8 years of room
-- Photo storage is at 0 MB out of 10 GB — even with photos for every single item, we'd use less than 1%
-- The daily snapshots table is the biggest grower (about 96 KB per day), but still very manageable
-- Bottom line: no storage concerns for the foreseeable future
-
-1 done today / 13 in the queue
+3 done today / 11 in the queue
