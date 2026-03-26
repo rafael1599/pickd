@@ -31,10 +31,10 @@
 - **Triggers:** INSERT (trigger DB), move sin merge (trigger DB), move con merge (recálculo en `move_inventory_stock`). Frontend auto-fill en InventoryModal (add mode) y preview en MovementModal.
 - **Archivos:** migración `20260325000002_smart_bike_distribution.sql`, `src/utils/distributionCalculator.ts`, `InventoryModal.tsx`, `MovementModal.tsx`
 
-### 4. Prevenir reserva duplicada de items en el watcher <!-- id: idea-021 -->
+### ~~4. Prevenir reserva duplicada de items en el watcher~~ — COMPLETADO <!-- id: idea-021 -->
 
-- **Creado:** `[2026-03-26 10:00]`
-- **Estado:** Por hacer.
+- **Creado:** `[2026-03-26 10:00]` · **Completado:** `[2026-03-26]`
+- **Estado:** Implementado — `_to_cart_items()` ahora consulta picking_lists activas y resta stock reservado antes de asignar locations.
 - **Problema:** `_to_cart_items()` en `watchdog-pickd/supabase_client.py` lee un snapshot del inventario al importar el PDF pero nunca consulta las `picking_lists` activas. Si dos PDFs llegan con segundos de diferencia y ambos necesitan el mismo SKU en la misma location (ej: D17), ambos ven el stock completo y ambos asignan esa location — aunque combinados excedan el stock real. La reserva "soft" que existe solo vive en el frontend (`usePickingActions.ts`) y se ejecuta cuando el picker marca "ready", no cuando el watcher crea la orden.
 - **Escenario de falla:** PDF Order A llega, lee D17=30 units, asigna 20. PDF Order B llega 500ms después, lee D17=30 (no se dedujo nada), asigna 25. Total asignado=45, stock real=30.
 - **Solución:**
@@ -49,10 +49,10 @@
   - La orden se procesa normalmente (no se bloquea)
   - El query adicional no agrega >200ms de latencia al procesamiento de PDFs
 
-### 5. Filtro de bike bins en Stock View <!-- id: idea-022 -->
+### ~~5. Filtro de bike bins en Stock View~~ — COMPLETADO <!-- id: idea-022 -->
 
-- **Creado:** `[2026-03-26 10:00]`
-- **Estado:** Por hacer.
+- **Creado:** `[2026-03-26 10:00]` · **Completado:** `[2026-03-26]`
+- **Estado:** Implementado — checkbox "Show bike bins" en Stock View, desactivado por defecto.
 - **Problema:** Items en locations tipo D17, D13 (bike bins) se mezclan con las ROW N (warehouse rows generales). Los usuarios que no trabajan con bicicletas ven ruido innecesario; los que sí trabajan con bikes no pueden aislar esos bins fácilmente.
 - **Clasificación (solo por nombre):** location que matchea `^ROW \d+$` = warehouse row (siempre visible). Todo lo demás (D17, D13, etc.) = bike bin (oculto por defecto).
 - **Solución:**
@@ -198,6 +198,8 @@
 | Unidades en vez de SKUs en combined orders (OrderSidebar)   | `[2026-03-25]` | `[2026-03-25]`       | Completado — muestra unit count por orden fuente                     |
 | Parser robusto de direcciones US con fuzzy matching         | `[2026-03-25]` | `[2026-03-25]`       | Completado — parseUSAddress.ts con sufijos completos + abreviados    |
 | Fix: verification list no mostraba órdenes >24h (bug-007)   | `[2026-03-25]` | `[2026-03-25]`       | Completado — eliminado filtro 24h, takeover actualiza updated_at     |
+| Filtro de bike bins en Stock View (idea-022)                | `[2026-03-26]` | `[2026-03-26]`       | Completado — toggle "Show bike bins", búsqueda siempre global        |
+| Prevenir reserva duplicada en watcher (idea-021)            | `[2026-03-26]` | `[2026-03-26]`       | Completado — reservation-aware stock en \_to_cart_items()            |
 | Order number en label de pallets                            | `[2026-03-11]` | `[2026-03-11 14:28]` | Completado                                                           |
 | Barra de capacidad de locations                             | `[2026-03-11]` | `[2026-03-18 10:00]` | Resuelto (fix de performance)                                        |
 | Takeover muestra picker real                                | `[2026-03-11]` | `[2026-03-13 13:12]` | Completado                                                           |
