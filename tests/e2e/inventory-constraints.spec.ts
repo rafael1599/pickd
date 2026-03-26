@@ -52,13 +52,21 @@ test.describe('Inventory Constraints & Integrity', () => {
       await expect(detailView).toBeHidden({ timeout: 10000 });
       await inventoryPage.waitForNetworkIdle();
 
-      // Search for it
+      // Search for it — qty 0 items are hidden by default
       await inventoryPage.search(sku);
 
-      // Should be visible in list
+      // Enable "Show Deleted Items & Qty 0 SKUs" checkbox (appears when search has no visible results)
+      const showInactiveCheckbox = page.locator('#show-inactive');
+      await expect(showInactiveCheckbox).toBeVisible({ timeout: 5000 });
+      await showInactiveCheckbox.check();
+      await page.waitForTimeout(1200); // wait for filter re-render
+
+      // Should be visible in list after enabling the filter
       await inventoryPage.verifyItemExists(sku);
 
-      console.log('Verified: Items created with 0 quantity are now visible in stock view');
+      console.log(
+        'Verified: Items with 0 quantity are visible when "Show Deleted Items" is enabled'
+      );
     } else {
       console.log('Verified: UI prevents creating 0 quantity items');
     }

@@ -78,6 +78,101 @@ docker exec -e PGPASSWORD=postgres -i "$CONTAINER" psql -U "$SU" -d postgres < "
 docker exec -e PGPASSWORD=postgres -i "$CONTAINER" psql -U "$SU" -d postgres \
   -c "ALTER TABLE auth.users ENABLE TRIGGER ALL;" >/dev/null 2>&1
 
+# ── 6b. Fix auth for local login + create E2E test users ──
+echo "🔑 Fixing auth for local login..."
+docker exec -e PGPASSWORD=postgres -i "$CONTAINER" psql -U "$SU" -d postgres <<'EOSQL'
+-- SAFETY: Abort if somehow connected to non-local DB
+DO $$ BEGIN
+  IF NOT (inet_server_addr() IS NULL OR inet_server_addr()::text IN ('127.0.0.1', '::1', '0.0.0.0')) THEN
+    RAISE EXCEPTION 'ABORT: Password reset is for LOCAL only. Detected non-local server: %', inet_server_addr();
+  END IF;
+END $$;
+
+-- Remove phone uniqueness constraint (causes issues with empty string duplicates)
+ALTER TABLE auth.users DROP CONSTRAINT IF EXISTS users_phone_key;
+
+-- Fix NULL string fields in auth.users (GoTrue crashes with "converting NULL to string")
+UPDATE auth.users SET
+    phone              = COALESCE(phone, ''),
+    phone_change       = COALESCE(phone_change, ''),
+    phone_change_token = COALESCE(phone_change_token, ''),
+    confirmation_token = COALESCE(confirmation_token, ''),
+    recovery_token     = COALESCE(recovery_token, ''),
+    email_change       = COALESCE(email_change, ''),
+    email_change_token_new     = COALESCE(email_change_token_new, ''),
+    email_change_token_current = COALESCE(email_change_token_current, ''),
+    reauthentication_token     = COALESCE(reauthentication_token, '');
+
+-- Set all production users to a known local password (1111)
+-- and ensure email_confirmed_at is set (required for login)
+UPDATE auth.users SET
+    encrypted_password = crypt('1111', gen_salt('bf')),
+    email_confirmed_at = COALESCE(email_confirmed_at, now());
+
+-- Create missing auth.identities for production users (required for login)
+INSERT INTO auth.identities (id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at, provider_id)
+SELECT gen_random_uuid(), u.id,
+       jsonb_build_object('sub', u.id, 'email', u.email),
+       'email', now(), now(), now(), u.id::text
+FROM auth.users u
+WHERE NOT EXISTS (
+    SELECT 1 FROM auth.identities i WHERE i.user_id = u.id AND i.provider = 'email'
+);
+
+-- Activate all profiles for local development
+UPDATE public.profiles SET is_active = true;
+
+-- ── E2E Test Users ──
+-- These are the users expected by Playwright tests (defined in .env)
+-- Credentials: admin@test.com/password123, staff@test.com/password123
+
+-- Create auth.users for E2E (ON CONFLICT = upsert password)
+INSERT INTO auth.users (
+    id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
+    raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_sso_user,
+    confirmation_token, recovery_token, email_change_token_new, email_change_token_current,
+    phone_change_token, reauthentication_token, email_change, phone, phone_change
+) VALUES
+('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000',
+ 'authenticated', 'authenticated', 'admin@test.com',
+ crypt('password123', gen_salt('bf')), now(),
+ '{"provider":"email","providers":["email"]}',
+ '{"full_name":"Test Admin","is_active":true}',
+ now(), now(), false, '', '', '', '', '', '', '', '', ''),
+('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000000',
+ 'authenticated', 'authenticated', 'staff@test.com',
+ crypt('password123', gen_salt('bf')), now(),
+ '{"provider":"email","providers":["email"]}',
+ '{"full_name":"Test Staff","is_active":true}',
+ now(), now(), false, '', '', '', '', '', '', '', '', '')
+ON CONFLICT (id) DO UPDATE SET
+    encrypted_password = EXCLUDED.encrypted_password,
+    email_confirmed_at = EXCLUDED.email_confirmed_at;
+
+-- Create identities for E2E users
+INSERT INTO auth.identities (id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at, provider_id)
+VALUES
+(gen_random_uuid(), '00000000-0000-0000-0000-000000000001',
+ '{"sub":"00000000-0000-0000-0000-000000000001","email":"admin@test.com"}',
+ 'email', now(), now(), now(), '00000000-0000-0000-0000-000000000001'),
+(gen_random_uuid(), '00000000-0000-0000-0000-000000000002',
+ '{"sub":"00000000-0000-0000-0000-000000000002","email":"staff@test.com"}',
+ 'email', now(), now(), now(), '00000000-0000-0000-0000-000000000002')
+ON CONFLICT DO NOTHING;
+
+-- Create profiles for E2E users
+INSERT INTO public.profiles (id, email, full_name, role, is_active) VALUES
+('00000000-0000-0000-0000-000000000001', 'admin@test.com', 'Test Admin', 'admin', true),
+('00000000-0000-0000-0000-000000000002', 'staff@test.com', 'Test Staff', 'staff', true)
+ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, is_active = EXCLUDED.is_active;
+
+-- Reload PostgREST schema cache
+NOTIFY pgrst, 'reload schema';
+EOSQL
+echo "   Production users → password: 1111"
+echo "   E2E admin@test.com → password: password123"
+echo "   E2E staff@test.com → password: password123"
+
 # ── 7. Verify — dynamically query all public tables ──
 echo ""
 echo "📊 Row counts:"

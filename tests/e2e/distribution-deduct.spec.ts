@@ -363,15 +363,19 @@ test.describe('Distribution Auto-Adjustment on Deduction', () => {
     expect(item!.quantity).toBe(10);
 
     const dist = item!.distribution as DistEntry[];
-    // Distribution should be empty since we deducted more than distribution total
-    expect(dist.length).toBe(0);
+    // After deducting more than distribution total, all original entries are consumed.
+    // The trigger `set_default_inventory_distribution` auto-generates a default TOWER
+    // entry when distribution becomes empty and quantity > 0.
+    expect(dist.length).toBe(1);
+    expect(dist[0].type).toBe('TOWER');
+    expect(dist[0].count).toBe(1);
+    expect(dist[0].units_each).toBe(10);
   });
 
   /**
-   * UI test: Edit quantity down and verify distribution adjusts in the modal.
-   * Skipped: UI search/navigation needs adjustment to find dynamically inserted items.
+   * UI test: Edit quantity down and verify distribution adjusts via Save.
    */
-  test.skip('should show updated distribution in modal after quantity edit', async ({
+  test('should show updated distribution in modal after quantity edit', async ({
     inventoryPage,
     supabaseAdmin,
     page,
@@ -415,13 +419,10 @@ test.describe('Distribution Auto-Adjustment on Deduction', () => {
     await qtyInput.fill('30');
     await qtyInput.press('Enter');
 
-    // Auto-save triggers on quantity change in edit mode
-    await page.waitForTimeout(2000);
-
-    // Close the detail view via the X button in the toolbar
-    const toolbar = detailView.locator('.sticky.top-0');
-    const closeBtn = toolbar.locator('button').last();
-    await closeBtn.click();
+    // Click Save button to persist quantity change
+    const saveBtn = page.getByRole('button', { name: /save/i });
+    await expect(saveBtn).toBeEnabled({ timeout: 5000 });
+    await saveBtn.click();
 
     // Wait for detail view to close
     await expect(detailView).toBeHidden({ timeout: 10000 });

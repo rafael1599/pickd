@@ -1,0 +1,7 @@
+Storage Check — March 26, 2026
+
+STORAGE CHECK:
+- Database is at 61 MB out of 500 MB (12%) — at the current pace, we have roughly 8 years of room
+- Photo storage is at 0 MB out of 10 GB — even with photos for every single item, we'd use less than 1%
+- The daily snapshots table is the biggest grower (about 96 KB per day), but still very manageable
+- Bottom line: no storage concerns for the foreseeable future

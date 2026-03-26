@@ -43,10 +43,12 @@ export class InventoryPage extends BasePage {
       await qtyInput.press('Enter');
     }
 
-    // The Create button should be disabled (validation prevents negative qty)
-    const createBtn = this.page.getByRole('button', { name: /create/i });
-    const isDisabled = await createBtn.isDisabled();
-    return isDisabled;
+    // QuantityControl rejects negative values and resets to previous (0).
+    // Wait for the stepper to return to display mode showing "0".
+    await this.page.waitForTimeout(300);
+    const resetButton = this.detailView.locator('button').filter({ hasText: /^0$/ }).first();
+    const wasReset = await resetButton.isVisible({ timeout: 2000 }).catch(() => false);
+    return wasReset;
   }
 
   async addItem(data: {
@@ -100,25 +102,18 @@ export class InventoryPage extends BasePage {
   }
 
   getCard(sku: string, location?: string): Locator {
-    const cards = this.page.locator('.bg-card');
-    const skuCards = cards.filter({ hasText: sku });
-
     if (location) {
       const normalizedLoc = location.toUpperCase().trim();
-      // Strategy: Look for the location text in the accent-colored div
-      // or any specific badge within a card that identifies as containing the SKU.
-      // Using a case-insensitive regex for robustness.
-      return skuCards
-        .filter({
-          hasText: new RegExp(
-            `^${normalizedLoc}$|\\s${normalizedLoc}\\s|\\b${normalizedLoc}$`,
-            'i'
-          ),
-        })
-        .first();
+      // Location is rendered as an h3 group header above the cards (not inside .bg-card).
+      // Find the section (div.space-y-4) that contains the h3 with this location,
+      // then locate the card with the matching SKU inside that section.
+      const section = this.page.locator('div.space-y-4').filter({
+        has: this.page.locator('h3', { hasText: normalizedLoc }),
+      });
+      return section.locator('.bg-card').filter({ hasText: sku }).first();
     }
 
-    return skuCards.first();
+    return this.page.locator('.bg-card').filter({ hasText: sku }).first();
   }
 
   async verifyItemExists(sku: string, location?: string) {
@@ -141,13 +136,28 @@ export class InventoryPage extends BasePage {
 
   getNote(sku: string, location?: string): Locator {
     const card = this.getCard(sku, location);
-    // Note is the last tiny font element in the card
-    return card.locator('.text-\\[9px\\]').last();
+    // Note/detail uses bg-main + text-muted + text-[9px] (distinct from other text-[9px] elements)
+    return card.locator('.bg-main.text-muted.text-\\[9px\\]').first();
   }
 
   async reloadAndSearch(sku: string) {
     await this.page.reload({ waitUntil: 'networkidle' });
-    await this.page.waitForTimeout(2500); // Wait for potential animations/load
+    // Wait for React hydration
+    await this.page.waitForTimeout(2000);
+
+    // Force-invalidate TanStack Query cache.
+    // The app uses staleTime: Infinity and relies on websockets for updates.
+    // After reload, IndexedDB restores stale cache that never refetches.
+    // window.queryClient is exposed in query-client.ts for E2E testing.
+    await this.page.evaluate(() => {
+      const qc = (window as unknown as Record<string, { invalidateQueries: () => Promise<void> }>)
+        .queryClient;
+      if (qc) return qc.invalidateQueries();
+    });
+
+    // Wait for refetch to complete + cards to render
+    await this.page.waitForTimeout(3000);
+    await this.page.locator('.bg-card').first().waitFor({ state: 'visible', timeout: 15000 });
     await this.search(sku);
   }
 }
