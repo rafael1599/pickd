@@ -584,9 +584,21 @@ export const PickingSessionView: React.FC<PickingSessionViewProps> = ({
                     {/* SKU, Stock Info and Controls */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-8 h-8 bg-main rounded-lg flex items-center justify-center border border-subtle shrink-0">
-                          <Package className="w-4 h-4 text-muted" />
-                        </div>
+                        {item.sku_metadata?.image_url ? (
+                          <img
+                            src={item.sku_metadata.image_url}
+                            alt={item.sku}
+                            loading="lazy"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                            className="w-10 h-10 object-cover rounded flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 bg-main rounded-lg flex items-center justify-center border border-subtle shrink-0">
+                            <Package className="w-4 h-4 text-muted" />
+                          </div>
+                        )}
                         <div className="min-w-0">
                           <div className="font-bold text-content text-sm truncate flex items-center gap-2">
                             {item.sku}

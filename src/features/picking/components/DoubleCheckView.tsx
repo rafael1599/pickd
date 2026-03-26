@@ -37,6 +37,12 @@ export interface PickingItem {
   item_name?: string | null;
   description?: string | null;
   source_order?: string;
+  sku_metadata?: {
+    image_url?: string | null;
+    length_in?: number | null;
+    width_in?: number | null;
+    height_in?: number | null;
+  } | null;
 }
 
 interface DoubleCheckViewProps {
@@ -606,6 +612,17 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                           </span>
                         </div>
 
+                        {item.sku_metadata?.image_url && (
+                          <img
+                            src={item.sku_metadata.image_url}
+                            alt={item.sku}
+                            loading="lazy"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                            className="w-9 h-9 object-cover rounded flex-shrink-0 border border-white/20"
+                          />
+                        )}
                         <div className="flex flex-col gap-1 min-w-0">
                           {/* SKU row */}
                           <div className="flex items-center gap-2 flex-wrap">

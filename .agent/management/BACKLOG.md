@@ -1,7 +1,7 @@
 # PickD — Backlog de Mejoras
 
 > Mejoras pendientes ordenadas por impacto en el usuario final.
-> Actualizado: 2026-03-25
+> Actualizado: 2026-03-26
 >
 > **Formato:** cada item incluye `[fecha hora]` de creación para trazabilidad y `<!-- id: xxx -->` para tracking.
 > **Single source of truth** — no editar BACKLOG.md en la raíz del proyecto (es un puntero a este archivo).
@@ -31,23 +31,79 @@
 - **Triggers:** INSERT (trigger DB), move sin merge (trigger DB), move con merge (recálculo en `move_inventory_stock`). Frontend auto-fill en InventoryModal (add mode) y preview en MovementModal.
 - **Archivos:** migración `20260325000002_smart_bike_distribution.sql`, `src/utils/distributionCalculator.ts`, `InventoryModal.tsx`, `MovementModal.tsx`
 
-### 4. Vista de reporte diario por usuario de almacén <!-- id: idea-016 -->
+### 4. Prevenir reserva duplicada de items en el watcher <!-- id: idea-021 -->
+
+- **Creado:** `[2026-03-26 10:00]`
+- **Estado:** Por hacer.
+- **Problema:** `_to_cart_items()` en `watchdog-pickd/supabase_client.py` lee un snapshot del inventario al importar el PDF pero nunca consulta las `picking_lists` activas. Si dos PDFs llegan con segundos de diferencia y ambos necesitan el mismo SKU en la misma location (ej: D17), ambos ven el stock completo y ambos asignan esa location — aunque combinados excedan el stock real. La reserva "soft" que existe solo vive en el frontend (`usePickingActions.ts`) y se ejecuta cuando el picker marca "ready", no cuando el watcher crea la orden.
+- **Escenario de falla:** PDF Order A llega, lee D17=30 units, asigna 20. PDF Order B llega 500ms después, lee D17=30 (no se dedujo nada), asigna 25. Total asignado=45, stock real=30.
+- **Solución:**
+  1. Query adicional en `_to_cart_items()`: consultar `picking_lists` con status `IN ('active', 'needs_correction', 'ready_to_double_check', 'double_checking')` y sumar qty reservada por SKU+location.
+  2. Calcular `available = inventory.quantity - sum(pickingQty de órdenes activas para ese SKU+location)`.
+  3. Si available < pickingQty para una location → saltar a la siguiente location con stock suficiente.
+  4. Si ninguna location tiene suficiente → marcar `insufficient_stock=True` y agregar `available_qty` al item. La orden **se crea igualmente** con advertencia — el frontend muestra alerta: _"Needs X, only Y available"_. No bloquea el envío.
+- **Archivos:** `watchdog-pickd/supabase_client.py` (`_to_cart_items()`, `combine_into_order()`)
+- **Criterios de aceptación:**
+  - Dos órdenes con el mismo SKU nunca asignan más stock del disponible en una misma location
+  - Items con stock insuficiente llegan al frontend con `insufficient_stock=True` + `available_qty` y alerta visual
+  - La orden se procesa normalmente (no se bloquea)
+  - El query adicional no agrega >200ms de latencia al procesamiento de PDFs
+
+### 5. Filtro de bike bins en Stock View <!-- id: idea-022 -->
+
+- **Creado:** `[2026-03-26 10:00]`
+- **Estado:** Por hacer.
+- **Problema:** Items en locations tipo D17, D13 (bike bins) se mezclan con las ROW N (warehouse rows generales). Los usuarios que no trabajan con bicicletas ven ruido innecesario; los que sí trabajan con bikes no pueden aislar esos bins fácilmente.
+- **Clasificación (solo por nombre):** location que matchea `^ROW \d+$` = warehouse row (siempre visible). Todo lo demás (D17, D13, etc.) = bike bin (oculto por defecto).
+- **Solución:**
+  1. Nuevo checkbox en Stock View junto a "Show deleted items" y "Qty with 0 stock": **"Show bike bins"** (o similar).
+  2. Por defecto desactivado → solo se ven items en locations tipo ROW N (y items sin location asignada).
+  3. Al activar → se muestran también los items en bike bins.
+  4. **La búsqueda siempre es global** — si el usuario busca un SKU o location específico, los resultados incluyen bike bins aunque el checkbox esté desactivado.
+  5. **Las ROW siempre son visibles** — no debe existir ninguna opción que oculte las warehouse rows.
+- **Archivos:** `src/features/inventory/components/InventoryScreen.tsx` (UI checkbox + lógica de filtrado), `src/features/inventory/hooks/useInventoryData.ts` (filtrado por tipo de location)
+- **Criterios de aceptación:**
+  - Por defecto solo se ven items en ROW N y sin location
+  - Checkbox "Show bike bins" muestra/oculta items en D17, D13, etc.
+  - Búsqueda siempre incluye todos los items independientemente del checkbox
+  - No existe opción para ocultar las ROW — siempre visibles
+  - Estado del checkbox es de sesión (no persiste en DB)
+
+### 6. Fotos de items (SKU metadata) <!-- id: idea-023 -->
+
+- **Creado:** `[2026-03-26 10:00]`
+- **Estado:** Por hacer.
+- **Problema:** No hay forma visual de confirmar que un item es el correcto durante picking o double-check. El campo `sku_metadata.image_url` existe pero no se usa en ninguna vista.
+- **Infraestructura:** Usar el bucket existente de Cloudflare R2 (mismo que snapshots diarios de inventario). Path: `photos/{sku}.webp`. Un archivo por SKU, se sobreescribe al actualizar.
+- **Solución:**
+  - **Fase 1 — Captura:** Botón de cámara en InventoryModal (add/edit). Compresión client-side (max 1200px, calidad 80%, WebP). Upload a Cloudflare R2 → guardar URL en `sku_metadata.image_url`.
+  - **Fase 2 — Visualización:** Thumbnail junto al SKU en Stock View (InventoryScreen). Foto del item en Picking Session (PickingSessionView) y Double Check (DoubleCheckView). Fallback: icono placeholder si no hay foto.
+  - **Fase 3 (futuro):** Bulk upload por CSV + zip de imágenes.
+- **Archivos:** Servicio existente de Cloudflare R2 (extender para fotos), `src/schemas/skuMetadata.schema.ts`, `src/features/inventory/components/InventoryModal.tsx`, `src/features/inventory/components/InventoryScreen.tsx`, `src/features/picking/components/PickingSessionView.tsx`, `src/features/picking/components/DoubleCheckView.tsx`
+- **Criterios de aceptación:**
+  - El usuario puede tomar/subir una foto desde InventoryModal y queda asociada al SKU
+  - La foto se muestra en Stock View, Picking Session, y Double Check
+  - Items sin foto muestran placeholder sin errores de layout
+  - Fotos comprimidas a <500KB típico antes de subir
+  - Un SKU compartido entre múltiples items de inventario muestra la misma foto (vive en `sku_metadata`)
+
+### 7. Vista de reporte diario por usuario de almacén <!-- id: idea-016 -->
 
 - **Creado:** `[2026-03-11 15:30]`
 - **Estado:** Por hacer.
 - Nueva vista tipo dashboard para un rol de supervisión/gerencia que muestre la actividad diaria de cada usuario del almacén: órdenes pickeadas, verificadas, items movidos, y cualquier otra métrica derivada de los movimientos registrados.
 - **Impacto:** visibilidad de productividad individual sin depender de reportes manuales; habilita un nuevo tipo de usuario (supervisor/manager).
 
-### ~~5. Warehouse Selection Refinement~~ <!-- id: task-005 --> — COMPLETADO
+### ~~8. Warehouse Selection Refinement~~ <!-- id: task-005 --> — COMPLETADO
 
 - **Estado:** Completado. `processOrder()` ya acepta `warehousePreferences` como segundo parámetro.
 
-### 6. Optimistic UI Fixes <!-- id: task-006 -->
+### 9. Optimistic UI Fixes <!-- id: task-006 -->
 
 - **Estado:** Por hacer.
 - Address flashes in quantity updates.
 
-### ~~7. Preservar `internal_note` al mover item entre locations (Stock View)~~ — COMPLETADO <!-- id: idea-017 -->
+### ~~10. Preservar `internal_note` al mover item entre locations (Stock View)~~ — COMPLETADO <!-- id: idea-017 -->
 
 - **Creado:** `[2026-03-24 10:00]` · **Completado:** `[2026-03-25]`
 - **Estado:** Implementado — nota interna se preserva en moves y se restaura en undo.
@@ -56,7 +112,7 @@
 - **Undo:** `undo_inventory_action` restaura `internal_note` desde `snapshot_before`.
 - **Archivos:** migración `20260325000001_preserve_internal_note_on_move.sql`, `MovementModal.tsx`, `InventoryScreen.tsx`, `useInventoryData.ts`, `useInventoryMutations.ts`, `inventory.service.ts`, `supabase/types.ts`
 
-### ~~8. Override de cantidad de items por pallet (Double Check View)~~ — COMPLETADO <!-- id: idea-018 -->
+### ~~11. Override de cantidad de items por pallet (Double Check View)~~ — COMPLETADO <!-- id: idea-018 -->
 
 - **Creado:** `[2026-03-24 10:00]` · **Completado:** `[2026-03-24]`
 - **Estado:** En producción.
@@ -66,14 +122,14 @@
   - Una pallet cuya cantidad fue editada manualmente por el usuario queda "bloqueada" — la redistribución automática nunca modifica pallets con override del usuario.
 - **Archivos estimados:** `DoubleCheckView.tsx`, lógica de distribución de pallets.
 
-### ~~9. Sumar peso de pallets al peso total de la orden en label (Orders View)~~ — COMPLETADO <!-- id: idea-019 -->
+### ~~12. Sumar peso de pallets al peso total de la orden en label (Orders View)~~ — COMPLETADO <!-- id: idea-019 -->
 
 - **Creado:** `[2026-03-24 10:00]` · **Completado:** `[2026-03-24]`
 - **Estado:** En producción.
 - El peso total de la orden actualmente solo suma el peso de los items. Falta sumar el peso de las pallets: `peso total = peso items + (número de pallets × 40 lbs)`.
 - **Archivos estimados:** `PalletLabelsPrinter.tsx` o componente de label de orden donde se calcula el peso total.
 
-### ~~10. Auto-parse de dirección completa en campo address (Orders View)~~ — COMPLETADO <!-- id: idea-020 -->
+### ~~13. Auto-parse de dirección completa en campo address (Orders View)~~ — COMPLETADO <!-- id: idea-020 -->
 
 - **Creado:** `[2026-03-24 10:00]` · **Completado:** `[2026-03-24]`
 - **Estado:** En producción.

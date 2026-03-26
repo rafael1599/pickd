@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import X from 'lucide-react/dist/esm/icons/x';
 import Save from 'lucide-react/dist/esm/icons/save';
@@ -8,6 +8,7 @@ import CheckCircle2 from 'lucide-react/dist/esm/icons/check-circle-2';
 import Plus from 'lucide-react/dist/esm/icons/plus';
 import Minus from 'lucide-react/dist/esm/icons/minus';
 import MapPin from 'lucide-react/dist/esm/icons/map-pin';
+import Camera from 'lucide-react/dist/esm/icons/camera';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
@@ -30,6 +31,7 @@ import {
 import { predictLocation } from '../../../utils/locationPredictor.ts';
 import { isBikeSku, calculateBikeDistribution } from '../../../utils/distributionCalculator.ts';
 import { inventoryService } from '../api/inventory.service.ts';
+import { uploadPhoto, deletePhoto } from '../../../services/photoUpload.service';
 
 interface InventoryModalProps {
   isOpen: boolean;
@@ -62,6 +64,8 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
   const [distribution, setDistribution] = useState<DistributionItem[]>([]);
   const [isDistributionOpen, setIsDistributionOpen] = useState(false);
   const [userEditedDistribution, setUserEditedDistribution] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const {
     register,
@@ -127,6 +131,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
           Array.isArray(initialData.distribution) && initialData.distribution.length > 0
         );
         setUserEditedDistribution(false);
+        setPhotoPreview(initialData?.sku_metadata?.image_url || null);
       } else {
         reset({
           sku: '',
@@ -143,6 +148,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         setDistribution([]);
         setIsDistributionOpen(false);
         setUserEditedDistribution(false);
+        setPhotoPreview(null);
       }
     } else {
       setIsNavHidden?.(false);
@@ -423,6 +429,64 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     return () => clearTimeout(timer);
   }, [sku, location, warehouse, mode, initialData, screenType, currentInventory, isSkuChanged]);
 
+  // Photo cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (photoPreview && photoPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(photoPreview);
+      }
+    };
+  }, [photoPreview]);
+
+  // Photo handlers
+  const handlePhotoCapture = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const previewUrl = URL.createObjectURL(file);
+      setPhotoPreview(previewUrl);
+
+      const currentSku = watch('sku');
+      if (!currentSku) {
+        toast.error('Enter SKU before adding photo');
+        setPhotoPreview(null);
+        return;
+      }
+
+      setIsUploadingPhoto(true);
+      try {
+        const url = await uploadPhoto(currentSku, file);
+        setPhotoPreview(url);
+        toast.success('Photo uploaded');
+      } catch (err) {
+        console.error('Photo upload failed:', err);
+        toast.error('Photo upload failed');
+        setPhotoPreview(initialData?.sku_metadata?.image_url || null);
+      } finally {
+        setIsUploadingPhoto(false);
+      }
+    },
+    [watch, initialData]
+  );
+
+  const handlePhotoRemove = useCallback(async () => {
+    const currentSku = watch('sku');
+    if (!currentSku) return;
+
+    setIsUploadingPhoto(true);
+    try {
+      await deletePhoto(currentSku);
+      setPhotoPreview(null);
+      toast.success('Photo removed');
+    } catch (err) {
+      console.error('Photo removal failed:', err);
+      toast.error('Failed to remove photo');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  }, [watch]);
+
   // 4. Handlers
   const handleLocationBlur = (val: string) => {
     if (prediction.bestGuess && prediction.bestGuess !== val) {
@@ -664,6 +728,51 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
               suggestions={[]}
               placeholder="e.g. Desk Frame, Monitor Stand..."
             />
+
+            {/* Photo */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Photo</label>
+              <div className="flex items-center gap-3">
+                {photoPreview ? (
+                  <div className="relative group">
+                    <img
+                      src={photoPreview}
+                      alt="Item photo"
+                      className="w-16 h-16 rounded-lg object-cover border border-border"
+                    />
+                    <button
+                      type="button"
+                      onClick={handlePhotoRemove}
+                      disabled={isUploadingPhoto}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 rounded-lg border border-dashed border-border flex items-center justify-center text-muted-foreground">
+                    <Camera className="w-5 h-5" />
+                  </div>
+                )}
+                <label
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer transition-colors ${
+                    isUploadingPhoto
+                      ? 'bg-muted text-muted-foreground cursor-wait'
+                      : 'bg-primary/10 text-primary hover:bg-primary/20'
+                  }`}
+                >
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handlePhotoCapture}
+                    disabled={isUploadingPhoto}
+                    className="hidden"
+                  />
+                  {isUploadingPhoto ? 'Uploading...' : photoPreview ? 'Change' : 'Add Photo'}
+                </label>
+              </div>
+            </div>
 
             {/* Internal Note */}
             <div>
