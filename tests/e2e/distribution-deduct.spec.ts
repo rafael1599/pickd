@@ -402,22 +402,29 @@ test.describe('Distribution Auto-Adjustment on Deduction', () => {
     const card = inventoryPage.getCard(sku, location);
     await card.click();
 
-    // Wait for modal
-    const modal = page.locator('.fixed.inset-0');
-    await expect(modal).toBeVisible({ timeout: 5000 });
+    // Wait for detail view
+    const detailView = page.locator('.fixed.inset-0.z-\\[100020\\]');
+    await expect(detailView).toBeVisible({ timeout: 5000 });
 
-    // Change quantity from 60 to 30 (deduct 30)
-    const qtyInput = page.locator('#inventory_quantity');
-    await qtyInput.click();
+    // Change quantity from 60 to 30 via QuantityControl stepper
+    // Tap the displayed quantity button to enter edit mode
+    const qtyButton = detailView.locator('button').filter({ hasText: /^60$/ }).first();
+    await qtyButton.click();
+    const qtyInput = detailView.locator('input[type="number"][inputmode="numeric"]').first();
+    await expect(qtyInput).toBeVisible({ timeout: 2000 });
     await qtyInput.fill('30');
+    await qtyInput.press('Enter');
 
-    // Save
-    const saveBtn = page.getByRole('button', { name: /update/i });
-    await expect(saveBtn).toBeEnabled({ timeout: 5000 });
-    await saveBtn.click();
+    // Auto-save triggers on quantity change in edit mode
+    await page.waitForTimeout(2000);
 
-    // Wait for modal to close
-    await expect(modal).toBeHidden({ timeout: 10000 });
+    // Close the detail view via the X button in the toolbar
+    const toolbar = detailView.locator('.sticky.top-0');
+    const closeBtn = toolbar.locator('button').last();
+    await closeBtn.click();
+
+    // Wait for detail view to close
+    await expect(detailView).toBeHidden({ timeout: 10000 });
     await page.waitForTimeout(2000);
 
     // Verify in DB that distribution was adjusted
