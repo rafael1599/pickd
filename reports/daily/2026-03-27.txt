@@ -1,0 +1,18 @@
+Progress Update — March 27, 2026 at 02:15 PM
+
+WIN OF THE DAY:
+Photos now feel instant — snapping or replacing a picture shows up immediately on the card without waiting for the server.
+
+WHAT'S BETTER NOW:
+- Uploading a new photo shows a preview right away instead of a blank while it uploads
+- Replacing an existing photo no longer shows the old one — the new image appears immediately
+- Stock View looks much better on large screens (iPads, desktops): cards use the full space, thumbnails fill the card without cropping, and distribution labels show in full
+- Searching now finds items across all bins, even when the bike bins filter is off — no more missing results
+- The app loads faster by only downloading parts bin data when you actually need it
+- Inventory now handles up to 10,000 items without cutting off data
+
+COMING UP NEXT:
+- Sub-locations (ROW 5A, 5B, 5C) so pickers know exactly where to look
+- Multi-address customer support
+
+13 done today / 5 in the queue
