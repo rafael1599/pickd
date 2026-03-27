@@ -675,7 +675,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
               htmlFor="show-bike-bins"
               className="text-sm font-medium cursor-pointer select-none text-muted"
             >
-              Show Bike Bins
+              Show Parts Bins
             </label>
           </div>
         </div>
