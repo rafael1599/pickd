@@ -108,7 +108,7 @@ export const InventoryCard = memo(
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = 'none';
               }}
-              className="w-[70px] object-cover rounded flex-shrink-0 bg-white/10 dark:bg-white/5 self-stretch"
+              className="w-[70px] object-contain rounded flex-shrink-0 bg-white/5 self-stretch"
             />
           )}
 
