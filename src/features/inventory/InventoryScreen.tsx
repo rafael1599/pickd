@@ -677,14 +677,14 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
         </div>
       )}
 
-      <div className="p-4 space-y-12 min-h-[50vh]">
+      <div className="p-4 space-y-6 min-h-[50vh]">
         {isLoading && !locationBlocks.length
           ? SEARCHING_MESSAGE
           : locationBlocks.map(({ wh, location, items, locationId }, index) => {
               const isFirstInWarehouse = index === 0 || locationBlocks[index - 1].wh !== wh;
 
               return (
-                <div key={`${wh}-${location}`} className="space-y-4">
+                <div key={`${wh}-${location}`} className="space-y-2 max-w-2xl mx-auto">
                   {isFirstInWarehouse && !isSearching && wh !== 'LUDLOW' && (
                     <div className="flex items-center gap-4 pt-8 pb-2">
                       <div className="h-px flex-1 bg-subtle" />
@@ -729,7 +729,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-1 max-w-xl mx-auto w-full">
+                  <div className="grid grid-cols-1 gap-1">
                     {items.map((item) => {
                       const isInCart = cartItems.some(
                         (c) =>
