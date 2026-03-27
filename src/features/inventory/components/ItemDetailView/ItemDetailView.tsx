@@ -9,7 +9,7 @@ import CheckCircle2 from 'lucide-react/dist/esm/icons/check-circle-2';
 import Save from 'lucide-react/dist/esm/icons/save';
 
 import { useInventory } from '../../hooks/useInventoryData.ts';
-import { INVENTORY_ROOT_KEY } from '../../hooks/useInventoryRealtime';
+import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from '../../hooks/useInventoryRealtime';
 import { useLocationManagement } from '../../hooks/useLocationManagement.ts';
 import { useConfirmation } from '../../../../context/ConfirmationContext.tsx';
 import { useViewMode } from '../../../../context/ViewModeContext.tsx';
@@ -455,23 +455,22 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
 
       setIsUploadingPhoto(true);
       try {
-        // Optimistic: update cache with local thumbnail before upload finishes
+        // Optimistic: update both caches (item could be in either)
         const updateCache = (imageUrl: string) => {
-          queryClient.setQueryData(
-            INVENTORY_ROOT_KEY,
-            (old: InventoryItemWithMetadata[] | undefined) =>
-              old?.map((item) =>
-                item.sku === currentSku
-                  ? {
-                      ...item,
-                      sku_metadata: {
-                        ...(item.sku_metadata ?? { sku: currentSku }),
-                        image_url: imageUrl,
-                      },
-                    }
-                  : item
-              )
-          );
+          const updater = (old: InventoryItemWithMetadata[] | undefined) =>
+            old?.map((item) =>
+              item.sku === currentSku
+                ? {
+                    ...item,
+                    sku_metadata: {
+                      ...(item.sku_metadata ?? { sku: currentSku }),
+                      image_url: imageUrl,
+                    },
+                  }
+                : item
+            );
+          queryClient.setQueryData(INVENTORY_ROOT_KEY, updater);
+          queryClient.setQueryData(PARTS_BINS_KEY, updater);
         };
 
         const url = await uploadPhoto(currentSku, file, (thumbBlobUrl) => {
@@ -502,8 +501,8 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     try {
       await deletePhoto(currentSku);
       setPhotoPreview(null);
-      // Update the cache so the removal persists
-      queryClient.setQueryData(INVENTORY_ROOT_KEY, (old: InventoryItemWithMetadata[] | undefined) =>
+      // Update both caches so the removal persists
+      const remover = (old: InventoryItemWithMetadata[] | undefined) =>
         old?.map((item) =>
           item.sku === currentSku
             ? {
@@ -511,8 +510,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                 sku_metadata: { ...(item.sku_metadata ?? { sku: currentSku }), image_url: null },
               }
             : item
-        )
-      );
+        );
+      queryClient.setQueryData(INVENTORY_ROOT_KEY, remover);
+      queryClient.setQueryData(PARTS_BINS_KEY, remover);
       toast.success('Photo removed');
     } catch (err) {
       console.error('Photo removal failed:', err);
