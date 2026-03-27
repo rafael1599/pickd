@@ -1,9 +1,6 @@
 import React from 'react';
 import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
-import {
-  type DistributionItem,
-  STORAGE_TYPE_LABELS,
-} from '../../../../schemas/inventory.schema.ts';
+import { type DistributionItem } from '../../../../schemas/inventory.schema.ts';
 
 interface DistributionPreviewProps {
   distribution: DistributionItem[];
@@ -24,12 +21,20 @@ export const DistributionPreview: React.FC<DistributionPreviewProps> = ({
   const unassigned = Math.max(0, quantity - total);
   const isOver = total > quantity;
 
-  // Build summary tokens: "2T 3L 1P"
-  const tokens = distribution.map((d) => {
-    const label = STORAGE_TYPE_LABELS[d.type]?.short || d.type[0];
-    const units = d.count * d.units_each;
-    return `${units}${label}`;
-  });
+  const TYPE_NAMES: Record<DistributionItem['type'], { singular: string; plural: string }> = {
+    TOWER: { singular: 'tower', plural: 'towers' },
+    LINE: { singular: 'line', plural: 'lines' },
+    PALLET: { singular: 'pallet', plural: 'pallets' },
+    OTHER: { singular: 'unit', plural: 'units' },
+  };
+
+  const descriptions = [...distribution]
+    .sort((a, b) => b.count * b.units_each - a.count * a.units_each)
+    .map((d) => {
+      const names = TYPE_NAMES[d.type] || TYPE_NAMES.OTHER;
+      const typeName = d.count === 1 ? names.singular : names.plural;
+      return `${d.count} ${typeName} of ${d.units_each}`;
+    });
 
   const hasDistribution = distribution.length > 0;
 
@@ -46,17 +51,28 @@ export const DistributionPreview: React.FC<DistributionPreviewProps> = ({
         <ChevronRight size={16} className="text-muted/40 shrink-0" />
       </div>
       {hasDistribution ? (
-        <div className="flex items-center gap-2 mt-1.5">
-          <span className="text-sm text-content font-mono font-bold">{tokens.join('  ')}</span>
-          {unassigned > 0 && !isOver && (
-            <span className="text-xs text-amber-400 font-bold">{unassigned} unassigned</span>
-          )}
-          {isOver && (
-            <span className="text-xs text-red-400 font-bold">{total - quantity} over</span>
-          )}
-          {!isOver && unassigned === 0 && (
-            <span className="text-xs text-green-400 font-bold">Exact</span>
-          )}
+        <div className="mt-1.5">
+          <span className="text-sm text-content font-semibold">
+            {descriptions.map((desc, i) => (
+              <React.Fragment key={i}>
+                {i > 0 && (
+                  <span className="inline-block mx-2.5 w-[5px] h-[5px] rounded-full bg-white/50 align-middle" />
+                )}
+                {desc}
+              </React.Fragment>
+            ))}
+          </span>
+          <div className="mt-1">
+            {unassigned > 0 && !isOver && (
+              <span className="text-xs text-amber-400 font-bold">{unassigned} unassigned</span>
+            )}
+            {isOver && (
+              <span className="text-xs text-red-400 font-bold">{total - quantity} over</span>
+            )}
+            {!isOver && unassigned === 0 && (
+              <span className="text-xs text-green-400 font-bold">All accounted</span>
+            )}
+          </div>
         </div>
       ) : (
         <span className="text-sm text-muted/40 italic mt-1 block">No distribution set</span>
