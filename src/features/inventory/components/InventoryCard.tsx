@@ -125,7 +125,7 @@ export const InventoryCard = memo(
                     </div>
                     {internal_note && (
                       <span
-                        className="text-[8px] text-muted font-bold uppercase tracking-tight bg-white/5 px-1 py-0.5 rounded border border-white/5 max-w-[120px] truncate"
+                        className="text-[8px] text-muted font-bold uppercase tracking-tight bg-white/5 px-1 py-0.5 rounded border border-white/5 max-w-[120px] md:max-w-none truncate"
                         title={internal_note}
                       >
                         📍 {internal_note}
@@ -160,8 +160,11 @@ export const InventoryCard = memo(
                 {distribution && distribution.length > 0 && (
                   <span className="hidden md:inline-flex text-[8px] font-black text-white/40 uppercase tracking-widest leading-none">
                     {distribution
-                      .map((d) => `${d.count}${STORAGE_TYPE_LABELS[d.type]?.short || '?'}`)
-                      .join(' | ')}
+                      .map(
+                        (d) =>
+                          `${d.count} ${d.type.charAt(0) + d.type.slice(1).toLowerCase()}${d.count > 1 ? 's' : ''}`
+                      )
+                      .join(' · ')}
                   </span>
                 )}
               </div>
