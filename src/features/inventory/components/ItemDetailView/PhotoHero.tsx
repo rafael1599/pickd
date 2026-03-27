@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import Camera from 'lucide-react/dist/esm/icons/camera';
+import { useDominantColor } from './useDominantColor';
 
 interface PhotoHeroProps {
   photoUrl: string | null;
@@ -19,6 +20,7 @@ export const PhotoHero: React.FC<PhotoHeroProps> = ({
   const [showActions, setShowActions] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const dominantColor = useDominantColor(photoUrl);
 
   const handleTap = () => {
     if (disabled || isUploading) return;
@@ -60,15 +62,34 @@ export const PhotoHero: React.FC<PhotoHeroProps> = ({
         type="button"
         onClick={handleTap}
         disabled={disabled || isUploading}
-        className="w-full relative aspect-[4/3] md:aspect-video bg-main overflow-hidden focus:outline-none"
+        className="w-full relative aspect-[4/3] md:aspect-video bg-neutral-100 dark:bg-neutral-900 overflow-hidden focus:outline-none"
       >
         {photoUrl ? (
           <>
-            <img src={photoUrl} alt="Item photo" className="w-full h-full object-cover" />
-            {/* Gradient overlay */}
-            <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-main/80 to-transparent" />
+            {/* Dynamic glow */}
+            <div
+              className="absolute inset-0 blur-3xl opacity-25 transition-colors duration-700"
+              style={{
+                background: `radial-gradient(circle at center, ${dominantColor} 0%, transparent 70%)`,
+              }}
+            />
+            {/* Subtle directional gradient */}
+            <div
+              className="absolute inset-0 transition-colors duration-700"
+              style={{
+                background: `linear-gradient(160deg, ${dominantColor}18, transparent 60%)`,
+              }}
+            />
+            {/* Image */}
+            <img
+              src={photoUrl}
+              alt="Item photo"
+              className="relative z-10 w-full h-full object-contain p-5"
+            />
+            {/* Bottom fade to main */}
+            <div className="absolute inset-x-0 bottom-0 h-1/3 z-10 bg-gradient-to-t from-main/90 to-transparent" />
             {/* Hint text */}
-            <span className="absolute bottom-3 left-0 right-0 text-center text-[10px] text-white/40 font-bold uppercase tracking-widest">
+            <span className="absolute bottom-3 left-0 right-0 z-10 text-center text-[10px] text-white/40 font-bold uppercase tracking-widest">
               Tap to change photo
             </span>
           </>

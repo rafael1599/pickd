@@ -26,6 +26,7 @@
     "@tanstack/react-query-devtools": "^5.91.2",
     "@tanstack/react-query-persist-client": "^5.90.21",
     "clsx": "^2.1.1",
+    "fast-average-color": "^9.5.0",
     "idb-keyval": "^6.2.2",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.7",
