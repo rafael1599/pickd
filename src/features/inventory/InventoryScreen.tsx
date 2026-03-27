@@ -75,6 +75,7 @@ export const InventoryScreen = () => {
     setShowInactive,
     showPartsBins,
     setShowPartsBins,
+    setSearchQuery,
   } = useInventory();
 
   const [localSearch, setLocalSearch] = useState('');
@@ -87,6 +88,11 @@ export const InventoryScreen = () => {
     }
   }, [localSearch]);
   const debouncedSearch = useDebounce(localSearch, 300);
+
+  // Sync search to data hook so it forces parts bins download when searching
+  useEffect(() => {
+    setSearchQuery(debouncedSearch);
+  }, [debouncedSearch, setSearchQuery]);
 
   // Client-side filtering and pagination logic (by location)
   const [displayLocationCount, setDisplayLocationCount] = useState(50);

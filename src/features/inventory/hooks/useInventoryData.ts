@@ -38,6 +38,7 @@ export const useInventory = () => {
   const { isAdmin, user, profile } = useAuth();
   const [showInactive, setShowInactive] = useState(false);
   const [showPartsBins, setShowPartsBins] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const { fetchLogs, undoAction } = useInventoryLogs();
   const { locations } = useLocationManagement();
   // Motores de Mutación (Optimizados y Radicals)
@@ -85,14 +86,15 @@ export const useInventory = () => {
     },
     staleTime: Infinity,
     refetchOnWindowFocus: false,
-    enabled: showPartsBins,
+    enabled: showPartsBins || searchQuery.length > 0,
   });
 
+  const needsPartsBins = showPartsBins || searchQuery.length > 0;
   const globalData = useMemo(() => {
     const bikes = rawData ?? EMPTY_INVENTORY;
     const parts = partsBinsData ?? EMPTY_INVENTORY;
-    return showPartsBins ? [...bikes, ...parts] : bikes;
-  }, [rawData, partsBinsData, showPartsBins]);
+    return needsPartsBins ? [...bikes, ...parts] : bikes;
+  }, [rawData, partsBinsData, needsPartsBins]);
 
   // Filtros Locales Ultrarrápidos: El useQuery trae Ludlow y ATS temporalmente.
   // Separamos LUDLOW
@@ -275,6 +277,7 @@ export const useInventory = () => {
     setShowInactive,
     showPartsBins,
     setShowPartsBins,
+    setSearchQuery,
     partsBinsLoading,
     isAdmin,
     user,
