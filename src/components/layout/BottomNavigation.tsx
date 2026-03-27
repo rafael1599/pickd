@@ -16,8 +16,9 @@ const NavItem = ({ icon: Icon, label, isActive, onClick, isCompact }: NavItemPro
   <button
     onClick={onClick}
     aria-label={label}
-    className={`flex flex-col items-center justify-center flex-1 h-full transition-all duration-300 active:scale-90 ${isActive ? 'text-accent' : 'text-muted'
-      } ${isCompact ? 'px-1' : ''}`}
+    className={`flex flex-col items-center justify-center flex-1 h-full transition-all duration-300 active:scale-90 ${
+      isActive ? 'text-accent' : 'text-muted'
+    } ${isCompact ? 'px-1' : ''}`}
   >
     <div
       className={`rounded-xl transition-all duration-300 ${isActive ? 'bg-accent/10 shadow-lg shadow-accent/5' : ''} ${isCompact ? 'p-1' : 'p-1.5'}`}
@@ -53,12 +54,16 @@ export const BottomNavigation = () => {
   };
 
   return (
-    <div className={`fixed bottom-0 left-0 right-0 pointer-events-none flex justify-center z-[100] p-4 transition-all duration-300 ${isSearching ? 'h-16' : 'h-24'}`}>
-      <div className={`
+    <div
+      className={`fixed bottom-0 left-0 right-0 pointer-events-none flex justify-center z-[100] p-4 transition-all duration-300 ${isSearching ? 'h-16' : 'h-24'}`}
+    >
+      <div
+        className={`
         w-full max-w-sm pointer-events-auto ios-glass frost-grain rounded-[2rem] flex items-center justify-around h-full
         transition-all duration-500 ease-in-out
         ${isSearching ? 'px-2' : 'px-4'}
-      `}>
+      `}
+      >
         <NavItem
           icon={Box}
           label="STOCK"
@@ -75,9 +80,9 @@ export const BottomNavigation = () => {
         />
         <NavItem
           icon={History}
-          label="HISTORY"
-          isActive={location.pathname === '/history'}
-          onClick={() => navigate('/history')}
+          label="ORDERS"
+          isActive={location.pathname === '/orders'}
+          onClick={() => navigate('/orders')}
           isCompact={isSearching}
         />
       </div>
