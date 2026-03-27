@@ -1,6 +1,6 @@
 import Box from 'lucide-react/dist/esm/icons/box';
 import Scan from 'lucide-react/dist/esm/icons/scan';
-import History from 'lucide-react/dist/esm/icons/history';
+import ClipboardList from 'lucide-react/dist/esm/icons/clipboard-list';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useViewMode } from '../../context/ViewModeContext';
 
@@ -79,7 +79,7 @@ export const BottomNavigation = () => {
           isCompact={isSearching}
         />
         <NavItem
-          icon={History}
+          icon={ClipboardList}
           label="ORDERS"
           isActive={location.pathname === '/orders'}
           onClick={() => navigate('/orders')}
