@@ -27,6 +27,8 @@ PWA de gestión de inventario y warehouse operations. Multi-usuario con sync en 
 - **TypeScript strict mode.** No usar `any`.
 - **Antes de refactors o migraciones grandes:** preguntar si quiero análisis profundo primero.
 - **Git:** ejecutar `git add`, `git commit`, `git push` como comandos separados (compatibilidad PowerShell).
+- **Formatting:** NUNCA ejecutar `prettier --write .` ni formatear todo el proyecto. Solo formatear archivos que se van a commitear: `prettier --write <archivo>`. Las migraciones SQL, scripts, y reports están protegidos en `.prettierignore`.
+- **Scripts temporales:** no agregar scripts one-time al proyecto. Usar `/tmp` o guardarlos en la skill correspondiente (`.claude/skills/`).
 
 ## Picking workflow
 

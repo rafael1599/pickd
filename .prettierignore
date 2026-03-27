@@ -1,0 +1,34 @@
+# Dependencies & build
+node_modules/
+dist/
+dist-ssr/
+
+# Lock files
+pnpm-lock.yaml
+
+# Database migrations (immutable historical records)
+supabase/migrations/
+
+# Supabase generated
+supabase/.temp/
+
+# Reports (generated output)
+reports/
+
+# Debug/one-time scripts
+scripts/
+
+# Agent docs (internal, not source code)
+.agent/
+.agents/
+
+# Environment
+.env*
+
+# Assets
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.svg
+*.ico

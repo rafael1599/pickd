@@ -1,1 +1,10 @@
+# Warn if too many files staged (likely accidental mass-format)
+STAGED_COUNT=$(git diff --cached --name-only | wc -l | tr -d ' ')
+if [ "$STAGED_COUNT" -gt 15 ]; then
+  echo ""
+  echo "⚠️  WARNING: $STAGED_COUNT files staged. If this is an accidental mass-format, unstage and commit only the files you changed."
+  echo "   To proceed anyway: git commit --no-verify"
+  echo ""
+fi
+
 npx lint-staged
