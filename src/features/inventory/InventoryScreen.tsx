@@ -73,10 +73,11 @@ export const InventoryScreen = () => {
     loading,
     showInactive,
     setShowInactive,
+    showPartsBins,
+    setShowPartsBins,
   } = useInventory();
 
   const [localSearch, setLocalSearch] = useState('');
-  const [showBikeBins, setShowBikeBins] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-scroll to top when searching to ensure results are visible
@@ -97,15 +98,9 @@ export const InventoryScreen = () => {
       // Show only active items unless showInactive is true
       if (!showInactive && item.is_active === false) return false;
 
-      // Bike bin filter: hide non-ROW locations unless searching or checkbox is on
-      if (!isSearching && !showBikeBins) {
-        const loc = (item.location || '').trim().toUpperCase();
-        if (loc && !/^ROW \d+$/.test(loc)) return false;
-      }
-
       if (!isSearching) return true;
 
-      // Multi-field search (always global — includes bike bins)
+      // Multi-field search
       return (
         (item.sku || '').toLowerCase().includes(s) ||
         (item.location || '').toLowerCase().includes(s) ||
@@ -113,7 +108,7 @@ export const InventoryScreen = () => {
         (item.warehouse || '').toLowerCase().includes(s)
       );
     });
-  }, [inventoryData, debouncedSearch, showInactive, showBikeBins]);
+  }, [inventoryData, debouncedSearch, showInactive]);
 
   const isLoading = loading;
 
@@ -668,8 +663,8 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
             <input
               type="checkbox"
               id="show-bike-bins"
-              checked={showBikeBins}
-              onChange={(e) => setShowBikeBins(e.target.checked)}
+              checked={showPartsBins}
+              onChange={(e) => setShowPartsBins(e.target.checked)}
               className="rounded transition-colors h-3.5 w-3.5 border-neutral-600 bg-surface text-accent focus:ring-accent focus:ring-offset-0"
             />
             Parts Bins

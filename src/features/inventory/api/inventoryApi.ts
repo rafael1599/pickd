@@ -28,7 +28,10 @@ export const inventoryApi = {
    * OPTIMIZED: Fetch inventory with metadata in single query (reduces round-trips)
    * Use this instead of calling fetchInventory() + fetchAllMetadata() separately
    */
-  async fetchInventoryWithMetadata(includeInactive = false): Promise<InventoryItem[]> {
+  async fetchInventoryWithMetadata(
+    includeInactive = false,
+    partsBins = false
+  ): Promise<InventoryItem[]> {
     let query = supabase
       .from('inventory')
       .select(
@@ -44,12 +47,17 @@ export const inventoryApi = {
       query = query.eq('is_active', true);
     }
 
+    if (partsBins) {
+      // Parts bins: locations that are NOT "ROW X" pattern
+      query = query.not('location', 'like', 'ROW %');
+    } else {
+      // Bikes: only "ROW X" pattern + PALLETIZED + other non-parts-bin locations
+      query = query.or('location.like.ROW %,location.eq.PALLETIZED,location.eq.UNASSIGNED');
+    }
+
     const { data, error } = await query;
 
     if (error) throw error;
-    // Since this is a nested join, we use unknown[] and then validate each partially or fully if needed.
-    // For now, keeping as any[] to avoid complex joint-schema validation here,
-    // but the intention is to use InventoryItemWithMetadataSchema.
     return (data || []) as unknown as InventoryItem[];
   },
 

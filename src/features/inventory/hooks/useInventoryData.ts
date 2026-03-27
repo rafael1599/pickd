@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 
 import { inventoryApi } from '../api/inventoryApi';
-import { INVENTORY_ROOT_KEY } from './useInventoryRealtime';
+import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from './useInventoryRealtime';
 import { useInventoryMutations } from './useInventoryMutations';
 import { useInventoryLogs } from './useInventoryLogs';
 import { useLocationManagement } from './useLocationManagement';
@@ -37,6 +37,7 @@ const noopFilters = (_filters?: unknown) => {};
 export const useInventory = () => {
   const { isAdmin, user, profile } = useAuth();
   const [showInactive, setShowInactive] = useState(false);
+  const [showPartsBins, setShowPartsBins] = useState(false);
   const { fetchLogs, undoAction } = useInventoryLogs();
   const { locations } = useLocationManagement();
   // Motores de Mutación (Optimizados y Radicals)
@@ -50,6 +51,7 @@ export const useInventory = () => {
   } = useInventoryMutations();
 
   // Carga Global Agrupada (Con StaleTime infinito, para que solo Websocket actualice)
+  // Bikes query: ROW locations + PALLETIZED (always loaded)
   const {
     data: rawData,
     isLoading,
@@ -57,18 +59,40 @@ export const useInventory = () => {
   } = useQuery<InventoryItemWithMetadata[]>({
     queryKey: INVENTORY_ROOT_KEY,
     queryFn: async () => {
-      const rawData = await inventoryApi.fetchInventoryWithMetadata(true); // Trae Inactivos y limpiamos local
-      // Ensure no invalid refs or spaces
+      const rawData = await inventoryApi.fetchInventoryWithMetadata(true, false);
       return rawData.map((item: InventoryItemWithMetadata) => ({
         ...item,
         location: (item.location || '').trim().toUpperCase(),
         warehouse: item.warehouse || 'LUDLOW',
       }));
     },
-    staleTime: Infinity, // Dependemos estricta y únicamente de Websockets (useInventoryRealtime)
+    staleTime: Infinity,
     refetchOnWindowFocus: false,
   });
-  const globalData = rawData ?? EMPTY_INVENTORY;
+
+  // Parts bins query: E/D rack locations (only loaded when showPartsBins is true)
+  const { data: partsBinsData, isLoading: partsBinsLoading } = useQuery<
+    InventoryItemWithMetadata[]
+  >({
+    queryKey: PARTS_BINS_KEY,
+    queryFn: async () => {
+      const rawData = await inventoryApi.fetchInventoryWithMetadata(true, true);
+      return rawData.map((item: InventoryItemWithMetadata) => ({
+        ...item,
+        location: (item.location || '').trim().toUpperCase(),
+        warehouse: item.warehouse || 'LUDLOW',
+      }));
+    },
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    enabled: showPartsBins,
+  });
+
+  const globalData = useMemo(() => {
+    const bikes = rawData ?? EMPTY_INVENTORY;
+    const parts = partsBinsData ?? EMPTY_INVENTORY;
+    return showPartsBins ? [...bikes, ...parts] : bikes;
+  }, [rawData, partsBinsData, showPartsBins]);
 
   // Filtros Locales Ultrarrápidos: El useQuery trae Ludlow y ATS temporalmente.
   // Separamos LUDLOW
@@ -173,7 +197,7 @@ export const useInventory = () => {
       targetWarehouse: string,
       targetLocation: string,
       qty: number,
-       
+
       _isReversal?: boolean,
       internalNote?: string | null
     ) => {
@@ -249,6 +273,9 @@ export const useInventory = () => {
     syncFilters: noopFilters,
     showInactive,
     setShowInactive,
+    showPartsBins,
+    setShowPartsBins,
+    partsBinsLoading,
     isAdmin,
     user,
     profile,
