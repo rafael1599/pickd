@@ -195,7 +195,24 @@
 
 ## ✅ Completado
 
-**28 items completados** (2026-03-10 → 2026-03-27). Detalle en `BACKLOG-ARCHIVE.md`.
+**30 items completados** (2026-03-10 → 2026-03-29). Detalle en `BACKLOG-ARCHIVE.md`.
+
+### ~~29. Security hardening: RLS + anon RPC lockdown~~ — COMPLETADO `[2026-03-29]` <!-- id: sec-fix-001 -->
+
+- Habilitado RLS en `customers`, `order_groups`, `pdf_import_log` (3 tablas expuestas sin proteccion)
+- Revocado EXECUTE de `anon` y `PUBLIC` en TODAS las funciones del schema public
+- Re-otorgado solo a `authenticated` y `service_role`
+- Corregida policy abierta en `optimization_reports` (permitia acceso total a anon)
+- **Resultado verificado en prod:** `anon` no puede ejecutar RPCs ni leer customers (186 registros con email/phone estaban expuestos)
+- **Migracion:** `20260329200000_security_hardening.sql`
+
+### ~~30. Egress bandwidth reduction ~99%~~ — COMPLETADO `[2026-03-29]` `655d7a2` <!-- id: perf-001 -->
+
+- Paginacion server-side: 30 items iniciales + 20 por load-more (antes 10,000)
+- Columnas selectivas en vez de `select(*)`
+- Busqueda server-side separada del cache principal
+- `refetchOnWindowFocus: false` + invalidacion selectiva por queryKey
+- **Resultado:** egress PostgREST reducido de ~20MB a ~15KB por carga inicial
 
 ### Descartado
 
