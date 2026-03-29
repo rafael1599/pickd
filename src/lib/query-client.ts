@@ -76,8 +76,8 @@ export const queryClient = new QueryClient({
       },
       // Exponential backoff: 1s, 2s, 4s, 8s... max 30s
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-      // Refetch on window focus but only if data is stale
-      refetchOnWindowFocus: true,
+      // Disabled to reduce egress bandwidth — data stays fresh via mutations + realtime
+      refetchOnWindowFocus: false,
       // Re-sync when network is recovered
       refetchOnReconnect: true,
     },
@@ -128,11 +128,11 @@ export const queryClient = new QueryClient({
       console.log(
         `[FORENSIC][MUTATION][GLOBAL_SUCCESS] ${new Date().toISOString()} - Key: ${JSON.stringify(mutation.options.mutationKey)}`
       );
-      // Anti-Zombie Policy: When a mutation finishes, if it was the last one,
-      // invalidate all queries to get the absolute truth from the server.
+      // Selective invalidation: only refresh inventory data, not every cached query.
+      // Realtime subscriptions handle cross-user sync for the rest.
       if (queryClient.isMutating() === 1) {
-        console.log('[Queue] Last mutation succeeded, invalidating queries...');
-        queryClient.invalidateQueries();
+        console.log('[Queue] Last mutation succeeded, invalidating inventory queries...');
+        queryClient.invalidateQueries({ queryKey: ['inventory'] });
       }
     },
   }),

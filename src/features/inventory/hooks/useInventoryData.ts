@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 
 import { inventoryApi } from '../api/inventoryApi';
@@ -16,11 +16,8 @@ import { InventoryProvider } from './InventoryProvider';
 
 export { InventoryProvider };
 
-// Stable empty array to prevent re-render loops when query data hasn't loaded yet.
-// Using `data ?? []` creates a new [] on every render, destabilizing downstream useMemos.
 const EMPTY_INVENTORY: InventoryItemWithMetadata[] = [];
 
-// Stable no-op stubs — module-level constants, same reference across all renders and instances.
 const noop = () => {};
 const noopAsync = async () => ({ successCount: 0, failCount: 0 });
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -28,20 +25,33 @@ const noopUpdater = (_updates: unknown) => {};
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const noopFilters = (_filters?: unknown) => {};
 
-/**
- * PUENTE DE TRANSICIÓN:
- * Este hook expone LA MISA FIRMA EXACTA que el viejo InventoryContext.
- * Sin embargo, por dentro NO usa un Contexto central (matando los rerendeos).
- * Por dentro usa useQuery (que deduce cache global) y useInventoryMutations.
- */
+/** Page sizes for server-side pagination */
+const INITIAL_PAGE_SIZE = 30;
+const LOAD_MORE_SIZE = 20;
+const SEARCH_LIMIT = 20;
+
+function mapItem(item: InventoryItemWithMetadata): InventoryItemWithMetadata {
+  return {
+    ...item,
+    location: (item.location || '').trim().toUpperCase(),
+    warehouse: item.warehouse || 'LUDLOW',
+  };
+}
+
 export const useInventory = () => {
   const { isAdmin, user, profile } = useAuth();
+  const queryClient = useQueryClient();
   const [showInactive, setShowInactive] = useState(false);
   const [showPartsBins, setShowPartsBins] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { fetchLogs, undoAction } = useInventoryLogs();
   const { locations } = useLocationManagement();
-  // Motores de Mutación (Optimizados y Radicals)
+
+  // Pagination state
+  const [bikesTotal, setBikesTotal] = useState<number | null>(null);
+  const [partsTotal, setPartsTotal] = useState<number | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
   const {
     updateQuantity: mutUpdateQuantity,
     addItem: mutAddItem,
@@ -51,8 +61,7 @@ export const useInventory = () => {
     processPickingList: mutProcessPickingList,
   } = useInventoryMutations();
 
-  // Carga Global Agrupada (Con StaleTime infinito, para que solo Websocket actualice)
-  // Bikes query: ROW locations + PALLETIZED (always loaded)
+  // ── Bikes query (ROW locations) — paginated initial load ──────────
   const {
     data: rawData,
     isLoading,
@@ -60,44 +69,143 @@ export const useInventory = () => {
   } = useQuery<InventoryItemWithMetadata[]>({
     queryKey: INVENTORY_ROOT_KEY,
     queryFn: async () => {
-      const rawData = await inventoryApi.fetchInventoryWithMetadata(true, false);
-      return rawData.map((item: InventoryItemWithMetadata) => ({
-        ...item,
-        location: (item.location || '').trim().toUpperCase(),
-        warehouse: item.warehouse || 'LUDLOW',
-      }));
+      // On refetch (invalidation), load at least as many items as currently cached
+      const currentData = queryClient.getQueryData<InventoryItemWithMetadata[]>(INVENTORY_ROOT_KEY);
+      const fetchLimit = currentData
+        ? Math.max(currentData.length, INITIAL_PAGE_SIZE)
+        : INITIAL_PAGE_SIZE;
+
+      const { data, count } = await inventoryApi.fetchInventoryWithMetadata({
+        includeInactive: true,
+        partsBins: false,
+        limit: fetchLimit,
+      });
+      setBikesTotal(count);
+      return data.map(mapItem);
     },
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });
 
-  // Parts bins query: E/D rack locations (only loaded when showPartsBins is true)
+  // ── Parts bins query — only when toggled or searching ─────────────
   const { data: partsBinsData, isLoading: partsBinsLoading } = useQuery<
     InventoryItemWithMetadata[]
   >({
     queryKey: PARTS_BINS_KEY,
     queryFn: async () => {
-      const rawData = await inventoryApi.fetchInventoryWithMetadata(true, true);
-      return rawData.map((item: InventoryItemWithMetadata) => ({
-        ...item,
-        location: (item.location || '').trim().toUpperCase(),
-        warehouse: item.warehouse || 'LUDLOW',
-      }));
+      const currentData = queryClient.getQueryData<InventoryItemWithMetadata[]>(PARTS_BINS_KEY);
+      const fetchLimit = currentData
+        ? Math.max(currentData.length, INITIAL_PAGE_SIZE)
+        : INITIAL_PAGE_SIZE;
+
+      const { data, count } = await inventoryApi.fetchInventoryWithMetadata({
+        includeInactive: true,
+        partsBins: true,
+        limit: fetchLimit,
+      });
+      setPartsTotal(count);
+      return data.map(mapItem);
     },
     staleTime: Infinity,
     refetchOnWindowFocus: false,
     enabled: showPartsBins || searchQuery.length > 0,
   });
 
+  // ── Server-side search query (separate from main cache) ───────────
+  const { data: searchResults, isLoading: isSearching } = useQuery<InventoryItemWithMetadata[]>({
+    queryKey: ['inventory', 'search', searchQuery],
+    queryFn: async () => {
+      // Search across both bikes and parts
+      const [bikesRes, partsRes] = await Promise.all([
+        inventoryApi.fetchInventoryWithMetadata({
+          includeInactive: true,
+          partsBins: false,
+          search: searchQuery,
+          limit: SEARCH_LIMIT,
+        }),
+        inventoryApi.fetchInventoryWithMetadata({
+          includeInactive: true,
+          partsBins: true,
+          search: searchQuery,
+          limit: SEARCH_LIMIT,
+        }),
+      ]);
+      const combined = [...bikesRes.data, ...partsRes.data];
+      // Deduplicate by id
+      const seen = new Set<number>();
+      return combined
+        .filter((item) => {
+          const id = item.id as number;
+          if (seen.has(id)) return false;
+          seen.add(id);
+          return true;
+        })
+        .map(mapItem);
+    },
+    staleTime: 1000 * 60 * 2, // 2 min cache for search results
+    enabled: searchQuery.length > 0,
+  });
+
+  // ── Load more items (appends to cache) ────────────────────────────
+  const loadMoreInventory = useCallback(
+    async (partsBins = false) => {
+      if (isLoadingMore) return;
+      setIsLoadingMore(true);
+      try {
+        const cacheKey = partsBins ? PARTS_BINS_KEY : INVENTORY_ROOT_KEY;
+        const currentData = queryClient.getQueryData<InventoryItemWithMetadata[]>(cacheKey) || [];
+
+        const { data: newItems, count } = await inventoryApi.fetchInventoryWithMetadata({
+          includeInactive: true,
+          partsBins,
+          offset: currentData.length,
+          limit: LOAD_MORE_SIZE,
+        });
+
+        if (partsBins) setPartsTotal(count);
+        else setBikesTotal(count);
+
+        const mapped = newItems.map(mapItem);
+
+        queryClient.setQueryData(cacheKey, (old: InventoryItemWithMetadata[] | undefined) => {
+          if (!old) return mapped;
+          const existingIds = new Set(old.map((i) => i.id));
+          const unique = mapped.filter((i) => !existingIds.has(i.id));
+          return [...old, ...unique];
+        });
+      } finally {
+        setIsLoadingMore(false);
+      }
+    },
+    [isLoadingMore, queryClient]
+  );
+
+  const hasMoreBikes = bikesTotal !== null && (rawData?.length ?? 0) < bikesTotal;
+  const hasMoreParts = partsTotal !== null && (partsBinsData?.length ?? 0) < partsTotal;
+  const hasMoreItems = hasMoreBikes || (showPartsBins && hasMoreParts);
+
+  const loadMore = useCallback(async () => {
+    if (hasMoreBikes) {
+      await loadMoreInventory(false);
+    } else if (showPartsBins && hasMoreParts) {
+      await loadMoreInventory(true);
+    }
+  }, [hasMoreBikes, hasMoreParts, showPartsBins, loadMoreInventory]);
+
+  // ── Merge data: use search results when searching, else paginated data ─
+  const isActiveSearch = searchQuery.length > 0;
+
   const needsPartsBins = showPartsBins || searchQuery.length > 0;
   const globalData = useMemo(() => {
+    if (isActiveSearch) {
+      return searchResults ?? EMPTY_INVENTORY;
+    }
     const bikes = rawData ?? EMPTY_INVENTORY;
     const parts = partsBinsData ?? EMPTY_INVENTORY;
     return needsPartsBins ? [...bikes, ...parts] : bikes;
-  }, [rawData, partsBinsData, needsPartsBins]);
+  }, [isActiveSearch, searchResults, rawData, partsBinsData, needsPartsBins]);
 
-  // Filtros Locales Ultrarrápidos: El useQuery trae Ludlow y ATS temporalmente.
-  // Separamos LUDLOW
+  // Filters
   const inventoryData = useMemo(() => {
     let filtered = globalData;
     if (!showInactive) {
@@ -106,7 +214,6 @@ export const useInventory = () => {
     return filtered.filter((item) => item.warehouse === 'LUDLOW');
   }, [globalData, showInactive]);
 
-  // Separamos ATS (Si existiera algo residual)
   const atsData = useMemo(() => {
     let filtered = globalData;
     if (!showInactive)
@@ -131,11 +238,12 @@ export const useInventory = () => {
     });
     return caps;
   }, [globalData, locations]);
+
   const reservedQuantities = useMemo(() => {
     return {} as Record<string, number>;
-  }, []); // Simplificado
+  }, []);
 
-  // Wrappers estables — mutation handles de React Query son estables por diseño
+  // Wrappers
   const updateQuantity = useCallback(
     async (
       sku: string,
@@ -199,7 +307,6 @@ export const useInventory = () => {
       targetWarehouse: string,
       targetLocation: string,
       qty: number,
-
       _isReversal?: boolean,
       internalNote?: string | null
     ) => {
@@ -265,7 +372,12 @@ export const useInventory = () => {
     fetchLogs,
     getAvailableStock,
 
-    // Utils / Stubs (Para no romper componentes viejos)
+    // Pagination
+    loadMore,
+    hasMoreItems,
+    isLoadingMore,
+
+    // Utils / Stubs
     processPickingList,
     exportData: noop,
     syncInventoryLocations: noopAsync,
@@ -279,6 +391,7 @@ export const useInventory = () => {
     setShowPartsBins,
     setSearchQuery,
     partsBinsLoading,
+    isSearching,
     isAdmin,
     user,
     profile,

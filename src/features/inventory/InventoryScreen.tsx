@@ -76,6 +76,10 @@ export const InventoryScreen = () => {
     showPartsBins,
     setShowPartsBins,
     setSearchQuery,
+    loadMore: loadMoreItems,
+    hasMoreItems,
+    isLoadingMore,
+    isSearching: isServerSearching,
   } = useInventory();
 
   const [localSearch, setLocalSearch] = useState('');
@@ -94,27 +98,13 @@ export const InventoryScreen = () => {
     setSearchQuery(debouncedSearch);
   }, [debouncedSearch, setSearchQuery]);
 
-  // Client-side filtering and pagination logic (by location)
-  const [displayLocationCount, setDisplayLocationCount] = useState(50);
-
+  // Filtering (search is now server-side, only inactive filter remains client-side)
   const filteredInventory = useMemo(() => {
-    const s = debouncedSearch.toLowerCase().trim();
-    const isSearching = s.length > 0;
     return inventoryData.filter((item) => {
-      // Show only active items unless showInactive is true
       if (!showInactive && item.is_active === false) return false;
-
-      if (!isSearching) return true;
-
-      // Multi-field search
-      return (
-        (item.sku || '').toLowerCase().includes(s) ||
-        (item.location || '').toLowerCase().includes(s) ||
-        (item.item_name || '').toLowerCase().includes(s) ||
-        (item.warehouse || '').toLowerCase().includes(s)
-      );
+      return true;
     });
-  }, [inventoryData, debouncedSearch, showInactive]);
+  }, [inventoryData, showInactive]);
 
   const isLoading = loading;
 
@@ -239,21 +229,12 @@ export const InventoryScreen = () => {
     );
   }, [allSortedWarehouses, allGroupedData]);
 
-  const locationBlocks = useMemo(() => {
-    return allLocationBlocks.slice(0, displayLocationCount);
-  }, [allLocationBlocks, displayLocationCount]);
-
-  const hasNextPage = displayLocationCount < allLocationBlocks.length;
-  const remaining = Math.max(0, allLocationBlocks.length - locationBlocks.length);
-
-  const loadMore = useCallback(() => {
-    setDisplayLocationCount((prev) => prev + 50);
-  }, []);
+  // All blocks are rendered — pagination is server-side now
+  const locationBlocks = allLocationBlocks;
 
   // Scroll to top when search changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    setDisplayLocationCount(50); // Reset pagination on search
   }, [debouncedSearch]);
 
   const { viewMode, isSearching } = useViewMode(); // 'stock' | 'picking'
@@ -679,7 +660,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
       )}
 
       <div className="p-4 space-y-6 min-h-[50vh]">
-        {isLoading && !locationBlocks.length
+        {(isLoading || isServerSearching) && !locationBlocks.length
           ? SEARCHING_MESSAGE
           : locationBlocks.map(({ wh, location, items, locationId }, index) => {
               const isFirstInWarehouse = index === 0 || locationBlocks[index - 1].wh !== wh;
@@ -782,13 +763,25 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
               );
             })}
 
-        {hasNextPage ? (
+        {hasMoreItems && !debouncedSearch ? (
           <div className="flex flex-col items-center gap-4 py-8">
             <button
-              onClick={loadMore}
-              className="px-8 py-4 font-black uppercase tracking-widest rounded-2xl transition-all active:scale-95 shadow-lg bg-subtle text-accent hover:bg-accent hover:text-white"
+              onClick={loadMoreItems}
+              disabled={isLoadingMore}
+              className={`px-8 py-4 font-black uppercase tracking-widest rounded-2xl transition-all active:scale-95 shadow-lg ${
+                isLoadingMore
+                  ? 'bg-subtle text-muted cursor-wait'
+                  : 'bg-subtle text-accent hover:bg-accent hover:text-white'
+              }`}
             >
-              Load More Locations ({remaining} remaining)
+              {isLoadingMore ? (
+                <span className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent" />
+                  Loading...
+                </span>
+              ) : (
+                'Load More'
+              )}
             </button>
           </div>
         ) : null}

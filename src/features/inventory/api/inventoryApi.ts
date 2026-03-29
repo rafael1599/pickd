@@ -25,40 +25,56 @@ import { validateData, validateArray } from '../../../utils/validate';
  */
 export const inventoryApi = {
   /**
-   * OPTIMIZED: Fetch inventory with metadata in single query (reduces round-trips)
-   * Use this instead of calling fetchInventory() + fetchAllMetadata() separately
+   * OPTIMIZED: Fetch inventory with metadata — paginated with lean column selection.
+   * Returns { data, count } for infinite query support.
    */
-  async fetchInventoryWithMetadata(
+  async fetchInventoryWithMetadata({
     includeInactive = false,
-    partsBins = false
-  ): Promise<InventoryItem[]> {
+    partsBins = false,
+    search = '',
+    offset = 0,
+    limit = 30,
+  }: {
+    includeInactive?: boolean;
+    partsBins?: boolean;
+    search?: string;
+    offset?: number;
+    limit?: number;
+  } = {}): Promise<{ data: InventoryItem[]; count: number | null }> {
     let query = supabase
       .from('inventory')
       .select(
         `
-                *,
-                sku_metadata (*)
-            `
+        id, sku, quantity, location, location_id, item_name,
+        warehouse, is_active, internal_note, distribution, created_at,
+        sku_metadata ( sku, name, image_url )
+        `,
+        { count: 'exact' }
       )
-      .order('created_at', { ascending: false })
-      .limit(10000);
+      .order('location', { ascending: true })
+      .order('sku', { ascending: true })
+      .range(offset, offset + limit - 1);
 
     if (!includeInactive) {
       query = query.eq('is_active', true);
     }
 
+    if (search) {
+      query = query.or(
+        `sku.ilike.%${search}%,item_name.ilike.%${search}%,location.ilike.%${search}%`
+      );
+    }
+
     if (partsBins) {
-      // Parts bins: locations that are NOT "ROW X" pattern
       query = query.not('location', 'like', 'ROW %');
     } else {
-      // Bikes: only "ROW X" pattern + PALLETIZED + other non-parts-bin locations
       query = query.or('location.like.ROW %,location.eq.PALLETIZED,location.eq.UNASSIGNED');
     }
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
 
     if (error) throw error;
-    return (data || []) as unknown as InventoryItem[];
+    return { data: (data || []) as unknown as InventoryItem[], count };
   },
 
   /**
