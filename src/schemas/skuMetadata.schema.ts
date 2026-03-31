@@ -3,7 +3,6 @@ import { z } from 'zod';
 export const SKUMetadataSchema = z.object({
   id: z.string().optional(),
   sku: z.string().min(1),
-  name: z.string().nullish(),
   image_url: z.string().nullable().optional(),
   length_in: z.number().nullish().optional(),
   width_in: z.number().nullish().optional(),
@@ -18,6 +17,6 @@ export type SKUMetadata = z.infer<typeof SKUMetadataSchema>;
 export const SKUMetadataInputSchema = SKUMetadataSchema.omit({
   id: true,
   created_at: true,
-  updated_at: true
+  updated_at: true,
 });
 export type SKUMetadataInput = z.infer<typeof SKUMetadataInputSchema>;

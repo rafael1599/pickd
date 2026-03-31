@@ -47,7 +47,7 @@ export const inventoryApi = {
         `
         id, sku, quantity, location, location_id, item_name,
         warehouse, is_active, internal_note, distribution, created_at,
-        sku_metadata ( sku, name, image_url )
+        sku_metadata ( sku, image_url )
         `,
         { count: 'exact' }
       )
