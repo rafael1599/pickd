@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { type User } from '@supabase/supabase-js';
 import { supabase } from '../../../lib/supabase';
 import { debounce, type DebouncedFunction } from '../../../utils/debounce';
@@ -38,6 +38,7 @@ interface UsePickingSyncProps {
   isSaving: boolean;
   isLoaded: boolean;
   lastSaved: Date | null;
+  isInWorkflowRef: React.MutableRefObject<boolean>;
 }
 
 const SYNC_DEBOUNCE_MS = 1000;
@@ -73,6 +74,7 @@ export const usePickingSync = ({
   isSaving,
   isLoaded,
   lastSaved,
+  isInWorkflowRef,
 }: UsePickingSyncProps) => {
   // State removed and moved to PickingProvider via props
 
@@ -107,6 +109,13 @@ export const usePickingSync = ({
 
     const loadSession = async () => {
       try {
+        // Guard: Skip if a workflow (generatePickingPath, returnToBuilding) is in progress
+        if (isInWorkflowRef.current) {
+          console.log('⏸️ [loadSession] Skipped — workflow in progress');
+          setIsLoaded(true);
+          return;
+        }
+
         const FIVE_HOURS_MS = 1000 * 60 * 60 * 5;
 
         // A. Check for double-check session first (Highest priority)

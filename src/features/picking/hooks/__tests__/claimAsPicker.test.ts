@@ -44,6 +44,7 @@ function makeProps(overrides: Record<string, unknown> = {}) {
     resetSession: vi.fn(),
     loadNumber: null,
     setLoadNumber: vi.fn(),
+    isInWorkflowRef: { current: false },
     ...overrides,
   };
 }

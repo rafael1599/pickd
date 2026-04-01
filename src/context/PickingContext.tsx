@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useState, ReactNode, useCallback, useMemo } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useRef,
+  ReactNode,
+  useCallback,
+  useMemo,
+} from 'react';
 import toast from 'react-hot-toast';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
@@ -104,6 +112,9 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
   const [sessionMode, setSessionMode] = useState<
     'idle' | 'building' | 'picking' | 'double_checking'
   >('idle');
+
+  // Workflow Lock: prevents loadSession from overwriting activeListId during a workflow
+  const isInWorkflowRef = useRef(false);
 
   // Initialization State
   const [isInitializing, setIsInitializing] = useState(false);
@@ -228,6 +239,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
     isSaving,
     isLoaded,
     lastSaved,
+    isInWorkflowRef,
   });
 
   const {
@@ -263,6 +275,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
     ownerId,
     loadNumber,
     setLoadNumber,
+    isInWorkflowRef,
   });
 
   const { notes, isLoading: isNotesLoading, addNote: addNoteRaw } = usePickingNotes(activeListId);
@@ -288,6 +301,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
+      isInWorkflowRef.current = true;
       try {
         // If we are in verification/picking, maybe we don't want to DELETE,
         // just go back to building while keeping the DB record as 'active' or 'needs_correction'
@@ -296,7 +310,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
 
         const { data: current } = await supabase
           .from('picking_lists')
-          .select('status')
+          .select('status, group_id')
           .eq('id', targetId)
           .maybeSingle();
 
@@ -307,7 +321,19 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
             .update({ status: 'active', checked_by: null })
             .eq('id', targetId);
 
+          // Release group siblings back to queue (matches releaseCheck pattern)
+          if (current.group_id) {
+            await supabase
+              .from('picking_lists')
+              .update({ status: 'ready_to_double_check', checked_by: null })
+              .eq('group_id', current.group_id)
+              .neq('id', targetId)
+              .neq('status', 'completed')
+              .neq('status', 'cancelled');
+          }
+
           // Keep activeListId so generatePickingPath() can UPDATE instead of INSERT (bug-004 fix)
+          setListStatus('active');
           setSessionMode('building');
           localStorage.setItem('picking_session_mode', 'building');
           localStorage.setItem('active_picking_list_id', targetId);
@@ -339,6 +365,8 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       } catch (err) {
         console.error('Failed to return to building:', err);
         toast.error('Failed to return to building mode');
+      } finally {
+        isInWorkflowRef.current = false;
       }
     },
     [activeListId, deleteList, setSessionMode, setActiveListId]

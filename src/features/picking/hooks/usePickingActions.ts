@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import React, { useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { supabase } from '../../../lib/supabase';
 import type { CartItem } from './usePickingCart';
@@ -61,6 +61,7 @@ interface UsePickingActionsProps {
   setSessionMode: (mode: 'building' | 'picking' | 'double_checking') => void;
   setIsSaving: (val: boolean) => void;
   resetSession: (skipState?: boolean) => void;
+  isInWorkflowRef: React.MutableRefObject<boolean>;
 }
 
 export const usePickingActions = ({
@@ -82,6 +83,7 @@ export const usePickingActions = ({
   setIsSaving,
   resetSession,
   loadNumber,
+  isInWorkflowRef,
 }: UsePickingActionsProps) => {
   const completeList = useCallback(
     async (metrics?: { pallets_qty: number; total_units: number }, listIdOverride?: string) => {
@@ -600,6 +602,7 @@ export const usePickingActions = ({
       toast.error('Add items to your cart first.');
       return;
     }
+    isInWorkflowRef.current = true;
 
     setIsSaving(true);
     try {
@@ -767,6 +770,7 @@ export const usePickingActions = ({
       console.error('Failed to generate picking path:', err);
       toast.error('Failed to start picking session.');
     } finally {
+      isInWorkflowRef.current = false;
       setIsSaving(false);
     }
   }, [
@@ -782,6 +786,7 @@ export const usePickingActions = ({
     setOwnerId,
     setSessionMode,
     setIsSaving,
+    isInWorkflowRef,
   ]);
 
   const updateCustomerDetails = useCallback(
