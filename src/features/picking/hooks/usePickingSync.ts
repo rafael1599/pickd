@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { type User } from '@supabase/supabase-js';
 import { supabase } from '../../../lib/supabase';
-import { debounce } from '../../../utils/debounce';
+import { debounce, type DebouncedFunction } from '../../../utils/debounce';
 import toast from 'react-hot-toast';
 import type { CartItem } from './usePickingCart';
 import type { Customer } from '../../../types/schema';
@@ -417,16 +417,18 @@ export const usePickingSync = ({
     }
   };
 
-  const debouncedSaveRef = useRef<
-    | ((items: CartItem[], userId: string, listId: string | null, orderNum: string | null) => void)
-    | null
-  >(null);
+  const debouncedSaveRef = useRef<DebouncedFunction<
+    (items: CartItem[], userId: string, listId: string | null, orderNum: string | null) => void
+  > | null>(null);
   useEffect(() => {
     debouncedSaveRef.current = debounce(
       (items: CartItem[], userId: string, listId: string | null, orderNum: string | null) =>
         saveToDb(items, userId, listId, orderNum),
       SYNC_DEBOUNCE_MS
     );
+    return () => {
+      debouncedSaveRef.current?.cancel();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- saveToDb is intentionally excluded; it reads sessionMode via closure and recreating the debounce on every dep change would defeat debouncing
   }, [sessionMode]);
 
