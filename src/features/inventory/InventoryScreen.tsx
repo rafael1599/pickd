@@ -80,10 +80,28 @@ export const InventoryScreen = () => {
     hasMoreItems,
     isLoadingMore,
     isSearching: isServerSearching,
+    searchTotal,
   } = useInventory();
 
   const [localSearch, setLocalSearch] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
+
+  // Auto-load more when sentinel enters viewport
+  useEffect(() => {
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel || !hasMoreItems) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isLoadingMore) {
+          loadMoreItems();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMoreItems, isLoadingMore, loadMoreItems]);
 
   // Auto-scroll to top when searching to ensure results are visible
   useEffect(() => {
@@ -763,26 +781,26 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
               );
             })}
 
-        {hasMoreItems && !debouncedSearch ? (
-          <div className="flex flex-col items-center gap-4 py-8">
-            <button
-              onClick={loadMoreItems}
-              disabled={isLoadingMore}
-              className={`px-8 py-4 font-black uppercase tracking-widest rounded-2xl transition-all active:scale-95 shadow-lg ${
-                isLoadingMore
-                  ? 'bg-subtle text-muted cursor-wait'
-                  : 'bg-subtle text-accent hover:bg-accent hover:text-white'
-              }`}
-            >
-              {isLoadingMore ? (
-                <span className="flex items-center gap-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent" />
-                  Loading...
-                </span>
-              ) : (
-                'Load More'
-              )}
-            </button>
+        {hasMoreItems ? (
+          <div ref={loadMoreSentinelRef} className="flex flex-col items-center gap-2 py-8">
+            {debouncedSearch && searchTotal !== null && (
+              <span className="text-xs font-bold uppercase tracking-widest text-muted">
+                Showing {filteredStats.totalSkus} of {searchTotal} results
+              </span>
+            )}
+            {isLoadingMore ? (
+              <div className="flex items-center gap-2 text-muted text-xs font-bold uppercase tracking-widest">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent" />
+                Loading...
+              </div>
+            ) : (
+              <button
+                onClick={loadMoreItems}
+                className="px-8 py-4 font-black uppercase tracking-widest rounded-2xl transition-all active:scale-95 shadow-lg bg-subtle text-accent hover:bg-accent hover:text-white"
+              >
+                Load More
+              </button>
+            )}
           </div>
         ) : null}
 

@@ -28,7 +28,7 @@ const noopFilters = (_filters?: unknown) => {};
 /** Page sizes for server-side pagination */
 const INITIAL_PAGE_SIZE = 30;
 const LOAD_MORE_SIZE = 20;
-const SEARCH_LIMIT = 20;
+const SEARCH_LIMIT = 30;
 
 function mapItem(item: InventoryItemWithMetadata): InventoryItemWithMetadata {
   return {
@@ -50,6 +50,7 @@ export const useInventory = () => {
   // Pagination state
   const [bikesTotal, setBikesTotal] = useState<number | null>(null);
   const [partsTotal, setPartsTotal] = useState<number | null>(null);
+  const [searchTotal, setSearchTotal] = useState<number | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const {
@@ -115,21 +116,30 @@ export const useInventory = () => {
   const { data: searchResults, isLoading: isSearching } = useQuery<InventoryItemWithMetadata[]>({
     queryKey: ['inventory', 'search', searchQuery],
     queryFn: async () => {
+      // On refetch, load at least as many items as currently cached
+      const currentData = queryClient.getQueryData<InventoryItemWithMetadata[]>([
+        'inventory',
+        'search',
+        searchQuery,
+      ]);
+      const fetchLimit = currentData ? Math.max(currentData.length, SEARCH_LIMIT) : SEARCH_LIMIT;
+
       // Search across both bikes and parts
       const [bikesRes, partsRes] = await Promise.all([
         inventoryApi.fetchInventoryWithMetadata({
           includeInactive: true,
           partsBins: false,
           search: searchQuery,
-          limit: SEARCH_LIMIT,
+          limit: fetchLimit,
         }),
         inventoryApi.fetchInventoryWithMetadata({
           includeInactive: true,
           partsBins: true,
           search: searchQuery,
-          limit: SEARCH_LIMIT,
+          limit: fetchLimit,
         }),
       ]);
+      setSearchTotal((bikesRes.count ?? 0) + (partsRes.count ?? 0));
       const combined = [...bikesRes.data, ...partsRes.data];
       // Deduplicate by id
       const seen = new Set<number>();
@@ -182,15 +192,66 @@ export const useInventory = () => {
 
   const hasMoreBikes = bikesTotal !== null && (rawData?.length ?? 0) < bikesTotal;
   const hasMoreParts = partsTotal !== null && (partsBinsData?.length ?? 0) < partsTotal;
-  const hasMoreItems = hasMoreBikes || (showPartsBins && hasMoreParts);
+  const hasMoreSearch = searchTotal !== null && (searchResults?.length ?? 0) < searchTotal;
+  const hasMoreItems = searchQuery
+    ? hasMoreSearch
+    : hasMoreBikes || (showPartsBins && hasMoreParts);
+
+  const loadMoreSearch = useCallback(async () => {
+    if (isLoadingMore || !searchQuery) return;
+    setIsLoadingMore(true);
+    try {
+      const currentData =
+        queryClient.getQueryData<InventoryItemWithMetadata[]>([
+          'inventory',
+          'search',
+          searchQuery,
+        ]) || [];
+      const nextOffset = Math.ceil(currentData.length / 2); // each side fetched ~half
+
+      const [bikesRes, partsRes] = await Promise.all([
+        inventoryApi.fetchInventoryWithMetadata({
+          includeInactive: true,
+          partsBins: false,
+          search: searchQuery,
+          offset: nextOffset,
+          limit: LOAD_MORE_SIZE,
+        }),
+        inventoryApi.fetchInventoryWithMetadata({
+          includeInactive: true,
+          partsBins: true,
+          search: searchQuery,
+          offset: nextOffset,
+          limit: LOAD_MORE_SIZE,
+        }),
+      ]);
+
+      setSearchTotal((bikesRes.count ?? 0) + (partsRes.count ?? 0));
+      const newItems = [...bikesRes.data, ...partsRes.data].map(mapItem);
+
+      queryClient.setQueryData(
+        ['inventory', 'search', searchQuery],
+        (old: InventoryItemWithMetadata[] | undefined) => {
+          if (!old) return newItems;
+          const existingIds = new Set(old.map((i) => i.id));
+          const unique = newItems.filter((i) => !existingIds.has(i.id));
+          return [...old, ...unique];
+        }
+      );
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, searchQuery, queryClient]);
 
   const loadMore = useCallback(async () => {
-    if (hasMoreBikes) {
+    if (searchQuery) {
+      await loadMoreSearch();
+    } else if (hasMoreBikes) {
       await loadMoreInventory(false);
     } else if (showPartsBins && hasMoreParts) {
       await loadMoreInventory(true);
     }
-  }, [hasMoreBikes, hasMoreParts, showPartsBins, loadMoreInventory]);
+  }, [searchQuery, loadMoreSearch, hasMoreBikes, hasMoreParts, showPartsBins, loadMoreInventory]);
 
   // ── Merge data: use search results when searching, else paginated data ─
   const isActiveSearch = searchQuery.length > 0;
@@ -376,6 +437,7 @@ export const useInventory = () => {
     loadMore,
     hasMoreItems,
     isLoadingMore,
+    searchTotal,
 
     // Utils / Stubs
     processPickingList,
