@@ -5,6 +5,7 @@ High-performance, multi-user Inventory Management System powered by **Supabase**
 ## 🚀 Reality Check: Current State
 
 The system has matured from a CSV-based prototype into a full-scale warehouse orchestration platform:
+
 - **Database**: 100% migrated to Supabase (PostgreSQL) with Real-time synchronization.
 - **Language**: Core logic and Smart Picking migrated to **TypeScript** for enterprise-grade reliability.
 - **AI**: Dual-provider fallback system (Gemini 2.5 Flash + GPT-4o).
@@ -76,6 +77,7 @@ The project follows a **Feature-Sliced Design (FSD)** inspired architecture for 
 ## Usage Guide
 
 ### Picking Flow
+
 1. **Deduction & Validation**: As items are scanned or added to a picking session, the system validates stock in real-time.
 2. **Route Optimization**: The system calculates the shortest path through the warehouse based on your custom map.
 3. **Session Persistence**: Picking progress is synced across users. An admin can "Double Check" a pallet before finalizing.
@@ -96,17 +98,33 @@ The project follows a **Feature-Sliced Design (FSD)** inspired architecture for 
 Skills are managed from the `my-agent-skills` repo (single source of truth). This project declares its dependencies in `.skills-config.json` and syncs them via `scripts/sync-skills.ps1`.
 
 Active skills:
+
 - **frontend-design**: UX/UI standards and modern component patterns.
 - **supabase-postgres-best-practices**: Hardened database schema and RPC patterns.
 - **vercel-react-best-practices**: Optimization for performance and React 19 standards.
 
+## Branching & Deployment
+
+| Branch    | Environment | URL                    | Purpose                             |
+| --------- | ----------- | ---------------------- | ----------------------------------- |
+| `main`    | Production  | `roman-app.vercel.app` | Stable, user-facing                 |
+| `develop` | Staging     | Vercel preview URL     | Testing new features before release |
+
+Both environments share the same Supabase database. Database migrations must be **additive** (add columns/functions only) — never rename or drop until both environments are updated.
+
+**Workflow:** `feature/*` → PR to `develop` → test on staging → PR to `main` → production deploy.
+
+A yellow "STAGING" banner is automatically shown when the app runs on any host other than production or localhost.
+
 ## Troubleshooting
 
 **Q: Inventory changes aren't syncing?**
+
 - Verify your internet connection; Supabase requires an active link for real-time updates.
 - Check the browser console for RLS (Row Level Security) violations.
 
 **Q: AI scanning is slow or failing?**
+
 - The system will fallback to OpenAI if Gemini is overloaded.
 - Ensure the invoice is well-lit and the camera is in focus.
 

@@ -32,6 +32,7 @@ import { AuthProvider, useAuth } from './context/AuthContext.tsx';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import { ThemeProvider } from './context/ThemeContext.tsx';
 import { Suspense } from 'react';
+import { StagingBanner } from './components/layout/StagingBanner.tsx';
 
 // Content accessible only after login
 const AuthenticatedContent = () => {
@@ -140,6 +141,7 @@ function App() {
 
   return (
     <ThemeProvider>
+      <StagingBanner />
       <AuthProvider>
         <BrowserRouter>
           <ErrorProvider>

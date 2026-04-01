@@ -52,6 +52,14 @@ Ver `JAMIS/SHARED-DB-CONTRACT.md` para ownership de tablas, RPCs, y reglas de mi
 - pickd-2d lee: `inventory`, `sku_metadata`, `locations` y escribe solo via consolidation RPCs
 - **`sku_metadata` columns (prod):** `sku`, `length_in`, `width_in`, `height_in`, `length_ft`, `weight_lbs`, `image_url`, `created_at` — NO tiene columna `name`
 
+## Branching & Deployment
+
+- **`main`** — Producción. Despliega automáticamente a `roman-app.vercel.app`.
+- **`develop`** — Staging/preview. Despliega automáticamente a un URL de preview de Vercel. Misma DB de producción (Supabase compartida).
+- **Flujo:** feature branches → PR a `develop` → testing en staging → PR a `main` → producción.
+- **Regla de migraciones:** Como staging y producción comparten la misma DB, los cambios de esquema deben ser **aditivos** (agregar columnas/funciones OK, renombrar/eliminar NO hasta que producción también se actualice).
+- **Banner de staging:** `StagingBanner.tsx` muestra un banner amarillo "STAGING" automáticamente cuando el hostname no es producción ni localhost.
+
 ## Servicios externos
 
 - **watchdog-pickd** — Daemon Python que monitorea PDFs y auto-crea órdenes. Corre en la **MacBook de Bay 2** (no en esta máquina) como servicio launchd (`com.antigravity.watchdog-pickd`). Usa `service_role` key (bypasses RLS). Repo: `~/Documents/Projects/JAMIS/watchdog-pickd/`. Para reinstalar: `python watcher.py --install`.
