@@ -1,0 +1,20 @@
+Progress Update — April 1, 2026 at 11:44 AM
+
+WIN OF THE DAY:
+PickD now has a staging version so new features get tested before going live — no more broken weekends.
+
+WHAT'S BETTER NOW:
+- There are now two versions of the app: the stable one the team uses every day, and a preview version where new features get tested first. If something breaks in preview, the real app stays untouched.
+- The preview version shows a yellow "STAGING" banner at the top so nobody confuses it with the real thing.
+- 21 new bikes added to ROW 52: Faultline A1/A2/A3, Renegade S1 UDH Framekits, Renegade C4, and Renegade S1 Adobe Clay — all set up with names, dimensions, and pallet distribution.
+- The system was keeping a growing pile of internal housekeeping records that took up half the storage — cleaned it up and set it to auto-clean every week from now on.
+
+ON THE FLOOR:
+- Unloaded a new container and registered 21 bikes into ROW 52 — Faultline A1/A2/A3, Renegade S1 UDH Framekits, Renegade C4, and Renegade S1 Adobe Clay. All logged with names, dimensions, and pallet distribution.
+
+COMING UP NEXT:
+- Redesign how the system handles unfinished orders: instead of silently canceling them, keep them visible and let the picker pick them back up with one tap
+- Sub-locations (ROW 5A, 5B, 5C) so pickers know exactly where to look in a row
+
+3 done today / 15 in the queue (8 high priority, 4 medium, 3 bugs)
+Note: sub-locations and multi-address have been on the roadmap for 5 days.

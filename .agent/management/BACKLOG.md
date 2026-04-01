@@ -81,6 +81,41 @@
   - El watcher usa la dirección default al crear órdenes automáticamente
   - El label aparece en el dropdown para diferenciar direcciones
 
+### 19. Rediseño de auto-cancel → sistema de expiración con reactivación <!-- id: idea-031 -->
+
+- **Creado:** `[2026-04-01 11:30]`
+- **Estado:** Por hacer.
+- **Problema:** El auto-cancel actual cancela órdenes a los 15 min de inactividad o 24 hrs, sin notificación. Esto causa que órdenes legítimas (picker fue a almorzar, orden del viernes que se recoge el lunes) desaparezcan y pierdan su progreso. Las órdenes normalmente se completan en menos de 3 días.
+- **Comportamiento deseado:**
+  1. **Eliminar timer de 15 min de inactividad** — no cancelar por inactividad corta
+  2. **Expiración a 3 días desde creación** — libera inventario reservado pero la orden NO desaparece
+  3. **Nuevo estado `expired`** — orden visible en la lista del picker con indicador visual de expirada
+  4. **Reactivación con un tap** — picker toca la orden expirada → sistema re-reserva inventario automáticamente
+  5. **Validación de stock al reactivar** — si algún item ya no tiene stock, avisar cuáles no están disponibles antes de reactivar
+  6. **Mismas reglas** para órdenes manuales y del watcher
+- **Diseño técnico:**
+  1. **DB:** Agregar `expired` al enum de estados de picking_list (después de `active`, antes de `cancelled`)
+  2. **RPC `auto_cancel_stale_orders()`:** Reescribir — en vez de cancelar a 15min/24hrs, solo expira órdenes con `created_at < now() - interval '3 days'` y status `active`. Cambiar status a `expired` y llamar a la lógica de liberación de inventario
+  3. **Cron:** Mantener frecuencia de 1 min (ya corre, bajo impacto) o reducir a cada 15 min
+  4. **Frontend — OrdersScreen:** Mostrar órdenes `expired` con badge visual (ej. reloj naranja). Al tap, mostrar modal "Esta orden expiró. ¿Reactivar?" con lista de items y disponibilidad actual
+  5. **Nueva RPC `reactivate_picking_list(p_list_id)`:** Verifica stock de cada item → reserva los que haya → cambia status a `active` → retorna lista de items sin stock (si los hay)
+  6. **Notificación:** Toast al picker cuando una orden expira (vía Realtime subscription en `picking_lists`)
+- **Impacto en estados del picking workflow:**
+  ```
+  idle → building → active → expired (nuevo, después de 3 días)
+                                ↓ tap reactivar
+                              active (re-reserva inventario)
+  active → ready_to_double_check → double_checking → completed | needs_correction
+  active → cancelled (solo manual)
+  ```
+- **Criterios de aceptación:**
+  - Órdenes activas NO se cancelan por inactividad
+  - Después de 3 días sin completar, la orden pasa a `expired` y libera inventario
+  - Orden expirada sigue visible con indicador visual claro
+  - Picker puede reactivar con un tap si hay stock
+  - Al reactivar, si un item ya no tiene stock, se muestra cuál y se permite reactivar parcialmente o cancelar
+  - Órdenes del watcher siguen las mismas reglas
+
 ### 14. Separar peso de dimensiones + defaults para partes <!-- id: idea-025 -->
 
 - **Creado:** `[2026-03-27 15:30]`
@@ -167,6 +202,8 @@
 - [ ] **Order List View**: When reviewing orders, show the picking list first with an option to print. <!-- id: idea-006 -->
 - [ ] **Automatic Inventory Email**: Send full inventory table to Jamis's email. Plain list only, NO links. Edge function `send-daily-report` ya existe — falta query + formato + cron. <!-- id: idea-007 -->
 - [ ] **Fotos Fase 3 — Bulk Upload**: Multi-file picker con batching concurrency (3-5), progress bar, mapeo SKU↔archivo por nombre o CSV. Reusar `uploadPhoto()` existente. <!-- id: idea-023-p3 -->
+- [ ] **Migrar cron jobs a pg_cron** — `[2026-04-01]` <!-- id: idea-030 -->
+      Mover `daily-snapshot` y `auto-cancel-orders` de GitHub Actions / Edge Function cron a **pg_cron** (ya instalado en Supabase). Elimina dependencia de GitHub Actions, corre directo en Postgres, más confiable. Evaluar también **Database Webhooks** para eventos como qty=0 o picking list completada, y **Queues** si el volumen de órdenes crece.
 - [x] ~~**Order Merging**: Combine 2 separate orders into one picking session.~~ — Cubierto por task-007 + idea-010b. `adff48e` <!-- id: idea-010 -->
 
 ---
@@ -185,6 +222,10 @@
 - [ ] **[bug-008] Botón Save no se habilita en detalle de item** — `[2026-03-27]`
       El botón Save nunca se habilita al cambiar dimensiones, peso u otros campos. La foto se guarda sola pero el usuario no tiene confirmación de que otros cambios se persisten. Causa probable: defaults hardcoded del form (54×8×30×45) no coinciden con valores reales de `sku_metadata`, y/o `reset()` de react-hook-form no se ejecuta correctamente al cargar metadata.
       **Archivos:** `src/features/inventory/components/ItemDetailView/ItemDetailView.tsx` — `hasChanges` useMemo, `defaultValues`, `reset()`.
+
+- [ ] **[bug-010] Buscador de New Item no encuentra SKUs que el buscador general sí encuentra** — `[2026-04-01]`
+      Al buscar `03-4267BK` en el buscador de New Item (agregar item al inventario), no aparece resultado. El buscador global de Stock View sí lo encuentra correctamente. Causa probable: distinta fuente de datos o lógica de búsqueda entre ambos buscadores.
+      **Investigar:** comparar query/filtro del buscador de New Item vs el buscador global. Verificar si New Item busca en `sku_metadata` vs `inventory`, y si el filtro es exacto vs parcial.
 
 - [ ] **[bug-009] Address parser falla con calles numéricas + direccionales** — `[2026-03-27]`
       `parseUSAddress` no parsea "5305 S 1200 W\nMILLERSBURG, IN 46543". El parser busca un suffix (St, Ave, Blvd) para separar calle de ciudad. "S 1200 W" no tiene suffix reconocido → todo queda como street, city vacío. Formato común en ciudades del Midwest con calles numéricas y direccionales.
