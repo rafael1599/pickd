@@ -73,43 +73,95 @@ This document defines the state machine, correction flow, and safety mechanisms.
 - completed -> any (terminal, triple-protected)
 - Any backward jump that skips a state
 
-## Inline Correction (Double Check View)
+## Inline Correction (Double Check View) — Design Decision: Option A
 
-When a checker finds a problem item (SKU not found, insufficient stock), they can:
+**Decision date:** 2026-04-01
+**Chosen approach:** Inline Replace + Remove buttons on problem items, with search
+expansion inside the card. No navigation away from double check.
 
-1. Tap "Fix" on the problem item card
-2. The card expands showing:
-   - Qty adjuster (reduce quantity)
-   - Up to 3 similar SKU suggestions from inventory (same model, different size/color)
-   - "No alternatives found" if nothing matches
-3. Selecting a replacement swaps the SKU in the order
-4. The correction is logged in picking_list_notes
-5. The checker continues verifying without leaving the view
+### Flow for problem items (sku_not_found or insufficient_stock)
 
-### Similar SKU Matching
+Each problem item card shows two buttons: [Replace] and [Remove].
 
-Priority order:
+**Step 1 — Problem item (collapsed):**
 
-1. Same SKU prefix, different color suffix (03-3764BK -> 03-3764RD, 03-3764WH)
-2. Same model name, different size (FAULTLINE A1 15 -> FAULTLINE A1 17)
-3. Only items with qty > 0 in the same warehouse
+    ┌─────────────────────────────────────────────┐
+    │ RED  03-4614ZZ          1u                  │
+    │ FAULTLINE A1 V2 15 PHANTOM PURPLE           │
+    │ SKU NOT FOUND                               │
+    │                                             │
+    │   [ Replace ]  [ Remove ]                   │
+    └─────────────────────────────────────────────┘
 
-Max 3 suggestions. If none found, show "No alternatives found".
+**Step 2 — Tap Replace, card expands with search:**
+
+    ┌─────────────────────────────────────────────┐
+    │ RED  03-4614ZZ          1u                  │
+    │ FAULTLINE A1 V2 15 PHANTOM PURPLE           │
+    │ SKU NOT FOUND                               │
+    │                                             │
+    │ ┌─ REPLACE WITH: ───────────────────────┐   │
+    │ │ Search [SKU or name...            ]   │   │
+    │ │                                       │   │
+    │ │  03-4614RD  FAULTLINE A1 GARNET  7u   │   │
+    │ │  03-4614WH  FAULTLINE A1 WHITE   3u   │   │
+    │ │  03-4615BK  FAULTLINE A1 17 BLK  5u   │   │
+    │ │                                       │   │
+    │ │  (results update as you type)         │   │
+    │ └───────────────────────────────────────┘   │
+    │                                             │
+    │   [ Cancel ]                                │
+    └─────────────────────────────────────────────┘
+
+- Search field queries inventory (same warehouse, qty > 0)
+- Pre-populated with suggestions from findSimilarSkus if available
+- User can type freely to search any SKU in inventory
+- Results update as user types (debounced)
+
+**Step 3 — Tap a result, qty selector appears (no qty before choosing):**
+
+    ┌─────────────────────────────────────────────┐
+    │ OK  03-4614RD           ?u                  │
+    │ FAULTLINE A1 V2 15 GARNET   (7 available)  │
+    │ ROW 10                                      │
+    │                                             │
+    │   How many?   [ - ]  [ 1 ]  [ + ]           │
+    │                                             │
+    │   [ Confirm ]    [ Change ]                 │
+    └─────────────────────────────────────────────┘
+
+- Qty selector only appears AFTER choosing replacement
+- Default qty = original pickingQty (or max available, whichever is less)
+- Confirm swaps the item, logs the correction, collapses the card
+- Change goes back to the search step
+
+### For insufficient_stock items
+
+Same flow but also shows [Adjust Qty] button (no need to replace, just lower the qty):
+
+    ┌─────────────────────────────────────────────┐
+    │ RED  03-3764BK          50u                 │
+    │ HELIX A2 16 GLOSS BLACK (only 2 in stock)  │
+    │ INSUFFICIENT STOCK                          │
+    │                                             │
+    │   [ Replace ]  [ Adjust Qty ]  [ Remove ]   │
+    └─────────────────────────────────────────────┘
+
+Adjust Qty shows inline: [ - ] [ 2 ] [ + ] [ Confirm ]
+
+### Rules
+
+- Replace and Remove buttons only appear on problem items (red)
+- Normal items have no correction buttons
+- Qty selector only appears AFTER choosing a replacement item
+- All corrections are logged in picking_list_notes
+- The checker never leaves the double check view
+- No backward transitions (no building mode, no active status change)
 
 ### When to Use returnToPicker Instead
 
-For major corrections (many wrong items, order needs full re-pick), the checker uses
-"Return to Picker" which sends the order to needs_correction with notes.
-
-## Correction Mode (Picker Side)
-
-When a picker opens an order in needs_correction status:
-
-1. They see the Correction Mode view (not the regular building view)
-2. Problem items are highlighted with the checker's notes
-3. Picker can: remove items, swap SKUs, adjust quantities
-4. When done, the order goes directly to ready_to_double_check
-5. The order never returns to "active" or "building" — forward-only
+For cases where items need to be physically re-picked from the warehouse floor,
+the checker uses "Return to Picker" with notes. The picker sees it in their queue.
 
 ## Workflow Lock
 

@@ -114,6 +114,12 @@
   - Siblings de grupo se liberan correctamente al regresar
   - Debounce timers se cancelan al cambiar sessionMode
   - Tests existentes (bug-004) siguen pasando
+- **Feedback de testing (2026-04-01):**
+  - La inline correction en DoubleCheckView es confusa: cantidades sin sentido, opciones no útiles
+  - Si un item NO tiene alternativas similares, el botón Fix NO debe aparecer
+  - Se necesita un botón más grande "Fix Order" que abra una **vista dedicada de corrección** similar a Build Order — buscar y elegir reemplazos libremente del inventario, sin regresar a building mode
+  - La Correction Mode es un "Build Order limitado" que edita items problemáticos y envía directo a ready_to_double_check
+  - **Próximo paso:** Diseñar Correction Mode view como componente separado
 - **Descartado:** Cambiar status a `ready_to_double_check` en returnToBuilding (causa doble reserva de stock). Migrar a Zustand (refactor demasiado grande, workflow lock resuelve el mismo problema).
 
 ### 19. Rediseño de auto-cancel → sistema de expiración con reactivación <!-- id: idea-031 -->
