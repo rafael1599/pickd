@@ -1,20 +1,21 @@
-Progress Update — April 1, 2026 at 11:44 AM
+Progress Update — April 1, 2026 at 4:28 PM
 
 WIN OF THE DAY:
-PickD now has a staging version so new features get tested before going live — no more broken weekends.
+Found and fixed the root cause of orders disappearing during verification — the system now protects active sessions from being overwritten, and grouped orders release properly when stepping back.
 
 WHAT'S BETTER NOW:
 - There are now two versions of the app: the stable one the team uses every day, and a preview version where new features get tested first. If something breaks in preview, the real app stays untouched.
 - The preview version shows a yellow "STAGING" banner at the top so nobody confuses it with the real thing.
-- 21 new bikes added to ROW 52: Faultline A1/A2/A3, Renegade S1 UDH Framekits, Renegade C4, and Renegade S1 Adobe Clay — all set up with names, dimensions, and pallet distribution.
+- Searching for a location with many items (like ROW 52 with 23 bikes) used to cut off results — now it shows all of them and loads more automatically as you scroll.
+- When a picker is working on an order and another verification is in progress, the system no longer loses track of the order being edited. This was the bug that hit Jed today.
+- Grouped orders (like FedEx shipments with multiple sub-orders) now release all siblings correctly when stepping back, instead of leaving some locked.
 - The system was keeping a growing pile of internal housekeeping records that took up half the storage — cleaned it up and set it to auto-clean every week from now on.
 
 ON THE FLOOR:
 - Unloaded a new container and registered 21 bikes into ROW 52 — Faultline A1/A2/A3, Renegade S1 UDH Framekits, Renegade C4, and Renegade S1 Adobe Clay. All logged with names, dimensions, and pallet distribution.
 
 COMING UP NEXT:
-- Redesign how the system handles unfinished orders: instead of silently canceling them, keep them visible and let the picker pick them back up with one tap
-- Sub-locations (ROW 5A, 5B, 5C) so pickers know exactly where to look in a row
+- Inline correction for verification: when an item doesn't exist or is out of stock, the checker will be able to search for a replacement and swap it without leaving the screen
+- Redesign how the system handles unfinished orders: keep them visible instead of silently canceling them
 
-3 done today / 15 in the queue (8 high priority, 4 medium, 3 bugs)
-Note: sub-locations and multi-address have been on the roadmap for 5 days.
+8 done today / 18 in the queue (9 high priority, 4 medium, 5 bugs)
