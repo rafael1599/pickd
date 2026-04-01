@@ -81,6 +81,41 @@
   - El watcher usa la dirección default al crear órdenes automáticamente
   - El label aparece en el dropdown para diferenciar direcciones
 
+### 20. Picking session hardening — 6 cambios (inline correction + safety fixes) <!-- id: fix-002 -->
+
+- **Creado:** `[2026-04-01 16:00]`
+- **Estado:** Por hacer — investigación completada, plan de implementación definido.
+- **Resuelve:** bug-011, bug-012, siblings huérfanos en grupos, race condition loadSession, debounce timer leak.
+- **Documentación:** `docs/picking-session-flow.md` — state machine completo, flujo de corrección, workflow lock.
+- **Contexto:** 9 equipos de investigación (5 internos + 4 externos) analizaron el state machine, patrones de industria (ShipHero, Amazon, Dynamics 365), y patrones de React. Se definió un flujo serial con transiciones forward-only.
+- **6 cambios en orden de implementación:**
+  1. **Debounce cleanup** — Agregar `.cancel()` a `debounce.ts`. Limpiar timer en usePickingSync cuando sessionMode cambia.
+     - Archivos: `src/utils/debounce.ts`, `src/features/picking/hooks/usePickingSync.ts`
+     - Riesgo: Mínimo
+  2. **Workflow Lock** — Ref `isInWorkflowRef` en PickingContext. Guard en loadSession que skipea si un workflow está en progreso. Set/unset en generatePickingPath y returnToBuilding.
+     - Archivos: `src/features/picking/hooks/usePickingSync.ts`, `src/features/picking/hooks/usePickingActions.ts`, `src/context/PickingContext.tsx`
+     - Riesgo: Bajo
+  3. **Release group siblings** — En returnToBuilding branch A (double_check), liberar siblings igual que releaseCheck.
+     - Archivos: `src/context/PickingContext.tsx`
+     - Riesgo: Bajo
+  4. **Eliminar "Return to Building" desde Double Check** — onBack en DoubleCheckView ahora llama releaseCheck (liberar a la cola), no returnToBuilding. El botón back se convierte en "Release to Queue".
+     - Archivos: `src/features/picking/components/PickingCartDrawer.tsx`, `src/features/picking/components/DoubleCheckView.tsx`
+     - Riesgo: Bajo
+  5. **Inline correction en Double Check** — En items rojos (sku_not_found, insufficient_stock), mostrar botón "Fix" que expande la card con: ajustador de qty + hasta 3 SKUs similares del inventario (mismo prefijo, mismo modelo diferente tamaño/color). Seleccionar uno swapea el SKU en la orden y loguea la corrección.
+     - Archivos: Nuevo `src/features/picking/hooks/useSimilarSkus.ts`, `src/features/picking/components/DoubleCheckView.tsx`, `src/features/picking/components/PickingCartDrawer.tsx`
+     - Riesgo: Medio
+  6. **Documentación** — Ya creada en `docs/picking-session-flow.md`.
+- **Criterios de aceptación:**
+  - Checker puede corregir items rojos inline sin salir de double check (swap SKU, ajustar qty)
+  - Items rojos muestran 0-3 alternativas similares del inventario
+  - Correcciones se loguean en picking_list_notes
+  - Botón "back" en double check libera la orden a la cola, no va a building
+  - Workflow lock previene que loadSession sobrescriba sesión activa
+  - Siblings de grupo se liberan correctamente al regresar
+  - Debounce timers se cancelan al cambiar sessionMode
+  - Tests existentes (bug-004) siguen pasando
+- **Descartado:** Cambiar status a `ready_to_double_check` en returnToBuilding (causa doble reserva de stock). Migrar a Zustand (refactor demasiado grande, workflow lock resuelve el mismo problema).
+
 ### 19. Rediseño de auto-cancel → sistema de expiración con reactivación <!-- id: idea-031 -->
 
 - **Creado:** `[2026-04-01 11:30]`
@@ -219,6 +254,13 @@
 - [x] **[bug-006]** Orden completada reaparece — Fix: `[2026-03-23]` `10ef3f8` — *misma raíz que bug-004*
 - [x] **[bug-007]** Verification list >24h — Fix: `[2026-03-25]` `3e10c0c` — *filtro de 24h en query*
 
+- [ ] **[bug-011] Orden desaparece de la UI al editar desde double check con múltiples órdenes** — `[2026-04-01]`
+      **Reportado por:** Jed (orden 878887). Tenía 3 órdenes activas simultáneas. Al presionar "regresar" desde Double Check → Build Order → editar items → Start Picking, la orden se actualiza correctamente en DB (status `active`, items editados), pero la UI no la muestra porque `usePickingSync.loadSession` tiene una jerarquía de prioridad fija: (1) busca `double_checking` con `checked_by=user`, (2) si no hay, busca `active/needs_correction` con `user_id=user`. Como Jed tenía otra orden en `double_checking` (878894), el sistema siempre cargaba esa y nunca mostraba la 878887.
+      **Contexto:** bug-004 (`10ef3f8`) resolvió el caso de una sola orden (no crear duplicados al volver de double check), pero no cubrió múltiples órdenes del mismo picker.
+      **Raíz:** `usePickingSync.ts` líneas 108-203 — `loadSession` solo carga 1 sesión. No hay mecanismo para navegar entre órdenes activas del mismo usuario.
+      **Solución propuesta:** Al hacer `returnToBuilding` desde double check, liberar la orden actual a `ready_to_double_check` (no dejarla en `active`) antes de entrar a building mode. Así el picker no acumula órdenes en estados conflictivos. Además, evaluar agregar un selector de órdenes activas en el drawer para cambiar entre ellas.
+      **Archivos:** `src/features/picking/hooks/usePickingSync.ts` (loadSession), `src/context/PickingContext.tsx` (returnToBuilding).
+
 - [ ] **[bug-008] Botón Save no se habilita en detalle de item** — `[2026-03-27]`
       El botón Save nunca se habilita al cambiar dimensiones, peso u otros campos. La foto se guarda sola pero el usuario no tiene confirmación de que otros cambios se persisten. Causa probable: defaults hardcoded del form (54×8×30×45) no coinciden con valores reales de `sku_metadata`, y/o `reset()` de react-hook-form no se ejecuta correctamente al cargar metadata.
       **Archivos:** `src/features/inventory/components/ItemDetailView/ItemDetailView.tsx` — `hasChanges` useMemo, `defaultValues`, `reset()`.
@@ -226,6 +268,9 @@
 - [ ] **[bug-010] Buscador de New Item no encuentra SKUs que el buscador general sí encuentra** — `[2026-04-01]`
       Al buscar `03-4267BK` en el buscador de New Item (agregar item al inventario), no aparece resultado. El buscador global de Stock View sí lo encuentra correctamente. Causa probable: distinta fuente de datos o lógica de búsqueda entre ambos buscadores.
       **Investigar:** comparar query/filtro del buscador de New Item vs el buscador global. Verificar si New Item busca en `sku_metadata` vs `inventory`, y si el filtro es exacto vs parcial.
+
+- [ ] **[bug-012] Click en orden de la lista de verificación no navega a la vista Orders** — `[2026-04-01]`
+      Al dar click en una orden desde la lista de verificación (double check queue), no lleva a la vista de Orders. También el botón "Orders" en el perfil de usuario no navega a `/orders`.
 
 - [ ] **[bug-009] Address parser falla con calles numéricas + direccionales** — `[2026-03-27]`
       `parseUSAddress` no parsea "5305 S 1200 W\nMILLERSBURG, IN 46543". El parser busca un suffix (St, Ave, Blvd) para separar calle de ciudad. "S 1200 W" no tiene suffix reconocido → todo queda como street, city vacío. Formato común en ciudades del Midwest con calles numéricas y direccionales.
