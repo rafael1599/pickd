@@ -6,7 +6,12 @@ import X from 'lucide-react/dist/esm/icons/x';
 import Send from 'lucide-react/dist/esm/icons/send';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
+import Wrench from 'lucide-react/dist/esm/icons/wrench';
+import Minus from 'lucide-react/dist/esm/icons/minus';
+import Plus from 'lucide-react/dist/esm/icons/plus';
+import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import { CorrectionNotesTimeline, Note } from './CorrectionNotesTimeline.tsx';
+import { findSimilarSkus, type SimilarSku } from '../utils/findSimilarSkus';
 import { SlideToConfirm } from '../../../components/ui/SlideToConfirm.tsx';
 import { useConfirmation } from '../../../context/ConfirmationContext.tsx';
 import { usePickingSession } from '../../../context/PickingContext.tsx';
@@ -45,6 +50,20 @@ export interface PickingItem {
   } | null;
 }
 
+export type CorrectionAction =
+  | {
+      type: 'swap';
+      originalSku: string;
+      replacement: {
+        sku: string;
+        location: string | null;
+        warehouse: string;
+        item_name: string | null;
+      };
+    }
+  | { type: 'adjust_qty'; sku: string; newQty: number }
+  | { type: 'remove'; sku: string };
+
 interface DoubleCheckViewProps {
   cartItems: PickingItem[];
   orderNumber?: string | null;
@@ -64,6 +83,8 @@ interface DoubleCheckViewProps {
   onSelectAll?: (keys: string[]) => void;
   onPalletCountChange?: (count: number) => void;
   status?: string | null;
+  onCorrectItem?: (action: CorrectionAction) => Promise<void>;
+  inventoryData?: InventoryItemWithMetadata[];
 }
 
 export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
@@ -83,11 +104,22 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   onSelectAll,
   onPalletCountChange,
   status,
+  onCorrectItem,
+  inventoryData: inventoryDataProp,
 }) => {
-  const { ludlowData, atsData, inventoryData, updateItem, deleteItem } = useInventory();
+  const {
+    ludlowData,
+    atsData,
+    inventoryData: inventoryDataCtx,
+    updateItem,
+    deleteItem,
+  } = useInventory();
+  const inventoryData = inventoryDataProp ?? inventoryDataCtx;
   const { showConfirmation } = useConfirmation();
   const { pallets: originalPallets } = usePickingSession();
   const [isDeducting, setIsDeducting] = useState(false);
+  const [expandedCorrectionKey, setExpandedCorrectionKey] = useState<string | null>(null);
+  const [correctionQty, setCorrectionQty] = useState<number>(0);
 
   // Pallet override state: palletId → desired total units
   const [palletOverrides, setPalletOverrides] = useState<Map<number, number>>(new Map());
@@ -402,7 +434,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         <button
           onClick={() => onBack()}
           className="p-2 -ml-2 hover:bg-white/10 rounded-full text-white/70 transition-colors shrink-0"
-          title="Back to Picking"
+          title="Release to Queue"
         >
           <ChevronLeft size={28} />
         </button>
@@ -572,167 +604,303 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                   const isChecked = checkedItems.has(itemKey);
                   const similarity = skuSimilarityMap[item.sku];
 
+                  const isCorrectionOpen = expandedCorrectionKey === itemKey;
+
                   return (
-                    <div
-                      key={itemKey}
-                      onPointerDown={() => handlePointerDown(item)}
-                      onPointerUp={handlePointerUp}
-                      onPointerCancel={handlePointerUp}
-                      onClick={() => {
-                        if (longPressTriggered.current) return;
-                        if (navigator.vibrate) navigator.vibrate(50);
-                        onToggleCheck(item, pallet.id);
-                      }}
-                      className={`transition-all duration-200 rounded-2xl p-4 flex items-center justify-between gap-3 active:scale-[0.98] cursor-pointer border ${
-                        isChecked
-                          ? item.sku_not_found
-                            ? 'bg-red-500/20 border-red-500/50'
-                            : 'bg-green-500/10 border-green-500/30'
-                          : item.sku_not_found
-                            ? 'bg-red-500/5 border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.1)]'
-                            : 'bg-white/5 border-white/5 hover:border-white/10'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        {/* Qty on the far left */}
-                        <div className="flex flex-col items-center justify-center min-w-[3rem] shrink-0 border-r border-white/10 pr-3">
-                          <span className="text-[8px] font-black uppercase tracking-widest text-white/30 mb-0.5">
-                            QTY
-                          </span>
-                          <span
-                            className={`text-xl font-black leading-none transition-all ${
-                              item.pickingQty !== 1
-                                ? 'text-amber-500 animate-pulse-warning'
-                                : isChecked
-                                  ? 'text-white/60'
-                                  : 'text-white'
-                            }`}
-                          >
-                            {item.pickingQty}
-                          </span>
-                        </div>
-
-                        {item.sku_metadata?.image_url && (
-                          <img
-                            src={
-                              item.sku_metadata.image_url.includes('/catalog/')
-                                ? item.sku_metadata.image_url
-                                    .replace('/catalog/', '/catalog/thumbs/')
-                                    .replace('.png', '.webp')
-                                : item.sku_metadata.image_url.includes('/photos/')
-                                  ? item.sku_metadata.image_url.replace(
-                                      '/photos/',
-                                      '/photos/thumbs/'
-                                    )
-                                  : item.sku_metadata.image_url
-                            }
-                            alt={item.sku}
-                            loading="lazy"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                            className="w-9 h-9 object-contain rounded flex-shrink-0 border border-white/20"
-                          />
-                        )}
-                        <div className="flex flex-col gap-1 min-w-0">
-                          {/* SKU row */}
-                          <div className="flex items-center gap-2 flex-wrap">
+                    <React.Fragment key={itemKey}>
+                      <div
+                        onPointerDown={() => !isCorrectionOpen && handlePointerDown(item)}
+                        onPointerUp={handlePointerUp}
+                        onPointerCancel={handlePointerUp}
+                        onClick={() => {
+                          if (isCorrectionOpen) return;
+                          if (longPressTriggered.current) return;
+                          if (navigator.vibrate) navigator.vibrate(50);
+                          onToggleCheck(item, pallet.id);
+                        }}
+                        className={`transition-all duration-200 rounded-2xl p-4 flex items-center justify-between gap-3 active:scale-[0.98] cursor-pointer border ${
+                          isChecked
+                            ? item.sku_not_found
+                              ? 'bg-red-500/20 border-red-500/50'
+                              : 'bg-green-500/10 border-green-500/30'
+                            : item.sku_not_found
+                              ? 'bg-red-500/5 border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.1)]'
+                              : 'bg-white/5 border-white/5 hover:border-white/10'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          {/* Qty on the far left */}
+                          <div className="flex flex-col items-center justify-center min-w-[3rem] shrink-0 border-r border-white/10 pr-3">
+                            <span className="text-[8px] font-black uppercase tracking-widest text-white/30 mb-0.5">
+                              QTY
+                            </span>
                             <span
-                              className={`font-black text-xl tracking-tight leading-none break-all ${isChecked ? (item.sku_not_found || item.insufficient_stock ? 'text-red-400' : 'text-green-400') : item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-white'}`}
-                            >
-                              {similarity?.prefix ? (
-                                <span className="animate-pulse-highlight">
-                                  {item.sku.substring(0, 2)}
-                                </span>
-                              ) : (
-                                item.sku.substring(0, 2)
-                              )}
-                              {item.sku.substring(2, item.sku.length - 2)}
-                              {similarity?.suffix ? (
-                                <span className="animate-pulse-highlight">
-                                  {item.sku.substring(item.sku.length - 2)}
-                                </span>
-                              ) : (
-                                item.sku.substring(item.sku.length - 2)
-                              )}
-                            </span>
-                            {item.sku_not_found && (
-                              <span className="text-[8px] bg-red-500 text-white px-1 py-0.5 rounded font-black uppercase tracking-tighter animate-pulse">
-                                UNREG
-                              </span>
-                            )}
-                          </div>
-                          {/* Product name — item_name from DB, or description from PDF */}
-                          {(item.item_name || item.description) && (
-                            <span className="text-[11px] font-semibold text-white/45 uppercase tracking-wide leading-none">
-                              {(item.item_name || item.description || '').slice(0, 17)}
-                            </span>
-                          )}
-                          {/* Distribution-based pick plan */}
-                          {pickPlanMap[item.sku] ? (
-                            <div
-                              className={`${
-                                distributionInconsistencyMap[item.sku] === 'over'
-                                  ? 'text-red-400/90'
-                                  : distributionInconsistencyMap[item.sku] === 'under'
-                                    ? 'text-orange-400/90'
-                                    : 'text-emerald-400/70'
+                              className={`text-xl font-black leading-none transition-all ${
+                                item.pickingQty !== 1
+                                  ? 'text-amber-500 animate-pulse-warning'
+                                  : isChecked
+                                    ? 'text-white/60'
+                                    : 'text-white'
                               }`}
                             >
-                              <span className="text-[10px] font-bold uppercase tracking-wider leading-none">
-                                {pickPlanMap[item.sku].map((step, i) => (
-                                  <span key={i}>
-                                    {i > 0 && ', '}
-                                    {step.icon} {step.type} has {step.units_each}u
+                              {item.pickingQty}
+                            </span>
+                          </div>
+
+                          {item.sku_metadata?.image_url && (
+                            <img
+                              src={
+                                item.sku_metadata.image_url.includes('/catalog/')
+                                  ? item.sku_metadata.image_url
+                                      .replace('/catalog/', '/catalog/thumbs/')
+                                      .replace('.png', '.webp')
+                                  : item.sku_metadata.image_url.includes('/photos/')
+                                    ? item.sku_metadata.image_url.replace(
+                                        '/photos/',
+                                        '/photos/thumbs/'
+                                      )
+                                    : item.sku_metadata.image_url
+                              }
+                              alt={item.sku}
+                              loading="lazy"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                              className="w-9 h-9 object-contain rounded flex-shrink-0 border border-white/20"
+                            />
+                          )}
+                          <div className="flex flex-col gap-1 min-w-0">
+                            {/* SKU row */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span
+                                className={`font-black text-xl tracking-tight leading-none break-all ${isChecked ? (item.sku_not_found || item.insufficient_stock ? 'text-red-400' : 'text-green-400') : item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-white'}`}
+                              >
+                                {similarity?.prefix ? (
+                                  <span className="animate-pulse-highlight">
+                                    {item.sku.substring(0, 2)}
                                   </span>
-                                ))}
+                                ) : (
+                                  item.sku.substring(0, 2)
+                                )}
+                                {item.sku.substring(2, item.sku.length - 2)}
+                                {similarity?.suffix ? (
+                                  <span className="animate-pulse-highlight">
+                                    {item.sku.substring(item.sku.length - 2)}
+                                  </span>
+                                ) : (
+                                  item.sku.substring(item.sku.length - 2)
+                                )}
                               </span>
-                              {distributionInconsistencyMap[item.sku] === 'over' && (
-                                <span className="text-[9px]"> ⚠ dist mismatch</span>
+                              {item.sku_not_found && (
+                                <span className="text-[8px] bg-red-500 text-white px-1 py-0.5 rounded font-black uppercase tracking-tighter animate-pulse">
+                                  UNREG
+                                </span>
                               )}
-                              {distributionInconsistencyMap[item.sku] === 'under' && (
-                                <span className="text-[9px]"> ~ approx</span>
+                              {(item.sku_not_found || item.insufficient_stock) && onCorrectItem && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const key = `${pallet.id}-${item.sku}-${item.location}`;
+                                    if (expandedCorrectionKey === key) {
+                                      setExpandedCorrectionKey(null);
+                                    } else {
+                                      setExpandedCorrectionKey(key);
+                                      setCorrectionQty(item.pickingQty);
+                                    }
+                                  }}
+                                  className="text-[8px] bg-accent text-main px-1.5 py-0.5 rounded font-black uppercase tracking-tighter flex items-center gap-0.5 min-h-[1.25rem]"
+                                >
+                                  <Wrench size={9} />
+                                  Fix
+                                </button>
                               )}
                             </div>
-                          ) : (
-                            item.insufficient_stock && (
-                              <span className="text-[10px] font-black text-red-500 uppercase tracking-wider leading-none">
-                                No inventory
+                            {/* Product name — item_name from DB, or description from PDF */}
+                            {(item.item_name || item.description) && (
+                              <span className="text-[11px] font-semibold text-white/45 uppercase tracking-wide leading-none">
+                                {(item.item_name || item.description || '').slice(0, 17)}
                               </span>
-                            )
-                          )}
+                            )}
+                            {/* Distribution-based pick plan */}
+                            {pickPlanMap[item.sku] ? (
+                              <div
+                                className={`${
+                                  distributionInconsistencyMap[item.sku] === 'over'
+                                    ? 'text-red-400/90'
+                                    : distributionInconsistencyMap[item.sku] === 'under'
+                                      ? 'text-orange-400/90'
+                                      : 'text-emerald-400/70'
+                                }`}
+                              >
+                                <span className="text-[10px] font-bold uppercase tracking-wider leading-none">
+                                  {pickPlanMap[item.sku].map((step, i) => (
+                                    <span key={i}>
+                                      {i > 0 && ', '}
+                                      {step.icon} {step.type} has {step.units_each}u
+                                    </span>
+                                  ))}
+                                </span>
+                                {distributionInconsistencyMap[item.sku] === 'over' && (
+                                  <span className="text-[9px]"> ⚠ dist mismatch</span>
+                                )}
+                                {distributionInconsistencyMap[item.sku] === 'under' && (
+                                  <span className="text-[9px]"> ~ approx</span>
+                                )}
+                              </div>
+                            ) : (
+                              item.insufficient_stock && (
+                                <span className="text-[10px] font-black text-red-500 uppercase tracking-wider leading-none">
+                                  No inventory
+                                </span>
+                              )
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Location Info on the right - No checkbox to maximize space */}
+                        <div className="flex items-center gap-3 shrink-0 ml-auto pl-2 border-l border-white/5">
+                          <div className="flex flex-col items-end">
+                            <span className="text-[8px] text-white/30 font-black uppercase tracking-widest mb-0.5">
+                              {item.location?.toLowerCase().includes('row') ? 'ROW' : 'LOC'}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <div
+                                className={`font-mono font-black text-amber-500 leading-none ${
+                                  (item.location || '').length > 8 ? 'text-lg' : 'text-2xl'
+                                }`}
+                              >
+                                {(item.location || '')
+                                  .toLowerCase()
+                                  .replace('row', '')
+                                  .trim()
+                                  .slice(0, 5) || '-'}
+                              </div>
+                              {isChecked && (
+                                <div
+                                  className={`flex items-center justify-center ${item.sku_not_found ? 'text-red-500' : 'text-green-500'}`}
+                                >
+                                  <Check size={16} strokeWidth={4} />
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
 
-                      {/* Location Info on the right - No checkbox to maximize space */}
-                      <div className="flex items-center gap-3 shrink-0 ml-auto pl-2 border-l border-white/5">
-                        <div className="flex flex-col items-end">
-                          <span className="text-[8px] text-white/30 font-black uppercase tracking-widest mb-0.5">
-                            {item.location?.toLowerCase().includes('row') ? 'ROW' : 'LOC'}
-                          </span>
-                          <div className="flex items-center gap-1.5">
-                            <div
-                              className={`font-mono font-black text-amber-500 leading-none ${
-                                (item.location || '').length > 8 ? 'text-lg' : 'text-2xl'
-                              }`}
+                      {/* Inline Correction Panel */}
+                      {isCorrectionOpen && onCorrectItem && (
+                        <div className="bg-surface/80 backdrop-blur border border-subtle rounded-xl p-3 flex flex-col gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                          {/* Qty Adjuster */}
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => setCorrectionQty((q) => Math.max(0, q - 1))}
+                              className="min-h-10 min-w-10 flex items-center justify-center bg-white/10 rounded-lg border border-white/10 active:scale-95 transition-all"
                             >
-                              {(item.location || '')
-                                .toLowerCase()
-                                .replace('row', '')
-                                .trim()
-                                .slice(0, 5) || '-'}
-                            </div>
-                            {isChecked && (
-                              <div
-                                className={`flex items-center justify-center ${item.sku_not_found ? 'text-red-500' : 'text-green-500'}`}
+                              <Minus size={16} className="text-white/70" />
+                            </button>
+                            <span className="text-lg font-black text-white tabular-nums min-w-[2rem] text-center">
+                              {correctionQty}
+                            </span>
+                            <button
+                              onClick={() => setCorrectionQty((q) => q + 1)}
+                              className="min-h-10 min-w-10 flex items-center justify-center bg-white/10 rounded-lg border border-white/10 active:scale-95 transition-all"
+                            >
+                              <Plus size={16} className="text-white/70" />
+                            </button>
+                            {correctionQty > 0 && correctionQty !== item.pickingQty && (
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  await onCorrectItem({
+                                    type: 'adjust_qty',
+                                    sku: item.sku,
+                                    newQty: correctionQty,
+                                  });
+                                  setExpandedCorrectionKey(null);
+                                }}
+                                className="min-h-10 px-3 bg-accent text-main text-[10px] font-black uppercase tracking-widest rounded-lg active:scale-95 transition-all"
                               >
-                                <Check size={16} strokeWidth={4} />
-                              </div>
+                                Update Qty
+                              </button>
                             )}
                           </div>
+
+                          {/* Alternatives */}
+                          <div>
+                            <span className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1.5 block">
+                              Alternatives
+                            </span>
+                            {(() => {
+                              const alternatives: SimilarSku[] = findSimilarSkus(
+                                item.sku,
+                                item.warehouse || 'LUDLOW',
+                                inventoryData,
+                                3
+                              );
+                              if (alternatives.length === 0) {
+                                return (
+                                  <span className="text-xs text-white/30 italic">
+                                    No alternatives found
+                                  </span>
+                                );
+                              }
+                              return (
+                                <div className="flex flex-col gap-1.5">
+                                  {alternatives.map((alt) => (
+                                    <button
+                                      key={alt.sku}
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        await onCorrectItem({
+                                          type: 'swap',
+                                          originalSku: item.sku,
+                                          replacement: {
+                                            sku: alt.sku,
+                                            location: alt.location,
+                                            warehouse: item.warehouse || 'LUDLOW',
+                                            item_name: alt.item_name,
+                                          },
+                                        });
+                                        setExpandedCorrectionKey(null);
+                                      }}
+                                      className="min-h-10 flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-left active:scale-[0.98] transition-all hover:border-accent/30"
+                                    >
+                                      <span className="text-xs font-black text-accent">
+                                        {alt.sku}
+                                      </span>
+                                      <span className="text-[10px] text-white/50 truncate max-w-[10rem]">
+                                        {(alt.item_name || '').slice(0, 25)}
+                                      </span>
+                                      <span className="text-[10px] text-white/40 ml-auto shrink-0">
+                                        {alt.quantity}u
+                                      </span>
+                                      {alt.location && (
+                                        <span className="text-[10px] font-mono text-amber-500/70 shrink-0">
+                                          {alt.location}
+                                        </span>
+                                      )}
+                                    </button>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          {/* Remove Item */}
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await onCorrectItem({ type: 'remove', sku: item.sku });
+                              setExpandedCorrectionKey(null);
+                            }}
+                            className="min-h-10 flex items-center justify-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-red-400 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
+                          >
+                            <Trash2 size={14} />
+                            Remove Item
+                          </button>
                         </div>
-                      </div>
-                    </div>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </div>

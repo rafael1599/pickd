@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import ChevronUp from 'lucide-react/dist/esm/icons/chevron-up';
 import { PickingSessionView } from './PickingSessionView';
-import { DoubleCheckView, PickingItem } from './DoubleCheckView';
+import { DoubleCheckView, PickingItem, type CorrectionAction } from './DoubleCheckView';
 import { useAuth } from '../../../context/AuthContext';
 import { useConfirmation } from '../../../context/ConfirmationContext';
 import { usePickingSession } from '../../../context/PickingContext';
@@ -40,7 +40,6 @@ export const PickingCartDrawer: React.FC = () => {
     notes,
     isNotesLoading,
     addNote,
-    returnToBuilding,
     deleteList,
     resetSession,
     listStatus,
@@ -276,6 +275,62 @@ export const PickingCartDrawer: React.FC = () => {
     setIsOpen(false);
   };
 
+  const handleCorrectItem = async (action: CorrectionAction) => {
+    if (!activeListId) return;
+    try {
+      let newItems: PickingItem[];
+      let logMessage: string;
+
+      switch (action.type) {
+        case 'swap': {
+          newItems = cartItems.map((item) =>
+            item.sku === action.originalSku
+              ? {
+                  ...item,
+                  sku: action.replacement.sku,
+                  location: action.replacement.location,
+                  item_name: action.replacement.item_name,
+                  warehouse: action.replacement.warehouse,
+                  sku_not_found: false,
+                  insufficient_stock: false,
+                }
+              : item
+          );
+          logMessage = `Swapped SKU ${action.originalSku} → ${action.replacement.sku}`;
+          break;
+        }
+        case 'adjust_qty': {
+          newItems = cartItems.map((item) =>
+            item.sku === action.sku ? { ...item, pickingQty: action.newQty } : item
+          );
+          logMessage = `Adjusted qty for ${action.sku} to ${action.newQty}`;
+          break;
+        }
+        case 'remove': {
+          newItems = cartItems.filter((item) => item.sku !== action.sku);
+          logMessage = `Removed SKU ${action.sku} from order`;
+          break;
+        }
+      }
+
+      await supabase
+        .from('picking_lists')
+        .update({ items: newItems as unknown as Record<string, unknown>[] })
+        .eq('id', activeListId);
+
+      await supabase.from('picking_list_notes').insert({
+        list_id: activeListId,
+        user_id: user!.id,
+        message: logMessage,
+      });
+
+      toast.success(logMessage);
+    } catch (err) {
+      console.error('Correction failed:', err);
+      toast.error('Correction failed');
+    }
+  };
+
   const handleDeduct = async (items: PickingItem[], isVerified: boolean) => {
     if (isProcessingDeduction) return false;
     setIsProcessingDeduction(true);
@@ -475,11 +530,11 @@ export const PickingCartDrawer: React.FC = () => {
                   overriddenPalletCountRef.current = count;
                 }}
                 status={listStatus}
-                onBack={async () => {
-                  await returnToBuilding(activeListId ?? null);
-                }}
+                onBack={handleReleaseOrder}
                 onRelease={handleReleaseOrder}
                 onClose={handleReleaseOrder}
+                onCorrectItem={handleCorrectItem}
+                inventoryData={inventoryData}
               />
             )}
           </div>
