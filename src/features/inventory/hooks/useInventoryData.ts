@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 
+import { supabase } from '../../../lib/supabase';
 import { inventoryApi } from '../api/inventoryApi';
 import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from './useInventoryRealtime';
 import { useInventoryMutations } from './useInventoryMutations';
@@ -26,8 +27,8 @@ const noopUpdater = (_updates: unknown) => {};
 const noopFilters = (_filters?: unknown) => {};
 
 /** Page sizes for server-side pagination */
-const INITIAL_PAGE_SIZE = 30;
-const LOAD_MORE_SIZE = 20;
+const INITIAL_PAGE_SIZE = 100;
+const LOAD_MORE_SIZE = 50;
 const SEARCH_LIMIT = 30;
 
 function mapItem(item: InventoryItemWithMetadata): InventoryItemWithMetadata {
@@ -61,6 +62,24 @@ export const useInventory = () => {
     deleteItem: mutDeleteItem,
     processPickingList: mutProcessPickingList,
   } = useInventoryMutations();
+
+  // ── Global stats (single RPC call — returns 2 numbers) ──
+  const { data: globalStats } = useQuery({
+    queryKey: ['inventory', 'stats', showPartsBins],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_inventory_stats', {
+        p_include_parts: showPartsBins,
+      });
+      if (error) throw error;
+      const row = data?.[0] ?? data;
+      return {
+        totalSkus: Number(row?.total_skus ?? 0),
+        totalQuantity: Number(row?.total_units ?? 0),
+      };
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
 
   // ── Bikes query (ROW locations) — paginated initial load ──────────
   const {
@@ -439,6 +458,7 @@ export const useInventory = () => {
     isLoadingMore,
     searchTotal,
     serverTotal: (bikesTotal ?? 0) + (partsTotal ?? 0),
+    globalStats: globalStats ?? null,
 
     // Utils / Stubs
     processPickingList,

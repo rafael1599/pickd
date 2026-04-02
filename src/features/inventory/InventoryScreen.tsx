@@ -82,6 +82,7 @@ export const InventoryScreen = () => {
     isSearching: isServerSearching,
     searchTotal,
     serverTotal,
+    globalStats,
   } = useInventory();
 
   const [localSearch, setLocalSearch] = useState('');
@@ -632,11 +633,8 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
 
       {viewMode === 'stock' && (
         <div className="px-4 pt-2 flex justify-between items-center text-xs font-black uppercase tracking-widest text-muted">
-          <span>{filteredStats.totalSkus} SKUs</span>
-          {hasMoreItems && serverTotal > 0 && (
-            <span className="text-accent/60">{serverTotal} total in DB</span>
-          )}
-          <span>{filteredStats.totalQuantity} Units</span>
+          <span>{globalStats?.totalSkus ?? filteredStats.totalSkus} SKUs</span>
+          <span>{globalStats?.totalQuantity ?? filteredStats.totalQuantity} Units</span>
         </div>
       )}
 
