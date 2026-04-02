@@ -73,10 +73,10 @@ This document defines the state machine, correction flow, and safety mechanisms.
 - completed -> any (terminal, triple-protected)
 - Any backward jump that skips a state
 
-## Inline Correction (Double Check View)
+## Edit Order (Double Check View)
 
-**Decision date:** 2026-04-01
-**Status:** First attempt implemented and tested — rejected, needs redesign.
+**Decision date:** 2026-04-02
+**Status:** Implemented and tested. Replaces rejected inline correction (2026-04-01).
 
 ### How problem items are detected
 
@@ -88,61 +88,91 @@ Two sources set the `sku_not_found` and `insufficient_stock` flags on cart items
    when requested qty exceeds available inventory. Does NOT set `sku_not_found`.
 
 These flags are stored in the `picking_lists.items` JSONB and persist through the
-entire workflow. The frontend reads them in DoubleCheckView to render problem items
-in red and show correction controls.
+entire workflow. DoubleCheckView renders problem items in red with badges (UNREG,
+LOW STOCK) and shows real stock from DB via server-side query.
 
 **Note:** Flags are NOT recalculated when entering double check — they reflect the
 state at order creation / start picking time. Stock may have changed since then.
+The `insufficient_stock` flag is cleared when the checker adjusts the quantity.
 
 **Test order:** `TEST-001` is a manually-created order in `double_checking` status
-with explicit flags for testing the correction UI. Recreate with:
+with explicit flags for testing. Recreate with:
 `supabase/seed_test_orders.sql` (requires `create_users.sql` first).
 
 Items:
 
 - `03-4614BK` — OK
-- `03-4614ZZ` — `sku_not_found: true` (invented SKU)
-- `03-9999XX` — `sku_not_found: true` (nonexistent)
-- `03-3764BK` — `insufficient_stock: true` (requests 50, insufficient stock)
+- `03-4614ZZ` — `sku_not_found: true` (invented SKU variant)
+- `03-9999XX` — `sku_not_found: true` (nonexistent, no alternatives)
+- `03-3764BK` — `insufficient_stock: true` (requests 50, ~2 in stock)
+- `03-4616ZR` — `sku_not_found: true` (invented variant of 4616)
 
-### First attempt: Option A — Inline (rejected)
+### History: Inline correction (rejected 2026-04-01)
 
-**What was built:**
+First attempt used inline Fix button + panel in DoubleCheckView. Rejected because:
+qty started at 0, only 3 suggestions, no search, button was 8px. See git history
+for details (`0d54948`, `27d2b8b`).
 
-- Small `[Fix]` button (8px, wrench icon) on problem items in DoubleCheckView
-- Tapping Fix opens a panel BELOW the card (not inside it) with:
-  - Qty adjuster ([ - ] [ qty ] [ + ]) starting at 0
-  - Up to 3 alternatives from `findSimilarSkus()` — no search field
-  - Remove Item button
-- `handleCorrectItem` in PickingCartDrawer handles swap/adjust_qty/remove actions
-- All corrections logged in `picking_list_notes`
+### Current implementation: Edit Order Mode
 
-**What the design doc originally proposed (not what was built):**
+**Component:** `CorrectionModeView.tsx` (657 lines, refactored with shared sub-components)
 
-- Prominent [Replace] and [Remove] buttons inside each problem item card
-- Full search field to query any SKU in inventory
-- Qty selector only AFTER choosing a replacement, defaulting to original qty
-- Separate [Adjust Qty] for insufficient_stock items
+**Access:** "Edit Order" banner always visible in DoubleCheckView. Shows issue count
+if there are problems, otherwise neutral style. Opens full-screen overlay (`z-30`).
 
-**Why it was rejected (testing feedback 2026-04-01):**
+**Layout:**
 
-1. Quantities were confusing — adjuster starts at 0 instead of original pickingQty
-2. Only 3 pre-calculated suggestions, often not useful — no way to search freely
-3. Fix button shouldn't appear if there are no alternatives
-4. Inline controls are too cramped — need a dedicated screen for corrections
+- Header: "Edit Order" + order number
+- Summary badge: "2 issues · 5 items total" or "No issues · 3 items total"
+- Problem items listed first (red SKU, UNREG/LOW STOCK badges)
+- Divider "Other Items"
+- Normal items listed below (white SKU, no badges)
+- [+ Add Item] button at bottom
 
-### Next approach: Correction Mode (to be designed)
+**Actions available on ALL items (problem and normal):**
 
-A dedicated view (like Build Order but limited to problem items) where the checker
-can search the full inventory and replace/adjust items. See backlog fix-002 for
-implementation plan.
+- **Replace** — search panel with `findSimilarSkus()` suggestions + full server-side
+  search (bikes + parts in parallel via `inventoryApi.fetchInventoryWithMetadata`).
+  Selecting a result shows confirmation with qty input (defaults to original qty).
+- **Adjust Qty** — numeric input with auto-select. Shows "Ordered: N | Available: N"
+  (stock queried from DB). No artificial limits — user enters what they actually have.
+- **Remove** — inline confirmation ("Remove SKU from order?")
 
-### Rules (still valid)
+**Add Item flow:**
 
-- Correction buttons only appear on problem items (sku_not_found or insufficient_stock)
-- All corrections are logged in picking_list_notes
-- The checker never leaves the double check flow
+- [+ Add Item] opens search panel (same server-side search)
+- Select result → qty input → "Add to Order"
+- If SKU already in cart, quantities merge
+- Logged as "Extra item: SKU, qty N"
+
+**Data flow:**
+
+1. User action → `onCorrectItem(CorrectionAction)` → `handleCorrectItem` in PickingCartDrawer
+2. Updates `picking_lists.items` in DB via Supabase
+3. Updates local `cartItems` state via `setCartItems` (bypasses mode guards)
+4. Logs action to `picking_list_notes`
+5. Toast confirmation
+6. Realtime subscription propagates to other clients
+
+**CorrectionAction types:**
+
+```typescript
+type CorrectionAction =
+  | { type: 'swap'; originalSku; replacement: { sku; location; warehouse; item_name } }
+  | { type: 'adjust_qty'; sku; newQty }
+  | { type: 'remove'; sku }
+  | { type: 'add'; item: { sku; location; warehouse; item_name; pickingQty } };
+```
+
+### Rules
+
+- Edit Order is accessible for ANY order in double check, not just those with problems
+- All corrections are logged in picking_list_notes with descriptive messages
+- The checker never leaves the double check flow (status stays `double_checking`)
 - No backward transitions to building mode or active status
+- `adjust_qty` clears the `insufficient_stock` flag
+- `swap` clears both `sku_not_found` and `insufficient_stock` flags
+- Added items get clean flags (`sku_not_found: false, insufficient_stock: false`)
 
 ### When to Use returnToPicker Instead
 

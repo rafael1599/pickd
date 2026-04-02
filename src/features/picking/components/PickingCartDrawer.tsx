@@ -21,6 +21,7 @@ export const PickingCartDrawer: React.FC = () => {
 
   const {
     cartItems,
+    setCartItems,
     activeListId,
     orderNumber,
     customer,
@@ -301,7 +302,9 @@ export const PickingCartDrawer: React.FC = () => {
         }
         case 'adjust_qty': {
           newItems = cartItems.map((item) =>
-            item.sku === action.sku ? { ...item, pickingQty: action.newQty } : item
+            item.sku === action.sku
+              ? { ...item, pickingQty: action.newQty, insufficient_stock: false }
+              : item
           );
           logMessage = `Adjusted qty for ${action.sku} to ${action.newQty}`;
           break;
@@ -311,12 +314,41 @@ export const PickingCartDrawer: React.FC = () => {
           logMessage = `Removed SKU ${action.sku} from order`;
           break;
         }
+        case 'add': {
+          const existing = cartItems.find((item) => item.sku === action.item.sku);
+          if (existing) {
+            newItems = cartItems.map((item) =>
+              item.sku === action.item.sku
+                ? { ...item, pickingQty: item.pickingQty + action.item.pickingQty }
+                : item
+            );
+            logMessage = `Extra item: ${action.item.sku}, qty ${action.item.pickingQty} (total ${existing.pickingQty + action.item.pickingQty})`;
+          } else {
+            newItems = [
+              ...cartItems,
+              {
+                sku: action.item.sku,
+                location: action.item.location,
+                warehouse: action.item.warehouse,
+                item_name: action.item.item_name,
+                pickingQty: action.item.pickingQty,
+                sku_not_found: false,
+                insufficient_stock: false,
+              },
+            ];
+            logMessage = `Extra item: ${action.item.sku}, qty ${action.item.pickingQty}`;
+          }
+          break;
+        }
       }
 
       await supabase
         .from('picking_lists')
         .update({ items: newItems as unknown as Record<string, unknown>[] })
         .eq('id', activeListId);
+
+      // Update local cart state immediately (cart methods are gated to picking/building mode)
+      setCartItems(newItems as unknown as typeof cartItems);
 
       await supabase.from('picking_list_notes').insert({
         list_id: activeListId,

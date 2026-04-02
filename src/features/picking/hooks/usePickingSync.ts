@@ -283,10 +283,13 @@ export const usePickingSync = ({
           (payload) => {
             const newData = payload.new;
 
+            // Takeover detection: only alert if the field ACTUALLY CHANGED to a different user.
+            // Without checking the ref, any UPDATE event (e.g., items change) would false-positive.
             if (
               sessionModeRef.current === 'picking' &&
               newData.user_id &&
-              (newData.user_id as string) !== user.id
+              (newData.user_id as string) !== user.id &&
+              (newData.user_id as string) !== ownerIdRef.current
             ) {
               showTakeoverAlert(newData.user_id as string);
               return;
@@ -295,7 +298,8 @@ export const usePickingSync = ({
             if (
               sessionModeRef.current === 'double_checking' &&
               newData.checked_by &&
-              (newData.checked_by as string) !== user.id
+              (newData.checked_by as string) !== user.id &&
+              (newData.checked_by as string) !== checkedByRef.current
             ) {
               showTakeoverAlert(newData.checked_by as string);
               return;

@@ -20,13 +20,19 @@ BEGIN
   END IF;
 END $$;
 
--- TEST-001: Orden con items problemáticos para testear correction UI
--- Status: double_checking (checker puede ver items rojos y probar corrección)
+-- TEST-001: Orden con items problemáticos para testear Correction Mode
+-- Status: double_checking (checker puede ver banner rojo y abrir Correction Mode)
 -- Items:
 --   1. 03-4614BK — OK (existe en inventario, hay stock)
---   2. 03-4614ZZ — sku_not_found (SKU inventado, no existe en sku_metadata)
---   3. 03-9999XX — sku_not_found (SKU completamente inexistente)
---   4. 03-3764BK — insufficient_stock (pide 50 unidades, no hay suficiente)
+--   2. 03-4614ZZ — sku_not_found (variante inventada, +1 letra al color suffix)
+--   3. 03-9999XX — sku_not_found (SKU completamente inexistente, sin alternativas)
+--   4. 03-3764BK — insufficient_stock (pide 50 unidades, solo hay ~2)
+--   5. 03-4616ZR — sku_not_found (variante inventada del 4616, suffix cambiado)
+-- Casos de corrección esperados:
+--   - 03-4614ZZ → Replace con 03-4614BK/RD/WH (mismo prefix, findSimilarSkus las sugiere)
+--   - 03-9999XX → Search manual o Remove (no hay alternativas automáticas)
+--   - 03-3764BK → Adjust Qty a lo disponible, o Replace con 03-3764MN
+--   - 03-4616ZR → Replace con 03-4616BK (mismo prefix 03-4616)
 
 INSERT INTO picking_lists (
   id, user_id, order_number, status, source, checked_by, items, created_at, updated_at
@@ -73,6 +79,15 @@ INSERT INTO picking_lists (
       "pickingQty": 50,
       "sku_not_found": false,
       "insufficient_stock": true
+    },
+    {
+      "sku": "03-4616ZR",
+      "location": null,
+      "item_name": "FAULTLINE A1 V2 19 2026 ZEPHYR RED",
+      "warehouse": "LUDLOW",
+      "pickingQty": 2,
+      "sku_not_found": true,
+      "insufficient_stock": false
     }
   ]'::jsonb,
   now(),

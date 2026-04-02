@@ -84,7 +84,7 @@
 ### 20. Picking session hardening — 6 cambios (inline correction + safety fixes) <!-- id: fix-002 -->
 
 - **Creado:** `[2026-04-01 16:00]`
-- **Estado:** Parcialmente completado — safety fixes listos (develop), inline correction rechazada en testing.
+- **Estado:** COMPLETADO `[2026-04-02]` — safety fixes + Edit Order mode reemplaza inline correction.
 - **Resuelve:** bug-011, siblings huérfanos en grupos, race condition loadSession, debounce timer leak.
 - **Documentación:** `docs/picking-session-flow.md` — state machine, workflow lock, correction flow (actualizado con estado real).
 - **Contexto:** 9 equipos de investigación (5 internos + 4 externos) analizaron el state machine, patrones de industria (ShipHero, Amazon, Dynamics 365), y patrones de React.
@@ -97,16 +97,18 @@
      - returnToBuilding libera siblings igual que releaseCheck.
   4. ~~**Eliminar "Return to Building" desde Double Check**~~ — COMPLETADO `[2026-04-01]` `27d2b8b` (develop)
      - Back button ahora es "Release to Queue".
-  5. **Inline correction en Double Check** — IMPLEMENTADO Y RECHAZADO `[2026-04-01]` `0d54948` `27d2b8b` (develop)
-     - Se construyó: botón Fix (8px), panel debajo del card con qty adjuster + 3 alternativas de `findSimilarSkus`.
-     - **No sigue el design doc original:** sin campo de búsqueda libre, sin confirmación de qty, botón casi invisible.
-     - **Rechazado en testing:** cantidades sin sentido (empieza en 0, no en pickingQty original), sugerencias no útiles, botón Fix aparece incluso sin alternativas.
-     - **Decisión:** Reemplazar con Correction Mode — vista dedicada tipo Build Order para corregir items problemáticos.
-     - **Próximo paso:** Diseñar Correction Mode como componente separado. Revertir inline correction de DoubleCheckView.
+  5. ~~**Edit Order mode (reemplaza inline correction)**~~ — COMPLETADO `[2026-04-02]` (develop)
+     - Inline correction rechazada `[2026-04-01]` → reemplazada por `CorrectionModeView.tsx` (657 líneas).
+     - Vista full-screen: todos los items editables (Replace, Adjust Qty, Remove, Add Item).
+     - Search server-side (bikes + parts en paralelo via `inventoryApi`).
+     - `adjust_qty` limpia flag `insufficient_stock`. `swap` limpia ambos flags.
+     - `handleCorrectItem` actualiza DB + state local (`setCartItems`) + log a `picking_list_notes`.
+     - Fix takeover false positive: `usePickingSync` compara `checked_by` contra ref anterior.
+     - DoubleCheckView muestra badge LOW STOCK + stock real de DB para items con insufficient_stock.
+     - 22 tests unitarios en `correctionActions.test.ts`.
   6. ~~**Documentación**~~ — COMPLETADO `[2026-04-01]` `8c2fece` (develop) — actualizado con estado real.
 - **Pendiente para merge a main:**
-  - Pasos 1-4 están listos y probados — se pueden mergear.
-  - Paso 5 debe revertirse o separarse antes del merge.
+  - Pasos 1-6 completados y probados en develop.
   - bug-012 (click en orden de verificación no navega) no se resolvió en este batch.
 - **Nota sobre flags de error:** `sku_not_found` lo setea el watchdog (PDFs) o manualmente en la DB. `insufficient_stock` lo setean el watchdog y `processPickingList()` al hacer Start Picking. El frontend los lee en DoubleCheckView para renderizar items rojos y mostrar controles de corrección. No se recalculan al entrar a double check. Orden de prueba: `TEST-001` (double_checking) con flags explícitos para testing.
 - **Criterios de aceptación (actualizados):**
@@ -114,8 +116,10 @@
   - ~~Siblings de grupo se liberan correctamente al regresar~~ ✓
   - ~~Debounce timers se cancelan al cambiar sessionMode~~ ✓
   - ~~Botón "back" en double check libera la orden a la cola~~ ✓
-  - Checker puede corregir items rojos via Correction Mode (pendiente)
-  - Correcciones se loguean en picking_list_notes (implementado, pendiente de Correction Mode)
+  - ~~Checker puede corregir/editar items via Edit Order mode~~ ✓
+  - ~~Correcciones se loguean en picking_list_notes~~ ✓
+  - ~~Checker puede agregar items extra a la orden~~ ✓
+  - ~~Badge LOW STOCK visible en DoubleCheckView con stock real de DB~~ ✓
 - **Descartado:** Cambiar status a `ready_to_double_check` en returnToBuilding (causa doble reserva de stock). Migrar a Zustand (refactor demasiado grande, workflow lock resuelve el mismo problema). Inline correction como primera opción (UI confusa, rechazada en testing).
 
 ### 19. Rediseño de auto-cancel → sistema de expiración con reactivación <!-- id: idea-031 -->
@@ -232,10 +236,49 @@
   - Todos los items muestran badge de peso
   - Visible en mobile y desktop
 
+### 21. Eliminar Building Order → absorber en Picking View <!-- id: idea-032 -->
+
+- **Creado:** `[2026-04-02]`
+- **Estado:** Por hacer (futuro — requiere análisis profundo).
+- **Problema:** El flujo actual tiene un paso intermedio innecesario: `idle → building → active`. El usuario abre Building Order, agrega items, pone número de orden, y luego hace "Start Picking". Esto es fricción extra — el usuario podría agregar items directamente desde la vista Picking con botones y campo de orden inline.
+- **Propuesta:** Fusionar la funcionalidad de Building Order dentro de Picking View:
+  1. Campo de order number editable directamente en Picking View
+  2. Botón [+ Add Item] con búsqueda de inventario (reutilizar patrón de Edit Order)
+  3. Botones de qty (+/-) en cada item del carrito directamente en la vista
+  4. Eliminar el estado `building` del flujo — pasar de `idle → active` directamente
+  5. Eliminar `PickingSessionView.tsx` / `OrderBuilderMode.tsx` cuando la migración esté completa
+- **Edge cases y riesgos a evaluar antes de implementar:**
+  - **Watcher:** `watchdog-pickd` crea órdenes directamente en estado `active` — no usa building mode. Verificar que no dependa de la transición `building → active`.
+  - **Stock reservation:** Hoy el stock se reserva en `generatePickingPath()` (transición building → active). Si se elimina building, ¿cuándo se reserva? ¿Al agregar cada item? ¿Al hacer "Start Picking"?
+  - **Validación de orden:** Building Order valida que haya order number antes de permitir Start Picking. ¿Dónde se valida esto si no hay building mode?
+  - **Customer assignment:** El flujo actual permite asignar customer en Building Order. ¿Se mueve a Picking View o se hace opcional?
+  - **Cart persistence:** En building mode, el carrito se guarda en localStorage. En active, se guarda en DB. Si se elimina building, ¿todo va directo a DB? Esto cambia el comportamiento offline.
+  - **Grupos de órdenes:** Las órdenes agrupadas (FedEx/General) se combinan en building mode. ¿Cómo funciona esto sin building?
+  - **loadSession:** `usePickingSync.loadSession` tiene una jerarquía que incluye building mode. Simplificar puede introducir regresiones (bug-011 era un caso similar).
+  - **Tests existentes:** Varios tests asumen la transición `building → active`. Todos necesitan actualización.
+  - **Rollback:** Si falla en producción, ¿se puede revertir limpiamente? El estado `building` debería mantenerse en el enum de DB temporalmente como fallback.
+- **Dependencias:** Completar primero idea-031 (rediseño auto-cancel) ya que cambiar los estados del workflow afecta ambos items.
+- **Criterios de aceptación:**
+  - El picker puede crear una orden desde la vista Picking sin pasar por Building Order
+  - Items se agregan con búsqueda inline (mismo patrón que Edit Order en double check)
+  - Order number y customer se asignan inline
+  - Stock se reserva correctamente (mismo momento que hoy)
+  - Órdenes del watcher siguen funcionando sin cambios
+  - Órdenes agrupadas se combinan correctamente
+  - No hay regresiones en el flujo de double check ni en loadSession
+
 ---
 
 ## Prioridad 2 — Impacto Medio (mejoras de conveniencia)
 
+- [ ] **Orders Screen — mobile UX overhaul** — `[2026-04-02]` <!-- id: idea-033 -->
+      **Problema:** En mobile la vista Orders tiene elementos innecesarios que ocupan espacio y ocultan lo importante. Los resultados de búsqueda no se ven, la info del cliente ocupa toda la pantalla sin poder colapsarla, y hay botones que solo tienen sentido en desktop.
+      **Cambios:**
+      1. **Ocultar en mobile (`md:hidden`):** botones de navegación entre órdenes (prev/next) y botón Print Labels — solo se usan desde la computadora
+      2. **Búsqueda:** los resultados de búsqueda deben ser visibles en mobile. Actualmente el filtro actualiza la lista del dropdown pero el dropdown no se abre automáticamente al buscar. Opción: abrir el dropdown al escribir, o mostrar resultados inline debajo del search
+      3. **Customer info colapsable:** envolver los campos del cliente (dirección, ciudad, estado, zip, load, pallets) en un acordeón. Título: nombre del customer si existe, sino `#order_number`. Por defecto contraído en mobile. Al expandir muestra todos los campos editables
+      4. **Order number siempre visible** como header/título principal (no dentro del acordeón)
+      **Archivos:** `OrdersScreen.tsx` (header, dropdown, search), `OrderSidebar.tsx` (customer fields → acordeón)
 - [ ] **Order List View**: When reviewing orders, show the picking list first with an option to print. <!-- id: idea-006 -->
 - [ ] **Automatic Inventory Email**: Send full inventory table to Jamis's email. Plain list only, NO links. Edge function `send-daily-report` ya existe — falta query + formato + cron. <!-- id: idea-007 -->
 - [ ] **Fotos Fase 3 — Bulk Upload**: Multi-file picker con batching concurrency (3-5), progress bar, mapeo SKU↔archivo por nombre o CSV. Reusar `uploadPhoto()` existente. <!-- id: idea-023-p3 -->
