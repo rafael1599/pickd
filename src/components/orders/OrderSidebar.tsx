@@ -10,6 +10,7 @@ import Scissors from 'lucide-react/dist/esm/icons/scissors';
 import Wand2 from 'lucide-react/dist/esm/icons/wand-2';
 import { CustomerAutocomplete } from '../../features/picking/components/CustomerAutocomplete';
 import { usePickingSession } from '../../context/PickingContext';
+import { useViewMode } from '../../context/ViewModeContext';
 import { useConfirmation } from '../../context/ConfirmationContext';
 import { parseUSAddress } from '../../utils/parseUSAddress';
 import type { CombineMeta, PickingList, PickingListItem } from '../../schemas/picking.schema';
@@ -59,6 +60,7 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const navigate = useNavigate();
+  const { setViewMode } = useViewMode();
   const { deleteList } = usePickingSession();
   const { showConfirmation } = useConfirmation();
 

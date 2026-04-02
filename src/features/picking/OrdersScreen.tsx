@@ -59,6 +59,7 @@ export const OrdersScreen = () => {
     setExternalOrderId,
     externalShowPickingSummary,
     setExternalShowPickingSummary,
+    setViewMode,
   } = useViewMode();
   const [orders, setOrders] = useState<OrderWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1016,7 +1017,10 @@ export const OrdersScreen = () => {
 
         {/* Home Button */}
         <button
-          onClick={() => navigate('/')}
+          onClick={() => {
+            setViewMode('stock');
+            navigate('/');
+          }}
           className="w-14 h-14 flex items-center justify-center rounded-full bg-surface border-2 border-subtle text-muted hover:text-accent transition-all duration-300 shadow-xl active:scale-95"
           title="Go to Home"
         >
