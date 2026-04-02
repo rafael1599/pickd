@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { supabase } from '../../../lib/supabase';
 import { inventoryApi } from '../api/inventoryApi';
@@ -27,7 +27,7 @@ const noopUpdater = (_updates: unknown) => {};
 const noopFilters = (_filters?: unknown) => {};
 
 /** Page sizes for server-side pagination */
-const INITIAL_PAGE_SIZE = 100;
+const INITIAL_PAGE_SIZE = 50;
 const LOAD_MORE_SIZE = 50;
 const SEARCH_LIMIT = 30;
 
@@ -53,6 +53,7 @@ export const useInventory = () => {
   const [partsTotal, setPartsTotal] = useState<number | null>(null);
   const [searchTotal, setSearchTotal] = useState<number | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const isLoadingMoreRef = useRef(false);
 
   const {
     updateQuantity: mutUpdateQuantity,
@@ -90,16 +91,12 @@ export const useInventory = () => {
     queryKey: INVENTORY_ROOT_KEY,
     queryFn: async () => {
       // On refetch (invalidation), load at least as many items as currently cached
-      const currentData = queryClient.getQueryData<InventoryItemWithMetadata[]>(INVENTORY_ROOT_KEY);
-      const fetchLimit = currentData
-        ? Math.max(currentData.length, INITIAL_PAGE_SIZE)
-        : INITIAL_PAGE_SIZE;
-
       const { data, count } = await inventoryApi.fetchInventoryWithMetadata({
         includeInactive: true,
         partsBins: false,
-        limit: fetchLimit,
+        limit: INITIAL_PAGE_SIZE,
       });
+      console.log(`📦 [InitialLoad] bikes: fetched=${data.length} serverCount=${count}`);
       setBikesTotal(count);
       return data.map(mapItem);
     },
@@ -113,15 +110,10 @@ export const useInventory = () => {
   >({
     queryKey: PARTS_BINS_KEY,
     queryFn: async () => {
-      const currentData = queryClient.getQueryData<InventoryItemWithMetadata[]>(PARTS_BINS_KEY);
-      const fetchLimit = currentData
-        ? Math.max(currentData.length, INITIAL_PAGE_SIZE)
-        : INITIAL_PAGE_SIZE;
-
       const { data, count } = await inventoryApi.fetchInventoryWithMetadata({
         includeInactive: true,
         partsBins: true,
-        limit: fetchLimit,
+        limit: INITIAL_PAGE_SIZE,
       });
       setPartsTotal(count);
       return data.map(mapItem);
@@ -178,8 +170,12 @@ export const useInventory = () => {
   // ── Load more items (appends to cache) ────────────────────────────
   const loadMoreInventory = useCallback(
     async (partsBins = false) => {
-      if (isLoadingMore) return;
+      if (isLoadingMoreRef.current) return;
+      isLoadingMoreRef.current = true;
       setIsLoadingMore(true);
+      const cacheKey = partsBins ? PARTS_BINS_KEY : INVENTORY_ROOT_KEY;
+      const currentLen = (queryClient.getQueryData<InventoryItemWithMetadata[]>(cacheKey) || []).length;
+      console.log(`📦 [LoadMore] Fetching ${partsBins ? 'parts' : 'bikes'} offset=${currentLen} limit=${LOAD_MORE_SIZE}`);
       try {
         const cacheKey = partsBins ? PARTS_BINS_KEY : INVENTORY_ROOT_KEY;
         const currentData = queryClient.getQueryData<InventoryItemWithMetadata[]>(cacheKey) || [];
@@ -200,16 +196,20 @@ export const useInventory = () => {
           if (!old) return mapped;
           const existingIds = new Set(old.map((i) => i.id));
           const unique = mapped.filter((i) => !existingIds.has(i.id));
-          return [...old, ...unique];
+          const result = [...old, ...unique];
+          console.log(`📦 [LoadMore] Cache updated: ${old.length} → ${result.length} items (fetched ${newItems.length}, unique ${unique.length}, total server=${count})`);
+          return result;
         });
       } finally {
+        isLoadingMoreRef.current = false;
         setIsLoadingMore(false);
       }
     },
-    [isLoadingMore, queryClient]
+    [queryClient],
   );
 
   const hasMoreBikes = bikesTotal !== null && (rawData?.length ?? 0) < bikesTotal;
+  console.log(`📦 [HasMore] bikesTotal=${bikesTotal} rawData=${rawData?.length ?? 0} hasMoreBikes=${hasMoreBikes}`);
   const hasMoreParts = partsTotal !== null && (partsBinsData?.length ?? 0) < partsTotal;
   const hasMoreSearch = searchTotal !== null && (searchResults?.length ?? 0) < searchTotal;
   const hasMoreItems = searchQuery
@@ -217,7 +217,8 @@ export const useInventory = () => {
     : hasMoreBikes || (showPartsBins && hasMoreParts);
 
   const loadMoreSearch = useCallback(async () => {
-    if (isLoadingMore || !searchQuery) return;
+    if (isLoadingMoreRef.current || !searchQuery) return;
+    isLoadingMoreRef.current = true;
     setIsLoadingMore(true);
     try {
       const currentData =
@@ -258,9 +259,10 @@ export const useInventory = () => {
         }
       );
     } finally {
+      isLoadingMoreRef.current = false;
       setIsLoadingMore(false);
     }
-  }, [isLoadingMore, searchQuery, queryClient]);
+  }, [searchQuery, queryClient]);
 
   const loadMore = useCallback(async () => {
     if (searchQuery) {

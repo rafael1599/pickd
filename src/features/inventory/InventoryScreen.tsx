@@ -91,15 +91,15 @@ export const InventoryScreen = () => {
 
   // Auto-load more when sentinel enters viewport
   useEffect(() => {
+    console.log(`👁️ [Observer] hasMoreItems=${hasMoreItems} isLoadingMore=${isLoadingMore} sentinel=${!!loadMoreSentinelRef.current}`);
     const sentinel = loadMoreSentinelRef.current;
     if (!sentinel || !hasMoreItems || isLoadingMore) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
-          loadMoreItems();
-        }
+        console.log(`👁️ [Observer] isIntersecting=${entries[0].isIntersecting}`);
+        if (entries[0].isIntersecting) loadMoreItems();
       },
-      { rootMargin: '400px' }
+      { rootMargin: '400px' },
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
