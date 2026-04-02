@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { supabase } from '../../../lib/supabase';
@@ -159,6 +159,7 @@ export const useInventory = () => {
     },
     staleTime: 1000 * 60 * 2,
     enabled: searchQuery.length > 0,
+    placeholderData: keepPreviousData,
   });
 
   const searchResults = searchData?.items;
@@ -219,7 +220,7 @@ export const useInventory = () => {
     setIsLoadingMore(true);
     try {
       const currentItems = searchData?.items ?? [];
-      const nextOffset = Math.ceil(currentItems.length / 2);
+      const nextOffset = currentItems.length;
 
       const [bikesRes, partsRes] = await Promise.all([
         inventoryApi.fetchInventoryWithMetadata({

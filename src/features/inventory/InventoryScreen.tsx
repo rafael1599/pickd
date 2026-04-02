@@ -633,8 +633,8 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
 
       {viewMode === 'stock' && (
         <div className="px-4 pt-2 flex justify-between items-center text-xs font-black uppercase tracking-widest text-muted">
-          <span>{globalStats?.totalSkus ?? filteredStats.totalSkus} SKUs</span>
-          <span>{globalStats?.totalQuantity ?? filteredStats.totalQuantity} Units</span>
+          <span>{debouncedSearch ? filteredStats.totalSkus : (globalStats?.totalSkus ?? filteredStats.totalSkus)} SKUs</span>
+          <span>{debouncedSearch ? filteredStats.totalQuantity : (globalStats?.totalQuantity ?? filteredStats.totalQuantity)} Units</span>
         </div>
       )}
 
@@ -786,26 +786,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
             })}
 
         {hasMoreItems && !isServerSearching ? (
-          <div ref={loadMoreSentinelRef} className="flex flex-col items-center gap-2 py-8">
-            {debouncedSearch && searchTotal !== null && (
-              <span className="text-xs font-bold uppercase tracking-widest text-muted">
-                Showing {filteredStats.totalSkus} of {searchTotal} results
-              </span>
-            )}
-            {isLoadingMore ? (
-              <div className="flex items-center gap-2 text-muted text-xs font-bold uppercase tracking-widest">
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent" />
-                Loading...
-              </div>
-            ) : (
-              <button
-                onClick={loadMoreItems}
-                className="px-8 py-4 font-black uppercase tracking-widest rounded-2xl transition-all active:scale-95 shadow-lg bg-subtle text-accent hover:bg-accent hover:text-white"
-              >
-                Load More
-              </button>
-            )}
-          </div>
+          <div ref={loadMoreSentinelRef} className="py-8" />
         ) : null}
 
         {allLocationBlocks.length === 0 ? (
