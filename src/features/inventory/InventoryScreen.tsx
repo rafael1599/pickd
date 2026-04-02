@@ -80,8 +80,6 @@ export const InventoryScreen = () => {
     hasMoreItems,
     isLoadingMore,
     isSearching: isServerSearching,
-    searchTotal,
-    serverTotal,
     globalStats,
   } = useInventory();
 
@@ -89,15 +87,18 @@ export const InventoryScreen = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
 
-  // Auto-load more when sentinel enters viewport
+  // Auto-load more when sentinel enters viewport (with cooldown to prevent tight loop)
+  const loadCooldownRef = useRef(false);
   useEffect(() => {
-    console.log(`👁️ [Observer] hasMoreItems=${hasMoreItems} isLoadingMore=${isLoadingMore} sentinel=${!!loadMoreSentinelRef.current}`);
     const sentinel = loadMoreSentinelRef.current;
-    if (!sentinel || !hasMoreItems || isLoadingMore) return;
+    if (!sentinel || !hasMoreItems || isLoadingMore || loadCooldownRef.current) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        console.log(`👁️ [Observer] isIntersecting=${entries[0].isIntersecting}`);
-        if (entries[0].isIntersecting) loadMoreItems();
+        if (entries[0].isIntersecting) {
+          loadCooldownRef.current = true;
+          loadMoreItems();
+          setTimeout(() => { loadCooldownRef.current = false; }, 500);
+        }
       },
       { rootMargin: '400px' },
     );
@@ -785,7 +786,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
               );
             })}
 
-        {hasMoreItems && !isServerSearching ? (
+        {hasMoreItems && !isServerSearching && !isLoadingMore ? (
           <div ref={loadMoreSentinelRef} className="py-8" />
         ) : null}
 
