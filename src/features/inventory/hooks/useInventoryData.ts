@@ -51,7 +51,7 @@ export const useInventory = () => {
   // Pagination state
   const [bikesTotal, setBikesTotal] = useState<number | null>(null);
   const [partsTotal, setPartsTotal] = useState<number | null>(null);
-  const [searchTotal, setSearchTotal] = useState<number | null>(null);
+  // searchTotal is now derived from searchData query result (no separate state)
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const isLoadingMoreRef = useRef(false);
 
@@ -124,37 +124,30 @@ export const useInventory = () => {
   });
 
   // ── Server-side search query (separate from main cache) ───────────
-  const { data: searchResults, isLoading: isSearching } = useQuery<InventoryItemWithMetadata[]>({
+  const { data: searchData, isLoading: isSearching } = useQuery<{
+    items: InventoryItemWithMetadata[];
+    total: number;
+  }>({
     queryKey: ['inventory', 'search', searchQuery],
     queryFn: async () => {
-      // On refetch, load at least as many items as currently cached
-      const currentData = queryClient.getQueryData<InventoryItemWithMetadata[]>([
-        'inventory',
-        'search',
-        searchQuery,
-      ]);
-      const fetchLimit = currentData ? Math.max(currentData.length, SEARCH_LIMIT) : SEARCH_LIMIT;
-
-      // Search across both bikes and parts
       const [bikesRes, partsRes] = await Promise.all([
         inventoryApi.fetchInventoryWithMetadata({
           includeInactive: true,
           partsBins: false,
           search: searchQuery,
-          limit: fetchLimit,
+          limit: SEARCH_LIMIT,
         }),
         inventoryApi.fetchInventoryWithMetadata({
           includeInactive: true,
           partsBins: true,
           search: searchQuery,
-          limit: fetchLimit,
+          limit: SEARCH_LIMIT,
         }),
       ]);
-      setSearchTotal((bikesRes.count ?? 0) + (partsRes.count ?? 0));
+      const total = (bikesRes.count ?? 0) + (partsRes.count ?? 0);
       const combined = [...bikesRes.data, ...partsRes.data];
-      // Deduplicate by id
       const seen = new Set<number>();
-      return combined
+      const items = combined
         .filter((item) => {
           const id = item.id as number;
           if (seen.has(id)) return false;
@@ -162,10 +155,14 @@ export const useInventory = () => {
           return true;
         })
         .map(mapItem);
+      return { items, total };
     },
-    staleTime: 1000 * 60 * 2, // 2 min cache for search results
+    staleTime: 1000 * 60 * 2,
     enabled: searchQuery.length > 0,
   });
+
+  const searchResults = searchData?.items;
+  const searchTotal = searchData?.total ?? null;
 
   // ── Load more items (appends to cache) ────────────────────────────
   const loadMoreInventory = useCallback(
@@ -221,13 +218,8 @@ export const useInventory = () => {
     isLoadingMoreRef.current = true;
     setIsLoadingMore(true);
     try {
-      const currentData =
-        queryClient.getQueryData<InventoryItemWithMetadata[]>([
-          'inventory',
-          'search',
-          searchQuery,
-        ]) || [];
-      const nextOffset = Math.ceil(currentData.length / 2); // each side fetched ~half
+      const currentItems = searchData?.items ?? [];
+      const nextOffset = Math.ceil(currentItems.length / 2);
 
       const [bikesRes, partsRes] = await Promise.all([
         inventoryApi.fetchInventoryWithMetadata({
@@ -246,23 +238,23 @@ export const useInventory = () => {
         }),
       ]);
 
-      setSearchTotal((bikesRes.count ?? 0) + (partsRes.count ?? 0));
+      const total = (bikesRes.count ?? 0) + (partsRes.count ?? 0);
       const newItems = [...bikesRes.data, ...partsRes.data].map(mapItem);
 
       queryClient.setQueryData(
         ['inventory', 'search', searchQuery],
-        (old: InventoryItemWithMetadata[] | undefined) => {
-          if (!old) return newItems;
-          const existingIds = new Set(old.map((i) => i.id));
+        (old: { items: InventoryItemWithMetadata[]; total: number } | undefined) => {
+          if (!old) return { items: newItems, total };
+          const existingIds = new Set(old.items.map((i) => i.id));
           const unique = newItems.filter((i) => !existingIds.has(i.id));
-          return [...old, ...unique];
-        }
+          return { items: [...old.items, ...unique], total };
+        },
       );
     } finally {
       isLoadingMoreRef.current = false;
       setIsLoadingMore(false);
     }
-  }, [searchQuery, queryClient]);
+  }, [searchQuery, searchData, queryClient]);
 
   const loadMore = useCallback(async () => {
     if (searchQuery) {

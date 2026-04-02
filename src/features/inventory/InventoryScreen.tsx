@@ -785,7 +785,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
               );
             })}
 
-        {hasMoreItems ? (
+        {hasMoreItems && !isServerSearching ? (
           <div ref={loadMoreSentinelRef} className="flex flex-col items-center gap-2 py-8">
             {debouncedSearch && searchTotal !== null && (
               <span className="text-xs font-bold uppercase tracking-widest text-muted">
