@@ -14,8 +14,11 @@ WHAT'S BETTER NOW:
 ON THE FLOOR:
 - Unloaded a new container and registered 21 bikes into ROW 52 — Faultline A1/A2/A3, Renegade S1 UDH Framekits, Renegade C4, and Renegade S1 Adobe Clay. All logged with names, dimensions, and pallet distribution.
 
+TRIED BUT NEEDS REWORK:
+- Inline correction for verification: built a first version where the checker could see similar SKUs and swap items directly in the double-check screen. After testing, the approach didn't work well — quantities were confusing, suggestions weren't useful, and when no alternatives exist the button shouldn't appear at all. Next step: redesign as a dedicated "Correction Mode" screen (like Build Order but limited to problem items) instead of inline controls.
+
 COMING UP NEXT:
-- Inline correction for verification: when an item doesn't exist or is out of stock, the checker will be able to search for a replacement and swap it without leaving the screen
+- Correction Mode: a dedicated screen for fixing problem items during verification — search freely for replacements from the full inventory, not just similar SKUs
 - Redesign how the system handles unfinished orders: keep them visible instead of silently canceling them
 
-8 done today / 18 in the queue (9 high priority, 4 medium, 5 bugs)
+18 in the queue (9 high priority, 4 medium, 5 bugs)

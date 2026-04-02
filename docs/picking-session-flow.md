@@ -73,90 +73,76 @@ This document defines the state machine, correction flow, and safety mechanisms.
 - completed -> any (terminal, triple-protected)
 - Any backward jump that skips a state
 
-## Inline Correction (Double Check View) — Design Decision: Option A
+## Inline Correction (Double Check View)
 
 **Decision date:** 2026-04-01
-**Chosen approach:** Inline Replace + Remove buttons on problem items, with search
-expansion inside the card. No navigation away from double check.
+**Status:** First attempt implemented and tested — rejected, needs redesign.
 
-### Flow for problem items (sku_not_found or insufficient_stock)
+### How problem items are detected
 
-Each problem item card shows two buttons: [Replace] and [Remove].
+Two sources set the `sku_not_found` and `insufficient_stock` flags on cart items:
 
-**Step 1 — Problem item (collapsed):**
+1. **Watchdog daemon** (`watchdog-pickd/supabase_client.py`) — sets both flags when
+   creating orders from PDFs based on `sku_metadata` lookup and inventory availability.
+2. **Frontend `processPickingList()`** — sets `insufficient_stock` during "Start Picking"
+   when requested qty exceeds available inventory. Does NOT set `sku_not_found`.
 
-    ┌─────────────────────────────────────────────┐
-    │ RED  03-4614ZZ          1u                  │
-    │ FAULTLINE A1 V2 15 PHANTOM PURPLE           │
-    │ SKU NOT FOUND                               │
-    │                                             │
-    │   [ Replace ]  [ Remove ]                   │
-    └─────────────────────────────────────────────┘
+These flags are stored in the `picking_lists.items` JSONB and persist through the
+entire workflow. The frontend reads them in DoubleCheckView to render problem items
+in red and show correction controls.
 
-**Step 2 — Tap Replace, card expands with search:**
+**Note:** Flags are NOT recalculated when entering double check — they reflect the
+state at order creation / start picking time. Stock may have changed since then.
 
-    ┌─────────────────────────────────────────────┐
-    │ RED  03-4614ZZ          1u                  │
-    │ FAULTLINE A1 V2 15 PHANTOM PURPLE           │
-    │ SKU NOT FOUND                               │
-    │                                             │
-    │ ┌─ REPLACE WITH: ───────────────────────┐   │
-    │ │ Search [SKU or name...            ]   │   │
-    │ │                                       │   │
-    │ │  03-4614RD  FAULTLINE A1 GARNET  7u   │   │
-    │ │  03-4614WH  FAULTLINE A1 WHITE   3u   │   │
-    │ │  03-4615BK  FAULTLINE A1 17 BLK  5u   │   │
-    │ │                                       │   │
-    │ │  (results update as you type)         │   │
-    │ └───────────────────────────────────────┘   │
-    │                                             │
-    │   [ Cancel ]                                │
-    └─────────────────────────────────────────────┘
+**Test order:** `TEST-001` is a manually-created order in `double_checking` status
+with explicit flags for testing the correction UI. Recreate with:
+`supabase/seed_test_orders.sql` (requires `create_users.sql` first).
 
-- Search field queries inventory (same warehouse, qty > 0)
-- Pre-populated with suggestions from findSimilarSkus if available
-- User can type freely to search any SKU in inventory
-- Results update as user types (debounced)
+Items:
 
-**Step 3 — Tap a result, qty selector appears (no qty before choosing):**
+- `03-4614BK` — OK
+- `03-4614ZZ` — `sku_not_found: true` (invented SKU)
+- `03-9999XX` — `sku_not_found: true` (nonexistent)
+- `03-3764BK` — `insufficient_stock: true` (requests 50, insufficient stock)
 
-    ┌─────────────────────────────────────────────┐
-    │ OK  03-4614RD           ?u                  │
-    │ FAULTLINE A1 V2 15 GARNET   (7 available)  │
-    │ ROW 10                                      │
-    │                                             │
-    │   How many?   [ - ]  [ 1 ]  [ + ]           │
-    │                                             │
-    │   [ Confirm ]    [ Change ]                 │
-    └─────────────────────────────────────────────┘
+### First attempt: Option A — Inline (rejected)
 
-- Qty selector only appears AFTER choosing replacement
-- Default qty = original pickingQty (or max available, whichever is less)
-- Confirm swaps the item, logs the correction, collapses the card
-- Change goes back to the search step
+**What was built:**
 
-### For insufficient_stock items
+- Small `[Fix]` button (8px, wrench icon) on problem items in DoubleCheckView
+- Tapping Fix opens a panel BELOW the card (not inside it) with:
+  - Qty adjuster ([ - ] [ qty ] [ + ]) starting at 0
+  - Up to 3 alternatives from `findSimilarSkus()` — no search field
+  - Remove Item button
+- `handleCorrectItem` in PickingCartDrawer handles swap/adjust_qty/remove actions
+- All corrections logged in `picking_list_notes`
 
-Same flow but also shows [Adjust Qty] button (no need to replace, just lower the qty):
+**What the design doc originally proposed (not what was built):**
 
-    ┌─────────────────────────────────────────────┐
-    │ RED  03-3764BK          50u                 │
-    │ HELIX A2 16 GLOSS BLACK (only 2 in stock)  │
-    │ INSUFFICIENT STOCK                          │
-    │                                             │
-    │   [ Replace ]  [ Adjust Qty ]  [ Remove ]   │
-    └─────────────────────────────────────────────┘
+- Prominent [Replace] and [Remove] buttons inside each problem item card
+- Full search field to query any SKU in inventory
+- Qty selector only AFTER choosing a replacement, defaulting to original qty
+- Separate [Adjust Qty] for insufficient_stock items
 
-Adjust Qty shows inline: [ - ] [ 2 ] [ + ] [ Confirm ]
+**Why it was rejected (testing feedback 2026-04-01):**
 
-### Rules
+1. Quantities were confusing — adjuster starts at 0 instead of original pickingQty
+2. Only 3 pre-calculated suggestions, often not useful — no way to search freely
+3. Fix button shouldn't appear if there are no alternatives
+4. Inline controls are too cramped — need a dedicated screen for corrections
 
-- Replace and Remove buttons only appear on problem items (red)
-- Normal items have no correction buttons
-- Qty selector only appears AFTER choosing a replacement item
+### Next approach: Correction Mode (to be designed)
+
+A dedicated view (like Build Order but limited to problem items) where the checker
+can search the full inventory and replace/adjust items. See backlog fix-002 for
+implementation plan.
+
+### Rules (still valid)
+
+- Correction buttons only appear on problem items (sku_not_found or insufficient_stock)
 - All corrections are logged in picking_list_notes
-- The checker never leaves the double check view
-- No backward transitions (no building mode, no active status change)
+- The checker never leaves the double check flow
+- No backward transitions to building mode or active status
 
 ### When to Use returnToPicker Instead
 

@@ -84,43 +84,39 @@
 ### 20. Picking session hardening — 6 cambios (inline correction + safety fixes) <!-- id: fix-002 -->
 
 - **Creado:** `[2026-04-01 16:00]`
-- **Estado:** Por hacer — investigación completada, plan de implementación definido.
-- **Resuelve:** bug-011, bug-012, siblings huérfanos en grupos, race condition loadSession, debounce timer leak.
-- **Documentación:** `docs/picking-session-flow.md` — state machine completo, flujo de corrección, workflow lock.
-- **Contexto:** 9 equipos de investigación (5 internos + 4 externos) analizaron el state machine, patrones de industria (ShipHero, Amazon, Dynamics 365), y patrones de React. Se definió un flujo serial con transiciones forward-only.
-- **6 cambios en orden de implementación:**
-  1. **Debounce cleanup** — Agregar `.cancel()` a `debounce.ts`. Limpiar timer en usePickingSync cuando sessionMode cambia.
-     - Archivos: `src/utils/debounce.ts`, `src/features/picking/hooks/usePickingSync.ts`
-     - Riesgo: Mínimo
-  2. **Workflow Lock** — Ref `isInWorkflowRef` en PickingContext. Guard en loadSession que skipea si un workflow está en progreso. Set/unset en generatePickingPath y returnToBuilding.
-     - Archivos: `src/features/picking/hooks/usePickingSync.ts`, `src/features/picking/hooks/usePickingActions.ts`, `src/context/PickingContext.tsx`
-     - Riesgo: Bajo
-  3. **Release group siblings** — En returnToBuilding branch A (double_check), liberar siblings igual que releaseCheck.
-     - Archivos: `src/context/PickingContext.tsx`
-     - Riesgo: Bajo
-  4. **Eliminar "Return to Building" desde Double Check** — onBack en DoubleCheckView ahora llama releaseCheck (liberar a la cola), no returnToBuilding. El botón back se convierte en "Release to Queue".
-     - Archivos: `src/features/picking/components/PickingCartDrawer.tsx`, `src/features/picking/components/DoubleCheckView.tsx`
-     - Riesgo: Bajo
-  5. **Inline correction en Double Check** — En items rojos (sku_not_found, insufficient_stock), mostrar botón "Fix" que expande la card con: ajustador de qty + hasta 3 SKUs similares del inventario (mismo prefijo, mismo modelo diferente tamaño/color). Seleccionar uno swapea el SKU en la orden y loguea la corrección.
-     - Archivos: Nuevo `src/features/picking/hooks/useSimilarSkus.ts`, `src/features/picking/components/DoubleCheckView.tsx`, `src/features/picking/components/PickingCartDrawer.tsx`
-     - Riesgo: Medio
-  6. **Documentación** — Ya creada en `docs/picking-session-flow.md`.
-- **Criterios de aceptación:**
-  - Checker puede corregir items rojos inline sin salir de double check (swap SKU, ajustar qty)
-  - Items rojos muestran 0-3 alternativas similares del inventario
-  - Correcciones se loguean en picking_list_notes
-  - Botón "back" en double check libera la orden a la cola, no va a building
-  - Workflow lock previene que loadSession sobrescriba sesión activa
-  - Siblings de grupo se liberan correctamente al regresar
-  - Debounce timers se cancelan al cambiar sessionMode
-  - Tests existentes (bug-004) siguen pasando
-- **Feedback de testing (2026-04-01):**
-  - La inline correction en DoubleCheckView es confusa: cantidades sin sentido, opciones no útiles
-  - Si un item NO tiene alternativas similares, el botón Fix NO debe aparecer
-  - Se necesita un botón más grande "Fix Order" que abra una **vista dedicada de corrección** similar a Build Order — buscar y elegir reemplazos libremente del inventario, sin regresar a building mode
-  - La Correction Mode es un "Build Order limitado" que edita items problemáticos y envía directo a ready_to_double_check
-  - **Próximo paso:** Diseñar Correction Mode view como componente separado
-- **Descartado:** Cambiar status a `ready_to_double_check` en returnToBuilding (causa doble reserva de stock). Migrar a Zustand (refactor demasiado grande, workflow lock resuelve el mismo problema).
+- **Estado:** Parcialmente completado — safety fixes listos (develop), inline correction rechazada en testing.
+- **Resuelve:** bug-011, siblings huérfanos en grupos, race condition loadSession, debounce timer leak.
+- **Documentación:** `docs/picking-session-flow.md` — state machine, workflow lock, correction flow (actualizado con estado real).
+- **Contexto:** 9 equipos de investigación (5 internos + 4 externos) analizaron el state machine, patrones de industria (ShipHero, Amazon, Dynamics 365), y patrones de React.
+- **6 cambios — estado actual:**
+  1. ~~**Debounce cleanup**~~ — COMPLETADO `[2026-04-01]` `395c49b` (develop)
+     - `.cancel()` en `debounce.ts`, cleanup en usePickingSync cuando sessionMode cambia.
+  2. ~~**Workflow Lock**~~ — COMPLETADO `[2026-04-01]` `9c8fb21` (develop)
+     - `isInWorkflowRef` en PickingContext. Guard en loadSession. Set/unset en generatePickingPath y returnToBuilding.
+  3. ~~**Release group siblings**~~ — COMPLETADO `[2026-04-01]` `9c8fb21` (develop)
+     - returnToBuilding libera siblings igual que releaseCheck.
+  4. ~~**Eliminar "Return to Building" desde Double Check**~~ — COMPLETADO `[2026-04-01]` `27d2b8b` (develop)
+     - Back button ahora es "Release to Queue".
+  5. **Inline correction en Double Check** — IMPLEMENTADO Y RECHAZADO `[2026-04-01]` `0d54948` `27d2b8b` (develop)
+     - Se construyó: botón Fix (8px), panel debajo del card con qty adjuster + 3 alternativas de `findSimilarSkus`.
+     - **No sigue el design doc original:** sin campo de búsqueda libre, sin confirmación de qty, botón casi invisible.
+     - **Rechazado en testing:** cantidades sin sentido (empieza en 0, no en pickingQty original), sugerencias no útiles, botón Fix aparece incluso sin alternativas.
+     - **Decisión:** Reemplazar con Correction Mode — vista dedicada tipo Build Order para corregir items problemáticos.
+     - **Próximo paso:** Diseñar Correction Mode como componente separado. Revertir inline correction de DoubleCheckView.
+  6. ~~**Documentación**~~ — COMPLETADO `[2026-04-01]` `8c2fece` (develop) — actualizado con estado real.
+- **Pendiente para merge a main:**
+  - Pasos 1-4 están listos y probados — se pueden mergear.
+  - Paso 5 debe revertirse o separarse antes del merge.
+  - bug-012 (click en orden de verificación no navega) no se resolvió en este batch.
+- **Nota sobre flags de error:** `sku_not_found` lo setea el watchdog (PDFs) o manualmente en la DB. `insufficient_stock` lo setean el watchdog y `processPickingList()` al hacer Start Picking. El frontend los lee en DoubleCheckView para renderizar items rojos y mostrar controles de corrección. No se recalculan al entrar a double check. Orden de prueba: `TEST-001` (double_checking) con flags explícitos para testing.
+- **Criterios de aceptación (actualizados):**
+  - ~~Workflow lock previene que loadSession sobrescriba sesión activa~~ ✓
+  - ~~Siblings de grupo se liberan correctamente al regresar~~ ✓
+  - ~~Debounce timers se cancelan al cambiar sessionMode~~ ✓
+  - ~~Botón "back" en double check libera la orden a la cola~~ ✓
+  - Checker puede corregir items rojos via Correction Mode (pendiente)
+  - Correcciones se loguean en picking_list_notes (implementado, pendiente de Correction Mode)
+- **Descartado:** Cambiar status a `ready_to_double_check` en returnToBuilding (causa doble reserva de stock). Migrar a Zustand (refactor demasiado grande, workflow lock resuelve el mismo problema). Inline correction como primera opción (UI confusa, rechazada en testing).
 
 ### 19. Rediseño de auto-cancel → sistema de expiración con reactivación <!-- id: idea-031 -->
 
