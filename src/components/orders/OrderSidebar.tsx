@@ -98,7 +98,10 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
       {/* Header — always visible */}
       <div className="flex items-center gap-3 mb-6">
         <button
-          onClick={() => navigate('/')}
+          onClick={() => {
+            setViewMode('stock');
+            navigate('/');
+          }}
           className="w-11 h-11 flex items-center justify-center bg-surface hover:bg-main border border-subtle rounded-2xl text-muted transition-all active:scale-95 shadow-sm"
           title="Back"
         >
