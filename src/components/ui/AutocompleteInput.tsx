@@ -117,13 +117,10 @@ export default function AutocompleteInput<T extends Suggestion = Suggestion>({
   }, [inputValue, suggestions, minChars]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Scroll input into view and compute dropdown position when suggestions appear on mobile
+  // Compute dropdown position when suggestions appear on mobile
   useEffect(() => {
-    if (showSuggestions && isMobile && filteredSuggestions.length > 0 && wrapperRef.current) {
-      wrapperRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      // Small delay so scroll settles before measuring
-      const t = setTimeout(updateDropdownPos, 100);
-      return () => clearTimeout(t);
+    if (showSuggestions && isMobile && filteredSuggestions.length > 0) {
+      updateDropdownPos();
     }
   }, [showSuggestions, isMobile, filteredSuggestions.length, updateDropdownPos]);
 
