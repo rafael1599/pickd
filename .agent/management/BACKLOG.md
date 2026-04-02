@@ -314,6 +314,11 @@
 
 - [x] **[bug-012]** Click en orden de verificación / botón Orders en perfil — Verificado `[2026-04-02]` — *funciona correctamente, no se reproduce*
 
+- [ ] **[bug-013] Teclado aparece al abrir orden desde Verification Queue** — `[2026-04-02]` — Por confirmar
+      Al tocar una orden en la Verification Queue, el teclado mobile se abre sin razón. Causa: `handleOrderSelect` llama `setViewMode('picking')` → InventoryScreen pasa `autoFocus={true}` a SearchInput → useEffect hace `.focus()` programático en input detrás del modal (CSS pointer-events no bloquea `.focus()` de JS).
+      **Fix aplicado:** `51e55a5` — SearchInput verifica con `document.elementFromPoint()` que el input no esté cubierto por un overlay antes de hacer `.focus()`.
+      **Estado:** Fix en develop, pendiente confirmar en dispositivo mobile.
+
 - [ ] **[bug-009] Address parser falla con calles numéricas + direccionales** — `[2026-03-27]`
       `parseUSAddress` no parsea "5305 S 1200 W\nMILLERSBURG, IN 46543". El parser busca un suffix (St, Ave, Blvd) para separar calle de ciudad. "S 1200 W" no tiene suffix reconocido → todo queda como street, city vacío. Formato común en ciudades del Midwest con calles numéricas y direccionales.
       **Fix:** Agregar fallback: si no se encuentra suffix pero hay newline, usar newline como separador street/city.
