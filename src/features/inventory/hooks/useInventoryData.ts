@@ -438,6 +438,7 @@ export const useInventory = () => {
     hasMoreItems,
     isLoadingMore,
     searchTotal,
+    serverTotal: (bikesTotal ?? 0) + (partsTotal ?? 0),
 
     // Utils / Stubs
     processPickingList,

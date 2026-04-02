@@ -81,6 +81,7 @@ export const InventoryScreen = () => {
     isLoadingMore,
     isSearching: isServerSearching,
     searchTotal,
+    serverTotal,
   } = useInventory();
 
   const [localSearch, setLocalSearch] = useState('');
@@ -90,14 +91,14 @@ export const InventoryScreen = () => {
   // Auto-load more when sentinel enters viewport
   useEffect(() => {
     const sentinel = loadMoreSentinelRef.current;
-    if (!sentinel || !hasMoreItems) return;
+    if (!sentinel || !hasMoreItems || isLoadingMore) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !isLoadingMore) {
+        if (entries[0].isIntersecting) {
           loadMoreItems();
         }
       },
-      { rootMargin: '200px' }
+      { rootMargin: '400px' }
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
@@ -632,7 +633,10 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
       {viewMode === 'stock' && (
         <div className="px-4 pt-2 flex justify-between items-center text-xs font-black uppercase tracking-widest text-muted">
           <span>{filteredStats.totalSkus} SKUs</span>
-          <span>{filteredStats.totalQuantity} Units Total</span>
+          {hasMoreItems && serverTotal > 0 && (
+            <span className="text-accent/60">{serverTotal} total in DB</span>
+          )}
+          <span>{filteredStats.totalQuantity} Units</span>
         </div>
       )}
 
