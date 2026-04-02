@@ -65,10 +65,14 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
       return (saved as 'text' | 'numeric') || 'numeric';
     });
 
-    // Auto-focus logic
+    // Auto-focus logic — only if input is not covered by a modal/overlay
     useEffect(() => {
       if (autoFocus && inputRef.current && isExpanded) {
-        inputRef.current.focus();
+        const rect = inputRef.current.getBoundingClientRect();
+        const topEl = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+        if (inputRef.current.contains(topEl)) {
+          inputRef.current.focus();
+        }
       }
     }, [autoFocus, inputRef, isExpanded]);
 
