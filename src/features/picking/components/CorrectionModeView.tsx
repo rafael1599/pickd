@@ -124,7 +124,7 @@ const SearchPanel: React.FC<{
       </div>
     )}
 
-    {query.length >= 2 && isSearching && (
+    {query.length >= 2 && isSearching && results.length === 0 && (
       <div className="flex items-center justify-center gap-2 py-3">
         <Loader size={14} className="text-white/30 animate-spin" />
         <span className="text-[10px] text-white/30 uppercase tracking-widest font-black">

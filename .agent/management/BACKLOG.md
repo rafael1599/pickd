@@ -279,6 +279,9 @@
       3. **Customer info colapsable:** envolver los campos del cliente (dirección, ciudad, estado, zip, load, pallets) en un acordeón. Título: nombre del customer si existe, sino `#order_number`. Por defecto contraído en mobile. Al expandir muestra todos los campos editables
       4. **Order number siempre visible** como header/título principal (no dentro del acordeón)
       **Archivos:** `OrdersScreen.tsx` (header, dropdown, search), `OrderSidebar.tsx` (customer fields → acordeón)
+- [ ] **Orders — PDF preview full-width en mobile** — `[2026-04-02]` <!-- id: idea-034 -->
+      El preview del PDF (LivePrintPreview / PalletLabelsPrinter) en la vista Orders en mobile se muestra con márgenes laterales que desperdician espacio en pantallas pequeñas. Debería ocupar `w-full` o al menos `w-[96%]` del ancho disponible en mobile. Desktop no cambia.
+      **Archivos:** `OrdersScreen.tsx` (contenedor del preview), `LivePrintPreview.tsx` o `PalletLabelsPrinter.tsx` (dimensiones del canvas).
 - [ ] **Order List View**: When reviewing orders, show the picking list first with an option to print. <!-- id: idea-006 -->
 - [ ] **Automatic Inventory Email**: Send full inventory table to Jamis's email. Plain list only, NO links. Edge function `send-daily-report` ya existe — falta query + formato + cron. <!-- id: idea-007 -->
 - [ ] **Fotos Fase 3 — Bulk Upload**: Multi-file picker con batching concurrency (3-5), progress bar, mapeo SKU↔archivo por nombre o CSV. Reusar `uploadPhoto()` existente. <!-- id: idea-023-p3 -->
