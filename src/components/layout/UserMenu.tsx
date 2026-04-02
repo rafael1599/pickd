@@ -297,6 +297,13 @@ export const UserMenu = ({ isOpen, onClose, onExport, navigate }: UserMenuProps)
             <p className="text-xs font-bold text-muted truncate">
               {profile?.role?.toUpperCase()} ACCOUNT
             </p>
+            <p className="text-[9px] text-muted/50 font-mono truncate mt-0.5">
+              {import.meta.env.PROD
+                ? window.location.hostname === 'roman-app.vercel.app'
+                  ? 'stable'
+                  : 'latest'
+                : 'dev'}
+            </p>
           </div>
           <img
             src="/PickD.png"
