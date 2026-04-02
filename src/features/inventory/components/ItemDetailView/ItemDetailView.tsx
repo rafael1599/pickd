@@ -87,7 +87,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     setValue,
     watch,
     reset,
-    formState: { errors, isValid },
+    formState: { errors },
   } = useForm<InventoryFormValues>({
     resolver: zodResolver(InventoryFormSchema) as unknown as Parameters<
       typeof useForm<InventoryFormValues>
@@ -694,10 +694,13 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
 
   if (!isOpen) return null;
 
+  // Manual validation — zodResolver's isValid doesn't work reliably with
+  // setValue/watch pattern (fields aren't registered). Full Zod validation
+  // still runs in inventoryService.updateItem() before DB write.
   const canSave =
-    isValid &&
     sku?.trim() &&
     location?.trim() &&
+    (quantity != null && quantity >= 0) &&
     validationState.status !== 'error' &&
     validationState.status !== 'checking' &&
     (isAddMode || hasChanges);
