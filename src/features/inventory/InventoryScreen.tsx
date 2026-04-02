@@ -699,7 +699,10 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                     </div>
                   )}
 
-                  <div className="sticky top-[84px] bg-main/95 backdrop-blur-sm z-30 py-3 border-b border-subtle group">
+                  <div
+                    className={`sticky top-[84px] bg-main/95 backdrop-blur-sm z-30 py-3 border-b border-subtle group ${isAdmin && viewMode === 'stock' ? 'cursor-pointer' : ''}`}
+                    onClick={() => handleOpenLocationEditor(wh, location, locationId)}
+                  >
                     <div className="flex items-center gap-4 px-1">
                       <div className="flex-[3]">
                         <CapacityBar
@@ -716,12 +719,11 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
 
                       <div className="flex-1 min-w-0">
                         <h3
-                          className={`text-content text-xl font-black uppercase tracking-tighter truncate ${isAdmin && viewMode === 'stock' ? 'cursor-pointer hover:text-accent transition-colors' : ''}`}
+                          className={`text-content text-xl font-black uppercase tracking-tighter truncate ${isAdmin && viewMode === 'stock' ? 'hover:text-accent transition-colors' : ''}`}
                           style={{ fontFamily: 'var(--font-heading)' }}
                           title={
-                            isAdmin && viewMode === 'stock' ? 'Click to edit location' : location
+                            isAdmin && viewMode === 'stock' ? 'Tap to edit location' : location
                           }
-                          onClick={() => handleOpenLocationEditor(wh, location, locationId)}
                         >
                           {location}
                         </h3>

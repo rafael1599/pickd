@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import Edit3 from 'lucide-react/dist/esm/icons/edit-3';
 import Save from 'lucide-react/dist/esm/icons/save';
 import X from 'lucide-react/dist/esm/icons/x';
-import AlertTriangle from 'lucide-react/dist/esm/icons/alert-triangle';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import { useInventory } from '../../inventory/hooks/useInventoryData';
@@ -54,7 +53,6 @@ export default function LocationEditorModal({
     errors: [],
     warnings: [],
   });
-  const [overrideWarnings, setOverrideWarnings] = useState(false);
 
   // Effect to calculate the impact of all changes made
   useEffect(() => {
@@ -103,8 +101,16 @@ export default function LocationEditorModal({
   const handleSubmit = (e?: FormEvent) => {
     if (e) e.preventDefault();
     if (validation.errors.length > 0) return;
-    if (validation.warnings.length > 0 && !overrideWarnings) {
-      setOverrideWarnings(true);
+    if (validation.warnings.length > 0) {
+      showConfirmation(
+        'Confirm Changes',
+        validation.warnings.join('\n'),
+        () => onSave(formData),
+        () => {},
+        'Save Anyway',
+        'Cancel',
+        'warning',
+      );
       return;
     }
     onSave(formData);
@@ -158,8 +164,8 @@ export default function LocationEditorModal({
           </div>
         </div>
 
-        {/* Validation Messages */}
-        {(validation.errors.length > 0 || validation.warnings.length > 0) && (
+        {/* Validation Errors */}
+        {validation.errors.length > 0 && (
           <div className="px-6 pt-6 pb-0 flex flex-col gap-2">
             {validation.errors.map((err, idx) => (
               <div
@@ -168,18 +174,6 @@ export default function LocationEditorModal({
               >
                 <AlertCircle size={16} />
                 {err}
-              </div>
-            ))}
-            {validation.warnings.map((warn, idx) => (
-              <div
-                key={`warn-${idx}`}
-                className="p-3 bg-orange-500/10 text-orange-500 border border-orange-500/20 rounded-xl text-xs font-bold flex items-center gap-2"
-              >
-                <AlertTriangle size={16} />
-                {warn}
-                {!overrideWarnings && (
-                  <span className="ml-auto text-[10px] opacity-70">CONFIRM TO PROCEED</span>
-                )}
               </div>
             ))}
           </div>
@@ -235,34 +229,29 @@ export default function LocationEditorModal({
               placeholder="Additional information about this location..."
             />
           </div>
-        </form>
-
-        {/* Footer Actions */}
-        <div className="p-6 border-t border-subtle bg-main/50 flex gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex-1 px-6 py-4 bg-surface hover:opacity-80 text-muted font-black uppercase tracking-widest text-xs rounded-2xl transition-colors border border-subtle"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => handleSubmit()}
-            disabled={
-              validation.errors.length > 0 || (validation.warnings.length > 0 && !overrideWarnings)
-            }
-            className={`flex-[2] h-14 rounded-2xl font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2 ${
-              validation.errors.length > 0
-                ? 'bg-surface text-muted cursor-not-allowed border border-subtle'
-                : validation.warnings.length > 0 && !overrideWarnings
-                  ? 'bg-orange-500 text-white cursor-pointer hover:opacity-90 shadow-lg shadow-orange-500/20'
+          {/* Footer Actions */}
+          <div className="p-6 border-t border-subtle bg-main/50 flex gap-3">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="flex-1 px-6 py-4 bg-surface hover:opacity-80 text-muted font-black uppercase tracking-widest text-xs rounded-2xl transition-colors border border-subtle"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={validation.errors.length > 0}
+              className={`flex-[2] h-14 rounded-2xl font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2 ${
+                validation.errors.length > 0
+                  ? 'bg-surface text-muted cursor-not-allowed border border-subtle'
                   : 'bg-accent hover:opacity-90 text-main shadow-lg shadow-accent/20'
-            }`}
-          >
-            <Save size={20} />
-            {validation.warnings.length > 0 && !overrideWarnings ? 'Confirm Risks' : 'Save Changes'}
-          </button>
-        </div>
+              }`}
+            >
+              <Save size={20} />
+              Save Changes
+            </button>
+          </div>
+        </form>
       </div>
     </div>,
     document.body

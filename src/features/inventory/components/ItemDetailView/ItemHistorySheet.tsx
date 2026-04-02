@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useCallback } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import X from 'lucide-react/dist/esm/icons/x';
@@ -11,6 +11,7 @@ import ArrowRight from 'lucide-react/dist/esm/icons/arrow-right';
 import Package from 'lucide-react/dist/esm/icons/package';
 import Settings from 'lucide-react/dist/esm/icons/settings';
 import Calendar from 'lucide-react/dist/esm/icons/calendar';
+import { useScrollLock } from '../../../../hooks/useScrollLock';
 import { supabase } from '../../../../lib/supabase';
 import type { InventoryLog, LogActionTypeValue } from '../../../../schemas/log.schema';
 import { getUserColor } from '../../../../utils/userUtils';
@@ -148,18 +149,8 @@ export const ItemHistorySheet: React.FC<ItemHistorySheetProps> = ({ isOpen, onCl
     return groups;
   }, [logs]);
 
-  // Back button closes sheet
-  const handlePopState = useCallback(() => {
-    if (isOpen) onClose();
-  }, [isOpen, onClose]);
-
-  useEffect(() => {
-    if (isOpen) {
-      history.pushState({ historySheet: true }, '');
-      window.addEventListener('popstate', handlePopState);
-      return () => window.removeEventListener('popstate', handlePopState);
-    }
-  }, [isOpen, handlePopState]);
+  // Back button / scroll lock handled by useScrollLock
+  useScrollLock(isOpen, onClose);
 
   if (!isOpen) return null;
 

@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import X from 'lucide-react/dist/esm/icons/x';
+import { useScrollLock } from '../../../../hooks/useScrollLock';
 import Plus from 'lucide-react/dist/esm/icons/plus';
 import Minus from 'lucide-react/dist/esm/icons/minus';
 import {
@@ -39,17 +40,7 @@ export const SectionEditorSheet: React.FC<SectionEditorSheetProps> = ({
     [distribution]
   );
 
-  // Back button closes sheet
-  const handlePopState = useCallback(() => {
-    if (isOpen) onClose();
-  }, [isOpen, onClose]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    history.pushState({ distributionSheet: true }, '');
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [isOpen, handlePopState]);
+  useScrollLock(isOpen, onClose);
 
   if (!isOpen) return null;
 

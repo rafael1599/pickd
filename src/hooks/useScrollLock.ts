@@ -10,7 +10,6 @@ import { useEffect, useRef } from 'react';
 let lockCount = 0;
 
 export const useScrollLock = (isLocked: boolean, onBack?: () => void) => {
-  const pushedRef = useRef(false);
   const onBackRef = useRef(onBack);
   onBackRef.current = onBack;
 
@@ -30,38 +29,43 @@ export const useScrollLock = (isLocked: boolean, onBack?: () => void) => {
   }, [isLocked]);
 
   // Back button / swipe-back closes the modal
-  const tagRef = useRef('');
-
   useEffect(() => {
     if (!isLocked || !onBack) return;
 
+    // Push a state so pressing back pops it instead of navigating away
     const tag = `modal-${Date.now()}-${Math.random()}`;
-    tagRef.current = tag;
-    history.pushState({ modal: tag }, '');
-    pushedRef.current = true;
+    history.pushState({ scrollLockModal: tag }, '');
 
-    const handlePopState = (e: PopStateEvent) => {
-      // Only respond if we're the topmost modal (our entry was just popped)
-      // or if the state no longer contains our tag (meaning we were popped)
-      if (!pushedRef.current) return;
-
-      // Check if current state still has a modal tag that's newer than ours
-      const currentState = e.state as { modal?: string } | null;
-      if (currentState?.modal && currentState.modal !== tag) return;
-
-      pushedRef.current = false;
+    const handlePopState = () => {
+      // Our entry was popped by the user pressing back — close the modal
+      // Check that the current state no longer has our tag
+      const state = history.state as { scrollLockModal?: string } | null;
+      if (state?.scrollLockModal === tag) return; // Not our pop
       onBackRef.current?.();
     };
 
-    window.addEventListener('popstate', handlePopState);
+    // Small delay to avoid catching residual popstate from other modals
+    let ready = false;
+    const timer = setTimeout(() => {
+      ready = true;
+    }, 50);
+
+    const wrappedHandler = (e: PopStateEvent) => {
+      if (!ready) return;
+      handlePopState();
+      // After handling, prevent this event from propagating further
+      e.stopImmediatePropagation();
+    };
+
+    window.addEventListener('popstate', wrappedHandler, true);
 
     return () => {
-      window.removeEventListener('popstate', handlePopState);
-      // If modal closed programmatically (not via back), remove our history entry
-      if (pushedRef.current) {
-        pushedRef.current = false;
-        history.back();
-      }
+      clearTimeout(timer);
+      window.removeEventListener('popstate', wrappedHandler, true);
+      // If modal closed programmatically (not via back button), our history
+      // entry is still on the stack. We leave it — it's harmless (just a
+      // {scrollLockModal: tag} state) and trying to remove it with
+      // history.back() causes React Router to re-render the entire app.
     };
   }, [isLocked]); // eslint-disable-line react-hooks/exhaustive-deps
 };
