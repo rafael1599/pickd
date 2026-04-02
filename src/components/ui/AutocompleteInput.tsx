@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, ReactNode } from 'react';
+import { useState, useEffect, useRef, useCallback, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useAutoSelect } from '../../hooks/useAutoSelect';
 import Search from 'lucide-react/dist/esm/icons/search';
 import X from 'lucide-react/dist/esm/icons/x';
@@ -63,8 +64,16 @@ export default function AutocompleteInput<T extends Suggestion = Suggestion>({
   });
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
   const autoSelect = useAutoSelect();
+
+  const updateDropdownPos = useCallback(() => {
+    if (!wrapperRef.current) return;
+    const rect = wrapperRef.current.getBoundingClientRect();
+    setDropdownPos({ top: rect.bottom + 8, left: rect.left, width: rect.width });
+  }, []);
 
   // Detect mobile
   useEffect(() => {
@@ -107,6 +116,16 @@ export default function AutocompleteInput<T extends Suggestion = Suggestion>({
     setSelectedIndex(-1);
   }, [inputValue, suggestions, minChars]);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Scroll input into view and compute dropdown position when suggestions appear on mobile
+  useEffect(() => {
+    if (showSuggestions && isMobile && filteredSuggestions.length > 0 && wrapperRef.current) {
+      wrapperRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Small delay so scroll settles before measuring
+      const t = setTimeout(updateDropdownPos, 100);
+      return () => clearTimeout(t);
+    }
+  }, [showSuggestions, isMobile, filteredSuggestions.length, updateDropdownPos]);
 
   // Handle click outside
   useEffect(() => {
@@ -198,7 +217,7 @@ export default function AutocompleteInput<T extends Suggestion = Suggestion>({
   };
 
   return (
-    <div className="relative">
+    <div ref={wrapperRef} className="relative">
       {/* Label */}
       {label && (
         <label htmlFor={id} className="block text-sm font-semibold text-accent mb-2">
@@ -305,68 +324,56 @@ export default function AutocompleteInput<T extends Suggestion = Suggestion>({
         </div>
       )}
 
-      {/* Mobile Modal */}
-      {showSuggestions && isMobile && filteredSuggestions.length > 0 && (
-        <div className="fixed inset-0 bg-black/95 z-[100] flex flex-col">
-          {/* Header */}
-          <div className="bg-main border-b border-subtle p-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Search className="text-accent" size={20} />
-              <h3 className="text-lg font-bold text-accent">Select {label}</h3>
-            </div>
-            <button
-              type="button"
+      {/* Mobile Dropdown — rendered via portal to escape overflow:hidden parents */}
+      {showSuggestions &&
+        isMobile &&
+        filteredSuggestions.length > 0 &&
+        createPortal(
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-black/40 z-[100030] animate-[fadeIn_150ms_ease-out]"
               onClick={() => setShowSuggestions(false)}
-              className="text-muted hover:text-content"
+            />
+            {/* Results panel */}
+            <div
+              ref={dropdownRef}
+              style={{
+                position: 'fixed',
+                top: dropdownPos.top,
+                left: dropdownPos.left,
+                width: dropdownPos.width,
+              }}
+              className="z-[100031] bg-card border border-subtle rounded-lg shadow-xl max-h-[50vh] overflow-y-auto animate-[slideDown_200ms_ease-out]"
             >
-              <X size={24} />
-            </button>
-          </div>
-
-          {/* Search preview */}
-          <div className="bg-card border-b border-subtle p-4">
-            <div className="text-sm text-muted">Searching for:</div>
-            <div className="text-lg font-semibold text-content mt-1">{inputValue}</div>
-            <div className="text-sm text-accent mt-1">
-              {filteredSuggestions.length} result{filteredSuggestions.length !== 1 ? 's' : ''}
+              <div className="px-4 py-2 border-b border-subtle">
+                <span className="text-sm text-accent">
+                  {filteredSuggestions.length} result{filteredSuggestions.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              {filteredSuggestions.map((suggestion) => (
+                <button
+                  key={suggestion.value}
+                  type="button"
+                  onClick={() => handleSelect(suggestion)}
+                  className="w-full px-4 py-4 text-left active:bg-surface transition-colors border-b border-subtle last:border-b-0 touch-manipulation"
+                >
+                  {renderItem ? (
+                    renderItem(suggestion)
+                  ) : (
+                    <>
+                      <div className="font-semibold text-content text-lg">{suggestion.value}</div>
+                      {suggestion.info && (
+                        <div className="text-sm text-muted mt-2">{suggestion.info}</div>
+                      )}
+                    </>
+                  )}
+                </button>
+              ))}
             </div>
-          </div>
-
-          {/* Suggestions List */}
-          <div className="flex-1 overflow-y-auto">
-            {filteredSuggestions.map((suggestion) => (
-              <button
-                key={suggestion.value}
-                type="button"
-                onClick={() => handleSelect(suggestion)}
-                className="w-full px-4 py-4 text-left hover:bg-surface active:bg-surface transition-colors border-b border-subtle touch-manipulation"
-              >
-                {renderItem ? (
-                  renderItem(suggestion)
-                ) : (
-                  <>
-                    <div className="font-semibold text-content text-lg">{suggestion.value}</div>
-                    {suggestion.info && (
-                      <div className="text-sm text-muted mt-2">{suggestion.info}</div>
-                    )}
-                  </>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* Footer */}
-          <div className="bg-main border-t border-subtle p-4">
-            <button
-              type="button"
-              onClick={() => setShowSuggestions(false)}
-              className="w-full px-6 py-3 bg-surface hover:opacity-80 text-content rounded-lg font-semibold transition-colors touch-manipulation"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
+          </>,
+          document.body
+        )}
     </div>
   );
 }

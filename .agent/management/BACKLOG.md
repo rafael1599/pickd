@@ -1,7 +1,7 @@
 # PickD — Backlog de Mejoras
 
 > Mejoras pendientes ordenadas por impacto en el usuario final.
-> Actualizado: 2026-03-27
+> Actualizado: 2026-04-02
 >
 > **Formato:** cada item incluye `[fecha hora]` de creación para trazabilidad y `<!-- id: xxx -->` para tracking.
 > **Single source of truth** — no editar BACKLOG.md en la raíz del proyecto (es un puntero a este archivo).
@@ -293,7 +293,7 @@
 
 ## 🐛 Bug Tracker
 
-### Bugs confirmados en producción (actualizado 2026-03-27)
+### Bugs confirmados en producción (actualizado 2026-04-02)
 
 - [x] **[bug-002]** Undo borra en vez de mover — Fix: `[2026-03-23]` `8092bbe` — *snapshot usaba qty post-move*
 - [x] **[bug-003]** Watcher envía items con qty=0 — Fix: `[2026-03-23]` `87ea90b` — *no filtraba locations con qty=0*
@@ -302,20 +302,11 @@
 - [x] **[bug-006]** Orden completada reaparece — Fix: `[2026-03-23]` `10ef3f8` — *misma raíz que bug-004*
 - [x] **[bug-007]** Verification list >24h — Fix: `[2026-03-25]` `3e10c0c` — *filtro de 24h en query*
 
-- [ ] **[bug-011] Orden desaparece de la UI al editar desde double check con múltiples órdenes** — `[2026-04-01]`
-      **Reportado por:** Jed (orden 878887). Tenía 3 órdenes activas simultáneas. Al presionar "regresar" desde Double Check → Build Order → editar items → Start Picking, la orden se actualiza correctamente en DB (status `active`, items editados), pero la UI no la muestra porque `usePickingSync.loadSession` tiene una jerarquía de prioridad fija: (1) busca `double_checking` con `checked_by=user`, (2) si no hay, busca `active/needs_correction` con `user_id=user`. Como Jed tenía otra orden en `double_checking` (878894), el sistema siempre cargaba esa y nunca mostraba la 878887.
-      **Contexto:** bug-004 (`10ef3f8`) resolvió el caso de una sola orden (no crear duplicados al volver de double check), pero no cubrió múltiples órdenes del mismo picker.
-      **Raíz:** `usePickingSync.ts` líneas 108-203 — `loadSession` solo carga 1 sesión. No hay mecanismo para navegar entre órdenes activas del mismo usuario.
-      **Solución propuesta:** Al hacer `returnToBuilding` desde double check, liberar la orden actual a `ready_to_double_check` (no dejarla en `active`) antes de entrar a building mode. Así el picker no acumula órdenes en estados conflictivos. Además, evaluar agregar un selector de órdenes activas en el drawer para cambiar entre ellas.
-      **Archivos:** `src/features/picking/hooks/usePickingSync.ts` (loadSession), `src/context/PickingContext.tsx` (returnToBuilding).
+- [x] **[bug-011]** Orden desaparece de la UI al editar desde double check con múltiples órdenes — Fix: `[2026-04-02]` fix-002 — *workflow lock + release siblings + eliminar Return to Building desde double check*
 
-- [ ] **[bug-008] Botón Save no se habilita en detalle de item** — `[2026-03-27]`
-      El botón Save nunca se habilita al cambiar dimensiones, peso u otros campos. La foto se guarda sola pero el usuario no tiene confirmación de que otros cambios se persisten. Causa probable: defaults hardcoded del form (54×8×30×45) no coinciden con valores reales de `sku_metadata`, y/o `reset()` de react-hook-form no se ejecuta correctamente al cargar metadata.
-      **Archivos:** `src/features/inventory/components/ItemDetailView/ItemDetailView.tsx` — `hasChanges` useMemo, `defaultValues`, `reset()`.
+- [x] **[bug-008]** Botón Save no se habilita en detalle de item — Fix: `[2026-04-02]` `09b906b` — *zodResolver isValid siempre false porque campos usan setValue/watch en vez de register(); reemplazado con validación manual*
 
-- [ ] **[bug-010] Buscador de New Item no encuentra SKUs que el buscador general sí encuentra** — `[2026-04-01]`
-      Al buscar `03-4267BK` en el buscador de New Item (agregar item al inventario), no aparece resultado. El buscador global de Stock View sí lo encuentra correctamente. Causa probable: distinta fuente de datos o lógica de búsqueda entre ambos buscadores.
-      **Investigar:** comparar query/filtro del buscador de New Item vs el buscador global. Verificar si New Item busca en `sku_metadata` vs `inventory`, y si el filtro es exacto vs parcial.
+- [x] **[bug-010]** Buscador de New Item no encuentra SKUs — Fix: `[2026-04-02]` — *buscador funcionaba pero modal mobile usaba `bg-black/95` (texto invisible en dark mode); rediseñado como dropdown inline via portal (escapa overflow:hidden) con scroll automático y animación suave*
 
 - [ ] **[bug-012] Click en orden de la lista de verificación no navega a la vista Orders** — `[2026-04-01]`
       Al dar click en una orden desde la lista de verificación (double check queue), no lleva a la vista de Orders. También el botón "Orders" en el perfil de usuario no navega a `/orders`.
@@ -329,7 +320,7 @@
 
 ## ✅ Completado
 
-**30 items completados** (2026-03-10 → 2026-03-29). Detalle en `BACKLOG-ARCHIVE.md`.
+**33 items completados** (2026-03-10 → 2026-04-02). Detalle en `BACKLOG-ARCHIVE.md`.
 
 ### ~~29. Security hardening: RLS + anon RPC lockdown~~ — COMPLETADO `[2026-03-29]` <!-- id: sec-fix-001 -->
 
