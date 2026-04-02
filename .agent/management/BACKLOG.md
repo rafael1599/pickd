@@ -287,6 +287,10 @@
 - [ ] **Fotos Fase 3 — Bulk Upload**: Multi-file picker con batching concurrency (3-5), progress bar, mapeo SKU↔archivo por nombre o CSV. Reusar `uploadPhoto()` existente. <!-- id: idea-023-p3 -->
 - [ ] **Migrar cron jobs a pg_cron** — `[2026-04-01]` <!-- id: idea-030 -->
       Mover `daily-snapshot` y `auto-cancel-orders` de GitHub Actions / Edge Function cron a **pg_cron** (ya instalado en Supabase). Elimina dependencia de GitHub Actions, corre directo en Postgres, más confiable. Evaluar también **Database Webhooks** para eventos como qty=0 o picking list completada, y **Queues** si el volumen de órdenes crece.
+- [ ] **History en perfil de usuario** — `[2026-04-02]` <!-- id: idea-035 -->
+      **Problema:** La funcionalidad de History fue marcada como deprecated pero nunca se reemplazó. El usuario no tiene forma de ver el historial de órdenes completadas/canceladas desde su perfil.
+      **Solución:** Implementar vista de History dentro del menú de perfil de usuario. Mostrar lista de picking lists completadas y canceladas del usuario con fecha, order number, customer, y status. Permitir ver detalle de cada orden histórica.
+      **Archivos:** Perfil de usuario (menú), nueva vista o componente de History.
 - [x] ~~**Order Merging**: Combine 2 separate orders into one picking session.~~ — Cubierto por task-007 + idea-010b. `adff48e` <!-- id: idea-010 -->
 
 ---
@@ -308,8 +312,7 @@
 
 - [x] **[bug-010]** Buscador de New Item no encuentra SKUs — Fix: `[2026-04-02]` — *buscador funcionaba pero modal mobile usaba `bg-black/95` (texto invisible en dark mode); rediseñado como dropdown inline via portal (escapa overflow:hidden) con scroll automático y animación suave*
 
-- [ ] **[bug-012] Click en orden de la lista de verificación no navega a la vista Orders** — `[2026-04-01]`
-      Al dar click en una orden desde la lista de verificación (double check queue), no lleva a la vista de Orders. También el botón "Orders" en el perfil de usuario no navega a `/orders`.
+- [x] **[bug-012]** Click en orden de verificación / botón Orders en perfil — Verificado `[2026-04-02]` — *funciona correctamente, no se reproduce*
 
 - [ ] **[bug-009] Address parser falla con calles numéricas + direccionales** — `[2026-03-27]`
       `parseUSAddress` no parsea "5305 S 1200 W\nMILLERSBURG, IN 46543". El parser busca un suffix (St, Ave, Blvd) para separar calle de ciudad. "S 1200 W" no tiene suffix reconocido → todo queda como street, city vacío. Formato común en ciudades del Midwest con calles numéricas y direccionales.

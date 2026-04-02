@@ -103,6 +103,13 @@ export const OrdersScreen = () => {
       scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [searchQuery]);
+
+  // Auto-open mobile dropdown when search has a query
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      setIsMobileOrderListOpen(true);
+    }
+  }, [searchQuery]);
   const [isPrinting, setIsPrinting] = useState(false);
   const [pressedKey, setPressedKey] = useState<'left' | 'right' | null>(null);
   const [isShowingPickingSummary, setIsShowingPickingSummary] = useState(false);
@@ -699,19 +706,57 @@ export const OrdersScreen = () => {
           <div className="flex items-center w-full gap-3 md:gap-6 min-w-0 h-full">
             {/* Search Section */}
             <div
-              className={`transition-all duration-500 ease-in-out shrink-0 ${isSearchExpanded ? 'flex-1 md:flex-none md:w-80' : 'w-12'}`}
+              className={`relative transition-all duration-500 ease-in-out shrink-0 ${isSearchExpanded ? 'flex-1 md:flex-none md:w-80' : 'w-12'}`}
             >
               <SearchInput
                 variant="inline"
                 isExpandable
                 isExpanded={isSearchExpanded}
-                onExpandChange={setIsSearchExpanded}
+                onExpandChange={(expanded) => {
+                  setIsSearchExpanded(expanded);
+                  if (!expanded) setIsMobileOrderListOpen(false);
+                }}
                 value={searchQuery}
                 onChange={setSearchQuery}
                 placeholder="Search orders..."
                 preferenceId="orders"
                 className="w-full h-full"
               />
+              {/* Mobile: Search results dropdown */}
+              {isSearchExpanded && isMobileOrderListOpen && searchQuery.trim() && (
+                <div className="md:hidden absolute top-14 left-0 w-[calc(100vw-2rem)] max-h-[60vh] overflow-y-auto bg-surface border border-subtle rounded-[2rem] shadow-2xl p-4 z-[110] animate-soft-in no-scrollbar">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted/30 px-4 mb-2">
+                    Results ({filteredOrders.length})
+                  </p>
+                  {filteredOrders.map((order) => (
+                    <button
+                      key={order.id}
+                      onClick={() => {
+                        setSelectedOrder(order);
+                        setIsMobileOrderListOpen(false);
+                        setSearchQuery('');
+                        setIsSearchExpanded(false);
+                      }}
+                      className={`w-full text-left px-4 py-3 rounded-2xl text-sm font-black uppercase tracking-widest transition-all flex items-center justify-between ${
+                        selectedOrder?.id === order.id
+                          ? 'bg-accent text-white border border-accent/20'
+                          : 'hover:bg-main text-muted'
+                      }`}
+                    >
+                      <span className="truncate">
+                        #{order.order_number}
+                        {order.customer?.name && (
+                          <span
+                            className={`ml-1 font-bold normal-case tracking-normal ${selectedOrder?.id === order.id ? 'text-white/60' : 'text-muted/40'}`}
+                          >
+                            : {order.customer.name}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Orders Selection — Mobile: Dropdown, Desktop: Horizontal Scroll */}
@@ -800,7 +845,7 @@ export const OrdersScreen = () => {
             </div>
           </div>
         </header>
-        <div className="flex-1 overflow-y-auto no-scrollbar relative bg-bg-main p-4 md:p-12 pb-32">
+        <div className="flex-1 overflow-y-auto no-scrollbar relative bg-bg-main p-2 md:p-12 pb-32">
           {selectedOrder ? (
             <div className="max-w-4xl mx-auto w-full">
               {/* Mobile View Toggle/Details (only visible on mobile) */}
@@ -829,6 +874,7 @@ export const OrdersScreen = () => {
                     }
                   }}
                   onShowPickingSummary={() => setIsShowingPickingSummary(true)}
+                  collapsible
                 />
               </div>
 
@@ -923,7 +969,7 @@ export const OrdersScreen = () => {
       </main>
 
       {/* Island — centered on the preview area (right of the sidebar) */}
-      <div className="absolute bottom-10 left-0 md:left-80 2xl:left-[400px] right-0 flex justify-center z-[100] pointer-events-none">
+      <div className="hidden md:flex absolute bottom-10 left-0 md:left-80 2xl:left-[400px] right-0 justify-center z-[100] pointer-events-none">
         <div className="pointer-events-auto animate-soft-in">
           <FloatingActionButtons
             onPrint={handlePrint}

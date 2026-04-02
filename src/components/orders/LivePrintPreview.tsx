@@ -188,13 +188,13 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
   ]);
 
   return (
-    <div className="flex flex-col items-center w-full min-h-full pt-8 px-4 bg-transparent">
+    <div className="flex flex-col items-center w-full min-h-full pt-8 px-1 md:px-4 bg-transparent">
       {/* Standard scaling styles */}
       <style
         dangerouslySetInnerHTML={{
           __html: `
-                :root { --preview-scale: 0.22; }
-                @media (min-width: 640px) { :root { --preview-scale: 0.28; } }
+                :root { --preview-scale: 0.28; }
+                @media (min-width: 640px) { :root { --preview-scale: 0.32; } }
                 @media (min-width: 1024px) { :root { --preview-scale: 0.38; } }
                 @media (min-width: 1280px) { :root { --preview-scale: 0.45; } }
                 @media (min-width: 1536px) { :root { --preview-scale: 0.52; } }
