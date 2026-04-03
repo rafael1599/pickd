@@ -197,7 +197,10 @@ export const OrdersScreen = () => {
     });
   }, [weightsReady, itemsMissingWeight]);
 
-  // Calculate total weight from sku_metadata weights + pallet weight (40 lbs each)
+  // FedEx orders don't use pallets — skip pallet weight
+  const isFedexOrder = (selectedOrder?.order_group as { group_type?: string } | null)?.group_type === 'fedex';
+
+  // Calculate total weight from sku_metadata weights + pallet weight (40 lbs each, except FedEx)
   const totalWeight = useMemo(() => {
     const items = selectedOrder?.items;
     if (!Array.isArray(items)) return 0;
@@ -207,9 +210,9 @@ export const OrdersScreen = () => {
       return sum + weight * qty;
     }, 0);
     const palletCount = parseInt(formData.pallets, 10) || 0;
-    const palletWeight = palletCount * 40;
+    const palletWeight = isFedexOrder ? 0 : palletCount * 40;
     return Math.round(productWeight + palletWeight);
-  }, [selectedOrder?.items, skuWeights, formData.pallets]);
+  }, [selectedOrder?.items, skuWeights, formData.pallets, isFedexOrder]);
 
   // Split item counts: bikes vs parts
   const { bikeCount, partCount } = useMemo(() => {
@@ -261,7 +264,8 @@ export const OrdersScreen = () => {
                     customer:customers(id, name, street, city, state, zip_code),
                     user:profiles!user_id(full_name),
                     checker:profiles!checked_by(full_name),
-                    presence:user_presence!user_id(last_seen_at)
+                    presence:user_presence!user_id(last_seen_at),
+                    order_group:order_groups(group_type)
                 `
         )
         .order('created_at', { ascending: false });
