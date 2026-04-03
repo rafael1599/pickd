@@ -899,6 +899,7 @@ export const OrdersScreen = () => {
                           status={order.status}
                           isSelected={isSelected}
                           isCombined={!!order.combine_meta?.is_combined}
+                          isFedex={(order.order_group as { group_type?: string } | null)?.group_type === 'fedex'}
                           onClick={() => setSelectedOrder(order)}
                         />
                       </div>

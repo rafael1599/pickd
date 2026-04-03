@@ -5,10 +5,11 @@ interface OrderChipProps {
     status: string;
     isSelected: boolean;
     isCombined?: boolean;
+    isFedex?: boolean;
     onClick: () => void;
 }
 
-export const OrderChip: React.FC<OrderChipProps> = ({ orderNumber, status, isSelected, isCombined, onClick }) => {
+export const OrderChip: React.FC<OrderChipProps> = ({ orderNumber, status, isSelected, isCombined, isFedex, onClick }) => {
     const displayStatus = status === 'ready_to_double_check' ? 'READY' :
         status === 'active' ? 'PICKING' :
             status === 'reopened' ? 'EDITING' :
@@ -36,9 +37,16 @@ export const OrderChip: React.FC<OrderChipProps> = ({ orderNumber, status, isSel
                 {orderNumber}
             </span>
 
+            {/* FedEx indicator */}
+            {isFedex && (
+                <div className={`absolute top-1.5 right-2 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest ${isSelected ? 'bg-purple-400/30 text-white' : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'}`}>
+                    FDX
+                </div>
+            )}
+
             {/* Subtle glow for selected */}
             {isSelected && (
-                <div className="absolute inset-x-0 bottom-0 h-1.5 bg-emerald-500 animate-soft-in"></div>
+                <div className={`absolute inset-x-0 bottom-0 h-1.5 ${isFedex ? 'bg-purple-500' : 'bg-emerald-500'} animate-soft-in`}></div>
             )}
         </button>
     );
