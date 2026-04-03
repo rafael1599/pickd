@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left';
 import CheckCircle2 from 'lucide-react/dist/esm/icons/check-circle-2';
@@ -8,6 +8,7 @@ import Edit3 from 'lucide-react/dist/esm/icons/edit-3';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import Play from 'lucide-react/dist/esm/icons/play';
 import Search from 'lucide-react/dist/esm/icons/search';
+import ClipboardList from 'lucide-react/dist/esm/icons/clipboard-list';
 import toast from 'react-hot-toast';
 
 import { useInventory } from './hooks/InventoryProvider.tsx';
@@ -16,6 +17,7 @@ import { useLocationManagement } from './hooks/useLocationManagement.ts';
 import { SearchInput } from '../../components/ui/SearchInput.tsx';
 import { ItemDetailView } from './components/ItemDetailView';
 import { InventoryItemWithMetadata, InventoryItemInput } from '../../schemas/inventory.schema.ts';
+import { supabase } from '../../lib/supabase';
 
 // ─── Types and Constants ───
 
@@ -64,6 +66,68 @@ export const StockCountScreen = () => {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
   }, [session]);
+
+  // ─── DB Session: Load active cycle_count_sessions ───
+  const [dbSessionId, setDbSessionId] = useState<string | null>(null);
+  const [dbSessionLabel, setDbSessionLabel] = useState<string | null>(null);
+  const [dbSessionLoaded, setDbSessionLoaded] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from('cycle_count_sessions')
+      .select('id, label, status')
+      .eq('status', 'in_progress')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setDbSessionId(data.id);
+          setDbSessionLabel(data.label);
+          // Load items from this session
+          supabase
+            .from('cycle_count_items')
+            .select('sku, expected_qty, counted_qty, status')
+            .eq('session_id', data.id)
+            .order('created_at')
+            .then(({ data: items }) => {
+              if (items && items.length > 0) {
+                const skus = items.map((i: { sku: string }) => i.sku);
+                const verified = items
+                  .filter((i: { status: string }) => i.status === 'counted' || i.status === 'verified')
+                  .map((i: { sku: string }) => i.sku);
+                setSession((prev) => {
+                  // Only load from DB if local session is empty (don't overwrite active work)
+                  if (prev.skus.length === 0) {
+                    return { ...prev, skus, verifiedSkus: verified, status: 'counting' };
+                  }
+                  return prev;
+                });
+              }
+              setDbSessionLoaded(true);
+            });
+        } else {
+          setDbSessionLoaded(true);
+        }
+      });
+  }, []);
+
+  // Sync verified status back to DB
+  const syncVerifiedToDb = useCallback(
+    async (sku: string, verified: boolean) => {
+      if (!dbSessionId) return;
+      await supabase
+        .from('cycle_count_items')
+        .update({
+          status: verified ? 'counted' : 'pending',
+          counted_qty: verified ? (inventoryBySku.get(sku)?.totalQty ?? 0) : null,
+          counted_at: verified ? new Date().toISOString() : null,
+        })
+        .eq('session_id', dbSessionId)
+        .eq('sku', sku);
+    },
+    [dbSessionId, inventoryBySku]
+  );
 
   // ─── Input Phase State ───
   const [searchQuery, setSearchQuery] = useState('');
@@ -121,8 +185,14 @@ export const StockCountScreen = () => {
     setSession((prev) => ({ ...prev, status: 'counting' }));
   };
 
-  const finishCounting = () => {
+  const finishCounting = async () => {
     setSession((prev) => ({ ...prev, status: 'completed' }));
+    if (dbSessionId) {
+      await supabase
+        .from('cycle_count_sessions')
+        .update({ status: 'completed', completed_at: new Date().toISOString() })
+        .eq('id', dbSessionId);
+    }
   };
 
   // ─── Counting Phase: Sorted list by Picking Order ───
@@ -187,12 +257,12 @@ export const StockCountScreen = () => {
   const toggleVerify = (sku: string) => {
     setSession((prev) => {
       const isVerified = prev.verifiedSkus.includes(sku);
-      return {
-        ...prev,
-        verifiedSkus: isVerified
-          ? prev.verifiedSkus.filter((s) => s !== sku)
-          : [...prev.verifiedSkus, sku],
-      };
+      const newVerified = isVerified
+        ? prev.verifiedSkus.filter((s) => s !== sku)
+        : [...prev.verifiedSkus, sku];
+      // Sync to DB in background
+      syncVerifiedToDb(sku, !isVerified);
+      return { ...prev, verifiedSkus: newVerified };
     });
   };
 
@@ -268,6 +338,7 @@ export const StockCountScreen = () => {
       <div className="flex-1">
         <h1 className="text-2xl font-black uppercase tracking-tighter leading-none">Cycle Count</h1>
         <p className="text-[10px] text-muted font-black uppercase tracking-widest">
+          {dbSessionLabel && <span className="text-accent">{dbSessionLabel} · </span>}
           {session.status === 'input' && 'Phase 1: Build List'}
           {session.status === 'counting' && 'Phase 2: Verification Tour'}
           {session.status === 'completed' && 'Phase 3: Summary'}
