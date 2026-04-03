@@ -624,71 +624,56 @@ export const PickingSessionView: React.FC<PickingSessionViewProps> = ({
                         </div>
                       </div>
 
-                      {/* PICKING MODE: READ ONLY QUANTITY (Option B) */}
-                      {sessionMode === 'picking' ? (
-                        <div className="flex items-center gap-2 shrink-0">
-                          <div className="px-3 py-1 bg-surface border border-subtle rounded-lg">
-                            <span className="font-mono font-black text-accent text-lg">
-                              {item.pickingQty}
-                            </span>
-                            <span className="text-[10px] text-muted font-bold uppercase ml-1">
-                              UNITS
-                            </span>
-                          </div>
-                          {/* No delete button allowed in picking mode */}
-                        </div>
-                      ) : (
-                        /* BUILDING MODE: FULL CONTROLS */
-                        <div className="flex items-center gap-2 shrink-0">
-                          <div className="flex items-center bg-main rounded-lg p-0.5 gap-0.5 border border-subtle">
-                            <button
-                              onClick={() => onUpdateQty(item, -1)}
-                              className="w-7 h-7 flex items-center justify-center text-muted hover:text-content rounded active:bg-surface transition-colors"
-                            >
-                              <Minus size={14} />
-                            </button>
-                            {editingItemKey === getItemKey(pallet.id, item) ? (
-                              <input
-                                ref={inputRef}
-                                type="number"
-                                value={editingQuantity}
-                                onChange={(e) => setEditingQuantity(e.target.value)}
-                                onBlur={() => handleQuantitySubmit(item)}
-                                onKeyDown={(e) => handleQuantityKeyDown(e, item)}
-                                {...autoSelect}
-                                className="w-10 text-center font-mono font-black text-accent text-base bg-transparent border-none focus:outline-none"
-                                min="0"
-                                max={maxStock.toString()}
-                              />
-                            ) : (
-                              <div
-                                onClick={() => handleQuantityClick(pallet.id, item)}
-                                className="w-10 text-center font-mono font-black text-accent text-base cursor-pointer hover:bg-surface/50 rounded transition-colors"
-                              >
-                                {item.pickingQty}
-                              </div>
-                            )}
-                            <button
-                              onClick={() => onUpdateQty(item, 1)}
-                              disabled={isAtMax}
-                              className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
-                                isAtMax
-                                  ? 'text-subtle cursor-not-allowed'
-                                  : 'text-muted hover:text-content active:bg-surface'
-                              } `}
-                            >
-                              <Plus size={14} />
-                            </button>
-                          </div>
+                      {/* CART CONTROLS: +/- qty and remove (picking + building) */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center bg-main rounded-lg p-0.5 gap-0.5 border border-subtle">
                           <button
-                            onClick={() => onRemoveItem(item)}
-                            className="p-2 text-muted hover:text-red-500 transition-colors"
-                            title="Remove item"
+                            onClick={() => onUpdateQty(item, -1)}
+                            className="w-7 h-7 flex items-center justify-center text-muted hover:text-content rounded active:bg-surface transition-colors"
                           >
-                            <Trash2 size={16} />
+                            <Minus size={14} />
+                          </button>
+                          {editingItemKey === getItemKey(pallet.id, item) ? (
+                            <input
+                              ref={inputRef}
+                              type="number"
+                              value={editingQuantity}
+                              onChange={(e) => setEditingQuantity(e.target.value)}
+                              onBlur={() => handleQuantitySubmit(item)}
+                              onKeyDown={(e) => handleQuantityKeyDown(e, item)}
+                              {...autoSelect}
+                              className="w-10 text-center font-mono font-black text-accent text-base bg-transparent border-none focus:outline-none"
+                              min="0"
+                              max={maxStock.toString()}
+                            />
+                          ) : (
+                            <div
+                              onClick={() => handleQuantityClick(pallet.id, item)}
+                              className="w-10 text-center font-mono font-black text-accent text-base cursor-pointer hover:bg-surface/50 rounded transition-colors"
+                            >
+                              {item.pickingQty}
+                            </div>
+                          )}
+                          <button
+                            onClick={() => onUpdateQty(item, 1)}
+                            disabled={isAtMax}
+                            className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
+                              isAtMax
+                                ? 'text-subtle cursor-not-allowed'
+                                : 'text-muted hover:text-content active:bg-surface'
+                            } `}
+                          >
+                            <Plus size={14} />
                           </button>
                         </div>
-                      )}
+                        <button
+                          onClick={() => onRemoveItem(item)}
+                          className="p-2 text-muted hover:text-red-500 transition-colors"
+                          title="Remove item"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
