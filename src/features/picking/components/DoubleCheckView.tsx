@@ -7,6 +7,7 @@ import Send from 'lucide-react/dist/esm/icons/send';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import { CorrectionModeView } from './CorrectionModeView';
+import { supabase } from '../../../lib/supabase';
 import { inventoryApi } from '../../inventory/api/inventoryApi';
 import { CorrectionNotesTimeline, Note } from './CorrectionNotesTimeline.tsx';
 import { SlideToConfirm } from '../../../components/ui/SlideToConfirm.tsx';
@@ -304,10 +305,41 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     return map;
   }, [pallets, ludlowData, atsData]);
 
+  // ── Fetch distribution data for ALL cart SKUs directly from DB ──
+  // This is the single source of truth — works regardless of where the SKU came from
+  // (picking, watchdog, Edit Order). Replaces dependency on paginated inventoryData.
+  const [skuInventoryMap, setSkuInventoryMap] = useState<
+    Record<string, { distribution: DistributionItem[]; quantity: number }[]>
+  >({});
+
+  const cartSkuKey = cartItems.map((i) => i.sku).sort().join(',');
+  useEffect(() => {
+    const skus = [...new Set(cartItems.map((i) => i.sku))];
+    if (skus.length === 0) return;
+
+    supabase
+      .from('inventory')
+      .select('sku, quantity, distribution')
+      .in('sku', skus)
+      .gt('quantity', 0)
+      .then(({ data }) => {
+        const map: Record<string, { distribution: DistributionItem[]; quantity: number }[]> = {};
+        (data || []).forEach((row) => {
+          const r = row as { sku: string; quantity: number; distribution: DistributionItem[] | null };
+          if (!map[r.sku]) map[r.sku] = [];
+          map[r.sku].push({
+            distribution: Array.isArray(r.distribution) ? r.distribution : [],
+            quantity: r.quantity ?? 0,
+          });
+        });
+        setSkuInventoryMap(map);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartSkuKey]);
+
   /**
    * Pick Plan Map: For each SKU, build a full picking plan that covers the order quantity.
    * Priority: PALLET > LINE > TOWER > OTHER, then fewest units_each within same type.
-   * Returns an array of pick steps per SKU instead of a single suggestion.
    */
   const pickPlanMap = useMemo(() => {
     const map: Record<string, { type: string; units: number; units_each: number; icon: string }[]> =
@@ -322,16 +354,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     );
 
     Object.entries(skuQtyMap).forEach(([sku, neededQty]) => {
-      const entries = inventoryData.filter(
-        (inv) => inv.sku === sku && Array.isArray(inv.distribution) && inv.distribution.length > 0
-      );
+      const entries = skuInventoryMap[sku]?.filter((e) => e.distribution.length > 0) ?? [];
       if (entries.length === 0) return;
 
       // Flatten all distribution groups with count × units_each
       const groups: { type: string; count: number; units_each: number; priority: number }[] = [];
       entries.forEach((inv) => {
-        const dist = inv.distribution;
-        dist.forEach((d) => {
+        inv.distribution.forEach((d) => {
           groups.push({
             type: d.type,
             count: d.count,
@@ -368,7 +397,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     });
 
     return map;
-  }, [pallets, inventoryData]);
+  }, [pallets, skuInventoryMap]);
 
   /** Detect distribution ↔ quantity inconsistencies per SKU+location */
   const distributionInconsistencyMap = useMemo(() => {
@@ -378,11 +407,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     );
 
     orderSkus.forEach((sku) => {
-      const entries = inventoryData.filter((inv) => inv.sku === sku);
+      const entries = skuInventoryMap[sku] ?? [];
       entries.forEach((inv) => {
-        // Skip zero-quantity entries — stale distribution data is irrelevant
         if (inv.quantity === 0) return;
-        const dist: DistributionItem[] | undefined = inv.distribution;
+        const dist = inv.distribution;
         if (!dist || dist.length === 0) return;
         const distTotal = dist.reduce((sum, d) => sum + d.count * d.units_each, 0);
         if (distTotal > inv.quantity) {
@@ -394,7 +422,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     });
 
     return map;
-  }, [pallets, inventoryData]);
+  }, [pallets, skuInventoryMap]);
 
   const problemItems = useMemo(
     () => cartItems.filter((i) => i.sku_not_found || i.insufficient_stock),
