@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useEffect, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 
 // Define the shape of items in the JSONB column
@@ -41,86 +42,66 @@ export interface PickingList {
   order_group?: OrderGroup | null;
 }
 
-export const useDoubleCheckList = () => {
-  const [orders, setOrders] = useState<PickingList[]>([]);
-  const [completedOrders, setCompletedOrders] = useState<PickingList[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+const PICKING_LIST_SELECT = `
+  id,
+  order_number,
+  status,
+  items,
+  updated_at,
+  user_id,
+  checked_by,
+  profiles!user_id (full_name),
+  checker_profile:profiles!checked_by (full_name),
+  customer:customers(name),
+  source,
+  is_addon,
+  group_id,
+  order_group:order_groups(id, group_type)
+`;
 
-  const fetchOrders = async () => {
-    try {
+export const VERIFICATION_QUEUE_KEY = ['picking_lists', 'verification_queue'];
+export const COMPLETED_ORDERS_KEY = ['picking_lists', 'completed_recent'];
+
+export const useDoubleCheckList = () => {
+  const queryClient = useQueryClient();
+
+  const { data: rawOrders, isLoading: ordersLoading } = useQuery<PickingList[]>({
+    queryKey: VERIFICATION_QUEUE_KEY,
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('picking_lists')
-        .select(
-          `
-            id, 
-            order_number, 
-            status, 
-            items, 
-            updated_at, 
-            user_id,
-            checked_by,
-            checked_by,
-            profiles!user_id (full_name),
-            checker_profile:profiles!checked_by (full_name),
-            customer:customers(name),
-            source,
-            is_addon,
-            group_id,
-            order_group:order_groups(id, group_type)
-          `
-        )
+        .select(PICKING_LIST_SELECT)
         .in('status', ['ready_to_double_check', 'double_checking', 'needs_correction'])
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
-
-      // Cast the result to our expected type.
-      // Supabase returns deeply nested objects which might need mapping if types don't align perfectly
-      // but usually standard select works fine with 'any' intermediate or generic.
-      const validOrders = ((data ?? []) as PickingList[]).filter(
+      return ((data ?? []) as PickingList[]).filter(
         (o) => o.items && Array.isArray(o.items) && o.items.length > 0
-      ) as PickingList[];
+      );
+    },
+    staleTime: 5_000,
+    refetchOnWindowFocus: false,
+  });
 
-      setOrders(validOrders);
-
-      // Fetch last 6 completed orders
-      const { data: completedData, error: completedError } = await supabase
+  const { data: completedOrders, isLoading: completedLoading } = useQuery<PickingList[]>({
+    queryKey: COMPLETED_ORDERS_KEY,
+    queryFn: async () => {
+      const { data, error } = await supabase
         .from('picking_lists')
-        .select(
-          `
-            id, 
-            order_number, 
-            status, 
-            items, 
-            updated_at, 
-            user_id,
-            checked_by,
-            profiles!user_id (full_name),
-            checker_profile:profiles!checked_by (full_name),
-            customer:customers(name),
-            source,
-            is_addon,
-            group_id,
-            order_group:order_groups(id, group_type)
-          `
-        )
+        .select(PICKING_LIST_SELECT)
         .eq('status', 'completed')
         .order('updated_at', { ascending: false })
         .limit(6);
 
-      if (completedError) throw completedError;
-      setCompletedOrders((completedData as PickingList[]) || []);
-    } catch (err) {
-      console.error('Error fetching double check orders:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (error) throw error;
+      return (data as PickingList[]) || [];
+    },
+    staleTime: 5_000,
+    refetchOnWindowFocus: false,
+  });
 
+  // Realtime subscription — invalidate queries on changes
   useEffect(() => {
-    fetchOrders();
-
-    // Subscribe to changes
     const channel = supabase
       .channel('picking_lists_queue')
       .on(
@@ -131,7 +112,8 @@ export const useDoubleCheckList = () => {
           table: 'picking_lists',
         },
         () => {
-          fetchOrders();
+          queryClient.invalidateQueries({ queryKey: VERIFICATION_QUEUE_KEY });
+          queryClient.invalidateQueries({ queryKey: COMPLETED_ORDERS_KEY });
         }
       )
       .subscribe();
@@ -139,19 +121,31 @@ export const useDoubleCheckList = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [queryClient]);
 
-  const readyCount = orders.filter((o) => o.status === 'ready_to_double_check').length;
-  const correctionCount = orders.filter((o) => o.status === 'needs_correction').length;
-  const checkingCount = orders.filter((o) => o.status === 'double_checking').length;
+  const orders = rawOrders ?? [];
+
+  const { readyCount, correctionCount, checkingCount } = useMemo(
+    () => ({
+      readyCount: orders.filter((o) => o.status === 'ready_to_double_check').length,
+      correctionCount: orders.filter((o) => o.status === 'needs_correction').length,
+      checkingCount: orders.filter((o) => o.status === 'double_checking').length,
+    }),
+    [orders]
+  );
+
+  const refresh = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: VERIFICATION_QUEUE_KEY });
+    queryClient.invalidateQueries({ queryKey: COMPLETED_ORDERS_KEY });
+  }, [queryClient]);
 
   return {
     orders,
-    completedOrders,
+    completedOrders: completedOrders ?? [],
     readyCount,
     correctionCount,
     checkingCount,
-    loading,
-    refresh: fetchOrders,
+    loading: ordersLoading || completedLoading,
+    refresh,
   };
 };

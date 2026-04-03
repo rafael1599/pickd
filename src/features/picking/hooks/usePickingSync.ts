@@ -83,6 +83,7 @@ export const usePickingSync = ({
   const isInitialSyncRef = useRef(true);
   const isSyncingRef = useRef(false);
   const takeoverSyncRef = useRef<string | null>(null);
+  const loadSessionCalledRef = useRef(false);
 
   const sessionModeRef = useRef(sessionMode);
   const listStatusRef = useRef(listStatus);
@@ -104,11 +105,19 @@ export const usePickingSync = ({
       setCartItems([]);
       setActiveListId(null);
       setIsLoaded(true);
+      loadSessionCalledRef.current = false;
       return;
     }
 
     const loadSession = async () => {
       try {
+        // Guard: Prevent double execution from React StrictMode
+        if (loadSessionCalledRef.current) {
+          setIsLoaded(true);
+          return;
+        }
+        loadSessionCalledRef.current = true;
+
         // Guard: Skip if a workflow (generatePickingPath) is in progress
         if (isInWorkflowRef.current) {
           console.log('⏸️ [loadSession] Skipped — workflow in progress');

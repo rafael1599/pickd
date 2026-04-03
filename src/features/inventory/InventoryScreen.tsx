@@ -258,7 +258,7 @@ export const InventoryScreen = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [debouncedSearch]);
 
-  const { viewMode, isSearching } = useViewMode(); // 'stock' | 'picking'
+  const { viewMode, isSearching, externalDoubleCheckId } = useViewMode(); // 'stock' | 'picking'
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItemWithMetadata | null>(null);
@@ -629,7 +629,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
         onChange={setLocalSearch}
         placeholder="Search SKU, Loc, Warehouse..."
         preferenceId="inventory"
-        autoFocus={viewMode === 'picking'}
+        autoFocus={viewMode === 'picking' && !externalDoubleCheckId}
       />
 
       {viewMode === 'stock' && (
