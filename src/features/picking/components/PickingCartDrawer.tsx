@@ -139,7 +139,6 @@ export const PickingCartDrawer: React.FC = () => {
                   );
                   if (savedProgress) setCheckedItems(new Set(JSON.parse(savedProgress)));
                   else setCheckedItems(new Set());
-                  setCurrentView('double-check');
                   setIsOpen(true);
                   setExternalDoubleCheckId(null);
                   isConfirmingRef.current = false;
@@ -172,7 +171,6 @@ export const PickingCartDrawer: React.FC = () => {
             }
 
             console.log('🔓 [PickingCartDrawer] Opening drawer for double check');
-            setCurrentView('double-check');
             setIsOpen(true);
             setExternalDoubleCheckId(null);
           } else {
@@ -212,6 +210,16 @@ export const PickingCartDrawer: React.FC = () => {
     const listId = await markAsReady(cartItems, finalOrderNumber);
     if (listId) {
       setCheckedItems(new Set());
+    }
+  };
+
+  const handleSendToVerifyQueue = async () => {
+    if (!orderNumber) return;
+    const listId = await markAsReady(cartItems, orderNumber);
+    if (listId) {
+      await releaseCheck(listId);
+      setIsOpen(false);
+      toast.success('Order sent to verification queue');
     }
   };
 
@@ -536,6 +544,7 @@ export const PickingCartDrawer: React.FC = () => {
               onCorrectItem={handleCorrectItem}
               inventoryData={inventoryData}
               onMarkAsReady={() => orderNumber && handleMarkAsReady(orderNumber)}
+              onSendToVerifyQueue={handleSendToVerifyQueue}
               correctionNotes={correctionNotes}
             />
           </div>

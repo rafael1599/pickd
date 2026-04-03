@@ -94,6 +94,7 @@ interface DoubleCheckViewProps {
   onCorrectItem?: (action: CorrectionAction) => Promise<void>;
   inventoryData?: InventoryItemWithMetadata[];
   onMarkAsReady?: () => void;
+  onSendToVerifyQueue?: () => void;
   correctionNotes?: string | null;
 }
 
@@ -117,6 +118,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   onCorrectItem,
   inventoryData: inventoryDataProp,
   onMarkAsReady,
+  onSendToVerifyQueue,
   correctionNotes: correctionNotesProp,
 }) => {
   const {
@@ -998,7 +1000,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           /* Not all verified — show action buttons */
           <div className="flex gap-3">
             <button
-              onClick={() => onMarkAsReady?.()}
+              onClick={() => onSendToVerifyQueue?.()}
               className="flex-1 py-4 bg-white/5 border border-white/10 text-white/70 font-black uppercase tracking-widest text-[10px] rounded-2xl active:scale-95 transition-all"
             >
               Send to Verify
