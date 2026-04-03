@@ -251,21 +251,29 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const handlePointerDown = useCallback(
     (item: PickingItem) => {
       longPressTriggered.current = false;
-      longPressTimer.current = setTimeout(() => {
+      longPressTimer.current = setTimeout(async () => {
         longPressTriggered.current = true;
         if (navigator.vibrate) navigator.vibrate(100);
-        // Go directly to edit — skip intermediate detail sheet
-        const invMatch = inventoryData.find(
-          (inv) => inv.sku === item.sku && inv.location === item.location
-        );
-        if (invMatch) {
-          setEditModalItem(invMatch as InventoryItemWithMetadata);
+
+        // Fetch directly from DB — inventoryData is paginated and filtered
+        // (LUDLOW-only, ROW locations only, max 50 items) so items in parts
+        // bins or beyond page 1 won't be found there.
+        const { data } = await supabase
+          .from('inventory')
+          .select('*, sku_metadata(*)')
+          .eq('sku', item.sku)
+          .order('quantity', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (data) {
+          setEditModalItem(data as InventoryItemWithMetadata);
         } else {
           toast.error('Item not found in inventory');
         }
       }, 500);
     },
-    [inventoryData]
+    []
   );
 
   const handlePointerUp = useCallback(() => {
