@@ -14,7 +14,7 @@ import { useInventory } from './hooks/InventoryProvider.tsx';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { useLocationManagement } from './hooks/useLocationManagement.ts';
 import { SearchInput } from '../../components/ui/SearchInput.tsx';
-import { InventoryModal } from './components/InventoryModal.tsx';
+import { ItemDetailView } from './components/ItemDetailView';
 import { InventoryItemWithMetadata, InventoryItemInput } from '../../schemas/inventory.schema.ts';
 
 // ─── Types and Constants ───
@@ -570,8 +570,8 @@ export const StockCountScreen = () => {
           </div>
         </div>
 
-        {/* Re-use InventoryModal for editing */}
-        <InventoryModal
+        {/* Edit Item (full-screen ItemDetailView) */}
+        <ItemDetailView
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onSave={handleSaveAdjustment}

@@ -50,8 +50,8 @@
 - [ ] **Fotos Fase 3 — Bulk Upload** — Multi-file picker, batching, progress bar. <!-- id: idea-023-p3 -->
 - [ ] **Migrar cron jobs a pg_cron** — Elimina dependencia de GitHub Actions. <!-- id: idea-030 -->
 - [ ] **History en perfil** — Vista de órdenes completadas/canceladas del usuario. <!-- id: idea-035 -->
-- [ ] **Double check: distribución no refresca picking path** — Al editar distribución de un SKU via long-press en double check, el cambio se guarda pero la recomendación de dónde recoger no se actualiza hasta refresh manual. Confunde al usuario que piensa que no se guardó. <!-- id: bug-014 -->
-- [ ] **Reemplazar Edit Item por ItemDetailView** — Eliminar el modal de edición inline de items y usar la vista completa de ItemDetailView (la misma que se abre desde Stock) para editar SKUs desde cualquier contexto (double check, picking, orders). <!-- id: idea-036 -->
+- [x] ~~**Double check: distribución no refresca picking path** — Fix: re-fetch `skuInventoryMap` después de `updateItem` en `onSave`.~~ <!-- id: bug-014 -->
+- [x] ~~**Reemplazar Edit Item por ItemDetailView** — Eliminado InventoryModal (1099 LOC). DoubleCheckView y StockCountScreen ahora usan ItemDetailView.~~ <!-- id: idea-036 -->
 
 ---
 

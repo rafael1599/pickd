@@ -20,7 +20,7 @@ import {
   type InventoryItemWithMetadata,
 } from '../../../schemas/inventory.schema.ts';
 import { type Pallet, redistributeWithOverrides } from '../../../utils/pickingLogic.ts';
-import { InventoryModal } from '../../inventory/components/InventoryModal.tsx';
+import { ItemDetailView } from '../../inventory/components/ItemDetailView';
 import Pencil from 'lucide-react/dist/esm/icons/pencil';
 import Lock from 'lucide-react/dist/esm/icons/lock';
 import toast from 'react-hot-toast';
@@ -333,28 +333,31 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     Record<string, { distribution: DistributionItem[]; quantity: number }[]>
   >({});
 
-  const cartSkuKey = cartItems.map((i) => i.sku).sort().join(',');
-  useEffect(() => {
+  const fetchDistributions = useCallback(async () => {
     const skus = [...new Set(cartItems.map((i) => i.sku))];
     if (skus.length === 0) return;
 
-    supabase
+    const { data } = await supabase
       .from('inventory')
       .select('sku, quantity, distribution')
       .in('sku', skus)
-      .gt('quantity', 0)
-      .then(({ data }) => {
-        const map: Record<string, { distribution: DistributionItem[]; quantity: number }[]> = {};
-        (data || []).forEach((row) => {
-          const r = row as { sku: string; quantity: number; distribution: DistributionItem[] | null };
-          if (!map[r.sku]) map[r.sku] = [];
-          map[r.sku].push({
-            distribution: Array.isArray(r.distribution) ? r.distribution : [],
-            quantity: r.quantity ?? 0,
-          });
-        });
-        setSkuInventoryMap(map);
+      .gt('quantity', 0);
+
+    const map: Record<string, { distribution: DistributionItem[]; quantity: number }[]> = {};
+    (data || []).forEach((row) => {
+      const r = row as { sku: string; quantity: number; distribution: DistributionItem[] | null };
+      if (!map[r.sku]) map[r.sku] = [];
+      map[r.sku].push({
+        distribution: Array.isArray(r.distribution) ? r.distribution : [],
+        quantity: r.quantity ?? 0,
       });
+    });
+    setSkuInventoryMap(map);
+  }, [cartItems]);
+
+  const cartSkuKey = cartItems.map((i) => i.sku).sort().join(',');
+  useEffect(() => {
+    fetchDistributions();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cartSkuKey]);
 
@@ -1059,13 +1062,14 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         )}
       </div>
 
-      {/* Edit Item Modal (reuses InventoryModal from stock view) */}
-      <InventoryModal
+      {/* Edit Item (full-screen ItemDetailView) */}
+      <ItemDetailView
         isOpen={!!editModalItem}
         onClose={() => setEditModalItem(null)}
         onSave={async (formData) => {
           if (editModalItem) {
             await updateItem(editModalItem, formData);
+            await fetchDistributions();
             toast.success(`Updated ${editModalItem.sku}`);
             setEditModalItem(null);
           }
