@@ -234,6 +234,31 @@ export const UserMenu = ({ isOpen, onClose, onExport, navigate }: UserMenuProps)
                 </div>
                 <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
               </button>
+
+              <div className="h-px bg-subtle my-2" />
+
+              <button
+                onClick={() => {
+                  navigate('/history');
+                  onClose();
+                }}
+                className="flex items-center justify-between w-full group text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-card border border-subtle rounded-xl text-amber-500">
+                    <History size={16} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-content uppercase tracking-tight">
+                      History
+                    </p>
+                    <p className="text-[9px] text-muted font-bold uppercase">
+                      Activity log
+                    </p>
+                  </div>
+                </div>
+                <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
+              </button>
             </div>
 
             {/* Actions */}
