@@ -43,7 +43,7 @@ idle (UI) → active (DB — via generatePickingPath)
 
 6 estados DB: `active`, `ready_to_double_check`, `double_checking`, `needs_correction`, `completed`, `cancelled`. Órdenes completadas tienen triple protección contra reversión.
 
-> **⚠️ EN PROCESO:** `building` mode está siendo eliminado (idea-032). El flujo anterior era `idle → building → active`. El nuevo flujo es `idle → active` directo. Edit Order mode reemplaza las funciones de building (agregar/editar/eliminar items). `OrderBuilderMode.tsx` y `returnToBuilding()` serán eliminados.
+`building` mode fue eliminado (idea-032). `OrderBuilderMode.tsx`, `PickingSessionView.tsx`, y `returnToBuilding()` fueron eliminados. Edit Order mode (CorrectionModeView) reemplaza sus funciones. InventoryCards muestran +/- inline en picking mode.
 
 ## Base de datos compartida
 

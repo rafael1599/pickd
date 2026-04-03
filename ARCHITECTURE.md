@@ -79,7 +79,7 @@ idle (UI) → active (DB — via generatePickingPath, reserva stock)
 
 **6 estados en DB:** `active`, `ready_to_double_check`, `double_checking`, `needs_correction`, `completed`, `cancelled`.
 
-> **⚠️ EN PROCESO:** El estado `building` (UI-only, carrito local) está siendo eliminado. Edit Order mode lo reemplaza para agregar/editar/eliminar items en cualquier punto del flujo. El flujo anterior era `idle → building → active`; el nuevo es `idle → active` directo.
+`building` mode fue eliminado (idea-032). Edit Order mode reemplaza sus funciones. InventoryCards muestran controles +/- inline en picking mode. `PickingSessionView` y `OrderBuilderMode` fueron eliminados.
 
 **Auto-cancel:** verificación >24hrs sin actividad → `cancelled` + inventario liberado.
 

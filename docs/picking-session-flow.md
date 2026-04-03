@@ -9,10 +9,9 @@
 PickD uses a serial session model: one active picking session per picker at a time.
 This document defines the state machine, correction flow, and safety mechanisms.
 
-> **⚠️ EN PROCESO:** `building` mode está siendo eliminado (idea-032). El flujo anterior
-> era `idle → building → active`. El nuevo flujo es `idle → active` directo, con Edit
-> Order mode reemplazando las funciones de building (agregar/editar/eliminar items).
-> `OrderBuilderMode.tsx` y `returnToBuilding()` serán eliminados.
+> **COMPLETADO (2026-04-03):** `building` mode eliminado (idea-032). Flujo: `idle → active` directo.
+> Edit Order mode reemplaza building. `OrderBuilderMode.tsx`, `PickingSessionView.tsx`,
+> y `returnToBuilding()` eliminados. InventoryCards muestran +/- inline en picking mode.
 
 ## State Machine
 
@@ -179,7 +178,7 @@ type CorrectionAction =
 ### Rules
 
 - Edit Order is accessible for ANY order in double check, not just those with problems
-- **⚠️ EN PROCESO:** Edit Order será accesible también desde picking mode (no solo double check)
+- Edit Order is accessible from both picking mode (via DoubleCheckView review) and double check
 - All corrections are logged in picking_list_notes with descriptive messages
 - The checker never leaves the double check flow (status stays `double_checking`)
 - `adjust_qty` clears the `insufficient_stock` flag
@@ -199,7 +198,7 @@ overwriting activeListId while a workflow function is executing.
 Protected functions:
 
 - generatePickingPath (sets activeListId after DB insert/update)
-- ~~returnToBuilding (changes session state)~~ **⚠️ EN PROCESO: será eliminado**
+- ~~returnToBuilding~~ (removed — Edit Order replaces it)
 
 Guard in loadSession:
 
@@ -218,7 +217,7 @@ When an order belongs to a group (combined orders like "878888 / 878882"):
 
 - Locking one sibling locks ALL siblings (checked_by set on all)
 - Releasing one sibling releases ALL siblings
-- ~~returnToBuilding releases ALL siblings back to ready_to_double_check~~ **⚠️ EN PROCESO: será reemplazado por Edit Order**
+- ~~returnToBuilding~~ removed — Edit Order handles corrections directly
 - Deleting follows existing group dissolution logic
 
 ## Session Loading Priority (loadSession)
@@ -233,7 +232,7 @@ Guard: if isInWorkflowRef is true, skip entirely.
 
 ## Auto-Cancel / Expiration
 
-Current: 24hr total -> cancelled (⚠️ EN PROCESO: 15min building idle rule será eliminada con building mode)
+Current: 24hr total -> cancelled (15min building idle rule removed with building mode)
 Planned (idea-031): 3 days -> expired (visible, reactivatable with one tap)
 
 ## Debounce Safety

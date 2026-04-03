@@ -239,25 +239,25 @@
 ### 21. Eliminar Building Order → absorber en Picking View <!-- id: idea-032 -->
 
 - **Creado:** `[2026-04-02]`
-- **Estado:** ⚠️ EN PROCESO `[2026-04-03]` — análisis completado, implementación en 4 fases.
-- **Problema:** El flujo actual tiene un paso intermedio innecesario: `idle → building → active`. Edit Order mode (implementado 2026-04-02) ya cubre todas las funciones de building (agregar/editar/eliminar items con search server-side y logging).
-- **Hallazgo clave:** `building` NUNCA se escribe a la DB. Es 100% frontend (localStorage + React state). La DB solo conoce `active` y posteriores. El RPC `auto_cancel_stale_orders` y un índice referencian `building` pero es código muerto (CHECK constraint lo prohíbe).
-- **Plan de implementación en 4 fases:**
-  - [ ] **Fase 1 — Habilitar +/- en picking mode.** PickingSessionView muestra qty read-only en picking; cambiar para que picking también tenga controles +/-. No elimina nada, solo desbloquea. Archivos: `PickingSessionView.tsx`.
-  - [ ] **Fase 2 — Transición idle → active directa.** SessionInitializationModal se mantiene (popup con order # y customer). Al hacer START, `generatePickingPath` se llama directo → `active` en DB → `picking` en UI. `addToCart` en idle ya no transiciona a building. Archivos: `PickingContext.tsx`, `usePickingCart.ts`, `usePickingSync.ts`.
-  - [ ] **Fase 3 — Reemplazar returnToBuilding con Edit Order.** Eliminar `returnToBuilding()`. Habilitar Edit Order desde picking mode (hoy solo desde double_checking). Archivos: `PickingContext.tsx`, `PickingSessionView.tsx`, `PickingCartDrawer.tsx`.
-  - [ ] **Fase 4 — Limpieza.** Eliminar `OrderBuilderMode.tsx`. Quitar `building` de types. Limpiar localStorage, InventoryCard, RPC dead code, tests. Archivos: 10+ archivos, 1 migración SQL.
-- **Dependencias:** Ninguna — Edit Order mode ya está implementado y testeado (22 tests). idea-031 (auto-cancel) es independiente.
+- **Estado:** COMPLETADO `[2026-04-03]`
+- **Investigación:** `docs/idea-032-research.md`
+- **Implementación en 5 fases (todas completadas):**
+  - [x] **Fase 1** — InventoryCard inline +/- cart controls. `346e015`
+  - [x] **Fase 2** — DoubleCheckView multi-status (review + verify). `67debf2`
+  - [x] **Fase 3** — idle → active directo, bypass building. `bb192cd`
+  - [x] **Fase 4** — Remove building from types, delete returnToBuilding. `9b4eac4`
+  - [x] **Fase 5** — Delete PickingSessionView.tsx + OrderBuilderMode.tsx. Docs updated.
+- **Dependencias:** Ninguna — Edit Order mode ya está implementado y testeado (22 tests).
 - **Criterios de aceptación:**
-  - El picker puede crear una orden sin pasar por Building Order
-  - Controles +/- disponibles en picking mode
-  - Edit Order accesible desde picking Y double_checking
-  - SessionInitializationModal se mantiene (order #, customer)
+  - Floating button siempre abre DoubleCheckView (adaptada por status)
+  - InventoryCards muestran +/- inline cuando item está en el carrito
+  - SessionInitializationModal se mantiene (order #, customer, validación de conflictos)
   - Stock se reserva correctamente via generatePickingPath
+  - Correction notes visibles en DoubleCheckView cuando status=needs_correction
   - Órdenes del watcher siguen funcionando (ya crean en `active`)
-  - Órdenes agrupadas se combinan correctamente
   - No hay regresiones en double check ni loadSession
-  - `OrderBuilderMode.tsx` eliminado, `returnToBuilding()` eliminado
+  - `PickingSessionView.tsx`, `OrderBuilderMode.tsx` eliminados
+  - `returnToBuilding()` eliminado
 
 ---
 
