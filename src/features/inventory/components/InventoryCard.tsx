@@ -182,14 +182,14 @@ export const InventoryCard = memo(
                     </div>
                       </div>
                 )}
-                {sku_metadata && (sku_metadata.length_in > 0 || sku_metadata.width_in > 0 || sku_metadata.height_in > 0) && (
+                {sku_metadata && ((sku_metadata.length_in ?? 0) > 0 || (sku_metadata.width_in ?? 0) > 0 || (sku_metadata.height_in ?? 0) > 0) && (
                   <div className="inline-flex px-1.5 py-0.5 rounded-[4px] bg-accent/5 text-accent/70 text-[9px] font-black tracking-widest border border-accent/10 whitespace-nowrap">
-                    {sku_metadata.length_in}×{sku_metadata.width_in}×{sku_metadata.height_in}"
+                    {sku_metadata.length_in ?? 0}×{sku_metadata.width_in ?? 0}×{sku_metadata.height_in ?? 0}"
                   </div>
                 )}
-                {sku_metadata?.weight_lbs != null && sku_metadata.weight_lbs > 0 && (
+                {(sku_metadata?.weight_lbs ?? 0) > 0 && (
                   <div className="inline-flex px-1.5 py-0.5 rounded-[4px] bg-amber-500/5 text-amber-500/70 text-[9px] font-black tracking-widest border border-amber-500/10 whitespace-nowrap">
-                    {sku_metadata.weight_lbs} lbs
+                    {sku_metadata!.weight_lbs} lbs
                   </div>
                 )}
               </div>

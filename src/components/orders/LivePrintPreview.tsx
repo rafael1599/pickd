@@ -9,10 +9,20 @@ interface LivePrintPreviewProps {
   state: string;
   zip: string;
   pallets: number | string;
-  units: number | string;
+  bikeCount: number;
+  partCount: number;
   loadNumber: string;
   totalWeight: number;
   completedAt?: string;
+}
+
+/** Build the BIKES/PARTS lines for labels */
+function unitsLines(bikes: number, parts: number): string[] {
+  const lines: string[] = [];
+  if (bikes > 0) lines.push(`BIKES: ${bikes}`);
+  if (parts > 0) lines.push(`PARTS: ${parts}`);
+  if (lines.length === 0) lines.push('UNITS: 0');
+  return lines;
 }
 
 export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
@@ -23,13 +33,15 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
   state,
   zip,
   pallets,
-  units,
+  bikeCount,
+  partCount,
   loadNumber,
   totalWeight,
   completedAt,
 }) => {
   const palletCount = parseInt(pallets?.toString() || '1');
   const cityStateZip = `${city}, ${state} ${zip}`.toUpperCase().trim();
+  const unitLines = useMemo(() => unitsLines(bikeCount, partCount), [bikeCount, partCount]);
 
   // Replicate PDF Scaling Logic from Production
   const fontSizePt = useMemo(() => {
@@ -50,7 +62,7 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
     contentLines.push(''); // spacer
     if (orderNumber) contentLines.push(`ORDER #: ${orderNumber}`);
     contentLines.push(`PALLETS: ${palletCount}`);
-    contentLines.push(`UNITS: ${units}`);
+    contentLines.push(...unitLines);
     contentLines.push(`LOAD: ${loadNumber || 'N/A'}`);
     contentLines.push(`WEIGHT: ${totalWeight > 0 ? `${totalWeight} LBS` : 'N/A'}`);
     contentLines.push(''); // spacer
@@ -95,7 +107,7 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
     state,
     zip,
     palletCount,
-    units,
+    unitLines,
     loadNumber,
     totalWeight,
     cityStateZip,
@@ -128,7 +140,9 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
           <div className="mt-[0.3em] font-black tracking-tighter" style={{ fontSize: 'inherit' }}>
             {orderNumber && <p>ORDER #: {orderNumber}</p>}
             <p>PALLETS: {palletCount}</p>
-            <p>UNITS: {units}</p>
+            {unitLines.map((line, idx) => (
+              <p key={idx}>{line}</p>
+            ))}
             <p>LOAD: {loadNumber || 'N/A'}</p>
             <p>WEIGHT: {totalWeight > 0 ? `${totalWeight} LBS` : 'N/A'}</p>
           </div>
@@ -179,7 +193,7 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
     state,
     zip,
     palletCount,
-    units,
+    unitLines,
     loadNumber,
     totalWeight,
     fontSizePt,
@@ -237,3 +251,6 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
     </div>
   );
 };
+
+/** Export the units lines builder for use in PDF generation */
+export { unitsLines };

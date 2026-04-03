@@ -5,7 +5,7 @@ import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import Home from 'lucide-react/dist/esm/icons/home';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { LivePrintPreview } from '../../components/orders/LivePrintPreview.tsx';
+import { LivePrintPreview, unitsLines } from '../../components/orders/LivePrintPreview.tsx';
 import { usePickingSession } from '../../context/PickingContext.tsx';
 import { useViewMode } from '../../context/ViewModeContext.tsx';
 import Search from 'lucide-react/dist/esm/icons/search';
@@ -210,6 +210,37 @@ export const OrdersScreen = () => {
     const palletWeight = palletCount * 40;
     return Math.round(productWeight + palletWeight);
   }, [selectedOrder?.items, skuWeights, formData.pallets]);
+
+  // Split item counts: bikes vs parts
+  const { bikeCount, partCount } = useMemo(() => {
+    const items = selectedOrder?.items;
+    if (!Array.isArray(items)) return { bikeCount: 0, partCount: 0 };
+    let bikes = 0, parts = 0;
+    items.forEach((item: PickingListItem) => {
+      const qty = item.pickingQty || 0;
+      if (isBikeSku(item.sku)) bikes += qty;
+      else parts += qty;
+    });
+    return { bikeCount: bikes, partCount: parts };
+  }, [selectedOrder?.items]);
+
+  // Parts SKUs with their weights (for inline editor)
+  const partsWithWeights = useMemo(() => {
+    const items = selectedOrder?.items;
+    if (!Array.isArray(items)) return [];
+    const seen = new Set<string>();
+    return items
+      .filter((item: PickingListItem) => {
+        if (isBikeSku(item.sku) || seen.has(item.sku)) return false;
+        seen.add(item.sku);
+        return true;
+      })
+      .map((item: PickingListItem) => ({
+        sku: item.sku,
+        qty: item.pickingQty || 0,
+        weight: skuWeights[item.sku] ?? 0,
+      }));
+  }, [selectedOrder?.items, skuWeights]);
 
   // Track the selected customer ID to link/unlink
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
@@ -556,7 +587,7 @@ export const OrdersScreen = () => {
         contentLines.push(''); // spacer
         contentLines.push(`ORDER #: ${selectedOrder?.order_number || 'N/A'}`);
         contentLines.push(`PALLETS: ${pallets}`);
-        contentLines.push(`UNITS: ${unitsNum}`);
+        contentLines.push(...unitsLines(bikeCount, partCount));
         contentLines.push(`LOAD: ${formData.loadNumber || 'N/A'}`);
         contentLines.push(`WEIGHT: ${totalWeight > 0 ? `${totalWeight} LBS` : 'N/A'}`);
         contentLines.push(''); // spacer
@@ -918,11 +949,53 @@ export const OrdersScreen = () => {
                 state={formData.state}
                 zip={formData.zip}
                 pallets={formData.pallets}
-                units={formData.units}
+                bikeCount={bikeCount}
+                partCount={partCount}
                 loadNumber={formData.loadNumber}
                 totalWeight={totalWeight}
                 completedAt={selectedOrder.updated_at}
               />
+
+              {/* Parts Weight Editor (idea-028) */}
+              {partsWithWeights.length > 0 && (
+                <div className="w-full max-w-md mx-auto mt-8 mb-8 bg-surface rounded-2xl border border-subtle overflow-hidden">
+                  <div className="px-4 py-3 border-b border-subtle">
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">Parts Weight</h3>
+                  </div>
+                  <div className="divide-y divide-subtle">
+                    {partsWithWeights.map((part) => (
+                      <div key={part.sku} className="flex items-center justify-between px-4 py-3 gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="font-mono font-bold text-xs text-content truncate">{part.sku}</span>
+                          <span className="text-[10px] text-muted font-bold shrink-0">×{part.qty}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <input
+                            type="number"
+                            value={part.weight || ''}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              if (isNaN(val) || val < 0) return;
+                              setSkuWeights((prev) => ({ ...prev, [part.sku]: val }));
+                              supabase.from('sku_metadata').upsert(
+                                { sku: part.sku, weight_lbs: val },
+                                { onConflict: 'sku' }
+                              );
+                            }}
+                            step="0.1"
+                            min="0"
+                            className="w-16 text-right bg-main border border-subtle rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-content focus:outline-none focus:border-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                          <span className="text-[10px] text-muted font-bold">lbs</span>
+                          <span className="text-[10px] text-muted/40 font-bold">
+                            ={((part.weight || 0) * part.qty).toFixed(1)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-text-muted space-y-4">
