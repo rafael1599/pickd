@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import ChevronUp from 'lucide-react/dist/esm/icons/chevron-up';
-import { PickingSessionView } from './PickingSessionView';
 import { DoubleCheckView, PickingItem, type CorrectionAction } from './DoubleCheckView';
 import { useAuth } from '../../../context/AuthContext';
 import { useConfirmation } from '../../../context/ConfirmationContext';
@@ -50,7 +49,7 @@ export const PickingCartDrawer: React.FC = () => {
   const { inventoryData, processPickingList } = useInventory();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [currentView, setCurrentView] = useState('double-check');
+  // currentView removed — always renders DoubleCheckView (idea-032 phase 2)
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
   const isOwner = user?.id === ownerId;
   const isConfirmingRef = React.useRef(false);
@@ -61,10 +60,9 @@ export const PickingCartDrawer: React.FC = () => {
   const totalItems = cartItems.length;
   const totalQty = cartItems.reduce((acc, item) => acc + (item.pickingQty || 0), 0);
 
-  // 0. Restore state on load if already in double-check session
+  // 0. Restore checked items on load if in double-check session
   useEffect(() => {
     if (sessionMode === 'double_checking' && activeListId) {
-      setCurrentView('double-check');
       const savedProgress = localStorage.getItem(`double_check_progress_${activeListId}`);
       if (savedProgress) {
         try {
@@ -73,11 +71,8 @@ export const PickingCartDrawer: React.FC = () => {
           /* ignore corrupt localStorage */
         }
       }
-    } else if (sessionMode === 'building') {
-      setCurrentView('picking');
+    } else {
       setCheckedItems(new Set());
-    } else if (sessionMode === 'picking') {
-      setCurrentView('double-check');
     }
   }, [sessionMode, activeListId]);
 
@@ -216,8 +211,7 @@ export const PickingCartDrawer: React.FC = () => {
   const handleMarkAsReady = async (finalOrderNumber: string) => {
     const listId = await markAsReady(cartItems, finalOrderNumber);
     if (listId) {
-      setCheckedItems(new Set()); // Reset progress for new verification
-      setCurrentView('double-check');
+      setCheckedItems(new Set());
     }
   };
 
@@ -515,60 +509,35 @@ export const PickingCartDrawer: React.FC = () => {
           onClick={handleReleaseOrder}
         >
           <div
-            className={`bg-surface border-subtle shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col ${
-              currentView === 'double-check'
-                ? 'fixed inset-0 w-full h-full rounded-none border-0' // Full screen for Double Check
-                : 'w-full max-w-2xl h-[90dvh] rounded-3xl border' // Card/Modal for Picking
-            }`}
+            className="bg-surface border-subtle shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col fixed inset-0 w-full h-full rounded-none border-0"
             onClick={(e) => e.stopPropagation()}
           >
-            {currentView === 'picking' ? (
-              <PickingSessionView
-                activeListId={activeListId ?? null}
-                orderNumber={orderNumber ?? null}
-                customer={customer ?? null}
-                onUpdateOrderNumber={setOrderNumber}
-                onUpdateCustomer={(details) => {
-                  if (customer?.id) updateCustomerDetails(customer.id, details);
-                }}
-                cartItems={cartItems}
-                correctionNotes={correctionNotes}
-                notes={notes}
-                isNotesLoading={isNotesLoading}
-                onGoToDoubleCheck={(orderId) => {
-                  if (orderId) void handleMarkAsReady(orderId);
-                }}
-                onUpdateQty={updateCartQty}
-                onRemoveItem={removeFromCart}
-                onClose={() => setIsOpen(false)}
-                onDelete={deleteList}
-              />
-            ) : (
-              <DoubleCheckView
-                customer={customer ?? null}
-                cartItems={cartItems}
-                orderNumber={orderNumber ?? null}
-                activeListId={activeListId ?? null}
-                checkedItems={checkedItems}
-                onToggleCheck={toggleCheck}
-                onDeduct={handleDeduct}
-                onReturnToPicker={(notes) => activeListId && returnToPicker(activeListId, notes)}
-                isOwner={isOwner}
-                notes={notes}
-                isNotesLoading={isNotesLoading}
-                onAddNote={addNote}
-                onSelectAll={handleSelectAll}
-                onPalletCountChange={(count) => {
-                  overriddenPalletCountRef.current = count;
-                }}
-                status={listStatus}
-                onBack={handleReleaseOrder}
-                onRelease={handleReleaseOrder}
-                onClose={handleReleaseOrder}
-                onCorrectItem={handleCorrectItem}
-                inventoryData={inventoryData}
-              />
-            )}
+            <DoubleCheckView
+              customer={customer ?? null}
+              cartItems={cartItems}
+              orderNumber={orderNumber ?? null}
+              activeListId={activeListId ?? null}
+              checkedItems={checkedItems}
+              onToggleCheck={toggleCheck}
+              onDeduct={handleDeduct}
+              onReturnToPicker={(notes) => activeListId && returnToPicker(activeListId, notes)}
+              isOwner={isOwner}
+              notes={notes}
+              isNotesLoading={isNotesLoading}
+              onAddNote={addNote}
+              onSelectAll={handleSelectAll}
+              onPalletCountChange={(count) => {
+                overriddenPalletCountRef.current = count;
+              }}
+              status={listStatus}
+              onBack={listStatus === 'active' || listStatus === 'needs_correction' ? () => setIsOpen(false) : handleReleaseOrder}
+              onRelease={listStatus === 'active' ? () => setIsOpen(false) : handleReleaseOrder}
+              onClose={listStatus === 'active' ? () => setIsOpen(false) : handleReleaseOrder}
+              onCorrectItem={handleCorrectItem}
+              inventoryData={inventoryData}
+              onMarkAsReady={() => orderNumber && handleMarkAsReady(orderNumber)}
+              correctionNotes={correctionNotes}
+            />
           </div>
         </div>
       )}
@@ -580,9 +549,7 @@ export const PickingCartDrawer: React.FC = () => {
           className={`fixed bottom-24 left-4 right-4 p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-2 cursor-pointer active:scale-95 transition-all z-[9999] border border-white/10 ${
             sessionMode === 'double_checking'
               ? 'bg-orange-500 text-white'
-              : sessionMode === 'building'
-                ? 'bg-slate-800 text-white border-slate-700'
-                : 'bg-accent text-main'
+              : 'bg-accent text-main'
           }`}
         >
           <div className="flex items-center gap-3">
@@ -594,9 +561,7 @@ export const PickingCartDrawer: React.FC = () => {
               <span className="text-xs">
                 {sessionMode === 'double_checking'
                   ? `Verifying #${orderNumber || activeListId?.slice(-6).toUpperCase()}`
-                  : sessionMode === 'building'
-                    ? `Reviewing ${totalItems} SKUs`
-                    : `${totalQty} Units to Pick`}
+                  : `${totalQty} Units · #${orderNumber || 'NEW'}`}
               </span>
             </div>
           </div>

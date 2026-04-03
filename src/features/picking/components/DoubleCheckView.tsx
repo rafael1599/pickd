@@ -93,6 +93,8 @@ interface DoubleCheckViewProps {
   status?: string | null;
   onCorrectItem?: (action: CorrectionAction) => Promise<void>;
   inventoryData?: InventoryItemWithMetadata[];
+  onMarkAsReady?: () => void;
+  correctionNotes?: string | null;
 }
 
 export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
@@ -114,6 +116,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   status,
   onCorrectItem,
   inventoryData: inventoryDataProp,
+  onMarkAsReady,
+  correctionNotes: correctionNotesProp,
 }) => {
   const {
     ludlowData,
@@ -126,6 +130,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const { showConfirmation } = useConfirmation();
   const { pallets: originalPallets } = usePickingSession();
   const [isDeducting, setIsDeducting] = useState(false);
+
+  // Mode detection: active = order review (no checkboxes), double_checking = verification
+  const isReviewMode = status === 'active' || status === 'needs_correction';
   const [showCorrectionMode, setShowCorrectionMode] = useState(false);
 
   // Pallet override state: palletId → desired total units
@@ -498,7 +505,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         <button
           onClick={() => onBack()}
           className="p-2 -ml-2 hover:bg-white/10 rounded-full text-white/70 transition-colors shrink-0"
-          title="Release to Queue"
+          title={isReviewMode ? 'Close' : 'Release to Queue'}
         >
           <ChevronLeft size={28} />
         </button>
@@ -516,9 +523,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           {/* Progress Text */}
           <div className="flex items-center gap-3 mt-1">
             <span className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em]">
-              {verifiedUnitsCount} / {totalUnitsCount} Units Verified
+              {isReviewMode
+                ? `${totalUnitsCount} Units · ${cartItems.length} SKUs`
+                : `${verifiedUnitsCount} / ${totalUnitsCount} Units Verified`}
             </span>
-            {onSelectAll && totalUnitsCount > 0 && (
+            {!isReviewMode && onSelectAll && totalUnitsCount > 0 && (
               <button
                 onClick={() => {
                   if (verifiedUnitsCount === totalUnitsCount) {
@@ -640,6 +649,23 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           </div>
         )}
 
+        {/* Correction notes banner (visible in needs_correction) */}
+        {correctionNotesProp && isReviewMode && (
+          <div className="mb-4 p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0">
+              <AlertCircle size={18} />
+            </div>
+            <div className="flex-1">
+              <p className="text-[10px] font-black text-amber-500/70 uppercase tracking-widest mb-1">
+                Correction Needed
+              </p>
+              <p className="text-sm font-medium text-white italic leading-relaxed">
+                &ldquo;{correctionNotesProp}&rdquo;
+              </p>
+            </div>
+          </div>
+        )}
+
         {pallets.map((pallet: Pallet) => {
           const palletUnits = pallet.items.reduce(
             (sum: number, i: PickingItem) => sum + (i.pickingQty || 0),
@@ -715,18 +741,25 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                       onPointerUp={handlePointerUp}
                       onPointerCancel={handlePointerUp}
                       onClick={() => {
+                        if (isReviewMode) return;
                         if (longPressTriggered.current) return;
                         if (navigator.vibrate) navigator.vibrate(50);
                         onToggleCheck(item, pallet.id);
                       }}
-                      className={`transition-all duration-200 rounded-2xl p-4 flex items-center justify-between gap-3 active:scale-[0.98] cursor-pointer border ${
-                        isChecked
+                      className={`transition-all duration-200 rounded-2xl p-4 flex items-center justify-between gap-3 ${isReviewMode ? '' : 'active:scale-[0.98] cursor-pointer'} border ${
+                        isReviewMode
                           ? item.sku_not_found
-                            ? 'bg-red-500/20 border-red-500/50'
-                            : 'bg-green-500/10 border-green-500/30'
-                          : item.sku_not_found
-                            ? 'bg-red-500/5 border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.1)]'
-                            : 'bg-white/5 border-white/5 hover:border-white/10'
+                            ? 'bg-red-500/5 border-red-500/20'
+                            : item.insufficient_stock
+                              ? 'bg-amber-500/5 border-amber-500/20'
+                              : 'bg-white/5 border-white/5'
+                          : isChecked
+                            ? item.sku_not_found
+                              ? 'bg-red-500/20 border-red-500/50'
+                              : 'bg-green-500/10 border-green-500/30'
+                            : item.sku_not_found
+                              ? 'bg-red-500/5 border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.1)]'
+                              : 'bg-white/5 border-white/5 hover:border-white/10'
                       }`}
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -774,7 +807,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                           {/* SKU row */}
                           <div className="flex items-center gap-2 flex-wrap">
                             <span
-                              className={`font-black text-xl tracking-tight leading-none break-all ${isChecked ? (item.sku_not_found || item.insufficient_stock ? 'text-red-400' : 'text-green-400') : item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-white'}`}
+                              className={`font-black text-xl tracking-tight leading-none break-all ${isReviewMode ? (item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-white') : isChecked ? (item.sku_not_found || item.insufficient_stock ? 'text-red-400' : 'text-green-400') : item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-white'}`}
                             >
                               {similarity?.prefix ? (
                                 <span className="animate-pulse-highlight">
@@ -865,7 +898,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                 .trim()
                                 .slice(0, 5) || '-'}
                             </div>
-                            {isChecked && (
+                            {!isReviewMode && isChecked && (
                               <div
                                 className={`flex items-center justify-center ${item.sku_not_found ? 'text-red-500' : 'text-green-500'}`}
                               >
@@ -946,21 +979,36 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black via-black/90 to-transparent shrink-0 z-20">
-        {verifiedUnitsCount < totalUnitsCount && (
-          <div className="mb-4 flex items-center justify-center gap-2 animate-pulse">
-            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">
-              {totalUnitsCount - verifiedUnitsCount} units remaining
-            </span>
-          </div>
+        {isReviewMode ? (
+          /* Review mode: Send to Verify CTA */
+          <SlideToConfirm
+            onConfirm={() => onMarkAsReady?.()}
+            isLoading={isDeducting}
+            text="SLIDE TO SEND TO VERIFY"
+            confirmedText="SENDING..."
+            variant="info"
+            disabled={cartItems.length === 0}
+          />
+        ) : (
+          /* Verification mode: check progress + complete */
+          <>
+            {verifiedUnitsCount < totalUnitsCount && (
+              <div className="mb-4 flex items-center justify-center gap-2 animate-pulse">
+                <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">
+                  {totalUnitsCount - verifiedUnitsCount} units remaining
+                </span>
+              </div>
+            )}
+            <SlideToConfirm
+              onConfirm={handleConfirm}
+              isLoading={isDeducting}
+              text={verifiedUnitsCount === totalUnitsCount ? 'SLIDE TO COMPLETE' : 'SEND TO VERIFY'}
+              confirmedText={verifiedUnitsCount === totalUnitsCount ? 'COMPLETING...' : 'SENDING...'}
+              variant={verifiedUnitsCount === totalUnitsCount ? 'default' : 'info'}
+              disabled={false}
+            />
+          </>
         )}
-        <SlideToConfirm
-          onConfirm={handleConfirm}
-          isLoading={isDeducting}
-          text={verifiedUnitsCount === totalUnitsCount ? 'SLIDE TO COMPLETE' : 'SEND TO VERIFY'}
-          confirmedText={verifiedUnitsCount === totalUnitsCount ? 'COMPLETING...' : 'SENDING...'}
-          variant={verifiedUnitsCount === totalUnitsCount ? 'default' : 'info'}
-          disabled={false}
-        />
       </div>
 
       {/* Edit Item Modal (reuses InventoryModal from stock view) */}
