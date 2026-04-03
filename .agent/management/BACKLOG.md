@@ -11,33 +11,28 @@
 - **Problema:** ROWs sin subdivisiones. Picker recorre toda la fila buscando un SKU.
 - **Solución:** Nueva columna `sublocation` (varchar, nullable). Display: `ROW 5A`. Backward compatible.
 
-### 9. Multi-Address Customers <!-- id: idea-012 -->
-- **Problema:** Un customer = una dirección. Si envía a dos sitios, hay que editar o duplicar.
-- **Solución:** Nueva tabla `customer_addresses` con FK. Selector en OrderSidebar.
+### ~~9. Multi-Address Customers~~ <!-- id: idea-012 --> ✅
+- ~~Implementado: tabla `customer_addresses` con dedup normalizada, dropdown autocomplete en OrderSidebar, auto-save al imprimir.~~
 
 ### 19. Auto-cancel → expiración con reactivación <!-- id: idea-031 -->
 - **Problema:** Auto-cancel a 15min/24hrs sin aviso. Órdenes legítimas desaparecen.
 - **Solución:** Nuevo estado `expired` a 3 días. Visible, reactivable con un tap. Eliminar timer 15min.
 
-### 14. Separar peso de dimensiones + defaults para partes <!-- id: idea-025 -->
-- **Problema:** Partes heredan defaults de bikes (54×8×30×45 lbs).
-- **Solución:** Migración: partes a 0×0×0×0.1. Form defaults dinámicos por tipo.
+### ~~14. Separar peso de dimensiones + defaults para partes~~ <!-- id: idea-025 --> ✅
+- ~~Implementado: defaults dinámicos por tipo (bikes vs partes), migración aplicada.~~
 
 ### 15. Distribution type "Other" → texto libre <!-- id: idea-026 -->
 - **Problema:** OTHER muestra "unit/units" genérico.
 - **Solución:** Text input para nombre custom ("Box", "Crate"). Se guarda en distribution JSONB.
 
-### 16. Labels — "Units" → "Bikes" + partes separadas <!-- id: idea-027 -->
-- **Problema:** Labels no distinguen bikes de partes.
-- **Solución:** Orden mixta: `BIKES: 15` + `PARTS: 3`. Solo bikes: `BIKES: N`.
+### ~~16. Labels — "Units" → "Bikes" + partes separadas~~ <!-- id: idea-027 --> ✅
+- ~~Implementado: labels muestran BIKES: X y PARTS: Y por separado.~~
 
-### 17. Peso por parte en Orders <!-- id: idea-028 -->
-- **Problema:** Partes con peso default 0.1 lbs. No hay dónde corregir.
-- **Solución:** Sección "Parts Weight" editable debajo del label preview. Guarda en `sku_metadata`.
+### ~~17. Peso por parte en Orders~~ <!-- id: idea-028 --> ✅
+- ~~Implementado: editor inline de peso por parte debajo del label preview.~~
 
-### 18. Badge peso y dimensiones en Stock View <!-- id: idea-029 -->
-- **Problema:** Badge dimensiones con defaults incorrectos. Peso no visible.
-- **Solución:** Badge solo si dimensiones > 0. Peso siempre visible. Mobile + desktop.
+### ~~18. Badge peso y dimensiones en Stock View~~ <!-- id: idea-029 --> ✅
+- ~~Implementado: badges condicionales (solo si > 0), peso visible en mobile.~~
 
 ---
 
