@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MapPin from 'lucide-react/dist/esm/icons/map-pin';
 import Hash from 'lucide-react/dist/esm/icons/hash';
@@ -14,6 +14,8 @@ import { usePickingSession } from '../../context/PickingContext';
 import { useViewMode } from '../../context/ViewModeContext';
 import { useConfirmation } from '../../context/ConfirmationContext';
 import { parseUSAddress } from '../../utils/parseUSAddress';
+import { useCustomerAddresses } from '../../hooks/useCustomerAddresses';
+import type { CustomerAddress } from '../../lib/customerAddresses';
 import type { CombineMeta, PickingList, PickingListItem } from '../../schemas/picking.schema';
 import type { Customer } from '../../types/schema';
 import type { User } from '@supabase/supabase-js';
@@ -38,6 +40,7 @@ interface OrderSidebarProps {
   formData: OrderFormData;
   setFormData: (data: OrderFormData) => void;
   selectedOrder: SelectedOrder;
+  selectedCustomerId: string | null;
   user: User | null;
   takeOverOrder: (id: string) => Promise<void>;
   onRefresh: () => void;
@@ -52,6 +55,7 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
   formData,
   setFormData,
   selectedOrder,
+  selectedCustomerId,
   user,
   takeOverOrder,
   onRefresh,
@@ -62,10 +66,60 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
   collapsible = false,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showAddressDropdown, setShowAddressDropdown] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const addressDropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { setViewMode } = useViewMode();
   const { deleteList } = usePickingSession();
   const { showConfirmation } = useConfirmation();
+
+  const { addresses } = useCustomerAddresses(selectedCustomerId);
+
+  // Filter addresses based on street input
+  const filteredAddresses = addresses.filter((addr) => {
+    if (!formData.street.trim()) return true; // show all when empty
+    const q = formData.street.toLowerCase();
+    return (
+      addr.street.toLowerCase().includes(q) ||
+      (addr.city || '').toLowerCase().includes(q) ||
+      (addr.state || '').toLowerCase().includes(q)
+    );
+  });
+
+  const selectAddress = useCallback(
+    (addr: CustomerAddress) => {
+      setFormData({
+        ...formData,
+        street: addr.street,
+        city: addr.city || '',
+        state: addr.state || '',
+        zip: addr.zip_code || '',
+      });
+      setShowAddressDropdown(false);
+      setHighlightedIndex(-1);
+    },
+    [formData, setFormData]
+  );
+
+  const handleAddressKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!showAddressDropdown || filteredAddresses.length === 0) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setHighlightedIndex((prev) => Math.min(prev + 1, filteredAddresses.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+      } else if (e.key === 'Enter' && highlightedIndex >= 0) {
+        e.preventDefault();
+        selectAddress(filteredAddresses[highlightedIndex]);
+      } else if (e.key === 'Escape') {
+        setShowAddressDropdown(false);
+      }
+    },
+    [showAddressDropdown, filteredAddresses, highlightedIndex, selectAddress]
+  );
 
   if (!selectedOrder) return null;
 
@@ -73,6 +127,7 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
     const parsed = parseUSAddress(value);
     if (parsed) {
       setFormData({ ...formData, ...parsed });
+      setShowAddressDropdown(false);
       return;
     }
     setFormData({ ...formData, street: value });
@@ -192,26 +247,72 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
             />
           </div>
 
-          <div className="space-y-2 group">
+          <div className="space-y-2 group" ref={addressDropdownRef}>
             <label className="text-xs uppercase text-text-muted font-black tracking-[0.2em] flex items-center gap-1 group-focus-within:text-accent">
               <MapPin size={10} /> Shipping Address
             </label>
-            <div className="relative flex items-center">
-              <input
-                type="text"
-                value={formData.street}
-                onChange={(e) => handleStreetChange(e.target.value)}
-                placeholder="Paste full address to auto-fill..."
-                className="w-full bg-main border border-subtle rounded-3xl px-5 py-3.5 pr-12 text-lg text-content ios-transition font-medium focus:border-accent focus:bg-surface shadow-sm"
-              />
-              <button
-                type="button"
-                onClick={() => handleStreetChange(formData.street)}
-                title="Parse address"
-                className="absolute right-2 w-8 h-8 flex items-center justify-center rounded-full text-muted hover:text-accent hover:bg-accent/10 transition-all active:scale-90"
-              >
-                <Wand2 size={16} />
-              </button>
+            <div className="relative">
+              <div className="relative flex items-center">
+                <input
+                  type="text"
+                  value={formData.street}
+                  onChange={(e) => handleStreetChange(e.target.value)}
+                  onFocus={() => {
+                    if (addresses.length > 0) {
+                      setShowAddressDropdown(true);
+                      setHighlightedIndex(-1);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // Delay to allow click on dropdown item
+                    if (!addressDropdownRef.current?.contains(e.relatedTarget as Node)) {
+                      setTimeout(() => setShowAddressDropdown(false), 200);
+                    }
+                  }}
+                  onKeyDown={handleAddressKeyDown}
+                  placeholder="Paste full address to auto-fill..."
+                  className="w-full bg-main border border-subtle rounded-3xl px-5 py-3.5 pr-12 text-lg text-content ios-transition font-medium focus:border-accent focus:bg-surface shadow-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleStreetChange(formData.street)}
+                  title="Parse address"
+                  className="absolute right-2 w-8 h-8 flex items-center justify-center rounded-full text-muted hover:text-accent hover:bg-accent/10 transition-all active:scale-90"
+                >
+                  <Wand2 size={16} />
+                </button>
+              </div>
+
+              {/* Address dropdown */}
+              {showAddressDropdown && filteredAddresses.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-surface border border-subtle rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                  <div className="max-h-48 overflow-y-auto">
+                    {filteredAddresses.map((addr, idx) => (
+                      <button
+                        key={addr.id}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => selectAddress(addr)}
+                        className={`w-full text-left px-4 py-3 transition-colors ${
+                          idx === highlightedIndex
+                            ? 'bg-accent/10 text-accent'
+                            : 'text-content hover:bg-white/5'
+                        } ${idx > 0 ? 'border-t border-subtle/50' : ''}`}
+                      >
+                        <p className="text-sm font-bold truncate">{addr.street}</p>
+                        {(addr.city || addr.state || addr.zip_code) && (
+                          <p className="text-[10px] text-muted font-bold mt-0.5 truncate">
+                            {[addr.city, addr.state, addr.zip_code].filter(Boolean).join(', ')}
+                          </p>
+                        )}
+                        {addr.is_default && (
+                          <span className="text-[8px] font-black text-accent/60 uppercase tracking-widest">Default</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

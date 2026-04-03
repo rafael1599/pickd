@@ -20,6 +20,7 @@ import { SplitOrderModal } from '../../components/orders/SplitOrderModal.tsx';
 import { SearchInput } from '../../components/ui/SearchInput.tsx';
 import type { PickingListItem, CombineMeta } from '../../schemas/picking.schema';
 import { isBikeSku } from '../../utils/distributionCalculator';
+import { saveCustomerAddress } from '../../lib/customerAddresses';
 
 interface CustomerDetails {
   id: string;
@@ -530,6 +531,17 @@ export const OrdersScreen = () => {
         if (updateError) console.error('Failed to update customer record:', updateError);
       }
 
+      // Auto-save address to customer_addresses (idea-012)
+      if (finalCustomerId && formData.street.trim()) {
+        saveCustomerAddress({
+          customerId: finalCustomerId,
+          street: formData.street,
+          city: formData.city,
+          state: formData.state,
+          zip: formData.zip,
+        }).catch(() => {}); // Silent — non-blocking
+      }
+
       // Update Picking List
       const { error: orderError } = await supabase
         .from('picking_lists')
@@ -742,6 +754,7 @@ export const OrdersScreen = () => {
           selectedOrder={
             selectedOrder as React.ComponentProps<typeof OrderSidebar>['selectedOrder']
           }
+          selectedCustomerId={selectedCustomerId}
           user={user}
           takeOverOrder={takeOverOrder}
           onRefresh={fetchOrders}
@@ -921,6 +934,7 @@ export const OrdersScreen = () => {
                   selectedOrder={
                     selectedOrder as React.ComponentProps<typeof OrderSidebar>['selectedOrder']
                   }
+                  selectedCustomerId={selectedCustomerId}
                   user={user}
                   takeOverOrder={takeOverOrder}
                   onRefresh={fetchOrders}
