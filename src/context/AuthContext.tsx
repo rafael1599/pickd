@@ -98,7 +98,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             import('../lib/query-client').then(({ cleanupCorruptedMutations }) => {
               cleanupCorruptedMutations().then(() => {
                 queryClient.resumePausedMutations().then(() => {
-                  console.log('[AuthContext] Resumed mutations post-login');
+                  // Mutations resumed post-login
                   // If no mutations are running, force absolute truth from server now
                   if (queryClient.isMutating() === 0) {
                     queryClient.invalidateQueries();

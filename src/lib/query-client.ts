@@ -252,9 +252,7 @@ export async function cleanupCorruptedMutations() {
   });
 
   if (cleanedCount > 0) {
-    console.log(`[CLEANUP] Removed ${cleanedCount} corrupted mutation(s) from queue`);
-  } else {
-    console.log('[CLEANUP] No corrupted mutations found');
+    console.warn(`[CLEANUP] Removed ${cleanedCount} corrupted mutation(s) from queue`);
   }
 
   return cleanedCount;

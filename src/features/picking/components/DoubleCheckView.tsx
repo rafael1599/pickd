@@ -137,10 +137,17 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const { pallets: originalPallets } = usePickingSession();
   const [isDeducting, setIsDeducting] = useState(false);
 
+  // Track original items snapshot for reopened orders to detect changes
+  const [reopenedSnapshot] = useState(() =>
+    status === 'reopened' ? JSON.stringify(cartItems.map(i => ({ sku: i.sku, qty: i.pickingQty }))) : null
+  );
+  const hasReopenedChanges = status === 'reopened' && reopenedSnapshot !== null &&
+    reopenedSnapshot !== JSON.stringify(cartItems.map(i => ({ sku: i.sku, qty: i.pickingQty })));
+
   // All statuses use full verification mode (checkboxes, select all).
   // The picker checks off items as they collect them, then sends to verify.
   const isReviewMode = false;
-  const [showCorrectionMode, setShowCorrectionMode] = useState(false);
+  const [showCorrectionMode, setShowCorrectionMode] = useState(status === 'reopened');
 
   // Pallet override state: palletId → desired total units
   const [palletOverrides, setPalletOverrides] = useState<Map<number, number>>(new Map());
@@ -1010,8 +1017,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                   }
                 }
               }}
-              disabled={isDeducting || cartItems.length === 0}
-              className="flex-[2] py-4 bg-orange-500 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-orange-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              disabled={isDeducting || cartItems.length === 0 || !hasReopenedChanges}
+              className="flex-[2] py-4 bg-orange-500 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-orange-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-30"
             >
               <Check size={16} strokeWidth={3} />
               {isDeducting ? 'Re-Completing...' : 'Re-Complete Order'}
@@ -1083,6 +1090,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           onCorrectItem={onCorrectItem}
           onClose={() => setShowCorrectionMode(false)}
           orderNumber={orderNumber}
+          isReopened={status === 'reopened'}
+          onCancelReopen={onCancelReopen}
         />
       )}
     </div>

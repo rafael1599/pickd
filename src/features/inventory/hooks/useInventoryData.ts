@@ -97,7 +97,7 @@ export const useInventory = () => {
         partsBins: false,
         limit: INITIAL_PAGE_SIZE,
       });
-      console.log(`📦 [InitialLoad] bikes: fetched=${data.length} serverCount=${count}`);
+      // console.log(`📦 [InitialLoad] bikes: fetched=${data.length} serverCount=${count}`);
       setBikesTotal(count);
       return data.map(mapItem);
     },
@@ -208,7 +208,6 @@ export const useInventory = () => {
   );
 
   const hasMoreBikes = bikesTotal !== null && (rawData?.length ?? 0) < bikesTotal;
-  console.log(`📦 [HasMore] bikesTotal=${bikesTotal} rawData=${rawData?.length ?? 0} hasMoreBikes=${hasMoreBikes}`);
   const hasMoreParts = partsTotal !== null && (partsBinsData?.length ?? 0) < partsTotal;
   const hasMoreSearch = searchTotal !== null && (searchResults?.length ?? 0) < searchTotal;
   const hasMoreItems = searchQuery

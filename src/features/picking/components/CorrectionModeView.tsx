@@ -22,6 +22,8 @@ interface CorrectionModeViewProps {
   onCorrectItem: (action: CorrectionAction) => Promise<void>;
   onClose: () => void;
   orderNumber?: string | null;
+  isReopened?: boolean;
+  onCancelReopen?: () => void;
 }
 
 type ActivePanel =
@@ -200,7 +202,16 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
   onCorrectItem,
   onClose,
   orderNumber,
+  isReopened = false,
+  onCancelReopen,
 }) => {
+  // Track original items to detect changes for reopened orders
+  const [initialSnapshot] = useState(() =>
+    isReopened ? JSON.stringify(allItems.map(i => ({ sku: i.sku, qty: i.pickingQty }))) : null
+  );
+  const hasChanges = isReopened && initialSnapshot !== null &&
+    initialSnapshot !== JSON.stringify(allItems.map(i => ({ sku: i.sku, qty: i.pickingQty })));
+
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [replaceQty, setReplaceQty] = useState(1);
@@ -553,9 +564,15 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
           <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full text-white/50 transition-colors">
             <ChevronLeft size={24} />
           </button>
-          <h1 className="text-lg font-black text-white uppercase tracking-widest">Edit Order</h1>
+          <h1 className={`text-lg font-black uppercase tracking-widest ${isReopened ? 'text-orange-400' : 'text-white'}`}>
+            {isReopened ? 'Reopen Order' : 'Edit Order'}
+          </h1>
           {orderNumber && (
-            <span className="text-[9px] font-black text-white/60 uppercase tracking-tighter bg-white/5 px-2 py-0.5 rounded border border-white/5">
+            <span className={`text-[9px] font-black uppercase tracking-tighter px-2 py-0.5 rounded border ${
+              isReopened
+                ? 'text-orange-400/80 bg-orange-500/10 border-orange-500/20'
+                : 'text-white/60 bg-white/5 border-white/5'
+            }`}>
               {orderNumber}
             </span>
           )}
@@ -656,11 +673,25 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
       {/* Footer — Done button */}
       <div className="shrink-0 p-4 border-t border-white/10 bg-black">
         <button
-          onClick={onClose}
-          className="w-full py-4 bg-accent text-main font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-accent/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+          onClick={() => {
+            if (isReopened && initialSnapshot !== null) {
+              const current = JSON.stringify(allItems.map(i => ({ sku: i.sku, qty: i.pickingQty })));
+              if (current === initialSnapshot) {
+                // No changes — cancel reopen entirely
+                onCancelReopen?.();
+                return;
+              }
+            }
+            onClose();
+          }}
+          className={`w-full py-4 font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 ${
+            isReopened
+              ? 'bg-orange-500 text-white shadow-orange-500/20'
+              : 'bg-accent text-main shadow-accent/20'
+          }`}
         >
           <Check size={16} strokeWidth={3} />
-          Done Editing
+          {isReopened ? (hasChanges ? 'Review Changes' : 'Close Without Changes') : 'Done Editing'}
         </button>
       </div>
     </div>

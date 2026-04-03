@@ -216,5 +216,5 @@ export function registerMutationDefaults(queryClient: QueryClient): void {
     },
   });
 
-  console.log('[MutationRegistry] Defaults registered for 7 inventory mutation keys.');
+  // MutationRegistry: 7 defaults registered
 }
