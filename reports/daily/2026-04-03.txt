@@ -1,0 +1,28 @@
+Progress Update — April 3, 2026 at 5:30 PM
+
+WIN OF THE DAY:
+Shipping labels now show bikes and parts as separate counts, customers can have multiple addresses, and cycle counts are now tracked in the system with a full history screen.
+
+WHAT'S BETTER NOW:
+- Labels used to say "UNITS: 18" with no distinction — now they show "BIKES: 15" and "PARTS: 3" separately, matching how the warehouse actually counts.
+- Customers were limited to one address. Now the system remembers every address you ship to — just tap the address field and pick from the list. New addresses save automatically when you print.
+- Parts used to inherit bike measurements (54 inches, 45 lbs) which made weight calculations wrong. Now parts start at zero and bikes keep their real defaults.
+- You can now edit the weight of individual parts right below the label preview instead of hunting for the item in stock.
+- FedEx orders no longer add 40 lbs per pallet to the weight — they show product weight only. A purple tag marks them in the order list.
+- Cycle counts are now saved to the system instead of disappearing when you close the app. A new history screen shows all past audits with expected vs actual counts and discrepancies.
+- Items verified in a cycle count within the last two months show a green indicator on their stock card — so you can see at a glance what's been recently audited.
+- The app was making duplicate calls on every page load — cut those in half, so everything loads faster.
+- Editing an item from the verification screen now opens the full item view (with photo and distribution) instead of the old cramped popup.
+- The keyboard no longer pops up when opening an order for verification.
+- Dimension and weight badges now show on stock cards for bikes. Parts with no measurements stay clean.
+
+ON THE FLOOR:
+- Built several BOLs and picked orders throughout the day.
+- Cycle counted 28 DIVIDE bikes from the JAMIS inventory sheet.
+
+COMING UP NEXT:
+- Custom distribution labels ("Box", "Crate") instead of generic "Other"
+- Redesign how the system handles unfinished orders (visible expiration instead of silent cancel)
+
+30 done today / 10 in the queue (3 high priority, 7 medium)
+Note: today's changes are on preview but not yet live in production.
