@@ -4,6 +4,7 @@ import { useViewMode } from '../../context/ViewModeContext.tsx';
 import { SearchInput } from '../../components/ui/SearchInput.tsx';
 import { useDebounce } from '../../hooks/useDebounce.ts';
 import { InventoryCard } from './components/InventoryCard.tsx';
+import { useVerifiedSkus } from '../../hooks/useVerifiedSkus';
 import { ItemDetailView } from './components/ItemDetailView';
 import { naturalSort } from '../../utils/sortUtils.ts';
 import Plus from 'lucide-react/dist/esm/icons/plus';
@@ -258,6 +259,7 @@ export const InventoryScreen = () => {
   }, [debouncedSearch]);
 
   const { viewMode, isSearching, externalDoubleCheckId } = useViewMode(); // 'stock' | 'picking'
+  const verifiedSkus = useVerifiedSkus();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItemWithMetadata | null>(null);
@@ -781,6 +783,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                             onCartIncrement={() => updateCartQty(item, 1)}
                             onCartDecrement={() => updateCartQty(item, -1)}
                             onCartRemove={() => removeFromCart(item)}
+                            lastCounted={verifiedSkus.get(item.sku) ?? null}
                           />
                         </div>
                       );

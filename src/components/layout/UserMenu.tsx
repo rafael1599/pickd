@@ -13,6 +13,7 @@ import ShieldCheck from 'lucide-react/dist/esm/icons/shield-check';
 import History from 'lucide-react/dist/esm/icons/history';
 import RefreshCw from 'lucide-react/dist/esm/icons/refresh-cw';
 import ClipboardList from 'lucide-react/dist/esm/icons/clipboard-list';
+import FileSearch from 'lucide-react/dist/esm/icons/file-search';
 import { InventorySnapshotModal } from '../../features/inventory/components/InventorySnapshotModal';
 import { useScrollLock } from '../../hooks/useScrollLock';
 
@@ -229,6 +230,31 @@ export const UserMenu = ({ isOpen, onClose, onExport, navigate }: UserMenuProps)
                     </p>
                     <p className="text-[9px] text-muted font-bold uppercase">
                       Physical inventory check
+                    </p>
+                  </div>
+                </div>
+                <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
+              </button>
+
+              <div className="h-px bg-subtle my-2" />
+
+              <button
+                onClick={() => {
+                  navigate('/cycle-count-history');
+                  onClose();
+                }}
+                className="flex items-center justify-between w-full group text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-card border border-subtle rounded-xl text-purple-400">
+                    <FileSearch size={16} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-content uppercase tracking-tight">
+                      Cycle Count History
+                    </p>
+                    <p className="text-[9px] text-muted font-bold uppercase">
+                      Past audits & reports
                     </p>
                   </div>
                 </div>

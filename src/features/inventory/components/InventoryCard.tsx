@@ -27,6 +27,7 @@ interface InventoryCardProps {
   onCartIncrement?: () => void;
   onCartDecrement?: () => void;
   onCartRemove?: () => void;
+  lastCounted?: Date | null;
 }
 
 export const InventoryCard = memo(
@@ -54,6 +55,7 @@ export const InventoryCard = memo(
     onCartIncrement,
     onCartDecrement,
     onCartRemove,
+    lastCounted = null,
   }: InventoryCardProps) => {
     const [flash, setFlash] = useState(false);
     const prevQuantityRef = useRef(quantity);
@@ -297,6 +299,21 @@ export const InventoryCard = memo(
             )}
           </div>
         </div>
+
+        {/* Cycle count verified indicator */}
+        {lastCounted && (
+          <div className="mt-1 mx-1 mb-0.5">
+            <div
+              className={`h-1 rounded-full transition-all ${
+                Date.now() - lastCounted.getTime() < 7 * 86400000
+                  ? 'bg-green-500/40'
+                  : Date.now() - lastCounted.getTime() < 30 * 86400000
+                    ? 'bg-green-500/25'
+                    : 'bg-green-500/10'
+              }`}
+            />
+          </div>
+        )}
       </div>
     );
   }
