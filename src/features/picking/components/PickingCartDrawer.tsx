@@ -271,7 +271,7 @@ export const PickingCartDrawer: React.FC = () => {
   const handleReleaseOrder = async () => {
     if (sessionMode === 'double_checking' && activeListId) {
       await claimAsPicker(activeListId);
-      releaseCheck(activeListId);
+      await releaseCheck(activeListId);
     }
     setIsOpen(false);
   };
