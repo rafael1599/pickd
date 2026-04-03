@@ -276,6 +276,10 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
 
   // ── Handlers ──
 
+  const handleOpenRemove = (sku: string) => {
+    setActivePanel({ type: 'remove', sku });
+  };
+
   const handleOpenReplace = (sku: string) => {
     setSearchQuery('');
     setActivePanel({ type: 'replace', sku });
