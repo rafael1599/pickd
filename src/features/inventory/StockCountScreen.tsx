@@ -71,6 +71,8 @@ export const StockCountScreen = () => {
   const [dbSessionId, setDbSessionId] = useState<string | null>(null);
   const [dbSessionLabel, setDbSessionLabel] = useState<string | null>(null);
   const [dbSessionLoaded, setDbSessionLoaded] = useState(false);
+  // Direct inventory fetch for cycle count SKUs (bypasses paginated cache)
+  const [directInventory, setDirectInventory] = useState<InventoryItemWithMetadata[]>([]);
 
   useEffect(() => {
     supabase
@@ -90,14 +92,22 @@ export const StockCountScreen = () => {
             .select('sku, expected_qty, counted_qty, status')
             .eq('session_id', data.id)
             .order('created_at')
-            .then(({ data: items }) => {
+            .then(async ({ data: items }) => {
               if (items && items.length > 0) {
                 const skus = items.map((i: { sku: string }) => i.sku);
                 const verified = items
                   .filter((i: { status: string }) => i.status === 'counted' || i.status === 'verified')
                   .map((i: { sku: string }) => i.sku);
+
+                // Fetch real inventory for these SKUs directly from DB
+                const { data: invData } = await supabase
+                  .from('inventory')
+                  .select('*, sku_metadata(sku, image_url, length_in, width_in, height_in, weight_lbs)')
+                  .in('sku', skus)
+                  .eq('warehouse', 'LUDLOW');
+                if (invData) setDirectInventory(invData as InventoryItemWithMetadata[]);
+
                 setSession((prev) => {
-                  // Only load from DB if local session is empty (don't overwrite active work)
                   if (prev.skus.length === 0) {
                     return { ...prev, skus, verifiedSkus: verified, status: 'counting' };
                   }
@@ -120,10 +130,15 @@ export const StockCountScreen = () => {
   const [editingItem, setEditingItem] = useState<InventoryItemWithMetadata | null>(null);
 
   // ─── Derived Data: Unique SKUs in Inventory ───
-  // Groups all inventory by SKU to calculate total quantities quickly
+  // Merges paginated cache + direct DB fetch for cycle count SKUs
   const inventoryBySku = useMemo(() => {
     const map = new Map<string, { totalQty: number; items: InventoryItemWithMetadata[] }>();
-    inventoryData.forEach((item) => {
+    const seenIds = new Set<number>();
+
+    const addItem = (item: InventoryItemWithMetadata) => {
+      const id = item.id as number;
+      if (seenIds.has(id)) return;
+      seenIds.add(id);
       const sku = item.sku.toUpperCase();
       if (!map.has(sku)) {
         map.set(sku, { totalQty: 0, items: [] });
@@ -131,9 +146,12 @@ export const StockCountScreen = () => {
       const group = map.get(sku)!;
       group.items.push(item);
       group.totalQty += item.quantity || 0;
-    });
+    };
+
+    inventoryData.forEach(addItem);
+    directInventory.forEach(addItem);
     return map;
-  }, [inventoryData]);
+  }, [inventoryData, directInventory]);
 
   // Sync verified status back to DB
   const syncVerifiedToDb = useCallback(
