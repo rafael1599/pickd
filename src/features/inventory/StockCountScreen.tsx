@@ -112,23 +112,6 @@ export const StockCountScreen = () => {
       });
   }, []);
 
-  // Sync verified status back to DB
-  const syncVerifiedToDb = useCallback(
-    async (sku: string, verified: boolean) => {
-      if (!dbSessionId) return;
-      await supabase
-        .from('cycle_count_items')
-        .update({
-          status: verified ? 'counted' : 'pending',
-          counted_qty: verified ? (inventoryBySku.get(sku)?.totalQty ?? 0) : null,
-          counted_at: verified ? new Date().toISOString() : null,
-        })
-        .eq('session_id', dbSessionId)
-        .eq('sku', sku);
-    },
-    [dbSessionId, inventoryBySku]
-  );
-
   // ─── Input Phase State ───
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -151,6 +134,23 @@ export const StockCountScreen = () => {
     });
     return map;
   }, [inventoryData]);
+
+  // Sync verified status back to DB
+  const syncVerifiedToDb = useCallback(
+    async (sku: string, verified: boolean) => {
+      if (!dbSessionId) return;
+      await supabase
+        .from('cycle_count_items')
+        .update({
+          status: verified ? 'counted' : 'pending',
+          counted_qty: verified ? (inventoryBySku.get(sku)?.totalQty ?? 0) : null,
+          counted_at: verified ? new Date().toISOString() : null,
+        })
+        .eq('session_id', dbSessionId)
+        .eq('sku', sku);
+    },
+    [dbSessionId, inventoryBySku]
+  );
 
   // ─── Input Phase: Search Results ───
   const searchResults = useMemo(() => {
