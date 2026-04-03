@@ -82,44 +82,27 @@ export const usePickingCart = ({ sessionMode, reservedQuantities }: UsePickingCa
 
   const addToCart = useCallback(
     (item: InventoryItem) => {
-      // Allow in both 'picking' and 'building' modes
       if (sessionMode !== 'picking' && sessionMode !== 'building' && sessionMode !== 'idle') return;
 
       const key = `${item.sku}|${item.warehouse}|${item.location}`;
       const totalReserved = reservedQuantities[key] || 0;
       const currentInMyCart = cartItems.find((i) => isSameItem(i, item))?.pickingQty || 0;
-
-      // In Building Mode: We ignore *current* reservations because we might be stealing them (race condition handled at commit).
-      // But we must respect total physical stock.
       const stock = item.quantity || 0;
+      const reservedByOthers = Math.max(0, totalReserved - currentInMyCart);
+      const available = stock - reservedByOthers;
 
-      let available = 0;
-      if (sessionMode === 'building') {
-        available = stock; // In building, you can select anything that physically exists
-      } else {
-        const reservedByOthers = Math.max(0, totalReserved - currentInMyCart);
-        available = stock - reservedByOthers;
-      }
-
-      // Block completely if no stock available (physically)
       if (stock <= 0) {
         toast.error(`This item is out of stock. 🚫`);
         return;
       }
 
-      // If in Picking mode, do stricter check
-      if (sessionMode === 'picking' && available <= 0) {
+      if (available <= 0) {
         toast.error(`This item is fully reserved by other active orders. 🚫`);
         return;
       }
 
-      // Check if adding one more would exceed
       if (currentInMyCart + 1 > available) {
-        toast.error(
-          sessionMode === 'building'
-            ? `Only ${stock} total units in stock.`
-            : `Only ${available} available (others reserved).`
-        );
+        toast.error(`Only ${available} available (others reserved).`);
         return;
       }
 
@@ -169,14 +152,8 @@ export const usePickingCart = ({ sessionMode, reservedQuantities }: UsePickingCa
       const currentInMyCart = cartItems.find((i) => isSameItem(i, item))?.pickingQty || 0;
 
       const stock = item.quantity || 0;
-      let available = 0;
-
-      if (sessionMode === 'building') {
-        available = stock;
-      } else {
-        const reservedByOthers = Math.max(0, totalReserved - currentInMyCart);
-        available = stock - reservedByOthers;
-      }
+      const reservedByOthers = Math.max(0, totalReserved - currentInMyCart);
+      const available = stock - reservedByOthers;
 
       setCartItems((prev) =>
         prev.map((i) => {
@@ -188,8 +165,6 @@ export const usePickingCart = ({ sessionMode, reservedQuantities }: UsePickingCa
               toast.error(`Cannot exceed ${available} available units.`);
             }
 
-            // If quantity goes to 0 (or less), keep it at 1 or handle removal separately?
-            // Original logic: Math.max(1, ...) implies minimum 1 unless removed explicitly
             return { ...i, pickingQty: newQty };
           }
           return i;
@@ -208,14 +183,8 @@ export const usePickingCart = ({ sessionMode, reservedQuantities }: UsePickingCa
       const currentInMyCart = cartItems.find((i) => isSameItem(i, item))?.pickingQty || 0;
 
       const stock = item.quantity || 0;
-      let available = 0;
-
-      if (sessionMode === 'building') {
-        available = stock;
-      } else {
-        const reservedByOthers = Math.max(0, totalReserved - currentInMyCart);
-        available = stock - reservedByOthers;
-      }
+      const reservedByOthers = Math.max(0, totalReserved - currentInMyCart);
+      const available = stock - reservedByOthers;
 
       setCartItems((prev) =>
         prev.map((i) => {

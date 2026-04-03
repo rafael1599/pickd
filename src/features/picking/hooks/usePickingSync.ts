@@ -383,7 +383,6 @@ export const usePickingSync = ({
     listId: string | null,
     orderNum: string | null
   ) => {
-    if (sessionMode === 'building') return;
     if (!userId || isSyncingRef.current || sessionMode !== 'picking') return;
 
     isSyncingRef.current = true;
@@ -446,7 +445,7 @@ export const usePickingSync = ({
   }, [sessionMode]);
 
   useEffect(() => {
-    if (sessionMode === 'building' || !isLoaded || !user || sessionMode !== 'picking') return;
+    if (!isLoaded || !user || sessionMode !== 'picking') return;
     if (cartItems.length === 0 && !activeListId && isInitialSyncRef.current) {
       isInitialSyncRef.current = false;
       return;
@@ -462,10 +461,10 @@ export const usePickingSync = ({
     async (listId: string) => {
       if (!user) return;
 
-      // Save in-progress building session to DB before switching to verification
-      // Without this, building-mode orders (localStorage-only) are lost when the
-      // session state is overwritten by the external list.
-      if (sessionMode === 'building' && cartItems.length > 0 && orderNumber) {
+      // Force-save in-progress picking session before switching to verification.
+      // In picking mode, sessions auto-sync via debounce, but the debounce may not
+      // have fired yet. Flush it now to ensure the order is in DB before we overwrite state.
+      if (sessionMode === 'picking' && cartItems.length > 0 && !activeListId && orderNumber) {
         try {
           const { data: saved } = await supabase
             .from('picking_lists')
@@ -478,10 +477,10 @@ export const usePickingSync = ({
             .select('id')
             .single();
           if (saved) {
-            console.log('💾 [loadExternalList] Saved building session to DB:', saved.id);
+            console.log('💾 [loadExternalList] Flushed unsaved session to DB:', saved.id);
           }
         } catch (err) {
-          console.error('Failed to save building session before switching:', err);
+          console.error('Failed to flush session before switching:', err);
         }
       }
 

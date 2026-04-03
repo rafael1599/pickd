@@ -374,14 +374,6 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
 
   const addToCart = useCallback(
     (item: InventoryItem) => {
-      // Block adding items in picking mode
-      if (sessionMode === 'picking') {
-        toast.error('Cannot add items in picking mode. Use "Return to Building" to make changes.', {
-          icon: '🔒',
-        });
-        return;
-      }
-
       // If idle and no order number, store item and show modal
       if (sessionMode === 'idle' && !orderNumber) {
         setPendingItem(item);
@@ -389,9 +381,10 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      // Transition to building mode if idle (with order number)
+      // Transition to picking mode if idle (with order number)
       if (sessionMode === 'idle') {
-        setSessionMode('building');
+        setSessionMode('picking');
+        localStorage.setItem('picking_session_mode', 'picking');
       }
 
       addToCartInternal(item);
@@ -442,9 +435,9 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
         }
       }
 
-      // Start in Building Mode
-      setSessionMode('building');
-      localStorage.setItem('picking_session_mode', 'building');
+      // Start in Picking Mode (direct to active, no building step)
+      setSessionMode('picking');
+      localStorage.setItem('picking_session_mode', 'picking');
 
       // Now add the pending item to cart
       if (itemToAdd) {
