@@ -341,7 +341,7 @@ export const PickingCartDrawer: React.FC = () => {
         .update({ items: newItems as unknown as Record<string, unknown>[] })
         .eq('id', activeListId);
 
-      // Update local cart state immediately (cart methods are gated to picking/building mode)
+      // Update local cart state immediately
       setCartItems(newItems as unknown as typeof cartItems);
 
       await supabase.from('picking_list_notes').insert({

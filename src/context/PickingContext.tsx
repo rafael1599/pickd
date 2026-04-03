@@ -39,8 +39,8 @@ interface PickingContextType {
   notes: PickingNote[];
   isNotesLoading: boolean;
   addNote: (message: string) => Promise<void>;
-  sessionMode: 'idle' | 'building' | 'picking' | 'double_checking';
-  setSessionMode: (mode: 'idle' | 'building' | 'picking' | 'double_checking') => void;
+  sessionMode: 'idle' | 'picking' | 'double_checking';
+  setSessionMode: (mode: 'idle' | 'picking' | 'double_checking') => void;
   pallets: Pallet[];
 
   onStartSession: () => void;
@@ -74,7 +74,7 @@ interface PickingContextType {
 
   generatePickingPath: () => Promise<void>;
 
-  returnToBuilding: (id?: string | null) => Promise<void>;
+  // returnToBuilding removed (idea-032) — Edit Order replaces it
 
   isLoaded: boolean;
   isSaving: boolean;
@@ -110,7 +110,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [correctionNotes, setCorrectionNotes] = useState<string | null>(null);
   const [sessionMode, setSessionMode] = useState<
-    'idle' | 'building' | 'picking' | 'double_checking'
+    'idle' | 'picking' | 'double_checking'
   >('idle');
 
   // Workflow Lock: prevents loadSession from overwriting activeListId during a workflow
@@ -288,88 +288,11 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
     [user, addNoteRaw]
   );
 
-  // Return to Building: Revert from Picking mode back to Building mode
-  const returnToBuilding = useCallback(
-    async (id?: string | null) => {
-      const targetId = id || activeListId;
-
-      if (!targetId) {
-        // If we really have no ID but we have items in cart, we might already be in building mode
-        // or in a transition state. Let's force mode to building.
-        setSessionMode('building');
-        localStorage.setItem('picking_session_mode', 'building');
-        return;
-      }
-
-      isInWorkflowRef.current = true;
-      try {
-        // If we are in verification/picking, maybe we don't want to DELETE,
-        // just go back to building while keeping the DB record as 'active' or 'needs_correction'
-        // To keep it simple and safe: Let's only delete if it's strictly necessary.
-        // If the user wants to EDIT, we should keep the list ID but change status.
-
-        const { data: current } = await supabase
-          .from('picking_lists')
-          .select('status, group_id')
-          .eq('id', targetId)
-          .maybeSingle();
-
-        if (current?.status === 'ready_to_double_check' || current?.status === 'double_checking') {
-          // Just move it back to 'active' (picking) so it doesn't disappear from the DB
-          await supabase
-            .from('picking_lists')
-            .update({ status: 'active', checked_by: null })
-            .eq('id', targetId);
-
-          // Release group siblings back to queue (matches releaseCheck pattern)
-          if (current.group_id) {
-            await supabase
-              .from('picking_lists')
-              .update({ status: 'ready_to_double_check', checked_by: null })
-              .eq('group_id', current.group_id)
-              .neq('id', targetId)
-              .neq('status', 'completed')
-              .neq('status', 'cancelled');
-          }
-
-          // Keep activeListId so generatePickingPath() can UPDATE instead of INSERT (bug-004 fix)
-          setListStatus('active');
-          setSessionMode('building');
-          localStorage.setItem('picking_session_mode', 'building');
-          localStorage.setItem('active_picking_list_id', targetId);
-
-          toast('Returned to building mode. You can correct items and re-generate.', {
-            icon: '↩️',
-            duration: 3000,
-          });
-        } else if (current?.status === 'completed') {
-          // Already finished, don't touch DB
-          console.log('⚠️ [returnToBuilding] List is already completed. Skipping DB update.');
-          setSessionMode('building');
-          setActiveListId(null);
-          localStorage.setItem('picking_session_mode', 'building');
-          localStorage.removeItem('active_picking_list_id');
-        } else {
-          // For other states (like initial picking), delete to release reservations
-          await deleteList(targetId, true);
-          setSessionMode('building');
-          setActiveListId(null);
-          localStorage.setItem('picking_session_mode', 'building');
-          localStorage.removeItem('active_picking_list_id');
-
-          toast('Returned to building mode. Stock reservations released.', {
-            icon: '↩️',
-            duration: 3000,
-          });
-        }
-      } catch (err) {
-        console.error('Failed to return to building:', err);
-        toast.error('Failed to return to building mode');
-      } finally {
-        isInWorkflowRef.current = false;
-      }
-    },
-    [activeListId, deleteList, setSessionMode, setActiveListId]
+  // returnToBuilding removed (idea-032) — Edit Order mode replaces this functionality.
+  // Users can now edit items directly via CorrectionModeView from any status.
+  const _returnToBuildingRemoved = useCallback(
+    async () => { /* placeholder to maintain hook order */ },
+    []
   );
 
   const addToCart = useCallback(
@@ -495,7 +418,6 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       generatePickingPath,
       takeOverOrder,
       claimAsPicker,
-      returnToBuilding,
       isLoaded,
       isSaving,
       lastSaved,
@@ -550,7 +472,6 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       deleteList,
       loadExternalList,
       generatePickingPath,
-      returnToBuilding,
       isLoaded,
       isSaving,
       lastSaved,

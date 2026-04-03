@@ -9,7 +9,7 @@ import type { Json } from '../../../integrations/supabase/types';
 
 interface UsePickingSyncProps {
   user: User | null;
-  sessionMode: 'building' | 'picking' | 'double_checking' | 'idle';
+  sessionMode: 'picking' | 'double_checking' | 'idle';
   cartItems: CartItem[];
   orderNumber: string | null;
   activeListId: string | null;
@@ -28,7 +28,7 @@ interface UsePickingSyncProps {
   ownerId: string | null;
   setOwnerId: (id: string | null) => void;
   setCorrectionNotes: (notes: string | null) => void;
-  setSessionMode: (mode: 'building' | 'picking' | 'double_checking') => void;
+  setSessionMode: (mode: 'picking' | 'double_checking') => void;
   loadFromLocalStorage: () => void;
   showError: (title: string, msg: string) => void;
   resetSession: () => void;
@@ -109,7 +109,7 @@ export const usePickingSync = ({
 
     const loadSession = async () => {
       try {
-        // Guard: Skip if a workflow (generatePickingPath, returnToBuilding) is in progress
+        // Guard: Skip if a workflow (generatePickingPath) is in progress
         if (isInWorkflowRef.current) {
           console.log('⏸️ [loadSession] Skipped — workflow in progress');
           setIsLoaded(true);

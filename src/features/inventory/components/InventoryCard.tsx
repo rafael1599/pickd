@@ -15,7 +15,7 @@ interface InventoryCardProps {
   detail?: string | null;
   onClick: () => void;
   warehouse?: string | null;
-  mode?: 'stock' | 'picking' | 'building' | 'double_checking' | 'idle';
+  mode?: 'stock' | 'picking' | 'double_checking' | 'idle';
   reservedByOthers?: number;
   available?: number | null;
   lastUpdateSource?: 'local' | 'remote';
@@ -76,18 +76,12 @@ export const InventoryCard = memo(
     }, [quantity, lastUpdateSource]);
 
     const isPicking = mode === 'picking';
-    const isBuilding = mode === 'building';
 
-    // In building mode, we only care if physical stock is 0.
-    // In picking mode, we care if available (stock - reserved) is 0.
     const isFullyReserved = isPicking && available !== null && available <= 0;
-    const isOutOfStock = (isBuilding || mode === 'stock') && quantity <= 0;
     const isZeroStock = mode === 'stock' && quantity <= 0;
 
-    // In building mode, we care about physical stock.
-    // In picking mode, we care if available is 0.
-    // In stock mode, we DON'T disable even if stock is 0 (so we can edit/add).
-    const isDisabled = isFullyReserved || (isBuilding && isOutOfStock);
+    // In picking mode, disable if fully reserved. In stock mode, never disable.
+    const isDisabled = isFullyReserved;
 
     const hasReservations = isPicking && reservedByOthers > 0;
 
@@ -228,11 +222,6 @@ export const InventoryCard = memo(
                 </div>
               )}
 
-              {isBuilding && quantity <= 0 && (
-                <span className="text-[9px] font-black uppercase tracking-widest text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20 mt-1">
-                  Out of Stock
-                </span>
-              )}
             </div>
 
             {mode === 'stock' && (
@@ -270,8 +259,8 @@ export const InventoryCard = memo(
               </div>
             )}
 
-            {/* Cart stepper: visible in picking/building mode when item is in cart */}
-            {cartQty > 0 && (isPicking || isBuilding) && (
+            {/* Cart stepper: visible in picking mode when item is in cart */}
+            {cartQty > 0 && isPicking && (
               <div className="flex gap-2 mt-1 items-center">
                 <button
                   onClick={(e) => {

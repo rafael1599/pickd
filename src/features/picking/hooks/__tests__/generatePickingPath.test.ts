@@ -43,7 +43,7 @@ function makeProps(overrides: Record<string, unknown> = {}) {
     cartItems: CART_ITEMS,
     orderNumber: 'ORD-878695',
     customer: null,
-    sessionMode: 'building' as const,
+    sessionMode: 'picking' as const,
     setCartItems: vi.fn(),
     setActiveListId: vi.fn(),
     setOrderNumber: vi.fn(),

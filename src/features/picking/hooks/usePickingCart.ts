@@ -14,7 +14,7 @@ const LOCAL_STORAGE_CUSTOMER_KEY = 'picking_customer_obj';
 const LOCAL_STORAGE_LOAD_KEY = 'picking_load_number';
 
 interface UsePickingCartProps {
-  sessionMode: 'idle' | 'building' | 'picking' | 'double_checking';
+  sessionMode: 'idle' | 'picking' | 'double_checking';
   reservedQuantities: Record<string, number>;
 }
 
@@ -82,7 +82,7 @@ export const usePickingCart = ({ sessionMode, reservedQuantities }: UsePickingCa
 
   const addToCart = useCallback(
     (item: InventoryItem) => {
-      if (sessionMode !== 'picking' && sessionMode !== 'building' && sessionMode !== 'idle') return;
+      if (sessionMode !== 'picking' && sessionMode !== 'idle') return;
 
       const key = `${item.sku}|${item.warehouse}|${item.location}`;
       const totalReserved = reservedQuantities[key] || 0;
@@ -145,7 +145,7 @@ export const usePickingCart = ({ sessionMode, reservedQuantities }: UsePickingCa
 
   const updateCartQty = useCallback(
     (item: InventoryItem, change: number) => {
-      if (sessionMode !== 'picking' && sessionMode !== 'building') return;
+      if (sessionMode !== 'picking') return;
 
       const key = `${item.sku}|${item.warehouse}|${item.location}`;
       const totalReserved = reservedQuantities[key] || 0;
@@ -176,7 +176,7 @@ export const usePickingCart = ({ sessionMode, reservedQuantities }: UsePickingCa
 
   const setCartQty = useCallback(
     (item: InventoryItem, newAbsoluteQty: number) => {
-      if (sessionMode !== 'picking' && sessionMode !== 'building') return;
+      if (sessionMode !== 'picking') return;
 
       const key = `${item.sku}|${item.warehouse}|${item.location}`;
       const totalReserved = reservedQuantities[key] || 0;
@@ -204,7 +204,7 @@ export const usePickingCart = ({ sessionMode, reservedQuantities }: UsePickingCa
 
   const removeFromCart = useCallback(
     (item: Partial<InventoryItem>) => {
-      if (sessionMode !== 'picking' && sessionMode !== 'building') return;
+      if (sessionMode !== 'picking') return;
       setCartItems((prev) => prev.filter((i) => !isSameItem(i, item)));
     },
     [isSameItem, sessionMode]

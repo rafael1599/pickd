@@ -46,7 +46,7 @@ interface UsePickingActionsProps {
   cartItems: CartItem[];
   orderNumber: string | null;
   customer: Customer | null;
-  sessionMode: 'building' | 'picking' | 'double_checking' | 'idle';
+  sessionMode: 'picking' | 'double_checking' | 'idle';
   setCartItems: (items: CartItem[]) => void;
   setActiveListId: (id: string | null) => void;
   setOrderNumber: (num: string | null) => void;
@@ -58,7 +58,7 @@ interface UsePickingActionsProps {
   loadNumber: string | null;
   setLoadNumber: (num: string | null) => void;
   setCorrectionNotes: (notes: string | null) => void;
-  setSessionMode: (mode: 'building' | 'picking' | 'double_checking') => void;
+  setSessionMode: (mode: 'picking' | 'double_checking') => void;
   setIsSaving: (val: boolean) => void;
   resetSession: (skipState?: boolean) => void;
   isInWorkflowRef: React.MutableRefObject<boolean>;
