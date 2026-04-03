@@ -19,6 +19,7 @@ import { PickingSummaryModal } from '../../components/orders/PickingSummaryModal
 import { SplitOrderModal } from '../../components/orders/SplitOrderModal.tsx';
 import { SearchInput } from '../../components/ui/SearchInput.tsx';
 import type { PickingListItem, CombineMeta } from '../../schemas/picking.schema';
+import { isBikeSku } from '../../utils/distributionCalculator';
 
 interface CustomerDetails {
   id: string;
@@ -171,24 +172,26 @@ export const OrdersScreen = () => {
     });
   }, [selectedOrder?.items, skuWeights]);
 
-  // Auto-assign 45 lbs default weight to SKUs missing weight in sku_metadata
+  // Auto-assign default weight to SKUs missing weight in sku_metadata
+  // Bikes → 45 lbs, Parts → 0.1 lbs
   useEffect(() => {
     if (!weightsReady || itemsMissingWeight.length === 0) return;
     const skusToFix = itemsMissingWeight.map((i: PickingListItem) => i.sku);
 
-    // Upsert 45 lbs for each missing SKU
     Promise.all(
-      skusToFix.map((sku: string) =>
-        supabase.from('sku_metadata').upsert(
-          { sku, weight_lbs: 45 },
+      skusToFix.map((sku: string) => {
+        const defaultWeight = isBikeSku(sku) ? 45 : 0.1;
+        return supabase.from('sku_metadata').upsert(
+          { sku, weight_lbs: defaultWeight },
           { onConflict: 'sku' }
-        )
-      )
+        );
+      })
     ).then(() => {
-      // Update local state so totalWeight recalculates immediately
       setSkuWeights((prev) => {
         const updated = { ...prev };
-        skusToFix.forEach((sku: string) => { updated[sku] = 45; });
+        skusToFix.forEach((sku: string) => {
+          updated[sku] = isBikeSku(sku) ? 45 : 0.1;
+        });
         return updated;
       });
     });

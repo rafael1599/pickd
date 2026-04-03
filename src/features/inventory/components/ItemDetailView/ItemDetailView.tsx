@@ -42,6 +42,14 @@ type WarehouseType = 'LUDLOW' | 'ATS' | 'DELETED ITEMS';
 
 const DEFAULT_UNITS: Record<string, number> = { TOWER: 30, LINE: 5, PALLET: 10, OTHER: 1 };
 
+/** Dimension defaults: bikes get standard box dims, parts get zeros */
+function dimensionDefaults(sku?: string | null) {
+  const bike = sku ? isBikeSku(sku) : true; // default to bike for add mode
+  return bike
+    ? { length_in: 54, width_in: 8, height_in: 30, weight_lbs: 45 }
+    : { length_in: 0, width_in: 0, height_in: 0, weight_lbs: 0 };
+}
+
 interface ItemDetailViewProps {
   isOpen: boolean;
   onClose: () => void;
@@ -99,10 +107,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       quantity: 0,
       item_name: '',
       warehouse: 'LUDLOW',
-      length_in: 54,
-      width_in: 8,
-      height_in: 30,
-      weight_lbs: 45,
+      ...dimensionDefaults(null),
       internal_note: '',
     },
   });
@@ -132,9 +137,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           quantity: Number(initialData.quantity) || 0,
           item_name: initialData.item_name || '',
           warehouse: initialData.warehouse || (screenType as WarehouseType) || 'LUDLOW',
-          length_in: initialData.sku_metadata?.length_in ?? 54,
-          width_in: initialData.sku_metadata?.width_in ?? 8,
-          height_in: initialData.sku_metadata?.height_in ?? 30,
+          length_in: initialData.sku_metadata?.length_in ?? dimensionDefaults(initialData.sku).length_in,
+          width_in: initialData.sku_metadata?.width_in ?? dimensionDefaults(initialData.sku).width_in,
+          height_in: initialData.sku_metadata?.height_in ?? dimensionDefaults(initialData.sku).height_in,
           weight_lbs: initialData.sku_metadata?.weight_lbs ?? null,
           internal_note: initialData.internal_note || '',
         });
@@ -148,10 +153,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           quantity: 0,
           item_name: '',
           warehouse: (screenType as WarehouseType) || 'LUDLOW',
-          length_in: 54,
-          width_in: 8,
-          height_in: 30,
-          weight_lbs: 45,
+          ...dimensionDefaults(null),
           internal_note: '',
         });
         setDistribution([]);
@@ -184,6 +186,16 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       setDistribution(calculateBikeDistribution(quantity));
     }
   }, [isOpen, mode, sku, quantity, userEditedDistribution]);
+
+  // Auto-set dimension defaults based on SKU type in Add mode
+  useEffect(() => {
+    if (!isOpen || mode !== 'add' || !sku || sku.length < 5) return;
+    const defaults = dimensionDefaults(sku);
+    setValue('length_in', defaults.length_in);
+    setValue('width_in', defaults.width_in);
+    setValue('height_in', defaults.height_in);
+    setValue('weight_lbs', defaults.weight_lbs);
+  }, [isOpen, mode, sku, setValue]);
 
   // Sync sku_metadata from realtime
   useEffect(() => {
