@@ -466,6 +466,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     const isFullyVerified = verifiedUnitsCount === totalUnitsCount;
     setIsDeducting(true);
     try {
+      // If status is active and fully verified, do markAsReady + deduct in one step
+      if ((status === 'active' || status === 'needs_correction') && isFullyVerified && onMarkAsReady) {
+        await onMarkAsReady();
+        // Small delay for DB status to propagate before deduction
+        await new Promise((r) => setTimeout(r, 300));
+      }
       await onDeduct(cartItems, isFullyVerified);
     } catch (error) {
       console.error(error);
@@ -985,25 +991,14 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             </span>
           </div>
         )}
-        {status === 'active' || status === 'needs_correction' ? (
-          <SlideToConfirm
-            onConfirm={() => onMarkAsReady?.()}
-            isLoading={isDeducting}
-            text="SLIDE TO SEND TO VERIFY"
-            confirmedText="SENDING..."
-            variant="info"
-            disabled={cartItems.length === 0}
-          />
-        ) : (
-          <SlideToConfirm
-            onConfirm={handleConfirm}
-            isLoading={isDeducting}
-            text={verifiedUnitsCount === totalUnitsCount ? 'SLIDE TO COMPLETE' : 'SEND TO VERIFY'}
-            confirmedText={verifiedUnitsCount === totalUnitsCount ? 'COMPLETING...' : 'SENDING...'}
-            variant={verifiedUnitsCount === totalUnitsCount ? 'default' : 'info'}
-            disabled={false}
-          />
-        )}
+        <SlideToConfirm
+          onConfirm={verifiedUnitsCount === totalUnitsCount ? handleConfirm : () => onMarkAsReady?.()}
+          isLoading={isDeducting}
+          text={verifiedUnitsCount === totalUnitsCount ? 'SLIDE TO COMPLETE' : 'SLIDE TO SEND TO VERIFY'}
+          confirmedText={verifiedUnitsCount === totalUnitsCount ? 'COMPLETING...' : 'SENDING...'}
+          variant={verifiedUnitsCount === totalUnitsCount ? 'default' : 'info'}
+          disabled={cartItems.length === 0}
+        />
       </div>
 
       {/* Edit Item Modal (reuses InventoryModal from stock view) */}
