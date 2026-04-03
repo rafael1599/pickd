@@ -984,21 +984,39 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black via-black/90 to-transparent shrink-0 z-20">
-        {verifiedUnitsCount < totalUnitsCount && (
-          <div className="mb-4 flex items-center justify-center gap-2 animate-pulse">
-            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">
-              {totalUnitsCount - verifiedUnitsCount} units remaining
-            </span>
+        {verifiedUnitsCount === totalUnitsCount ? (
+          /* All verified — show slide to complete */
+          <SlideToConfirm
+            onConfirm={handleConfirm}
+            isLoading={isDeducting}
+            text="SLIDE TO COMPLETE"
+            confirmedText="COMPLETING..."
+            variant="default"
+            disabled={cartItems.length === 0}
+          />
+        ) : (
+          /* Not all verified — show action buttons */
+          <div className="flex gap-3">
+            <button
+              onClick={() => onMarkAsReady?.()}
+              className="flex-1 py-4 bg-white/5 border border-white/10 text-white/70 font-black uppercase tracking-widest text-[10px] rounded-2xl active:scale-95 transition-all"
+            >
+              Send to Verify
+            </button>
+            <button
+              onClick={() => {
+                const allKeys = pallets.flatMap((p) =>
+                  p.items.map((item) => `${p.id}-${item.sku}-${item.location}`)
+                );
+                onSelectAll?.(allKeys);
+              }}
+              className="flex-[2] py-4 bg-accent text-main font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-accent/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+              <Check size={16} strokeWidth={3} />
+              Complete Now
+            </button>
           </div>
         )}
-        <SlideToConfirm
-          onConfirm={verifiedUnitsCount === totalUnitsCount ? handleConfirm : () => onMarkAsReady?.()}
-          isLoading={isDeducting}
-          text={verifiedUnitsCount === totalUnitsCount ? 'SLIDE TO COMPLETE' : 'SLIDE TO SEND TO VERIFY'}
-          confirmedText={verifiedUnitsCount === totalUnitsCount ? 'COMPLETING...' : 'SENDING...'}
-          variant={verifiedUnitsCount === totalUnitsCount ? 'default' : 'info'}
-          disabled={cartItems.length === 0}
-        />
       </div>
 
       {/* Edit Item Modal (reuses InventoryModal from stock view) */}
