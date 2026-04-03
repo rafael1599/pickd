@@ -35,13 +35,15 @@ PWA de gestión de inventario y warehouse operations. Multi-usuario con sync en 
 ## Picking workflow
 
 ```
-idle (UI) → building (UI-only, no DB) → active (DB)
+idle (UI) → active (DB — via generatePickingPath)
   → ready_to_double_check → double_checking
     → completed (terminal) | needs_correction → active (loop)
-  → cancelled (terminal — manual o auto-cancel >15min/24hrs)
+  → cancelled (terminal — manual o auto-cancel)
 ```
 
 6 estados DB: `active`, `ready_to_double_check`, `double_checking`, `needs_correction`, `completed`, `cancelled`. Órdenes completadas tienen triple protección contra reversión.
+
+> **⚠️ EN PROCESO:** `building` mode está siendo eliminado (idea-032). El flujo anterior era `idle → building → active`. El nuevo flujo es `idle → active` directo. Edit Order mode reemplaza las funciones de building (agregar/editar/eliminar items). `OrderBuilderMode.tsx` y `returnToBuilding()` serán eliminados.
 
 ## Base de datos compartida
 

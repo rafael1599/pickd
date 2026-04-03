@@ -1,0 +1,20 @@
+Progress Update — April 2, 2026 at 5:09 PM
+
+WIN OF THE DAY:
+Built a full Correction Mode for double-check — the checker can now search the entire inventory, replace items, adjust quantities, and add new items without leaving the screen. 22 automated checks confirm it works.
+
+WHAT'S BETTER NOW:
+- During verification, if an item is wrong or out of stock, the checker now has a dedicated screen to fix it: swap it, change the quantity, remove it, or add something new. Every correction is logged automatically.
+- The Orders screen on mobile got a full redesign: customer info collapses into an accordion, search results actually show up, and the label preview uses the full screen width.
+- Searching inventory used to show the wrong totals at the top (it showed everything instead of just the matches) — now the numbers reflect what you're actually looking at.
+- Scrolling through inventory used to flash a "Load More" button that flickered nonstop — removed it entirely, items now load silently as you scroll down.
+- The Save button on item details wasn't working — now it enables and saves correctly.
+- Going back from Orders used to land on the wrong screen — now it always takes you to the stock view.
+- The orange staging banner is gone. To tell which version you're on, open your profile: it says "latest" for preview or "stable" for production.
+
+COMING UP NEXT:
+- Redesign how the system handles unfinished orders: keep them visible instead of silently canceling
+- History screen in the user profile menu
+
+19 done today / 18 in the queue (9 high priority, 7 medium, 2 bugs)
+Note: today's changes are on preview but not yet live in production.

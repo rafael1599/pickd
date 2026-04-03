@@ -1,6 +1,6 @@
 # Picking Session Flow — Design Document
 
-> Last updated: 2026-04-01
+> Last updated: 2026-04-03
 > Status: Approved for implementation
 > Context: Research from 9 investigation agents (5 internal codebase, 4 external industry)
 
@@ -9,23 +9,30 @@
 PickD uses a serial session model: one active picking session per picker at a time.
 This document defines the state machine, correction flow, and safety mechanisms.
 
+> **⚠️ EN PROCESO:** `building` mode está siendo eliminado (idea-032). El flujo anterior
+> era `idle → building → active`. El nuevo flujo es `idle → active` directo, con Edit
+> Order mode reemplazando las funciones de building (agregar/editar/eliminar items).
+> `OrderBuilderMode.tsx` y `returnToBuilding()` serán eliminados.
+
 ## State Machine
 
 ```
                          IDLE
                           |
-                    [user adds items]
-                          |
-                       BUILDING
-                     (UI-only, no DB)
+                    [user taps item]
+                    (SessionInitModal:
+                     order #, customer)
                           |
                   [Start Picking]
-                  (generates path,
-                   reserves stock,
+                  (generatePickingPath:
+                   validates stock,
+                   reserves inventory,
                    creates DB record)
                           |
                         ACTIVE
-                    (picking in progress)
+                    (picking in progress,
+                     +/- controls enabled,
+                     Edit Order available)
                           |
                   [Mark as Ready]
                   (validates stock,
@@ -38,7 +45,8 @@ This document defines the state machine, correction flow, and safety mechanisms.
                   [Checker locks it]
                           |
                    DOUBLE_CHECKING
-                  (checker verifying items)
+                  (checker verifying items,
+                   Edit Order available)
                      /       \
           [Complete]          [Reject with notes]
               |                     |
@@ -56,8 +64,7 @@ This document defines the state machine, correction flow, and safety mechanisms.
 
 | From                  | To                    | Trigger               | Guard               |
 | --------------------- | --------------------- | --------------------- | ------------------- |
-| idle                  | building              | User adds first item  | None                |
-| building              | active                | Start Picking         | Stock available     |
+| idle                  | active                | Start Picking         | Stock available     |
 | active                | ready_to_double_check | Mark as Ready         | All items validated |
 | active                | cancelled             | User deletes / expiry | Not completed       |
 | ready_to_double_check | double_checking       | Checker locks         | checked_by = null   |
@@ -68,10 +75,15 @@ This document defines the state machine, correction flow, and safety mechanisms.
 
 ### Forbidden Transitions
 
-- double_checking -> active (eliminated: was returnToBuilding, caused bug-011)
-- double_checking -> building (eliminated: same reason)
 - completed -> any (terminal, triple-protected)
 - Any backward jump that skips a state
+
+### Eliminated transitions (historical)
+
+- idle -> building (eliminated: building mode removed, idea-032)
+- building -> active (eliminated: replaced by idle -> active)
+- double_checking -> active (eliminated: was returnToBuilding, caused bug-011)
+- double_checking -> building (eliminated: same reason)
 
 ## Edit Order (Double Check View)
 
@@ -167,9 +179,9 @@ type CorrectionAction =
 ### Rules
 
 - Edit Order is accessible for ANY order in double check, not just those with problems
+- **⚠️ EN PROCESO:** Edit Order será accesible también desde picking mode (no solo double check)
 - All corrections are logged in picking_list_notes with descriptive messages
 - The checker never leaves the double check flow (status stays `double_checking`)
-- No backward transitions to building mode or active status
 - `adjust_qty` clears the `insufficient_stock` flag
 - `swap` clears both `sku_not_found` and `insufficient_stock` flags
 - Added items get clean flags (`sku_not_found: false, insufficient_stock: false`)
@@ -187,7 +199,7 @@ overwriting activeListId while a workflow function is executing.
 Protected functions:
 
 - generatePickingPath (sets activeListId after DB insert/update)
-- returnToBuilding (changes session state)
+- ~~returnToBuilding (changes session state)~~ **⚠️ EN PROCESO: será eliminado**
 
 Guard in loadSession:
 
@@ -206,7 +218,7 @@ When an order belongs to a group (combined orders like "878888 / 878882"):
 
 - Locking one sibling locks ALL siblings (checked_by set on all)
 - Releasing one sibling releases ALL siblings
-- returnToBuilding releases ALL siblings back to ready_to_double_check
+- ~~returnToBuilding releases ALL siblings back to ready_to_double_check~~ **⚠️ EN PROCESO: será reemplazado por Edit Order**
 - Deleting follows existing group dissolution logic
 
 ## Session Loading Priority (loadSession)
@@ -221,7 +233,7 @@ Guard: if isInWorkflowRef is true, skip entirely.
 
 ## Auto-Cancel / Expiration
 
-Current: 15min idle + 24hr total -> cancelled
+Current: 24hr total -> cancelled (⚠️ EN PROCESO: 15min building idle rule será eliminada con building mode)
 Planned (idea-031): 3 days -> expired (visible, reactivatable with one tap)
 
 ## Debounce Safety

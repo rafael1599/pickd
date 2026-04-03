@@ -143,9 +143,9 @@
   6. **Notificación:** Toast al picker cuando una orden expira (vía Realtime subscription en `picking_lists`)
 - **Impacto en estados del picking workflow:**
   ```
-  idle → building → active → expired (nuevo, después de 3 días)
-                                ↓ tap reactivar
-                              active (re-reserva inventario)
+  idle → active → expired (nuevo, después de 3 días)
+                     ↓ tap reactivar
+                   active (re-reserva inventario)
   active → ready_to_double_check → double_checking → completed | needs_correction
   active → cancelled (solo manual)
   ```
@@ -239,33 +239,25 @@
 ### 21. Eliminar Building Order → absorber en Picking View <!-- id: idea-032 -->
 
 - **Creado:** `[2026-04-02]`
-- **Estado:** Por hacer (futuro — requiere análisis profundo).
-- **Problema:** El flujo actual tiene un paso intermedio innecesario: `idle → building → active`. El usuario abre Building Order, agrega items, pone número de orden, y luego hace "Start Picking". Esto es fricción extra — el usuario podría agregar items directamente desde la vista Picking con botones y campo de orden inline.
-- **Propuesta:** Fusionar la funcionalidad de Building Order dentro de Picking View:
-  1. Campo de order number editable directamente en Picking View
-  2. Botón [+ Add Item] con búsqueda de inventario (reutilizar patrón de Edit Order)
-  3. Botones de qty (+/-) en cada item del carrito directamente en la vista
-  4. Eliminar el estado `building` del flujo — pasar de `idle → active` directamente
-  5. Eliminar `PickingSessionView.tsx` / `OrderBuilderMode.tsx` cuando la migración esté completa
-- **Edge cases y riesgos a evaluar antes de implementar:**
-  - **Watcher:** `watchdog-pickd` crea órdenes directamente en estado `active` — no usa building mode. Verificar que no dependa de la transición `building → active`.
-  - **Stock reservation:** Hoy el stock se reserva en `generatePickingPath()` (transición building → active). Si se elimina building, ¿cuándo se reserva? ¿Al agregar cada item? ¿Al hacer "Start Picking"?
-  - **Validación de orden:** Building Order valida que haya order number antes de permitir Start Picking. ¿Dónde se valida esto si no hay building mode?
-  - **Customer assignment:** El flujo actual permite asignar customer en Building Order. ¿Se mueve a Picking View o se hace opcional?
-  - **Cart persistence:** En building mode, el carrito se guarda en localStorage. En active, se guarda en DB. Si se elimina building, ¿todo va directo a DB? Esto cambia el comportamiento offline.
-  - **Grupos de órdenes:** Las órdenes agrupadas (FedEx/General) se combinan en building mode. ¿Cómo funciona esto sin building?
-  - **loadSession:** `usePickingSync.loadSession` tiene una jerarquía que incluye building mode. Simplificar puede introducir regresiones (bug-011 era un caso similar).
-  - **Tests existentes:** Varios tests asumen la transición `building → active`. Todos necesitan actualización.
-  - **Rollback:** Si falla en producción, ¿se puede revertir limpiamente? El estado `building` debería mantenerse en el enum de DB temporalmente como fallback.
-- **Dependencias:** Completar primero idea-031 (rediseño auto-cancel) ya que cambiar los estados del workflow afecta ambos items.
+- **Estado:** ⚠️ EN PROCESO `[2026-04-03]` — análisis completado, implementación en 4 fases.
+- **Problema:** El flujo actual tiene un paso intermedio innecesario: `idle → building → active`. Edit Order mode (implementado 2026-04-02) ya cubre todas las funciones de building (agregar/editar/eliminar items con search server-side y logging).
+- **Hallazgo clave:** `building` NUNCA se escribe a la DB. Es 100% frontend (localStorage + React state). La DB solo conoce `active` y posteriores. El RPC `auto_cancel_stale_orders` y un índice referencian `building` pero es código muerto (CHECK constraint lo prohíbe).
+- **Plan de implementación en 4 fases:**
+  - [ ] **Fase 1 — Habilitar +/- en picking mode.** PickingSessionView muestra qty read-only en picking; cambiar para que picking también tenga controles +/-. No elimina nada, solo desbloquea. Archivos: `PickingSessionView.tsx`.
+  - [ ] **Fase 2 — Transición idle → active directa.** SessionInitializationModal se mantiene (popup con order # y customer). Al hacer START, `generatePickingPath` se llama directo → `active` en DB → `picking` en UI. `addToCart` en idle ya no transiciona a building. Archivos: `PickingContext.tsx`, `usePickingCart.ts`, `usePickingSync.ts`.
+  - [ ] **Fase 3 — Reemplazar returnToBuilding con Edit Order.** Eliminar `returnToBuilding()`. Habilitar Edit Order desde picking mode (hoy solo desde double_checking). Archivos: `PickingContext.tsx`, `PickingSessionView.tsx`, `PickingCartDrawer.tsx`.
+  - [ ] **Fase 4 — Limpieza.** Eliminar `OrderBuilderMode.tsx`. Quitar `building` de types. Limpiar localStorage, InventoryCard, RPC dead code, tests. Archivos: 10+ archivos, 1 migración SQL.
+- **Dependencias:** Ninguna — Edit Order mode ya está implementado y testeado (22 tests). idea-031 (auto-cancel) es independiente.
 - **Criterios de aceptación:**
-  - El picker puede crear una orden desde la vista Picking sin pasar por Building Order
-  - Items se agregan con búsqueda inline (mismo patrón que Edit Order en double check)
-  - Order number y customer se asignan inline
-  - Stock se reserva correctamente (mismo momento que hoy)
-  - Órdenes del watcher siguen funcionando sin cambios
+  - El picker puede crear una orden sin pasar por Building Order
+  - Controles +/- disponibles en picking mode
+  - Edit Order accesible desde picking Y double_checking
+  - SessionInitializationModal se mantiene (order #, customer)
+  - Stock se reserva correctamente via generatePickingPath
+  - Órdenes del watcher siguen funcionando (ya crean en `active`)
   - Órdenes agrupadas se combinan correctamente
-  - No hay regresiones en el flujo de double check ni en loadSession
+  - No hay regresiones en double check ni loadSession
+  - `OrderBuilderMode.tsx` eliminado, `returnToBuilding()` eliminado
 
 ---
 

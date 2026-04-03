@@ -69,19 +69,19 @@ Zod validation schemas. **Must match DB columns exactly.**
 ### 2. Picking Lifecycle
 
 ```
-idle (UI) → building (UI-only, carrito local, no DB record)
-  → active (primer insert en DB via generatePickingPath)
-    → ready_to_double_check (esperando verificador)
-      → double_checking (verificador trabajando)
-        → completed       (terminal — deducción server-side)
-        → needs_correction → active (loop con notas de corrección)
-      → cancelled         (terminal — manual o auto-cancel)
+idle (UI) → active (DB — via generatePickingPath, reserva stock)
+  → ready_to_double_check (esperando verificador)
+    → double_checking (verificador trabajando)
+      → completed       (terminal — deducción server-side)
+      → needs_correction → active (loop con notas de corrección)
+    → cancelled         (terminal — manual o auto-cancel)
 ```
 
 **6 estados en DB:** `active`, `ready_to_double_check`, `double_checking`, `needs_correction`, `completed`, `cancelled`.
-`building` es solo estado de UI (carrito en memoria, sin registro en DB).
 
-**Auto-cancel:** building >15min idle, verificación >24hrs sin actividad → `cancelled` + inventario liberado.
+> **⚠️ EN PROCESO:** El estado `building` (UI-only, carrito local) está siendo eliminado. Edit Order mode lo reemplaza para agregar/editar/eliminar items en cualquier punto del flujo. El flujo anterior era `idle → building → active`; el nuevo es `idle → active` directo.
+
+**Auto-cancel:** verificación >24hrs sin actividad → `cancelled` + inventario liberado.
 
 - **claimAsPicker**: Transfers order ownership from automation account to human picker
 - **Triple-layer protection** prevents completed orders from being reverted (DB filter + UI guard + Realtime sync)
