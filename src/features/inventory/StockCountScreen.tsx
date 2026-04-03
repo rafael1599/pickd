@@ -227,10 +227,14 @@ export const StockCountScreen = () => {
     // 2. Decorate each chosen SKU with its best picking order and items
     const decorated = session.skus.map((sku) => {
       const group = inventoryBySku.get(sku);
-      let bestPickingOrder = Infinity; // For SKUs not found or lacking locations
+      let bestPickingOrder = Infinity;
 
-      if (group && group.items.length > 0) {
-        group.items.forEach((item) => {
+      // Filter: only show locations with qty > 0 (no point verifying empty spots)
+      const activeItems = group?.items.filter((item) => (item.quantity || 0) > 0) ?? [];
+      const activeQty = activeItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+
+      if (activeItems.length > 0) {
+        activeItems.forEach((item) => {
           const lKey = `${item.warehouse.toUpperCase()}_${(item.location || '').toUpperCase().trim()}`;
           const pOrder = locationSortMap.get(lKey) ?? 9999;
           if (pOrder < bestPickingOrder) {
@@ -241,10 +245,10 @@ export const StockCountScreen = () => {
 
       return {
         sku,
-        totalQty: group?.totalQty || 0,
-        items: group?.items || [],
+        totalQty: activeQty,
+        items: activeItems,
         isVerified: session.verifiedSkus.includes(sku),
-        isMissing: !group,
+        isMissing: !group || activeItems.length === 0,
         pickingOrder: bestPickingOrder,
       };
     });
