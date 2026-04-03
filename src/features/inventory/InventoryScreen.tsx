@@ -406,7 +406,7 @@ export const InventoryScreen = () => {
   }, [allLocationBlocks, profile, authUser]);
 
   // Picking Mode State
-  const { cartItems, addToCart, getAvailableStock, onStartSession, sessionMode } =
+  const { cartItems, addToCart, updateCartQty, removeFromCart, getAvailableStock, onStartSession, sessionMode } =
     usePickingSession();
 
   // --- Stock Mode Handlers ---
@@ -736,12 +736,13 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
 
                   <div className="grid grid-cols-1 gap-1">
                     {items.map((item) => {
-                      const isInCart = cartItems.some(
+                      const cartItem = cartItems.find(
                         (c) =>
                           c.sku === item.sku &&
                           c.warehouse === item.warehouse &&
                           c.location === item.location
                       );
+                      const cartQty = cartItem?.pickingQty ?? 0;
 
                       // Calculate availability for picking mode
                       const stockInfo = viewMode === 'picking' ? getAvailableStock(item) : null;
@@ -750,7 +751,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                         <div
                           key={`inv-row-${item.id}-${item.sku}`}
                           className={`animate-staggered-fade-in ${
-                            isInCart && viewMode === 'picking'
+                            cartQty > 0 && viewMode === 'picking'
                               ? 'ring-1 ring-accent rounded-lg'
                               : ''
                           }`}
@@ -777,6 +778,10 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                             distribution={item.distribution}
                             lastUpdateSource={item._lastUpdateSource}
                             is_active={item.is_active}
+                            cartQty={cartQty}
+                            onCartIncrement={() => updateCartQty(item, 1)}
+                            onCartDecrement={() => updateCartQty(item, -1)}
+                            onCartRemove={() => removeFromCart(item)}
                           />
                         </div>
                       );

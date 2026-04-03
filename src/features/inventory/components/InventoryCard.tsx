@@ -2,6 +2,7 @@ import { memo, useState, useRef, useEffect } from 'react';
 import Plus from 'lucide-react/dist/esm/icons/plus';
 import Minus from 'lucide-react/dist/esm/icons/minus';
 import ArrowRightLeft from 'lucide-react/dist/esm/icons/arrow-right-left';
+import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import { type DistributionItem, STORAGE_TYPE_LABELS } from '../../../schemas/inventory.schema';
 
 interface InventoryCardProps {
@@ -22,6 +23,10 @@ interface InventoryCardProps {
   sku_metadata?: import('../../../schemas/skuMetadata.schema').SKUMetadata | null;
   internal_note?: string | null;
   distribution?: DistributionItem[];
+  cartQty?: number;
+  onCartIncrement?: () => void;
+  onCartDecrement?: () => void;
+  onCartRemove?: () => void;
 }
 
 export const InventoryCard = memo(
@@ -45,6 +50,10 @@ export const InventoryCard = memo(
     sku_metadata = null,
     internal_note = null,
     distribution = [],
+    cartQty = 0,
+    onCartIncrement,
+    onCartDecrement,
+    onCartRemove,
   }: InventoryCardProps) => {
     const [flash, setFlash] = useState(false);
     const prevQuantityRef = useRef(quantity);
@@ -257,6 +266,50 @@ export const InventoryCard = memo(
                   aria-label="Increase quantity"
                 >
                   <Plus size={16} strokeWidth={3} />
+                </button>
+              </div>
+            )}
+
+            {/* Cart stepper: visible in picking/building mode when item is in cart */}
+            {cartQty > 0 && (isPicking || isBuilding) && (
+              <div className="flex gap-2 mt-1 items-center">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCartDecrement?.();
+                  }}
+                  className="bg-main text-muted hover:text-content h-11 w-11 rounded-lg flex items-center justify-center active:scale-90 transition-all border border-subtle"
+                  aria-label="Decrease cart quantity"
+                >
+                  <Minus size={18} strokeWidth={3} />
+                </button>
+                <div className="flex-1 h-11 rounded-lg bg-accent/10 border border-accent/30 flex items-center justify-center">
+                  <span className="font-mono font-black text-accent text-lg tabular-nums">
+                    {cartQty}
+                  </span>
+                  <span className="text-[9px] text-accent/60 font-bold uppercase ml-1.5 tracking-wider">
+                    in order
+                  </span>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCartIncrement?.();
+                  }}
+                  className="bg-accent text-white h-11 w-11 rounded-lg flex items-center justify-center active:scale-90 transition-all shadow-lg shadow-accent/20"
+                  aria-label="Increase cart quantity"
+                >
+                  <Plus size={18} strokeWidth={3} />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCartRemove?.();
+                  }}
+                  className="bg-red-500/10 text-red-500 h-11 w-11 rounded-lg flex items-center justify-center active:scale-90 transition-all border border-red-500/20"
+                  aria-label="Remove from order"
+                >
+                  <Trash2 size={16} strokeWidth={2.5} />
                 </button>
               </div>
             )}
