@@ -334,6 +334,28 @@ export function useInventoryMutations() {
     },
   });
 
+  const recompletePickingList = useMutation({
+    mutationKey: ['picking', 'recompleteList'],
+    mutationFn: async (vars: { listId: string; palletsQty: number; totalUnits: number }) => {
+      const { data, error } = await supabase.rpc('recomplete_picking_list', {
+        p_list_id: vars.listId,
+        p_performed_by: userName,
+        p_user_id: user?.id ?? '',
+        p_pallets_qty: vars.palletsQty,
+        p_total_units: vars.totalUnits,
+        p_user_role: profile?.role || 'staff',
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success('Order re-completed — inventory delta applied');
+    },
+    onError: (err) => {
+      toast.error(`Failed to re-complete: ${err.message}`);
+    },
+  });
+
   return {
     updateQuantity,
     addItem,
@@ -341,5 +363,6 @@ export function useInventoryMutations() {
     moveItem,
     deleteItem,
     processPickingList,
+    recompletePickingList,
   };
 }

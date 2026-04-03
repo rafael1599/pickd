@@ -520,6 +520,10 @@ export type Database = {
           updated_at: string | null;
           user_id: string;
           group_id: string | null;
+          completed_snapshot: Json | null;
+          reopened_by: string | null;
+          reopened_at: string | null;
+          reopen_count: number | null;
         };
         Insert: {
           checked_by?: string | null;
@@ -543,6 +547,10 @@ export type Database = {
           updated_at?: string | null;
           user_id: string;
           group_id?: string | null;
+          completed_snapshot?: Json | null;
+          reopened_by?: string | null;
+          reopened_at?: string | null;
+          reopen_count?: number | null;
         };
         Update: {
           checked_by?: string | null;
@@ -566,6 +574,10 @@ export type Database = {
           updated_at?: string | null;
           user_id?: string;
           group_id?: string | null;
+          completed_snapshot?: Json | null;
+          reopened_by?: string | null;
+          reopened_at?: string | null;
+          reopen_count?: number | null;
         };
         Relationships: [
           {
@@ -795,6 +807,32 @@ export type Database = {
           p_total_units?: number;
           p_user_id?: string;
           p_user_role?: string;
+        };
+        Returns: boolean;
+      };
+      reopen_picking_list: {
+        Args: {
+          p_list_id: string;
+          p_reopened_by: string;
+          p_reason?: string;
+        };
+        Returns: boolean;
+      };
+      recomplete_picking_list: {
+        Args: {
+          p_list_id: string;
+          p_performed_by: string;
+          p_user_id: string;
+          p_pallets_qty?: number;
+          p_total_units?: number;
+          p_user_role?: string;
+        };
+        Returns: boolean;
+      };
+      cancel_reopen: {
+        Args: {
+          p_list_id: string;
+          p_user_id: string;
         };
         Returns: boolean;
       };

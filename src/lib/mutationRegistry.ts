@@ -194,5 +194,27 @@ export function registerMutationDefaults(queryClient: QueryClient): void {
     },
   });
 
-  console.log('[MutationRegistry] Defaults registered for 6 inventory mutation keys.');
+  // ── recompletePickingList (RPC-based) ─────────────────────────────
+  queryClient.setMutationDefaults(['picking', 'recompleteList'], {
+    mutationFn: async (vars: {
+      listId: string;
+      palletsQty?: number;
+      totalUnits?: number;
+      _ctx?: MutationUserContext;
+    }) => {
+      const ctx = vars._ctx;
+      const { data, error } = await supabase.rpc('recomplete_picking_list', {
+        p_list_id: vars.listId,
+        p_performed_by: ctx?.performed_by || 'System (resumed)',
+        p_user_id: ctx?.user_id,
+        p_pallets_qty: vars.palletsQty,
+        p_total_units: vars.totalUnits,
+        p_user_role: ctx?.user_role || 'staff',
+      });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  console.log('[MutationRegistry] Defaults registered for 7 inventory mutation keys.');
 }

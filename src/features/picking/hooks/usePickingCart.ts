@@ -14,7 +14,7 @@ const LOCAL_STORAGE_CUSTOMER_KEY = 'picking_customer_obj';
 const LOCAL_STORAGE_LOAD_KEY = 'picking_load_number';
 
 interface UsePickingCartProps {
-  sessionMode: 'idle' | 'picking' | 'double_checking';
+  sessionMode: 'idle' | 'picking' | 'double_checking' | 'reopened';
   reservedQuantities: Record<string, number>;
 }
 

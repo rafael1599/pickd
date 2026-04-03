@@ -652,6 +652,17 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Footer — Done button */}
+      <div className="shrink-0 p-4 border-t border-white/10 bg-black">
+        <button
+          onClick={onClose}
+          className="w-full py-4 bg-accent text-main font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-accent/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+        >
+          <Check size={16} strokeWidth={3} />
+          Done Editing
+        </button>
+      </div>
     </div>
   );
 };

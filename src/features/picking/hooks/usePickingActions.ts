@@ -46,7 +46,7 @@ interface UsePickingActionsProps {
   cartItems: CartItem[];
   orderNumber: string | null;
   customer: Customer | null;
-  sessionMode: 'picking' | 'double_checking' | 'idle';
+  sessionMode: 'picking' | 'double_checking' | 'idle' | 'reopened';
   setCartItems: (items: CartItem[]) => void;
   setActiveListId: (id: string | null) => void;
   setOrderNumber: (num: string | null) => void;
@@ -58,7 +58,7 @@ interface UsePickingActionsProps {
   loadNumber: string | null;
   setLoadNumber: (num: string | null) => void;
   setCorrectionNotes: (notes: string | null) => void;
-  setSessionMode: (mode: 'picking' | 'double_checking') => void;
+  setSessionMode: (mode: 'picking' | 'double_checking' | 'reopened') => void;
   setIsSaving: (val: boolean) => void;
   resetSession: (skipState?: boolean) => void;
   isInWorkflowRef: React.MutableRefObject<boolean>;
@@ -490,8 +490,8 @@ export const usePickingActions = ({
           .eq('id', listId)
           .maybeSingle();
 
-        if (currentList?.status === 'completed') {
-          console.log('Blocked deletion of a completed order to protect inventory history.');
+        if (currentList?.status === 'completed' || currentList?.status === 'reopened') {
+          console.log('Blocked deletion of a completed/reopened order to protect inventory history.');
           if (listId === activeListId && !keepLocalState) {
             resetSession();
           }
@@ -875,6 +875,87 @@ export const usePickingActions = ({
     [user, setIsSaving]
   );
 
+  // ============================================================
+  // Reopen Completed Orders
+  // ============================================================
+
+  const reopenOrder = useCallback(
+    async (listId: string) => {
+      if (!user) return;
+      setIsSaving(true);
+      try {
+        const { error } = await supabase.rpc('reopen_picking_list', {
+          p_list_id: listId,
+          p_reopened_by: user.id,
+        });
+        if (error) throw error;
+        toast.success('Order reopened for editing');
+      } catch (err) {
+        console.error('Failed to reopen order:', err);
+        toast.error(err instanceof Error ? err.message : 'Failed to reopen order');
+        throw err;
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [user, setIsSaving]
+  );
+
+  const recompleteOrder = useCallback(
+    async (listId: string, palletsQty: number, totalUnits: number) => {
+      if (!user) return;
+      setIsSaving(true);
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, role')
+          .eq('id', user.id)
+          .single();
+
+        const { error } = await supabase.rpc('recomplete_picking_list', {
+          p_list_id: listId,
+          p_performed_by: profile?.full_name || user.email || 'Unknown',
+          p_user_id: user.id,
+          p_pallets_qty: palletsQty,
+          p_total_units: totalUnits,
+          p_user_role: profile?.role || 'staff',
+        });
+        if (error) throw error;
+        toast.success('Order re-completed successfully');
+        resetSession();
+      } catch (err) {
+        console.error('Failed to re-complete order:', err);
+        toast.error(err instanceof Error ? err.message : 'Failed to re-complete order');
+        throw err;
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [user, setIsSaving, resetSession]
+  );
+
+  const cancelReopen = useCallback(
+    async (listId: string) => {
+      if (!user) return;
+      setIsSaving(true);
+      try {
+        const { error } = await supabase.rpc('cancel_reopen', {
+          p_list_id: listId,
+          p_user_id: user.id,
+        });
+        if (error) throw error;
+        toast.success('Reopen cancelled. Order restored.');
+        resetSession();
+      } catch (err) {
+        console.error('Failed to cancel reopen:', err);
+        toast.error(err instanceof Error ? err.message : 'Failed to cancel reopen');
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [user, setIsSaving, resetSession]
+  );
+
   return {
     completeList,
     markAsReady,
@@ -887,5 +968,8 @@ export const usePickingActions = ({
     updateCustomerDetails,
     takeOverOrder,
     claimAsPicker,
+    reopenOrder,
+    recompleteOrder,
+    cancelReopen,
   };
 };

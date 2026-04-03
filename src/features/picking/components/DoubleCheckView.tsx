@@ -95,6 +95,8 @@ interface DoubleCheckViewProps {
   inventoryData?: InventoryItemWithMetadata[];
   onMarkAsReady?: () => void;
   onSendToVerifyQueue?: () => void;
+  onRecomplete?: (items: PickingItem[]) => Promise<void>;
+  onCancelReopen?: () => void;
   correctionNotes?: string | null;
 }
 
@@ -119,6 +121,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   inventoryData: inventoryDataProp,
   onMarkAsReady,
   onSendToVerifyQueue,
+  onRecomplete,
+  onCancelReopen,
   correctionNotes: correctionNotesProp,
 }) => {
   const {
@@ -595,9 +599,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         <div className="flex items-center gap-1">
           {!correctionNotes.trim() && status !== 'completed' && (
             <button
-              onClick={onRelease}
+              onClick={status === 'reopened' ? onCancelReopen : onRelease}
               className="p-2 hover:bg-white/10 rounded-full text-white/50 transition-colors"
-              title="Release to Queue"
+              title={status === 'reopened' ? 'Cancel Edit' : 'Release to Queue'}
             >
               <X size={24} />
             </button>
@@ -986,7 +990,34 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black via-black/90 to-transparent shrink-0 z-20">
-        {verifiedUnitsCount === totalUnitsCount ? (
+        {status === 'reopened' ? (
+          /* Reopened order — show Re-Complete and Cancel */
+          <div className="flex gap-3">
+            <button
+              onClick={() => onCancelReopen?.()}
+              className="flex-1 py-4 bg-white/5 border border-white/10 text-white/70 font-black uppercase tracking-widest text-[10px] rounded-2xl active:scale-95 transition-all"
+            >
+              Cancel Edit
+            </button>
+            <button
+              onClick={async () => {
+                if (onRecomplete) {
+                  setIsDeducting(true);
+                  try {
+                    await onRecomplete(cartItems);
+                  } finally {
+                    setIsDeducting(false);
+                  }
+                }
+              }}
+              disabled={isDeducting || cartItems.length === 0}
+              className="flex-[2] py-4 bg-orange-500 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-orange-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              <Check size={16} strokeWidth={3} />
+              {isDeducting ? 'Re-Completing...' : 'Re-Complete Order'}
+            </button>
+          </div>
+        ) : verifiedUnitsCount === totalUnitsCount ? (
           /* All verified — show slide to complete */
           <SlideToConfirm
             onConfirm={handleConfirm}

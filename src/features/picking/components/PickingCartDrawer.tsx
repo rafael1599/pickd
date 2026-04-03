@@ -44,15 +44,17 @@ export const PickingCartDrawer: React.FC = () => {
     resetSession,
     listStatus,
     claimAsPicker,
+    cancelReopen,
   } = usePickingSession();
 
-  const { inventoryData, processPickingList } = useInventory();
+  const { inventoryData, processPickingList, recompletePickingList } = useInventory();
 
   const [isOpen, setIsOpen] = useState(false);
   // currentView removed — always renders DoubleCheckView (idea-032 phase 2)
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
   const isOwner = user?.id === ownerId;
   const isConfirmingRef = React.useRef(false);
+  const isRecompletingRef = React.useRef(false);
   const [isProcessingDeduction, setIsProcessingDeduction] = useState(false);
   const overriddenPalletCountRef = React.useRef<number | null>(null);
   useScrollLock(isOpen, () => setIsOpen(false));
@@ -76,9 +78,16 @@ export const PickingCartDrawer: React.FC = () => {
     }
   }, [sessionMode, activeListId]);
 
+  // Auto-open full-screen when entering reopened mode
+  useEffect(() => {
+    if (sessionMode === 'reopened' && !isOpen) {
+      setIsOpen(true);
+    }
+  }, [sessionMode, isOpen]);
+
   // 1. Auto-close if completed or session reset (idle with no items)
   useEffect(() => {
-    if (listStatus === 'completed' && isOpen) {
+    if (listStatus === 'completed' && isOpen && !isRecompletingRef.current) {
       setIsOpen(false);
       resetSession();
     }
@@ -538,13 +547,39 @@ export const PickingCartDrawer: React.FC = () => {
                 overriddenPalletCountRef.current = count;
               }}
               status={listStatus}
-              onBack={listStatus === 'active' || listStatus === 'needs_correction' ? () => setIsOpen(false) : handleReleaseOrder}
-              onRelease={listStatus === 'active' ? () => setIsOpen(false) : handleReleaseOrder}
-              onClose={listStatus === 'active' ? () => setIsOpen(false) : handleReleaseOrder}
+              onBack={() => setIsOpen(false)}
+              onRelease={handleReleaseOrder}
+              onClose={handleReleaseOrder}
               onCorrectItem={handleCorrectItem}
               inventoryData={inventoryData}
               onMarkAsReady={() => orderNumber && handleMarkAsReady(orderNumber)}
               onSendToVerifyQueue={handleSendToVerifyQueue}
+              onRecomplete={async (items) => {
+                if (!activeListId) return;
+                isRecompletingRef.current = true;
+                try {
+                  const totalUnits = items.reduce((acc, item) => acc + (item.pickingQty || 0), 0);
+                  const allLocations: Location[] = inventoryData.map((i) => ({
+                    id: i.location_id || '',
+                    location: i.location || '',
+                    warehouse: i.warehouse as Location['warehouse'],
+                    zone: null, max_capacity: null, picking_order: null,
+                    is_active: true, created_at: '', length_ft: null, bike_line: null,
+                  }));
+                  const path = getOptimizedPickingPath(items, allLocations);
+                  const palletsQty = calculatePallets(path).length;
+                  await recompletePickingList(activeListId, palletsQty, totalUnits);
+                  resetSession();
+                  setIsOpen(false);
+                } finally {
+                  isRecompletingRef.current = false;
+                }
+              }}
+              onCancelReopen={async () => {
+                if (!activeListId) return;
+                await cancelReopen(activeListId);
+                setIsOpen(false);
+              }}
               correctionNotes={correctionNotes}
             />
           </div>

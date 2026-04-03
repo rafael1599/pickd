@@ -11,7 +11,8 @@ interface OrderChipProps {
 export const OrderChip: React.FC<OrderChipProps> = ({ orderNumber, status, isSelected, isCombined, onClick }) => {
     const displayStatus = status === 'ready_to_double_check' ? 'READY' :
         status === 'active' ? 'PICKING' :
-            status.toUpperCase();
+            status === 'reopened' ? 'EDITING' :
+                status.toUpperCase();
 
     return (
         <button

@@ -39,8 +39,8 @@ interface PickingContextType {
   notes: PickingNote[];
   isNotesLoading: boolean;
   addNote: (message: string) => Promise<void>;
-  sessionMode: 'idle' | 'picking' | 'double_checking';
-  setSessionMode: (mode: 'idle' | 'picking' | 'double_checking') => void;
+  sessionMode: 'idle' | 'picking' | 'double_checking' | 'reopened';
+  setSessionMode: (mode: 'idle' | 'picking' | 'double_checking' | 'reopened') => void;
   pallets: Pallet[];
 
   onStartSession: () => void;
@@ -71,8 +71,13 @@ interface PickingContextType {
   claimAsPicker: (listId?: string) => Promise<void>;
 
   loadExternalList: (id: string) => Promise<unknown>;
+  loadReopenedOrder: (id: string) => Promise<void>;
 
   generatePickingPath: () => Promise<void>;
+
+  reopenOrder: (listId: string) => Promise<void>;
+  recompleteOrder: (listId: string, palletsQty: number, totalUnits: number) => Promise<void>;
+  cancelReopen: (listId: string) => Promise<void>;
 
   // returnToBuilding removed (idea-032) — Edit Order replaces it
 
@@ -110,7 +115,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [correctionNotes, setCorrectionNotes] = useState<string | null>(null);
   const [sessionMode, setSessionMode] = useState<
-    'idle' | 'picking' | 'double_checking'
+    'idle' | 'picking' | 'double_checking' | 'reopened'
   >('idle');
 
   // Workflow Lock: prevents loadSession from overwriting activeListId during a workflow
@@ -254,6 +259,9 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
     updateCustomerDetails,
     takeOverOrder,
     claimAsPicker,
+    reopenOrder,
+    recompleteOrder,
+    cancelReopen,
   } = usePickingActions({
     user,
     activeListId,
@@ -289,10 +297,26 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
   );
 
   // returnToBuilding removed (idea-032) — Edit Order mode replaces this functionality.
-  // Users can now edit items directly via CorrectionModeView from any status.
   const _returnToBuildingRemoved = useCallback(
     async () => { /* placeholder to maintain hook order */ },
     []
+  );
+
+  const loadReopenedOrder = useCallback(
+    async (listId: string) => {
+      isInWorkflowRef.current = true;
+      try {
+        await reopenOrder(listId);
+        await loadExternalList(listId);
+        // Override the 'double_checking' that loadExternalList hardcodes
+        setSessionMode('reopened');
+      } catch (err) {
+        console.error('Failed to load reopened order:', err);
+      } finally {
+        isInWorkflowRef.current = false;
+      }
+    },
+    [reopenOrder, loadExternalList, setSessionMode, isInWorkflowRef]
   );
 
   const addToCart = useCallback(
@@ -415,7 +439,11 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       revertToPicking,
       deleteList,
       loadExternalList,
+      loadReopenedOrder,
       generatePickingPath,
+      reopenOrder,
+      recompleteOrder,
+      cancelReopen,
       takeOverOrder,
       claimAsPicker,
       isLoaded,
@@ -471,7 +499,11 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       claimAsPicker,
       deleteList,
       loadExternalList,
+      loadReopenedOrder,
       generatePickingPath,
+      reopenOrder,
+      recompleteOrder,
+      cancelReopen,
       isLoaded,
       isSaving,
       lastSaved,

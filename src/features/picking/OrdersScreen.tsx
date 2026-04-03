@@ -53,7 +53,7 @@ interface OrderWithRelations {
 
 export const OrdersScreen = () => {
   const { user } = useAuth();
-  const { takeOverOrder } = usePickingSession();
+  const { takeOverOrder, loadReopenedOrder } = usePickingSession();
   const {
     externalOrderId,
     setExternalOrderId,
@@ -171,14 +171,28 @@ export const OrdersScreen = () => {
     });
   }, [selectedOrder?.items, skuWeights]);
 
-  // Debounced flag — only show warning after weights confirmed missing for 1s
-  const [showWeightWarning, setShowWeightWarning] = useState(false);
+  // Auto-assign 45 lbs default weight to SKUs missing weight in sku_metadata
   useEffect(() => {
-    setShowWeightWarning(false);
     if (!weightsReady || itemsMissingWeight.length === 0) return;
-    const timer = setTimeout(() => setShowWeightWarning(true), 1000);
-    return () => clearTimeout(timer);
-  }, [weightsReady, itemsMissingWeight.length, selectedOrder?.id]);
+    const skusToFix = itemsMissingWeight.map((i: PickingListItem) => i.sku);
+
+    // Upsert 45 lbs for each missing SKU
+    Promise.all(
+      skusToFix.map((sku: string) =>
+        supabase.from('sku_metadata').upsert(
+          { sku, weight_lbs: 45 },
+          { onConflict: 'sku' }
+        )
+      )
+    ).then(() => {
+      // Update local state so totalWeight recalculates immediately
+      setSkuWeights((prev) => {
+        const updated = { ...prev };
+        skusToFix.forEach((sku: string) => { updated[sku] = 45; });
+        return updated;
+      });
+    });
+  }, [weightsReady, itemsMissingWeight]);
 
   // Calculate total weight from sku_metadata weights + pallet weight (40 lbs each)
   const totalWeight = useMemo(() => {
@@ -662,6 +676,16 @@ export const OrdersScreen = () => {
     }
   };
 
+  const handleReopenOrder = async () => {
+    if (!selectedOrder) return;
+    try {
+      await loadReopenedOrder(selectedOrder.id);
+      // Drawer auto-opens full-screen when sessionMode === 'reopened'
+    } catch {
+      // Error already toasted in loadReopenedOrder
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-bg-main">
@@ -697,6 +721,7 @@ export const OrdersScreen = () => {
           }}
           onShowPickingSummary={() => setIsShowingPickingSummary(true)}
           onSplitOrder={() => setIsShowingSplitModal(true)}
+          onReopenOrder={handleReopenOrder}
         />
       </div>
 
@@ -875,72 +900,12 @@ export const OrdersScreen = () => {
                     }
                   }}
                   onShowPickingSummary={() => setIsShowingPickingSummary(true)}
+                  onReopenOrder={handleReopenOrder}
                   collapsible
                 />
               </div>
 
-              {/* Weight Warning Banner — debounced 1s after fetch confirms missing weights */}
-              {showWeightWarning && itemsMissingWeight.length > 0 && (
-                <div className="mb-6 bg-amber-50 border border-amber-300 rounded-2xl p-4 animate-soft-in">
-                  <div className="flex items-center gap-2 mb-3">
-                    <AlertTriangle size={18} className="text-amber-600 shrink-0" />
-                    <span className="text-amber-800 font-black text-xs uppercase tracking-widest">
-                      {itemsMissingWeight.length} item{itemsMissingWeight.length > 1 ? 's' : ''}{' '}
-                      without weight
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    {itemsMissingWeight.map((item: PickingListItem) => (
-                      <div
-                        key={item.sku}
-                        className="flex items-center gap-3 bg-amber-100 rounded-xl px-3 py-2 border border-amber-300"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <span className="font-mono text-xs font-bold text-amber-900">
-                            {item.sku}
-                          </span>
-                          {item.item_name && (
-                            <span className="ml-2 text-xs text-amber-700 truncate">
-                              {item.item_name}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <input
-                            type="number"
-                            step="0.1"
-                            min="0.1"
-                            placeholder="lbs"
-                            className="w-20 bg-white border border-amber-400 rounded-lg px-2 py-1.5 text-xs font-mono text-center text-amber-900 focus:border-amber-600 focus:outline-none"
-                            onKeyDown={(e) => {
-                              if (e.key !== 'Enter') return;
-                              const val = parseFloat((e.target as HTMLInputElement).value);
-                              if (isNaN(val) || val <= 0) {
-                                toast.error('Weight must be greater than 0');
-                                return;
-                              }
-                              supabase
-                                .from('sku_metadata')
-                                .upsert({ sku: item.sku, weight_lbs: val }, { onConflict: 'sku' })
-                                .then(({ error }) => {
-                                  if (error) {
-                                    toast.error('Failed to save weight');
-                                  } else {
-                                    toast.success(`${item.sku} → ${val} lbs`);
-                                    setSkuWeights((prev) => ({ ...prev, [item.sku]: val }));
-                                  }
-                                });
-                            }}
-                          />
-                          <span className="text-[10px] text-amber-600 font-bold">
-                            ENTER to save
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Weight auto-fix: SKUs without weight get 45 lbs automatically (no banner needed) */}
 
               <LivePrintPreview
                 orderNumber={selectedOrder.order_number ?? undefined}

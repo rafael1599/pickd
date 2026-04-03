@@ -62,6 +62,7 @@ export const useInventory = () => {
     moveItem: mutMoveItem,
     deleteItem: mutDeleteItem,
     processPickingList: mutProcessPickingList,
+    recompletePickingList: mutRecompletePickingList,
   } = useInventoryMutations();
 
   // ── Global stats (single RPC call — returns 2 numbers) ──
@@ -410,6 +411,13 @@ export const useInventory = () => {
     [mutProcessPickingList]
   );
 
+  const recompletePickingList = useCallback(
+    async (listId: string, palletsQty: number, totalUnits: number) => {
+      await mutRecompletePickingList.mutateAsync({ listId, palletsQty, totalUnits });
+    },
+    [mutRecompletePickingList]
+  );
+
   const updateSKUMetadata = useCallback(async (metadata: SKUMetadataInput) => {
     await inventoryApi.upsertMetadata(metadata);
   }, []);
@@ -457,6 +465,7 @@ export const useInventory = () => {
 
     // Utils / Stubs
     processPickingList,
+    recompletePickingList,
     exportData: noop,
     syncInventoryLocations: noopAsync,
     updateInventory: noop,

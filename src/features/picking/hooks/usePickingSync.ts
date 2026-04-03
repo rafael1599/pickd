@@ -9,7 +9,7 @@ import type { Json } from '../../../integrations/supabase/types';
 
 interface UsePickingSyncProps {
   user: User | null;
-  sessionMode: 'picking' | 'double_checking' | 'idle';
+  sessionMode: 'picking' | 'double_checking' | 'idle' | 'reopened';
   cartItems: CartItem[];
   orderNumber: string | null;
   activeListId: string | null;
@@ -28,7 +28,7 @@ interface UsePickingSyncProps {
   ownerId: string | null;
   setOwnerId: (id: string | null) => void;
   setCorrectionNotes: (notes: string | null) => void;
-  setSessionMode: (mode: 'picking' | 'double_checking') => void;
+  setSessionMode: (mode: 'picking' | 'double_checking' | 'reopened') => void;
   loadFromLocalStorage: () => void;
   showError: (title: string, msg: string) => void;
   resetSession: () => void;
@@ -161,7 +161,7 @@ export const usePickingSync = ({
           .from('picking_lists')
           .select('*, customer:customers(*)')
           .eq('user_id', user.id)
-          .in('status', ['active', 'needs_correction'])
+          .in('status', ['active', 'needs_correction', 'reopened'])
           .order('updated_at', { ascending: false })
           .limit(1)
           .maybeSingle();
@@ -188,7 +188,7 @@ export const usePickingSync = ({
             setCheckedBy(pickingData.checked_by || null);
             setOwnerId(pickingData.user_id || null);
             setCorrectionNotes(pickingData.correction_notes || null);
-            setSessionMode('picking');
+            setSessionMode(pickingData.status === 'reopened' ? 'reopened' : 'picking');
           }
         } else {
           // C. Sanitization Check: If user has an ID in localStorage but no valid session in DB
@@ -200,7 +200,7 @@ export const usePickingSync = ({
               .eq('id', localId)
               .maybeSingle();
 
-            if (!remoteCheck || remoteCheck.status === 'completed') {
+            if (!remoteCheck || remoteCheck.status === 'completed' || remoteCheck.status === 'cancelled') {
               console.log('🧹 Purging stale local session (completed or non-existent in DB)');
               resetSession();
             } else {
