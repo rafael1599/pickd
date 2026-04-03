@@ -131,8 +131,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const { pallets: originalPallets } = usePickingSession();
   const [isDeducting, setIsDeducting] = useState(false);
 
-  // Mode detection: active = order review (no checkboxes), double_checking = verification
-  const isReviewMode = status === 'active' || status === 'needs_correction';
+  // All statuses use full verification mode (checkboxes, select all).
+  // The picker checks off items as they collect them, then sends to verify.
+  const isReviewMode = false;
   const [showCorrectionMode, setShowCorrectionMode] = useState(false);
 
   // Pallet override state: palletId → desired total units
@@ -523,9 +524,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           {/* Progress Text */}
           <div className="flex items-center gap-3 mt-1">
             <span className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em]">
-              {isReviewMode
-                ? `${totalUnitsCount} Units · ${cartItems.length} SKUs`
-                : `${verifiedUnitsCount} / ${totalUnitsCount} Units Verified`}
+              {`${verifiedUnitsCount} / ${totalUnitsCount} Units Verified`}
             </span>
             {!isReviewMode && onSelectAll && totalUnitsCount > 0 && (
               <button
@@ -979,8 +978,14 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black via-black/90 to-transparent shrink-0 z-20">
-        {isReviewMode ? (
-          /* Review mode: Send to Verify CTA */
+        {verifiedUnitsCount < totalUnitsCount && (
+          <div className="mb-4 flex items-center justify-center gap-2 animate-pulse">
+            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">
+              {totalUnitsCount - verifiedUnitsCount} units remaining
+            </span>
+          </div>
+        )}
+        {status === 'active' || status === 'needs_correction' ? (
           <SlideToConfirm
             onConfirm={() => onMarkAsReady?.()}
             isLoading={isDeducting}
@@ -990,24 +995,14 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             disabled={cartItems.length === 0}
           />
         ) : (
-          /* Verification mode: check progress + complete */
-          <>
-            {verifiedUnitsCount < totalUnitsCount && (
-              <div className="mb-4 flex items-center justify-center gap-2 animate-pulse">
-                <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">
-                  {totalUnitsCount - verifiedUnitsCount} units remaining
-                </span>
-              </div>
-            )}
-            <SlideToConfirm
-              onConfirm={handleConfirm}
-              isLoading={isDeducting}
-              text={verifiedUnitsCount === totalUnitsCount ? 'SLIDE TO COMPLETE' : 'SEND TO VERIFY'}
-              confirmedText={verifiedUnitsCount === totalUnitsCount ? 'COMPLETING...' : 'SENDING...'}
-              variant={verifiedUnitsCount === totalUnitsCount ? 'default' : 'info'}
-              disabled={false}
-            />
-          </>
+          <SlideToConfirm
+            onConfirm={handleConfirm}
+            isLoading={isDeducting}
+            text={verifiedUnitsCount === totalUnitsCount ? 'SLIDE TO COMPLETE' : 'SEND TO VERIFY'}
+            confirmedText={verifiedUnitsCount === totalUnitsCount ? 'COMPLETING...' : 'SENDING...'}
+            variant={verifiedUnitsCount === totalUnitsCount ? 'default' : 'info'}
+            disabled={false}
+          />
         )}
       </div>
 
