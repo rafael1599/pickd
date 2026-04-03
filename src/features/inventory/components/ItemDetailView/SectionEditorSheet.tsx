@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import X from 'lucide-react/dist/esm/icons/x';
+import Check from 'lucide-react/dist/esm/icons/check';
 import { useScrollLock } from '../../../../hooks/useScrollLock';
 import Plus from 'lucide-react/dist/esm/icons/plus';
 import Minus from 'lucide-react/dist/esm/icons/minus';
@@ -58,9 +58,10 @@ export const SectionEditorSheet: React.FC<SectionEditorSheetProps> = ({
           </h3>
           <button
             onClick={onClose}
-            className="p-1.5 text-muted hover:text-content transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-accent/10 text-accent rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-accent/20 transition-colors"
           >
-            <X size={20} />
+            <Check size={14} strokeWidth={3} />
+            Done
           </button>
         </div>
 
