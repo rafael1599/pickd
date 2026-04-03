@@ -251,28 +251,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const handlePointerDown = useCallback(
     (item: PickingItem) => {
       longPressTriggered.current = false;
-      longPressTimer.current = setTimeout(async () => {
+      longPressTimer.current = setTimeout(() => {
         longPressTriggered.current = true;
         if (navigator.vibrate) navigator.vibrate(100);
-
-        // Try cache first (exact match, then SKU-only fallback)
-        let invMatch = inventoryData.find(
+        // Go directly to edit — skip intermediate detail sheet
+        const invMatch = inventoryData.find(
           (inv) => inv.sku === item.sku && inv.location === item.location
-        ) ?? inventoryData.find((inv) => inv.sku === item.sku);
-
-        // If not in paginated cache, fetch directly from DB
-        if (!invMatch) {
-          const { data } = await supabase
-            .from('inventory')
-            .select('*, sku_metadata(*)')
-            .eq('sku', item.sku)
-            .gt('quantity', 0)
-            .order('quantity', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          if (data) invMatch = data as InventoryItemWithMetadata;
-        }
-
+        );
         if (invMatch) {
           setEditModalItem(invMatch as InventoryItemWithMetadata);
         } else {
