@@ -461,6 +461,30 @@ export const usePickingSync = ({
   const loadExternalList = useCallback(
     async (listId: string) => {
       if (!user) return;
+
+      // Save in-progress building session to DB before switching to verification
+      // Without this, building-mode orders (localStorage-only) are lost when the
+      // session state is overwritten by the external list.
+      if (sessionMode === 'building' && cartItems.length > 0 && orderNumber) {
+        try {
+          const { data: saved } = await supabase
+            .from('picking_lists')
+            .insert({
+              user_id: user.id,
+              items: cartItems as unknown as Json,
+              status: 'active',
+              order_number: orderNumber,
+            })
+            .select('id')
+            .single();
+          if (saved) {
+            console.log('💾 [loadExternalList] Saved building session to DB:', saved.id);
+          }
+        } catch (err) {
+          console.error('Failed to save building session before switching:', err);
+        }
+      }
+
       setIsSaving(true);
       try {
         const { data, error } = await supabase
