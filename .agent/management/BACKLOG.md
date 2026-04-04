@@ -24,7 +24,7 @@
 ### 20. Verification Queue — Split View con drag & drop <!-- id: idea-037 -->
 - **Problema:** La verification list es una sola columna que mezcla órdenes regulares y FedEx. Combinar/separar órdenes requiere múltiples taps.
 - **Solución:** Vista full-width dividida en dos columnas: izquierda FedEx (fondo purple translúcido), derecha regulares (fondo green translúcido). Arriba las pendientes, abajo las 3 últimas completadas por lado. Drag & drop para mover entre lados y combinar. Lógica de combinación extraída como módulo reutilizable.
-- **Requiere:** Investigación profunda de la lógica de agrupación/combinación actual (useOrderGroups, combine_meta, GroupOrderModal, DoubleCheckHeader drag) para separar la lógica compartida de la específica por tipo.
+- **Investigación completada:** Análisis profundo de los 2 sistemas (groups vs combine_meta), archivos clave, módulos reutilizables identificados. Ver `memory/project_verification_queue_research.md`.
 
 ### 15. Distribution type "Other" → texto libre <!-- id: idea-026 -->
 - **Problema:** OTHER muestra "unit/units" genérico.
