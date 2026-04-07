@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findSimilarSkus, type SimilarSku } from '../findSimilarSkus';
+import { findSimilarSkus } from '../findSimilarSkus';
 import type { InventoryItemWithMetadata } from '../../../../schemas/inventory.schema';
 
 function makeItem(

@@ -7,9 +7,7 @@ import React, {
   useCallback,
   useMemo,
 } from 'react';
-import toast from 'react-hot-toast';
 import { useAuth } from './AuthContext';
-import { supabase } from '../lib/supabase';
 import { useInventory } from '../features/inventory/hooks/useInventoryData';
 import { useError } from './ErrorContext';
 import { usePickingCart, CartItem } from '../features/picking/hooks/usePickingCart';
@@ -294,12 +292,6 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       await addNoteRaw(user.id, message);
     },
     [user, addNoteRaw]
-  );
-
-  // returnToBuilding removed (idea-032) — Edit Order mode replaces this functionality.
-  const _returnToBuildingRemoved = useCallback(
-    async () => { /* placeholder to maintain hook order */ },
-    []
   );
 
   const loadReopenedOrder = useCallback(

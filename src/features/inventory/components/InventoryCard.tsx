@@ -3,7 +3,7 @@ import Plus from 'lucide-react/dist/esm/icons/plus';
 import Minus from 'lucide-react/dist/esm/icons/minus';
 import ArrowRightLeft from 'lucide-react/dist/esm/icons/arrow-right-left';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
-import { type DistributionItem, STORAGE_TYPE_LABELS } from '../../../schemas/inventory.schema';
+import type { DistributionItem } from '../../../schemas/inventory.schema';
 
 interface InventoryCardProps {
   sku: string;

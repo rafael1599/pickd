@@ -80,7 +80,7 @@ interface VerifyQueueResult {
   drawerOpen: boolean;
 }
 
-function simulateSendToVerifyQueue(activeListId: string): VerifyQueueResult {
+function simulateSendToVerifyQueue(_activeListId: string): VerifyQueueResult {
   // markAsReady validates stock + sets double_checking
   // releaseCheck then sets ready_to_double_check + checked_by = null
   return {
@@ -266,6 +266,7 @@ describe('Picking Workflow (idea-032)', () => {
       // But the original session still exists in DB as 'active'
       expect(pickingSession.inDb).toBe(true);
       expect(pickingSession.status).toBe('active');
+      expect(externalList.status).toBe('double_checking');
       // loadSession will find it after verification completes
     });
 
