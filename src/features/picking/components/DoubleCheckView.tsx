@@ -59,9 +59,10 @@ export type CorrectionAction =
         warehouse: string;
         item_name: string | null;
       };
+      reason?: string;
     }
-  | { type: 'adjust_qty'; sku: string; newQty: number }
-  | { type: 'remove'; sku: string }
+  | { type: 'adjust_qty'; sku: string; newQty: number; reason?: string }
+  | { type: 'remove'; sku: string; reason?: string }
   | {
       type: 'add';
       item: {
@@ -71,6 +72,7 @@ export type CorrectionAction =
         item_name: string | null;
         pickingQty: number;
       };
+      reason?: string;
     };
 
 interface DoubleCheckViewProps {
@@ -474,8 +476,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     Promise.all(
       uniqueSkus.map(async (sku) => {
         const [bikes, parts] = await Promise.all([
-          inventoryApi.fetchInventoryWithMetadata({ search: sku, partsBins: false, limit: 10 }),
-          inventoryApi.fetchInventoryWithMetadata({ search: sku, partsBins: true, limit: 10 }),
+          inventoryApi.fetchInventoryWithMetadata({ search: sku, showParts: false, limit: 10 }),
+          inventoryApi.fetchInventoryWithMetadata({ search: sku, showParts: true, limit: 10 }),
         ]);
         const total = [...bikes.data, ...parts.data]
           .filter((inv) => inv.sku === sku)

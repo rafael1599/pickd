@@ -14,6 +14,8 @@ import type { PickingItem, CorrectionAction } from './DoubleCheckView';
 import type { InventoryItemWithMetadata } from '../../../schemas/inventory.schema';
 import type { InventoryItem } from '../../../schemas/inventory.schema';
 import { useAutoSelect } from '../../../hooks/useAutoSelect';
+import { ReasonPicker } from './ReasonPicker';
+import type { ReasonActionType } from './ReasonPicker';
 
 interface CorrectionModeViewProps {
   problemItems: PickingItem[];
@@ -219,6 +221,8 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
   const [addQty, setAddQty] = useState(1);
   const autoSelect = useAutoSelect();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedReason, setSelectedReason] = useState('');
+  const [recentlyRemoved, setRecentlyRemoved] = useState<string[]>([]);
 
   const normalItems = useMemo(
     () => allItems.filter((i) => !i.sku_not_found && !i.insufficient_stock),
@@ -254,8 +258,8 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
     searchTimerRef.current = setTimeout(async () => {
       try {
         const [bikesRes, partsRes] = await Promise.all([
-          inventoryApi.fetchInventoryWithMetadata({ search: searchQuery, partsBins: false, limit: 15 }),
-          inventoryApi.fetchInventoryWithMetadata({ search: searchQuery, partsBins: true, limit: 15 }),
+          inventoryApi.fetchInventoryWithMetadata({ search: searchQuery, showParts: false, limit: 15 }),
+          inventoryApi.fetchInventoryWithMetadata({ search: searchQuery, showParts: true, limit: 15 }),
         ]);
         setSearchResults(
           [...bikesRes.data, ...partsRes.data].filter(
@@ -274,6 +278,11 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
     };
   }, [searchQuery, activePanel, allItems]);
 
+  // Reset reason when panel changes
+  useEffect(() => {
+    setSelectedReason('');
+  }, [activePanel]);
+
   // ── Handlers ──
 
   const handleOpenRemove = (sku: string) => {
@@ -290,8 +299,8 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
     setActivePanel({ type: 'adjust_qty', sku: item.sku, availableStock: -1 });
     try {
       const [bikesRes, partsRes] = await Promise.all([
-        inventoryApi.fetchInventoryWithMetadata({ search: item.sku, partsBins: false, limit: 10 }),
-        inventoryApi.fetchInventoryWithMetadata({ search: item.sku, partsBins: true, limit: 10 }),
+        inventoryApi.fetchInventoryWithMetadata({ search: item.sku, showParts: false, limit: 10 }),
+        inventoryApi.fetchInventoryWithMetadata({ search: item.sku, showParts: true, limit: 10 }),
       ]);
       const totalStock = [...bikesRes.data, ...partsRes.data]
         .filter((inv) => inv.sku === item.sku && inv.warehouse === (item.warehouse || 'LUDLOW'))
@@ -331,6 +340,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
           warehouse: activePanel.replacement.warehouse,
           item_name: activePanel.replacement.item_name ?? null,
         },
+        reason: selectedReason || undefined,
       });
       const originalItem = allItems.find((i) => i.sku === activePanel.sku);
       if (originalItem && replaceQty !== originalItem.pickingQty) {
@@ -346,7 +356,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
     if (activePanel?.type !== 'adjust_qty' || isProcessing) return;
     setIsProcessing(true);
     try {
-      await onCorrectItem({ type: 'adjust_qty', sku: activePanel.sku, newQty: adjustQty });
+      await onCorrectItem({ type: 'adjust_qty', sku: activePanel.sku, newQty: adjustQty, reason: selectedReason || undefined });
       setActivePanel(null);
     } finally {
       setIsProcessing(false);
@@ -357,7 +367,8 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
     if (activePanel?.type !== 'remove' || isProcessing) return;
     setIsProcessing(true);
     try {
-      await onCorrectItem({ type: 'remove', sku: activePanel.sku });
+      await onCorrectItem({ type: 'remove', sku: activePanel.sku, reason: selectedReason || undefined });
+      setRecentlyRemoved((prev) => [...prev, activePanel.sku]);
       setActivePanel(null);
     } finally {
       setIsProcessing(false);
@@ -377,6 +388,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
           item_name: activePanel.item.item_name ?? null,
           pickingQty: addQty,
         },
+        reason: selectedReason || undefined,
       });
       setActivePanel(null);
       setSearchQuery('');
@@ -507,11 +519,18 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
             <p className="text-[9px] text-white/30 text-center mb-4 font-black uppercase tracking-widest">
               {activePanel.replacement.quantity} available in stock
             </p>
+            <ReasonPicker
+              actionType="swap"
+              preselect={isProblem ? 'Out of stock — replacing' : undefined}
+              selectedReason={selectedReason}
+              onReasonChange={setSelectedReason}
+            />
             <ActionButtons
               onCancel={() => setActivePanel({ type: 'replace', sku: activePanel.sku })}
               onConfirm={handleConfirmReplace}
               isProcessing={isProcessing}
               confirmLabel="Confirm Replace"
+              disabled={!selectedReason}
             />
           </div>
         )}
@@ -530,12 +549,18 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
                 Available: {activePanel.availableStock === -1 ? '...' : activePanel.availableStock}
               </span>
             </div>
+            <ReasonPicker
+              actionType="adjust_qty"
+              preselect={item.insufficient_stock ? 'Partial stock only' : undefined}
+              selectedReason={selectedReason}
+              onReasonChange={setSelectedReason}
+            />
             <ActionButtons
               onCancel={() => setActivePanel(null)}
               onConfirm={handleConfirmAdjustQty}
               isProcessing={isProcessing}
               confirmLabel="Update Qty"
-              disabled={adjustQty === item.pickingQty}
+              disabled={adjustQty === item.pickingQty || !selectedReason}
             />
           </div>
         )}
@@ -545,12 +570,19 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
             <p className="text-sm text-white/70 text-center mb-4">
               Remove <span className="font-black text-red-400">{item.sku}</span> from order?
             </p>
+            <ReasonPicker
+              actionType="remove"
+              preselect={item.insufficient_stock ? 'Out of stock' : undefined}
+              selectedReason={selectedReason}
+              onReasonChange={setSelectedReason}
+            />
             <ActionButtons
               onCancel={() => setActivePanel(null)}
               onConfirm={handleConfirmRemove}
               isProcessing={isProcessing}
               confirmLabel="Yes, Remove"
               confirmClass="bg-red-500 text-white border border-red-500"
+              disabled={!selectedReason}
             />
           </div>
         )}
@@ -625,6 +657,13 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
           <div className="mt-6">
             {activePanel?.type === 'add_item' ? (
               <div className="bg-white/[0.03] border border-accent/20 rounded-2xl p-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                {recentlyRemoved.length > 0 && (
+                  <div className="mb-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                    <span className="text-[10px] font-bold text-amber-400">
+                      You removed {recentlyRemoved[recentlyRemoved.length - 1]} — consider using <strong>Replace</strong> on the item instead for a cleaner audit trail.
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-[10px] font-black text-accent uppercase tracking-widest">Add Item to Order</span>
                   <button
@@ -655,11 +694,18 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
                 <p className="text-[9px] text-white/30 text-center mb-4 font-black uppercase tracking-widest">
                   {activePanel.item.location?.replace(/row/i, 'ROW') || 'No location'} · {activePanel.item.quantity} available
                 </p>
+                <ReasonPicker
+                  actionType="add"
+                  preselect={recentlyRemoved.length > 0 ? 'Replacement for removed item' : undefined}
+                  selectedReason={selectedReason}
+                  onReasonChange={setSelectedReason}
+                />
                 <ActionButtons
                   onCancel={() => { setActivePanel({ type: 'add_item' }); setSearchQuery(''); }}
                   onConfirm={handleConfirmAdd}
                   isProcessing={isProcessing}
                   confirmLabel="Add to Order"
+                  disabled={!selectedReason}
                 />
               </div>
             ) : (

@@ -30,19 +30,21 @@ export const inventoryApi = {
    */
   async fetchInventoryWithMetadata({
     includeInactive = false,
-    partsBins = false,
+    showParts = false,
     search = '',
     offset = 0,
     limit = 30,
     warehouse,
   }: {
     includeInactive?: boolean;
-    partsBins?: boolean;
+    showParts?: boolean;
     search?: string;
     offset?: number;
     limit?: number;
     warehouse?: string;
   } = {}): Promise<{ data: InventoryItem[]; count: number | null }> {
+    const metadataCols = 'sku, image_url, length_in, width_in, height_in, weight_lbs, is_bike';
+
     let query = supabase
       .from('inventory')
       .select(
@@ -50,7 +52,7 @@ export const inventoryApi = {
         id, sku, quantity, location, location_id, item_name,
         warehouse, is_active, internal_note, distribution, created_at,
         location_sort_key,
-        sku_metadata ( sku, image_url, length_in, width_in, height_in, weight_lbs, is_bike )
+        sku_metadata!inner ( ${metadataCols} )
         `,
         { count: 'exact' }
       )
@@ -72,11 +74,8 @@ export const inventoryApi = {
       );
     }
 
-    if (partsBins) {
-      query = query.not('location', 'like', 'ROW %');
-    } else {
-      query = query.or('location.like.ROW %,location.eq.PALLETIZED,location.eq.UNASSIGNED');
-    }
+    // Filter by is_bike: bikes when false, parts when true
+    query = query.eq('sku_metadata.is_bike', !showParts);
 
     const { data, error, count } = await query;
 

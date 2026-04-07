@@ -43,7 +43,7 @@ export const useInventory = () => {
   const { isAdmin, user, profile } = useAuth();
   const queryClient = useQueryClient();
   const [showInactive, setShowInactive] = useState(false);
-  const [showPartsBins, setShowPartsBins] = useState(false);
+  const [showParts, setShowParts] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { fetchLogs, undoAction } = useInventoryLogs();
   const { locations } = useLocationManagement();
@@ -67,10 +67,10 @@ export const useInventory = () => {
 
   // ── Global stats (single RPC call — returns 2 numbers) ──
   const { data: globalStats } = useQuery({
-    queryKey: ['inventory', 'stats', showPartsBins],
+    queryKey: ['inventory', 'stats', showParts],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_inventory_stats', {
-        p_include_parts: showPartsBins,
+        p_include_parts: showParts,
       });
       if (error) throw error;
       const row = data?.[0] ?? data;
@@ -83,7 +83,7 @@ export const useInventory = () => {
     refetchOnWindowFocus: false,
   });
 
-  // ── Bikes query (ROW locations) — paginated initial load ──────────
+  // ── Bikes query (is_bike = true) — paginated initial load ─────────
   const {
     data: rawData,
     isLoading,
@@ -93,7 +93,7 @@ export const useInventory = () => {
     queryFn: async () => {
       const { data, count } = await inventoryApi.fetchInventoryWithMetadata({
         includeInactive: showInactive,
-        partsBins: false,
+        showParts: false,
         warehouse: 'LUDLOW',
         limit: INITIAL_PAGE_SIZE,
       });
@@ -108,15 +108,15 @@ export const useInventory = () => {
     refetchOnWindowFocus: false,
   });
 
-  // ── Parts bins query — only when toggled or searching ─────────────
-  const { data: partsBinsData, isLoading: partsBinsLoading } = useQuery<
+  // ── Parts query (all items) — only when toggled or searching ──────
+  const { data: partsData, isLoading: partsLoading } = useQuery<
     InventoryItemWithMetadata[]
   >({
     queryKey: [...PARTS_BINS_KEY, showInactive],
     queryFn: async () => {
       const { data, count } = await inventoryApi.fetchInventoryWithMetadata({
         includeInactive: showInactive,
-        partsBins: true,
+        showParts: true,
         warehouse: 'LUDLOW',
         limit: INITIAL_PAGE_SIZE,
       });
@@ -125,7 +125,7 @@ export const useInventory = () => {
     },
     staleTime: Infinity,
     refetchOnWindowFocus: false,
-    enabled: showPartsBins || searchQuery.length > 0,
+    enabled: showParts || searchQuery.length > 0,
   });
 
   // ── Server-side search query (separate from main cache) ───────────
@@ -138,14 +138,14 @@ export const useInventory = () => {
       const [bikesRes, partsRes] = await Promise.all([
         inventoryApi.fetchInventoryWithMetadata({
           includeInactive: true,
-          partsBins: false,
+          showParts: false,
           search: searchQuery,
           warehouse: 'LUDLOW',
           limit: SEARCH_LIMIT,
         }),
         inventoryApi.fetchInventoryWithMetadata({
           includeInactive: true,
-          partsBins: true,
+          showParts: true,
           search: searchQuery,
           warehouse: 'LUDLOW',
           limit: SEARCH_LIMIT,
@@ -174,29 +174,29 @@ export const useInventory = () => {
 
   // ── Load more items (appends to cache) ────────────────────────────
   const loadMoreInventory = useCallback(
-    async (partsBins = false) => {
+    async (loadParts = false) => {
       if (isLoadingMoreRef.current) return;
       isLoadingMoreRef.current = true;
       setIsLoadingMore(true);
-      const cacheKey = partsBins ? PARTS_BINS_KEY : INVENTORY_ROOT_KEY;
+      const cacheKey = loadParts ? PARTS_BINS_KEY : INVENTORY_ROOT_KEY;
       const currentLen = (queryClient.getQueryData<InventoryItemWithMetadata[]>(cacheKey) || [])
         .length;
       console.log(
-        `📦 [LoadMore] Fetching ${partsBins ? 'parts' : 'bikes'} offset=${currentLen} limit=${LOAD_MORE_SIZE}`
+        `📦 [LoadMore] Fetching ${loadParts ? 'parts' : 'bikes'} offset=${currentLen} limit=${LOAD_MORE_SIZE}`
       );
       try {
-        const cacheKey = partsBins ? PARTS_BINS_KEY : INVENTORY_ROOT_KEY;
+        const cacheKey = loadParts ? PARTS_BINS_KEY : INVENTORY_ROOT_KEY;
         const currentData = queryClient.getQueryData<InventoryItemWithMetadata[]>(cacheKey) || [];
 
         const { data: newItems, count } = await inventoryApi.fetchInventoryWithMetadata({
           includeInactive: showInactive,
-          partsBins,
+          showParts: loadParts,
           warehouse: 'LUDLOW',
           offset: currentData.length,
           limit: LOAD_MORE_SIZE,
         });
 
-        if (partsBins) setPartsTotal(count);
+        if (loadParts) setPartsTotal(count);
         else setBikesTotal(count);
 
         const mapped = newItems.map(mapItem);
@@ -220,11 +220,11 @@ export const useInventory = () => {
   );
 
   const hasMoreBikes = bikesTotal !== null && (rawData?.length ?? 0) < bikesTotal;
-  const hasMoreParts = partsTotal !== null && (partsBinsData?.length ?? 0) < partsTotal;
+  const hasMoreParts = partsTotal !== null && (partsData?.length ?? 0) < partsTotal;
   const hasMoreSearch = searchTotal !== null && (searchResults?.length ?? 0) < searchTotal;
   const hasMoreItems = searchQuery
     ? hasMoreSearch
-    : hasMoreBikes || (showPartsBins && hasMoreParts);
+    : hasMoreBikes || (showParts && hasMoreParts);
 
   const loadMoreSearch = useCallback(async () => {
     if (isLoadingMoreRef.current || !searchQuery) return;
@@ -237,7 +237,7 @@ export const useInventory = () => {
       const [bikesRes, partsRes] = await Promise.all([
         inventoryApi.fetchInventoryWithMetadata({
           includeInactive: true,
-          partsBins: false,
+          showParts: false,
           search: searchQuery,
           warehouse: 'LUDLOW',
           offset: nextOffset,
@@ -245,7 +245,7 @@ export const useInventory = () => {
         }),
         inventoryApi.fetchInventoryWithMetadata({
           includeInactive: true,
-          partsBins: true,
+          showParts: true,
           search: searchQuery,
           warehouse: 'LUDLOW',
           offset: nextOffset,
@@ -276,23 +276,23 @@ export const useInventory = () => {
       await loadMoreSearch();
     } else if (hasMoreBikes) {
       await loadMoreInventory(false);
-    } else if (showPartsBins && hasMoreParts) {
+    } else if (showParts && hasMoreParts) {
       await loadMoreInventory(true);
     }
-  }, [searchQuery, loadMoreSearch, hasMoreBikes, hasMoreParts, showPartsBins, loadMoreInventory]);
+  }, [searchQuery, loadMoreSearch, hasMoreBikes, hasMoreParts, showParts, loadMoreInventory]);
 
   // ── Merge data: use search results when searching, else paginated data ─
   const isActiveSearch = searchQuery.length > 0;
 
-  const needsPartsBins = showPartsBins || searchQuery.length > 0;
+  const needsPartsBins = showParts || searchQuery.length > 0;
   const globalData = useMemo(() => {
     if (isActiveSearch) {
       return searchResults ?? EMPTY_INVENTORY;
     }
     const bikes = rawData ?? EMPTY_INVENTORY;
-    const parts = partsBinsData ?? EMPTY_INVENTORY;
+    const parts = partsData ?? EMPTY_INVENTORY;
     return needsPartsBins ? [...bikes, ...parts] : bikes;
-  }, [isActiveSearch, searchResults, rawData, partsBinsData, needsPartsBins]);
+  }, [isActiveSearch, searchResults, rawData, partsData, needsPartsBins]);
 
   // All filtering (warehouse, inactive) now handled server-side
   const inventoryData = globalData;
@@ -477,10 +477,10 @@ export const useInventory = () => {
     syncFilters: noopFilters,
     showInactive,
     setShowInactive,
-    showPartsBins,
-    setShowPartsBins,
+    showParts,
+    setShowParts,
     setSearchQuery,
-    partsBinsLoading,
+    partsLoading,
     isSearching,
     isAdmin,
     user,

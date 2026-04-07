@@ -10,12 +10,6 @@ import { type SKUMetadata } from '../../../schemas/skuMetadata.schema';
 export const INVENTORY_ROOT_KEY = ['inventory', 'grouped-all'];
 export const PARTS_BINS_KEY = ['inventory', 'parts-bins'];
 
-const BIKE_LOCATION_RE = /^ROW\s|^PALLETIZED$|^UNASSIGNED$/i;
-
-function isPartsBinLocation(location: string | null | undefined): boolean {
-  return !!location && !BIKE_LOCATION_RE.test(location.trim());
-}
-
 /**
  * Motor Websocket: Escucha cambios en 'inventory' y 'sku_metadata'
  * e inyecta quirúrgicamente los datos en la caché de React Query
@@ -79,10 +73,9 @@ export function useInventoryRealtime() {
     const channel = supabase
       .channel('inventory-sync-dual')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory' }, (payload) => {
-        const record = (payload.new || payload.old) as Record<string, unknown>;
-        const location = record?.location as string | null;
-        const targetKey = isPartsBinLocation(location) ? PARTS_BINS_KEY : INVENTORY_ROOT_KEY;
-        applyInventoryChange(targetKey, payload);
+        // Push to both caches — React rendering handles which view shows the item
+        applyInventoryChange(INVENTORY_ROOT_KEY, payload);
+        applyInventoryChange(PARTS_BINS_KEY, payload);
       })
       .on(
         'postgres_changes',

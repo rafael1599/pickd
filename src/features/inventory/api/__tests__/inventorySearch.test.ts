@@ -68,8 +68,8 @@ describe('inventoryApi.fetchInventoryWithMetadata', () => {
     const selectCall = (mockSupabase.select as ReturnType<typeof vi.fn>).mock.calls[0];
     const selectString: string = selectCall[0];
 
-    // Parse embedded resource columns: sku_metadata ( col1, col2, ... )
-    const match = selectString.match(/sku_metadata\s*\(\s*([^)]+)\)/);
+    // Parse embedded resource columns: sku_metadata[!inner] ( col1, col2, ... )
+    const match = selectString.match(/sku_metadata(?:!inner)?\s*\(\s*([^)]+)\)/);
     expect(match).toBeTruthy();
 
     const requestedColumns = match![1].split(',').map((c: string) => c.trim());
