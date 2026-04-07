@@ -34,6 +34,7 @@ describe('inventoryApi.fetchInventoryWithMetadata', () => {
       'ilike',
       'like',
       'in',
+      'gt',
       'gte',
       'lte',
       'limit',
@@ -100,10 +101,11 @@ describe('inventoryApi.fetchInventoryWithMetadata', () => {
     expect(mockSupabase.range).toHaveBeenCalledWith(30, 44);
   });
 
-  it('should filter active items by default', async () => {
+  it('should filter active items with quantity > 0 by default', async () => {
     await inventoryApi.fetchInventoryWithMetadata();
 
     expect(mockSupabase.eq).toHaveBeenCalledWith('is_active', true);
+    expect(mockSupabase.gt).toHaveBeenCalledWith('quantity', 0);
   });
 
   it('should return data and count from response', async () => {

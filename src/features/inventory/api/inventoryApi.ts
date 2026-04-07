@@ -34,12 +34,14 @@ export const inventoryApi = {
     search = '',
     offset = 0,
     limit = 30,
+    warehouse,
   }: {
     includeInactive?: boolean;
     partsBins?: boolean;
     search?: string;
     offset?: number;
     limit?: number;
+    warehouse?: string;
   } = {}): Promise<{ data: InventoryItem[]; count: number | null }> {
     let query = supabase
       .from('inventory')
@@ -47,16 +49,21 @@ export const inventoryApi = {
         `
         id, sku, quantity, location, location_id, item_name,
         warehouse, is_active, internal_note, distribution, created_at,
+        location_sort_key,
         sku_metadata ( sku, image_url, length_in, width_in, height_in, weight_lbs )
         `,
         { count: 'exact' }
       )
-      .order('location', { ascending: true })
+      .order('location_sort_key', { ascending: true })
       .order('sku', { ascending: true })
       .range(offset, offset + limit - 1);
 
+    if (warehouse) {
+      query = query.eq('warehouse', warehouse);
+    }
+
     if (!includeInactive) {
-      query = query.eq('is_active', true);
+      query = query.eq('is_active', true).gt('quantity', 0);
     }
 
     if (search) {

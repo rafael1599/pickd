@@ -97,10 +97,12 @@ export const InventoryScreen = () => {
         if (entries[0].isIntersecting) {
           loadCooldownRef.current = true;
           loadMoreItems();
-          setTimeout(() => { loadCooldownRef.current = false; }, 500);
+          setTimeout(() => {
+            loadCooldownRef.current = false;
+          }, 500);
         }
       },
-      { rootMargin: '400px' },
+      { rootMargin: '400px' }
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
@@ -119,13 +121,8 @@ export const InventoryScreen = () => {
     setSearchQuery(debouncedSearch);
   }, [debouncedSearch, setSearchQuery]);
 
-  // Filtering (search is now server-side, only inactive filter remains client-side)
-  const filteredInventory = useMemo(() => {
-    return inventoryData.filter((item) => {
-      if (!showInactive && item.is_active === false) return false;
-      return true;
-    });
-  }, [inventoryData, showInactive]);
+  // All filtering now server-side (warehouse, inactive, location type)
+  const filteredInventory = inventoryData;
 
   const isLoading = loading;
 
@@ -209,17 +206,12 @@ export const InventoryScreen = () => {
 
         let consolidatedItems = Object.values(consolidated);
 
-        // Filter out zero-quantity items unless showing inactive
-        if (!showInactive) {
-          consolidatedItems = consolidatedItems.filter((item) => item.quantity > 0);
-        }
-
         groups[wh][loc].items = consolidatedItems;
       });
     });
 
     return groups;
-  }, [filteredInventory, showInactive]);
+  }, [filteredInventory]);
 
   const allSortedWarehouses = useMemo(() => {
     // Only include warehouses that have entries in allGroupedData and aren't effectively empty
@@ -407,8 +399,15 @@ export const InventoryScreen = () => {
   }, [allLocationBlocks, profile, authUser]);
 
   // Picking Mode State
-  const { cartItems, addToCart, updateCartQty, removeFromCart, getAvailableStock, onStartSession, sessionMode } =
-    usePickingSession();
+  const {
+    cartItems,
+    addToCart,
+    updateCartQty,
+    removeFromCart,
+    getAvailableStock,
+    onStartSession,
+    sessionMode,
+  } = usePickingSession();
 
   // --- Stock Mode Handlers ---
   const handleAddItem = useCallback((warehouse = 'LUDLOW') => {
@@ -635,8 +634,18 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
 
       {viewMode === 'stock' && (
         <div className="px-4 pt-2 flex justify-between items-center text-xs font-black uppercase tracking-widest text-muted">
-          <span>{debouncedSearch ? filteredStats.totalSkus : (globalStats?.totalSkus ?? filteredStats.totalSkus)} SKUs</span>
-          <span>{debouncedSearch ? filteredStats.totalQuantity : (globalStats?.totalQuantity ?? filteredStats.totalQuantity)} Units</span>
+          <span>
+            {debouncedSearch
+              ? filteredStats.totalSkus
+              : (globalStats?.totalSkus ?? filteredStats.totalSkus)}{' '}
+            SKUs
+          </span>
+          <span>
+            {debouncedSearch
+              ? filteredStats.totalQuantity
+              : (globalStats?.totalQuantity ?? filteredStats.totalQuantity)}{' '}
+            Units
+          </span>
         </div>
       )}
 
@@ -793,8 +802,12 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
               );
             })}
 
-        {hasMoreItems && !isServerSearching && !isLoadingMore ? (
-          <div ref={loadMoreSentinelRef} className="py-8" />
+        {hasMoreItems && !isServerSearching ? (
+          <div ref={loadMoreSentinelRef} className="py-8 flex justify-center">
+            {isLoadingMore && (
+              <div className="w-6 h-6 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+            )}
+          </div>
         ) : null}
 
         {allLocationBlocks.length === 0 ? (

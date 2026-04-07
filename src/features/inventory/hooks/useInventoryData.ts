@@ -89,16 +89,19 @@ export const useInventory = () => {
     isLoading,
     error,
   } = useQuery<InventoryItemWithMetadata[]>({
-    queryKey: INVENTORY_ROOT_KEY,
+    queryKey: [...INVENTORY_ROOT_KEY, showInactive],
     queryFn: async () => {
-      // On refetch (invalidation), load at least as many items as currently cached
       const { data, count } = await inventoryApi.fetchInventoryWithMetadata({
-        includeInactive: true,
+        includeInactive: showInactive,
         partsBins: false,
+        warehouse: 'LUDLOW',
         limit: INITIAL_PAGE_SIZE,
       });
-      // console.log(`📦 [InitialLoad] bikes: fetched=${data.length} serverCount=${count}`);
       setBikesTotal(count);
+      const withQty = data.filter((i) => (i.quantity ?? 0) > 0).length;
+      console.log(
+        `📦 [StockView] User sees ${data.length} items on reload, items with qty > 0 = ${withQty}, server total = ${count}`
+      );
       return data.map(mapItem);
     },
     staleTime: Infinity,
@@ -109,11 +112,12 @@ export const useInventory = () => {
   const { data: partsBinsData, isLoading: partsBinsLoading } = useQuery<
     InventoryItemWithMetadata[]
   >({
-    queryKey: PARTS_BINS_KEY,
+    queryKey: [...PARTS_BINS_KEY, showInactive],
     queryFn: async () => {
       const { data, count } = await inventoryApi.fetchInventoryWithMetadata({
-        includeInactive: true,
+        includeInactive: showInactive,
         partsBins: true,
+        warehouse: 'LUDLOW',
         limit: INITIAL_PAGE_SIZE,
       });
       setPartsTotal(count);
@@ -136,12 +140,14 @@ export const useInventory = () => {
           includeInactive: true,
           partsBins: false,
           search: searchQuery,
+          warehouse: 'LUDLOW',
           limit: SEARCH_LIMIT,
         }),
         inventoryApi.fetchInventoryWithMetadata({
           includeInactive: true,
           partsBins: true,
           search: searchQuery,
+          warehouse: 'LUDLOW',
           limit: SEARCH_LIMIT,
         }),
       ]);
@@ -173,15 +179,19 @@ export const useInventory = () => {
       isLoadingMoreRef.current = true;
       setIsLoadingMore(true);
       const cacheKey = partsBins ? PARTS_BINS_KEY : INVENTORY_ROOT_KEY;
-      const currentLen = (queryClient.getQueryData<InventoryItemWithMetadata[]>(cacheKey) || []).length;
-      console.log(`📦 [LoadMore] Fetching ${partsBins ? 'parts' : 'bikes'} offset=${currentLen} limit=${LOAD_MORE_SIZE}`);
+      const currentLen = (queryClient.getQueryData<InventoryItemWithMetadata[]>(cacheKey) || [])
+        .length;
+      console.log(
+        `📦 [LoadMore] Fetching ${partsBins ? 'parts' : 'bikes'} offset=${currentLen} limit=${LOAD_MORE_SIZE}`
+      );
       try {
         const cacheKey = partsBins ? PARTS_BINS_KEY : INVENTORY_ROOT_KEY;
         const currentData = queryClient.getQueryData<InventoryItemWithMetadata[]>(cacheKey) || [];
 
         const { data: newItems, count } = await inventoryApi.fetchInventoryWithMetadata({
-          includeInactive: true,
+          includeInactive: showInactive,
           partsBins,
+          warehouse: 'LUDLOW',
           offset: currentData.length,
           limit: LOAD_MORE_SIZE,
         });
@@ -196,7 +206,9 @@ export const useInventory = () => {
           const existingIds = new Set(old.map((i) => i.id));
           const unique = mapped.filter((i) => !existingIds.has(i.id));
           const result = [...old, ...unique];
-          console.log(`📦 [LoadMore] Cache updated: ${old.length} → ${result.length} items (fetched ${newItems.length}, unique ${unique.length}, total server=${count})`);
+          console.log(
+            `📦 [LoadMore] Cache updated: ${old.length} → ${result.length} items (fetched ${newItems.length}, unique ${unique.length}, total server=${count})`
+          );
           return result;
         });
       } finally {
@@ -204,7 +216,7 @@ export const useInventory = () => {
         setIsLoadingMore(false);
       }
     },
-    [queryClient],
+    [queryClient, showInactive]
   );
 
   const hasMoreBikes = bikesTotal !== null && (rawData?.length ?? 0) < bikesTotal;
@@ -227,6 +239,7 @@ export const useInventory = () => {
           includeInactive: true,
           partsBins: false,
           search: searchQuery,
+          warehouse: 'LUDLOW',
           offset: nextOffset,
           limit: LOAD_MORE_SIZE,
         }),
@@ -234,6 +247,7 @@ export const useInventory = () => {
           includeInactive: true,
           partsBins: true,
           search: searchQuery,
+          warehouse: 'LUDLOW',
           offset: nextOffset,
           limit: LOAD_MORE_SIZE,
         }),
@@ -249,7 +263,7 @@ export const useInventory = () => {
           const existingIds = new Set(old.items.map((i) => i.id));
           const unique = newItems.filter((i) => !existingIds.has(i.id));
           return { items: [...old.items, ...unique], total };
-        },
+        }
       );
     } finally {
       isLoadingMoreRef.current = false;
@@ -280,21 +294,11 @@ export const useInventory = () => {
     return needsPartsBins ? [...bikes, ...parts] : bikes;
   }, [isActiveSearch, searchResults, rawData, partsBinsData, needsPartsBins]);
 
-  // Filters
-  const inventoryData = useMemo(() => {
-    let filtered = globalData;
-    if (!showInactive) {
-      filtered = filtered.filter((item) => item.is_active || (item.quantity && item.quantity > 0));
-    }
-    return filtered.filter((item) => item.warehouse === 'LUDLOW');
-  }, [globalData, showInactive]);
+  // All filtering (warehouse, inactive) now handled server-side
+  const inventoryData = globalData;
 
-  const atsData = useMemo(() => {
-    let filtered = globalData;
-    if (!showInactive)
-      filtered = filtered.filter((item) => item.is_active || (item.quantity && item.quantity > 0));
-    return filtered.filter((item) => item.warehouse === 'ATS');
-  }, [globalData, showInactive]);
+  // ATS data: no longer in main query (filtered to LUDLOW server-side)
+  const atsData = EMPTY_INVENTORY;
 
   const locationCapacities = useMemo(() => {
     const caps: Record<string, { current: number; max: number }> = {};
