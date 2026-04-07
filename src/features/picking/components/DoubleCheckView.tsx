@@ -22,6 +22,7 @@ import {
 import { type Pallet, redistributeWithOverrides } from '../../../utils/pickingLogic.ts';
 import { ItemDetailView } from '../../inventory/components/ItemDetailView';
 import Pencil from 'lucide-react/dist/esm/icons/pencil';
+import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import Lock from 'lucide-react/dist/esm/icons/lock';
 import toast from 'react-hot-toast';
 
@@ -134,7 +135,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   } = useInventory();
   const inventoryData = inventoryDataProp ?? inventoryDataCtx;
   const { showConfirmation } = useConfirmation();
-  const { pallets: originalPallets } = usePickingSession();
+  const { pallets: originalPallets, deleteList } = usePickingSession();
   const [isDeducting, setIsDeducting] = useState(false);
 
   // Track original items snapshot for reopened orders to detect changes
@@ -629,45 +630,71 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
       {/* Clean Item List */}
       <div className="flex-1 overflow-y-auto p-4 bg-black min-h-0 pb-32">
-        <button
-          onClick={() => setShowCorrectionMode(true)}
-          className={`w-full mb-6 p-4 border rounded-2xl flex items-center justify-between gap-3 active:scale-[0.98] transition-all ${
-            problemItems.length > 0
-              ? 'bg-red-500/10 border-red-500/30'
-              : 'bg-white/5 border-white/10'
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <div
-              className={`p-2 rounded-xl ${
-                problemItems.length > 0 ? 'bg-red-500/20' : 'bg-white/10'
-              }`}
-            >
-              <Pencil
-                size={18}
-                className={problemItems.length > 0 ? 'text-red-400' : 'text-white/50'}
-              />
-            </div>
-            <div className="text-left">
-              <span
-                className={`text-xs font-black uppercase tracking-widest block ${
-                  problemItems.length > 0 ? 'text-red-400' : 'text-white/60'
+        <div className="flex items-center gap-2 mb-6">
+          <button
+            onClick={() => setShowCorrectionMode(true)}
+            className={`flex-1 p-4 border rounded-2xl flex items-center justify-between gap-3 active:scale-[0.98] transition-all ${
+              problemItems.length > 0
+                ? 'bg-red-500/10 border-red-500/30'
+                : 'bg-white/5 border-white/10'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className={`p-2 rounded-xl ${
+                  problemItems.length > 0 ? 'bg-red-500/20' : 'bg-white/10'
                 }`}
               >
-                {problemItems.length > 0
-                  ? `${problemItems.length} issue${problemItems.length > 1 ? 's' : ''} — Edit Order`
-                  : 'Edit Order'}
-              </span>
-              <span className="text-[10px] text-white/40 font-bold">
-                Add, remove, or adjust items
-              </span>
+                <Pencil
+                  size={18}
+                  className={problemItems.length > 0 ? 'text-red-400' : 'text-white/50'}
+                />
+              </div>
+              <div className="text-left">
+                <span
+                  className={`text-xs font-black uppercase tracking-widest block ${
+                    problemItems.length > 0 ? 'text-red-400' : 'text-white/60'
+                  }`}
+                >
+                  {problemItems.length > 0
+                    ? `${problemItems.length} issue${problemItems.length > 1 ? 's' : ''} — Edit Order`
+                    : 'Edit Order'}
+                </span>
+                <span className="text-[10px] text-white/40 font-bold">
+                  Add, remove, or adjust items
+                </span>
+              </div>
             </div>
-          </div>
-          <ChevronDown
-            size={16}
-            className={`rotate-[-90deg] ${problemItems.length > 0 ? 'text-red-400/60' : 'text-white/20'}`}
-          />
-        </button>
+            <ChevronDown
+              size={16}
+              className={`rotate-[-90deg] ${problemItems.length > 0 ? 'text-red-400/60' : 'text-white/20'}`}
+            />
+          </button>
+          <button
+            onClick={() => {
+              showConfirmation(
+                'Cancel Order',
+                'This order will be cancelled. You can find it later in the cancelled orders list.',
+                async () => {
+                  try {
+                    await deleteList(activeListId ?? null);
+                    onClose();
+                  } catch {
+                    toast.error('Failed to cancel order');
+                  }
+                },
+                () => {},
+                'Cancel Order',
+                'Go Back',
+                'danger'
+              );
+            }}
+            className="h-full p-4 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 rounded-2xl text-red-500 transition-all active:scale-95 self-stretch flex items-center justify-center"
+            title="Cancel Order"
+          >
+            <Trash2 size={18} />
+          </button>
+        </div>
 
         {pallets.length === 0 && cartItems.length > 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
