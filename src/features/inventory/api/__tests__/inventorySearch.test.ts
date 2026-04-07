@@ -52,6 +52,8 @@ describe('inventoryApi.fetchInventoryWithMetadata', () => {
   const SKU_METADATA_REAL_COLUMNS = [
     'sku',
     'image_url',
+    'is_bike',
+    'upc',
     'weight_lbs',
     'length_in',
     'width_in',

@@ -21,8 +21,8 @@ import { predictLocation } from '../../../utils/locationPredictor.ts';
 import { useViewMode } from '../../../context/ViewModeContext.tsx';
 import { useAutoSelect } from '../../../hooks/useAutoSelect.ts';
 import toast from 'react-hot-toast';
-import { InventoryItem, STORAGE_TYPE_LABELS } from '../../../schemas/inventory.schema.ts';
-import { isBikeSku, calculateBikeDistribution } from '../../../utils/distributionCalculator.ts';
+import { InventoryItem, InventoryItemWithMetadata, STORAGE_TYPE_LABELS } from '../../../schemas/inventory.schema.ts';
+import { calculateBikeDistribution } from '../../../utils/distributionCalculator.ts';
 import { useScrollLock } from '../../../hooks/useScrollLock';
 
 interface MovementModalProps {
@@ -35,7 +35,7 @@ interface MovementModalProps {
     quantity: number;
     internalNote?: string | null;
   }) => void;
-  initialSourceItem?: InventoryItem | null;
+  initialSourceItem?: InventoryItemWithMetadata | null;
 }
 
 type NoteChoice = 'source' | 'destination' | 'both' | 'clear';
@@ -164,7 +164,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const isValid = validate().isValid && !isSameLocation;
 
   const previewDistribution = useMemo(() => {
-    if (!initialSourceItem || !isBikeSku(initialSourceItem.sku)) return null;
+    if (!initialSourceItem || !initialSourceItem.sku_metadata?.is_bike) return null;
     if (!formData.targetLocation || isSameLocation) return null;
 
     const moveQty = parseInt(formData.quantity.toString()) || 0;

@@ -23,7 +23,7 @@ import {
   type DistributionItem,
 } from '../../../../schemas/inventory.schema.ts';
 import { predictLocation } from '../../../../utils/locationPredictor.ts';
-import { isBikeSku, calculateBikeDistribution } from '../../../../utils/distributionCalculator.ts';
+import { calculateBikeDistribution } from '../../../../utils/distributionCalculator.ts';
 import { inventoryService } from '../../api/inventory.service.ts';
 import { uploadPhoto, deletePhoto } from '../../../../services/photoUpload.service';
 import { useScrollLock } from '../../../../hooks/useScrollLock';
@@ -43,9 +43,8 @@ type WarehouseType = 'LUDLOW' | 'ATS' | 'DELETED ITEMS';
 const DEFAULT_UNITS: Record<string, number> = { TOWER: 30, LINE: 5, PALLET: 10, OTHER: 1 };
 
 /** Dimension defaults: bikes get standard box dims, parts get zeros */
-function dimensionDefaults(sku?: string | null) {
-  const bike = sku ? isBikeSku(sku) : true; // default to bike for add mode
-  return bike
+function dimensionDefaults(isBike?: boolean | null) {
+  return isBike !== false // default to bike dims when unknown (null/undefined)
     ? { length_in: 54, width_in: 8, height_in: 30, weight_lbs: 45 }
     : { length_in: 0, width_in: 0, height_in: 0, weight_lbs: 0 };
 }
@@ -182,15 +181,16 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   useEffect(() => {
     if (!isOpen || mode !== 'add' || userEditedDistribution) return;
     if (!sku || !quantity || quantity <= 0) return;
-    if (isBikeSku(sku)) {
+    const isBike = initialData?.sku_metadata?.is_bike ?? true; // default bike in add mode
+    if (isBike) {
       setDistribution(calculateBikeDistribution(quantity));
     }
-  }, [isOpen, mode, sku, quantity, userEditedDistribution]);
+  }, [isOpen, mode, sku, quantity, userEditedDistribution, initialData]);
 
   // Auto-set dimension defaults based on SKU type in Add mode
   useEffect(() => {
     if (!isOpen || mode !== 'add' || !sku || sku.length < 5) return;
-    const defaults = dimensionDefaults(sku);
+    const defaults = dimensionDefaults(initialData?.sku_metadata?.is_bike);
     setValue('length_in', defaults.length_in);
     setValue('width_in', defaults.width_in);
     setValue('height_in', defaults.height_in);

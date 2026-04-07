@@ -876,9 +876,11 @@ export type Database = {
           created_at: string
           height_in: number | null
           image_url: string | null
+          is_bike: boolean | null
           length_ft: number | null
           length_in: number | null
           sku: string
+          upc: string | null
           weight_lbs: number | null
           width_in: number | null
         }
@@ -886,9 +888,11 @@ export type Database = {
           created_at?: string
           height_in?: number | null
           image_url?: string | null
+          is_bike?: boolean | null
           length_ft?: number | null
           length_in?: number | null
           sku: string
+          upc?: string | null
           weight_lbs?: number | null
           width_in?: number | null
         }
@@ -896,9 +900,11 @@ export type Database = {
           created_at?: string
           height_in?: number | null
           image_url?: string | null
+          is_bike?: boolean | null
           length_ft?: number | null
           length_in?: number | null
           sku?: string
+          upc?: string | null
           weight_lbs?: number | null
           width_in?: number | null
         }

@@ -102,7 +102,7 @@ export const StockCountScreen = () => {
                 // Fetch real inventory for these SKUs directly from DB
                 const { data: invData } = await supabase
                   .from('inventory')
-                  .select('*, sku_metadata(sku, image_url, length_in, width_in, height_in, weight_lbs)')
+                  .select('*, sku_metadata(sku, image_url, length_in, width_in, height_in, weight_lbs, is_bike)')
                   .in('sku', skus)
                   .eq('warehouse', 'LUDLOW');
                 if (invData) setDirectInventory(invData as InventoryItemWithMetadata[]);

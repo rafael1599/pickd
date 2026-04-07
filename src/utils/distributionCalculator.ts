@@ -1,12 +1,7 @@
 import type { DistributionItem } from '../schemas/inventory.schema';
 
-const BIKE_SKU_REGEX = /^\d{2}-\d{4}[A-Za-z]{2,}$/;
 const TOWER_SIZE = 30;
 const LINE_SIZE = 5;
-
-export function isBikeSku(sku: string): boolean {
-  return BIKE_SKU_REGEX.test(sku);
-}
 
 export function calculateBikeDistribution(qty: number): DistributionItem[] {
   if (qty <= 0) return [];

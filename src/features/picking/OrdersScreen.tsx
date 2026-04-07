@@ -19,7 +19,6 @@ import { PickingSummaryModal } from '../../components/orders/PickingSummaryModal
 import { SplitOrderModal } from '../../components/orders/SplitOrderModal.tsx';
 import { SearchInput } from '../../components/ui/SearchInput.tsx';
 import type { PickingListItem, CombineMeta } from '../../schemas/picking.schema';
-import { isBikeSku } from '../../utils/distributionCalculator';
 import { saveCustomerAddress } from '../../lib/customerAddresses';
 
 interface CustomerDetails {
@@ -132,15 +131,15 @@ export const OrdersScreen = () => {
     parts: '',
   });
 
-  // SKU weight map fetched from sku_metadata
-  const [skuWeights, setSkuWeights] = useState<Record<string, number | null>>({});
+  // SKU metadata map fetched from sku_metadata (weight + bike classification)
+  const [skuMeta, setSkuMeta] = useState<Record<string, { weight_lbs: number | null; is_bike: boolean }>>({});
   const [weightsReady, setWeightsReady] = useState(false);
 
-  // Fetch sku_metadata weights when selected order changes
+  // Fetch sku_metadata (weights + is_bike) when selected order changes
   useEffect(() => {
     setWeightsReady(false);
     if (!selectedOrder?.items || !Array.isArray(selectedOrder.items)) {
-      setSkuWeights({});
+      setSkuMeta({});
       return;
     }
     const skus = [...new Set(selectedOrder.items.map((i: PickingListItem) => i.sku))] as string[];
@@ -148,17 +147,17 @@ export const OrdersScreen = () => {
 
     supabase
       .from('sku_metadata')
-      .select('sku, weight_lbs')
+      .select('sku, weight_lbs, is_bike')
       .in('sku', skus)
       .then(({ data }) => {
-        const map: Record<string, number | null> = {};
+        const map: Record<string, { weight_lbs: number | null; is_bike: boolean }> = {};
         skus.forEach((s) => {
-          map[s] = null;
+          map[s] = { weight_lbs: null, is_bike: false };
         });
-        (data as unknown as { sku: string; weight_lbs: number | null }[] | null)?.forEach((row) => {
-          map[row.sku] = row.weight_lbs;
+        (data as unknown as { sku: string; weight_lbs: number | null; is_bike: boolean | null }[] | null)?.forEach((row) => {
+          map[row.sku] = { weight_lbs: row.weight_lbs, is_bike: row.is_bike ?? false };
         });
-        setSkuWeights(map);
+        setSkuMeta(map);
         setWeightsReady(true);
       });
   }, [selectedOrder?.id, selectedOrder?.items]);
@@ -166,14 +165,14 @@ export const OrdersScreen = () => {
   // Items missing weight
   const itemsMissingWeight = useMemo(() => {
     const items = selectedOrder?.items;
-    if (!Array.isArray(items) || Object.keys(skuWeights).length === 0) return [];
+    if (!Array.isArray(items) || Object.keys(skuMeta).length === 0) return [];
     const seen = new Set<string>();
     return items.filter((item: PickingListItem) => {
       if (seen.has(item.sku)) return false;
       seen.add(item.sku);
-      return skuWeights[item.sku] == null;
+      return skuMeta[item.sku]?.weight_lbs == null;
     });
-  }, [selectedOrder?.items, skuWeights]);
+  }, [selectedOrder?.items, skuMeta]);
 
   // Auto-assign default weight to SKUs missing weight in sku_metadata
   // Bikes → 45 lbs, Parts → 0.1 lbs
@@ -183,17 +182,18 @@ export const OrdersScreen = () => {
 
     Promise.all(
       skusToFix.map((sku: string) => {
-        const defaultWeight = isBikeSku(sku) ? 45 : 0.1;
+        const defaultWeight = skuMeta[sku]?.is_bike ? 45 : 0.1;
         return supabase.from('sku_metadata').upsert(
           { sku, weight_lbs: defaultWeight },
           { onConflict: 'sku' }
         );
       })
     ).then(() => {
-      setSkuWeights((prev) => {
+      setSkuMeta((prev) => {
         const updated = { ...prev };
         skusToFix.forEach((sku: string) => {
-          updated[sku] = isBikeSku(sku) ? 45 : 0.1;
+          const isBike = updated[sku]?.is_bike ?? false;
+          updated[sku] = { ...updated[sku], weight_lbs: isBike ? 45 : 0.1 };
         });
         return updated;
       });
@@ -208,14 +208,14 @@ export const OrdersScreen = () => {
     const items = selectedOrder?.items;
     if (!Array.isArray(items)) return 0;
     const productWeight = items.reduce((sum: number, item: PickingListItem) => {
-      const weight = skuWeights[item.sku] ?? 0;
+      const weight = skuMeta[item.sku]?.weight_lbs ?? 0;
       const qty = item.pickingQty ?? 0;
       return sum + weight * qty;
     }, 0);
     const palletCount = parseInt(formData.pallets, 10) || 0;
     const palletWeight = isFedexOrder ? 0 : palletCount * 40;
     return Math.round(productWeight + palletWeight);
-  }, [selectedOrder?.items, skuWeights, formData.pallets, isFedexOrder]);
+  }, [selectedOrder?.items, skuMeta, formData.pallets, isFedexOrder]);
 
   // Split item counts: bikes vs parts (auto-calculated)
   const { autoBikeCount, autoPartCount } = useMemo(() => {
@@ -224,11 +224,11 @@ export const OrdersScreen = () => {
     let bikes = 0, parts = 0;
     items.forEach((item: PickingListItem) => {
       const qty = item.pickingQty || 0;
-      if (isBikeSku(item.sku)) bikes += qty;
+      if (skuMeta[item.sku]?.is_bike) bikes += qty;
       else parts += qty;
     });
     return { autoBikeCount: bikes, autoPartCount: parts };
-  }, [selectedOrder?.items]);
+  }, [selectedOrder?.items, skuMeta]);
 
   // Effective counts: manual override takes priority over auto-calculated
   const bikeCount = formData.bikes !== '' ? parseInt(formData.bikes, 10) || 0 : autoBikeCount;
@@ -244,16 +244,16 @@ export const OrdersScreen = () => {
     const seen = new Set<string>();
     return items
       .filter((item: PickingListItem) => {
-        if (isBikeSku(item.sku) || seen.has(item.sku)) return false;
+        if (skuMeta[item.sku]?.is_bike || seen.has(item.sku)) return false;
         seen.add(item.sku);
         return true;
       })
       .map((item: PickingListItem) => ({
         sku: item.sku,
         qty: item.pickingQty || 0,
-        weight: skuWeights[item.sku] ?? 0,
+        weight: skuMeta[item.sku]?.weight_lbs ?? 0,
       }));
-  }, [selectedOrder?.items, skuWeights]);
+  }, [selectedOrder?.items, skuMeta]);
 
   // Track the selected customer ID to link/unlink
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
@@ -1011,7 +1011,7 @@ export const OrdersScreen = () => {
                             onChange={(e) => {
                               const val = parseFloat(e.target.value);
                               if (isNaN(val) || val < 0) return;
-                              setSkuWeights((prev) => ({ ...prev, [part.sku]: val }));
+                              setSkuMeta((prev) => ({ ...prev, [part.sku]: { ...prev[part.sku], weight_lbs: val } }));
                               supabase.from('sku_metadata').upsert(
                                 { sku: part.sku, weight_lbs: val },
                                 { onConflict: 'sku' }
