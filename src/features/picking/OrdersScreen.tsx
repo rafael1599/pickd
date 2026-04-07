@@ -128,6 +128,8 @@ export const OrdersScreen = () => {
     pallets: '1',
     units: '0',
     loadNumber: '',
+    bikes: '',
+    parts: '',
   });
 
   // SKU weight map fetched from sku_metadata
@@ -215,18 +217,25 @@ export const OrdersScreen = () => {
     return Math.round(productWeight + palletWeight);
   }, [selectedOrder?.items, skuWeights, formData.pallets, isFedexOrder]);
 
-  // Split item counts: bikes vs parts
-  const { bikeCount, partCount } = useMemo(() => {
+  // Split item counts: bikes vs parts (auto-calculated)
+  const { autoBikeCount, autoPartCount } = useMemo(() => {
     const items = selectedOrder?.items;
-    if (!Array.isArray(items)) return { bikeCount: 0, partCount: 0 };
+    if (!Array.isArray(items)) return { autoBikeCount: 0, autoPartCount: 0 };
     let bikes = 0, parts = 0;
     items.forEach((item: PickingListItem) => {
       const qty = item.pickingQty || 0;
       if (isBikeSku(item.sku)) bikes += qty;
       else parts += qty;
     });
-    return { bikeCount: bikes, partCount: parts };
+    return { autoBikeCount: bikes, autoPartCount: parts };
   }, [selectedOrder?.items]);
+
+  // Effective counts: manual override takes priority over auto-calculated
+  const bikeCount = formData.bikes !== '' ? parseInt(formData.bikes, 10) || 0 : autoBikeCount;
+  const partCount = formData.parts !== '' ? parseInt(formData.parts, 10) || 0 : autoPartCount;
+
+  // Total units always derived from bikes + parts
+  const totalUnits = bikeCount + partCount;
 
   // Parts SKUs with their weights (for inline editor)
   const partsWithWeights = useMemo(() => {
@@ -374,6 +383,8 @@ export const OrdersScreen = () => {
         pallets: String(selectedOrder.pallets_qty || 1),
         units: String(selectedOrder.total_units || 0),
         loadNumber: selectedOrder.load_number || '',
+        bikes: '',
+        parts: '',
       });
       setSelectedCustomerId(selectedOrder.customer_id || null);
       setOriginalCustomerParams(selectedOrder.customer || null);
@@ -452,7 +463,7 @@ export const OrdersScreen = () => {
 
     // Build warnings for missing data
     const palletsNum = parseInt(String(formData.pallets)) || 0;
-    const unitsNum = parseInt(String(formData.units)) || 0;
+    const unitsNum = totalUnits;
 
     if (palletsNum < 1) {
       toast.error('Must have at least 1 Pallet');
@@ -773,6 +784,9 @@ export const OrdersScreen = () => {
           onShowPickingSummary={() => setIsShowingPickingSummary(true)}
           onSplitOrder={() => setIsShowingSplitModal(true)}
           onReopenOrder={handleReopenOrder}
+          autoBikeCount={autoBikeCount}
+          autoPartCount={autoPartCount}
+          totalUnits={totalUnits}
         />
       </div>
 
@@ -955,6 +969,8 @@ export const OrdersScreen = () => {
                   onShowPickingSummary={() => setIsShowingPickingSummary(true)}
                   onReopenOrder={handleReopenOrder}
                   collapsible
+                  autoBikeCount={autoBikeCount}
+                  autoPartCount={autoPartCount}
                 />
               </div>
 

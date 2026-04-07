@@ -8,6 +8,7 @@ import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import Scissors from 'lucide-react/dist/esm/icons/scissors';
 import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
+import Bike from 'lucide-react/dist/esm/icons/bike';
 import Wand2 from 'lucide-react/dist/esm/icons/wand-2';
 import { CustomerAutocomplete } from '../../features/picking/components/CustomerAutocomplete';
 import { usePickingSession } from '../../context/PickingContext';
@@ -29,6 +30,8 @@ interface OrderFormData {
   loadNumber: string;
   pallets: string;
   units: string;
+  bikes: string;
+  parts: string;
 }
 
 interface SelectedOrder extends PickingList {
@@ -49,6 +52,9 @@ interface OrderSidebarProps {
   onSplitOrder?: () => void;
   onReopenOrder?: () => void;
   collapsible?: boolean;
+  autoBikeCount?: number;
+  autoPartCount?: number;
+  totalUnits?: number;
 }
 
 export const OrderSidebar: React.FC<OrderSidebarProps> = ({
@@ -64,6 +70,9 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
   onSplitOrder,
   onReopenOrder,
   collapsible = false,
+  autoBikeCount = 0,
+  autoPartCount = 0,
+  totalUnits = 0,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
@@ -373,7 +382,37 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
             />
           </div>
 
+          {/* BIKES / PARTS manual override (idea-038) */}
           <div className="grid grid-cols-2 gap-5 mt-2">
+            <div className="flex flex-col gap-2 group">
+              <label className="text-xs uppercase text-text-muted font-black tracking-[0.2em] text-center group-focus-within:text-accent flex items-center justify-center gap-1">
+                <Bike size={10} /> Bikes
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.bikes}
+                onChange={(e) => setFormData({ ...formData, bikes: e.target.value })}
+                placeholder={String(autoBikeCount)}
+                className="w-full bg-main border border-subtle rounded-3xl py-3 text-center font-heading text-2xl font-bold text-blue-400 ios-transition focus:border-blue-400 shadow-sm focus:bg-surface placeholder:text-blue-400/30"
+              />
+            </div>
+            <div className="flex flex-col gap-2 group">
+              <label className="text-xs uppercase text-text-muted font-black tracking-[0.2em] text-center group-focus-within:text-accent">
+                Parts
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.parts}
+                onChange={(e) => setFormData({ ...formData, parts: e.target.value })}
+                placeholder={String(autoPartCount)}
+                className="w-full bg-main border border-subtle rounded-3xl py-3 text-center font-heading text-2xl font-bold text-orange-400 ios-transition focus:border-orange-400 shadow-sm focus:bg-surface placeholder:text-orange-400/30"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-5">
             <div className="flex flex-col gap-2 group">
               <label className="text-xs uppercase text-text-muted font-black tracking-[0.2em] text-center group-focus-within:text-accent">
                 Pallets
@@ -386,17 +425,13 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
                 className="w-full bg-main border border-subtle rounded-3xl py-4 text-center font-heading text-3xl font-bold text-[#22c55e] ios-transition focus:border-[#22c55e] shadow-sm focus:bg-surface"
               />
             </div>
-            <div className="flex flex-col gap-2 group">
-              <label className="text-xs uppercase text-text-muted font-black tracking-[0.2em] text-center group-focus-within:text-accent">
+            <div className="flex flex-col gap-2">
+              <label className="text-xs uppercase text-text-muted font-black tracking-[0.2em] text-center">
                 Total Units
               </label>
-              <input
-                type="number"
-                min="0"
-                value={formData.units}
-                onChange={(e) => setFormData({ ...formData, units: e.target.value })}
-                className="w-full bg-main border border-subtle rounded-3xl py-4 text-center font-heading text-3xl font-bold text-content ios-transition focus:border-accent shadow-sm focus:bg-surface"
-              />
+              <div className="w-full py-4 text-center font-heading text-3xl font-bold text-muted">
+                {totalUnits}
+              </div>
             </div>
           </div>
         </form>

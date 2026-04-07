@@ -1,11 +1,53 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-04-03
+> Actualizado: 2026-04-07
 
 ---
 
 ## P1 — Alto (operación diaria)
+
+### 21. Campos de bicicleta en `sku_metadata` <!-- id: idea-042 -->
+- **Problema:** `sku_metadata` solo tiene dimensiones/peso/imagen. No hay forma de saber si un SKU es bicicleta ni almacenar su UPC para labels.
+- **Migración aditiva** — 2 columnas nuevas en `sku_metadata`:
+  - `upc` (text, nullable) — código de barras para labels.
+  - `is_bike` (boolean, default null) — `true` = bicicleta, `false` = parte/otro.
+- **UI al registrar SKU:** Checkbox/radio group: Bike | Part | Other. Bike → `is_bike = true`, Part/Other → `is_bike = false`.
+- **Size y color** NO van a DB — se parsean de `inventory.item_name` en runtime (simplifica el registro).
+- **Dependientes:** idea-038A (detección mejorada), idea-040 (labels).
+
+### 21a. Detección mejorada bike vs part <!-- id: idea-038A -->
+- **Problema:** `isBikeSku()` usa solo regex (`/^\d{2}-\d{4}[A-Za-z]{2,}$/`). Falla con S&D y otros formatos.
+- **Solución (cascada de prioridad):**
+  1. `sku_metadata.is_bike` si existe → fuente de verdad.
+  2. Prefijos conocidos como hint: `01-` (S&D), `03-`, `05-`, `06-`, `07-` → bike.
+  3. Regex actual como fallback final.
+- **Depende de:** idea-042 (campo `is_bike`).
+- **Prerequisito:** Obtener 2-3 SKUs S&D reales para validar.
+
+### 21b. Fallback manual BIKES/PARTS en labels <!-- id: idea-038B -->
+- **Problema:** El conteo automático BIKES vs PARTS en pallet labels puede ser incorrecto y no hay forma de corregirlo.
+- **Solución:** En la pantalla de labels/distribución, campos editables para que el picker corrija manualmente la cantidad de BIKES y PARTS según lo que ve en el piso.
+- **Independiente** — no requiere cambios en DB.
+
+### 22. Alerta de orden duplicada por cliente + reabrir <!-- id: idea-039 -->
+- **Problema:** Cuando llega una orden nueva para un cliente cuya orden anterior ya fue completada, el picker no se entera y la procesa por separado.
+- **Solución:** Al abrir una orden en la app, detectar si existe otra orden **completada** del mismo `customer_name`. Mostrar alerta con opción de reabrir la completada y mergear los items nuevos. Usa la lógica existente de `reopened` + snapshot tracking para no deducir dos veces items ya recogidos.
+- **Ubicación:** En la app (al abrir la orden), no en watchdog.
+
+### 23. Generador de SKU labels para bicicletas <!-- id: idea-040 -->
+- **Problema:** No hay forma de generar etiquetas de SKU para bicicletas desde PickD.
+- **Solución:** Label tipo JAMIS (6×4") con: marca, nombre del modelo (de `item_name`), SIZE, COLOR (parseados de `item_name`), UPC + barcode (de `sku_metadata.upc`), SKU grande al fondo.
+- **Depende de:** idea-042 (campo `upc` en `sku_metadata`).
+- **Infra existente:** jsPDF ya en el proyecto. Agregar librería de barcode (`bwip-js` o `jsbarcode`).
+- **Pendiente definir:** Desde dónde se accede (InventoryCard, stock view, batch) y parser de `item_name` para extraer size/color.
+
+### 24. Resumen diario de actividad por usuario (soft) <!-- id: idea-041 -->
+- **Problema:** No hay resumen de lo que se hizo en el warehouse cada día. Se necesita para demostrar que se trabaja, sin exponer métricas de rendimiento individuales.
+- **Tono:** Narrativo y suave. Rangos vagos ("procesó varias órdenes") en vez de números exactos. Sin comparativas entre usuarios.
+- **Datos disponibles:** `inventory_logs` (picks, adds, moves por user_id), `picking_lists` (órdenes por user_id/checked_by), `cycle_count_sessions`, `picking_list_notes`.
+- **Categorías sugeridas:** picking, receiving, warehouse organization, inventory verification.
+- **Prerequisito:** Lluvia de ideas sobre formato, audiencia y frecuencia antes de implementar.
 
 ### 8. Sub-locations alfabéticas por ROW <!-- id: idea-024 -->
 - **Problema:** ROWs sin subdivisiones. Picker recorre toda la fila buscando un SKU.
