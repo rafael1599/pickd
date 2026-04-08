@@ -17,7 +17,7 @@ import { useScrollLock } from '../../../hooks/useScrollLock';
 export const PickingCartDrawer: React.FC = () => {
   const { user } = useAuth();
   const { showConfirmation } = useConfirmation();
-  const { externalDoubleCheckId, setExternalDoubleCheckId } = useViewMode();
+  const { externalDoubleCheckId, setExternalDoubleCheckId, viewMode } = useViewMode();
 
   const {
     cartItems,
@@ -516,12 +516,8 @@ export const PickingCartDrawer: React.FC = () => {
     }
   };
 
-  // Visibility logic:
-  // 1. If we have an external trigger (Verification Queue order selected)
-  // 2. If we are in an active session (picking/building or double_checking) - NOT 'idle'
-  // 3. If the cart has items
-  const isVisible =
-    !!externalDoubleCheckId || (sessionMode && sessionMode !== 'idle') || totalItems > 0;
+  // Visibility: only in picking view mode, or when externally triggered (Verification Queue)
+  const isVisible = viewMode === 'picking' || !!externalDoubleCheckId;
 
   if (!isVisible) return null;
 
