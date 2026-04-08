@@ -8,6 +8,7 @@ import Edit3 from 'lucide-react/dist/esm/icons/edit-3';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import Play from 'lucide-react/dist/esm/icons/play';
 import Search from 'lucide-react/dist/esm/icons/search';
+import History from 'lucide-react/dist/esm/icons/history';
 import toast from 'react-hot-toast';
 
 import { useInventory } from './hooks/InventoryProvider.tsx';
@@ -367,6 +368,15 @@ export const StockCountScreen = () => {
           {session.status === 'completed' && 'Phase 3: Summary'}
         </p>
       </div>
+      {session.status === 'input' && (
+        <button
+          onClick={() => navigate('/cycle-count-history')}
+          className="p-2 bg-surface border border-subtle rounded-xl text-purple-400 hover:text-purple-300 active:scale-90 transition-all"
+          title="History"
+        >
+          <History size={18} />
+        </button>
+      )}
       {session.status === 'input' && session.skus.length > 0 && (
         <button
           onClick={clearSession}
