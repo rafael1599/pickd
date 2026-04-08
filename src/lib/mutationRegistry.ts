@@ -206,7 +206,7 @@ export function registerMutationDefaults(queryClient: QueryClient): void {
       const { data, error } = await supabase.rpc('recomplete_picking_list', {
         p_list_id: vars.listId,
         p_performed_by: ctx?.performed_by || 'System (resumed)',
-        p_user_id: ctx?.user_id,
+        p_user_id: ctx?.user_id || '',
         p_pallets_qty: vars.palletsQty,
         p_total_units: vars.totalUnits,
         p_user_role: ctx?.user_role || 'staff',

@@ -10,7 +10,6 @@ import { usePickingSession } from '../../context/PickingContext.tsx';
 import { useViewMode } from '../../context/ViewModeContext.tsx';
 import Search from 'lucide-react/dist/esm/icons/search';
 import Filter from 'lucide-react/dist/esm/icons/filter';
-import AlertTriangle from 'lucide-react/dist/esm/icons/alert-triangle';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import { OrderChip } from '../../components/orders/OrderChip.tsx';
 import { OrderSidebar } from '../../components/orders/OrderSidebar.tsx';
@@ -51,6 +50,7 @@ interface OrderWithRelations {
   user: { full_name: string | null } | null;
   checker: { full_name: string | null } | null;
   presence: { last_seen_at: string | null } | null;
+  order_group: { group_type: string | null } | null;
 }
 
 export const OrdersScreen = () => {

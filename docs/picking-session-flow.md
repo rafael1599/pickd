@@ -1,6 +1,6 @@
 # Picking Session Flow — Design Document
 
-> Last updated: 2026-04-03
+> Last updated: 2026-04-08
 > Status: Approved for implementation
 > Context: Research from 9 investigation agents (5 internal codebase, 4 external industry)
 
@@ -50,14 +50,26 @@ This document defines the state machine, correction flow, and safety mechanisms.
           [Complete]          [Reject with notes]
               |                     |
           COMPLETED          NEEDS_CORRECTION
-          (terminal)          (back to picker queue,
-                               correction view)
-                                    |
-                             [Picker corrects]
-                                    |
-                        READY_TO_DOUBLE_CHECK
-                          (re-enters queue)
+              |               (back to picker queue,
+        [Reopen Order]         correction view)
+        (reason required,           |
+         snapshot saved)     [Picker corrects]
+              |                     |
+          REOPENED         READY_TO_DOUBLE_CHECK
+        (full-screen edit,    (re-enters queue)
+         CorrectionModeView)
+            /       \
+   [Re-Complete]  [Cancel Reopen]
+   (delta calc,    (restore snapshot,
+    inventory       no inventory
+    adjusted)       changes)
+        |               |
+    COMPLETED       COMPLETED
 ```
+
+> **Reopened order recovery:** If an order is stuck in `reopened` (user closed browser),
+> OrderSidebar shows "Continue Editing" (same user) or "Take Over & Edit" (other user).
+> `resumeReopenedOrder` loads without calling the reopen RPC again. Auto-cancel at 2h.
 
 ### Allowed Transitions
 
@@ -71,10 +83,13 @@ This document defines the state machine, correction flow, and safety mechanisms.
 | double_checking       | needs_correction      | Checker rejects       | Notes required      |
 | double_checking       | ready_to_double_check | Checker releases      | Release lock only   |
 | needs_correction      | ready_to_double_check | Picker corrects       | Via Correction Mode |
+| completed             | reopened              | Reopen Order          | Reason required     |
+| reopened              | completed             | Re-complete           | Delta calculated    |
+| reopened              | completed             | Cancel reopen         | Snapshot restored   |
 
 ### Forbidden Transitions
 
-- completed -> any (terminal, triple-protected)
+- completed -> any other than reopened (terminal, triple-protected)
 - Any backward jump that skips a state
 
 ### Eliminated transitions (historical)
@@ -169,11 +184,17 @@ if there are problems, otherwise neutral style. Opens full-screen overlay (`z-30
 
 ```typescript
 type CorrectionAction =
-  | { type: 'swap'; originalSku; replacement: { sku; location; warehouse; item_name } }
-  | { type: 'adjust_qty'; sku; newQty }
-  | { type: 'remove'; sku }
-  | { type: 'add'; item: { sku; location; warehouse; item_name; pickingQty } };
+  | { type: 'swap'; originalSku; replacement: { sku; location; warehouse; item_name }; reason?: string }
+  | { type: 'adjust_qty'; sku; newQty; reason?: string }
+  | { type: 'remove'; sku; reason?: string }
+  | { type: 'add'; item: { sku; location; warehouse; item_name; pickingQty }; reason?: string };
 ```
+
+**Reason capture (idea-043):** All correction actions require a reason via `ReasonPicker`
+component. Preset reasons per action type (e.g., "Out of stock", "Customer cancelled") +
+free text "Other...". If item has `insufficient_stock` flag, reason is pre-selected.
+Notes use rich format: "Removed SKU: Out of stock" instead of generic "Removed SKU from order".
+Smart detection: removing then adding suggests using Replace instead.
 
 ### Rules
 
@@ -225,8 +246,9 @@ When an order belongs to a group (combined orders like "878888 / 878882"):
 On app init / user login, loadSession loads the "best" session:
 
 1. HIGHEST: double_checking where checked_by = user (resume verification)
-2. SECOND: active or needs_correction where user_id = user (resume picking)
-3. FALLBACK: localStorage cart data
+2. SECOND: reopened where reopened_by = user (resume editing)
+3. THIRD: active or needs_correction where user_id = user (resume picking)
+4. FALLBACK: localStorage cart data
 
 Guard: if isInWorkflowRef is true, skip entirely.
 
@@ -259,3 +281,4 @@ This design is informed by:
 - fix-002: Implementation of these fixes (returnToBuilding + loadSession + group cleanup)
 - bug-011: Order disappears when editing from double check with multiple orders
 - idea-031: Auto-cancel redesign (expiration with reactivation)
+- idea-043: Interactive correction reasons + reopened order recovery (implemented 2026-04-07)

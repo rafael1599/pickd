@@ -270,7 +270,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           .maybeSingle();
 
         if (data) {
-          setEditModalItem(data as InventoryItemWithMetadata);
+          setEditModalItem(data as unknown as InventoryItemWithMetadata);
         } else {
           toast.error('Item not found in inventory');
         }

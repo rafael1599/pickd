@@ -15,7 +15,6 @@ import type { InventoryItemWithMetadata } from '../../../schemas/inventory.schem
 import type { InventoryItem } from '../../../schemas/inventory.schema';
 import { useAutoSelect } from '../../../hooks/useAutoSelect';
 import { ReasonPicker } from './ReasonPicker';
-import type { ReasonActionType } from './ReasonPicker';
 
 interface CorrectionModeViewProps {
   problemItems: PickingItem[];

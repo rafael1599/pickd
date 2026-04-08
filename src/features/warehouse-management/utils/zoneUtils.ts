@@ -102,7 +102,7 @@ export const sortByZoneThenAlpha = (
  * Calculate the zone based on index and total count (1/3 division)
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const calculateZoneFromIndex = (index?: number, total?: number): Zone => {
+export const calculateZoneFromIndex = (_index?: number, _total?: number): Zone => {
   // Temporarily disabled: Route all to UNASSIGNED until full logic is complete
   return 'UNASSIGNED';
 };

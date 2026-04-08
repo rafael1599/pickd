@@ -10,6 +10,7 @@ import { useInventory } from '../../inventory/hooks/InventoryProvider';
 import { getOptimizedPickingPath, calculatePallets } from '../../../utils/pickingLogic';
 import type { Location } from '../../../schemas/location.schema';
 import { supabase } from '../../../lib/supabase';
+import type { Json } from '../../../lib/database.types';
 import toast from 'react-hot-toast';
 import { useScrollLock } from '../../../hooks/useScrollLock';
 
@@ -36,7 +37,7 @@ export const PickingCartDrawer: React.FC = () => {
     notes,
     isNotesLoading,
     addNote,
-    deleteList,
+    deleteList: _deleteList,
     resetSession,
     listStatus,
     claimAsPicker,
@@ -361,7 +362,7 @@ export const PickingCartDrawer: React.FC = () => {
 
       await supabase
         .from('picking_lists')
-        .update({ items: newItems as unknown as Record<string, unknown>[] })
+        .update({ items: newItems as unknown as Json })
         .eq('id', activeListId);
 
       // Update local cart state immediately

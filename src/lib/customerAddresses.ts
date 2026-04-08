@@ -14,7 +14,7 @@ export interface CustomerAddress {
 }
 
 export async function fetchCustomerAddresses(customerId: string): Promise<CustomerAddress[]> {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('customer_addresses')
     .select('*')
     .eq('customer_id', customerId)
@@ -40,7 +40,7 @@ export async function saveCustomerAddress({
 }) {
   if (!street.trim()) return;
 
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('customer_addresses')
     .upsert(
       {

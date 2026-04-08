@@ -39,11 +39,17 @@ idle (UI) → active (DB — via generatePickingPath)
   → ready_to_double_check → double_checking
     → completed (terminal) | needs_correction → active (loop)
   → cancelled (terminal — manual o auto-cancel)
+completed → reopened (via Reopen Order — requires reason)
+  → completed (re-complete with inventory delta) | cancelled (cancel reopen — restores snapshot)
 ```
 
-6 estados DB: `active`, `ready_to_double_check`, `double_checking`, `needs_correction`, `completed`, `cancelled`. Órdenes completadas tienen triple protección contra reversión.
+7 estados DB: `active`, `ready_to_double_check`, `double_checking`, `needs_correction`, `completed`, `cancelled`, `reopened`. Órdenes completadas tienen triple protección contra reversión. Órdenes `reopened` tienen snapshot para delta calculation y auto-cancel a 2h si se abandonan.
 
 `building` mode fue eliminado (idea-032). `OrderBuilderMode.tsx`, `PickingSessionView.tsx`, y `returnToBuilding()` fueron eliminados. Edit Order mode (CorrectionModeView) reemplaza sus funciones. InventoryCards muestran +/- inline en picking mode.
+
+**Correcciones con razón (idea-043):** Todas las acciones de corrección (remove, swap, adjust_qty, add) requieren una razón via `ReasonPicker`. Las notas se generan con formato rico: "Removed SKU: Out of stock" en vez de genérico. `CorrectionAction` tiene campo `reason?: string`. Si el item tiene `insufficient_stock`, la razón "Out of stock" se pre-selecciona.
+
+**Órdenes stuck en reopened:** Si una orden queda en `reopened` (browser cerrado, sesión perdida), OrderSidebar muestra "Continue Editing" (mismo usuario) o "Take Over & Edit" (otro usuario). `resumeReopenedOrder` carga sin llamar al RPC reopen de nuevo.
 
 ## Base de datos compartida
 
@@ -52,7 +58,7 @@ Ver `JAMIS/SHARED-DB-CONTRACT.md` para ownership de tablas, RPCs, y reglas de mi
 
 - pickd es owner de: `picking_lists`, `profiles`, `customers`, `order_groups`, `picking_list_notes`
 - pickd-2d lee: `inventory`, `sku_metadata`, `locations` y escribe solo via consolidation RPCs
-- **`sku_metadata` columns (prod):** `sku`, `length_in`, `width_in`, `height_in`, `length_ft`, `weight_lbs`, `image_url`, `created_at` — NO tiene columna `name`
+- **`sku_metadata` columns (prod):** `sku`, `length_in`, `width_in`, `height_in`, `length_ft`, `weight_lbs`, `image_url`, `is_bike`, `upc`, `created_at` — NO tiene columna `name`
 
 ## Branching & Deployment
 

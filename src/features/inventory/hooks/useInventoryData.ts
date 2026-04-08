@@ -69,11 +69,13 @@ export const useInventory = () => {
   const { data: globalStats } = useQuery({
     queryKey: ['inventory', 'stats', showParts],
     queryFn: async () => {
+      // @ts-expect-error RPC exists in prod, database.types.ts is stale
       const { data, error } = await supabase.rpc('get_inventory_stats', {
         p_include_parts: showParts,
       });
       if (error) throw error;
-      const row = data?.[0] ?? data;
+      const result = data as unknown as Record<string, unknown>[] | Record<string, unknown> | null;
+      const row = (Array.isArray(result) ? result[0] : result) ?? {};
       return {
         totalSkus: Number(row?.total_skus ?? 0),
         totalQuantity: Number(row?.total_units ?? 0),

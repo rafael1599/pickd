@@ -887,7 +887,7 @@ export const usePickingActions = ({
         const { error } = await supabase.rpc('reopen_picking_list', {
           p_list_id: listId,
           p_reopened_by: user.id,
-          p_reason: reason || null,
+          p_reason: reason ?? undefined,
         });
         if (error) throw error;
         toast.success('Order reopened for editing');

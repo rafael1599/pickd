@@ -8,7 +8,6 @@ import Edit3 from 'lucide-react/dist/esm/icons/edit-3';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import Play from 'lucide-react/dist/esm/icons/play';
 import Search from 'lucide-react/dist/esm/icons/search';
-import ClipboardList from 'lucide-react/dist/esm/icons/clipboard-list';
 import toast from 'react-hot-toast';
 
 import { useInventory } from './hooks/InventoryProvider.tsx';
@@ -70,34 +69,36 @@ export const StockCountScreen = () => {
   // ─── DB Session: Load active cycle_count_sessions ───
   const [dbSessionId, setDbSessionId] = useState<string | null>(null);
   const [dbSessionLabel, setDbSessionLabel] = useState<string | null>(null);
-  const [dbSessionLoaded, setDbSessionLoaded] = useState(false);
+  const [_dbSessionLoaded, setDbSessionLoaded] = useState(false);
   // Direct inventory fetch for cycle count SKUs (bypasses paginated cache)
   const [directInventory, setDirectInventory] = useState<InventoryItemWithMetadata[]>([]);
 
   useEffect(() => {
-    supabase
+    (supabase as any)
       .from('cycle_count_sessions')
       .select('id, label, status')
       .eq('status', 'in_progress')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data: rawData }: { data: any }) => {
+        const data = rawData as { id: string; label: string; status: string } | null;
         if (data) {
           setDbSessionId(data.id);
           setDbSessionLabel(data.label);
           // Load items from this session
-          supabase
+          (supabase as any)
             .from('cycle_count_items')
             .select('sku, expected_qty, counted_qty, status')
             .eq('session_id', data.id)
             .order('created_at')
-            .then(async ({ data: items }) => {
+            .then(async ({ data: rawItems }: { data: any[] | null }) => {
+              const items = rawItems as unknown as { sku: string; expected_qty: number; counted_qty: number; status: string }[] | null;
               if (items && items.length > 0) {
-                const skus = items.map((i: { sku: string }) => i.sku);
+                const skus = items.map((i) => i.sku);
                 const verified = items
-                  .filter((i: { status: string }) => i.status === 'counted' || i.status === 'verified')
-                  .map((i: { sku: string }) => i.sku);
+                  .filter((i) => i.status === 'counted' || i.status === 'verified')
+                  .map((i) => i.sku);
 
                 // Fetch real inventory for these SKUs directly from DB
                 const { data: invData } = await supabase
@@ -105,7 +106,7 @@ export const StockCountScreen = () => {
                   .select('*, sku_metadata(sku, image_url, length_in, width_in, height_in, weight_lbs, is_bike)')
                   .in('sku', skus)
                   .eq('warehouse', 'LUDLOW');
-                if (invData) setDirectInventory(invData as InventoryItemWithMetadata[]);
+                if (invData) setDirectInventory(invData as unknown as InventoryItemWithMetadata[]);
 
                 setSession((prev) => {
                   if (prev.skus.length === 0) {
@@ -157,7 +158,7 @@ export const StockCountScreen = () => {
   const syncVerifiedToDb = useCallback(
     async (sku: string, verified: boolean) => {
       if (!dbSessionId) return;
-      await supabase
+      await (supabase as any)
         .from('cycle_count_items')
         .update({
           status: verified ? 'counted' : 'pending',
@@ -206,7 +207,7 @@ export const StockCountScreen = () => {
   const finishCounting = async () => {
     setSession((prev) => ({ ...prev, status: 'completed' }));
     if (dbSessionId) {
-      await supabase
+      await (supabase as any)
         .from('cycle_count_sessions')
         .update({ status: 'completed', completed_at: new Date().toISOString() })
         .eq('id', dbSessionId);

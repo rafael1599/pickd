@@ -136,9 +136,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           quantity: Number(initialData.quantity) || 0,
           item_name: initialData.item_name || '',
           warehouse: initialData.warehouse || (screenType as WarehouseType) || 'LUDLOW',
-          length_in: initialData.sku_metadata?.length_in ?? dimensionDefaults(initialData.sku).length_in,
-          width_in: initialData.sku_metadata?.width_in ?? dimensionDefaults(initialData.sku).width_in,
-          height_in: initialData.sku_metadata?.height_in ?? dimensionDefaults(initialData.sku).height_in,
+          length_in: initialData.sku_metadata?.length_in ?? dimensionDefaults(initialData.sku_metadata?.is_bike).length_in,
+          width_in: initialData.sku_metadata?.width_in ?? dimensionDefaults(initialData.sku_metadata?.is_bike).width_in,
+          height_in: initialData.sku_metadata?.height_in ?? dimensionDefaults(initialData.sku_metadata?.is_bike).height_in,
           weight_lbs: initialData.sku_metadata?.weight_lbs ?? null,
           internal_note: initialData.internal_note || '',
         });
@@ -625,6 +625,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       height_in: watch('height_in'),
       weight_lbs: watch('weight_lbs'),
       internal_note: watch('internal_note'),
+      distribution: [],
     };
 
     if (prediction.bestGuess && prediction.bestGuess !== data.location) {
@@ -800,7 +801,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                 value={sku}
                 isActive={isActive('sku')}
                 onTap={() => setActiveField('sku')}
-                onBlur={() => handleFieldBlur('sku')}
+                onBlur={() => handleFieldBlur()}
                 onChange={(v) => setValue('sku', v, { shouldValidate: true })}
                 renderEditor={() => (
                   <AutocompleteInput
@@ -819,7 +820,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                 value={itemName || ''}
                 isActive={isActive('item_name')}
                 onTap={() => setActiveField('item_name')}
-                onBlur={() => handleFieldBlur('item_name')}
+                onBlur={() => handleFieldBlur()}
                 onChange={(v) => setValue('item_name', v, { shouldValidate: true })}
                 placeholder="e.g. Desk Frame..."
               />
@@ -921,7 +922,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                 onTap={() => setActiveField('location')}
                 onBlur={() => {
                   handleLocationBlur(location || '');
-                  handleFieldBlur('location');
+                  handleFieldBlur();
                 }}
                 onChange={(v) => setValue('location', v, { shouldValidate: true })}
                 renderEditor={() => (
@@ -942,7 +943,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                 value={internalNote || ''}
                 isActive={isActive('internal_note')}
                 onTap={() => setActiveField('internal_note')}
-                onBlur={() => handleFieldBlur('internal_note')}
+                onBlur={() => handleFieldBlur()}
                 onChange={(v) => setValue('internal_note', v)}
                 placeholder="e.g. Behind the pole..."
               />

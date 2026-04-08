@@ -52,12 +52,12 @@ export const CycleCountHistoryScreen = () => {
   const [loadingItems, setLoadingItems] = useState(false);
 
   useEffect(() => {
-    supabase
+    (supabase as any)
       .from('cycle_count_sessions')
       .select('*, profiles!created_by(full_name)')
       .order('created_at', { ascending: false })
       .limit(20)
-      .then(({ data }) => {
+      .then(({ data }: { data: any[] | null }) => {
         const mapped = (data || []).map((s: Record<string, unknown>) => ({
           ...s,
           created_by_name: (s.profiles as { full_name: string } | null)?.full_name || 'Unknown',
@@ -74,12 +74,12 @@ export const CycleCountHistoryScreen = () => {
     }
     setExpandedId(sessionId);
     setLoadingItems(true);
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from('cycle_count_items')
       .select('id, sku, location, expected_qty, counted_qty, variance, status, counted_at')
       .eq('session_id', sessionId)
       .order('sku');
-    setExpandedItems((data || []) as CycleCountItem[]);
+    setExpandedItems((data || []) as unknown as CycleCountItem[]);
     setLoadingItems(false);
   };
 

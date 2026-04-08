@@ -41,8 +41,7 @@ export const InventoryCard = memo(
     detail,
     onClick,
     /* warehouse is received but unused (needed for prop-spreading from parent) */
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    warehouse,
+    warehouse: _warehouse,
     mode = 'stock',
     reservedByOthers = 0,
     available = null,
