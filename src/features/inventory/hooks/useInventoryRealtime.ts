@@ -23,51 +23,61 @@ export function useInventoryRealtime() {
       cacheKey: string[],
       payload: { new: unknown; old: unknown; eventType: string }
     ) {
-      queryClient.setQueryData(cacheKey, (oldData: InventoryItemWithMetadata[] | undefined) => {
-        if (!oldData) return oldData;
+      queryClient.setQueriesData<InventoryItemWithMetadata[]>(
+        { queryKey: cacheKey },
+        (oldData) => {
+          if (!oldData) return oldData;
 
-        const newRecord = payload.new as Record<string, unknown>;
-        const oldRecord = payload.old as Record<string, unknown>;
+          const newRecord = payload.new as Record<string, unknown>;
+          const oldRecord = payload.old as Record<string, unknown>;
 
-        if (payload.eventType === 'INSERT') {
-          const exists = oldData.some((item) => item.id === newRecord.id);
-          if (exists) return oldData;
-          return [newRecord as InventoryItemWithMetadata, ...oldData];
+          if (payload.eventType === 'INSERT') {
+            const exists = oldData.some((item) => item.id === newRecord.id);
+            if (exists) return oldData;
+            if ((newRecord.quantity as number) <= 0) return oldData;
+            return [newRecord as InventoryItemWithMetadata, ...oldData];
+          }
+
+          if (payload.eventType === 'UPDATE') {
+            if ((newRecord.quantity as number) <= 0) {
+              return oldData.filter((item) => item.id !== newRecord.id);
+            }
+            return oldData.map((item) =>
+              item.id === newRecord.id
+                ? {
+                    ...item,
+                    ...(newRecord as Partial<InventoryItem>),
+                    sku_metadata: item.sku_metadata,
+                  }
+                : item
+            );
+          }
+
+          if (payload.eventType === 'DELETE') {
+            return oldData.filter((item) => item.id !== oldRecord.id);
+          }
+
+          return oldData;
         }
-
-        if (payload.eventType === 'UPDATE') {
-          return oldData.map((item) =>
-            item.id === newRecord.id
-              ? {
-                  ...item,
-                  ...(newRecord as Partial<InventoryItem>),
-                  sku_metadata: item.sku_metadata,
-                }
-              : item
-          );
-        }
-
-        if (payload.eventType === 'DELETE') {
-          return oldData.filter((item) => item.id !== oldRecord.id);
-        }
-
-        return oldData;
-      });
+      );
     }
 
     function applyMetadataChange(cacheKey: string[], newMeta: SKUMetadata) {
-      queryClient.setQueryData(cacheKey, (oldData: InventoryItemWithMetadata[] | undefined) => {
-        if (!oldData) return oldData;
-        let hasChanges = false;
-        const updatedData = oldData.map((item) => {
-          if (item.sku === newMeta.sku) {
-            hasChanges = true;
-            return { ...item, sku_metadata: newMeta };
-          }
-          return item;
-        });
-        return hasChanges ? updatedData : oldData;
-      });
+      queryClient.setQueriesData<InventoryItemWithMetadata[]>(
+        { queryKey: cacheKey },
+        (oldData) => {
+          if (!oldData) return oldData;
+          let hasChanges = false;
+          const updatedData = oldData.map((item) => {
+            if (item.sku === newMeta.sku) {
+              hasChanges = true;
+              return { ...item, sku_metadata: newMeta };
+            }
+            return item;
+          });
+          return hasChanges ? updatedData : oldData;
+        }
+      );
     }
 
     const channel = supabase

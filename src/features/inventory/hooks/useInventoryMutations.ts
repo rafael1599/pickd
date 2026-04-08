@@ -49,34 +49,37 @@ export function useInventoryMutations() {
     },
     onMutate: async (vars) => {
       await queryClient.cancelQueries({ queryKey: INVENTORY_ROOT_KEY });
-      const previousData =
-        queryClient.getQueryData<InventoryItemWithMetadata[]>(INVENTORY_ROOT_KEY);
+      const snapshots = queryClient.getQueriesData<InventoryItemWithMetadata[]>({
+        queryKey: INVENTORY_ROOT_KEY,
+      });
 
-      // Optimistic update
-      queryClient.setQueryData(
-        INVENTORY_ROOT_KEY,
-        (old: InventoryItemWithMetadata[] | undefined) => {
+      // Optimistic update — remove items that drop to qty <= 0
+      queryClient.setQueriesData<InventoryItemWithMetadata[]>(
+        { queryKey: INVENTORY_ROOT_KEY },
+        (old) => {
           if (!old) return old;
-          return old.map((item) =>
-            item.sku === vars.sku &&
-            item.warehouse === vars.warehouse &&
-            (item.location || '').toUpperCase() === (vars.location || '').toUpperCase()
-              ? {
-                  ...item,
-                  quantity: (item.quantity || 0) + vars.delta,
-                  _lastLocalUpdateAt: Date.now(),
-                }
-              : item
-          );
+          return old
+            .map((item) =>
+              item.sku === vars.sku &&
+              item.warehouse === vars.warehouse &&
+              (item.location || '').toUpperCase() === (vars.location || '').toUpperCase()
+                ? {
+                    ...item,
+                    quantity: (item.quantity || 0) + vars.delta,
+                    _lastLocalUpdateAt: Date.now(),
+                  }
+                : item
+            )
+            .filter((item) => (item.quantity ?? 0) > 0);
         }
       );
 
-      return { previousData };
+      return { snapshots };
     },
     onError: (err, _vars, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(INVENTORY_ROOT_KEY, context.previousData);
-      }
+      context?.snapshots?.forEach(([key, data]) => {
+        queryClient.setQueryData(key, data);
+      });
       toast.error(`Error updating quantity: ${err.message}`);
     },
     onSettled: () => {
@@ -229,12 +232,13 @@ export function useInventoryMutations() {
     },
     onMutate: async (vars) => {
       await queryClient.cancelQueries({ queryKey: INVENTORY_ROOT_KEY });
-      const previousData =
-        queryClient.getQueryData<InventoryItemWithMetadata[]>(INVENTORY_ROOT_KEY);
+      const snapshots = queryClient.getQueriesData<InventoryItemWithMetadata[]>({
+        queryKey: INVENTORY_ROOT_KEY,
+      });
 
-      queryClient.setQueryData(
-        INVENTORY_ROOT_KEY,
-        (old: InventoryItemWithMetadata[] | undefined) => {
+      queryClient.setQueriesData<InventoryItemWithMetadata[]>(
+        { queryKey: INVENTORY_ROOT_KEY },
+        (old) => {
           if (!old) return old;
           const srcLoc = (vars.sourceItem.location || '').toUpperCase();
           const tgtLoc = vars.targetLocation.toUpperCase();
@@ -295,14 +299,17 @@ export function useInventoryMutations() {
                     },
                   ]
                 : []
-            );
+            )
+            .filter((item) => (item.quantity ?? 0) > 0);
         }
       );
 
-      return { previousData };
+      return { snapshots };
     },
     onError: (err, _vars, context) => {
-      if (context?.previousData) queryClient.setQueryData(INVENTORY_ROOT_KEY, context.previousData);
+      context?.snapshots?.forEach(([key, data]) => {
+        queryClient.setQueryData(key, data);
+      });
       toast.error(`Error moving item: ${err.message}`);
     },
     onSuccess: () => {
