@@ -21,6 +21,7 @@ export interface ActivityReport {
   warehouse_totals: { orders_completed: number; total_items: number };
   verified_skus_2m: number;
   total_skus: number;
+  correction_count: number;
 }
 
 interface PickingRow {
@@ -53,7 +54,7 @@ export function useActivityReport(date: string) {
       const dayStart = `${date}T00:00:00`;
       const dayEnd = `${date}T23:59:59`;
 
-      const [pickingRes, logsRes, cycleRes, profilesRes, verifiedRes, statsRes] =
+      const [pickingRes, logsRes, cycleRes, profilesRes, verifiedRes, statsRes, notesRes] =
         await Promise.all([
           supabase
             .from('picking_lists')
@@ -87,6 +88,11 @@ export function useActivityReport(date: string) {
             .gte('counted_at', new Date(new Date(dayEnd).getTime() - 60 * 24 * 60 * 60 * 1000).toISOString())
             .lte('counted_at', dayEnd),
           supabase.rpc('get_inventory_stats' as never, { p_include_parts: true } as never),
+          supabase
+            .from('picking_list_notes')
+            .select('id')
+            .gte('created_at', dayStart)
+            .lte('created_at', dayEnd),
         ]);
 
       const profiles = (profilesRes.data ?? []) as ProfileRow[];
@@ -168,12 +174,15 @@ export function useActivityReport(date: string) {
       const statsRow = (Array.isArray(statsRaw) ? statsRaw[0] : statsRaw) ?? {};
       const totalSkus = Number(statsRow?.total_skus ?? 0);
 
+      const correctionCount = (notesRes.data ?? []).length;
+
       return {
         date,
         users,
         warehouse_totals: { orders_completed: totalOrders, total_items: totalItems },
         verified_skus_2m: verifiedSkus.size,
         total_skus: totalSkus,
+        correction_count: correctionCount,
       } satisfies ActivityReport;
     },
     staleTime: 2 * 60_000,
