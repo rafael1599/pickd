@@ -717,6 +717,89 @@ export type Database = {
           },
         ];
       };
+      project_tasks: {
+        Row: {
+          id: string;
+          title: string;
+          note: string | null;
+          status: string;
+          position: number;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          note?: string | null;
+          status?: string;
+          position?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          note?: string | null;
+          status?: string;
+          position?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'project_tasks_created_by_fkey';
+            columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      task_state_changes: {
+        Row: {
+          id: string;
+          task_id: string;
+          from_status: string;
+          to_status: string;
+          changed_at: string;
+          changed_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          task_id: string;
+          from_status: string;
+          to_status: string;
+          changed_at?: string;
+          changed_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          task_id?: string;
+          from_status?: string;
+          to_status?: string;
+          changed_at?: string;
+          changed_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'task_state_changes_task_id_fkey';
+            columns: ['task_id'];
+            isOneToOne: false;
+            referencedRelation: 'project_tasks';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'task_state_changes_changed_by_fkey';
+            columns: ['changed_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;

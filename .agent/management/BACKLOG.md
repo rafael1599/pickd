@@ -21,6 +21,9 @@
 ### ~~21b. Fallback manual BIKES/PARTS en labels~~ <!-- id: idea-038B --> ✅
 - ~~Implementado: campos editables BIKES/PARTS en OrderSidebar con auto-cálculo y override manual. Total Units derivado de bikes + parts. Labels usan los valores manuales cuando se proveen.~~
 
+### ~~29. Estandarización visual completa~~ <!-- id: idea-046 --> ✅
+- ~~Implementado en 4 fases: (1) colores de acción estandarizados con 8 roles semánticos en 12 archivos, (2a) z-index normalizado a 6 capas en 19 archivos, (2b) 18 overlays migrados a bg-main/60, (2c) DoubleCheckView y CorrectionModeView migrados de bg-black/text-white a tokens semánticos (~100 cambios). Picking drawer scoped a home route + picking viewMode.~~
+
 ### 22. Alerta de orden duplicada por cliente + reabrir <!-- id: idea-039 -->
 - **Problema:** Cuando llega una orden nueva para un cliente cuya orden anterior ya fue completada, el picker no se entera y la procesa por separado.
 - **Solución:** Al abrir una orden en la app, detectar si existe otra orden **completada** del mismo `customer_name`. Mostrar alerta con opción de reabrir la completada y mergear los items nuevos. Usa la lógica existente de `reopened` + snapshot tracking para no deducir dos veces items ya recogidos.
@@ -94,21 +97,6 @@
 - **Solución:** Calcular la información de cada orden una sola vez y mantenerla estática en cache. Suscribirse a cambios vía Realtime (o invalidación de query) para que solo se recalcule cuando hay un cambio real en la orden o configuración del sistema.
 - **Consideraciones antes de implementar:** Investigar edge cases — ¿qué pasa si otro usuario modifica la orden mientras está cacheada? ¿Se necesita una columna `updated_at` más granular o un hash de versión? ¿Impacto en optimistic updates existentes? ¿Posible migración para agregar campo de versión/hash? Evaluar si TanStack Query `staleTime` + `structuralSharing` ya cubre parte del problema o si se necesita un cache layer adicional.
 - **Requiere:** Análisis profundo antes de implementar.
-
-### 29. Estandarización de colores por acción <!-- id: idea-046 -->
-- **Problema:** Colores asignados ad-hoc. Orange se usa para "reopen" Y "distribution". Amber para "warning" Y "history". No hay sistema consistente.
-- **Solución:** 8 roles semánticos con regla de exclusividad:
-  - `accent` (emerald) = CTA primario, brand
-  - `red` = destrucción, errores, eliminar
-  - `amber` = warnings, atención requerida
-  - `blue` = información, mover, datos neutrales
-  - `green/emerald` = verificado, completado, disponible
-  - `orange` = SOLO reopen/edit post-completado
-  - `purple` = sistema, admin, FedEx
-  - `muted/content` = navegación neutral, sin estado especial
-- **Fase 1 (actual):** ~40 cambios en 12 archivos para corregir colores incorrectos (Picking Summary amber→blue, History EDIT amber→blue, Notes section amber→neutral, etc.)
-- **Fase 2 (futura):** z-index cleanup, dark mode hardcoded screens, overlays bg-black→bg-main
-- **Plan detallado:** `.claude/plans/deep-booping-ember.md`
 
 ---
 

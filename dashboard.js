@@ -125,6 +125,7 @@ const buttons = [
   { key: "F3", label: "Restart All", action: restartAll },
   { key: "F5", label: "Supabase", action: toggleSupabase },
   { key: "F6", label: "Vite", action: toggleVite },
+  { key: "F7", label: "Sync Prod", action: syncProd },
   { key: "F9", label: "Clear Logs", action: clearLogs },
   { key: "F10", label: "Quit", action: gracefulExit },
 ];
@@ -404,6 +405,88 @@ function toggleVite() {
   else return startVite();
 }
 
+// ── Sync Prod ─────────────────────────────────────────
+async function syncProd() {
+  if (state.supabase.status !== "running") {
+    log(supabaseLog, "{red-fg}Supabase must be running before sync.{/red-fg}");
+    return;
+  }
+
+  log(supabaseLog, "{bold}=== Sync Prod → Local ==={/bold}");
+
+  // Step 1: Check if local schema exists
+  log(supabaseLog, "Checking local schema...");
+  const tableCount = await new Promise((resolve) => {
+    const check = run("docker", [
+      "exec", "supabase_db_pickd", "psql", "-U", "postgres", "-d", "postgres",
+      "-tc", "SELECT count(*) FROM pg_tables WHERE schemaname = 'public';",
+    ], { stdio: ["ignore", "pipe", "pipe"] });
+
+    let out = "";
+    check.stdout.on("data", (d) => (out += d.toString()));
+    check.on("close", () => resolve(parseInt(out.trim(), 10) || 0));
+    check.on("error", () => resolve(0));
+  });
+
+  // Step 2: If schema empty, run db reset first
+  if (tableCount === 0) {
+    log(supabaseLog, "{yellow-fg}No tables found — applying migrations (db reset)...{/yellow-fg}");
+    const resetOk = await new Promise((resolve) => {
+      const reset = run("npx", ["supabase", "db", "reset"], {
+        cwd: process.cwd(),
+        env: { ...process.env, FORCE_COLOR: "0" },
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      reset.stdout.on("data", (d) =>
+        d.toString().split("\n").filter(Boolean).forEach((l) =>
+          log(supabaseLog, l.replace(/\x1b\[[0-9;]*m/g, "").trim())
+        )
+      );
+      reset.stderr.on("data", (d) =>
+        d.toString().split("\n").filter(Boolean).forEach((l) =>
+          log(supabaseLog, l.replace(/\x1b\[[0-9;]*m/g, "").trim())
+        )
+      );
+      reset.on("close", (code) => resolve(code === 0));
+      reset.on("error", () => resolve(false));
+    });
+
+    if (!resetOk) {
+      log(supabaseLog, "{red-fg}db reset failed — aborting sync.{/red-fg}");
+      return;
+    }
+    log(supabaseLog, "{green-fg}Schema ready.{/green-fg}");
+  } else {
+    log(supabaseLog, `{green-fg}Schema OK (${tableCount} tables).{/green-fg}`);
+  }
+
+  // Step 3: Run sync script
+  log(supabaseLog, "Running sync-local-db.sh...");
+  const sync = run("bash", ["scripts/sync-local-db.sh"], {
+    cwd: process.cwd(),
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  sync.stdout.on("data", (d) =>
+    d.toString().split("\n").filter(Boolean).forEach((l) =>
+      log(supabaseLog, l.replace(/\x1b\[[0-9;]*m/g, "").trim())
+    )
+  );
+  sync.stderr.on("data", (d) =>
+    d.toString().split("\n").filter(Boolean).forEach((l) =>
+      log(supabaseLog, `{red-fg}${l.replace(/\x1b\[[0-9;]*m/g, "").trim()}{/red-fg}`)
+    )
+  );
+
+  sync.on("close", (code) => {
+    if (code === 0) {
+      log(supabaseLog, "{green-fg}{bold}✅ Sync complete!{/bold}{/green-fg}");
+    } else {
+      log(supabaseLog, `{red-fg}Sync failed (exit ${code}).{/red-fg}`);
+    }
+  });
+}
+
 // ── Composite actions ──────────────────────────────────
 async function startAll() {
   log(supabaseLog, "{bold}=== Starting all services ==={/bold}");
@@ -470,6 +553,7 @@ screen.key(["f2"], stopAll);
 screen.key(["f3"], restartAll);
 screen.key(["f5"], toggleSupabase);
 screen.key(["f6"], toggleVite);
+screen.key(["f7"], syncProd);
 screen.key(["f9"], clearLogs);
 screen.key(["f10", "q", "C-c"], gracefulExit);
 

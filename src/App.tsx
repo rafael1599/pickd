@@ -26,10 +26,17 @@ const StockCountScreen = React.lazy(() =>
   import('./features/inventory/StockCountScreen.tsx').then((m) => ({ default: m.StockCountScreen }))
 );
 const CycleCountHistoryScreen = React.lazy(() =>
-  import('./features/inventory/CycleCountHistoryScreen.tsx').then((m) => ({ default: m.CycleCountHistoryScreen }))
+  import('./features/inventory/CycleCountHistoryScreen.tsx').then((m) => ({
+    default: m.CycleCountHistoryScreen,
+  }))
 );
 const ActivityReportScreen = React.lazy(() =>
-  import('./features/reports/ActivityReportScreen.tsx').then((m) => ({ default: m.ActivityReportScreen }))
+  import('./features/reports/ActivityReportScreen.tsx').then((m) => ({
+    default: m.ActivityReportScreen,
+  }))
+);
+const ProjectsScreen = React.lazy(() =>
+  import('./features/projects/ProjectsScreen.tsx').then((m) => ({ default: m.ProjectsScreen }))
 );
 
 import { ViewModeProvider } from './context/ViewModeContext.tsx';
@@ -67,6 +74,10 @@ const AuthenticatedContent = () => {
             <Route
               path="/activity-report"
               element={isAdmin ? <ActivityReportScreen /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/projects"
+              element={isAdmin ? <ProjectsScreen /> : <Navigate to="/" replace />}
             />
             {/* Catch-all for unknown routes */}
             <Route path="*" element={<Navigate to="/" replace />} />

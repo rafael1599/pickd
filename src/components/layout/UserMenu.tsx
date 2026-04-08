@@ -14,6 +14,7 @@ import History from 'lucide-react/dist/esm/icons/history';
 import RefreshCw from 'lucide-react/dist/esm/icons/refresh-cw';
 import ClipboardList from 'lucide-react/dist/esm/icons/clipboard-list';
 import FileSearch from 'lucide-react/dist/esm/icons/file-search';
+import Kanban from 'lucide-react/dist/esm/icons/kanban';
 import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
 import { InventorySnapshotModal } from '../../features/inventory/components/InventorySnapshotModal';
 import { useScrollLock } from '../../hooks/useScrollLock';
@@ -56,7 +57,11 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
     if (window.confirm('Are you sure? This will remove all pending offline actions.')) {
       const dbs = ['query-cache', 'REACT_QUERY_OFFLINE_CACHE'];
       dbs.forEach((dbName) => {
-        try { indexedDB.deleteDatabase(dbName); } catch { /* */ }
+        try {
+          indexedDB.deleteDatabase(dbName);
+        } catch {
+          /* */
+        }
       });
       localStorage.removeItem('tanstack-query-persist-client-v5');
       window.location.reload();
@@ -69,7 +74,9 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
   };
 
   const versionLabel = import.meta.env.PROD
-    ? window.location.hostname === 'roman-app.vercel.app' ? 'stable' : 'latest'
+    ? window.location.hostname === 'roman-app.vercel.app'
+      ? 'stable'
+      : 'latest'
     : 'dev';
 
   // ─── Profile Sub-Panel ───
@@ -87,9 +94,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
               >
                 <ChevronLeft size={20} />
               </button>
-              <h2 className="text-xl font-black uppercase tracking-tight text-content">
-                Profile
-              </h2>
+              <h2 className="text-xl font-black uppercase tracking-tight text-content">Profile</h2>
             </div>
 
             <div className="space-y-4">
@@ -186,7 +191,9 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                   <RefreshCw size={16} />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-content uppercase tracking-tight">Sync Repair</p>
+                  <p className="text-xs font-bold text-content uppercase tracking-tight">
+                    Sync Repair
+                  </p>
                   <p className="text-[9px] text-muted font-bold uppercase">Clear offline cache</p>
                 </div>
               </button>
@@ -226,14 +233,21 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                 Warehouse Activities
               </label>
 
-              <button onClick={() => navTo('/orders')} className="flex items-center justify-between w-full group text-left">
+              <button
+                onClick={() => navTo('/orders')}
+                className="flex items-center justify-between w-full group text-left"
+              >
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-surface border border-subtle rounded-xl text-accent">
                     <History size={16} />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-content uppercase tracking-tight">Orders</p>
-                    <p className="text-[9px] text-muted font-bold uppercase">View and Print labels</p>
+                    <p className="text-xs font-bold text-content uppercase tracking-tight">
+                      Orders
+                    </p>
+                    <p className="text-[9px] text-muted font-bold uppercase">
+                      View and Print labels
+                    </p>
                   </div>
                 </div>
                 <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
@@ -241,14 +255,21 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
 
               <div className="h-px bg-subtle my-2" />
 
-              <button onClick={() => navTo('/stock-count')} className="flex items-center justify-between w-full group text-left">
+              <button
+                onClick={() => navTo('/stock-count')}
+                className="flex items-center justify-between w-full group text-left"
+              >
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-surface border border-subtle rounded-xl text-emerald-500">
                     <ClipboardList size={16} />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-content uppercase tracking-tight">Stock Count</p>
-                    <p className="text-[9px] text-muted font-bold uppercase">Physical inventory check</p>
+                    <p className="text-xs font-bold text-content uppercase tracking-tight">
+                      Stock Count
+                    </p>
+                    <p className="text-[9px] text-muted font-bold uppercase">
+                      Physical inventory check
+                    </p>
                   </div>
                 </div>
                 <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
@@ -256,13 +277,18 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
 
               <div className="h-px bg-subtle my-2" />
 
-              <button onClick={() => navTo('/history')} className="flex items-center justify-between w-full group text-left">
+              <button
+                onClick={() => navTo('/history')}
+                className="flex items-center justify-between w-full group text-left"
+              >
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-surface border border-subtle rounded-xl text-muted">
                     <History size={16} />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-content uppercase tracking-tight">History</p>
+                    <p className="text-xs font-bold text-content uppercase tracking-tight">
+                      History
+                    </p>
                     <p className="text-[9px] text-muted font-bold uppercase">Activity log</p>
                   </div>
                 </div>
@@ -272,17 +298,48 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
               {isAdmin && (
                 <>
                   <div className="h-px bg-subtle my-2" />
-                  <button onClick={() => navTo('/activity-report')} className="flex items-center justify-between w-full group text-left">
+                  <button
+                    onClick={() => navTo('/activity-report')}
+                    className="flex items-center justify-between w-full group text-left"
+                  >
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-surface border border-subtle rounded-xl text-teal-500">
                         <FileSearch size={16} />
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-content uppercase tracking-tight">Activity Report</p>
-                        <p className="text-[9px] text-muted font-bold uppercase">Daily team summary</p>
+                        <p className="text-xs font-bold text-content uppercase tracking-tight">
+                          Activity Report
+                        </p>
+                        <p className="text-[9px] text-muted font-bold uppercase">
+                          Daily team summary
+                        </p>
                       </div>
                     </div>
-                    <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
+                    <div className="text-accent group-hover:translate-x-1 transition-transform">
+                      →
+                    </div>
+                  </button>
+
+                  <div className="h-px bg-subtle my-2" />
+
+                  <button
+                    onClick={() => navTo('/projects')}
+                    className="flex items-center justify-between w-full group text-left"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-surface border border-subtle rounded-xl text-indigo-500">
+                        <Kanban size={16} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-content uppercase tracking-tight">
+                          Projects
+                        </p>
+                        <p className="text-[9px] text-muted font-bold uppercase">Task board</p>
+                      </div>
+                    </div>
+                    <div className="text-accent group-hover:translate-x-1 transition-transform">
+                      →
+                    </div>
                   </button>
                 </>
               )}
@@ -303,7 +360,9 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                     <History size={16} />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-content uppercase tracking-tight">Inventory Time Travel</p>
+                    <p className="text-xs font-bold text-content uppercase tracking-tight">
+                      Inventory Time Travel
+                    </p>
                     <p className="text-[9px] text-muted font-bold uppercase">View past snapshots</p>
                   </div>
                 </button>
@@ -312,10 +371,15 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                   <>
                     <div className="h-px bg-subtle my-2" />
                     <button
-                      onClick={() => { toggleAdminView(); onClose(); }}
+                      onClick={() => {
+                        toggleAdminView();
+                        onClose();
+                      }}
                       className="flex items-center gap-3 w-full text-left"
                     >
-                      <div className={`p-2 bg-surface border border-subtle rounded-xl ${viewAsUser ? 'text-emerald-500' : 'text-amber-500'}`}>
+                      <div
+                        className={`p-2 bg-surface border border-subtle rounded-xl ${viewAsUser ? 'text-emerald-500' : 'text-amber-500'}`}
+                      >
                         {viewAsUser ? <ShieldCheck size={16} /> : <Eye size={16} />}
                       </div>
                       <div>

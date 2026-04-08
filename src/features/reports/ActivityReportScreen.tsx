@@ -4,10 +4,16 @@ import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
 import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import Printer from 'lucide-react/dist/esm/icons/printer';
+import Copy from 'lucide-react/dist/esm/icons/copy';
+import Check from 'lucide-react/dist/esm/icons/check';
 import Plus from 'lucide-react/dist/esm/icons/plus';
 import X from 'lucide-react/dist/esm/icons/x';
 import { useActivityReport, useActiveProfiles } from './hooks/useActivityReport';
 import { ActivityReportView } from './components/ActivityReportView';
+import {
+  useTasksCompletedToday,
+  useTasksInProgress,
+} from '../projects/hooks/useProjectReportData';
 
 function formatDateNav(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00');
@@ -26,6 +32,16 @@ interface UserNote {
   text: string;
 }
 
+const ROUTINE_ITEMS = [
+  'Cleanup / trash',
+  'Sweeping',
+  'Receiving — Uline',
+  'Receiving — container',
+  'Receiving — FedEx',
+  'Receiving — pallets',
+  'General organization',
+];
+
 export const ActivityReportScreen = () => {
   const navigate = useNavigate();
   const today = new Date().toISOString().slice(0, 10);
@@ -33,20 +49,33 @@ export const ActivityReportScreen = () => {
   const [notes, setNotes] = useState<UserNote[]>([]);
   const [noteUser, setNoteUser] = useState('');
   const [noteText, setNoteText] = useState('');
+  const [winOfTheDay, setWinOfTheDay] = useState('');
+  const [routineChecklist, setRoutineChecklist] = useState<string[]>([]);
+  const [copied, setCopied] = useState(false);
 
   const { data: report, isLoading, error } = useActivityReport(selectedDate);
   const { data: profiles } = useActiveProfiles();
+  const { data: tasksCompleted } = useTasksCompletedToday(selectedDate);
+  const { data: tasksInProgress } = useTasksInProgress();
+
+  const pickdUpdates = (tasksCompleted ?? []).map((t) => t.title);
+  const comingUpNext = (tasksInProgress ?? []).slice(0, 3).map((t) => t.title);
 
   const handleDateChange = useCallback((newDate: string) => {
     setSelectedDate(newDate);
     setNotes([]);
+    setWinOfTheDay('');
+    setRoutineChecklist([]);
   }, []);
 
   const handleAddNote = useCallback(() => {
     if (!noteText.trim() || !noteUser) return;
     const profile = profiles?.find((p) => p.id === noteUser);
     if (!profile) return;
-    setNotes((prev) => [...prev, { id: noteUser, full_name: profile.full_name, text: noteText.trim() }]);
+    setNotes((prev) => [
+      ...prev,
+      { id: noteUser, full_name: profile.full_name, text: noteText.trim() },
+    ]);
     setNoteText('');
   }, [noteUser, noteText, profiles]);
 
@@ -54,10 +83,32 @@ export const ActivityReportScreen = () => {
     setNotes((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  const accuracyRaw = report && report.total_skus > 0
-    ? (report.verified_skus_2m / report.total_skus) * 100
-    : 0;
-  const accuracyPct = accuracyRaw >= 10 ? Math.round(accuracyRaw) : Math.round(accuracyRaw * 10) / 10;
+  const handleToggleRoutine = useCallback((item: string) => {
+    setRoutineChecklist((prev) =>
+      prev.includes(item) ? prev.filter((i) => i !== item) : [...prev, item]
+    );
+  }, []);
+
+  const handleCopy = useCallback(() => {
+    const reportEl = document.getElementById('report-content');
+    if (!reportEl) return;
+    const range = document.createRange();
+    range.selectNodeContents(reportEl);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    document.execCommand('copy');
+    selection?.removeAllRanges();
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, []);
+
+  const accuracyRaw =
+    report && report.total_skus > 0
+      ? (report.verified_skus_2m / report.total_skus) * 100
+      : 0;
+  const accuracyPct =
+    accuracyRaw >= 10 ? Math.round(accuracyRaw) : Math.round(accuracyRaw * 10) / 10;
 
   return (
     <div className="flex flex-col min-h-screen bg-bg-main">
@@ -75,12 +126,22 @@ export const ActivityReportScreen = () => {
               Activity Report
             </h1>
           </div>
-          <button
-            onClick={() => window.print()}
-            className="p-2 hover:bg-white/10 rounded-full text-accent transition-colors"
-          >
-            <Printer size={20} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleCopy}
+              className="p-2 hover:bg-white/10 rounded-full text-accent transition-colors"
+              title="Copy report"
+            >
+              {copied ? <Check size={20} className="text-green-400" /> : <Copy size={20} />}
+            </button>
+            <button
+              onClick={() => window.print()}
+              className="p-2 hover:bg-white/10 rounded-full text-accent transition-colors"
+              title="Print report"
+            >
+              <Printer size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Date navigation */}
@@ -113,31 +174,65 @@ export const ActivityReportScreen = () => {
         )}
 
         {error && (
-          <div className="text-center py-20 text-red-400 text-sm">
-            Failed to load report data.
-          </div>
+          <div className="text-center py-20 text-red-400 text-sm">Failed to load report data.</div>
         )}
 
         {report && !isLoading && (
-          <ActivityReportView
-            report={report}
-            accuracyPct={accuracyPct}
-            notes={notes}
-          />
+          <div id="report-content">
+            <ActivityReportView
+              report={report}
+              accuracyPct={accuracyPct}
+              notes={notes}
+              winOfTheDay={winOfTheDay}
+              routineChecklist={routineChecklist}
+              pickdUpdates={pickdUpdates}
+              comingUpNext={comingUpNext}
+            />
+          </div>
         )}
       </div>
 
-      {/* Add note — fixed bottom bar, hidden on print */}
-      <div className="print:hidden shrink-0 p-4 border-t border-subtle bg-bg-main">
+      {/* Bottom bar — hidden on print */}
+      <div className="print:hidden shrink-0 p-4 border-t border-subtle bg-bg-main space-y-3">
+        {/* Win of the Day input */}
+        <input
+          type="text"
+          value={winOfTheDay}
+          onChange={(e) => setWinOfTheDay(e.target.value)}
+          placeholder="Win of the day..."
+          className="w-full h-10 px-3 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40"
+        />
+
+        {/* Routine checklist toggles */}
+        <div className="flex flex-wrap gap-1.5">
+          {ROUTINE_ITEMS.map((item) => {
+            const isChecked = routineChecklist.includes(item);
+            return (
+              <button
+                key={item}
+                onClick={() => handleToggleRoutine(item)}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 ${
+                  isChecked
+                    ? 'bg-accent text-main'
+                    : 'bg-surface border border-subtle text-muted hover:border-accent/30'
+                }`}
+              >
+                {item}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Added notes preview */}
         {notes.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
+          <div className="flex flex-wrap gap-2">
             {notes.map((n, i) => (
               <span
                 key={i}
                 className="inline-flex items-center gap-1 px-2 py-1 bg-accent/10 border border-accent/20 rounded-lg text-[10px] font-bold text-accent"
               >
-                {n.full_name}: {n.text.slice(0, 30)}{n.text.length > 30 ? '...' : ''}
+                {n.full_name}: {n.text.slice(0, 30)}
+                {n.text.length > 30 ? '...' : ''}
                 <button onClick={() => handleRemoveNote(i)} className="hover:text-red-400">
                   <X size={10} />
                 </button>
@@ -146,6 +241,7 @@ export const ActivityReportScreen = () => {
           </div>
         )}
 
+        {/* Note user selector + text input */}
         <div className="flex items-center gap-2">
           <select
             value={noteUser}
@@ -153,15 +249,17 @@ export const ActivityReportScreen = () => {
             className="h-10 px-2 bg-surface border border-subtle rounded-xl text-xs text-content focus:outline-none focus:border-accent/40 min-w-[100px]"
           >
             <option value="">Who?</option>
-            {/* Users with activity first */}
             {report?.users.map((u) => (
-              <option key={u.user_id} value={u.user_id}>{u.full_name}</option>
+              <option key={u.user_id} value={u.user_id}>
+                {u.full_name}
+              </option>
             ))}
-            {/* Then any other active profile not already listed */}
             {profiles
               ?.filter((p) => !report?.users.some((u) => u.user_id === p.id))
               .map((p) => (
-                <option key={p.id} value={p.id}>{p.full_name}</option>
+                <option key={p.id} value={p.id}>
+                  {p.full_name}
+                </option>
               ))}
           </select>
           <input
