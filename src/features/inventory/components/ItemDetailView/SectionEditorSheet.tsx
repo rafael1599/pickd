@@ -47,7 +47,7 @@ export const SectionEditorSheet: React.FC<SectionEditorSheetProps> = ({
   return createPortal(
     <div className="fixed inset-0 z-[55] flex flex-col justify-end">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute inset-0 bg-main/60" onClick={onClose} />
 
       {/* Sheet */}
       <div className="relative bg-surface border-t border-subtle rounded-t-3xl max-h-[80vh] overflow-hidden animate-in slide-in-from-bottom duration-300 flex flex-col">

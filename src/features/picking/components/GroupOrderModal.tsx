@@ -25,7 +25,7 @@ export const GroupOrderModal: React.FC<GroupOrderModalProps> = ({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-150"
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-main/60 backdrop-blur-md animate-in fade-in duration-150"
       onClick={onCancel}
     >
       <div

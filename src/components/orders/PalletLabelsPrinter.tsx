@@ -182,7 +182,7 @@ export const PalletLabelsPrinter = ({ onClose, order }: PalletLabelsPrinterProps
   };
 
   const content = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-main/60 backdrop-blur-md">
       <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-[2.5rem] p-8 shadow-2xl overflow-hidden relative">
         <div className="absolute top-0 left-0 w-full h-1 bg-accent/20">
           <div className="h-full bg-accent w-full origin-left animate-pulse" />

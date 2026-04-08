@@ -272,7 +272,7 @@ const UserModal = ({ user, onClose, onSuccess }: UserModalProps) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-md animate-in fade-in duration-300"
+        className="absolute inset-0 bg-main/60 backdrop-blur-md animate-in fade-in duration-300"
         onClick={onClose}
       />
       <div className="relative w-full max-w-md bg-card border border-subtle rounded-[2rem] overflow-hidden shadow-2xl animate-in zoom-in slide-in-from-bottom-8 duration-500">

@@ -158,7 +158,7 @@ export const ItemHistorySheet: React.FC<ItemHistorySheetProps> = ({ isOpen, onCl
     <div className="fixed inset-0 z-[55] flex flex-col justify-end">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 animate-in fade-in duration-200"
+        className="absolute inset-0 bg-main/60 animate-in fade-in duration-200"
         onClick={onClose}
       />
 

@@ -529,7 +529,7 @@ export const PickingCartDrawer: React.FC = () => {
     <>
       {isOpen && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200"
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-main/60 backdrop-blur-md animate-in fade-in duration-200"
           onClick={handleReleaseOrder}
         >
           <div

@@ -1157,7 +1157,7 @@ export const OrdersScreen = () => {
 
       {/* Reopen reason modal */}
       {reopenReasonModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-main/60 backdrop-blur-md p-4">
           <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 w-full max-w-sm">
             <h3 className="text-sm font-black text-orange-400 uppercase tracking-widest mb-4">
               Why are you reopening this order?

@@ -114,7 +114,7 @@ export const PhotoHero: React.FC<PhotoHeroProps> = ({
       {showActions && (
         <>
           <div
-            className="fixed inset-0 z-[60] bg-black/40"
+            className="fixed inset-0 z-[60] bg-main/60"
             onClick={() => setShowActions(false)}
           />
           <div className="fixed bottom-0 inset-x-0 z-[60] p-4 pb-safe animate-in slide-in-from-bottom duration-200">

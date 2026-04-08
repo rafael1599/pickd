@@ -40,12 +40,12 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8">
       {/* Backdrop with heavy blur */}
       <div
-        className="absolute inset-0 bg-[#0f0f12]/80 backdrop-blur-md cursor-pointer"
+        className="absolute inset-0 bg-main/60 backdrop-blur-md cursor-pointer"
         onClick={onClose}
       />
 
       {/* Modal Content - Graphite Frost Aesthetic */}
-      <div className="relative w-full max-w-2xl max-h-[85vh] bg-[#0f1115]/90 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-soft-in">
+      <div className="relative w-full max-w-2xl max-h-[85vh] bg-main/95 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-soft-in">
         {/* Header Section */}
         <div className="px-8 py-7 border-b border-white/10 flex items-center justify-between shrink-0 bg-white/[0.02]">
           <div>

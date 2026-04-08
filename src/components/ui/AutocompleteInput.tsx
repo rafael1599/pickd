@@ -329,7 +329,7 @@ export default function AutocompleteInput<T extends Suggestion = Suggestion>({
           <>
             {/* Backdrop */}
             <div
-              className="fixed inset-0 bg-black/40 z-[60] animate-[fadeIn_150ms_ease-out]"
+              className="fixed inset-0 bg-main/60 z-[60] animate-[fadeIn_150ms_ease-out]"
               onClick={() => setShowSuggestions(false)}
             />
             {/* Results panel */}
