@@ -69,7 +69,8 @@ interface PickingContextType {
   claimAsPicker: (listId?: string) => Promise<void>;
 
   loadExternalList: (id: string) => Promise<unknown>;
-  loadReopenedOrder: (id: string) => Promise<void>;
+  loadReopenedOrder: (id: string, reason?: string) => Promise<void>;
+  resumeReopenedOrder: (id: string) => Promise<void>;
 
   generatePickingPath: () => Promise<void>;
 
@@ -295,10 +296,10 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const loadReopenedOrder = useCallback(
-    async (listId: string) => {
+    async (listId: string, reason?: string) => {
       isInWorkflowRef.current = true;
       try {
-        await reopenOrder(listId);
+        await reopenOrder(listId, reason);
         await loadExternalList(listId);
         // Override the 'double_checking' that loadExternalList hardcodes
         setSessionMode('reopened');
@@ -309,6 +310,21 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       }
     },
     [reopenOrder, loadExternalList, setSessionMode, isInWorkflowRef]
+  );
+
+  const resumeReopenedOrder = useCallback(
+    async (listId: string) => {
+      isInWorkflowRef.current = true;
+      try {
+        await loadExternalList(listId);
+        setSessionMode('reopened');
+      } catch (err) {
+        console.error('Failed to resume reopened order:', err);
+      } finally {
+        isInWorkflowRef.current = false;
+      }
+    },
+    [loadExternalList, setSessionMode, isInWorkflowRef]
   );
 
   const addToCart = useCallback(
@@ -432,6 +448,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       deleteList,
       loadExternalList,
       loadReopenedOrder,
+      resumeReopenedOrder,
       generatePickingPath,
       reopenOrder,
       recompleteOrder,
@@ -492,6 +509,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       deleteList,
       loadExternalList,
       loadReopenedOrder,
+      resumeReopenedOrder,
       generatePickingPath,
       reopenOrder,
       recompleteOrder,

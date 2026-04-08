@@ -20,6 +20,7 @@ import { SplitOrderModal } from '../../components/orders/SplitOrderModal.tsx';
 import { SearchInput } from '../../components/ui/SearchInput.tsx';
 import type { PickingListItem, CombineMeta } from '../../schemas/picking.schema';
 import { saveCustomerAddress } from '../../lib/customerAddresses';
+import { ReasonPicker } from './components/ReasonPicker';
 
 interface CustomerDetails {
   id: string;
@@ -54,7 +55,7 @@ interface OrderWithRelations {
 
 export const OrdersScreen = () => {
   const { user } = useAuth();
-  const { takeOverOrder, loadReopenedOrder } = usePickingSession();
+  const { takeOverOrder, loadReopenedOrder, resumeReopenedOrder } = usePickingSession();
   const {
     externalOrderId,
     setExternalOrderId,
@@ -72,6 +73,8 @@ export const OrdersScreen = () => {
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isMobileOrderListOpen, setIsMobileOrderListOpen] = useState(false);
+  const [reopenReasonModal, setReopenReasonModal] = useState(false);
+  const [reopenReason, setReopenReason] = useState('');
   const filterRef = useRef<HTMLDivElement>(null);
   const mobileDropdownRef = useRef<HTMLDivElement>(null);
   const searchQueryRef = useRef(searchQuery);
@@ -737,13 +740,34 @@ export const OrdersScreen = () => {
     }
   };
 
-  const handleReopenOrder = async () => {
+  const handleReopenOrder = () => {
     if (!selectedOrder) return;
+    setReopenReason('');
+    setReopenReasonModal(true);
+  };
+
+  const handleConfirmReopen = async () => {
+    if (!selectedOrder || !reopenReason) return;
+    setReopenReasonModal(false);
     try {
-      await loadReopenedOrder(selectedOrder.id);
+      await loadReopenedOrder(selectedOrder.id, reopenReason);
       // Drawer auto-opens full-screen when sessionMode === 'reopened'
     } catch {
       // Error already toasted in loadReopenedOrder
+    }
+  };
+
+  const handleContinueEditing = async () => {
+    if (!selectedOrder) return;
+    try {
+      // Take over if not the owner
+      if (selectedOrder.user_id !== user?.id) {
+        await takeOverOrder(selectedOrder.id);
+      }
+      // Resume without calling reopen RPC again — order is already reopened
+      await resumeReopenedOrder(selectedOrder.id);
+    } catch {
+      // Errors already toasted
     }
   };
 
@@ -784,6 +808,7 @@ export const OrdersScreen = () => {
           onShowPickingSummary={() => setIsShowingPickingSummary(true)}
           onSplitOrder={() => setIsShowingSplitModal(true)}
           onReopenOrder={handleReopenOrder}
+          onContinueEditing={handleContinueEditing}
           autoBikeCount={autoBikeCount}
           autoPartCount={autoPartCount}
           totalUnits={totalUnits}
@@ -968,6 +993,7 @@ export const OrdersScreen = () => {
                   }}
                   onShowPickingSummary={() => setIsShowingPickingSummary(true)}
                   onReopenOrder={handleReopenOrder}
+          onContinueEditing={handleContinueEditing}
                   collapsible
                   autoBikeCount={autoBikeCount}
                   autoPartCount={autoPartCount}
@@ -1127,6 +1153,37 @@ export const OrdersScreen = () => {
             fetchOrders();
           }}
         />
+      )}
+
+      {/* Reopen reason modal */}
+      {reopenReasonModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 w-full max-w-sm">
+            <h3 className="text-sm font-black text-orange-400 uppercase tracking-widest mb-4">
+              Why are you reopening this order?
+            </h3>
+            <ReasonPicker
+              actionType="reopen"
+              selectedReason={reopenReason}
+              onReasonChange={setReopenReason}
+            />
+            <div className="flex items-center gap-2 mt-4">
+              <button
+                onClick={() => setReopenReasonModal(false)}
+                className="flex-1 min-h-12 rounded-xl font-black uppercase tracking-widest text-[10px] bg-white/5 text-white/50 border border-white/10 transition-all hover:bg-white/10 active:scale-[0.97]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmReopen}
+                disabled={!reopenReason}
+                className="flex-1 min-h-12 rounded-xl font-black uppercase tracking-widest text-[10px] bg-orange-500 text-white border border-orange-500 transition-all hover:opacity-80 active:scale-[0.97] disabled:opacity-50"
+              >
+                Reopen
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

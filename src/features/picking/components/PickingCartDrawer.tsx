@@ -304,7 +304,9 @@ export const PickingCartDrawer: React.FC = () => {
                 }
               : item
           );
-          logMessage = `Swapped SKU ${action.originalSku} → ${action.replacement.sku}`;
+          logMessage = action.reason
+            ? `Replaced ${action.originalSku} → ${action.replacement.sku}: ${action.reason}`
+            : `Swapped SKU ${action.originalSku} → ${action.replacement.sku}`;
           break;
         }
         case 'adjust_qty': {
@@ -313,12 +315,16 @@ export const PickingCartDrawer: React.FC = () => {
               ? { ...item, pickingQty: action.newQty, insufficient_stock: false }
               : item
           );
-          logMessage = `Adjusted qty for ${action.sku} to ${action.newQty}`;
+          logMessage = action.reason
+            ? `Adjusted ${action.sku} qty to ${action.newQty}: ${action.reason}`
+            : `Adjusted qty for ${action.sku} to ${action.newQty}`;
           break;
         }
         case 'remove': {
           newItems = cartItems.filter((item) => item.sku !== action.sku);
-          logMessage = `Removed SKU ${action.sku} from order`;
+          logMessage = action.reason
+            ? `Removed ${action.sku}: ${action.reason}`
+            : `Removed SKU ${action.sku} from order`;
           break;
         }
         case 'add': {
@@ -329,7 +335,9 @@ export const PickingCartDrawer: React.FC = () => {
                 ? { ...item, pickingQty: item.pickingQty + action.item.pickingQty }
                 : item
             );
-            logMessage = `Extra item: ${action.item.sku}, qty ${action.item.pickingQty} (total ${existing.pickingQty + action.item.pickingQty})`;
+            logMessage = action.reason
+              ? `Added ${action.item.sku} (qty ${action.item.pickingQty}, total ${existing.pickingQty + action.item.pickingQty}): ${action.reason}`
+              : `Extra item: ${action.item.sku}, qty ${action.item.pickingQty} (total ${existing.pickingQty + action.item.pickingQty})`;
           } else {
             newItems = [
               ...cartItems,
@@ -343,7 +351,9 @@ export const PickingCartDrawer: React.FC = () => {
                 insufficient_stock: false,
               },
             ];
-            logMessage = `Extra item: ${action.item.sku}, qty ${action.item.pickingQty}`;
+            logMessage = action.reason
+              ? `Added ${action.item.sku} (qty ${action.item.pickingQty}): ${action.reason}`
+              : `Extra item: ${action.item.sku}, qty ${action.item.pickingQty}`;
           }
           break;
         }

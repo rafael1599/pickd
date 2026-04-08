@@ -880,13 +880,14 @@ export const usePickingActions = ({
   // ============================================================
 
   const reopenOrder = useCallback(
-    async (listId: string) => {
+    async (listId: string, reason?: string) => {
       if (!user) return;
       setIsSaving(true);
       try {
         const { error } = await supabase.rpc('reopen_picking_list', {
           p_list_id: listId,
           p_reopened_by: user.id,
+          p_reason: reason || null,
         });
         if (error) throw error;
         toast.success('Order reopened for editing');

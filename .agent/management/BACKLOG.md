@@ -1,29 +1,22 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-04-07
+> Actualizado: 2026-04-07 (noche)
 
 ---
 
 ## P1 — Alto (operación diaria)
 
-### 21. Campos de bicicleta en `sku_metadata` <!-- id: idea-042 -->
-- **Problema:** `sku_metadata` solo tiene dimensiones/peso/imagen. No hay forma de saber si un SKU es bicicleta ni almacenar su UPC para labels.
-- **Migración aditiva** — 2 columnas nuevas en `sku_metadata`:
-  - `upc` (text, nullable) — código de barras para labels.
-  - `is_bike` (boolean, default null) — `true` = bicicleta, `false` = parte/otro.
-- **UI al registrar SKU:** Checkbox/radio group: Bike | Part | Other. Bike → `is_bike = true`, Part/Other → `is_bike = false`.
-- **Size y color** NO van a DB — se parsean de `inventory.item_name` en runtime (simplifica el registro).
-- **Dependientes:** idea-038A (detección mejorada), idea-040 (labels).
+### ~~21. Campos de bicicleta en `sku_metadata`~~ <!-- id: idea-042 --> ✅
+- ~~Implementado: columnas `is_bike` y `upc` en `sku_metadata`. Migración pobló `is_bike` automáticamente desde SKUs existentes. Filtros de stock view usan `is_bike` en vez de location.~~
 
-### 21a. Detección mejorada bike vs part <!-- id: idea-038A -->
-- **Problema:** `isBikeSku()` usa solo regex (`/^\d{2}-\d{4}[A-Za-z]{2,}$/`). Falla con S&D y otros formatos.
-- **Solución (cascada de prioridad):**
-  1. `sku_metadata.is_bike` si existe → fuente de verdad.
-  2. Prefijos conocidos como hint: `01-` (S&D), `03-`, `05-`, `06-`, `07-` → bike.
-  3. Regex actual como fallback final.
-- **Depende de:** idea-042 (campo `is_bike`).
-- **Prerequisito:** Obtener 2-3 SKUs S&D reales para validar.
+### ~~21a. Detección mejorada bike vs part~~ <!-- id: idea-038A --> ✅
+- ~~Implementado: filtros e inventario usan `sku_metadata.is_bike` como fuente de verdad. Stats RPC filtra por `is_bike`. Regex como fallback final.~~
+
+### 26. Mostrar notas en picking summary <!-- id: idea-044 -->
+- **Problema:** Las notas de corrección (picking_list_notes) no se muestran en el resumen de picking. El picker/checker no ve el historial de cambios al revisar una orden.
+- **Solución:** Incluir las notas relevantes en la vista de picking summary (OrdersScreen o label preview area).
+- **Datos:** Tabla `picking_list_notes` ya tiene las notas con timestamps y usuario.
 
 ### 21b. Fallback manual BIKES/PARTS en labels <!-- id: idea-038B -->
 - **Problema:** El conteo automático BIKES vs PARTS en pallet labels puede ser incorrecto y no hay forma de corregirlo.
@@ -80,6 +73,9 @@
 
 ### ~~18. Badge peso y dimensiones en Stock View~~ <!-- id: idea-029 --> ✅
 - ~~Implementado: badges condicionales (solo si > 0), peso visible en mobile.~~
+
+### ~~25. Notas de corrección interactivas + recovery de órdenes reopened~~ <!-- id: idea-043 --> ✅
+- ~~Implementado: ReasonPicker con presets por tipo de acción (remove/swap/adjust/add/reopen). Notas ricas con razón ("Removed X: Out of stock"). Auto-detección de insufficient_stock pre-selecciona razón. Smart tip "use Replace instead" cuando se hace remove+add. Botón "Continue Editing" / "Take Over & Edit" para órdenes stuck en reopened. Reopen reason se pasa al RPC.~~
 
 ---
 
