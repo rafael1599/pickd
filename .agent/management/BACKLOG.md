@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-04-08
+> Actualizado: 2026-04-08 (sesión PM)
 
 ---
 
@@ -21,8 +21,9 @@
 ### ~~21b. Fallback manual BIKES/PARTS en labels~~ <!-- id: idea-038B --> ✅
 - ~~Implementado: campos editables BIKES/PARTS en OrderSidebar con auto-cálculo y override manual. Total Units derivado de bikes + parts. Labels usan los valores manuales cuando se proveen.~~
 
-### ~~29. Estandarización visual completa~~ <!-- id: idea-046 --> ✅
+### ~~29. Estandarización visual completa~~ <!-- id: idea-046 --> ✅ (parcialmente revertido)
 - ~~Implementado en 4 fases: (1) colores de acción estandarizados con 8 roles semánticos en 12 archivos, (2a) z-index normalizado a 6 capas en 19 archivos, (2b) 18 overlays migrados a bg-main/60, (2c) DoubleCheckView y CorrectionModeView migrados de bg-black/text-white a tokens semánticos (~100 cambios). Picking drawer scoped a home route + picking viewMode.~~
+- **Revert parcial (2026-04-08):** z-index phase 2a bajó modales a z-50 pero no bajó headers/nav (z-[100]+). 6 modales restaurados: PickingSummaryModal/PalletLabels/SplitOrder/GroupOrder→z-[150], Confirmation/Error→z-[200]. PickingSummaryModal también restauró colores hardcoded del backdrop (Graphite Frost).
 
 ### 22. Alerta de orden duplicada por cliente + reabrir <!-- id: idea-039 -->
 - **Problema:** Cuando llega una orden nueva para un cliente cuya orden anterior ya fue completada, el picker no se entera y la procesa por separado.

@@ -35,3 +35,6 @@
 | bug-011: Orden desaparece en double check | 2026-04-02 | fix-002 |
 | Pantalla negra al retroceder double check | 2026-04-03 | `8286d4b` |
 | Orden se pierde al abrir verificación | 2026-04-03 | `f12e8bb` |
+| Inventory qty=0 no desaparece del cache (realtime+optimistic) | 2026-04-08 | `fae9110` |
+| z-index modales bajo header/nav (idea-046 regression) | 2026-04-08 | (this session) |
+| database.types.ts CLI noise + 46 tsc errors | 2026-04-08 | `4973c34` |

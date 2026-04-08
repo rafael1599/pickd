@@ -27,7 +27,7 @@ export function ConfirmationModal({
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-main/60 backdrop-blur-md">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-main/60 backdrop-blur-md">
       <div className="bg-card border border-subtle rounded-xl max-w-sm w-full p-6 shadow-2xl animate-in zoom-in-95 duration-200">
         <div className="flex items-start gap-4">
           <div className="flex-shrink-0">
