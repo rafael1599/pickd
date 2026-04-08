@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { InventoryProvider, useInventory } from './features/inventory/hooks/InventoryProvider.tsx';
+import { InventoryProvider } from './features/inventory/hooks/InventoryProvider.tsx';
 import { LayoutMain } from './components/layout/LayoutMain.tsx';
 import { ErrorProvider, useError } from './context/ErrorContext.tsx'; // Import ErrorProvider and useError
 import { ConfirmationProvider, useConfirmation } from './context/ConfirmationContext.tsx'; // Import ConfirmationProvider and useConfirmation
@@ -42,12 +42,11 @@ import { StagingBanner } from './components/layout/StagingBanner.tsx';
 
 // Content accessible only after login
 const AuthenticatedContent = () => {
-  const { exportData } = useInventory();
   const { isAdmin } = useAuth();
 
   return (
     <ViewModeProvider>
-      <LayoutMain onExport={exportData}>
+      <LayoutMain>
         <Suspense
           fallback={
             <div className="min-h-[50vh] flex items-center justify-center">

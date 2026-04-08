@@ -2,7 +2,7 @@ import { ReactNode, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { BottomNavigation } from './BottomNavigation';
 import Settings from 'lucide-react/dist/esm/icons/settings';
-import UserIcon from 'lucide-react/dist/esm/icons/user';
+import Menu from 'lucide-react/dist/esm/icons/menu';
 import { useAuth } from '../../context/AuthContext';
 import { useViewMode } from '../../context/ViewModeContext';
 import { UserMenu } from './UserMenu';
@@ -13,15 +13,14 @@ import { PullToRefresh } from '../ui/PullToRefresh';
 
 interface LayoutMainProps {
   children: ReactNode;
-  onExport?: () => void;
 }
 
-export const LayoutMain = ({ children, onExport }: LayoutMainProps) => {
+export const LayoutMain = ({ children }: LayoutMainProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const isOrdersPage = location.pathname === '/orders';
   const isStockCountPage = location.pathname === '/stock-count';
-  const { isAdmin, profile } = useAuth();
+  const { isAdmin } = useAuth();
   const { isSearching } = useViewMode();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -91,11 +90,9 @@ export const LayoutMain = ({ children, onExport }: LayoutMainProps) => {
 
               <button
                 onClick={() => setIsUserMenuOpen(true)}
-                className="flex items-center gap-2 p-1.5 bg-surface border border-subtle rounded-full hover:border-accent transition-all active:scale-95"
+                className="p-2 bg-surface border border-subtle rounded-xl hover:border-accent transition-all active:scale-95"
               >
-                <div className="w-7 h-7 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent text-xs font-black uppercase">
-                  {profile?.full_name?.charAt(0) || <UserIcon size={14} />}
-                </div>
+                <Menu size={20} className="text-muted" />
               </button>
             </div>
           </div>
@@ -105,7 +102,6 @@ export const LayoutMain = ({ children, onExport }: LayoutMainProps) => {
       <UserMenu
         isOpen={isUserMenuOpen}
         onClose={() => setIsUserMenuOpen(false)}
-        onExport={onExport}
         navigate={navigate}
       />
 

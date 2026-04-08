@@ -471,7 +471,6 @@ export const useInventory = () => {
     // Utils / Stubs
     processPickingList,
     recompletePickingList,
-    exportData: noop,
     syncInventoryLocations: noopAsync,
     updateInventory: noop,
     updateLudlowInventory: noopUpdater,
