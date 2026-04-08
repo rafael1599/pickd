@@ -533,12 +533,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-black relative">
+    <div className="flex flex-col h-full bg-main relative">
       {/* Minimalist Header */}
-      <div className="px-5 py-4 flex items-center justify-between shrink-0 bg-black/90 backdrop-blur-md sticky top-0 z-10 touch-none border-b border-white/10">
+      <div className="px-5 py-4 flex items-center justify-between shrink-0 bg-main/90 backdrop-blur-md sticky top-0 z-10 touch-none border-b border-subtle">
         <button
           onClick={() => onBack()}
-          className="p-2 -ml-2 hover:bg-white/10 rounded-full text-white/70 transition-colors shrink-0"
+          className="p-2 -ml-2 hover:bg-card rounded-full text-content/70 transition-colors shrink-0"
           title={isReviewMode ? 'Close' : 'Release to Queue'}
         >
           <ChevronLeft size={28} />
@@ -556,7 +556,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           </div>
           {/* Progress Text */}
           <div className="flex items-center gap-3 mt-1">
-            <span className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em]">
+            <span className="text-[10px] font-bold text-muted/70 uppercase tracking-[0.2em]">
               {`${verifiedUnitsCount} / ${totalUnitsCount} Units Verified`}
             </span>
             {!isReviewMode && onSelectAll && totalUnitsCount > 0 && (
@@ -590,27 +590,27 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
           {/* Order Summary Brief */}
           <div className="flex items-center gap-2 mt-2">
-            <div className="flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded border border-white/5">
-              <span className="text-[9px] font-black text-white/30 uppercase tracking-tighter">
+            <div className="flex items-center gap-1 bg-card px-2 py-0.5 rounded border border-subtle">
+              <span className="text-[9px] font-black text-muted/60 uppercase tracking-tighter">
                 Units:
               </span>
               <span className="text-[9px] font-black text-blue-400 uppercase">
                 {totalUnitsCount}
               </span>
             </div>
-            <div className="flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded border border-white/5">
-              <span className="text-[9px] font-black text-white/30 uppercase tracking-tighter">
+            <div className="flex items-center gap-1 bg-card px-2 py-0.5 rounded border border-subtle">
+              <span className="text-[9px] font-black text-muted/60 uppercase tracking-tighter">
                 SKUs:
               </span>
-              <span className="text-[9px] font-black text-white/70 uppercase">
+              <span className="text-[9px] font-black text-content/70 uppercase">
                 {cartItems.length}
               </span>
             </div>
-            <div className="flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded border border-white/5">
-              <span className="text-[9px] font-black text-white/30 uppercase tracking-tighter">
+            <div className="flex items-center gap-1 bg-card px-2 py-0.5 rounded border border-subtle">
+              <span className="text-[9px] font-black text-muted/60 uppercase tracking-tighter">
                 Pallets:
               </span>
-              <span className="text-[9px] font-black text-white/70 uppercase">
+              <span className="text-[9px] font-black text-content/70 uppercase">
                 {pallets.length}
               </span>
             </div>
@@ -621,7 +621,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           {!correctionNotes.trim() && status !== 'completed' && (
             <button
               onClick={status === 'reopened' ? onCancelReopen : onRelease}
-              className="p-2 hover:bg-white/10 rounded-full text-white/50 transition-colors"
+              className="p-2 hover:bg-card rounded-full text-muted transition-colors"
               title={status === 'reopened' ? 'Cancel Edit' : 'Release to Queue'}
             >
               <X size={24} />
@@ -631,45 +631,45 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       </div>
 
       {/* Clean Item List */}
-      <div className="flex-1 overflow-y-auto p-4 bg-black min-h-0 pb-32">
+      <div className="flex-1 overflow-y-auto p-4 bg-main min-h-0 pb-32">
         <div className="flex items-center gap-2 mb-6">
           <button
             onClick={() => setShowCorrectionMode(true)}
             className={`flex-1 p-4 border rounded-2xl flex items-center justify-between gap-3 active:scale-[0.98] transition-all ${
               problemItems.length > 0
                 ? 'bg-red-500/10 border-red-500/30'
-                : 'bg-white/5 border-white/10'
+                : 'bg-card border-subtle'
             }`}
           >
             <div className="flex items-center gap-3">
               <div
                 className={`p-2 rounded-xl ${
-                  problemItems.length > 0 ? 'bg-red-500/20' : 'bg-white/10'
+                  problemItems.length > 0 ? 'bg-red-500/20' : 'bg-card'
                 }`}
               >
                 <Pencil
                   size={18}
-                  className={problemItems.length > 0 ? 'text-red-400' : 'text-white/50'}
+                  className={problemItems.length > 0 ? 'text-red-400' : 'text-muted'}
                 />
               </div>
               <div className="text-left">
                 <span
                   className={`text-xs font-black uppercase tracking-widest block ${
-                    problemItems.length > 0 ? 'text-red-400' : 'text-white/60'
+                    problemItems.length > 0 ? 'text-red-400' : 'text-muted'
                   }`}
                 >
                   {problemItems.length > 0
                     ? `${problemItems.length} issue${problemItems.length > 1 ? 's' : ''} — Edit Order`
                     : 'Edit Order'}
                 </span>
-                <span className="text-[10px] text-white/40 font-bold">
+                <span className="text-[10px] text-muted/70 font-bold">
                   Add, remove, or adjust items
                 </span>
               </div>
             </div>
             <ChevronDown
               size={16}
-              className={`rotate-[-90deg] ${problemItems.length > 0 ? 'text-red-400/60' : 'text-white/20'}`}
+              className={`rotate-[-90deg] ${problemItems.length > 0 ? 'text-red-400/60' : 'text-muted/40'}`}
             />
           </button>
           <button
@@ -701,7 +701,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         {pallets.length === 0 && cartItems.length > 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <AlertCircle className="text-amber-500 mb-4 opacity-30" size={48} />
-            <p className="text-sm font-black text-white/50 uppercase tracking-widest">
+            <p className="text-sm font-black text-muted uppercase tracking-widest">
               No pallets generated
             </p>
           </div>
@@ -717,7 +717,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               <p className="text-[10px] font-black text-amber-500/70 uppercase tracking-widest mb-1">
                 Correction Needed
               </p>
-              <p className="text-sm font-medium text-white italic leading-relaxed">
+              <p className="text-sm font-medium text-content italic leading-relaxed">
                 &ldquo;{correctionNotesProp}&rdquo;
               </p>
             </div>
@@ -735,11 +735,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           return (
             <section key={pallet.id} className="mb-8">
               {/* Pallet Header */}
-              <div className="flex items-center gap-3 mb-4 sticky top-0 bg-black/95 py-2 z-5 backdrop-blur-sm">
-                <div className="h-[1px] flex-1 bg-white/10" />
+              <div className="flex items-center gap-3 mb-4 sticky top-0 bg-main/95 py-2 z-5 backdrop-blur-sm">
+                <div className="h-[1px] flex-1 bg-card" />
                 <div className="flex flex-col items-center">
                   <span
-                    className={`text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full border flex items-center gap-1.5 ${isLocked ? 'text-amber-400/80 border-amber-500/30 bg-amber-500/5' : 'text-white/40 border-white/10'}`}
+                    className={`text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full border flex items-center gap-1.5 ${isLocked ? 'text-amber-400/80 border-amber-500/30 bg-amber-500/5' : 'text-muted/70 border-subtle'}`}
                   >
                     {isLocked && <Lock size={8} />}
                     Pallet {pallet.id}
@@ -778,12 +778,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                       </span>
                       <Pencil
                         size={8}
-                        className="text-white/20 group-hover/edit:text-white/50 transition-colors"
+                        className="text-muted/40 group-hover/edit:text-muted transition-colors"
                       />
                     </button>
                   )}
                 </div>
-                <div className="h-[1px] flex-1 bg-white/10" />
+                <div className="h-[1px] flex-1 bg-card" />
               </div>
 
               <div className="flex flex-col gap-3">
@@ -810,20 +810,20 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                             ? 'bg-red-500/5 border-red-500/20'
                             : item.insufficient_stock
                               ? 'bg-amber-500/5 border-amber-500/20'
-                              : 'bg-white/5 border-white/5'
+                              : 'bg-card border-subtle'
                           : isChecked
                             ? item.sku_not_found
                               ? 'bg-red-500/20 border-red-500/50'
                               : 'bg-green-500/10 border-green-500/30'
                             : item.sku_not_found
                               ? 'bg-red-500/5 border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.1)]'
-                              : 'bg-white/5 border-white/5 hover:border-white/10'
+                              : 'bg-card border-subtle hover:border-subtle'
                       }`}
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         {/* Qty on the far left */}
-                        <div className="flex flex-col items-center justify-center min-w-[3rem] shrink-0 border-r border-white/10 pr-3">
-                          <span className="text-[8px] font-black uppercase tracking-widest text-white/30 mb-0.5">
+                        <div className="flex flex-col items-center justify-center min-w-[3rem] shrink-0 border-r border-subtle pr-3">
+                          <span className="text-[8px] font-black uppercase tracking-widest text-muted/60 mb-0.5">
                             QTY
                           </span>
                           <span
@@ -831,8 +831,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                               item.pickingQty !== 1
                                 ? 'text-amber-500 animate-pulse-warning'
                                 : isChecked
-                                  ? 'text-white/60'
-                                  : 'text-white'
+                                  ? 'text-muted'
+                                  : 'text-content'
                             }`}
                           >
                             {item.pickingQty}
@@ -858,14 +858,14 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                             onError={(e) => {
                               (e.target as HTMLImageElement).style.display = 'none';
                             }}
-                            className="w-9 h-9 object-contain rounded flex-shrink-0 border border-white/20"
+                            className="w-9 h-9 object-contain rounded flex-shrink-0 border border-subtle"
                           />
                         )}
                         <div className="flex flex-col gap-1 min-w-0">
                           {/* SKU row */}
                           <div className="flex items-center gap-2 flex-wrap">
                             <span
-                              className={`font-black text-xl tracking-tight leading-none break-all ${isReviewMode ? (item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-white') : isChecked ? (item.sku_not_found || item.insufficient_stock ? 'text-red-400' : 'text-green-400') : item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-white'}`}
+                              className={`font-black text-xl tracking-tight leading-none break-all ${isReviewMode ? (item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-content') : isChecked ? (item.sku_not_found || item.insufficient_stock ? 'text-red-400' : 'text-green-400') : item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-content'}`}
                             >
                               {similarity?.prefix ? (
                                 <span className="animate-pulse-highlight">
@@ -896,7 +896,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                           </div>
                           {/* Product name — item_name from DB, or description from PDF */}
                           {(item.item_name || item.description) && (
-                            <span className="text-[11px] font-semibold text-white/45 uppercase tracking-wide leading-none">
+                            <span className="text-[11px] font-semibold text-muted uppercase tracking-wide leading-none">
                               {(item.item_name || item.description || '').slice(0, 17)}
                             </span>
                           )}
@@ -939,9 +939,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                       </div>
 
                       {/* Location Info on the right - No checkbox to maximize space */}
-                      <div className="flex items-center gap-3 shrink-0 ml-auto pl-2 border-l border-white/5">
+                      <div className="flex items-center gap-3 shrink-0 ml-auto pl-2 border-l border-subtle">
                         <div className="flex flex-col items-end">
-                          <span className="text-[8px] text-white/30 font-black uppercase tracking-widest mb-0.5">
+                          <span className="text-[8px] text-muted/60 font-black uppercase tracking-widest mb-0.5">
                             {item.location?.toLowerCase().includes('row') ? 'ROW' : 'LOC'}
                           </span>
                           <div className="flex items-center gap-1.5">
@@ -1036,13 +1036,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         </section>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black via-black/90 to-transparent shrink-0 z-20">
+      <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-main via-main/90 to-transparent shrink-0 z-20">
         {status === 'reopened' ? (
           /* Reopened order — show Re-Complete and Cancel */
           <div className="flex gap-3">
             <button
               onClick={() => onCancelReopen?.()}
-              className="flex-1 py-4 bg-white/5 border border-white/10 text-white/70 font-black uppercase tracking-widest text-[10px] rounded-2xl active:scale-95 transition-all"
+              className="flex-1 py-4 bg-card border border-subtle text-content/70 font-black uppercase tracking-widest text-[10px] rounded-2xl active:scale-95 transition-all"
             >
               Cancel Edit
             </button>
@@ -1079,7 +1079,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           <div className="flex gap-3">
             <button
               onClick={() => onSendToVerifyQueue?.()}
-              className="flex-1 py-4 bg-white/5 border border-white/10 text-white/70 font-black uppercase tracking-widest text-[10px] rounded-2xl active:scale-95 transition-all"
+              className="flex-1 py-4 bg-card border border-subtle text-content/70 font-black uppercase tracking-widest text-[10px] rounded-2xl active:scale-95 transition-all"
             >
               Send to Verify
             </button>
