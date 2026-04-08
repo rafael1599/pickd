@@ -529,7 +529,7 @@ export const PickingCartDrawer: React.FC = () => {
     <>
       {isOpen && (
         <div
-          className="fixed inset-0 z-[100010] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200"
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200"
           onClick={handleReleaseOrder}
         >
           <div
@@ -597,7 +597,7 @@ export const PickingCartDrawer: React.FC = () => {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className={`fixed bottom-24 left-4 right-4 p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-2 cursor-pointer active:scale-95 transition-all z-[9999] border border-white/10 ${
+          className={`fixed bottom-24 left-4 right-4 p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-2 cursor-pointer active:scale-95 transition-all z-40 border border-white/10 ${
             sessionMode === 'double_checking'
               ? 'bg-orange-500 text-white'
               : 'bg-accent text-main'

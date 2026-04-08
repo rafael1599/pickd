@@ -78,7 +78,7 @@ export const SessionInitializationModal = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-surface border border-subtle rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl scale-100 animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="px-6 py-4 border-b border-subtle bg-main/50 flex items-center justify-between">

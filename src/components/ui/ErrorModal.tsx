@@ -29,7 +29,7 @@ export function ErrorModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[200000] flex items-center justify-center p-4 bg-black/50">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50">
       <div className="bg-surface rounded-xl max-w-md w-full p-6 shadow-2xl">
         <div className="flex items-start gap-4">
           <div className="flex-shrink-0">

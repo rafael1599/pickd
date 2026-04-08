@@ -37,7 +37,7 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
   }, [pallets]);
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 md:p-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8">
       {/* Backdrop with heavy blur */}
       <div
         className="absolute inset-0 bg-[#0f0f12]/80 backdrop-blur-md cursor-pointer"

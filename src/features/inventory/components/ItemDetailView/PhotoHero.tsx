@@ -114,10 +114,10 @@ export const PhotoHero: React.FC<PhotoHeroProps> = ({
       {showActions && (
         <>
           <div
-            className="fixed inset-0 z-[100030] bg-black/40"
+            className="fixed inset-0 z-[60] bg-black/40"
             onClick={() => setShowActions(false)}
           />
-          <div className="fixed bottom-0 inset-x-0 z-[100031] p-4 pb-safe animate-in slide-in-from-bottom duration-200">
+          <div className="fixed bottom-0 inset-x-0 z-[60] p-4 pb-safe animate-in slide-in-from-bottom duration-200">
             <div className="bg-surface border border-subtle rounded-2xl overflow-hidden shadow-2xl">
               <button
                 onClick={() => handleAction('camera')}

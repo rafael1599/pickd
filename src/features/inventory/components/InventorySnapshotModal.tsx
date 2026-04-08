@@ -150,7 +150,7 @@ export const InventorySnapshotModal = ({
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-main/80 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-4xl bg-surface border border-subtle rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="px-8 py-6 border-b border-subtle flex justify-between items-center bg-card">

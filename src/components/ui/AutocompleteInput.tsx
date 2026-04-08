@@ -329,7 +329,7 @@ export default function AutocompleteInput<T extends Suggestion = Suggestion>({
           <>
             {/* Backdrop */}
             <div
-              className="fixed inset-0 bg-black/40 z-[100030] animate-[fadeIn_150ms_ease-out]"
+              className="fixed inset-0 bg-black/40 z-[60] animate-[fadeIn_150ms_ease-out]"
               onClick={() => setShowSuggestions(false)}
             />
             {/* Results panel */}
@@ -341,7 +341,7 @@ export default function AutocompleteInput<T extends Suggestion = Suggestion>({
                 left: dropdownPos.left,
                 width: dropdownPos.width,
               }}
-              className="z-[100031] bg-card border border-subtle rounded-lg shadow-xl max-h-[50vh] overflow-y-auto animate-[slideDown_200ms_ease-out]"
+              className="z-[60] bg-card border border-subtle rounded-lg shadow-xl max-h-[50vh] overflow-y-auto animate-[slideDown_200ms_ease-out]"
             >
               <div className="px-4 py-2 border-b border-subtle">
                 <span className="text-sm text-accent">

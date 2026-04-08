@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-04-07 (noche)
+> Actualizado: 2026-04-08
 
 ---
 
@@ -18,10 +18,8 @@
 - **Solución:** Incluir las notas relevantes en la vista de picking summary (OrdersScreen o label preview area).
 - **Datos:** Tabla `picking_list_notes` ya tiene las notas con timestamps y usuario.
 
-### 21b. Fallback manual BIKES/PARTS en labels <!-- id: idea-038B -->
-- **Problema:** El conteo automático BIKES vs PARTS en pallet labels puede ser incorrecto y no hay forma de corregirlo.
-- **Solución:** En la pantalla de labels/distribución, campos editables para que el picker corrija manualmente la cantidad de BIKES y PARTS según lo que ve en el piso.
-- **Independiente** — no requiere cambios en DB.
+### ~~21b. Fallback manual BIKES/PARTS en labels~~ <!-- id: idea-038B --> ✅
+- ~~Implementado: campos editables BIKES/PARTS en OrderSidebar con auto-cálculo y override manual. Total Units derivado de bikes + parts. Labels usan los valores manuales cuando se proveen.~~
 
 ### 22. Alerta de orden duplicada por cliente + reabrir <!-- id: idea-039 -->
 - **Problema:** Cuando llega una orden nueva para un cliente cuya orden anterior ya fue completada, el picker no se entera y la procesa por separado.
@@ -50,8 +48,9 @@
 - ~~Implementado: tabla `customer_addresses` con dedup normalizada, dropdown autocomplete en OrderSidebar, auto-save al imprimir.~~
 
 ### 19. Auto-cancel → expiración con reactivación <!-- id: idea-031 -->
-- **Problema:** Auto-cancel a 15min/24hrs sin aviso. Órdenes legítimas desaparecen.
-- **Solución:** Nuevo estado `expired` a 3 días. Visible, reactivable con un tap. Eliminar timer 15min.
+- **Problema:** Auto-cancel a 24hrs sin aviso. Órdenes legítimas desaparecen.
+- **Solución:** Nuevo estado `expired` a 3 días. Visible, reactivable con un tap.
+- **Estado actual:** RPC `auto_cancel_stale_orders` existe con 3 reglas (building 15min=dead code, verification 24h, reopened 2h). Edge function existe pero **no tiene trigger automático** (ni cron ni GitHub Actions). Timer 15min de `building` es dead code (status eliminado en idea-032).
 
 ### ~~14. Separar peso de dimensiones + defaults para partes~~ <!-- id: idea-025 --> ✅
 - ~~Implementado: defaults dinámicos por tipo (bikes vs partes), migración aplicada.~~
@@ -77,17 +76,44 @@
 ### ~~25. Notas de corrección interactivas + recovery de órdenes reopened~~ <!-- id: idea-043 --> ✅
 - ~~Implementado: ReasonPicker con presets por tipo de acción (remove/swap/adjust/add/reopen). Notas ricas con razón ("Removed X: Out of stock"). Auto-detección de insufficient_stock pre-selecciona razón. Smart tip "use Replace instead" cuando se hace remove+add. Botón "Continue Editing" / "Take Over & Edit" para órdenes stuck en reopened. Reopen reason se pasa al RPC.~~
 
+### ~~27. Daily Warehouse Activity Report~~ <!-- id: idea-041 --> ✅
+- ~~Implementado: pantalla `/activity-report` (admin only) con navegación por fecha con flechas. Genera reporte automático desde picking_lists, inventory_logs, cycle_count_items. Secciones por usuario. Inventory Accuracy KPI (% SKUs verificados en 60 días, con mensaje dinámico). Notas efímeras por usuario. Auto-deducts de órdenes excluidos; conteo en unidades reales.~~
+
+### ~~28. Reestructurar menú principal~~ <!-- id: idea-045 --> ✅
+- ~~Implementado: hamburger (3 líneas) reemplaza avatar. Warehouse Activities como contenido principal del menú. Profile/theme/sync repair en sub-panel accesible desde footer. Eliminado Export Inventory CSV (dead code + csvParser.ts).~~
+
+### 30. Cache de datos de orden al cambiar entre órdenes <!-- id: idea-047 -->
+- **Problema:** Al cambiar entre órdenes en OrdersScreen, el frontend recalcula todo (items, distribución, labels, conteos) cada vez. Causa lag perceptible y mala UX, especialmente en mobile.
+- **Solución:** Calcular la información de cada orden una sola vez y mantenerla estática en cache. Suscribirse a cambios vía Realtime (o invalidación de query) para que solo se recalcule cuando hay un cambio real en la orden o configuración del sistema.
+- **Consideraciones antes de implementar:** Investigar edge cases — ¿qué pasa si otro usuario modifica la orden mientras está cacheada? ¿Se necesita una columna `updated_at` más granular o un hash de versión? ¿Impacto en optimistic updates existentes? ¿Posible migración para agregar campo de versión/hash? Evaluar si TanStack Query `staleTime` + `structuralSharing` ya cubre parte del problema o si se necesita un cache layer adicional.
+- **Requiere:** Análisis profundo antes de implementar.
+
+### 29. Estandarización de colores por acción <!-- id: idea-046 -->
+- **Problema:** Colores asignados ad-hoc. Orange se usa para "reopen" Y "distribution". Amber para "warning" Y "history". No hay sistema consistente.
+- **Solución:** 8 roles semánticos con regla de exclusividad:
+  - `accent` (emerald) = CTA primario, brand
+  - `red` = destrucción, errores, eliminar
+  - `amber` = warnings, atención requerida
+  - `blue` = información, mover, datos neutrales
+  - `green/emerald` = verificado, completado, disponible
+  - `orange` = SOLO reopen/edit post-completado
+  - `purple` = sistema, admin, FedEx
+  - `muted/content` = navegación neutral, sin estado especial
+- **Fase 1 (actual):** ~40 cambios en 12 archivos para corregir colores incorrectos (Picking Summary amber→blue, History EDIT amber→blue, Notes section amber→neutral, etc.)
+- **Fase 2 (futura):** z-index cleanup, dark mode hardcoded screens, overlays bg-black→bg-main
+- **Plan detallado:** `.claude/plans/deep-booping-ember.md`
+
 ---
 
 ## P2 — Medio (conveniencia)
 
-- [ ] **Orders mobile UX overhaul** — Customer info colapsable, search visible, hide desktop-only buttons. <!-- id: idea-033 -->
+- [x] ~~**Orders mobile UX overhaul** — Customer info colapsable, search visible, hide desktop-only buttons.~~ <!-- id: idea-033 -->
 - [ ] **Orders PDF preview full-width mobile** — `w-full` en mobile. <!-- id: idea-034 -->
 - [ ] **Order List View** — Picking list first with print option. <!-- id: idea-006 -->
 - [ ] **Automatic Inventory Email** — Edge function `send-daily-report` + query + cron. <!-- id: idea-007 -->
 - [ ] **Fotos Fase 3 — Bulk Upload** — Multi-file picker, batching, progress bar. <!-- id: idea-023-p3 -->
 - [ ] **Migrar cron jobs a pg_cron** — Elimina dependencia de GitHub Actions. <!-- id: idea-030 -->
-- [ ] **History en perfil** — Vista de órdenes completadas/canceladas del usuario. <!-- id: idea-035 -->
+- [x] ~~**History en perfil** — Vista de órdenes completadas/canceladas del usuario.~~ <!-- id: idea-035 --> (descartado: cubierto por filtros en HistoryScreen y OrdersScreen)
 - [x] ~~**Double check: distribución no refresca picking path** — Fix: re-fetch `skuInventoryMap` después de `updateItem` en `onSave`.~~ <!-- id: bug-014 -->
 - [x] ~~**Reemplazar Edit Item por ItemDetailView** — Eliminado InventoryModal (1099 LOC). DoubleCheckView y StockCountScreen ahora usan ItemDetailView.~~ <!-- id: idea-036 -->
 
@@ -95,7 +121,7 @@
 
 ## Bugs pendientes
 
-- [ ] **[bug-013]** Teclado aparece al abrir orden desde Verification Queue — Fix en develop `51e55a5`, pendiente confirmar mobile.
+- [x] ~~**[bug-013]** Teclado aparece al abrir orden desde Verification Queue — Fix en develop `51e55a5`, overlay detection con `elementFromPoint()`.~~ Pendiente: confirmar en mobile.
 - [ ] **[bug-009]** Address parser falla con calles numéricas + direccionales — `parseUSAddress.ts`, agregar fallback newline.
 
 ---
@@ -111,3 +137,4 @@
 | Persistent Preferences (idea-005) | Solo LUDLOW, theme en localStorage |
 | Optimistic UI Fixes (task-006) | Mitigado por staleTime + refetchOnWindowFocus |
 | Offline Sync (bug-001) | Sin reportes de fallos reales |
+| History en perfil (idea-035) | Cubierto por filtros en HistoryScreen y OrdersScreen |
