@@ -28,6 +28,9 @@ const StockCountScreen = React.lazy(() =>
 const CycleCountHistoryScreen = React.lazy(() =>
   import('./features/inventory/CycleCountHistoryScreen.tsx').then((m) => ({ default: m.CycleCountHistoryScreen }))
 );
+const ActivityReportScreen = React.lazy(() =>
+  import('./features/reports/ActivityReportScreen.tsx').then((m) => ({ default: m.ActivityReportScreen }))
+);
 
 import { ViewModeProvider } from './context/ViewModeContext.tsx';
 import { PickingProvider } from './context/PickingContext.tsx';
@@ -62,6 +65,10 @@ const AuthenticatedContent = () => {
             />
             <Route path="/stock-count" element={<StockCountScreen />} />
             <Route path="/cycle-count-history" element={<CycleCountHistoryScreen />} />
+            <Route
+              path="/activity-report"
+              element={isAdmin ? <ActivityReportScreen /> : <Navigate to="/" replace />}
+            />
             {/* Catch-all for unknown routes */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

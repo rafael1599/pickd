@@ -285,6 +285,31 @@ export const UserMenu = ({ isOpen, onClose, onExport, navigate }: UserMenuProps)
                 </div>
                 <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
               </button>
+
+              {isAdmin && (
+                <button
+                  onClick={() => {
+                    navigate('/activity-report');
+                    onClose();
+                  }}
+                  className="flex items-center justify-between w-full group text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-card border border-subtle rounded-xl text-teal-500">
+                      <FileSearch size={16} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-content uppercase tracking-tight">
+                        Activity Report
+                      </p>
+                      <p className="text-[9px] text-muted font-bold uppercase">
+                        Daily team summary
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
+                </button>
+              )}
             </div>
 
             {/* Actions */}

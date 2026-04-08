@@ -1,0 +1,199 @@
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '../../../lib/supabase';
+
+export interface UserActivity {
+  user_id: string;
+  full_name: string;
+  orders_picked: number;
+  items_picked: number;
+  orders_checked: number;
+  items_checked: number;
+  inventory_adds: number;
+  inventory_moves: number;
+  inventory_deducts: number;
+  cycle_count_items: number;
+  cycle_count_discrepancies: number;
+}
+
+export interface ActivityReport {
+  date: string;
+  users: UserActivity[];
+  warehouse_totals: { orders_completed: number; total_items: number };
+  verified_skus_2m: number;
+  total_skus: number;
+}
+
+interface PickingRow {
+  user_id: string;
+  checked_by: string | null;
+  items: { pickingQty?: number }[];
+}
+
+interface LogRow {
+  user_id: string;
+  action_type: string;
+  quantity_change: number;
+  list_id: string | null;
+}
+
+interface CycleRow {
+  counted_by: string;
+  variance: number | null;
+}
+
+interface ProfileRow {
+  id: string;
+  full_name: string;
+}
+
+export function useActivityReport(date: string) {
+  return useQuery({
+    queryKey: ['activity-report', date],
+    queryFn: async () => {
+      const dayStart = `${date}T00:00:00`;
+      const dayEnd = `${date}T23:59:59`;
+
+      const [pickingRes, logsRes, cycleRes, profilesRes, verifiedRes, statsRes] =
+        await Promise.all([
+          supabase
+            .from('picking_lists')
+            .select('user_id, checked_by, items')
+            .eq('status', 'completed')
+            .gte('updated_at', dayStart)
+            .lte('updated_at', dayEnd),
+          supabase
+            .from('inventory_logs')
+            .select('user_id, action_type, quantity_change, list_id')
+            .eq('is_reversed', false)
+            .gte('created_at', dayStart)
+            .lte('created_at', dayEnd),
+          // cycle_count_items not in generated types yet
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase as any)
+            .from('cycle_count_items')
+            .select('counted_by, variance')
+            .in('status', ['counted', 'verified'])
+            .gte('counted_at', dayStart)
+            .lte('counted_at', dayEnd),
+          supabase
+            .from('profiles')
+            .select('id, full_name')
+            .eq('is_active', true),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase as any)
+            .from('cycle_count_items')
+            .select('sku')
+            .in('status', ['counted', 'verified'])
+            .gte('counted_at', new Date(new Date(dayEnd).getTime() - 60 * 24 * 60 * 60 * 1000).toISOString())
+            .lte('counted_at', dayEnd),
+          supabase.rpc('get_inventory_stats' as never, { p_include_parts: true } as never),
+        ]);
+
+      const profiles = (profilesRes.data ?? []) as ProfileRow[];
+      const profileMap = new Map(profiles.map((p) => [p.id, p.full_name]));
+      const warehouseTeamId = profiles.find((p) => p.full_name === 'Warehouse Team')?.id;
+
+      const picking = (pickingRes.data ?? []) as unknown as PickingRow[];
+      const logs = (logsRes.data ?? []) as LogRow[];
+      const cycles = (cycleRes.data ?? []) as CycleRow[];
+
+      // Aggregate per user
+      const userMap = new Map<string, UserActivity>();
+      const ensure = (uid: string): UserActivity => {
+        if (!userMap.has(uid)) {
+          userMap.set(uid, {
+            user_id: uid,
+            full_name: profileMap.get(uid) ?? 'Unknown',
+            orders_picked: 0, items_picked: 0,
+            orders_checked: 0, items_checked: 0,
+            inventory_adds: 0, inventory_moves: 0, inventory_deducts: 0,
+            cycle_count_items: 0, cycle_count_discrepancies: 0,
+          });
+        }
+        return userMap.get(uid)!;
+      };
+
+      let totalOrders = 0;
+      let totalItems = 0;
+
+      for (const pl of picking) {
+        const itemCount = (pl.items ?? []).reduce(
+          (sum: number, i: { pickingQty?: number }) => sum + (i.pickingQty ?? 0), 0
+        );
+        totalOrders++;
+        totalItems += itemCount;
+
+        if (pl.user_id && pl.user_id !== warehouseTeamId) {
+          const u = ensure(pl.user_id);
+          u.orders_picked++;
+          u.items_picked += itemCount;
+        }
+        if (pl.checked_by && pl.checked_by !== warehouseTeamId) {
+          const u = ensure(pl.checked_by);
+          u.orders_checked++;
+          u.items_checked += itemCount;
+        }
+      }
+
+      for (const log of logs) {
+        if (!log.user_id || log.user_id === warehouseTeamId) continue;
+        // Skip auto-deducts from order completion (they have a list_id)
+        if (log.action_type === 'DEDUCT' && log.list_id) continue;
+        const u = ensure(log.user_id);
+        const qty = Math.abs(log.quantity_change ?? 1);
+        if (log.action_type === 'ADD') u.inventory_adds += qty;
+        else if (log.action_type === 'MOVE') u.inventory_moves += qty;
+        else if (log.action_type === 'DEDUCT') u.inventory_deducts += qty;
+      }
+
+      for (const cc of cycles) {
+        if (!cc.counted_by || cc.counted_by === warehouseTeamId) continue;
+        const u = ensure(cc.counted_by);
+        u.cycle_count_items++;
+        if (cc.variance != null && cc.variance !== 0) u.cycle_count_discrepancies++;
+      }
+
+      const users = [...userMap.values()]
+        .filter(
+          (u) =>
+            u.orders_picked > 0 || u.orders_checked > 0 ||
+            u.inventory_adds > 0 || u.inventory_moves > 0 || u.inventory_deducts > 0 ||
+            u.cycle_count_items > 0
+        )
+        .sort((a, b) => a.full_name.localeCompare(b.full_name));
+
+      // Verified SKUs (2 months) — count distinct
+      const verifiedSkus = new Set((verifiedRes.data ?? []).map((r: { sku: string }) => r.sku));
+      const statsRaw = statsRes.data as unknown as Record<string, unknown>[] | Record<string, unknown> | null;
+      const statsRow = (Array.isArray(statsRaw) ? statsRaw[0] : statsRaw) ?? {};
+      const totalSkus = Number(statsRow?.total_skus ?? 0);
+
+      return {
+        date,
+        users,
+        warehouse_totals: { orders_completed: totalOrders, total_items: totalItems },
+        verified_skus_2m: verifiedSkus.size,
+        total_skus: totalSkus,
+      } satisfies ActivityReport;
+    },
+    staleTime: 2 * 60_000,
+    retry: 1,
+  });
+}
+
+export function useActiveProfiles() {
+  return useQuery({
+    queryKey: ['profiles', 'active'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, role')
+        .eq('is_active', true)
+        .neq('full_name', 'Warehouse Team')
+        .order('full_name');
+      if (error) throw error;
+      return data as { id: string; full_name: string; role: string }[];
+    },
+    staleTime: 30 * 60_000,
+  });
+}
