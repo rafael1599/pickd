@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useLocation } from 'react-router-dom';
 import ChevronUp from 'lucide-react/dist/esm/icons/chevron-up';
 import { DoubleCheckView, PickingItem, type CorrectionAction } from './DoubleCheckView';
 import { useAuth } from '../../../context/AuthContext';
@@ -18,6 +19,7 @@ export const PickingCartDrawer: React.FC = () => {
   const { user } = useAuth();
   const { showConfirmation } = useConfirmation();
   const { externalDoubleCheckId, setExternalDoubleCheckId, viewMode } = useViewMode();
+  const { pathname } = useLocation();
 
   const {
     cartItems,
@@ -82,12 +84,12 @@ export const PickingCartDrawer: React.FC = () => {
     }
   }, [sessionMode, isOpen]);
 
-  // Close drawer when leaving picking view (e.g. navigating to Orders/Stock)
+  // Close drawer when leaving picking view or navigating away from home
   useEffect(() => {
-    if (viewMode !== 'picking' && !externalDoubleCheckId && isOpen) {
+    if ((viewMode !== 'picking' || pathname !== '/') && !externalDoubleCheckId && isOpen) {
       setIsOpen(false);
     }
-  }, [viewMode, externalDoubleCheckId, isOpen]);
+  }, [viewMode, pathname, externalDoubleCheckId, isOpen]);
 
   // 1. Auto-close if completed or session reset (idle with no items)
   useEffect(() => {
@@ -523,8 +525,9 @@ export const PickingCartDrawer: React.FC = () => {
     }
   };
 
-  // Visibility: only in picking view mode, or when externally triggered (Verification Queue)
-  const isVisible = viewMode === 'picking' || !!externalDoubleCheckId;
+  // Visibility: only on home page in picking mode with active session, or externally triggered
+  const hasActiveSession = sessionMode !== 'idle' || totalItems > 0;
+  const isVisible = (pathname === '/' && viewMode === 'picking' && hasActiveSession) || !!externalDoubleCheckId;
 
   if (!isVisible) return null;
 
