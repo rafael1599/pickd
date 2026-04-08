@@ -1,0 +1,22 @@
+Progress Update — April 7, 2026 at 5:16 PM
+
+WIN OF THE DAY:
+When someone edits an order now, the system asks WHY — so notes tell the full story instead of just saying "item removed."
+
+WHAT'S BETTER NOW:
+- Order notes used to be vague ("Removed SKU from order"). Now the app asks the reason before each change, and the note says exactly what happened — "Removed 03-3996BL: Out of stock" instead of guessing later.
+- If an item is flagged as low stock, the reason "Out of stock" is already pre-selected — one less tap on the floor.
+- When someone removes an item and then tries to add a different one, the app suggests using Replace instead, keeping a cleaner record.
+- Reopening a completed order now requires a reason — no more "Reason: Not specified" in the notes.
+- If an order gets stuck mid-edit (someone closed the app or walked away), it no longer disappears. A "Continue Editing" button shows up so anyone can pick it back up. If another user was editing it, "Take Over & Edit" grabs it.
+- Stock view now has proper filters and locations sort in a natural order (ROW 1, ROW 2... ROW 10 instead of ROW 1, ROW 10, ROW 2).
+- Orders can now be cancelled from the verification screen with proper error handling.
+- The system now knows which items are bikes vs parts using a dedicated flag instead of guessing from the SKU number.
+- Labels now calculate total units from the actual bikes + parts count instead of a separate manual entry.
+
+COMING UP NEXT:
+- Duplicate order alert when a new order arrives for a customer who already has a completed one
+- Custom names for distribution types ("Box", "Crate") instead of generic "Other"
+
+9 done today / 19 in the queue (10 high priority, 7 medium, 2 bugs)
+Note: today's changes are on preview but not yet live in production.
