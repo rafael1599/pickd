@@ -82,6 +82,13 @@ export const PickingCartDrawer: React.FC = () => {
     }
   }, [sessionMode, isOpen]);
 
+  // Close drawer when leaving picking view (e.g. navigating to Orders/Stock)
+  useEffect(() => {
+    if (viewMode !== 'picking' && !externalDoubleCheckId && isOpen) {
+      setIsOpen(false);
+    }
+  }, [viewMode, externalDoubleCheckId, isOpen]);
+
   // 1. Auto-close if completed or session reset (idle with no items)
   useEffect(() => {
     if (listStatus === 'completed' && isOpen && !isRecompletingRef.current) {
