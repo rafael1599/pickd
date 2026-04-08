@@ -182,7 +182,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                 onClick={handleSyncRepair}
                 className="w-full flex items-center gap-3 p-4 bg-card border border-subtle rounded-2xl text-left group"
               >
-                <div className="p-2 bg-surface border border-subtle rounded-xl text-yellow-500">
+                <div className="p-2 bg-surface border border-subtle rounded-xl text-amber-500">
                   <RefreshCw size={16} />
                 </div>
                 <div>
@@ -258,7 +258,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
 
               <button onClick={() => navTo('/history')} className="flex items-center justify-between w-full group text-left">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-surface border border-subtle rounded-xl text-amber-500">
+                  <div className="p-2 bg-surface border border-subtle rounded-xl text-muted">
                     <History size={16} />
                   </div>
                   <div>

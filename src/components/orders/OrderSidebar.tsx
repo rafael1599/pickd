@@ -479,7 +479,7 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
       <div className="mt-auto pt-8 flex flex-col gap-3">
         <button
           onClick={onShowPickingSummary}
-          className="w-full flex items-center justify-center gap-2 h-12 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-2xl text-[10px] font-black uppercase tracking-widest text-amber-500 transition-all active:scale-95 shadow-[0_0_20px_rgba(245,158,11,0.1)]"
+          className="w-full flex items-center justify-center gap-2 h-12 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-2xl text-[10px] font-black uppercase tracking-widest text-blue-500 transition-all active:scale-95"
         >
           <span>Picking Summary</span>
         </button>

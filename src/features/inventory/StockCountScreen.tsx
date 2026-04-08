@@ -371,7 +371,7 @@ export const StockCountScreen = () => {
       {session.status === 'input' && (
         <button
           onClick={() => navigate('/cycle-count-history')}
-          className="p-2 bg-surface border border-subtle rounded-xl text-purple-400 hover:text-purple-300 active:scale-90 transition-all"
+          className="p-2 bg-surface border border-subtle rounded-xl text-muted hover:text-content active:scale-90 transition-all"
           title="History"
         >
           <History size={18} />
@@ -518,7 +518,7 @@ export const StockCountScreen = () => {
               <div className="max-w-2xl mx-auto pointer-events-auto shadow-2xl shadow-black">
                 <button
                   onClick={startCounting}
-                  className="w-full h-14 bg-accent hover:bg-blue-600 active:scale-[0.98] text-white font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-2"
+                  className="w-full h-14 bg-accent hover:opacity-90 active:scale-[0.98] text-white font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-2"
                 >
                   <Play size={18} fill="currentColor" />
                   Sort & Start Audit
@@ -665,7 +665,7 @@ export const StockCountScreen = () => {
               onClick={finishCounting}
               className={`w-full h-14 font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2 ${
                 verified === total - missing
-                  ? 'bg-accent hover:bg-blue-600 text-white shadow-accent/20'
+                  ? 'bg-accent hover:opacity-90 text-white shadow-accent/20'
                   : 'bg-surface border border-subtle text-content'
               }`}
             >

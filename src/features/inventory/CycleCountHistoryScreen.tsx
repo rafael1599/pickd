@@ -210,7 +210,7 @@ export const CycleCountHistoryScreen = () => {
                                       item.variance === 0
                                         ? 'text-green-500'
                                         : (item.variance ?? 0) > 0
-                                          ? 'text-blue-400'
+                                          ? 'text-amber-400'
                                           : 'text-red-400'
                                     }
                                   >
@@ -218,7 +218,7 @@ export const CycleCountHistoryScreen = () => {
                                   </span>
                                   {item.variance !== 0 && item.variance != null && (
                                     <span
-                                      className={`text-[9px] ${item.variance > 0 ? 'text-blue-400' : 'text-red-400'}`}
+                                      className={`text-[9px] ${item.variance > 0 ? 'text-amber-400' : 'text-red-400'}`}
                                     >
                                       ({item.variance > 0 ? '+' : ''}{item.variance})
                                     </span>

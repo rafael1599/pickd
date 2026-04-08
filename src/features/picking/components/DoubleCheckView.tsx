@@ -979,7 +979,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         </div>
 
         <section
-          className={`mt-4 mb-12 border rounded-2xl mx-1 transition-all duration-300 ${isNotesExpanded ? 'bg-amber-500/5 border-amber-500/20' : 'bg-surface border-subtle'}`}
+          className={`mt-4 mb-12 border rounded-2xl mx-1 transition-all duration-300 ${isNotesExpanded ? 'bg-surface border-accent/20' : 'bg-surface border-subtle'}`}
         >
           <button
             onClick={() => setIsNotesExpanded(!isNotesExpanded)}
@@ -988,10 +988,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             <div className="flex items-center gap-2">
               <MessageSquare
                 size={16}
-                className={isNotesExpanded ? 'text-amber-500' : 'text-muted'}
+                className={isNotesExpanded ? 'text-accent' : 'text-muted'}
               />
               <h3
-                className={`text-[11px] font-black uppercase tracking-widest ${isNotesExpanded ? 'text-amber-500/70' : 'text-muted'}`}
+                className={`text-[11px] font-black uppercase tracking-widest ${isNotesExpanded ? 'text-accent/70' : 'text-muted'}`}
               >
                 {notes.length > 0 ? 'Add Another Note' : 'Add Verification Notes'}
               </h3>
@@ -1008,7 +1008,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 value={correctionNotes}
                 onChange={(e) => setCorrectionNotes(e.target.value)}
                 placeholder="Explain what needs to be fixed..."
-                className="w-full h-24 bg-card border border-subtle rounded-xl p-3 text-sm text-content focus:outline-none focus:border-amber-500/30 resize-none transition-all mb-3 placeholder:text-muted/50"
+                className="w-full h-24 bg-card border border-subtle rounded-xl p-3 text-sm text-content focus:outline-none focus:border-accent/30 resize-none transition-all mb-3 placeholder:text-muted/50"
                 autoFocus
               />
               <div className="flex gap-2">
@@ -1025,7 +1025,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 <button
                   onClick={handleReturnToPicker}
                   disabled={!correctionNotes.trim()}
-                  className="flex-[2] py-3 bg-amber-500 text-main font-black uppercase tracking-widest text-[9px] rounded-xl shadow-lg shadow-amber-500/10 active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+                  className="flex-[2] py-3 bg-accent text-main font-black uppercase tracking-widest text-[9px] rounded-xl shadow-lg shadow-accent/10 active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
                 >
                   <Send size={14} />
                   Return to Verification List

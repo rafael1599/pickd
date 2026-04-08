@@ -98,11 +98,11 @@ export const SyncStatusIndicator: React.FC = () => {
     );
   }
 
-  // 2. ORANGE STATE: Offline or Paused (Network wait)
+  // 2. AMBER STATE: Offline or Paused (Network wait — warning)
   if (!isOnline || hasPausedMutations) {
     return (
       <div
-        className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-500 animate-pulse"
+        className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 animate-pulse"
         title={!isOnline ? 'No connection' : 'Pending synchronization (Paused)'}
       >
         <CloudOff size={16} />

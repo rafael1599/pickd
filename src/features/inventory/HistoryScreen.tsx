@@ -691,8 +691,8 @@ export const HistoryScreen = () => {
       case 'EDIT':
         return {
           icon: <Clock size={14} />,
-          color: 'text-amber-500',
-          bg: 'bg-amber-500/10',
+          color: 'text-blue-500',
+          bg: 'bg-blue-500/10',
           label: 'Update',
         };
       case 'PHYSICAL_DISTRIBUTION': {
@@ -1421,7 +1421,7 @@ export const HistoryScreen = () => {
 
         <button
           onClick={handleDownloadReport}
-          className="px-6 h-12 bg-emerald-500 text-white rounded-full flex items-center gap-2 shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-90 ios-transition font-black uppercase tracking-widest text-[10px]"
+          className="px-6 h-12 bg-accent text-main rounded-full flex items-center gap-2 shadow-lg shadow-accent/20 hover:scale-105 active:scale-90 ios-transition font-black uppercase tracking-widest text-[10px]"
           title="Download Daily Report"
         >
           <FileDown size={18} />

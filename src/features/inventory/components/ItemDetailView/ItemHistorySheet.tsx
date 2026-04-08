@@ -58,8 +58,8 @@ const getActionInfo = (type: LogActionTypeValue, log: InventoryLog) => {
     case 'EDIT':
       return {
         icon: <Clock size={12} />,
-        color: 'text-amber-500',
-        bg: 'bg-amber-500/10',
+        color: 'text-blue-500',
+        bg: 'bg-blue-500/10',
         label: 'Update',
       };
     case 'PHYSICAL_DISTRIBUTION': {
