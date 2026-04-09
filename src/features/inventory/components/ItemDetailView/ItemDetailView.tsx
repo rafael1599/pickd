@@ -716,10 +716,10 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       const { data: tags, error } = await (supabase as any)
         .from('asset_tags')
         .insert([{ sku, warehouse: 'LUDLOW', location: initialData?.location ?? null, created_by: user.id, printed_at: new Date().toISOString() }])
-        .select('short_code, sku');
+        .select('short_code, sku, public_token');
       if (error || !tags?.[0]) throw error || new Error('No tag returned');
       const blobUrl = await generateBikeLabels([
-        { sku, item_name: itemName, short_code: tags[0].short_code },
+        { sku, item_name: itemName, short_code: tags[0].short_code, public_token: tags[0].public_token },
       ]);
       window.open(blobUrl, '_blank');
       toast.success(`Label created: ${tags[0].short_code}`);

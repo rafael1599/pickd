@@ -4,6 +4,7 @@ export interface LabelItem {
   sku: string;
   item_name: string | null;
   short_code: string;
+  public_token: string;
   extra?: string | null;
   prefix?: string | null;
   layout?: 'standard' | 'vertical';
@@ -49,7 +50,10 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
 
   for (const item of items) {
     const parsed = parseBikeName(item.item_name);
-    const qrPayload = `${item.short_code}|${item.sku}`;
+    const baseUrl = typeof window !== 'undefined'
+      ? (import.meta.env.VITE_APP_URL || window.location.origin)
+      : 'https://roman-app.vercel.app';
+    const qrPayload = `${baseUrl}/tag/${item.short_code}/${item.public_token}?sku=${encodeURIComponent(item.sku)}`;
     const qrDataUrl = await QRCode.toDataURL(qrPayload, {
       width: 400,
       margin: 1,

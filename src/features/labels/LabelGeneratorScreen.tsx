@@ -49,6 +49,13 @@ export const LabelGeneratorScreen = () => {
   const [customName, setCustomName] = useState('');
   const [customQty, setCustomQty] = useState(1);
   const [customExtra, setCustomExtra] = useState('');
+  const [showExtraFields, setShowExtraFields] = useState(false);
+  const [customUpc, setCustomUpc] = useState('');
+  const [customPo, setCustomPo] = useState('');
+  const [customCNo, setCustomCNo] = useState('');
+  const [customSerial, setCustomSerial] = useState('');
+  const [customMadeIn, setCustomMadeIn] = useState('');
+  const [customOtherNotes, setCustomOtherNotes] = useState('');
   const [isCustomGenerating, setIsCustomGenerating] = useState(false);
 
   // Fetch all bike inventory
@@ -97,6 +104,7 @@ export const LabelGeneratorScreen = () => {
   interface AssetTagRow {
     id: string;
     short_code: string;
+    public_token: string;
     sku: string;
     location: string | null;
     status: string;
@@ -109,7 +117,7 @@ export const LabelGeneratorScreen = () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
         .from('asset_tags')
-        .select('id, short_code, sku, location, status, printed_at, created_at')
+        .select('id, short_code, public_token, sku, location, status, printed_at, created_at')
         .order('created_at', { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -148,6 +156,7 @@ export const LabelGeneratorScreen = () => {
         sku: t.sku,
         item_name: getItemName(t.sku),
         short_code: t.short_code,
+        public_token: t.public_token,
       }));
       const blobUrl = await generateBikeLabels(labelItems);
       window.open(blobUrl, '_blank');
@@ -255,7 +264,7 @@ export const LabelGeneratorScreen = () => {
       const { data: tags, error } = await (supabase as any)
         .from('asset_tags')
         .insert(inserts)
-        .select('short_code, sku') as { data: { short_code: string; sku: string }[] | null; error: unknown };
+        .select('short_code, sku, public_token') as { data: { short_code: string; sku: string; public_token: string }[] | null; error: unknown };
 
       if (error || !tags) throw error || new Error('No tags returned');
 
@@ -264,6 +273,7 @@ export const LabelGeneratorScreen = () => {
         sku: t.sku,
         item_name: nameMap.get(t.sku) ?? null,
         short_code: t.short_code,
+        public_token: t.public_token,
       }));
 
       const blobUrl = await generateBikeLabels(labelItems);
@@ -592,17 +602,24 @@ export const LabelGeneratorScreen = () => {
               warehouse: 'LUDLOW',
               created_by: user.id,
               printed_at: new Date().toISOString(),
+              ...(customUpc && { upc: customUpc.trim() }),
+              ...(customPo && { po_number: customPo.trim() }),
+              ...(customCNo && { c_number: customCNo.trim() }),
+              ...(customSerial && { serial_number: customSerial.trim() }),
+              ...(customMadeIn && { made_in: customMadeIn.trim() }),
+              ...(customOtherNotes && { other_notes: customOtherNotes.trim() }),
             }));
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { data: tags, error } = await (supabase as any)
               .from('asset_tags')
               .insert(inserts)
-              .select('short_code, sku') as { data: { short_code: string; sku: string }[] | null; error: unknown };
+              .select('short_code, sku, public_token') as { data: { short_code: string; sku: string; public_token: string }[] | null; error: unknown };
             if (error || !tags) throw error || new Error('No tags returned');
             const labelItems: LabelItem[] = tags.map((t) => ({
               sku: t.sku,
               item_name: customName.trim() || null,
               short_code: t.short_code,
+              public_token: t.public_token,
               extra: customExtra.trim() || null,
               prefix: customLabelType === 'sd' ? 'S/D' : null,
               layout: customLabelType === 'vertical' ? 'vertical' : 'standard',
@@ -653,6 +670,37 @@ export const LabelGeneratorScreen = () => {
                   className="w-full h-12 px-4 bg-surface border border-subtle rounded-xl text-sm text-content font-mono placeholder-muted focus:outline-none focus:border-accent/40"
                 />
               </div>
+              {/* Expandable additional fields */}
+              <button
+                onClick={() => setShowExtraFields(!showExtraFields)}
+                className="w-full text-left text-[10px] font-black uppercase tracking-widest text-accent py-2"
+              >
+                {showExtraFields ? '▼ Hide Additional Info' : '▶ Additional Info (UPC, Serial, P/O...)'}
+              </button>
+              {showExtraFields && (
+                <div className="space-y-3 pb-2">
+                  {([
+                    ['UPC', customUpc, setCustomUpc, '012345678901'],
+                    ['P/O No', customPo, setCustomPo, 'Purchase order number'],
+                    ['C/No', customCNo, setCustomCNo, 'Container number'],
+                    ['Serial No', customSerial, setCustomSerial, 'Serial number'],
+                    ['Made In', customMadeIn, setCustomMadeIn, 'Country of origin'],
+                    ['Other Notes', customOtherNotes, setCustomOtherNotes, 'Additional notes'],
+                  ] as [string, string, (v: string) => void, string][]).map(([label, val, setter, ph]) => (
+                    <div key={label}>
+                      <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-1 block">{label}</label>
+                      <input
+                        type="text"
+                        value={val}
+                        onChange={(e) => setter(e.target.value.toUpperCase())}
+                        placeholder={ph}
+                        className="w-full h-10 px-4 bg-surface border border-subtle rounded-xl text-xs text-content font-mono placeholder-muted focus:outline-none focus:border-accent/40"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div>
                 <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-1 block">Quantity</label>
                 <div className="flex items-center gap-2">

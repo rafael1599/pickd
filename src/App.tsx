@@ -22,6 +22,9 @@ const OrdersScreen = React.lazy(() =>
 const SnapshotViewer = React.lazy(() =>
   import('./features/inventory/SnapshotViewer.tsx').then((m) => ({ default: m.SnapshotViewer }))
 );
+const PublicTagView = React.lazy(() =>
+  import('./features/labels/PublicTagView.tsx').then((m) => ({ default: m.PublicTagView }))
+);
 const StockCountScreen = React.lazy(() =>
   import('./features/inventory/StockCountScreen.tsx').then((m) => ({ default: m.StockCountScreen }))
 );
@@ -175,7 +178,7 @@ function App() {
           <ErrorProvider>
             <ConfirmationProvider>
               <Routes>
-                {/* Public Snapshot View - No Layout, No Auth */}
+                {/* Public routes - No Layout, No Auth */}
                 <Route
                   path="/snapshot/:fileName"
                   element={
@@ -187,6 +190,20 @@ function App() {
                       }
                     >
                       <SnapshotViewer />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/tag/:shortCode/:token"
+                  element={
+                    <Suspense
+                      fallback={
+                        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                          <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
+                        </div>
+                      }
+                    >
+                      <PublicTagView />
                     </Suspense>
                   }
                 />
