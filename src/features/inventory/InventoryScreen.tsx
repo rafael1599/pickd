@@ -5,6 +5,8 @@ import { SearchInput } from '../../components/ui/SearchInput.tsx';
 import { useDebounce } from '../../hooks/useDebounce.ts';
 import { InventoryCard } from './components/InventoryCard.tsx';
 import { useVerifiedSkus } from '../../hooks/useVerifiedSkus';
+import { useLastActivity, formatLastActivity } from './hooks/useLastActivity';
+import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import { ItemDetailView } from './components/ItemDetailView';
 import { naturalSort } from '../../utils/sortUtils.ts';
 import Plus from 'lucide-react/dist/esm/icons/plus';
@@ -121,8 +123,21 @@ export const InventoryScreen = () => {
     setSearchQuery(debouncedSearch);
   }, [debouncedSearch, setSearchQuery]);
 
-  // All filtering now server-side (warehouse, inactive, location type)
-  const filteredInventory = inventoryData;
+  // Split search results: active items render as cards, ghost items as compact trail
+  const isActiveSearch = debouncedSearch.length > 0;
+  const filteredInventory = useMemo(() => {
+    if (!isActiveSearch) return inventoryData;
+    return inventoryData.filter((item) => item.is_active && item.quantity > 0);
+  }, [inventoryData, isActiveSearch]);
+
+  const ghostItems = useMemo(() => {
+    if (!isActiveSearch) return [];
+    return inventoryData.filter((item) => !item.is_active || item.quantity <= 0);
+  }, [inventoryData, isActiveSearch]);
+
+  const ghostSkus = useMemo(() => ghostItems.map((i) => i.sku), [ghostItems]);
+  const { data: lastActivityMap } = useLastActivity(ghostSkus);
+  const [ghostTrailOpen, setGhostTrailOpen] = useState(false);
 
   const isLoading = loading;
 
@@ -801,6 +816,65 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                 </div>
               );
             })}
+
+        {/* Ghost trail — qty=0 / inactive items from search */}
+        {isActiveSearch && ghostItems.length > 0 && (
+          <div className="max-w-2xl mx-auto">
+            <button
+              onClick={() => setGhostTrailOpen((v) => !v)}
+              className="flex items-center gap-2 w-full py-3 px-1 text-muted hover:text-content transition-colors"
+            >
+              <div className="h-px flex-1 bg-subtle" />
+              <span className="text-[10px] font-black uppercase tracking-widest shrink-0">
+                No stock ({ghostItems.length})
+              </span>
+              <ChevronDown
+                size={14}
+                className={`shrink-0 transition-transform ${ghostTrailOpen ? 'rotate-180' : ''}`}
+              />
+              <div className="h-px flex-1 bg-subtle" />
+            </button>
+
+            {ghostTrailOpen && (
+              <div className="space-y-1 pb-4">
+                {ghostItems.map((item) => {
+                  const activity = lastActivityMap?.get(item.sku);
+                  return (
+                    <div
+                      key={`ghost-${item.id}-${item.sku}`}
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface/50 border border-subtle/50"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-bold text-content/70 tracking-tight">
+                          {item.sku}
+                        </span>
+                        {item.item_name && (
+                          <span className="text-[10px] text-muted/60 ml-2 truncate">
+                            {item.item_name}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-muted shrink-0 text-right">
+                        {activity ? (
+                          <span>
+                            {activity.action_type === 'MOVE' && '↗ '}
+                            {activity.action_type === 'DEDUCT' && '📦 '}
+                            {activity.action_type === 'ADD' && '+ '}
+                            {formatLastActivity(activity)}
+                          </span>
+                        ) : !item.is_active ? (
+                          <span className="text-red-400">Deleted</span>
+                        ) : (
+                          <span>No recent activity</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {hasMoreItems && !isServerSearching ? (
           <div ref={loadMoreSentinelRef} className="py-8 flex justify-center">
