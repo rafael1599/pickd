@@ -5,6 +5,8 @@ export interface LabelItem {
   item_name: string | null;
   short_code: string;
   extra?: string | null;
+  prefix?: string | null;
+  layout?: 'standard' | 'vertical';
 }
 
 export const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -64,12 +66,12 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
     if (parsed.year) detailParts.push(`YEAR ${parsed.year}`);
     const detailText = detailParts.join('  ·  ');
 
-    // Header zone: name (dynamic, fills full width) + detail line
+    // Header zone: name limited to left ~55% to not overlap QR + detail line
     const detailFontSize = 10;
-    const nameMaxW = W - M * 2;
+    const nameMaxW = (W - M * 2) * 0.55;
     const headerZoneH = 0.95;
 
-    // Dynamic name font: as large as fits in header width, max 2 lines
+    // Dynamic name font: as large as fits in left zone, max 2 lines
     let nameFontSize = 48;
     while (nameFontSize > 10) {
       doc.setFont('helvetica', 'bold');
@@ -97,6 +99,164 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
       skuFontSize -= 1;
     }
 
+    // ── VERTICAL LAYOUT: portrait 4×6" (same content as standard, rotated) ──
+    if (item.layout === 'vertical') {
+      const VW = 4; // portrait width
+      const VH = 6; // portrait height
+      const vM = 0.2;
+      const vNameMaxW = (VW - vM * 2) * 0.95;
+      const vHeaderZoneH = 1.2;
+
+      // Dynamic name font for vertical
+      let vNameFont = 40;
+      while (vNameFont > 10) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(vNameFont);
+        const wrapped = doc.splitTextToSize(nameText, vNameMaxW);
+        const textH = wrapped.length * vNameFont * PT_TO_IN * 1.1;
+        if (wrapped.length <= 2 && textH <= vHeaderZoneH - detailFontSize * PT_TO_IN * 1.5) break;
+        vNameFont -= 1;
+      }
+
+      // QR and SKU zone
+      const vMainTop = vM + vHeaderZoneH;
+      const vMainH = VH - vMainTop - vM;
+      const vQrSize = Math.min((VW - vM * 2) * 0.6, vMainH * 0.5);
+      const vSkuMaxW = VW - vM * 2;
+      let vSkuFont = 72;
+      while (vSkuFont > 14) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(vSkuFont);
+        if (doc.getTextWidth(item.sku) <= vSkuMaxW && vSkuFont * PT_TO_IN <= vMainH * 0.3) break;
+        vSkuFont -= 1;
+      }
+
+      for (let copy = 0; copy < 2; copy++) {
+        if (!isFirstPage) doc.addPage([VW, VH], 'portrait');
+        else { doc.deletePage(1); doc.addPage([VW, VH], 'portrait'); }
+        isFirstPage = false;
+
+        doc.setFillColor(255, 255, 255);
+        doc.rect(0, 0, VW, VH, 'F');
+        doc.setTextColor(0, 0, 0);
+
+        const cx = VW / 2; // center X
+        const maxContentW = VW - vM * 2;
+        let vy = vM;
+
+        // Prefix (S/D) — centered
+        if (item.prefix?.trim()) {
+          const pSize = Math.min(vNameFont * 1.25, 50);
+          doc.setFont('helvetica', 'bolditalic');
+          doc.setFontSize(pSize);
+          doc.text(item.prefix.trim(), cx, vy + pSize * PT_TO_IN, { align: 'center' });
+          vy += pSize * PT_TO_IN * 1.15;
+        }
+
+        // Name — split into highlighted (first 2 words) and rest
+        const nameWords = nameText.split(/\s+/);
+        const highlightText = nameWords.slice(0, 2).join(' ');
+        const restText = nameWords.slice(2).join(' ');
+        const smallFont = Math.round(vNameFont * 0.9);
+
+        // Dynamic sizing: shrink highlight if it overflows
+        doc.setFont('helvetica', 'bold');
+        let hlFont = vNameFont;
+        while (hlFont > 10) {
+          doc.setFontSize(hlFont);
+          if (doc.getTextWidth(highlightText) + 0.3 <= maxContentW) break;
+          hlFont -= 1;
+        }
+
+        // Highlighted words (black bg, white text, centered)
+        doc.setFontSize(hlFont);
+        const hlW = doc.getTextWidth(highlightText);
+        const hlH = hlFont * PT_TO_IN;
+        const hlPadX = 0.15;
+        const hlPadY = 0.06;
+        const hlBoxW = hlW + hlPadX * 2;
+        const hlBoxX = cx - hlBoxW / 2;
+        doc.setFillColor(0, 0, 0);
+        doc.rect(hlBoxX, vy, hlBoxW, hlH + hlPadY * 2, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.text(highlightText, cx, vy + hlH * 0.85 + hlPadY, { align: 'center' });
+        doc.setTextColor(0, 0, 0);
+        vy += hlH + hlPadY * 2 + 0.1;
+
+        // Rest of name (smaller, centered, wraps if needed)
+        if (restText) {
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(smallFont);
+          const restWrapped = doc.splitTextToSize(restText, maxContentW) as string[];
+          for (const line of restWrapped) {
+            doc.text(line, cx, vy + smallFont * PT_TO_IN, { align: 'center' });
+            vy += smallFont * PT_TO_IN * 1.15;
+          }
+        }
+
+        // Detail (smaller, centered)
+        if (detailText) {
+          vy += 0.05;
+          doc.setFont('helvetica', 'normal');
+          const dtFont = Math.round(smallFont * 0.6);
+          doc.setFontSize(dtFont);
+          const dtWrapped = doc.splitTextToSize(detailText, maxContentW) as string[];
+          for (const line of dtWrapped) {
+            doc.text(line, cx, vy + dtFont * PT_TO_IN, { align: 'center' });
+            vy += dtFont * PT_TO_IN * 1.2;
+          }
+        }
+
+        // Separator
+        vy += 0.08;
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.015);
+        doc.line(vM, vy, VW - vM, vy);
+        vy += 0.15;
+
+        // SKU (black bg, centered) — dynamic size
+        if (item.sku.trim()) {
+          doc.setFont('helvetica', 'bold');
+          let skF = vSkuFont;
+          while (skF > 14) {
+            doc.setFontSize(skF);
+            if (doc.getTextWidth(item.sku) + 0.3 <= maxContentW) break;
+            skF -= 1;
+          }
+          doc.setFontSize(skF);
+          const skuW = doc.getTextWidth(item.sku);
+          const skuH = skF * PT_TO_IN;
+          const skuBoxW = skuW + 0.3;
+          const skuBoxX = cx - skuBoxW / 2;
+          doc.setFillColor(0, 0, 0);
+          doc.rect(skuBoxX, vy, skuBoxW, skuH + 0.15, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.text(item.sku, cx, vy + skuH * 0.85 + 0.05, { align: 'center' });
+          doc.setTextColor(0, 0, 0);
+          vy += skuH + 0.25;
+        }
+
+        // Extra (centered)
+        if (item.extra?.trim()) {
+          const exFont = Math.round(smallFont * 0.5);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(exFont);
+          const exWrapped = doc.splitTextToSize(item.extra.trim(), maxContentW) as string[];
+          for (const line of exWrapped) {
+            doc.text(line, cx, vy + exFont * PT_TO_IN, { align: 'center' });
+            vy += exFont * PT_TO_IN * 1.2;
+          }
+        }
+
+        // QR (centered, fills remaining space at bottom)
+        const remainingH = VH - vy - vM;
+        const actualQrSize = Math.min(vQrSize, Math.max(0.8, remainingH - 0.1));
+        doc.addImage(qrDataUrl, 'PNG', cx - actualQrSize / 2, VH - vM - actualQrSize, actualQrSize, actualQrSize);
+      }
+      continue;
+    }
+
+    // ── STANDARD LAYOUT: 6×4" ──
     for (let copy = 0; copy < 2; copy++) {
       if (!isFirstPage) doc.addPage([W, H], 'landscape');
       isFirstPage = false;
@@ -105,14 +265,37 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
       doc.rect(0, 0, W, H, 'F');
       doc.setTextColor(0, 0, 0);
 
-      // ── Name (dynamic size, full width, up to 2 lines) ──
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(nameFontSize);
-      const nameWrapped = doc.splitTextToSize(nameText, nameMaxW) as string[];
-      let ny = M + nameFontSize * PT_TO_IN;
-      for (let i = 0; i < Math.min(nameWrapped.length, 2); i++) {
-        doc.text(nameWrapped[i], M, ny);
-        ny += nameFontSize * PT_TO_IN * 1.1;
+      // ── Prefix (e.g. "S/D") — bold italic, 1.25× name size, top-left ──
+      let ny = M;
+      const hasPrefix = !!item.prefix?.trim();
+      if (hasPrefix) {
+        const prefixSize = Math.min(nameFontSize * 1.25, 60);
+        doc.setFont('helvetica', 'bolditalic');
+        doc.setFontSize(prefixSize);
+        doc.text(item.prefix!.trim(), M, ny + prefixSize * PT_TO_IN);
+        const prefixW = doc.getTextWidth(item.prefix!.trim()) + 0.25;
+
+        // Name goes to the right of prefix
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(nameFontSize);
+        const nameMaxWWithPrefix = nameMaxW - prefixW;
+        const nameWrapped = doc.splitTextToSize(nameText, nameMaxWWithPrefix) as string[];
+        let nameY = ny + nameFontSize * PT_TO_IN;
+        for (let i = 0; i < Math.min(nameWrapped.length, 2); i++) {
+          doc.text(nameWrapped[i], M + prefixW, nameY);
+          nameY += nameFontSize * PT_TO_IN * 1.1;
+        }
+        ny = Math.max(ny + prefixSize * PT_TO_IN * 1.1, nameY);
+      } else {
+        // ── Name only (dynamic size, full width, up to 2 lines) ──
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(nameFontSize);
+        const nameWrapped = doc.splitTextToSize(nameText, nameMaxW) as string[];
+        ny += nameFontSize * PT_TO_IN;
+        for (let i = 0; i < Math.min(nameWrapped.length, 2); i++) {
+          doc.text(nameWrapped[i], M, ny);
+          ny += nameFontSize * PT_TO_IN * 1.1;
+        }
       }
 
       // ── Detail row: SIZE · COLOR · YEAR ──

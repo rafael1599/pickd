@@ -42,6 +42,7 @@ export const LabelGeneratorScreen = () => {
   const [entries, setEntries] = useState<LabelEntry[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [viewMode, setViewMode] = useState<'create' | 'history' | 'custom'>('create');
+  const [customLabelType, setCustomLabelType] = useState<'regular' | 'sd' | 'vertical'>('regular');
   const [historyFilter, setHistoryFilter] = useState('');
   const [isReprinting, setIsReprinting] = useState(false);
   const [customSku, setCustomSku] = useState('');
@@ -298,7 +299,7 @@ export const LabelGeneratorScreen = () => {
             </button>
             <div>
               <h1 className="text-lg font-black uppercase tracking-widest text-content">
-                {viewMode === 'create' ? 'Bike Labels' : viewMode === 'custom' ? 'Custom Label' : 'Created Tags'}
+                {viewMode === 'create' ? 'Bike Labels' : viewMode === 'custom' ? (customLabelType === 'sd' ? 'S/D Label' : customLabelType === 'vertical' ? 'Vertical Label' : 'Custom Label') : 'Created Tags'}
               </h1>
               <p className="text-[10px] text-muted font-bold uppercase tracking-widest">
                 {viewMode === 'create' ? 'QR asset tags for physical tracking' : viewMode === 'custom' ? 'Create your own label' : `${createdTags?.length ?? 0} tags across ${tagsBySku.size} SKUs`}
@@ -309,7 +310,7 @@ export const LabelGeneratorScreen = () => {
             <div className="flex items-center gap-1">
               <div className="relative">
                 <select
-                  onChange={(e) => { if (e.target.value) setViewMode('custom'); e.target.value = ''; }}
+                  onChange={(e) => { if (e.target.value) { setCustomLabelType(e.target.value as 'regular' | 'sd' | 'vertical'); setViewMode('custom'); } e.target.value = ''; }}
                   defaultValue=""
                   className="appearance-none bg-transparent text-accent p-2 pr-1 cursor-pointer focus:outline-none"
                   title="Custom label"
@@ -317,6 +318,7 @@ export const LabelGeneratorScreen = () => {
                   <option value="" disabled hidden>+</option>
                   <option value="regular">Regular Label</option>
                   <option value="sd">S/D Label</option>
+                  <option value="vertical">Vertical Label</option>
                 </select>
                 <PenLine size={16} className="absolute right-2 top-1/2 -translate-y-1/2 text-accent pointer-events-none" />
               </div>
@@ -602,6 +604,8 @@ export const LabelGeneratorScreen = () => {
               item_name: customName.trim() || null,
               short_code: t.short_code,
               extra: customExtra.trim() || null,
+              prefix: customLabelType === 'sd' ? 'S/D' : null,
+              layout: customLabelType === 'vertical' ? 'vertical' : 'standard',
             }));
             const blobUrl = await generateBikeLabels(labelItems);
             window.open(blobUrl, '_blank');
@@ -672,13 +676,44 @@ export const LabelGeneratorScreen = () => {
             {/* Live Preview */}
             <div className="mb-4">
               <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-2 block">Preview</label>
+
+              {customLabelType === 'vertical' ? (
+              /* Vertical preview (portrait 4×6) */
+              <div className="bg-white border border-subtle rounded-xl p-4 aspect-[4/6] flex flex-col max-w-[200px] mx-auto">
+                {/* Name top */}
+                {(parsed.model || customName) && (
+                  <p className="text-[11px] font-black text-black leading-tight mb-0.5">
+                    {parsed.model || customName}
+                  </p>
+                )}
+                <p className="text-[7px] text-black mb-1">
+                  {[parsed.size && `SIZE ${parsed.size}`, parsed.color && `COLOR ${parsed.color}`, parsed.year && `YEAR ${parsed.year}`].filter(Boolean).join(' · ')}
+                </p>
+                <div className="border-t border-black/20 my-1" />
+                {/* QR centered */}
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="w-20 h-20 bg-black/10 border border-black/20 rounded flex items-center justify-center">
+                    <span className="text-[7px] text-black/40 font-bold">QR</span>
+                  </div>
+                </div>
+                {/* SKU bottom */}
+                <div className="mt-1">
+                  {customSku ? (
+                    <span className="bg-black text-white font-black text-sm px-2 py-0.5 leading-none inline-block">{customSku}</span>
+                  ) : (
+                    <span className="text-sm font-black text-black/20">SKU</span>
+                  )}
+                  {customExtra && <p className="text-[7px] font-bold text-black mt-0.5">{customExtra}</p>}
+                </div>
+              </div>
+              ) : (
+              /* Standard / S/D preview */
               <div className="bg-white border border-subtle rounded-xl p-4 aspect-[6/4] flex flex-col">
                 {/* Preview header */}
                 <div className="flex gap-3 items-start mb-1">
-                  <div>
-                    <p className="text-[10px] font-black italic text-black leading-none">JAMIS</p>
-                    <p className="text-[10px] font-black italic text-black leading-none">BIKES</p>
-                  </div>
+                  {customLabelType === 'sd' && (
+                    <span className="text-xl font-black italic text-black leading-none shrink-0">S/D</span>
+                  )}
                   {(parsed.model || customName) && (
                     <p className="text-[11px] font-black text-black leading-tight">
                       {parsed.model || customName}
@@ -713,6 +748,7 @@ export const LabelGeneratorScreen = () => {
                   </div>
                 </div>
               </div>
+              )}
             </div>
 
             {/* Generate button */}
