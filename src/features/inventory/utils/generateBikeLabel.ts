@@ -54,7 +54,8 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
       errorCorrectionLevel: 'M',
     });
 
-    const modelText = parsed.model || parsed.raw || '';
+    // Full item name (model + details combined for display)
+    const nameText = (parsed.model || parsed.raw || item.sku).trim();
 
     // Detail: "SIZE 15 · COLOR GLOSS BLACK · YEAR 2026"
     const detailParts: string[] = [];
@@ -63,21 +64,21 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
     if (parsed.year) detailParts.push(`YEAR ${parsed.year}`);
     const detailText = detailParts.join('  ·  ');
 
-    // Header zone: JAMIS/BIKES + model name (2 lines) + detail
+    // Header zone: name (dynamic, fills full width) + detail line
     const detailFontSize = 10;
-    // Model font: as large as fits in ~55% of header width, 2 lines max
-    const modelMaxW = (W - M * 2) * 0.55;
-    let modelFontSize = 22;
-    while (modelFontSize > 10) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(modelFontSize);
-      const wrapped = doc.splitTextToSize(modelText, modelMaxW);
-      if (wrapped.length <= 2) break;
-      modelFontSize -= 1;
-    }
-    // JAMIS/BIKES same size as model
-    const brandFontSize = modelFontSize;
+    const nameMaxW = W - M * 2;
     const headerZoneH = 0.95;
+
+    // Dynamic name font: as large as fits in header width, max 2 lines
+    let nameFontSize = 48;
+    while (nameFontSize > 10) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(nameFontSize);
+      const wrapped = doc.splitTextToSize(nameText, nameMaxW);
+      const textH = wrapped.length * nameFontSize * PT_TO_IN * 1.1;
+      if (wrapped.length <= 2 && textH <= headerZoneH - detailFontSize * PT_TO_IN * 1.5) break;
+      nameFontSize -= 1;
+    }
 
     // Main zone: everything below header
     const mainTop = M + headerZoneH;
@@ -104,34 +105,21 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
       doc.rect(0, 0, W, H, 'F');
       doc.setTextColor(0, 0, 0);
 
-      // ── JAMIS / BIKES (italic, stacked, same size as model) ──
-      let hy = M;
-      doc.setFont('helvetica', 'bolditalic');
-      doc.setFontSize(brandFontSize);
-      doc.text('JAMIS', M, hy + brandFontSize * PT_TO_IN);
-      hy += brandFontSize * PT_TO_IN * 1.05;
-      doc.text('BIKES', M, hy + brandFontSize * PT_TO_IN);
-      const brandBottomY = hy + brandFontSize * PT_TO_IN * 1.1;
-
-      // ── Model name (bold, up to 2 lines, right of brand with gap) ──
+      // ── Name (dynamic size, full width, up to 2 lines) ──
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(brandFontSize);
-      const brandBlockW = Math.max(doc.getTextWidth('JAMIS'), doc.getTextWidth('BIKES'));
-      const modelX = M + brandBlockW + 0.3; // gap between brand and model
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(modelFontSize);
-      const modelWrapped = doc.splitTextToSize(modelText, modelMaxW) as string[];
-      const modelStartY = M + modelFontSize * PT_TO_IN;
-      for (let i = 0; i < Math.min(modelWrapped.length, 2); i++) {
-        doc.text(modelWrapped[i], modelX, modelStartY + i * modelFontSize * PT_TO_IN * 1.15);
+      doc.setFontSize(nameFontSize);
+      const nameWrapped = doc.splitTextToSize(nameText, nameMaxW) as string[];
+      let ny = M + nameFontSize * PT_TO_IN;
+      for (let i = 0; i < Math.min(nameWrapped.length, 2); i++) {
+        doc.text(nameWrapped[i], M, ny);
+        ny += nameFontSize * PT_TO_IN * 1.1;
       }
 
       // ── Detail row: SIZE · COLOR · YEAR ──
       if (detailText) {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(detailFontSize);
-        const detailY = Math.max(brandBottomY, modelStartY + Math.min(modelWrapped.length, 2) * modelFontSize * PT_TO_IN * 1.15) + 0.05;
-        doc.text(detailText, M, detailY + detailFontSize * PT_TO_IN);
+        doc.text(detailText, M, ny + 0.02);
       }
 
       // ── Separator ──

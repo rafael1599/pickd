@@ -585,27 +585,27 @@ export const OrdersScreen = () => {
       fetchOrders();
       const { default: jsPDF } = await import('jspdf');
 
-      // Use A4 landscape format (same as preview: 297mm x 210mm)
+      // 6×4" landscape — matches Zebra label printer, no scaling needed
       const doc = new jsPDF({
         orientation: 'landscape',
-        unit: 'mm',
-        format: 'a4',
+        unit: 'in',
+        format: [6, 4],
       });
 
-      const pageWidth = 297;
-      const pageHeight = 210;
-      const PT_TO_MM = 0.3528; // Conversion factor from points to millimeters
-      const LINE_HEIGHT = 1.1; // Tighter line height factor
+      const pageWidth = 6;
+      const pageHeight = 4;
+      const PT_TO_IN = 1 / 72;
+      const LINE_HEIGHT = 1.1;
       const customerNameName = (formData.customerName || 'GENERIC CUSTOMER').toUpperCase();
       const street = formData.street.toUpperCase();
       const cityStateZip = `${formData.city.toUpperCase()}, ${formData.state.toUpperCase()} ${formData.zip}`;
       const pallets = palletsNum;
 
       for (let i = 0; i < pallets; i++) {
-        // --- PAGE A: COMPANY INFO (matches LivePrintPreview layout) ---
-        if (i > 0) doc.addPage('a4', 'landscape');
+        // --- PAGE A: COMPANY INFO ---
+        if (i > 0) doc.addPage([6, 4], 'landscape');
 
-        const margin = 5;
+        const margin = 0.2;
         const maxWidth = pageWidth - margin * 2;
         const maxHeight = pageHeight - margin * 2;
 
@@ -640,10 +640,10 @@ export const OrdersScreen = () => {
           // Calculate height for all main content lines
           for (const line of contentLines) {
             if (line === '') {
-              totalHeight += fontSize * PT_TO_MM * 0.3; // spacer
+              totalHeight += fontSize * PT_TO_IN * 0.3; // spacer
             } else {
               const wrapped = doc.splitTextToSize(line, maxWidth);
-              totalHeight += wrapped.length * (fontSize * PT_TO_MM * LINE_HEIGHT);
+              totalHeight += wrapped.length * (fontSize * PT_TO_IN * LINE_HEIGHT);
             }
           }
 
@@ -651,7 +651,7 @@ export const OrdersScreen = () => {
           const msgFontSize = fontSize * 0.7;
           doc.setFontSize(msgFontSize);
           const msgWrapped = doc.splitTextToSize(thankYouMsg.toUpperCase(), maxWidth);
-          totalHeight += msgWrapped.length * (msgFontSize * PT_TO_MM * LINE_HEIGHT);
+          totalHeight += msgWrapped.length * (msgFontSize * PT_TO_IN * LINE_HEIGHT);
 
           // Check if it fits
           if (totalHeight <= maxHeight) {
@@ -662,18 +662,18 @@ export const OrdersScreen = () => {
         }
 
         // Render with the calculated font size
-        let yPos = margin + fontSize * PT_TO_MM; // Start exactly at margin + CapHeight
+        let yPos = margin + fontSize * PT_TO_IN; // Start exactly at margin + CapHeight
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(fontSize);
         doc.setLineHeightFactor(LINE_HEIGHT);
 
         for (const line of contentLines) {
           if (line === '') {
-            yPos += fontSize * PT_TO_MM * 0.3; // spacer
+            yPos += fontSize * PT_TO_IN * 0.3; // spacer
           } else {
             const wrapped = doc.splitTextToSize(line, maxWidth);
             doc.text(wrapped, margin, yPos);
-            yPos += wrapped.length * (fontSize * PT_TO_MM * LINE_HEIGHT);
+            yPos += wrapped.length * (fontSize * PT_TO_IN * LINE_HEIGHT);
           }
         }
 
@@ -684,24 +684,21 @@ export const OrdersScreen = () => {
         doc.text(msgWrapped, margin, yPos);
 
         // --- PAGE B: PALLET NUMBER ONLY (clean, centered) ---
-        // Only show pagination "X of Y" if there is more than one pallet
         if (pallets > 1) {
-          doc.addPage('a4', 'landscape');
+          doc.addPage([6, 4], 'landscape');
           doc.setFont('helvetica', 'bold');
 
           // "PALLET" label above the numbers
-          doc.setFontSize(110);
+          doc.setFontSize(48);
           const labelText = 'PALLET';
           const labelWidth = doc.getTextWidth(labelText);
-          const labelX = (pageWidth - labelWidth) / 2;
-          doc.text(labelText, labelX, pageHeight / 2 - 20);
+          doc.text(labelText, (pageWidth - labelWidth) / 2, pageHeight / 2 - 0.4);
 
           // "X of Y" numbers
-          doc.setFontSize(200);
+          doc.setFontSize(80);
           const textNum = `${i + 1} of ${pallets}`;
           const textWidth = doc.getTextWidth(textNum);
-          const xCenter = (pageWidth - textWidth) / 2;
-          doc.text(textNum, xCenter, pageHeight / 2 + 50);
+          doc.text(textNum, (pageWidth - textWidth) / 2, pageHeight / 2 + 0.8);
         }
       }
 

@@ -307,13 +307,19 @@ export const LabelGeneratorScreen = () => {
           </div>
           {viewMode === 'create' && (
             <div className="flex items-center gap-1">
-              <button
-                onClick={() => setViewMode('custom')}
-                className="p-2 hover:bg-card rounded-full text-accent transition-colors"
-                title="Custom label"
-              >
-                <PenLine size={20} />
-              </button>
+              <div className="relative">
+                <select
+                  onChange={(e) => { if (e.target.value) setViewMode('custom'); e.target.value = ''; }}
+                  defaultValue=""
+                  className="appearance-none bg-transparent text-accent p-2 pr-1 cursor-pointer focus:outline-none"
+                  title="Custom label"
+                >
+                  <option value="" disabled hidden>+</option>
+                  <option value="regular">Regular Label</option>
+                  <option value="sd">S/D Label</option>
+                </select>
+                <PenLine size={16} className="absolute right-2 top-1/2 -translate-y-1/2 text-accent pointer-events-none" />
+              </div>
               <button
                 onClick={() => setViewMode('history')}
                 className="p-2 hover:bg-card rounded-full text-accent transition-colors"
