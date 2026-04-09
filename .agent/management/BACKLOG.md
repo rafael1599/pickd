@@ -119,6 +119,12 @@
 
 - [x] ~~**[bug-013]** Teclado aparece al abrir orden desde Verification Queue — Fix en develop `51e55a5`, overlay detection con `elementFromPoint()`.~~ Pendiente: confirmar en mobile.
 - [ ] **[bug-009]** Address parser falla con calles numéricas + direccionales — `parseUSAddress.ts`, agregar fallback newline.
+- [ ] **[bug-015]** Menú de perfil se queda trabado — impide que el usuario vea otras views. El modal no se cierra correctamente en ciertos flujos de navegación. **Requiere:** investigar reproducción exacta antes de fix.
+- [ ] **[bug-016]** Projects/Activity Report — bugs de estado múltiples:
+  - Proyecto movido varias veces se duplica en el activity report
+  - Proyecto agregado directamente a una columna no se muestra en activity report
+  - Estados inconsistentes al mover proyectos rápidamente
+  - **Requiere:** sesión de retroalimentación detallada con pasos de reproducción antes de hacer cambios. No hacer fixes a ciegas.
 
 ---
 

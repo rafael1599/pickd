@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
@@ -44,6 +44,11 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
   const [showProfile, setShowProfile] = useState(false);
   useScrollLock(isOpen, onClose);
 
+  // Reset profile panel when menu closes
+  useEffect(() => {
+    if (!isOpen) setShowProfile(false);
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleSave = async () => {
@@ -70,6 +75,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
   };
 
   const navTo = (path: string) => {
+    setShowProfile(false);
     navigate(path);
     onClose();
   };
