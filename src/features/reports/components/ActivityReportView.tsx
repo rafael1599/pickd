@@ -14,7 +14,6 @@ const GREEN = '#10b981';
 const EMERALD = '#059669';
 const INDIGO = '#6366f1';
 const BLUE = '#3b82f6';
-const CYAN = '#06b6d4';
 const AMBER = '#f59e0b';
 const TEAL = '#38b2ac';
 
@@ -246,7 +245,7 @@ export const ActivityReportView: React.FC<Props> = ({
         {hasInProgress && (
           <>
             <div style={cardStyle}>
-              <p style={sectionHeaderStyle(CYAN)}>IN PROGRESS</p>
+              <p style={sectionHeaderStyle(AMBER)}>IN PROGRESS</p>
               {inProgress.map((item, i) => (
                 <p
                   key={i}
@@ -256,7 +255,7 @@ export const ActivityReportView: React.FC<Props> = ({
                     margin: 0,
                   }}
                 >
-                  <span style={bulletStyle(CYAN)}>&#9679;</span>
+                  <span style={bulletStyle(AMBER)}>&#9679;</span>
                   &nbsp;&nbsp;{item}
                 </p>
               ))}
@@ -292,7 +291,7 @@ export const ActivityReportView: React.FC<Props> = ({
         {hasComingUp && (
           <>
             <div style={cardStyle}>
-              <p style={sectionHeaderStyle(AMBER)}>COMING UP NEXT</p>
+              <p style={sectionHeaderStyle(BLUE)}>COMING UP NEXT</p>
               {comingUpNext.map((item, i) => (
                 <p
                   key={i}
@@ -302,7 +301,7 @@ export const ActivityReportView: React.FC<Props> = ({
                     margin: 0,
                   }}
                 >
-                  <span style={bulletStyle(AMBER)}>&#9675;</span>
+                  <span style={bulletStyle(BLUE)}>&#9675;</span>
                   &nbsp;&nbsp;{item}
                 </p>
               ))}

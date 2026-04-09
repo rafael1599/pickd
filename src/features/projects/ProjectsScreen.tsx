@@ -50,14 +50,14 @@ function formatTimeAgo(dateStr: string): string {
 // ─── Column config ───────────────────────────────────────────────────────────
 
 const COLUMNS: { key: TaskStatus; label: string; color: string; dotColor: string }[] = [
-  { key: 'future', label: 'Futuro', color: 'text-blue-400', dotColor: 'bg-blue-400' },
+  { key: 'future', label: 'Coming Up Next', color: 'text-blue-400', dotColor: 'bg-blue-400' },
   {
     key: 'in_progress',
-    label: 'En progreso',
+    label: 'In Progress',
     color: 'text-amber-400',
     dotColor: 'bg-amber-400',
   },
-  { key: 'done', label: 'Hecho', color: 'text-emerald-400', dotColor: 'bg-emerald-400' },
+  { key: 'done', label: 'Done', color: 'text-emerald-400', dotColor: 'bg-emerald-400' },
 ];
 
 // ─── Inline Add Form ─────────────────────────────────────────────────────────
