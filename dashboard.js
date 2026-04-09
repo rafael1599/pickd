@@ -428,37 +428,33 @@ async function syncProd() {
     check.on("error", () => resolve(0));
   });
 
-  // Step 2: If schema empty, run db reset first
-  if (tableCount === 0) {
-    log(supabaseLog, "{yellow-fg}No tables found — applying migrations (db reset)...{/yellow-fg}");
-    const resetOk = await new Promise((resolve) => {
-      const reset = run("npx", ["supabase", "db", "reset"], {
-        cwd: process.cwd(),
-        env: { ...process.env, FORCE_COLOR: "0" },
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-      reset.stdout.on("data", (d) =>
-        d.toString().split("\n").filter(Boolean).forEach((l) =>
-          log(supabaseLog, l.replace(/\x1b\[[0-9;]*m/g, "").trim())
-        )
-      );
-      reset.stderr.on("data", (d) =>
-        d.toString().split("\n").filter(Boolean).forEach((l) =>
-          log(supabaseLog, l.replace(/\x1b\[[0-9;]*m/g, "").trim())
-        )
-      );
-      reset.on("close", (code) => resolve(code === 0));
-      reset.on("error", () => resolve(false));
+  // Step 2: Always run db reset to apply all migrations (refreshes schema cache)
+  log(supabaseLog, `{yellow-fg}Applying all migrations (db reset)... (${tableCount} tables found){/yellow-fg}`);
+  const resetOk = await new Promise((resolve) => {
+    const reset = run("npx", ["supabase", "db", "reset"], {
+      cwd: process.cwd(),
+      env: { ...process.env, FORCE_COLOR: "0" },
+      stdio: ["ignore", "pipe", "pipe"],
     });
+    reset.stdout.on("data", (d) =>
+      d.toString().split("\n").filter(Boolean).forEach((l) =>
+        log(supabaseLog, l.replace(/\x1b\[[0-9;]*m/g, "").trim())
+      )
+    );
+    reset.stderr.on("data", (d) =>
+      d.toString().split("\n").filter(Boolean).forEach((l) =>
+        log(supabaseLog, l.replace(/\x1b\[[0-9;]*m/g, "").trim())
+      )
+    );
+    reset.on("close", (code) => resolve(code === 0));
+    reset.on("error", () => resolve(false));
+  });
 
-    if (!resetOk) {
-      log(supabaseLog, "{red-fg}db reset failed — aborting sync.{/red-fg}");
-      return;
-    }
-    log(supabaseLog, "{green-fg}Schema ready.{/green-fg}");
-  } else {
-    log(supabaseLog, `{green-fg}Schema OK (${tableCount} tables).{/green-fg}`);
+  if (!resetOk) {
+    log(supabaseLog, "{red-fg}db reset failed — aborting sync.{/red-fg}");
+    return;
   }
+  log(supabaseLog, "{green-fg}Schema + migrations ready.{/green-fg}");
 
   // Step 3: Run sync script
   log(supabaseLog, "Running sync-local-db.sh...");
