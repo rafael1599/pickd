@@ -37,18 +37,36 @@ export function useTasksCompletedToday(date: string) {
 
 // ─── Tasks currently in progress ─────────────────────────────────────────────
 
-interface InProgressTask {
+interface TaskTitle {
   title: string;
 }
 
 export function useTasksInProgress() {
   return useQuery({
     queryKey: ['tasks-in-progress'],
-    queryFn: async (): Promise<InProgressTask[]> => {
+    queryFn: async (): Promise<TaskTitle[]> => {
       const { data, error } = await supabase
         .from('project_tasks')
         .select('title')
         .eq('status', 'in_progress')
+        .order('position', { ascending: true });
+
+      if (error) throw error;
+      return (data ?? []).map((row) => ({ title: row.title as string }));
+    },
+  });
+}
+
+// ─── Tasks planned (future) ─────────────────────────────────────────────────
+
+export function useTasksFuture() {
+  return useQuery({
+    queryKey: ['tasks-future'],
+    queryFn: async (): Promise<TaskTitle[]> => {
+      const { data, error } = await supabase
+        .from('project_tasks')
+        .select('title')
+        .eq('status', 'future')
         .order('position', { ascending: true });
 
       if (error) throw error;

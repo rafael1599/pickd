@@ -13,6 +13,7 @@ import { ActivityReportView } from './components/ActivityReportView';
 import {
   useTasksCompletedToday,
   useTasksInProgress,
+  useTasksFuture,
 } from '../projects/hooks/useProjectReportData';
 
 function formatDateNav(dateStr: string): string {
@@ -57,9 +58,11 @@ export const ActivityReportScreen = () => {
   const { data: profiles } = useActiveProfiles();
   const { data: tasksCompleted } = useTasksCompletedToday(selectedDate);
   const { data: tasksInProgress } = useTasksInProgress();
+  const { data: tasksFuture } = useTasksFuture();
 
   const pickdUpdates = (tasksCompleted ?? []).map((t) => t.title);
-  const comingUpNext = (tasksInProgress ?? []).slice(0, 3).map((t) => t.title);
+  const inProgress = (tasksInProgress ?? []).map((t) => t.title);
+  const comingUpNext = (tasksFuture ?? []).slice(0, 3).map((t) => t.title);
 
   const handleDateChange = useCallback((newDate: string) => {
     setSelectedDate(newDate);
@@ -186,6 +189,7 @@ export const ActivityReportScreen = () => {
               winOfTheDay={winOfTheDay}
               routineChecklist={routineChecklist}
               pickdUpdates={pickdUpdates}
+              inProgress={inProgress}
               comingUpNext={comingUpNext}
             />
           </div>

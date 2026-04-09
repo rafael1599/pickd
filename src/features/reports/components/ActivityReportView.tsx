@@ -13,6 +13,7 @@ const FONT =
 const GREEN = '#10b981';
 const INDIGO = '#6366f1';
 const BLUE = '#3b82f6';
+const CYAN = '#06b6d4';
 const AMBER = '#f59e0b';
 const TEAL = '#38b2ac';
 
@@ -29,6 +30,7 @@ interface Props {
   winOfTheDay: string;
   routineChecklist: string[];
   pickdUpdates: string[];
+  inProgress: string[];
   comingUpNext: string[];
 }
 
@@ -94,6 +96,7 @@ export const ActivityReportView: React.FC<Props> = ({
   winOfTheDay,
   routineChecklist,
   pickdUpdates,
+  inProgress,
   comingUpNext,
 }) => {
   const [detailOpen, setDetailOpen] = useState(false);
@@ -127,6 +130,7 @@ export const ActivityReportView: React.FC<Props> = ({
 
   const hasWin = winOfTheDay.trim().length > 0;
   const hasPickdUpdates = pickdUpdates.length > 0;
+  const hasInProgress = inProgress.length > 0;
   const hasFloorContent = floorBullets.length > 0;
   const hasComingUp = comingUpNext.length > 0;
   const hasAccuracy = report.total_skus > 0 && report.verified_skus_2m > 0;
@@ -203,6 +207,29 @@ export const ActivityReportView: React.FC<Props> = ({
                   }}
                 >
                   <span style={bulletStyle(INDIGO)}>&#9679;</span>
+                  &nbsp;&nbsp;{item}
+                </p>
+              ))}
+            </div>
+            <div style={spacerStyle} />
+          </>
+        )}
+
+        {/* IN PROGRESS — conditional */}
+        {hasInProgress && (
+          <>
+            <div style={cardStyle}>
+              <p style={sectionHeaderStyle(CYAN)}>IN PROGRESS</p>
+              {inProgress.map((item, i) => (
+                <p
+                  key={i}
+                  style={{
+                    ...bulletTextStyle,
+                    padding: i < inProgress.length - 1 ? '0 0 10px 0' : 0,
+                    margin: 0,
+                  }}
+                >
+                  <span style={bulletStyle(CYAN)}>&#9679;</span>
                   &nbsp;&nbsp;{item}
                 </p>
               ))}
