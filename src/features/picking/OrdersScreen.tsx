@@ -1170,7 +1170,7 @@ export const OrdersScreen = () => {
             <div className="flex items-center gap-2 mt-4">
               <button
                 onClick={() => setReopenReasonModal(false)}
-                className="flex-1 min-h-12 rounded-xl font-black uppercase tracking-widest text-[10px] bg-white/5 text-white/50 border border-white/10 transition-all hover:bg-white/10 active:scale-[0.97]"
+                className="flex-1 min-h-12 rounded-xl font-black uppercase tracking-widest text-[10px] bg-surface text-muted border border-subtle transition-all hover:bg-surface/80 active:scale-[0.97]"
               >
                 Cancel
               </button>

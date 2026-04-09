@@ -89,7 +89,7 @@ export const TappableField: React.FC<TappableFieldProps> = ({
           onBlur={onBlur}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="w-full bg-main border border-accent/30 rounded-xl px-4 py-3 text-content focus:border-accent focus:outline-none transition-colors text-sm placeholder:text-white/20"
+          className="w-full bg-main border border-accent/30 rounded-xl px-4 py-3 text-content focus:border-accent focus:outline-none transition-colors text-sm placeholder:text-muted/40"
           inputMode={inputType === 'number' ? 'numeric' : 'text'}
         />
       </div>

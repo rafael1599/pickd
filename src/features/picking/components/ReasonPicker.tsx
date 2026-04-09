@@ -50,8 +50,8 @@ export const ReasonPicker: React.FC<ReasonPickerProps> = ({
   return (
     <div className="mb-3">
       <div className="flex items-center gap-1.5 mb-2">
-        <MessageSquare size={10} className="text-white/30" />
-        <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">
+        <MessageSquare size={10} className="text-muted/60" />
+        <span className="text-[9px] font-black text-muted/60 uppercase tracking-widest">
           Why?
         </span>
       </div>
@@ -67,7 +67,7 @@ export const ReasonPicker: React.FC<ReasonPickerProps> = ({
               className={`min-h-10 px-2.5 rounded-xl text-[10px] font-bold leading-tight border transition-all active:scale-[0.97] text-left ${
                 isSelected
                   ? 'bg-accent/20 text-accent border-accent/40'
-                  : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'
+                  : 'bg-surface text-muted border-subtle hover:bg-surface/80'
               }`}
             >
               {reason}
@@ -78,7 +78,7 @@ export const ReasonPicker: React.FC<ReasonPickerProps> = ({
           <button
             type="button"
             onClick={handleOtherToggle}
-            className="min-h-10 px-2.5 rounded-xl text-[10px] font-bold leading-tight border bg-white/5 text-white/30 border-white/10 hover:bg-white/10 transition-all active:scale-[0.97] text-left"
+            className="min-h-10 px-2.5 rounded-xl text-[10px] font-bold leading-tight border bg-surface text-muted/50 border-subtle hover:bg-surface/80 transition-all active:scale-[0.97] text-left"
           >
             Other...
           </button>
@@ -92,7 +92,7 @@ export const ReasonPicker: React.FC<ReasonPickerProps> = ({
           onChange={(e) => onReasonChange(e.target.value)}
           placeholder="Type reason..."
           autoFocus
-          className="w-full mt-2 px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-xs placeholder-white/25 focus:outline-none focus:border-accent/40"
+          className="w-full mt-2 px-3 py-2.5 bg-surface border border-subtle rounded-xl text-content text-xs placeholder-muted/50 focus:outline-none focus:border-accent/40"
         />
       )}
     </div>

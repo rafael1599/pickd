@@ -162,7 +162,7 @@ export const InventoryCard = memo(
                   </span>
                 </div>
                 {distribution && distribution.length > 0 && (
-                  <span className="hidden md:inline-flex text-[8px] font-black text-white/40 uppercase tracking-widest leading-none">
+                  <span className="hidden md:inline-flex text-[8px] font-black text-muted/50 uppercase tracking-widest leading-none">
                     {distribution
                       .map(
                         (d) =>

@@ -93,6 +93,13 @@
 ### ~~28. Reestructurar menú principal~~ <!-- id: idea-045 --> ✅
 - ~~Implementado: hamburger (3 líneas) reemplaza avatar. Warehouse Activities como contenido principal del menú. Profile/theme/sync repair en sub-panel accesible desde footer. Eliminado Export Inventory CSV (dead code + csvParser.ts).~~
 
+### 31. Inventory Accuracy Fase 2 — Validación de cantidad <!-- id: idea-048 -->
+- **Contexto:** Fase 1 implementada: MOVEs y ADDs cuentan como verificación implícita de cobertura (SKU fue tocado físicamente en 60d). Cobertura subió de ~0.5% a ~20%.
+- **Problema Fase 2:** La cobertura no garantiza que la cantidad actual sea correcta. Un SKU movido hace 30 días puede tener una cantidad incorrecta si hubo errores no trackeados después.
+- **Solución:** Reconstruir la cadena: qty al momento del MOVE/ADD + ADDs posteriores - DEDUCTs posteriores = qty esperada. Comparar con qty actual en DB. Si coincide → "quantity verified". Si no → flag para reconteo.
+- **Consideraciones:** Solo el destino del MOVE es confiable. ADDs son verdad absoluta para la cantidad agregada. DEDUCTs de picking son trackeados pero pueden tener correcciones. Evaluar si hacer esto como query on-demand o como background job.
+- **Requiere:** Análisis profundo + posible RPC en DB para eficiencia.
+
 ### 30. Cache de datos de orden al cambiar entre órdenes <!-- id: idea-047 -->
 - **Problema:** Al cambiar entre órdenes en OrdersScreen, el frontend recalcula todo (items, distribución, labels, conteos) cada vez. Causa lag perceptible y mala UX, especialmente en mobile.
 - **Solución:** Calcular la información de cada orden una sola vez y mantenerla estática en cache. Suscribirse a cambios vía Realtime (o invalidación de query) para que solo se recalcule cuando hay un cambio real en la orden o configuración del sistema.
