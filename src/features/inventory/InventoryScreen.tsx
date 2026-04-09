@@ -22,6 +22,7 @@ interface JsPDFWithAutoTable extends jsPDF {
   lastAutoTable?: { finalY: number };
 }
 import FileDown from 'lucide-react/dist/esm/icons/file-down';
+import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal';
 
 import { usePickingSession } from '../../context/PickingContext.tsx';
 import { useAuth } from '../../context/AuthContext.tsx';
@@ -273,6 +274,7 @@ export const InventoryScreen = () => {
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [selectedWarehouseForAdd, setSelectedWarehouseForAdd] = useState('LUDLOW');
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
+  const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const [locationBeingEdited, setLocationBeingEdited] = useState<Location | NewLocationStub | null>(
     null
   );
@@ -616,27 +618,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
     <div className="pb-4 relative">
       <SessionInitializationModal />
 
-      {/* Manual Snapshot Button (Admin Stock Mode Only) */}
-      {isAdmin && viewMode === 'stock' && (
-        <div className="fixed bottom-40 right-4 z-40 flex flex-col gap-3">
-          <button
-            onClick={handleDownloadView}
-            disabled={isGeneratingPDF}
-            className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all ${
-              isGeneratingPDF
-                ? 'bg-subtle text-muted cursor-wait'
-                : 'bg-surface text-accent border border-accent/20 hover:bg-blue-500 hover:text-white hover:border-blue-500 hover:shadow-blue-500/20'
-            }`}
-            title="Download Filtered Stock PDF"
-          >
-            {isGeneratingPDF ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent" />
-            ) : (
-              <FileDown size={20} />
-            )}
-          </button>
-        </div>
-      )}
+      {/* Intentionally removed — PDF download moved to FAB menu below */}
 
       <SearchInput
         ref={searchInputRef}
@@ -895,15 +877,54 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
       </div>
 
       {viewMode === 'stock' ? (
-        <div className="fixed bottom-24 right-4 flex flex-col gap-3 z-40">
-          <button
-            onClick={() => handleAddItem('LUDLOW')}
-            className="w-16 h-16 ios-btn-primary shadow-2xl shadow-accent/40 active:scale-90 transition-transform"
-            title="Add New SKU"
-          >
-            <Plus size={32} strokeWidth={3} />
-          </button>
-        </div>
+        <>
+          {/* Backdrop to close menu */}
+          {fabMenuOpen && (
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setFabMenuOpen(false)}
+            />
+          )}
+          <div className="fixed bottom-24 right-4 flex flex-col items-end gap-2 z-40">
+            {/* Expandable actions */}
+            {fabMenuOpen && (
+              <div className="flex flex-col items-end gap-2 animate-staggered-fade-in">
+                <button
+                  onClick={() => { handleAddItem('LUDLOW'); setFabMenuOpen(false); }}
+                  className="flex items-center gap-2 h-11 pl-4 pr-3 bg-surface border border-subtle rounded-full shadow-lg active:scale-95 transition-all"
+                >
+                  <span className="text-[11px] font-bold text-content uppercase tracking-wider">Add SKU</span>
+                  <Plus size={18} className="text-accent" />
+                </button>
+                <button
+                  onClick={() => { handleDownloadView(); setFabMenuOpen(false); }}
+                  disabled={isGeneratingPDF}
+                  className="flex items-center gap-2 h-11 pl-4 pr-3 bg-surface border border-subtle rounded-full shadow-lg active:scale-95 transition-all disabled:opacity-50"
+                >
+                  <span className="text-[11px] font-bold text-content uppercase tracking-wider">
+                    {isGeneratingPDF ? 'Generating...' : 'Download PDF'}
+                  </span>
+                  {isGeneratingPDF ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent" />
+                  ) : (
+                    <FileDown size={18} className="text-accent" />
+                  )}
+                </button>
+              </div>
+            )}
+            {/* Main FAB — 3 dots */}
+            <button
+              onClick={() => setFabMenuOpen((v) => !v)}
+              className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-all active:scale-90 ${
+                fabMenuOpen
+                  ? 'bg-content text-main rotate-90'
+                  : 'bg-accent text-white shadow-accent/30'
+              }`}
+            >
+              <MoreHorizontal size={24} strokeWidth={3} />
+            </button>
+          </div>
+        </>
       ) : null}
 
       <ItemDetailView
