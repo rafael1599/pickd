@@ -54,7 +54,9 @@ export function useActivityReport(date: string) {
       const dayStart = `${date}T00:00:00`;
       const dayEnd = `${date}T23:59:59`;
 
-      const [pickingRes, logsRes, cycleRes, profilesRes, verifiedRes, statsRes, notesRes] =
+      const twoMonthsAgo = new Date(new Date(dayEnd).getTime() - 60 * 24 * 60 * 60 * 1000).toISOString();
+
+      const [pickingRes, logsRes, cycleRes, profilesRes, verifiedRes, moveAddRes, statsRes, notesRes] =
         await Promise.all([
           supabase
             .from('picking_lists')
@@ -85,8 +87,16 @@ export function useActivityReport(date: string) {
             .from('cycle_count_items')
             .select('sku')
             .in('status', ['counted', 'verified'])
-            .gte('counted_at', new Date(new Date(dayEnd).getTime() - 60 * 24 * 60 * 60 * 1000).toISOString())
+            .gte('counted_at', twoMonthsAgo)
             .lte('counted_at', dayEnd),
+          // SKUs physically touched via MOVE or ADD in last 60 days (coverage)
+          supabase
+            .from('inventory_logs')
+            .select('sku')
+            .in('action_type', ['MOVE', 'ADD'])
+            .eq('is_reversed', false)
+            .gte('created_at', twoMonthsAgo)
+            .lte('created_at', dayEnd),
           supabase.rpc('get_inventory_stats' as never, { p_include_parts: true } as never),
           supabase
             .from('picking_list_notes')
@@ -168,8 +178,11 @@ export function useActivityReport(date: string) {
         )
         .sort((a, b) => a.full_name.localeCompare(b.full_name));
 
-      // Verified SKUs (2 months) — count distinct
-      const verifiedSkus = new Set((verifiedRes.data ?? []).map((r: { sku: string }) => r.sku));
+      // Verified SKUs (2 months) — cycle counts + moves + adds
+      const verifiedSkus = new Set([
+        ...(verifiedRes.data ?? []).map((r: { sku: string }) => r.sku),
+        ...(moveAddRes.data ?? []).map((r: { sku: string }) => r.sku),
+      ]);
       const statsRaw = statsRes.data as unknown as Record<string, unknown>[] | Record<string, unknown> | null;
       const statsRow = (Array.isArray(statsRaw) ? statsRaw[0] : statsRaw) ?? {};
       const totalSkus = Number(statsRow?.total_skus ?? 0);
