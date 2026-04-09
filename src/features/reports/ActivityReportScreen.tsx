@@ -51,6 +51,7 @@ export const ActivityReportScreen = () => {
   const [noteUser, setNoteUser] = useState('');
   const [noteText, setNoteText] = useState('');
   const [winOfTheDay, setWinOfTheDay] = useState('');
+  const [pickdUpdatesText, setPickdUpdatesText] = useState('');
   const [routineChecklist, setRoutineChecklist] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
 
@@ -60,7 +61,11 @@ export const ActivityReportScreen = () => {
   const { data: tasksInProgress } = useTasksInProgress();
   const { data: tasksFuture } = useTasksFuture();
 
-  const pickdUpdates = (tasksCompleted ?? []).map((t) => t.title);
+  const pickdUpdates = pickdUpdatesText
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const doneToday = (tasksCompleted ?? []).map((t) => t.title);
   const inProgress = (tasksInProgress ?? []).map((t) => t.title);
   const comingUpNext = (tasksFuture ?? []).slice(0, 3).map((t) => t.title);
 
@@ -68,6 +73,7 @@ export const ActivityReportScreen = () => {
     setSelectedDate(newDate);
     setNotes([]);
     setWinOfTheDay('');
+    setPickdUpdatesText('');
     setRoutineChecklist([]);
   }, []);
 
@@ -189,6 +195,7 @@ export const ActivityReportScreen = () => {
               winOfTheDay={winOfTheDay}
               routineChecklist={routineChecklist}
               pickdUpdates={pickdUpdates}
+              doneToday={doneToday}
               inProgress={inProgress}
               comingUpNext={comingUpNext}
             />
@@ -205,6 +212,15 @@ export const ActivityReportScreen = () => {
           onChange={(e) => setWinOfTheDay(e.target.value)}
           placeholder="Win of the day..."
           className="w-full h-10 px-3 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40"
+        />
+
+        {/* PickD Updates — manual multiline */}
+        <textarea
+          value={pickdUpdatesText}
+          onChange={(e) => setPickdUpdatesText(e.target.value)}
+          placeholder="PickD updates (one per line)..."
+          rows={2}
+          className="w-full px-3 py-2 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40 resize-none"
         />
 
         {/* Routine checklist toggles */}

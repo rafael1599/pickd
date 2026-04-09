@@ -11,6 +11,7 @@ const FONT =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
 
 const GREEN = '#10b981';
+const EMERALD = '#059669';
 const INDIGO = '#6366f1';
 const BLUE = '#3b82f6';
 const CYAN = '#06b6d4';
@@ -30,6 +31,7 @@ interface Props {
   winOfTheDay: string;
   routineChecklist: string[];
   pickdUpdates: string[];
+  doneToday: string[];
   inProgress: string[];
   comingUpNext: string[];
 }
@@ -96,6 +98,7 @@ export const ActivityReportView: React.FC<Props> = ({
   winOfTheDay,
   routineChecklist,
   pickdUpdates,
+  doneToday,
   inProgress,
   comingUpNext,
 }) => {
@@ -130,6 +133,7 @@ export const ActivityReportView: React.FC<Props> = ({
 
   const hasWin = winOfTheDay.trim().length > 0;
   const hasPickdUpdates = pickdUpdates.length > 0;
+  const hasDoneToday = doneToday.length > 0;
   const hasInProgress = inProgress.length > 0;
   const hasFloorContent = floorBullets.length > 0;
   const hasComingUp = comingUpNext.length > 0;
@@ -207,6 +211,29 @@ export const ActivityReportView: React.FC<Props> = ({
                   }}
                 >
                   <span style={bulletStyle(INDIGO)}>&#9679;</span>
+                  &nbsp;&nbsp;{item}
+                </p>
+              ))}
+            </div>
+            <div style={spacerStyle} />
+          </>
+        )}
+
+        {/* DONE TODAY — auto from kanban "Hecho" */}
+        {hasDoneToday && (
+          <>
+            <div style={cardStyle}>
+              <p style={sectionHeaderStyle(EMERALD)}>DONE TODAY</p>
+              {doneToday.map((item, i) => (
+                <p
+                  key={i}
+                  style={{
+                    ...bulletTextStyle,
+                    padding: i < doneToday.length - 1 ? '0 0 10px 0' : 0,
+                    margin: 0,
+                  }}
+                >
+                  <span style={bulletStyle(EMERALD)}>&#9679;</span>
                   &nbsp;&nbsp;{item}
                 </p>
               ))}
