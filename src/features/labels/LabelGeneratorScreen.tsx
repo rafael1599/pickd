@@ -16,7 +16,7 @@ import PenLine from 'lucide-react/dist/esm/icons/pen-line';
 import { parseBikeName } from '../inventory/utils/parseBikeName';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { generateBikeLabels, type LabelItem } from '../inventory/utils/generateBikeLabel';
+import { generateBikeLabels, type LabelItem, VALID_TRANSITIONS } from '../inventory/utils/generateBikeLabel';
 import toast from 'react-hot-toast';
 
 interface BikeRow {
@@ -711,6 +711,8 @@ export const LabelGeneratorScreen = () => {
           ] as [string, string, string][];
           let editState: Record<string, string> = {};
           fields.forEach(([key, , val]) => { editState[key] = val; });
+          let selectedStatus = et.status;
+          const validTargets = VALID_TRANSITIONS[et.status] ?? [];
 
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-main/60 backdrop-blur-md">
@@ -723,6 +725,20 @@ export const LabelGeneratorScreen = () => {
                   <button onClick={() => setEditingTag(null)} className="p-2 text-muted hover:text-content"><X size={18} /></button>
                 </div>
                 <div className="space-y-2">
+                  {/* Status dropdown */}
+                  <div>
+                    <label className="text-[9px] text-muted font-black uppercase tracking-widest">Status</label>
+                    <select
+                      defaultValue={et.status}
+                      onChange={(e) => { selectedStatus = e.target.value; }}
+                      className="w-full h-9 px-3 bg-card border border-subtle rounded-lg text-xs text-content focus:outline-none focus:border-accent/40"
+                    >
+                      <option value={et.status} disabled>{et.status}</option>
+                      {validTargets.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
                   {fields.map(([key, label, defaultVal]) => (
                     <div key={key}>
                       <label className="text-[9px] text-muted font-black uppercase tracking-widest">{label}</label>
@@ -737,7 +753,19 @@ export const LabelGeneratorScreen = () => {
                 </div>
                 <div className="flex gap-2 mt-4">
                   <button
-                    onClick={() => handleSaveTag(et.id, editState)}
+                    onClick={() => {
+                      const updates: Record<string, string | null> = { ...editState };
+                      if (selectedStatus !== et.status) {
+                        const allowed = VALID_TRANSITIONS[et.status] ?? [];
+                        if (allowed.includes(selectedStatus)) {
+                          updates.status = selectedStatus;
+                        } else {
+                          toast.error(`Cannot transition from ${et.status} to ${selectedStatus}`);
+                          return;
+                        }
+                      }
+                      handleSaveTag(et.id, updates);
+                    }}
                     className="flex-1 h-10 bg-accent text-main font-bold text-[10px] uppercase tracking-widest rounded-xl active:scale-95"
                   >
                     Save

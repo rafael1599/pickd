@@ -8,6 +8,10 @@ export interface LabelItem {
   extra?: string | null;
   prefix?: string | null;
   layout?: 'standard' | 'vertical';
+  upc?: string | null;
+  serial_number?: string | null;
+  made_in?: string | null;
+  po_number?: string | null;
 }
 
 export const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -252,6 +256,26 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
           }
         }
 
+        // Extra fields (UPC, Serial, Made In, P/O) — centered
+        {
+          const efLines: string[] = [];
+          if (item.upc?.trim()) efLines.push(`UPC: ${item.upc.trim()}`);
+          if (item.serial_number?.trim()) efLines.push(`SERIAL: ${item.serial_number.trim()}`);
+          if (item.made_in?.trim()) efLines.push(`MADE IN: ${item.made_in.trim()}`);
+          if (item.po_number?.trim()) efLines.push(`P/O: ${item.po_number.trim()}`);
+          if (efLines.length > 0) {
+            const efFontSize = Math.round(vSkuFont * 0.4);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(efFontSize);
+            doc.setTextColor(0, 0, 0);
+            vy += 0.05;
+            for (const line of efLines) {
+              doc.text(line, cx, vy + efFontSize * PT_TO_IN, { align: 'center' });
+              vy += efFontSize * PT_TO_IN * 1.3;
+            }
+          }
+        }
+
         // QR (centered, fills remaining space at bottom)
         const remainingH = VH - vy - vM;
         const actualQrSize = Math.min(vQrSize, Math.max(0.8, remainingH - 0.1));
@@ -349,6 +373,27 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
         doc.setFontSize(extraFontSize);
         const extraY = groupTopY + skuTextH + skuBgPadY * 2 + extraFontSize * PT_TO_IN * 0.3;
         doc.text(item.extra!.trim(), M + skuBgPadX, extraY + extraFontSize * PT_TO_IN);
+      }
+
+      // ── Extra fields (UPC, Serial, Made In, P/O) below SKU block ──
+      {
+        const efLines: string[] = [];
+        if (item.upc?.trim()) efLines.push(`UPC: ${item.upc.trim()}`);
+        if (item.serial_number?.trim()) efLines.push(`SERIAL: ${item.serial_number.trim()}`);
+        if (item.made_in?.trim()) efLines.push(`MADE IN: ${item.made_in.trim()}`);
+        if (item.po_number?.trim()) efLines.push(`P/O: ${item.po_number.trim()}`);
+        if (efLines.length > 0) {
+          const efFontSize = Math.round(skuFontSize * 0.4);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(efFontSize);
+          doc.setTextColor(0, 0, 0);
+          let efY = groupTopY + groupH + efFontSize * PT_TO_IN * 0.3;
+          for (const line of efLines) {
+            efY += efFontSize * PT_TO_IN;
+            doc.text(line, M + skuBgPadX, efY);
+            efY += efFontSize * PT_TO_IN * 0.3;
+          }
+        }
       }
 
       // ── QR (fills right side of main zone) ──
