@@ -16,6 +16,7 @@ import ClipboardList from 'lucide-react/dist/esm/icons/clipboard-list';
 import FileSearch from 'lucide-react/dist/esm/icons/file-search';
 import Kanban from 'lucide-react/dist/esm/icons/kanban';
 import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
+import Printer from 'lucide-react/dist/esm/icons/printer';
 import { InventorySnapshotModal } from '../../features/inventory/components/InventorySnapshotModal';
 import { useScrollLock } from '../../hooks/useScrollLock';
 
@@ -351,6 +352,24 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                 <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-3 block">
                   Admin Tools
                 </label>
+
+                <button
+                  onClick={() => navTo('/labels')}
+                  className="flex items-center justify-between w-full group text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-surface border border-subtle rounded-xl text-accent">
+                      <Printer size={16} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-content uppercase tracking-tight">Bike Labels</p>
+                      <p className="text-[9px] text-muted font-bold uppercase">QR asset tags</p>
+                    </div>
+                  </div>
+                  <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
+                </button>
+
+                <div className="h-px bg-subtle my-2" />
 
                 <button
                   onClick={() => setIsSnapshotOpen(true)}

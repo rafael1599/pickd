@@ -80,15 +80,8 @@
 ### ~~25. Notas de corrección interactivas + recovery de órdenes reopened~~ <!-- id: idea-043 --> ✅
 - ~~Implementado: ReasonPicker con presets por tipo de acción (remove/swap/adjust/add/reopen). Notas ricas con razón ("Removed X: Out of stock"). Auto-detección de insufficient_stock pre-selecciona razón. Smart tip "use Replace instead" cuando se hace remove+add. Botón "Continue Editing" / "Take Over & Edit" para órdenes stuck en reopened. Reopen reason se pasa al RPC.~~
 
-### 27. Daily Warehouse Activity Report — Refinamiento <!-- id: idea-041 -->
-- **Base implementada:** pantalla `/activity-report` (admin only) con navegación por fecha, KPI accuracy, notas efímeras, desglose por usuario.
-- **Refinamiento pendiente:**
-  1. Notas del supervisor arriba de todo (mover posición actual)
-  2. Resumen compacto debajo: órdenes completadas, correcciones del día (`picking_list_notes` — nuevo query), accuracy KPI
-  3. Detalle completo colapsable: desglose por usuario, items procesados, equipo, categorías, cycle counts (todo lo actual va aquí)
-  4. Print: expande todo automáticamente
-  5. Mantener estilos existentes del HTML actual
-- **Dato faltante:** `picking_list_notes` no se consulta aún — agregar query + contar correcciones del día.
+### ~~27. Daily Warehouse Activity Report — Refinamiento~~ <!-- id: idea-041 --> ✅
+- ~~Implementado: layout tipo HTML email (cards con border-radius, colores por sección). Secciones condicionales: WIN OF THE DAY (manual), PICKD UPDATES (manual multiline), DONE TODAY (auto kanban), IN PROGRESS (auto kanban), ON THE FLOOR (auto órdenes + checklist rutinario 7 toggles + notas), COMING UP NEXT (auto kanban futuro), Inventory Accuracy KPI. Correcciones del día desde picking_list_notes. Team detail colapsable. Copy Report button. Colores alineados con /projects board.~~
 
 ### ~~28. Reestructurar menú principal~~ <!-- id: idea-045 --> ✅
 - ~~Implementado: hamburger (3 líneas) reemplaza avatar. Warehouse Activities como contenido principal del menú. Profile/theme/sync repair en sub-panel accesible desde footer. Eliminado Export Inventory CSV (dead code + csvParser.ts).~~

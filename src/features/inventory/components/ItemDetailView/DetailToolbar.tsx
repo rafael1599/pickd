@@ -3,6 +3,7 @@ import X from 'lucide-react/dist/esm/icons/x';
 import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import EyeOff from 'lucide-react/dist/esm/icons/eye-off';
+import Printer from 'lucide-react/dist/esm/icons/printer';
 
 interface DetailToolbarProps {
   title: string;
@@ -10,6 +11,7 @@ interface DetailToolbarProps {
   onBack: () => void;
   onDelete?: () => void;
   onMarkInactive?: () => void;
+  onPrintLabel?: () => void;
 }
 
 export const DetailToolbar: React.FC<DetailToolbarProps> = ({
@@ -18,6 +20,7 @@ export const DetailToolbar: React.FC<DetailToolbarProps> = ({
   onBack,
   onDelete,
   onMarkInactive,
+  onPrintLabel,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -38,13 +41,25 @@ export const DetailToolbar: React.FC<DetailToolbarProps> = ({
               <>
                 <div className="fixed inset-0 z-20" onClick={() => setMenuOpen(false)} />
                 <div className="absolute left-0 top-full mt-1 z-30 bg-surface border border-subtle rounded-xl shadow-xl overflow-hidden min-w-[180px] animate-in fade-in slide-in-from-top-2 duration-150">
+                  {onPrintLabel && (
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        onPrintLabel();
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-content hover:bg-card transition-colors"
+                    >
+                      <Printer size={16} className="text-muted" />
+                      Print Label
+                    </button>
+                  )}
                   {onMarkInactive && (
                     <button
                       onClick={() => {
                         setMenuOpen(false);
                         onMarkInactive();
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-content hover:bg-white/5 transition-colors"
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-content hover:bg-card transition-colors"
                     >
                       <EyeOff size={16} className="text-muted" />
                       Mark Inactive

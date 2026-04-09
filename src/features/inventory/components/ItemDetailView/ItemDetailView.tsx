@@ -27,6 +27,9 @@ import { calculateBikeDistribution } from '../../../../utils/distributionCalcula
 import { inventoryService } from '../../api/inventory.service.ts';
 import { uploadPhoto, deletePhoto } from '../../../../services/photoUpload.service';
 import { useScrollLock } from '../../../../hooks/useScrollLock';
+import { supabase } from '../../../../lib/supabase';
+import { useAuth } from '../../../../context/AuthContext';
+import { generateBikeLabels } from '../../utils/generateBikeLabel';
 
 import { useActiveField } from './useActiveField.ts';
 import { DetailToolbar } from './DetailToolbar.tsx';
@@ -78,6 +81,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   const { setIsNavHidden } = useViewMode();
   const { showConfirmation } = useConfirmation();
   const { activeField, setActiveField, isActive } = useActiveField();
+  const { user } = useAuth();
 
   // Distribution state
   const [distribution, setDistribution] = useState<DistributionItem[]>([]);
@@ -704,6 +708,26 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   }, [mode, itemName, sku]);
 
   const isAddMode = mode === 'add';
+  const isBikeItem = initialData?.sku_metadata?.is_bike === true;
+
+  const handlePrintLabel = useCallback(async () => {
+    if (!sku || !user) return;
+    try {
+      const { data: tags, error } = await (supabase as any)
+        .from('asset_tags')
+        .insert([{ sku, warehouse: 'LUDLOW', created_by: user.id, printed_at: new Date().toISOString() }])
+        .select('short_code, sku');
+      if (error || !tags?.[0]) throw error || new Error('No tag returned');
+      const blobUrl = await generateBikeLabels([
+        { sku, item_name: itemName, short_code: tags[0].short_code },
+      ]);
+      window.open(blobUrl, '_blank');
+      toast.success(`Label created: ${tags[0].short_code}`);
+    } catch (err) {
+      console.error('Print label failed:', err);
+      toast.error('Failed to print label');
+    }
+  }, [sku, itemName, user]);
 
   if (!isOpen) return null;
 
@@ -736,6 +760,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         mode={mode}
         onBack={onClose}
         onDelete={mode === 'edit' ? handleDelete : undefined}
+        onPrintLabel={mode === 'edit' && isBikeItem ? handlePrintLabel : undefined}
       />
 
       {/* Photo Hero */}
