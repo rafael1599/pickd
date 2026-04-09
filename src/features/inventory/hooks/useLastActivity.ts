@@ -21,11 +21,14 @@ export function useLastActivity(skus: string[]) {
     queryFn: async (): Promise<Map<string, LastActivity>> => {
       if (skus.length === 0) return new Map();
 
+      // Only fetch events that actually changed inventory qty
       const { data, error } = await supabase
         .from('inventory_logs')
         .select('sku, action_type, from_location, to_location, quantity_change, order_number, created_at')
         .in('sku', skus)
+        .in('action_type', ['MOVE', 'DEDUCT', 'ADD', 'DELETE'])
         .eq('is_reversed', false)
+        .neq('quantity_change', 0)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
