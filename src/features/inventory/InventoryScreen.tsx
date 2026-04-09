@@ -915,10 +915,10 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
             {/* Main FAB — 3 dots */}
             <button
               onClick={() => setFabMenuOpen((v) => !v)}
-              className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-all active:scale-90 ${
+              className={`w-14 h-14 rounded-full flex items-center justify-center transition-all active:scale-90 ${
                 fabMenuOpen
-                  ? 'bg-content text-main rotate-90'
-                  : 'bg-accent text-white shadow-accent/30'
+                  ? 'bg-accent text-white shadow-xl shadow-accent/30 rotate-90'
+                  : 'text-accent hover:bg-accent hover:text-white hover:shadow-xl hover:shadow-accent/30'
               }`}
             >
               <MoreHorizontal size={24} strokeWidth={3} />
