@@ -715,7 +715,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     try {
       const { data: tags, error } = await (supabase as any)
         .from('asset_tags')
-        .insert([{ sku, warehouse: 'LUDLOW', created_by: user.id, printed_at: new Date().toISOString() }])
+        .insert([{ sku, warehouse: 'LUDLOW', location: initialData?.location ?? null, created_by: user.id, printed_at: new Date().toISOString() }])
         .select('short_code, sku');
       if (error || !tags?.[0]) throw error || new Error('No tag returned');
       const blobUrl = await generateBikeLabels([

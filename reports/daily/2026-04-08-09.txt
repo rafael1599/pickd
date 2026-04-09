@@ -1,0 +1,27 @@
+Progress Update — April 8-9, 2026 at 10:45 AM
+
+WIN OF THE DAY (April 8):
+Anyone on the team can now generate a professional daily report in under a minute — no technical skills, no AI, just tap and copy.
+
+WIN OF THE DAY (April 9):
+The app now has a project board where completed tasks automatically show up in the daily report — progress tracks itself.
+
+WHAT'S BETTER NOW:
+- There's a new Activity Report screen where you fill in a few quick fields, hit Copy, and paste a clean summary into email. It pulls order counts and team activity automatically.
+- A new Projects board lets you move tasks between "Coming Up", "In Progress", and "Done" columns. Whatever gets marked done feeds straight into the daily report.
+- Inventory accuracy used to only count items that were manually audited — less than 1% of stock. Now the system also counts items that were physically moved or received, bringing coverage above 20% with zero extra work.
+- Searching for an item that's out of stock no longer shows a confusing full card. Instead, a small "No stock" section tells you what happened — moved to another row, shipped in an order, or deleted — and when.
+- The two floating buttons (Add SKU and Download PDF) have been replaced with a single menu button that only opens when you need it.
+- Editing reasons on an order used to be invisible in light mode — now they show up correctly in both themes.
+
+ON THE FLOOR:
+- Built BOLs and loaded trucks for shipments.
+- Moved bikes between rows to organize inventory.
+- Picked and verified orders throughout both days.
+
+COMING UP NEXT:
+- Show correction notes inside the picking summary so checkers can see what changed
+- Custom names for distribution types ("Box", "Crate") instead of generic "Other"
+
+34 done in 2 days / 17 in the queue (10 high priority, 6 medium, 1 bug)
+Note: today's changes are on staging preview but not yet live in production.
