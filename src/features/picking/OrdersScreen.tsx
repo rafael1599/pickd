@@ -50,6 +50,7 @@ interface OrderWithRelations {
   user: { full_name: string | null } | null;
   checker: { full_name: string | null } | null;
   presence: { last_seen_at: string | null } | null;
+  pallet_photos: string[] | null;
   order_group: { group_type: string | null } | null;
 }
 
@@ -1135,6 +1136,7 @@ export const OrdersScreen = () => {
           completedAt={selectedOrder.updated_at}
           pickedBy={selectedOrder.user?.full_name ?? undefined}
           checkedBy={selectedOrder.checker?.full_name ?? undefined}
+          palletPhotos={selectedOrder.pallet_photos ?? undefined}
           onClose={() => setIsShowingPickingSummary(false)}
         />
       )}

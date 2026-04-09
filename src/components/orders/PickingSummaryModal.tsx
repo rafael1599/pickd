@@ -11,6 +11,7 @@ interface PickingSummaryModalProps {
   completedAt?: string;
   pickedBy?: string;
   checkedBy?: string;
+  palletPhotos?: string[];
   onClose: () => void;
 }
 
@@ -20,6 +21,7 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
   completedAt,
   pickedBy,
   checkedBy,
+  palletPhotos,
   onClose,
 }) => {
   useScrollLock(true, onClose);
@@ -157,6 +159,25 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
                 </div>
               </div>
             ))
+          )}
+
+          {/* Pallet Scan Photos */}
+          {palletPhotos && palletPhotos.length > 0 && (
+            <div className="mt-8">
+              <p className="text-[10px] text-white/30 font-black uppercase tracking-widest mb-3">
+                Scan Verification Photos
+              </p>
+              <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                {palletPhotos.map((url, i) => (
+                  <img
+                    key={i}
+                    src={url}
+                    alt={`Pallet scan ${i + 1}`}
+                    className="w-32 h-32 object-cover rounded-xl border border-white/10 shrink-0"
+                  />
+                ))}
+              </div>
+            </div>
           )}
         </div>
 

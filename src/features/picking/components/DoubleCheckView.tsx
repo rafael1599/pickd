@@ -24,7 +24,11 @@ import { ItemDetailView } from '../../inventory/components/ItemDetailView';
 import Pencil from 'lucide-react/dist/esm/icons/pencil';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import Lock from 'lucide-react/dist/esm/icons/lock';
+import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import toast from 'react-hot-toast';
+import { scanImageForQRCodes } from '../../../hooks/useQRScanner';
+import { parseQRPayload, aggregateScanResults } from '../utils/parseQRPayload';
+import Camera from 'lucide-react/dist/esm/icons/camera';
 
 /** Priority: lower number = pick first. Pallets are overstock we want gone ASAP. */
 const DISTRIBUTION_PRIORITY: Record<string, number> = { PALLET: 0, LINE: 1, TOWER: 2, OTHER: 3 };
@@ -139,6 +143,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const { showConfirmation } = useConfirmation();
   const { pallets: originalPallets, deleteList } = usePickingSession();
   const [isDeducting, setIsDeducting] = useState(false);
+  const [scanResults, setScanResults] = useState<Map<string, Set<string>>>(new Map());
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanStatus, setScanStatus] = useState<string>('');
+  const scanInputRef = useRef<HTMLInputElement>(null);
 
   // Track original items snapshot for reopened orders to detect changes
   const [reopenedSnapshot] = useState(() =>
@@ -489,6 +497,76 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     });
   }, [cartItems]);
 
+  const handleScanPallet = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = ''; // reset for re-scan
+
+    setIsScanning(true);
+    setScanStatus('Processing image...');
+
+    try {
+      const rawResults = await scanImageForQRCodes(file);
+      setScanStatus(`Detected ${rawResults.length} QR codes. Matching...`);
+
+      const payloads = rawResults.map(parseQRPayload).filter(Boolean) as { shortCode: string; sku: string }[];
+      const orderSkus = cartItems.map((item) => item.sku);
+      const { matched, unmatched } = aggregateScanResults(payloads, orderSkus);
+
+      // Accumulate with previous scan results
+      setScanResults((prev) => {
+        const next = new Map(prev);
+        for (const [sku, codes] of matched) {
+          const existing = next.get(sku) ?? new Set();
+          for (const code of codes) existing.add(code);
+          next.set(sku, existing);
+        }
+        return next;
+      });
+
+      // Show warnings for unmatched
+      if (unmatched.length > 0) {
+        const skuList = [...new Set(unmatched.map((u) => u.sku))].join(', ');
+        toast(`${unmatched.length} QR(s) not in this order: ${skuList}`, { icon: '⚠️', duration: 5000 });
+      }
+
+      const totalMatched = [...matched.values()].reduce((sum, set) => sum + set.size, 0);
+      setScanStatus(`${totalMatched} QR codes matched. Tap "Scan" to add more.`);
+
+      // TODO: Upload photo as proof (async, non-blocking)
+      // uploadPalletPhoto(file, orderNumber);
+
+    } catch (err) {
+      console.error('Scan failed:', err);
+      setScanStatus('Scan failed. Try again.');
+    } finally {
+      setIsScanning(false);
+    }
+  }, [cartItems]);
+
+  // Auto-check items where scan count >= pickingQty
+  useEffect(() => {
+    if (scanResults.size === 0) return;
+    for (const [sku, codes] of scanResults) {
+      const scannedCount = codes.size;
+      const matchingItems = cartItems.filter((item) => item.sku === sku);
+      for (const item of matchingItems) {
+        if (scannedCount >= item.pickingQty) {
+          for (const pallet of pallets) {
+            for (const pItem of pallet.items) {
+              if (pItem.sku === sku) {
+                const key = `${pallet.id}-${pItem.sku}-${pItem.location}`;
+                if (!checkedItems.has(key)) {
+                  onToggleCheck(pItem, pallet.id);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }, [scanResults, cartItems, pallets, checkedItems, onToggleCheck]);
+
   const handleConfirm = async () => {
     const isFullyVerified = verifiedUnitsCount === totalUnitsCount;
     setIsDeducting(true);
@@ -698,6 +776,29 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           </button>
         </div>
 
+        {/* Hidden camera input for pallet scan */}
+        <input
+          ref={scanInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleScanPallet}
+          className="hidden"
+        />
+        <div className="flex items-center gap-2 mb-4">
+          <button
+            onClick={() => scanInputRef.current?.click()}
+            disabled={isScanning}
+            className="flex items-center gap-2 px-4 py-2 bg-accent/10 border border-accent/20 rounded-xl text-accent text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-50"
+          >
+            {isScanning ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
+            {isScanning ? 'Scanning...' : 'Scan Pallet'}
+          </button>
+          {scanStatus && (
+            <p className="text-[10px] text-accent font-bold">{scanStatus}</p>
+          )}
+        </div>
+
         {pallets.length === 0 && cartItems.length > 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <AlertCircle className="text-amber-500 mb-4 opacity-30" size={48} />
@@ -893,6 +994,19 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                 LOW STOCK
                               </span>
                             )}
+                            {(() => {
+                              const scannedCount = scanResults.get(item.sku)?.size ?? 0;
+                              if (scannedCount === 0) return null;
+                              return (
+                                <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${
+                                  scannedCount >= item.pickingQty
+                                    ? 'bg-green-500/20 text-green-500'
+                                    : 'bg-amber-500/20 text-amber-500'
+                                }`}>
+                                  {scannedCount}/{item.pickingQty} scanned
+                                </span>
+                              );
+                            })()}
                           </div>
                           {/* Product name — item_name from DB, or description from PDF */}
                           {(item.item_name || item.description) && (
