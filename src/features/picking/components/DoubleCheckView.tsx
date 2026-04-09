@@ -29,6 +29,7 @@ import toast from 'react-hot-toast';
 import { scanImageForQRCodes } from '../../../hooks/useQRScanner';
 import { parseQRPayload, aggregateScanResults } from '../utils/parseQRPayload';
 import Camera from 'lucide-react/dist/esm/icons/camera';
+import { compressImage } from '../../../services/photoUpload.service';
 
 /** Priority: lower number = pick first. Pallets are overstock we want gone ASAP. */
 const DISTRIBUTION_PRIORITY: Record<string, number> = { PALLET: 0, LINE: 1, TOWER: 2, OTHER: 3 };
@@ -533,8 +534,34 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       const totalMatched = [...matched.values()].reduce((sum, set) => sum + set.size, 0);
       setScanStatus(`${totalMatched} QR codes matched. Tap "Scan" to add more.`);
 
-      // TODO: Upload photo as proof (async, non-blocking)
-      // uploadPalletPhoto(file, orderNumber);
+      // Upload photo as proof (async, non-blocking)
+      if (activeListId) {
+        (async () => {
+          try {
+            const { image } = await compressImage(file);
+            const orderNum = orderNumber || 'unknown';
+            const timestamp = Date.now();
+            const { data: uploadResult } = await supabase.functions.invoke('upload-photo', {
+              body: { image, thumbnail: image, sku: `pallet-scan/${orderNum}/${timestamp}` },
+            });
+            if (uploadResult?.url) {
+              // Read current photos, append new, write back
+              const { data: current } = await (supabase as any)
+                .from('picking_lists')
+                .select('pallet_photos')
+                .eq('id', activeListId)
+                .single();
+              const photos = [...(((current as any)?.pallet_photos as string[]) ?? []), uploadResult.url];
+              await (supabase as any)
+                .from('picking_lists')
+                .update({ pallet_photos: photos })
+                .eq('id', activeListId);
+            }
+          } catch (err) {
+            console.error('Pallet photo upload failed:', err);
+          }
+        })();
+      }
 
     } catch (err) {
       console.error('Scan failed:', err);
