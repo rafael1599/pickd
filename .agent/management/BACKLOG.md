@@ -1,63 +1,36 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-04-10 (sesión PM — idea-052 cerrada en 4 fases)
+> Actualizado: 2026-04-10 (compactado — 12 items archivados, 7 micro-compactados)
 
 ---
 
 ## P1 — Alto (operación diaria)
-
-### ~~21. Campos de bicicleta en `sku_metadata`~~ <!-- id: idea-042 --> ✅
-- ~~Implementado: columnas `is_bike` y `upc` en `sku_metadata`. Migración pobló `is_bike` automáticamente desde SKUs existentes. Filtros de stock view usan `is_bike` en vez de location.~~
-
-### ~~21a. Detección mejorada bike vs part~~ <!-- id: idea-038A --> ✅
-- ~~Implementado: filtros e inventario usan `sku_metadata.is_bike` como fuente de verdad. Stats RPC filtra por `is_bike`. Regex como fallback final.~~
 
 ### 26. Mostrar notas en picking summary <!-- id: idea-044 -->
 - **Problema:** Las notas de corrección (picking_list_notes) no se muestran en el resumen de picking. El picker/checker no ve el historial de cambios al revisar una orden.
 - **Solución:** Incluir las notas relevantes en la vista de picking summary (OrdersScreen o label preview area).
 - **Datos:** Tabla `picking_list_notes` ya tiene las notas con timestamps y usuario.
 
-### ~~21b. Fallback manual BIKES/PARTS en labels~~ <!-- id: idea-038B --> ✅
-- ~~Implementado: campos editables BIKES/PARTS en OrderSidebar con auto-cálculo y override manual. Total Units derivado de bikes + parts. Labels usan los valores manuales cuando se proveen.~~
-
-### ~~29. Estandarización visual completa~~ <!-- id: idea-046 --> ✅ (parcialmente revertido)
-- ~~Implementado en 4 fases: (1) colores de acción estandarizados con 8 roles semánticos en 12 archivos, (2a) z-index normalizado a 6 capas en 19 archivos, (2b) 18 overlays migrados a bg-main/60, (2c) DoubleCheckView y CorrectionModeView migrados de bg-black/text-white a tokens semánticos (~100 cambios). Picking drawer scoped a home route + picking viewMode.~~
-- **Revert parcial (2026-04-08):** z-index phase 2a bajó modales a z-50 pero no bajó headers/nav (z-[100]+). 6 modales restaurados: PickingSummaryModal/PalletLabels/SplitOrder/GroupOrder→z-[150], Confirmation/Error→z-[200]. PickingSummaryModal también restauró colores hardcoded del backdrop (Graphite Frost).
+### ~~29. Estandarización visual completa~~ <!-- id: idea-046 --> ✅ 2026-04-08
+- 4 fases: colors (`82bcfc8`) → z-index (`27cf781`) → overlays (`723e57e`) → picking screens (`f28c666`). Revert parcial: 6 modales restaurados a z-[150]/[200] (`7b23781`).
 
 ### 22. Alerta de orden duplicada por cliente + reabrir <!-- id: idea-039 -->
 - **Problema:** Cuando llega una orden nueva para un cliente cuya orden anterior ya fue completada, el picker no se entera y la procesa por separado.
 - **Solución:** Al abrir una orden en la app, detectar si existe otra orden **completada** del mismo `customer_name`. Mostrar alerta con opción de reabrir la completada y mergear los items nuevos. Usa la lógica existente de `reopened` + snapshot tracking para no deducir dos veces items ya recogidos.
 - **Ubicación:** En la app (al abrir la orden), no en watchdog.
 
-### 23. Generador de SKU labels para bicicletas <!-- id: idea-040 -->
-- **Problema:** No hay forma de generar etiquetas de SKU para bicicletas desde PickD.
-- **Solución:** Label tipo JAMIS (6×4") con: marca, nombre del modelo (de `item_name`), SIZE, COLOR (parseados de `item_name`), UPC + barcode (de `sku_metadata.upc`), SKU grande al fondo.
-- **Depende de:** idea-042 (campo `upc` en `sku_metadata`).
-- **Infra existente:** jsPDF ya en el proyecto. Agregar librería de barcode (`bwip-js` o `jsbarcode`).
-- **Pendiente definir:** Desde dónde se accede (InventoryCard, stock view, batch) y parser de `item_name` para extraer size/color.
-
-### 24. Resumen diario de actividad por usuario (soft) <!-- id: idea-041 -->
-- **Problema:** No hay resumen de lo que se hizo en el warehouse cada día. Se necesita para demostrar que se trabaja, sin exponer métricas de rendimiento individuales.
-- **Tono:** Narrativo y suave. Rangos vagos ("procesó varias órdenes") en vez de números exactos. Sin comparativas entre usuarios.
-- **Datos disponibles:** `inventory_logs` (picks, adds, moves por user_id), `picking_lists` (órdenes por user_id/checked_by), `cycle_count_sessions`, `picking_list_notes`.
-- **Categorías sugeridas:** picking, receiving, warehouse organization, inventory verification.
-- **Prerequisito:** Lluvia de ideas sobre formato, audiencia y frecuencia antes de implementar.
+### ~~23. Generador de SKU labels para bicicletas~~ <!-- id: idea-040 --> ✅ 2026-04-09
+- `7022cbd` — tabla `asset_tags` con sequence (PK-000001) + lifecycle (`printed/in_stock/allocated/picked/shipped/lost`), QR encoding `short_code|sku` (decisión deliberada vs UPC tradicional para trazabilidad por unidad física), labels 4×6" landscape (Side A/B), batch screen `/labels` con location selector + search, individual desde `ItemDetailView` three-dot menu (bikes only). Parser `parseBikeName` con 10 tests. Extendido por `8e1e5a0` (public tag view + anti-enumeration) y `e152d7a` (QR pallet scan en DoubleCheckView).
 
 ### 8. Sub-locations alfabéticas por ROW <!-- id: idea-024 -->
 - **Problema:** ROWs sin subdivisiones. Picker recorre toda la fila buscando un SKU.
 - **Solución:** Nueva columna `sublocation` (varchar, nullable). Display: `ROW 5A`. Backward compatible.
 
-### ~~9. Multi-Address Customers~~ <!-- id: idea-012 --> ✅
-- ~~Implementado: tabla `customer_addresses` con dedup normalizada, dropdown autocomplete en OrderSidebar, auto-save al imprimir.~~
-
 ### 19. Auto-cancel → expiración con reactivación <!-- id: idea-031 -->
 - **Problema:** Auto-cancel a 24hrs sin aviso. Órdenes legítimas desaparecen.
 - **Solución:** Nuevo estado `expired` a 3 días. Visible, reactivable con un tap.
 - **Estado actual:** RPC `auto_cancel_stale_orders` existe con 3 reglas (building 15min=dead code, verification 24h, reopened 2h). Edge function existe pero **no tiene trigger automático** (ni cron ni GitHub Actions). Timer 15min de `building` es dead code (status eliminado en idea-032).
-
-### ~~14. Separar peso de dimensiones + defaults para partes~~ <!-- id: idea-025 --> ✅
-- ~~Implementado: defaults dinámicos por tipo (bikes vs partes), migración aplicada.~~
 
 ### 20. Verification Queue — Split View con drag & drop <!-- id: idea-037 -->
 - **Problema:** La verification list es una sola columna que mezcla órdenes regulares y FedEx. Combinar/separar órdenes requiere múltiples taps.
@@ -68,23 +41,11 @@
 - **Problema:** OTHER muestra "unit/units" genérico.
 - **Solución:** Text input para nombre custom ("Box", "Crate"). Se guarda en distribution JSONB.
 
-### ~~16. Labels — "Units" → "Bikes" + partes separadas~~ <!-- id: idea-027 --> ✅
-- ~~Implementado: labels muestran BIKES: X y PARTS: Y por separado.~~
+### ~~27. Daily Warehouse Activity Report — Refinamiento~~ <!-- id: idea-041 --> ✅ 2026-04-08
+- `42ac9fd` `68950b6` — layout HTML email, secciones condicionales (WIN/UPDATES manuales + DONE/IN PROGRESS/ON THE FLOOR/COMING UP NEXT auto kanban), Inventory Accuracy KPI, correcciones del día desde `picking_list_notes`, team detail colapsable, Copy Report.
 
-### ~~17. Peso por parte en Orders~~ <!-- id: idea-028 --> ✅
-- ~~Implementado: editor inline de peso por parte debajo del label preview.~~
-
-### ~~18. Badge peso y dimensiones en Stock View~~ <!-- id: idea-029 --> ✅
-- ~~Implementado: badges condicionales (solo si > 0), peso visible en mobile.~~
-
-### ~~25. Notas de corrección interactivas + recovery de órdenes reopened~~ <!-- id: idea-043 --> ✅
-- ~~Implementado: ReasonPicker con presets por tipo de acción (remove/swap/adjust/add/reopen). Notas ricas con razón ("Removed X: Out of stock"). Auto-detección de insufficient_stock pre-selecciona razón. Smart tip "use Replace instead" cuando se hace remove+add. Botón "Continue Editing" / "Take Over & Edit" para órdenes stuck en reopened. Reopen reason se pasa al RPC.~~
-
-### ~~27. Daily Warehouse Activity Report — Refinamiento~~ <!-- id: idea-041 --> ✅
-- ~~Implementado: layout tipo HTML email (cards con border-radius, colores por sección). Secciones condicionales: WIN OF THE DAY (manual), PICKD UPDATES (manual multiline), DONE TODAY (auto kanban), IN PROGRESS (auto kanban), ON THE FLOOR (auto órdenes + checklist rutinario 7 toggles + notas), COMING UP NEXT (auto kanban futuro), Inventory Accuracy KPI. Correcciones del día desde picking_list_notes. Team detail colapsable. Copy Report button. Colores alineados con /projects board.~~
-
-### ~~28. Reestructurar menú principal~~ <!-- id: idea-045 --> ✅
-- ~~Implementado: hamburger (3 líneas) reemplaza avatar. Warehouse Activities como contenido principal del menú. Profile/theme/sync repair en sub-panel accesible desde footer. Eliminado Export Inventory CSV (dead code + csvParser.ts).~~
+### ~~28. Reestructurar menú principal~~ <!-- id: idea-045 --> ✅ 2026-04-08
+- `4afd94c` — hamburger reemplaza avatar, Warehouse Activities como contenido principal, profile sub-panel en footer, eliminado Export Inventory CSV (dead code).
 
 ### 31. Inventory Accuracy Fase 2 — Validación de cantidad <!-- id: idea-048 -->
 - **Contexto:** Fase 1 implementada: MOVEs y ADDs cuentan como verificación implícita de cobertura (SKU fue tocado físicamente en 60d). Cobertura subió de ~0.5% a ~20%.
@@ -99,14 +60,10 @@
 - **Consideraciones antes de implementar:** Investigar edge cases — ¿qué pasa si otro usuario modifica la orden mientras está cacheada? ¿Se necesita una columna `updated_at` más granular o un hash de versión? ¿Impacto en optimistic updates existentes? ¿Posible migración para agregar campo de versión/hash? Evaluar si TanStack Query `staleTime` + `structuralSharing` ya cubre parte del problema o si se necesita un cache layer adicional.
 - **Requiere:** Análisis profundo antes de implementar.
 
-### ~~33. Activity Report — Persistencia y lock de reportes diarios (Fase 2)~~ <!-- id: idea-052 --> ✅ CERRADO 2026-04-10
-- ~~Implementado en 4 fases atómicas:~~
-  - **Fase 2.1** (`f88a569`) — tabla `daily_reports` con columnas separadas `data_computed` (cron-owned) + `data_manual` (admin-owned), RLS (admins escriben solo el día NY corriente, todos auth leen), trigger universal "no future writes" sin lógica de role, 3 RPCs (`compute_daily_report_data`, `create_daily_report_snapshot` SECURITY DEFINER, `save_daily_report_manual` SECURITY INVOKER con whitelist de keys). 15/15 smoke tests SQL pasaron.
-  - **Fase 2.2** (`aa9b001`) — edge function `daily-report-snapshot` que resuelve "ayer en NY" via `current_ny_date()` + JS UTC math, llama el RPC con la fecha explícita. Workflow GitHub Actions cron `15 5 * * *` (DST-safe, staggered del daily-snapshot de inventario). Deployada a prod (project xexkttehzpxtviebglei, version ACTIVE).
-  - **Fase 2.3** (`84cdfa1`) — hooks `useDailyReport` (lee snapshot) + `useSaveDailyReportManual` (mutation con invalidate). `ActivityReportScreen` reescrito: para días pasados con snapshot lee `data_computed`; para hoy o snapshots faltantes cae a live compute. Manual fields hidratan desde snapshot UNA vez por fecha (lastHydratedDateRef guard previene clobber post-save).
-  - **Fase 2.4** (`77bad82`) — polish: non-admins ven inputs disabled (mismo affordance que fechas pasadas), `window.confirm` al navegar fechas con cambios sin guardar, beforeunload listener para tab close, "Locked" pill solo para fechas pasadas con tooltip explicativo.
-- ~~**Decisiones clave (NO replantear):** save button manual (no auto-save), un único RPC save-all (no patch per-field), LWW puro (no client_update_id), días pre-launch sin banner especial, fallo del cron = live compute silencioso (no banner "snapshot missing"). `task_buckets` se mantiene en JS cliente, no migrado a SQL.~~
-- ~~**Validación pendiente:** end-to-end del cron requiere esperar al primer run automático mañana 05:15 UTC, o merge develop → main para habilitar `gh workflow run`. La function ya está deployada y reachable (HTTP 401 sin auth confirmado).~~
+### ~~33. Activity Report Phase 2 — Persistencia y lock~~ <!-- id: idea-052 --> ✅ 2026-04-10
+- 4 fases: `f88a569` (tabla `daily_reports` + RLS + 3 RPCs) → `aa9b001` (edge function `daily-report-snapshot` + GitHub Actions cron `15 5 * * *`) → `84cdfa1` (hooks `useDailyReport`/`useSaveDailyReportManual` + ActivityReportScreen reescrito) → `77bad82` (polish: disabled inputs non-admin, beforeunload, Locked pill).
+- **Decisiones clave (NO replantear):** save manual, RPC save-all (no patch per-field), LWW puro, fallo del cron = live compute silencioso, `task_buckets` se mantiene en JS cliente.
+- **Validación pendiente:** primer cron run automático 05:15 UTC mañana o merge develop → main para `gh workflow run`.
 
 ### 34. Long-Waiting Orders — orders que esperan inventario meses <!-- id: idea-053 -->
 - **Contexto:** El descubrimiento de bug-017 reveló que el `auto_cancel_stale_orders` a 24h en verification es **conceptualmente equivocado**. Las órdenes pueden esperar meses por bicicletas que no están en stock todavía. La lógica actual cancela órdenes legítimamente waiting.
@@ -124,46 +81,34 @@
 - **Plan formal:** `~/.claude/plans/long-waiting-orders.md` (a crear)
 - **Requiere:** Investigación profunda del flujo actual (`auto_cancel_stale_orders`, FedEx order handling, watchdog inserts) antes de implementar.
 
-### ~~32. Modal Manager — Context + root render pattern~~ <!-- id: idea-050 --> ✅
-- ~~Implementado: `ModalContext` con discriminated union tipada, `ModalProvider` montado en `LayoutMain` (root level), hook `useModal()` para abrir/cerrar desde cualquier componente. Elimina el anti-pattern "UI state acoplado al lifecycle del componente equivocado". Bug crítico resuelto: `ItemDetailView` abierto desde `DoubleCheckView` (dentro del picking drawer) ya no se desmonta al cerrar el drawer. `InventorySnapshotModal` también migrado. Documentado en `docs/modal-pattern.md` (regla de oro: "ningún modal crítico vive dentro del componente que lo abre") y referenciado en `CLAUDE.md`.~~
+### ~~32. Modal Manager — Context + root render pattern~~ <!-- id: idea-050 --> ✅ 2026-04-10
+- `330bbcd` — `ModalContext` + `ModalProvider` en `LayoutMain` (root level), hook `useModal()`. Resuelve "ningún modal crítico vive dentro del componente que lo abre". `ItemDetailView` desde `DoubleCheckView` ya no se desmonta al cerrar el drawer. Documentado en `docs/modal-pattern.md` + `CLAUDE.md`.
 
 ---
 
 ## P2 — Medio (conveniencia)
 
-- [x] ~~**Orders mobile UX overhaul** — Customer info colapsable, search visible, hide desktop-only buttons.~~ <!-- id: idea-033 -->
 - [ ] **Orders PDF preview full-width mobile** — `w-full` en mobile. <!-- id: idea-034 -->
 - [ ] **Order List View** — Picking list first with print option. <!-- id: idea-006 -->
 - [ ] **Automatic Inventory Email** — Edge function `send-daily-report` + query + cron. <!-- id: idea-007 -->
 - [ ] **Fotos Fase 3 — Bulk Upload** — Multi-file picker, batching, progress bar. <!-- id: idea-023-p3 -->
 - [ ] **Migrar cron jobs a pg_cron** — Elimina dependencia de GitHub Actions. <!-- id: idea-030 -->
 - [ ] **Projects — drag to reorder priority** — En Coming Up Next y In Progress, arrastrar para reordenar. Más arriba = más prioridad. No se refleja en ningún otro lado por ahora, solo capacidad de reordenar dentro de cada columna. <!-- id: idea-049 -->
-- [x] ~~**Activity Report — quitar la hora del header** — Solo mostrar la fecha, no la hora generada.~~ <!-- id: idea-051 --> ✅
-- [x] ~~**History en perfil** — Vista de órdenes completadas/canceladas del usuario.~~ <!-- id: idea-035 --> (descartado: cubierto por filtros en HistoryScreen y OrdersScreen)
-- [x] ~~**Double check: distribución no refresca picking path** — Fix: re-fetch `skuInventoryMap` después de `updateItem` en `onSave`.~~ <!-- id: bug-014 -->
-- [x] ~~**Reemplazar Edit Item por ItemDetailView** — Eliminado InventoryModal (1099 LOC). DoubleCheckView y StockCountScreen ahora usan ItemDetailView.~~ <!-- id: idea-036 -->
+- [x] ~~**Activity Report — quitar la hora del header**~~ ✅ 2026-04-10 `35ff19c` <!-- id: idea-051 -->
 
 ---
 
 ## Bugs pendientes
 
-- [x] ~~**[bug-013]** Teclado aparece al abrir orden desde Verification Queue — Fix en develop `51e55a5`, overlay detection con `elementFromPoint()`.~~ Pendiente: confirmar en mobile.
-- [ ] **[bug-009]** Address parser falla con calles numéricas + direccionales — `parseUSAddress.ts`, agregar fallback newline.
-- [ ] **[bug-015]** Menú de perfil se queda trabado — impide que el usuario vea otras views. El modal no se cierra correctamente en ciertos flujos de navegación. **Requiere:** investigar reproducción exacta antes de fix.
-- [ ] **[bug-016]** Projects/Activity Report — bugs de estado múltiples:
-  - Proyecto movido varias veces se duplica en el activity report
-  - Proyecto agregado directamente a una columna no se muestra en activity report
-  - Estados inconsistentes al mover proyectos rápidamente
-  - **Requiere:** sesión de retroalimentación detallada con pasos de reproducción antes de hacer cambios. No hacer fixes a ciegas.
-- [x] ~~**[bug-017]** `auto_cancel_stale_orders` creaba inventario fantasma~~ ✅ **CERRADO 2026-04-10**
-  - **Causa raíz:** `auto_cancel_stale_orders` rama verification (24h timeout) llamaba `adjust_inventory_quantity` con `+qty` para "restorar" inventario. La premisa era falsa: durante `ready_to_double_check`/`double_checking` el inventario está **intacto** — la deducción real solo pasa al transicionar a `completed` vía `process_picking_list()`. Cada cron run que mataba una orden vencida añadía unidades fantasma.
-  - **Daño detectado:** una sola corrida (2026-04-09 19:49 UTC) sobre la lista combinada `b992279c-1727-4d87-afdb-3a645d35af72` (órdenes 879070/879068/878975/879069) generó 13 ADDs: 8 SKUs en rows nuevos con `location=NULL` (visibles), 5 SKUs sumados a rows existentes (invisibles).
-  - **Fixes aplicados (2026-04-10):**
-    - `20260410110000` — `create_daily_snapshot` filtra `location IS NOT NULL` (cron del snapshot ya no falla)
-    - `20260410120000` — `auto_cancel_stale_orders` rama verification ya no toca inventario (matchea cancelación manual). 8 rows huérfanos eliminados.
-    - `20260410130000` — `adjust_inventory_quantity` rechaza con exception cualquier llamada con `delta > 0 AND location NULL` (defensa permanente). DEDUCT con NULL emite WARNING para auditoría futura.
-  - **Verificación física completada:** los 5 SKUs inflados se ajustaron a su valor real via cycle count UI: `03-3674BL`=1, `03-4241GY`=11, `03-4248GY`=5, `03-4270BK`=15, `03-4627BR`=20. Conteos físicos divergieron del audit log para 3 SKUs (03-4241GY, 03-4270BK, 03-4627BR) — el conteo físico es la verdad, el audit log puede haber subestimado el daño.
-  - **Aprendizaje no resuelto:** el caso del usuario reveló que el auto-cancel a 24h en verification es **conceptualmente equivocado** porque las órdenes pueden esperar meses por inventario. Tracked separately como `idea-053` (Long-Waiting Orders).
+- [x] ~~**[bug-013]** Teclado aparece al abrir orden desde Verification Queue~~ — Fix `51e55a5` (overlay detection con `elementFromPoint()`). Pendiente: confirmar en mobile.
+- [x] ~~**[bug-009]** Address parser falla con calles numéricas + direccionales~~ ✅ 2026-04-10 — `parseFromLines` agrega newline-aware Strategy 0 en `parseUSAddress.ts`. Resuelve `"100 W 5TH\nBrooklyn, NY 11215"`. 33/33 tests passing.
+- [x] ~~**[bug-015]** Menú de perfil se queda trabado~~ ✅ 2026-04-09/10 — `16b657a` reset `showProfile` en `navTo()` + useEffect, `6839114` saca `InventorySnapshotModal` del lifecycle del menú, `330bbcd` Modal Manager (idea-050).
+- [x] ~~**[bug-016]** Projects/Activity Report — duplicación, missing direct-add, races~~ ✅ 2026-04-10 — `92cd477` dedupe + `4df57be` filtro `created_at` + `810290b` reconstrucción histórica desde `task_state_changes` + `960749e` NY tz bounds. Lógica pura en `historicalTaskStatus.ts` con 21 unit tests.
+- [x] ~~**[bug-017]** `auto_cancel_stale_orders` creaba inventario fantasma~~ ✅ 2026-04-10
+  - **Causa raíz:** rama verification (24h) llamaba `adjust_inventory_quantity` con `+qty` para "restorar" inventario. Premisa falsa: durante `ready_to_double_check`/`double_checking` el inventario está intacto (la deducción real solo pasa al transicionar a `completed`). Cada cron run añadía unidades fantasma.
+  - **Fixes:** `0ffbe3d` (`create_daily_snapshot` filtra `location IS NOT NULL`) → `05cf9b2` (rama verification ya no toca inventario, 8 rows huérfanos eliminados) → migración `20260410130000` (`adjust_inventory_quantity` rechaza `delta>0 AND location NULL` como defensa permanente).
+  - **Verificación física completada vía cycle count UI.** Conteos físicos divergieron del audit log para 3 SKUs → física es la verdad.
+  - **Aprendizaje:** auto-cancel 24h en verification es conceptualmente equivocado → tracked como `idea-053`.
 
 ---
 
@@ -179,3 +124,4 @@
 | Optimistic UI Fixes (task-006) | Mitigado por staleTime + refetchOnWindowFocus |
 | Offline Sync (bug-001) | Sin reportes de fallos reales |
 | History en perfil (idea-035) | Cubierto por filtros en HistoryScreen y OrdersScreen |
+| Resumen diario soft per-user (ID original idea-041, conflicto con `/activity-report`) | Brainstorm orphan, sin commits. El team detail de `/activity-report` cubre el caso de "qué hizo cada usuario" — el tono narrativo soft no se considera necesario por ahora. |

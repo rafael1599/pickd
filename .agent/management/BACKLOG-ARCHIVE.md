@@ -38,3 +38,27 @@
 | Inventory qty=0 no desaparece del cache (realtime+optimistic) | 2026-04-08 | `fae9110` |
 | z-index modales bajo header/nav (idea-046 regression) | 2026-04-08 | (this session) |
 | database.types.ts CLI noise + 46 tsc errors | 2026-04-08 | `4973c34` |
+
+## Archived 2026-04-10 — 12 items compacted
+
+### Completed P1 / P2
+
+| # | Item | Completed | Commits | ID |
+|---|------|-----------|---------|----|
+| 1 | Campos de bicicleta en `sku_metadata` (`is_bike` + `upc`) | 2026-04-07 | `88d9bb9` | idea-042 |
+| 2 | Detección mejorada bike vs part (filtros usan `is_bike`) | 2026-04-07 | `8d540b1` | idea-038A |
+| 3 | Fallback manual BIKES/PARTS en labels (auto-calc + override) | 2026-04-07 | `731eff2` | idea-038B |
+| 4 | Multi-Address Customers (`customer_addresses` + autocomplete) | 2026-04-03 | `88b878d` | idea-012 |
+| 5 | Separar peso de dimensiones + defaults dinámicos por tipo | 2026-04-03 | `3e117d2` | idea-025 |
+| 6 | Labels — "Units" → "Bikes" + partes separadas | 2026-04-03 | `7c9b01f` | idea-027 |
+| 7 | Peso por parte en Orders (editor inline) | 2026-04-03 | `7c9b01f` | idea-028 |
+| 8 | Badge peso/dimensiones en Stock View (condicionales) | 2026-04-03 | `3e117d2` | idea-029 |
+| 9 | Notas de corrección interactivas (ReasonPicker) + recovery reopened | 2026-04-07 | `01a73bb` | idea-043 |
+| 10 | Orders mobile UX overhaul (collapsable customer + search) | 2026-02-09 | `b8b10f0` | idea-033 |
+| 11 | Reemplazar Edit Item por ItemDetailView (eliminado InventoryModal 1099 LOC) | 2026-03-26 | `3fc050d` `45b340f` | idea-036 |
+
+### Resolved bugs
+
+| Bug | Fixed | Root cause | Commits |
+|-----|-------|-----------|---------|
+| bug-014: Double check distribución no refresca picking path | 2026-04-03 | `skuInventoryMap` no se re-fetch tras updateItem | `45b340f` |
