@@ -45,13 +45,6 @@ function formatDate(dateStr: string): string {
   });
 }
 
-function formatTime(): string {
-  return new Date().toLocaleString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
-
 function getAccuracyMessage(pct: number): string {
   if (pct < 10) return 'More cycle counts are needed to ensure system accuracy.';
   if (pct < 25) return 'Coverage is still low — prioritize counting high-value SKUs.';
@@ -202,7 +195,7 @@ export const ActivityReportView: React.FC<Props> = ({
               color: '#5a6577',
             }}
           >
-            {formatDate(report.date)} at {formatTime()}
+            {formatDate(report.date)}
           </p>
         </div>
 

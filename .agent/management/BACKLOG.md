@@ -123,7 +123,7 @@
 - [ ] **Fotos Fase 3 — Bulk Upload** — Multi-file picker, batching, progress bar. <!-- id: idea-023-p3 -->
 - [ ] **Migrar cron jobs a pg_cron** — Elimina dependencia de GitHub Actions. <!-- id: idea-030 -->
 - [ ] **Projects — drag to reorder priority** — En Coming Up Next y In Progress, arrastrar para reordenar. Más arriba = más prioridad. No se refleja en ningún otro lado por ahora, solo capacidad de reordenar dentro de cada columna. <!-- id: idea-049 -->
-- [ ] **Activity Report — quitar la hora del header** — Solo mostrar la fecha, no la hora generada. <!-- id: idea-051 -->
+- [x] ~~**Activity Report — quitar la hora del header** — Solo mostrar la fecha, no la hora generada.~~ <!-- id: idea-051 --> ✅
 - [x] ~~**History en perfil** — Vista de órdenes completadas/canceladas del usuario.~~ <!-- id: idea-035 --> (descartado: cubierto por filtros en HistoryScreen y OrdersScreen)
 - [x] ~~**Double check: distribución no refresca picking path** — Fix: re-fetch `skuInventoryMap` después de `updateItem` en `onSave`.~~ <!-- id: bug-014 -->
 - [x] ~~**Reemplazar Edit Item por ItemDetailView** — Eliminado InventoryModal (1099 LOC). DoubleCheckView y StockCountScreen ahora usan ItemDetailView.~~ <!-- id: idea-036 -->
