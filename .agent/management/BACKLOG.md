@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-04-10 (sesión PM)
+> Actualizado: 2026-04-10 (sesión PM — idea-052 cerrada en 4 fases)
 
 ---
 
@@ -99,16 +99,14 @@
 - **Consideraciones antes de implementar:** Investigar edge cases — ¿qué pasa si otro usuario modifica la orden mientras está cacheada? ¿Se necesita una columna `updated_at` más granular o un hash de versión? ¿Impacto en optimistic updates existentes? ¿Posible migración para agregar campo de versión/hash? Evaluar si TanStack Query `staleTime` + `structuralSharing` ya cubre parte del problema o si se necesita un cache layer adicional.
 - **Requiere:** Análisis profundo antes de implementar.
 
-### 33. Activity Report — Persistencia y lock de reportes diarios (Fase 2) <!-- id: idea-052 -->
-- **Contexto:** Fase 1 (en otra sesión, otro PR) deja la base de timezone correcta y arregla bugs latentes. Esta fase 2 construye encima.
-- **Scope Fase 2:**
-  - Tabla `daily_reports` con snapshots persistentes del reporte por fecha
-  - Lock trigger en DB para evitar edición de reportes de días anteriores
-  - RLS de `daily_reports` (admin-only o quién pueda editar/leer)
-  - Auto-save del activity report mientras se edita (no perder el WIN OF THE DAY si el browser se cierra)
-  - Banner de UI / lock visual cuando el reporte ya está cerrado/locked
-- **Plan formal:** `~/.claude/plans/activity-report-fase-2-snapshots.md` (revisado por consultor; columnas separadas `data_computed` + `data_manual`, RPCs `create_daily_report_snapshot` y `patch_daily_report_manual`).
-- **No implementar hasta:** Fase 1 esté mergeada y las 5 open questions del plan estén respondidas.
+### ~~33. Activity Report — Persistencia y lock de reportes diarios (Fase 2)~~ <!-- id: idea-052 --> ✅ CERRADO 2026-04-10
+- ~~Implementado en 4 fases atómicas:~~
+  - **Fase 2.1** (`f88a569`) — tabla `daily_reports` con columnas separadas `data_computed` (cron-owned) + `data_manual` (admin-owned), RLS (admins escriben solo el día NY corriente, todos auth leen), trigger universal "no future writes" sin lógica de role, 3 RPCs (`compute_daily_report_data`, `create_daily_report_snapshot` SECURITY DEFINER, `save_daily_report_manual` SECURITY INVOKER con whitelist de keys). 15/15 smoke tests SQL pasaron.
+  - **Fase 2.2** (`aa9b001`) — edge function `daily-report-snapshot` que resuelve "ayer en NY" via `current_ny_date()` + JS UTC math, llama el RPC con la fecha explícita. Workflow GitHub Actions cron `15 5 * * *` (DST-safe, staggered del daily-snapshot de inventario). Deployada a prod (project xexkttehzpxtviebglei, version ACTIVE).
+  - **Fase 2.3** (`84cdfa1`) — hooks `useDailyReport` (lee snapshot) + `useSaveDailyReportManual` (mutation con invalidate). `ActivityReportScreen` reescrito: para días pasados con snapshot lee `data_computed`; para hoy o snapshots faltantes cae a live compute. Manual fields hidratan desde snapshot UNA vez por fecha (lastHydratedDateRef guard previene clobber post-save).
+  - **Fase 2.4** (`77bad82`) — polish: non-admins ven inputs disabled (mismo affordance que fechas pasadas), `window.confirm` al navegar fechas con cambios sin guardar, beforeunload listener para tab close, "Locked" pill solo para fechas pasadas con tooltip explicativo.
+- ~~**Decisiones clave (NO replantear):** save button manual (no auto-save), un único RPC save-all (no patch per-field), LWW puro (no client_update_id), días pre-launch sin banner especial, fallo del cron = live compute silencioso (no banner "snapshot missing"). `task_buckets` se mantiene en JS cliente, no migrado a SQL.~~
+- ~~**Validación pendiente:** end-to-end del cron requiere esperar al primer run automático mañana 05:15 UTC, o merge develop → main para habilitar `gh workflow run`. La function ya está deployada y reachable (HTTP 401 sin auth confirmado).~~
 
 ### 34. Long-Waiting Orders — orders que esperan inventario meses <!-- id: idea-053 -->
 - **Contexto:** El descubrimiento de bug-017 reveló que el `auto_cancel_stale_orders` a 24h en verification es **conceptualmente equivocado**. Las órdenes pueden esperar meses por bicicletas que no están en stock todavía. La lógica actual cancela órdenes legítimamente waiting.
