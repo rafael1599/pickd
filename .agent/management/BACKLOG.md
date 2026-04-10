@@ -140,6 +140,11 @@
   - Proyecto agregado directamente a una columna no se muestra en activity report
   - Estados inconsistentes al mover proyectos rápidamente
   - **Requiere:** sesión de retroalimentación detallada con pasos de reproducción antes de hacer cambios. No hacer fixes a ciegas.
+- [ ] **[bug-017]** `auto_cancel_stale_orders` crea rows huérfanos en `inventory` con `location = NULL`
+  - **Síntoma:** rows con `item_name = "Auto-cancel verification timeout"`, `quantity = 1`, `location = NULL`. Hoy hay 8 en prod (ids 902170-902177, todos creados 2026-04-09 19:49 UTC).
+  - **Causa raíz:** `auto_cancel_stale_orders` (ver `supabase/migrations/20260307221638_remote_schema.sql`, líneas 184-229) llama `adjust_inventory_quantity` con `v_location := v_item->>'location'`. Cuando un item de la orden no tiene location asignada en su JSONB, `v_location` es NULL y se inserta tal cual.
+  - **Impacto colateral resuelto:** estos rows hacían fallar `create_daily_snapshot` en cada cron run (cron broken por ~9hrs el 2026-04-10 hasta el fix `20260410110000`). El RPC ahora filtra `location IS NOT NULL`, así que el snapshot ya no se rompe — pero los rows huérfanos siguen existiendo.
+  - **Fix pendiente:** decidir si (a) `auto_cancel_stale_orders` debe saltarse items sin location, (b) debe asignar una location default ("UNASSIGNED" / "RECOVERY"), o (c) los 8 rows huérfanos actuales deben limpiarse manualmente. **Requiere decisión de negocio antes del fix.**
 
 ---
 
