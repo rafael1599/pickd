@@ -235,6 +235,71 @@ function findLastSuffix(text: string): { index: number; length: number; suffix: 
 
 const PO_BOX_RX = /^(P\.?\s*O\.?\s*BOX\s+\S+)/i;
 
+// ── Country-only line detection (for stripping trailing country line) ───────
+
+const COUNTRY_ONLY_RX = /^(USA?|UNITED\s+STATES(?:\s+OF\s+AMERICA)?)$/i;
+
+/**
+ * Parse a multi-line address using its newline structure as the primary signal.
+ * Last meaningful line must contain "City, ST ZIP" (or "City ST ZIP" / full state name).
+ * Lines above are joined as the street (covers apt-on-its-own-line).
+ *
+ * This is the most reliable strategy when present, and is essential for streets
+ * without a recognizable suffix — e.g. numeric streets with directionals like
+ * "100 W 5TH" — where the single-line parser cannot tell where street ends and
+ * city begins.
+ */
+function parseFromLines(raw: string): ParsedAddress | null {
+  let lines = raw
+    .split(/[\r\n]+/)
+    .map((l) => l.replace(/\s{2,}/g, ' ').trim())
+    .filter((l) => l.length > 0);
+  if (lines.length < 2) return null;
+
+  // Strip trailing country-only line ("USA", "United States", etc.)
+  if (COUNTRY_ONLY_RX.test(lines[lines.length - 1])) {
+    lines = lines.slice(0, -1);
+  }
+  if (lines.length < 2) return null;
+
+  // Last line must carry city + state + zip; also strip an inline trailing country.
+  const lastLine = lines[lines.length - 1].replace(COUNTRY_RX, '').trim();
+
+  const zipMatch = lastLine.match(/\b(\d{5}(?:-\d{4})?)\s*$/);
+  if (!zipMatch) return null;
+  const zip = zipMatch[1];
+  const beforeZip = lastLine.substring(0, zipMatch.index).trim();
+
+  let state: string | null = null;
+  let cityPart = '';
+
+  const stateAbbrMatch = beforeZip.match(/[,\s]+([A-Z]{2})\s*$/i);
+  if (stateAbbrMatch) {
+    const candidate = stateAbbrMatch[1].toUpperCase();
+    if (VALID_STATE_ABBREVS.has(candidate)) {
+      state = candidate;
+      cityPart = beforeZip.substring(0, stateAbbrMatch.index).trim();
+    }
+  }
+
+  if (!state) {
+    const fullStateResult = extractFullStateName(beforeZip);
+    if (fullStateResult) {
+      cityPart = fullStateResult[0];
+      state = fullStateResult[1];
+    }
+  }
+
+  if (!state) return null;
+  cityPart = cityPart.replace(/,\s*$/, '').trim();
+  if (!cityPart) return null;
+
+  const street = lines.slice(0, -1).join(' ').trim();
+  if (!street) return null;
+
+  return { street, city: cityPart, state, zip };
+}
+
 // ── Main parser ─────────────────────────────────────────────────────────────
 
 /**
@@ -252,6 +317,14 @@ const PO_BOX_RX = /^(P\.?\s*O\.?\s*BOX\s+\S+)/i;
  * - Multi-line pasted addresses
  */
 export function parseUSAddress(raw: string): ParsedAddress | null {
+  // Strategy 0: When the input has newlines, the line structure is the most
+  // reliable separator (street/unit on top lines, "City ST ZIP" on the last).
+  // Required for streets without recognizable suffixes (numeric + directional).
+  if (/[\r\n]/.test(raw)) {
+    const fromLines = parseFromLines(raw);
+    if (fromLines) return fromLines;
+  }
+
   const value = normalize(raw);
   if (!value) return null;
 

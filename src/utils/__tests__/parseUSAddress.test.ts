@@ -245,6 +245,35 @@ describe('parseUSAddress', () => {
     });
   });
 
+  // ── bug-009: numeric street + directional, no suffix, multi-line ────
+
+  it('parses numeric street + directional via newline split', () => {
+    expect(parseUSAddress('100 W 5TH\nBrooklyn, NY 11215')).toEqual({
+      street: '100 W 5TH',
+      city: 'Brooklyn',
+      state: 'NY',
+      zip: '11215',
+    });
+  });
+
+  it('parses NE-prefixed numeric street via newline split', () => {
+    expect(parseUSAddress('501 NE 33RD\nMiami, FL 33137')).toEqual({
+      street: '501 NE 33RD',
+      city: 'Miami',
+      state: 'FL',
+      zip: '33137',
+    });
+  });
+
+  it('parses numeric street + apt on its own line', () => {
+    expect(parseUSAddress('100 W 5TH\nApt 2\nBrooklyn, NY 11215')).toEqual({
+      street: '100 W 5TH Apt 2',
+      city: 'Brooklyn',
+      state: 'NY',
+      zip: '11215',
+    });
+  });
+
   // ── Extra whitespace ────────────────────────────────────────────────
 
   it('handles extra spaces', () => {
