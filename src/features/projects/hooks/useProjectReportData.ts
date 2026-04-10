@@ -1,99 +1,75 @@
+/**
+ * Activity report data — historical task status reconstruction.
+ *
+ * For a given report date D, returns the three buckets the activity report
+ * needs (done today / in progress / coming up next), reconstructed to reflect
+ * what was *actually* true on that day — not the current state of the board.
+ *
+ * The reconstruction logic lives in `../utils/historicalTaskStatus.ts` and is
+ * unit-tested. This hook is a thin Supabase wrapper that fetches the raw rows
+ * and delegates the math.
+ */
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
+import {
+  computeTaskStatusBuckets,
+  type TaskRow,
+  type StateChangeRow,
+  type BucketTask,
+} from '../utils/historicalTaskStatus';
 
-// ─── Tasks completed on a given date ─────────────────────────────────────────
+// Re-export for ActivityReportView consumers
+export type ReportTask = BucketTask;
 
-export interface ReportTask {
-  task_id: string;
-  title: string;
-  note: string | null;
-  changed_at?: string;
+export interface ReportTaskBuckets {
+  doneToday: ReportTask[];
+  inProgress: ReportTask[];
+  comingUpNext: ReportTask[];
 }
 
-export function useTasksCompletedToday(date: string) {
+const COMING_UP_LIMIT = 3;
+
+export function useReportTasks(date: string) {
   return useQuery({
-    queryKey: ['tasks-completed', date],
-    queryFn: async (): Promise<ReportTask[]> => {
-      // date is YYYY-MM-DD — query task_state_changes for that day
-      const dayStart = `${date}T00:00:00.000Z`;
-      const dayEnd = `${date}T23:59:59.999Z`;
+    queryKey: ['report-tasks', date],
+    queryFn: async (): Promise<ReportTaskBuckets> => {
+      const dayEndIso = `${date}T23:59:59.999Z`;
 
-      const { data, error } = await supabase
-        .from('task_state_changes')
-        .select('task_id, changed_at, project_tasks(title, note)')
-        .eq('to_status', 'done')
-        .gte('changed_at', dayStart)
-        .lte('changed_at', dayEnd)
-        .order('changed_at', { ascending: true });
+      // 1. All tasks that existed on or before the end of the report day.
+      const { data: tasksData, error: tasksErr } = await supabase
+        .from('project_tasks')
+        .select('id, title, note, status, created_at, position')
+        .lte('created_at', dayEndIso)
+        .order('position', { ascending: true });
 
-      if (error) throw error;
+      if (tasksErr) throw tasksErr;
+      const tasks = (tasksData ?? []) as TaskRow[];
 
-      // Deduplicate by task_id — if a task was moved to "done" multiple times
-      // in the same day (e.g. moved out and back in), keep only the latest entry.
-      const byTaskId = new Map<string, ReportTask>();
-      for (const row of data ?? []) {
-        const taskId = row.task_id as string;
-        const proj = row.project_tasks as { title: string; note: string | null } | null;
-        byTaskId.set(taskId, {
-          task_id: taskId,
-          title: proj?.title ?? 'Unknown',
-          note: proj?.note ?? null,
-          changed_at: row.changed_at as string,
-        });
+      if (tasks.length === 0) {
+        return { doneToday: [], inProgress: [], comingUpNext: [] };
       }
-      return Array.from(byTaskId.values());
-    },
-    enabled: !!date,
-  });
-}
 
-// ─── Tasks currently in progress ─────────────────────────────────────────────
-// Filtered by `created_at <= end of selected date` so tasks created after the
-// reporting day don't leak into past reports.
+      // 2. Every state change ever recorded for those tasks (no date filter —
+      //    we need entries on BOTH sides of the report date to derive the
+      //    initial status correctly when there are zero changes ≤ dayEnd).
+      const taskIds = tasks.map((t) => t.id);
+      const { data: changesData, error: changesErr } = await supabase
+        .from('task_state_changes')
+        .select('task_id, from_status, to_status, changed_at')
+        .in('task_id', taskIds);
 
-export function useTasksInProgress(date: string) {
-  return useQuery({
-    queryKey: ['tasks-in-progress', date],
-    queryFn: async (): Promise<ReportTask[]> => {
-      const dayEnd = `${date}T23:59:59.999Z`;
-      const { data, error } = await supabase
-        .from('project_tasks')
-        .select('id, title, note')
-        .eq('status', 'in_progress')
-        .lte('created_at', dayEnd)
-        .order('position', { ascending: true });
+      if (changesErr) throw changesErr;
+      const changes = (changesData ?? []) as StateChangeRow[];
 
-      if (error) throw error;
-      return (data ?? []).map((row) => ({
-        task_id: row.id as string,
-        title: row.title as string,
-        note: (row.note as string | null) ?? null,
-      }));
-    },
-    enabled: !!date,
-  });
-}
+      // 3. Reconstruct historical buckets in JS (pure, tested).
+      const buckets = computeTaskStatusBuckets(date, tasks, changes);
 
-// ─── Tasks planned (future) ─────────────────────────────────────────────────
-
-export function useTasksFuture(date: string) {
-  return useQuery({
-    queryKey: ['tasks-future', date],
-    queryFn: async (): Promise<ReportTask[]> => {
-      const dayEnd = `${date}T23:59:59.999Z`;
-      const { data, error } = await supabase
-        .from('project_tasks')
-        .select('id, title, note')
-        .eq('status', 'future')
-        .lte('created_at', dayEnd)
-        .order('position', { ascending: true });
-
-      if (error) throw error;
-      return (data ?? []).map((row) => ({
-        task_id: row.id as string,
-        title: row.title as string,
-        note: (row.note as string | null) ?? null,
-      }));
+      return {
+        doneToday: buckets.done,
+        inProgress: buckets.inProgress,
+        comingUpNext: buckets.future.slice(0, COMING_UP_LIMIT),
+      };
     },
     enabled: !!date,
   });

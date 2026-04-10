@@ -10,11 +10,7 @@ import Plus from 'lucide-react/dist/esm/icons/plus';
 import X from 'lucide-react/dist/esm/icons/x';
 import { useActivityReport, useActiveProfiles } from './hooks/useActivityReport';
 import { ActivityReportView } from './components/ActivityReportView';
-import {
-  useTasksCompletedToday,
-  useTasksInProgress,
-  useTasksFuture,
-} from '../projects/hooks/useProjectReportData';
+import { useReportTasks } from '../projects/hooks/useProjectReportData';
 
 function formatDateNav(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00');
@@ -57,17 +53,15 @@ export const ActivityReportScreen = () => {
 
   const { data: report, isLoading, error } = useActivityReport(selectedDate);
   const { data: profiles } = useActiveProfiles();
-  const { data: tasksCompleted } = useTasksCompletedToday(selectedDate);
-  const { data: tasksInProgress } = useTasksInProgress(selectedDate);
-  const { data: tasksFuture } = useTasksFuture(selectedDate);
+  const { data: reportTasks } = useReportTasks(selectedDate);
 
   const pickdUpdates = pickdUpdatesText
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean);
-  const doneToday = tasksCompleted ?? [];
-  const inProgress = tasksInProgress ?? [];
-  const comingUpNext = (tasksFuture ?? []).slice(0, 3);
+  const doneToday = reportTasks?.doneToday ?? [];
+  const inProgress = reportTasks?.inProgress ?? [];
+  const comingUpNext = reportTasks?.comingUpNext ?? [];
 
   const handleDateChange = useCallback((newDate: string) => {
     setSelectedDate(newDate);
