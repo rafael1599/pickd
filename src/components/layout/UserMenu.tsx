@@ -9,7 +9,6 @@ import Sun from 'lucide-react/dist/esm/icons/sun';
 import Moon from 'lucide-react/dist/esm/icons/moon';
 import Settings from 'lucide-react/dist/esm/icons/settings';
 import History from 'lucide-react/dist/esm/icons/history';
-import RefreshCw from 'lucide-react/dist/esm/icons/refresh-cw';
 import ClipboardList from 'lucide-react/dist/esm/icons/clipboard-list';
 import FileSearch from 'lucide-react/dist/esm/icons/file-search';
 import Kanban from 'lucide-react/dist/esm/icons/kanban';
@@ -52,21 +51,6 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
     const { success } = await updateProfileName(newName);
     if (success) setIsEditing(false);
     setIsSaving(false);
-  };
-
-  const handleSyncRepair = async () => {
-    if (window.confirm('Are you sure? This will remove all pending offline actions.')) {
-      const dbs = ['query-cache', 'REACT_QUERY_OFFLINE_CACHE'];
-      dbs.forEach((dbName) => {
-        try {
-          indexedDB.deleteDatabase(dbName);
-        } catch {
-          /* */
-        }
-      });
-      localStorage.removeItem('tanstack-query-persist-client-v5');
-      window.location.reload();
-    }
   };
 
   const navTo = (path: string) => {
@@ -184,21 +168,6 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                 </div>
               </div>
 
-              {/* Sync Repair */}
-              <button
-                onClick={handleSyncRepair}
-                className="w-full flex items-center gap-3 p-4 bg-card border border-subtle rounded-2xl text-left group"
-              >
-                <div className="p-2 bg-surface border border-subtle rounded-xl text-amber-500">
-                  <RefreshCw size={16} />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-content uppercase tracking-tight">
-                    Sync Repair
-                  </p>
-                  <p className="text-[9px] text-muted font-bold uppercase">Clear offline cache</p>
-                </div>
-              </button>
             </div>
           </div>
         </div>
