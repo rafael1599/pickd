@@ -58,8 +58,8 @@ export const ActivityReportScreen = () => {
   const { data: report, isLoading, error } = useActivityReport(selectedDate);
   const { data: profiles } = useActiveProfiles();
   const { data: tasksCompleted } = useTasksCompletedToday(selectedDate);
-  const { data: tasksInProgress } = useTasksInProgress();
-  const { data: tasksFuture } = useTasksFuture();
+  const { data: tasksInProgress } = useTasksInProgress(selectedDate);
+  const { data: tasksFuture } = useTasksFuture(selectedDate);
 
   const pickdUpdates = pickdUpdatesText
     .split('\n')

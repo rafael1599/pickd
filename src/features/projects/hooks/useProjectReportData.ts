@@ -48,15 +48,19 @@ export function useTasksCompletedToday(date: string) {
 }
 
 // ─── Tasks currently in progress ─────────────────────────────────────────────
+// Filtered by `created_at <= end of selected date` so tasks created after the
+// reporting day don't leak into past reports.
 
-export function useTasksInProgress() {
+export function useTasksInProgress(date: string) {
   return useQuery({
-    queryKey: ['tasks-in-progress'],
+    queryKey: ['tasks-in-progress', date],
     queryFn: async (): Promise<ReportTask[]> => {
+      const dayEnd = `${date}T23:59:59.999Z`;
       const { data, error } = await supabase
         .from('project_tasks')
         .select('id, title, note')
         .eq('status', 'in_progress')
+        .lte('created_at', dayEnd)
         .order('position', { ascending: true });
 
       if (error) throw error;
@@ -66,19 +70,22 @@ export function useTasksInProgress() {
         note: (row.note as string | null) ?? null,
       }));
     },
+    enabled: !!date,
   });
 }
 
 // ─── Tasks planned (future) ─────────────────────────────────────────────────
 
-export function useTasksFuture() {
+export function useTasksFuture(date: string) {
   return useQuery({
-    queryKey: ['tasks-future'],
+    queryKey: ['tasks-future', date],
     queryFn: async (): Promise<ReportTask[]> => {
+      const dayEnd = `${date}T23:59:59.999Z`;
       const { data, error } = await supabase
         .from('project_tasks')
         .select('id, title, note')
         .eq('status', 'future')
+        .lte('created_at', dayEnd)
         .order('position', { ascending: true });
 
       if (error) throw error;
@@ -88,5 +95,6 @@ export function useTasksFuture() {
         note: (row.note as string | null) ?? null,
       }));
     },
+    enabled: !!date,
   });
 }
