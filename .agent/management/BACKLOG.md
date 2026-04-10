@@ -140,11 +140,14 @@
   - Proyecto agregado directamente a una columna no se muestra en activity report
   - Estados inconsistentes al mover proyectos rápidamente
   - **Requiere:** sesión de retroalimentación detallada con pasos de reproducción antes de hacer cambios. No hacer fixes a ciegas.
-- [ ] **[bug-017]** `auto_cancel_stale_orders` crea rows huérfanos en `inventory` con `location = NULL`
-  - **Síntoma:** rows con `item_name = "Auto-cancel verification timeout"`, `quantity = 1`, `location = NULL`. Hoy hay 8 en prod (ids 902170-902177, todos creados 2026-04-09 19:49 UTC).
-  - **Causa raíz:** `auto_cancel_stale_orders` (ver `supabase/migrations/20260307221638_remote_schema.sql`, líneas 184-229) llama `adjust_inventory_quantity` con `v_location := v_item->>'location'`. Cuando un item de la orden no tiene location asignada en su JSONB, `v_location` es NULL y se inserta tal cual.
-  - **Impacto colateral resuelto:** estos rows hacían fallar `create_daily_snapshot` en cada cron run (cron broken por ~9hrs el 2026-04-10 hasta el fix `20260410110000`). El RPC ahora filtra `location IS NOT NULL`, así que el snapshot ya no se rompe — pero los rows huérfanos siguen existiendo.
-  - **Fix pendiente:** decidir si (a) `auto_cancel_stale_orders` debe saltarse items sin location, (b) debe asignar una location default ("UNASSIGNED" / "RECOVERY"), o (c) los 8 rows huérfanos actuales deben limpiarse manualmente. **Requiere decisión de negocio antes del fix.**
+- [x] ~~**[bug-017]** `auto_cancel_stale_orders` creaba inventario fantasma~~ ✅ (parcialmente — pendiente verificación física)
+  - **Causa raíz:** `auto_cancel_stale_orders` rama verification (24h timeout) llamaba `adjust_inventory_quantity` con `+qty` para "restorar" inventario. La premisa era falsa: durante `ready_to_double_check`/`double_checking` el inventario está **intacto** — la deducción real solo pasa al transicionar a `completed` vía `process_picking_list()`. Cada cron run que mataba una orden vencida añadía unidades fantasma.
+  - **Daño detectado:** una sola corrida (2026-04-09 19:49 UTC) sobre la lista combinada `b992279c-1727-4d87-afdb-3a645d35af72` (órdenes 879070/879068/878975/879069) generó 13 ADDs: 8 SKUs en rows nuevos con `location=NULL` (visibles), 5 SKUs sumados a rows existentes (invisibles).
+  - **Fixes aplicados (2026-04-10):**
+    - `20260410110000` — `create_daily_snapshot` filtra `location IS NOT NULL` (cron del snapshot ya no falla)
+    - `20260410120000` — `auto_cancel_stale_orders` rama verification ya no toca inventario (matchea cancelación manual). 8 rows huérfanos eliminados.
+    - `20260410130000` — `adjust_inventory_quantity` rechaza con exception cualquier llamada con `delta > 0 AND location NULL` (defensa permanente). DEDUCT con NULL emite WARNING para auditoría futura.
+  - **Pendiente:** verificación física en piso de los 5 SKUs inflados (`03-3674BL` ROW 20, `03-4241GY` ROW 15, `03-4248GY` ROW 25, `03-4270BK` ROW 5, `03-4627BR` ROW 27). Cada uno está off por +1 unidad en DB. Aplicar correcciones después del conteo físico.
 
 ---
 
