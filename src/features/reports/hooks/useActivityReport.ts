@@ -39,7 +39,7 @@ interface LogRow {
 }
 
 interface CycleRow {
-  counted_by: string;
+  counted_by: string | null;
   variance: number | null;
 }
 
@@ -72,9 +72,7 @@ export function useActivityReport(date: string) {
             .eq('is_reversed', false)
             .gte('created_at', dayStart)
             .lte('created_at', dayEnd),
-          // cycle_count_items not in generated types yet
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (supabase as any)
+          supabase
             .from('cycle_count_items')
             .select('counted_by, variance')
             .in('status', ['counted', 'verified'])
@@ -84,8 +82,7 @@ export function useActivityReport(date: string) {
             .from('profiles')
             .select('id, full_name')
             .eq('is_active', true),
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (supabase as any)
+          supabase
             .from('cycle_count_items')
             .select('sku')
             .in('status', ['counted', 'verified'])
@@ -113,7 +110,7 @@ export function useActivityReport(date: string) {
 
       const picking = (pickingRes.data ?? []) as unknown as PickingRow[];
       const logs = (logsRes.data ?? []) as LogRow[];
-      const cycles = (cycleRes.data ?? []) as CycleRow[];
+      const cycles: CycleRow[] = cycleRes.data ?? [];
 
       // Aggregate per user
       const userMap = new Map<string, UserActivity>();
@@ -181,9 +178,9 @@ export function useActivityReport(date: string) {
         .sort((a, b) => a.full_name.localeCompare(b.full_name));
 
       // Verified SKUs (2 months) — cycle counts + moves + adds
-      const verifiedSkus = new Set([
-        ...(verifiedRes.data ?? []).map((r: { sku: string }) => r.sku),
-        ...(moveAddRes.data ?? []).map((r: { sku: string }) => r.sku),
+      const verifiedSkus = new Set<string>([
+        ...(verifiedRes.data ?? []).map((r) => r.sku).filter((s): s is string => !!s),
+        ...(moveAddRes.data ?? []).map((r) => r.sku).filter((s): s is string => !!s),
       ]);
       const totalSkus = Number(statsRes.data?.[0]?.total_skus ?? 0);
 

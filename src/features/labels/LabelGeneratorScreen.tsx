@@ -16,7 +16,11 @@ import PenLine from 'lucide-react/dist/esm/icons/pen-line';
 import { parseBikeName } from '../inventory/utils/parseBikeName';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { generateBikeLabels, type LabelItem, VALID_TRANSITIONS } from '../inventory/utils/generateBikeLabel';
+import {
+  generateBikeLabels,
+  type LabelItem,
+  VALID_TRANSITIONS,
+} from '../inventory/utils/generateBikeLabel';
 import toast from 'react-hot-toast';
 
 interface BikeRow {
@@ -102,14 +106,13 @@ export const LabelGeneratorScreen = () => {
   const { data: tagCounts } = useQuery({
     queryKey: ['asset-tag-counts'],
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('asset_tags')
         .select('sku')
         .in('status', ['printed', 'in_stock', 'allocated', 'picked']);
       if (error) throw error;
       const counts = new Map<string, number>();
-      for (const row of (data ?? []) as { sku: string }[]) {
+      for (const row of data ?? []) {
         counts.set(row.sku, (counts.get(row.sku) ?? 0) + 1);
       }
       return counts;
@@ -117,19 +120,17 @@ export const LabelGeneratorScreen = () => {
     staleTime: 2 * 60_000,
   });
 
-  const getTaggedCount = useCallback(
-    (sku: string) => tagCounts?.get(sku) ?? 0,
-    [tagCounts],
-  );
+  const getTaggedCount = useCallback((sku: string) => tagCounts?.get(sku) ?? 0, [tagCounts]);
 
   // Fetch created asset_tags for history view
   const { data: createdTags, isLoading: isLoadingTags } = useQuery({
     queryKey: ['asset-tags-history'],
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('asset_tags')
-        .select('id, short_code, public_token, sku, location, status, printed_at, created_at, upc, po_number, c_number, serial_number, made_in, other_notes, label_photo_url')
+        .select(
+          'id, short_code, public_token, sku, location, status, printed_at, created_at, upc, po_number, c_number, serial_number, made_in, other_notes, label_photo_url'
+        )
         .order('created_at', { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -144,7 +145,12 @@ export const LabelGeneratorScreen = () => {
     if (!createdTags) return new Map<string, AssetTagRow[]>();
     const q = historyFilter.toUpperCase();
     const filtered = q
-      ? createdTags.filter((t) => t.sku.includes(q) || t.short_code.toUpperCase().includes(q) || (t.location ?? '').toUpperCase().includes(q))
+      ? createdTags.filter(
+          (t) =>
+            t.sku.includes(q) ||
+            t.short_code.toUpperCase().includes(q) ||
+            (t.location ?? '').toUpperCase().includes(q)
+        )
       : createdTags;
     const map = new Map<string, AssetTagRow[]>();
     for (const tag of filtered) {
@@ -158,38 +164,42 @@ export const LabelGeneratorScreen = () => {
   // Get item_name for a sku from bikes data
   const getItemName = useCallback(
     (sku: string) => bikes?.find((b) => b.sku === sku)?.item_name ?? null,
-    [bikes],
+    [bikes]
   );
 
-  const handleReprint = useCallback(async (sku: string, tags: AssetTagRow[]) => {
-    setIsReprinting(true);
-    try {
-      const labelItems: LabelItem[] = tags.map((t) => ({
-        sku: t.sku,
-        item_name: getItemName(t.sku),
-        short_code: t.short_code,
-        public_token: t.public_token,
-      }));
-      const blobUrl = await generateBikeLabels(labelItems);
-      window.open(blobUrl, '_blank');
-      toast.success(`Reprinting ${tags.length * 2} labels for ${sku}`);
-    } catch {
-      toast.error('Failed to reprint labels');
-    } finally {
-      setIsReprinting(false);
-    }
-  }, [getItemName]);
+  const handleReprint = useCallback(
+    async (sku: string, tags: AssetTagRow[]) => {
+      setIsReprinting(true);
+      try {
+        const labelItems: LabelItem[] = tags.map((t) => ({
+          sku: t.sku,
+          item_name: getItemName(t.sku),
+          short_code: t.short_code,
+          public_token: t.public_token,
+        }));
+        const blobUrl = await generateBikeLabels(labelItems);
+        window.open(blobUrl, '_blank');
+        toast.success(`Reprinting ${tags.length * 2} labels for ${sku}`);
+      } catch {
+        toast.error('Failed to reprint labels');
+      } finally {
+        setIsReprinting(false);
+      }
+    },
+    [getItemName]
+  );
 
   const handleReleaseTags = useCallback(async (tagIds: string[], mode: 'invalidate' | 'delete') => {
     try {
       if (mode === 'delete') {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase as any).from('asset_tags').delete().in('id', tagIds);
+        const { error } = await supabase.from('asset_tags').delete().in('id', tagIds);
         if (error) throw error;
         toast.success(`${tagIds.length} tag${tagIds.length !== 1 ? 's' : ''} deleted`);
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase as any).from('asset_tags').update({ status: 'lost' }).in('id', tagIds);
+        const { error } = await supabase
+          .from('asset_tags')
+          .update({ status: 'lost' })
+          .in('id', tagIds);
         if (error) throw error;
         toast.success(`${tagIds.length} tag${tagIds.length !== 1 ? 's' : ''} invalidated`);
       }
@@ -199,22 +209,25 @@ export const LabelGeneratorScreen = () => {
     }
   }, []);
 
-  const handleSaveTag = useCallback(async (tagId: string, updates: Record<string, string | null>) => {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).from('asset_tags').update(updates).eq('id', tagId);
-      if (error) throw error;
-      toast.success('Tag updated');
-      setEditingTag(null);
-    } catch {
-      toast.error('Failed to update tag');
-    }
-  }, []);
+  const handleSaveTag = useCallback(
+    async (tagId: string, updates: Record<string, string | null>) => {
+      try {
+        const { error } = await supabase.from('asset_tags').update(updates).eq('id', tagId);
+        if (error) throw error;
+        toast.success('Tag updated');
+        setEditingTag(null);
+      } catch {
+        toast.error('Failed to update tag');
+      }
+    },
+    []
+  );
 
   const toggleTagSelection = useCallback((tagId: string) => {
     setSelectedTags((prev) => {
       const next = new Set(prev);
-      if (next.has(tagId)) next.delete(tagId); else next.add(tagId);
+      if (next.has(tagId)) next.delete(tagId);
+      else next.add(tagId);
       return next;
     });
   }, []);
@@ -249,7 +262,7 @@ export const LabelGeneratorScreen = () => {
         qty: untagged,
       };
     },
-    [getTaggedCount],
+    [getTaggedCount]
   );
 
   const handleLoadLocation = useCallback(() => {
@@ -271,20 +284,20 @@ export const LabelGeneratorScreen = () => {
       if (entries.some((e) => e.sku === bike.sku)) return;
       const entry = buildEntry(bike);
       if (entry.qty === 0) {
-        toast(`${bike.sku} already fully tagged (${entry.tagged}/${entry.stock})`, { icon: '\u2705' });
+        toast(`${bike.sku} already fully tagged (${entry.tagged}/${entry.stock})`, {
+          icon: '\u2705',
+        });
         return;
       }
       setEntries((prev) => [...prev, entry]);
       setSearchQuery('');
     },
-    [entries, buildEntry],
+    [entries, buildEntry]
   );
 
   const handleQtyChange = useCallback((sku: string, delta: number) => {
     setEntries((prev) =>
-      prev.map((e) =>
-        e.sku === sku ? { ...e, qty: Math.max(0, e.qty + delta) } : e,
-      ),
+      prev.map((e) => (e.sku === sku ? { ...e, qty: Math.max(0, e.qty + delta) } : e))
     );
   }, []);
 
@@ -308,14 +321,13 @@ export const LabelGeneratorScreen = () => {
           location: e.location,
           created_by: user.id,
           printed_at: new Date().toISOString(),
-        })),
+        }))
       );
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: tags, error } = await (supabase as any)
+      const { data: tags, error } = await supabase
         .from('asset_tags')
         .insert(inserts)
-        .select('short_code, sku, public_token') as { data: { short_code: string; sku: string; public_token: string }[] | null; error: unknown };
+        .select('short_code, sku, public_token');
 
       if (error || !tags) throw error || new Error('No tags returned');
 
@@ -336,7 +348,7 @@ export const LabelGeneratorScreen = () => {
         prev.map((e) => {
           const generated = tags.filter((t) => t.sku === e.sku).length;
           return { ...e, tagged: e.tagged + generated, qty: 0 };
-        }),
+        })
       );
     } catch (err) {
       console.error('Label generation failed:', err);
@@ -353,17 +365,29 @@ export const LabelGeneratorScreen = () => {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => viewMode === 'create' ? navigate(-1) : setViewMode('create')}
+              onClick={() => (viewMode === 'create' ? navigate(-1) : setViewMode('create'))}
               className="p-2 hover:bg-card rounded-full text-muted transition-colors"
             >
               {viewMode === 'create' ? <ChevronLeft size={24} /> : <ArrowLeft size={24} />}
             </button>
             <div>
               <h1 className="text-lg font-black uppercase tracking-widest text-content">
-                {viewMode === 'create' ? 'Bike Labels' : viewMode === 'custom' ? (customLabelType === 'sd' ? 'S/D Label' : customLabelType === 'vertical' ? 'Vertical Label' : 'Custom Label') : 'Created Tags'}
+                {viewMode === 'create'
+                  ? 'Bike Labels'
+                  : viewMode === 'custom'
+                    ? customLabelType === 'sd'
+                      ? 'S/D Label'
+                      : customLabelType === 'vertical'
+                        ? 'Vertical Label'
+                        : 'Custom Label'
+                    : 'Created Tags'}
               </h1>
               <p className="text-[10px] text-muted font-bold uppercase tracking-widest">
-                {viewMode === 'create' ? 'QR asset tags for physical tracking' : viewMode === 'custom' ? 'Create your own label' : `${createdTags?.length ?? 0} tags across ${tagsBySku.size} SKUs`}
+                {viewMode === 'create'
+                  ? 'QR asset tags for physical tracking'
+                  : viewMode === 'custom'
+                    ? 'Create your own label'
+                    : `${createdTags?.length ?? 0} tags across ${tagsBySku.size} SKUs`}
               </p>
             </div>
           </div>
@@ -371,17 +395,28 @@ export const LabelGeneratorScreen = () => {
             <div className="flex items-center gap-1">
               <div className="relative">
                 <select
-                  onChange={(e) => { if (e.target.value) { setCustomLabelType(e.target.value as 'regular' | 'sd' | 'vertical'); setViewMode('custom'); } e.target.value = ''; }}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setCustomLabelType(e.target.value as 'regular' | 'sd' | 'vertical');
+                      setViewMode('custom');
+                    }
+                    e.target.value = '';
+                  }}
                   defaultValue=""
                   className="appearance-none bg-transparent text-accent p-2 pr-1 cursor-pointer focus:outline-none"
                   title="Custom label"
                 >
-                  <option value="" disabled hidden>+</option>
+                  <option value="" disabled hidden>
+                    +
+                  </option>
                   <option value="regular">Regular Label</option>
                   <option value="sd">S/D Label</option>
                   <option value="vertical">Vertical Label</option>
                 </select>
-                <PenLine size={16} className="absolute right-2 top-1/2 -translate-y-1/2 text-accent pointer-events-none" />
+                <PenLine
+                  size={16}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-accent pointer-events-none"
+                />
               </div>
               <button
                 onClick={() => setViewMode('history')}
@@ -395,640 +430,741 @@ export const LabelGeneratorScreen = () => {
         </div>
 
         {/* Create mode controls */}
-        {viewMode === 'create' && (<>
-        {/* Bikes/Parts toggle */}
-        <div className="flex gap-1 mb-3 bg-surface border border-subtle rounded-xl p-1">
-          <button
-            onClick={() => { setShowParts(false); setEntries([]); setSelectedLocation(''); }}
-            className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!showParts ? 'bg-accent text-main' : 'text-muted'}`}
-          >
-            Bikes
-          </button>
-          <button
-            onClick={() => { setShowParts(true); setEntries([]); setSelectedLocation(''); }}
-            className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${showParts ? 'bg-accent text-main' : 'text-muted'}`}
-          >
-            Parts
-          </button>
-        </div>
-        {/* Location selector */}
-        <div className="flex gap-2 mb-3">
-          <select
-            value={selectedLocation}
-            onChange={(e) => setSelectedLocation(e.target.value)}
-            className="flex-1 h-10 px-3 bg-surface border border-subtle rounded-xl text-xs text-content focus:outline-none focus:border-accent/40"
-          >
-            <option value="">Select location...</option>
-            {locations.map((loc) => (
-              <option key={loc} value={loc}>{loc}</option>
-            ))}
-          </select>
-          <button
-            onClick={handleLoadLocation}
-            disabled={!selectedLocation}
-            className="h-10 px-4 bg-accent text-main font-black uppercase tracking-widest text-[10px] rounded-xl active:scale-95 transition-all disabled:opacity-30"
-          >
-            Load
-          </button>
-        </div>
+        {viewMode === 'create' && (
+          <>
+            {/* Bikes/Parts toggle */}
+            <div className="flex gap-1 mb-3 bg-surface border border-subtle rounded-xl p-1">
+              <button
+                onClick={() => {
+                  setShowParts(false);
+                  setEntries([]);
+                  setSelectedLocation('');
+                }}
+                className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!showParts ? 'bg-accent text-main' : 'text-muted'}`}
+              >
+                Bikes
+              </button>
+              <button
+                onClick={() => {
+                  setShowParts(true);
+                  setEntries([]);
+                  setSelectedLocation('');
+                }}
+                className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${showParts ? 'bg-accent text-main' : 'text-muted'}`}
+              >
+                Parts
+              </button>
+            </div>
+            {/* Location selector */}
+            <div className="flex gap-2 mb-3">
+              <select
+                value={selectedLocation}
+                onChange={(e) => setSelectedLocation(e.target.value)}
+                className="flex-1 h-10 px-3 bg-surface border border-subtle rounded-xl text-xs text-content focus:outline-none focus:border-accent/40"
+              >
+                <option value="">Select location...</option>
+                {locations.map((loc) => (
+                  <option key={loc} value={loc}>
+                    {loc}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={handleLoadLocation}
+                disabled={!selectedLocation}
+                className="h-10 px-4 bg-accent text-main font-black uppercase tracking-widest text-[10px] rounded-xl active:scale-95 transition-all disabled:opacity-30"
+              >
+                Load
+              </button>
+            </div>
 
-        {/* Search */}
-        <div className="relative mb-3">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search SKU or model..."
-            className="w-full h-10 pl-9 pr-3 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40 font-mono"
-          />
-        </div>
+            {/* Search */}
+            <div className="relative mb-3">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search SKU or model..."
+                className="w-full h-10 pl-9 pr-3 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40 font-mono"
+              />
+            </div>
 
-        {/* Search results */}
-        {searchResults.length > 0 && (
-          <div className="mb-3 max-h-40 overflow-y-auto bg-card border border-subtle rounded-xl">
-            {searchResults.map((b) => {
-              const tagged = getTaggedCount(b.sku);
-              const untagged = b.quantity - tagged;
-              return (
-                <button
-                  key={b.sku}
-                  onClick={() => handleAddFromSearch(b)}
-                  className="w-full flex items-center justify-between px-3 py-2 hover:bg-surface transition-colors text-left border-b border-subtle last:border-0"
-                >
-                  <div>
-                    <span className="text-xs font-bold text-content">{b.sku}</span>
-                    <span className="text-[10px] text-muted ml-2">{(b.item_name ?? '').slice(0, 25)}</span>
-                  </div>
-                  <div className="text-[10px] text-right">
-                    {tagged > 0 ? (
-                      <span className="text-muted">{tagged} tagged · <span className={untagged > 0 ? 'text-amber-500' : 'text-green-500'}>{untagged} need</span></span>
-                    ) : (
-                      <span className="text-muted">{b.quantity} in stock</span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+            {/* Search results */}
+            {searchResults.length > 0 && (
+              <div className="mb-3 max-h-40 overflow-y-auto bg-card border border-subtle rounded-xl">
+                {searchResults.map((b) => {
+                  const tagged = getTaggedCount(b.sku);
+                  const untagged = b.quantity - tagged;
+                  return (
+                    <button
+                      key={b.sku}
+                      onClick={() => handleAddFromSearch(b)}
+                      className="w-full flex items-center justify-between px-3 py-2 hover:bg-surface transition-colors text-left border-b border-subtle last:border-0"
+                    >
+                      <div>
+                        <span className="text-xs font-bold text-content">{b.sku}</span>
+                        <span className="text-[10px] text-muted ml-2">
+                          {(b.item_name ?? '').slice(0, 25)}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-right">
+                        {tagged > 0 ? (
+                          <span className="text-muted">
+                            {tagged} tagged ·{' '}
+                            <span className={untagged > 0 ? 'text-amber-500' : 'text-green-500'}>
+                              {untagged} need
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-muted">{b.quantity} in stock</span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </>
         )}
-        </>)}
       </div>
 
       {/* Entries list — create mode */}
       {viewMode === 'create' && (
-      <>
-      {/* Entries list */}
-      <div className="flex-1 overflow-y-auto px-4 pb-32">
-        {isLoading && (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="animate-spin text-accent w-8 h-8 opacity-30" />
-          </div>
-        )}
-
-        {entries.length === 0 && !isLoading && (
-          <div className="text-center py-20 text-muted text-sm">
-            Select a location or search for SKUs to start.
-          </div>
-        )}
-
-        {entries.map((e) => (
-          <div
-            key={e.sku}
-            className={`flex items-center gap-3 p-3 border rounded-xl mb-2 ${
-              e.qty === 0
-                ? 'bg-green-500/5 border-green-500/20'
-                : 'bg-card border-subtle'
-            }`}
-          >
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-content tracking-tight">{e.sku}</p>
-              <p className="text-[10px] text-muted truncate">{(e.item_name ?? '').slice(0, 35)}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-[9px] text-muted font-bold uppercase">
-                  {e.stock} in stock
-                </span>
-                {e.tagged > 0 && (
-                  <>
-                    <span className="text-[9px] text-muted">·</span>
-                    <span className="text-[9px] text-green-500 font-bold uppercase flex items-center gap-0.5">
-                      <Check size={8} /> {e.tagged} tagged
-                    </span>
-                  </>
-                )}
-                {e.qty === 0 && e.tagged >= e.stock && (
-                  <>
-                    <span className="text-[9px] text-muted">·</span>
-                    <span className="text-[9px] text-green-500 font-bold uppercase">COMPLETE</span>
-                  </>
-                )}
+        <>
+          {/* Entries list */}
+          <div className="flex-1 overflow-y-auto px-4 pb-32">
+            {isLoading && (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="animate-spin text-accent w-8 h-8 opacity-30" />
               </div>
-            </div>
-
-            {/* Qty controls */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => handleQtyChange(e.sku, -1)}
-                disabled={e.qty === 0}
-                className="w-8 h-8 flex items-center justify-center bg-surface border border-subtle rounded-lg text-muted active:scale-90 disabled:opacity-30"
-              >
-                <Minus size={14} />
-              </button>
-              <span className={`w-8 text-center text-sm font-bold ${e.qty === 0 ? 'text-green-500' : 'text-content'}`}>
-                {e.qty}
-              </span>
-              <button
-                onClick={() => handleQtyChange(e.sku, 1)}
-                className="w-8 h-8 flex items-center justify-center bg-surface border border-subtle rounded-lg text-muted active:scale-90"
-              >
-                <Plus size={14} />
-              </button>
-            </div>
-
-            <button
-              onClick={() => handleRemove(e.sku)}
-              className="p-2 text-muted hover:text-red-500 transition-colors"
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
-        ))}
-      </div>
-
-      {/* Footer */}
-      {activeEntries.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 px-4 pt-4 pb-28 bg-gradient-to-t from-main via-main/90 to-transparent">
-          <button
-            onClick={handleGenerate}
-            disabled={isGenerating}
-            className="w-full h-14 bg-accent text-main font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-accent/20 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {isGenerating ? (
-              <Loader2 className="animate-spin" size={16} />
-            ) : (
-              <Printer size={16} />
             )}
-            Generate {totalLabels} Labels ({totalUnits} units)
-          </button>
-        </div>
-      )}
-      </>
+
+            {entries.length === 0 && !isLoading && (
+              <div className="text-center py-20 text-muted text-sm">
+                Select a location or search for SKUs to start.
+              </div>
+            )}
+
+            {entries.map((e) => (
+              <div
+                key={e.sku}
+                className={`flex items-center gap-3 p-3 border rounded-xl mb-2 ${
+                  e.qty === 0 ? 'bg-green-500/5 border-green-500/20' : 'bg-card border-subtle'
+                }`}
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-content tracking-tight">{e.sku}</p>
+                  <p className="text-[10px] text-muted truncate">
+                    {(e.item_name ?? '').slice(0, 35)}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[9px] text-muted font-bold uppercase">
+                      {e.stock} in stock
+                    </span>
+                    {e.tagged > 0 && (
+                      <>
+                        <span className="text-[9px] text-muted">·</span>
+                        <span className="text-[9px] text-green-500 font-bold uppercase flex items-center gap-0.5">
+                          <Check size={8} /> {e.tagged} tagged
+                        </span>
+                      </>
+                    )}
+                    {e.qty === 0 && e.tagged >= e.stock && (
+                      <>
+                        <span className="text-[9px] text-muted">·</span>
+                        <span className="text-[9px] text-green-500 font-bold uppercase">
+                          COMPLETE
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Qty controls */}
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleQtyChange(e.sku, -1)}
+                    disabled={e.qty === 0}
+                    className="w-8 h-8 flex items-center justify-center bg-surface border border-subtle rounded-lg text-muted active:scale-90 disabled:opacity-30"
+                  >
+                    <Minus size={14} />
+                  </button>
+                  <span
+                    className={`w-8 text-center text-sm font-bold ${e.qty === 0 ? 'text-green-500' : 'text-content'}`}
+                  >
+                    {e.qty}
+                  </span>
+                  <button
+                    onClick={() => handleQtyChange(e.sku, 1)}
+                    className="w-8 h-8 flex items-center justify-center bg-surface border border-subtle rounded-lg text-muted active:scale-90"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => handleRemove(e.sku)}
+                  className="p-2 text-muted hover:text-red-500 transition-colors"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Footer */}
+          {activeEntries.length > 0 && (
+            <div className="fixed bottom-0 left-0 right-0 px-4 pt-4 pb-28 bg-gradient-to-t from-main via-main/90 to-transparent">
+              <button
+                onClick={handleGenerate}
+                disabled={isGenerating}
+                className="w-full h-14 bg-accent text-main font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-accent/20 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isGenerating ? (
+                  <Loader2 className="animate-spin" size={16} />
+                ) : (
+                  <Printer size={16} />
+                )}
+                Generate {totalLabels} Labels ({totalUnits} units)
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {/* History view */}
       {viewMode === 'history' && (
         <>
-        {/* History search */}
-        <div className="px-4 pb-3">
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-            <input
-              type="text"
-              value={historyFilter}
-              onChange={(e) => setHistoryFilter(e.target.value)}
-              placeholder="Filter by SKU, tag code, or location..."
-              className="w-full h-10 pl-9 pr-3 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40 font-mono"
-            />
+          {/* History search */}
+          <div className="px-4 pb-3">
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+              <input
+                type="text"
+                value={historyFilter}
+                onChange={(e) => setHistoryFilter(e.target.value)}
+                placeholder="Filter by SKU, tag code, or location..."
+                className="w-full h-10 pl-9 pr-3 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40 font-mono"
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="flex-1 overflow-y-auto px-4 pb-8">
-          {isLoadingTags && (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="animate-spin text-accent w-8 h-8 opacity-30" />
-            </div>
-          )}
-
-          {!isLoadingTags && tagsBySku.size === 0 && (
-            <div className="text-center py-20 text-muted text-sm">
-              {historyFilter ? 'No tags match your filter.' : 'No asset tags created yet.'}
-            </div>
-          )}
-
-          {[...tagsBySku.entries()].map(([sku, tags]) => (
-            <div key={sku} className="mb-4 p-3 bg-card border border-subtle rounded-xl">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <p className="text-sm font-bold text-content tracking-tight">{sku}</p>
-                  <p className="text-[10px] text-muted">{tags[0]?.location ?? 'No location'}</p>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-bold text-accent bg-accent/10 border border-accent/20 px-2 py-1 rounded-lg">
-                    {tags.length}
-                  </span>
-                  <button
-                    onClick={() => handleReprint(sku, tags)}
-                    disabled={isReprinting}
-                    className="p-1.5 bg-surface border border-subtle rounded-lg text-muted hover:text-accent hover:border-accent/30 transition-colors active:scale-90 disabled:opacity-30"
-                    title="Reprint all"
-                  >
-                    <Printer size={14} />
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (window.confirm(`Release all ${tags.length} tags for ${sku}?\n\nChoose OK to invalidate, or cancel and use individual selection to delete.`)) {
-                        handleReleaseTags(tags.map((t) => t.id), 'invalidate');
-                      }
-                    }}
-                    className="p-1.5 bg-surface border border-subtle rounded-lg text-muted hover:text-red-500 hover:border-red-500/30 transition-colors active:scale-90"
-                    title="Release all tags"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
+          <div className="flex-1 overflow-y-auto px-4 pb-8">
+            {isLoadingTags && (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="animate-spin text-accent w-8 h-8 opacity-30" />
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {tags.map((tag) => {
-                  const isSelected = selectedTags.has(tag.id);
-                  return (
+            )}
+
+            {!isLoadingTags && tagsBySku.size === 0 && (
+              <div className="text-center py-20 text-muted text-sm">
+                {historyFilter ? 'No tags match your filter.' : 'No asset tags created yet.'}
+              </div>
+            )}
+
+            {[...tagsBySku.entries()].map(([sku, tags]) => (
+              <div key={sku} className="mb-4 p-3 bg-card border border-subtle rounded-xl">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <p className="text-sm font-bold text-content tracking-tight">{sku}</p>
+                    <p className="text-[10px] text-muted">{tags[0]?.location ?? 'No location'}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-accent bg-accent/10 border border-accent/20 px-2 py-1 rounded-lg">
+                      {tags.length}
+                    </span>
                     <button
-                      key={tag.id}
-                      onClick={() => toggleTagSelection(tag.id)}
-                      onDoubleClick={() => setEditingTag(tag)}
-                      className={`text-[9px] font-mono font-bold px-2 py-1 rounded-lg border transition-all active:scale-95 ${
-                        isSelected
-                          ? 'ring-2 ring-accent ring-offset-1 ring-offset-main'
-                          : ''
-                      } ${
-                        tag.status === 'printed'
-                          ? 'bg-card border-subtle text-muted'
-                          : tag.status === 'in_stock'
-                            ? 'bg-green-500/10 border-green-500/20 text-green-500'
-                            : tag.status === 'allocated' || tag.status === 'picked'
-                              ? 'bg-blue-500/10 border-blue-500/20 text-blue-500'
-                              : tag.status === 'shipped'
-                                ? 'bg-accent/10 border-accent/20 text-accent'
-                                : 'bg-red-500/10 border-red-500/20 text-red-500'
-                      }`}
-                      title={`${tag.status} — tap to select, double-tap to edit`}
+                      onClick={() => handleReprint(sku, tags)}
+                      disabled={isReprinting}
+                      className="p-1.5 bg-surface border border-subtle rounded-lg text-muted hover:text-accent hover:border-accent/30 transition-colors active:scale-90 disabled:opacity-30"
+                      title="Reprint all"
                     >
-                      {tag.short_code}
+                      <Printer size={14} />
                     </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Selection action bar */}
-        {selectedTags.size > 0 && (
-          <div className="fixed bottom-0 left-0 right-0 px-4 pt-3 pb-28 bg-gradient-to-t from-main via-main/90 to-transparent">
-            <div className="flex items-center gap-2 bg-card border border-subtle rounded-2xl p-3">
-              <span className="text-[10px] font-bold text-content flex-1">{selectedTags.size} selected</span>
-              <button
-                onClick={() => handleReprint('', createdTags?.filter((t) => selectedTags.has(t.id)) ?? [])}
-                className="px-3 py-2 bg-accent/10 border border-accent/20 rounded-xl text-[10px] font-bold text-accent active:scale-95"
-              >
-                Reprint
-              </button>
-              <button
-                onClick={() => handleReleaseTags([...selectedTags], 'invalidate')}
-                className="px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-xl text-[10px] font-bold text-amber-500 active:scale-95"
-              >
-                Invalidate
-              </button>
-              <button
-                onClick={() => { if (window.confirm(`Delete ${selectedTags.size} tag(s) permanently?`)) handleReleaseTags([...selectedTags], 'delete'); }}
-                className="px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-[10px] font-bold text-red-500 active:scale-95"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Tag edit modal */}
-        {editingTag && (() => {
-          const et = editingTag;
-          const fields = [
-            ['upc', 'UPC', et.upc ?? ''],
-            ['po_number', 'P/O No', et.po_number ?? ''],
-            ['c_number', 'C/No', et.c_number ?? ''],
-            ['serial_number', 'Serial No', et.serial_number ?? ''],
-            ['made_in', 'Made In', et.made_in ?? ''],
-            ['other_notes', 'Notes', et.other_notes ?? ''],
-          ] as [string, string, string][];
-          let editState: Record<string, string> = {};
-          fields.forEach(([key, , val]) => { editState[key] = val; });
-          let selectedStatus = et.status;
-          const validTargets = VALID_TRANSITIONS[et.status] ?? [];
-
-          return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-main/60 backdrop-blur-md">
-              <div className="bg-surface border border-subtle rounded-2xl p-5 w-full max-w-sm shadow-2xl">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <p className="text-sm font-bold text-content">{et.short_code}</p>
-                    <p className="text-[10px] text-muted">{et.sku} · {et.status}</p>
-                  </div>
-                  <button onClick={() => setEditingTag(null)} className="p-2 text-muted hover:text-content"><X size={18} /></button>
-                </div>
-                <div className="space-y-2">
-                  {/* Status dropdown */}
-                  <div>
-                    <label className="text-[9px] text-muted font-black uppercase tracking-widest">Status</label>
-                    <select
-                      defaultValue={et.status}
-                      onChange={(e) => { selectedStatus = e.target.value; }}
-                      className="w-full h-9 px-3 bg-card border border-subtle rounded-lg text-xs text-content focus:outline-none focus:border-accent/40"
-                    >
-                      <option value={et.status} disabled>{et.status}</option>
-                      {validTargets.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {fields.map(([key, label, defaultVal]) => (
-                    <div key={key}>
-                      <label className="text-[9px] text-muted font-black uppercase tracking-widest">{label}</label>
-                      <input
-                        type="text"
-                        defaultValue={defaultVal}
-                        onChange={(e) => { editState[key] = e.target.value.toUpperCase(); }}
-                        className="w-full h-9 px-3 bg-card border border-subtle rounded-lg text-xs text-content font-mono focus:outline-none focus:border-accent/40"
-                      />
-                    </div>
-                  ))}
-                </div>
-                <div className="flex gap-2 mt-4">
-                  <button
-                    onClick={() => {
-                      const updates: Record<string, string | null> = { ...editState };
-                      if (selectedStatus !== et.status) {
-                        const allowed = VALID_TRANSITIONS[et.status] ?? [];
-                        if (allowed.includes(selectedStatus)) {
-                          updates.status = selectedStatus;
-                        } else {
-                          toast.error(`Cannot transition from ${et.status} to ${selectedStatus}`);
-                          return;
+                    <button
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `Release all ${tags.length} tags for ${sku}?\n\nChoose OK to invalidate, or cancel and use individual selection to delete.`
+                          )
+                        ) {
+                          handleReleaseTags(
+                            tags.map((t) => t.id),
+                            'invalidate'
+                          );
                         }
-                      }
-                      handleSaveTag(et.id, updates);
-                    }}
-                    className="flex-1 h-10 bg-accent text-main font-bold text-[10px] uppercase tracking-widest rounded-xl active:scale-95"
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={() => { handleReprint(et.sku, [et]); setEditingTag(null); }}
-                    className="h-10 px-4 bg-surface border border-subtle text-muted font-bold text-[10px] uppercase tracking-widest rounded-xl active:scale-95"
-                  >
-                    Reprint
-                  </button>
+                      }}
+                      className="p-1.5 bg-surface border border-subtle rounded-lg text-muted hover:text-red-500 hover:border-red-500/30 transition-colors active:scale-90"
+                      title="Release all tags"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {tags.map((tag) => {
+                    const isSelected = selectedTags.has(tag.id);
+                    return (
+                      <button
+                        key={tag.id}
+                        onClick={() => toggleTagSelection(tag.id)}
+                        onDoubleClick={() => setEditingTag(tag)}
+                        className={`text-[9px] font-mono font-bold px-2 py-1 rounded-lg border transition-all active:scale-95 ${
+                          isSelected ? 'ring-2 ring-accent ring-offset-1 ring-offset-main' : ''
+                        } ${
+                          tag.status === 'printed'
+                            ? 'bg-card border-subtle text-muted'
+                            : tag.status === 'in_stock'
+                              ? 'bg-green-500/10 border-green-500/20 text-green-500'
+                              : tag.status === 'allocated' || tag.status === 'picked'
+                                ? 'bg-blue-500/10 border-blue-500/20 text-blue-500'
+                                : tag.status === 'shipped'
+                                  ? 'bg-accent/10 border-accent/20 text-accent'
+                                  : 'bg-red-500/10 border-red-500/20 text-red-500'
+                        }`}
+                        title={`${tag.status} — tap to select, double-tap to edit`}
+                      >
+                        {tag.short_code}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
+            ))}
+          </div>
+
+          {/* Selection action bar */}
+          {selectedTags.size > 0 && (
+            <div className="fixed bottom-0 left-0 right-0 px-4 pt-3 pb-28 bg-gradient-to-t from-main via-main/90 to-transparent">
+              <div className="flex items-center gap-2 bg-card border border-subtle rounded-2xl p-3">
+                <span className="text-[10px] font-bold text-content flex-1">
+                  {selectedTags.size} selected
+                </span>
+                <button
+                  onClick={() =>
+                    handleReprint('', createdTags?.filter((t) => selectedTags.has(t.id)) ?? [])
+                  }
+                  className="px-3 py-2 bg-accent/10 border border-accent/20 rounded-xl text-[10px] font-bold text-accent active:scale-95"
+                >
+                  Reprint
+                </button>
+                <button
+                  onClick={() => handleReleaseTags([...selectedTags], 'invalidate')}
+                  className="px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-xl text-[10px] font-bold text-amber-500 active:scale-95"
+                >
+                  Invalidate
+                </button>
+                <button
+                  onClick={() => {
+                    if (window.confirm(`Delete ${selectedTags.size} tag(s) permanently?`))
+                      handleReleaseTags([...selectedTags], 'delete');
+                  }}
+                  className="px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-[10px] font-bold text-red-500 active:scale-95"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
-          );
-        })()}
+          )}
+
+          {/* Tag edit modal */}
+          {editingTag &&
+            (() => {
+              const et = editingTag;
+              const fields = [
+                ['upc', 'UPC', et.upc ?? ''],
+                ['po_number', 'P/O No', et.po_number ?? ''],
+                ['c_number', 'C/No', et.c_number ?? ''],
+                ['serial_number', 'Serial No', et.serial_number ?? ''],
+                ['made_in', 'Made In', et.made_in ?? ''],
+                ['other_notes', 'Notes', et.other_notes ?? ''],
+              ] as [string, string, string][];
+              let editState: Record<string, string> = {};
+              fields.forEach(([key, , val]) => {
+                editState[key] = val;
+              });
+              let selectedStatus = et.status;
+              const validTargets = VALID_TRANSITIONS[et.status] ?? [];
+
+              return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-main/60 backdrop-blur-md">
+                  <div className="bg-surface border border-subtle rounded-2xl p-5 w-full max-w-sm shadow-2xl">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <p className="text-sm font-bold text-content">{et.short_code}</p>
+                        <p className="text-[10px] text-muted">
+                          {et.sku} · {et.status}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setEditingTag(null)}
+                        className="p-2 text-muted hover:text-content"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {/* Status dropdown */}
+                      <div>
+                        <label className="text-[9px] text-muted font-black uppercase tracking-widest">
+                          Status
+                        </label>
+                        <select
+                          defaultValue={et.status}
+                          onChange={(e) => {
+                            selectedStatus = e.target.value;
+                          }}
+                          className="w-full h-9 px-3 bg-card border border-subtle rounded-lg text-xs text-content focus:outline-none focus:border-accent/40"
+                        >
+                          <option value={et.status} disabled>
+                            {et.status}
+                          </option>
+                          {validTargets.map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      {fields.map(([key, label, defaultVal]) => (
+                        <div key={key}>
+                          <label className="text-[9px] text-muted font-black uppercase tracking-widest">
+                            {label}
+                          </label>
+                          <input
+                            type="text"
+                            defaultValue={defaultVal}
+                            onChange={(e) => {
+                              editState[key] = e.target.value.toUpperCase();
+                            }}
+                            className="w-full h-9 px-3 bg-card border border-subtle rounded-lg text-xs text-content font-mono focus:outline-none focus:border-accent/40"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 mt-4">
+                      <button
+                        onClick={() => {
+                          const updates: Record<string, string | null> = { ...editState };
+                          if (selectedStatus !== et.status) {
+                            const allowed = VALID_TRANSITIONS[et.status] ?? [];
+                            if (allowed.includes(selectedStatus)) {
+                              updates.status = selectedStatus;
+                            } else {
+                              toast.error(
+                                `Cannot transition from ${et.status} to ${selectedStatus}`
+                              );
+                              return;
+                            }
+                          }
+                          handleSaveTag(et.id, updates);
+                        }}
+                        className="flex-1 h-10 bg-accent text-main font-bold text-[10px] uppercase tracking-widest rounded-xl active:scale-95"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleReprint(et.sku, [et]);
+                          setEditingTag(null);
+                        }}
+                        className="h-10 px-4 bg-surface border border-subtle text-muted font-bold text-[10px] uppercase tracking-widest rounded-xl active:scale-95"
+                      >
+                        Reprint
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
         </>
       )}
 
       {/* Custom label view */}
-      {viewMode === 'custom' && (() => {
-        const parsed = parseBikeName(customName || null);
-        const hasContent = customSku.trim().length > 0 || customName.trim().length > 0 || customExtra.trim().length > 0;
+      {viewMode === 'custom' &&
+        (() => {
+          const parsed = parseBikeName(customName || null);
+          const hasContent =
+            customSku.trim().length > 0 ||
+            customName.trim().length > 0 ||
+            customExtra.trim().length > 0;
 
-        // Auto-complete: lookup SKU in inventory
-        const skuMatch = customSku.length >= 4
-          ? bikes?.find((b) => b.sku.toUpperCase() === customSku.toUpperCase())
-          : null;
-        const skuTagCount = skuMatch ? getTaggedCount(skuMatch.sku) : 0;
+          // Auto-complete: lookup SKU in inventory
+          const skuMatch =
+            customSku.length >= 4
+              ? bikes?.find((b) => b.sku.toUpperCase() === customSku.toUpperCase())
+              : null;
+          const skuTagCount = skuMatch ? getTaggedCount(skuMatch.sku) : 0;
 
-        const handleCustomGenerate = async () => {
-          if (!customSku.trim() || !user) return;
-          setIsCustomGenerating(true);
-          try {
-            const skuVal = customSku.trim() || 'CUSTOM';
-            const inserts = Array.from({ length: customQty }, () => ({
-              sku: skuVal,
-              warehouse: 'LUDLOW',
-              created_by: user.id,
-              printed_at: new Date().toISOString(),
-              ...(customUpc && { upc: customUpc.trim() }),
-              ...(customPo && { po_number: customPo.trim() }),
-              ...(customCNo && { c_number: customCNo.trim() }),
-              ...(customSerial && { serial_number: customSerial.trim() }),
-              ...(customMadeIn && { made_in: customMadeIn.trim() }),
-              ...(customOtherNotes && { other_notes: customOtherNotes.trim() }),
-            }));
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { data: tags, error } = await (supabase as any)
-              .from('asset_tags')
-              .insert(inserts)
-              .select('short_code, sku, public_token') as { data: { short_code: string; sku: string; public_token: string }[] | null; error: unknown };
-            if (error || !tags) throw error || new Error('No tags returned');
-            const labelItems: LabelItem[] = tags.map((t) => ({
-              sku: t.sku,
-              item_name: customName.trim() || null,
-              short_code: t.short_code,
-              public_token: t.public_token,
-              extra: customExtra.trim() || null,
-              prefix: customLabelType === 'sd' ? 'S/D' : null,
-              layout: customLabelType === 'vertical' ? 'vertical' : 'standard',
-            }));
-            const blobUrl = await generateBikeLabels(labelItems);
-            window.open(blobUrl, '_blank');
-            toast.success(`${tags.length} custom label${tags.length !== 1 ? 's' : ''} created`);
-          } catch (err) {
-            console.error('Custom label failed:', err);
-            toast.error('Failed to generate custom label');
-          } finally {
-            setIsCustomGenerating(false);
-          }
-        };
+          const handleCustomGenerate = async () => {
+            if (!customSku.trim() || !user) return;
+            setIsCustomGenerating(true);
+            try {
+              const skuVal = customSku.trim() || 'CUSTOM';
+              const inserts = Array.from({ length: customQty }, () => ({
+                sku: skuVal,
+                warehouse: 'LUDLOW',
+                created_by: user.id,
+                printed_at: new Date().toISOString(),
+                ...(customUpc && { upc: customUpc.trim() }),
+                ...(customPo && { po_number: customPo.trim() }),
+                ...(customCNo && { c_number: customCNo.trim() }),
+                ...(customSerial && { serial_number: customSerial.trim() }),
+                ...(customMadeIn && { made_in: customMadeIn.trim() }),
+                ...(customOtherNotes && { other_notes: customOtherNotes.trim() }),
+              }));
+              const { data: tags, error } = await supabase
+                .from('asset_tags')
+                .insert(inserts)
+                .select('short_code, sku, public_token');
+              if (error || !tags) throw error || new Error('No tags returned');
+              const labelItems: LabelItem[] = tags.map((t) => ({
+                sku: t.sku,
+                item_name: customName.trim() || null,
+                short_code: t.short_code,
+                public_token: t.public_token,
+                extra: customExtra.trim() || null,
+                prefix: customLabelType === 'sd' ? 'S/D' : null,
+                layout: customLabelType === 'vertical' ? 'vertical' : 'standard',
+              }));
+              const blobUrl = await generateBikeLabels(labelItems);
+              window.open(blobUrl, '_blank');
+              toast.success(`${tags.length} custom label${tags.length !== 1 ? 's' : ''} created`);
+            } catch (err) {
+              console.error('Custom label failed:', err);
+              toast.error('Failed to generate custom label');
+            } finally {
+              setIsCustomGenerating(false);
+            }
+          };
 
-        return (
-          <div className="flex-1 overflow-y-auto px-4 pb-32">
-            {/* Inputs */}
-            <div className="space-y-3 mb-6">
-              <div>
-                <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-1 block">SKU *</label>
-                <input
-                  type="text"
-                  value={customSku}
-                  onChange={(e) => setCustomSku(e.target.value.toUpperCase())}
-                  placeholder="03-4614BK"
-                  className="w-full h-12 px-4 bg-surface border border-subtle rounded-xl text-sm text-content font-mono placeholder-muted focus:outline-none focus:border-accent/40"
-                  autoFocus
-                />
-                {skuMatch && (
-                  <button
-                    onClick={() => setCustomName(skuMatch.item_name ?? '')}
-                    className="mt-1.5 w-full text-left px-3 py-2 bg-accent/5 border border-accent/20 rounded-xl text-[10px] text-accent font-bold active:scale-[0.98] transition-all"
-                  >
-                    Found: {(skuMatch.item_name ?? skuMatch.sku).slice(0, 35)} · {skuMatch.location ?? '?'} · {skuTagCount} tag{skuTagCount !== 1 ? 's' : ''}
-                    <span className="text-accent/60 ml-1">— tap to fill name</span>
-                  </button>
-                )}
-              </div>
-              <div>
-                <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-1 block">Item Name (optional)</label>
-                <input
-                  type="text"
-                  value={customName}
-                  onChange={(e) => setCustomName(e.target.value.toUpperCase())}
-                  placeholder="FAULTLINE A1 V2 15 2026 GLOSS BLACK"
-                  className="w-full h-12 px-4 bg-surface border border-subtle rounded-xl text-sm text-content font-mono placeholder-muted focus:outline-none focus:border-accent/40"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-1 block">Extra Info (below SKU)</label>
-                <input
-                  type="text"
-                  value={customExtra}
-                  onChange={(e) => setCustomExtra(e.target.value.toUpperCase())}
-                  placeholder="e.g. SPECIAL ORDER, DEMO UNIT..."
-                  className="w-full h-12 px-4 bg-surface border border-subtle rounded-xl text-sm text-content font-mono placeholder-muted focus:outline-none focus:border-accent/40"
-                />
-              </div>
-              {/* Expandable additional fields */}
-              <button
-                onClick={() => setShowExtraFields(!showExtraFields)}
-                className="w-full text-left text-[10px] font-black uppercase tracking-widest text-accent py-2"
-              >
-                {showExtraFields ? '▼ Hide Additional Info' : '▶ Additional Info (UPC, Serial, P/O...)'}
-              </button>
-              {showExtraFields && (
-                <div className="space-y-3 pb-2">
-                  {([
-                    ['UPC', customUpc, setCustomUpc, '012345678901'],
-                    ['P/O No', customPo, setCustomPo, 'Purchase order number'],
-                    ['C/No', customCNo, setCustomCNo, 'Container number'],
-                    ['Serial No', customSerial, setCustomSerial, 'Serial number'],
-                    ['Made In', customMadeIn, setCustomMadeIn, 'Country of origin'],
-                    ['Other Notes', customOtherNotes, setCustomOtherNotes, 'Additional notes'],
-                  ] as [string, string, (v: string) => void, string][]).map(([label, val, setter, ph]) => (
-                    <div key={label}>
-                      <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-1 block">{label}</label>
-                      <input
-                        type="text"
-                        value={val}
-                        onChange={(e) => setter(e.target.value.toUpperCase())}
-                        placeholder={ph}
-                        className="w-full h-10 px-4 bg-surface border border-subtle rounded-xl text-xs text-content font-mono placeholder-muted focus:outline-none focus:border-accent/40"
-                      />
-                    </div>
-                  ))}
+          return (
+            <div className="flex-1 overflow-y-auto px-4 pb-32">
+              {/* Inputs */}
+              <div className="space-y-3 mb-6">
+                <div>
+                  <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-1 block">
+                    SKU *
+                  </label>
+                  <input
+                    type="text"
+                    value={customSku}
+                    onChange={(e) => setCustomSku(e.target.value.toUpperCase())}
+                    placeholder="03-4614BK"
+                    className="w-full h-12 px-4 bg-surface border border-subtle rounded-xl text-sm text-content font-mono placeholder-muted focus:outline-none focus:border-accent/40"
+                    autoFocus
+                  />
+                  {skuMatch && (
+                    <button
+                      onClick={() => setCustomName(skuMatch.item_name ?? '')}
+                      className="mt-1.5 w-full text-left px-3 py-2 bg-accent/5 border border-accent/20 rounded-xl text-[10px] text-accent font-bold active:scale-[0.98] transition-all"
+                    >
+                      Found: {(skuMatch.item_name ?? skuMatch.sku).slice(0, 35)} ·{' '}
+                      {skuMatch.location ?? '?'} · {skuTagCount} tag{skuTagCount !== 1 ? 's' : ''}
+                      <span className="text-accent/60 ml-1">— tap to fill name</span>
+                    </button>
+                  )}
                 </div>
-              )}
-
-              <div>
-                <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-1 block">Quantity</label>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setCustomQty((q) => Math.max(1, q - 1))}
-                    className="w-10 h-10 flex items-center justify-center bg-surface border border-subtle rounded-xl text-muted active:scale-90"
-                  >
-                    <Minus size={16} />
-                  </button>
-                  <span className="w-10 text-center text-lg font-bold text-content">{customQty}</span>
-                  <button
-                    onClick={() => setCustomQty((q) => q + 1)}
-                    className="w-10 h-10 flex items-center justify-center bg-surface border border-subtle rounded-xl text-muted active:scale-90"
-                  >
-                    <Plus size={16} />
-                  </button>
+                <div>
+                  <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-1 block">
+                    Item Name (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={customName}
+                    onChange={(e) => setCustomName(e.target.value.toUpperCase())}
+                    placeholder="FAULTLINE A1 V2 15 2026 GLOSS BLACK"
+                    className="w-full h-12 px-4 bg-surface border border-subtle rounded-xl text-sm text-content font-mono placeholder-muted focus:outline-none focus:border-accent/40"
+                  />
                 </div>
-              </div>
-            </div>
-
-            {/* Live Preview */}
-            <div className="mb-4">
-              <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-2 block">Preview</label>
-
-              {customLabelType === 'vertical' ? (
-              /* Vertical preview (portrait 4×6) */
-              <div className="bg-white border border-subtle rounded-xl p-4 aspect-[4/6] flex flex-col max-w-[200px] mx-auto">
-                {/* Name top */}
-                {(parsed.model || customName) && (
-                  <p className="text-[11px] font-black text-black leading-tight mb-0.5">
-                    {parsed.model || customName}
-                  </p>
+                <div>
+                  <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-1 block">
+                    Extra Info (below SKU)
+                  </label>
+                  <input
+                    type="text"
+                    value={customExtra}
+                    onChange={(e) => setCustomExtra(e.target.value.toUpperCase())}
+                    placeholder="e.g. SPECIAL ORDER, DEMO UNIT..."
+                    className="w-full h-12 px-4 bg-surface border border-subtle rounded-xl text-sm text-content font-mono placeholder-muted focus:outline-none focus:border-accent/40"
+                  />
+                </div>
+                {/* Expandable additional fields */}
+                <button
+                  onClick={() => setShowExtraFields(!showExtraFields)}
+                  className="w-full text-left text-[10px] font-black uppercase tracking-widest text-accent py-2"
+                >
+                  {showExtraFields
+                    ? '▼ Hide Additional Info'
+                    : '▶ Additional Info (UPC, Serial, P/O...)'}
+                </button>
+                {showExtraFields && (
+                  <div className="space-y-3 pb-2">
+                    {(
+                      [
+                        ['UPC', customUpc, setCustomUpc, '012345678901'],
+                        ['P/O No', customPo, setCustomPo, 'Purchase order number'],
+                        ['C/No', customCNo, setCustomCNo, 'Container number'],
+                        ['Serial No', customSerial, setCustomSerial, 'Serial number'],
+                        ['Made In', customMadeIn, setCustomMadeIn, 'Country of origin'],
+                        ['Other Notes', customOtherNotes, setCustomOtherNotes, 'Additional notes'],
+                      ] as [string, string, (v: string) => void, string][]
+                    ).map(([label, val, setter, ph]) => (
+                      <div key={label}>
+                        <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-1 block">
+                          {label}
+                        </label>
+                        <input
+                          type="text"
+                          value={val}
+                          onChange={(e) => setter(e.target.value.toUpperCase())}
+                          placeholder={ph}
+                          className="w-full h-10 px-4 bg-surface border border-subtle rounded-xl text-xs text-content font-mono placeholder-muted focus:outline-none focus:border-accent/40"
+                        />
+                      </div>
+                    ))}
+                  </div>
                 )}
-                <p className="text-[7px] text-black mb-1">
-                  {[parsed.size && `SIZE ${parsed.size}`, parsed.color && `COLOR ${parsed.color}`, parsed.year && `YEAR ${parsed.year}`].filter(Boolean).join(' · ')}
-                </p>
-                <div className="border-t border-black/20 my-1" />
-                {/* QR centered */}
-                <div className="flex-1 flex items-center justify-center">
-                  <div className="w-20 h-20 bg-black/10 border border-black/20 rounded flex items-center justify-center">
-                    <span className="text-[7px] text-black/40 font-bold">QR</span>
+
+                <div>
+                  <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-1 block">
+                    Quantity
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCustomQty((q) => Math.max(1, q - 1))}
+                      className="w-10 h-10 flex items-center justify-center bg-surface border border-subtle rounded-xl text-muted active:scale-90"
+                    >
+                      <Minus size={16} />
+                    </button>
+                    <span className="w-10 text-center text-lg font-bold text-content">
+                      {customQty}
+                    </span>
+                    <button
+                      onClick={() => setCustomQty((q) => q + 1)}
+                      className="w-10 h-10 flex items-center justify-center bg-surface border border-subtle rounded-xl text-muted active:scale-90"
+                    >
+                      <Plus size={16} />
+                    </button>
                   </div>
                 </div>
-                {/* SKU bottom */}
-                <div className="mt-1">
-                  {customSku ? (
-                    <span className="bg-black text-white font-black text-sm px-2 py-0.5 leading-none inline-block">{customSku}</span>
-                  ) : (
-                    <span className="text-sm font-black text-black/20">SKU</span>
-                  )}
-                  {customExtra && <p className="text-[7px] font-bold text-black mt-0.5">{customExtra}</p>}
-                </div>
               </div>
-              ) : (
-              /* Standard / S/D preview */
-              <div className="bg-white border border-subtle rounded-xl p-4 aspect-[6/4] flex flex-col">
-                {/* Preview header */}
-                <div className="flex gap-3 items-start mb-1">
-                  {customLabelType === 'sd' && (
-                    <span className="text-xl font-black italic text-black leading-none shrink-0">S/D</span>
-                  )}
-                  {(parsed.model || customName) && (
-                    <p className="text-[11px] font-black text-black leading-tight">
-                      {parsed.model || customName}
+
+              {/* Live Preview */}
+              <div className="mb-4">
+                <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-2 block">
+                  Preview
+                </label>
+
+                {customLabelType === 'vertical' ? (
+                  /* Vertical preview (portrait 4×6) */
+                  <div className="bg-white border border-subtle rounded-xl p-4 aspect-[4/6] flex flex-col max-w-[200px] mx-auto">
+                    {/* Name top */}
+                    {(parsed.model || customName) && (
+                      <p className="text-[11px] font-black text-black leading-tight mb-0.5">
+                        {parsed.model || customName}
+                      </p>
+                    )}
+                    <p className="text-[7px] text-black mb-1">
+                      {[
+                        parsed.size && `SIZE ${parsed.size}`,
+                        parsed.color && `COLOR ${parsed.color}`,
+                        parsed.year && `YEAR ${parsed.year}`,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </p>
-                  )}
-                </div>
-                {/* Preview detail */}
-                <p className="text-[8px] text-black mb-1">
-                  {[
-                    parsed.size && `SIZE ${parsed.size}`,
-                    parsed.color && `COLOR ${parsed.color}`,
-                    parsed.year && `YEAR ${parsed.year}`,
-                  ].filter(Boolean).join('  ·  ')}
-                </p>
-                <div className="border-t border-black/20 my-1" />
-                {/* Preview main */}
-                <div className="flex-1 flex items-center justify-between gap-2">
-                  <div>
-                    {customSku ? (
-                      <span className="bg-black text-white font-black text-lg px-2 py-1 leading-none inline-block">
-                        {customSku}
-                      </span>
-                    ) : (
-                      <span className="text-lg font-black text-black/20">SKU</span>
-                    )}
-                    {customExtra && (
-                      <p className="text-[8px] font-bold text-black mt-1 ml-0.5">{customExtra}</p>
-                    )}
+                    <div className="border-t border-black/20 my-1" />
+                    {/* QR centered */}
+                    <div className="flex-1 flex items-center justify-center">
+                      <div className="w-20 h-20 bg-black/10 border border-black/20 rounded flex items-center justify-center">
+                        <span className="text-[7px] text-black/40 font-bold">QR</span>
+                      </div>
+                    </div>
+                    {/* SKU bottom */}
+                    <div className="mt-1">
+                      {customSku ? (
+                        <span className="bg-black text-white font-black text-sm px-2 py-0.5 leading-none inline-block">
+                          {customSku}
+                        </span>
+                      ) : (
+                        <span className="text-sm font-black text-black/20">SKU</span>
+                      )}
+                      {customExtra && (
+                        <p className="text-[7px] font-bold text-black mt-0.5">{customExtra}</p>
+                      )}
+                    </div>
                   </div>
-                  <div className="w-16 h-16 bg-black/10 border border-black/20 rounded flex items-center justify-center shrink-0">
-                    <span className="text-[7px] text-black/40 font-bold">QR</span>
-                  </div>
-                </div>
-              </div>
-              )}
-            </div>
-
-            {/* Generate button */}
-            <div className="fixed bottom-0 left-0 right-0 px-4 pt-4 pb-28 bg-gradient-to-t from-main via-main/90 to-transparent">
-              <button
-                onClick={handleCustomGenerate}
-                disabled={!hasContent || isCustomGenerating}
-                className="w-full h-14 bg-accent text-main font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-accent/20 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {isCustomGenerating ? (
-                  <Loader2 className="animate-spin" size={16} />
                 ) : (
-                  <Printer size={16} />
+                  /* Standard / S/D preview */
+                  <div className="bg-white border border-subtle rounded-xl p-4 aspect-[6/4] flex flex-col">
+                    {/* Preview header */}
+                    <div className="flex gap-3 items-start mb-1">
+                      {customLabelType === 'sd' && (
+                        <span className="text-xl font-black italic text-black leading-none shrink-0">
+                          S/D
+                        </span>
+                      )}
+                      {(parsed.model || customName) && (
+                        <p className="text-[11px] font-black text-black leading-tight">
+                          {parsed.model || customName}
+                        </p>
+                      )}
+                    </div>
+                    {/* Preview detail */}
+                    <p className="text-[8px] text-black mb-1">
+                      {[
+                        parsed.size && `SIZE ${parsed.size}`,
+                        parsed.color && `COLOR ${parsed.color}`,
+                        parsed.year && `YEAR ${parsed.year}`,
+                      ]
+                        .filter(Boolean)
+                        .join('  ·  ')}
+                    </p>
+                    <div className="border-t border-black/20 my-1" />
+                    {/* Preview main */}
+                    <div className="flex-1 flex items-center justify-between gap-2">
+                      <div>
+                        {customSku ? (
+                          <span className="bg-black text-white font-black text-lg px-2 py-1 leading-none inline-block">
+                            {customSku}
+                          </span>
+                        ) : (
+                          <span className="text-lg font-black text-black/20">SKU</span>
+                        )}
+                        {customExtra && (
+                          <p className="text-[8px] font-bold text-black mt-1 ml-0.5">
+                            {customExtra}
+                          </p>
+                        )}
+                      </div>
+                      <div className="w-16 h-16 bg-black/10 border border-black/20 rounded flex items-center justify-center shrink-0">
+                        <span className="text-[7px] text-black/40 font-bold">QR</span>
+                      </div>
+                    </div>
+                  </div>
                 )}
-                Generate {customQty * 2} Labels ({customQty} unit{customQty !== 1 ? 's' : ''})
-              </button>
+              </div>
+
+              {/* Generate button */}
+              <div className="fixed bottom-0 left-0 right-0 px-4 pt-4 pb-28 bg-gradient-to-t from-main via-main/90 to-transparent">
+                <button
+                  onClick={handleCustomGenerate}
+                  disabled={!hasContent || isCustomGenerating}
+                  className="w-full h-14 bg-accent text-main font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-accent/20 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isCustomGenerating ? (
+                    <Loader2 className="animate-spin" size={16} />
+                  ) : (
+                    <Printer size={16} />
+                  )}
+                  Generate {customQty * 2} Labels ({customQty} unit{customQty !== 1 ? 's' : ''})
+                </button>
+              </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
     </div>
   );
 };

@@ -92,15 +92,12 @@ export const StockCountScreen = () => {
           setDbSessionId(data.id);
           setDbSessionLabel(data.label);
           // Load items from this session
-          (supabase as any)
+          supabase
             .from('cycle_count_items')
             .select('sku, expected_qty, counted_qty, status')
             .eq('session_id', data.id)
             .order('created_at')
-            .then(async ({ data: rawItems }: { data: any[] | null }) => {
-              const items = rawItems as unknown as
-                | { sku: string; expected_qty: number; counted_qty: number; status: string }[]
-                | null;
+            .then(async ({ data: items }) => {
               if (items && items.length > 0) {
                 const skus = items.map((i) => i.sku);
                 const verified = items
@@ -187,7 +184,7 @@ export const StockCountScreen = () => {
   const syncVerifiedToDb = useCallback(
     async (sku: string, verified: boolean) => {
       if (!dbSessionId) return;
-      await (supabase as any)
+      await supabase
         .from('cycle_count_items')
         .update({
           status: verified ? 'counted' : 'pending',

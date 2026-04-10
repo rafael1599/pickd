@@ -60,6 +60,84 @@ export type Database = {
         };
         Relationships: [];
       };
+      asset_tags: {
+        Row: {
+          id: string;
+          short_code: string;
+          public_token: string;
+          sku: string;
+          warehouse: string;
+          location: string | null;
+          status: string;
+          order_id: string | null;
+          printed_at: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+          upc: string | null;
+          po_number: string | null;
+          c_number: string | null;
+          serial_number: string | null;
+          made_in: string | null;
+          other_notes: string | null;
+          label_photo_url: string | null;
+        };
+        Insert: {
+          // id has DEFAULT gen_random_uuid()
+          id?: string;
+          // short_code has DEFAULT generate_short_code() (sequence-based)
+          short_code?: string;
+          // public_token has DEFAULT gen_random_uuid()
+          public_token?: string;
+          sku: string;
+          warehouse?: string;
+          location?: string | null;
+          status?: string;
+          order_id?: string | null;
+          printed_at?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          upc?: string | null;
+          po_number?: string | null;
+          c_number?: string | null;
+          serial_number?: string | null;
+          made_in?: string | null;
+          other_notes?: string | null;
+          label_photo_url?: string | null;
+        };
+        Update: {
+          id?: string;
+          // short_code and public_token are unique identifiers; technically updatable
+          // but should never be in practice. Left optional to match Supabase conventions.
+          short_code?: string;
+          public_token?: string;
+          sku?: string;
+          warehouse?: string;
+          location?: string | null;
+          status?: string;
+          order_id?: string | null;
+          printed_at?: string | null;
+          created_by?: string | null;
+          updated_at?: string;
+          upc?: string | null;
+          po_number?: string | null;
+          c_number?: string | null;
+          serial_number?: string | null;
+          made_in?: string | null;
+          other_notes?: string | null;
+          label_photo_url?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'asset_tags_created_by_fkey';
+            columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       customer_addresses: {
         Row: {
           id: string;
@@ -148,6 +226,75 @@ export type Database = {
           zip_code?: string | null;
         };
         Relationships: [];
+      };
+      cycle_count_items: {
+        Row: {
+          id: string;
+          session_id: string;
+          sku: string;
+          location: string | null;
+          warehouse: string;
+          expected_qty: number | null;
+          counted_qty: number | null;
+          counted_by: string | null;
+          counted_at: string | null;
+          variance: number | null;
+          status: string;
+          adjustment_log_id: string | null;
+          notes: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          session_id: string;
+          sku: string;
+          location?: string | null;
+          warehouse?: string;
+          expected_qty?: number | null;
+          counted_qty?: number | null;
+          counted_by?: string | null;
+          counted_at?: string | null;
+          // variance is GENERATED ALWAYS AS (counted_qty - coalesce(expected_qty, 0)) STORED
+          // — must NOT be in Insert; PostgREST will reject the request.
+          status?: string;
+          adjustment_log_id?: string | null;
+          notes?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          session_id?: string;
+          sku?: string;
+          location?: string | null;
+          warehouse?: string;
+          expected_qty?: number | null;
+          counted_qty?: number | null;
+          counted_by?: string | null;
+          counted_at?: string | null;
+          // variance is GENERATED ALWAYS — must NOT be in Update.
+          status?: string;
+          adjustment_log_id?: string | null;
+          notes?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'cycle_count_items_session_id_fkey';
+            columns: ['session_id'];
+            isOneToOne: false;
+            referencedRelation: 'cycle_count_sessions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'cycle_count_items_counted_by_fkey';
+            columns: ['counted_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       cycle_count_sessions: {
         Row: {
@@ -696,6 +843,7 @@ export type Database = {
           reopened_by: string | null;
           reopened_at: string | null;
           reopen_count: number | null;
+          pallet_photos: Json | null;
         };
         Insert: {
           checked_by?: string | null;
@@ -723,6 +871,7 @@ export type Database = {
           reopened_by?: string | null;
           reopened_at?: string | null;
           reopen_count?: number | null;
+          pallet_photos?: Json | null;
         };
         Update: {
           checked_by?: string | null;
@@ -750,6 +899,7 @@ export type Database = {
           reopened_by?: string | null;
           reopened_at?: string | null;
           reopen_count?: number | null;
+          pallet_photos?: Json | null;
         };
         Relationships: [
           {

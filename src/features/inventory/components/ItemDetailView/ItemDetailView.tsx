@@ -140,9 +140,15 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           quantity: Number(initialData.quantity) || 0,
           item_name: initialData.item_name || '',
           warehouse: initialData.warehouse || (screenType as WarehouseType) || 'LUDLOW',
-          length_in: initialData.sku_metadata?.length_in ?? dimensionDefaults(initialData.sku_metadata?.is_bike).length_in,
-          width_in: initialData.sku_metadata?.width_in ?? dimensionDefaults(initialData.sku_metadata?.is_bike).width_in,
-          height_in: initialData.sku_metadata?.height_in ?? dimensionDefaults(initialData.sku_metadata?.is_bike).height_in,
+          length_in:
+            initialData.sku_metadata?.length_in ??
+            dimensionDefaults(initialData.sku_metadata?.is_bike).length_in,
+          width_in:
+            initialData.sku_metadata?.width_in ??
+            dimensionDefaults(initialData.sku_metadata?.is_bike).width_in,
+          height_in:
+            initialData.sku_metadata?.height_in ??
+            dimensionDefaults(initialData.sku_metadata?.is_bike).height_in,
           weight_lbs: initialData.sku_metadata?.weight_lbs ?? null,
           internal_note: initialData.internal_note || '',
         });
@@ -713,13 +719,26 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   const handlePrintLabel = useCallback(async () => {
     if (!sku || !user) return;
     try {
-      const { data: tags, error } = await (supabase as any)
+      const { data: tags, error } = await supabase
         .from('asset_tags')
-        .insert([{ sku, warehouse: 'LUDLOW', location: initialData?.location ?? null, created_by: user.id, printed_at: new Date().toISOString() }])
+        .insert([
+          {
+            sku,
+            warehouse: 'LUDLOW',
+            location: initialData?.location ?? null,
+            created_by: user.id,
+            printed_at: new Date().toISOString(),
+          },
+        ])
         .select('short_code, sku, public_token');
       if (error || !tags?.[0]) throw error || new Error('No tag returned');
       const blobUrl = await generateBikeLabels([
-        { sku, item_name: itemName, short_code: tags[0].short_code, public_token: tags[0].public_token },
+        {
+          sku,
+          item_name: itemName,
+          short_code: tags[0].short_code,
+          public_token: tags[0].public_token,
+        },
       ]);
       window.open(blobUrl, '_blank');
       toast.success(`Label created: ${tags[0].short_code}`);
@@ -727,7 +746,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       console.error('Print label failed:', err);
       toast.error('Failed to print label');
     }
-  }, [sku, itemName, user]);
+  }, [sku, itemName, user, initialData?.location]);
 
   if (!isOpen) return null;
 
@@ -737,7 +756,8 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   const canSave =
     sku?.trim() &&
     location?.trim() &&
-    (quantity != null && quantity >= 0) &&
+    quantity != null &&
+    quantity >= 0 &&
     validationState.status !== 'error' &&
     validationState.status !== 'checking' &&
     (isAddMode || hasChanges);

@@ -16,7 +16,7 @@ export function useVerifiedSkus() {
 
     Promise.all([
       // Cycle counts
-      (supabase as any)
+      supabase
         .from('cycle_count_items')
         .select('sku, counted_at')
         .in('status', ['counted', 'verified'])
@@ -33,14 +33,14 @@ export function useVerifiedSkus() {
     ]).then(([cycleRes, moveAddRes]) => {
       const map = new Map<string, Date>();
       // Cycle counts first (higher confidence)
-      ((cycleRes.data || []) as { sku: string; counted_at: string }[]).forEach((row) => {
-        if (!map.has(row.sku)) {
+      (cycleRes.data ?? []).forEach((row) => {
+        if (row.counted_at && !map.has(row.sku)) {
           map.set(row.sku, new Date(row.counted_at));
         }
       });
       // Then moves/adds (fill gaps)
-      ((moveAddRes.data || []) as { sku: string; created_at: string }[]).forEach((row) => {
-        if (!map.has(row.sku)) {
+      (moveAddRes.data ?? []).forEach((row) => {
+        if (row.sku && row.created_at && !map.has(row.sku)) {
           map.set(row.sku, new Date(row.created_at));
         }
       });

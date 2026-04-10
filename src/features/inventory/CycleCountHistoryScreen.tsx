@@ -77,12 +77,12 @@ export const CycleCountHistoryScreen = () => {
     }
     setExpandedId(sessionId);
     setLoadingItems(true);
-    const { data } = await (supabase as any)
+    const { data } = await supabase
       .from('cycle_count_items')
       .select('id, sku, location, expected_qty, counted_qty, variance, status, counted_at')
       .eq('session_id', sessionId)
       .order('sku');
-    setExpandedItems((data || []) as unknown as CycleCountItem[]);
+    setExpandedItems((data ?? []) as unknown as CycleCountItem[]);
     setLoadingItems(false);
   };
 

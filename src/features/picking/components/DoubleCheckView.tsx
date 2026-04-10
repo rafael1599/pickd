@@ -151,10 +151,14 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
   // Track original items snapshot for reopened orders to detect changes
   const [reopenedSnapshot] = useState(() =>
-    status === 'reopened' ? JSON.stringify(cartItems.map(i => ({ sku: i.sku, qty: i.pickingQty }))) : null
+    status === 'reopened'
+      ? JSON.stringify(cartItems.map((i) => ({ sku: i.sku, qty: i.pickingQty })))
+      : null
   );
-  const hasReopenedChanges = status === 'reopened' && reopenedSnapshot !== null &&
-    reopenedSnapshot !== JSON.stringify(cartItems.map(i => ({ sku: i.sku, qty: i.pickingQty })));
+  const hasReopenedChanges =
+    status === 'reopened' &&
+    reopenedSnapshot !== null &&
+    reopenedSnapshot !== JSON.stringify(cartItems.map((i) => ({ sku: i.sku, qty: i.pickingQty })));
 
   // All statuses use full verification mode (checkboxes, select all).
   // The picker checks off items as they collect them, then sends to verify.
@@ -295,7 +299,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               toast.success(`Updated ${itemData.sku}`);
             },
             onDelete: () => {
-              editCallbacksRef.current.deleteItem(itemData.warehouse, itemData.sku, itemData.location);
+              editCallbacksRef.current.deleteItem(
+                itemData.warehouse,
+                itemData.sku,
+                itemData.location
+              );
               toast.success(`Deleted ${itemData.sku}`);
             },
           });
@@ -394,10 +402,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     setSkuInventoryMap(map);
   }, [cartItems]);
 
-  const cartSkuKey = cartItems.map((i) => i.sku).sort().join(',');
+  const cartSkuKey = cartItems
+    .map((i) => i.sku)
+    .sort()
+    .join(',');
   useEffect(() => {
     fetchDistributions();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cartSkuKey]);
 
   // Keep edit-callbacks ref fresh — see editCallbacksRef declaration above
@@ -522,78 +533,89 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     });
   }, [cartItems]);
 
-  const handleScanPallet = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = ''; // reset for re-scan
+  const handleScanPallet = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      e.target.value = ''; // reset for re-scan
 
-    setIsScanning(true);
-    setScanStatus('Processing image...');
+      setIsScanning(true);
+      setScanStatus('Processing image...');
 
-    try {
-      const rawResults = await scanImageForQRCodes(file);
-      setScanStatus(`Detected ${rawResults.length} QR codes. Matching...`);
+      try {
+        const rawResults = await scanImageForQRCodes(file);
+        setScanStatus(`Detected ${rawResults.length} QR codes. Matching...`);
 
-      const payloads = rawResults.map(parseQRPayload).filter(Boolean) as { shortCode: string; sku: string }[];
-      const orderSkus = cartItems.map((item) => item.sku);
-      const { matched, unmatched } = aggregateScanResults(payloads, orderSkus);
+        const payloads = rawResults.map(parseQRPayload).filter(Boolean) as {
+          shortCode: string;
+          sku: string;
+        }[];
+        const orderSkus = cartItems.map((item) => item.sku);
+        const { matched, unmatched } = aggregateScanResults(payloads, orderSkus);
 
-      // Accumulate with previous scan results
-      setScanResults((prev) => {
-        const next = new Map(prev);
-        for (const [sku, codes] of matched) {
-          const existing = next.get(sku) ?? new Set();
-          for (const code of codes) existing.add(code);
-          next.set(sku, existing);
-        }
-        return next;
-      });
-
-      // Show warnings for unmatched
-      if (unmatched.length > 0) {
-        const skuList = [...new Set(unmatched.map((u) => u.sku))].join(', ');
-        toast(`${unmatched.length} QR(s) not in this order: ${skuList}`, { icon: '⚠️', duration: 5000 });
-      }
-
-      const totalMatched = [...matched.values()].reduce((sum, set) => sum + set.size, 0);
-      setScanStatus(`${totalMatched} QR codes matched. Tap "Scan" to add more.`);
-
-      // Upload photo as proof (async, non-blocking)
-      if (activeListId) {
-        (async () => {
-          try {
-            const { image } = await compressImage(file);
-            const orderNum = orderNumber || 'unknown';
-            const timestamp = Date.now();
-            const { data: uploadResult } = await supabase.functions.invoke('upload-photo', {
-              body: { image, thumbnail: image, sku: `pallet-scan/${orderNum}/${timestamp}` },
-            });
-            if (uploadResult?.url) {
-              // Read current photos, append new, write back
-              const { data: current } = await (supabase as any)
-                .from('picking_lists')
-                .select('pallet_photos')
-                .eq('id', activeListId)
-                .single();
-              const photos = [...(((current as any)?.pallet_photos as string[]) ?? []), uploadResult.url];
-              await (supabase as any)
-                .from('picking_lists')
-                .update({ pallet_photos: photos })
-                .eq('id', activeListId);
-            }
-          } catch (err) {
-            console.error('Pallet photo upload failed:', err);
+        // Accumulate with previous scan results
+        setScanResults((prev) => {
+          const next = new Map(prev);
+          for (const [sku, codes] of matched) {
+            const existing = next.get(sku) ?? new Set();
+            for (const code of codes) existing.add(code);
+            next.set(sku, existing);
           }
-        })();
-      }
+          return next;
+        });
 
-    } catch (err) {
-      console.error('Scan failed:', err);
-      setScanStatus('Scan failed. Try again.');
-    } finally {
-      setIsScanning(false);
-    }
-  }, [cartItems]);
+        // Show warnings for unmatched
+        if (unmatched.length > 0) {
+          const skuList = [...new Set(unmatched.map((u) => u.sku))].join(', ');
+          toast(`${unmatched.length} QR(s) not in this order: ${skuList}`, {
+            icon: '⚠️',
+            duration: 5000,
+          });
+        }
+
+        const totalMatched = [...matched.values()].reduce((sum, set) => sum + set.size, 0);
+        setScanStatus(`${totalMatched} QR codes matched. Tap "Scan" to add more.`);
+
+        // Upload photo as proof (async, non-blocking)
+        if (activeListId) {
+          (async () => {
+            try {
+              const { image } = await compressImage(file);
+              const orderNum = orderNumber || 'unknown';
+              const timestamp = Date.now();
+              const { data: uploadResult } = await supabase.functions.invoke('upload-photo', {
+                body: { image, thumbnail: image, sku: `pallet-scan/${orderNum}/${timestamp}` },
+              });
+              if (uploadResult?.url) {
+                // Read current photos, append new, write back
+                const { data: current } = await supabase
+                  .from('picking_lists')
+                  .select('pallet_photos')
+                  .eq('id', activeListId)
+                  .single();
+                const existing = Array.isArray(current?.pallet_photos)
+                  ? (current.pallet_photos as string[])
+                  : [];
+                const photos = [...existing, uploadResult.url];
+                await supabase
+                  .from('picking_lists')
+                  .update({ pallet_photos: photos })
+                  .eq('id', activeListId);
+              }
+            } catch (err) {
+              console.error('Pallet photo upload failed:', err);
+            }
+          })();
+        }
+      } catch (err) {
+        console.error('Scan failed:', err);
+        setScanStatus('Scan failed. Try again.');
+      } finally {
+        setIsScanning(false);
+      }
+    },
+    [cartItems]
+  );
 
   // Auto-check items where scan count >= pickingQty
   useEffect(() => {
@@ -623,7 +645,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     setIsDeducting(true);
     try {
       // If status is active and fully verified, do markAsReady + deduct in one step
-      if ((status === 'active' || status === 'needs_correction') && isFullyVerified && onMarkAsReady) {
+      if (
+        (status === 'active' || status === 'needs_correction') &&
+        isFullyVerified &&
+        onMarkAsReady
+      ) {
         await onMarkAsReady();
         // Small delay for DB status to propagate before deduction
         await new Promise((r) => setTimeout(r, 300));
@@ -765,9 +791,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           <button
             onClick={() => setShowCorrectionMode(true)}
             className={`flex-1 p-4 border rounded-2xl flex items-center justify-between gap-3 active:scale-[0.98] transition-all ${
-              problemItems.length > 0
-                ? 'bg-red-500/10 border-red-500/30'
-                : 'bg-card border-subtle'
+              problemItems.length > 0 ? 'bg-red-500/10 border-red-500/30' : 'bg-card border-subtle'
             }`}
           >
             <div className="flex items-center gap-3">
@@ -845,9 +869,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             {isScanning ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
             {isScanning ? 'Scanning...' : 'Scan Pallet'}
           </button>
-          {scanStatus && (
-            <p className="text-[10px] text-accent font-bold">{scanStatus}</p>
-          )}
+          {scanStatus && <p className="text-[10px] text-accent font-bold">{scanStatus}</p>}
         </div>
 
         {pallets.length === 0 && cartItems.length > 0 && (
@@ -1049,11 +1071,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                               const scannedCount = scanResults.get(item.sku)?.size ?? 0;
                               if (scannedCount === 0) return null;
                               return (
-                                <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${
-                                  scannedCount >= item.pickingQty
-                                    ? 'bg-green-500/20 text-green-500'
-                                    : 'bg-amber-500/20 text-amber-500'
-                                }`}>
+                                <span
+                                  className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${
+                                    scannedCount >= item.pickingQty
+                                      ? 'bg-green-500/20 text-green-500'
+                                      : 'bg-amber-500/20 text-amber-500'
+                                  }`}
+                                >
                                   {scannedCount}/{item.pickingQty} scanned
                                 </span>
                               );
@@ -1151,10 +1175,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             className="w-full flex items-center justify-between p-4"
           >
             <div className="flex items-center gap-2">
-              <MessageSquare
-                size={16}
-                className={isNotesExpanded ? 'text-accent' : 'text-muted'}
-              />
+              <MessageSquare size={16} className={isNotesExpanded ? 'text-accent' : 'text-muted'} />
               <h3
                 className={`text-[11px] font-black uppercase tracking-widest ${isNotesExpanded ? 'text-accent/70' : 'text-muted'}`}
               >
