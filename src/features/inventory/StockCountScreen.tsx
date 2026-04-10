@@ -48,7 +48,7 @@ const defaultSession: CycleCountSession = {
 // ─── Main Screen Component ───
 export const StockCountScreen = () => {
   const navigate = useNavigate();
-  const { inventoryData, updateItem, deleteItem } = useInventory();
+  const { inventoryData, updateItem, deleteItem, setSearchQuery: setGlobalSearchQuery } = useInventory();
   const { locations: allMappedLocations } = useLocationManagement();
   const { profile } = useAuth();
 
@@ -127,6 +127,26 @@ export const StockCountScreen = () => {
   // ─── Input Phase State ───
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Forward local searchQuery to useInventory's global searchQuery (debounced)
+  // so that inventoryData contains server-side search results, not just the
+  // first paginated page. Without this, SKUs beyond INITIAL_PAGE_SIZE are
+  // invisible to the cycle count search box.
+  useEffect(() => {
+    if (session.status !== 'input') return;
+    const timer = setTimeout(() => {
+      setGlobalSearchQuery(searchQuery);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [searchQuery, session.status, setGlobalSearchQuery]);
+
+  // Clear global search when leaving input phase so InventoryProvider returns
+  // to its normal paginated state for any other consumers.
+  useEffect(() => {
+    if (session.status !== 'input') {
+      setGlobalSearchQuery('');
+    }
+  }, [session.status, setGlobalSearchQuery]);
+
   // ─── Counting Phase State ───
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItemWithMetadata | null>(null);
@@ -186,6 +206,20 @@ export const StockCountScreen = () => {
   const handleAddSku = (sku: string) => {
     const upperSku = sku.toUpperCase().trim();
     if (!upperSku || session.skus.includes(upperSku)) return;
+
+    // Persist this SKU's inventory rows into directInventory so they survive
+    // future searches that change inventoryData. Without this, the SKU would
+    // disappear from inventoryBySku as soon as the user searches for the
+    // next one, and counting phase would mark it as missing.
+    const group = inventoryBySku.get(upperSku);
+    if (group) {
+      setDirectInventory((prev) => {
+        const existingIds = new Set(prev.map((i) => i.id as number));
+        const newItems = group.items.filter((i) => !existingIds.has(i.id as number));
+        return newItems.length > 0 ? [...prev, ...newItems] : prev;
+      });
+    }
+
     setSession((prev) => ({ ...prev, skus: [...prev.skus, upperSku] }));
     setSearchQuery('');
   };
