@@ -10,6 +10,7 @@ import { DoubleCheckHeader } from '../../features/picking/components/DoubleCheck
 import { SyncStatusIndicator } from './SyncStatusIndicator';
 import { PickingCartDrawer } from '../../features/picking/components/PickingCartDrawer';
 import { PullToRefresh } from '../ui/PullToRefresh';
+import { InventorySnapshotModal } from '../../features/inventory/components/InventorySnapshotModal';
 
 interface LayoutMainProps {
   children: ReactNode;
@@ -23,6 +24,7 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
   const { isAdmin } = useAuth();
   const { isSearching } = useViewMode();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isSnapshotOpen, setIsSnapshotOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
@@ -103,6 +105,15 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
         isOpen={isUserMenuOpen}
         onClose={() => setIsUserMenuOpen(false)}
         navigate={navigate}
+        onOpenSnapshot={() => {
+          setIsUserMenuOpen(false);
+          setIsSnapshotOpen(true);
+        }}
+      />
+
+      <InventorySnapshotModal
+        isOpen={isSnapshotOpen}
+        onClose={() => setIsSnapshotOpen(false)}
       />
 
       {/* Content */}

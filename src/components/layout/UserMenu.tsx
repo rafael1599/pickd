@@ -14,16 +14,16 @@ import FileSearch from 'lucide-react/dist/esm/icons/file-search';
 import Kanban from 'lucide-react/dist/esm/icons/kanban';
 import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
 import Printer from 'lucide-react/dist/esm/icons/printer';
-import { InventorySnapshotModal } from '../../features/inventory/components/InventorySnapshotModal';
 import { useScrollLock } from '../../hooks/useScrollLock';
 
 interface UserMenuProps {
   isOpen: boolean;
   onClose: () => void;
   navigate: (path: string) => void;
+  onOpenSnapshot?: () => void;
 }
 
-export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
+export const UserMenu = ({ isOpen, onClose, navigate, onOpenSnapshot }: UserMenuProps) => {
   const {
     profile,
     signOut,
@@ -34,7 +34,6 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
   const [newName, setNewName] = useState(profile?.full_name || '');
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isSnapshotOpen, setIsSnapshotOpen] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   useScrollLock(isOpen, onClose);
 
@@ -320,7 +319,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                 <div className="h-px bg-subtle my-2" />
 
                 <button
-                  onClick={() => setIsSnapshotOpen(true)}
+                  onClick={() => onOpenSnapshot?.()}
                   className="flex items-center gap-3 w-full text-left"
                 >
                   <div className="p-2 bg-surface border border-subtle rounded-xl text-purple-400">
@@ -375,8 +374,6 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
           </button>
         </div>
       </div>
-
-      <InventorySnapshotModal isOpen={isSnapshotOpen} onClose={() => setIsSnapshotOpen(false)} />
     </div>,
     document.body
   );
