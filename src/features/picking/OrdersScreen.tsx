@@ -1131,7 +1131,9 @@ export const OrdersScreen = () => {
       {/* Picking Summary Modal */}
       {isShowingPickingSummary && selectedOrder && (
         <PickingSummaryModal
+          listId={selectedOrder.id}
           orderNumber={selectedOrder.order_number || ''}
+          customerName={selectedOrder.customer?.name ?? undefined}
           items={selectedOrder.items || []}
           completedAt={selectedOrder.updated_at}
           pickedBy={selectedOrder.user?.full_name ?? undefined}
