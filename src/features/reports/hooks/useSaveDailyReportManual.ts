@@ -12,6 +12,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { supabase } from '../../../lib/supabase';
+import type { Json } from '../../../integrations/supabase/types';
 import type { DailyReportManual } from './useDailyReport';
 
 export interface SaveDailyReportManualVars {
@@ -24,11 +25,9 @@ export function useSaveDailyReportManual() {
   return useMutation({
     mutationKey: ['daily-report', 'save-manual'],
     mutationFn: async (vars: SaveDailyReportManualVars) => {
-      // RPC not in generated types yet
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).rpc('save_daily_report_manual', {
+      const { error } = await supabase.rpc('save_daily_report_manual', {
         p_report_date: vars.date,
-        p_manual: vars.manual,
+        p_manual: vars.manual as unknown as Json,
       });
       if (error) throw error;
     },

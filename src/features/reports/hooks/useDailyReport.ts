@@ -56,9 +56,7 @@ export function useDailyReport(date: string) {
   return useQuery({
     queryKey: ['daily-report', date],
     queryFn: async (): Promise<DailyReportRow | null> => {
-      // daily_reports table is not in src/integrations/supabase/types.ts yet
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('daily_reports')
         .select('*')
         .eq('report_date', date)
@@ -69,6 +67,10 @@ export function useDailyReport(date: string) {
         throw error;
       }
 
+      // The DB row's JSONB columns are typed as Json in the generated
+      // types; we narrow them to the snapshot interfaces here. The fields
+      // could be empty objects ({}) when only one half (cron vs manual)
+      // has been written, so callers must check via hasComputedData().
       return (data as DailyReportRow | null) ?? null;
     },
     enabled: !!date,

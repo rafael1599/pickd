@@ -143,6 +143,51 @@ export type Database = {
           },
         ];
       };
+      daily_reports: {
+        Row: {
+          report_date: string;
+          data_computed: Json;
+          data_manual: Json;
+          created_at: string;
+          updated_at: string;
+          created_by: string | null;
+          updated_by: string | null;
+        };
+        Insert: {
+          report_date: string;
+          data_computed?: Json;
+          data_manual?: Json;
+          created_at?: string;
+          updated_at?: string;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Update: {
+          report_date?: string;
+          data_computed?: Json;
+          data_manual?: Json;
+          created_at?: string;
+          updated_at?: string;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'daily_reports_created_by_fkey';
+            columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'daily_reports_updated_by_fkey';
+            columns: ['updated_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       inventory: {
         Row: {
           capacity: number | null;
@@ -834,6 +879,14 @@ export type Database = {
           status: string;
         }[];
       };
+      compute_daily_report_data: {
+        Args: { p_report_date: string };
+        Returns: Json;
+      };
+      create_daily_report_snapshot: {
+        Args: { p_report_date: string };
+        Returns: Json;
+      };
       create_daily_snapshot: {
         Args: { p_snapshot_date?: string };
         Returns: Json;
@@ -926,6 +979,10 @@ export type Database = {
           p_warehouse: string;
         };
         Returns: string;
+      };
+      save_daily_report_manual: {
+        Args: { p_report_date: string; p_manual: Json };
+        Returns: undefined;
       };
       undo_inventory_action: { Args: { target_log_id: string }; Returns: Json };
       update_user_presence: { Args: { p_user_id: string }; Returns: undefined };
