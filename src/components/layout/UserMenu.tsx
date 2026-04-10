@@ -236,28 +236,6 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
               </label>
 
               <button
-                onClick={() => navTo('/orders')}
-                className="flex items-center justify-between w-full group text-left"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-surface border border-subtle rounded-xl text-accent">
-                    <History size={16} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-content uppercase tracking-tight">
-                      Orders
-                    </p>
-                    <p className="text-[9px] text-muted font-bold uppercase">
-                      View and Print labels
-                    </p>
-                  </div>
-                </div>
-                <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
-              </button>
-
-              <div className="h-px bg-subtle my-2" />
-
-              <button
                 onClick={() => navTo('/stock-count')}
                 className="flex items-center justify-between w-full group text-left"
               >
