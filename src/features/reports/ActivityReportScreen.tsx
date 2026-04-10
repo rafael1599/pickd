@@ -93,7 +93,12 @@ export const ActivityReportScreen = () => {
 
   // ----- Date / source flags -----
   const isCurrentDay = !!selectedDate && selectedDate === today;
-  const isReadOnly = !!selectedDate && selectedDate < today;
+  // Past dates are LOCKED — no edits even for admins (RLS enforces this).
+  const isPastDate = !!selectedDate && selectedDate < today;
+  // canEdit gates the editable controls. Non-admins viewing today see the
+  // same disabled inputs as anyone viewing a past date — RLS would reject
+  // a save anyway, so we hide the affordance.
+  const canEdit = isAdmin && !isPastDate;
 
   // For computed data display: prefer snapshot for past days, live for today
   // (today's snapshot may be empty until the cron runs the next morning).
@@ -194,7 +199,7 @@ export const ActivityReportScreen = () => {
   const saveManual = useSaveDailyReportManual();
 
   const handleSave = useCallback(() => {
-    if (!isAdmin || isReadOnly || !isDirty || !selectedDate) return;
+    if (!canEdit || !isDirty || !selectedDate) return;
     const snapshot = currentManual;
     saveManual.mutate(
       { date: selectedDate, manual: snapshot },
@@ -205,12 +210,37 @@ export const ActivityReportScreen = () => {
         },
       }
     );
-  }, [isAdmin, isReadOnly, isDirty, selectedDate, currentManual, saveManual]);
+  }, [canEdit, isDirty, selectedDate, currentManual, saveManual]);
 
   // ----- Handlers -----
-  const handleDateChange = useCallback((newDate: string) => {
-    setSelectedDate(newDate);
-  }, []);
+  // Confirm before navigating away from unsaved changes. Uses window.confirm
+  // (browser-native) intentionally — this is exactly the kind of ephemeral
+  // gating dialog that the Modal Manager pattern lists as an exception.
+  const handleDateChange = useCallback(
+    (newDate: string) => {
+      if (isDirty && canEdit) {
+        const ok = window.confirm(
+          'You have unsaved changes that will be lost. Continue without saving?'
+        );
+        if (!ok) return;
+      }
+      setSelectedDate(newDate);
+    },
+    [isDirty, canEdit]
+  );
+
+  // Browser-level beforeunload guard so closing/refreshing the tab while
+  // dirty also prompts the user. Only registered when there are unsaved
+  // changes that the user could have saved (admin + today + dirty).
+  useEffect(() => {
+    if (!isDirty || !canEdit) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty, canEdit]);
 
   const handleAddNote = useCallback(() => {
     if (!noteText.trim() || !noteUser) return;
@@ -269,7 +299,7 @@ export const ActivityReportScreen = () => {
   }
 
   // ----- Save UI state -----
-  const showSaveControls = isAdmin && !isReadOnly;
+  const showSaveControls = canEdit;
   const canSave = isDirty && !saveManual.isPending;
   const showSavedBadge =
     !isDirty && !saveManual.isPending && saveManual.isSuccess;
@@ -289,8 +319,11 @@ export const ActivityReportScreen = () => {
             <h1 className="text-lg font-black uppercase tracking-widest text-content">
               Activity Report
             </h1>
-            {isReadOnly && (
-              <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400/90 px-2 py-0.5 border border-amber-400/30 rounded-md">
+            {isPastDate && (
+              <span
+                title="Past days are locked. Editing is only allowed for the current NY day."
+                className="text-[10px] font-bold uppercase tracking-widest text-amber-400/90 px-2 py-0.5 border border-amber-400/30 rounded-md"
+              >
                 Locked
               </span>
             )}
@@ -391,8 +424,8 @@ export const ActivityReportScreen = () => {
           type="text"
           value={winOfTheDay}
           onChange={(e) => setWinOfTheDay(e.target.value)}
-          disabled={isReadOnly}
-          placeholder={isReadOnly ? '—' : 'Win of the day...'}
+          disabled={!canEdit}
+          placeholder={canEdit ? 'Win of the day...' : '—'}
           className="w-full h-10 px-3 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40 disabled:opacity-50 disabled:cursor-not-allowed"
         />
 
@@ -400,8 +433,8 @@ export const ActivityReportScreen = () => {
         <textarea
           value={pickdUpdatesText}
           onChange={(e) => setPickdUpdatesText(e.target.value)}
-          disabled={isReadOnly}
-          placeholder={isReadOnly ? '—' : 'PickD updates (one per line)...'}
+          disabled={!canEdit}
+          placeholder={canEdit ? 'PickD updates (one per line)...' : '—'}
           rows={2}
           className="w-full px-3 py-2 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
         />
@@ -414,12 +447,12 @@ export const ActivityReportScreen = () => {
               <button
                 key={item}
                 onClick={() => handleToggleRoutine(item)}
-                disabled={isReadOnly}
+                disabled={!canEdit}
                 className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 disabled:cursor-not-allowed ${
                   isChecked
                     ? 'bg-accent text-main'
                     : 'bg-surface border border-subtle text-muted hover:border-accent/30'
-                } ${isReadOnly ? 'opacity-50' : ''}`}
+                } ${!canEdit ? 'opacity-50' : ''}`}
               >
                 {item}
               </button>
@@ -437,7 +470,7 @@ export const ActivityReportScreen = () => {
               >
                 {n.full_name}: {n.text.slice(0, 30)}
                 {n.text.length > 30 ? '...' : ''}
-                {!isReadOnly && (
+                {canEdit && (
                   <button onClick={() => handleRemoveNote(i)} className="hover:text-red-400">
                     <X size={10} />
                   </button>
@@ -448,7 +481,7 @@ export const ActivityReportScreen = () => {
         )}
 
         {/* Note user selector + text input */}
-        {!isReadOnly && (
+        {canEdit && (
           <div className="flex items-center gap-2">
             <select
               value={noteUser}
