@@ -89,37 +89,35 @@ serve(async (req: Request) => {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const body = await req.json().catch(() => ({}));
 
-    // 1. Manejo de Fechas (NY Time)
-    const now = new Date();
-
-    // Fecha para el nombre del archivo (MM-DD-YYYY)
-    const fileDate = now.toLocaleDateString('en-US', {
-      timeZone: 'America/New_York',
-      month: '2-digit', day: '2-digit', year: 'numeric'
-    }).replace(/\//g, '-');
-
-    // Fecha para la base de datos (YYYY-MM-DD)
-    const dbDate = now.toLocaleDateString('en-CA', {
-      timeZone: 'America/New_York'
-    });
-
-    // Usamos lo que venga en el body o lo calculado por defecto
-    const targetDateForDB = body.snapshot_date || dbDate;
-    const targetDateForFile = body.snapshot_date ?
-      body.snapshot_date.split('-').length === 3 && body.snapshot_date.indexOf('-') === 4 ?
-        // Si viene YYYY-MM-DD, lo convertimos a MM-DD-YYYY para el archivo
-        `${body.snapshot_date.split('-')[1]}-${body.snapshot_date.split('-')[2]}-${body.snapshot_date.split('-')[0]}` :
-        body.snapshot_date : fileDate;
-
-    // 2. Obtener Datos
-    // 2.1 Primero aseguramos que el snapshot exista (Self-Healing)
-    const { error: createError } = await supabase.rpc('create_daily_snapshot', { p_snapshot_date: targetDateForDB });
+    // 1. Manejo de Fechas — Postgres es la fuente de verdad de NY tz.
+    //    No calculamos fechas en JS aquí. Si el body trae snapshot_date, lo
+    //    usamos; si no, dejamos que el RPC use su default (current_ny_date()
+    //    - 1 = el día NY que acaba de cerrar).
+    const { data: createResult, error: createError } = await supabase.rpc(
+      'create_daily_snapshot',
+      body.snapshot_date ? { p_snapshot_date: body.snapshot_date } : {}
+    );
     if (createError) {
       console.error('Error constructing snapshot:', createError);
       // Continuamos igual para intentar leer lo que haya, pero loggeamos el error
     }
 
-    // 2.2 Leemos el snapshot (ahora debería existir con data fresca)
+    // El RPC devuelve { snapshot_date: 'YYYY-MM-DD', items_saved, ... }.
+    // Esa fecha es la fuente de verdad; la usamos para todos los outputs.
+    const targetDateForDB: string = (createResult as { snapshot_date?: string } | null)
+      ?.snapshot_date
+      ?? body.snapshot_date
+      ?? '';
+
+    if (!targetDateForDB) {
+      throw new Error('Could not resolve snapshot date from RPC result or request body');
+    }
+
+    // Para nombre de archivo: convertir YYYY-MM-DD a MM-DD-YYYY (formato legacy del email)
+    const [yyyy, mm, dd] = targetDateForDB.split('-');
+    const targetDateForFile = `${mm}-${dd}-${yyyy}`;
+
+    // 2. Leemos el snapshot (ahora debería existir con data fresca)
     console.log(`[Diagnostic] Fetching snapshot for date: ${targetDateForDB}`);
     const { data: snapshot, error: dbError } = await supabase.rpc('get_snapshot', { p_target_date: targetDateForDB });
 

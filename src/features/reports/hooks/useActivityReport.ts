@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
+import { getNYDayBounds } from '../../../lib/nyDate';
 
 export interface UserActivity {
   user_id: string;
@@ -51,8 +52,9 @@ export function useActivityReport(date: string) {
   return useQuery({
     queryKey: ['activity-report', date],
     queryFn: async () => {
-      const dayStart = `${date}T00:00:00`;
-      const dayEnd = `${date}T23:59:59`;
+      // NY-correct UTC bounds via Postgres (handles DST natively).
+      // See src/lib/nyDate.ts and the NY tz migration.
+      const { startsAt: dayStart, endsAt: dayEnd } = await getNYDayBounds(date);
 
       const twoMonthsAgo = new Date(new Date(dayEnd).getTime() - 60 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -200,6 +202,7 @@ export function useActivityReport(date: string) {
     },
     staleTime: 2 * 60_000,
     retry: 1,
+    enabled: !!date,
   });
 }
 

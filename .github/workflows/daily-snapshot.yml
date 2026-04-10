@@ -2,8 +2,12 @@ name: Daily Inventory Snapshot
 
 on:
   schedule:
-    # Runs at 04:00 UTC every day (approx 11:00 PM EST)
-    - cron: '0 4 * * *'
+    # Runs at 05:00 UTC every day. This is 00:00 NY EST (winter) and
+    # 01:00 NY EDT (summer) — always AFTER NY midnight, regardless of DST.
+    # The RPC create_daily_snapshot defaults to current_ny_date() - 1, so
+    # this captures inventory state for "the NY day that just closed".
+    # See migration 20260410100000_ny_timezone_helpers.sql for the rationale.
+    - cron: '0 5 * * *'
   workflow_dispatch: # Allow manual triggering
 
 jobs:

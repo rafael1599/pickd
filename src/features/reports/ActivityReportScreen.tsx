@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
 import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
@@ -8,9 +8,11 @@ import Copy from 'lucide-react/dist/esm/icons/copy';
 import Check from 'lucide-react/dist/esm/icons/check';
 import Plus from 'lucide-react/dist/esm/icons/plus';
 import X from 'lucide-react/dist/esm/icons/x';
+import { useQuery } from '@tanstack/react-query';
 import { useActivityReport, useActiveProfiles } from './hooks/useActivityReport';
 import { ActivityReportView } from './components/ActivityReportView';
 import { useReportTasks } from '../projects/hooks/useProjectReportData';
+import { getCurrentNYDate } from '../../lib/nyDate';
 
 function formatDateNav(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00');
@@ -41,8 +43,21 @@ const ROUTINE_ITEMS = [
 
 export const ActivityReportScreen = () => {
   const navigate = useNavigate();
-  const today = new Date().toISOString().slice(0, 10);
-  const [selectedDate, setSelectedDate] = useState(today);
+  // Today's NY date — single source of truth via Postgres (handles DST).
+  // See src/lib/nyDate.ts. We use react-query so the value is shared and
+  // cached, and refreshed if the user keeps the app open across midnight.
+  const { data: nyToday } = useQuery({
+    queryKey: ['ny-today'],
+    queryFn: getCurrentNYDate,
+    staleTime: 60 * 60 * 1000, // 1 hour
+  });
+  const today = nyToday ?? '';
+  const [selectedDate, setSelectedDate] = useState('');
+
+  // Once today's NY date arrives, initialize selectedDate.
+  useEffect(() => {
+    if (today && !selectedDate) setSelectedDate(today);
+  }, [today, selectedDate]);
   const [notes, setNotes] = useState<UserNote[]>([]);
   const [noteUser, setNoteUser] = useState('');
   const [noteText, setNoteText] = useState('');
@@ -112,6 +127,17 @@ export const ActivityReportScreen = () => {
       : 0;
   const accuracyPct =
     accuracyRaw >= 10 ? Math.round(accuracyRaw) : Math.round(accuracyRaw * 10) / 10;
+
+  // Wait for NY date to load before rendering anything date-dependent.
+  // Without this guard, formatDateNav('') and addDays('', ...) would
+  // produce "Invalid Date" / NaN.
+  if (!selectedDate || !today) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-bg-main">
+        <Loader2 className="animate-spin text-accent w-8 h-8 opacity-30" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-bg-main">

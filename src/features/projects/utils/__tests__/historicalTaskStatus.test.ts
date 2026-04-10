@@ -6,7 +6,11 @@ import {
   type StateChangeRow,
 } from '../historicalTaskStatus';
 
-const REPORT_DATE = '2026-04-10';
+// Tests use UTC bounds directly — they're testing the algorithm, not the
+// NY conversion (which is verified by Postgres in ny_day_bounds).
+// Day under test: a generic UTC day Apr 10 2026.
+const DAY_START = '2026-04-10T00:00:00.000Z';
+const DAY_END = '2026-04-10T23:59:59.999Z';
 
 function task(overrides: Partial<TaskRow> & Pick<TaskRow, 'id'>): TaskRow {
   return {
@@ -85,12 +89,12 @@ describe('statusAt', () => {
 // ─── computeTaskStatusBuckets — full bucket logic ────────────────────────────
 
 describe('computeTaskStatusBuckets', () => {
-  it('excludes tasks created after the report date', () => {
+  it('excludes tasks created after the report day end', () => {
     const tasks = [
       task({ id: '1', status: 'future', created_at: '2026-04-11T08:00:00.000Z' }),
       task({ id: '2', status: 'in_progress', created_at: '2026-04-11T08:00:00.000Z' }),
     ];
-    const buckets = computeTaskStatusBuckets(REPORT_DATE, tasks, []);
+    const buckets = computeTaskStatusBuckets(DAY_START, DAY_END, tasks, []);
     expect(buckets.done).toHaveLength(0);
     expect(buckets.inProgress).toHaveLength(0);
     expect(buckets.future).toHaveLength(0);
@@ -98,20 +102,20 @@ describe('computeTaskStatusBuckets', () => {
 
   it('puts a task created today in future into the future bucket', () => {
     const tasks = [task({ id: '1', status: 'future', created_at: '2026-04-10T08:00:00.000Z' })];
-    const buckets = computeTaskStatusBuckets(REPORT_DATE, tasks, []);
+    const buckets = computeTaskStatusBuckets(DAY_START, DAY_END, tasks, []);
     expect(buckets.future.map((t) => t.task_id)).toEqual(['1']);
   });
 
   it('puts a task created today directly in done into the done bucket', () => {
     const tasks = [task({ id: '1', status: 'done', created_at: '2026-04-10T08:00:00.000Z' })];
-    const buckets = computeTaskStatusBuckets(REPORT_DATE, tasks, []);
+    const buckets = computeTaskStatusBuckets(DAY_START, DAY_END, tasks, []);
     expect(buckets.done.map((t) => t.task_id)).toEqual(['1']);
   });
 
   it('puts a task moved to done today in the done bucket', () => {
     const tasks = [task({ id: '1', status: 'done', created_at: '2026-04-08T08:00:00.000Z' })];
     const changes = [change('1', 'in_progress', 'done', '2026-04-10T15:00:00.000Z')];
-    const buckets = computeTaskStatusBuckets(REPORT_DATE, tasks, changes);
+    const buckets = computeTaskStatusBuckets(DAY_START, DAY_END, tasks, changes);
     expect(buckets.done.map((t) => t.task_id)).toEqual(['1']);
     expect(buckets.inProgress).toHaveLength(0);
   });
@@ -119,7 +123,7 @@ describe('computeTaskStatusBuckets', () => {
   it('does NOT count carry-over done tasks (already done before today)', () => {
     const tasks = [task({ id: '1', status: 'done', created_at: '2026-04-08T08:00:00.000Z' })];
     const changes = [change('1', 'in_progress', 'done', '2026-04-09T15:00:00.000Z')];
-    const buckets = computeTaskStatusBuckets(REPORT_DATE, tasks, changes);
+    const buckets = computeTaskStatusBuckets(DAY_START, DAY_END, tasks, changes);
     expect(buckets.done).toHaveLength(0);
     expect(buckets.inProgress).toHaveLength(0);
     expect(buckets.future).toHaveLength(0);
@@ -133,7 +137,7 @@ describe('computeTaskStatusBuckets', () => {
       change('1', 'in_progress', 'done', '2026-04-11T10:00:00.000Z'),
     ];
     // On Apr 10, status was in_progress
-    const buckets = computeTaskStatusBuckets(REPORT_DATE, tasks, changes);
+    const buckets = computeTaskStatusBuckets(DAY_START, DAY_END, tasks, changes);
     expect(buckets.inProgress.map((t) => t.task_id)).toEqual(['1']);
     expect(buckets.done).toHaveLength(0);
     expect(buckets.future).toHaveLength(0);
@@ -147,7 +151,7 @@ describe('computeTaskStatusBuckets', () => {
       change('1', 'done', 'in_progress', '2026-04-10T11:00:00.000Z'),
       change('1', 'in_progress', 'done', '2026-04-10T15:00:00.000Z'),
     ];
-    const buckets = computeTaskStatusBuckets(REPORT_DATE, tasks, changes);
+    const buckets = computeTaskStatusBuckets(DAY_START, DAY_END, tasks, changes);
     expect(buckets.done.map((t) => t.task_id)).toEqual(['1']);
     expect(buckets.inProgress).toHaveLength(0);
   });
@@ -158,7 +162,7 @@ describe('computeTaskStatusBuckets', () => {
       change('1', 'in_progress', 'done', '2026-04-10T10:00:00.000Z'),
       change('1', 'done', 'in_progress', '2026-04-10T15:00:00.000Z'),
     ];
-    const buckets = computeTaskStatusBuckets(REPORT_DATE, tasks, changes);
+    const buckets = computeTaskStatusBuckets(DAY_START, DAY_END, tasks, changes);
     expect(buckets.done).toHaveLength(0);
     expect(buckets.inProgress.map((t) => t.task_id)).toEqual(['1']);
   });
@@ -169,20 +173,20 @@ describe('computeTaskStatusBuckets', () => {
       change('1', 'future', 'in_progress', '2026-04-08T10:00:00.000Z'),
       change('1', 'in_progress', 'done', '2026-04-10T15:00:00.000Z'),
     ];
-    const buckets = computeTaskStatusBuckets(REPORT_DATE, tasks, changes);
+    const buckets = computeTaskStatusBuckets(DAY_START, DAY_END, tasks, changes);
     expect(buckets.done.map((t) => t.task_id)).toEqual(['1']);
     expect(buckets.inProgress).toHaveLength(0);
   });
 
   it('a task created today in in_progress appears in inProgress for today', () => {
     const tasks = [task({ id: '1', status: 'in_progress', created_at: '2026-04-10T08:00:00.000Z' })];
-    const buckets = computeTaskStatusBuckets(REPORT_DATE, tasks, []);
+    const buckets = computeTaskStatusBuckets(DAY_START, DAY_END, tasks, []);
     expect(buckets.inProgress.map((t) => t.task_id)).toEqual(['1']);
   });
 
   it('a future task created yesterday and not moved appears in future', () => {
     const tasks = [task({ id: '1', status: 'future', created_at: '2026-04-09T08:00:00.000Z' })];
-    const buckets = computeTaskStatusBuckets(REPORT_DATE, tasks, []);
+    const buckets = computeTaskStatusBuckets(DAY_START, DAY_END, tasks, []);
     expect(buckets.future.map((t) => t.task_id)).toEqual(['1']);
   });
 
@@ -207,9 +211,48 @@ describe('computeTaskStatusBuckets', () => {
       change('2', 'future', 'in_progress', '2026-04-06T10:00:00.000Z'),
       change('6', 'in_progress', 'done', '2026-04-03T10:00:00.000Z'),
     ];
-    const buckets = computeTaskStatusBuckets(REPORT_DATE, tasks, changes);
+    const buckets = computeTaskStatusBuckets(DAY_START, DAY_END, tasks, changes);
     expect(buckets.done.map((t) => t.task_id).sort()).toEqual(['1']);
     expect(buckets.inProgress.map((t) => t.task_id).sort()).toEqual(['2']);
     expect(buckets.future.map((t) => t.task_id).sort()).toEqual(['3', '4']);
+  });
+
+  // ─── NY timezone bounds — proves the function works correctly with NY-shifted bounds ───
+
+  it('correctly buckets a task moved during NY-late-night hours that fall in the next UTC day', () => {
+    // Scenario: Apr 10 NY = Apr 10 04:00 UTC → Apr 11 03:59:59.999 UTC (EDT, UTC-4)
+    // A task is moved to 'done' at 11:30 PM NY EDT on Apr 10, which is 03:30 UTC Apr 11.
+    // Old (UTC-only) logic with bounds `2026-04-10T00..23:59` UTC would MISS this change
+    // because it sees changed_at as 2026-04-11.
+    // New logic with NY bounds includes it correctly.
+    const NY_DAY_START = '2026-04-10T04:00:00.000Z'; // Apr 10 00:00 NY (EDT)
+    const NY_DAY_END = '2026-04-11T03:59:59.999Z'; // Apr 10 23:59:59.999 NY (EDT)
+
+    const tasks = [
+      task({ id: '1', status: 'done', created_at: '2026-04-08T08:00:00.000Z' }),
+    ];
+    const changes = [
+      // 11:30 PM NY EDT on Apr 10 = 03:30 UTC on Apr 11
+      change('1', 'in_progress', 'done', '2026-04-11T03:30:00.000Z'),
+    ];
+
+    const buckets = computeTaskStatusBuckets(NY_DAY_START, NY_DAY_END, tasks, changes);
+    expect(buckets.done.map((t) => t.task_id)).toEqual(['1']);
+  });
+
+  it('correctly excludes a change made AFTER NY end-of-day even if it has a same-day UTC date', () => {
+    // The task is moved at 1 AM NY EDT on Apr 11 = 05:00 UTC Apr 11.
+    // For Apr 10's report (NY bounds), this should NOT count as "done today".
+    const NY_DAY_START = '2026-04-10T04:00:00.000Z';
+    const NY_DAY_END = '2026-04-11T03:59:59.999Z';
+
+    const tasks = [
+      task({ id: '1', status: 'done', created_at: '2026-04-08T08:00:00.000Z' }),
+    ];
+    const changes = [change('1', 'in_progress', 'done', '2026-04-11T05:00:00.000Z')];
+
+    const buckets = computeTaskStatusBuckets(NY_DAY_START, NY_DAY_END, tasks, changes);
+    expect(buckets.done).toHaveLength(0);
+    expect(buckets.inProgress.map((t) => t.task_id)).toEqual(['1']);
   });
 });

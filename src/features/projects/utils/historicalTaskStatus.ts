@@ -2,12 +2,12 @@
  * Historical task status reconstruction.
  *
  * Pure functions for determining what status a project_task had on a given
- * date in the past. Used by the activity report so it shows the *real*
+ * day in the past. Used by the activity report so it shows the *real*
  * historical state, not the current one.
  *
  * Why this matters:
- *   - Activity reports are an audit trail. They must reflect what was true on
- *     the day in question, not what's true today.
+ *   - Activity reports are an audit trail. They must reflect what was true
+ *     on the day in question, not what's true today.
  *   - Tasks can be created in any column (future / in_progress / done) and
  *     created tasks do NOT log to task_state_changes (only moves do).
  *   - A task's initial status must therefore be derived from either the
@@ -15,6 +15,13 @@
  *     ever happened.
  *
  * The algorithm is fully deterministic and tested in __tests__.
+ *
+ * IMPORTANT — timezone:
+ *   This function takes day bounds as UTC ISO strings. The caller is
+ *   responsible for converting "the NY day Apr 10" into the correct UTC
+ *   bounds via `getNYDayBounds()` from `src/lib/nyDate.ts`. Do NOT construct
+ *   bounds by hand from a YYYY-MM-DD string — that would assume UTC = NY,
+ *   which is wrong by 4-5 hours and shifts seasonally with DST.
  */
 
 export type TaskStatus = 'future' | 'in_progress' | 'done';
@@ -80,23 +87,25 @@ export function statusAt(
 
 /**
  * Bucket every task into done / inProgress / future based on their state on
- * the given report date. Tasks created after the report date are excluded
+ * the given report day. Tasks created after the day's end are excluded
  * (they didn't exist yet).
  *
- * Done bucket rule: status at end of day == 'done' AND status just before the
- * day started != 'done'. This means tasks that were already done (carried
- * over) are NOT counted as "done today", and a task that was created today
- * directly in 'done' IS counted as "done today".
+ * @param dayStartUtc  UTC ISO of the start of the NY report day (from getNYDayBounds)
+ * @param dayEndUtc    UTC ISO of the end of the NY report day   (from getNYDayBounds)
+ *
+ * Done bucket rule: status at end of day == 'done' AND status just before
+ * the day started != 'done'. This means tasks that were already done
+ * (carried over) are NOT counted as "done today", and a task that was
+ * created today directly in 'done' IS counted as "done today".
  */
 export function computeTaskStatusBuckets(
-  date: string, // YYYY-MM-DD
+  dayStartUtc: string,
+  dayEndUtc: string,
   tasks: TaskRow[],
   changes: StateChangeRow[]
 ): TaskStatusBuckets {
-  const dayStartIso = `${date}T00:00:00.000Z`;
-  const dayEndIso = `${date}T23:59:59.999Z`;
   // 1ms before the day starts — used to know what the status was "going into" the day
-  const justBeforeDayIso = new Date(ms(dayStartIso) - 1).toISOString();
+  const justBeforeDayIso = new Date(ms(dayStartUtc) - 1).toISOString();
 
   // Group state changes by task_id, sorted ASC, for fast lookup
   const changesByTask = new Map<string, StateChangeRow[]>();
@@ -114,10 +123,10 @@ export function computeTaskStatusBuckets(
   const future: BucketTask[] = [];
 
   for (const task of tasks) {
-    if (ms(task.created_at) > ms(dayEndIso)) continue; // didn't exist yet
+    if (ms(task.created_at) > ms(dayEndUtc)) continue; // didn't exist yet
 
     const taskChanges = changesByTask.get(task.id) ?? [];
-    const statusEnd = statusAt(task, taskChanges, dayEndIso);
+    const statusEnd = statusAt(task, taskChanges, dayEndUtc);
     const statusStart = statusAt(task, taskChanges, justBeforeDayIso);
 
     if (statusEnd === null) continue;

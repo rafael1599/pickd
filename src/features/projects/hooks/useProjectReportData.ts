@@ -6,12 +6,14 @@
  * what was *actually* true on that day — not the current state of the board.
  *
  * The reconstruction logic lives in `../utils/historicalTaskStatus.ts` and is
- * unit-tested. This hook is a thin Supabase wrapper that fetches the raw rows
- * and delegates the math.
+ * unit-tested. The day's NY-correct UTC bounds come from Postgres via
+ * `getNYDayBounds()` (see `src/lib/nyDate.ts`). This hook is a thin wrapper
+ * that orchestrates the two and delegates the math.
  */
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
+import { getNYDayBounds } from '../../../lib/nyDate';
 import {
   computeTaskStatusBuckets,
   type TaskRow,
@@ -34,13 +36,16 @@ export function useReportTasks(date: string) {
   return useQuery({
     queryKey: ['report-tasks', date],
     queryFn: async (): Promise<ReportTaskBuckets> => {
-      const dayEndIso = `${date}T23:59:59.999Z`;
+      // 1. Get the UTC bounds for this NY calendar day from Postgres.
+      //    This is the only place tz logic happens — the rest of the function
+      //    works in UTC ISO strings.
+      const { startsAt, endsAt } = await getNYDayBounds(date);
 
-      // 1. All tasks that existed on or before the end of the report day.
+      // 2. All tasks that existed on or before the end of the report day.
       const { data: tasksData, error: tasksErr } = await supabase
         .from('project_tasks')
         .select('id, title, note, status, created_at, position')
-        .lte('created_at', dayEndIso)
+        .lte('created_at', endsAt)
         .order('position', { ascending: true });
 
       if (tasksErr) throw tasksErr;
@@ -50,8 +55,8 @@ export function useReportTasks(date: string) {
         return { doneToday: [], inProgress: [], comingUpNext: [] };
       }
 
-      // 2. Every state change ever recorded for those tasks (no date filter —
-      //    we need entries on BOTH sides of the report date to derive the
+      // 3. Every state change ever recorded for those tasks (no date filter —
+      //    we need entries on BOTH sides of the report day to derive the
       //    initial status correctly when there are zero changes ≤ dayEnd).
       const taskIds = tasks.map((t) => t.id);
       const { data: changesData, error: changesErr } = await supabase
@@ -62,8 +67,8 @@ export function useReportTasks(date: string) {
       if (changesErr) throw changesErr;
       const changes = (changesData ?? []) as StateChangeRow[];
 
-      // 3. Reconstruct historical buckets in JS (pure, tested).
-      const buckets = computeTaskStatusBuckets(date, tasks, changes);
+      // 4. Reconstruct historical buckets in JS (pure, tested).
+      const buckets = computeTaskStatusBuckets(startsAt, endsAt, tasks, changes);
 
       return {
         doneToday: buckets.done,

@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-04-08 (sesión PM)
+> Actualizado: 2026-04-10 (sesión PM)
 
 ---
 
@@ -99,6 +99,19 @@
 - **Consideraciones antes de implementar:** Investigar edge cases — ¿qué pasa si otro usuario modifica la orden mientras está cacheada? ¿Se necesita una columna `updated_at` más granular o un hash de versión? ¿Impacto en optimistic updates existentes? ¿Posible migración para agregar campo de versión/hash? Evaluar si TanStack Query `staleTime` + `structuralSharing` ya cubre parte del problema o si se necesita un cache layer adicional.
 - **Requiere:** Análisis profundo antes de implementar.
 
+### 33. Activity Report — Persistencia y lock de reportes diarios (Fase 2) <!-- id: idea-052 -->
+- **Contexto:** Fase 1 (en otra sesión, otro PR) deja la base de timezone correcta y arregla bugs latentes. Esta fase 2 construye encima.
+- **Scope Fase 2:**
+  - Tabla `daily_reports` con snapshots persistentes del reporte por fecha
+  - Lock trigger en DB para evitar edición de reportes de días anteriores
+  - RLS de `daily_reports` (admin-only o quién pueda editar/leer)
+  - Auto-save del activity report mientras se edita (no perder el WIN OF THE DAY si el browser se cierra)
+  - Banner de UI / lock visual cuando el reporte ya está cerrado/locked
+- **No implementar hasta:** Fase 1 esté mergeada y la base de tz esté limpia.
+
+### ~~32. Modal Manager — Context + root render pattern~~ <!-- id: idea-050 --> ✅
+- ~~Implementado: `ModalContext` con discriminated union tipada, `ModalProvider` montado en `LayoutMain` (root level), hook `useModal()` para abrir/cerrar desde cualquier componente. Elimina el anti-pattern "UI state acoplado al lifecycle del componente equivocado". Bug crítico resuelto: `ItemDetailView` abierto desde `DoubleCheckView` (dentro del picking drawer) ya no se desmonta al cerrar el drawer. `InventorySnapshotModal` también migrado. Documentado en `docs/modal-pattern.md` (regla de oro: "ningún modal crítico vive dentro del componente que lo abre") y referenciado en `CLAUDE.md`.~~
+
 ---
 
 ## P2 — Medio (conveniencia)
@@ -109,6 +122,8 @@
 - [ ] **Automatic Inventory Email** — Edge function `send-daily-report` + query + cron. <!-- id: idea-007 -->
 - [ ] **Fotos Fase 3 — Bulk Upload** — Multi-file picker, batching, progress bar. <!-- id: idea-023-p3 -->
 - [ ] **Migrar cron jobs a pg_cron** — Elimina dependencia de GitHub Actions. <!-- id: idea-030 -->
+- [ ] **Projects — drag to reorder priority** — En Coming Up Next y In Progress, arrastrar para reordenar. Más arriba = más prioridad. No se refleja en ningún otro lado por ahora, solo capacidad de reordenar dentro de cada columna. <!-- id: idea-049 -->
+- [ ] **Activity Report — quitar la hora del header** — Solo mostrar la fecha, no la hora generada. <!-- id: idea-051 -->
 - [x] ~~**History en perfil** — Vista de órdenes completadas/canceladas del usuario.~~ <!-- id: idea-035 --> (descartado: cubierto por filtros en HistoryScreen y OrdersScreen)
 - [x] ~~**Double check: distribución no refresca picking path** — Fix: re-fetch `skuInventoryMap` después de `updateItem` en `onSave`.~~ <!-- id: bug-014 -->
 - [x] ~~**Reemplazar Edit Item por ItemDetailView** — Eliminado InventoryModal (1099 LOC). DoubleCheckView y StockCountScreen ahora usan ItemDetailView.~~ <!-- id: idea-036 -->
