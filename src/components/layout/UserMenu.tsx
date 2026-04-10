@@ -8,8 +8,6 @@ import Check from 'lucide-react/dist/esm/icons/check';
 import Sun from 'lucide-react/dist/esm/icons/sun';
 import Moon from 'lucide-react/dist/esm/icons/moon';
 import Settings from 'lucide-react/dist/esm/icons/settings';
-import Eye from 'lucide-react/dist/esm/icons/eye';
-import ShieldCheck from 'lucide-react/dist/esm/icons/shield-check';
 import History from 'lucide-react/dist/esm/icons/history';
 import RefreshCw from 'lucide-react/dist/esm/icons/refresh-cw';
 import ClipboardList from 'lucide-react/dist/esm/icons/clipboard-list';
@@ -32,9 +30,6 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
     signOut,
     updateProfileName,
     isAdmin,
-    isSystemAdmin,
-    viewAsUser,
-    toggleAdminView,
   } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [newName, setNewName] = useState(profile?.full_name || '');
@@ -392,29 +387,6 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                   </div>
                 </button>
 
-                {isSystemAdmin && (
-                  <>
-                    <div className="h-px bg-subtle my-2" />
-                    <button
-                      onClick={() => {
-                        toggleAdminView();
-                        onClose();
-                      }}
-                      className="flex items-center gap-3 w-full text-left"
-                    >
-                      <div
-                        className={`p-2 bg-surface border border-subtle rounded-xl ${viewAsUser ? 'text-emerald-500' : 'text-amber-500'}`}
-                      >
-                        {viewAsUser ? <ShieldCheck size={16} /> : <Eye size={16} />}
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-content uppercase tracking-tight">
-                          {viewAsUser ? 'Switch to Admin View' : 'View as Staff'}
-                        </p>
-                      </div>
-                    </button>
-                  </>
-                )}
               </div>
             )}
           </div>

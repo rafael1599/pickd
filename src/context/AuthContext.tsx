@@ -22,12 +22,9 @@ interface AuthContextType {
   role: string | null;
   profile: AuthProfile | null;
   isAdmin: boolean;
-  isSystemAdmin: boolean;
-  viewAsUser: boolean;
   loading: boolean;
   signOut: () => Promise<void>;
   updateProfileName: (newName: string) => Promise<{ success: boolean; error?: string }>;
-  toggleAdminView: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,9 +34,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [role, setRole] = useState<string | null>(null); // 'admin' | 'staff'
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<AuthProfile | null>(null);
-  const [viewAsUser, setViewAsUser] = useState<boolean>(() => {
-    return localStorage.getItem('view_as_user') === 'true';
-  });
+
+  // Cleanup legacy view_as_user storage
+  useEffect(() => {
+    localStorage.removeItem('view_as_user');
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -85,12 +84,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (cachedRole && mounted) {
             setRole(cachedRole);
             setLoading(false);
-
-            // Auto-reset viewAsUser for admins on sign-in
-            if (cachedRole === 'admin') {
-              setViewAsUser(false);
-              localStorage.setItem('view_as_user', 'false');
-            }
 
             fetchProfileWithTimeout(session.user.id, true);
 
@@ -209,12 +202,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setRole(profileData.role);
         setProfile(profileData);
         localStorage.setItem(`role_${userId}`, profileData.role);
-
-        // Auto-reset viewAsUser for admins on sign-in
-        if (profileData.role === 'admin') {
-          setViewAsUser(false);
-          localStorage.setItem('view_as_user', 'false');
-        }
       } else {
         if (!isBackground) setRole('staff');
       }
@@ -274,28 +261,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
   }, []);
 
-  const toggleAdminView = useCallback(() => {
-    setViewAsUser((prev) => {
-      const newValue = !prev;
-      localStorage.setItem('view_as_user', String(newValue));
-      return newValue;
-    });
-  }, []);
-
   const value = useMemo(
     () => ({
       user,
       role,
       profile,
-      isAdmin: role === 'admin' && !viewAsUser,
-      isSystemAdmin: role === 'admin',
-      viewAsUser,
+      isAdmin: role === 'admin',
       loading,
       signOut,
       updateProfileName,
-      toggleAdminView,
     }),
-    [user, role, profile, viewAsUser, loading, signOut, updateProfileName, toggleAdminView]
+    [user, role, profile, loading, signOut, updateProfileName]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
