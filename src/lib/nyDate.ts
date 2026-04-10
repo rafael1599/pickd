@@ -21,22 +21,14 @@ export interface NYDayBounds {
   endsAt: string; // UTC ISO string
 }
 
-// `as any` cast: these RPCs are added in migration 20260410100000_ny_timezone_helpers.sql
-// but the generated database.types.ts hasn't been regenerated yet. Will be cleaned up
-// when types are regenerated against the updated schema.
-type RpcClient = {
-  rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
-};
-const rpc = supabase as unknown as RpcClient;
-
 /**
  * Returns today's calendar date in America/New_York as a YYYY-MM-DD string.
  */
 export async function getCurrentNYDate(): Promise<string> {
-  const { data, error } = await rpc.rpc('current_ny_date');
+  const { data, error } = await supabase.rpc('current_ny_date');
   if (error) throw error;
   if (!data) throw new Error('current_ny_date returned no data');
-  return data as string;
+  return data;
 }
 
 /**
@@ -45,14 +37,13 @@ export async function getCurrentNYDate(): Promise<string> {
  * needs to scope results to a specific NY day.
  */
 export async function getNYDayBounds(nyDate: string): Promise<NYDayBounds> {
-  const { data, error } = await rpc.rpc('ny_day_bounds', { p_ny_date: nyDate });
+  const { data, error } = await supabase.rpc('ny_day_bounds', { p_ny_date: nyDate });
   if (error) throw error;
-  if (!data || !Array.isArray(data) || data.length === 0) {
+  if (!data || data.length === 0) {
     throw new Error(`ny_day_bounds returned no data for ${nyDate}`);
   }
-  const row = data[0] as { starts_at: string; ends_at: string };
   return {
-    startsAt: row.starts_at,
-    endsAt: row.ends_at,
+    startsAt: data[0].starts_at,
+    endsAt: data[0].ends_at,
   };
 }

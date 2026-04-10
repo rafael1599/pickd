@@ -60,6 +60,56 @@ export type Database = {
         };
         Relationships: [];
       };
+      customer_addresses: {
+        Row: {
+          id: string;
+          customer_id: string;
+          label: string | null;
+          street: string;
+          city: string | null;
+          state: string | null;
+          zip_code: string | null;
+          normalized_address: string;
+          is_default: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          customer_id: string;
+          label?: string | null;
+          street: string;
+          city?: string | null;
+          state?: string | null;
+          zip_code?: string | null;
+          // normalized_address is GENERATED ALWAYS — must NOT be in Insert
+          is_default?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          customer_id?: string;
+          label?: string | null;
+          street?: string;
+          city?: string | null;
+          state?: string | null;
+          zip_code?: string | null;
+          // normalized_address is GENERATED ALWAYS — must NOT be in Update
+          is_default?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'customer_addresses_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customers';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       customers: {
         Row: {
           city: string | null;
@@ -98,6 +148,83 @@ export type Database = {
           zip_code?: string | null;
         };
         Relationships: [];
+      };
+      cycle_count_sessions: {
+        Row: {
+          id: string;
+          created_by: string;
+          assigned_to: string | null;
+          warehouse: string;
+          source: string | null;
+          label: string | null;
+          status: string;
+          started_at: string | null;
+          completed_at: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          total_skus: number | null;
+          total_counted: number | null;
+          total_discrepancies: number | null;
+          notes: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          created_by: string;
+          assigned_to?: string | null;
+          warehouse?: string;
+          source?: string | null;
+          label?: string | null;
+          status?: string;
+          started_at?: string | null;
+          completed_at?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          // total_skus / total_counted / total_discrepancies are auto-maintained
+          // by trg_update_cc_summary — clients should not write them.
+          notes?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          created_by?: string;
+          assigned_to?: string | null;
+          warehouse?: string;
+          source?: string | null;
+          label?: string | null;
+          status?: string;
+          started_at?: string | null;
+          completed_at?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          notes?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'cycle_count_sessions_created_by_fkey';
+            columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'cycle_count_sessions_assigned_to_fkey';
+            columns: ['assigned_to'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'cycle_count_sessions_reviewed_by_fkey';
+            columns: ['reviewed_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       daily_inventory_snapshots: {
         Row: {
@@ -891,10 +1018,18 @@ export type Database = {
         Args: { p_snapshot_date?: string };
         Returns: Json;
       };
+      current_ny_date: { Args: never; Returns: string };
       current_user_id: { Args: never; Returns: string };
       delete_inventory_item: {
         Args: { p_item_id: number; p_performed_by: string; p_user_id?: string };
         Returns: boolean;
+      };
+      get_inventory_stats: {
+        Args: { p_include_parts?: boolean };
+        Returns: {
+          total_skus: number;
+          total_units: number;
+        }[];
       };
       get_snapshot: {
         Args: { p_target_date: string };
@@ -920,6 +1055,13 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean };
       is_manager: { Args: never; Returns: boolean };
       is_user_online: { Args: { p_user_id: string }; Returns: boolean };
+      ny_day_bounds: {
+        Args: { p_ny_date: string };
+        Returns: {
+          starts_at: string;
+          ends_at: string;
+        }[];
+      };
       move_inventory_stock: {
         Args: {
           p_from_location: string;

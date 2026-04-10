@@ -14,9 +14,11 @@ export interface CustomerAddress {
 }
 
 export async function fetchCustomerAddresses(customerId: string): Promise<CustomerAddress[]> {
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from('customer_addresses')
-    .select('*')
+    .select(
+      'id, customer_id, label, street, city, state, zip_code, is_default, created_at, updated_at'
+    )
     .eq('customer_id', customerId)
     .order('is_default', { ascending: false })
     .order('updated_at', { ascending: false });
@@ -40,19 +42,17 @@ export async function saveCustomerAddress({
 }) {
   if (!street.trim()) return;
 
-  const { error } = await (supabase as any)
-    .from('customer_addresses')
-    .upsert(
-      {
-        customer_id: customerId,
-        street: street.trim(),
-        city: city || null,
-        state: state || null,
-        zip_code: zip || null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'customer_id,normalized_address' }
-    );
+  const { error } = await supabase.from('customer_addresses').upsert(
+    {
+      customer_id: customerId,
+      street: street.trim(),
+      city: city || null,
+      state: state || null,
+      zip_code: zip || null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'customer_id,normalized_address' }
+  );
 
   if (error && !error.message.includes('duplicate')) {
     console.error('[customerAddresses] Save error:', error.message);

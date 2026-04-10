@@ -69,13 +69,11 @@ export const useInventory = () => {
   const { data: globalStats } = useQuery({
     queryKey: ['inventory', 'stats', showParts],
     queryFn: async () => {
-      // @ts-expect-error RPC exists in prod, database.types.ts is stale
       const { data, error } = await supabase.rpc('get_inventory_stats', {
         p_include_parts: showParts,
       });
       if (error) throw error;
-      const result = data as unknown as Record<string, unknown>[] | Record<string, unknown> | null;
-      const row = (Array.isArray(result) ? result[0] : result) ?? {};
+      const row = data?.[0];
       return {
         totalSkus: Number(row?.total_skus ?? 0),
         totalQuantity: Number(row?.total_units ?? 0),
@@ -111,9 +109,7 @@ export const useInventory = () => {
   });
 
   // ── Parts query (all items) — only when toggled or searching ──────
-  const { data: partsData, isLoading: partsLoading } = useQuery<
-    InventoryItemWithMetadata[]
-  >({
+  const { data: partsData, isLoading: partsLoading } = useQuery<InventoryItemWithMetadata[]>({
     queryKey: [...PARTS_BINS_KEY, showInactive],
     queryFn: async () => {
       const { data, count } = await inventoryApi.fetchInventoryWithMetadata({
@@ -224,9 +220,7 @@ export const useInventory = () => {
   const hasMoreBikes = bikesTotal !== null && (rawData?.length ?? 0) < bikesTotal;
   const hasMoreParts = partsTotal !== null && (partsData?.length ?? 0) < partsTotal;
   const hasMoreSearch = searchTotal !== null && (searchResults?.length ?? 0) < searchTotal;
-  const hasMoreItems = searchQuery
-    ? hasMoreSearch
-    : hasMoreBikes || (showParts && hasMoreParts);
+  const hasMoreItems = searchQuery ? hasMoreSearch : hasMoreBikes || (showParts && hasMoreParts);
 
   const loadMoreSearch = useCallback(async () => {
     if (isLoadingMoreRef.current || !searchQuery) return;

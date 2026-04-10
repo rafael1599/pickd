@@ -99,7 +99,7 @@ export function useActivityReport(date: string) {
             .eq('is_reversed', false)
             .gte('created_at', twoMonthsAgo)
             .lte('created_at', dayEnd),
-          supabase.rpc('get_inventory_stats' as never, { p_include_parts: true } as never),
+          supabase.rpc('get_inventory_stats', { p_include_parts: true }),
           supabase
             .from('picking_list_notes')
             .select('id')
@@ -185,9 +185,7 @@ export function useActivityReport(date: string) {
         ...(verifiedRes.data ?? []).map((r: { sku: string }) => r.sku),
         ...(moveAddRes.data ?? []).map((r: { sku: string }) => r.sku),
       ]);
-      const statsRaw = statsRes.data as unknown as Record<string, unknown>[] | Record<string, unknown> | null;
-      const statsRow = (Array.isArray(statsRaw) ? statsRaw[0] : statsRaw) ?? {};
-      const totalSkus = Number(statsRow?.total_skus ?? 0);
+      const totalSkus = Number(statsRes.data?.[0]?.total_skus ?? 0);
 
       const correctionCount = (notesRes.data ?? []).length;
 

@@ -48,7 +48,12 @@ const defaultSession: CycleCountSession = {
 // ─── Main Screen Component ───
 export const StockCountScreen = () => {
   const navigate = useNavigate();
-  const { inventoryData, updateItem, deleteItem, setSearchQuery: setGlobalSearchQuery } = useInventory();
+  const {
+    inventoryData,
+    updateItem,
+    deleteItem,
+    setSearchQuery: setGlobalSearchQuery,
+  } = useInventory();
   const { locations: allMappedLocations } = useLocationManagement();
   const { profile } = useAuth();
 
@@ -75,15 +80,14 @@ export const StockCountScreen = () => {
   const [directInventory, setDirectInventory] = useState<InventoryItemWithMetadata[]>([]);
 
   useEffect(() => {
-    (supabase as any)
+    supabase
       .from('cycle_count_sessions')
       .select('id, label, status')
       .eq('status', 'in_progress')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
-      .then(({ data: rawData }: { data: any }) => {
-        const data = rawData as { id: string; label: string; status: string } | null;
+      .then(({ data }) => {
         if (data) {
           setDbSessionId(data.id);
           setDbSessionLabel(data.label);
@@ -94,7 +98,9 @@ export const StockCountScreen = () => {
             .eq('session_id', data.id)
             .order('created_at')
             .then(async ({ data: rawItems }: { data: any[] | null }) => {
-              const items = rawItems as unknown as { sku: string; expected_qty: number; counted_qty: number; status: string }[] | null;
+              const items = rawItems as unknown as
+                | { sku: string; expected_qty: number; counted_qty: number; status: string }[]
+                | null;
               if (items && items.length > 0) {
                 const skus = items.map((i) => i.sku);
                 const verified = items
@@ -104,7 +110,9 @@ export const StockCountScreen = () => {
                 // Fetch real inventory for these SKUs directly from DB
                 const { data: invData } = await supabase
                   .from('inventory')
-                  .select('*, sku_metadata(sku, image_url, length_in, width_in, height_in, weight_lbs, is_bike)')
+                  .select(
+                    '*, sku_metadata(sku, image_url, length_in, width_in, height_in, weight_lbs, is_bike)'
+                  )
                   .in('sku', skus)
                   .eq('warehouse', 'LUDLOW');
                 if (invData) setDirectInventory(invData as unknown as InventoryItemWithMetadata[]);
@@ -242,7 +250,7 @@ export const StockCountScreen = () => {
   const finishCounting = async () => {
     setSession((prev) => ({ ...prev, status: 'completed' }));
     if (dbSessionId) {
-      await (supabase as any)
+      await supabase
         .from('cycle_count_sessions')
         .update({ status: 'completed', completed_at: new Date().toISOString() })
         .eq('id', dbSessionId);

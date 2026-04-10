@@ -52,16 +52,19 @@ export const CycleCountHistoryScreen = () => {
   const [loadingItems, setLoadingItems] = useState(false);
 
   useEffect(() => {
-    (supabase as any)
+    supabase
       .from('cycle_count_sessions')
-      .select('*, profiles!created_by(full_name)')
+      .select('*, profiles!cycle_count_sessions_created_by_fkey(full_name)')
       .order('created_at', { ascending: false })
       .limit(20)
-      .then(({ data }: { data: any[] | null }) => {
-        const mapped = (data || []).map((s: Record<string, unknown>) => ({
-          ...s,
-          created_by_name: (s.profiles as { full_name: string } | null)?.full_name || 'Unknown',
-        })) as CycleCountSession[];
+      .then(({ data }) => {
+        const mapped = (data ?? []).map((s) => {
+          const joined = s as typeof s & { profiles: { full_name: string } | null };
+          return {
+            ...s,
+            created_by_name: joined.profiles?.full_name ?? 'Unknown',
+          };
+        }) as unknown as CycleCountSession[];
         setSessions(mapped);
         setLoading(false);
       });
@@ -152,12 +155,16 @@ export const CycleCountHistoryScreen = () => {
                   {/* Summary chips */}
                   <div className="flex items-center gap-2 shrink-0">
                     <div className="text-center">
-                      <p className="text-sm font-black">{session.total_counted}/{session.total_skus}</p>
+                      <p className="text-sm font-black">
+                        {session.total_counted}/{session.total_skus}
+                      </p>
                       <p className="text-[8px] text-muted font-black uppercase">Counted</p>
                     </div>
                     {session.total_discrepancies > 0 && (
                       <div className="text-center">
-                        <p className="text-sm font-black text-red-400">{session.total_discrepancies}</p>
+                        <p className="text-sm font-black text-red-400">
+                          {session.total_discrepancies}
+                        </p>
                         <p className="text-[8px] text-red-400/70 font-black uppercase">Diff</p>
                       </div>
                     )}
@@ -182,7 +189,10 @@ export const CycleCountHistoryScreen = () => {
                     ) : (
                       <div className="divide-y divide-subtle/30">
                         {expandedItems.map((item) => (
-                          <div key={item.id} className="px-4 py-2.5 flex items-center justify-between">
+                          <div
+                            key={item.id}
+                            className="px-4 py-2.5 flex items-center justify-between"
+                          >
                             <div className="flex items-center gap-2 min-w-0">
                               {item.status === 'counted' || item.status === 'verified' ? (
                                 item.variance === 0 ? (
@@ -220,7 +230,8 @@ export const CycleCountHistoryScreen = () => {
                                     <span
                                       className={`text-[9px] ${item.variance > 0 ? 'text-amber-400' : 'text-red-400'}`}
                                     >
-                                      ({item.variance > 0 ? '+' : ''}{item.variance})
+                                      ({item.variance > 0 ? '+' : ''}
+                                      {item.variance})
                                     </span>
                                   )}
                                 </>
