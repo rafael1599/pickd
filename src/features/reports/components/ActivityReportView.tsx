@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { ActivityReport } from '../hooks/useActivityReport';
+import type { ReportTask } from '../../projects/hooks/useProjectReportData';
 
 const BG = '#f5f7fa';
 const CARD_SHADOW = '0 1px 4px rgba(0,0,0,0.06)';
@@ -30,9 +31,9 @@ interface Props {
   winOfTheDay: string;
   routineChecklist: string[];
   pickdUpdates: string[];
-  doneToday: string[];
-  inProgress: string[];
-  comingUpNext: string[];
+  doneToday: ReportTask[];
+  inProgress: ReportTask[];
+  comingUpNext: ReportTask[];
 }
 
 function formatDate(dateStr: string): string {
@@ -89,6 +90,37 @@ const bulletTextStyle: React.CSSProperties = {
   lineHeight: 1.55,
   color: TEXT,
 };
+
+const taskNoteStyle: React.CSSProperties = {
+  fontSize: 12,
+  lineHeight: 1.5,
+  color: TEXT_MUTED,
+  margin: '2px 0 0 18px',
+  whiteSpace: 'pre-wrap',
+};
+
+function renderTaskList(
+  tasks: ReportTask[],
+  color: string,
+  bulletChar: '\u25CF' | '\u25CB'
+) {
+  return tasks.map((task, i) => (
+    <div
+      key={task.task_id}
+      style={{
+        padding: i < tasks.length - 1 ? '0 0 10px 0' : 0,
+      }}
+    >
+      <p style={{ ...bulletTextStyle, margin: 0 }}>
+        <span style={bulletStyle(color)}>{bulletChar}</span>
+        &nbsp;&nbsp;{task.title}
+      </p>
+      {task.note && task.note.trim().length > 0 && (
+        <p style={taskNoteStyle}>{task.note}</p>
+      )}
+    </div>
+  ));
+}
 
 export const ActivityReportView: React.FC<Props> = ({
   report,
@@ -223,19 +255,7 @@ export const ActivityReportView: React.FC<Props> = ({
           <>
             <div style={cardStyle}>
               <p style={sectionHeaderStyle(EMERALD)}>DONE TODAY</p>
-              {doneToday.map((item, i) => (
-                <p
-                  key={i}
-                  style={{
-                    ...bulletTextStyle,
-                    padding: i < doneToday.length - 1 ? '0 0 10px 0' : 0,
-                    margin: 0,
-                  }}
-                >
-                  <span style={bulletStyle(EMERALD)}>&#9679;</span>
-                  &nbsp;&nbsp;{item}
-                </p>
-              ))}
+              {renderTaskList(doneToday, EMERALD, '\u25CF')}
             </div>
             <div style={spacerStyle} />
           </>
@@ -246,19 +266,7 @@ export const ActivityReportView: React.FC<Props> = ({
           <>
             <div style={cardStyle}>
               <p style={sectionHeaderStyle(AMBER)}>IN PROGRESS</p>
-              {inProgress.map((item, i) => (
-                <p
-                  key={i}
-                  style={{
-                    ...bulletTextStyle,
-                    padding: i < inProgress.length - 1 ? '0 0 10px 0' : 0,
-                    margin: 0,
-                  }}
-                >
-                  <span style={bulletStyle(AMBER)}>&#9679;</span>
-                  &nbsp;&nbsp;{item}
-                </p>
-              ))}
+              {renderTaskList(inProgress, AMBER, '\u25CF')}
             </div>
             <div style={spacerStyle} />
           </>
@@ -292,19 +300,7 @@ export const ActivityReportView: React.FC<Props> = ({
           <>
             <div style={cardStyle}>
               <p style={sectionHeaderStyle(BLUE)}>COMING UP NEXT</p>
-              {comingUpNext.map((item, i) => (
-                <p
-                  key={i}
-                  style={{
-                    ...bulletTextStyle,
-                    padding: i < comingUpNext.length - 1 ? '0 0 10px 0' : 0,
-                    margin: 0,
-                  }}
-                >
-                  <span style={bulletStyle(BLUE)}>&#9675;</span>
-                  &nbsp;&nbsp;{item}
-                </p>
-              ))}
+              {renderTaskList(comingUpNext, BLUE, '\u25CB')}
             </div>
             <div style={spacerStyle} />
           </>

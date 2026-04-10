@@ -65,9 +65,9 @@ export const ActivityReportScreen = () => {
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean);
-  const doneToday = (tasksCompleted ?? []).map((t) => t.title);
-  const inProgress = (tasksInProgress ?? []).map((t) => t.title);
-  const comingUpNext = (tasksFuture ?? []).slice(0, 3).map((t) => t.title);
+  const doneToday = tasksCompleted ?? [];
+  const inProgress = tasksInProgress ?? [];
+  const comingUpNext = (tasksFuture ?? []).slice(0, 3);
 
   const handleDateChange = useCallback((newDate: string) => {
     setSelectedDate(newDate);
