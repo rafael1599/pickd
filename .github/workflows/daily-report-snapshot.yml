@@ -1,0 +1,35 @@
+name: Daily Activity Report Snapshot
+
+on:
+  schedule:
+    # Runs at 05:15 UTC every day. This is 00:15 NY EST (winter) and
+    # 01:15 NY EDT (summer) — always AFTER NY midnight, regardless of DST.
+    # Staggered 15 min after the inventory daily-snapshot (05:00 UTC) to
+    # avoid running both jobs at the exact same instant.
+    #
+    # The edge function resolves "yesterday in NY" by calling current_ny_date()
+    # in Postgres (single source of truth) and computing today - 1 in JS.
+    # See migration 20260410100000_ny_timezone_helpers.sql for the rationale.
+    - cron: '15 5 * * *'
+  workflow_dispatch:
+    inputs:
+      report_date:
+        description: 'Optional override (YYYY-MM-DD). If empty, snapshots yesterday in NY.'
+        required: false
+        type: string
+
+jobs:
+  trigger-report-snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger daily-report-snapshot edge function
+        run: |
+          BODY='{}'
+          if [ -n "${{ github.event.inputs.report_date }}" ]; then
+            BODY='{"report_date":"${{ github.event.inputs.report_date }}"}'
+          fi
+          echo "Posting body: $BODY"
+          curl -fsS -X POST "${{ secrets.SUPABASE_URL }}/functions/v1/daily-report-snapshot" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d "$BODY"
