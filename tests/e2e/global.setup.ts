@@ -70,13 +70,13 @@ async function authenticate(
 }
 
 setup('authenticate admin', async ({ baseURL }) => {
-  const email = process.env.VITE_TEST_ADMIN_EMAIL || 'admin@example.com';
-  const password = process.env.VITE_TEST_ADMIN_PASSWORD || 'password123';
+  const email = process.env.TEST_ADMIN_EMAIL || process.env.VITE_TEST_ADMIN_EMAIL || 'admin@example.com';
+  const password = process.env.TEST_ADMIN_PASSWORD || process.env.VITE_TEST_ADMIN_PASSWORD || 'password123';
   await authenticate(email, password, 'admin', path.join(authDir, 'admin.json'), baseURL);
 });
 
 setup('authenticate staff', async ({ baseURL }) => {
-  const email = process.env.VITE_TEST_STAFF_EMAIL || 'staff@example.com';
-  const password = process.env.VITE_TEST_STAFF_PASSWORD || 'password123';
+  const email = process.env.TEST_STAFF_EMAIL || process.env.VITE_TEST_STAFF_EMAIL || 'staff@example.com';
+  const password = process.env.TEST_STAFF_PASSWORD || process.env.VITE_TEST_STAFF_PASSWORD || 'password123';
   await authenticate(email, password, 'staff', path.join(authDir, 'staff.json'), baseURL);
 });

@@ -88,6 +88,7 @@ serve(async (req: Request) => {
 
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const body = await req.json().catch(() => ({}));
+    const now = new Date();
 
     // 1. Manejo de Fechas — Postgres es la fuente de verdad de NY tz.
     //    No calculamos fechas en JS aquí. Si el body trae snapshot_date, lo
