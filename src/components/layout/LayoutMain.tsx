@@ -5,12 +5,12 @@ import Settings from 'lucide-react/dist/esm/icons/settings';
 import Menu from 'lucide-react/dist/esm/icons/menu';
 import { useAuth } from '../../context/AuthContext';
 import { useViewMode } from '../../context/ViewModeContext';
+import { ModalProvider } from '../../context/ModalContext';
 import { UserMenu } from './UserMenu';
 import { DoubleCheckHeader } from '../../features/picking/components/DoubleCheckHeader';
 import { SyncStatusIndicator } from './SyncStatusIndicator';
 import { PickingCartDrawer } from '../../features/picking/components/PickingCartDrawer';
 import { PullToRefresh } from '../ui/PullToRefresh';
-import { InventorySnapshotModal } from '../../features/inventory/components/InventorySnapshotModal';
 
 interface LayoutMainProps {
   children: ReactNode;
@@ -24,7 +24,6 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
   const { isAdmin } = useAuth();
   const { isSearching } = useViewMode();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isSnapshotOpen, setIsSnapshotOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
@@ -38,6 +37,7 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
   const pbClass = (isOrdersPage || isStockCountPage) ? 'pb-0' : (isSearching ? 'pb-12' : 'pb-20');
 
   return (
+    <ModalProvider>
     <div className={`flex flex-col min-h-screen bg-main transition-all duration-700 ease-in-out relative overflow-x-hidden ${pbClass}`}>
       {/* Decorative Atmospheric Backdrop */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
@@ -105,15 +105,6 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
         isOpen={isUserMenuOpen}
         onClose={() => setIsUserMenuOpen(false)}
         navigate={navigate}
-        onOpenSnapshot={() => {
-          setIsUserMenuOpen(false);
-          setIsSnapshotOpen(true);
-        }}
-      />
-
-      <InventorySnapshotModal
-        isOpen={isSnapshotOpen}
-        onClose={() => setIsSnapshotOpen(false)}
       />
 
       {/* Content */}
@@ -126,5 +117,6 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
       {!isOrdersPage && !isStockCountPage && <BottomNavigation />}
       <PickingCartDrawer />
     </div>
+    </ModalProvider>
   );
 };

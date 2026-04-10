@@ -20,7 +20,7 @@ import {
   type InventoryItemWithMetadata,
 } from '../../../schemas/inventory.schema.ts';
 import { type Pallet, redistributeWithOverrides } from '../../../utils/pickingLogic.ts';
-import { ItemDetailView } from '../../inventory/components/ItemDetailView';
+import { useModal } from '../../../context/ModalContext';
 import Pencil from 'lucide-react/dist/esm/icons/pencil';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import Lock from 'lucide-react/dist/esm/icons/lock';
@@ -247,7 +247,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   };
   const [correctionNotes, setCorrectionNotes] = useState('');
   const [isNotesExpanded, setIsNotesExpanded] = useState(false);
-  const [editModalItem, setEditModalItem] = useState<InventoryItemWithMetadata | null>(null);
+  const { open: openModal } = useModal();
+  // Ref keeps modal callbacks fresh without re-binding handlePointerDown.
+  // Modal lives at root via ModalProvider — must call latest hook callbacks
+  // even if this component unmounts after the modal opens.
+  const editCallbacksRef = useRef({ updateItem, deleteItem, fetchDistributions: async () => {} });
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevItemCountRef = useRef(cartItems.length);
 
@@ -279,13 +283,28 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           .maybeSingle();
 
         if (data) {
-          setEditModalItem(data as unknown as InventoryItemWithMetadata);
+          const itemData = data as unknown as InventoryItemWithMetadata;
+          openModal({
+            type: 'item-detail',
+            item: itemData,
+            mode: 'edit',
+            screenType: itemData.warehouse,
+            onSave: async (formData) => {
+              await editCallbacksRef.current.updateItem(itemData, formData);
+              await editCallbacksRef.current.fetchDistributions();
+              toast.success(`Updated ${itemData.sku}`);
+            },
+            onDelete: () => {
+              editCallbacksRef.current.deleteItem(itemData.warehouse, itemData.sku, itemData.location);
+              toast.success(`Deleted ${itemData.sku}`);
+            },
+          });
         } else {
           toast.error('Item not found in inventory');
         }
       }, 500);
     },
-    []
+    [openModal]
   );
 
   const handlePointerUp = useCallback(() => {
@@ -380,6 +399,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     fetchDistributions();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cartSkuKey]);
+
+  // Keep edit-callbacks ref fresh — see editCallbacksRef declaration above
+  useEffect(() => {
+    editCallbacksRef.current = { updateItem, deleteItem, fetchDistributions };
+  }, [updateItem, deleteItem, fetchDistributions]);
 
   /**
    * Pick Plan Map: For each SKU, build a full picking plan that covers the order quantity.
@@ -1240,29 +1264,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         )}
       </div>
 
-      {/* Edit Item (full-screen ItemDetailView) */}
-      <ItemDetailView
-        isOpen={!!editModalItem}
-        onClose={() => setEditModalItem(null)}
-        onSave={async (formData) => {
-          if (editModalItem) {
-            await updateItem(editModalItem, formData);
-            await fetchDistributions();
-            toast.success(`Updated ${editModalItem.sku}`);
-            setEditModalItem(null);
-          }
-        }}
-        onDelete={() => {
-          if (editModalItem) {
-            deleteItem(editModalItem.warehouse, editModalItem.sku, editModalItem.location);
-            toast.success(`Deleted ${editModalItem.sku}`);
-            setEditModalItem(null);
-          }
-        }}
-        initialData={editModalItem}
-        mode="edit"
-        screenType={editModalItem?.warehouse}
-      />
+      {/* ItemDetailView lives in ModalProvider (root) — see docs/modal-pattern.md */}
 
       {showCorrectionMode && onCorrectItem && (
         <CorrectionModeView

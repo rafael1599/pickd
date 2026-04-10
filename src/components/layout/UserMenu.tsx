@@ -15,15 +15,16 @@ import Kanban from 'lucide-react/dist/esm/icons/kanban';
 import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
 import Printer from 'lucide-react/dist/esm/icons/printer';
 import { useScrollLock } from '../../hooks/useScrollLock';
+import { useModal } from '../../context/ModalContext';
 
 interface UserMenuProps {
   isOpen: boolean;
   onClose: () => void;
   navigate: (path: string) => void;
-  onOpenSnapshot?: () => void;
 }
 
-export const UserMenu = ({ isOpen, onClose, navigate, onOpenSnapshot }: UserMenuProps) => {
+export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
+  const { open: openModal } = useModal();
   const {
     profile,
     signOut,
@@ -319,7 +320,10 @@ export const UserMenu = ({ isOpen, onClose, navigate, onOpenSnapshot }: UserMenu
                 <div className="h-px bg-subtle my-2" />
 
                 <button
-                  onClick={() => onOpenSnapshot?.()}
+                  onClick={() => {
+                    onClose();
+                    openModal({ type: 'inventory-snapshot' });
+                  }}
                   className="flex items-center gap-3 w-full text-left"
                 >
                   <div className="p-2 bg-surface border border-subtle rounded-xl text-purple-400">
