@@ -107,7 +107,24 @@
   - RLS de `daily_reports` (admin-only o quién pueda editar/leer)
   - Auto-save del activity report mientras se edita (no perder el WIN OF THE DAY si el browser se cierra)
   - Banner de UI / lock visual cuando el reporte ya está cerrado/locked
-- **No implementar hasta:** Fase 1 esté mergeada y la base de tz esté limpia.
+- **Plan formal:** `~/.claude/plans/activity-report-fase-2-snapshots.md` (revisado por consultor; columnas separadas `data_computed` + `data_manual`, RPCs `create_daily_report_snapshot` y `patch_daily_report_manual`).
+- **No implementar hasta:** Fase 1 esté mergeada y las 5 open questions del plan estén respondidas.
+
+### 34. Long-Waiting Orders — orders que esperan inventario meses <!-- id: idea-053 -->
+- **Contexto:** El descubrimiento de bug-017 reveló que el `auto_cancel_stale_orders` a 24h en verification es **conceptualmente equivocado**. Las órdenes pueden esperar meses por bicicletas que no están en stock todavía. La lógica actual cancela órdenes legítimamente waiting.
+- **Realidad del negocio:**
+  - Una orden puede tener varios items y completarse solo cuando TODOS estén disponibles
+  - Items disponibles físicamente quedan **reservados** para esa orden hasta que se complete o se libere manualmente
+  - La espera puede durar **meses**
+  - Caso real activo: orden con `03-3674BL` (ROW 20, 1 unidad) esperando otra bici que no tenemos
+- **Scope:**
+  - Eliminar/reemplazar la rama `verification 24h` de `auto_cancel_stale_orders`
+  - Las órdenes waiting viven en `needs_correction` con un mecanismo para identificarlas
+  - UX: dropdown/toggle en verification list para mostrar/ocultar órdenes waiting (similar al toggle "items qty 0" en stock view)
+  - Drag/move al área designada (similar a cómo se manejan órdenes FedEx hoy)
+  - **Conflict resolution:** cuando watchdog crea una nueva orden con un SKU completamente reservado por una waiting order, double check debe **alertar y bloquear** hasta que el usuario decida: take over (robar el SKU) o edit order (reemplazar/eliminar el item conflictivo)
+- **Plan formal:** `~/.claude/plans/long-waiting-orders.md` (a crear)
+- **Requiere:** Investigación profunda del flujo actual (`auto_cancel_stale_orders`, FedEx order handling, watchdog inserts) antes de implementar.
 
 ### ~~32. Modal Manager — Context + root render pattern~~ <!-- id: idea-050 --> ✅
 - ~~Implementado: `ModalContext` con discriminated union tipada, `ModalProvider` montado en `LayoutMain` (root level), hook `useModal()` para abrir/cerrar desde cualquier componente. Elimina el anti-pattern "UI state acoplado al lifecycle del componente equivocado". Bug crítico resuelto: `ItemDetailView` abierto desde `DoubleCheckView` (dentro del picking drawer) ya no se desmonta al cerrar el drawer. `InventorySnapshotModal` también migrado. Documentado en `docs/modal-pattern.md` (regla de oro: "ningún modal crítico vive dentro del componente que lo abre") y referenciado en `CLAUDE.md`.~~
@@ -140,14 +157,15 @@
   - Proyecto agregado directamente a una columna no se muestra en activity report
   - Estados inconsistentes al mover proyectos rápidamente
   - **Requiere:** sesión de retroalimentación detallada con pasos de reproducción antes de hacer cambios. No hacer fixes a ciegas.
-- [x] ~~**[bug-017]** `auto_cancel_stale_orders` creaba inventario fantasma~~ ✅ (parcialmente — pendiente verificación física)
+- [x] ~~**[bug-017]** `auto_cancel_stale_orders` creaba inventario fantasma~~ ✅ **CERRADO 2026-04-10**
   - **Causa raíz:** `auto_cancel_stale_orders` rama verification (24h timeout) llamaba `adjust_inventory_quantity` con `+qty` para "restorar" inventario. La premisa era falsa: durante `ready_to_double_check`/`double_checking` el inventario está **intacto** — la deducción real solo pasa al transicionar a `completed` vía `process_picking_list()`. Cada cron run que mataba una orden vencida añadía unidades fantasma.
   - **Daño detectado:** una sola corrida (2026-04-09 19:49 UTC) sobre la lista combinada `b992279c-1727-4d87-afdb-3a645d35af72` (órdenes 879070/879068/878975/879069) generó 13 ADDs: 8 SKUs en rows nuevos con `location=NULL` (visibles), 5 SKUs sumados a rows existentes (invisibles).
   - **Fixes aplicados (2026-04-10):**
     - `20260410110000` — `create_daily_snapshot` filtra `location IS NOT NULL` (cron del snapshot ya no falla)
     - `20260410120000` — `auto_cancel_stale_orders` rama verification ya no toca inventario (matchea cancelación manual). 8 rows huérfanos eliminados.
     - `20260410130000` — `adjust_inventory_quantity` rechaza con exception cualquier llamada con `delta > 0 AND location NULL` (defensa permanente). DEDUCT con NULL emite WARNING para auditoría futura.
-  - **Pendiente:** verificación física en piso de los 5 SKUs inflados (`03-3674BL` ROW 20, `03-4241GY` ROW 15, `03-4248GY` ROW 25, `03-4270BK` ROW 5, `03-4627BR` ROW 27). Cada uno está off por +1 unidad en DB. Aplicar correcciones después del conteo físico.
+  - **Verificación física completada:** los 5 SKUs inflados se ajustaron a su valor real via cycle count UI: `03-3674BL`=1, `03-4241GY`=11, `03-4248GY`=5, `03-4270BK`=15, `03-4627BR`=20. Conteos físicos divergieron del audit log para 3 SKUs (03-4241GY, 03-4270BK, 03-4627BR) — el conteo físico es la verdad, el audit log puede haber subestimado el daño.
+  - **Aprendizaje no resuelto:** el caso del usuario reveló que el auto-cancel a 24h en verification es **conceptualmente equivocado** porque las órdenes pueden esperar meses por inventario. Tracked separately como `idea-053` (Long-Waiting Orders).
 
 ---
 
