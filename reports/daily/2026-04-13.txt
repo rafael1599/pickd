@@ -1,0 +1,19 @@
+Progress Update — April 13, 2026 at 3:24 PM
+
+WIN OF THE DAY:
+The verification screen went from a small popup to a full command center where you can drag orders between FedEx and regular truck, group them together, and see your projects — all in one view. The label printer also got a complete redesign.
+
+WHAT'S BETTER NOW:
+- The verification queue is now a full-screen board with separate areas for FedEx, regular truck, waiting orders, recent projects, and completed orders. You can drag an order from one area to another to change how it ships.
+- Orders that need to wait for missing bikes now have a proper holding area instead of getting auto-cancelled. An admin can mark them as waiting with a reason, and they stay reserved until the inventory arrives.
+- When two orders land in the same shipping lane, dropping one on top of the other groups them automatically — no more picking the group type from a menu every time.
+- The label printer now has a single flow for creating labels: search for a SKU, pick it, and print. If the SKU doesn't exist yet, you can register it right there without leaving the screen.
+- Labels now track which warehouse locations they've been seen at, so you can look up a tag and know where it's been.
+- You can now print a label directly from any item's detail view or from the stock card — no need to go to the labels screen first.
+
+COMING UP NEXT:
+- Show correction notes inside the picking summary so checkers can see what changed
+- Mobile layout polish for the new verification board
+
+3 done today / 13 in the queue (7 high priority, 6 medium)
+Note: today's changes are ready but not yet live in production.
