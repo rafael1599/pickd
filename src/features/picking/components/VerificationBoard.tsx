@@ -88,15 +88,12 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             {} // No weight data available here — falls back to count-only rule
           );
 
-        const isInPriority =
-          order.status === 'needs_correction' || order.status === 'ready_to_double_check';
-
-        if (isInPriority) {
-          // Priority orders carry their shipping type for coloring
+        // Priority = only needs_correction (something went wrong, fix this)
+        // Lanes = ready_to_double_check + double_checking (normal flow)
+        if (order.status === 'needs_correction') {
           (order as PickingList & { _shippingType?: string })._shippingType = shippingType;
           priority.push(order);
         } else {
-          // double_checking orders go to their lane
           if (shippingType === 'fedex') fedex.push(order);
           else regular.push(order);
         }
