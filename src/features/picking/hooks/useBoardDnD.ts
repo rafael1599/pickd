@@ -151,7 +151,13 @@ export function useBoardDnD(isAdmin: boolean, refresh: () => void) {
       } else if (sourceOrder.group_id) {
         await addToGroup(sourceOrder.group_id, targetOrder.id);
         refresh();
+      } else if (sourceShippingType && sourceShippingType === targetShippingType) {
+        // Both in same lane — auto-create group with that lane's type
+        const groupType = sourceShippingType === 'fedex' ? 'fedex' : 'general';
+        await createGroup(groupType as GroupType, [sourceOrder.id, targetOrder.id]);
+        refresh();
       } else {
+        // Different lanes or unknown — ask user
         setPendingMerge({ source: sourceOrder, target: targetOrder });
       }
     },
