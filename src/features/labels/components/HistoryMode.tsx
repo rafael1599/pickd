@@ -31,6 +31,7 @@ interface AssetTagRow {
   made_in?: string | null;
   other_notes?: string | null;
   label_photo_url?: string | null;
+  possible_locations?: string[] | null;
 }
 
 export const HistoryMode = () => {
@@ -49,7 +50,7 @@ export const HistoryMode = () => {
       const { data, error } = await supabase
         .from('asset_tags')
         .select(
-          'id, short_code, public_token, sku, location, status, printed_at, created_at, upc, po_number, c_number, serial_number, made_in, other_notes, label_photo_url'
+          'id, short_code, public_token, sku, location, status, printed_at, created_at, upc, po_number, c_number, serial_number, made_in, other_notes, label_photo_url, possible_locations'
         )
         .order('created_at', { ascending: false })
         .limit(200);
@@ -190,7 +191,13 @@ export const HistoryMode = () => {
             <div className="flex items-center justify-between mb-2">
               <div>
                 <p className="text-sm font-bold text-content tracking-tight">{sku}</p>
-                <p className="text-[10px] text-muted">{tags[0]?.location ?? 'No location'}</p>
+                {tags[0]?.possible_locations && tags[0].possible_locations.length > 0 ? (
+                  <p className="text-[10px] text-amber-500 font-bold">
+                    Could be: {tags[0].possible_locations.join(', ')}
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-muted">{tags[0]?.location ?? 'No location'}</p>
+                )}
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] font-bold text-accent bg-accent/10 border border-accent/20 px-2 py-1 rounded-lg">
