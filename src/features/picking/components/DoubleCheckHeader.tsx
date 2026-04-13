@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useLocation } from 'react-router-dom';
 import { useScrollLock } from '../../../hooks/useScrollLock';
 import { useDoubleCheckList } from '../hooks/useDoubleCheckList';
 import ClipboardCheck from 'lucide-react/dist/esm/icons/clipboard-check';
@@ -14,6 +15,12 @@ export const DoubleCheckHeader = () => {
   const { readyCount, correctionCount, refresh } = useDoubleCheckList();
   const [isOpen, setIsOpen] = useState(false);
   useScrollLock(isOpen, () => setIsOpen(false));
+
+  // Close board on route change (user navigates via bottom nav, picking, etc.)
+  const { pathname } = useLocation();
+  useEffect(() => {
+    if (isOpen) setIsOpen(false);
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalActions = readyCount + correctionCount;
 
