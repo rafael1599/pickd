@@ -6,7 +6,9 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
-  closestCenter,
+  pointerWithin,
+  rectIntersection,
+  type CollisionDetection,
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useNavigate } from 'react-router-dom';
@@ -134,6 +136,20 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   });
   const sensors = useSensors(pointerSensor, touchSensor);
 
+  // Custom collision: pointerWithin for both zones and items.
+  // When pointer is over an ORDER CARD, return the card (for merge).
+  // When pointer is over a ZONE but not a card, return the zone (for reclassify).
+  // This enables: drag to empty zone = reclassify, drag onto order = merge.
+  const collisionDetection: CollisionDetection = useCallback((args) => {
+    const collisions = pointerWithin(args);
+    if (collisions.length === 0) return rectIntersection(args);
+    // If there's an item-level hit (order card), prefer it for merge
+    const itemHit = collisions.find((c) => !(c.id as string).startsWith('zone-'));
+    if (itemHit) return [itemHit];
+    // Otherwise return the zone hit (empty zone = reclassify)
+    return [collisions[0]];
+  }, []);
+
   // DnD handlers come from useBoardDnD hook
 
   // ─── Helpers ──────────────────────────────────────────────────────
@@ -205,7 +221,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
 
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={collisionDetection}
         onDragStart={dnd.handleDragStart}
         onDragEnd={dnd.handleDragEnd}
       >
