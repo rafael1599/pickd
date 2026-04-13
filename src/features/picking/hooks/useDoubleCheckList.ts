@@ -41,6 +41,7 @@ export interface PickingList {
   group_id?: string | null;
   order_group?: OrderGroup | null;
   is_waiting_inventory?: boolean;
+  waiting_reason?: string | null;
   shipping_type?: string | null;
 }
 
@@ -60,6 +61,7 @@ const PICKING_LIST_SELECT = `
   group_id,
   order_group:order_groups(id, group_type),
   is_waiting_inventory,
+  waiting_reason,
   shipping_type
 `;
 
