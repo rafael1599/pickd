@@ -6,6 +6,7 @@ import { useDebounce } from '../../hooks/useDebounce.ts';
 import { InventoryCard } from './components/InventoryCard.tsx';
 import { useVerifiedSkus } from '../../hooks/useVerifiedSkus';
 import { useLastActivity, formatLastActivity } from './hooks/useLastActivity';
+import { useQuickPrintLabel } from '../labels/hooks/useQuickPrintLabel';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import { ItemDetailView } from './components/ItemDetailView';
 import { naturalSort } from '../../utils/sortUtils.ts';
@@ -268,6 +269,7 @@ export const InventoryScreen = () => {
 
   const { viewMode, isSearching, externalDoubleCheckId } = useViewMode(); // 'stock' | 'picking'
   const verifiedSkus = useVerifiedSkus();
+  const { quickPrint } = useQuickPrintLabel();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItemWithMetadata | null>(null);
@@ -790,6 +792,9 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                             onCartDecrement={() => updateCartQty(item, -1)}
                             onCartRemove={() => removeFromCart(item)}
                             lastCounted={verifiedSkus.get(item.sku) ?? null}
+                            onPrintLabel={() =>
+                              quickPrint(item.sku, item.item_name, item.location)
+                            }
                           />
                         </div>
                       );
