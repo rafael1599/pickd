@@ -50,3 +50,4 @@ claude-skills/
 # Local Dev Data
 supabase/seed.sql
 supabase/snippets/
+pickd.db

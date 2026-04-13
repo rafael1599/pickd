@@ -11,6 +11,9 @@ WHAT'S BETTER NOW:
 - Labels now track which warehouse locations they've been seen at, so you can look up a tag and know where it's been.
 - You can now print a label directly from any item's detail view or from the stock card — no need to go to the labels screen first.
 
+ON THE FLOOR:
+- Loaded truck orders for outgoing shipments.
+
 COMING UP NEXT:
 - Show correction notes inside the picking summary so checkers can see what changed
 - Mobile layout polish for the new verification board
