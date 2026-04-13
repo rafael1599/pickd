@@ -138,13 +138,25 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   // When pointer is over a ZONE but not a card, return the zone (for reclassify).
   // This enables: drag to empty zone = reclassify, drag onto order = merge.
   const collisionDetection: CollisionDetection = useCallback((args) => {
-    const collisions = pointerWithin(args);
-    if (collisions.length === 0) return rectIntersection(args);
-    // If there's an item-level hit (order card), prefer it for merge
-    const itemHit = collisions.find((c) => !(c.id as string).startsWith('zone-'));
-    if (itemHit) return [itemHit];
-    // Otherwise return the zone hit (empty zone = reclassify)
-    return [collisions[0]];
+    // pointerWithin: detects all droppables the pointer is inside of
+    const pw = pointerWithin(args);
+    // rectIntersection: detects all droppables the drag overlay intersects with
+    const ri = rectIntersection(args);
+    // Merge both sets, dedupe by id
+    const seen = new Set<string | number>();
+    const all = [...pw, ...ri].filter((c) => {
+      if (seen.has(c.id)) return false;
+      seen.add(c.id);
+      return true;
+    });
+    if (all.length === 0) return [];
+    // Prefer card-level droppable (for merge) over zone-level (for reclassify)
+    const cardHit = all.find((c) => !(c.id as string).startsWith('zone-') && !(c.id as string).startsWith('drag-'));
+    if (cardHit) return [cardHit];
+    // Fall back to zone
+    const zoneHit = all.find((c) => (c.id as string).startsWith('zone-'));
+    if (zoneHit) return [zoneHit];
+    return [all[0]];
   }, []);
 
   // DnD handlers come from useBoardDnD hook
