@@ -9,6 +9,7 @@ import {
   closestCenter,
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { useNavigate } from 'react-router-dom';
 import X from 'lucide-react/dist/esm/icons/x';
 import { useDoubleCheckList, type PickingList } from '../hooks/useDoubleCheckList';
 import { useOrderGroups } from '../hooks/useOrderGroups';
@@ -50,6 +51,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   const { cartItems, sessionMode, deleteList, reopenOrder } = usePickingSession();
   const { showConfirmation } = useConfirmation();
   const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   const markWaiting = useMarkWaiting();
 
   // DnD logic — all zone reclassification, merge, prompts
@@ -301,7 +303,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                 emptyMessage="No active projects"
                 className="h-full"
               >
-                <ProjectsZone />
+                <ProjectsZone onNavigate={() => { navigate('/projects'); onClose(); }} />
               </DroppableZone>
             </div>
 
@@ -322,6 +324,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                   orders={recentCompleted}
                   onSelectOrder={(orderId) => {
                     setExternalOrderId(orderId);
+                    navigate('/orders');
                     onClose();
                   }}
                 />

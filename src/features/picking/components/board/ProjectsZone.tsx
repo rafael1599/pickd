@@ -9,7 +9,11 @@ interface ProjectTask {
   note: string | null;
 }
 
-export const ProjectsZone: React.FC = () => {
+interface ProjectsZoneProps {
+  onNavigate?: () => void;
+}
+
+export const ProjectsZone: React.FC<ProjectsZoneProps> = ({ onNavigate }) => {
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ['project-tasks', 'in-progress'],
     queryFn: async (): Promise<ProjectTask[]> => {
@@ -38,9 +42,10 @@ export const ProjectsZone: React.FC = () => {
   return (
     <div className="space-y-1">
       {tasks.map((task) => (
-        <div
+        <button
           key={task.id}
-          className="p-2.5 rounded-xl bg-card border border-indigo-500/10"
+          onClick={onNavigate}
+          className="w-full p-2.5 rounded-xl bg-card border border-indigo-500/10 hover:border-indigo-500/30 transition-all text-left active:scale-[0.98]"
         >
           <p className="text-[11px] font-bold text-content leading-tight">
             {task.title}
@@ -50,7 +55,7 @@ export const ProjectsZone: React.FC = () => {
               {task.note}
             </p>
           )}
-        </div>
+        </button>
       ))}
     </div>
   );
