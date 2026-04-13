@@ -7,16 +7,18 @@ import {
   useSensor,
   useSensors,
   closestCenter,
-  type DragStartEvent,
-  type DragEndEvent,
 } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import X from 'lucide-react/dist/esm/icons/x';
 import { useDoubleCheckList, type PickingList } from '../hooks/useDoubleCheckList';
 import { useOrderGroups } from '../hooks/useOrderGroups';
 import { useBoardLayout } from '../hooks/useBoardLayout';
+import { useBoardDnD } from '../hooks/useBoardDnD';
+import { useMarkWaiting } from '../hooks/useWaitingOrders';
 import { useViewMode } from '../../../context/ViewModeContext';
 import { usePickingSession } from '../../../context/PickingContext';
 import { useConfirmation } from '../../../context/ConfirmationContext';
+import { useAuth } from '../../../context/AuthContext';
 import { autoClassifyShippingType } from '../../../utils/shippingClassification';
 import { DroppableZone } from './board/DroppableZone';
 import { SortableOrderCard } from './board/SortableOrderCard';
@@ -24,7 +26,9 @@ import { CompletedZone } from './board/CompletedZone';
 import { ProjectsZone } from './board/ProjectsZone';
 import { WaitingZone } from './board/WaitingZone';
 import { GroupOrderModal } from './GroupOrderModal';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CrossLaneConfirmModal } from './board/CrossLaneConfirmModal';
+import { ReasonPicker } from './ReasonPicker';
+import { supabase } from '../../../lib/supabase';
 import toast from 'react-hot-toast';
 
 // Zone IDs
@@ -41,17 +45,19 @@ interface VerificationBoardProps {
 
 export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose }) => {
   const { orders, completedOrders, refresh } = useDoubleCheckList();
-  const { createGroup, addToGroup, removeFromGroup } = useOrderGroups();
+  const { removeFromGroup } = useOrderGroups();
   const { setExternalDoubleCheckId, setExternalOrderId, setViewMode } = useViewMode();
-  const { cartItems, sessionMode, deleteList } = usePickingSession();
+  const { cartItems, sessionMode, deleteList, reopenOrder } = usePickingSession();
   const { showConfirmation } = useConfirmation();
+  const { isAdmin } = useAuth();
+  const markWaiting = useMarkWaiting();
 
-  const [activeOrder, setActiveOrder] = useState<PickingList | null>(null);
-  const [pendingMerge, setPendingMerge] = useState<{
-    source: PickingList;
-    target: PickingList;
-  } | null>(null);
+  // DnD logic — all zone reclassification, merge, prompts
+  const dnd = useBoardDnD(isAdmin, refresh);
+
   const [waitingCollapsed, setWaitingCollapsed] = useState(true);
+  const [waitingReason, setWaitingReason] = useState('');
+  const [reopenReason, setReopenReason] = useState('');
 
   // ─── Classify orders into zones ────────────────────────────────────
   const { priorityOrders, fedexOrders, regularOrders, waitingOrders, recentCompleted } =
@@ -126,43 +132,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   });
   const sensors = useSensors(pointerSensor, touchSensor);
 
-  // ─── DnD handlers ─────────────────────────────────────────────────
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    const order = event.active.data.current?.order as PickingList | undefined;
-    if (order) setActiveOrder(order);
-  }, []);
-
-  const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      setActiveOrder(null);
-      const { active, over } = event;
-      if (!over) return;
-
-      const sourceOrder = active.data.current?.order as PickingList | undefined;
-      if (!sourceOrder) return;
-
-      const overId = over.id as string;
-
-      // Drop on a zone → reclassify
-      if (overId.startsWith('zone-')) {
-        // TODO: implement zone reclassification (Fase 3)
-        return;
-      }
-
-      // Drop on another order → merge
-      const targetOrder = over.data.current?.order as PickingList | undefined;
-      if (!targetOrder || sourceOrder.id === targetOrder.id) return;
-
-      if (targetOrder.group_id) {
-        addToGroup(targetOrder.group_id, sourceOrder.id).then(() => refresh());
-      } else if (sourceOrder.group_id) {
-        addToGroup(sourceOrder.group_id, targetOrder.id).then(() => refresh());
-      } else {
-        setPendingMerge({ source: sourceOrder, target: targetOrder });
-      }
-    },
-    [addToGroup, refresh]
-  );
+  // DnD handlers come from useBoardDnD hook
 
   // ─── Helpers ──────────────────────────────────────────────────────
   const handleOrderSelect = useCallback(
@@ -190,16 +160,6 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       );
     },
     [showConfirmation, deleteList]
-  );
-
-  const handleGroupConfirm = useCallback(
-    async (type: 'fedex' | 'general') => {
-      if (!pendingMerge) return;
-      await createGroup(type, [pendingMerge.source.id, pendingMerge.target.id]);
-      setPendingMerge(null);
-      refresh();
-    },
-    [pendingMerge, createGroup, refresh]
   );
 
   const handleUngroup = useCallback(
@@ -244,8 +204,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
+        onDragStart={dnd.handleDragStart}
+        onDragEnd={dnd.handleDragEnd}
       >
         <div className="flex-1 overflow-y-auto min-h-0 p-3 space-y-3">
           {/* Priority Zone — auto-populated, not a lane */}
@@ -392,10 +352,10 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         </div>
 
         <DragOverlay dropAnimation={null}>
-          {activeOrder && (
+          {dnd.activeOrder && (
             <div className="flex items-center gap-4 p-4 rounded-2xl bg-surface border-2 border-purple-500 shadow-2xl shadow-purple-500/20 opacity-90 w-[calc(100vw-4rem)] max-w-sm">
               <div className="text-sm font-black uppercase tracking-tight text-content">
-                #{activeOrder.order_number || activeOrder.id.slice(-6).toUpperCase()}
+                #{dnd.activeOrder.order_number || dnd.activeOrder.id.slice(-6).toUpperCase()}
               </div>
               <div className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">
                 Drop to reclassify or merge
@@ -405,13 +365,120 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         </DragOverlay>
       </DndContext>
 
-      {pendingMerge && (
+      {/* Group merge modal */}
+      {dnd.pendingMerge && (
         <GroupOrderModal
-          sourceOrder={pendingMerge.source}
-          targetOrder={pendingMerge.target}
-          onConfirm={handleGroupConfirm}
-          onCancel={() => setPendingMerge(null)}
+          sourceOrder={dnd.pendingMerge.source}
+          targetOrder={dnd.pendingMerge.target}
+          onConfirm={dnd.confirmMerge}
+          onCancel={dnd.cancelPending}
         />
+      )}
+
+      {/* Cross-lane confirmation modal */}
+      {dnd.pendingCrossLane && (
+        <CrossLaneConfirmModal
+          orderNumber={dnd.pendingCrossLane.order.order_number || dnd.pendingCrossLane.order.id.slice(-6)}
+          fromType={dnd.pendingCrossLane.fromType}
+          toType={dnd.pendingCrossLane.toType}
+          onConfirm={dnd.confirmCrossLane}
+          onCancel={dnd.cancelPending}
+        />
+      )}
+
+      {/* Waiting reason prompt (drag to Waiting zone) */}
+      {dnd.pendingWaiting && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-main/70 backdrop-blur-md animate-in fade-in duration-150"
+          onClick={dnd.cancelPending}
+        >
+          <div
+            className="bg-surface border border-amber-500/30 rounded-2xl w-full max-w-xs shadow-2xl p-5 space-y-3 animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-xs font-black text-amber-500 uppercase tracking-tight">
+              Why is this order waiting?
+            </p>
+            <ReasonPicker
+              actionType="waiting"
+              selectedReason={waitingReason}
+              onReasonChange={setWaitingReason}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setWaitingReason(''); dnd.cancelPending(); }}
+                className="flex-1 p-2.5 rounded-xl text-xs font-black uppercase text-muted bg-card border border-subtle transition-all active:scale-[0.98]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (!waitingReason.trim()) return;
+                  markWaiting.mutate(
+                    { listId: dnd.pendingWaiting!.order.id, reason: waitingReason.trim() },
+                    { onSuccess: () => { setWaitingReason(''); dnd.setPendingWaiting(null); refresh(); } }
+                  );
+                }}
+                disabled={!waitingReason.trim() || markWaiting.isPending}
+                className="flex-1 p-2.5 rounded-xl text-xs font-black uppercase text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-40 transition-all active:scale-[0.98]"
+              >
+                {markWaiting.isPending ? 'Marking...' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reopen reason prompt (drag from Completed to a lane) */}
+      {dnd.pendingReopen && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-main/70 backdrop-blur-md animate-in fade-in duration-150"
+          onClick={dnd.cancelPending}
+        >
+          <div
+            className="bg-surface border border-subtle rounded-2xl w-full max-w-xs shadow-2xl p-5 space-y-3 animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-xs font-black text-content uppercase tracking-tight">
+              Reopen Order #{dnd.pendingReopen.order.order_number || '...'}?
+            </p>
+            <p className="text-[10px] text-muted">
+              This will reopen the completed order and move it to the {dnd.pendingReopen.targetZone === 'fedex' ? 'FedEx' : 'Regular'} lane.
+            </p>
+            <ReasonPicker
+              actionType="reopen"
+              selectedReason={reopenReason}
+              onReasonChange={setReopenReason}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setReopenReason(''); dnd.cancelPending(); }}
+                className="flex-1 p-2.5 rounded-xl text-xs font-black uppercase text-muted bg-card border border-subtle transition-all active:scale-[0.98]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!reopenReason.trim() || !dnd.pendingReopen) return;
+                  try {
+                    await reopenOrder(dnd.pendingReopen.order.id, reopenReason.trim());
+                    await supabase.from('picking_lists').update({ shipping_type: dnd.pendingReopen.targetZone }).eq('id', dnd.pendingReopen.order.id);
+                    toast.success('Order reopened');
+                    setReopenReason('');
+                    dnd.setPendingReopen(null);
+                    refresh();
+                  } catch {
+                    toast.error('Failed to reopen order');
+                  }
+                }}
+                disabled={!reopenReason.trim()}
+                className="flex-1 p-2.5 rounded-xl text-xs font-black uppercase text-white bg-accent hover:bg-accent/90 disabled:opacity-40 transition-all active:scale-[0.98]"
+              >
+                Reopen
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

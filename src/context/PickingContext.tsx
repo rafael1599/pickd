@@ -77,7 +77,7 @@ interface PickingContextType {
 
   generatePickingPath: () => Promise<void>;
 
-  reopenOrder: (listId: string) => Promise<void>;
+  reopenOrder: (listId: string, reason?: string) => Promise<void>;
   recompleteOrder: (listId: string, palletsQty: number, totalUnits: number) => Promise<void>;
   cancelReopen: (listId: string) => Promise<void>;
 
