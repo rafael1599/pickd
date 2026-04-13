@@ -102,10 +102,12 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
           order.status === 'double_checking' ? 'opacity-60' : ''
         }`}
       >
-        <div className="flex items-center gap-3">
-          <div className={`w-9 h-9 rounded-xl flex items-center justify-center border transition-colors ${statusStyles.iconBg}`}>
-            <Icon size={18} />
-          </div>
+        <div className="flex items-center gap-2">
+          {(order.status === 'needs_correction' || order.status === 'double_checking') && (
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center border transition-colors shrink-0 ${statusStyles.iconBg}`}>
+              <Icon size={14} />
+            </div>
+          )}
           <div>
             <div className="text-xs font-black uppercase tracking-tight text-content flex items-center gap-1.5 flex-wrap">
               {order.source === 'pdf_import' && <span title="PDF Import">📥</span>}
