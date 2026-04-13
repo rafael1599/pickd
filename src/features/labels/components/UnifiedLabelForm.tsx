@@ -174,17 +174,30 @@ export const UnifiedLabelForm = () => {
         </div>
       </div>
 
-      {/* FuzzySearch */}
-      <div className="px-4 pb-3">
-        <FuzzySearch
-          tagCounts={tagCounts ?? new Map()}
-          excludeSkus={excludeSkus}
-          onSelect={handleAddFromSearch}
-          onCreateNew={(name) => {
-            setCreateDefaultName(name);
-            setShowCreateForm(true);
-          }}
-        />
+      {/* FuzzySearch + New SKU button */}
+      <div className="px-4 pb-3 flex gap-2">
+        <div className="flex-1">
+          <FuzzySearch
+            tagCounts={tagCounts ?? new Map()}
+            excludeSkus={excludeSkus}
+            onSelect={handleAddFromSearch}
+            onCreateNew={(name: string) => {
+              setCreateDefaultName(name);
+              setShowCreateForm(true);
+            }}
+          />
+        </div>
+        {!showCreateForm && (
+          <button
+            onClick={() => {
+              setCreateDefaultName('');
+              setShowCreateForm(true);
+            }}
+            className="shrink-0 h-10 px-3 bg-accent/10 border border-accent/30 rounded-xl text-[10px] font-black text-accent uppercase tracking-widest hover:bg-accent/20 transition-all active:scale-95"
+          >
+            + New
+          </button>
+        )}
       </div>
 
       {/* Inline SKU creation form */}
