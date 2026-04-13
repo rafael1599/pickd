@@ -1,7 +1,5 @@
 import React from 'react';
-import { useSortable } from '@dnd-kit/sortable';
-import { useDraggable } from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
+import { useDraggable, useDroppable } from '@dnd-kit/core';
 import CheckCircle2 from 'lucide-react/dist/esm/icons/check-circle-2';
 import Clock from 'lucide-react/dist/esm/icons/clock';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
@@ -154,26 +152,38 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
   );
 };
 
-// ─── SortableOrderCard (for lane items — drag + drop target) ─────────────────
+// ─── SortableOrderCard (for lane items — drag + drop target, NO sorting) ─────
+// Uses useDraggable + useDroppable separately to enable drag-out and drop-on
+// without the sorting/reorder behavior that confuses users.
 
 export const SortableOrderCard = React.memo<CardProps>(
   (props) => {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } =
-      useSortable({ id: props.order.id, data: { order: props.order, shippingType: props.shippingType } });
+    const draggable = useDraggable({
+      id: `drag-${props.order.id}`,
+      data: { order: props.order, shippingType: props.shippingType },
+    });
+    const droppable = useDroppable({
+      id: props.order.id,
+      data: { order: props.order, shippingType: props.shippingType },
+    });
 
     return (
       <OrderCardShell
         {...props}
-        setNodeRef={setNodeRef}
-        style={{
-          transform: CSS.Transform.toString(transform),
-          transition,
-          touchAction: isDragging ? 'none' : 'manipulation',
+        setNodeRef={(node) => {
+          draggable.setNodeRef(node);
+          droppable.setNodeRef(node);
         }}
-        isDragging={isDragging}
-        isOver={isOver}
-        attributes={attributes}
-        listeners={listeners}
+        style={{
+          transform: draggable.transform
+            ? `translate(${draggable.transform.x}px, ${draggable.transform.y}px)`
+            : undefined,
+          touchAction: draggable.isDragging ? 'none' : 'manipulation',
+        }}
+        isDragging={draggable.isDragging}
+        isOver={droppable.isOver}
+        attributes={draggable.attributes}
+        listeners={draggable.listeners}
       />
     );
   }

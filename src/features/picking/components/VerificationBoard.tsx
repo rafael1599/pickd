@@ -10,7 +10,7 @@ import {
   rectIntersection,
   type CollisionDetection,
 } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+// SortableContext removed — lanes use useDraggable+useDroppable, not sorting
 import { useNavigate } from 'react-router-dom';
 import X from 'lucide-react/dist/esm/icons/x';
 import { useDoubleCheckList, type PickingList } from '../hooks/useDoubleCheckList';
@@ -277,9 +277,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                 className="h-full"
                 emptyMessage="No FedEx orders"
               >
-                <SortableContext items={fedexOrders.map(o => o.id)} strategy={verticalListSortingStrategy}>
-                  {renderOrderCards(fedexOrders, 'fedex')}
-                </SortableContext>
+                {renderOrderCards(fedexOrders, 'fedex')}
               </DroppableZone>
             </div>
 
@@ -296,9 +294,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                 className="h-full"
                 emptyMessage="No regular orders"
               >
-                <SortableContext items={regularOrders.map(o => o.id)} strategy={verticalListSortingStrategy}>
-                  {renderOrderCards(regularOrders, 'regular')}
-                </SortableContext>
+                {renderOrderCards(regularOrders, 'regular')}
               </DroppableZone>
             </div>
 
