@@ -223,18 +223,17 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                 count={priorityOrders.length}
                 emptyMessage="No priority orders"
               >
-                <SortableContext items={priorityOrders.map(o => o.id)} strategy={verticalListSortingStrategy}>
-                  {priorityOrders.map((order) => (
-                    <SortableOrderCard
-                      key={order.id}
-                      order={order}
-                      shippingType={((order as PickingList & { _shippingType?: string })._shippingType as 'fedex' | 'regular') ?? 'regular'}
-                      onSelect={handleOrderSelect}
-                      onDelete={handleDelete}
-                      onUngroup={handleUngroup}
-                    />
-                  ))}
-                </SortableContext>
+                {priorityOrders.map((order) => (
+                  <SortableOrderCard
+                    key={order.id}
+                    order={order}
+                    draggableOnly
+                    shippingType={((order as PickingList & { _shippingType?: string })._shippingType as 'fedex' | 'regular') ?? 'regular'}
+                    onSelect={handleOrderSelect}
+                    onDelete={handleDelete}
+                    onUngroup={handleUngroup}
+                  />
+                ))}
               </DroppableZone>
             </div>
           )}

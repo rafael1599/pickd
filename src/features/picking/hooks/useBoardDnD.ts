@@ -122,10 +122,29 @@ export function useBoardDnD(isAdmin: boolean, refresh: () => void) {
         return;
       }
 
-      // ─── Drop on another order -> merge ─────────────────
+      // ─── Drop on another order ─────────────────────────
       const targetOrder = over.data.current?.order as PickingList | undefined;
       if (!targetOrder || sourceOrder.id === targetOrder.id) return;
 
+      const targetShippingType = over.data.current?.shippingType as string | undefined;
+
+      // Cross-zone drop on an order → reclassify (not merge)
+      // e.g. dragging from Priority/FedEx and landing on an order in Regular
+      if (targetShippingType && sourceShippingType && targetShippingType !== sourceShippingType) {
+        const targetType = targetShippingType as 'fedex' | 'regular';
+        if (isFromCompleted) {
+          setPendingReopen({ order: sourceOrder, targetZone: targetType });
+        } else {
+          setPendingCrossLane({
+            order: sourceOrder,
+            fromType: sourceShippingType,
+            toType: targetType,
+          });
+        }
+        return;
+      }
+
+      // Same zone → merge into group
       if (targetOrder.group_id) {
         await addToGroup(targetOrder.group_id, sourceOrder.id);
         refresh();

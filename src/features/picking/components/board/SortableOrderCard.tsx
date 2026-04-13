@@ -1,5 +1,6 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
+import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import CheckCircle2 from 'lucide-react/dist/esm/icons/check-circle-2';
 import Clock from 'lucide-react/dist/esm/icons/clock';
@@ -14,6 +15,7 @@ type ShippingType = 'fedex' | 'regular';
 interface SortableOrderCardProps {
   order: PickingList;
   shippingType: ShippingType;
+  draggableOnly?: boolean; // true = useDraggable (Priority cards), false = useSortable (lane cards)
   onSelect: (order: PickingList) => void;
   onDelete: (order: PickingList) => void;
   onUngroup?: (order: PickingList) => void;
@@ -56,16 +58,32 @@ function getStatusStyles(status: string) {
 }
 
 export const SortableOrderCard = React.memo<SortableOrderCardProps>(
-  ({ order, shippingType, onSelect, onDelete, onUngroup }) => {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } =
-      useSortable({
-        id: order.id,
-        data: { order, shippingType },
-      });
+  ({ order, shippingType, draggableOnly = false, onSelect, onDelete, onUngroup }) => {
+    // Priority cards use useDraggable (drag OUT only, no drop target).
+    // Lane cards use useSortable (drag + drop for sorting/merging).
+    const sortable = useSortable({
+      id: order.id,
+      data: { order, shippingType },
+      disabled: draggableOnly,
+    });
+    const draggable = useDraggable({
+      id: order.id,
+      data: { order, shippingType },
+      disabled: !draggableOnly,
+    });
+
+    const active = draggableOnly ? draggable : sortable;
+    const setNodeRef = draggableOnly ? draggable.setNodeRef : sortable.setNodeRef;
+    const isDragging = draggableOnly ? draggable.isDragging : sortable.isDragging;
+    const isOver = draggableOnly ? false : sortable.isOver;
 
     const style = {
-      transform: CSS.Transform.toString(transform),
-      transition,
+      transform: CSS.Transform.toString(
+        draggableOnly
+          ? draggable.transform ? { ...draggable.transform, scaleX: 1, scaleY: 1 } : null
+          : sortable.transform
+      ),
+      transition: draggableOnly ? undefined : sortable.transition,
       touchAction: isDragging ? ('none' as const) : ('manipulation' as const),
     };
 
@@ -82,8 +100,8 @@ export const SortableOrderCard = React.memo<SortableOrderCardProps>(
             ? 'border-2 border-purple-500 bg-purple-500/10 scale-[1.02]'
             : statusStyles.border
         } ${statusStyles.hoverBg} ${isDragging ? 'opacity-30 scale-95 z-50' : ''}`}
-        {...attributes}
-        {...listeners}
+        {...active.attributes}
+        {...active.listeners}
       >
         <button
           onClick={() => onSelect(order)}
