@@ -25,6 +25,7 @@ interface UsePickingSyncProps {
   setLoadNumber: (num: string | null) => void;
   setListStatus: (status: string) => void;
   setIsWaitingInventory: (val: boolean) => void;
+  setShippingType: (val: string | null) => void;
   setCheckedBy: (id: string | null) => void;
   ownerId: string | null;
   setOwnerId: (id: string | null) => void;
@@ -62,6 +63,7 @@ export const usePickingSync = ({
   setLoadNumber,
   setListStatus,
   setIsWaitingInventory,
+  setShippingType,
   setCheckedBy,
   ownerId,
   setOwnerId,
@@ -158,6 +160,7 @@ export const usePickingSync = ({
             setCustomer((doubleCheckData.customer as Customer) || null);
             setLoadNumber(doubleCheckData.load_number || null);
             setListStatus(doubleCheckData.status as string);
+            setShippingType((doubleCheckData as Record<string, unknown>).shipping_type as string | null ?? null);
             setIsWaitingInventory(!!(doubleCheckData as Record<string, unknown>).is_waiting_inventory);
             setCheckedBy(doubleCheckData.checked_by || null);
             setOwnerId(doubleCheckData.user_id || null);
@@ -197,6 +200,7 @@ export const usePickingSync = ({
             setCustomer((pickingData.customer as Customer) || null);
             setLoadNumber(pickingData.load_number || null);
             setListStatus(pickingData.status as string);
+            setShippingType((pickingData as Record<string, unknown>).shipping_type as string | null ?? null);
             setIsWaitingInventory(!!(pickingData as Record<string, unknown>).is_waiting_inventory);
             setCheckedBy(pickingData.checked_by || null);
             setOwnerId(pickingData.user_id || null);
@@ -329,6 +333,7 @@ export const usePickingSync = ({
               }
               setListStatus(newData.status as string);
             }
+            setShippingType((newData as Record<string, unknown>).shipping_type as string | null ?? null);
             setIsWaitingInventory(!!(newData as Record<string, unknown>).is_waiting_inventory);
             if (newData.correction_notes !== correctionNotesRef.current)
               setCorrectionNotes(newData.correction_notes as string | null);
@@ -431,6 +436,7 @@ export const usePickingSync = ({
         if (data) {
           setActiveListId(data.id);
           setListStatus(data.status as string);
+          setShippingType((data as Record<string, unknown>).shipping_type as string | null ?? null);
           setIsWaitingInventory(!!(data as Record<string, unknown>).is_waiting_inventory);
           setOwnerId(data.user_id);
         }
@@ -547,6 +553,7 @@ export const usePickingSync = ({
           setCustomer((data.customer as Customer) || null);
           setLoadNumber(data.load_number || null);
           setListStatus(data.status as string);
+          setShippingType((data as Record<string, unknown>).shipping_type as string | null ?? null);
           setIsWaitingInventory(!!(data as Record<string, unknown>).is_waiting_inventory);
           setCheckedBy(data.checked_by || null);
           setOwnerId(data.user_id || null);

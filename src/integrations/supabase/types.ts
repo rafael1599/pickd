@@ -48,7 +48,7 @@ export type Database = {
           created_by: string | null
           id: string
           label_photo_url: string | null
-          location: string | null
+          location: string
           made_in: string | null
           order_id: string | null
           other_notes: string | null
@@ -69,7 +69,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           label_photo_url?: string | null
-          location?: string | null
+          location?: string
           made_in?: string | null
           order_id?: string | null
           other_notes?: string | null
@@ -90,7 +90,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           label_photo_url?: string | null
-          location?: string | null
+          location?: string
           made_in?: string | null
           order_id?: string | null
           other_notes?: string | null
@@ -824,6 +824,7 @@ export type Database = {
           reopen_count: number | null
           reopened_at: string | null
           reopened_by: string | null
+          shipping_type: string | null
           source: string | null
           status: string | null
           total_units: number | null
@@ -855,6 +856,7 @@ export type Database = {
           reopen_count?: number | null
           reopened_at?: string | null
           reopened_by?: string | null
+          shipping_type?: string | null
           source?: string | null
           status?: string | null
           total_units?: number | null
@@ -886,6 +888,7 @@ export type Database = {
           reopen_count?: number | null
           reopened_at?: string | null
           reopened_by?: string | null
+          shipping_type?: string | null
           source?: string | null
           status?: string | null
           total_units?: number | null
@@ -1276,6 +1279,15 @@ export type Database = {
           p_user_role?: string
         }
         Returns: boolean
+      }
+      register_new_sku: {
+        Args: {
+          p_item_name: string
+          p_location?: string
+          p_sku: string
+          p_warehouse?: string
+        }
+        Returns: Json
       }
       reopen_picking_list: {
         Args: { p_list_id: string; p_reason?: string; p_reopened_by: string }

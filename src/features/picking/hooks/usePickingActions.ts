@@ -113,6 +113,23 @@ export const usePickingActions = ({
           .eq('id', targetId);
 
         if (error) throw error;
+
+        // Persist shipping_type if not already set
+        const { data: currentList } = await supabase
+          .from('picking_lists')
+          .select('shipping_type, items')
+          .eq('id', targetId)
+          .single();
+
+        if (currentList && !currentList.shipping_type) {
+          const items = (currentList.items as unknown as CartItem[]) || [];
+          const totalItems = items.reduce((sum, i) => sum + (i.pickingQty || 0), 0);
+          const autoType = totalItems >= 5 ? 'regular' : 'fedex';
+          await supabase
+            .from('picking_lists')
+            .update({ shipping_type: autoType })
+            .eq('id', targetId);
+        }
       } catch (err) {
         console.error('Failed to complete list:', err);
         toast.error('Failed to complete order properly');

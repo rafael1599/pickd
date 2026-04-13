@@ -31,6 +31,7 @@ interface PickingContextType {
   loadNumber: string | null;
   setLoadNumber: (num: string | null) => void;
   listStatus: string;
+  shippingType: string | null;
   isWaitingInventory: boolean;
   setIsWaitingInventory: (val: boolean) => void;
   checkedBy: string | null;
@@ -113,6 +114,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
   const [activeListId, setActiveListId] = useState<string | null>(null);
   const [listStatus, setListStatus] = useState<string>('active');
   const [isWaitingInventory, setIsWaitingInventory] = useState(false);
+  const [shippingType, setShippingType] = useState<string | null>(null);
   const [checkedBy, setCheckedBy] = useState<string | null>(null);
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [correctionNotes, setCorrectionNotes] = useState<string | null>(null);
@@ -170,6 +172,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
         setActiveListId(null);
         setListStatus('active');
         setIsWaitingInventory(false);
+        setShippingType(null);
         setCheckedBy(null);
         setOwnerId(null);
         setCorrectionNotes(null);
@@ -234,6 +237,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
     setOrderNumber,
     setListStatus,
     setIsWaitingInventory,
+    setShippingType,
     setCheckedBy,
     ownerId,
     setOwnerId,
@@ -429,6 +433,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       loadNumber,
       setLoadNumber,
       listStatus,
+      shippingType,
       isWaitingInventory,
       setIsWaitingInventory,
       checkedBy,
@@ -490,6 +495,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       loadNumber,
       setLoadNumber,
       listStatus,
+      shippingType,
       isWaitingInventory,
       setIsWaitingInventory,
       checkedBy,
