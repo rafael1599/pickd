@@ -22,7 +22,7 @@ import { useConfirmation } from '../../../context/ConfirmationContext';
 import { useAuth } from '../../../context/AuthContext';
 import { autoClassifyShippingType } from '../../../utils/shippingClassification';
 import { DroppableZone } from './board/DroppableZone';
-import { SortableOrderCard } from './board/SortableOrderCard';
+import { SortableOrderCard, DraggableOrderCard } from './board/SortableOrderCard';
 import { CompletedZone } from './board/CompletedZone';
 import { ProjectsZone } from './board/ProjectsZone';
 import { WaitingZone } from './board/WaitingZone';
@@ -224,10 +224,9 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                 emptyMessage="No priority orders"
               >
                 {priorityOrders.map((order) => (
-                  <SortableOrderCard
+                  <DraggableOrderCard
                     key={order.id}
                     order={order}
-                    draggableOnly
                     shippingType={((order as PickingList & { _shippingType?: string })._shippingType as 'fedex' | 'regular') ?? 'regular'}
                     onSelect={handleOrderSelect}
                     onDelete={handleDelete}
