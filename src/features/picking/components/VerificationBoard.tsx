@@ -50,7 +50,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   const { orders, completedOrders, refresh } = useDoubleCheckList();
   const { removeFromGroup } = useOrderGroups();
   const { setExternalDoubleCheckId, setExternalOrderId, setViewMode } = useViewMode();
-  const { cartItems, sessionMode, deleteList, reopenOrder } = usePickingSession();
+  const { cartItems, sessionMode, deleteList, reopenOrder, activeListId } = usePickingSession();
   const { showConfirmation } = useConfirmation();
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
@@ -164,7 +164,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   // ─── Helpers ──────────────────────────────────────────────────────
   const handleOrderSelect = useCallback(
     (order: PickingList) => {
-      if (cartItems.length > 0 && sessionMode === 'picking') {
+      if (activeListId && cartItems.length > 0 && sessionMode === 'picking') {
         toast.error('Finish or clear your active picking session first.', { icon: '🛒' });
         return;
       }
@@ -172,7 +172,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       setViewMode('picking');
       onClose();
     },
-    [cartItems.length, sessionMode, setExternalDoubleCheckId, setViewMode, onClose]
+    [activeListId, cartItems.length, sessionMode, setExternalDoubleCheckId, setViewMode, onClose]
   );
 
   const handleDelete = useCallback(
