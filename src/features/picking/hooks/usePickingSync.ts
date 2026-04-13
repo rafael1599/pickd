@@ -24,6 +24,7 @@ interface UsePickingSyncProps {
   loadNumber: string | null;
   setLoadNumber: (num: string | null) => void;
   setListStatus: (status: string) => void;
+  setIsWaitingInventory: (val: boolean) => void;
   setCheckedBy: (id: string | null) => void;
   ownerId: string | null;
   setOwnerId: (id: string | null) => void;
@@ -60,6 +61,7 @@ export const usePickingSync = ({
   loadNumber,
   setLoadNumber,
   setListStatus,
+  setIsWaitingInventory,
   setCheckedBy,
   ownerId,
   setOwnerId,
@@ -156,6 +158,7 @@ export const usePickingSync = ({
             setCustomer((doubleCheckData.customer as Customer) || null);
             setLoadNumber(doubleCheckData.load_number || null);
             setListStatus(doubleCheckData.status as string);
+            setIsWaitingInventory(!!(doubleCheckData as Record<string, unknown>).is_waiting_inventory);
             setCheckedBy(doubleCheckData.checked_by || null);
             setOwnerId(doubleCheckData.user_id || null);
             setCorrectionNotes(doubleCheckData.correction_notes || null);
@@ -194,6 +197,7 @@ export const usePickingSync = ({
             setCustomer((pickingData.customer as Customer) || null);
             setLoadNumber(pickingData.load_number || null);
             setListStatus(pickingData.status as string);
+            setIsWaitingInventory(!!(pickingData as Record<string, unknown>).is_waiting_inventory);
             setCheckedBy(pickingData.checked_by || null);
             setOwnerId(pickingData.user_id || null);
             setCorrectionNotes(pickingData.correction_notes || null);
@@ -325,6 +329,7 @@ export const usePickingSync = ({
               }
               setListStatus(newData.status as string);
             }
+            setIsWaitingInventory(!!(newData as Record<string, unknown>).is_waiting_inventory);
             if (newData.correction_notes !== correctionNotesRef.current)
               setCorrectionNotes(newData.correction_notes as string | null);
             if (newData.checked_by !== checkedByRef.current)
@@ -426,6 +431,7 @@ export const usePickingSync = ({
         if (data) {
           setActiveListId(data.id);
           setListStatus(data.status as string);
+          setIsWaitingInventory(!!(data as Record<string, unknown>).is_waiting_inventory);
           setOwnerId(data.user_id);
         }
       }
@@ -541,6 +547,7 @@ export const usePickingSync = ({
           setCustomer((data.customer as Customer) || null);
           setLoadNumber(data.load_number || null);
           setListStatus(data.status as string);
+          setIsWaitingInventory(!!(data as Record<string, unknown>).is_waiting_inventory);
           setCheckedBy(data.checked_by || null);
           setOwnerId(data.user_id || null);
           setCorrectionNotes(data.correction_notes || null);

@@ -30,6 +30,13 @@ import { scanImageForQRCodes } from '../../../hooks/useQRScanner';
 import { parseQRPayload, aggregateScanResults } from '../utils/parseQRPayload';
 import Camera from 'lucide-react/dist/esm/icons/camera';
 import { compressImage } from '../../../services/photoUpload.service';
+import { useAuth } from '../../../context/AuthContext';
+import { useMarkWaiting, useUnmarkWaiting, useTakeOverSku } from '../hooks/useWaitingOrders';
+import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingConflicts';
+import { WaitingConflictModal } from './WaitingConflictModal';
+import { ReasonPicker } from './ReasonPicker';
+import Hourglass from 'lucide-react/dist/esm/icons/hourglass';
+import Play from 'lucide-react/dist/esm/icons/play';
 
 /** Priority: lower number = pick first. Pallets are overstock we want gone ASAP. */
 const DISTRIBUTION_PRIORITY: Record<string, number> = { PALLET: 0, LINE: 1, TOWER: 2, OTHER: 3 };
@@ -101,6 +108,8 @@ interface DoubleCheckViewProps {
   status?: string | null;
   onCorrectItem?: (action: CorrectionAction) => Promise<void>;
   inventoryData?: InventoryItemWithMetadata[];
+  isWaitingInventory?: boolean;
+  onSetWaitingInventory?: (val: boolean) => void;
   onMarkAsReady?: () => void;
   onSendToVerifyQueue?: () => void;
   onRecomplete?: (items: PickingItem[]) => Promise<void>;
@@ -121,10 +130,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   onReturnToPicker,
   notes = [],
   isNotesLoading = false,
+  customer,
   onAddNote,
   onSelectAll,
   onPalletCountChange,
   status,
+  isWaitingInventory = false,
+  onSetWaitingInventory,
   onCorrectItem,
   inventoryData: inventoryDataProp,
   onMarkAsReady,
@@ -143,7 +155,15 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const inventoryData = inventoryDataProp ?? inventoryDataCtx;
   const { showConfirmation } = useConfirmation();
   const { pallets: originalPallets, deleteList } = usePickingSession();
+  const { isAdmin } = useAuth();
+  const markWaiting = useMarkWaiting();
+  const unmarkWaiting = useUnmarkWaiting();
+  const takeOverSku = useTakeOverSku();
+  const { data: waitingConflicts } = useWaitingConflicts(cartItems, activeListId ?? null, customer?.name ?? null);
+  const [conflictDismissed, setConflictDismissed] = useState(false);
   const [isDeducting, setIsDeducting] = useState(false);
+  const [showWaitingPicker, setShowWaitingPicker] = useState(false);
+  const [waitingReason, setWaitingReason] = useState('');
   const [scanResults, setScanResults] = useState<Map<string, Set<string>>>(new Map());
   const [isScanning, setIsScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState<string>('');
@@ -851,6 +871,97 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           </button>
         </div>
 
+        {/* Waiting for Inventory — admin-only (idea-053) */}
+        {isAdmin && status !== 'completed' && status !== 'cancelled' && (
+          <>
+            {isWaitingInventory ? (
+              <div className="flex items-center gap-2 p-3 rounded-2xl border border-amber-500/30 bg-amber-500/10">
+                <Hourglass size={16} className="text-amber-500 shrink-0" />
+                <span className="text-xs font-black text-amber-500 uppercase tracking-wider flex-1">
+                  Waiting for Inventory
+                </span>
+                <button
+                  onClick={() => {
+                    if (!activeListId) return;
+                    unmarkWaiting.mutate({ listId: activeListId, action: 'resume' }, {
+                      onSuccess: () => onSetWaitingInventory?.(false),
+                    });
+                  }}
+                  disabled={unmarkWaiting.isPending}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-accent bg-accent/10 border border-accent/30 rounded-xl hover:bg-accent/20 transition-all active:scale-95"
+                >
+                  <Play size={12} />
+                  Resume
+                </button>
+                <button
+                  onClick={() => {
+                    showConfirmation(
+                      'Cancel Waiting Order',
+                      'This will cancel the entire order. Items will be released back to inventory.',
+                      () => {
+                        if (!activeListId) return;
+                        unmarkWaiting.mutate({ listId: activeListId, action: 'cancel' }, {
+                          onSuccess: () => onClose(),
+                        });
+                      },
+                      () => {},
+                      'Cancel Order',
+                      'Go Back',
+                      'danger'
+                    );
+                  }}
+                  disabled={unmarkWaiting.isPending}
+                  className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-red-500 bg-red-500/10 border border-red-500/30 rounded-xl hover:bg-red-500/20 transition-all active:scale-95"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : !showWaitingPicker ? (
+              <button
+                onClick={() => setShowWaitingPicker(true)}
+                className="flex items-center justify-center gap-2 w-full p-3 rounded-2xl border border-dashed border-amber-500/20 text-amber-500/60 hover:text-amber-500 hover:border-amber-500/40 hover:bg-amber-500/5 transition-all active:scale-[0.98]"
+              >
+                <Hourglass size={14} />
+                <span className="text-[10px] font-black uppercase tracking-wider">
+                  Mark as Waiting for Inventory
+                </span>
+              </button>
+            ) : (
+              <div className="p-3 rounded-2xl border border-amber-500/30 bg-amber-500/5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black text-amber-500 uppercase tracking-wider">
+                    Why is this order waiting?
+                  </span>
+                  <button
+                    onClick={() => { setShowWaitingPicker(false); setWaitingReason(''); }}
+                    className="p-1 text-muted hover:text-content transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+                <ReasonPicker
+                  actionType="waiting"
+                  selectedReason={waitingReason}
+                  onReasonChange={setWaitingReason}
+                />
+                <button
+                  onClick={() => {
+                    if (!activeListId || !waitingReason.trim()) return;
+                    markWaiting.mutate(
+                      { listId: activeListId, reason: waitingReason.trim() },
+                      { onSuccess: () => { setShowWaitingPicker(false); setWaitingReason(''); onSetWaitingInventory?.(true); } }
+                    );
+                  }}
+                  disabled={!waitingReason.trim() || markWaiting.isPending}
+                  className="w-full p-3 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
+                >
+                  {markWaiting.isPending ? 'Marking...' : 'Confirm — Mark as Waiting'}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
         {/* Hidden camera input for pallet scan */}
         <input
           ref={scanInputRef}
@@ -1297,6 +1408,29 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           orderNumber={orderNumber}
           isReopened={status === 'reopened'}
           onCancelReopen={onCancelReopen}
+        />
+      )}
+
+      {/* Waiting conflict modal — blocks until dismissed (idea-053) */}
+      {!conflictDismissed && waitingConflicts && waitingConflicts.length > 0 && (
+        <WaitingConflictModal
+          conflicts={waitingConflicts}
+          isAdmin={isAdmin}
+          isTakingOver={takeOverSku.isPending}
+          onTakeOver={(conflict: WaitingConflict) => {
+            if (!activeListId) return;
+            takeOverSku.mutate({
+              waitingListId: conflict.waitingListId,
+              targetListId: activeListId,
+              sku: conflict.sku,
+              qty: conflict.waitingQty,
+            });
+          }}
+          onEditOrder={() => {
+            setConflictDismissed(true);
+            setShowCorrectionMode(true);
+          }}
+          onDismiss={() => setConflictDismissed(true)}
         />
       )}
     </div>

@@ -146,6 +146,11 @@ const DraggableOrderCard: React.FC<OrderCardProps> = ({
                 </span>
               )}
               {order.order_group && <GroupBadge groupType={order.order_group.group_type} />}
+              {order.is_waiting_inventory && (
+                <span className="ml-2 text-[8px] bg-amber-500 text-white px-1.5 py-0.5 rounded-md font-black uppercase tracking-wider">
+                  WAIT
+                </span>
+              )}
             </div>
             <div className="text-[10px] text-muted font-bold uppercase tracking-wider">
               {isCorrection
@@ -235,7 +240,7 @@ const GroupContainer: React.FC<GroupContainerProps> = ({ groupType, children }) 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const DoubleCheckHeader = () => {
-  const { orders, completedOrders, readyCount, correctionCount, refresh } = useDoubleCheckList();
+  const { orders, completedOrders, readyCount, correctionCount, waitingCount, refresh } = useDoubleCheckList();
   const { createGroup, addToGroup, removeFromGroup } = useOrderGroups();
   const navigate = useNavigate();
   const { setExternalDoubleCheckId, setExternalOrderId, setViewMode } = useViewMode();
@@ -243,6 +248,7 @@ export const DoubleCheckHeader = () => {
   const { showConfirmation } = useConfirmation();
   const [isOpen, setIsOpen] = useState(false);
   useScrollLock(isOpen, () => setIsOpen(false));
+  const [showWaiting, setShowWaiting] = useState(false);
   const [activeOrder, setActiveOrder] = useState<PickingList | null>(null);
   const [pendingMerge, setPendingMerge] = useState<{
     source: PickingList;
@@ -429,7 +435,7 @@ export const DoubleCheckHeader = () => {
 
               <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                 <div className="overflow-y-auto flex-1 pb-6">
-                  {/* Needs Correction Section */}
+                  {/* Needs Correction Section (excludes waiting orders) */}
                   {correctionCount > 0 && (
                     <div className="p-4">
                       <p className="px-2 py-1 text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2">
@@ -437,7 +443,7 @@ export const DoubleCheckHeader = () => {
                       </p>
                       <div className="space-y-1">
                         {orders
-                          .filter((o) => o.status === 'needs_correction')
+                          .filter((o) => o.status === 'needs_correction' && !o.is_waiting_inventory)
                           .map((order) => (
                             <DraggableOrderCard
                               key={order.id}
@@ -449,6 +455,41 @@ export const DoubleCheckHeader = () => {
                             />
                           ))}
                       </div>
+                    </div>
+                  )}
+
+                  {/* Waiting for Inventory Section (hidden by default) */}
+                  {waitingCount > 0 && (
+                    <div className="px-4 pt-2">
+                      <button
+                        onClick={() => setShowWaiting((v) => !v)}
+                        className="flex items-center gap-2 px-2 py-1 w-full text-left group"
+                      >
+                        <Clock size={12} className="text-amber-500" />
+                        <span className="text-[10px] font-black text-amber-500/70 uppercase tracking-widest">
+                          Waiting for Inventory ({waitingCount})
+                        </span>
+                        <ChevronDown
+                          size={12}
+                          className={`text-amber-500/50 transition-transform duration-200 ${showWaiting ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+                      {showWaiting && (
+                        <div className="mt-2 space-y-1 rounded-2xl border border-dashed border-amber-500/20 bg-amber-500/5 p-2">
+                          {orders
+                            .filter((o) => o.is_waiting_inventory)
+                            .map((order) => (
+                              <DraggableOrderCard
+                                key={order.id}
+                                order={order}
+                                variant="correction"
+                                onSelect={handleOrderSelect}
+                                onDelete={handleDelete}
+                                onUngroup={handleUngroup}
+                              />
+                            ))}
+                        </div>
+                      )}
                     </div>
                   )}
 

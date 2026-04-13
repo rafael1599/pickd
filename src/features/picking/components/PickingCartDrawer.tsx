@@ -42,6 +42,8 @@ export const PickingCartDrawer: React.FC = () => {
     deleteList: _deleteList,
     resetSession,
     listStatus,
+    isWaitingInventory,
+    setIsWaitingInventory,
     claimAsPicker,
     cancelReopen,
   } = usePickingSession();
@@ -560,6 +562,8 @@ export const PickingCartDrawer: React.FC = () => {
                 overriddenPalletCountRef.current = count;
               }}
               status={listStatus}
+              isWaitingInventory={isWaitingInventory}
+              onSetWaitingInventory={setIsWaitingInventory}
               onBack={() => setIsOpen(false)}
               onRelease={handleReleaseOrder}
               onClose={handleReleaseOrder}

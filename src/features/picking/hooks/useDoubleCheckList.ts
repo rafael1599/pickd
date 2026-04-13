@@ -40,6 +40,7 @@ export interface PickingList {
   is_addon?: boolean;
   group_id?: string | null;
   order_group?: OrderGroup | null;
+  is_waiting_inventory?: boolean;
 }
 
 const PICKING_LIST_SELECT = `
@@ -56,7 +57,8 @@ const PICKING_LIST_SELECT = `
   source,
   is_addon,
   group_id,
-  order_group:order_groups(id, group_type)
+  order_group:order_groups(id, group_type),
+  is_waiting_inventory
 `;
 
 export const VERIFICATION_QUEUE_KEY = ['picking_lists', 'verification_queue'];
@@ -125,11 +127,12 @@ export const useDoubleCheckList = () => {
 
   const orders = rawOrders ?? [];
 
-  const { readyCount, correctionCount, checkingCount } = useMemo(
+  const { readyCount, correctionCount, checkingCount, waitingCount } = useMemo(
     () => ({
       readyCount: orders.filter((o) => o.status === 'ready_to_double_check').length,
-      correctionCount: orders.filter((o) => o.status === 'needs_correction').length,
+      correctionCount: orders.filter((o) => o.status === 'needs_correction' && !o.is_waiting_inventory).length,
       checkingCount: orders.filter((o) => o.status === 'double_checking').length,
+      waitingCount: orders.filter((o) => o.is_waiting_inventory).length,
     }),
     [orders]
   );
@@ -145,6 +148,7 @@ export const useDoubleCheckList = () => {
     readyCount,
     correctionCount,
     checkingCount,
+    waitingCount,
     loading: ordersLoading || completedLoading,
     refresh,
   };

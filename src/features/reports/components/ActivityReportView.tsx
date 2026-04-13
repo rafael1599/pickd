@@ -34,6 +34,7 @@ interface Props {
   doneToday: ReportTask[];
   inProgress: ReportTask[];
   comingUpNext: ReportTask[];
+  waitingOrdersCount?: number;
 }
 
 function formatDate(dateStr: string): string {
@@ -125,6 +126,7 @@ export const ActivityReportView: React.FC<Props> = ({
   doneToday,
   inProgress,
   comingUpNext,
+  waitingOrdersCount = 0,
 }) => {
   const [detailOpen, setDetailOpen] = useState(false);
   const totals = report.warehouse_totals;
@@ -334,6 +336,49 @@ export const ActivityReportView: React.FC<Props> = ({
               >
                 {report.verified_skus_2m} of {report.total_skus} SKUs have been physically counted
                 in the last 60 days. {getAccuracyMessage(accuracyPct)}
+              </p>
+            </div>
+            <div style={spacerStyle} />
+          </>
+        )}
+
+        {/* Waiting Orders Count (idea-053) — live value, not snapshotted */}
+        {waitingOrdersCount > 0 && (
+          <>
+            <div style={cardStyle}>
+              <p style={sectionHeaderStyle(AMBER)}>WAITING FOR INVENTORY</p>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: 8,
+                  marginTop: 4,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 42,
+                    fontWeight: 800,
+                    color: TEXT_BOLD,
+                    lineHeight: 1,
+                  }}
+                >
+                  {waitingOrdersCount}
+                </span>
+                <span style={{ fontSize: 13, color: TEXT_MUTED }}>
+                  {waitingOrdersCount === 1 ? 'order' : 'orders'} waiting
+                </span>
+              </div>
+              <p
+                style={{
+                  margin: '8px 0 0',
+                  fontSize: 12,
+                  color: TEXT_MUTED,
+                  lineHeight: 1.5,
+                }}
+              >
+                These orders are on hold until missing inventory arrives. Check the Verification Queue
+                for details.
               </p>
             </div>
             <div style={spacerStyle} />

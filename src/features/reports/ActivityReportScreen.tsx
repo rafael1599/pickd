@@ -21,6 +21,7 @@ import { ActivityReportView } from './components/ActivityReportView';
 import { useReportTasks } from '../projects/hooks/useProjectReportData';
 import { getCurrentNYDate } from '../../lib/nyDate';
 import { useAuth } from '../../context/AuthContext';
+import { useWaitingOrdersCount } from '../picking/hooks/useWaitingOrders';
 
 function formatDateNav(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00');
@@ -52,6 +53,7 @@ const ROUTINE_ITEMS = [
 export const ActivityReportScreen = () => {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
+  const { data: waitingCount = 0 } = useWaitingOrdersCount();
 
   // Today's NY date — single source of truth via Postgres (handles DST).
   const { data: nyToday } = useQuery({
@@ -412,6 +414,7 @@ export const ActivityReportScreen = () => {
               doneToday={doneToday}
               inProgress={inProgress}
               comingUpNext={comingUpNext}
+              waitingOrdersCount={waitingCount}
             />
           </div>
         )}

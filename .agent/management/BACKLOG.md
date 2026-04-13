@@ -65,21 +65,23 @@
 - **Decisiones clave (NO replantear):** save manual, RPC save-all (no patch per-field), LWW puro, fallo del cron = live compute silencioso, `task_buckets` se mantiene en JS cliente.
 - **Validación pendiente:** primer cron run automático 05:15 UTC mañana o merge develop → main para `gh workflow run`.
 
-### 34. Long-Waiting Orders — orders que esperan inventario meses <!-- id: idea-053 -->
-- **Contexto:** El descubrimiento de bug-017 reveló que el `auto_cancel_stale_orders` a 24h en verification es **conceptualmente equivocado**. Las órdenes pueden esperar meses por bicicletas que no están en stock todavía. La lógica actual cancela órdenes legítimamente waiting.
-- **Realidad del negocio:**
-  - Una orden puede tener varios items y completarse solo cuando TODOS estén disponibles
-  - Items disponibles físicamente quedan **reservados** para esa orden hasta que se complete o se libere manualmente
-  - La espera puede durar **meses**
-  - Caso real activo: orden con `03-3674BL` (ROW 20, 1 unidad) esperando otra bici que no tenemos
-- **Scope:**
-  - Eliminar/reemplazar la rama `verification 24h` de `auto_cancel_stale_orders`
-  - Las órdenes waiting viven en `needs_correction` con un mecanismo para identificarlas
-  - UX: dropdown/toggle en verification list para mostrar/ocultar órdenes waiting (similar al toggle "items qty 0" en stock view)
-  - Drag/move al área designada (similar a cómo se manejan órdenes FedEx hoy)
-  - **Conflict resolution:** cuando watchdog crea una nueva orden con un SKU completamente reservado por una waiting order, double check debe **alertar y bloquear** hasta que el usuario decida: take over (robar el SKU) o edit order (reemplazar/eliminar el item conflictivo)
-- **Plan formal:** `~/.claude/plans/long-waiting-orders.md` (a crear)
-- **Requiere:** Investigación profunda del flujo actual (`auto_cancel_stale_orders`, FedEx order handling, watchdog inserts) antes de implementar.
+### 35. Label Studio — personalización avanzada de SKU labels <!-- id: idea-054 -->
+- **Problema:** El generador de labels actual es básico — un layout fijo con datos del SKU. No hay forma de ajustar orientación, elegir qué campos mostrar, ni imprimir múltiples copias de un golpe.
+- **Solución:** Convertir la pantalla de labels en una herramienta tipo estudio con opciones múltiples de personalización:
+  - **Orientación:** rotar el label (vertical/horizontal) según preferencia del usuario
+  - **Cantidad:** el usuario elige cuántas copias imprimir al crear el label (ej: "Roda 5X" = 5 labels del mismo SKU)
+  - **Asignación a SKU:** botón "Assign to SKU" que abre un buscador fuzzy con las mejores coincidencias basadas en el nombre/SKU que el usuario escribió. Si ninguna coincide, opción de crear nuevo SKU desde el mismo buscador.
+  - **Campos configurables:** toggle para mostrar/ocultar QR, UPC, peso, dimensiones, extras
+  - **Funciones futuras:** se irán aterizando iterativamente
+- **Ejemplo de flujo:** Usuario crea label "Roda 5X" → escribe SKU `03-4099BK` → el sistema detecta que ese SKU ya existe en ROW 15 → muestra preview del label → usuario elige cantidad 10 → imprime 10 labels → labels quedan vinculados al SKU en asset_tags.
+- **Independiente de:** idea-040 (generador básico ya implementado). Esta idea extiende esa base.
+
+### ~~34. Long-Waiting Orders — orders que esperan inventario meses~~ <!-- id: idea-053 --> ✅ 2026-04-13
+- Migración `20260410230000`: 3 columnas (`is_waiting_inventory`, `waiting_since`, `waiting_reason`), 3 RPCs admin-only (`mark_picking_list_waiting`, `unmark_picking_list_waiting`, `take_over_sku_from_waiting`), rama verification 24h de `auto_cancel_stale_orders` **eliminada**. 7/7 smoke tests.
+- UI: toggle "Waiting for Inventory (N)" en verification queue (amber, colapsable), badge WAIT en order cards, botón "Mark as Waiting" con ReasonPicker (admin-only), "Resume"/"Cancel" cuando ya es waiting.
+- Conflict resolution: `WaitingConflictModal` bloqueante detecta cross-customer SKU conflicts al abrir DoubleCheckView, con Take Over / Edit Order / Proceed Anyway.
+- Activity report: card "WAITING FOR INVENTORY" con count condicional (live, no snapshotted).
+- Plan formal: `~/.claude/plans/long-waiting-orders.md`.
 
 ### ~~32. Modal Manager — Context + root render pattern~~ <!-- id: idea-050 --> ✅ 2026-04-10
 - `330bbcd` — `ModalContext` + `ModalProvider` en `LayoutMain` (root level), hook `useModal()`. Resuelve "ningún modal crítico vive dentro del componente que lo abre". `ItemDetailView` desde `DoubleCheckView` ya no se desmonta al cerrar el drawer. Documentado en `docs/modal-pattern.md` + `CLAUDE.md`.

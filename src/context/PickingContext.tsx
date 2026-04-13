@@ -31,6 +31,8 @@ interface PickingContextType {
   loadNumber: string | null;
   setLoadNumber: (num: string | null) => void;
   listStatus: string;
+  isWaitingInventory: boolean;
+  setIsWaitingInventory: (val: boolean) => void;
   checkedBy: string | null;
   ownerId: string | null;
   correctionNotes: string | null;
@@ -110,6 +112,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
   // 2. Shared/Lifted State
   const [activeListId, setActiveListId] = useState<string | null>(null);
   const [listStatus, setListStatus] = useState<string>('active');
+  const [isWaitingInventory, setIsWaitingInventory] = useState(false);
   const [checkedBy, setCheckedBy] = useState<string | null>(null);
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [correctionNotes, setCorrectionNotes] = useState<string | null>(null);
@@ -166,6 +169,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
         clearCart();
         setActiveListId(null);
         setListStatus('active');
+        setIsWaitingInventory(false);
         setCheckedBy(null);
         setOwnerId(null);
         setCorrectionNotes(null);
@@ -229,6 +233,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
     setActiveListId,
     setOrderNumber,
     setListStatus,
+    setIsWaitingInventory,
     setCheckedBy,
     ownerId,
     setOwnerId,
@@ -424,6 +429,8 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       loadNumber,
       setLoadNumber,
       listStatus,
+      isWaitingInventory,
+      setIsWaitingInventory,
       checkedBy,
       ownerId,
       correctionNotes,
@@ -483,6 +490,8 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       loadNumber,
       setLoadNumber,
       listStatus,
+      isWaitingInventory,
+      setIsWaitingInventory,
       checkedBy,
       ownerId,
       correctionNotes,
