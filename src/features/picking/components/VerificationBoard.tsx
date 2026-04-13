@@ -28,6 +28,7 @@ import { SortableOrderCard, DraggableOrderCard } from './board/SortableOrderCard
 import { CompletedZone } from './board/CompletedZone';
 import { ProjectsZone } from './board/ProjectsZone';
 import { WaitingZone } from './board/WaitingZone';
+import { GroupCard } from './board/GroupCard';
 import { GroupOrderModal } from './GroupOrderModal';
 import { CrossLaneConfirmModal } from './board/CrossLaneConfirmModal';
 import { ReasonPicker } from './ReasonPicker';
@@ -199,19 +200,47 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     [removeFromGroup, refresh]
   );
 
-  // Helper to render order cards for a lane
-  const renderOrderCards = (laneOrders: PickingList[], shippingType: 'fedex' | 'regular') =>
-    laneOrders.map((order) => (
-      <SortableOrderCard
-        key={order.id}
-        order={order}
-        shippingType={shippingType}
-        showShippingBadge={false}
-        onSelect={handleOrderSelect}
-        onDelete={handleDelete}
-        onUngroup={handleUngroup}
-      />
-    ));
+  // Helper to render order cards for a lane, grouping by group_id
+  const renderOrderCards = (laneOrders: PickingList[], shippingType: 'fedex' | 'regular') => {
+    const grouped = new Map<string, PickingList[]>();
+    const ungrouped: PickingList[] = [];
+
+    for (const order of laneOrders) {
+      if (order.group_id) {
+        const arr = grouped.get(order.group_id) || [];
+        arr.push(order);
+        grouped.set(order.group_id, arr);
+      } else {
+        ungrouped.push(order);
+      }
+    }
+
+    return (
+      <>
+        {Array.from(grouped.entries()).map(([groupId, groupOrders]) => (
+          <GroupCard
+            key={groupId}
+            orders={groupOrders}
+            groupType={groupOrders[0]?.order_group?.group_type ?? 'general'}
+            onSelect={handleOrderSelect}
+            onDelete={handleDelete}
+            onUngroup={handleUngroup}
+          />
+        ))}
+        {ungrouped.map((order) => (
+          <SortableOrderCard
+            key={order.id}
+            order={order}
+            shippingType={shippingType}
+            showShippingBadge={false}
+            onSelect={handleOrderSelect}
+            onDelete={handleDelete}
+            onUngroup={handleUngroup}
+          />
+        ))}
+      </>
+    );
+  };
 
   // ─── Render ───────────────────────────────────────────────────────
   return (
