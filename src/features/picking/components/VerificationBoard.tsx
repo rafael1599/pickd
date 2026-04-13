@@ -293,12 +293,12 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               <DroppableZone
                 id={ZONE_PROJECTS}
                 disabled
-                label="In Progress"
+                label="Projects"
                 labelColor="text-indigo-400"
                 borderColor="border-indigo-500/30"
                 bgColor="bg-indigo-500/5"
                 bgHover="bg-indigo-500/5"
-                emptyMessage="No projects in progress"
+                emptyMessage="No active projects"
                 className="h-full"
               >
                 <ProjectsZone />
