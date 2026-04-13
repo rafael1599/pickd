@@ -223,9 +223,18 @@ export const UnifiedLabelForm = () => {
           </div>
         )}
 
-        {entries.length === 0 && !isLoadingItems && (
-          <div className="text-center py-20 text-muted text-sm">
-            Select a location or search for SKUs to start.
+        {entries.length === 0 && !isLoadingItems && !showCreateForm && (
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <p className="text-muted text-sm">Search for a SKU or create a new one</p>
+            <button
+              onClick={() => {
+                setCreateDefaultName('');
+                setShowCreateForm(true);
+              }}
+              className="px-5 py-2.5 bg-accent/10 border border-accent/30 rounded-xl text-sm font-bold text-accent hover:bg-accent/20 transition-all active:scale-95"
+            >
+              + Create New SKU Label
+            </button>
           </div>
         )}
 
