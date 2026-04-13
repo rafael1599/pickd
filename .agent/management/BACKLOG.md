@@ -27,15 +27,8 @@
 - **Problema:** ROWs sin subdivisiones. Picker recorre toda la fila buscando un SKU.
 - **Solución:** Nueva columna `sublocation` (varchar, nullable). Display: `ROW 5A`. Backward compatible.
 
-### 19. Auto-cancel → expiración con reactivación <!-- id: idea-031 -->
-- **Problema:** Auto-cancel a 24hrs sin aviso. Órdenes legítimas desaparecen.
-- **Solución:** Nuevo estado `expired` a 3 días. Visible, reactivable con un tap.
-- **Estado actual:** RPC `auto_cancel_stale_orders` existe con 3 reglas (building 15min=dead code, verification 24h, reopened 2h). Edge function existe pero **no tiene trigger automático** (ni cron ni GitHub Actions). Timer 15min de `building` es dead code (status eliminado en idea-032).
-
-### 20. Verification Queue — Split View con drag & drop <!-- id: idea-037 -->
-- **Problema:** La verification list es una sola columna que mezcla órdenes regulares y FedEx. Combinar/separar órdenes requiere múltiples taps.
-- **Solución:** Vista full-width dividida en dos columnas: izquierda FedEx (fondo purple translúcido), derecha regulares (fondo green translúcido). Arriba las pendientes, abajo las 3 últimas completadas por lado. Drag & drop para mover entre lados y combinar. Lógica de combinación extraída como módulo reutilizable.
-- **Investigación completada:** Análisis profundo de los 2 sistemas (groups vs combine_meta), archivos clave, módulos reutilizables identificados. Ver `memory/project_verification_queue_research.md`.
+### ~~20. Verification Queue — Split View con drag & drop~~ <!-- id: idea-037 --> ✅ 2026-04-13
+- Absorbido por idea-055 (Verification Board Redesign). Full-screen multi-zone kanban con drag & drop entre lanes FedEx/Regular/Waiting/Completed. `VerificationBoard.tsx` reemplaza el antiguo modal single-column.
 
 ### 15. Distribution type "Other" → texto libre <!-- id: idea-026 -->
 - **Problema:** OTHER muestra "unit/units" genérico.
@@ -93,6 +86,13 @@
 - **Ejemplo de flujo:** Usuario escribe "Roda 5X" → escribe SKU `03-4099BK` → sistema detecta que existe en ROW 15 → preview del label → elige cantidad 10 → imprime 10 labels con QR único cada uno → tags quedan vinculados al SKU con possible locations [ROW 15].
 - **Migración necesaria:** `asset_tags.location` cambia de `text` a `text[]` o se agrega `possible_locations text[]` para soportar múltiples locations posibles. Evaluar antes de implementar.
 
+### ~~35b. Verification Board Redesign — multi-zone kanban~~ <!-- id: idea-055 --> ✅ 2026-04-13
+- Full-screen overlay con 6 zonas: Priority (auto, arriba), FedEx lane, Regular lane, In Progress Projects (read-only), Recently Completed (drag=reopen), Waiting (colapsable, scroll).
+- Auto-clasificación `shipping_type`: item >50lbs → Regular, ≥5 items → Regular, else → FedEx. Persistido al drag-reclasificar o completar.
+- DnD: drag→zone=reclasificar, drag→order=merge, drag→Waiting=prompt razón (admin), drag completada→lane=reopen con razón. Cross-lane confirmación.
+- Absorbe idea-037 (split view) + idea-053 fase 4 (drag-to-waiting). Descarta idea-031 (nada expira).
+- Plan: `~/.claude/plans/verification-queue-redesign.md`.
+
 ### ~~34. Long-Waiting Orders — orders que esperan inventario meses~~ <!-- id: idea-053 --> ✅ 2026-04-13
 - Migración `20260410230000`: 3 columnas (`is_waiting_inventory`, `waiting_since`, `waiting_reason`), 3 RPCs admin-only (`mark_picking_list_waiting`, `unmark_picking_list_waiting`, `take_over_sku_from_waiting`), rama verification 24h de `auto_cancel_stale_orders` **eliminada**. 7/7 smoke tests.
 - UI: toggle "Waiting for Inventory (N)" en verification queue (amber, colapsable), badge WAIT en order cards, botón "Mark as Waiting" con ReasonPicker (admin-only), "Resume"/"Cancel" cuando ya es waiting.
@@ -144,3 +144,4 @@
 | Offline Sync (bug-001) | Sin reportes de fallos reales |
 | History en perfil (idea-035) | Cubierto por filtros en HistoryScreen y OrdersScreen |
 | Resumen diario soft per-user (ID original idea-041, conflicto con `/activity-report`) | Brainstorm orphan, sin commits. El team detail de `/activity-report` cubre el caso de "qué hizo cada usuario" — el tono narrativo soft no se considera necesario por ahora. |
+| Auto-cancel → expiración (idea-031) | Nada expira; liberación manual. La rama verification 24h fue eliminada en idea-053. |

@@ -352,16 +352,28 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         </div>
 
         <DragOverlay dropAnimation={null}>
-          {dnd.activeOrder && (
-            <div className="flex items-center gap-4 p-4 rounded-2xl bg-surface border-2 border-purple-500 shadow-2xl shadow-purple-500/20 opacity-90 w-[calc(100vw-4rem)] max-w-sm">
-              <div className="text-sm font-black uppercase tracking-tight text-content">
-                #{dnd.activeOrder.order_number || dnd.activeOrder.id.slice(-6).toUpperCase()}
+          {dnd.activeOrder && (() => {
+            const st = (dnd.activeOrder as unknown as Record<string, unknown>)._shippingType as string
+              ?? dnd.activeOrder.shipping_type
+              ?? 'regular';
+            return (
+              <div className="flex items-center gap-3 p-3 rounded-2xl bg-surface border-2 border-purple-500 shadow-2xl shadow-purple-500/20 opacity-95 max-w-xs">
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-white text-[10px] font-black ${
+                  st === 'fedex' ? 'bg-purple-500' : 'bg-emerald-500'
+                }`}>
+                  {st === 'fedex' ? 'FDX' : 'TRK'}
+                </div>
+                <div>
+                  <div className="text-xs font-black uppercase tracking-tight text-content">
+                    #{dnd.activeOrder.order_number || dnd.activeOrder.id.slice(-6).toUpperCase()}
+                  </div>
+                  <div className="text-[9px] text-muted font-bold uppercase tracking-wider">
+                    Drag to reclassify or merge
+                  </div>
+                </div>
               </div>
-              <div className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">
-                Drop to reclassify or merge
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </DragOverlay>
       </DndContext>
 

@@ -54,6 +54,8 @@ completed → reopened (via Reopen Order — requires reason)
 
 **Long-Waiting Orders (idea-053):** Órdenes que esperan inventario (días, semanas, meses) viven en `needs_correction` con `is_waiting_inventory = true`. Admin marca/desmarca via RPCs `mark_picking_list_waiting` / `unmark_picking_list_waiting`. Verification queue las oculta por defecto (toggle "Waiting for Inventory"). Cross-customer SKU conflicts se detectan al abrir DoubleCheckView (`useWaitingConflicts`) y se resuelven via `take_over_sku_from_waiting` RPC o editando la orden. La rama `auto_cancel_stale_orders` verification 24h fue **eliminada** (era conceptualmente equivocada, bug-017). El cómputo de reservas client-side (`usePickingActions.ts`) ya itera `needs_correction`, así que waiting orders son respetadas automáticamente.
 
+**Verification Board (idea-055):** La Verification Queue es un overlay full-screen con zonas: Priority (auto-populated por status), FedEx/Regular lanes (drag-reclasificar `shipping_type`), In Progress Projects (read-only), Recently Completed (drag=reopen), Waiting (colapsable). Auto-clasificación: item >50 lbs o ≥5 items → Regular, else → FedEx. `shipping_type` columna en `picking_lists` (NULL = auto). DnD usa `@dnd-kit/sortable` con `useBoardDnD` hook. Componentes en `src/features/picking/components/board/`.
+
 ## Base de datos compartida
 
 Esta app comparte la misma DB Supabase con **pickd-2d** (dashboard de visualizacion 2D/3D).

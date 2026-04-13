@@ -86,9 +86,14 @@ export const DroppableZone: React.FC<DroppableZoneProps> = ({
         <div className="flex-1 overflow-y-auto min-h-0 px-2 pb-2 space-y-1">
           {isEmpty && !disabled ? (
             <div className="flex items-center justify-center py-8 opacity-30">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-muted italic">
-                {emptyMessage}
-              </span>
+              <div className="flex flex-col items-center gap-1">
+                <svg className="w-5 h-5 text-muted/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted/50 italic">
+                  {emptyMessage}
+                </span>
+              </div>
             </div>
           ) : (
             children
