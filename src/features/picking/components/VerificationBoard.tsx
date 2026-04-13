@@ -194,6 +194,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         key={order.id}
         order={order}
         shippingType={shippingType}
+        showShippingBadge={false}
         onSelect={handleOrderSelect}
         onDelete={handleDelete}
         onUngroup={handleUngroup}

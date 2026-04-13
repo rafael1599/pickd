@@ -15,6 +15,7 @@ type ShippingType = 'fedex' | 'regular';
 interface CardProps {
   order: PickingList;
   shippingType: ShippingType;
+  showShippingBadge?: boolean;
   onSelect: (order: PickingList) => void;
   onDelete: (order: PickingList) => void;
   onUngroup?: (order: PickingList) => void;
@@ -70,6 +71,7 @@ interface OrderCardShellProps extends CardProps {
 const OrderCardShell: React.FC<OrderCardShellProps> = ({
   order,
   shippingType,
+  showShippingBadge = true,
   onSelect,
   onDelete,
   onUngroup,
@@ -112,9 +114,11 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
             <div className="text-xs font-black uppercase tracking-tight text-content flex items-center gap-1.5 flex-wrap">
               {order.source === 'pdf_import' && <span title="PDF Import">📥</span>}
               #{order.order_number || order.id.toString().slice(-6).toUpperCase()}
-              <span className={`text-[7px] ${colors.badge} text-white px-1 py-0.5 rounded font-black uppercase tracking-wider`}>
-                {colors.badgeText}
-              </span>
+              {showShippingBadge && (
+                <span className={`text-[7px] ${colors.badge} text-white px-1 py-0.5 rounded font-black uppercase tracking-wider`}>
+                  {colors.badgeText}
+                </span>
+              )}
               {order.order_group && (
                 <span className={`text-[7px] ${order.order_group.group_type === 'fedex' ? 'bg-purple-500' : 'bg-sky-500'} text-white px-1 py-0.5 rounded font-black uppercase tracking-wider`}>
                   {order.order_group.group_type === 'fedex' ? 'FDX' : 'GRP'}
