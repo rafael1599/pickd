@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import { useScrollLock } from '../../../hooks/useScrollLock';
 import { useDoubleCheckList } from '../hooks/useDoubleCheckList';
+import { useViewMode } from '../../../context/ViewModeContext';
 import ClipboardCheck from 'lucide-react/dist/esm/icons/clipboard-check';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import { VerificationBoard } from './VerificationBoard';
@@ -13,14 +14,16 @@ import { VerificationBoard } from './VerificationBoard';
 
 export const DoubleCheckHeader = () => {
   const { readyCount, correctionCount, refresh } = useDoubleCheckList();
+  const { viewMode } = useViewMode();
   const [isOpen, setIsOpen] = useState(false);
   useScrollLock(isOpen, () => setIsOpen(false));
 
-  // Close board on route change (user navigates via bottom nav, picking, etc.)
+  // Close board on route change OR viewMode change (Stock/Picking stay on /
+  // but change viewMode — pathname alone doesn't catch that)
   const { pathname } = useLocation();
   useEffect(() => {
     if (isOpen) setIsOpen(false);
-  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pathname, viewMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalActions = readyCount + correctionCount;
 
