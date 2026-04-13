@@ -59,7 +59,7 @@ export function EntryList({
                 </span>
               ) : (
                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-surface text-muted">
-                  No loc
+                  No location
                 </span>
               )}
               <span className="text-[10px] text-muted">

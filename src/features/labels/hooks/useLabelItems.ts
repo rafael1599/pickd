@@ -57,7 +57,7 @@ export function useLabelItems() {
           'sku, item_name, location, quantity, sku_metadata(image_url, is_bike, upc, weight_lbs, length_in, width_in, height_in)'
         )
         .eq('is_active', true)
-        .gt('quantity', 0)
+        .order('quantity', { ascending: false })
         .order('location')
         .order('sku');
 

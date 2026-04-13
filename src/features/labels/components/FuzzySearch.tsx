@@ -8,9 +8,10 @@ interface FuzzySearchProps {
   onSelect: (item: LabelInventoryItem) => void;
   excludeSkus: Set<string>;
   tagCounts: Map<string, number>;
+  onCreateNew?: (defaultName: string) => void;
 }
 
-export function FuzzySearch({ onSelect, excludeSkus, tagCounts }: FuzzySearchProps) {
+export function FuzzySearch({ onSelect, excludeSkus, tagCounts, onCreateNew }: FuzzySearchProps) {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const blurTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -105,6 +106,26 @@ export function FuzzySearch({ onSelect, excludeSkus, tagCounts }: FuzzySearchPro
               </button>
             );
           })}
+        </div>
+      )}
+
+      {isOpen && results.length === 0 && query.length >= 2 && onCreateNew && (
+        <div className="absolute z-50 left-0 right-0 mt-1 bg-card border border-subtle rounded-xl shadow-lg p-3">
+          <p className="text-[10px] text-muted font-bold uppercase tracking-widest mb-2">
+            No matches for &quot;{query}&quot;
+          </p>
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              onCreateNew(query);
+              setQuery('');
+              setIsOpen(false);
+            }}
+            className="w-full py-2.5 bg-accent/10 border border-accent/30 rounded-xl text-sm font-bold text-accent hover:bg-accent/20 transition-all active:scale-[0.98]"
+          >
+            + Create &quot;{query.toUpperCase()}&quot; as new SKU
+          </button>
         </div>
       )}
     </div>

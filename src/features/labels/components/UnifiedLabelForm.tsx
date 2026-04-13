@@ -9,6 +9,7 @@ import { useLabelItems, type LabelInventoryItem } from '../hooks/useLabelItems';
 import { useTagCounts } from '../hooks/useTagCounts';
 import { useGenerateLabels, type LabelEntry } from '../hooks/useGenerateLabels';
 import { FuzzySearch } from './FuzzySearch';
+import { InlineSkuCreate } from './InlineSkuCreate';
 import { EntryList } from './EntryList';
 import { LayoutToggle } from './LayoutToggle';
 import { LabelPreview } from './LabelPreview';
@@ -18,6 +19,8 @@ export const UnifiedLabelForm = () => {
   const [selectedSku, setSelectedSku] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState('');
   const [showExtraFields, setShowExtraFields] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createDefaultName, setCreateDefaultName] = useState('');
 
   const { data: items, isLoading: isLoadingItems } = useLabelItems();
   const { data: tagCounts } = useTagCounts();
@@ -177,8 +180,27 @@ export const UnifiedLabelForm = () => {
           tagCounts={tagCounts ?? new Map()}
           excludeSkus={excludeSkus}
           onSelect={handleAddFromSearch}
+          onCreateNew={(name) => {
+            setCreateDefaultName(name);
+            setShowCreateForm(true);
+          }}
         />
       </div>
+
+      {/* Inline SKU creation form */}
+      {showCreateForm && (
+        <div className="px-4 pb-3">
+          <InlineSkuCreate
+            defaultName={createDefaultName}
+            locations={locations}
+            onCreated={(item) => {
+              handleAddFromSearch(item);
+              setShowCreateForm(false);
+            }}
+            onCancel={() => setShowCreateForm(false)}
+          />
+        </div>
+      )}
 
       {/* Scrollable content area */}
       <div className="flex-1 overflow-y-auto px-4 pb-32">
@@ -243,6 +265,24 @@ export const UnifiedLabelForm = () => {
                 }
                 placeholder="e.g. SPECIAL ORDER, DEMO UNIT..."
                 className="w-full h-10 px-3 bg-surface border border-subtle rounded-xl text-xs text-content font-mono placeholder-muted focus:outline-none focus:border-accent/40"
+              />
+            </div>
+
+            {/* Location */}
+            <div className="mb-3">
+              <label className="text-[10px] font-black text-muted uppercase tracking-widest mb-1 block">
+                Location
+              </label>
+              <input
+                type="text"
+                value={selectedEntry.location ?? ''}
+                onChange={(e) =>
+                  handleUpdateEntry(selectedEntry.sku, {
+                    location: e.target.value.toUpperCase() || null,
+                  })
+                }
+                placeholder="ROW 15, INCOMING, etc."
+                className="w-full h-10 px-3 bg-surface border border-subtle rounded-xl text-sm text-content uppercase placeholder-muted/50 focus:outline-none focus:border-accent/40"
               />
             </div>
 

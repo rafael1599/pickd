@@ -25,9 +25,10 @@ export interface LabelEntry {
 interface InsertRow {
   sku: string;
   warehouse: string;
-  location: string | null;
+  location: string;
   created_by: string;
   printed_at: string;
+  status: string;
   upc?: string | null;
   po_number?: string | null;
   c_number?: string | null;
@@ -59,6 +60,12 @@ export function useGenerateLabels() {
         return 0;
       }
 
+      const missingLocation = activeEntries.find((e) => !e.location || e.location.trim() === '');
+      if (missingLocation) {
+        toast.error(`Location required for ${missingLocation.sku}`);
+        return 0;
+      }
+
       setIsGenerating(true);
       try {
         const now = new Date().toISOString();
@@ -67,9 +74,10 @@ export function useGenerateLabels() {
           Array.from({ length: entry.qty }, () => ({
             sku: entry.sku,
             warehouse: 'LUDLOW',
-            location: entry.location,
+            location: entry.location!,
             created_by: user.id,
             printed_at: now,
+            status: entry.stock > 0 ? 'in_stock' : 'printed',
             upc: entry.upc,
             po_number: entry.poNumber,
             c_number: entry.cNumber,
