@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
@@ -25,12 +25,7 @@ interface UserMenuProps {
 
 export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
   const { open: openModal } = useModal();
-  const {
-    profile,
-    signOut,
-    updateProfileName,
-    isAdmin,
-  } = useAuth();
+  const { profile, signOut, updateProfileName, isAdmin } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [newName, setNewName] = useState(profile?.full_name || '');
   const [isEditing, setIsEditing] = useState(false);
@@ -38,10 +33,8 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
   const [showProfile, setShowProfile] = useState(false);
   useScrollLock(isOpen, onClose);
 
-  // Reset profile panel when menu closes
-  useEffect(() => {
-    if (!isOpen) setShowProfile(false);
-  }, [isOpen]);
+  // Reset profile panel when menu closes — derive from isOpen to avoid setState in effect
+  const effectiveShowProfile = isOpen ? showProfile : false;
 
   if (!isOpen) return null;
 
@@ -66,7 +59,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
     : 'dev';
 
   // ─── Profile Sub-Panel ───
-  if (showProfile) {
+  if (effectiveShowProfile) {
     return createPortal(
       <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
         <div className="absolute inset-0 bg-main/60 backdrop-blur-md" onClick={onClose} />
@@ -167,7 +160,6 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                   </button>
                 </div>
               </div>
-
             </div>
           </div>
         </div>
@@ -310,11 +302,15 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                       <Printer size={16} />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-content uppercase tracking-tight">Bike Labels</p>
+                      <p className="text-xs font-bold text-content uppercase tracking-tight">
+                        Label Studio
+                      </p>
                       <p className="text-[9px] text-muted font-bold uppercase">QR asset tags</p>
                     </div>
                   </div>
-                  <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
+                  <div className="text-accent group-hover:translate-x-1 transition-transform">
+                    →
+                  </div>
                 </button>
 
                 <div className="h-px bg-subtle my-2" />
@@ -336,7 +332,6 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                     <p className="text-[9px] text-muted font-bold uppercase">View past snapshots</p>
                   </div>
                 </button>
-
               </div>
             )}
           </div>

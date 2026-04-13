@@ -1,0 +1,24 @@
+Progress Update — April 10, 2026 at 3:24 PM
+
+WIN OF THE DAY:
+PickD can now spot when inventory has been silently inflated and roll it back to the truth — and starting tonight, daily reports build themselves at midnight from real activity (orders completed, items moved, corrections made, project tasks closed), giving leadership a clear picture of the day even when no one writes a single line.
+
+WHAT'S BETTER NOW:
+- A hidden flaw was secretly adding phantom units to inventory every time an old order got auto-cancelled. The system now catches this kind of drift and rolls counts back to what's actually on the floor.
+- Daily reports now save themselves at midnight as locked snapshots. Yesterday's numbers can never be accidentally rewritten by someone editing today's report.
+- The activity report used to show today's project board even when looking at past days. Now it shows what was actually true on that specific day — historical reports finally tell the real story.
+- A correction note ("why was this item removed?") now travels with the order all the way to the report, so the picture stays complete from the floor to leadership.
+- Searching by SKU in the cycle count screen used to only find items already in your list. Now it searches across the whole warehouse and adds new ones on the spot.
+- The profile menu used to get stuck open and block other screens. It now closes cleanly so you can keep moving.
+
+ON THE FLOOR:
+- Built and printed labels for inbound shipments.
+- Loaded orders for outgoing trucks.
+- Planned future warehouse projects with the team.
+
+COMING UP NEXT:
+- Show correction notes inside the picking summary so checkers can see what changed
+- Long-waiting orders that sit in verification for months while we wait on missing bikes — needs a proper holding area instead of being treated as stale
+
+18 done today / 9 in the queue (high and medium priority items combined)
+Note: today's changes are ready but not yet live in production.

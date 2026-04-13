@@ -41,8 +41,8 @@ const ActivityReportScreen = React.lazy(() =>
 const ProjectsScreen = React.lazy(() =>
   import('./features/projects/ProjectsScreen.tsx').then((m) => ({ default: m.ProjectsScreen }))
 );
-const LabelGeneratorScreen = React.lazy(() =>
-  import('./features/labels/LabelGeneratorScreen.tsx').then((m) => ({ default: m.LabelGeneratorScreen }))
+const LabelStudioScreen = React.lazy(() =>
+  import('./features/labels/LabelStudioScreen').then((m) => ({ default: m.LabelStudioScreen }))
 );
 
 import { ViewModeProvider } from './context/ViewModeContext.tsx';
@@ -87,7 +87,7 @@ const AuthenticatedContent = () => {
             />
             <Route
               path="/labels"
-              element={isAdmin ? <LabelGeneratorScreen /> : <Navigate to="/" replace />}
+              element={isAdmin ? <LabelStudioScreen /> : <Navigate to="/" replace />}
             />
             {/* Catch-all for unknown routes */}
             <Route path="*" element={<Navigate to="/" replace />} />

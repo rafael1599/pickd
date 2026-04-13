@@ -66,15 +66,32 @@
 - **Validación pendiente:** primer cron run automático 05:15 UTC mañana o merge develop → main para `gh workflow run`.
 
 ### 35. Label Studio — personalización avanzada de SKU labels <!-- id: idea-054 -->
-- **Problema:** El generador de labels actual es básico — un layout fijo con datos del SKU. No hay forma de ajustar orientación, elegir qué campos mostrar, ni imprimir múltiples copias de un golpe.
-- **Solución:** Convertir la pantalla de labels en una herramienta tipo estudio con opciones múltiples de personalización:
-  - **Orientación:** rotar el label (vertical/horizontal) según preferencia del usuario
-  - **Cantidad:** el usuario elige cuántas copias imprimir al crear el label (ej: "Roda 5X" = 5 labels del mismo SKU)
-  - **Asignación a SKU:** botón "Assign to SKU" que abre un buscador fuzzy con las mejores coincidencias basadas en el nombre/SKU que el usuario escribió. Si ninguna coincide, opción de crear nuevo SKU desde el mismo buscador.
-  - **Campos configurables:** toggle para mostrar/ocultar QR, UPC, peso, dimensiones, extras
-  - **Funciones futuras:** se irán aterizando iterativamente
-- **Ejemplo de flujo:** Usuario crea label "Roda 5X" → escribe SKU `03-4099BK` → el sistema detecta que ese SKU ya existe en ROW 15 → muestra preview del label → usuario elige cantidad 10 → imprime 10 labels → labels quedan vinculados al SKU en asset_tags.
-- **Independiente de:** idea-040 (generador básico ya implementado). Esta idea extiende esa base.
+- **Problema:** El generador de labels tiene 3 modos separados (create, custom, history) con lógica duplicada. No hay forma de registrar SKUs nuevos sin salir de la pantalla, la búsqueda es substring simple, y la orientación es un dropdown sin preview.
+- **Evolución de:** idea-040 (generador básico ya implementado). Extiende LabelGeneratorScreen.tsx.
+- **Decisiones de diseño (entrevista 2026-04-13):**
+  - **SKU obligatorio** — pero con quick register inline (nombre + SKU code mínimo) para SKUs nuevos sin salir de la pantalla. Permite crear labels para bikes que aún no llegaron.
+  - **Location obligatoria** — auto-fill si el SKU ya existe en inventory. Locations virtuales (INCOMING, IN TRANSIT) permitidas para bikes en camino. Si no existe la location, se crea.
+  - **Cada label = asset tag único** con su propio QR. Qty=10 = 10 registros independientes en `asset_tags`, no 10 copias del mismo.
+  - **Approach híbrido inventory/tags:**
+    - `inventory` sigue como fuente de verdad de qty y stock.
+    - `asset_tags` trackea unidades individuales con location "best effort".
+    - Cuando hay un MOVE, los tags de ese SKU saben que podrían estar en CUALQUIERA de las locations del SKU (no se elige cuál). El tag se resuelve a location exacta cuando: se escanea, se pickea, o se confirma en cycle count.
+    - Los dos sistemas convergen gradualmente a medida que se taggueen más bikes.
+- **Ideas validadas (lluvia de ideas 2026-04-13):**
+  - **Flujo unificado:** Fusionar create mode y custom mode en uno solo.
+  - **Orientación:** Toggle visual con preview miniatura (horizontal/vertical) en vez de dropdown.
+  - **Búsqueda fuzzy:** Rankear por coincidencia exacta → substring → location cercana → más stock. Mostrar thumbnail de `sku_metadata.image_url` en resultados.
+  - **Auto-fill desde metadata:** Si el nombre matchea un SKU, auto-llenar UPC, peso, dimensiones.
+  - **Create SKU inline:** Solo nombre + SKU code, el resto después desde stock view.
+  - **Campos configurables:** Toggles para mostrar/ocultar QR, UPC, peso, serial, extras. Drag-and-drop para reordenar campos en preview.
+  - **Auto-status:** Marcar tags como `in_stock` automáticamente si el SKU tiene inventory.
+  - **Entry points desde otras vistas:**
+    - Desde InventoryCard: botón "Print Label" → Label Studio con SKU pre-llenado
+    - Desde DoubleCheckView: reimprimir label dañado de un item
+    - Desde receiving: generar labels batch de todo lo que llegó en un shipment
+  - **Ideas pendientes de evaluar:** Drag-and-drop de campos, entry points, locations virtuales, sync de tags en MOVE.
+- **Ejemplo de flujo:** Usuario escribe "Roda 5X" → escribe SKU `03-4099BK` → sistema detecta que existe en ROW 15 → preview del label → elige cantidad 10 → imprime 10 labels con QR único cada uno → tags quedan vinculados al SKU con possible locations [ROW 15].
+- **Migración necesaria:** `asset_tags.location` cambia de `text` a `text[]` o se agrega `possible_locations text[]` para soportar múltiples locations posibles. Evaluar antes de implementar.
 
 ### ~~34. Long-Waiting Orders — orders que esperan inventario meses~~ <!-- id: idea-053 --> ✅ 2026-04-13
 - Migración `20260410230000`: 3 columnas (`is_waiting_inventory`, `waiting_since`, `waiting_reason`), 3 RPCs admin-only (`mark_picking_list_waiting`, `unmark_picking_list_waiting`, `take_over_sku_from_waiting`), rama verification 24h de `auto_cancel_stale_orders` **eliminada**. 7/7 smoke tests.
