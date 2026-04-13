@@ -90,7 +90,7 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-1 pr-2 rounded-2xl transition-all duration-200 group border ${
+      className={`flex items-center gap-0.5 pr-1 rounded-xl transition-all duration-200 group border ${
         isOver
           ? 'border-2 border-purple-500 bg-purple-500/10 scale-[1.02]'
           : statusStyles.border
@@ -100,18 +100,18 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
     >
       <button
         onClick={() => onSelect(order)}
-        className={`flex-1 flex items-center justify-between p-3 text-left ${
+        className={`flex-1 flex items-center justify-between py-2 px-2.5 text-left ${
           order.status === 'double_checking' ? 'opacity-60' : ''
         }`}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {(order.status === 'needs_correction' || order.status === 'double_checking') && (
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center border transition-colors shrink-0 ${statusStyles.iconBg}`}>
-              <Icon size={14} />
+            <div className={`w-6 h-6 rounded-md flex items-center justify-center border transition-colors shrink-0 ${statusStyles.iconBg}`}>
+              <Icon size={12} />
             </div>
           )}
           <div>
-            <div className="text-xs font-black uppercase tracking-tight text-content flex items-center gap-1.5 flex-wrap">
+            <div className="text-[11px] font-black uppercase tracking-tight text-content flex items-center gap-1 flex-wrap">
               {order.source === 'pdf_import' && <span title="PDF Import">📥</span>}
               #{order.order_number || order.id.toString().slice(-6).toUpperCase()}
               {showShippingBadge && (
@@ -140,15 +140,15 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
             </div>
           </div>
         </div>
-        <ChevronDown size={16} className={`-rotate-90 text-subtle ${statusStyles.chevronHover} transition-colors`} />
+        <ChevronDown size={14} className={`-rotate-90 text-subtle ${statusStyles.chevronHover} transition-colors`} />
       </button>
       {order.group_id && onUngroup && (
-        <button onClick={(e) => { e.stopPropagation(); onUngroup(order); }} className="p-1.5 text-muted hover:text-amber-500 transition-colors" title="Remove from group">
-          <Unlink size={14} />
+        <button onClick={(e) => { e.stopPropagation(); onUngroup(order); }} className="p-1 text-muted hover:text-amber-500 transition-colors" title="Remove from group">
+          <Unlink size={12} />
         </button>
       )}
-      <button onClick={(e) => { e.stopPropagation(); onDelete(order); }} className="p-2 text-muted hover:text-red-500 transition-colors" title="Delete Order">
-        <Trash2 size={16} />
+      <button onClick={(e) => { e.stopPropagation(); onDelete(order); }} className="p-1 text-muted hover:text-red-500 transition-colors" title="Delete Order">
+        <Trash2 size={14} />
       </button>
     </div>
   );
