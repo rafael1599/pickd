@@ -222,7 +222,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         onDragStart={dnd.handleDragStart}
         onDragEnd={dnd.handleDragEnd}
       >
-        <div className="flex-1 overflow-y-auto min-h-0 p-3 space-y-3">
+        <div className="flex-1 overflow-y-auto min-h-0 p-3 pb-20 space-y-3">
           {/* Priority Zone — auto-populated, not a lane */}
           {priorityOrders.length > 0 && (
             <div className="md:max-w-2xl md:mx-auto">
