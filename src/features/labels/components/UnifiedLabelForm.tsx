@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import Printer from 'lucide-react/dist/esm/icons/printer';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
@@ -14,8 +14,15 @@ import { EntryList } from './EntryList';
 import { LayoutToggle } from './LayoutToggle';
 import { LabelPreview } from './LabelPreview';
 
-export const UnifiedLabelForm = () => {
+interface UnifiedLabelFormProps {
+  initialSku?: string;
+  initialName?: string;
+  initialLocation?: string;
+}
+
+export const UnifiedLabelForm = ({ initialSku, initialName, initialLocation }: UnifiedLabelFormProps) => {
   const [entries, setEntries] = useState<LabelEntry[]>([]);
+  const initialApplied = useRef(false);
   const [selectedSku, setSelectedSku] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState('');
   const [showExtraFields, setShowExtraFields] = useState(false);
@@ -25,6 +32,33 @@ export const UnifiedLabelForm = () => {
   const { data: items, isLoading: isLoadingItems } = useLabelItems();
   const { data: tagCounts } = useTagCounts();
   const { generate, isGenerating } = useGenerateLabels();
+
+  // Auto-add initial SKU from navigation (e.g., "Edit Label" from ItemDetailView)
+  useEffect(() => {
+    if (initialApplied.current || !initialSku || !items) return;
+    initialApplied.current = true;
+    const item = items.find((i) => i.sku === initialSku);
+    const tagged = tagCounts?.get(initialSku) ?? 0;
+    const entry: LabelEntry = {
+      sku: initialSku,
+      itemName: item?.item_name ?? initialName ?? null,
+      location: item?.location ?? initialLocation ?? null,
+      stock: item?.quantity ?? 0,
+      tagged,
+      qty: Math.max(1, (item?.quantity ?? 1) - tagged),
+      layout: 'standard',
+      prefix: null,
+      extra: null,
+      upc: item?.upc ?? null,
+      poNumber: null,
+      cNumber: null,
+      serialNumber: null,
+      madeIn: null,
+      otherNotes: null,
+    };
+    setEntries([entry]);
+    setSelectedSku(initialSku);
+  }, [initialSku, initialName, initialLocation, items, tagCounts]);
 
   // Unique locations sorted naturally
   const locations = useMemo(() => {

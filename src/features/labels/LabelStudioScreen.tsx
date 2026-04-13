@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
 import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left';
 import Tag from 'lucide-react/dist/esm/icons/tag';
@@ -7,8 +7,16 @@ import Tag from 'lucide-react/dist/esm/icons/tag';
 import { UnifiedLabelForm } from './components/UnifiedLabelForm';
 import { HistoryMode } from './components/HistoryMode';
 
+interface LocationState {
+  initialSku?: string;
+  initialName?: string;
+  initialLocation?: string;
+}
+
 export const LabelStudioScreen = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const navState = (location.state as LocationState) ?? {};
   const [viewMode, setViewMode] = useState<'create' | 'history'>('create');
 
   const handleBack = () => {
@@ -44,7 +52,15 @@ export const LabelStudioScreen = () => {
       </div>
 
       {/* Content */}
-      {viewMode === 'create' ? <UnifiedLabelForm /> : <HistoryMode />}
+      {viewMode === 'create' ? (
+        <UnifiedLabelForm
+          initialSku={navState.initialSku}
+          initialName={navState.initialName}
+          initialLocation={navState.initialLocation}
+        />
+      ) : (
+        <HistoryMode />
+      )}
     </div>
   );
 };

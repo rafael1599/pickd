@@ -4,6 +4,7 @@ import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import EyeOff from 'lucide-react/dist/esm/icons/eye-off';
 import Printer from 'lucide-react/dist/esm/icons/printer';
+import PenLine from 'lucide-react/dist/esm/icons/pen-line';
 
 interface DetailToolbarProps {
   title: string;
@@ -12,6 +13,7 @@ interface DetailToolbarProps {
   onDelete?: () => void;
   onMarkInactive?: () => void;
   onPrintLabel?: () => void;
+  onEditLabel?: () => void;
 }
 
 export const DetailToolbar: React.FC<DetailToolbarProps> = ({
@@ -21,6 +23,7 @@ export const DetailToolbar: React.FC<DetailToolbarProps> = ({
   onDelete,
   onMarkInactive,
   onPrintLabel,
+  onEditLabel,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -51,6 +54,18 @@ export const DetailToolbar: React.FC<DetailToolbarProps> = ({
                     >
                       <Printer size={16} className="text-muted" />
                       Print Label
+                    </button>
+                  )}
+                  {onEditLabel && (
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        onEditLabel();
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-content hover:bg-card transition-colors"
+                    >
+                      <PenLine size={16} className="text-muted" />
+                      Edit Label
                     </button>
                   )}
                   {onMarkInactive && (

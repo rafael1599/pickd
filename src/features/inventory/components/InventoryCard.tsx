@@ -2,7 +2,6 @@ import { memo, useState, useRef, useEffect } from 'react';
 import Plus from 'lucide-react/dist/esm/icons/plus';
 import Minus from 'lucide-react/dist/esm/icons/minus';
 import ArrowRightLeft from 'lucide-react/dist/esm/icons/arrow-right-left';
-import Tag from 'lucide-react/dist/esm/icons/tag';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import type { DistributionItem } from '../../../schemas/inventory.schema';
 
@@ -29,7 +28,6 @@ interface InventoryCardProps {
   onCartDecrement?: () => void;
   onCartRemove?: () => void;
   lastCounted?: Date | null;
-  onPrintLabel?: () => void;
 }
 
 export const InventoryCard = memo(
@@ -57,7 +55,6 @@ export const InventoryCard = memo(
     onCartDecrement,
     onCartRemove,
     lastCounted = null,
-    onPrintLabel,
   }: InventoryCardProps) => {
     const [flash, setFlash] = useState(false);
     const prevQuantityRef = useRef(quantity);
@@ -243,18 +240,6 @@ export const InventoryCard = memo(
                 >
                   <ArrowRightLeft size={16} strokeWidth={3} />
                 </button>
-                {onPrintLabel && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onPrintLabel();
-                    }}
-                    className="bg-main text-purple-400 flex-1 h-9 rounded-lg flex items-center justify-center active:scale-90 transition-transform"
-                    aria-label="Print label"
-                  >
-                    <Tag size={16} strokeWidth={3} />
-                  </button>
-                )}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
