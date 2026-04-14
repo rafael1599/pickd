@@ -72,17 +72,34 @@ export const SectionEditorSheet: React.FC<SectionEditorSheetProps> = ({
               key={idx}
               className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-150"
             >
-              <select
-                value={row.type}
-                onChange={(e) => onUpdate(idx, 'type', e.target.value)}
-                className="bg-surface border border-subtle rounded-lg px-2 py-2 text-content text-xs font-bold focus:border-accent focus:outline-none flex-shrink-0 w-24"
-              >
-                {Object.entries(STORAGE_TYPE_LABELS).map(([key, { icon }]) => (
-                  <option key={key} value={key}>
-                    {icon} {key}
-                  </option>
-                ))}
-              </select>
+              {row.type === 'OTHER' ? (
+                <input
+                  type="text"
+                  value={row.label || ''}
+                  onChange={(e) => onUpdate(idx, 'label', e.target.value)}
+                  onBlur={(e) => {
+                    if (!e.target.value.trim()) {
+                      onUpdate(idx, 'type', 'PALLET');
+                      onUpdate(idx, 'label', '');
+                    }
+                  }}
+                  placeholder="Box, Crate…"
+                  autoFocus
+                  className="bg-surface border border-accent rounded-lg px-2 py-2 text-content text-xs font-bold focus:border-accent focus:outline-none placeholder:text-muted/40 flex-shrink-0 w-24"
+                />
+              ) : (
+                <select
+                  value={row.type}
+                  onChange={(e) => onUpdate(idx, 'type', e.target.value)}
+                  className="bg-surface border border-subtle rounded-lg px-2 py-2 text-content text-xs font-bold focus:border-accent focus:outline-none flex-shrink-0 w-24"
+                >
+                  {Object.entries(STORAGE_TYPE_LABELS).map(([key, { icon }]) => (
+                    <option key={key} value={key}>
+                      {icon} {key}
+                    </option>
+                  ))}
+                </select>
+              )}
               <input
                 type="number"
                 value={row.count === 0 ? '' : row.count}
@@ -118,15 +135,6 @@ export const SectionEditorSheet: React.FC<SectionEditorSheetProps> = ({
                 min={1}
                 placeholder="u"
               />
-              {row.type === 'OTHER' && (
-                <input
-                  type="text"
-                  value={row.label || ''}
-                  onChange={(e) => onUpdate(idx, 'label', e.target.value)}
-                  placeholder="Box, Crate…"
-                  className="w-20 bg-surface border border-subtle rounded-lg px-2 py-2 text-content text-xs font-bold focus:border-accent focus:outline-none placeholder:text-muted/40"
-                />
-              )}
               <span className="text-[10px] text-muted font-bold">
                 = {row.count * row.units_each}u
               </span>
