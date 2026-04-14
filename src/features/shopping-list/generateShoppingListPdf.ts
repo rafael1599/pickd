@@ -81,7 +81,7 @@ export const generateShoppingListPdf = async (items: ShoppingItem[]) => {
     },
     columnStyles: {
       0: { cellWidth: 'auto', fontStyle: 'bold' },
-      1: { cellWidth: 22 },
+      1: { cellWidth: 12, halign: 'center' },
       2: { cellWidth: 10, halign: 'center' },
     },
     didDrawCell: (data) => {
