@@ -220,7 +220,7 @@ export const InventoryScreen = () => {
           }
         });
 
-        let consolidatedItems = Object.values(consolidated);
+        const consolidatedItems = Object.values(consolidated);
 
         groups[wh][loc].items = consolidatedItems;
       });
@@ -632,15 +632,17 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
       {viewMode === 'stock' && (
         <div className="px-4 pt-2 flex justify-between items-center text-xs font-black uppercase tracking-widest text-muted">
           <span>
-            {debouncedSearch
+            {(debouncedSearch
               ? filteredStats.totalSkus
-              : (globalStats?.totalSkus ?? filteredStats.totalSkus)}{' '}
+              : (globalStats?.totalSkus ?? filteredStats.totalSkus)
+            ).toLocaleString()}{' '}
             SKUs
           </span>
           <span>
-            {debouncedSearch
+            {(debouncedSearch
               ? filteredStats.totalQuantity
-              : (globalStats?.totalQuantity ?? filteredStats.totalQuantity)}{' '}
+              : (globalStats?.totalQuantity ?? filteredStats.totalQuantity)
+            ).toLocaleString()}{' '}
             Units
           </span>
         </div>
@@ -880,24 +882,29 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
         <>
           {/* Backdrop to close menu */}
           {fabMenuOpen && (
-            <div
-              className="fixed inset-0 z-40"
-              onClick={() => setFabMenuOpen(false)}
-            />
+            <div className="fixed inset-0 z-40" onClick={() => setFabMenuOpen(false)} />
           )}
           <div className="fixed bottom-24 right-4 flex flex-col items-end gap-2 z-40">
             {/* Expandable actions */}
             {fabMenuOpen && (
               <div className="flex flex-col items-end gap-2 animate-staggered-fade-in">
                 <button
-                  onClick={() => { handleAddItem('LUDLOW'); setFabMenuOpen(false); }}
+                  onClick={() => {
+                    handleAddItem('LUDLOW');
+                    setFabMenuOpen(false);
+                  }}
                   className="flex items-center gap-2 h-11 pl-4 pr-3 bg-surface border border-subtle rounded-full shadow-lg active:scale-95 transition-all"
                 >
-                  <span className="text-[11px] font-bold text-content uppercase tracking-wider">Add SKU</span>
+                  <span className="text-[11px] font-bold text-content uppercase tracking-wider">
+                    Add SKU
+                  </span>
                   <Plus size={18} className="text-accent" />
                 </button>
                 <button
-                  onClick={() => { handleDownloadView(); setFabMenuOpen(false); }}
+                  onClick={() => {
+                    handleDownloadView();
+                    setFabMenuOpen(false);
+                  }}
                   disabled={isGeneratingPDF}
                   className="flex items-center gap-2 h-11 pl-4 pr-3 bg-surface border border-subtle rounded-full shadow-lg active:scale-95 transition-all disabled:opacity-50"
                 >
