@@ -1,6 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { ActivityReport } from '../hooks/useActivityReport';
 import type { ReportTask } from '../../projects/hooks/useProjectReportData';
+
+/**
+ * Hook that returns a CSS class name that flashes briefly when `value` changes.
+ * Used to highlight report sections when the editor updates them.
+ */
+function useHighlight(value: unknown): string {
+  const prev = useRef(value);
+  const [flash, setFlash] = useState(false);
+  useEffect(() => {
+    if (prev.current !== value) {
+      prev.current = value;
+      setFlash(true);
+      const t = setTimeout(() => setFlash(false), 800);
+      return () => clearTimeout(t);
+    }
+  }, [value]);
+  return flash ? 'highlight-flash' : '';
+}
 
 const BG = '#f5f7fa';
 const CARD_SHADOW = '0 1px 4px rgba(0,0,0,0.06)';
@@ -129,6 +147,12 @@ export const ActivityReportView: React.FC<Props> = ({
   waitingOrdersCount = 0,
 }) => {
   const [detailOpen, setDetailOpen] = useState(false);
+
+  // Highlight flashes for editable sections
+  const winFlash = useHighlight(winOfTheDay);
+  const updatesFlash = useHighlight(pickdUpdates.join('\n'));
+  const checklistFlash = useHighlight(routineChecklist.join(','));
+  const notesFlash = useHighlight(notes.map(n => n.text).join(','));
   const totals = report.warehouse_totals;
   const users = report.users;
 
@@ -173,6 +197,7 @@ export const ActivityReportView: React.FC<Props> = ({
         WebkitFontSmoothing: 'antialiased',
         padding: '32px 16px',
       }}
+      className="report-preview"
     >
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
         {/* Header */}
@@ -204,7 +229,7 @@ export const ActivityReportView: React.FC<Props> = ({
         {/* WIN OF THE DAY — conditional */}
         {hasWin && (
           <>
-            <div style={cardStyle}>
+            <div style={cardStyle} className={winFlash}>
               <p style={sectionHeaderStyle(GREEN)}>WIN OF THE DAY</p>
               <p
                 style={{
@@ -225,7 +250,7 @@ export const ActivityReportView: React.FC<Props> = ({
         {/* PICKD UPDATES — conditional */}
         {hasPickdUpdates && (
           <>
-            <div style={cardStyle}>
+            <div style={cardStyle} className={updatesFlash}>
               <p style={sectionHeaderStyle(INDIGO)}>PICKD UPDATES</p>
               {pickdUpdates.map((item, i) => (
                 <p
@@ -270,7 +295,7 @@ export const ActivityReportView: React.FC<Props> = ({
         {/* ON THE FLOOR — always visible if there's content */}
         {hasFloorContent && (
           <>
-            <div style={cardStyle}>
+            <div style={cardStyle} className={`${checklistFlash} ${notesFlash}`.trim()}>
               <p style={sectionHeaderStyle(BLUE)}>ON THE FLOOR</p>
               {floorBullets.map((item, i) => (
                 <p

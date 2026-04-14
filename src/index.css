@@ -141,6 +141,10 @@ body {
 }
 
 /* UX Flash Animations */
+.highlight-flash {
+  animation: flash-update 0.8s ease-out;
+}
+
 @keyframes flash-update {
   0% {
     background-color: transparent;

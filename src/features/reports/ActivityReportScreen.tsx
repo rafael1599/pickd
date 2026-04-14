@@ -390,138 +390,161 @@ export const ActivityReportScreen = () => {
         </div>
       </div>
 
-      {/* Report content */}
-      <div className="flex-1 overflow-y-auto">
-        {liveLoading && !reportForView && (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="animate-spin text-accent w-8 h-8 opacity-30" />
-          </div>
-        )}
+      {/* Main content — side-by-side on desktop, stacked on mobile */}
+      <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
 
-        {liveError && !reportForView && (
-          <div className="text-center py-20 text-red-400 text-sm">Failed to load report data.</div>
-        )}
+        {/* Editor panel — left on desktop, bottom on mobile (order-2 mobile, order-1 desktop) */}
+        <div className="print:hidden shrink-0 md:w-80 md:min-w-[320px] md:border-r md:border-subtle md:order-1 order-2 border-t md:border-t-0 border-subtle bg-bg-main overflow-y-auto">
+          <div className="p-4 space-y-3">
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted mb-1">Editor</p>
 
-        {reportForView && (
-          <div id="report-content">
-            <ActivityReportView
-              report={reportForView}
-              accuracyPct={accuracyPct}
-              notes={notes}
-              winOfTheDay={winOfTheDay}
-              routineChecklist={routineChecklist}
-              pickdUpdates={pickdUpdates}
-              doneToday={doneToday}
-              inProgress={inProgress}
-              comingUpNext={comingUpNext}
-              waitingOrdersCount={waitingCount}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Bottom bar — hidden on print */}
-      <div className="print:hidden shrink-0 p-4 border-t border-subtle bg-bg-main space-y-3">
-        {/* Win of the Day input */}
-        <input
-          type="text"
-          value={winOfTheDay}
-          onChange={(e) => setWinOfTheDay(e.target.value)}
-          disabled={!canEdit}
-          placeholder={canEdit ? 'Win of the day...' : '—'}
-          className="w-full h-10 px-3 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40 disabled:opacity-50 disabled:cursor-not-allowed"
-        />
-
-        {/* PickD Updates — manual multiline */}
-        <textarea
-          value={pickdUpdatesText}
-          onChange={(e) => setPickdUpdatesText(e.target.value)}
-          disabled={!canEdit}
-          placeholder={canEdit ? 'PickD updates (one per line)...' : '—'}
-          rows={2}
-          className="w-full px-3 py-2 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
-        />
-
-        {/* Routine checklist toggles */}
-        <div className="flex flex-wrap gap-1.5">
-          {ROUTINE_ITEMS.map((item) => {
-            const isChecked = routineChecklist.includes(item);
-            return (
-              <button
-                key={item}
-                onClick={() => handleToggleRoutine(item)}
+            {/* Win of the Day input */}
+            <div>
+              <label className="text-[9px] font-bold uppercase tracking-widest text-muted/70 mb-1 block">Win of the Day</label>
+              <input
+                type="text"
+                value={winOfTheDay}
+                onChange={(e) => setWinOfTheDay(e.target.value)}
                 disabled={!canEdit}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 disabled:cursor-not-allowed ${
-                  isChecked
-                    ? 'bg-accent text-main'
-                    : 'bg-surface border border-subtle text-muted hover:border-accent/30'
-                } ${!canEdit ? 'opacity-50' : ''}`}
-              >
-                {item}
-              </button>
-            );
-          })}
+                placeholder={canEdit ? 'Win of the day...' : '—'}
+                className="w-full h-9 px-3 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40 disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            </div>
+
+            {/* PickD Updates — manual multiline */}
+            <div>
+              <label className="text-[9px] font-bold uppercase tracking-widest text-muted/70 mb-1 block">PickD Updates</label>
+              <textarea
+                value={pickdUpdatesText}
+                onChange={(e) => setPickdUpdatesText(e.target.value)}
+                disabled={!canEdit}
+                placeholder={canEdit ? 'One per line...' : '—'}
+                rows={3}
+                className="w-full px-3 py-2 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            </div>
+
+            {/* Routine checklist toggles */}
+            <div>
+              <label className="text-[9px] font-bold uppercase tracking-widest text-muted/70 mb-1 block">On the Floor</label>
+              <div className="flex flex-wrap gap-1.5">
+                {ROUTINE_ITEMS.map((item) => {
+                  const isChecked = routineChecklist.includes(item);
+                  return (
+                    <button
+                      key={item}
+                      onClick={() => handleToggleRoutine(item)}
+                      disabled={!canEdit}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 disabled:cursor-not-allowed ${
+                        isChecked
+                          ? 'bg-accent text-main'
+                          : 'bg-surface border border-subtle text-muted hover:border-accent/30'
+                      } ${!canEdit ? 'opacity-50' : ''}`}
+                    >
+                      {item}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Added notes preview */}
+            {notes.length > 0 && (
+              <div>
+                <label className="text-[9px] font-bold uppercase tracking-widest text-muted/70 mb-1 block">Notes</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {notes.map((n, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-accent/10 border border-accent/20 rounded-lg text-[10px] font-bold text-accent"
+                    >
+                      {n.full_name}: {n.text.slice(0, 20)}
+                      {n.text.length > 20 ? '...' : ''}
+                      {canEdit && (
+                        <button onClick={() => handleRemoveNote(i)} className="hover:text-red-400">
+                          <X size={10} />
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Note user selector + text input */}
+            {canEdit && (
+              <div>
+                <label className="text-[9px] font-bold uppercase tracking-widest text-muted/70 mb-1 block">Add Note</label>
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={noteUser}
+                    onChange={(e) => setNoteUser(e.target.value)}
+                    className="h-9 px-2 bg-surface border border-subtle rounded-xl text-[10px] text-content focus:outline-none focus:border-accent/40 min-w-[80px]"
+                  >
+                    <option value="">Who?</option>
+                    {reportForView?.users.map((u) => (
+                      <option key={u.user_id} value={u.user_id}>
+                        {u.full_name}
+                      </option>
+                    ))}
+                    {profiles
+                      ?.filter((p) => !reportForView?.users.some((u) => u.user_id === p.id))
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.full_name}
+                        </option>
+                      ))}
+                  </select>
+                  <input
+                    type="text"
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddNote()}
+                    placeholder="Note..."
+                    className="flex-1 h-9 px-2 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40"
+                  />
+                  <button
+                    onClick={handleAddNote}
+                    disabled={!noteUser || !noteText.trim()}
+                    className="h-9 w-9 flex items-center justify-center bg-accent text-main rounded-xl active:scale-90 transition-all disabled:opacity-30 shrink-0"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Added notes preview */}
-        {notes.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {notes.map((n, i) => (
-              <span
-                key={i}
-                className="inline-flex items-center gap-1 px-2 py-1 bg-accent/10 border border-accent/20 rounded-lg text-[10px] font-bold text-accent"
-              >
-                {n.full_name}: {n.text.slice(0, 30)}
-                {n.text.length > 30 ? '...' : ''}
-                {canEdit && (
-                  <button onClick={() => handleRemoveNote(i)} className="hover:text-red-400">
-                    <X size={10} />
-                  </button>
-                )}
-              </span>
-            ))}
-          </div>
-        )}
+        {/* Report preview — right on desktop, top on mobile */}
+        <div className="flex-1 overflow-y-auto md:order-2 order-1 min-h-0">
+          {liveLoading && !reportForView && (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="animate-spin text-accent w-8 h-8 opacity-30" />
+            </div>
+          )}
 
-        {/* Note user selector + text input */}
-        {canEdit && (
-          <div className="flex items-center gap-2">
-            <select
-              value={noteUser}
-              onChange={(e) => setNoteUser(e.target.value)}
-              className="h-10 px-2 bg-surface border border-subtle rounded-xl text-xs text-content focus:outline-none focus:border-accent/40 min-w-[100px]"
-            >
-              <option value="">Who?</option>
-              {reportForView?.users.map((u) => (
-                <option key={u.user_id} value={u.user_id}>
-                  {u.full_name}
-                </option>
-              ))}
-              {profiles
-                ?.filter((p) => !reportForView?.users.some((u) => u.user_id === p.id))
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.full_name}
-                  </option>
-                ))}
-            </select>
-            <input
-              type="text"
-              value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddNote()}
-              placeholder="Add note..."
-              className="flex-1 h-10 px-3 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40"
-            />
-            <button
-              onClick={handleAddNote}
-              disabled={!noteUser || !noteText.trim()}
-              className="h-10 w-10 flex items-center justify-center bg-accent text-main rounded-xl active:scale-90 transition-all disabled:opacity-30"
-            >
-              <Plus size={16} />
-            </button>
-          </div>
-        )}
+          {liveError && !reportForView && (
+            <div className="text-center py-20 text-red-400 text-sm">Failed to load report data.</div>
+          )}
+
+          {reportForView && (
+            <div id="report-content">
+              <ActivityReportView
+                report={reportForView}
+                accuracyPct={accuracyPct}
+                notes={notes}
+                winOfTheDay={winOfTheDay}
+                routineChecklist={routineChecklist}
+                pickdUpdates={pickdUpdates}
+                doneToday={doneToday}
+                inProgress={inProgress}
+                comingUpNext={comingUpNext}
+                waitingOrdersCount={waitingCount}
+              />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
