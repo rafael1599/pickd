@@ -493,7 +493,7 @@ export const InventoryScreen = () => {
 
   const handleOpenLocationEditor = useCallback(
     (warehouse: string, locationName: string, locationId?: string | null) => {
-      if (!isAdmin || viewMode !== 'stock') return;
+      if (!isAdmin || viewMode !== 'stock' || isSearching) return;
       let loc = null;
       if (locationId) {
         loc = allMappedLocations.find((l) => l.id === locationId);
@@ -517,7 +517,7 @@ export const InventoryScreen = () => {
         });
       }
     },
-    [isAdmin, viewMode, allMappedLocations]
+    [isAdmin, viewMode, isSearching, allMappedLocations]
   );
 
   const handleSaveLocation = useCallback(
@@ -737,7 +737,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                   )}
 
                   <div
-                    className={`sticky top-[84px] bg-main/95 backdrop-blur-sm z-30 py-3 border-b border-subtle group ${isAdmin && viewMode === 'stock' ? 'cursor-pointer' : ''}`}
+                    className={`sticky top-[84px] bg-main/95 backdrop-blur-sm z-30 py-3 border-b border-subtle group ${isAdmin && viewMode === 'stock' && !isSearching ? 'cursor-pointer' : ''}`}
                     onClick={() => handleOpenLocationEditor(wh, location, locationId)}
                   >
                     <div className="flex items-center gap-4 px-1">
