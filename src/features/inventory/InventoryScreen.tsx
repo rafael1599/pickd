@@ -684,7 +684,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
               onChange={(e) => setShowParts(e.target.checked)}
               className="rounded transition-colors h-3.5 w-3.5 border-neutral-600 bg-surface text-accent focus:ring-accent focus:ring-offset-0"
             />
-            Show Parts
+            Parts
           </label>
         </div>
       )}

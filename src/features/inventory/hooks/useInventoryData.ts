@@ -280,15 +280,15 @@ export const useInventory = () => {
   // ── Merge data: use search results when searching, else paginated data ─
   const isActiveSearch = searchQuery.length > 0;
 
-  const needsPartsBins = showParts || searchQuery.length > 0;
   const globalData = useMemo(() => {
     if (isActiveSearch) {
       return searchResults ?? EMPTY_INVENTORY;
     }
     const bikes = rawData ?? EMPTY_INVENTORY;
     const parts = partsData ?? EMPTY_INVENTORY;
-    return needsPartsBins ? [...bikes, ...parts] : bikes;
-  }, [isActiveSearch, searchResults, rawData, partsData, needsPartsBins]);
+    if (showParts) return parts;
+    return bikes;
+  }, [isActiveSearch, searchResults, rawData, partsData, showParts]);
 
   // All filtering (warehouse, inactive) now handled server-side
   const inventoryData = globalData;
