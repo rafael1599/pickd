@@ -5,6 +5,7 @@ interface FormData {
   quantity: number;
   targetLocation: string;
   targetWarehouse: string;
+  targetSublocation: string | null;
   scanValue: string;
 }
 
@@ -13,6 +14,7 @@ export const useMovementForm = (initialSourceItem: InventoryItem | null | undefi
     quantity: 0,
     targetLocation: '',
     targetWarehouse: 'LUDLOW',
+    targetSublocation: null,
     scanValue: '',
   });
 
@@ -29,6 +31,7 @@ export const useMovementForm = (initialSourceItem: InventoryItem | null | undefi
         quantity: 0,
         targetLocation: '',
         targetWarehouse: 'LUDLOW',
+        targetSublocation: null,
         scanValue: '',
       });
     }

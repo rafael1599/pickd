@@ -574,6 +574,9 @@ class InventoryService extends BaseService<
         status: validatedInput.status || originalItem.status,
         is_active: newQty > 0 ? true : originalItem.is_active,
         distribution: validatedInput.distribution || [],
+        sublocation: targetLocation.toUpperCase().startsWith('ROW')
+          ? validatedInput.sublocation || null
+          : null,
       } as InventoryUpdate as InventoryItemInput);
 
       const isRename = hasSkuChanged;
@@ -646,6 +649,9 @@ class InventoryService extends BaseService<
       is_active: newQty > 0 ? true : originalItem.is_active,
       internal_note: validatedInput.internal_note,
       distribution: validatedInput.distribution || [],
+      sublocation: targetLocation.toUpperCase().startsWith('ROW')
+        ? validatedInput.sublocation || null
+        : null,
     } as InventoryUpdate as InventoryItemInput);
 
     try {
@@ -759,7 +765,8 @@ class InventoryService extends BaseService<
     targetLocation: string,
     qty: number,
     ctx: InventoryServiceContext,
-    internalNote?: string | null
+    internalNote?: string | null,
+    targetSublocation?: string | null
   ) {
     const { userInfo } = ctx;
 
@@ -776,6 +783,7 @@ class InventoryService extends BaseService<
       p_user_id: userInfo.user_id,
       p_user_role: 'staff',
       ...(internalNote !== undefined && { p_internal_note: internalNote ?? undefined }),
+      ...(targetSublocation !== undefined && { p_sublocation: targetSublocation ?? undefined }),
     });
 
     if (error) {

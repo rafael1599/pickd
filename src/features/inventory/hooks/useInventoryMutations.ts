@@ -220,6 +220,7 @@ export function useInventoryMutations() {
       targetLocation: string;
       qty: number;
       internalNote?: string | null;
+      targetSublocation?: string | null;
     }) => {
       return inventoryService.moveItem(
         vars.sourceItem as InventoryItem,
@@ -227,7 +228,8 @@ export function useInventoryMutations() {
         vars.targetLocation,
         vars.qty,
         getServiceContext() as InventoryServiceContext,
-        vars.internalNote
+        vars.internalNote,
+        vars.targetSublocation
       );
     },
     onMutate: async (vars) => {
@@ -280,6 +282,9 @@ export function useInventoryMutations() {
                     is_active: true,
                     _lastLocalUpdateAt: Date.now(),
                     ...(vars.internalNote !== undefined && { internal_note: vars.internalNote }),
+                    ...(vars.targetSublocation !== undefined && {
+                      sublocation: vars.targetSublocation,
+                    }),
                   },
                 ];
               }
@@ -296,6 +301,7 @@ export function useInventoryMutations() {
                       quantity: vars.qty,
                       is_active: true,
                       _lastLocalUpdateAt: Date.now(),
+                      sublocation: vars.targetSublocation || null,
                     },
                   ]
                 : []

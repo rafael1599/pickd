@@ -22,6 +22,7 @@ interface InventoryCardProps {
   is_active?: boolean;
   sku_metadata?: import('../../../schemas/skuMetadata.schema').SKUMetadata | null;
   internal_note?: string | null;
+  sublocation?: string | null;
   distribution?: DistributionItem[];
   cartQty?: number;
   onCartIncrement?: () => void;
@@ -41,7 +42,7 @@ export const InventoryCard = memo(
     detail,
     onClick,
     /* warehouse is received but unused (needed for prop-spreading from parent) */
-    warehouse: _warehouse,
+    warehouse: _warehouse, // eslint-disable-line @typescript-eslint/no-unused-vars
     mode = 'stock',
     reservedByOthers = 0,
     available = null,
@@ -49,6 +50,7 @@ export const InventoryCard = memo(
     is_active = true,
     sku_metadata = null,
     internal_note = null,
+    sublocation = null,
     distribution = [],
     cartQty = 0,
     onCartIncrement,
@@ -58,6 +60,7 @@ export const InventoryCard = memo(
   }: InventoryCardProps) => {
     const [flash, setFlash] = useState(false);
     const prevQuantityRef = useRef(quantity);
+    const [now] = useState(() => Date.now());
 
     useEffect(() => {
       if (prevQuantityRef.current !== quantity) {
@@ -126,6 +129,11 @@ export const InventoryCard = memo(
                       style={{ fontFamily: 'var(--font-heading)' }}
                     >
                       {location}
+                      {sublocation && (
+                        <span className="ml-1 text-[9px] font-black bg-accent/15 text-accent px-1 py-0.5 rounded border border-accent/20">
+                          {sublocation}
+                        </span>
+                      )}
                     </div>
                     {internal_note && (
                       <span
@@ -181,13 +189,17 @@ export const InventoryCard = memo(
                     <div className="px-1.5 py-0.5 rounded-[4px] bg-main text-muted text-[9px] font-bold uppercase tracking-tight inline-flex items-center border border-subtle">
                       {detail}
                     </div>
-                      </div>
-                )}
-                {sku_metadata && ((sku_metadata.length_in ?? 0) > 0 || (sku_metadata.width_in ?? 0) > 0 || (sku_metadata.height_in ?? 0) > 0) && (
-                  <div className="inline-flex px-1.5 py-0.5 rounded-[4px] bg-accent/5 text-accent/70 text-[9px] font-black tracking-widest border border-accent/10 whitespace-nowrap">
-                    {sku_metadata.length_in ?? 0}×{sku_metadata.width_in ?? 0}×{sku_metadata.height_in ?? 0}"
                   </div>
                 )}
+                {sku_metadata &&
+                  ((sku_metadata.length_in ?? 0) > 0 ||
+                    (sku_metadata.width_in ?? 0) > 0 ||
+                    (sku_metadata.height_in ?? 0) > 0) && (
+                    <div className="inline-flex px-1.5 py-0.5 rounded-[4px] bg-accent/5 text-accent/70 text-[9px] font-black tracking-widest border border-accent/10 whitespace-nowrap">
+                      {sku_metadata.length_in ?? 0}×{sku_metadata.width_in ?? 0}×
+                      {sku_metadata.height_in ?? 0}"
+                    </div>
+                  )}
                 {(sku_metadata?.weight_lbs ?? 0) > 0 && (
                   <div className="inline-flex px-1.5 py-0.5 rounded-[4px] bg-amber-500/5 text-amber-500/70 text-[9px] font-black tracking-widest border border-amber-500/10 whitespace-nowrap">
                     {sku_metadata!.weight_lbs} lbs
@@ -215,7 +227,6 @@ export const InventoryCard = memo(
                   )}
                 </div>
               )}
-
             </div>
 
             {mode === 'stock' && (
@@ -304,9 +315,9 @@ export const InventoryCard = memo(
           <div className="mt-1 mx-1 mb-0.5">
             <div
               className={`h-1 rounded-full transition-all ${
-                Date.now() - lastCounted.getTime() < 7 * 86400000
+                now - lastCounted.getTime() < 7 * 86400000
                   ? 'bg-green-500/40'
-                  : Date.now() - lastCounted.getTime() < 30 * 86400000
+                  : now - lastCounted.getTime() < 30 * 86400000
                     ? 'bg-green-500/25'
                     : 'bg-green-500/10'
               }`}

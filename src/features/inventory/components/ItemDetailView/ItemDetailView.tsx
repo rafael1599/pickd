@@ -113,6 +113,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       warehouse: 'LUDLOW',
       ...dimensionDefaults(null),
       internal_note: '',
+      sublocation: null,
     },
   });
 
@@ -123,6 +124,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   const quantity = watch('quantity');
   const itemName = watch('item_name');
   const internalNote = watch('internal_note');
+  const sublocation = watch('sublocation');
   const lengthIn = watch('length_in');
   const widthIn = watch('width_in');
   const heightIn = watch('height_in');
@@ -152,6 +154,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
             dimensionDefaults(initialData.sku_metadata?.is_bike).height_in,
           weight_lbs: initialData.sku_metadata?.weight_lbs ?? null,
           internal_note: initialData.internal_note || '',
+          sublocation: initialData.sublocation || null,
         });
         setDistribution(Array.isArray(initialData.distribution) ? initialData.distribution : []);
         setUserEditedDistribution(false);
@@ -165,6 +168,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           warehouse: (screenType as WarehouseType) || 'LUDLOW',
           ...dimensionDefaults(null),
           internal_note: '',
+          sublocation: null,
         });
         setDistribution([]);
         setUserEditedDistribution(false);
@@ -548,9 +552,14 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   // ─── Location blur handler ───
   const handleLocationBlur = useCallback(
     (val: string) => {
+      const resolved = prediction.bestGuess || val;
       if (prediction.bestGuess && prediction.bestGuess !== val) {
         setValue('location', prediction.bestGuess);
         toast(`Auto-selected ${prediction.bestGuess}`, { icon: '\u2728' });
+      }
+      // Auto-clear sublocation when moving to a non-ROW location
+      if (!resolved.toUpperCase().startsWith('ROW')) {
+        setValue('sublocation', null);
       }
     },
     [prediction.bestGuess, setValue]
@@ -636,6 +645,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       height_in: watch('height_in'),
       weight_lbs: watch('weight_lbs'),
       internal_note: watch('internal_note'),
+      sublocation: watch('sublocation') || null,
       distribution: [],
     };
 
@@ -1079,6 +1089,31 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                   initialKeyboardMode="numeric"
                 />
               </div>
+              {(location || '').toUpperCase().startsWith('ROW') && (
+                <div className="px-4 py-2 border-t border-subtle">
+                  <span className="text-[11px] font-bold text-accent uppercase tracking-wider block mb-1.5">
+                    Sub-location
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {['A', 'B', 'C', 'D', 'E', 'F'].map((letter) => (
+                      <button
+                        key={letter}
+                        type="button"
+                        onClick={() =>
+                          setValue('sublocation', sublocation === letter ? null : letter)
+                        }
+                        className={`w-9 h-9 rounded-lg text-xs font-black transition-all ${
+                          sublocation === letter
+                            ? 'bg-accent text-main shadow-lg shadow-accent/20'
+                            : 'bg-surface text-muted border border-subtle hover:border-accent/40'
+                        }`}
+                      >
+                        {letter}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <TappableField
                 label="Note"
                 value={internalNote || ''}
@@ -1115,6 +1150,31 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                   />
                 )}
               />
+              {(location || '').toUpperCase().startsWith('ROW') && (
+                <div className="px-4 py-2 border-t border-subtle">
+                  <span className="text-[11px] font-bold text-muted uppercase tracking-wider block mb-1.5">
+                    Sub-location
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {['A', 'B', 'C', 'D', 'E', 'F'].map((letter) => (
+                      <button
+                        key={letter}
+                        type="button"
+                        onClick={() =>
+                          setValue('sublocation', sublocation === letter ? null : letter)
+                        }
+                        className={`w-9 h-9 rounded-lg text-xs font-black transition-all ${
+                          sublocation === letter
+                            ? 'bg-accent text-main shadow-lg shadow-accent/20'
+                            : 'bg-surface text-muted border border-subtle hover:border-accent/40'
+                        }`}
+                      >
+                        {letter}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <TappableField
                 label="Note"
                 value={internalNote || ''}

@@ -467,6 +467,7 @@ export const InventoryScreen = () => {
       targetLocation: string;
       quantity: number;
       internalNote?: string | null;
+      targetSublocation?: string | null;
     }) => {
       try {
         await moveItem(
@@ -475,7 +476,8 @@ export const InventoryScreen = () => {
           moveData.targetLocation,
           moveData.quantity,
           undefined,
-          moveData.internalNote
+          moveData.internalNote,
+          moveData.targetSublocation
         );
         toast.success('Stock successfully moved!');
       } catch (err: unknown) {
@@ -815,6 +817,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                             available={stockInfo?.available}
                             sku_metadata={item.sku_metadata}
                             internal_note={item.internal_note}
+                            sublocation={item.sublocation}
                             distribution={item.distribution}
                             lastUpdateSource={item._lastUpdateSource}
                             is_active={item.is_active}

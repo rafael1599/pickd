@@ -21,7 +21,11 @@ import { predictLocation } from '../../../utils/locationPredictor.ts';
 import { useViewMode } from '../../../context/ViewModeContext.tsx';
 import { useAutoSelect } from '../../../hooks/useAutoSelect.ts';
 import toast from 'react-hot-toast';
-import { InventoryItem, InventoryItemWithMetadata, STORAGE_TYPE_LABELS } from '../../../schemas/inventory.schema.ts';
+import {
+  InventoryItem,
+  InventoryItemWithMetadata,
+  STORAGE_TYPE_LABELS,
+} from '../../../schemas/inventory.schema.ts';
 import { calculateBikeDistribution } from '../../../utils/distributionCalculator.ts';
 import { useScrollLock } from '../../../hooks/useScrollLock';
 
@@ -34,6 +38,7 @@ interface MovementModalProps {
     targetLocation: string;
     quantity: number;
     internalNote?: string | null;
+    targetSublocation?: string | null;
   }) => void;
   initialSourceItem?: InventoryItemWithMetadata | null;
 }
@@ -198,10 +203,14 @@ export const MovementModal: React.FC<MovementModalProps> = ({
       },
       noteOverride?: string | null
     ) => {
-      onMove({ ...moveData, internalNote: noteOverride });
+      onMove({
+        ...moveData,
+        internalNote: noteOverride,
+        targetSublocation: formData.targetSublocation,
+      });
       handleClose();
     },
-    [onMove, handleClose]
+    [onMove, handleClose, formData.targetSublocation]
   );
 
   const handleSubmit = () => {
@@ -446,6 +455,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                     onClick={() => {
                       setField('targetWarehouse', wh);
                       setField('targetLocation', '');
+                      setField('targetSublocation', null);
                     }}
                     className={`px-4 py-2 rounded-lg font-bold text-xs transition-all border ${
                       formData.targetWarehouse === wh
@@ -521,6 +531,35 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                   </div>
                 )}
               />
+
+              {formData.targetLocation.toUpperCase().startsWith('ROW') && (
+                <div className="pt-1">
+                  <label className="block text-[10px] font-black text-muted uppercase tracking-widest mb-1.5">
+                    Sub-location
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {['A', 'B', 'C', 'D', 'E', 'F'].map((letter) => (
+                      <button
+                        key={letter}
+                        type="button"
+                        onClick={() =>
+                          setField(
+                            'targetSublocation',
+                            formData.targetSublocation === letter ? null : letter
+                          )
+                        }
+                        className={`w-9 h-9 rounded-lg text-xs font-black transition-all ${
+                          formData.targetSublocation === letter
+                            ? 'bg-accent text-main shadow-lg shadow-accent/20'
+                            : 'bg-surface text-muted border border-subtle hover:border-accent/40'
+                        }`}
+                      >
+                        {letter}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {isSameLocation && (
                 <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl animate-in fade-in slide-in-from-top-2">
