@@ -1245,7 +1245,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                     : 'text-emerald-400/70'
                               }`}
                             >
-                              <span className="text-[11px] font-bold uppercase tracking-wider leading-none">
+                              <span className="text-[12px] font-bold uppercase tracking-wider leading-none">
                                 {pickPlanMap[item.sku].map((step, i) => (
                                   <span key={i}>
                                     {i > 0 && ', '}
