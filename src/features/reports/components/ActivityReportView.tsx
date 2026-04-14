@@ -244,6 +244,67 @@ export const ActivityReportView: React.FC<Props> = ({
           </p>
         )}
 
+        {/* Inventory Accuracy KPI — top position */}
+        {hasAccuracy && (
+          <>
+            <div style={cardStyle}>
+              <p style={sectionHeaderStyle(TEAL)}>INVENTORY ACCURACY</p>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: 8,
+                  marginTop: 4,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 42,
+                    fontWeight: 800,
+                    color: TEXT_BOLD,
+                    lineHeight: 1,
+                  }}
+                >
+                  {accuracyPct}%
+                </span>
+                <span style={{ fontSize: 13, color: TEXT_MUTED }}>of SKUs verified</span>
+              </div>
+              {/* Progress bar */}
+              <div
+                style={{
+                  marginTop: 12,
+                  height: 10,
+                  borderRadius: 5,
+                  backgroundColor: '#e8ecf1',
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    height: '100%',
+                    width: `${Math.min(accuracyPct, 100)}%`,
+                    borderRadius: 5,
+                    backgroundColor: TEAL,
+                    transition: 'width 0.6s ease',
+                  }}
+                />
+              </div>
+              <p
+                style={{
+                  margin: '8px 0 0',
+                  fontSize: 12,
+                  color: TEXT_MUTED,
+                  lineHeight: 1.5,
+                }}
+              >
+                {report.verified_skus_2m} of {report.total_skus} SKUs have been physically counted
+                in the last 60 days. {getAccuracyMessage(accuracyPct)}
+              </p>
+            </div>
+            <div style={spacerStyle} />
+          </>
+        )}
+
         {/* WIN OF THE DAY — conditional */}
         {hasWin && (
           <>
@@ -344,46 +405,7 @@ export const ActivityReportView: React.FC<Props> = ({
           </>
         )}
 
-        {/* Inventory Accuracy KPI */}
-        {hasAccuracy && (
-          <>
-            <div style={cardStyle}>
-              <p style={sectionHeaderStyle(TEAL)}>INVENTORY ACCURACY</p>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'baseline',
-                  gap: 8,
-                  marginTop: 4,
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: 42,
-                    fontWeight: 800,
-                    color: TEXT_BOLD,
-                    lineHeight: 1,
-                  }}
-                >
-                  {accuracyPct}%
-                </span>
-                <span style={{ fontSize: 13, color: TEXT_MUTED }}>of SKUs verified</span>
-              </div>
-              <p
-                style={{
-                  margin: '8px 0 0',
-                  fontSize: 12,
-                  color: TEXT_MUTED,
-                  lineHeight: 1.5,
-                }}
-              >
-                {report.verified_skus_2m} of {report.total_skus} SKUs have been physically counted
-                in the last 60 days. {getAccuracyMessage(accuracyPct)}
-              </p>
-            </div>
-            <div style={spacerStyle} />
-          </>
-        )}
+        {/* Inventory Accuracy KPI — moved to top, after greeting */}
 
         {/* Waiting Orders Count (idea-053) — live value, not snapshotted */}
         {waitingOrdersCount > 0 && (

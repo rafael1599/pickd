@@ -1,0 +1,21 @@
+Progress Update — April 14, 2026 at 4:45 PM
+
+WIN OF THE DAY:
+Every bike in the warehouse now has a shelf position (A through F) so pickers know exactly where to go. The team also got a shared shopping list — no more asking around for what's needed — and a capacity bar in the stock view that shows how full the warehouse is at a glance.
+
+WHAT'S BETTER NOW:
+- Each row now shows exactly which shelf section a bike is on (A, B, C, etc.) in the stock view and during picking. A bike can even span two sections if it's that big.
+- There's a new Shopping List where anyone on the team can add things the warehouse needs — supplies, tools, materials. It prints on 4x6 labels for buying runs.
+- The stock view now has a capacity bar at the top showing how many spots are filled vs available across the whole warehouse.
+- Storage groups now support custom names — instead of just "Other", you can type what it actually is (Box, Crate, etc.).
+- 148 bikes had incorrect weights showing 0.1 lbs — all fixed to their real weights now.
+- The picking screen text was too small to read comfortably — bumped up so it's easy on the eyes.
+
+ON THE FLOOR:
+- Walked rows 29 through 20, plus rows 1, 2, 23, and 24 marking shelf positions for every bike. Found and corrected 3 bikes registered in the wrong row.
+
+COMING UP NEXT:
+- Continue the shelf position audit for the remaining rows
+- Quantity tracking per shelf position so the system knows how many bikes are in each section
+
+5 done today / 9 in the queue (2 high priority, 7 medium)

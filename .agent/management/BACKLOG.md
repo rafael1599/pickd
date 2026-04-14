@@ -29,9 +29,8 @@
 ### ~~20. Verification Queue — Split View con drag & drop~~ <!-- id: idea-037 --> ✅ 2026-04-13
 - Absorbido por idea-055 (Verification Board Redesign). Full-screen multi-zone kanban con drag & drop entre lanes FedEx/Regular/Waiting/Completed. `VerificationBoard.tsx` reemplaza el antiguo modal single-column.
 
-### 15. Distribution type "Other" → texto libre <!-- id: idea-026 -->
-- **Problema:** OTHER muestra "unit/units" genérico.
-- **Solución:** Text input para nombre custom ("Box", "Crate"). Se guarda en distribution JSONB.
+### ~~15. Distribution type "Other" → texto libre~~ <!-- id: idea-026 --> ✅ 2026-04-14
+- `204fb2d` — Text input para nombre custom ("Box", "Crate") en distribution JSONB. Inline editable label en InventoryCard.
 
 ### ~~27. Daily Warehouse Activity Report — Refinamiento~~ <!-- id: idea-041 --> ✅ 2026-04-08
 - `42ac9fd` `68950b6` — layout HTML email, secciones condicionales (WIN/UPDATES manuales + DONE/IN PROGRESS/ON THE FLOOR/COMING UP NEXT auto kanban), Inventory Accuracy KPI, correcciones del día desde `picking_list_notes`, team detail colapsable, Copy Report.
@@ -99,7 +98,7 @@
 - [ ] **Fotos Fase 3 — Bulk Upload** — Multi-file picker, batching, progress bar. <!-- id: idea-023-p3 -->
 - [ ] **Migrar cron jobs a pg_cron** — Elimina dependencia de GitHub Actions. <!-- id: idea-030 -->
 - [ ] **Projects — drag to reorder priority** — En Coming Up Next y In Progress, arrastrar para reordenar. Más arriba = más prioridad. No se refleja en ningún otro lado por ahora, solo capacidad de reordenar dentro de cada columna. <!-- id: idea-049 -->
-- [ ] **Shopping List / Cosas por comprar** — Vista donde el equipo registra items que se necesitan en el warehouse (supplies, herramientas, materiales). Lenor puede ver la lista para ordenar, y Roman la tiene a mano cuando va a comprar sin tener que preguntar a cada persona. Accesible desde el menú principal. <!-- id: idea-056 -->
+- [x] ~~**Shopping List / Cosas por comprar**~~ ✅ 2026-04-14 — `dc2d19f` Vista compartida + PDF 4x6 térmico para buying runs. <!-- id: idea-056 -->
 - [ ] **FedEx default single group** — Las órdenes FedEx se crean con un solo grupo por defecto (todo junto en una caja). Si el picker necesita separar en múltiples cajas, lo hace manualmente como siempre. Elimina el paso innecesario de agrupar cuando la mayoría va en un solo paquete. <!-- id: idea-057 -->
 - [x] ~~**Activity Report — quitar la hora del header**~~ ✅ 2026-04-10 `35ff19c` <!-- id: idea-051 -->
 
