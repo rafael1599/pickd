@@ -7,6 +7,8 @@ import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import ShoppingCart from 'lucide-react/dist/esm/icons/shopping-cart';
+import Printer from 'lucide-react/dist/esm/icons/printer';
+import { generateShoppingListPdf } from './generateShoppingListPdf.ts';
 import {
   useShoppingList,
   useAddShoppingItem,
@@ -290,9 +292,18 @@ export const ShoppingListScreen: React.FC = () => {
           </p>
         </div>
         {pending.length > 0 && (
-          <span className="px-2 py-0.5 rounded-full bg-accent/10 text-accent text-xs font-bold">
-            {pending.length}
-          </span>
+          <>
+            <span className="px-2 py-0.5 rounded-full bg-accent/10 text-accent text-xs font-bold">
+              {pending.length}
+            </span>
+            <button
+              onClick={() => generateShoppingListPdf(items ?? [])}
+              className="p-2 hover:bg-card rounded-xl text-muted hover:text-content transition-colors"
+              aria-label="Print shopping list"
+            >
+              <Printer size={18} />
+            </button>
+          </>
         )}
       </div>
 
