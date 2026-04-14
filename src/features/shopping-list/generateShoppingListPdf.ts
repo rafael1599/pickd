@@ -1,6 +1,7 @@
 /**
  * Generates a printable Shopping List PDF on 4×6" thermal label stock (portrait).
  * Only includes pending items — sorted urgent-first, then by date.
+ * Black & white only. Minimum font size: 14pt.
  */
 import type { ShoppingItem } from './hooks/useShoppingList.ts';
 
@@ -8,6 +9,7 @@ import type { ShoppingItem } from './hooks/useShoppingList.ts';
 const W = 4 * 25.4; // 101.6
 const H = 6 * 25.4; // 152.4
 const M = 3; // margin mm
+const BLACK: [number, number, number] = [0, 0, 0];
 
 export const generateShoppingListPdf = async (items: ShoppingItem[]) => {
   const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
@@ -36,46 +38,46 @@ export const generateShoppingListPdf = async (items: ShoppingItem[]) => {
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(...BLACK);
   doc.text('SHOPPING LIST', M, 7);
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(120, 120, 120);
-  doc.text(`${today}  ·  ${pending.length} items`, M, 12);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(...BLACK);
+  doc.text(`${today}  ·  ${pending.length} items`, M, 13);
 
   // ── Separator ─────────────────────────────────────────────
 
-  doc.setDrawColor(200, 200, 200);
-  doc.setLineWidth(0.3);
-  doc.line(M, 14, W - M, 14);
+  doc.setDrawColor(...BLACK);
+  doc.setLineWidth(0.5);
+  doc.line(M, 15, W - M, 15);
 
   // ── Table ─────────────────────────────────────────────────
 
   const body = pending.map((item) => [item.item_name, item.quantity || '', '']);
 
   autoTable(doc, {
-    startY: 16,
+    startY: 17,
     head: [['Item', 'Qty', '✓']],
     body,
     theme: 'plain',
     headStyles: {
-      fillColor: [240, 240, 240],
-      textColor: [80, 80, 80],
+      fillColor: [255, 255, 255],
+      textColor: BLACK,
       font: 'helvetica',
-      fontSize: 12,
+      fontSize: 14,
       fontStyle: 'bold',
-      lineColor: [200, 200, 200],
-      lineWidth: 0.3,
+      lineColor: BLACK,
+      lineWidth: 0.4,
       cellPadding: { top: 2, bottom: 2, left: 2, right: 1 },
     },
     styles: {
       font: 'helvetica',
       fontSize: 16,
       cellPadding: { top: 3, bottom: 3, left: 2, right: 1 },
-      lineColor: [220, 220, 220],
+      lineColor: BLACK,
       lineWidth: 0.2,
-      textColor: [30, 30, 30],
+      textColor: BLACK,
       valign: 'middle',
       overflow: 'linebreak',
     },
@@ -85,21 +87,20 @@ export const generateShoppingListPdf = async (items: ShoppingItem[]) => {
       2: { cellWidth: 10, halign: 'center' },
     },
     didDrawCell: (data) => {
-      // Draw empty checkbox
       if (data.section === 'body' && data.column.index === 2) {
         const cx = data.cell.x + data.cell.width / 2;
         const cy = data.cell.y + data.cell.height / 2;
-        doc.setDrawColor(150, 150, 150);
-        doc.setLineWidth(0.4);
+        doc.setDrawColor(...BLACK);
+        doc.setLineWidth(0.5);
         doc.rect(cx - 2.5, cy - 2.5, 5, 5);
       }
     },
     margin: { left: M, right: M, top: 5, bottom: 8 },
     didDrawPage: () => {
       const pageH = doc.internal.pageSize.getHeight();
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(5.5);
-      doc.setTextColor(160, 160, 160);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(...BLACK);
       doc.text('PickD', M, pageH - 3);
       doc.text(today, W - M, pageH - 3, { align: 'right' });
     },
