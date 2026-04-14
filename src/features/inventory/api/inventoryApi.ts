@@ -49,7 +49,7 @@ export const inventoryApi = {
       .from('inventory')
       .select(
         `
-        id, sku, quantity, location, location_id, item_name,
+        id, sku, quantity, location, location_id, sublocation, item_name,
         warehouse, is_active, internal_note, distribution, created_at,
         location_sort_key,
         sku_metadata!inner ( ${metadataCols} )
