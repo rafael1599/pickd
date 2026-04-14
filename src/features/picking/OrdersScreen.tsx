@@ -136,7 +136,9 @@ export const OrdersScreen = () => {
   });
 
   // SKU metadata map fetched from sku_metadata (weight + bike classification)
-  const [skuMeta, setSkuMeta] = useState<Record<string, { weight_lbs: number | null; is_bike: boolean }>>({});
+  const [skuMeta, setSkuMeta] = useState<
+    Record<string, { weight_lbs: number | null; is_bike: boolean }>
+  >({});
   const [weightsReady, setWeightsReady] = useState(false);
 
   // Fetch sku_metadata (weights + is_bike) when selected order changes
@@ -158,7 +160,11 @@ export const OrdersScreen = () => {
         skus.forEach((s) => {
           map[s] = { weight_lbs: null, is_bike: false };
         });
-        (data as unknown as { sku: string; weight_lbs: number | null; is_bike: boolean | null }[] | null)?.forEach((row) => {
+        (
+          data as unknown as
+            | { sku: string; weight_lbs: number | null; is_bike: boolean | null }[]
+            | null
+        )?.forEach((row) => {
           map[row.sku] = { weight_lbs: row.weight_lbs, is_bike: row.is_bike ?? false };
         });
         setSkuMeta(map);
@@ -186,18 +192,18 @@ export const OrdersScreen = () => {
 
     Promise.all(
       skusToFix.map((sku: string) => {
-        const defaultWeight = skuMeta[sku]?.is_bike ? 45 : 0.1;
-        return supabase.from('sku_metadata').upsert(
-          { sku, weight_lbs: defaultWeight },
-          { onConflict: 'sku' }
-        );
+        const isBike = skuMeta[sku]?.is_bike;
+        const defaultWeight = isBike === false ? 0.1 : 45;
+        return supabase
+          .from('sku_metadata')
+          .upsert({ sku, weight_lbs: defaultWeight }, { onConflict: 'sku' });
       })
     ).then(() => {
       setSkuMeta((prev) => {
         const updated = { ...prev };
         skusToFix.forEach((sku: string) => {
-          const isBike = updated[sku]?.is_bike ?? false;
-          updated[sku] = { ...updated[sku], weight_lbs: isBike ? 45 : 0.1 };
+          const isBike = updated[sku]?.is_bike;
+          updated[sku] = { ...updated[sku], weight_lbs: isBike === false ? 0.1 : 45 };
         });
         return updated;
       });
@@ -205,7 +211,8 @@ export const OrdersScreen = () => {
   }, [weightsReady, itemsMissingWeight]);
 
   // FedEx orders don't use pallets — skip pallet weight
-  const isFedexOrder = (selectedOrder?.order_group as { group_type?: string } | null)?.group_type === 'fedex';
+  const isFedexOrder =
+    (selectedOrder?.order_group as { group_type?: string } | null)?.group_type === 'fedex';
 
   // Calculate total weight from sku_metadata weights + pallet weight (40 lbs each, except FedEx)
   const totalWeight = useMemo(() => {
@@ -225,7 +232,8 @@ export const OrdersScreen = () => {
   const { autoBikeCount, autoPartCount } = useMemo(() => {
     const items = selectedOrder?.items;
     if (!Array.isArray(items)) return { autoBikeCount: 0, autoPartCount: 0 };
-    let bikes = 0, parts = 0;
+    let bikes = 0,
+      parts = 0;
     items.forEach((item: PickingListItem) => {
       const qty = item.pickingQty || 0;
       if (skuMeta[item.sku]?.is_bike) bikes += qty;
@@ -949,7 +957,10 @@ export const OrdersScreen = () => {
                           status={order.status}
                           isSelected={isSelected}
                           isCombined={!!order.combine_meta?.is_combined}
-                          isFedex={(order.order_group as { group_type?: string } | null)?.group_type === 'fedex'}
+                          isFedex={
+                            (order.order_group as { group_type?: string } | null)?.group_type ===
+                            'fedex'
+                          }
                           onClick={() => setSelectedOrder(order)}
                         />
                       </div>
@@ -991,7 +1002,7 @@ export const OrdersScreen = () => {
                   }}
                   onShowPickingSummary={() => setIsShowingPickingSummary(true)}
                   onReopenOrder={handleReopenOrder}
-          onContinueEditing={handleContinueEditing}
+                  onContinueEditing={handleContinueEditing}
                   collapsible
                   autoBikeCount={autoBikeCount}
                   autoPartCount={autoPartCount}
@@ -1019,14 +1030,23 @@ export const OrdersScreen = () => {
               {partsWithWeights.length > 0 && (
                 <div className="w-full max-w-md mx-auto mt-8 mb-8 bg-surface rounded-2xl border border-subtle overflow-hidden">
                   <div className="px-4 py-3 border-b border-subtle">
-                    <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">Parts Weight</h3>
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">
+                      Parts Weight
+                    </h3>
                   </div>
                   <div className="divide-y divide-subtle">
                     {partsWithWeights.map((part) => (
-                      <div key={part.sku} className="flex items-center justify-between px-4 py-3 gap-3">
+                      <div
+                        key={part.sku}
+                        className="flex items-center justify-between px-4 py-3 gap-3"
+                      >
                         <div className="flex items-center gap-3 min-w-0">
-                          <span className="font-mono font-bold text-xs text-content truncate">{part.sku}</span>
-                          <span className="text-[10px] text-muted font-bold shrink-0">×{part.qty}</span>
+                          <span className="font-mono font-bold text-xs text-content truncate">
+                            {part.sku}
+                          </span>
+                          <span className="text-[10px] text-muted font-bold shrink-0">
+                            ×{part.qty}
+                          </span>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <input
@@ -1035,11 +1055,13 @@ export const OrdersScreen = () => {
                             onChange={(e) => {
                               const val = parseFloat(e.target.value);
                               if (isNaN(val) || val < 0) return;
-                              setSkuMeta((prev) => ({ ...prev, [part.sku]: { ...prev[part.sku], weight_lbs: val } }));
-                              supabase.from('sku_metadata').upsert(
-                                { sku: part.sku, weight_lbs: val },
-                                { onConflict: 'sku' }
-                              );
+                              setSkuMeta((prev) => ({
+                                ...prev,
+                                [part.sku]: { ...prev[part.sku], weight_lbs: val },
+                              }));
+                              supabase
+                                .from('sku_metadata')
+                                .upsert({ sku: part.sku, weight_lbs: val }, { onConflict: 'sku' });
                             }}
                             step="0.1"
                             min="0"
