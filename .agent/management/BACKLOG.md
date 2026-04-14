@@ -98,6 +98,8 @@
 - [ ] **Fotos Fase 3 — Bulk Upload** — Multi-file picker, batching, progress bar. <!-- id: idea-023-p3 -->
 - [ ] **Migrar cron jobs a pg_cron** — Elimina dependencia de GitHub Actions. <!-- id: idea-030 -->
 - [ ] **Projects — drag to reorder priority** — En Coming Up Next y In Progress, arrastrar para reordenar. Más arriba = más prioridad. No se refleja en ningún otro lado por ahora, solo capacidad de reordenar dentro de cada columna. <!-- id: idea-049 -->
+- [ ] **Shopping List / Cosas por comprar** — Vista donde el equipo registra items que se necesitan en el warehouse (supplies, herramientas, materiales). Lenor puede ver la lista para ordenar, y Roman la tiene a mano cuando va a comprar sin tener que preguntar a cada persona. Accesible desde el menú principal. <!-- id: idea-056 -->
+- [ ] **FedEx default single group** — Las órdenes FedEx se crean con un solo grupo por defecto (todo junto en una caja). Si el picker necesita separar en múltiples cajas, lo hace manualmente como siempre. Elimina el paso innecesario de agrupar cuando la mayoría va en un solo paquete. <!-- id: idea-057 -->
 - [x] ~~**Activity Report — quitar la hora del header**~~ ✅ 2026-04-10 `35ff19c` <!-- id: idea-051 -->
 
 ---

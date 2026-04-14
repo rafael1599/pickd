@@ -47,6 +47,11 @@ const ProjectsScreen = React.lazy(() =>
 const LabelStudioScreen = React.lazy(() =>
   import('./features/labels/LabelStudioScreen').then((m) => ({ default: m.LabelStudioScreen }))
 );
+const ShoppingListScreen = React.lazy(() =>
+  import('./features/shopping-list/ShoppingListScreen.tsx').then((m) => ({
+    default: m.ShoppingListScreen,
+  }))
+);
 
 import { ViewModeProvider } from './context/ViewModeContext.tsx';
 import { PickingProvider } from './context/PickingContext.tsx';
@@ -79,6 +84,7 @@ const AuthenticatedContent = () => {
               element={isAdmin ? <Settings /> : <Navigate to="/" replace />}
             />
             <Route path="/stock-count" element={<StockCountScreen />} />
+            <Route path="/shopping-list" element={<ShoppingListScreen />} />
             <Route path="/cycle-count-history" element={<CycleCountHistoryScreen />} />
             <Route
               path="/activity-report"
