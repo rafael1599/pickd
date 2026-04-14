@@ -21,9 +21,10 @@
 ### ~~23. Generador de SKU labels para bicicletas~~ <!-- id: idea-040 --> ✅ 2026-04-09
 - `7022cbd` — tabla `asset_tags` con sequence (PK-000001) + lifecycle (`printed/in_stock/allocated/picked/shipped/lost`), QR encoding `short_code|sku` (decisión deliberada vs UPC tradicional para trazabilidad por unidad física), labels 4×6" landscape (Side A/B), batch screen `/labels` con location selector + search, individual desde `ItemDetailView` three-dot menu (bikes only). Parser `parseBikeName` con 10 tests. Extendido por `8e1e5a0` (public tag view + anti-enumeration) y `e152d7a` (QR pallet scan en DoubleCheckView).
 
-### 8. Sub-locations alfabéticas por ROW <!-- id: idea-024 -->
-- **Problema:** ROWs sin subdivisiones. Picker recorre toda la fila buscando un SKU.
-- **Solución:** Nueva columna `sublocation` (varchar, nullable). Display: `ROW 5A`. Backward compatible.
+### ~~8. Sub-locations alfabéticas por ROW~~ <!-- id: idea-024 --> ✅ 2026-04-14
+- Migración `20260414210000`: columna `sublocation` en `inventory` con CHECK constraints (`^[A-Z]{1,3}$`, solo `ROW%`), índice compuesto `(warehouse, location, sublocation)`. RPC `move_inventory_stock` actualizado con `p_sublocation` y auto-clear en non-ROW.
+- UI: chips A-F en ItemDetailView (add/edit) y MovementModal, solo visibles para locations ROW. Badge inline en InventoryCard y DoubleCheckView (con fallback desde inventoryData para órdenes pre-sublocation). Auto-clear al cambiar a non-ROW.
+- Tipos Supabase actualizados manualmente en `types.ts` y `database.types.ts`.
 
 ### ~~20. Verification Queue — Split View con drag & drop~~ <!-- id: idea-037 --> ✅ 2026-04-13
 - Absorbido por idea-055 (Verification Board Redesign). Full-screen multi-zone kanban con drag & drop entre lanes FedEx/Regular/Waiting/Completed. `VerificationBoard.tsx` reemplaza el antiguo modal single-column.
