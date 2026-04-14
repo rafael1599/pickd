@@ -22,6 +22,9 @@ const OrdersScreen = React.lazy(() =>
 const SnapshotViewer = React.lazy(() =>
   import('./features/inventory/SnapshotViewer.tsx').then((m) => ({ default: m.SnapshotViewer }))
 );
+const PickdReportViewer = React.lazy(() =>
+  import('./features/reports/PickdReportViewer.tsx').then((m) => ({ default: m.PickdReportViewer }))
+);
 const PublicTagView = React.lazy(() =>
   import('./features/labels/PublicTagView.tsx').then((m) => ({ default: m.PublicTagView }))
 );
@@ -204,6 +207,21 @@ function App() {
                       }
                     >
                       <PublicTagView />
+                    </Suspense>
+                  }
+                />
+
+                <Route
+                  path="/pickd-report"
+                  element={
+                    <Suspense
+                      fallback={
+                        <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center">
+                          <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
+                        </div>
+                      }
+                    >
+                      <PickdReportViewer />
                     </Suspense>
                   }
                 />
