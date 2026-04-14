@@ -51,3 +51,4 @@ claude-skills/
 supabase/seed.sql
 supabase/snippets/
 pickd.db
+public/reports/daily/

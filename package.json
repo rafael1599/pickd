@@ -7,6 +7,7 @@
     "dev": "vite",
     "migrate": "node scripts/migrate.js",
     "setup:db": "node scripts/apply-migration.js",
+    "prebuild": "mkdir -p public/reports/daily && cp reports/daily/*.html public/reports/daily/ 2>/dev/null || true",
     "build": "vite build",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
