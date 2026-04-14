@@ -292,18 +292,9 @@ export const ShoppingListScreen: React.FC = () => {
           </p>
         </div>
         {pending.length > 0 && (
-          <>
-            <span className="px-2 py-0.5 rounded-full bg-accent/10 text-accent text-xs font-bold">
-              {pending.length}
-            </span>
-            <button
-              onClick={() => generateShoppingListPdf(items ?? [])}
-              className="p-2 hover:bg-card rounded-xl text-muted hover:text-content transition-colors"
-              aria-label="Print shopping list"
-            >
-              <Printer size={18} />
-            </button>
-          </>
+          <span className="px-2 py-0.5 rounded-full bg-accent/10 text-accent text-xs font-bold">
+            {pending.length}
+          </span>
         )}
       </div>
 
@@ -356,6 +347,17 @@ export const ShoppingListScreen: React.FC = () => {
                 </div>
               )}
             </div>
+          )}
+
+          {/* Print button */}
+          {pending.length > 0 && (
+            <button
+              onClick={() => generateShoppingListPdf(items ?? [])}
+              className="w-full mt-6 flex items-center justify-center gap-3 py-4 bg-card border border-subtle rounded-2xl text-content font-bold text-sm uppercase tracking-wider hover:bg-surface active:scale-[0.98] transition-all"
+            >
+              <Printer size={20} />
+              Print Shopping List
+            </button>
           )}
         </>
       )}
