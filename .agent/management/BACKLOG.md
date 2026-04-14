@@ -1,7 +1,7 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-04-10 (compactado — 12 items archivados, 7 micro-compactados)
+> Actualizado: 2026-04-13 (compactado — 12 items archivados, 7 micro-compactados)
 
 ---
 

@@ -56,6 +56,8 @@ completed → reopened (via Reopen Order — requires reason)
 
 **Verification Board (idea-055):** La Verification Queue es un overlay full-screen con zonas: Priority (auto-populated por status), FedEx/Regular lanes (drag-reclasificar `shipping_type`), In Progress Projects (read-only), Recently Completed (drag=reopen), Waiting (colapsable). Auto-clasificación: item >50 lbs o ≥5 items → Regular, else → FedEx. `shipping_type` columna en `picking_lists` (NULL = auto). DnD usa `@dnd-kit/sortable` con `useBoardDnD` hook. Componentes en `src/features/picking/components/board/`.
 
+**Activity Report layout:** Editor panel on the left (desktop) with labeled fields (Win, Updates, On the Floor, Notes). Preview on the right updates with green highlight flash on each edit. "Save & Copy Report" button at bottom saves + copies to clipboard in one action. `/pickd-report` public route shows the HTML daily report for the current date with date navigation.
+
 ## Base de datos compartida
 
 Esta app comparte la misma DB Supabase con **pickd-2d** (dashboard de visualizacion 2D/3D).
@@ -72,6 +74,7 @@ Ver `JAMIS/SHARED-DB-CONTRACT.md` para ownership de tablas, RPCs, y reglas de mi
 - **Flujo:** feature branches → PR a `develop` → testing en staging → PR a `main` → producción.
 - **Regla de migraciones:** Como staging y producción comparten la misma DB, los cambios de esquema deben ser **aditivos** (agregar columnas/funciones OK, renombrar/eliminar NO hasta que producción también se actualice).
 - **Banner de staging:** `StagingBanner.tsx` muestra un banner amarillo "STAGING" automáticamente cuando el hostname no es producción ni localhost.
+- **Reports prebuild:** `pnpm prebuild` copies `reports/daily/*.html` to `public/reports/daily/` for static serving. Runs automatically before `pnpm build`. The `/pickd-report` route serves these via iframe.
 
 ## Servicios externos
 
