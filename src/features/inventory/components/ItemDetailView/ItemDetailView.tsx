@@ -239,7 +239,8 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       n(warehouse) !== n(initialData.warehouse || screenType || 'LUDLOW') ||
       Number(quantity || 0) !== Number(initialData.quantity || 0) ||
       n(itemName) !== n(initialData.item_name) ||
-      n(internalNote) !== n(initialData.internal_note);
+      n(internalNote) !== n(initialData.internal_note) ||
+      n(sublocation) !== n(initialData.sublocation);
     if (formChanged) return true;
     const meta = initialData.sku_metadata;
     const metaChanged =
@@ -262,6 +263,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     quantity,
     itemName,
     internalNote,
+    sublocation,
     distribution,
     screenType,
     lengthIn,
