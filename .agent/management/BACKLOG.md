@@ -7,18 +7,16 @@
 
 ## P1 — Alto (operación diaria)
 
-### 26. Mostrar notas en picking summary <!-- id: idea-044 -->
-- **Problema:** Las notas de corrección (picking_list_notes) no se muestran en el resumen de picking. El picker/checker no ve el historial de cambios al revisar una orden.
-- **Solución:** Incluir las notas relevantes en la vista de picking summary (OrdersScreen o label preview area).
-- **Datos:** Tabla `picking_list_notes` ya tiene las notas con timestamps y usuario.
+### ~~26. Mostrar notas en picking summary~~ <!-- id: idea-044 --> ✅ 2026-04-10
+- Implementado: PickingSummaryModal rediseñado con accordion amber para notas de corrección. Cada nota muestra usuario, timestamp y mensaje. Colapsable, solo aparece si la orden tiene notas.
 
 ### ~~29. Estandarización visual completa~~ <!-- id: idea-046 --> ✅ 2026-04-08
 - 4 fases: colors (`82bcfc8`) → z-index (`27cf781`) → overlays (`723e57e`) → picking screens (`f28c666`). Revert parcial: 6 modales restaurados a z-[150]/[200] (`7b23781`).
 
-### 22. Alerta de orden duplicada por cliente + reabrir <!-- id: idea-039 -->
+### 22. Alerta de orden duplicada por cliente + reabrir <!-- id: idea-039 --> (deprioritized)
 - **Problema:** Cuando llega una orden nueva para un cliente cuya orden anterior ya fue completada, el picker no se entera y la procesa por separado.
-- **Solución:** Al abrir una orden en la app, detectar si existe otra orden **completada** del mismo `customer_name`. Mostrar alerta con opción de reabrir la completada y mergear los items nuevos. Usa la lógica existente de `reopened` + snapshot tracking para no deducir dos veces items ya recogidos.
-- **Ubicación:** En la app (al abrir la orden), no en watchdog.
+- **Solución:** Detectar si existe otra orden completada del mismo `customer_name`. Mostrar alerta con opción de reabrir y mergear.
+- **Estado:** Deprioritizado 2026-04-13. No es urgente — se maneja manualmente por ahora.
 
 ### ~~23. Generador de SKU labels para bicicletas~~ <!-- id: idea-040 --> ✅ 2026-04-09
 - `7022cbd` — tabla `asset_tags` con sequence (PK-000001) + lifecycle (`printed/in_stock/allocated/picked/shipped/lost`), QR encoding `short_code|sku` (decisión deliberada vs UPC tradicional para trazabilidad por unidad física), labels 4×6" landscape (Side A/B), batch screen `/labels` con location selector + search, individual desde `ItemDetailView` three-dot menu (bikes only). Parser `parseBikeName` con 10 tests. Extendido por `8e1e5a0` (public tag view + anti-enumeration) y `e152d7a` (QR pallet scan en DoubleCheckView).
