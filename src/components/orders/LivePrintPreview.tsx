@@ -241,7 +241,8 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
         <div
           className="grid gap-x-12 gap-y-20 justify-center origin-top h-fit"
           style={{
-            gridTemplateColumns: pages.length <= 1 ? '297mm' : 'repeat(2, 297mm)',
+            gridTemplateColumns:
+              pages.length <= 1 ? '297mm' : window.innerWidth < 768 ? '297mm' : 'repeat(2, 297mm)',
             transform: 'scale(var(--preview-scale))',
           }}
         >
