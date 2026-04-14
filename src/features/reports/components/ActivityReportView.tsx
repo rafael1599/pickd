@@ -12,6 +12,7 @@ function useHighlight(value: unknown): string {
   useEffect(() => {
     if (prev.current !== value) {
       prev.current = value;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFlash(true);
       const t = setTimeout(() => setFlash(false), 800);
       return () => clearTimeout(t);
@@ -53,6 +54,7 @@ interface Props {
   inProgress: ReportTask[];
   comingUpNext: ReportTask[];
   waitingOrdersCount?: number;
+  greeting?: string;
 }
 
 function formatDate(dateStr: string): string {
@@ -145,6 +147,7 @@ export const ActivityReportView: React.FC<Props> = ({
   inProgress,
   comingUpNext,
   waitingOrdersCount = 0,
+  greeting,
 }) => {
   const [detailOpen, setDetailOpen] = useState(false);
 
@@ -178,7 +181,7 @@ export const ActivityReportView: React.FC<Props> = ({
 
   // Free text notes
   for (const n of notes) {
-    floorBullets.push(`${n.full_name}: ${n.text}`);
+    floorBullets.push(n.text);
   }
 
   const hasWin = winOfTheDay.trim().length > 0;
@@ -225,6 +228,21 @@ export const ActivityReportView: React.FC<Props> = ({
             {formatDate(report.date)}
           </p>
         </div>
+
+        {/* Greeting — optional */}
+        {greeting && (
+          <p
+            style={{
+              margin: '0 0 20px 0',
+              fontSize: 15,
+              fontWeight: 500,
+              color: TEXT,
+              lineHeight: 1.5,
+            }}
+          >
+            {greeting}
+          </p>
+        )}
 
         {/* WIN OF THE DAY — conditional */}
         {hasWin && (
@@ -281,18 +299,7 @@ export const ActivityReportView: React.FC<Props> = ({
           </>
         )}
 
-        {/* IN PROGRESS — conditional */}
-        {hasInProgress && (
-          <>
-            <div style={cardStyle}>
-              <p style={sectionHeaderStyle(AMBER)}>IN PROGRESS</p>
-              {renderTaskList(inProgress, AMBER, '\u25CF')}
-            </div>
-            <div style={spacerStyle} />
-          </>
-        )}
-
-        {/* ON THE FLOOR — always visible if there's content */}
+        {/* ON THE FLOOR — before In Progress */}
         {hasFloorContent && (
           <>
             <div style={cardStyle} className={`${checklistFlash} ${notesFlash}`.trim()}>
@@ -310,6 +317,17 @@ export const ActivityReportView: React.FC<Props> = ({
                   &nbsp;&nbsp;{item}
                 </p>
               ))}
+            </div>
+            <div style={spacerStyle} />
+          </>
+        )}
+
+        {/* IN PROGRESS — conditional */}
+        {hasInProgress && (
+          <>
+            <div style={cardStyle}>
+              <p style={sectionHeaderStyle(AMBER)}>IN PROGRESS</p>
+              {renderTaskList(inProgress, AMBER, '\u25CF')}
             </div>
             <div style={spacerStyle} />
           </>

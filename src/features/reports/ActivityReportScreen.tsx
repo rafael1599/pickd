@@ -7,8 +7,11 @@ import Printer from 'lucide-react/dist/esm/icons/printer';
 import Copy from 'lucide-react/dist/esm/icons/copy';
 import Check from 'lucide-react/dist/esm/icons/check';
 import Plus from 'lucide-react/dist/esm/icons/plus';
-import X from 'lucide-react/dist/esm/icons/x';
 import Save from 'lucide-react/dist/esm/icons/save';
+import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
+import Settings2 from 'lucide-react/dist/esm/icons/settings-2';
+import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
+import GripVertical from 'lucide-react/dist/esm/icons/grip-vertical';
 import { useQuery } from '@tanstack/react-query';
 import {
   useActivityReport,
@@ -39,7 +42,7 @@ interface UserNote {
   text: string;
 }
 
-const ROUTINE_ITEMS = [
+const DEFAULT_ROUTINE_ITEMS = [
   'Cleanup / trash',
   'Sweeping',
   'Receiving — Uline',
@@ -48,6 +51,23 @@ const ROUTINE_ITEMS = [
   'Receiving — pallets',
   'General organization',
 ];
+
+const ROUTINE_STORAGE_KEY = 'pickd-routine-items';
+
+function loadRoutineItems(): string[] {
+  try {
+    const stored = localStorage.getItem(ROUTINE_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch { /* ignore */ }
+  return DEFAULT_ROUTINE_ITEMS;
+}
+
+function saveRoutineItems(items: string[]) {
+  localStorage.setItem(ROUTINE_STORAGE_KEY, JSON.stringify(items));
+}
 
 export const ActivityReportScreen = () => {
   const navigate = useNavigate();
@@ -64,6 +84,7 @@ export const ActivityReportScreen = () => {
   const [selectedDate, setSelectedDate] = useState('');
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (today && !selectedDate) setSelectedDate(today);
   }, [today, selectedDate]);
 
@@ -78,13 +99,15 @@ export const ActivityReportScreen = () => {
   const { data: reportTasks } = useReportTasks(selectedDate);
 
   // ----- Manual editable state -----
-  const [notes, setNotes] = useState<UserNote[]>([]);
-  // noteUser dropdown removed — uses current auth user
-  const [noteText, setNoteText] = useState('');
+  const [showGreeting, setShowGreeting] = useState(true);
+  const [notesText, setNotesText] = useState('');
   const [winOfTheDay, setWinOfTheDay] = useState('');
   const [pickdUpdatesText, setPickdUpdatesText] = useState('');
   const [routineChecklist, setRoutineChecklist] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
+  const [routineItems, setRoutineItems] = useState<string[]>(loadRoutineItems);
+  const [editingRoutine, setEditingRoutine] = useState(false);
+  const [newRoutineItem, setNewRoutineItem] = useState('');
 
   // Last successfully saved/loaded baseline (for dirty tracking)
   const [savedManual, setSavedManual] = useState<DailyReportManual>({});
@@ -144,7 +167,9 @@ export const ActivityReportScreen = () => {
   // and forces re-hydration from the new date's snapshot (or empty).
   useEffect(() => {
     lastHydratedDateRef.current = null;
-    setNotes([]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNotesText('');
+     
     setWinOfTheDay('');
     setPickdUpdatesText('');
     setRoutineChecklist([]);
@@ -154,6 +179,7 @@ export const ActivityReportScreen = () => {
   // Hydrate local manual state from the snapshot exactly once per selected date.
   // After hydration, mutations (save) update lastHydratedDateRef so subsequent
   // refetches do not overwrite the user's in-progress edits.
+   
   useEffect(() => {
     if (!selectedDate) return;
     if (lastHydratedDateRef.current === selectedDate) return;
@@ -166,11 +192,13 @@ export const ActivityReportScreen = () => {
     const nextUpdatesArr = m.pickd_updates ?? [];
     const nextRoutine = m.routine_checklist ?? [];
     const nextNotes = m.user_notes ?? [];
+    const nextNotesText = nextNotes.map((n) => n.text).join('\n');
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setWinOfTheDay(nextWin);
     setPickdUpdatesText(nextUpdatesArr.join('\n'));
     setRoutineChecklist(nextRoutine);
-    setNotes(nextNotes);
+    setNotesText(nextNotesText);
     setSavedManual({
       win_of_the_day: nextWin,
       pickd_updates: nextUpdatesArr,
@@ -179,6 +207,17 @@ export const ActivityReportScreen = () => {
     });
     lastHydratedDateRef.current = selectedDate;
   }, [selectedDate, snapshotRow]);
+
+  // ----- Derived notes for view & persistence -----
+  const notes: UserNote[] = useMemo(() => {
+    const name = authProfile?.full_name ?? 'Unknown';
+    const uid = user?.id ?? '';
+    return notesText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((text) => ({ id: uid, full_name: name, text }));
+  }, [notesText, authProfile, user]);
 
   // ----- Dirty tracking -----
   const currentManual: DailyReportManual = useMemo(
@@ -242,20 +281,6 @@ export const ActivityReportScreen = () => {
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   }, [isDirty, canEdit]);
-
-  const handleAddNote = useCallback(() => {
-    if (!noteText.trim() || !user) return;
-    const name = authProfile?.full_name ?? 'Unknown';
-    setNotes((prev) => [
-      ...prev,
-      { id: user.id, full_name: name, text: noteText.trim() },
-    ]);
-    setNoteText('');
-  }, [noteText, user, authProfile]);
-
-  const handleRemoveNote = useCallback((index: number) => {
-    setNotes((prev) => prev.filter((_, i) => i !== index));
-  }, []);
 
   const handleToggleRoutine = useCallback((item: string) => {
     setRoutineChecklist((prev) =>
@@ -396,6 +421,18 @@ export const ActivityReportScreen = () => {
           <div className="p-4 space-y-3">
             <p className="text-[10px] font-black uppercase tracking-widest text-muted mb-1">Editor</p>
 
+            {/* Greeting toggle */}
+            <button
+              onClick={() => setShowGreeting((v) => !v)}
+              className={`w-full px-3 py-2 rounded-xl text-[11px] font-bold text-left transition-all active:scale-[0.98] ${
+                showGreeting
+                  ? 'bg-accent/15 border border-accent/30 text-accent'
+                  : 'bg-surface border border-subtle text-muted hover:border-accent/30'
+              }`}
+            >
+              Hi Carine! Here's today's update.
+            </button>
+
             {/* Win of the Day input + save */}
             <div>
               <label className="text-[9px] font-bold uppercase tracking-widest text-muted/70 mb-1 block">Win of the Day</label>
@@ -422,10 +459,18 @@ export const ActivityReportScreen = () => {
               </div>
             </div>
 
-            {/* PickD Updates — manual multiline + save */}
-            <div>
-              <label className="text-[9px] font-bold uppercase tracking-widest text-muted/70 mb-1 block">PickD Updates</label>
-              <div className="flex gap-1.5">
+            {/* PickD Updates — collapsible */}
+            <details className="group">
+              <summary className="flex items-center gap-1 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
+                <ChevronDown size={12} className="text-muted/50 transition-transform group-open:rotate-180" />
+                <span className="text-[9px] font-bold uppercase tracking-widest text-muted/70">
+                  PickD Updates
+                </span>
+                {pickdUpdatesText.trim() && (
+                  <span className="text-[9px] font-bold text-accent/60 group-open:hidden">({pickdUpdates.length})</span>
+                )}
+              </summary>
+              <div className="flex gap-1.5 mt-1.5">
                 <textarea
                   value={pickdUpdatesText}
                   onChange={(e) => setPickdUpdatesText(e.target.value)}
@@ -445,78 +490,135 @@ export const ActivityReportScreen = () => {
                   </button>
                 )}
               </div>
-            </div>
+            </details>
 
             {/* Routine checklist toggles */}
             <div>
-              <label className="text-[9px] font-bold uppercase tracking-widest text-muted/70 mb-1 block">On the Floor</label>
-              <div className="flex flex-wrap gap-1.5">
-                {ROUTINE_ITEMS.map((item) => {
-                  const isChecked = routineChecklist.includes(item);
-                  return (
-                    <button
-                      key={item}
-                      onClick={() => handleToggleRoutine(item)}
-                      disabled={!canEdit}
-                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 disabled:cursor-not-allowed ${
-                        isChecked
-                          ? 'bg-accent text-main'
-                          : 'bg-surface border border-subtle text-muted hover:border-accent/30'
-                      } ${!canEdit ? 'opacity-50' : ''}`}
-                    >
-                      {item}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Added notes preview */}
-            {notes.length > 0 && (
-              <div>
-                <label className="text-[9px] font-bold uppercase tracking-widest text-muted/70 mb-1 block">Notes</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {notes.map((n, i) => (
-                    <span
-                      key={i}
-                      className="inline-flex items-center gap-1 px-2 py-1 bg-accent/10 border border-accent/20 rounded-lg text-[10px] font-bold text-accent"
-                    >
-                      {n.full_name}: {n.text.slice(0, 20)}
-                      {n.text.length > 20 ? '...' : ''}
-                      {canEdit && (
-                        <button onClick={() => handleRemoveNote(i)} className="hover:text-red-400">
-                          <X size={10} />
-                        </button>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Note text input — uses current logged-in user */}
-            {canEdit && (
-              <div>
-                <label className="text-[9px] font-bold uppercase tracking-widest text-muted/70 mb-1 block">Add Note</label>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="text"
-                    value={noteText}
-                    onChange={(e) => setNoteText(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddNote()}
-                    placeholder="Note..."
-                    className="flex-1 h-9 px-2 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40"
-                  />
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[9px] font-bold uppercase tracking-widest text-muted/70">On the Floor</label>
+                {canEdit && (
                   <button
-                    onClick={handleAddNote}
-                    disabled={!noteText.trim()}
-                    className="h-9 w-9 flex items-center justify-center bg-accent text-main rounded-xl active:scale-90 transition-all disabled:opacity-30 shrink-0"
+                    onClick={() => setEditingRoutine((v) => !v)}
+                    className={`p-1 rounded-md transition-colors ${
+                      editingRoutine ? 'bg-accent/20 text-accent' : 'text-muted/50 hover:text-muted'
+                    }`}
+                    title="Edit routine items"
                   >
-                    <Plus size={14} />
+                    <Settings2 size={12} />
+                  </button>
+                )}
+              </div>
+
+              {editingRoutine && canEdit ? (
+                <div className="space-y-1.5 mb-2">
+                  {routineItems.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-1.5 group"
+                    >
+                      <GripVertical size={10} className="text-muted/30 shrink-0" />
+                      <span className="flex-1 text-[11px] text-content truncate">{item}</span>
+                      <button
+                        onClick={() => {
+                          const next = routineItems.filter((_, i) => i !== idx);
+                          setRoutineItems(next);
+                          saveRoutineItems(next);
+                          setRoutineChecklist((prev) => prev.filter((c) => c !== item));
+                        }}
+                        className="p-1 rounded-md text-muted/40 hover:text-red-400 hover:bg-red-400/10 transition-colors opacity-0 group-hover:opacity-100"
+                        title="Remove item"
+                      >
+                        <Trash2 size={11} />
+                      </button>
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <input
+                      type="text"
+                      value={newRoutineItem}
+                      onChange={(e) => setNewRoutineItem(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && newRoutineItem.trim()) {
+                          const next = [...routineItems, newRoutineItem.trim()];
+                          setRoutineItems(next);
+                          saveRoutineItems(next);
+                          setNewRoutineItem('');
+                        }
+                      }}
+                      placeholder="New item..."
+                      className="flex-1 h-7 px-2 bg-surface border border-subtle rounded-lg text-[11px] text-content placeholder-muted/50 focus:outline-none focus:border-accent/40"
+                    />
+                    <button
+                      onClick={() => {
+                        if (!newRoutineItem.trim()) return;
+                        const next = [...routineItems, newRoutineItem.trim()];
+                        setRoutineItems(next);
+                        saveRoutineItems(next);
+                        setNewRoutineItem('');
+                      }}
+                      disabled={!newRoutineItem.trim()}
+                      className="h-7 w-7 flex items-center justify-center bg-accent text-main rounded-lg active:scale-90 transition-all disabled:opacity-30 shrink-0"
+                    >
+                      <Plus size={12} />
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setRoutineItems(DEFAULT_ROUTINE_ITEMS);
+                      saveRoutineItems(DEFAULT_ROUTINE_ITEMS);
+                    }}
+                    className="text-[9px] font-bold uppercase tracking-widest text-muted/50 hover:text-muted transition-colors"
+                  >
+                    Reset to defaults
                   </button>
                 </div>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {routineItems.map((item) => {
+                    const isChecked = routineChecklist.includes(item);
+                    return (
+                      <button
+                        key={item}
+                        onClick={() => handleToggleRoutine(item)}
+                        disabled={!canEdit}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 disabled:cursor-not-allowed ${
+                          isChecked
+                            ? 'bg-accent text-main'
+                            : 'bg-surface border border-subtle text-muted hover:border-accent/30'
+                        } ${!canEdit ? 'opacity-50' : ''}`}
+                      >
+                        {item}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Notes — multiline editable */}
+            <div>
+              <label className="text-[9px] font-bold uppercase tracking-widest text-muted/70 mb-1 block">Notes</label>
+              <div className="flex gap-1.5">
+                <textarea
+                  value={notesText}
+                  onChange={(e) => setNotesText(e.target.value)}
+                  disabled={!canEdit}
+                  placeholder={canEdit ? 'One per line...' : '—'}
+                  rows={3}
+                  className="flex-1 px-3 py-2 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                {showSaveControls && (
+                  <button
+                    onClick={handleSave}
+                    disabled={!canSave}
+                    className="h-9 w-9 flex items-center justify-center bg-accent text-main rounded-xl active:scale-90 transition-all disabled:opacity-30 shrink-0 self-end"
+                    title="Save"
+                  >
+                    {saveManual.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  </button>
+                )}
               </div>
-            )}
+            </div>
 
             {/* Save & Copy button — saves then copies report to clipboard */}
             {showSaveControls && (
@@ -572,6 +674,7 @@ export const ActivityReportScreen = () => {
                 inProgress={inProgress}
                 comingUpNext={comingUpNext}
                 waitingOrdersCount={waitingCount}
+                greeting={showGreeting ? "Hi Carine! Here's today's update." : undefined}
               />
             </div>
           )}
