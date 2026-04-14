@@ -41,23 +41,18 @@ export const generateShoppingListPdf = async (items: ShoppingItem[]) => {
   doc.setTextColor(...BLACK);
   doc.text('SHOPPING LIST', M, 7);
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
-  doc.setTextColor(...BLACK);
-  doc.text(`${today}  ·  ${pending.length} items`, M, 13);
-
   // ── Separator ─────────────────────────────────────────────
 
   doc.setDrawColor(...BLACK);
   doc.setLineWidth(0.5);
-  doc.line(M, 15, W - M, 15);
+  doc.line(M, 9, W - M, 9);
 
   // ── Table ─────────────────────────────────────────────────
 
   const body = pending.map((item) => [item.item_name, item.quantity || '', '']);
 
   autoTable(doc, {
-    startY: 17,
+    startY: 11,
     head: [['Item', 'Qty', '✓']],
     body,
     theme: 'plain',
