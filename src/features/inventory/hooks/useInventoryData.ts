@@ -77,6 +77,7 @@ export const useInventory = () => {
       return {
         totalSkus: Number(row?.total_skus ?? 0),
         totalQuantity: Number(row?.total_units ?? 0),
+        totalCapacity: Number(row?.total_capacity ?? 0),
       };
     },
     staleTime: 60_000,

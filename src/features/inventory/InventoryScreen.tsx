@@ -634,10 +634,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
           const totalUnits = debouncedSearch
             ? filteredStats.totalQuantity
             : (globalStats?.totalQuantity ?? filteredStats.totalQuantity);
-          const totalCapacity = Object.values(locationCapacities).reduce(
-            (sum, loc) => sum + (loc.max || 0),
-            0
-          );
+          const totalCapacity = globalStats?.totalCapacity ?? 0;
           const fillPct = totalCapacity > 0 ? Math.min((totalUnits / totalCapacity) * 100, 100) : 0;
           const fillRatio = totalCapacity > 0 ? totalUnits / totalCapacity : 0;
           return (
