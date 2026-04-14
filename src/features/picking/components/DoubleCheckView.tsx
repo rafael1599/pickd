@@ -45,7 +45,7 @@ const DISTRIBUTION_PRIORITY: Record<string, number> = { PALLET: 0, LINE: 1, TOWE
 export interface PickingItem {
   sku: string;
   location: string | null;
-  sublocation?: string | null;
+  sublocation?: string[] | null;
   pickingQty: number;
   quantity?: string | number;
   warehouse?: string;
@@ -157,10 +157,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
   // Build sublocation lookup from live inventory (items JSONB may not have it)
   const sublocationMap = useMemo(() => {
-    const map: Record<string, string> = {};
+    const map: Record<string, string[]> = {};
     if (inventoryData) {
       for (const inv of inventoryData) {
-        if (inv.sublocation && inv.location) {
+        if (inv.sublocation && inv.sublocation.length > 0 && inv.location) {
           map[`${inv.sku}-${(inv.location || '').toUpperCase()}`] = inv.sublocation;
         }
       }
@@ -1289,17 +1289,18 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                 .replace('row', '')
                                 .trim()
                                 .slice(0, 5) || '-'}
-                              {(item.sublocation ||
-                                sublocationMap[
-                                  `${item.sku}-${(item.location || '').toUpperCase()}`
-                                ]) && (
-                                <span className="text-[10px] font-black bg-amber-500/15 text-amber-400 px-1 py-0.5 rounded ml-1 border border-amber-500/20 align-middle">
-                                  {item.sublocation ||
-                                    sublocationMap[
-                                      `${item.sku}-${(item.location || '').toUpperCase()}`
-                                    ]}
-                                </span>
-                              )}
+                              {(() => {
+                                const subs =
+                                  item.sublocation ||
+                                  sublocationMap[
+                                    `${item.sku}-${(item.location || '').toUpperCase()}`
+                                  ];
+                                return subs && subs.length > 0 ? (
+                                  <span className="text-[10px] font-black bg-amber-500/15 text-amber-400 px-1 py-0.5 rounded ml-1 border border-amber-500/20 align-middle">
+                                    {subs.join(',')}
+                                  </span>
+                                ) : null;
+                              })()}
                             </div>
                             {!isReviewMode && isChecked && (
                               <div

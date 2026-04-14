@@ -220,7 +220,7 @@ export function useInventoryMutations() {
       targetLocation: string;
       qty: number;
       internalNote?: string | null;
-      targetSublocation?: string | null;
+      targetSublocation?: string[] | null;
     }) => {
       return inventoryService.moveItem(
         vars.sourceItem as InventoryItem,

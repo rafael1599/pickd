@@ -22,7 +22,7 @@ interface InventoryCardProps {
   is_active?: boolean;
   sku_metadata?: import('../../../schemas/skuMetadata.schema').SKUMetadata | null;
   internal_note?: string | null;
-  sublocation?: string | null;
+  sublocation?: string[] | null;
   distribution?: DistributionItem[];
   cartQty?: number;
   onCartIncrement?: () => void;
@@ -129,9 +129,9 @@ export const InventoryCard = memo(
                       style={{ fontFamily: 'var(--font-heading)' }}
                     >
                       {location}
-                      {sublocation && (
+                      {sublocation && sublocation.length > 0 && (
                         <span className="ml-1 text-[9px] font-black bg-accent/15 text-accent px-1 py-0.5 rounded border border-accent/20">
-                          {sublocation}
+                          {sublocation.join(',')}
                         </span>
                       )}
                     </div>

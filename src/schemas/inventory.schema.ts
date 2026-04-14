@@ -39,8 +39,7 @@ export const InventoryItemDBSchema = z.object({
   location: z.string().nullable(),
   location_id: z.string().nullable().optional(),
   sublocation: z
-    .string()
-    .regex(/^[A-Z]{1,3}$/)
+    .array(z.string().regex(/^[A-Z]$/))
     .nullable()
     .optional(),
   item_name: z.string().nullable().optional(),
@@ -74,8 +73,7 @@ export const InventoryItemInputSchema = z.object({
   location: z.string().trim().min(1, 'location is required'),
   location_id: z.string().uuid().optional().nullable(),
   sublocation: z
-    .string()
-    .regex(/^[A-Z]{1,3}$/)
+    .array(z.string().regex(/^[A-Z]$/))
     .nullable()
     .optional(),
   item_name: z.string().optional().nullable(),

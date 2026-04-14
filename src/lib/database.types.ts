@@ -356,7 +356,7 @@ export type Database = {
           stowage_index: number | null;
           stowage_qty: number | null;
           stowage_type: string | null;
-          sublocation: string | null;
+          sublocation: string[] | null;
           updated_at: string | null;
           warehouse: string | null;
         };
@@ -376,7 +376,7 @@ export type Database = {
           stowage_index?: number | null;
           stowage_qty?: number | null;
           stowage_type?: string | null;
-          sublocation?: string | null;
+          sublocation?: string[] | null;
           updated_at?: string | null;
           warehouse?: string | null;
         };
@@ -396,7 +396,7 @@ export type Database = {
           stowage_index?: number | null;
           stowage_qty?: number | null;
           stowage_type?: string | null;
-          sublocation?: string | null;
+          sublocation?: string[] | null;
           updated_at?: string | null;
           warehouse?: string | null;
         };

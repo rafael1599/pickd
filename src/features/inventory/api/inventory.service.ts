@@ -766,7 +766,7 @@ class InventoryService extends BaseService<
     qty: number,
     ctx: InventoryServiceContext,
     internalNote?: string | null,
-    targetSublocation?: string | null
+    targetSublocation?: string[] | null
   ) {
     const { userInfo } = ctx;
 

@@ -1097,22 +1097,29 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                     Sub-location
                   </span>
                   <div className="flex flex-wrap gap-1.5">
-                    {['A', 'B', 'C', 'D', 'E', 'F'].map((letter) => (
-                      <button
-                        key={letter}
-                        type="button"
-                        onClick={() =>
-                          setValue('sublocation', sublocation === letter ? null : letter)
-                        }
-                        className={`w-9 h-9 rounded-lg text-xs font-black transition-all ${
-                          sublocation === letter
-                            ? 'bg-accent text-main shadow-lg shadow-accent/20'
-                            : 'bg-surface text-muted border border-subtle hover:border-accent/40'
-                        }`}
-                      >
-                        {letter}
-                      </button>
-                    ))}
+                    {['A', 'B', 'C', 'D', 'E', 'F'].map((letter) => {
+                      const isSelected = sublocation?.includes(letter);
+                      return (
+                        <button
+                          key={letter}
+                          type="button"
+                          onClick={() => {
+                            const current = sublocation || [];
+                            const updated = isSelected
+                              ? current.filter((l) => l !== letter)
+                              : [...current, letter].sort();
+                            setValue('sublocation', updated.length > 0 ? updated : null);
+                          }}
+                          className={`w-9 h-9 rounded-lg text-xs font-black transition-all ${
+                            isSelected
+                              ? 'bg-accent text-main shadow-lg shadow-accent/20'
+                              : 'bg-surface text-muted border border-subtle hover:border-accent/40'
+                          }`}
+                        >
+                          {letter}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1158,22 +1165,29 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                     Sub-location
                   </span>
                   <div className="flex flex-wrap gap-1.5">
-                    {['A', 'B', 'C', 'D', 'E', 'F'].map((letter) => (
-                      <button
-                        key={letter}
-                        type="button"
-                        onClick={() =>
-                          setValue('sublocation', sublocation === letter ? null : letter)
-                        }
-                        className={`w-9 h-9 rounded-lg text-xs font-black transition-all ${
-                          sublocation === letter
-                            ? 'bg-accent text-main shadow-lg shadow-accent/20'
-                            : 'bg-surface text-muted border border-subtle hover:border-accent/40'
-                        }`}
-                      >
-                        {letter}
-                      </button>
-                    ))}
+                    {['A', 'B', 'C', 'D', 'E', 'F'].map((letter) => {
+                      const isSelected = sublocation?.includes(letter);
+                      return (
+                        <button
+                          key={letter}
+                          type="button"
+                          onClick={() => {
+                            const current = sublocation || [];
+                            const updated = isSelected
+                              ? current.filter((l) => l !== letter)
+                              : [...current, letter].sort();
+                            setValue('sublocation', updated.length > 0 ? updated : null);
+                          }}
+                          className={`w-9 h-9 rounded-lg text-xs font-black transition-all ${
+                            isSelected
+                              ? 'bg-accent text-main shadow-lg shadow-accent/20'
+                              : 'bg-surface text-muted border border-subtle hover:border-accent/40'
+                          }`}
+                        >
+                          {letter}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}

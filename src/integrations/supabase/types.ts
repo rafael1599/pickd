@@ -456,7 +456,7 @@ export type Database = {
           stowage_index: number | null;
           stowage_qty: number | null;
           stowage_type: string | null;
-          sublocation: string | null;
+          sublocation: string[] | null;
           updated_at: string | null;
           warehouse: string | null;
         };
@@ -477,7 +477,7 @@ export type Database = {
           stowage_index?: number | null;
           stowage_qty?: number | null;
           stowage_type?: string | null;
-          sublocation?: string | null;
+          sublocation?: string[] | null;
           updated_at?: string | null;
           warehouse?: string | null;
         };
@@ -493,7 +493,7 @@ export type Database = {
           location_hint?: string | null;
           location_id?: string | null;
           location_sort_key?: number | null;
-          sublocation?: string | null;
+          sublocation?: string[] | null;
           quantity?: number | null;
           sku?: string;
           stowage_index?: number | null;
@@ -1245,7 +1245,7 @@ export type Database = {
           p_to_warehouse: string;
           p_user_id?: string;
           p_user_role?: string;
-          p_sublocation?: string;
+          p_sublocation?: string[];
         };
         Returns: Json;
       };
