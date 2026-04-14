@@ -52,16 +52,11 @@ export const generateShoppingListPdf = async (items: ShoppingItem[]) => {
 
   // ── Table ─────────────────────────────────────────────────
 
-  const body = pending.map((item) => [
-    item.urgent ? '!' : '',
-    item.item_name,
-    item.quantity || '',
-    '', // checkbox
-  ]);
+  const body = pending.map((item) => [item.item_name, item.quantity || '', '']);
 
   autoTable(doc, {
     startY: 16,
-    head: [['', 'Item', 'Qty', '✓']],
+    head: [['Item', 'Qty', '✓']],
     body,
     theme: 'plain',
     headStyles: {
@@ -85,20 +80,13 @@ export const generateShoppingListPdf = async (items: ShoppingItem[]) => {
       overflow: 'linebreak',
     },
     columnStyles: {
-      0: {
-        cellWidth: 8,
-        halign: 'center',
-        fontSize: 16,
-        textColor: [220, 50, 50],
-        fontStyle: 'bold',
-      },
-      1: { cellWidth: 'auto', fontStyle: 'bold' },
-      2: { cellWidth: 22 },
-      3: { cellWidth: 10, halign: 'center' },
+      0: { cellWidth: 'auto', fontStyle: 'bold' },
+      1: { cellWidth: 22 },
+      2: { cellWidth: 10, halign: 'center' },
     },
     didDrawCell: (data) => {
       // Draw empty checkbox
-      if (data.section === 'body' && data.column.index === 3) {
+      if (data.section === 'body' && data.column.index === 2) {
         const cx = data.cell.x + data.cell.width / 2;
         const cy = data.cell.y + data.cell.height / 2;
         doc.setDrawColor(150, 150, 150);
