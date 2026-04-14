@@ -58,33 +58,20 @@
 - **Decisiones clave (NO replantear):** save manual, RPC save-all (no patch per-field), LWW puro, fallo del cron = live compute silencioso, `task_buckets` se mantiene en JS cliente.
 - **Validación pendiente:** primer cron run automático 05:15 UTC mañana o merge develop → main para `gh workflow run`.
 
-### 35. Label Studio — personalización avanzada de SKU labels <!-- id: idea-054 -->
-- **Problema:** El generador de labels tiene 3 modos separados (create, custom, history) con lógica duplicada. No hay forma de registrar SKUs nuevos sin salir de la pantalla, la búsqueda es substring simple, y la orientación es un dropdown sin preview.
-- **Evolución de:** idea-040 (generador básico ya implementado). Extiende LabelGeneratorScreen.tsx.
-- **Decisiones de diseño (entrevista 2026-04-13):**
-  - **SKU obligatorio** — pero con quick register inline (nombre + SKU code mínimo) para SKUs nuevos sin salir de la pantalla. Permite crear labels para bikes que aún no llegaron.
-  - **Location obligatoria** — auto-fill si el SKU ya existe en inventory. Locations virtuales (INCOMING, IN TRANSIT) permitidas para bikes en camino. Si no existe la location, se crea.
-  - **Cada label = asset tag único** con su propio QR. Qty=10 = 10 registros independientes en `asset_tags`, no 10 copias del mismo.
-  - **Approach híbrido inventory/tags:**
-    - `inventory` sigue como fuente de verdad de qty y stock.
-    - `asset_tags` trackea unidades individuales con location "best effort".
-    - Cuando hay un MOVE, los tags de ese SKU saben que podrían estar en CUALQUIERA de las locations del SKU (no se elige cuál). El tag se resuelve a location exacta cuando: se escanea, se pickea, o se confirma en cycle count.
-    - Los dos sistemas convergen gradualmente a medida que se taggueen más bikes.
-- **Ideas validadas (lluvia de ideas 2026-04-13):**
-  - **Flujo unificado:** Fusionar create mode y custom mode en uno solo.
-  - **Orientación:** Toggle visual con preview miniatura (horizontal/vertical) en vez de dropdown.
-  - **Búsqueda fuzzy:** Rankear por coincidencia exacta → substring → location cercana → más stock. Mostrar thumbnail de `sku_metadata.image_url` en resultados.
-  - **Auto-fill desde metadata:** Si el nombre matchea un SKU, auto-llenar UPC, peso, dimensiones.
-  - **Create SKU inline:** Solo nombre + SKU code, el resto después desde stock view.
-  - **Campos configurables:** Toggles para mostrar/ocultar QR, UPC, peso, serial, extras. Drag-and-drop para reordenar campos en preview.
-  - **Auto-status:** Marcar tags como `in_stock` automáticamente si el SKU tiene inventory.
-  - **Entry points desde otras vistas:**
-    - Desde InventoryCard: botón "Print Label" → Label Studio con SKU pre-llenado
-    - Desde DoubleCheckView: reimprimir label dañado de un item
-    - Desde receiving: generar labels batch de todo lo que llegó en un shipment
-  - **Ideas pendientes de evaluar:** Drag-and-drop de campos, entry points, locations virtuales, sync de tags en MOVE.
-- **Ejemplo de flujo:** Usuario escribe "Roda 5X" → escribe SKU `03-4099BK` → sistema detecta que existe en ROW 15 → preview del label → elige cantidad 10 → imprime 10 labels con QR único cada uno → tags quedan vinculados al SKU con possible locations [ROW 15].
-- **Migración necesaria:** `asset_tags.location` cambia de `text` a `text[]` o se agrega `possible_locations text[]` para soportar múltiples locations posibles. Evaluar antes de implementar.
+### ~~35. Label Studio — personalización avanzada de SKU labels~~ <!-- id: idea-054 --> ✅ 2026-04-13
+- **4 fases implementadas:**
+  - **Phase 1:** LabelGeneratorScreen (1170 LOC) reescrito como LabelStudioScreen modular. Fusión create+custom en UnifiedLabelForm. uFuzzy search (4KB) con thumbnails y ranking. Toggle visual horizontal/vertical. Preview en vivo. History mode extraído como componente independiente.
+  - **Phase 2:** Inline SKU creation (`register_new_sku` RPC). Location obligatoria (`asset_tags.location NOT NULL`). Auto-status `in_stock` cuando SKU tiene inventory. Botón "+ New" y "Create new SKU" en búsqueda sin resultados.
+  - **Phase 3:** Hybrid sync — `possible_locations text[]` en asset_tags. `move_inventory_stock` sincroniza tags después de cada MOVE. `resolve_tag_location` RPC para confirmar location exacta al escanear. History tab muestra "Could be: ROW 15, ROW 43" en amber.
+  - **Phase 4:** Print + Edit Label desde ItemDetailView (vista de producto). Qty picker con input editable + "All". "Edit in Studio" navega a /labels con SKU pre-llenado. Layout default vertical.
+- **Migraciones:** `20260413200000` (register_new_sku + location NOT NULL), `20260413220000` (possible_locations + move sync + resolve_tag_location).
+- **Archivos nuevos:** LabelStudioScreen, UnifiedLabelForm, HistoryMode, FuzzySearch, EntryList, LayoutToggle, LabelPreview, InlineSkuCreate + hooks: useLabelItems, useTagCounts, useFuzzySearch, useGenerateLabels, useQuickPrintLabel.
+- **Pendiente (extensiones futuras):**
+  - DoubleCheckView entry point (reprint label per item)
+  - Receiving flow (batch labels)
+  - Campos configurables (toggles show/hide fields, drag-and-drop reorder)
+  - Phase 3.5: Tags virtuales al completar orden (shipping sync)
+  - UI para resolver location de un tag individual (scan confirm)
 
 ### ~~35b. Verification Board Redesign — multi-zone kanban~~ <!-- id: idea-055 --> ✅ 2026-04-13
 - Full-screen overlay con 6 zonas: Priority (auto, arriba), FedEx lane, Regular lane, In Progress Projects (read-only), Recently Completed (drag=reopen), Waiting (colapsable, scroll).
