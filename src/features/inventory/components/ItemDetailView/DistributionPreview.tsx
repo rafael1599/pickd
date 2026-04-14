@@ -25,14 +25,20 @@ export const DistributionPreview: React.FC<DistributionPreviewProps> = ({
     TOWER: { singular: 'tower', plural: 'towers' },
     LINE: { singular: 'line', plural: 'lines' },
     PALLET: { singular: 'pallet', plural: 'pallets' },
-    OTHER: { singular: 'unit', plural: 'units' },
+    OTHER: { singular: 'other', plural: 'others' },
   };
 
   const descriptions = [...distribution]
     .sort((a, b) => b.count * b.units_each - a.count * a.units_each)
     .map((d) => {
-      const names = TYPE_NAMES[d.type] || TYPE_NAMES.OTHER;
-      const typeName = d.count === 1 ? names.singular : names.plural;
+      let typeName: string;
+      if (d.type === 'OTHER' && d.label?.trim()) {
+        const lbl = d.label.trim().toLowerCase();
+        typeName = d.count === 1 ? lbl : `${lbl}s`;
+      } else {
+        const names = TYPE_NAMES[d.type] || TYPE_NAMES.OTHER;
+        typeName = d.count === 1 ? names.singular : names.plural;
+      }
       return `${d.count} ${typeName} of ${d.units_each}`;
     });
 

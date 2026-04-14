@@ -118,6 +118,15 @@ export const SectionEditorSheet: React.FC<SectionEditorSheetProps> = ({
                 min={1}
                 placeholder="u"
               />
+              {row.type === 'OTHER' && (
+                <input
+                  type="text"
+                  value={row.label || ''}
+                  onChange={(e) => onUpdate(idx, 'label', e.target.value)}
+                  placeholder="Box, Crate…"
+                  className="w-20 bg-surface border border-subtle rounded-lg px-2 py-2 text-content text-xs font-bold focus:border-accent focus:outline-none placeholder:text-muted/40"
+                />
+              )}
               <span className="text-[10px] text-muted font-bold">
                 = {row.count * row.units_each}u
               </span>
