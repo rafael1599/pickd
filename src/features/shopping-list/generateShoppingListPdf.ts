@@ -1,8 +1,13 @@
 /**
- * Generates a printable Shopping List PDF (portrait, letter size).
+ * Generates a printable Shopping List PDF on 4×6" thermal label stock (portrait).
  * Only includes pending items — sorted urgent-first, then by date.
  */
 import type { ShoppingItem } from './hooks/useShoppingList.ts';
+
+// 4×6 inches in mm
+const W = 4 * 25.4; // 101.6
+const H = 6 * 25.4; // 152.4
+const M = 3; // margin mm
 
 export const generateShoppingListPdf = async (items: ShoppingItem[]) => {
   const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
@@ -19,93 +24,96 @@ export const generateShoppingListPdf = async (items: ShoppingItem[]) => {
 
   if (pending.length === 0) return;
 
-  const doc = new jsPDF('p', 'mm', 'letter'); // portrait, letter
-  const pageW = doc.internal.pageSize.getWidth();
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [W, H] });
 
   const today = new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
     month: '2-digit',
     day: '2-digit',
+    year: '2-digit',
   }).format(new Date());
 
   // ── Header ────────────────────────────────────────────────
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(28);
+  doc.setFontSize(16);
   doc.setTextColor(0, 0, 0);
-  doc.text('SHOPPING LIST', 15, 20);
+  doc.text('SHOPPING LIST', M, 7);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
+  doc.setFontSize(7);
   doc.setTextColor(120, 120, 120);
-  doc.text(`${today}  ·  ${pending.length} items`, 15, 28);
+  doc.text(`${today}  ·  ${pending.length} items`, M, 12);
+
+  // ── Separator ─────────────────────────────────────────────
+
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.3);
+  doc.line(M, 14, W - M, 14);
 
   // ── Table ─────────────────────────────────────────────────
 
-  const body = pending.map((item, idx) => [
-    (idx + 1).toString(),
+  const body = pending.map((item) => [
     item.urgent ? '!' : '',
     item.item_name,
     item.quantity || '',
-    item.requested_by_name || '',
-    '', // checkbox column
+    '', // checkbox
   ]);
 
   autoTable(doc, {
-    startY: 35,
-    head: [['#', '', 'Item', 'Qty', 'Requested By', '✓']],
+    startY: 16,
+    head: [['', 'Item', 'Qty', '✓']],
     body,
     theme: 'plain',
     headStyles: {
-      fillColor: [245, 245, 245],
+      fillColor: [240, 240, 240],
       textColor: [80, 80, 80],
       font: 'helvetica',
-      fontSize: 9,
+      fontSize: 6,
       fontStyle: 'bold',
       lineColor: [200, 200, 200],
-      lineWidth: 0.3,
+      lineWidth: 0.2,
+      cellPadding: { top: 1.5, bottom: 1.5, left: 1.5, right: 1 },
     },
     styles: {
       font: 'helvetica',
-      fontSize: 12,
-      cellPadding: { top: 4, bottom: 4, left: 3, right: 3 },
+      fontSize: 8,
+      cellPadding: { top: 2, bottom: 2, left: 1.5, right: 1 },
       lineColor: [220, 220, 220],
-      lineWidth: 0.2,
+      lineWidth: 0.15,
       textColor: [30, 30, 30],
       valign: 'middle',
+      overflow: 'linebreak',
     },
     columnStyles: {
-      0: { cellWidth: 10, halign: 'center', fontSize: 9, textColor: [150, 150, 150] },
-      1: {
-        cellWidth: 8,
+      0: {
+        cellWidth: 5,
         halign: 'center',
-        fontSize: 14,
+        fontSize: 9,
         textColor: [220, 50, 50],
         fontStyle: 'bold',
       },
-      2: { cellWidth: 'auto', fontStyle: 'bold' },
-      3: { cellWidth: 30 },
-      4: { cellWidth: 35, fontSize: 10, textColor: [120, 120, 120] },
-      5: { cellWidth: 14, halign: 'center' },
+      1: { cellWidth: 'auto', fontStyle: 'bold' },
+      2: { cellWidth: 18 },
+      3: { cellWidth: 8, halign: 'center' },
     },
     didDrawCell: (data) => {
-      // Draw empty checkbox in the last column
-      if (data.section === 'body' && data.column.index === 5) {
+      // Draw empty checkbox
+      if (data.section === 'body' && data.column.index === 3) {
         const cx = data.cell.x + data.cell.width / 2;
         const cy = data.cell.y + data.cell.height / 2;
         doc.setDrawColor(180, 180, 180);
-        doc.setLineWidth(0.4);
-        doc.rect(cx - 2.5, cy - 2.5, 5, 5);
+        doc.setLineWidth(0.3);
+        doc.rect(cx - 1.8, cy - 1.8, 3.6, 3.6);
       }
     },
-    margin: { left: 15, right: 15, top: 10, bottom: 15 },
+    margin: { left: M, right: M, top: 5, bottom: 8 },
     didDrawPage: () => {
-      // Footer
+      const pageH = doc.internal.pageSize.getHeight();
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
+      doc.setFontSize(5.5);
       doc.setTextColor(160, 160, 160);
-      doc.text('PickD — Shopping List', 15, doc.internal.pageSize.getHeight() - 8);
-      doc.text(today, pageW - 15, doc.internal.pageSize.getHeight() - 8, { align: 'right' });
+      doc.text('PickD', M, pageH - 3);
+      doc.text(today, W - M, pageH - 3, { align: 'right' });
     },
   });
 
