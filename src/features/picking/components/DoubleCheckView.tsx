@@ -45,6 +45,7 @@ const DISTRIBUTION_PRIORITY: Record<string, number> = { PALLET: 0, LINE: 1, TOWE
 export interface PickingItem {
   sku: string;
   location: string | null;
+  sublocation?: string | null;
   pickingQty: number;
   quantity?: string | number;
   warehouse?: string;
@@ -159,7 +160,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const markWaiting = useMarkWaiting();
   const unmarkWaiting = useUnmarkWaiting();
   const takeOverSku = useTakeOverSku();
-  const { data: waitingConflicts } = useWaitingConflicts(cartItems, activeListId ?? null, customer?.name ?? null);
+  const { data: waitingConflicts } = useWaitingConflicts(
+    cartItems,
+    activeListId ?? null,
+    customer?.name ?? null
+  );
   const [conflictDismissed, setConflictDismissed] = useState(false);
   const [isDeducting, setIsDeducting] = useState(false);
   const [showWaitingPicker, setShowWaitingPicker] = useState(false);
@@ -883,9 +888,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 <button
                   onClick={() => {
                     if (!activeListId) return;
-                    unmarkWaiting.mutate({ listId: activeListId, action: 'resume' }, {
-                      onSuccess: () => onSetWaitingInventory?.(false),
-                    });
+                    unmarkWaiting.mutate(
+                      { listId: activeListId, action: 'resume' },
+                      {
+                        onSuccess: () => onSetWaitingInventory?.(false),
+                      }
+                    );
                   }}
                   disabled={unmarkWaiting.isPending}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-accent bg-accent/10 border border-accent/30 rounded-xl hover:bg-accent/20 transition-all active:scale-95"
@@ -900,9 +908,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                       'This will cancel the entire order. Items will be released back to inventory.',
                       () => {
                         if (!activeListId) return;
-                        unmarkWaiting.mutate({ listId: activeListId, action: 'cancel' }, {
-                          onSuccess: () => onClose(),
-                        });
+                        unmarkWaiting.mutate(
+                          { listId: activeListId, action: 'cancel' },
+                          {
+                            onSuccess: () => onClose(),
+                          }
+                        );
                       },
                       () => {},
                       'Cancel Order',
@@ -933,7 +944,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                     Why is this order waiting?
                   </span>
                   <button
-                    onClick={() => { setShowWaitingPicker(false); setWaitingReason(''); }}
+                    onClick={() => {
+                      setShowWaitingPicker(false);
+                      setWaitingReason('');
+                    }}
                     className="p-1 text-muted hover:text-content transition-colors"
                   >
                     <X size={14} />
@@ -949,7 +963,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                     if (!activeListId || !waitingReason.trim()) return;
                     markWaiting.mutate(
                       { listId: activeListId, reason: waitingReason.trim() },
-                      { onSuccess: () => { setShowWaitingPicker(false); setWaitingReason(''); onSetWaitingInventory?.(true); } }
+                      {
+                        onSuccess: () => {
+                          setShowWaitingPicker(false);
+                          setWaitingReason('');
+                          onSetWaitingInventory?.(true);
+                        },
+                      }
                     );
                   }}
                   disabled={!waitingReason.trim() || markWaiting.isPending}
@@ -1255,6 +1275,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                 .replace('row', '')
                                 .trim()
                                 .slice(0, 5) || '-'}
+                              {item.sublocation && (
+                                <span className="text-[10px] font-black bg-amber-500/15 text-amber-400 px-1 py-0.5 rounded ml-1 border border-amber-500/20 align-middle">
+                                  {item.sublocation}
+                                </span>
+                              )}
                             </div>
                             {!isReviewMode && isChecked && (
                               <div

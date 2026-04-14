@@ -508,7 +508,9 @@ export const usePickingActions = ({
           .maybeSingle();
 
         if (currentList?.status === 'completed' || currentList?.status === 'reopened') {
-          console.log('Blocked deletion of a completed/reopened order to protect inventory history.');
+          console.log(
+            'Blocked deletion of a completed/reopened order to protect inventory history.'
+          );
           if (listId === activeListId && !keepLocalState) {
             resetSession();
           }
@@ -627,7 +629,7 @@ export const usePickingActions = ({
 
       const { data: currentStock, error: stockError } = await supabase
         .from('inventory')
-        .select('sku, quantity, warehouse, location')
+        .select('sku, quantity, warehouse, location, sublocation')
         .in('sku', skuList);
 
       if (stockError) throw stockError;
