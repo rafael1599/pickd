@@ -635,29 +635,31 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
             ? filteredStats.totalQuantity
             : (globalStats?.totalQuantity ?? filteredStats.totalQuantity);
           const totalCapacity = globalStats?.totalCapacity ?? 0;
+          const available = totalCapacity > 0 ? totalCapacity - totalUnits : 0;
           const fillPct = totalCapacity > 0 ? Math.min((totalUnits / totalCapacity) * 100, 100) : 0;
           const fillRatio = totalCapacity > 0 ? totalUnits / totalCapacity : 0;
           return (
             <>
-              <div className="px-4 pt-2 flex justify-between items-center text-xs font-black uppercase tracking-widest text-muted">
-                <span>
-                  {(debouncedSearch
-                    ? filteredStats.totalSkus
-                    : (globalStats?.totalSkus ?? filteredStats.totalSkus)
-                  ).toLocaleString()}{' '}
-                  SKUs
-                </span>
-                <span>
-                  {totalUnits.toLocaleString()}
-                  {!showParts && totalCapacity > 0
-                    ? ` / ${totalCapacity.toLocaleString()}`
-                    : ''}{' '}
-                  Units
-                </span>
-              </div>
+              {!showParts && totalCapacity > 0 ? (
+                <div className="px-4 pt-2 flex justify-between items-center text-xs font-black uppercase tracking-widest text-muted">
+                  <span>{totalUnits.toLocaleString()} Filled</span>
+                  <span className="text-emerald-400">{available.toLocaleString()} Available</span>
+                </div>
+              ) : (
+                <div className="px-4 pt-2 flex justify-between items-center text-xs font-black uppercase tracking-widest text-muted">
+                  <span>
+                    {(debouncedSearch
+                      ? filteredStats.totalSkus
+                      : (globalStats?.totalSkus ?? filteredStats.totalSkus)
+                    ).toLocaleString()}{' '}
+                    SKUs
+                  </span>
+                  <span>{totalUnits.toLocaleString()} Units</span>
+                </div>
+              )}
               {!debouncedSearch && !showParts && totalCapacity > 0 && (
-                <div className="px-4 pt-1.5 pb-1">
-                  <div className="h-3 w-full bg-surface rounded-full overflow-hidden border border-subtle">
+                <div className="px-4 pt-1.5 pb-1 flex items-center gap-2">
+                  <div className="h-3 flex-1 bg-surface rounded-full overflow-hidden border border-subtle">
                     <div
                       className="h-full transition-all duration-500 ease-out rounded-full"
                       style={{
@@ -667,6 +669,9 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                       }}
                     />
                   </div>
+                  <span className="text-[10px] font-black text-muted tabular-nums whitespace-nowrap">
+                    {totalCapacity.toLocaleString()}
+                  </span>
                 </div>
               )}
             </>
