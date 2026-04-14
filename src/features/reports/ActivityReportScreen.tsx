@@ -12,7 +12,6 @@ import Save from 'lucide-react/dist/esm/icons/save';
 import { useQuery } from '@tanstack/react-query';
 import {
   useActivityReport,
-  useActiveProfiles,
   type ActivityReport,
 } from './hooks/useActivityReport';
 import { useDailyReport, hasComputedData, type DailyReportManual } from './hooks/useDailyReport';
@@ -52,7 +51,7 @@ const ROUTINE_ITEMS = [
 
 export const ActivityReportScreen = () => {
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user, profile: authProfile } = useAuth();
   const { data: waitingCount = 0 } = useWaitingOrdersCount();
 
   // Today's NY date — single source of truth via Postgres (handles DST).
@@ -75,12 +74,12 @@ export const ActivityReportScreen = () => {
   //   - Today (always — snapshot is stale until next cron run)
   //   - Past days where no snapshot exists yet (pre-launch or cron miss)
   const { data: liveReport, isLoading: liveLoading, error: liveError } = useActivityReport(selectedDate);
-  const { data: profiles } = useActiveProfiles();
+  // useActiveProfiles removed — notes now use current logged-in user
   const { data: reportTasks } = useReportTasks(selectedDate);
 
   // ----- Manual editable state -----
   const [notes, setNotes] = useState<UserNote[]>([]);
-  const [noteUser, setNoteUser] = useState('');
+  // noteUser dropdown removed — uses current auth user
   const [noteText, setNoteText] = useState('');
   const [winOfTheDay, setWinOfTheDay] = useState('');
   const [pickdUpdatesText, setPickdUpdatesText] = useState('');
@@ -245,15 +244,14 @@ export const ActivityReportScreen = () => {
   }, [isDirty, canEdit]);
 
   const handleAddNote = useCallback(() => {
-    if (!noteText.trim() || !noteUser) return;
-    const profile = profiles?.find((p) => p.id === noteUser);
-    if (!profile) return;
+    if (!noteText.trim() || !user) return;
+    const name = authProfile?.full_name ?? 'Unknown';
     setNotes((prev) => [
       ...prev,
-      { id: noteUser, full_name: profile.full_name, text: noteText.trim() },
+      { id: user.id, full_name: name, text: noteText.trim() },
     ]);
     setNoteText('');
-  }, [noteUser, noteText, profiles]);
+  }, [noteText, user, authProfile]);
 
   const handleRemoveNote = useCallback((index: number) => {
     setNotes((prev) => prev.filter((_, i) => i !== index));
@@ -398,30 +396,55 @@ export const ActivityReportScreen = () => {
           <div className="p-4 space-y-3">
             <p className="text-[10px] font-black uppercase tracking-widest text-muted mb-1">Editor</p>
 
-            {/* Win of the Day input */}
+            {/* Win of the Day input + save */}
             <div>
               <label className="text-[9px] font-bold uppercase tracking-widest text-muted/70 mb-1 block">Win of the Day</label>
-              <input
-                type="text"
-                value={winOfTheDay}
-                onChange={(e) => setWinOfTheDay(e.target.value)}
-                disabled={!canEdit}
-                placeholder={canEdit ? 'Win of the day...' : '—'}
-                className="w-full h-9 px-3 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40 disabled:opacity-50 disabled:cursor-not-allowed"
-              />
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={winOfTheDay}
+                  onChange={(e) => setWinOfTheDay(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && canSave && handleSave()}
+                  disabled={!canEdit}
+                  placeholder={canEdit ? 'Win of the day...' : '—'}
+                  className="flex-1 h-9 px-3 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40 disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                {showSaveControls && (
+                  <button
+                    onClick={handleSave}
+                    disabled={!canSave}
+                    className="h-9 w-9 flex items-center justify-center bg-accent text-main rounded-xl active:scale-90 transition-all disabled:opacity-30 shrink-0"
+                    title="Save"
+                  >
+                    {saveManual.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* PickD Updates — manual multiline */}
+            {/* PickD Updates — manual multiline + save */}
             <div>
               <label className="text-[9px] font-bold uppercase tracking-widest text-muted/70 mb-1 block">PickD Updates</label>
-              <textarea
-                value={pickdUpdatesText}
-                onChange={(e) => setPickdUpdatesText(e.target.value)}
-                disabled={!canEdit}
-                placeholder={canEdit ? 'One per line...' : '—'}
-                rows={3}
-                className="w-full px-3 py-2 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
-              />
+              <div className="flex gap-1.5">
+                <textarea
+                  value={pickdUpdatesText}
+                  onChange={(e) => setPickdUpdatesText(e.target.value)}
+                  disabled={!canEdit}
+                  placeholder={canEdit ? 'One per line...' : '—'}
+                  rows={3}
+                  className="flex-1 px-3 py-2 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                {showSaveControls && (
+                  <button
+                    onClick={handleSave}
+                    disabled={!canSave}
+                    className="h-9 w-9 flex items-center justify-center bg-accent text-main rounded-xl active:scale-90 transition-all disabled:opacity-30 shrink-0 self-end"
+                    title="Save"
+                  >
+                    {saveManual.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Routine checklist toggles */}
@@ -471,30 +494,11 @@ export const ActivityReportScreen = () => {
               </div>
             )}
 
-            {/* Note user selector + text input */}
+            {/* Note text input — uses current logged-in user */}
             {canEdit && (
               <div>
                 <label className="text-[9px] font-bold uppercase tracking-widest text-muted/70 mb-1 block">Add Note</label>
                 <div className="flex items-center gap-1.5">
-                  <select
-                    value={noteUser}
-                    onChange={(e) => setNoteUser(e.target.value)}
-                    className="h-9 px-2 bg-surface border border-subtle rounded-xl text-[10px] text-content focus:outline-none focus:border-accent/40 min-w-[80px]"
-                  >
-                    <option value="">Who?</option>
-                    {reportForView?.users.map((u) => (
-                      <option key={u.user_id} value={u.user_id}>
-                        {u.full_name}
-                      </option>
-                    ))}
-                    {profiles
-                      ?.filter((p) => !reportForView?.users.some((u) => u.user_id === p.id))
-                      .map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.full_name}
-                        </option>
-                      ))}
-                  </select>
                   <input
                     type="text"
                     value={noteText}
@@ -505,7 +509,7 @@ export const ActivityReportScreen = () => {
                   />
                   <button
                     onClick={handleAddNote}
-                    disabled={!noteUser || !noteText.trim()}
+                    disabled={!noteText.trim()}
                     className="h-9 w-9 flex items-center justify-center bg-accent text-main rounded-xl active:scale-90 transition-all disabled:opacity-30 shrink-0"
                   >
                     <Plus size={14} />
