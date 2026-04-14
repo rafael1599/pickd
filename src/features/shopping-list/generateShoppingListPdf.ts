@@ -68,42 +68,42 @@ export const generateShoppingListPdf = async (items: ShoppingItem[]) => {
       fillColor: [240, 240, 240],
       textColor: [80, 80, 80],
       font: 'helvetica',
-      fontSize: 6,
+      fontSize: 12,
       fontStyle: 'bold',
       lineColor: [200, 200, 200],
-      lineWidth: 0.2,
-      cellPadding: { top: 1.5, bottom: 1.5, left: 1.5, right: 1 },
+      lineWidth: 0.3,
+      cellPadding: { top: 2, bottom: 2, left: 2, right: 1 },
     },
     styles: {
       font: 'helvetica',
-      fontSize: 8,
-      cellPadding: { top: 2, bottom: 2, left: 1.5, right: 1 },
+      fontSize: 16,
+      cellPadding: { top: 3, bottom: 3, left: 2, right: 1 },
       lineColor: [220, 220, 220],
-      lineWidth: 0.15,
+      lineWidth: 0.2,
       textColor: [30, 30, 30],
       valign: 'middle',
       overflow: 'linebreak',
     },
     columnStyles: {
       0: {
-        cellWidth: 5,
+        cellWidth: 8,
         halign: 'center',
-        fontSize: 9,
+        fontSize: 16,
         textColor: [220, 50, 50],
         fontStyle: 'bold',
       },
       1: { cellWidth: 'auto', fontStyle: 'bold' },
-      2: { cellWidth: 18 },
-      3: { cellWidth: 8, halign: 'center' },
+      2: { cellWidth: 22 },
+      3: { cellWidth: 10, halign: 'center' },
     },
     didDrawCell: (data) => {
       // Draw empty checkbox
       if (data.section === 'body' && data.column.index === 3) {
         const cx = data.cell.x + data.cell.width / 2;
         const cy = data.cell.y + data.cell.height / 2;
-        doc.setDrawColor(180, 180, 180);
-        doc.setLineWidth(0.3);
-        doc.rect(cx - 1.8, cy - 1.8, 3.6, 3.6);
+        doc.setDrawColor(150, 150, 150);
+        doc.setLineWidth(0.4);
+        doc.rect(cx - 2.5, cy - 2.5, 5, 5);
       }
     },
     margin: { left: M, right: M, top: 5, bottom: 8 },
