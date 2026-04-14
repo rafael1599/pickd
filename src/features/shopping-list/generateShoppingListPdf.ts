@@ -42,7 +42,7 @@ export const generateShoppingListPdf = async (items: ShoppingItem[]) => {
   doc.text('SHOPPING LIST', M, 7);
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
+  doc.setFontSize(14);
   doc.setTextColor(...BLACK);
   doc.text(`${pending.length} items`, M, 13);
 
