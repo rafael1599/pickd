@@ -38,7 +38,7 @@ interface MovementModalProps {
     targetLocation: string;
     quantity: number;
     internalNote?: string | null;
-    targetSublocation?: string | null;
+    targetSublocation?: string[] | null;
   }) => void;
   initialSourceItem?: InventoryItemWithMetadata | null;
 }
@@ -538,25 +538,29 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                     Sub-location
                   </label>
                   <div className="flex flex-wrap gap-1.5">
-                    {['A', 'B', 'C', 'D', 'E', 'F'].map((letter) => (
-                      <button
-                        key={letter}
-                        type="button"
-                        onClick={() =>
-                          setField(
-                            'targetSublocation',
-                            formData.targetSublocation === letter ? null : letter
-                          )
-                        }
-                        className={`w-9 h-9 rounded-lg text-xs font-black transition-all ${
-                          formData.targetSublocation === letter
-                            ? 'bg-accent text-main shadow-lg shadow-accent/20'
-                            : 'bg-surface text-muted border border-subtle hover:border-accent/40'
-                        }`}
-                      >
-                        {letter}
-                      </button>
-                    ))}
+                    {['A', 'B', 'C', 'D', 'E', 'F'].map((letter) => {
+                      const isSelected = formData.targetSublocation?.includes(letter);
+                      return (
+                        <button
+                          key={letter}
+                          type="button"
+                          onClick={() => {
+                            const current = formData.targetSublocation || [];
+                            const updated = isSelected
+                              ? current.filter((l) => l !== letter)
+                              : [...current, letter].sort();
+                            setField('targetSublocation', updated.length > 0 ? updated : null);
+                          }}
+                          className={`w-9 h-9 rounded-lg text-xs font-black transition-all ${
+                            isSelected
+                              ? 'bg-accent text-main shadow-lg shadow-accent/20'
+                              : 'bg-surface text-muted border border-subtle hover:border-accent/40'
+                          }`}
+                        >
+                          {letter}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}

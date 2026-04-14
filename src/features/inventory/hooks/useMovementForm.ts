@@ -5,7 +5,7 @@ interface FormData {
   quantity: number;
   targetLocation: string;
   targetWarehouse: string;
-  targetSublocation: string | null;
+  targetSublocation: string[] | null;
   scanValue: string;
 }
 

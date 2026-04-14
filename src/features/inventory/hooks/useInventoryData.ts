@@ -385,7 +385,7 @@ export const useInventory = () => {
       qty: number,
       _isReversal?: boolean,
       internalNote?: string | null,
-      targetSublocation?: string | null
+      targetSublocation?: string[] | null
     ) => {
       await mutMoveItem.mutateAsync({
         sourceItem,

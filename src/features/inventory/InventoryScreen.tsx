@@ -467,7 +467,7 @@ export const InventoryScreen = () => {
       targetLocation: string;
       quantity: number;
       internalNote?: string | null;
-      targetSublocation?: string | null;
+      targetSublocation?: string[] | null;
     }) => {
       try {
         await moveItem(
