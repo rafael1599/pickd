@@ -154,6 +154,20 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     deleteItem,
   } = useInventory();
   const inventoryData = inventoryDataProp ?? inventoryDataCtx;
+
+  // Build sublocation lookup from live inventory (items JSONB may not have it)
+  const sublocationMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (inventoryData) {
+      for (const inv of inventoryData) {
+        if (inv.sublocation && inv.location) {
+          map[`${inv.sku}-${(inv.location || '').toUpperCase()}`] = inv.sublocation;
+        }
+      }
+    }
+    return map;
+  }, [inventoryData]);
+
   const { showConfirmation } = useConfirmation();
   const { pallets: originalPallets, deleteList } = usePickingSession();
   const { isAdmin } = useAuth();
@@ -1275,9 +1289,15 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                 .replace('row', '')
                                 .trim()
                                 .slice(0, 5) || '-'}
-                              {item.sublocation && (
+                              {(item.sublocation ||
+                                sublocationMap[
+                                  `${item.sku}-${(item.location || '').toUpperCase()}`
+                                ]) && (
                                 <span className="text-[10px] font-black bg-amber-500/15 text-amber-400 px-1 py-0.5 rounded ml-1 border border-amber-500/20 align-middle">
-                                  {item.sublocation}
+                                  {item.sublocation ||
+                                    sublocationMap[
+                                      `${item.sku}-${(item.location || '').toUpperCase()}`
+                                    ]}
                                 </span>
                               )}
                             </div>
