@@ -720,7 +720,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
 
   const handleEditLabel = useCallback(() => {
     onClose();
-    navigate('/labels', { state: { initialSku: sku, initialName: itemName, initialLocation: initialData?.location } });
+    navigate('/labels', {
+      state: { initialSku: sku, initialName: itemName, initialLocation: initialData?.location },
+    });
   }, [navigate, onClose, sku, itemName, initialData?.location]);
 
   // ─── Label printing with qty picker ───
@@ -850,7 +852,10 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           {/* Row 2: actions */}
           <div className="flex gap-2">
             <button
-              onClick={() => { setShowLabelQty(false); handleEditLabel(); }}
+              onClick={() => {
+                setShowLabelQty(false);
+                handleEditLabel();
+              }}
               className="flex-1 h-8 text-[10px] font-black text-accent uppercase tracking-wider bg-accent/10 border border-accent/30 rounded-lg active:scale-95"
             >
               Edit in Studio
@@ -952,6 +957,50 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                 onChange={(v) => setValue('item_name', v, { shouldValidate: true })}
                 placeholder="e.g. Desk Frame..."
               />
+              {/* Bike/Part toggle — manual override */}
+              {mode === 'edit' && (
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-subtle">
+                  <span className="text-[10px] font-black text-muted uppercase tracking-widest">
+                    Type
+                  </span>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={async () => {
+                        if (!initialData?.sku) return;
+                        await supabase
+                          .from('sku_metadata')
+                          .update({ is_bike: true })
+                          .eq('sku', initialData.sku);
+                        toast.success('Marked as bike');
+                      }}
+                      className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 ${
+                        isBikeItem
+                          ? 'bg-accent text-white'
+                          : 'bg-surface text-muted border border-subtle'
+                      }`}
+                    >
+                      Bike
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!initialData?.sku) return;
+                        await supabase
+                          .from('sku_metadata')
+                          .update({ is_bike: false })
+                          .eq('sku', initialData.sku);
+                        toast.success('Marked as part');
+                      }}
+                      className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 ${
+                        !isBikeItem
+                          ? 'bg-accent text-white'
+                          : 'bg-surface text-muted border border-subtle'
+                      }`}
+                    >
+                      Part
+                    </button>
+                  </div>
+                </div>
+              )}
               {lastUpdate && (
                 <SectionRow
                   label="Last update"
