@@ -460,6 +460,8 @@ export const ActivityReportView: React.FC<Props> = ({
               textTransform: 'uppercase',
               letterSpacing: '0.15em',
               color: BLUE,
+              WebkitUserSelect: detailOpen ? 'auto' : 'none',
+              userSelect: detailOpen ? 'auto' : 'none',
             }}
           >
             <span
