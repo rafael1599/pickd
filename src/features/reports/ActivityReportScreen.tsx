@@ -517,6 +517,33 @@ export const ActivityReportScreen = () => {
                 </div>
               </div>
             )}
+
+            {/* Save & Copy button — saves then copies report to clipboard */}
+            {showSaveControls && (
+              <button
+                onClick={async () => {
+                  if (canSave) {
+                    handleSave();
+                    // Wait briefly for save to process before copying
+                    await new Promise((r) => setTimeout(r, 300));
+                  }
+                  handleCopy();
+                }}
+                className="w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest bg-accent text-main hover:bg-accent/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              >
+                {copied ? (
+                  <>
+                    <Check size={14} />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy size={14} />
+                    Save &amp; Copy Report
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
 
