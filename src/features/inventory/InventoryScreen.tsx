@@ -648,10 +648,14 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                   SKUs
                 </span>
                 <span>
-                  {totalUnits.toLocaleString()} / {totalCapacity.toLocaleString()} Units
+                  {totalUnits.toLocaleString()}
+                  {!showParts && totalCapacity > 0
+                    ? ` / ${totalCapacity.toLocaleString()}`
+                    : ''}{' '}
+                  Units
                 </span>
               </div>
-              {!debouncedSearch && totalCapacity > 0 && (
+              {!debouncedSearch && !showParts && totalCapacity > 0 && (
                 <div className="px-4 pt-1.5 pb-1">
                   <div className="h-3 w-full bg-surface rounded-full overflow-hidden border border-subtle">
                     <div
