@@ -66,15 +66,6 @@ function formatDate(dateStr: string): string {
   });
 }
 
-function getAccuracyMessage(pct: number): string {
-  if (pct < 10) return 'More cycle counts are needed to ensure system accuracy.';
-  if (pct < 25) return 'Coverage is still low — prioritize counting high-value SKUs.';
-  if (pct < 50) return 'Good progress. Keep counting to strengthen inventory confidence.';
-  if (pct < 75) return 'Solid coverage. The system data is becoming reliable.';
-  if (pct < 90) return 'Strong accuracy. Most of the inventory has been physically verified.';
-  return 'Excellent. Nearly all inventory has been verified — high confidence in system data.';
-}
-
 const sectionHeaderStyle = (color: string): React.CSSProperties => ({
   margin: '0 0 12px 0',
   fontSize: 11,
@@ -298,7 +289,7 @@ export const ActivityReportView: React.FC<Props> = ({
                 }}
               >
                 {report.verified_skus_2m} of {report.total_skus} SKUs have been physically counted
-                in the last 60 days. {getAccuracyMessage(accuracyPct)}
+                in the last 60 days.
               </p>
             </div>
             <div style={spacerStyle} />
