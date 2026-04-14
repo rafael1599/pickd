@@ -629,24 +629,48 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
         autoFocus={viewMode === 'picking' && !externalDoubleCheckId}
       />
 
-      {viewMode === 'stock' && (
-        <div className="px-4 pt-2 flex justify-between items-center text-xs font-black uppercase tracking-widest text-muted">
-          <span>
-            {(debouncedSearch
-              ? filteredStats.totalSkus
-              : (globalStats?.totalSkus ?? filteredStats.totalSkus)
-            ).toLocaleString()}{' '}
-            SKUs
-          </span>
-          <span>
-            {(debouncedSearch
-              ? filteredStats.totalQuantity
-              : (globalStats?.totalQuantity ?? filteredStats.totalQuantity)
-            ).toLocaleString()}{' '}
-            Units
-          </span>
-        </div>
-      )}
+      {viewMode === 'stock' &&
+        (() => {
+          const totalUnits = debouncedSearch
+            ? filteredStats.totalQuantity
+            : (globalStats?.totalQuantity ?? filteredStats.totalQuantity);
+          const totalCapacity = Object.values(locationCapacities).reduce(
+            (sum, loc) => sum + (loc.max || 0),
+            0
+          );
+          const fillPct = totalCapacity > 0 ? Math.min((totalUnits / totalCapacity) * 100, 100) : 0;
+          const fillRatio = totalCapacity > 0 ? totalUnits / totalCapacity : 0;
+          return (
+            <>
+              <div className="px-4 pt-2 flex justify-between items-center text-xs font-black uppercase tracking-widest text-muted">
+                <span>
+                  {(debouncedSearch
+                    ? filteredStats.totalSkus
+                    : (globalStats?.totalSkus ?? filteredStats.totalSkus)
+                  ).toLocaleString()}{' '}
+                  SKUs
+                </span>
+                <span>
+                  {totalUnits.toLocaleString()} / {totalCapacity.toLocaleString()} Units
+                </span>
+              </div>
+              {!debouncedSearch && totalCapacity > 0 && (
+                <div className="px-4 pt-1.5 pb-1">
+                  <div className="h-3 w-full bg-surface rounded-full overflow-hidden border border-subtle">
+                    <div
+                      className="h-full transition-all duration-500 ease-out rounded-full"
+                      style={{
+                        width: `${fillPct}%`,
+                        background: 'linear-gradient(to right, #3b82f6, #06b6d4, #10b981)',
+                        backgroundSize: `${100 / Math.max(fillRatio, 0.01)}% 100%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
 
       {(!isSearching || (allLocationBlocks.length === 0 && localSearch.trim() !== '')) && (
         <div
