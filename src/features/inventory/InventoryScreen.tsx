@@ -630,6 +630,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
       />
 
       {viewMode === 'stock' &&
+        !isSearching &&
         (() => {
           const totalUnits = debouncedSearch
             ? filteredStats.totalQuantity
