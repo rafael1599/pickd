@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
 import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
-import Printer from 'lucide-react/dist/esm/icons/printer';
 import Copy from 'lucide-react/dist/esm/icons/copy';
 import Check from 'lucide-react/dist/esm/icons/check';
 import Plus from 'lucide-react/dist/esm/icons/plus';
@@ -381,13 +380,6 @@ export const ActivityReportScreen = () => {
               title="Copy report"
             >
               {copied ? <Check size={20} className="text-green-400" /> : <Copy size={20} />}
-            </button>
-            <button
-              onClick={() => window.print()}
-              className="p-2 hover:bg-white/10 rounded-full text-accent transition-colors"
-              title="Print report"
-            >
-              <Printer size={20} />
             </button>
           </div>
         </div>
