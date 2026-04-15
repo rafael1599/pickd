@@ -1,6 +1,16 @@
 import React, { useMemo } from 'react';
 import jsPDF from 'jspdf';
 
+export const TRANSPORT_COLORS: Record<string, { bg: string; text: string }> = {
+  'R+L': { bg: '#006647', text: '#FFFFFF' },
+  '2-DAY': { bg: '#003366', text: '#FFFFFF' },
+  RIST: { bg: '#8B2500', text: '#FFFFFF' },
+  TFORCE: { bg: '#0053A1', text: '#FFFFFF' },
+  DAYLIGHT: { bg: '#006BB7', text: '#FFFFFF' },
+  'PAV EXPRESS': { bg: '#6B6B6B', text: '#FFD200' },
+  ESTES: { bg: '#FFD200', text: '#000000' },
+};
+
 interface LivePrintPreviewProps {
   orderNumber?: string;
   customerName: string;
@@ -14,6 +24,7 @@ interface LivePrintPreviewProps {
   loadNumber: string;
   totalWeight: number;
   completedAt?: string;
+  transportCompany?: string;
 }
 
 /** Build the BIKES/PARTS lines for labels */
@@ -38,7 +49,9 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
   loadNumber,
   totalWeight,
   completedAt,
+  transportCompany,
 }) => {
+  const brandColors = transportCompany ? TRANSPORT_COLORS[transportCompany] : undefined;
   const palletCount = parseInt(pallets?.toString() || '1');
   const cityStateZip = `${city}, ${state} ${zip}`.toUpperCase().trim();
   const unitLines = useMemo(() => unitsLines(bikeCount, partCount), [bikeCount, partCount]);
@@ -121,7 +134,7 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
       p.push(
         <div
           key={`info-${i}`}
-          className="bg-white rounded-[20px] shadow-2xl overflow-hidden shrink-0 flex flex-col font-sans uppercase text-black"
+          className="rounded-[20px] shadow-2xl overflow-hidden shrink-0 flex flex-col font-sans uppercase"
           style={{
             width: '297mm',
             height: '210mm',
@@ -129,6 +142,8 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
             fontSize: `${fontSizePt}pt`,
             lineHeight: '1.1',
             fontWeight: 'bold',
+            backgroundColor: brandColors?.bg ?? '#FFFFFF',
+            color: brandColors?.text ?? '#000000',
           }}
         >
           <div className="font-black tracking-tighter" style={{ fontSize: 'inherit' }}>
@@ -164,18 +179,20 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
         p.push(
           <div
             key={`num-${i}`}
-            className="bg-white rounded-[20px] shadow-2xl overflow-hidden shrink-0 flex items-center justify-center font-sans text-black"
+            className="rounded-[20px] shadow-2xl overflow-hidden shrink-0 flex items-center justify-center font-sans"
             style={{
               width: '297mm',
               height: '210mm',
+              backgroundColor: brandColors?.bg ?? '#FFFFFF',
+              color: brandColors?.text ?? '#000000',
             }}
           >
             <div className="flex flex-col items-center justify-center gap-0 w-full px-[5mm]">
-              <span className="text-[8rem] font-black leading-none tracking-[0.3em] text-black uppercase">
+              <span className="text-[8rem] font-black leading-none tracking-[0.3em] uppercase">
                 PALLET
               </span>
               <h2
-                className="font-black leading-none tracking-tighter text-black uppercase w-full text-center"
+                className="font-black leading-none tracking-tighter uppercase w-full text-center"
                 style={{ fontSize: '16rem', whiteSpace: 'nowrap' }}
               >
                 {i + 1} of {palletCount}
@@ -199,6 +216,7 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
     fontSizePt,
     cityStateZip,
     orderNumber,
+    brandColors,
   ]);
 
   return (

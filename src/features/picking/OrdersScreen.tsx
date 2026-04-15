@@ -38,6 +38,7 @@ interface OrderWithRelations {
   pallets_qty: number | null;
   total_units: number | null;
   load_number: string | null;
+  transport_company: string | null;
   status: string;
   items: PickingListItem[] | null;
   correction_notes: string | null;
@@ -131,6 +132,7 @@ export const OrdersScreen = () => {
     pallets: '1',
     units: '0',
     loadNumber: '',
+    transportCompany: '',
     bikes: '',
     parts: '',
   });
@@ -395,6 +397,7 @@ export const OrdersScreen = () => {
         pallets: String(selectedOrder.pallets_qty || 1),
         units: String(selectedOrder.total_units || 0),
         loadNumber: selectedOrder.load_number || '',
+        transportCompany: selectedOrder.transport_company || '',
         bikes: '',
         parts: '',
       });
@@ -573,6 +576,7 @@ export const OrdersScreen = () => {
           total_units: unitsNum,
           total_weight_lbs: totalWeight || null,
           load_number: formData.loadNumber || null,
+          transport_company: formData.transportCompany || null,
           customer_id: finalCustomerId, // Link to the customer (new or existing)
         })
         .eq('id', selectedOrder.id);
@@ -1024,6 +1028,7 @@ export const OrdersScreen = () => {
                 loadNumber={formData.loadNumber}
                 totalWeight={totalWeight}
                 completedAt={selectedOrder.updated_at}
+                transportCompany={formData.transportCompany}
               />
 
               {/* Parts Weight Editor (idea-028) */}

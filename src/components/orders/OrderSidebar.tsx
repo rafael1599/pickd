@@ -9,6 +9,7 @@ import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import Scissors from 'lucide-react/dist/esm/icons/scissors';
 import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
 import Bike from 'lucide-react/dist/esm/icons/bike';
+import Truck from 'lucide-react/dist/esm/icons/truck';
 import Wand2 from 'lucide-react/dist/esm/icons/wand-2';
 import { CustomerAutocomplete } from '../../features/picking/components/CustomerAutocomplete';
 import { usePickingSession } from '../../context/PickingContext';
@@ -28,11 +29,22 @@ interface OrderFormData {
   state: string;
   zip: string;
   loadNumber: string;
+  transportCompany: string;
   pallets: string;
   units: string;
   bikes: string;
   parts: string;
 }
+
+const TRANSPORT_COMPANIES = [
+  'R+L',
+  '2-DAY',
+  'RIST',
+  'TFORCE',
+  'DAYLIGHT',
+  'PAV EXPRESS',
+  'ESTES',
+] as const;
 
 interface SelectedOrder extends PickingList {
   user?: { full_name?: string } | null;
@@ -317,7 +329,9 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
                           </p>
                         )}
                         {addr.is_default && (
-                          <span className="text-[8px] font-black text-accent/60 uppercase tracking-widest">Default</span>
+                          <span className="text-[8px] font-black text-accent/60 uppercase tracking-widest">
+                            Default
+                          </span>
                         )}
                       </button>
                     ))}
@@ -382,6 +396,34 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
               }
               className="w-full bg-main border border-subtle rounded-3xl px-5 py-3.5 text-lg text-content ios-transition font-medium focus:border-accent focus:bg-surface shadow-sm"
             />
+          </div>
+
+          {/* Transport Company */}
+          <div className="space-y-2 group">
+            <label className="text-xs uppercase text-text-muted font-black tracking-[0.2em] flex items-center gap-1 group-focus-within:text-accent">
+              <Truck size={10} /> Transport
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {TRANSPORT_COMPANIES.map((company) => (
+                <button
+                  key={company}
+                  type="button"
+                  onClick={() =>
+                    setFormData({
+                      ...formData,
+                      transportCompany: formData.transportCompany === company ? '' : company,
+                    })
+                  }
+                  className={`px-3 py-2 rounded-2xl text-xs font-bold uppercase tracking-wide border transition-all ${
+                    formData.transportCompany === company
+                      ? 'bg-accent text-black border-accent'
+                      : 'bg-main border-subtle text-muted hover:border-accent/50'
+                  }`}
+                >
+                  {company}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* BIKES / PARTS manual override (idea-038) */}
@@ -471,7 +513,6 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
             )}
           </div>
         )}
-
       </div>
       {/* end collapsible */}
 
