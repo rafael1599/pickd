@@ -1,10 +1,7 @@
 // Edge function: cleanup-gallery-trash
 //
 // Permanently deletes gallery photos that have been in trash for >14 days.
-// Steps:
-//   1. Query gallery_photos WHERE deleted_at < now() - 14 days
-//   2. Delete photos from R2 (full + thumbnail)
-//   3. Hard delete rows from DB (CASCADE removes task_photos)
+// Fail-safe: only deletes from DB if R2 deletion succeeded for that photo.
 //
 // Triggered daily by .github/workflows/cleanup-gallery-trash.yml at 06:00 UTC.
 
@@ -30,7 +27,7 @@ Deno.serve(async (req) => {
 
     const { data: expired, error: queryErr } = await supabase
       .from('gallery_photos')
-      .select('id')
+      .select('id, filename, url')
       .not('deleted_at', 'is', null)
       .lt('deleted_at', cutoff);
 
@@ -42,13 +39,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 2. Delete from R2
+    // 2. Delete from R2 — track which ones succeeded
     const r2Endpoint = Deno.env.get('R2_ENDPOINT');
     const r2AccessKey = Deno.env.get('R2_ACCESS_KEY_ID');
     const r2SecretKey = Deno.env.get('R2_SECRET_ACCESS_KEY');
     const r2Bucket = Deno.env.get('R2_BUCKET_NAME');
 
-    let r2Deleted = 0;
+    const r2SuccessIds: string[] = [];
+    const r2FailedIds: string[] = [];
+
     if (r2Endpoint && r2AccessKey && r2SecretKey && r2Bucket) {
       const s3 = new S3Client({
         endPoint: r2Endpoint.replace('https://', ''),
@@ -60,25 +59,49 @@ Deno.serve(async (req) => {
       });
 
       for (const photo of expired) {
-        await Promise.all([
-          s3.deleteObject(`photos/gallery/${photo.id}.webp`).catch(() => {}),
-          s3.deleteObject(`photos/gallery/thumbs/${photo.id}.webp`).catch(() => {}),
-        ]);
-        r2Deleted++;
+        try {
+          await Promise.all([
+            s3.deleteObject(`photos/gallery/${photo.id}.webp`),
+            s3.deleteObject(`photos/gallery/thumbs/${photo.id}.webp`),
+          ]);
+          r2SuccessIds.push(photo.id);
+        } catch (err) {
+          console.error(
+            `R2 delete failed for ${photo.id}:`,
+            err instanceof Error ? err.message : err
+          );
+          r2FailedIds.push(photo.id);
+        }
+      }
+    } else {
+      // No R2 config — skip R2 deletion, still clean DB
+      for (const photo of expired) {
+        r2SuccessIds.push(photo.id);
       }
     }
 
-    // 3. Hard delete from DB (CASCADE removes task_photos)
-    const expiredIds = expired.map((p) => p.id);
-    const { error: deleteErr } = await supabase
-      .from('gallery_photos')
-      .delete()
-      .in('id', expiredIds);
+    // 3. Only hard delete from DB photos that were successfully removed from R2
+    let dbDeleted = 0;
+    if (r2SuccessIds.length > 0) {
+      const { error: deleteErr } = await supabase
+        .from('gallery_photos')
+        .delete()
+        .in('id', r2SuccessIds);
 
-    if (deleteErr) throw deleteErr;
+      if (deleteErr) throw deleteErr;
+      dbDeleted = r2SuccessIds.length;
+    }
 
-    const result = { message: 'Cleanup complete', deleted: expiredIds.length, r2Deleted };
-    console.log(JSON.stringify(result));
+    // 4. Log audit trail
+    const result = {
+      message: 'Cleanup complete',
+      expired: expired.length,
+      r2Deleted: r2SuccessIds.length,
+      r2Failed: r2FailedIds.length,
+      dbDeleted,
+      failedIds: r2FailedIds,
+    };
+    console.log('[CLEANUP]', JSON.stringify(result));
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

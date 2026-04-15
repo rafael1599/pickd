@@ -4,6 +4,7 @@ import {
   compressImage,
   base64ToBlobUrl,
   uploadGalleryPhoto,
+  deleteGalleryPhoto,
 } from '../../../services/photoUpload.service';
 import type { GalleryPhoto } from '../../../schemas/galleryPhoto';
 
@@ -152,9 +153,12 @@ export function usePermanentDeletePhotos() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (photoIds: string[]) => {
+      // 1. Delete from R2 first (best effort — ignore failures for local dev)
+      await Promise.allSettled(photoIds.map((id) => deleteGalleryPhoto(id)));
+
+      // 2. Then hard delete from DB (CASCADE removes task_photos)
       const { error } = await supabase.from('gallery_photos').delete().in('id', photoIds);
       if (error) throw error;
-      // Note: R2 cleanup would happen via edge function in production
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: TRASH_KEY });

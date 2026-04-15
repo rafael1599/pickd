@@ -38,19 +38,8 @@ export function useAssignPhotosToTask() {
         .upsert(rows, { onConflict: 'task_id,photo_id', ignoreDuplicates: true });
       if (error) throw error;
     },
-    onMutate: async (vars) => {
-      await qc.cancelQueries({ queryKey: TASK_PHOTOS_KEY });
-      const previous = qc.getQueryData<Map<string, number>>(TASK_PHOTOS_KEY);
-      qc.setQueryData<Map<string, number>>(TASK_PHOTOS_KEY, (old) => {
-        const next = new Map(old ?? []);
-        next.set(vars.taskId, (next.get(vars.taskId) ?? 0) + vars.photoIds.length);
-        return next;
-      });
-      return { previous };
-    },
-    onError: (_err, _vars, ctx) => {
-      if (ctx?.previous) qc.setQueryData(TASK_PHOTOS_KEY, ctx.previous);
-    },
+    // No optimistic update — count comes from server to avoid inflation
+    // when some photos are already assigned (ignoreDuplicates skips them)
     onSettled: (_d, _e, vars) => {
       qc.invalidateQueries({ queryKey: TASK_PHOTOS_KEY });
       qc.invalidateQueries({ queryKey: TASK_PHOTO_DETAILS_KEY(vars.taskId) });

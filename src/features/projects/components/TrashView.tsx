@@ -15,6 +15,7 @@ export const TrashView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const restorePhotos = useRestorePhotos();
   const permanentDelete = usePermanentDeletePhotos();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -103,17 +104,29 @@ export const TrashView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             >
               <RotateCcw size={12} /> Restore
             </button>
-            <button
-              onClick={() =>
-                permanentDelete.mutate([...selectedIds], {
-                  onSuccess: () => setSelectedIds(new Set()),
-                })
-              }
-              disabled={permanentDelete.isPending}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-red-500 bg-red-500/10 border border-red-500/30 rounded-xl active:scale-95 transition-all"
-            >
-              <Trash2 size={12} /> Delete Forever
-            </button>
+            {!confirmDelete ? (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-red-500 bg-red-500/10 border border-red-500/30 rounded-xl active:scale-95 transition-all"
+              >
+                <Trash2 size={12} /> Delete Forever
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  permanentDelete.mutate([...selectedIds], {
+                    onSuccess: () => {
+                      setSelectedIds(new Set());
+                      setConfirmDelete(false);
+                    },
+                  });
+                }}
+                disabled={permanentDelete.isPending}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white bg-red-500 border border-red-600 rounded-xl active:scale-95 transition-all animate-pulse"
+              >
+                <Trash2 size={12} /> Confirm ({selectedIds.size})
+              </button>
+            )}
           </div>
         </div>
       )}
