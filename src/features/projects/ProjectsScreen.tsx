@@ -3,20 +3,28 @@ import {
   DndContext,
   DragOverlay,
   useDroppable,
-  useDraggable,
   PointerSensor,
   TouchSensor,
   useSensor,
   useSensors,
+  closestCenter,
   type DragStartEvent,
   type DragEndEvent,
 } from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import {
   useProjectTasks,
   useCreateTask,
   useUpdateTaskStatus,
   useDeleteTask,
   useUpdateTask,
+  useReorderTasks,
   type TaskStatus,
   type ProjectTask,
 } from './hooks/useProjectTasks';
@@ -135,11 +143,16 @@ const TaskCard: React.FC<{
   const [editTitle, setEditTitle] = useState(task.title);
   const [editNote, setEditNote] = useState(task.note ?? '');
 
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging, transform, transition } = useSortable({
     id: task.id,
     data: { task },
     disabled: isEditing,
   });
+
+  const sortableStyle = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
 
   const handleSave = () => {
     if (!editTitle.trim()) return;
@@ -194,6 +207,7 @@ const TaskCard: React.FC<{
   return (
     <div
       ref={isDragOverlay ? undefined : setNodeRef}
+      style={isDragOverlay ? undefined : sortableStyle}
       className={`group p-3 bg-surface border border-subtle rounded-xl transition-all duration-150 ${
         isDragging && !isDragOverlay ? 'opacity-30 scale-95' : ''
       } ${isDragOverlay ? 'shadow-xl rotate-2 scale-105' : ''}`}
@@ -306,22 +320,24 @@ const KanbanColumn: React.FC<{
       )}
 
       {/* Task Cards */}
-      <div className="flex flex-col gap-2 flex-1">
-        {tasks.map((task) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            onDelete={onDelete}
-            onComplete={onComplete}
-            onEdit={onEdit}
-          />
-        ))}
-        {tasks.length === 0 && !showForm && (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-xs text-muted/40 font-bold uppercase tracking-wider">No tasks</p>
-          </div>
-        )}
-      </div>
+      <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+        <div className="flex flex-col gap-2 flex-1">
+          {tasks.map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              onDelete={onDelete}
+              onComplete={onComplete}
+              onEdit={onEdit}
+            />
+          ))}
+          {tasks.length === 0 && !showForm && (
+            <div className="flex-1 flex items-center justify-center">
+              <p className="text-xs text-muted/40 font-bold uppercase tracking-wider">No tasks</p>
+            </div>
+          )}
+        </div>
+      </SortableContext>
     </div>
   );
 };
@@ -335,6 +351,7 @@ export const ProjectsScreen: React.FC = () => {
   const updateStatus = useUpdateTaskStatus();
   const deleteTask = useDeleteTask();
   const updateTask = useUpdateTask();
+  const reorderTasks = useReorderTasks();
 
   const [draggedTask, setDraggedTask] = useState<ProjectTask | null>(null);
 
@@ -392,19 +409,53 @@ export const ProjectsScreen: React.FC = () => {
       const task = active.data.current?.task as ProjectTask | undefined;
       if (!task) return;
 
-      // Get the target column status from the droppable
+      // Determine target: could be a column droppable or a sortable item
+      const overTask = over.data.current?.task as ProjectTask | undefined;
       const targetStatus = over.data.current?.status as TaskStatus | undefined;
-      if (!targetStatus || targetStatus === task.status) return;
 
-      const targetCount = grouped?.[targetStatus]?.length ?? 0;
-      updateStatus.mutate({
-        taskId: task.id,
-        fromStatus: task.status,
-        toStatus: targetStatus,
-        newPosition: targetCount,
-      });
+      // Case 1: Dropped on a column header (cross-column)
+      if (targetStatus && targetStatus !== task.status) {
+        const targetCount = grouped?.[targetStatus]?.length ?? 0;
+        updateStatus.mutate({
+          taskId: task.id,
+          fromStatus: task.status,
+          toStatus: targetStatus,
+          newPosition: targetCount,
+        });
+        return;
+      }
+
+      // Case 2: Dropped on another task
+      if (overTask) {
+        const sourceStatus = task.status;
+        const destStatus = overTask.status;
+        const columnTasks = grouped?.[sourceStatus] ?? [];
+
+        if (sourceStatus === destStatus) {
+          // Within-column reorder
+          const oldIndex = columnTasks.findIndex((t) => t.id === active.id);
+          const newIndex = columnTasks.findIndex((t) => t.id === over.id);
+          if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+
+          const reordered = arrayMove(columnTasks, oldIndex, newIndex);
+          reorderTasks.mutate({
+            status: sourceStatus,
+            orderedIds: reordered.map((t) => t.id),
+          });
+        } else {
+          // Cross-column: move to the position of the target task
+          const destTasks = grouped?.[destStatus] ?? [];
+          const insertIndex = destTasks.findIndex((t) => t.id === over.id);
+          updateStatus.mutate({
+            taskId: task.id,
+            fromStatus: sourceStatus,
+            toStatus: destStatus,
+            newPosition: insertIndex >= 0 ? insertIndex : destTasks.length,
+          });
+        }
+      }
     },
-    [updateStatus, grouped]
+    [updateStatus, reorderTasks, grouped]
   );
 
   if (isLoading) {
@@ -434,7 +485,12 @@ export const ProjectsScreen: React.FC = () => {
       </div>
 
       {/* Kanban Board */}
-      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {COLUMNS.map((col) => (
             <KanbanColumn

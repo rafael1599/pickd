@@ -251,6 +251,58 @@ export function useUpdateTask() {
   });
 }
 
+// ─── Mutation: reorder tasks within a column ────────────────────────────────
+
+interface ReorderTasksVars {
+  status: TaskStatus;
+  orderedIds: string[];
+}
+
+export function useReorderTasks() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (vars: ReorderTasksVars) => {
+      // Batch update positions
+      const updates = vars.orderedIds.map((id, index) =>
+        supabase
+          .from('project_tasks')
+          .update({ position: index, updated_at: new Date().toISOString() })
+          .eq('id', id)
+      );
+
+      const results = await Promise.all(updates);
+      const failed = results.find((r) => r.error);
+      if (failed?.error) throw failed.error;
+    },
+    onMutate: async (vars) => {
+      await qc.cancelQueries({ queryKey: QUERY_KEY });
+      const previous = qc.getQueryData<GroupedTasks>(QUERY_KEY);
+
+      qc.setQueryData<GroupedTasks>(QUERY_KEY, (old) => {
+        if (!old) return { future: [], in_progress: [], done: [] };
+
+        const reordered = vars.orderedIds
+          .map((id, index) => {
+            const task = old[vars.status].find((t) => t.id === id);
+            return task ? { ...task, position: index } : null;
+          })
+          .filter(Boolean) as ProjectTask[];
+
+        return { ...old, [vars.status]: reordered };
+      });
+
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(QUERY_KEY, ctx.previous);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: QUERY_KEY });
+    },
+  });
+}
+
 // ─── Mutation: delete task ───────────────────────────────────────────────────
 
 interface DeleteTaskVars {

@@ -81,7 +81,15 @@ const SearchPanel: React.FC<{
   onSelectResult: (item: InventoryItem) => void;
   suggestions?: SimilarSku[];
   onSelectSuggestion?: (alt: SimilarSku) => void;
-}> = ({ query, onQueryChange, results, isSearching, onSelectResult, suggestions, onSelectSuggestion }) => (
+}> = ({
+  query,
+  onQueryChange,
+  results,
+  isSearching,
+  onSelectResult,
+  suggestions,
+  onSelectSuggestion,
+}) => (
   <>
     {suggestions && suggestions.length > 0 && onSelectSuggestion && (
       <div className="mb-4">
@@ -208,10 +216,12 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
 }) => {
   // Track original items to detect changes for reopened orders
   const [initialSnapshot] = useState(() =>
-    isReopened ? JSON.stringify(allItems.map(i => ({ sku: i.sku, qty: i.pickingQty }))) : null
+    isReopened ? JSON.stringify(allItems.map((i) => ({ sku: i.sku, qty: i.pickingQty }))) : null
   );
-  const hasChanges = isReopened && initialSnapshot !== null &&
-    initialSnapshot !== JSON.stringify(allItems.map(i => ({ sku: i.sku, qty: i.pickingQty })));
+  const hasChanges =
+    isReopened &&
+    initialSnapshot !== null &&
+    initialSnapshot !== JSON.stringify(allItems.map((i) => ({ sku: i.sku, qty: i.pickingQty })));
 
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -225,7 +235,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
 
   const normalItems = useMemo(
     () => allItems.filter((i) => !i.sku_not_found && !i.insufficient_stock),
-    [allItems],
+    [allItems]
   );
 
   const similarSkus = useMemo(() => {
@@ -257,13 +267,21 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
     searchTimerRef.current = setTimeout(async () => {
       try {
         const [bikesRes, partsRes] = await Promise.all([
-          inventoryApi.fetchInventoryWithMetadata({ search: searchQuery, showParts: false, limit: 15 }),
-          inventoryApi.fetchInventoryWithMetadata({ search: searchQuery, showParts: true, limit: 15 }),
+          inventoryApi.fetchInventoryWithMetadata({
+            search: searchQuery,
+            showParts: false,
+            limit: 15,
+          }),
+          inventoryApi.fetchInventoryWithMetadata({
+            search: searchQuery,
+            showParts: true,
+            limit: 15,
+          }),
         ]);
         setSearchResults(
           [...bikesRes.data, ...partsRes.data].filter(
-            (inv) => (!excludeSku || inv.sku !== excludeSku) && inv.quantity > 0,
-          ),
+            (inv) => (!excludeSku || inv.sku !== excludeSku) && inv.quantity > 0
+          )
         );
       } catch {
         setSearchResults([]);
@@ -343,7 +361,11 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
       });
       const originalItem = allItems.find((i) => i.sku === activePanel.sku);
       if (originalItem && replaceQty !== originalItem.pickingQty) {
-        await onCorrectItem({ type: 'adjust_qty', sku: activePanel.replacement.sku, newQty: replaceQty });
+        await onCorrectItem({
+          type: 'adjust_qty',
+          sku: activePanel.replacement.sku,
+          newQty: replaceQty,
+        });
       }
       setActivePanel(null);
     } finally {
@@ -355,7 +377,12 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
     if (activePanel?.type !== 'adjust_qty' || isProcessing) return;
     setIsProcessing(true);
     try {
-      await onCorrectItem({ type: 'adjust_qty', sku: activePanel.sku, newQty: adjustQty, reason: selectedReason || undefined });
+      await onCorrectItem({
+        type: 'adjust_qty',
+        sku: activePanel.sku,
+        newQty: adjustQty,
+        reason: selectedReason || undefined,
+      });
       setActivePanel(null);
     } finally {
       setIsProcessing(false);
@@ -366,7 +393,11 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
     if (activePanel?.type !== 'remove' || isProcessing) return;
     setIsProcessing(true);
     try {
-      await onCorrectItem({ type: 'remove', sku: activePanel.sku, reason: selectedReason || undefined });
+      await onCorrectItem({
+        type: 'remove',
+        sku: activePanel.sku,
+        reason: selectedReason || undefined,
+      });
       setRecentlyRemoved((prev) => [...prev, activePanel.sku]);
       setActivePanel(null);
     } finally {
@@ -401,7 +432,11 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
   const renderItemCard = (item: PickingItem) => {
     const isActive = activePanel !== null && 'sku' in activePanel && activePanel.sku === item.sku;
     const isProblem = item.sku_not_found || item.insufficient_stock;
-    const errorType = item.sku_not_found ? 'sku_not_found' : item.insufficient_stock ? 'insufficient_stock' : null;
+    const errorType = item.sku_not_found
+      ? 'sku_not_found'
+      : item.insufficient_stock
+        ? 'insufficient_stock'
+        : null;
 
     return (
       <div key={item.sku} className="flex flex-col gap-0">
@@ -413,8 +448,12 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
         >
           <div className="flex items-center gap-3">
             <div className="flex flex-col items-center justify-center min-w-[3rem] shrink-0 border-r border-subtle pr-3">
-              <span className="text-[8px] font-black uppercase tracking-widest text-muted/60 mb-0.5">QTY</span>
-              <span className={`text-xl font-black leading-none ${item.pickingQty !== 1 ? 'text-amber-500' : 'text-content'}`}>
+              <span className="text-[8px] font-black uppercase tracking-widest text-muted/60 mb-0.5">
+                QTY
+              </span>
+              <span
+                className={`text-xl font-black leading-none ${item.pickingQty !== 1 ? 'text-amber-500' : 'text-content'}`}
+              >
                 {item.pickingQty}
               </span>
             </div>
@@ -424,21 +463,29 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
                 src={getThumbUrl(item.sku_metadata.image_url)}
                 alt={item.sku}
                 loading="lazy"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
                 className="w-9 h-9 object-contain rounded flex-shrink-0 border border-subtle"
               />
             )}
 
             <div className="flex flex-col gap-1 min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className={`font-black text-xl tracking-tight leading-none break-all ${isProblem ? 'text-red-500' : 'text-content'}`}>
+                <span
+                  className={`font-black text-xl tracking-tight leading-none break-all ${isProblem ? 'text-red-500' : 'text-content'}`}
+                >
                   {item.sku}
                 </span>
                 {item.sku_not_found && (
-                  <span className="text-[8px] bg-red-500 text-white px-1 py-0.5 rounded font-black uppercase tracking-tighter animate-pulse">UNREG</span>
+                  <span className="text-[8px] bg-red-500 text-white px-1 py-0.5 rounded font-black uppercase tracking-tighter animate-pulse">
+                    UNREG
+                  </span>
                 )}
                 {item.insufficient_stock && !item.sku_not_found && (
-                  <span className="text-[8px] bg-amber-500 text-black px-1 py-0.5 rounded font-black uppercase tracking-tighter animate-pulse">LOW STOCK</span>
+                  <span className="text-[8px] bg-amber-500 text-black px-1 py-0.5 rounded font-black uppercase tracking-tighter animate-pulse">
+                    LOW STOCK
+                  </span>
                 )}
               </div>
               {(item.item_name || item.description) && (
@@ -449,7 +496,9 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
             </div>
 
             <div className="flex flex-col items-end shrink-0">
-              <span className="text-[8px] font-black uppercase tracking-widest text-muted/60">LOC</span>
+              <span className="text-[8px] font-black uppercase tracking-widest text-muted/60">
+                LOC
+              </span>
               <span className="text-[11px] font-black text-content/70 uppercase">
                 {(item.location || '').replace(/row/i, '').trim().slice(0, 5) || '-'}
               </span>
@@ -459,14 +508,22 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
           {/* Action buttons — same for all items */}
           <div className="flex items-center gap-2 mt-3 pt-3 border-t border-subtle">
             <button
-              onClick={() => (isActive && activePanel?.type === 'replace' ? setActivePanel(null) : handleOpenReplace(item.sku))}
+              onClick={() =>
+                isActive && activePanel?.type === 'replace'
+                  ? setActivePanel(null)
+                  : handleOpenReplace(item.sku)
+              }
               className="flex-1 min-h-12 rounded-xl font-black uppercase tracking-widest text-[10px] bg-accent/15 text-accent border border-accent/20 transition-all hover:bg-accent/25 active:scale-[0.97]"
             >
               <RefreshCw size={12} className="inline mr-1.5 -mt-0.5" /> Replace
             </button>
             {errorType !== 'sku_not_found' && (
               <button
-                onClick={() => (isActive && activePanel?.type === 'adjust_qty' ? setActivePanel(null) : handleOpenAdjustQty(item))}
+                onClick={() =>
+                  isActive && activePanel?.type === 'adjust_qty'
+                    ? setActivePanel(null)
+                    : handleOpenAdjustQty(item)
+                }
                 className={`flex-1 min-h-12 rounded-xl font-black uppercase tracking-widest text-[10px] border transition-all active:scale-[0.97] ${
                   errorType === 'insufficient_stock'
                     ? 'bg-amber-500/15 text-amber-400 border-amber-500/20 hover:bg-amber-500/25'
@@ -477,7 +534,11 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
               </button>
             )}
             <button
-              onClick={() => (isActive && activePanel?.type === 'remove' ? setActivePanel(null) : handleOpenRemove(item.sku))}
+              onClick={() =>
+                isActive && activePanel?.type === 'remove'
+                  ? setActivePanel(null)
+                  : handleOpenRemove(item.sku)
+              }
               className="min-h-12 px-4 rounded-xl font-black uppercase tracking-widest text-[10px] bg-red-500/15 text-red-400 border border-red-500/20 transition-all hover:bg-red-500/25 active:scale-[0.97]"
             >
               <Trash2 size={12} className="inline mr-1 -mt-0.5" /> Remove
@@ -496,7 +557,9 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
               isSearching={isSearching}
               onSelectResult={(r) => handleSelectReplacement(item.sku, r)}
               suggestions={similarSkus}
-              onSelectSuggestion={(alt) => handleSuggestionSelect(item.sku, alt, item.warehouse || 'LUDLOW')}
+              onSelectSuggestion={(alt) =>
+                handleSuggestionSelect(item.sku, alt, item.warehouse || 'LUDLOW')
+              }
             />
           </div>
         )}
@@ -504,14 +567,22 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
         {isActive && activePanel?.type === 'confirm_replace' && (
           <div className="bg-card border border-subtle border-t-0 rounded-b-2xl p-4 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="text-center mb-4">
-              <span className="text-[10px] font-black text-muted/70 uppercase tracking-widest">Replace</span>
+              <span className="text-[10px] font-black text-muted/70 uppercase tracking-widest">
+                Replace
+              </span>
               <div className="flex items-center justify-center gap-2 mt-1">
-                <span className={`font-black text-sm ${isProblem ? 'text-red-400' : 'text-muted'}`}>{activePanel.sku}</span>
+                <span className={`font-black text-sm ${isProblem ? 'text-red-400' : 'text-muted'}`}>
+                  {activePanel.sku}
+                </span>
                 <RefreshCw size={12} className="text-muted/60" />
-                <span className="font-black text-green-400 text-sm">{activePanel.replacement.sku}</span>
+                <span className="font-black text-green-400 text-sm">
+                  {activePanel.replacement.sku}
+                </span>
               </div>
               {activePanel.replacement.item_name && (
-                <span className="text-[10px] text-muted/70 mt-1 block">{activePanel.replacement.item_name.slice(0, 40)}</span>
+                <span className="text-[10px] text-muted/70 mt-1 block">
+                  {activePanel.replacement.item_name.slice(0, 40)}
+                </span>
               )}
             </div>
             <QtyInput value={replaceQty} onChange={setReplaceQty} autoSelect={autoSelect} />
@@ -538,11 +609,17 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
           <div className="bg-card border border-subtle border-t-0 rounded-b-2xl p-4 animate-in fade-in slide-in-from-top-2 duration-200">
             <QtyInput value={adjustQty} onChange={setAdjustQty} autoSelect={autoSelect} />
             <div className="flex items-center justify-center gap-3 mb-4">
-              <span className="text-[9px] text-muted/60 font-black uppercase tracking-widest">Ordered: {item.pickingQty}</span>
+              <span className="text-[9px] text-muted/60 font-black uppercase tracking-widest">
+                Ordered: {item.pickingQty}
+              </span>
               <span className="text-[9px] text-muted/20">|</span>
               <span
                 className={`text-[9px] font-black uppercase tracking-widest ${
-                  activePanel.availableStock === -1 ? 'text-muted/60' : activePanel.availableStock > 0 ? 'text-green-400/70' : 'text-red-400/70'
+                  activePanel.availableStock === -1
+                    ? 'text-muted/60'
+                    : activePanel.availableStock > 0
+                      ? 'text-green-400/70'
+                      : 'text-red-400/70'
                 }`}
               >
                 Available: {activePanel.availableStock === -1 ? '...' : activePanel.availableStock}
@@ -596,18 +673,25 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-subtle bg-main">
         <div className="flex items-center gap-3">
-          <button onClick={onClose} className="p-2 hover:bg-card rounded-full text-muted transition-colors">
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-card rounded-full text-muted transition-colors"
+          >
             <ChevronLeft size={24} />
           </button>
-          <h1 className={`text-lg font-black uppercase tracking-widest ${isReopened ? 'text-orange-400' : 'text-content'}`}>
+          <h1
+            className={`text-lg font-black uppercase tracking-widest ${isReopened ? 'text-orange-400' : 'text-content'}`}
+          >
             {isReopened ? 'Reopen Order' : 'Edit Order'}
           </h1>
           {orderNumber && (
-            <span className={`text-[9px] font-black uppercase tracking-tighter px-2 py-0.5 rounded border ${
-              isReopened
-                ? 'text-orange-400/80 bg-orange-500/10 border-orange-500/20'
-                : 'text-muted bg-card border-subtle'
-            }`}>
+            <span
+              className={`text-[9px] font-black uppercase tracking-tighter px-2 py-0.5 rounded border ${
+                isReopened
+                  ? 'text-orange-400/80 bg-orange-500/10 border-orange-500/20'
+                  : 'text-muted bg-card border-subtle'
+              }`}
+            >
               {orderNumber}
             </span>
           )}
@@ -618,7 +702,9 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
       <div className="px-4 py-3">
         <div
           className={`flex items-center gap-2 rounded-xl px-4 py-2 ${
-            problemItems.length > 0 ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-card border border-subtle'
+            problemItems.length > 0
+              ? 'bg-amber-500/10 border border-amber-500/20'
+              : 'bg-card border border-subtle'
           }`}
         >
           {problemItems.length > 0 ? (
@@ -626,8 +712,12 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
           ) : (
             <Check className="text-green-400 flex-shrink-0" size={16} />
           )}
-          <span className={`text-[11px] font-black uppercase tracking-widest ${problemItems.length > 0 ? 'text-amber-400' : 'text-muted'}`}>
-            {problemItems.length > 0 ? `${problemItems.length} issue${problemItems.length !== 1 ? 's' : ''}` : 'No issues'}
+          <span
+            className={`text-[11px] font-black uppercase tracking-widest ${problemItems.length > 0 ? 'text-amber-400' : 'text-muted'}`}
+          >
+            {problemItems.length > 0
+              ? `${problemItems.length} issue${problemItems.length !== 1 ? 's' : ''}`
+              : 'No issues'}
             {' · '}
             {allItems.length} item{allItems.length !== 1 ? 's' : ''} total
           </span>
@@ -644,7 +734,9 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
           {problemItems.length > 0 && normalItems.length > 0 && (
             <div className="flex items-center gap-3 mt-6 mb-2">
               <div className="h-[1px] flex-1 bg-card" />
-              <span className="text-[9px] font-black text-muted/60 uppercase tracking-widest">Other Items</span>
+              <span className="text-[9px] font-black text-muted/60 uppercase tracking-widest">
+                Other Items
+              </span>
               <div className="h-[1px] flex-1 bg-card" />
             </div>
           )}
@@ -659,14 +751,20 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
                 {recentlyRemoved.length > 0 && (
                   <div className="mb-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
                     <span className="text-[10px] font-bold text-amber-400">
-                      You removed {recentlyRemoved[recentlyRemoved.length - 1]} — consider using <strong>Replace</strong> on the item instead for a cleaner audit trail.
+                      You removed {recentlyRemoved[recentlyRemoved.length - 1]} — consider using{' '}
+                      <strong>Replace</strong> on the item instead for a cleaner audit trail.
                     </span>
                   </div>
                 )}
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-[10px] font-black text-accent uppercase tracking-widest">Add Item to Order</span>
+                  <span className="text-[10px] font-black text-accent uppercase tracking-widest">
+                    Add Item to Order
+                  </span>
                   <button
-                    onClick={() => { setActivePanel(null); setSearchQuery(''); }}
+                    onClick={() => {
+                      setActivePanel(null);
+                      setSearchQuery('');
+                    }}
                     className="p-1 hover:bg-card rounded-full text-muted/60"
                   >
                     <X size={16} />
@@ -677,30 +775,43 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
                   onQueryChange={setSearchQuery}
                   results={searchResults}
                   isSearching={isSearching}
-                  onSelectResult={(item) => { setAddQty(1); setActivePanel({ type: 'confirm_add', item }); }}
+                  onSelectResult={(item) => {
+                    setAddQty(1);
+                    setActivePanel({ type: 'confirm_add', item });
+                  }}
                 />
               </div>
             ) : activePanel?.type === 'confirm_add' ? (
               <div className="bg-card border border-accent/20 rounded-2xl p-4 animate-in fade-in slide-in-from-top-2 duration-200">
                 <div className="text-center mb-4">
-                  <span className="text-[10px] font-black text-muted/70 uppercase tracking-widest">Add to Order</span>
+                  <span className="text-[10px] font-black text-muted/70 uppercase tracking-widest">
+                    Add to Order
+                  </span>
                   <div className="font-black text-accent text-lg mt-1">{activePanel.item.sku}</div>
                   {activePanel.item.item_name && (
-                    <span className="text-[10px] text-muted/70">{activePanel.item.item_name.slice(0, 40)}</span>
+                    <span className="text-[10px] text-muted/70">
+                      {activePanel.item.item_name.slice(0, 40)}
+                    </span>
                   )}
                 </div>
                 <QtyInput value={addQty} onChange={setAddQty} autoSelect={autoSelect} />
                 <p className="text-[9px] text-muted/60 text-center mb-4 font-black uppercase tracking-widest">
-                  {activePanel.item.location?.replace(/row/i, 'ROW') || 'No location'} · {activePanel.item.quantity} available
+                  {activePanel.item.location?.replace(/row/i, 'ROW') || 'No location'} ·{' '}
+                  {activePanel.item.quantity} available
                 </p>
                 <ReasonPicker
                   actionType="add"
-                  preselect={recentlyRemoved.length > 0 ? 'Replacement for removed item' : undefined}
+                  preselect={
+                    recentlyRemoved.length > 0 ? 'Replacement for removed item' : undefined
+                  }
                   selectedReason={selectedReason}
                   onReasonChange={setSelectedReason}
                 />
                 <ActionButtons
-                  onCancel={() => { setActivePanel({ type: 'add_item' }); setSearchQuery(''); }}
+                  onCancel={() => {
+                    setActivePanel({ type: 'add_item' });
+                    setSearchQuery('');
+                  }}
                   onConfirm={handleConfirmAdd}
                   isProcessing={isProcessing}
                   confirmLabel="Add to Order"
@@ -709,7 +820,10 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
               </div>
             ) : (
               <button
-                onClick={() => { setSearchQuery(''); setActivePanel({ type: 'add_item' }); }}
+                onClick={() => {
+                  setSearchQuery('');
+                  setActivePanel({ type: 'add_item' });
+                }}
                 className="w-full min-h-12 rounded-2xl font-black uppercase tracking-widest text-[10px] bg-accent/10 text-accent border border-accent/20 transition-all hover:bg-accent/20 active:scale-[0.97] flex items-center justify-center gap-2"
               >
                 <Plus size={16} /> Add Item
@@ -720,11 +834,13 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
       </div>
 
       {/* Footer — Done button */}
-      <div className="shrink-0 p-4 border-t border-subtle bg-main">
+      <div className="shrink-0 p-4 pb-28 border-t border-subtle bg-main">
         <button
           onClick={() => {
             if (isReopened && initialSnapshot !== null) {
-              const current = JSON.stringify(allItems.map(i => ({ sku: i.sku, qty: i.pickingQty })));
+              const current = JSON.stringify(
+                allItems.map((i) => ({ sku: i.sku, qty: i.pickingQty }))
+              );
               if (current === initialSnapshot) {
                 // No changes — cancel reopen entirely
                 onCancelReopen?.();
