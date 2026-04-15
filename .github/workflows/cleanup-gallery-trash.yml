@@ -1,0 +1,19 @@
+name: Cleanup Gallery Trash
+
+on:
+  schedule:
+    # Runs at 06:00 UTC daily (after report snapshot at 05:15).
+    # Deletes gallery photos that have been in trash for >14 days.
+    - cron: '0 6 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  cleanup-trash:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger cleanup-gallery-trash edge function
+        run: |
+          curl -fsS -X POST "${{ secrets.SUPABASE_URL }}/functions/v1/cleanup-gallery-trash" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{}'

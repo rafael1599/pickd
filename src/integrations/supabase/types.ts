@@ -438,6 +438,119 @@ export type Database = {
           },
         ];
       };
+      fedex_return_items: {
+        Row: {
+          condition: string;
+          created_at: string | null;
+          id: string;
+          item_name: string | null;
+          moved_at: string | null;
+          moved_to_location: string | null;
+          moved_to_warehouse: string | null;
+          quantity: number;
+          return_id: string;
+          sku: string;
+        };
+        Insert: {
+          condition?: string;
+          created_at?: string | null;
+          id?: string;
+          item_name?: string | null;
+          moved_at?: string | null;
+          moved_to_location?: string | null;
+          moved_to_warehouse?: string | null;
+          quantity?: number;
+          return_id: string;
+          sku: string;
+        };
+        Update: {
+          condition?: string;
+          created_at?: string | null;
+          id?: string;
+          item_name?: string | null;
+          moved_at?: string | null;
+          moved_to_location?: string | null;
+          moved_to_warehouse?: string | null;
+          quantity?: number;
+          return_id?: string;
+          sku?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'fedex_return_items_return_id_fkey';
+            columns: ['return_id'];
+            isOneToOne: false;
+            referencedRelation: 'fedex_returns';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      fedex_returns: {
+        Row: {
+          created_at: string | null;
+          id: string;
+          label_photo_url: string | null;
+          notes: string | null;
+          processed_at: string | null;
+          processed_by: string | null;
+          processed_by_name: string | null;
+          received_at: string | null;
+          received_by: string | null;
+          received_by_name: string | null;
+          resolved_at: string | null;
+          status: string;
+          tracking_number: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          id?: string;
+          label_photo_url?: string | null;
+          notes?: string | null;
+          processed_at?: string | null;
+          processed_by?: string | null;
+          processed_by_name?: string | null;
+          received_at?: string | null;
+          received_by?: string | null;
+          received_by_name?: string | null;
+          resolved_at?: string | null;
+          status?: string;
+          tracking_number: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          id?: string;
+          label_photo_url?: string | null;
+          notes?: string | null;
+          processed_at?: string | null;
+          processed_by?: string | null;
+          processed_by_name?: string | null;
+          received_at?: string | null;
+          received_by?: string | null;
+          received_by_name?: string | null;
+          resolved_at?: string | null;
+          status?: string;
+          tracking_number?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'fedex_returns_processed_by_fkey';
+            columns: ['processed_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'fedex_returns_received_by_fkey';
+            columns: ['received_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       gallery_photos: {
         Row: {
           id: string;

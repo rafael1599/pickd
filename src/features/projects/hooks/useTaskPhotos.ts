@@ -1,0 +1,100 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../../../lib/supabase';
+import type { GalleryPhoto } from '../../../schemas/galleryPhoto';
+
+const TASK_PHOTOS_KEY = ['task-photo-counts'] as const;
+const TASK_PHOTO_DETAILS_KEY = (taskId: string) => ['task-photo-details', taskId] as const;
+
+export function useTaskPhotoCounts() {
+  return useQuery({
+    queryKey: TASK_PHOTOS_KEY,
+    queryFn: async (): Promise<Map<string, number>> => {
+      const { data, error } = await supabase.from('task_photos').select('task_id');
+      if (error) throw error;
+      const counts = new Map<string, number>();
+      for (const row of data ?? []) {
+        counts.set(row.task_id, (counts.get(row.task_id) ?? 0) + 1);
+      }
+      return counts;
+    },
+  });
+}
+
+export function useAssignPhotosToTask() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (vars: { photoIds: string[]; taskId: string }) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const rows = vars.photoIds.map((photoId) => ({
+        task_id: vars.taskId,
+        photo_id: photoId,
+        assigned_by: user?.id ?? null,
+      }));
+      const { error } = await supabase
+        .from('task_photos')
+        .upsert(rows, { onConflict: 'task_id,photo_id', ignoreDuplicates: true });
+      if (error) throw error;
+    },
+    onMutate: async (vars) => {
+      await qc.cancelQueries({ queryKey: TASK_PHOTOS_KEY });
+      const previous = qc.getQueryData<Map<string, number>>(TASK_PHOTOS_KEY);
+      qc.setQueryData<Map<string, number>>(TASK_PHOTOS_KEY, (old) => {
+        const next = new Map(old ?? []);
+        next.set(vars.taskId, (next.get(vars.taskId) ?? 0) + vars.photoIds.length);
+        return next;
+      });
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(TASK_PHOTOS_KEY, ctx.previous);
+    },
+    onSettled: (_d, _e, vars) => {
+      qc.invalidateQueries({ queryKey: TASK_PHOTOS_KEY });
+      qc.invalidateQueries({ queryKey: TASK_PHOTO_DETAILS_KEY(vars.taskId) });
+    },
+  });
+}
+
+// ─── Query: fetch full photo details for a task ────────────────────────────
+
+export function useTaskPhotoDetails(taskId: string) {
+  return useQuery({
+    queryKey: TASK_PHOTO_DETAILS_KEY(taskId),
+    queryFn: async (): Promise<GalleryPhoto[]> => {
+      const { data, error } = await supabase
+        .from('task_photos')
+        .select('photo_id, gallery_photos(*)')
+        .eq('task_id', taskId)
+        .order('assigned_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? [])
+        .map((row: { gallery_photos: GalleryPhoto | null }) => row.gallery_photos)
+        .filter(Boolean) as GalleryPhoto[];
+    },
+    enabled: !!taskId,
+  });
+}
+
+// ─── Mutation: unassign a photo from a task ────────────────────────────────
+
+export function useUnassignPhoto() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (vars: { taskId: string; photoId: string }) => {
+      const { error } = await supabase
+        .from('task_photos')
+        .delete()
+        .eq('task_id', vars.taskId)
+        .eq('photo_id', vars.photoId);
+      if (error) throw error;
+    },
+    onSettled: (_data, _err, vars) => {
+      qc.invalidateQueries({ queryKey: TASK_PHOTO_DETAILS_KEY(vars.taskId) });
+      qc.invalidateQueries({ queryKey: TASK_PHOTOS_KEY });
+    },
+  });
+}
