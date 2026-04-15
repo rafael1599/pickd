@@ -136,48 +136,24 @@ export async function uploadGalleryPhoto(
     onThumbnailReady(base64ToBlobUrl(thumbnail));
   }
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  const response = await fetch(FUNCTION_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${session?.access_token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ gallery: true, photoId, image, thumbnail }),
+  const { data, error } = await supabase.functions.invoke('upload-photo', {
+    body: { gallery: true, photoId, image, thumbnail },
   });
 
-  if (!response.ok) {
-    const errorBody: { error?: string } = await response.json();
-    throw new Error(errorBody.error ?? `Upload failed with status ${response.status}`);
-  }
-
-  return response.json();
+  if (error) throw error;
+  return data as { url: string; thumbnailUrl: string };
 }
 
 /**
  * Deletes a gallery photo via the upload-photo edge function.
  */
 export async function deleteGalleryPhoto(photoId: string): Promise<void> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  const response = await fetch(FUNCTION_URL, {
+  const { error } = await supabase.functions.invoke('upload-photo', {
     method: 'DELETE',
-    headers: {
-      Authorization: `Bearer ${session?.access_token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ gallery: true, photoId }),
+    body: { gallery: true, photoId },
   });
 
-  if (!response.ok) {
-    const errorBody: { error?: string } = await response.json();
-    throw new Error(errorBody.error ?? `Delete failed with status ${response.status}`);
-  }
+  if (error) throw error;
 }
 
 /**
