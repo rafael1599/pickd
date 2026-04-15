@@ -126,6 +126,7 @@ export function useCreateTask() {
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: QUERY_KEY });
+      qc.invalidateQueries({ queryKey: ['report-tasks'] });
     },
   });
 }
@@ -194,6 +195,7 @@ export function useUpdateTaskStatus() {
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: QUERY_KEY });
+      qc.invalidateQueries({ queryKey: ['report-tasks'] });
     },
   });
 }
@@ -247,6 +249,7 @@ export function useUpdateTask() {
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: QUERY_KEY });
+      qc.invalidateQueries({ queryKey: ['report-tasks'] });
     },
   });
 }
@@ -299,6 +302,7 @@ export function useReorderTasks() {
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: QUERY_KEY });
+      qc.invalidateQueries({ queryKey: ['report-tasks'] });
     },
   });
 }
@@ -337,6 +341,7 @@ export function useDeleteTask() {
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: QUERY_KEY });
+      qc.invalidateQueries({ queryKey: ['report-tasks'] });
     },
   });
 }
