@@ -39,13 +39,19 @@ export function useUploadGalleryPhoto() {
       let url: string;
       let thumbnailUrl: string;
 
+      const isLocal = window.location.hostname === 'localhost';
+
       try {
-        // Try R2 upload via edge function (production)
+        // Upload to R2 via edge function
         const result = await uploadGalleryPhoto(photoId, vars.file);
         url = result.url;
         thumbnailUrl = result.thumbnailUrl;
-      } catch {
-        // Fallback: compress client-side and use blob URLs (local dev)
+      } catch (err) {
+        if (!isLocal) {
+          // In production, don't fallback to blob URLs — they won't work on other devices
+          throw err;
+        }
+        // Local dev only: use blob URLs as fallback
         const { image, thumbnail } = await compressImage(vars.file);
         url = base64ToBlobUrl(image);
         thumbnailUrl = base64ToBlobUrl(thumbnail);
