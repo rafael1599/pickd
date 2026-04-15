@@ -70,6 +70,42 @@ export function useReportTasks(date: string) {
       // 4. Reconstruct historical buckets in JS (pure, tested).
       const buckets = computeTaskStatusBuckets(startsAt, endsAt, tasks, changes);
 
+      // 5. Enrich with photo data (live query — not snapshotted).
+      const allBucketTaskIds = [
+        ...buckets.done,
+        ...buckets.inProgress,
+        ...buckets.future.slice(0, COMING_UP_LIMIT),
+      ].map((t) => t.task_id);
+
+      if (allBucketTaskIds.length > 0) {
+        const { data: photoData } = await supabase
+          .from('task_photos')
+          .select('task_id, gallery_photos(thumbnail_url)')
+          .in('task_id', allBucketTaskIds);
+
+        if (photoData) {
+          const photoMap = new Map<string, string[]>();
+          for (const row of photoData) {
+            const url = (
+              row as { task_id: string; gallery_photos: { thumbnail_url: string } | null }
+            ).gallery_photos?.thumbnail_url;
+            if (!url) continue;
+            const arr = photoMap.get(row.task_id) ?? [];
+            arr.push(url);
+            photoMap.set(row.task_id, arr);
+          }
+
+          const enrich = (t: BucketTask): BucketTask => {
+            const thumbs = photoMap.get(t.task_id) ?? [];
+            return { ...t, photo_count: thumbs.length, photo_thumbnails: thumbs.slice(0, 3) };
+          };
+
+          buckets.done = buckets.done.map(enrich);
+          buckets.inProgress = buckets.inProgress.map(enrich);
+          buckets.future = buckets.future.map(enrich);
+        }
+      }
+
       return {
         doneToday: buckets.done,
         inProgress: buckets.inProgress,

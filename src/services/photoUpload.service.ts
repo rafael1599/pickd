@@ -120,6 +120,67 @@ export async function uploadPhoto(
 }
 
 /**
+ * Compresses and uploads a gallery photo via the upload-photo edge function.
+ * Calls onThumbnailReady with a local blob URL as soon as the thumbnail
+ * is generated (before the network upload starts).
+ * Returns both the full-size and thumbnail public URLs.
+ */
+export async function uploadGalleryPhoto(
+  photoId: string,
+  file: File,
+  onThumbnailReady?: (blobUrl: string) => void
+): Promise<{ url: string; thumbnailUrl: string }> {
+  const { image, thumbnail } = await compressImage(file);
+
+  if (onThumbnailReady) {
+    onThumbnailReady(base64ToBlobUrl(thumbnail));
+  }
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const response = await fetch(FUNCTION_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${session?.access_token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ gallery: true, photoId, image, thumbnail }),
+  });
+
+  if (!response.ok) {
+    const errorBody: { error?: string } = await response.json();
+    throw new Error(errorBody.error ?? `Upload failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Deletes a gallery photo via the upload-photo edge function.
+ */
+export async function deleteGalleryPhoto(photoId: string): Promise<void> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const response = await fetch(FUNCTION_URL, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${session?.access_token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ gallery: true, photoId }),
+  });
+
+  if (!response.ok) {
+    const errorBody: { error?: string } = await response.json();
+    throw new Error(errorBody.error ?? `Delete failed with status ${response.status}`);
+  }
+}
+
+/**
  * Deletes a photo for the given SKU via the upload-photo edge function.
  */
 export async function deletePhoto(sku: string): Promise<void> {

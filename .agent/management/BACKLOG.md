@@ -97,10 +97,16 @@
 - [ ] **Automatic Inventory Email** — Edge function `send-daily-report` + query + cron. <!-- id: idea-007 -->
 - [ ] **Fotos Fase 3 — Bulk Upload** — Multi-file picker, batching, progress bar. <!-- id: idea-023-p3 -->
 - [ ] **Migrar cron jobs a pg_cron** — Elimina dependencia de GitHub Actions. <!-- id: idea-030 -->
-- [ ] **Projects — drag to reorder priority** — En Coming Up Next y In Progress, arrastrar para reordenar. Más arriba = más prioridad. No se refleja en ningún otro lado por ahora, solo capacidad de reordenar dentro de cada columna. <!-- id: idea-049 -->
+- [x] ~~**Projects — drag to reorder priority**~~ ✅ 2026-04-15 — `0b85070` @dnd-kit/sortable within-column reorder con position persistence. <!-- id: idea-049 -->
 - [x] ~~**Shopping List / Cosas por comprar**~~ ✅ 2026-04-14 — `dc2d19f` Vista compartida + PDF 4x6 térmico para buying runs. <!-- id: idea-056 -->
 - [ ] **FedEx default single group** — Las órdenes FedEx se crean con un solo grupo por defecto (todo junto en una caja). Si el picker necesita separar en múltiples cajas, lo hace manualmente como siempre. Elimina el paso innecesario de agrupar cuando la mayoría va en un solo paquete. <!-- id: idea-057 -->
 - [x] ~~**Activity Report — quitar la hora del header**~~ ✅ 2026-04-10 `35ff19c` <!-- id: idea-051 -->
+
+---
+
+## Inventory Audit — pendientes de revisión
+
+- [ ] **ROW 10 — 6 SKUs sin sublocation confirmada** — `03-3718GY` (1), `03-3719GY` (1), `03-3817GY` (1), `03-3846BR` (5), `03-4201GN` (3), `03-4208GY` (1). Verificar físicamente si siguen en ROW 10 o deben moverse/desactivarse. <!-- audit-2026-04-15 -->
 
 ---
 

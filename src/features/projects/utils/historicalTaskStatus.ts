@@ -46,6 +46,8 @@ export interface BucketTask {
   task_id: string;
   title: string;
   note: string | null;
+  photo_count?: number;
+  photo_thumbnails?: string[];
 }
 
 export interface TaskStatusBuckets {

@@ -123,6 +123,23 @@ function renderTaskList(
       {task.note && task.note.trim().length > 0 && (
         <p style={taskNoteStyle}>{task.note}</p>
       )}
+      {task.photo_thumbnails && task.photo_thumbnails.length > 0 && (
+        <div style={{ margin: '6px 0 0 18px', display: 'flex', gap: 4, alignItems: 'center' }}>
+          {task.photo_thumbnails.map((url, j) => (
+            <img
+              key={j}
+              src={url}
+              alt=""
+              style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', border: `1px solid ${TEXT_MUTED}33` }}
+            />
+          ))}
+          {(task.photo_count ?? 0) > 3 && (
+            <span style={{ fontSize: 11, color: TEXT_MUTED, fontWeight: 700 }}>
+              +{(task.photo_count ?? 0) - 3}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   ));
 }

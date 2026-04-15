@@ -438,6 +438,47 @@ export type Database = {
           },
         ];
       };
+      gallery_photos: {
+        Row: {
+          id: string;
+          filename: string;
+          url: string;
+          thumbnail_url: string;
+          caption: string | null;
+          deleted_at: string | null;
+          created_by: string | null;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          filename: string;
+          url: string;
+          thumbnail_url: string;
+          caption?: string | null;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          filename?: string;
+          url?: string;
+          thumbnail_url?: string;
+          caption?: string | null;
+          deleted_at?: string | null;
+          created_by?: string | null;
+          created_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'gallery_photos_created_by_fkey';
+            columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       inventory: {
         Row: {
           capacity: number | null;
@@ -826,6 +867,7 @@ export type Database = {
           status: string | null;
           total_units: number | null;
           total_weight_lbs: number | null;
+          transport_company: string | null;
           updated_at: string | null;
           user_id: string;
           waiting_reason: string | null;
@@ -858,6 +900,7 @@ export type Database = {
           status?: string | null;
           total_units?: number | null;
           total_weight_lbs?: number | null;
+          transport_company?: string | null;
           updated_at?: string | null;
           user_id: string;
           waiting_reason?: string | null;
@@ -890,6 +933,7 @@ export type Database = {
           status?: string | null;
           total_units?: number | null;
           total_weight_lbs?: number | null;
+          transport_company?: string | null;
           updated_at?: string | null;
           user_id?: string;
           waiting_reason?: string | null;
@@ -1102,6 +1146,52 @@ export type Database = {
             columns: ['task_id'];
             isOneToOne: false;
             referencedRelation: 'project_tasks';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      task_photos: {
+        Row: {
+          id: string;
+          task_id: string;
+          photo_id: string;
+          assigned_by: string | null;
+          assigned_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          task_id: string;
+          photo_id: string;
+          assigned_by?: string | null;
+          assigned_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          task_id?: string;
+          photo_id?: string;
+          assigned_by?: string | null;
+          assigned_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'task_photos_task_id_fkey';
+            columns: ['task_id'];
+            isOneToOne: false;
+            referencedRelation: 'project_tasks';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'task_photos_photo_id_fkey';
+            columns: ['photo_id'];
+            isOneToOne: false;
+            referencedRelation: 'gallery_photos';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'task_photos_assigned_by_fkey';
+            columns: ['assigned_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
             referencedColumns: ['id'];
           },
         ];

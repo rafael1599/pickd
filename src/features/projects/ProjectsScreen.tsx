@@ -32,6 +32,11 @@ import Pencil from 'lucide-react/dist/esm/icons/pencil';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left';
 import { useNavigate } from 'react-router-dom';
+import { PhotoGallery } from './components/PhotoGallery';
+import { useTaskPhotoCounts, useAssignPhotosToTask } from './hooks/useTaskPhotos';
+import { PhotoCountBadge } from './components/PhotoCountBadge';
+import { TaskDetailModal } from './components/TaskDetailModal';
+import type { GalleryPhoto } from '../../schemas/galleryPhoto';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -137,6 +142,9 @@ const TaskCard: React.FC<{
   dropIndicator?: 'above' | 'below' | null;
   justPlaced?: boolean;
   dragHeight?: number;
+  photoCount?: number;
+  photoDropTarget?: boolean;
+  onOpenDetail?: (task: ProjectTask) => void;
 }> = ({
   task,
   onDelete,
@@ -147,6 +155,9 @@ const TaskCard: React.FC<{
   dropIndicator,
   justPlaced,
   dragHeight = 0,
+  photoCount,
+  photoDropTarget,
+  onOpenDetail,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
@@ -245,7 +256,7 @@ const TaskCard: React.FC<{
           isDragging ? 'opacity-0 h-0 p-0 m-0 overflow-hidden border-0' : ''
         } ${isDragOverlay ? 'shadow-2xl shadow-black/20 scale-[1.03] rotate-1 border-accent/40' : ''} ${
           isDragActive && !isDragging && !isDragOverlay ? 'pointer-events-none' : ''
-        } ${justPlaced ? 'border-emerald-400/60 bg-emerald-500/10 ring-1 ring-emerald-400/30' : 'border-subtle'}`}
+        } ${justPlaced ? 'border-emerald-400/60 bg-emerald-500/10 ring-1 ring-emerald-400/30' : 'border-subtle'} ${photoDropTarget ? 'border-dashed border-accent/30' : ''}`}
         {...(isDragOverlay ? {} : attributes)}
       >
         <div className="flex items-start gap-2">
@@ -257,12 +268,13 @@ const TaskCard: React.FC<{
             <GripVertical size={14} />
           </div>
 
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onOpenDetail?.(task)}>
             <p className="text-sm font-semibold text-content leading-tight">{task.title}</p>
             {task.note && (
               <p className="text-xs text-muted mt-1 line-clamp-2 leading-relaxed">{task.note}</p>
             )}
             <p className="text-[10px] text-muted/60 mt-1.5 font-medium">{timeAgo}</p>
+            <PhotoCountBadge count={photoCount ?? 0} />
           </div>
 
           {/* Actions */}
@@ -322,6 +334,9 @@ const KanbanColumn: React.FC<{
   justPlacedId: string | null;
   dropTarget: { taskId: string; half: 'above' | 'below' } | null;
   dragHeight: number;
+  photoDragging?: boolean;
+  photoCounts?: Map<string, number>;
+  onOpenDetail?: (task: ProjectTask) => void;
 }> = ({
   status,
   label,
@@ -336,6 +351,9 @@ const KanbanColumn: React.FC<{
   justPlacedId,
   dropTarget,
   dragHeight,
+  photoDragging,
+  photoCounts,
+  onOpenDetail,
 }) => {
   const [showForm, setShowForm] = useState(false);
   const { setNodeRef, isOver } = useDroppable({
@@ -405,6 +423,9 @@ const KanbanColumn: React.FC<{
                 justPlaced={task.id === justPlacedId}
                 dropIndicator={dropTarget?.taskId === task.id ? dropTarget.half : null}
                 dragHeight={dragHeight}
+                photoDropTarget={photoDragging}
+                photoCount={photoCounts?.get(task.id)}
+                onOpenDetail={onOpenDetail}
               />
             )}
           </div>
@@ -430,6 +451,12 @@ export const ProjectsScreen: React.FC = () => {
   const updateTask = useUpdateTask();
   const reorderTasks = useReorderTasks();
 
+  const { data: photoCounts } = useTaskPhotoCounts();
+  const assignPhotos = useAssignPhotosToTask();
+  const [draggedPhoto, setDraggedPhoto] = useState<GalleryPhoto | null>(null);
+  const [draggedPhotoCount, setDraggedPhotoCount] = useState(0);
+
+  const [detailTask, setDetailTask] = useState<ProjectTask | null>(null);
   const [draggedTask, setDraggedTask] = useState<ProjectTask | null>(null);
   const [dragHeight, setDragHeight] = useState(0);
   const [justPlacedId, setJustPlacedId] = useState<string | null>(null);
@@ -478,7 +505,13 @@ export const ProjectsScreen: React.FC = () => {
   );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
-    const task = event.active.data.current?.task as ProjectTask | undefined;
+    const data = event.active.data.current;
+    if (data?.type === 'photo') {
+      setDraggedPhoto(data.photo as GalleryPhoto);
+      setDraggedPhotoCount((data.count as number) ?? 1);
+      return;
+    }
+    const task = data?.task as ProjectTask | undefined;
     if (task) {
       setDraggedTask(task);
       const el = document.getElementById(`task-${task.id}`);
@@ -488,6 +521,12 @@ export const ProjectsScreen: React.FC = () => {
 
   const handleDragOver = useCallback(
     (event: DragOverEvent) => {
+      // Don't show spacers when dragging a photo
+      if (draggedPhoto) {
+        setDropTarget(null);
+        return;
+      }
+
       const { over, activatorEvent } = event;
       if (!over) {
         setDropTarget(null);
@@ -546,7 +585,7 @@ export const ProjectsScreen: React.FC = () => {
 
       setDropTarget(null);
     },
-    [grouped, draggedTask]
+    [grouped, draggedTask, draggedPhoto]
   );
 
   const handleDragEnd = useCallback(
@@ -554,6 +593,19 @@ export const ProjectsScreen: React.FC = () => {
       const { active, over } = event;
       const target = dropTargetRef.current;
       const task = draggedTask;
+
+      // Handle photo drop on task card (single or batch)
+      if (draggedPhoto) {
+        const photoIds = (active.data.current?.photoIds as string[]) ?? [draggedPhoto.id];
+        setDraggedPhoto(null);
+        if (over?.data.current?.type === 'card' && over.data.current.task) {
+          const targetTask = over.data.current.task as ProjectTask;
+          assignPhotos.mutate({ photoIds, taskId: targetTask.id });
+          setJustPlacedId(targetTask.id);
+          setTimeout(() => setJustPlacedId(null), 600);
+        }
+        return;
+      }
 
       setDraggedTask(null);
       setDropTarget(null);
@@ -615,7 +667,7 @@ export const ProjectsScreen: React.FC = () => {
         });
       }
     },
-    [updateStatus, reorderTasks, grouped, draggedTask]
+    [updateStatus, reorderTasks, grouped, draggedTask, draggedPhoto, assignPhotos]
   );
 
   if (isLoading) {
@@ -670,9 +722,15 @@ export const ProjectsScreen: React.FC = () => {
               justPlacedId={justPlacedId}
               dropTarget={dropTarget}
               dragHeight={dragHeight}
+              photoDragging={!!draggedPhoto}
+              photoCounts={photoCounts}
+              onOpenDetail={setDetailTask}
             />
           ))}
         </div>
+
+        {/* Photo Gallery — inside DndContext for drag-to-assign */}
+        <PhotoGallery />
 
         <DragOverlay dropAnimation={null}>
           {draggedTask ? (
@@ -683,9 +741,33 @@ export const ProjectsScreen: React.FC = () => {
               onEdit={() => {}}
               isDragOverlay
             />
+          ) : draggedPhoto ? (
+            <div className="relative">
+              {draggedPhotoCount > 1 && (
+                <>
+                  <div className="absolute -top-1 -left-1 w-16 h-16 rounded-xl bg-surface border-2 border-accent/30 rotate-[-3deg]" />
+                  <div className="absolute -top-0.5 -left-0.5 w-16 h-16 rounded-xl bg-surface border-2 border-accent/40 rotate-[-1deg]" />
+                </>
+              )}
+              <div className="relative w-16 h-16 rounded-xl overflow-hidden shadow-2xl shadow-black/30 rotate-3 border-2 border-accent/50">
+                <img
+                  src={draggedPhoto.thumbnail_url}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+                {draggedPhotoCount > 1 && (
+                  <div className="absolute bottom-0 right-0 bg-accent text-white text-[10px] font-black px-1.5 py-0.5 rounded-tl-lg">
+                    {draggedPhotoCount}
+                  </div>
+                )}
+              </div>
+            </div>
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      {/* Task Detail Modal */}
+      {detailTask && <TaskDetailModal task={detailTask} onClose={() => setDetailTask(null)} />}
     </div>
   );
 };

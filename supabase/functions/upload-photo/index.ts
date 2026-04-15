@@ -57,8 +57,66 @@ serve(async (req: Request) => {
     const publicDomain = Deno.env.get('R2_PUBLIC_DOMAIN')!;
 
     if (req.method === 'POST') {
-      const body: { sku: string; image: string; thumbnail?: string } = await req.json();
+      const body: {
+        gallery?: boolean;
+        photoId?: string;
+        sku?: string;
+        image: string;
+        thumbnail?: string;
+      } = await req.json();
 
+      // --- Gallery mode: upload to photos/gallery/ paths, no DB touch ---
+      if (body.gallery) {
+        if (!body.photoId || !body.image || !body.thumbnail) {
+          return new Response(
+            JSON.stringify({
+              error: 'photoId, image, and thumbnail are required for gallery uploads',
+            }),
+            {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+
+        // Decode and validate full-size image
+        const binaryString = atob(body.image);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        if (bytes.length > 5 * 1024 * 1024) {
+          return new Response(JSON.stringify({ error: 'Image exceeds 5MB limit' }), {
+            status: 413,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const fullKey = `photos/gallery/${body.photoId}.webp`;
+        const thumbKey = `photos/gallery/thumbs/${body.photoId}.webp`;
+
+        // Upload full-size
+        await s3.putObject(fullKey, bytes, { contentType: 'image/webp' });
+
+        // Upload thumbnail
+        const thumbBinary = atob(body.thumbnail);
+        const thumbBytes = new Uint8Array(thumbBinary.length);
+        for (let i = 0; i < thumbBinary.length; i++) {
+          thumbBytes[i] = thumbBinary.charCodeAt(i);
+        }
+        await s3.putObject(thumbKey, thumbBytes, { contentType: 'image/webp' });
+
+        return new Response(
+          JSON.stringify({
+            url: `${publicDomain}/${fullKey}`,
+            thumbnailUrl: `${publicDomain}/${thumbKey}`,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // --- SKU mode (existing logic) ---
       if (!body.sku || !body.image) {
         return new Response(JSON.stringify({ error: 'sku and image are required' }), {
           status: 400,
@@ -116,8 +174,34 @@ serve(async (req: Request) => {
     }
 
     if (req.method === 'DELETE') {
-      const body: { sku: string } = await req.json();
+      const body: { gallery?: boolean; photoId?: string; sku?: string } = await req.json();
 
+      // --- Gallery mode: delete from photos/gallery/ paths, no DB touch ---
+      if (body.gallery) {
+        if (!body.photoId) {
+          return new Response(
+            JSON.stringify({ error: 'photoId is required for gallery deletes' }),
+            {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+
+        const fullKey = `photos/gallery/${body.photoId}.webp`;
+        const thumbKey = `photos/gallery/thumbs/${body.photoId}.webp`;
+
+        await Promise.all([
+          s3.deleteObject(fullKey).catch(() => {}),
+          s3.deleteObject(thumbKey).catch(() => {}),
+        ]);
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // --- SKU mode (existing logic) ---
       if (!body.sku) {
         return new Response(JSON.stringify({ error: 'sku is required' }), {
           status: 400,
