@@ -881,7 +881,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                             {formatLastActivity(activity)}
                           </span>
                         ) : !item.is_active ? (
-                          <span className="text-red-400">Deleted</span>
+                          <span className="text-muted/50">Inactive</span>
                         ) : (
                           <span>No recent activity</span>
                         )}
