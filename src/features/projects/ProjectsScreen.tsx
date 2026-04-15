@@ -1,23 +1,18 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
   DndContext,
   DragOverlay,
   useDroppable,
+  useDraggable,
   PointerSensor,
   TouchSensor,
   useSensor,
   useSensors,
-  closestCenter,
   type DragStartEvent,
   type DragEndEvent,
+  type DragOverEvent,
+  pointerWithin,
 } from '@dnd-kit/core';
-import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-  arrayMove,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import {
   useProjectTasks,
   useCreateTask,
@@ -130,7 +125,7 @@ const AddTaskForm: React.FC<{
   );
 };
 
-// ─── Draggable Task Card ─────────────────────────────────────────────────────
+// ─── Draggable + Droppable Task Card ────────────────────────────────────────
 
 const TaskCard: React.FC<{
   task: ProjectTask;
@@ -138,21 +133,48 @@ const TaskCard: React.FC<{
   onComplete: (task: ProjectTask) => void;
   onEdit: (taskId: string, title: string, note: string | null) => void;
   isDragOverlay?: boolean;
-}> = ({ task, onDelete, onComplete, onEdit, isDragOverlay }) => {
+  isDragActive?: boolean;
+  dropIndicator?: 'above' | 'below' | null;
+  justPlaced?: boolean;
+  dragHeight?: number;
+}> = ({
+  task,
+  onDelete,
+  onComplete,
+  onEdit,
+  isDragOverlay,
+  isDragActive,
+  dropIndicator,
+  justPlaced,
+  dragHeight = 0,
+}) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editNote, setEditNote] = useState(task.note ?? '');
 
-  const { attributes, listeners, setNodeRef, isDragging, transform, transition } = useSortable({
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setDragRef,
+    isDragging,
+  } = useDraggable({
     id: task.id,
     data: { task },
     disabled: isEditing,
   });
 
-  const sortableStyle = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
+  const { setNodeRef: setDropRef } = useDroppable({
+    id: `card-${task.id}`,
+    data: { task, type: 'card' },
+  });
+
+  const setRefs = useCallback(
+    (el: HTMLElement | null) => {
+      setDragRef(el);
+      setDropRef(el);
+    },
+    [setDragRef, setDropRef]
+  );
 
   const handleSave = () => {
     if (!editTitle.trim()) return;
@@ -164,7 +186,7 @@ const TaskCard: React.FC<{
 
   if (isEditing) {
     return (
-      <div ref={setNodeRef} className="p-3 bg-surface border border-accent/30 rounded-xl space-y-2">
+      <div ref={setRefs} className="p-3 bg-surface border border-accent/30 rounded-xl space-y-2">
         <input
           autoFocus
           type="text"
@@ -204,58 +226,80 @@ const TaskCard: React.FC<{
     );
   }
 
+  const spacerHeight = Math.round(dragHeight * 1.2);
+
   return (
-    <div
-      ref={isDragOverlay ? undefined : setNodeRef}
-      style={isDragOverlay ? undefined : sortableStyle}
-      className={`group p-3 bg-surface border border-subtle rounded-xl transition-all duration-150 ${
-        isDragging && !isDragOverlay ? 'opacity-30 scale-95' : ''
-      } ${isDragOverlay ? 'shadow-xl rotate-2 scale-105' : ''}`}
-      {...(isDragOverlay ? {} : attributes)}
-    >
-      <div className="flex items-start gap-2">
-        {/* Drag handle */}
-        <div
-          className="mt-0.5 text-muted/40 cursor-grab active:cursor-grabbing shrink-0 touch-none"
-          {...(isDragOverlay ? {} : listeners)}
-        >
-          <GripVertical size={14} />
-        </div>
+    <div className="relative">
+      {/* Spacer — above */}
+      <div
+        className="overflow-hidden transition-all duration-200 ease-out"
+        style={{ height: dropIndicator === 'above' ? spacerHeight : 0 }}
+      >
+        <div className="h-full rounded-xl border-2 border-dashed border-accent/40 bg-accent/5 mx-0.5" />
+      </div>
 
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-content leading-tight">{task.title}</p>
-          {task.note && (
-            <p className="text-xs text-muted mt-1 line-clamp-2 leading-relaxed">{task.note}</p>
-          )}
-          <p className="text-[10px] text-muted/60 mt-1.5 font-medium">{timeAgo}</p>
-        </div>
+      <div
+        id={isDragOverlay ? undefined : `task-${task.id}`}
+        ref={isDragOverlay ? undefined : setRefs}
+        className={`group p-3 bg-surface border rounded-xl transition-all duration-300 ease-out ${
+          isDragging ? 'opacity-0 h-0 p-0 m-0 overflow-hidden border-0' : ''
+        } ${isDragOverlay ? 'shadow-2xl shadow-black/20 scale-[1.03] rotate-1 border-accent/40' : ''} ${
+          isDragActive && !isDragging && !isDragOverlay ? 'pointer-events-none' : ''
+        } ${justPlaced ? 'border-emerald-400/60 bg-emerald-500/10 ring-1 ring-emerald-400/30' : 'border-subtle'}`}
+        {...(isDragOverlay ? {} : attributes)}
+      >
+        <div className="flex items-start gap-2">
+          {/* Drag handle */}
+          <div
+            className="mt-0.5 text-muted/40 cursor-grab active:cursor-grabbing shrink-0 touch-none"
+            {...(isDragOverlay ? {} : listeners)}
+          >
+            <GripVertical size={14} />
+          </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-          {task.status === 'in_progress' && (
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-content leading-tight">{task.title}</p>
+            {task.note && (
+              <p className="text-xs text-muted mt-1 line-clamp-2 leading-relaxed">{task.note}</p>
+            )}
+            <p className="text-[10px] text-muted/60 mt-1.5 font-medium">{timeAgo}</p>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+            {task.status === 'in_progress' && (
+              <button
+                onClick={() => onComplete(task)}
+                className="p-1 hover:bg-emerald-500/10 rounded-md text-emerald-500 transition-colors"
+                title="Mark as done"
+              >
+                <Check size={14} />
+              </button>
+            )}
             <button
-              onClick={() => onComplete(task)}
-              className="p-1 hover:bg-emerald-500/10 rounded-md text-emerald-500 transition-colors"
-              title="Mark as done"
+              onClick={() => setIsEditing(true)}
+              className="p-1 hover:bg-accent/10 rounded-md text-muted hover:text-accent transition-colors"
+              title="Edit"
             >
-              <Check size={14} />
+              <Pencil size={12} />
             </button>
-          )}
-          <button
-            onClick={() => setIsEditing(true)}
-            className="p-1 hover:bg-accent/10 rounded-md text-muted hover:text-accent transition-colors"
-            title="Edit"
-          >
-            <Pencil size={12} />
-          </button>
-          <button
-            onClick={() => onDelete(task.id, task.status)}
-            className="p-1 hover:bg-red-500/10 rounded-md text-muted hover:text-red-500 transition-colors"
-            title="Delete"
-          >
-            <Trash2 size={12} />
-          </button>
+            <button
+              onClick={() => onDelete(task.id, task.status)}
+              className="p-1 hover:bg-red-500/10 rounded-md text-muted hover:text-red-500 transition-colors"
+              title="Delete"
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
         </div>
+      </div>
+
+      {/* Spacer — below */}
+      <div
+        className="overflow-hidden transition-all duration-200 ease-out"
+        style={{ height: dropIndicator === 'below' ? spacerHeight : 0 }}
+      >
+        <div className="h-full rounded-xl border-2 border-dashed border-accent/40 bg-accent/5 mx-0.5" />
       </div>
     </div>
   );
@@ -273,7 +317,26 @@ const KanbanColumn: React.FC<{
   onComplete: (task: ProjectTask) => void;
   onEdit: (taskId: string, title: string, note: string | null) => void;
   onAdd: (title: string, note: string, status: TaskStatus) => void;
-}> = ({ status, label, dotColor, tasks, onDelete, onComplete, onEdit, onAdd }) => {
+  isDragActive: boolean;
+  draggedTaskId: string | null;
+  justPlacedId: string | null;
+  dropTarget: { taskId: string; half: 'above' | 'below' } | null;
+  dragHeight: number;
+}> = ({
+  status,
+  label,
+  dotColor,
+  tasks,
+  onDelete,
+  onComplete,
+  onEdit,
+  onAdd,
+  isDragActive,
+  draggedTaskId,
+  justPlacedId,
+  dropTarget,
+  dragHeight,
+}) => {
   const [showForm, setShowForm] = useState(false);
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${status}`,
@@ -283,8 +346,8 @@ const KanbanColumn: React.FC<{
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col bg-card border rounded-2xl p-3 min-h-[200px] transition-all duration-200 ${
-        isOver ? 'border-accent/50 bg-accent/5 ring-1 ring-accent/20' : 'border-subtle'
+      className={`flex flex-col bg-card rounded-2xl p-3 min-h-[200px] transition-all duration-300 ${
+        isDragActive ? 'border border-transparent' : 'border border-subtle'
       }`}
     >
       {/* Column Header */}
@@ -320,24 +383,38 @@ const KanbanColumn: React.FC<{
       )}
 
       {/* Task Cards */}
-      <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex flex-col gap-2 flex-1">
-          {tasks.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onDelete={onDelete}
-              onComplete={onComplete}
-              onEdit={onEdit}
-            />
-          ))}
-          {tasks.length === 0 && !showForm && (
-            <div className="flex-1 flex items-center justify-center">
-              <p className="text-xs text-muted/40 font-bold uppercase tracking-wider">No tasks</p>
-            </div>
-          )}
-        </div>
-      </SortableContext>
+      <div className="flex flex-col gap-2 flex-1">
+        {/* Column empty drop zone — only when no cards to drop on */}
+        {isDragActive && tasks.filter((t) => t.id !== draggedTaskId).length === 0 && (
+          <div
+            className="overflow-hidden transition-all duration-200 ease-out"
+            style={{ height: isOver ? Math.round(dragHeight * 1.2) : 0 }}
+          >
+            <div className="h-full rounded-xl border-2 border-dashed border-accent/40 bg-accent/5 mx-0.5" />
+          </div>
+        )}
+        {tasks.map((task) => (
+          <div key={task.id}>
+            {task.id === draggedTaskId ? null : (
+              <TaskCard
+                task={task}
+                onDelete={onDelete}
+                onComplete={onComplete}
+                onEdit={onEdit}
+                isDragActive={isDragActive}
+                justPlaced={task.id === justPlacedId}
+                dropIndicator={dropTarget?.taskId === task.id ? dropTarget.half : null}
+                dragHeight={dragHeight}
+              />
+            )}
+          </div>
+        ))}
+        {tasks.length === 0 && !showForm && (
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-xs text-muted/40 font-bold uppercase tracking-wider">No tasks</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -354,6 +431,12 @@ export const ProjectsScreen: React.FC = () => {
   const reorderTasks = useReorderTasks();
 
   const [draggedTask, setDraggedTask] = useState<ProjectTask | null>(null);
+  const [dragHeight, setDragHeight] = useState(0);
+  const [justPlacedId, setJustPlacedId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ taskId: string; half: 'above' | 'below' } | null>(
+    null
+  );
+  const dropTargetRef = useRef<{ taskId: string; half: 'above' | 'below' } | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -396,66 +479,143 @@ export const ProjectsScreen: React.FC = () => {
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const task = event.active.data.current?.task as ProjectTask | undefined;
-    if (task) setDraggedTask(task);
+    if (task) {
+      setDraggedTask(task);
+      const el = document.getElementById(`task-${task.id}`);
+      setDragHeight(el?.offsetHeight ?? 60);
+    }
   }, []);
+
+  const handleDragOver = useCallback(
+    (event: DragOverEvent) => {
+      const { over, activatorEvent } = event;
+      if (!over) {
+        setDropTarget(null);
+        return;
+      }
+
+      const overData = over.data.current;
+
+      // Hovering over a card — determine top/bottom half
+      if (overData?.type === 'card' && overData.task) {
+        const overTask = overData.task as ProjectTask;
+        const el = document.getElementById(`task-${overTask.id}`);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          const pointerY = (activatorEvent as PointerEvent)?.clientY ?? 0;
+          const deltaY = event.delta.y;
+          const currentY = pointerY + deltaY;
+          const midpoint = rect.top + rect.height / 2;
+          const dt = {
+            taskId: overTask.id,
+            half: (currentY < midpoint ? 'above' : 'below') as 'above' | 'below',
+          };
+          setDropTarget(dt);
+          dropTargetRef.current = dt;
+        }
+        return;
+      }
+
+      // Hovering over column (header or empty area) — determine top or bottom
+      const targetStatus = overData?.status as TaskStatus | undefined;
+      if (targetStatus && grouped) {
+        const dragId = draggedTask?.id;
+        const visibleTasks = grouped[targetStatus]?.filter((t) => t.id !== dragId) ?? [];
+        if (visibleTasks.length > 0) {
+          const pointerY = (activatorEvent as PointerEvent)?.clientY ?? 0;
+          const currentY = pointerY + event.delta.y;
+
+          const firstEl = document.getElementById(`task-${visibleTasks[0].id}`);
+          if (firstEl) {
+            const firstRect = firstEl.getBoundingClientRect();
+            if (currentY < firstRect.top + firstRect.height / 2) {
+              const dt = { taskId: visibleTasks[0].id, half: 'above' as const };
+              setDropTarget(dt);
+              dropTargetRef.current = dt;
+              return;
+            }
+          }
+
+          const lastTask = visibleTasks[visibleTasks.length - 1];
+          const dt = { taskId: lastTask.id, half: 'below' as const };
+          setDropTarget(dt);
+          dropTargetRef.current = dt;
+          return;
+        }
+      }
+
+      setDropTarget(null);
+    },
+    [grouped, draggedTask]
+  );
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
-      setDraggedTask(null);
-
       const { active, over } = event;
-      if (!over) return;
+      const target = dropTargetRef.current;
+      const task = draggedTask;
 
-      const task = active.data.current?.task as ProjectTask | undefined;
-      if (!task) return;
+      setDraggedTask(null);
+      setDropTarget(null);
+      dropTargetRef.current = null;
+      setJustPlacedId(active.id as string);
+      setTimeout(() => setJustPlacedId(null), 600);
 
-      // Determine target: could be a column droppable or a sortable item
-      const overTask = over.data.current?.task as ProjectTask | undefined;
-      const targetStatus = over.data.current?.status as TaskStatus | undefined;
+      if (!grouped || !task || !over) return;
 
-      // Case 1: Dropped on a column header (cross-column)
-      if (targetStatus && targetStatus !== task.status) {
-        const targetCount = grouped?.[targetStatus]?.length ?? 0;
+      const overData = over.data.current;
+
+      // Determine target column from the DragEnd event (always accurate)
+      let targetStatus: TaskStatus | null = null;
+
+      if (overData?.type === 'card' && overData.task) {
+        // Dropped on a card — card knows its own status
+        targetStatus = (overData.task as ProjectTask).status;
+      } else if (overData?.status) {
+        // Dropped on a column
+        targetStatus = overData.status as TaskStatus;
+      }
+
+      if (!targetStatus) return;
+
+      if (task.status === targetStatus) {
+        // Within-column reorder — use ref for position
+        if (!target) return;
+        const columnTasks = [...(grouped[targetStatus] ?? [])];
+        const oldIndex = columnTasks.findIndex((t) => t.id === task.id);
+        const overIndex = columnTasks.findIndex((t) => t.id === target.taskId);
+        if (oldIndex === -1 || overIndex === -1 || oldIndex === overIndex) return;
+
+        columnTasks.splice(oldIndex, 1);
+        const adjustedOverIndex = columnTasks.findIndex((t) => t.id === target.taskId);
+        const insertAt = target.half === 'above' ? adjustedOverIndex : adjustedOverIndex + 1;
+        columnTasks.splice(insertAt, 0, task);
+
+        reorderTasks.mutate({
+          status: targetStatus,
+          orderedIds: columnTasks.map((t) => t.id),
+        });
+      } else {
+        // Cross-column — determine position from ref or default to end
+        const targetTasks = grouped[targetStatus] ?? [];
+        let insertAt = targetTasks.length; // default: append at end
+
+        if (target) {
+          const overIndex = targetTasks.findIndex((t) => t.id === target.taskId);
+          if (overIndex >= 0) {
+            insertAt = target.half === 'above' ? overIndex : overIndex + 1;
+          }
+        }
+
         updateStatus.mutate({
           taskId: task.id,
           fromStatus: task.status,
           toStatus: targetStatus,
-          newPosition: targetCount,
+          newPosition: insertAt,
         });
-        return;
-      }
-
-      // Case 2: Dropped on another task
-      if (overTask) {
-        const sourceStatus = task.status;
-        const destStatus = overTask.status;
-        const columnTasks = grouped?.[sourceStatus] ?? [];
-
-        if (sourceStatus === destStatus) {
-          // Within-column reorder
-          const oldIndex = columnTasks.findIndex((t) => t.id === active.id);
-          const newIndex = columnTasks.findIndex((t) => t.id === over.id);
-          if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
-
-          const reordered = arrayMove(columnTasks, oldIndex, newIndex);
-          reorderTasks.mutate({
-            status: sourceStatus,
-            orderedIds: reordered.map((t) => t.id),
-          });
-        } else {
-          // Cross-column: move to the position of the target task
-          const destTasks = grouped?.[destStatus] ?? [];
-          const insertIndex = destTasks.findIndex((t) => t.id === over.id);
-          updateStatus.mutate({
-            taskId: task.id,
-            fromStatus: sourceStatus,
-            toStatus: destStatus,
-            newPosition: insertIndex >= 0 ? insertIndex : destTasks.length,
-          });
-        }
       }
     },
-    [updateStatus, reorderTasks, grouped]
+    [updateStatus, reorderTasks, grouped, draggedTask]
   );
 
   if (isLoading) {
@@ -487,8 +647,9 @@ export const ProjectsScreen: React.FC = () => {
       {/* Kanban Board */}
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={pointerWithin}
         onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -504,11 +665,16 @@ export const ProjectsScreen: React.FC = () => {
               onComplete={handleComplete}
               onEdit={handleEdit}
               onAdd={handleAdd}
+              isDragActive={!!draggedTask}
+              draggedTaskId={draggedTask?.id ?? null}
+              justPlacedId={justPlacedId}
+              dropTarget={dropTarget}
+              dragHeight={dragHeight}
             />
           ))}
         </div>
 
-        <DragOverlay>
+        <DragOverlay dropAnimation={null}>
           {draggedTask ? (
             <TaskCard
               task={draggedTask}
