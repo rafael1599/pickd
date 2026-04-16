@@ -41,6 +41,7 @@ import { QuantityControl } from './QuantityControl.tsx';
 import { DistributionPreview } from './DistributionPreview.tsx';
 import { SectionEditorSheet } from './SectionEditorSheet.tsx';
 import { ItemHistorySheet } from './ItemHistorySheet.tsx';
+import { ScratchAndDentSection } from '../../../scratch-and-dent/components/ScratchAndDentSection';
 
 type WarehouseType = 'LUDLOW' | 'ATS' | 'DELETED ITEMS';
 
@@ -728,6 +729,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
 
   const isAddMode = mode === 'add';
   const isBikeItem = initialData?.sku_metadata?.is_bike === true;
+  const isScratchDentItem =
+    (initialData?.sku_metadata as { is_scratch_dent?: boolean } | undefined)?.is_scratch_dent ===
+    true;
   const navigate = useNavigate();
 
   const handleEditLabel = useCallback(() => {
@@ -986,7 +990,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                         toast.success('Marked as bike');
                       }}
                       className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 ${
-                        isBikeItem
+                        isBikeItem && !isScratchDentItem
                           ? 'bg-accent text-white'
                           : 'bg-surface text-muted border border-subtle'
                       }`}
@@ -1003,15 +1007,35 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                         toast.success('Marked as part');
                       }}
                       className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 ${
-                        !isBikeItem
+                        !isBikeItem && !isScratchDentItem
                           ? 'bg-accent text-white'
                           : 'bg-surface text-muted border border-subtle'
                       }`}
                     >
                       Part
                     </button>
+                    <button
+                      onClick={() => {
+                        if (!initialData?.sku) return;
+                        const action = isScratchDentItem ? 'edit' : 'create';
+                        navigate(
+                          `/sd-catalog?action=${action}&sku=${encodeURIComponent(initialData.sku)}`
+                        );
+                        onClose();
+                      }}
+                      className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 ${
+                        isScratchDentItem
+                          ? 'bg-accent text-white'
+                          : 'bg-surface text-muted border border-subtle'
+                      }`}
+                    >
+                      S/D
+                    </button>
                   </div>
                 </div>
+              )}
+              {isScratchDentItem && initialData?.sku && (
+                <ScratchAndDentSection sku={initialData.sku} />
               )}
               {lastUpdate && (
                 <SectionRow

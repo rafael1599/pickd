@@ -78,6 +78,8 @@ export const InventoryScreen = () => {
     setShowInactive,
     showParts,
     setShowParts,
+    showScratchDent,
+    setShowScratchDent,
     setSearchQuery,
     loadMore: loadMoreItems,
     hasMoreItems,
@@ -714,10 +716,29 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
               type="checkbox"
               id="show-parts"
               checked={showParts}
-              onChange={(e) => setShowParts(e.target.checked)}
+              onChange={(e) => {
+                setShowParts(e.target.checked);
+                if (e.target.checked) setShowScratchDent(false);
+              }}
               className="rounded transition-colors h-3.5 w-3.5 border-neutral-600 bg-surface text-accent focus:ring-accent focus:ring-offset-0"
             />
             Parts
+          </label>
+          <label
+            htmlFor="show-sd"
+            className="flex items-center gap-1.5 text-xs font-medium cursor-pointer select-none text-muted"
+          >
+            <input
+              type="checkbox"
+              id="show-sd"
+              checked={showScratchDent}
+              onChange={(e) => {
+                setShowScratchDent(e.target.checked);
+                if (e.target.checked) setShowParts(false);
+              }}
+              className="rounded transition-colors h-3.5 w-3.5 border-neutral-600 bg-surface text-accent focus:ring-accent focus:ring-offset-0"
+            />
+            S/D
           </label>
         </div>
       )}

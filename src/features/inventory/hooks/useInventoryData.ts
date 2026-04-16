@@ -3,7 +3,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { supabase } from '../../../lib/supabase';
 import { inventoryApi } from '../api/inventoryApi';
-import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from './useInventoryRealtime';
+import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY, SD_BINS_KEY } from './useInventoryRealtime';
 import { useInventoryMutations } from './useInventoryMutations';
 import { useInventoryLogs } from './useInventoryLogs';
 import { useLocationManagement } from './useLocationManagement';
@@ -44,6 +44,7 @@ export const useInventory = () => {
   const queryClient = useQueryClient();
   const [showInactive, setShowInactive] = useState(false);
   const [showParts, setShowParts] = useState(false);
+  const [showScratchDent, setShowScratchDent] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { fetchLogs, undoAction } = useInventoryLogs();
   const { locations } = useLocationManagement();
@@ -51,6 +52,7 @@ export const useInventory = () => {
   // Pagination state
   const [bikesTotal, setBikesTotal] = useState<number | null>(null);
   const [partsTotal, setPartsTotal] = useState<number | null>(null);
+  const [scratchDentTotal, setScratchDentTotal] = useState<number | null>(null);
   // searchTotal is now derived from searchData query result (no separate state)
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const isLoadingMoreRef = useRef(false);
@@ -125,6 +127,26 @@ export const useInventory = () => {
     staleTime: Infinity,
     refetchOnWindowFocus: false,
     enabled: showParts || searchQuery.length > 0,
+  });
+
+  // ── S/D query (only items where sku_metadata.is_scratch_dent=true) ──
+  const { data: scratchDentData, isLoading: scratchDentLoading } = useQuery<
+    InventoryItemWithMetadata[]
+  >({
+    queryKey: [...SD_BINS_KEY, showInactive],
+    queryFn: async () => {
+      const { data, count } = await inventoryApi.fetchInventoryWithMetadata({
+        includeInactive: showInactive,
+        onlyScratchDent: true,
+        warehouse: 'LUDLOW',
+        limit: INITIAL_PAGE_SIZE,
+      });
+      setScratchDentTotal(count);
+      return data.map(mapItem);
+    },
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    enabled: showScratchDent,
   });
 
   // ── Server-side search query (separate from main cache) ───────────
@@ -285,11 +307,20 @@ export const useInventory = () => {
     if (isActiveSearch) {
       return searchResults ?? EMPTY_INVENTORY;
     }
+    if (showScratchDent) return scratchDentData ?? EMPTY_INVENTORY;
     const bikes = rawData ?? EMPTY_INVENTORY;
     const parts = partsData ?? EMPTY_INVENTORY;
     if (showParts) return parts;
     return bikes;
-  }, [isActiveSearch, searchResults, rawData, partsData, showParts]);
+  }, [
+    isActiveSearch,
+    searchResults,
+    rawData,
+    partsData,
+    scratchDentData,
+    showParts,
+    showScratchDent,
+  ]);
 
   // All filtering (warehouse, inactive) now handled server-side
   const inventoryData = globalData;
@@ -477,6 +508,10 @@ export const useInventory = () => {
     setShowInactive,
     showParts,
     setShowParts,
+    showScratchDent,
+    setShowScratchDent,
+    scratchDentLoading,
+    scratchDentTotal,
     setSearchQuery,
     partsLoading,
     isSearching,

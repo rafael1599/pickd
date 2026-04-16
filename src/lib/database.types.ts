@@ -1034,6 +1034,7 @@ export type Database = {
           height_in: number | null;
           image_url: string | null;
           is_bike: boolean | null;
+          is_scratch_dent: boolean;
           length_ft: number | null;
           length_in: number | null;
           model: string | null;
@@ -1058,6 +1059,7 @@ export type Database = {
           height_in?: number | null;
           image_url?: string | null;
           is_bike?: boolean | null;
+          is_scratch_dent?: boolean;
           length_ft?: number | null;
           length_in?: number | null;
           model?: string | null;
@@ -1082,6 +1084,7 @@ export type Database = {
           height_in?: number | null;
           image_url?: string | null;
           is_bike?: boolean | null;
+          is_scratch_dent?: boolean;
           length_ft?: number | null;
           length_in?: number | null;
           model?: string | null;

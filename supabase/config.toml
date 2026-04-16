@@ -2,8 +2,11 @@
 #
 # IMPORTANT: This file persists settings that would otherwise be lost on every
 # `supabase functions deploy`. The CLI respects these values when deploying.
-
-project_id = "xexkttehzpxtviebglei"
+#
+# `project_id` here is the LOCAL identifier — it names the Docker containers
+# (e.g. supabase_db_pickd). It must NOT be the production project ref.
+# The remote ref lives in supabase/.temp/project-ref (set via `supabase link`).
+project_id = "pickd"
 
 # ─── Edge Functions ─────────────────────────────────────────────────────────
 

@@ -53,6 +53,7 @@ describe('inventoryApi.fetchInventoryWithMetadata', () => {
     'sku',
     'image_url',
     'is_bike',
+    'is_scratch_dent',
     'upc',
     'weight_lbs',
     'length_in',
@@ -60,6 +61,19 @@ describe('inventoryApi.fetchInventoryWithMetadata', () => {
     'height_in',
     'length_ft',
     'created_at',
+    // S/D extension (added by 20260417100000_extend_sku_metadata_for_sd.sql)
+    'model',
+    'size',
+    'color',
+    'category',
+    'serial_number',
+    'condition',
+    'condition_description',
+    'sd_category',
+    'msrp',
+    'standard_price',
+    'sd_price',
+    'pdf_link',
   ];
 
   it('should only reference existing sku_metadata columns in the select', async () => {

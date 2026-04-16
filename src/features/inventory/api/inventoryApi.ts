@@ -31,6 +31,7 @@ export const inventoryApi = {
   async fetchInventoryWithMetadata({
     includeInactive = false,
     showParts = false,
+    onlyScratchDent = false,
     search = '',
     offset = 0,
     limit = 30,
@@ -38,12 +39,14 @@ export const inventoryApi = {
   }: {
     includeInactive?: boolean;
     showParts?: boolean;
+    onlyScratchDent?: boolean;
     search?: string;
     offset?: number;
     limit?: number;
     warehouse?: string;
   } = {}): Promise<{ data: InventoryItem[]; count: number | null }> {
-    const metadataCols = 'sku, image_url, length_in, width_in, height_in, weight_lbs, is_bike';
+    const metadataCols =
+      'sku, image_url, length_in, width_in, height_in, weight_lbs, is_bike, is_scratch_dent';
 
     let query = supabase
       .from('inventory')
@@ -74,8 +77,13 @@ export const inventoryApi = {
       );
     }
 
-    // Filter by is_bike: bikes when false, parts when true
-    query = query.eq('sku_metadata.is_bike', !showParts);
+    if (onlyScratchDent) {
+      // S/D mode: ignore the bike/parts split, just filter by the flag.
+      query = query.eq('sku_metadata.is_scratch_dent', true);
+    } else {
+      // Filter by is_bike: bikes when false, parts when true
+      query = query.eq('sku_metadata.is_bike', !showParts);
+    }
 
     const { data, error, count } = await query;
 
