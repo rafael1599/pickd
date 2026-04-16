@@ -135,6 +135,7 @@ export const OrdersScreen = () => {
     transportCompany: '',
     bikes: '',
     parts: '',
+    weight: '',
   });
 
   // SKU metadata map fetched from sku_metadata (weight + bike classification)
@@ -229,6 +230,17 @@ export const OrdersScreen = () => {
     const palletWeight = isFedexOrder ? 0 : palletCount * 40;
     return Math.round(productWeight + palletWeight);
   }, [selectedOrder?.items, skuMeta, formData.pallets, isFedexOrder]);
+
+  // Manual override: if the user typed a value in the Weight field, use it.
+  // Otherwise fall back to the auto-calculated total. Used by preview, PDF,
+  // and DB persistence so all three stay in sync.
+  const effectiveWeight = useMemo(() => {
+    const trimmed = formData.weight.trim();
+    if (trimmed === '') return totalWeight;
+    const manual = parseFloat(trimmed);
+    if (Number.isNaN(manual) || manual < 0) return totalWeight;
+    return Math.round(manual);
+  }, [formData.weight, totalWeight]);
 
   // Split item counts: bikes vs parts (auto-calculated)
   const { autoBikeCount, autoPartCount } = useMemo(() => {
@@ -400,6 +412,9 @@ export const OrdersScreen = () => {
         transportCompany: selectedOrder.transport_company || '',
         bikes: '',
         parts: '',
+        // Weight stays blank by default — placeholder shows the auto-calculated
+        // value and the user only fills it when they want a manual override.
+        weight: '',
       });
       setSelectedCustomerId(selectedOrder.customer_id || null);
       setOriginalCustomerParams(selectedOrder.customer || null);
@@ -574,7 +589,7 @@ export const OrdersScreen = () => {
         .update({
           pallets_qty: palletsNum,
           total_units: unitsNum,
-          total_weight_lbs: totalWeight || null,
+          total_weight_lbs: effectiveWeight || null,
           load_number: formData.loadNumber || null,
           transport_company: formData.transportCompany || null,
           customer_id: finalCustomerId, // Link to the customer (new or existing)
@@ -632,7 +647,7 @@ export const OrdersScreen = () => {
         contentLines.push(`PALLETS: ${pallets}`);
         contentLines.push(...unitsLines(bikeCount, partCount));
         contentLines.push(`LOAD: ${formData.loadNumber || 'N/A'}`);
-        contentLines.push(`WEIGHT: ${totalWeight > 0 ? `${totalWeight} LBS` : 'N/A'}`);
+        contentLines.push(`WEIGHT: ${effectiveWeight > 0 ? `${effectiveWeight} LBS` : 'N/A'}`);
         contentLines.push(''); // spacer
         const thankYouMsg =
           'Please count your shipment carefully that there are no damages due to shipping. Jamis Bicycles thanks you for your order.';
@@ -822,6 +837,7 @@ export const OrdersScreen = () => {
           autoBikeCount={autoBikeCount}
           autoPartCount={autoPartCount}
           totalUnits={totalUnits}
+          autoWeight={totalWeight}
         />
       </div>
 
@@ -1010,6 +1026,8 @@ export const OrdersScreen = () => {
                   collapsible
                   autoBikeCount={autoBikeCount}
                   autoPartCount={autoPartCount}
+                  totalUnits={totalUnits}
+                  autoWeight={totalWeight}
                 />
               </div>
 
@@ -1026,7 +1044,7 @@ export const OrdersScreen = () => {
                 bikeCount={bikeCount}
                 partCount={partCount}
                 loadNumber={formData.loadNumber}
-                totalWeight={totalWeight}
+                totalWeight={effectiveWeight}
                 completedAt={selectedOrder.updated_at}
                 transportCompany={formData.transportCompany}
                 palletPhotos={selectedOrder.pallet_photos ?? undefined}

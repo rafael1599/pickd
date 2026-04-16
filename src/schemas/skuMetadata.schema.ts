@@ -17,7 +17,8 @@ export const SKUMetadataSchema = z.object({
   sku: z.string().min(1),
   image_url: z.string().nullable().optional(),
   is_bike: z.boolean().nullable().optional(),
-  is_scratch_dent: z.boolean().optional().default(false),
+  // DB column has DEFAULT FALSE, so callers may omit on insert/update.
+  is_scratch_dent: z.boolean().optional(),
   upc: z.string().nullable().optional(),
   length_in: z.number().nullish().optional(),
   width_in: z.number().nullish().optional(),

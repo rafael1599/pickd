@@ -34,6 +34,7 @@ interface OrderFormData {
   units: string;
   bikes: string;
   parts: string;
+  weight: string;
 }
 
 const TRANSPORT_COMPANIES = [
@@ -68,6 +69,9 @@ interface OrderSidebarProps {
   autoBikeCount?: number;
   autoPartCount?: number;
   totalUnits?: number;
+  /** Auto-calculated weight (sum of sku_metadata.weight_lbs × qty + pallets).
+   *  Shown as placeholder when the user hasn't entered a manual override. */
+  autoWeight?: number;
 }
 
 export const OrderSidebar: React.FC<OrderSidebarProps> = ({
@@ -87,6 +91,7 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
   autoBikeCount = 0,
   autoPartCount = 0,
   totalUnits = 0,
+  autoWeight = 0,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
@@ -477,6 +482,24 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
                 {totalUnits}
               </div>
             </div>
+          </div>
+
+          <div className="flex flex-col gap-2 group">
+            <label className="text-xs uppercase text-text-muted font-black tracking-[0.2em] text-center group-focus-within:text-accent">
+              Weight (lbs){' '}
+              <span className="text-muted/60 font-normal normal-case tracking-normal">
+                — leave blank to auto-calculate
+              </span>
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={formData.weight}
+              onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+              placeholder={autoWeight > 0 ? String(autoWeight) : '0'}
+              className="w-full bg-main border border-subtle rounded-3xl py-4 text-center font-heading text-3xl font-bold text-purple-400 ios-transition focus:border-purple-400 shadow-sm focus:bg-surface placeholder:text-purple-400/30"
+            />
           </div>
         </form>
 
