@@ -83,6 +83,28 @@ Ver `JAMIS/SHARED-DB-CONTRACT.md` para ownership de tablas, RPCs, y reglas de mi
 
 - **watchdog-pickd** — Daemon Python que monitorea PDFs y auto-crea órdenes. Corre en la **MacBook de Bay 2** (no en esta máquina) como servicio launchd (`com.antigravity.watchdog-pickd`). Usa `service_role` key (bypasses RLS). Repo: `~/Documents/Projects/JAMIS/watchdog-pickd/`. Para reinstalar: `python watcher.py --install`.
 
+## Fotos (R2 + Edge Functions)
+
+Las fotos del proyecto (SKU inventory + gallery de proyectos) viven en **Cloudflare R2** y se suben via el edge function `upload-photo`.
+
+- **Storage:** Cloudflare R2 bucket `inventory-jamisbikes`, public domain `https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/`
+- **Paths:** SKU photos → `photos/{sku}.webp`, gallery photos → `photos/gallery/{uuid}.webp` (+ `/thumbs/` para ambos)
+- **Compresión client-side:** `compressImage()` en `src/services/photoUpload.service.ts` (max 1200px, 80% WebP + 200px thumbnail)
+- **Upload service:** SIEMPRE usar `supabase.functions.invoke()` para llamar al edge function, NUNCA `fetch()` raw. El cliente refresca el JWT automáticamente; raw fetch no.
+
+### ⚠️ JWT verification debe estar DESACTIVADO en `upload-photo`
+
+El edge function valida el JWT internamente con `supabase.auth.getUser(token)`. Si el gateway de Supabase también lo verifica, la request muere con 401 antes de llegar al código.
+
+- **Configuración persistente:** `supabase/config.toml` → `[functions.upload-photo] verify_jwt = false`
+- **Deploy manual con flag:** `npx supabase functions deploy upload-photo --no-verify-jwt`
+- **NUNCA hacer:** `npx supabase functions deploy upload-photo` sin el flag — sobrescribe la config y rompe los uploads en prod
+- **Síntomas si falla:** todas las fotos de gallery se guardan con `blob:https://...` URLs (fallback de dev) en vez de URLs públicas de R2. Las fotos solo se ven en el dispositivo que las tomó.
+
+### Fallback dev vs prod
+
+`useUploadGalleryPhoto` tiene fallback a blob URLs **solo en localhost**. En producción/staging, si el edge function falla, lanza el error al usuario en vez de guardar URLs inservibles. Ver `src/features/projects/hooks/useGalleryPhotos.ts`.
+
 ## Known Issues
 
 - **`react-hook-form@7.71.1` TS error:** `tsc --noEmit` reports `Module '"react-hook-form"' has no exported member 'useForm'`. This is an upstream packaging bug — the `.d.ts` re-exports from `../src/useForm` but the `src/` directory isn't included in the npm package. **Vite builds fine, do not attempt to fix.**

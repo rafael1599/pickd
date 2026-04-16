@@ -1,0 +1,40 @@
+# Supabase project configuration.
+#
+# IMPORTANT: This file persists settings that would otherwise be lost on every
+# `supabase functions deploy`. The CLI respects these values when deploying.
+
+project_id = "xexkttehzpxtviebglei"
+
+# ─── Edge Functions ─────────────────────────────────────────────────────────
+
+# upload-photo: validates JWT internally via supabase.auth.getUser(token).
+# Gateway-level JWT verification must be DISABLED so the function can do its
+# own auth (otherwise we get 401 at the gateway before our code runs).
+# See: supabase/functions/upload-photo/index.ts
+[functions.upload-photo]
+verify_jwt = false
+
+# cleanup-gallery-trash: triggered by GitHub Actions cron with service role key.
+# No user JWT involved; gateway verification can stay enabled.
+[functions.cleanup-gallery-trash]
+verify_jwt = true
+
+# daily-report-snapshot: triggered by cron, service role auth.
+[functions.daily-report-snapshot]
+verify_jwt = true
+
+# auto-cancel-orders: triggered by cron, service role auth.
+[functions.auto-cancel-orders]
+verify_jwt = true
+
+# daily-snapshot: triggered by cron, service role auth.
+[functions.daily-snapshot]
+verify_jwt = true
+
+# send-daily-report: triggered by cron, service role auth.
+[functions.send-daily-report]
+verify_jwt = true
+
+# manage-users: admin function, requires user JWT validation at gateway.
+[functions.manage-users]
+verify_jwt = true
