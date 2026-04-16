@@ -1154,7 +1154,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             className="flex items-center gap-2 px-4 py-2 bg-accent/10 border border-accent/20 rounded-xl text-accent text-xs font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-50"
           >
             {isScanning ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
-            {isScanning ? 'Scanning...' : 'Scan Pallet'}
+            {isScanning ? 'Processing...' : 'Take Photo'}
           </button>
           {scanStatus && <p className="text-xs text-accent font-bold">{scanStatus}</p>}
         </div>
