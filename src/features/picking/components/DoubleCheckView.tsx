@@ -732,6 +732,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       if (!file) return;
       e.target.value = ''; // reset for re-scan
 
+      // Optimistic: the user took a photo — that's enough to unlock completion.
+      // The actual upload to R2 + DB persistence is fire-and-forget below.
+      setPalletPhotosCount((prev) => (prev ?? 0) + 1);
+
       setIsScanning(true);
       setScanStatus('Processing image...');
 
