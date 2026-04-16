@@ -777,24 +777,30 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         if (activeListId) {
           (async () => {
             try {
-              const { image } = await compressImage(file);
-              const orderNum = orderNumber || 'unknown';
-              const timestamp = Date.now();
+              const { image, thumbnail } = await compressImage(file);
+              const photoId = crypto.randomUUID();
               const isLocal = window.location.hostname === 'localhost';
 
               let photoUrl: string | null = null;
               try {
-                const { data: uploadResult } = await supabase.functions.invoke('upload-photo', {
-                  body: { image, thumbnail: image, sku: `pallet-scan/${orderNum}/${timestamp}` },
-                });
-                photoUrl = uploadResult?.url ?? null;
+                // Use gallery mode (proven working in prod) — same R2 path pattern
+                const { data: uploadResult, error: uploadErr } = await supabase.functions.invoke(
+                  'upload-photo',
+                  {
+                    body: { gallery: true, photoId, image, thumbnail },
+                  }
+                );
+                if (uploadErr) throw uploadErr;
+                photoUrl = (uploadResult as { url?: string } | null)?.url ?? null;
               } catch (err) {
-                if (!isLocal) throw err;
+                if (!isLocal) {
+                  console.error('Pallet photo R2 upload failed:', err);
+                  throw err;
+                }
                 console.warn('R2 upload failed in local — using blob URL fallback');
               }
 
-              // Local dev fallback: use blob URL so the photo shows in the UI even
-              // without R2. In prod we never reach this (the throw above would fire).
+              // Local dev fallback: blob URL so it shows in the UI without R2
               if (!photoUrl && isLocal) {
                 photoUrl = base64ToBlobUrl(image);
               }
