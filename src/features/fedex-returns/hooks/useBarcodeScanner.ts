@@ -18,7 +18,7 @@ export async function scanImageForBarcodes(file: File): Promise<string[]> {
   if ('BarcodeDetector' in window) {
     try {
       const detector = new (window as any).BarcodeDetector({
-        formats: ['code_128', 'code_39', 'ean_13', 'upc_a'],
+        formats: ['code_128', 'code_39', 'ean_13', 'upc_a', 'qr_code'],
       });
       const results = await detector.detect(canvas);
       if (results.length > 0) {
@@ -39,6 +39,7 @@ export async function scanImageForBarcodes(file: File): Promise<string[]> {
       BarcodeFormat.CODE_39,
       BarcodeFormat.EAN_13,
       BarcodeFormat.UPC_A,
+      BarcodeFormat.QR_CODE,
     ]);
     hints.set(DecodeHintType.TRY_HARDER, true);
     const reader = new BrowserMultiFormatReader(hints);

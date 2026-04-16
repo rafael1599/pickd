@@ -50,7 +50,7 @@ export const FedExReturnsScreen: React.FC = () => {
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-4 py-4">
+      <main className="max-w-lg mx-auto px-4 py-4 pb-24">
         <IntakeBar />
 
         <div className="mb-3">

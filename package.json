@@ -33,6 +33,7 @@
     "clsx": "^2.1.1",
     "fast-average-color": "^9.5.0",
     "idb-keyval": "^6.2.2",
+    "jsbarcode": "^3.12.3",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.555.0",

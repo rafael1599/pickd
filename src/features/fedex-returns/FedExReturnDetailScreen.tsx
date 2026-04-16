@@ -7,6 +7,8 @@ import Play from 'lucide-react/dist/esm/icons/play';
 import Check from 'lucide-react/dist/esm/icons/check';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import Package from 'lucide-react/dist/esm/icons/package';
+import Printer from 'lucide-react/dist/esm/icons/printer';
+import { printReturnLabel } from './utils/generateReturnLabel';
 import {
   useFedExReturn,
   useUpdateFedExReturn,
@@ -105,11 +107,31 @@ export const FedExReturnDetailScreen: React.FC = () => {
           >
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-lg font-bold truncate">{ret.tracking_number}</h1>
+          <h1 className="text-lg font-bold truncate flex-1">{ret.tracking_number}</h1>
+          <button
+            onClick={async () => {
+              try {
+                await printReturnLabel({
+                  trackingNumber: ret.tracking_number,
+                  receivedAt: ret.received_at,
+                  receivedByName: ret.received_by_name,
+                  notes: ret.notes,
+                });
+              } catch (err) {
+                const message = err instanceof Error ? err.message : 'Print failed';
+                toast.error(message);
+              }
+            }}
+            className="p-1.5 text-muted hover:text-content"
+            aria-label="Print labels"
+            title="Print labels (2 per sheet)"
+          >
+            <Printer size={20} />
+          </button>
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-4 py-4 space-y-4">
+      <main className="max-w-lg mx-auto px-4 py-4 pb-24 space-y-4">
         {/* Label photo */}
         {ret.label_photo_url && (
           <img

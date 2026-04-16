@@ -166,9 +166,9 @@ export const AddItemSheet: React.FC<AddItemSheetProps> = ({ returnId, open, onCl
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-50 flex items-center focus-within:items-start justify-center p-4 transition-all duration-300">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-card border-t border-subtle rounded-t-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-4 pb-8">
+      <div className="relative bg-card border border-subtle rounded-2xl w-full max-w-lg max-h-[70vh] overflow-y-auto p-4 shadow-2xl transition-all duration-300">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-bold text-content">Add Item</h2>
           <button
@@ -246,7 +246,6 @@ export const AddItemSheet: React.FC<AddItemSheetProps> = ({ returnId, open, onCl
                 type="text"
                 value={newSku}
                 onChange={(e) => setNewSku(e.target.value)}
-                autoFocus
                 className="w-full mt-1 bg-surface border border-subtle rounded-xl px-3 py-2 text-sm text-content focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </div>
