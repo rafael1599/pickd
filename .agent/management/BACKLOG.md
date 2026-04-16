@@ -61,40 +61,29 @@
 
 ---
 
-## P1 — Refinados (sesión 2026-04-16, listos para implementar)
+## P1 — Refinados (sesión 2026-04-16)
 
-### 37. Pallet photos en reporte y orders <!-- id: idea-059 -->
-- **Contexto:** Las `pallet_photos` (capturadas en DoubleCheckView) hoy solo se ven en `PickingSummaryModal`. Deben surfacearse en el daily report y en OrdersScreen.
-- **Daily report:** Renderizar fila de thumbnails debajo del nombre de cada orden completada en la sección "Done Today", con order number como caption. Live query desde `picking_lists.pallet_photos`. Mismo patrón que `task_photos` en projects.
-- **OrdersScreen (orden completada):** Thumbnail clickeable arriba del título "ORDER #..." en el panel derecho (área vacía sobre el card de label preview). Click → fullscreen lightbox (mismo patrón que TaskDetailModal).
-- **Archivos:** `useProjectReportData.ts` (enriquecer con pallet_photos), `ActivityReportView.tsx` (renderTaskList o nueva función render para orders), `OrdersScreen.tsx` (header del panel derecho), reusar `lightbox` de TaskDetailModal.
+### ~~37. Pallet photos en reporte y orders~~ <!-- id: idea-059 --> ✅ 2026-04-16
+- `458addb` Daily Report: nueva sección "PALLET PHOTOS" agrupada por order_number. OrdersScreen: thumbnails arriba del título en LivePrintPreview, clickeables a fullscreen via `PhotoLightbox` (nuevo en `src/components/ui/`).
+- `0a38819` Fix crítico: pallet photo upload usaba SKU mode → fallaba silenciosamente en prod. Cambiado a gallery mode.
+- `0abedf1` Add Photo desde PickingSummaryModal incluso después de completar la orden.
 
-### 38. Print Label respeta orientación toggle desde todos los entry points <!-- id: idea-060 -->
-- **Problema:** El default en Label Studio es vertical, pero algunos puntos (ItemDetailView three-dot menu, batch screen, quick print) ignoran el toggle y siempre imprimen horizontal.
-- **Solución:** Auditar todos los call sites de label print (`useGenerateLabels`, `useQuickPrintLabel`, ItemDetailView handlers). Asegurar que cada uno lee `layout` del state/preference compartido en vez de hardcodear horizontal.
-- **Persistencia:** Considerar guardar la preferencia en localStorage (`pickd-label-layout`) o en `profiles` para que persista entre sesiones.
-- **Archivos:** `src/features/labels/`, `src/features/inventory/components/ItemDetailView/DetailToolbar.tsx`, hooks de label generation.
+### ~~38. Print Label respeta orientación toggle~~ <!-- id: idea-060 --> ✅ 2026-04-16
+- `58e6b69` Hook `useLabelLayoutPreference` con localStorage (`pickd-label-layout`). 5 entry points fixados (ItemDetailView, HistoryMode, LabelGen reprint+batch, UnifiedForm). LayoutToggle escribe al storage. Cross-tab sync via storage event.
 
-### 39. Imágenes del reporte llegan a Gmail (broken icon fix) <!-- id: idea-061 -->
-- **Problema:** Al pegar el reporte en Gmail, las imágenes (thumbnails de gallery photos en tasks) muestran ícono de imagen rota. Las URLs llegan pero Gmail no puede cargarlas.
-- **Causa probable:** R2 sirve las imágenes con headers que Gmail no acepta, o requieren auth, o CORS bloquea el fetch desde mail.google.com.
-- **Solución A (recomendado):** Embeber thumbnails como base64 data URI en el HTML al copiar al clipboard. Pesado pero funciona en cualquier cliente de email. Limitar a thumbnails (200px, ~10-15KB c/u).
-- **Solución B:** Verificar headers de R2 (`cache-control`, `access-control-allow-origin`). Posible fix sin tocar el HTML.
-- **Archivos:** `ActivityReportScreen.tsx` (función Copy Report), `ActivityReportView.tsx` (renderTaskList si va por base64).
+### ~~39. Imágenes del reporte llegan a Gmail~~ <!-- id: idea-061 --> ✅ 2026-04-16
+- `6a7cd24` `handleCopy` async: clona el reporte, fetcha cada `<img>` y la convierte a base64 data URI, escribe HTML al clipboard via `ClipboardItem`. Fallback a `execCommand` si falla. Loading state en botones.
 
 ### 40. Notas de proyecto siempre visibles (quitar line-clamp) <!-- id: idea-062 -->
 - **Problema:** Hoy `line-clamp-2` recorta notas largas en task cards del kanban.
 - **Solución:** Quitar `line-clamp-2` en `TaskCard` (`src/features/projects/ProjectsScreen.tsx`). Las cards crecen tanto como sea necesario para mostrar la nota completa.
 - **Trivial.**
 
-### ~~42. Foto obligatoria antes de completar orden~~ <!-- id: idea-064 --> ✅ 2026-04-16
-- DoubleCheckView fetcha `pallet_photos` count al montar y trackea local. Si 0 fotos: banner amarillo + slide deshabilitado con texto "PHOTO REQUIRED TO COMPLETE". Si ≥1: slide normal habilitado.
-
 ### ~~41. Galería de proyectos: Cámara o Galería del teléfono~~ <!-- id: idea-063 --> ✅ 2026-04-16
-- Modal selector con dos opciones (Camera/Gallery), cada una dispara su propio `<input>` (con/sin `capture`). Modal mobile bottom-sheet, desktop centered.
+- `6a7cd24` Modal selector con dos opciones (Camera/Gallery), cada una dispara su propio `<input>` (con/sin `capture`). Modal mobile bottom-sheet, desktop centered.
 
-### ~~Imágenes del reporte llegan a Gmail~~ <!-- id: idea-061 --> ✅ 2026-04-16
-- `handleCopy` async: clona el reporte, fetcha cada `<img>` y la convierte a base64 data URI, escribe HTML al clipboard via `ClipboardItem`. Fallback a `execCommand` si falla. Loading state en botones.
+### ~~42. Foto obligatoria antes de completar orden~~ <!-- id: idea-064 --> ✅ 2026-04-16
+- `53a3b85` DoubleCheckView fetcha `pallet_photos` count al montar y trackea local. Si 0 fotos: banner amarillo + slide deshabilitado con texto "PHOTO REQUIRED TO COMPLETE". `e66339f` gate optimista (intent to take photo, no upload success).
 - [x] ~~**FedEx default single group**~~ ✅ 2026-04-16 — Trigger `auto_group_fedex_orders` (migraciones `20260416220000` + `20260416230000`) auto-agrupa TODAS las órdenes FedEx activas en un solo grupo (cross-customer). Operacional: picker maneja todas las FedEx en un Double Check + completa-todo-de-un-jalón. Auto-clasifica server-side via `classify_picking_list_fedex` (join con `sku_metadata.weight_lbs`). 5/5 + 4/4 smoke tests. <!-- id: idea-057 -->
 - [x] ~~**Projects — drag to reorder priority**~~ ✅ 2026-04-15 — `0b85070` `c115c13` @dnd-kit/sortable within-column reorder con position persistence. <!-- id: idea-049 -->
 - [x] ~~**Shopping List / Cosas por comprar**~~ ✅ 2026-04-14 — `dc2d19f` Vista compartida + PDF 4x6 térmico. <!-- id: idea-056 -->
