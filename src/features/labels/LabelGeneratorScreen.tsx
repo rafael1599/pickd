@@ -21,6 +21,7 @@ import {
   type LabelItem,
   VALID_TRANSITIONS,
 } from '../inventory/utils/generateBikeLabel';
+import { getLabelLayoutPreference } from './hooks/useLabelLayoutPreference';
 import toast from 'react-hot-toast';
 
 interface BikeRow {
@@ -171,11 +172,13 @@ export const LabelGeneratorScreen = () => {
     async (sku: string, tags: AssetTagRow[]) => {
       setIsReprinting(true);
       try {
+        const layout = getLabelLayoutPreference();
         const labelItems: LabelItem[] = tags.map((t) => ({
           sku: t.sku,
           item_name: getItemName(t.sku),
           short_code: t.short_code,
           public_token: t.public_token,
+          layout,
         }));
         const blobUrl = await generateBikeLabels(labelItems);
         window.open(blobUrl, '_blank');
@@ -332,11 +335,13 @@ export const LabelGeneratorScreen = () => {
       if (error || !tags) throw error || new Error('No tags returned');
 
       const nameMap = new Map(activeEntries.map((e) => [e.sku, e.item_name]));
+      const layout = getLabelLayoutPreference();
       const labelItems: LabelItem[] = tags.map((t) => ({
         sku: t.sku,
         item_name: nameMap.get(t.sku) ?? null,
         short_code: t.short_code,
         public_token: t.public_token,
+        layout,
       }));
 
       const blobUrl = await generateBikeLabels(labelItems);
@@ -780,7 +785,7 @@ export const LabelGeneratorScreen = () => {
                 ['made_in', 'Made In', et.made_in ?? ''],
                 ['other_notes', 'Notes', et.other_notes ?? ''],
               ] as [string, string, string][];
-              let editState: Record<string, string> = {};
+              const editState: Record<string, string> = {};
               fields.forEach(([key, , val]) => {
                 editState[key] = val;
               });

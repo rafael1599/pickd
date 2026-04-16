@@ -31,6 +31,7 @@ import { useScrollLock } from '../../../../hooks/useScrollLock';
 import { supabase } from '../../../../lib/supabase';
 import { useAuth } from '../../../../context/AuthContext';
 import { generateBikeLabels } from '../../utils/generateBikeLabel';
+import { getLabelLayoutPreference } from '../../../labels/hooks/useLabelLayoutPreference';
 
 import { useActiveField } from './useActiveField.ts';
 import { DetailToolbar } from './DetailToolbar.tsx';
@@ -774,6 +775,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           item_name: itemName,
           short_code: t.short_code,
           public_token: t.public_token,
+          layout: getLabelLayoutPreference(),
         }))
       );
       window.open(blobUrl, '_blank');

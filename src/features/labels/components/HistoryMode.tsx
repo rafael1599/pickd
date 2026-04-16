@@ -13,6 +13,7 @@ import {
   type LabelItem,
   VALID_TRANSITIONS,
 } from '../../inventory/utils/generateBikeLabel';
+import { getLabelLayoutPreference } from '../hooks/useLabelLayoutPreference';
 import { useLabelItems, type LabelInventoryItem } from '../hooks/useLabelItems';
 
 interface AssetTagRow {
@@ -91,11 +92,13 @@ export const HistoryMode = () => {
     async (sku: string, tags: AssetTagRow[]) => {
       setIsReprinting(true);
       try {
+        const layout = getLabelLayoutPreference();
         const labelItems: LabelItem[] = tags.map((t) => ({
           sku: t.sku,
           item_name: getItemName(t.sku),
           short_code: t.short_code,
           public_token: t.public_token,
+          layout,
         }));
         const blobUrl = await generateBikeLabels(labelItems);
         window.open(blobUrl, '_blank');

@@ -8,6 +8,10 @@ import toast from 'react-hot-toast';
 import { useLabelItems, type LabelInventoryItem } from '../hooks/useLabelItems';
 import { useTagCounts } from '../hooks/useTagCounts';
 import { useGenerateLabels, type LabelEntry } from '../hooks/useGenerateLabels';
+import {
+  useLabelLayoutPreference,
+  getLabelLayoutPreference,
+} from '../hooks/useLabelLayoutPreference';
 import { FuzzySearch } from './FuzzySearch';
 import { InlineSkuCreate } from './InlineSkuCreate';
 import { EntryList } from './EntryList';
@@ -20,7 +24,11 @@ interface UnifiedLabelFormProps {
   initialLocation?: string;
 }
 
-export const UnifiedLabelForm = ({ initialSku, initialName, initialLocation }: UnifiedLabelFormProps) => {
+export const UnifiedLabelForm = ({
+  initialSku,
+  initialName,
+  initialLocation,
+}: UnifiedLabelFormProps) => {
   const [entries, setEntries] = useState<LabelEntry[]>([]);
   const initialApplied = useRef(false);
   const [selectedSku, setSelectedSku] = useState<string | null>(null);
@@ -32,6 +40,7 @@ export const UnifiedLabelForm = ({ initialSku, initialName, initialLocation }: U
   const { data: items, isLoading: isLoadingItems } = useLabelItems();
   const { data: tagCounts } = useTagCounts();
   const { generate, isGenerating } = useGenerateLabels();
+  const [, setDefaultLayout] = useLabelLayoutPreference();
 
   // Auto-add initial SKU from navigation (e.g., "Edit Label" from ItemDetailView)
   useEffect(() => {
@@ -46,7 +55,7 @@ export const UnifiedLabelForm = ({ initialSku, initialName, initialLocation }: U
       stock: item?.quantity ?? 0,
       tagged,
       qty: Math.max(1, (item?.quantity ?? 1) - tagged),
-      layout: 'vertical',
+      layout: getLabelLayoutPreference(),
       prefix: null,
       extra: null,
       upc: item?.upc ?? null,
@@ -56,6 +65,7 @@ export const UnifiedLabelForm = ({ initialSku, initialName, initialLocation }: U
       madeIn: null,
       otherNotes: null,
     };
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot init from navigation props, guarded by initialApplied ref
     setEntries([entry]);
     setSelectedSku(initialSku);
   }, [initialSku, initialName, initialLocation, items, tagCounts]);
@@ -103,7 +113,7 @@ export const UnifiedLabelForm = ({ initialSku, initialName, initialLocation }: U
         stock: item.quantity,
         tagged,
         qty,
-        layout: 'vertical',
+        layout: getLabelLayoutPreference(),
         prefix: null,
         extra: null,
         upc: item.upc,
@@ -136,7 +146,7 @@ export const UnifiedLabelForm = ({ initialSku, initialName, initialLocation }: U
         stock: item.quantity,
         tagged,
         qty,
-        layout: 'vertical',
+        layout: getLabelLayoutPreference(),
         prefix: null,
         extra: null,
         upc: item.upc,
@@ -349,9 +359,10 @@ export const UnifiedLabelForm = ({ initialSku, initialName, initialLocation }: U
               </label>
               <LayoutToggle
                 layout={selectedEntry.layout}
-                onLayoutChange={(layout: 'standard' | 'vertical') =>
-                  handleUpdateEntry(selectedEntry.sku, { layout })
-                }
+                onLayoutChange={(layout: 'standard' | 'vertical') => {
+                  handleUpdateEntry(selectedEntry.sku, { layout });
+                  setDefaultLayout(layout);
+                }}
                 sdPrefix={selectedEntry.prefix === 'S/D'}
                 onSdChange={(sd: boolean) =>
                   handleUpdateEntry(selectedEntry.sku, { prefix: sd ? 'S/D' : null })
