@@ -1,16 +1,10 @@
 /**
- * Generates a printable 4×6" vertical thermal label for a FedEx return.
- * Single label per page — the thermal printer can produce multiple copies
- * to attach to different sides of the box (print dialog "Copies: 2").
+ * Generates a printable PDF with 2 identical return labels on a single 4×6"
+ * thermal label sheet (portrait). User cuts the sheet in half and attaches
+ * one label to each side of the box.
  *
- * Layout mirrors the previous Letter version scaled for 4×6":
- *   - FEDEX RETURN header (top)
- *   - Huge tracking number
- *   - Horizontal rule
- *   - QR (left) + CODE_128 (right) + tracking under barcode
- *   - RECEIVED / BY info (bottom)
- *
- * Pure black on white, large fonts.
+ * Each label contains: tracking number (large), QR code, CODE_128 barcode,
+ * received info. Pure black on white, large fonts.
  */
 
 export interface ReturnLabelData {
@@ -37,12 +31,12 @@ export async function generateReturnLabel(data: ReturnLabelData): Promise<string
     import('jsbarcode'),
   ]);
 
-  // 4×6" portrait thermal label
+  // 4×6" portrait thermal sheet → split into 2 labels of 4×3"
   const W = 4;
   const H = 6;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'in', format: [W, H] });
 
-  // Generate QR code (high contrast, large)
+  // Generate QR code
   const qrDataUrl = await QRCode.toDataURL(data.trackingNumber, {
     width: 400,
     margin: 0,
@@ -50,7 +44,7 @@ export async function generateReturnLabel(data: ReturnLabelData): Promise<string
     color: { dark: '#000000', light: '#FFFFFF' },
   });
 
-  // Generate CODE_128 barcode on an off-screen canvas
+  // Generate CODE_128 barcode
   const barcodeCanvas = document.createElement('canvas');
   JsBarcode(barcodeCanvas, data.trackingNumber, {
     format: 'CODE128',
@@ -63,71 +57,88 @@ export async function generateReturnLabel(data: ReturnLabelData): Promise<string
   });
   const barcodeDataUrl = barcodeCanvas.toDataURL('image/png');
 
-  const pad = 0.2;
+  // ── Draw one label at vertical offset yOffset ──
+  const drawLabel = (yOffset: number) => {
+    const labelH = 3; // half of 6"
+    const pad = 0.15;
 
-  // Header: FEDEX RETURN
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
-  doc.setTextColor(0, 0, 0);
-  doc.text('FEDEX RETURN', W / 2, pad + 0.2, { align: 'center' });
+    // Header: FEDEX RETURN
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text('FEDEX RETURN', W / 2, yOffset + pad + 0.15, { align: 'center' });
 
-  // Huge tracking number
-  doc.setFontSize(32);
-  doc.text(data.trackingNumber, W / 2, pad + 0.9, { align: 'center' });
+    // Huge tracking number
+    doc.setFontSize(24);
+    doc.text(data.trackingNumber, W / 2, yOffset + pad + 0.6, { align: 'center' });
 
-  // Horizontal rule under tracking
-  doc.setLineWidth(0.03);
-  doc.line(pad, pad + 1.15, W - pad, pad + 1.15);
+    // Horizontal rule under tracking
+    doc.setLineWidth(0.03);
+    doc.line(pad, yOffset + pad + 0.75, W - pad, yOffset + pad + 0.75);
 
-  // QR code — left
-  const qrSize = 1.7;
-  const qrX = pad + 0.05;
-  const qrY = pad + 1.35;
-  doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+    // QR code — left
+    const qrSize = 1.2;
+    const qrX = pad + 0.05;
+    const qrY = yOffset + pad + 0.9;
+    doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
 
-  // CODE_128 barcode — right of QR
-  const bcX = qrX + qrSize + 0.15;
-  const bcY = qrY + 0.1;
-  const bcW = W - bcX - pad;
-  const bcH = 0.9;
-  doc.addImage(barcodeDataUrl, 'PNG', bcX, bcY, bcW, bcH);
+    // CODE_128 barcode — right of QR
+    const bcX = qrX + qrSize + 0.1;
+    const bcY = qrY + 0.1;
+    const bcW = W - bcX - pad;
+    const bcH = 0.7;
+    doc.addImage(barcodeDataUrl, 'PNG', bcX, bcY, bcW, bcH);
 
-  // Tracking number under barcode (human-readable)
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
-  doc.text(data.trackingNumber, bcX + bcW / 2, bcY + bcH + 0.3, { align: 'center' });
+    // Tracking number under barcode (human-readable)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text(data.trackingNumber, bcX + bcW / 2, bcY + bcH + 0.22, { align: 'center' });
 
-  // RECEIVED / BY info — below QR, full width
-  doc.setFontSize(12);
-  const infoY = qrY + qrSize + 0.45;
-  const receivedDate = formatDate(data.receivedAt);
-  if (receivedDate) {
-    doc.text(`RECEIVED: ${receivedDate}`, pad + 0.1, infoY);
-  }
-  if (data.receivedByName) {
-    doc.text(`BY: ${data.receivedByName.toUpperCase()}`, pad + 0.1, infoY + 0.28);
-  }
+    // Horizontal rule above bottom info
+    doc.setLineWidth(0.02);
+    doc.line(pad, qrY + qrSize + 0.1, W - pad, qrY + qrSize + 0.1);
 
-  // Horizontal rule above bottom info
+    // RECEIVED / BY info
+    doc.setFontSize(10);
+    const infoY = qrY + qrSize + 0.3;
+    const receivedDate = formatDate(data.receivedAt);
+    if (receivedDate) {
+      doc.text(`RECEIVED: ${receivedDate}`, pad + 0.05, infoY);
+    }
+    if (data.receivedByName) {
+      doc.text(`BY: ${data.receivedByName.toUpperCase()}`, pad + 0.05, infoY + 0.2);
+    }
+
+    // Bottom border of label
+    doc.setLineWidth(0.02);
+    doc.line(pad, yOffset + labelH - 0.05, W - pad, yOffset + labelH - 0.05);
+  };
+
+  // Two labels (top and bottom halves of the sheet)
+  drawLabel(0);
+  drawLabel(3);
+
+  // Cut line (dashed) in the middle
+  doc.setLineDashPattern([0.08, 0.08], 0);
   doc.setLineWidth(0.02);
-  doc.line(pad, qrY + qrSize + 0.2, W - pad, qrY + qrSize + 0.2);
+  doc.line(0, 3, W, 3);
+  doc.setLineDashPattern([], 0);
 
-  // Bottom border
-  doc.setLineWidth(0.02);
-  doc.line(pad, H - 0.1, W - pad, H - 0.1);
+  // "CUT HERE" indicator
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.text('— CUT HERE —', W / 2, 3, { align: 'center', baseline: 'middle' });
 
   return doc.output('dataurlstring');
 }
 
 /**
  * Opens a new window with the generated PDF and triggers print dialog.
- * Set "Copies: 2" in the print dialog if you want labels for both sides of the box.
  */
 export async function printReturnLabel(data: ReturnLabelData): Promise<void> {
   const dataUrl = await generateReturnLabel(data);
   const w = window.open('');
   if (!w) {
-    // Popup blocked — fallback to direct download link
     const link = document.createElement('a');
     link.href = dataUrl;
     link.download = `return-label-${data.trackingNumber}.pdf`;
