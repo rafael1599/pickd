@@ -1,17 +1,6 @@
-// Edge function: upload-photo
-//
-// Handles BOTH SKU inventory photos and gallery photos via a `gallery: true`
-// flag in the request body. Uploads to Cloudflare R2 and (for SKU mode) upserts
-// the URL in sku_metadata.
-//
-// ⚠️ DEPLOYMENT — gateway JWT verification MUST be disabled
-// This function validates JWTs internally via `supabase.auth.getUser(token)`.
-// If Supabase's gateway (Kong) verifies the JWT first, requests get rejected
-// with 401 before reaching our code, breaking the upload flow.
-//
-// Setting persisted in supabase/config.toml (`verify_jwt = false`).
-// Manual deploy: `npx supabase functions deploy upload-photo --no-verify-jwt`
-// (the --no-verify-jwt flag is REQUIRED if you don't trust config.toml).
+// Edge function: upload-photo (SKU + gallery modes)
+// Handles JWT validation internally — gateway verification must be OFF.
+// See: supabase/config.toml + CLAUDE.md "Fotos (R2 + Edge Functions)"
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
