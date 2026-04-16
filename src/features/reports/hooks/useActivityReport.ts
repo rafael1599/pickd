@@ -16,6 +16,11 @@ export interface UserActivity {
   cycle_count_discrepancies: number;
 }
 
+export interface CompletedOrderPhotos {
+  order_number: string;
+  photos: string[];
+}
+
 export interface ActivityReport {
   date: string;
   users: UserActivity[];
@@ -23,12 +28,15 @@ export interface ActivityReport {
   verified_skus_2m: number;
   total_skus: number;
   correction_count: number;
+  completed_orders_with_photos: CompletedOrderPhotos[];
 }
 
 interface PickingRow {
   user_id: string;
   checked_by: string | null;
   items: { pickingQty?: number }[];
+  order_number: string | null;
+  pallet_photos: string[] | null;
 }
 
 interface LogRow {
@@ -62,7 +70,7 @@ export function useActivityReport(date: string) {
         await Promise.all([
           supabase
             .from('picking_lists')
-            .select('user_id, checked_by, items')
+            .select('user_id, checked_by, items, order_number, pallet_photos')
             .eq('status', 'completed')
             .gte('updated_at', dayStart)
             .lte('updated_at', dayEnd),
@@ -186,6 +194,13 @@ export function useActivityReport(date: string) {
 
       const correctionCount = (notesRes.data ?? []).length;
 
+      const completedOrdersWithPhotos: CompletedOrderPhotos[] = (pickingRes.data ?? [])
+        .filter(
+          (r): r is PickingRow & { pallet_photos: string[]; order_number: string } =>
+            !!r.order_number && Array.isArray(r.pallet_photos) && r.pallet_photos.length > 0
+        )
+        .map((r) => ({ order_number: r.order_number, photos: r.pallet_photos }));
+
       return {
         date,
         users,
@@ -193,6 +208,7 @@ export function useActivityReport(date: string) {
         verified_skus_2m: verifiedSkus.size,
         total_skus: totalSkus,
         correction_count: correctionCount,
+        completed_orders_with_photos: completedOrdersWithPhotos,
       } satisfies ActivityReport;
     },
     staleTime: 2 * 60_000,

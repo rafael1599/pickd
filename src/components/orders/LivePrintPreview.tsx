@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import jsPDF from 'jspdf';
+import { PhotoLightbox } from '../ui/PhotoLightbox';
 
 export const TRANSPORT_COLORS: Record<string, { bg: string; text: string }> = {
   'R+L': { bg: '#006647', text: '#FFFFFF' },
@@ -25,6 +26,7 @@ interface LivePrintPreviewProps {
   totalWeight: number;
   completedAt?: string;
   transportCompany?: string;
+  palletPhotos?: string[];
 }
 
 /** Build the BIKES/PARTS lines for labels */
@@ -50,8 +52,11 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
   totalWeight,
   completedAt,
   transportCompany,
+  palletPhotos,
 }) => {
   const brandColors = transportCompany ? TRANSPORT_COLORS[transportCompany] : undefined;
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const photos = palletPhotos ?? [];
   const palletCount = parseInt(pallets?.toString() || '1');
   const cityStateZip = `${city}, ${state} ${zip}`.toUpperCase().trim();
   const unitLines = useMemo(() => unitsLines(bikeCount, partCount), [bikeCount, partCount]);
@@ -234,6 +239,22 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
         }}
       />
 
+      {/* Pallet photos above the title */}
+      {photos.length > 0 && (
+        <div className="w-full mb-4 flex flex-wrap justify-center gap-2 shrink-0 animate-soft-in">
+          {photos.map((url, i) => (
+            <button
+              key={i}
+              onClick={() => setLightboxIndex(i)}
+              className="w-20 h-20 rounded-xl overflow-hidden border border-subtle hover:border-accent transition-colors active:scale-95"
+              title={`Pallet photo ${i + 1}`}
+            >
+              <img src={url} alt="" loading="lazy" className="w-full h-full object-cover" />
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="w-full mb-8 text-center shrink-0">
         <h2 className="text-3xl md:text-5xl font-[900] text-content tracking-tighter uppercase animate-soft-in">
           Order #{orderNumber}
@@ -267,6 +288,16 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
           {pages}
         </div>
       </div>
+
+      {lightboxIndex !== null && (
+        <PhotoLightbox
+          photos={photos}
+          index={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          onIndexChange={setLightboxIndex}
+          caption={orderNumber ? `Order #${orderNumber}` : undefined}
+        />
+      )}
     </div>
   );
 };

@@ -368,6 +368,46 @@ export const ActivityReportView: React.FC<Props> = ({
           </>
         )}
 
+        {/* PALLET PHOTOS — orders completed today with photos */}
+        {report.completed_orders_with_photos.length > 0 && (
+          <>
+            <div style={cardStyle}>
+              <p style={sectionHeaderStyle(EMERALD)}>PALLET PHOTOS</p>
+              {report.completed_orders_with_photos.map((order) => (
+                <div key={order.order_number} style={{ marginBottom: 14 }}>
+                  <p
+                    style={{
+                      margin: '0 0 6px 0',
+                      fontSize: 13,
+                      fontWeight: 800,
+                      color: TEXT_MUTED,
+                    }}
+                  >
+                    Order #{order.order_number}
+                  </p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {order.photos.map((url, i) => (
+                      <img
+                        key={i}
+                        src={url}
+                        alt=""
+                        style={{
+                          width: 70,
+                          height: 70,
+                          borderRadius: 8,
+                          objectFit: 'cover',
+                          border: `1px solid ${TEXT_MUTED}33`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={spacerStyle} />
+          </>
+        )}
+
         {/* ON THE FLOOR — before In Progress */}
         {hasFloorContent && (
           <>

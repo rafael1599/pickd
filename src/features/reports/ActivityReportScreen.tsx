@@ -144,6 +144,8 @@ export const ActivityReportScreen = () => {
         verified_skus_2m: c.accuracy.verified_skus_2m,
         total_skus: c.accuracy.total_skus,
         correction_count: c.correction_count,
+        // Photos are live (not snapshotted) — pull from live query if available
+        completed_orders_with_photos: liveReport?.completed_orders_with_photos ?? [],
       };
     }
     return liveReport ?? null;
