@@ -87,6 +87,9 @@
 - **Solución:** Quitar `line-clamp-2` en `TaskCard` (`src/features/projects/ProjectsScreen.tsx`). Las cards crecen tanto como sea necesario para mostrar la nota completa.
 - **Trivial.**
 
+### ~~42. Foto obligatoria antes de completar orden~~ <!-- id: idea-064 --> ✅ 2026-04-16
+- DoubleCheckView fetcha `pallet_photos` count al montar y trackea local. Si 0 fotos: banner amarillo + slide deshabilitado con texto "PHOTO REQUIRED TO COMPLETE". Si ≥1: slide normal habilitado.
+
 ### 41. Galería de proyectos: Cámara o Galería del teléfono <!-- id: idea-063 -->
 - **Problema:** El botón "Capture" usa `<input capture="environment">` que fuerza abrir la cámara. No hay forma de subir foto existente desde la galería del teléfono.
 - **Solución:** Cambiar el botón único por uno que abre un modal preguntando "Cámara" o "Galería del teléfono". Cada opción dispara un `<input>` distinto:

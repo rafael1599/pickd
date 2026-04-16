@@ -189,6 +189,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const [scanResults, setScanResults] = useState<Map<string, Set<string>>>(new Map());
   const [isScanning, setIsScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState<string>('');
+  const [palletPhotosCount, setPalletPhotosCount] = useState<number | null>(null);
   const scanInputRef = useRef<HTMLInputElement>(null);
 
   // Track original items snapshot for reopened orders to detect changes
@@ -233,6 +234,28 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   useEffect(() => {
     onPalletCountChange?.(pallets.length);
   }, [pallets.length, onPalletCountChange]);
+
+  // Fetch initial pallet photos count for the active order
+  useEffect(() => {
+    if (!activeListId) {
+      setPalletPhotosCount(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('picking_lists')
+        .select('pallet_photos')
+        .eq('id', activeListId)
+        .single();
+      if (cancelled) return;
+      const photos = Array.isArray(data?.pallet_photos) ? (data.pallet_photos as string[]) : [];
+      setPalletPhotosCount(photos.length);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeListId]);
 
   // Migrate checked items by SKU when redistribution changes pallet assignments
   const prevPalletsRef = useRef<Pallet[]>(originalPallets);
@@ -771,6 +794,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                   .from('picking_lists')
                   .update({ pallet_photos: photos })
                   .eq('id', activeListId);
+                setPalletPhotosCount(photos.length);
               }
             } catch (err) {
               console.error('Pallet photo upload failed:', err);
@@ -1522,15 +1546,25 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             </button>
           </div>
         ) : verifiedUnitsCount === totalUnitsCount ? (
-          /* All verified — show slide to complete */
-          <SlideToConfirm
-            onConfirm={handleConfirm}
-            isLoading={isDeducting}
-            text="SLIDE TO COMPLETE"
-            confirmedText="COMPLETING..."
-            variant="default"
-            disabled={cartItems.length === 0}
-          />
+          /* All verified — show slide to complete (requires at least 1 pallet photo) */
+          <>
+            {palletPhotosCount === 0 && (
+              <div className="mb-3 px-4 py-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center gap-2">
+                <Camera size={16} className="text-amber-500 shrink-0" />
+                <p className="text-xs font-bold text-amber-500 uppercase tracking-wider">
+                  Take at least 1 pallet photo before completing
+                </p>
+              </div>
+            )}
+            <SlideToConfirm
+              onConfirm={handleConfirm}
+              isLoading={isDeducting}
+              text={palletPhotosCount === 0 ? 'PHOTO REQUIRED TO COMPLETE' : 'SLIDE TO COMPLETE'}
+              confirmedText="COMPLETING..."
+              variant="default"
+              disabled={cartItems.length === 0 || palletPhotosCount === 0}
+            />
+          </>
         ) : (
           /* Not all verified — show action buttons */
           <div className="flex gap-3">
