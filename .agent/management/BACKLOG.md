@@ -58,7 +58,7 @@
 - [ ] **Automatic Inventory Email** — Edge function `send-daily-report` + query + cron. <!-- id: idea-007 -->
 - [ ] **Fotos Fase 3 — Bulk Upload** — Multi-file picker, batching, progress bar. <!-- id: idea-023-p3 -->
 - [ ] **Migrar cron jobs a pg_cron** — Elimina dependencia de GitHub Actions. <!-- id: idea-030 -->
-- [x] ~~**FedEx default single group**~~ ✅ 2026-04-16 — Trigger `auto_group_fedex_orders` (migración `20260416220000`) auto-agrupa nuevas órdenes FedEx por `customer_id` con órdenes hermanas activas FedEx. Auto-clasifica server-side via `classify_picking_list_fedex` (join con `sku_metadata` para `weight_lbs > 50`). 5/5 smoke tests. <!-- id: idea-057 -->
+- [x] ~~**FedEx default single group**~~ ✅ 2026-04-16 — Trigger `auto_group_fedex_orders` (migraciones `20260416220000` + `20260416230000`) auto-agrupa TODAS las órdenes FedEx activas en un solo grupo (cross-customer). Operacional: picker maneja todas las FedEx en un Double Check + completa-todo-de-un-jalón. Auto-clasifica server-side via `classify_picking_list_fedex` (join con `sku_metadata.weight_lbs`). 5/5 + 4/4 smoke tests. <!-- id: idea-057 -->
 - [x] ~~**Projects — drag to reorder priority**~~ ✅ 2026-04-15 — `0b85070` `c115c13` @dnd-kit/sortable within-column reorder con position persistence. <!-- id: idea-049 -->
 - [x] ~~**Shopping List / Cosas por comprar**~~ ✅ 2026-04-14 — `dc2d19f` Vista compartida + PDF 4x6 térmico. <!-- id: idea-056 -->
 
