@@ -58,6 +58,41 @@
 - [ ] **Automatic Inventory Email** — Edge function `send-daily-report` + query + cron. <!-- id: idea-007 -->
 - [ ] **Fotos Fase 3 — Bulk Upload** — Multi-file picker, batching, progress bar. <!-- id: idea-023-p3 -->
 - [ ] **Migrar cron jobs a pg_cron** — Elimina dependencia de GitHub Actions. <!-- id: idea-030 -->
+
+---
+
+## P1 — Refinados (sesión 2026-04-16, listos para implementar)
+
+### 37. Pallet photos en reporte y orders <!-- id: idea-059 -->
+- **Contexto:** Las `pallet_photos` (capturadas en DoubleCheckView) hoy solo se ven en `PickingSummaryModal`. Deben surfacearse en el daily report y en OrdersScreen.
+- **Daily report:** Renderizar fila de thumbnails debajo del nombre de cada orden completada en la sección "Done Today", con order number como caption. Live query desde `picking_lists.pallet_photos`. Mismo patrón que `task_photos` en projects.
+- **OrdersScreen (orden completada):** Thumbnail clickeable arriba del título "ORDER #..." en el panel derecho (área vacía sobre el card de label preview). Click → fullscreen lightbox (mismo patrón que TaskDetailModal).
+- **Archivos:** `useProjectReportData.ts` (enriquecer con pallet_photos), `ActivityReportView.tsx` (renderTaskList o nueva función render para orders), `OrdersScreen.tsx` (header del panel derecho), reusar `lightbox` de TaskDetailModal.
+
+### 38. Print Label respeta orientación toggle desde todos los entry points <!-- id: idea-060 -->
+- **Problema:** El default en Label Studio es vertical, pero algunos puntos (ItemDetailView three-dot menu, batch screen, quick print) ignoran el toggle y siempre imprimen horizontal.
+- **Solución:** Auditar todos los call sites de label print (`useGenerateLabels`, `useQuickPrintLabel`, ItemDetailView handlers). Asegurar que cada uno lee `layout` del state/preference compartido en vez de hardcodear horizontal.
+- **Persistencia:** Considerar guardar la preferencia en localStorage (`pickd-label-layout`) o en `profiles` para que persista entre sesiones.
+- **Archivos:** `src/features/labels/`, `src/features/inventory/components/ItemDetailView/DetailToolbar.tsx`, hooks de label generation.
+
+### 39. Imágenes del reporte llegan a Gmail (broken icon fix) <!-- id: idea-061 -->
+- **Problema:** Al pegar el reporte en Gmail, las imágenes (thumbnails de gallery photos en tasks) muestran ícono de imagen rota. Las URLs llegan pero Gmail no puede cargarlas.
+- **Causa probable:** R2 sirve las imágenes con headers que Gmail no acepta, o requieren auth, o CORS bloquea el fetch desde mail.google.com.
+- **Solución A (recomendado):** Embeber thumbnails como base64 data URI en el HTML al copiar al clipboard. Pesado pero funciona en cualquier cliente de email. Limitar a thumbnails (200px, ~10-15KB c/u).
+- **Solución B:** Verificar headers de R2 (`cache-control`, `access-control-allow-origin`). Posible fix sin tocar el HTML.
+- **Archivos:** `ActivityReportScreen.tsx` (función Copy Report), `ActivityReportView.tsx` (renderTaskList si va por base64).
+
+### 40. Notas de proyecto siempre visibles (quitar line-clamp) <!-- id: idea-062 -->
+- **Problema:** Hoy `line-clamp-2` recorta notas largas en task cards del kanban.
+- **Solución:** Quitar `line-clamp-2` en `TaskCard` (`src/features/projects/ProjectsScreen.tsx`). Las cards crecen tanto como sea necesario para mostrar la nota completa.
+- **Trivial.**
+
+### 41. Galería de proyectos: Cámara o Galería del teléfono <!-- id: idea-063 -->
+- **Problema:** El botón "Capture" usa `<input capture="environment">` que fuerza abrir la cámara. No hay forma de subir foto existente desde la galería del teléfono.
+- **Solución:** Cambiar el botón único por uno que abre un modal preguntando "Cámara" o "Galería del teléfono". Cada opción dispara un `<input>` distinto:
+  - Cámara: `<input type="file" accept="image/*" capture="environment">`
+  - Galería: `<input type="file" accept="image/*">` (sin `capture`)
+- **Archivos:** `src/features/projects/components/PhotoGallery.tsx` (botón Capture + modal selector).
 - [x] ~~**FedEx default single group**~~ ✅ 2026-04-16 — Trigger `auto_group_fedex_orders` (migraciones `20260416220000` + `20260416230000`) auto-agrupa TODAS las órdenes FedEx activas en un solo grupo (cross-customer). Operacional: picker maneja todas las FedEx en un Double Check + completa-todo-de-un-jalón. Auto-clasifica server-side via `classify_picking_list_fedex` (join con `sku_metadata.weight_lbs`). 5/5 + 4/4 smoke tests. <!-- id: idea-057 -->
 - [x] ~~**Projects — drag to reorder priority**~~ ✅ 2026-04-15 — `0b85070` `c115c13` @dnd-kit/sortable within-column reorder con position persistence. <!-- id: idea-049 -->
 - [x] ~~**Shopping List / Cosas por comprar**~~ ✅ 2026-04-14 — `dc2d19f` Vista compartida + PDF 4x6 térmico. <!-- id: idea-056 -->
