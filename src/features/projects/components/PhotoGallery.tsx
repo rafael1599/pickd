@@ -26,12 +26,53 @@ export const PhotoGallery: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
   const [showSourceModal, setShowSourceModal] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{
+    total: number;
+    done: number;
+    failed: number;
+  } | null>(null);
+
+  /** Upload a list of files with concurrency=3 throttling and progress tracking. */
+  const uploadBulk = async (files: File[]) => {
+    if (files.length === 0) return;
+    if (files.length === 1) {
+      // Single file — use normal mutation (cleaner UX, no progress bar)
+      uploadPhoto.mutate({ file: files[0] });
+      return;
+    }
+    setBulkProgress({ total: files.length, done: 0, failed: 0 });
+
+    const CONCURRENCY = 3;
+    let cursor = 0;
+    let done = 0;
+    let failed = 0;
+
+    const worker = async () => {
+      while (cursor < files.length) {
+        const i = cursor++;
+        const file = files[i];
+        try {
+          await uploadPhoto.mutateAsync({ file });
+          done++;
+        } catch (err) {
+          console.error('Bulk upload failed for file', file.name, err);
+          failed++;
+        }
+        setBulkProgress({ total: files.length, done, failed });
+      }
+    };
+
+    await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
+
+    // Brief pause so the user sees the final count, then dismiss
+    setTimeout(() => setBulkProgress(null), 1500);
+  };
 
   const handleCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    uploadPhoto.mutate({ file });
+    const files = Array.from(e.target.files ?? []);
     e.target.value = ''; // Reset input
+    if (files.length === 0) return;
+    uploadBulk(files);
   };
 
   const handlePickCamera = () => {
@@ -90,10 +131,10 @@ export const PhotoGallery: React.FC = () => {
           )}
           <button
             onClick={() => setShowSourceModal(true)}
-            disabled={uploadPhoto.isPending}
+            disabled={uploadPhoto.isPending || !!bulkProgress}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white rounded-xl text-xs font-bold uppercase tracking-wider active:scale-95 transition-all disabled:opacity-50"
           >
-            {uploadPhoto.isPending ? (
+            {uploadPhoto.isPending || bulkProgress ? (
               <Loader2 size={14} className="animate-spin" />
             ) : (
               <Camera size={14} />
@@ -112,6 +153,7 @@ export const PhotoGallery: React.FC = () => {
             ref={galleryInputRef}
             type="file"
             accept="image/*"
+            multiple
             onChange={handleCapture}
             className="hidden"
           />
@@ -168,6 +210,32 @@ export const PhotoGallery: React.FC = () => {
                 </span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk upload progress bar */}
+      {bulkProgress && (
+        <div className="mb-3 p-3 bg-accent/10 border border-accent/30 rounded-xl">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-black uppercase tracking-wider text-accent">
+              {bulkProgress.done + bulkProgress.failed >= bulkProgress.total
+                ? `Done — ${bulkProgress.done} uploaded${bulkProgress.failed > 0 ? `, ${bulkProgress.failed} failed` : ''}`
+                : `Uploading ${bulkProgress.done + bulkProgress.failed + 1} of ${bulkProgress.total}…`}
+            </span>
+            {bulkProgress.failed > 0 && (
+              <span className="text-[10px] font-bold text-red-400">
+                {bulkProgress.failed} error{bulkProgress.failed !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          <div className="h-2 bg-surface rounded-full overflow-hidden">
+            <div
+              className="h-full bg-accent transition-all duration-200"
+              style={{
+                width: `${((bulkProgress.done + bulkProgress.failed) / bulkProgress.total) * 100}%`,
+              }}
+            />
           </div>
         </div>
       )}
