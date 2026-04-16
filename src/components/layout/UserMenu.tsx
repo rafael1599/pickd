@@ -15,6 +15,7 @@ import Kanban from 'lucide-react/dist/esm/icons/kanban';
 import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
 import Printer from 'lucide-react/dist/esm/icons/printer';
 import ShoppingCart from 'lucide-react/dist/esm/icons/shopping-cart';
+import PackageOpen from 'lucide-react/dist/esm/icons/package-open';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import { useModal } from '../../context/ModalContext';
 
@@ -253,6 +254,28 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                     </p>
                     <p className="text-[9px] text-muted font-bold uppercase">
                       Supplies &amp; materials
+                    </p>
+                  </div>
+                </div>
+                <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
+              </button>
+
+              <div className="h-px bg-subtle my-2" />
+
+              <button
+                onClick={() => navTo('/fedex-returns')}
+                className="flex items-center justify-between w-full group text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-surface border border-subtle rounded-xl text-purple-400">
+                    <PackageOpen size={16} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-content uppercase tracking-tight">
+                      FedEx Returns
+                    </p>
+                    <p className="text-[9px] text-muted font-bold uppercase">
+                      Intake &amp; process returns
                     </p>
                   </div>
                 </div>

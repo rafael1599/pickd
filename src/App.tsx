@@ -52,6 +52,16 @@ const ShoppingListScreen = React.lazy(() =>
     default: m.ShoppingListScreen,
   }))
 );
+const FedExReturnsScreen = React.lazy(() =>
+  import('./features/fedex-returns/FedExReturnsScreen.tsx').then((m) => ({
+    default: m.FedExReturnsScreen,
+  }))
+);
+const FedExReturnDetailScreen = React.lazy(() =>
+  import('./features/fedex-returns/FedExReturnDetailScreen.tsx').then((m) => ({
+    default: m.FedExReturnDetailScreen,
+  }))
+);
 
 import { ViewModeProvider } from './context/ViewModeContext.tsx';
 import { PickingProvider } from './context/PickingContext.tsx';
@@ -85,6 +95,8 @@ const AuthenticatedContent = () => {
             />
             <Route path="/stock-count" element={<StockCountScreen />} />
             <Route path="/shopping-list" element={<ShoppingListScreen />} />
+            <Route path="/fedex-returns" element={<FedExReturnsScreen />} />
+            <Route path="/fedex-returns/:id" element={<FedExReturnDetailScreen />} />
             <Route path="/cycle-count-history" element={<CycleCountHistoryScreen />} />
             <Route
               path="/activity-report"

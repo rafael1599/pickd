@@ -63,11 +63,62 @@ serve(async (req: Request) => {
     if (req.method === 'POST') {
       const body: {
         gallery?: boolean;
+        returns?: boolean;
+        trackingNumber?: string;
         photoId?: string;
         sku?: string;
         image: string;
         thumbnail?: string;
       } = await req.json();
+
+      // --- Returns mode: upload to photos/returns/ paths, no DB touch ---
+      if (body.returns) {
+        if (!body.trackingNumber || !body.image || !body.thumbnail) {
+          return new Response(
+            JSON.stringify({
+              error: 'trackingNumber, image, and thumbnail are required for returns uploads',
+            }),
+            {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+
+        const binaryString = atob(body.image);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        if (bytes.length > 5 * 1024 * 1024) {
+          return new Response(JSON.stringify({ error: 'Image exceeds 5MB limit' }), {
+            status: 413,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const encodedTracking = encodeURIComponent(body.trackingNumber);
+        const fullKey = `photos/returns/${encodedTracking}.webp`;
+        const thumbKey = `photos/returns/thumbs/${encodedTracking}.webp`;
+
+        await s3.putObject(fullKey, bytes, { contentType: 'image/webp' });
+
+        const thumbBinary = atob(body.thumbnail);
+        const thumbBytes = new Uint8Array(thumbBinary.length);
+        for (let i = 0; i < thumbBinary.length; i++) {
+          thumbBytes[i] = thumbBinary.charCodeAt(i);
+        }
+        await s3.putObject(thumbKey, thumbBytes, { contentType: 'image/webp' });
+
+        return new Response(
+          JSON.stringify({
+            url: `${publicDomain}/${fullKey}`,
+            thumbnailUrl: `${publicDomain}/${thumbKey}`,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
       // --- Gallery mode: upload to photos/gallery/ paths, no DB touch ---
       if (body.gallery) {
@@ -178,7 +229,39 @@ serve(async (req: Request) => {
     }
 
     if (req.method === 'DELETE') {
-      const body: { gallery?: boolean; photoId?: string; sku?: string } = await req.json();
+      const body: {
+        gallery?: boolean;
+        returns?: boolean;
+        trackingNumber?: string;
+        photoId?: string;
+        sku?: string;
+      } = await req.json();
+
+      // --- Returns mode: delete from photos/returns/ paths, no DB touch ---
+      if (body.returns) {
+        if (!body.trackingNumber) {
+          return new Response(
+            JSON.stringify({ error: 'trackingNumber is required for returns deletes' }),
+            {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+
+        const encodedTracking = encodeURIComponent(body.trackingNumber);
+        const fullKey = `photos/returns/${encodedTracking}.webp`;
+        const thumbKey = `photos/returns/thumbs/${encodedTracking}.webp`;
+
+        await Promise.all([
+          s3.deleteObject(fullKey).catch(() => {}),
+          s3.deleteObject(thumbKey).catch(() => {}),
+        ]);
+
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
       // --- Gallery mode: delete from photos/gallery/ paths, no DB touch ---
       if (body.gallery) {
