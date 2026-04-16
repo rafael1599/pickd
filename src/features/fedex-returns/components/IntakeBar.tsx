@@ -43,6 +43,7 @@ export const IntakeBar: React.FC = () => {
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [trackingNumber, setTrackingNumber] = useState('');
   const [candidates, setCandidates] = useState<string[]>([]);
+  const [candidatesOpen, setCandidatesOpen] = useState(false);
   const [notes, setNotes] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -63,6 +64,7 @@ export const IntakeBar: React.FC = () => {
     setPhotoPreviewUrl(null);
     setTrackingNumber('');
     setCandidates([]);
+    setCandidatesOpen(false);
     setNotes('');
     setNotesOpen(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -192,33 +194,40 @@ export const IntakeBar: React.FC = () => {
             )}
             {candidates.length > 1 && (
               <div className="mt-2">
-                <div className="text-[10px] text-muted uppercase tracking-widest mb-1.5">
-                  Detected codes — tap to use
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {candidates.map((c) => {
-                    const active = c === trackingNumber;
-                    return (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setTrackingNumber(c)}
-                        className={`rounded-full px-3 py-1 text-xs font-mono transition-colors ${
-                          active
-                            ? 'bg-accent text-white'
-                            : 'bg-surface border border-subtle text-muted hover:text-content'
-                        }`}
-                      >
-                        {c.length > 24 ? `${c.slice(0, 22)}…` : c}
-                        <span
-                          className={`ml-1.5 text-[9px] ${active ? 'text-white/70' : 'text-muted/60'}`}
+                <button
+                  type="button"
+                  onClick={() => setCandidatesOpen(!candidatesOpen)}
+                  className="flex items-center gap-1 text-[10px] text-muted hover:text-content uppercase tracking-widest"
+                >
+                  <ChevronDown
+                    size={12}
+                    className={`transition-transform ${candidatesOpen ? 'rotate-180' : ''}`}
+                  />
+                  {candidates.length - 1} other code{candidates.length - 1 === 1 ? '' : 's'}{' '}
+                  detected
+                </button>
+                {candidatesOpen && (
+                  <div className="flex flex-col gap-1 mt-2 bg-surface rounded-xl border border-subtle p-2">
+                    {candidates
+                      .filter((c) => c !== trackingNumber)
+                      .map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => {
+                            setTrackingNumber(c);
+                            setCandidatesOpen(false);
+                          }}
+                          className="flex items-center justify-between w-full px-2 py-1.5 rounded-lg text-xs font-mono text-muted hover:bg-card hover:text-content transition-colors text-left"
                         >
-                          {c.length}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                          <span className="truncate">{c}</span>
+                          <span className="text-[9px] text-muted/60 ml-2 flex-shrink-0">
+                            {c.length} chars
+                          </span>
+                        </button>
+                      ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
