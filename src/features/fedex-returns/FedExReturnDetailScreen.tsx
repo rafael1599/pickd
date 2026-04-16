@@ -107,27 +107,7 @@ export const FedExReturnDetailScreen: React.FC = () => {
           >
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-lg font-bold truncate flex-1">{ret.tracking_number}</h1>
-          <button
-            onClick={async () => {
-              try {
-                await printReturnLabel({
-                  trackingNumber: ret.tracking_number,
-                  receivedAt: ret.received_at,
-                  receivedByName: ret.received_by_name,
-                  notes: ret.notes,
-                });
-              } catch (err) {
-                const message = err instanceof Error ? err.message : 'Print failed';
-                toast.error(message);
-              }
-            }}
-            className="p-1.5 text-muted hover:text-content"
-            aria-label="Print labels"
-            title="Print labels (2 per sheet)"
-          >
-            <Printer size={20} />
-          </button>
+          <h1 className="text-lg font-bold truncate">{ret.tracking_number}</h1>
         </div>
       </header>
 
@@ -163,21 +143,45 @@ export const FedExReturnDetailScreen: React.FC = () => {
           )}
         </div>
 
-        {/* Start Processing */}
-        {ret.status === 'received' && (
+        {/* Actions: Start Processing + Print Label */}
+        <div className="flex gap-2">
+          {ret.status === 'received' && (
+            <button
+              onClick={handleStartProcessing}
+              disabled={updateReturn.isPending}
+              className="flex-1 bg-accent text-white rounded-xl py-3 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40"
+            >
+              {updateReturn.isPending ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Play size={16} />
+              )}
+              Start Processing
+            </button>
+          )}
           <button
-            onClick={handleStartProcessing}
-            disabled={updateReturn.isPending}
-            className="w-full bg-accent text-white rounded-xl py-3 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40"
+            onClick={async () => {
+              try {
+                await printReturnLabel({
+                  trackingNumber: ret.tracking_number,
+                  receivedAt: ret.received_at,
+                  receivedByName: ret.received_by_name,
+                  notes: ret.notes,
+                });
+              } catch (err) {
+                const message = err instanceof Error ? err.message : 'Print failed';
+                toast.error(message);
+              }
+            }}
+            className={`${
+              ret.status === 'received' ? 'flex-shrink-0 px-4' : 'flex-1'
+            } bg-surface border border-subtle text-content rounded-xl py-3 text-sm font-bold flex items-center justify-center gap-2 hover:border-accent/40 transition-colors`}
+            title="Print labels (2 per sheet)"
           >
-            {updateReturn.isPending ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Play size={16} />
-            )}
-            Start Processing
+            <Printer size={16} />
+            Print Label
           </button>
-        )}
+        </div>
 
         {/* Items */}
         {(ret.status === 'processing' || ret.status === 'resolved') && (
