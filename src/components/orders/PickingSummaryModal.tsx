@@ -11,6 +11,7 @@ import { usePickingNotes } from '../../features/picking/hooks/usePickingNotes';
 import { getOptimizedPickingPath, calculatePallets } from '../../utils/pickingLogic';
 import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.service';
 import { supabase } from '../../lib/supabase';
+import { useConfirmation } from '../../context/ConfirmationContext';
 import { PhotoLightbox } from '../ui/PhotoLightbox';
 import type { PickingListItem } from '../../schemas/picking.schema';
 
@@ -40,6 +41,7 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
   useScrollLock(true, onClose);
   const { locations } = useLocationManagement();
   const { notes } = usePickingNotes(listId);
+  const { showConfirmation } = useConfirmation();
   const [notesOpen, setNotesOpen] = useState(false);
   const [photos, setPhotos] = useState<string[]>(palletPhotos ?? []);
   const [isUploading, setIsUploading] = useState(false);
@@ -51,21 +53,31 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
     setPhotos(palletPhotos ?? []);
   }, [palletPhotos]);
 
-  const handleDeletePhoto = async (index: number) => {
-    const next = photos.filter((_, i) => i !== index);
-    const previous = photos;
-    setPhotos(next); // optimistic
-    try {
-      const { error } = await supabase
-        .from('picking_lists')
-        .update({ pallet_photos: next })
-        .eq('id', listId);
-      if (error) throw error;
-    } catch (err) {
-      console.error('Delete photo failed:', err);
-      setPhotos(previous);
-      toast.error('Failed to delete photo');
-    }
+  const handleDeletePhoto = (index: number) => {
+    showConfirmation(
+      'Delete Photo',
+      'Are you sure you want to delete this pallet photo? This cannot be undone.',
+      async () => {
+        const next = photos.filter((_, i) => i !== index);
+        const previous = photos;
+        setPhotos(next); // optimistic
+        try {
+          const { error } = await supabase
+            .from('picking_lists')
+            .update({ pallet_photos: next })
+            .eq('id', listId);
+          if (error) throw error;
+        } catch (err) {
+          console.error('Delete photo failed:', err);
+          setPhotos(previous);
+          toast.error('Failed to delete photo');
+        }
+      },
+      () => {},
+      'Delete',
+      'Cancel',
+      'danger'
+    );
   };
 
   const handleAddPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {

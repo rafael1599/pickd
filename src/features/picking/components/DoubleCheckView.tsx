@@ -195,21 +195,33 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const [palletLightboxIndex, setPalletLightboxIndex] = useState<number | null>(null);
 
   const handleDeletePalletPhoto = useCallback(
-    async (index: number) => {
+    (index: number) => {
       if (!activeListId) return;
-      const next = palletPhotos.filter((_, i) => i !== index);
-      // Optimistic
-      setPalletPhotos(next);
-      try {
-        await supabase.from('picking_lists').update({ pallet_photos: next }).eq('id', activeListId);
-      } catch (err) {
-        console.error('Delete pallet photo failed:', err);
-        // Rollback
-        setPalletPhotos(palletPhotos);
-        toast.error('Failed to delete photo');
-      }
+      showConfirmation(
+        'Delete Photo',
+        'Are you sure you want to delete this pallet photo? This cannot be undone.',
+        async () => {
+          const next = palletPhotos.filter((_, i) => i !== index);
+          const previous = palletPhotos;
+          setPalletPhotos(next); // optimistic
+          try {
+            await supabase
+              .from('picking_lists')
+              .update({ pallet_photos: next })
+              .eq('id', activeListId);
+          } catch (err) {
+            console.error('Delete pallet photo failed:', err);
+            setPalletPhotos(previous);
+            toast.error('Failed to delete photo');
+          }
+        },
+        () => {},
+        'Delete',
+        'Cancel',
+        'danger'
+      );
     },
-    [activeListId, palletPhotos]
+    [activeListId, palletPhotos, showConfirmation]
   );
   const scanInputRef = useRef<HTMLInputElement>(null);
 
