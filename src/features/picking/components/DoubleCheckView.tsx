@@ -734,10 +734,24 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
       // Optimistic: the user took a photo — that's enough to unlock completion.
       // The actual upload to R2 + DB persistence is fire-and-forget below.
-      setPalletPhotosCount((prev) => (prev ?? 0) + 1);
+      const newCount = (palletPhotosCount ?? 0) + 1;
+      setPalletPhotosCount(newCount);
+
+      // Burst mode: if we still need more photos to match pallet count,
+      // auto-reopen the camera. Browsers preserve user activation briefly
+      // after onChange, so this works on most devices.
+      if (newCount < pallets.length) {
+        setTimeout(() => {
+          scanInputRef.current?.click();
+        }, 250);
+      }
 
       setIsScanning(true);
-      setScanStatus('Processing image...');
+      setScanStatus(
+        newCount < pallets.length
+          ? `Photo ${newCount} of ${pallets.length} — opening camera for next…`
+          : 'Processing image...'
+      );
 
       try {
         const rawResults = await scanImageForQRCodes(file);
@@ -833,7 +847,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         setIsScanning(false);
       }
     },
-    [cartItems]
+    [cartItems, palletPhotosCount, pallets.length, activeListId, orderNumber]
   );
 
   // Auto-check items where scan count >= pickingQty
@@ -1168,15 +1182,34 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           onChange={handleScanPallet}
           className="hidden"
         />
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
           <button
             onClick={() => scanInputRef.current?.click()}
             disabled={isScanning}
             className="flex items-center gap-2 px-4 py-2 bg-accent/10 border border-accent/20 rounded-xl text-accent text-xs font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-50"
           >
             {isScanning ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
-            {isScanning ? 'Processing...' : 'Take Photo'}
+            {isScanning
+              ? 'Processing...'
+              : palletPhotosCount !== null &&
+                  palletPhotosCount > 0 &&
+                  palletPhotosCount < pallets.length
+                ? `Take Photo ${palletPhotosCount + 1} of ${pallets.length}`
+                : 'Take Photo'}
           </button>
+          {palletPhotosCount !== null && pallets.length > 0 && (
+            <span
+              className={`text-xs font-black px-2 py-1 rounded-md ${
+                palletPhotosCount >= pallets.length
+                  ? 'bg-emerald-500/15 text-emerald-400'
+                  : palletPhotosCount > 0
+                    ? 'bg-amber-500/15 text-amber-400'
+                    : 'bg-red-500/15 text-red-400'
+              }`}
+            >
+              {palletPhotosCount} / {pallets.length}
+            </span>
+          )}
           {scanStatus && <p className="text-xs text-accent font-bold">{scanStatus}</p>}
         </div>
 
