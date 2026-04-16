@@ -30,7 +30,7 @@ import toast from 'react-hot-toast';
 import { scanImageForQRCodes } from '../../../hooks/useQRScanner';
 import { parseQRPayload, aggregateScanResults } from '../utils/parseQRPayload';
 import Camera from 'lucide-react/dist/esm/icons/camera';
-import { compressImage } from '../../../services/photoUpload.service';
+import { compressImage, base64ToBlobUrl } from '../../../services/photoUpload.service';
 import { useAuth } from '../../../context/AuthContext';
 import { useMarkWaiting, useUnmarkWaiting, useTakeOverSku } from '../hooks/useWaitingOrders';
 import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingConflicts';
@@ -780,26 +780,41 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               const { image } = await compressImage(file);
               const orderNum = orderNumber || 'unknown';
               const timestamp = Date.now();
-              const { data: uploadResult } = await supabase.functions.invoke('upload-photo', {
-                body: { image, thumbnail: image, sku: `pallet-scan/${orderNum}/${timestamp}` },
-              });
-              if (uploadResult?.url) {
-                // Read current photos, append new, write back
-                const { data: current } = await supabase
-                  .from('picking_lists')
-                  .select('pallet_photos')
-                  .eq('id', activeListId)
-                  .single();
-                const existing = Array.isArray(current?.pallet_photos)
-                  ? (current.pallet_photos as string[])
-                  : [];
-                const photos = [...existing, uploadResult.url];
-                await supabase
-                  .from('picking_lists')
-                  .update({ pallet_photos: photos })
-                  .eq('id', activeListId);
-                setPalletPhotosCount(photos.length);
+              const isLocal = window.location.hostname === 'localhost';
+
+              let photoUrl: string | null = null;
+              try {
+                const { data: uploadResult } = await supabase.functions.invoke('upload-photo', {
+                  body: { image, thumbnail: image, sku: `pallet-scan/${orderNum}/${timestamp}` },
+                });
+                photoUrl = uploadResult?.url ?? null;
+              } catch (err) {
+                if (!isLocal) throw err;
+                console.warn('R2 upload failed in local — using blob URL fallback');
               }
+
+              // Local dev fallback: use blob URL so the photo shows in the UI even
+              // without R2. In prod we never reach this (the throw above would fire).
+              if (!photoUrl && isLocal) {
+                photoUrl = base64ToBlobUrl(image);
+              }
+              if (!photoUrl) return;
+
+              // Read current photos, append new, write back
+              const { data: current } = await supabase
+                .from('picking_lists')
+                .select('pallet_photos')
+                .eq('id', activeListId)
+                .single();
+              const existing = Array.isArray(current?.pallet_photos)
+                ? (current.pallet_photos as string[])
+                : [];
+              const photos = [...existing, photoUrl];
+              await supabase
+                .from('picking_lists')
+                .update({ pallet_photos: photos })
+                .eq('id', activeListId);
+              setPalletPhotosCount(photos.length);
             } catch (err) {
               console.error('Pallet photo upload failed:', err);
             }
