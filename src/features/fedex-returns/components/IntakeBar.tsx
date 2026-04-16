@@ -12,10 +12,29 @@ import { uploadReturnLabelPhoto } from '../services/returnPhotoUpload.service';
 
 const FEDEX_TRACKING_RE = /^\d{12,15}$/;
 
+/**
+ * Given raw scan results, extract likely tracking-number candidates.
+ * A FedEx tracking is typically 12, 15, or 20 digits. A single scan result
+ * may contain a longer GS1-128 string where the tracking is embedded — we
+ * extract all plausible numeric substrings so the user can pick.
+ */
+function extractCandidates(rawResults: string[]): string[] {
+  const out = new Set<string>();
+  for (const raw of rawResults) {
+    // Raw value as-is (user might want it even if unusual)
+    out.add(raw);
+    // Any 12, 15, or 20 digit substring
+    const matches = raw.match(/\d{20}|\d{15}|\d{12}/g);
+    if (matches) matches.forEach((m) => out.add(m));
+  }
+  return Array.from(out);
+}
+
 export const IntakeBar: React.FC = () => {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [trackingNumber, setTrackingNumber] = useState('');
+  const [candidates, setCandidates] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -35,6 +54,7 @@ export const IntakeBar: React.FC = () => {
     setPhotoFile(null);
     setPhotoPreviewUrl(null);
     setTrackingNumber('');
+    setCandidates([]);
     setNotes('');
     setNotesOpen(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -52,10 +72,18 @@ export const IntakeBar: React.FC = () => {
     // Auto-scan barcode
     try {
       const results = await scan(file);
-      if (results.length > 0) {
-        // Prefer numeric-only results (most likely FedEx tracking)
-        const numericResult = results.find((r) => /^\d+$/.test(r));
-        setTrackingNumber(numericResult ?? results[0]);
+      const candidateList = extractCandidates(results);
+      setCandidates(candidateList);
+
+      // Auto-pick best candidate: prefer 12-digit (standard FedEx Ground tracking)
+      const best =
+        candidateList.find((c) => /^\d{12}$/.test(c)) ??
+        candidateList.find((c) => /^\d{15}$/.test(c)) ??
+        candidateList.find((c) => /^\d+$/.test(c)) ??
+        candidateList[0];
+
+      if (best) {
+        setTrackingNumber(best);
       } else {
         toast('No barcode detected — enter tracking manually', { icon: 'ℹ️' });
       }
@@ -152,6 +180,37 @@ export const IntakeBar: React.FC = () => {
               <div className="flex items-center gap-1.5 mt-1.5 text-xs text-yellow-400">
                 <AlertTriangle size={12} />
                 <span>Unusual format (expected 12-15 digits)</span>
+              </div>
+            )}
+            {candidates.length > 1 && (
+              <div className="mt-2">
+                <div className="text-[10px] text-muted uppercase tracking-widest mb-1.5">
+                  Detected codes — tap to use
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {candidates.map((c) => {
+                    const active = c === trackingNumber;
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setTrackingNumber(c)}
+                        className={`rounded-full px-3 py-1 text-xs font-mono transition-colors ${
+                          active
+                            ? 'bg-accent text-white'
+                            : 'bg-surface border border-subtle text-muted hover:text-content'
+                        }`}
+                      >
+                        {c.length > 24 ? `${c.slice(0, 22)}…` : c}
+                        <span
+                          className={`ml-1.5 text-[9px] ${active ? 'text-white/70' : 'text-muted/60'}`}
+                        >
+                          {c.length}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
