@@ -7,6 +7,7 @@ import Send from 'lucide-react/dist/esm/icons/send';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import { CorrectionModeView } from './CorrectionModeView';
+import { SelectSubOrderModal, type SubOrderOption } from './SelectSubOrderModal';
 import { supabase } from '../../../lib/supabase';
 import { inventoryApi } from '../../inventory/api/inventoryApi';
 import { CorrectionNotesTimeline, Note } from './CorrectionNotesTimeline.tsx';
@@ -72,6 +73,8 @@ export type CorrectionAction =
         warehouse: string;
         item_name: string | null;
       };
+      /** Optional override for pickingQty on the swap; preserves original qty when omitted. */
+      newQty?: number;
       reason?: string;
     }
   | { type: 'adjust_qty'; sku: string; newQty: number; reason?: string }
@@ -107,7 +110,7 @@ interface DoubleCheckViewProps {
   onSelectAll?: (keys: string[]) => void;
   onPalletCountChange?: (count: number) => void;
   status?: string | null;
-  onCorrectItem?: (action: CorrectionAction) => Promise<void>;
+  onCorrectItem?: (action: CorrectionAction, targetListId?: string) => Promise<void>;
   inventoryData?: InventoryItemWithMetadata[];
   isWaitingInventory?: boolean;
   onSetWaitingInventory?: (val: boolean) => void;
@@ -169,7 +172,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   }, [inventoryData]);
 
   const { showConfirmation } = useConfirmation();
-  const { pallets: originalPallets, deleteList } = usePickingSession();
+  const { pallets: originalPallets, deleteList, loadExternalList } = usePickingSession();
   const { isAdmin } = useAuth();
   const markWaiting = useMarkWaiting();
   const unmarkWaiting = useUnmarkWaiting();
@@ -202,7 +205,18 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   // All statuses use full verification mode (checkboxes, select all).
   // The picker checks off items as they collect them, then sends to verify.
   const isReviewMode = false;
-  const [showCorrectionMode, setShowCorrectionMode] = useState(status === 'reopened');
+  const [showCorrectionMode, setShowCorrectionMode] = useState(false);
+
+  // Sub-order picker state — for combined FedEx orders, Edit Order and Cancel Order
+  // both route through a chooser so the user picks one sub-order at a time (prevents
+  // the qty duplication bug on edit + the orphan-siblings problem on cancel).
+  const [subOrderPickerMode, setSubOrderPickerMode] = useState<'edit' | 'cancel' | null>(null);
+  const [subOrders, setSubOrders] = useState<SubOrderOption[]>([]);
+  const [editingListId, setEditingListId] = useState<string | null>(null);
+  const [editingOrderNumber, setEditingOrderNumber] = useState<string | null>(null);
+
+  // A merged FedEx cart tags every item with source_order (see usePickingSync.loadExternalList).
+  const isCombined = useMemo(() => cartItems.some((i) => i.source_order), [cartItems]);
 
   // Pallet override state: palletId → desired total units
   const [palletOverrides, setPalletOverrides] = useState<Map<number, number>>(new Map());
@@ -547,6 +561,123 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     [cartItems]
   );
 
+  // When a sub-order is selected, filter the cart down to only its items.
+  // For non-combined orders, editingOrderNumber is just the single order number and
+  // items don't carry source_order tags, so we return the full cart unchanged.
+  const editingCartItems = useMemo(() => {
+    if (!isCombined || !editingOrderNumber) return cartItems;
+    return cartItems.filter((i) => i.source_order === editingOrderNumber);
+  }, [cartItems, editingOrderNumber, isCombined]);
+
+  const editingProblemItems = useMemo(
+    () => editingCartItems.filter((i) => i.sku_not_found || i.insufficient_stock),
+    [editingCartItems]
+  );
+
+  const openEditDirectly = useCallback((listId: string | null, orderNum: string | null) => {
+    setEditingListId(listId);
+    setEditingOrderNumber(orderNum);
+    setShowCorrectionMode(true);
+  }, []);
+
+  /**
+   * Fetches the live sub-orders of the current order's group. Returns null when
+   * the current order isn't combined or has no sibling candidates left — the
+   * caller should fall back to single-order behavior in that case.
+   */
+  const fetchSubOrderOptions = useCallback(async (): Promise<SubOrderOption[] | null> => {
+    if (!activeListId || !isCombined) return null;
+    const { data: main } = await supabase
+      .from('picking_lists')
+      .select('group_id')
+      .eq('id', activeListId)
+      .single();
+    if (!main?.group_id) return null;
+    const { data: subs } = await supabase
+      .from('picking_lists')
+      .select('id, order_number, items')
+      .eq('group_id', main.group_id)
+      .neq('status', 'completed')
+      .neq('status', 'cancelled')
+      .order('order_number', { ascending: true });
+    if (!subs || subs.length <= 1) return null;
+    return subs.map((s) => {
+      const items = Array.isArray(s.items) ? (s.items as unknown as PickingItem[]) : [];
+      return {
+        id: s.id,
+        order_number: s.order_number,
+        itemCount: items.length,
+        totalQty: items.reduce((sum, it) => sum + (Number(it.pickingQty) || 0), 0),
+      };
+    });
+  }, [activeListId, isCombined]);
+
+  const openEditFlow = useCallback(async () => {
+    if (!activeListId) return;
+    const options = await fetchSubOrderOptions();
+    if (!options) {
+      openEditDirectly(activeListId, orderNumber ?? null);
+      return;
+    }
+    setSubOrders(options);
+    setSubOrderPickerMode('edit');
+  }, [activeListId, orderNumber, fetchSubOrderOptions, openEditDirectly]);
+
+  const confirmCancelOrder = useCallback(
+    (listId: string, orderNum: string | null) => {
+      const label = orderNum ? `#${orderNum}` : `#${listId.slice(-6).toUpperCase()}`;
+      showConfirmation(
+        'Cancel Order',
+        `Order ${label} will be cancelled. You can find it later in the cancelled orders list.`,
+        async () => {
+          try {
+            await deleteList(listId);
+            if (listId === activeListId) {
+              // Cancelled the anchor order → drawer has nothing coherent left to show.
+              onClose();
+            } else if (activeListId) {
+              // Cancelled a sibling → refresh the merged cart to reflect removal.
+              await loadExternalList(activeListId);
+            }
+          } catch {
+            toast.error('Failed to cancel order');
+          }
+        },
+        () => {},
+        'Cancel Order',
+        'Go Back',
+        'danger'
+      );
+    },
+    [activeListId, showConfirmation, deleteList, loadExternalList, onClose]
+  );
+
+  const openCancelFlow = useCallback(async () => {
+    if (!activeListId) return;
+    const options = await fetchSubOrderOptions();
+    if (!options) {
+      confirmCancelOrder(activeListId, orderNumber ?? null);
+      return;
+    }
+    setSubOrders(options);
+    setSubOrderPickerMode('cancel');
+  }, [activeListId, orderNumber, fetchSubOrderOptions, confirmCancelOrder]);
+
+  // Auto-open edit flow for reopened orders (preserves the previous behavior, but now
+  // routes combined orders through the sub-order picker).
+  const reopenedAutoOpenedRef = useRef(false);
+  useEffect(() => {
+    if (
+      status === 'reopened' &&
+      !reopenedAutoOpenedRef.current &&
+      activeListId &&
+      cartItems.length > 0
+    ) {
+      reopenedAutoOpenedRef.current = true;
+      openEditFlow();
+    }
+  }, [status, activeListId, cartItems.length, openEditFlow]);
+
   // Fetch real stock for insufficient_stock items (client-side inventoryData is paginated)
   const [stockMap, setStockMap] = useState<Record<string, number>>({});
   useEffect(() => {
@@ -828,7 +959,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       <div className="flex-1 overflow-y-auto p-4 bg-main min-h-0 pb-32">
         <div className="flex items-center gap-2 mb-6">
           <button
-            onClick={() => setShowCorrectionMode(true)}
+            onClick={() => openEditFlow()}
             className={`flex-1 p-4 border rounded-2xl flex items-center justify-between gap-3 active:scale-[0.98] transition-all ${
               problemItems.length > 0 ? 'bg-red-500/10 border-red-500/30' : 'bg-card border-subtle'
             }`}
@@ -865,24 +996,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             />
           </button>
           <button
-            onClick={() => {
-              showConfirmation(
-                'Cancel Order',
-                'This order will be cancelled. You can find it later in the cancelled orders list.',
-                async () => {
-                  try {
-                    await deleteList(activeListId ?? null);
-                    onClose();
-                  } catch {
-                    toast.error('Failed to cancel order');
-                  }
-                },
-                () => {},
-                'Cancel Order',
-                'Go Back',
-                'danger'
-              );
-            }}
+            onClick={() => openCancelFlow()}
             className="h-full p-4 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 rounded-2xl text-red-500 transition-all active:scale-95 self-stretch flex items-center justify-center"
             title="Cancel Order"
           >
@@ -1444,14 +1558,36 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
       {/* ItemDetailView lives in ModalProvider (root) — see docs/modal-pattern.md */}
 
+      {subOrderPickerMode !== null && (
+        <SelectSubOrderModal
+          subOrders={subOrders}
+          variant={subOrderPickerMode === 'cancel' ? 'danger' : 'edit'}
+          onSelect={(listId, orderNum) => {
+            const mode = subOrderPickerMode;
+            setSubOrderPickerMode(null);
+            if (mode === 'edit') {
+              openEditDirectly(listId, orderNum);
+            } else if (mode === 'cancel') {
+              confirmCancelOrder(listId, orderNum);
+            }
+          }}
+          onCancel={() => setSubOrderPickerMode(null)}
+        />
+      )}
+
       {showCorrectionMode && onCorrectItem && (
         <CorrectionModeView
-          problemItems={problemItems}
-          allItems={cartItems}
+          problemItems={editingProblemItems}
+          allItems={editingCartItems}
           inventoryData={inventoryData}
           onCorrectItem={onCorrectItem}
-          onClose={() => setShowCorrectionMode(false)}
-          orderNumber={orderNumber}
+          onClose={() => {
+            setShowCorrectionMode(false);
+            setEditingListId(null);
+            setEditingOrderNumber(null);
+          }}
+          orderNumber={editingOrderNumber ?? orderNumber}
+          editingListId={editingListId}
           isReopened={status === 'reopened'}
           onCancelReopen={onCancelReopen}
         />
@@ -1474,7 +1610,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           }}
           onEditOrder={() => {
             setConflictDismissed(true);
-            setShowCorrectionMode(true);
+            openEditFlow();
           }}
           onDismiss={() => setConflictDismissed(true)}
         />

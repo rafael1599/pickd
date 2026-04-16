@@ -20,9 +20,15 @@ interface CorrectionModeViewProps {
   problemItems: PickingItem[];
   allItems: PickingItem[];
   inventoryData: InventoryItemWithMetadata[];
-  onCorrectItem: (action: CorrectionAction) => Promise<void>;
+  onCorrectItem: (action: CorrectionAction, targetListId?: string) => Promise<void>;
   onClose: () => void;
   orderNumber?: string | null;
+  /**
+   * When editing a single sub-order inside a combined FedEx group, this is the
+   * picking_list_id of that sub-order. The correction is applied to only that
+   * row in the DB. For non-combined orders this equals the active list id.
+   */
+  editingListId?: string | null;
   isReopened?: boolean;
   onCancelReopen?: () => void;
 }
@@ -211,9 +217,11 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
   onCorrectItem,
   onClose,
   orderNumber,
+  editingListId,
   isReopened = false,
   onCancelReopen,
 }) => {
+  const targetListId = editingListId ?? undefined;
   // Track original items to detect changes for reopened orders
   const [initialSnapshot] = useState(() =>
     isReopened ? JSON.stringify(allItems.map((i) => ({ sku: i.sku, qty: i.pickingQty }))) : null
@@ -348,25 +356,23 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
     if (activePanel?.type !== 'confirm_replace' || isProcessing) return;
     setIsProcessing(true);
     try {
-      await onCorrectItem({
-        type: 'swap',
-        originalSku: activePanel.sku,
-        replacement: {
-          sku: activePanel.replacement.sku,
-          location: activePanel.replacement.location,
-          warehouse: activePanel.replacement.warehouse,
-          item_name: activePanel.replacement.item_name ?? null,
-        },
-        reason: selectedReason || undefined,
-      });
       const originalItem = allItems.find((i) => i.sku === activePanel.sku);
-      if (originalItem && replaceQty !== originalItem.pickingQty) {
-        await onCorrectItem({
-          type: 'adjust_qty',
-          sku: activePanel.replacement.sku,
-          newQty: replaceQty,
-        });
-      }
+      const qtyChanged = !!originalItem && replaceQty !== originalItem.pickingQty;
+      await onCorrectItem(
+        {
+          type: 'swap',
+          originalSku: activePanel.sku,
+          replacement: {
+            sku: activePanel.replacement.sku,
+            location: activePanel.replacement.location,
+            warehouse: activePanel.replacement.warehouse,
+            item_name: activePanel.replacement.item_name ?? null,
+          },
+          newQty: qtyChanged ? replaceQty : undefined,
+          reason: selectedReason || undefined,
+        },
+        targetListId
+      );
       setActivePanel(null);
     } finally {
       setIsProcessing(false);
@@ -377,12 +383,15 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
     if (activePanel?.type !== 'adjust_qty' || isProcessing) return;
     setIsProcessing(true);
     try {
-      await onCorrectItem({
-        type: 'adjust_qty',
-        sku: activePanel.sku,
-        newQty: adjustQty,
-        reason: selectedReason || undefined,
-      });
+      await onCorrectItem(
+        {
+          type: 'adjust_qty',
+          sku: activePanel.sku,
+          newQty: adjustQty,
+          reason: selectedReason || undefined,
+        },
+        targetListId
+      );
       setActivePanel(null);
     } finally {
       setIsProcessing(false);
@@ -393,11 +402,14 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
     if (activePanel?.type !== 'remove' || isProcessing) return;
     setIsProcessing(true);
     try {
-      await onCorrectItem({
-        type: 'remove',
-        sku: activePanel.sku,
-        reason: selectedReason || undefined,
-      });
+      await onCorrectItem(
+        {
+          type: 'remove',
+          sku: activePanel.sku,
+          reason: selectedReason || undefined,
+        },
+        targetListId
+      );
       setRecentlyRemoved((prev) => [...prev, activePanel.sku]);
       setActivePanel(null);
     } finally {
@@ -409,17 +421,20 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
     if (activePanel?.type !== 'confirm_add' || isProcessing) return;
     setIsProcessing(true);
     try {
-      await onCorrectItem({
-        type: 'add',
-        item: {
-          sku: activePanel.item.sku,
-          location: activePanel.item.location,
-          warehouse: activePanel.item.warehouse,
-          item_name: activePanel.item.item_name ?? null,
-          pickingQty: addQty,
+      await onCorrectItem(
+        {
+          type: 'add',
+          item: {
+            sku: activePanel.item.sku,
+            location: activePanel.item.location,
+            warehouse: activePanel.item.warehouse,
+            item_name: activePanel.item.item_name ?? null,
+            pickingQty: addQty,
+          },
+          reason: selectedReason || undefined,
         },
-        reason: selectedReason || undefined,
-      });
+        targetListId
+      );
       setActivePanel(null);
       setSearchQuery('');
     } finally {

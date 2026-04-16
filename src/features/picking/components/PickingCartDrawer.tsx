@@ -295,15 +295,33 @@ export const PickingCartDrawer: React.FC = () => {
     setIsOpen(false);
   };
 
-  const handleCorrectItem = async (action: CorrectionAction) => {
+  const handleCorrectItem = async (action: CorrectionAction, targetListId?: string) => {
     if (!activeListId) return;
+    const writeListId = targetListId ?? activeListId;
+    // When a targetListId is provided, this is a sub-order edit inside a combined
+    // group. Read that specific list's items from DB so we only mutate its row
+    // (prevents the cross-sub-order duplication bug — see idea-057).
+    const useDbSource = !!targetListId;
     try {
+      let sourceItems: PickingItem[];
+      if (useDbSource) {
+        const { data: list, error: fetchErr } = await supabase
+          .from('picking_lists')
+          .select('items')
+          .eq('id', writeListId)
+          .single();
+        if (fetchErr) throw fetchErr;
+        sourceItems = Array.isArray(list?.items) ? (list.items as unknown as PickingItem[]) : [];
+      } else {
+        sourceItems = cartItems;
+      }
+
       let newItems: PickingItem[];
       let logMessage: string;
 
       switch (action.type) {
         case 'swap': {
-          newItems = cartItems.map((item) =>
+          newItems = sourceItems.map((item) =>
             item.sku === action.originalSku
               ? {
                   ...item,
@@ -311,18 +329,20 @@ export const PickingCartDrawer: React.FC = () => {
                   location: action.replacement.location,
                   item_name: action.replacement.item_name,
                   warehouse: action.replacement.warehouse,
+                  pickingQty: action.newQty ?? item.pickingQty,
                   sku_not_found: false,
                   insufficient_stock: false,
                 }
               : item
           );
+          const qtySuffix = action.newQty !== undefined ? ` (qty ${action.newQty})` : '';
           logMessage = action.reason
-            ? `Replaced ${action.originalSku} → ${action.replacement.sku}: ${action.reason}`
-            : `Swapped SKU ${action.originalSku} → ${action.replacement.sku}`;
+            ? `Replaced ${action.originalSku} → ${action.replacement.sku}${qtySuffix}: ${action.reason}`
+            : `Swapped SKU ${action.originalSku} → ${action.replacement.sku}${qtySuffix}`;
           break;
         }
         case 'adjust_qty': {
-          newItems = cartItems.map((item) =>
+          newItems = sourceItems.map((item) =>
             item.sku === action.sku
               ? { ...item, pickingQty: action.newQty, insufficient_stock: false }
               : item
@@ -333,16 +353,16 @@ export const PickingCartDrawer: React.FC = () => {
           break;
         }
         case 'remove': {
-          newItems = cartItems.filter((item) => item.sku !== action.sku);
+          newItems = sourceItems.filter((item) => item.sku !== action.sku);
           logMessage = action.reason
             ? `Removed ${action.sku}: ${action.reason}`
             : `Removed SKU ${action.sku} from order`;
           break;
         }
         case 'add': {
-          const existing = cartItems.find((item) => item.sku === action.item.sku);
+          const existing = sourceItems.find((item) => item.sku === action.item.sku);
           if (existing) {
-            newItems = cartItems.map((item) =>
+            newItems = sourceItems.map((item) =>
               item.sku === action.item.sku
                 ? { ...item, pickingQty: item.pickingQty + action.item.pickingQty }
                 : item
@@ -352,7 +372,7 @@ export const PickingCartDrawer: React.FC = () => {
               : `Extra item: ${action.item.sku}, qty ${action.item.pickingQty} (total ${existing.pickingQty + action.item.pickingQty})`;
           } else {
             newItems = [
-              ...cartItems,
+              ...sourceItems,
               {
                 sku: action.item.sku,
                 location: action.item.location,
@@ -374,16 +394,20 @@ export const PickingCartDrawer: React.FC = () => {
       await supabase
         .from('picking_lists')
         .update({ items: newItems as unknown as Json })
-        .eq('id', activeListId);
-
-      // Update local cart state immediately
-      setCartItems(newItems as unknown as typeof cartItems);
+        .eq('id', writeListId);
 
       await supabase.from('picking_list_notes').insert({
-        list_id: activeListId,
+        list_id: writeListId,
         user_id: user!.id,
         message: logMessage,
       });
+
+      if (useDbSource) {
+        // Refresh merged cart so the combined view reflects the sub-order change.
+        await loadExternalList(activeListId);
+      } else {
+        setCartItems(newItems as unknown as typeof cartItems);
+      }
 
       toast.success(logMessage);
     } catch (err) {
@@ -529,7 +553,8 @@ export const PickingCartDrawer: React.FC = () => {
 
   // Visibility: only on home page in picking mode with active session, or externally triggered
   const hasActiveSession = sessionMode !== 'idle' || totalItems > 0;
-  const isVisible = (pathname === '/' && viewMode === 'picking' && hasActiveSession) || !!externalDoubleCheckId;
+  const isVisible =
+    (pathname === '/' && viewMode === 'picking' && hasActiveSession) || !!externalDoubleCheckId;
 
   if (!isVisible) return null;
 
@@ -580,8 +605,13 @@ export const PickingCartDrawer: React.FC = () => {
                     id: i.location_id || '',
                     location: i.location || '',
                     warehouse: i.warehouse as Location['warehouse'],
-                    zone: null, max_capacity: null, picking_order: null,
-                    is_active: true, created_at: '', length_ft: null, bike_line: null,
+                    zone: null,
+                    max_capacity: null,
+                    picking_order: null,
+                    is_active: true,
+                    created_at: '',
+                    length_ft: null,
+                    bike_line: null,
                   }));
                   const path = getOptimizedPickingPath(items, allLocations);
                   const palletsQty = calculatePallets(path).length;
@@ -608,9 +638,7 @@ export const PickingCartDrawer: React.FC = () => {
         <button
           onClick={() => setIsOpen(true)}
           className={`fixed bottom-24 left-4 right-4 p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-2 cursor-pointer active:scale-95 transition-all z-40 border border-white/10 ${
-            sessionMode === 'double_checking'
-              ? 'bg-orange-500 text-white'
-              : 'bg-accent text-main'
+            sessionMode === 'double_checking' ? 'bg-orange-500 text-white' : 'bg-accent text-main'
           }`}
         >
           <div className="flex items-center gap-3">
