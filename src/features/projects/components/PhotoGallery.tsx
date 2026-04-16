@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
 import Camera from 'lucide-react/dist/esm/icons/camera';
+import ImageIcon from 'lucide-react/dist/esm/icons/image';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
+import X from 'lucide-react/dist/esm/icons/x';
 import {
   useGalleryPhotos,
   useUploadGalleryPhoto,
@@ -18,16 +20,28 @@ export const PhotoGallery: React.FC = () => {
   const uploadPhoto = useUploadGalleryPhoto();
   const softDelete = useSoftDeletePhotos();
   const { data: trashPhotos = [] } = useTrashPhotos();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
+  const [showSourceModal, setShowSourceModal] = useState(false);
 
   const handleCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     uploadPhoto.mutate({ file });
     e.target.value = ''; // Reset input
+  };
+
+  const handlePickCamera = () => {
+    setShowSourceModal(false);
+    cameraInputRef.current?.click();
+  };
+
+  const handlePickGallery = () => {
+    setShowSourceModal(false);
+    galleryInputRef.current?.click();
   };
 
   const toggleSelect = (id: string) => {
@@ -75,7 +89,7 @@ export const PhotoGallery: React.FC = () => {
             </button>
           )}
           <button
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => setShowSourceModal(true)}
             disabled={uploadPhoto.isPending}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white rounded-xl text-xs font-bold uppercase tracking-wider active:scale-95 transition-all disabled:opacity-50"
           >
@@ -87,15 +101,76 @@ export const PhotoGallery: React.FC = () => {
             Capture
           </button>
           <input
-            ref={fileInputRef}
+            ref={cameraInputRef}
             type="file"
             accept="image/*"
             capture="environment"
             onChange={handleCapture}
             className="hidden"
           />
+          <input
+            ref={galleryInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleCapture}
+            className="hidden"
+          />
         </div>
       </div>
+
+      {/* Source Selector Modal */}
+      {showSourceModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setShowSourceModal(false)}
+        >
+          <div
+            className="w-full sm:max-w-md bg-surface border-t sm:border border-accent/20 rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5 shadow-2xl animate-in slide-in-from-bottom-4 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-sm font-black uppercase tracking-wider text-content">
+                Add Photo
+              </h3>
+              <button
+                onClick={() => setShowSourceModal(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-surface-hover text-muted active:scale-95 transition-all"
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Options */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={handlePickCamera}
+                className="flex flex-col items-center justify-center gap-2 p-5 rounded-2xl bg-gradient-to-br from-accent/20 to-accent/5 border border-accent/30 active:scale-95 transition-all"
+              >
+                <div className="w-14 h-14 flex items-center justify-center rounded-2xl bg-accent/20 text-accent">
+                  <Camera size={28} />
+                </div>
+                <span className="text-xs font-bold uppercase tracking-wider text-content">
+                  Camera
+                </span>
+              </button>
+
+              <button
+                onClick={handlePickGallery}
+                className="flex flex-col items-center justify-center gap-2 p-5 rounded-2xl bg-gradient-to-br from-accent/20 to-accent/5 border border-accent/30 active:scale-95 transition-all"
+              >
+                <div className="w-14 h-14 flex items-center justify-center rounded-2xl bg-accent/20 text-accent">
+                  <ImageIcon size={28} />
+                </div>
+                <span className="text-xs font-bold uppercase tracking-wider text-content">
+                  Gallery
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Gallery Grid */}
       {!isCollapsed && (

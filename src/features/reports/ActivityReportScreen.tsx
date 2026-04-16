@@ -83,7 +83,7 @@ export const ActivityReportScreen = () => {
   const [selectedDate, setSelectedDate] = useState('');
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     if (today && !selectedDate) setSelectedDate(today);
   }, [today, selectedDate]);
 
@@ -104,6 +104,7 @@ export const ActivityReportScreen = () => {
   const [pickdUpdatesText, setPickdUpdatesText] = useState('');
   const [routineChecklist, setRoutineChecklist] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
   const [routineItems, setRoutineItems] = useState<string[]>(loadRoutineItems);
   const [editingRoutine, setEditingRoutine] = useState(false);
   const [newRoutineItem, setNewRoutineItem] = useState('');
@@ -168,7 +169,7 @@ export const ActivityReportScreen = () => {
   // and forces re-hydration from the new date's snapshot (or empty).
   useEffect(() => {
     lastHydratedDateRef.current = null;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     setNotesText('');
      
     setWinOfTheDay('');
@@ -195,7 +196,7 @@ export const ActivityReportScreen = () => {
     const nextNotes = m.user_notes ?? [];
     const nextNotesText = nextNotes.map((n) => n.text).join('\n');
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     setWinOfTheDay(nextWin);
     setPickdUpdatesText(nextUpdatesArr.join('\n'));
     setRoutineChecklist(nextRoutine);
@@ -289,18 +290,64 @@ export const ActivityReportScreen = () => {
     );
   }, []);
 
-  const handleCopy = useCallback(() => {
+  const handleCopy = useCallback(async () => {
     const reportEl = document.getElementById('report-content');
     if (!reportEl) return;
-    const range = document.createRange();
-    range.selectNodeContents(reportEl);
-    const selection = window.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
-    document.execCommand('copy');
-    selection?.removeAllRanges();
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+
+    setIsCopying(true);
+    try {
+      // Clone the report so we don't mutate the live UI
+      const clone = reportEl.cloneNode(true) as HTMLElement;
+      const images = Array.from(clone.querySelectorAll('img'));
+
+      // Fetch all images in parallel and convert to base64 data URIs.
+      // Gmail can't render external R2 URLs inline, so we embed them.
+      await Promise.all(
+        images.map(async (img) => {
+          const url = img.src;
+          // Skip already-inlined data URIs and ephemeral blob: URLs.
+          if (!url || url.startsWith('data:') || url.startsWith('blob:')) return;
+          try {
+            const res = await fetch(url, { mode: 'cors' });
+            if (!res.ok) return;
+            const blob = await res.blob();
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            });
+            img.src = dataUrl;
+          } catch (err) {
+            // Graceful degradation: leave src as-is (same as today's broken behavior).
+            console.warn('Could not inline image:', url, err);
+          }
+        })
+      );
+
+      // Use Clipboard API to write HTML with embedded images.
+      const html = clone.outerHTML;
+      const blob = new Blob([html], { type: 'text/html' });
+      const data = [new ClipboardItem({ 'text/html': blob })];
+      await navigator.clipboard.write(data);
+
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Copy failed, falling back to execCommand:', err);
+      // Fallback for browsers without Clipboard API support.
+      const range = document.createRange();
+      range.selectNodeContents(reportEl);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      document.execCommand('copy');
+      selection?.removeAllRanges();
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } finally {
+      setIsCopying(false);
+    }
   }, []);
 
   // ----- Accuracy display -----
@@ -378,10 +425,17 @@ export const ActivityReportScreen = () => {
             )}
             <button
               onClick={handleCopy}
-              className="p-2 hover:bg-white/10 rounded-full text-accent transition-colors"
-              title="Copy report"
+              disabled={isCopying}
+              className="p-2 hover:bg-white/10 rounded-full text-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title={isCopying ? 'Copying images...' : 'Copy report'}
             >
-              {copied ? <Check size={20} className="text-green-400" /> : <Copy size={20} />}
+              {isCopying ? (
+                <Loader2 size={20} className="animate-spin" />
+              ) : copied ? (
+                <Check size={20} className="text-green-400" />
+              ) : (
+                <Copy size={20} />
+              )}
             </button>
           </div>
         </div>
@@ -623,11 +677,17 @@ export const ActivityReportScreen = () => {
                     // Wait briefly for save to process before copying
                     await new Promise((r) => setTimeout(r, 300));
                   }
-                  handleCopy();
+                  await handleCopy();
                 }}
-                className="w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest bg-accent text-main hover:bg-accent/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                disabled={isCopying}
+                className="w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest bg-accent text-main hover:bg-accent/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {copied ? (
+                {isCopying ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Copying images...
+                  </>
+                ) : copied ? (
                   <>
                     <Check size={14} />
                     Copied!

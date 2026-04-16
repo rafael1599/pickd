@@ -90,12 +90,11 @@
 ### ~~42. Foto obligatoria antes de completar orden~~ <!-- id: idea-064 --> ✅ 2026-04-16
 - DoubleCheckView fetcha `pallet_photos` count al montar y trackea local. Si 0 fotos: banner amarillo + slide deshabilitado con texto "PHOTO REQUIRED TO COMPLETE". Si ≥1: slide normal habilitado.
 
-### 41. Galería de proyectos: Cámara o Galería del teléfono <!-- id: idea-063 -->
-- **Problema:** El botón "Capture" usa `<input capture="environment">` que fuerza abrir la cámara. No hay forma de subir foto existente desde la galería del teléfono.
-- **Solución:** Cambiar el botón único por uno que abre un modal preguntando "Cámara" o "Galería del teléfono". Cada opción dispara un `<input>` distinto:
-  - Cámara: `<input type="file" accept="image/*" capture="environment">`
-  - Galería: `<input type="file" accept="image/*">` (sin `capture`)
-- **Archivos:** `src/features/projects/components/PhotoGallery.tsx` (botón Capture + modal selector).
+### ~~41. Galería de proyectos: Cámara o Galería del teléfono~~ <!-- id: idea-063 --> ✅ 2026-04-16
+- Modal selector con dos opciones (Camera/Gallery), cada una dispara su propio `<input>` (con/sin `capture`). Modal mobile bottom-sheet, desktop centered.
+
+### ~~Imágenes del reporte llegan a Gmail~~ <!-- id: idea-061 --> ✅ 2026-04-16
+- `handleCopy` async: clona el reporte, fetcha cada `<img>` y la convierte a base64 data URI, escribe HTML al clipboard via `ClipboardItem`. Fallback a `execCommand` si falla. Loading state en botones.
 - [x] ~~**FedEx default single group**~~ ✅ 2026-04-16 — Trigger `auto_group_fedex_orders` (migraciones `20260416220000` + `20260416230000`) auto-agrupa TODAS las órdenes FedEx activas en un solo grupo (cross-customer). Operacional: picker maneja todas las FedEx en un Double Check + completa-todo-de-un-jalón. Auto-clasifica server-side via `classify_picking_list_fedex` (join con `sku_metadata.weight_lbs`). 5/5 + 4/4 smoke tests. <!-- id: idea-057 -->
 - [x] ~~**Projects — drag to reorder priority**~~ ✅ 2026-04-15 — `0b85070` `c115c13` @dnd-kit/sortable within-column reorder con position persistence. <!-- id: idea-049 -->
 - [x] ~~**Shopping List / Cosas por comprar**~~ ✅ 2026-04-14 — `dc2d19f` Vista compartida + PDF 4x6 térmico. <!-- id: idea-056 -->
