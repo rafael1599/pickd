@@ -14,18 +14,26 @@ const FEDEX_TRACKING_RE = /^\d{12,15}$/;
 
 /**
  * Given raw scan results, extract likely tracking-number candidates.
- * A FedEx tracking is typically 12, 15, or 20 digits. A single scan result
- * may contain a longer GS1-128 string where the tracking is embedded — we
- * extract all plausible numeric substrings so the user can pick.
+ * FedEx tracking is typically 12, 15, or 20 digits. In GS1-128 encoded
+ * strings (the real FedEx barcodes) the tracking lives at the END of a
+ * longer numeric string, so we extract BOTH prefix matches and suffix
+ * slices. The caller prioritizes shorter/standard-length candidates.
  */
 function extractCandidates(rawResults: string[]): string[] {
   const out = new Set<string>();
   for (const raw of rawResults) {
-    // Raw value as-is (user might want it even if unusual)
+    // Suffix slices FIRST — in GS1-128 the tracking is at the end.
+    // Adding these first gives them priority in the Set's insertion order.
+    if (/^\d+$/.test(raw)) {
+      if (raw.length >= 12) out.add(raw.slice(-12));
+      if (raw.length >= 15) out.add(raw.slice(-15));
+      if (raw.length >= 20) out.add(raw.slice(-20));
+    }
+    // Forward (from start) numeric substrings
+    const forwardMatches = raw.match(/\d{20}|\d{15}|\d{12}/g);
+    if (forwardMatches) forwardMatches.forEach((m) => out.add(m));
+    // Raw value as-is (user might want the full encoded string)
     out.add(raw);
-    // Any 12, 15, or 20 digit substring
-    const matches = raw.match(/\d{20}|\d{15}|\d{12}/g);
-    if (matches) matches.forEach((m) => out.add(m));
   }
   return Array.from(out);
 }
