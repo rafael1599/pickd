@@ -1,11 +1,17 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import X from 'lucide-react/dist/esm/icons/x';
 import MessageSquare from 'lucide-react/dist/esm/icons/message-square';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
+import Camera from 'lucide-react/dist/esm/icons/camera';
+import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
+import toast from 'react-hot-toast';
 import { useLocationManagement } from '../../features/inventory/hooks/useLocationManagement';
 import { usePickingNotes } from '../../features/picking/hooks/usePickingNotes';
 import { getOptimizedPickingPath, calculatePallets } from '../../utils/pickingLogic';
+import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.service';
+import { supabase } from '../../lib/supabase';
+import { PhotoLightbox } from '../ui/PhotoLightbox';
 import type { PickingListItem } from '../../schemas/picking.schema';
 
 interface PickingSummaryModalProps {
@@ -35,6 +41,67 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
   const { locations } = useLocationManagement();
   const { notes } = usePickingNotes(listId);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [photos, setPhotos] = useState<string[]>(palletPhotos ?? []);
+  const [isUploading, setIsUploading] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync local state when prop changes (e.g., when modal reopens)
+  useEffect(() => {
+    setPhotos(palletPhotos ?? []);
+  }, [palletPhotos]);
+
+  const handleAddPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    setIsUploading(true);
+    try {
+      const { image, thumbnail } = await compressImage(file);
+      const photoId = crypto.randomUUID();
+      const isLocal = window.location.hostname === 'localhost';
+
+      let photoUrl: string | null = null;
+      try {
+        const { data: uploadResult, error: uploadErr } = await supabase.functions.invoke(
+          'upload-photo',
+          { body: { gallery: true, photoId, image, thumbnail } }
+        );
+        if (uploadErr) throw uploadErr;
+        photoUrl = (uploadResult as { url?: string } | null)?.url ?? null;
+      } catch (err) {
+        if (!isLocal) {
+          console.error('Photo upload failed:', err);
+          toast.error('Failed to upload photo');
+          return;
+        }
+        console.warn('R2 upload failed in local — using blob URL fallback');
+      }
+
+      if (!photoUrl && isLocal) photoUrl = base64ToBlobUrl(image);
+      if (!photoUrl) return;
+
+      // Append to picking_lists.pallet_photos
+      const { data: current } = await supabase
+        .from('picking_lists')
+        .select('pallet_photos')
+        .eq('id', listId)
+        .single();
+      const existing = Array.isArray(current?.pallet_photos)
+        ? (current.pallet_photos as string[])
+        : [];
+      const next = [...existing, photoUrl];
+      await supabase.from('picking_lists').update({ pallet_photos: next }).eq('id', listId);
+      setPhotos(next);
+      toast.success('Photo added');
+    } catch (err) {
+      console.error('Add photo failed:', err);
+      toast.error('Failed to add photo');
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   // Group items into pallets using the same logic as the Picking flow
   const pallets = useMemo(() => {
@@ -216,9 +283,7 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
                         {/* Row badge */}
                         <div
                           className={`w-9 h-7 flex items-center justify-center rounded-md font-mono font-black text-sm shrink-0 ${
-                            row
-                              ? 'bg-amber-500/15 text-amber-400'
-                              : 'bg-white/5 text-white/20'
+                            row ? 'bg-amber-500/15 text-amber-400' : 'bg-white/5 text-white/20'
                           }`}
                         >
                           {row ?? '—'}
@@ -231,25 +296,62 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
             ))
           )}
 
-          {/* Pallet Scan Photos */}
-          {palletPhotos && palletPhotos.length > 0 && (
-            <div className="mt-6">
-              <p className="text-[10px] text-white/30 font-black uppercase tracking-widest mb-2">
-                Scan Verification Photos
+          {/* Pallet Photos */}
+          <div className="mt-6">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] text-white/30 font-black uppercase tracking-widest">
+                Pallet Photos {photos.length > 0 && `(${photos.length})`}
               </p>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-accent/20 border border-accent/40 text-accent rounded-xl text-[10px] font-black uppercase tracking-wider active:scale-95 transition-all disabled:opacity-50"
+              >
+                {isUploading ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Camera size={12} />
+                )}
+                Add Photo
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleAddPhoto}
+                className="hidden"
+              />
+            </div>
+            {photos.length > 0 ? (
               <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                {palletPhotos.map((url, i) => (
-                  <img
+                {photos.map((url, i) => (
+                  <button
                     key={i}
-                    src={url}
-                    alt={`Pallet scan ${i + 1}`}
-                    className="w-28 h-28 object-cover rounded-xl border border-white/10 shrink-0"
-                  />
+                    onClick={() => setLightboxIndex(i)}
+                    className="w-28 h-28 rounded-xl overflow-hidden border border-white/10 shrink-0 active:scale-95 transition-transform"
+                  >
+                    <img src={url} alt={`Pallet ${i + 1}`} className="w-full h-full object-cover" />
+                  </button>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-[10px] text-white/20 font-bold uppercase tracking-wider py-4 text-center border border-dashed border-white/10 rounded-xl">
+                No pallet photos yet
+              </p>
+            )}
+          </div>
         </div>
+
+        {lightboxIndex !== null && (
+          <PhotoLightbox
+            photos={photos}
+            index={lightboxIndex}
+            onClose={() => setLightboxIndex(null)}
+            onIndexChange={setLightboxIndex}
+            caption={orderNumber ? `Order #${orderNumber}` : undefined}
+          />
+        )}
 
         {/* Footer */}
         <div className="px-6 py-4 bg-white/[0.03] border-t border-white/10 flex items-center justify-between shrink-0">
