@@ -58,49 +58,49 @@ export async function generateReturnLabel(data: ReturnLabelData): Promise<string
   // ── Draw one label at vertical offset yOffset ──
   const drawLabel = (yOffset: number) => {
     const labelH = 5.5; // half of Letter
-    const pad = 0.4;
+    const pad = 0.35;
 
-    // Huge tracking number (top)
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(54);
-    doc.setTextColor(0, 0, 0);
-    doc.text(data.trackingNumber, W / 2, yOffset + pad + 0.6, { align: 'center' });
-
-    // "FEDEX RETURN" label above tracking
-    doc.setFontSize(18);
-    doc.text('FEDEX RETURN', W / 2, yOffset + pad + 0.15, { align: 'center' });
-
-    // Horizontal rule under header
-    doc.setLineWidth(0.04);
-    doc.line(pad, yOffset + pad + 0.9, W - pad, yOffset + pad + 0.9);
-
-    // QR code — left, large
-    const qrSize = 2.6;
-    const qrX = pad + 0.1;
-    const qrY = yOffset + pad + 1.1;
-    doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
-
-    // CODE_128 barcode — right of QR, stacked with label number
-    const bcX = qrX + qrSize + 0.3;
-    const bcY = qrY + 0.1;
-    const bcW = W - bcX - pad;
-    const bcH = 1.4;
-    doc.addImage(barcodeDataUrl, 'PNG', bcX, bcY, bcW, bcH);
-
-    // Tracking number again under barcode (readable)
-    doc.setFontSize(28);
-    doc.text(data.trackingNumber, bcX + bcW / 2, bcY + bcH + 0.4, { align: 'center' });
-
-    // Info below barcode (right side, below tracking text)
+    // Header: FEDEX RETURN (top)
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
-    const infoY = bcY + bcH + 0.9;
+    doc.setTextColor(0, 0, 0);
+    doc.text('FEDEX RETURN', W / 2, yOffset + pad + 0.25, { align: 'center' });
+
+    // Huge tracking number — below header with proper spacing
+    doc.setFontSize(48);
+    doc.text(data.trackingNumber, W / 2, yOffset + pad + 1.25, { align: 'center' });
+
+    // Horizontal rule under tracking
+    doc.setLineWidth(0.05);
+    doc.line(pad, yOffset + pad + 1.5, W - pad, yOffset + pad + 1.5);
+
+    // QR code — left
+    const qrSize = 2.4;
+    const qrX = pad + 0.1;
+    const qrY = yOffset + pad + 1.75;
+    doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+
+    // CODE_128 barcode — right of QR
+    const bcX = qrX + qrSize + 0.3;
+    const bcY = qrY + 0.2;
+    const bcW = W - bcX - pad;
+    const bcH = 1.3;
+    doc.addImage(barcodeDataUrl, 'PNG', bcX, bcY, bcW, bcH);
+
+    // Tracking number under barcode (human-readable)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.text(data.trackingNumber, bcX + bcW / 2, bcY + bcH + 0.4, { align: 'center' });
+
+    // Info below barcode
+    doc.setFontSize(14);
+    const infoY = bcY + bcH + 1.0;
     const receivedDate = formatDate(data.receivedAt);
     if (receivedDate) {
       doc.text(`RECEIVED: ${receivedDate}`, bcX, infoY);
     }
     if (data.receivedByName) {
-      doc.text(`BY: ${data.receivedByName.toUpperCase()}`, bcX, infoY + 0.3);
+      doc.text(`BY: ${data.receivedByName.toUpperCase()}`, bcX, infoY + 0.28);
     }
 
     // Bottom border of label
