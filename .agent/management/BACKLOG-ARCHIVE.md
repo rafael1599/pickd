@@ -62,3 +62,32 @@
 | Bug | Fixed | Root cause | Commits |
 |-----|-------|-----------|---------|
 | bug-014: Double check distribución no refresca picking path | 2026-04-03 | `skuInventoryMap` no se re-fetch tras updateItem | `45b340f` |
+
+## Archived 2026-04-16 — 13 items compacted
+
+### Completed P1 / P2
+
+| # | Item | Completed | Commits | ID |
+|---|------|-----------|---------|----|
+| 1 | Mostrar notas en picking summary (PickingSummaryModal accordion) | 2026-04-10 | — | idea-044 |
+| 2 | Estandarización visual completa (4 fases: colors → z-index → overlays → picking screens) | 2026-04-08 | `82bcfc8` `27cf781` `723e57e` `f28c666` `7b23781` | idea-046 |
+| 3 | Generador de SKU labels para bicicletas (asset_tags + QR + Side A/B) | 2026-04-09 | `7022cbd` `8e1e5a0` `e152d7a` | idea-040 |
+| 4 | Daily Warehouse Activity Report — Refinamiento (HTML email + KPIs + team detail) | 2026-04-08 | `42ac9fd` `68950b6` | idea-041 |
+| 5 | Reestructurar menú principal (hamburger + Warehouse Activities) | 2026-04-08 | `4afd94c` | idea-045 |
+| 6 | Activity Report Phase 2 — Persistencia y lock (daily_reports + cron snapshot) | 2026-04-10 | `f88a569` `aa9b001` `84cdfa1` `77bad82` | idea-052 |
+| 7 | Modal Manager — Context + root render pattern | 2026-04-10 | `330bbcd` | idea-050 |
+| 8 | Activity Report — quitar la hora del header | 2026-04-10 | `35ff19c` | idea-051 |
+
+### Resolved bugs
+
+| Bug | Fixed | Root cause | Commits |
+|-----|-------|-----------|---------|
+| bug-009: Address parser falla con calles numéricas + direccionales | 2026-04-10 | `parseFromLines` faltaba newline-aware Strategy 0 | `a53f5a4` |
+| bug-015: Menú de perfil se queda trabado | 2026-04-09/10 | `showProfile` no se reseteaba en `navTo()` + InventorySnapshotModal en lifecycle del menú | `16b657a` `6839114` `330bbcd` |
+| bug-016: Projects/Activity Report — duplicación + races + reconstrucción histórica | 2026-04-10 | Faltaba dedupe + filtro `created_at` + reconstrucción desde `task_state_changes` | `92cd477` `4df57be` `810290b` `960749e` |
+| bug-017: `auto_cancel_stale_orders` creaba inventario fantasma | 2026-04-10 | Rama verification 24h llamaba `adjust_inventory_quantity` con `+qty` para "restorar" cuando inventario nunca se había deducido | `0ffbe3d` `05cf9b2` (migración `20260410130000`) |
+
+### Notas técnicas
+
+- bug-017 condujo a la eliminación de la rama verification 24h en `auto_cancel_stale_orders` y al diseño formal de Long-Waiting Orders (idea-053).
+- bug-016 generó `historicalTaskStatus.ts` con 21 unit tests (lógica pura para reconstrucción de estado de tasks por día).
