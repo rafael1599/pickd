@@ -51,6 +51,23 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
     setPhotos(palletPhotos ?? []);
   }, [palletPhotos]);
 
+  const handleDeletePhoto = async (index: number) => {
+    const next = photos.filter((_, i) => i !== index);
+    const previous = photos;
+    setPhotos(next); // optimistic
+    try {
+      const { error } = await supabase
+        .from('picking_lists')
+        .update({ pallet_photos: next })
+        .eq('id', listId);
+      if (error) throw error;
+    } catch (err) {
+      console.error('Delete photo failed:', err);
+      setPhotos(previous);
+      toast.error('Failed to delete photo');
+    }
+  };
+
   const handleAddPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -326,13 +343,25 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
             {photos.length > 0 ? (
               <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
                 {photos.map((url, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setLightboxIndex(i)}
-                    className="w-28 h-28 rounded-xl overflow-hidden border border-white/10 shrink-0 active:scale-95 transition-transform"
-                  >
-                    <img src={url} alt={`Pallet ${i + 1}`} className="w-full h-full object-cover" />
-                  </button>
+                  <div key={i} className="relative shrink-0">
+                    <button
+                      onClick={() => setLightboxIndex(i)}
+                      className="w-28 h-28 rounded-xl overflow-hidden border border-white/10 active:scale-95 transition-transform block"
+                    >
+                      <img
+                        src={url}
+                        alt={`Pallet ${i + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                    <button
+                      onClick={() => handleDeletePhoto(i)}
+                      className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 active:scale-90 transition-all"
+                      title="Delete photo"
+                    >
+                      <X size={14} className="text-white" strokeWidth={3} />
+                    </button>
+                  </div>
                 ))}
               </div>
             ) : (

@@ -8,6 +8,7 @@ import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import { CorrectionModeView } from './CorrectionModeView';
 import { SelectSubOrderModal, type SubOrderOption } from './SelectSubOrderModal';
+import { PhotoLightbox } from '../../../components/ui/PhotoLightbox';
 import { supabase } from '../../../lib/supabase';
 import { inventoryApi } from '../../inventory/api/inventoryApi';
 import { CorrectionNotesTimeline, Note } from './CorrectionNotesTimeline.tsx';
@@ -189,7 +190,27 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const [scanResults, setScanResults] = useState<Map<string, Set<string>>>(new Map());
   const [isScanning, setIsScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState<string>('');
-  const [palletPhotosCount, setPalletPhotosCount] = useState<number | null>(null);
+  const [palletPhotos, setPalletPhotos] = useState<string[]>([]);
+  const palletPhotosCount = palletPhotos.length;
+  const [palletLightboxIndex, setPalletLightboxIndex] = useState<number | null>(null);
+
+  const handleDeletePalletPhoto = useCallback(
+    async (index: number) => {
+      if (!activeListId) return;
+      const next = palletPhotos.filter((_, i) => i !== index);
+      // Optimistic
+      setPalletPhotos(next);
+      try {
+        await supabase.from('picking_lists').update({ pallet_photos: next }).eq('id', activeListId);
+      } catch (err) {
+        console.error('Delete pallet photo failed:', err);
+        // Rollback
+        setPalletPhotos(palletPhotos);
+        toast.error('Failed to delete photo');
+      }
+    },
+    [activeListId, palletPhotos]
+  );
   const scanInputRef = useRef<HTMLInputElement>(null);
 
   // Track original items snapshot for reopened orders to detect changes
@@ -238,7 +259,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   // Fetch initial pallet photos count for the active order
   useEffect(() => {
     if (!activeListId) {
-      setPalletPhotosCount(null);
+      setPalletPhotos([]);
       return;
     }
     let cancelled = false;
@@ -250,7 +271,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         .single();
       if (cancelled) return;
       const photos = Array.isArray(data?.pallet_photos) ? (data.pallet_photos as string[]) : [];
-      setPalletPhotosCount(photos.length);
+      setPalletPhotos(photos);
     })();
     return () => {
       cancelled = true;
@@ -733,9 +754,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       e.target.value = ''; // reset for re-scan
 
       // Optimistic: the user took a photo — that's enough to unlock completion.
-      // The actual upload to R2 + DB persistence is fire-and-forget below.
-      const newCount = (palletPhotosCount ?? 0) + 1;
-      setPalletPhotosCount(newCount);
+      // We add a placeholder marker so the burst mode counter advances. The
+      // real URL replaces it when the fire-and-forget upload below finishes.
+      const newCount = palletPhotosCount + 1;
+      setPalletPhotos((prev) => [...prev, '']);
 
       // Burst mode: if we still need more photos to match pallet count,
       // auto-reopen the camera. Browsers preserve user activation briefly
@@ -834,7 +856,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 .from('picking_lists')
                 .update({ pallet_photos: photos })
                 .eq('id', activeListId);
-              setPalletPhotosCount(photos.length);
+              // Replace the placeholder with the real URL (or sync from DB)
+              setPalletPhotos(photos);
             } catch (err) {
               console.error('Pallet photo upload failed:', err);
             }
@@ -1212,6 +1235,44 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           )}
           {scanStatus && <p className="text-xs text-accent font-bold">{scanStatus}</p>}
         </div>
+
+        {/* Pallet photo thumbnails with delete */}
+        {palletPhotos.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {palletPhotos.map((url, i) => (
+              <div key={i} className="relative group">
+                <button
+                  onClick={() => url && setPalletLightboxIndex(i)}
+                  disabled={!url}
+                  className="w-16 h-16 rounded-xl overflow-hidden border border-subtle bg-surface flex items-center justify-center"
+                >
+                  {url ? (
+                    <img src={url} alt="" loading="lazy" className="w-full h-full object-cover" />
+                  ) : (
+                    <Loader2 size={16} className="animate-spin text-muted/50" />
+                  )}
+                </button>
+                <button
+                  onClick={() => handleDeletePalletPhoto(i)}
+                  className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 active:scale-90 transition-all"
+                  title="Delete photo"
+                >
+                  <X size={12} className="text-white" strokeWidth={3} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {palletLightboxIndex !== null && palletPhotos[palletLightboxIndex] && (
+          <PhotoLightbox
+            photos={palletPhotos.filter(Boolean)}
+            index={Math.min(palletLightboxIndex, palletPhotos.filter(Boolean).length - 1)}
+            onClose={() => setPalletLightboxIndex(null)}
+            onIndexChange={setPalletLightboxIndex}
+            caption={orderNumber ? `Order #${orderNumber}` : undefined}
+          />
+        )}
 
         {pallets.length === 0 && cartItems.length > 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
