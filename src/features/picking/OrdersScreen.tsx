@@ -776,7 +776,9 @@ export const OrdersScreen = () => {
     setReopenReasonModal(false);
     try {
       await loadReopenedOrder(selectedOrder.id, reopenReason);
-      // Drawer auto-opens full-screen when sessionMode === 'reopened'
+      // Navigate to home so the drawer renders and auto-opens for reopened mode
+      setViewMode('picking');
+      navigate('/');
     } catch {
       // Error already toasted in loadReopenedOrder
     }
