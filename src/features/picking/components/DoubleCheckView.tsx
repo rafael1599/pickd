@@ -159,7 +159,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   } = useInventory();
   const inventoryData = inventoryDataProp ?? inventoryDataCtx;
 
-  // Build sublocation lookup from live inventory (items JSONB may not have it)
+  // Build sublocation lookup — prefer direct DB fetch (covers all cart SKUs),
+  // fall back to paginated inventoryData for any extras
   const sublocationMap = useMemo(() => {
     const map: Record<string, string[]> = {};
     if (inventoryData) {
@@ -169,8 +170,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         }
       }
     }
+    // Direct fetch overrides paginated data (more complete)
+    for (const [key, subs] of Object.entries(directSublocationMap)) {
+      map[key] = subs;
+    }
     return map;
-  }, [inventoryData]);
+  }, [inventoryData, directSublocationMap]);
 
   const { showConfirmation } = useConfirmation();
   const { pallets: originalPallets, deleteList, loadExternalList } = usePickingSession();
@@ -488,6 +493,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const [skuInventoryMap, setSkuInventoryMap] = useState<
     Record<string, { distribution: DistributionItem[]; quantity: number }[]>
   >({});
+  const [directSublocationMap, setDirectSublocationMap] = useState<Record<string, string[]>>({});
 
   const fetchDistributions = useCallback(async () => {
     const skus = [...new Set(cartItems.map((i) => i.sku))];
@@ -495,20 +501,31 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
     const { data } = await supabase
       .from('inventory')
-      .select('sku, quantity, distribution')
+      .select('sku, quantity, distribution, location, sublocation')
       .in('sku', skus)
       .gt('quantity', 0);
 
     const map: Record<string, { distribution: DistributionItem[]; quantity: number }[]> = {};
+    const subMap: Record<string, string[]> = {};
     (data || []).forEach((row) => {
-      const r = row as { sku: string; quantity: number; distribution: DistributionItem[] | null };
+      const r = row as {
+        sku: string;
+        quantity: number;
+        distribution: DistributionItem[] | null;
+        location: string | null;
+        sublocation: string[] | null;
+      };
       if (!map[r.sku]) map[r.sku] = [];
       map[r.sku].push({
         distribution: Array.isArray(r.distribution) ? r.distribution : [],
         quantity: r.quantity ?? 0,
       });
+      if (r.sublocation && r.sublocation.length > 0 && r.location) {
+        subMap[`${r.sku}-${r.location.toUpperCase()}`] = r.sublocation;
+      }
     });
     setSkuInventoryMap(map);
+    setDirectSublocationMap(subMap);
   }, [cartItems]);
 
   const cartSkuKey = cartItems
