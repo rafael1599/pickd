@@ -420,6 +420,10 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
     setPendingItem(null);
   }, []);
 
+  const onStartSession = useCallback(() => {
+    if (sessionMode === 'idle') startManualSession();
+  }, [sessionMode, startManualSession]);
+
   const value: PickingContextType = useMemo(
     () => ({
       cartItems,
@@ -471,9 +475,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       isSaving,
       lastSaved,
       resetSession,
-      onStartSession: () => {
-        if (sessionMode === 'idle') startManualSession();
-      },
+      onStartSession,
       updateCustomerDetails,
       // removed duplicate updateCustomerDetails
       startNewSession,
@@ -538,6 +540,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       isInitializing,
       setIsInitializing,
       pendingItem,
+      onStartSession,
       startManualSession,
       cancelInitialization,
     ]

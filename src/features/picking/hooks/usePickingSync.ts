@@ -160,8 +160,12 @@ export const usePickingSync = ({
             setCustomer((doubleCheckData.customer as Customer) || null);
             setLoadNumber(doubleCheckData.load_number || null);
             setListStatus(doubleCheckData.status as string);
-            setShippingType((doubleCheckData as Record<string, unknown>).shipping_type as string | null ?? null);
-            setIsWaitingInventory(!!(doubleCheckData as Record<string, unknown>).is_waiting_inventory);
+            setShippingType(
+              ((doubleCheckData as Record<string, unknown>).shipping_type as string | null) ?? null
+            );
+            setIsWaitingInventory(
+              !!(doubleCheckData as Record<string, unknown>).is_waiting_inventory
+            );
             setCheckedBy(doubleCheckData.checked_by || null);
             setOwnerId(doubleCheckData.user_id || null);
             setCorrectionNotes(doubleCheckData.correction_notes || null);
@@ -200,7 +204,9 @@ export const usePickingSync = ({
             setCustomer((pickingData.customer as Customer) || null);
             setLoadNumber(pickingData.load_number || null);
             setListStatus(pickingData.status as string);
-            setShippingType((pickingData as Record<string, unknown>).shipping_type as string | null ?? null);
+            setShippingType(
+              ((pickingData as Record<string, unknown>).shipping_type as string | null) ?? null
+            );
             setIsWaitingInventory(!!(pickingData as Record<string, unknown>).is_waiting_inventory);
             setCheckedBy(pickingData.checked_by || null);
             setOwnerId(pickingData.user_id || null);
@@ -217,7 +223,11 @@ export const usePickingSync = ({
               .eq('id', localId)
               .maybeSingle();
 
-            if (!remoteCheck || remoteCheck.status === 'completed' || remoteCheck.status === 'cancelled') {
+            if (
+              !remoteCheck ||
+              remoteCheck.status === 'completed' ||
+              remoteCheck.status === 'cancelled'
+            ) {
               console.log('🧹 Purging stale local session (completed or non-existent in DB)');
               resetSession();
             } else {
@@ -333,8 +343,12 @@ export const usePickingSync = ({
               }
               setListStatus(newData.status as string);
             }
-            setShippingType((newData as Record<string, unknown>).shipping_type as string | null ?? null);
-            setIsWaitingInventory(!!(newData as Record<string, unknown>).is_waiting_inventory);
+            // Guard: only setState when value actually changed to avoid re-render loops
+            const newShippingType =
+              ((newData as Record<string, unknown>).shipping_type as string | null) ?? null;
+            setShippingType((prev) => (prev === newShippingType ? prev : newShippingType));
+            const newWaiting = !!(newData as Record<string, unknown>).is_waiting_inventory;
+            setIsWaitingInventory((prev) => (prev === newWaiting ? prev : newWaiting));
             if (newData.correction_notes !== correctionNotesRef.current)
               setCorrectionNotes(newData.correction_notes as string | null);
             if (newData.checked_by !== checkedByRef.current)
@@ -436,7 +450,9 @@ export const usePickingSync = ({
         if (data) {
           setActiveListId(data.id);
           setListStatus(data.status as string);
-          setShippingType((data as Record<string, unknown>).shipping_type as string | null ?? null);
+          setShippingType(
+            ((data as Record<string, unknown>).shipping_type as string | null) ?? null
+          );
           setIsWaitingInventory(!!(data as Record<string, unknown>).is_waiting_inventory);
           setOwnerId(data.user_id);
         }
@@ -553,7 +569,9 @@ export const usePickingSync = ({
           setCustomer((data.customer as Customer) || null);
           setLoadNumber(data.load_number || null);
           setListStatus(data.status as string);
-          setShippingType((data as Record<string, unknown>).shipping_type as string | null ?? null);
+          setShippingType(
+            ((data as Record<string, unknown>).shipping_type as string | null) ?? null
+          );
           setIsWaitingInventory(!!(data as Record<string, unknown>).is_waiting_inventory);
           setCheckedBy(data.checked_by || null);
           setOwnerId(data.user_id || null);
