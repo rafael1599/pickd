@@ -791,6 +791,9 @@ export const OrdersScreen = () => {
       }
       // Resume without calling reopen RPC again — order is already reopened
       await resumeReopenedOrder(selectedOrder.id);
+      // Navigate to home in picking mode so the drawer renders and auto-opens
+      setViewMode('picking');
+      navigate('/');
     } catch {
       // Errors already toasted
     }

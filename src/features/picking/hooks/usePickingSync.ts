@@ -576,7 +576,14 @@ export const usePickingSync = ({
           setCheckedBy(data.checked_by || null);
           setOwnerId(data.user_id || null);
           setCorrectionNotes(data.correction_notes || null);
-          setSessionMode('double_checking');
+          // Infer sessionMode from order status — callers can override after
+          setSessionMode(
+            data.status === 'reopened'
+              ? 'reopened'
+              : data.status === 'active' || data.status === 'needs_correction'
+                ? 'picking'
+                : 'double_checking'
+          );
           return data;
         }
       } catch (err: unknown) {

@@ -887,6 +887,7 @@ export const usePickingActions = ({
       } catch (err) {
         console.error('Failed to take over order:', err);
         toast.error('Failed to take over order');
+        throw err; // Rethrow so callers (handleContinueEditing) can abort
       } finally {
         setIsSaving(false);
       }
