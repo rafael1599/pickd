@@ -159,6 +159,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   } = useInventory();
   const inventoryData = inventoryDataProp ?? inventoryDataCtx;
 
+  // Direct sublocation data fetched alongside distributions (covers all cart SKUs)
+  const [directSublocationMap, setDirectSublocationMap] = useState<Record<string, string[]>>({});
+
   // Build sublocation lookup — prefer direct DB fetch (covers all cart SKUs),
   // fall back to paginated inventoryData for any extras
   const sublocationMap = useMemo(() => {
@@ -493,7 +496,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const [skuInventoryMap, setSkuInventoryMap] = useState<
     Record<string, { distribution: DistributionItem[]; quantity: number }[]>
   >({});
-  const [directSublocationMap, setDirectSublocationMap] = useState<Record<string, string[]>>({});
 
   const fetchDistributions = useCallback(async () => {
     const skus = [...new Set(cartItems.map((i) => i.sku))];
