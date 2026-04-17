@@ -87,11 +87,17 @@ export const PickingCartDrawer: React.FC = () => {
   }, [sessionMode, isOpen]);
 
   // Close drawer when leaving picking view or navigating away from home
+  // Exception: don't close during reopened mode transition (navigate from /orders → /)
   useEffect(() => {
-    if ((viewMode !== 'picking' || pathname !== '/') && !externalDoubleCheckId && isOpen) {
+    if (
+      (viewMode !== 'picking' || pathname !== '/') &&
+      !externalDoubleCheckId &&
+      isOpen &&
+      sessionMode !== 'reopened'
+    ) {
       setIsOpen(false);
     }
-  }, [viewMode, pathname, externalDoubleCheckId, isOpen]);
+  }, [viewMode, pathname, externalDoubleCheckId, isOpen, sessionMode]);
 
   // 1. Auto-close if completed or session reset (idle with no items)
   useEffect(() => {
