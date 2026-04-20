@@ -56,12 +56,18 @@ export const PickingCartDrawer: React.FC = () => {
   const isOwner = user?.id === ownerId;
   const isConfirmingRef = React.useRef(false);
   const isRecompletingRef = React.useRef(false);
+  const wasExternallyOpenedRef = React.useRef(false);
   const [isProcessingDeduction, setIsProcessingDeduction] = useState(false);
   const overriddenPalletCountRef = React.useRef<number | null>(null);
   useScrollLock(isOpen, () => setIsOpen(false));
 
   const totalItems = cartItems.length;
   const totalQty = cartItems.reduce((acc, item) => acc + (item.pickingQty || 0), 0);
+
+  // Clear external-open flag when drawer closes
+  useEffect(() => {
+    if (!isOpen) wasExternallyOpenedRef.current = false;
+  }, [isOpen]);
 
   // 0. Restore checked items on load if in double-check session
   useEffect(() => {
@@ -87,10 +93,13 @@ export const PickingCartDrawer: React.FC = () => {
   }, [sessionMode, isOpen]);
 
   // Close drawer when leaving picking view or navigating away from home.
-  // Exception: don't close when there's an external trigger (Verification Board
-  // opens an order from any route) or during reopened mode transition.
+  // Exceptions:
+  //  - External trigger active (loading an order from Verification Board)
+  //  - Drawer was opened externally (ref persists after externalDoubleCheckId clears)
+  //  - Reopened mode transition
   useEffect(() => {
-    if (externalDoubleCheckId) return; // keep open regardless of route
+    if (externalDoubleCheckId) return;
+    if (wasExternallyOpenedRef.current) return; // opened from non-home route — keep alive
     if ((viewMode !== 'picking' || pathname !== '/') && isOpen && sessionMode !== 'reopened') {
       setIsOpen(false);
     }
@@ -159,6 +168,7 @@ export const PickingCartDrawer: React.FC = () => {
                   );
                   if (savedProgress) setCheckedItems(new Set(JSON.parse(savedProgress)));
                   else setCheckedItems(new Set());
+                  wasExternallyOpenedRef.current = true;
                   setIsOpen(true);
                   setExternalDoubleCheckId(null);
                   isConfirmingRef.current = false;
@@ -191,6 +201,7 @@ export const PickingCartDrawer: React.FC = () => {
             }
 
             console.log('🔓 [PickingCartDrawer] Opening drawer for double check');
+            wasExternallyOpenedRef.current = true;
             setIsOpen(true);
             setExternalDoubleCheckId(null);
           } else {
