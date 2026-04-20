@@ -75,35 +75,54 @@ export function useInventoryRealtime() {
       });
     }
 
-    const channel = supabase
-      .channel('inventory-sync-dual')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory' }, (payload) => {
-        // Push to all caches — React rendering handles which view shows the item
-        applyInventoryChange(INVENTORY_ROOT_KEY, payload);
-        applyInventoryChange(PARTS_BINS_KEY, payload);
-        applyInventoryChange(SD_BINS_KEY, payload);
-      })
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'sku_metadata' },
-        (payload) => {
-          const newMeta = payload.new as SKUMetadata;
-          if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
-            // Update all caches since a SKU can appear in any
-            applyMetadataChange(INVENTORY_ROOT_KEY, newMeta);
-            applyMetadataChange(PARTS_BINS_KEY, newMeta);
-            applyMetadataChange(SD_BINS_KEY, newMeta);
-            // The catalog screen (`/sd-catalog`) reads with its own keys —
-            // invalidate when an S/D SKU changes.
-            if (newMeta?.is_scratch_dent) {
-              queryClient.invalidateQueries({ queryKey: ['sd-catalog'] });
+    function createChannel() {
+      return supabase
+        .channel('inventory-sync-dual')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory' }, (payload) => {
+          // Push to all caches — React rendering handles which view shows the item
+          applyInventoryChange(INVENTORY_ROOT_KEY, payload);
+          applyInventoryChange(PARTS_BINS_KEY, payload);
+          applyInventoryChange(SD_BINS_KEY, payload);
+        })
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'sku_metadata' },
+          (payload) => {
+            const newMeta = payload.new as SKUMetadata;
+            if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+              // Update all caches since a SKU can appear in any
+              applyMetadataChange(INVENTORY_ROOT_KEY, newMeta);
+              applyMetadataChange(PARTS_BINS_KEY, newMeta);
+              applyMetadataChange(SD_BINS_KEY, newMeta);
+              // The catalog screen (`/sd-catalog`) reads with its own keys —
+              // invalidate when an S/D SKU changes.
+              if (newMeta?.is_scratch_dent) {
+                queryClient.invalidateQueries({ queryKey: ['sd-catalog'] });
+              }
             }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
+    }
+
+    let channel = createChannel();
+
+    // Reconnect when user returns to the tab after idle —
+    // browser suspends WebSockets for backgrounded tabs, so the channel
+    // may be dead when the user comes back.
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[Realtime] Tab visible — reconnecting channel');
+        supabase.removeChannel(channel);
+        channel = createChannel();
+        // Also invalidate inventory queries to get fresh data
+        queryClient.invalidateQueries({ queryKey: INVENTORY_ROOT_KEY });
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
       supabase.removeChannel(channel);
     };
   }, [queryClient]);

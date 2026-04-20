@@ -6,58 +6,60 @@ import { ErrorProvider, useError } from './context/ErrorContext.tsx'; // Import 
 import { ConfirmationProvider, useConfirmation } from './context/ConfirmationContext.tsx'; // Import ConfirmationProvider and useConfirmation
 import { ErrorModal } from './components/ui/ErrorModal.tsx'; // Import ErrorModal
 import { ConfirmationModal } from './components/ui/ConfirmationModal.tsx'; // Import ConfirmationModal
-const InventoryScreen = React.lazy(() =>
+import { ErrorBoundary } from './components/ErrorBoundary.tsx';
+import { lazyWithRetry } from './utils/lazyWithRetry.ts';
+const InventoryScreen = lazyWithRetry(() =>
   import('./features/inventory/InventoryScreen.tsx').then((m) => ({ default: m.InventoryScreen }))
 );
-const HistoryScreen = React.lazy(() =>
+const HistoryScreen = lazyWithRetry(() =>
   import('./features/inventory/HistoryScreen.tsx').then((m) => ({ default: m.HistoryScreen }))
 );
-const Settings = React.lazy(() => import('./features/settings/Settings.tsx'));
-const LoginScreen = React.lazy(() =>
+const Settings = lazyWithRetry(() => import('./features/settings/Settings.tsx'));
+const LoginScreen = lazyWithRetry(() =>
   import('./features/auth/LoginScreen.tsx').then((m) => ({ default: m.LoginScreen }))
 );
-const OrdersScreen = React.lazy(() =>
+const OrdersScreen = lazyWithRetry(() =>
   import('./features/picking/OrdersScreen.tsx').then((m) => ({ default: m.OrdersScreen }))
 );
-const SnapshotViewer = React.lazy(() =>
+const SnapshotViewer = lazyWithRetry(() =>
   import('./features/inventory/SnapshotViewer.tsx').then((m) => ({ default: m.SnapshotViewer }))
 );
-const PickdReportViewer = React.lazy(() =>
+const PickdReportViewer = lazyWithRetry(() =>
   import('./features/reports/PickdReportViewer.tsx').then((m) => ({ default: m.PickdReportViewer }))
 );
-const PublicTagView = React.lazy(() =>
+const PublicTagView = lazyWithRetry(() =>
   import('./features/labels/PublicTagView.tsx').then((m) => ({ default: m.PublicTagView }))
 );
-const StockCountScreen = React.lazy(() =>
+const StockCountScreen = lazyWithRetry(() =>
   import('./features/inventory/StockCountScreen.tsx').then((m) => ({ default: m.StockCountScreen }))
 );
-const CycleCountHistoryScreen = React.lazy(() =>
+const CycleCountHistoryScreen = lazyWithRetry(() =>
   import('./features/inventory/CycleCountHistoryScreen.tsx').then((m) => ({
     default: m.CycleCountHistoryScreen,
   }))
 );
-const ActivityReportScreen = React.lazy(() =>
+const ActivityReportScreen = lazyWithRetry(() =>
   import('./features/reports/ActivityReportScreen.tsx').then((m) => ({
     default: m.ActivityReportScreen,
   }))
 );
-const ProjectsScreen = React.lazy(() =>
+const ProjectsScreen = lazyWithRetry(() =>
   import('./features/projects/ProjectsScreen.tsx').then((m) => ({ default: m.ProjectsScreen }))
 );
-const LabelStudioScreen = React.lazy(() =>
+const LabelStudioScreen = lazyWithRetry(() =>
   import('./features/labels/LabelStudioScreen').then((m) => ({ default: m.LabelStudioScreen }))
 );
-const ShoppingListScreen = React.lazy(() =>
+const ShoppingListScreen = lazyWithRetry(() =>
   import('./features/shopping-list/ShoppingListScreen.tsx').then((m) => ({
     default: m.ShoppingListScreen,
   }))
 );
-const FedExReturnsScreen = React.lazy(() =>
+const FedExReturnsScreen = lazyWithRetry(() =>
   import('./features/fedex-returns/FedExReturnsScreen.tsx').then((m) => ({
     default: m.FedExReturnsScreen,
   }))
 );
-const FedExReturnDetailScreen = React.lazy(() =>
+const FedExReturnDetailScreen = lazyWithRetry(() =>
   import('./features/fedex-returns/FedExReturnDetailScreen.tsx').then((m) => ({
     default: m.FedExReturnDetailScreen,
   }))
@@ -78,42 +80,44 @@ const AuthenticatedContent = () => {
   return (
     <ViewModeProvider>
       <LayoutMain>
-        <Suspense
-          fallback={
-            <div className="min-h-[50vh] flex items-center justify-center">
-              <Loader2 className="animate-spin text-accent w-8 h-8 opacity-20" />
-            </div>
-          }
-        >
-          <Routes>
-            <Route path="/" element={<InventoryScreen />} />
-            <Route path="/history" element={<HistoryScreen />} />
-            <Route path="/orders" element={<OrdersScreen />} />
-            <Route
-              path="/settings"
-              element={isAdmin ? <Settings /> : <Navigate to="/" replace />}
-            />
-            <Route path="/stock-count" element={<StockCountScreen />} />
-            <Route path="/shopping-list" element={<ShoppingListScreen />} />
-            <Route path="/fedex-returns" element={<FedExReturnsScreen />} />
-            <Route path="/fedex-returns/:id" element={<FedExReturnDetailScreen />} />
-            <Route path="/cycle-count-history" element={<CycleCountHistoryScreen />} />
-            <Route
-              path="/activity-report"
-              element={isAdmin ? <ActivityReportScreen /> : <Navigate to="/" replace />}
-            />
-            <Route
-              path="/projects"
-              element={isAdmin ? <ProjectsScreen /> : <Navigate to="/" replace />}
-            />
-            <Route
-              path="/labels"
-              element={isAdmin ? <LabelStudioScreen /> : <Navigate to="/" replace />}
-            />
-            {/* Catch-all for unknown routes */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense
+            fallback={
+              <div className="min-h-[50vh] flex items-center justify-center">
+                <Loader2 className="animate-spin text-accent w-8 h-8 opacity-20" />
+              </div>
+            }
+          >
+            <Routes>
+              <Route path="/" element={<InventoryScreen />} />
+              <Route path="/history" element={<HistoryScreen />} />
+              <Route path="/orders" element={<OrdersScreen />} />
+              <Route
+                path="/settings"
+                element={isAdmin ? <Settings /> : <Navigate to="/" replace />}
+              />
+              <Route path="/stock-count" element={<StockCountScreen />} />
+              <Route path="/shopping-list" element={<ShoppingListScreen />} />
+              <Route path="/fedex-returns" element={<FedExReturnsScreen />} />
+              <Route path="/fedex-returns/:id" element={<FedExReturnDetailScreen />} />
+              <Route path="/cycle-count-history" element={<CycleCountHistoryScreen />} />
+              <Route
+                path="/activity-report"
+                element={isAdmin ? <ActivityReportScreen /> : <Navigate to="/" replace />}
+              />
+              <Route
+                path="/projects"
+                element={isAdmin ? <ProjectsScreen /> : <Navigate to="/" replace />}
+              />
+              <Route
+                path="/labels"
+                element={isAdmin ? <LabelStudioScreen /> : <Navigate to="/" replace />}
+              />
+              {/* Catch-all for unknown routes */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
       </LayoutMain>
     </ViewModeProvider>
   );
@@ -140,15 +144,17 @@ const AuthGuard = () => {
 
   if (!user) {
     return (
-      <Suspense
-        fallback={
-          <div className="min-h-screen bg-main flex items-center justify-center">
-            <Loader2 className="animate-spin text-accent w-10 h-10 opa-20" />
-          </div>
-        }
-      >
-        <LoginScreen />
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense
+          fallback={
+            <div className="min-h-screen bg-main flex items-center justify-center">
+              <Loader2 className="animate-spin text-accent w-10 h-10 opa-20" />
+            </div>
+          }
+        >
+          <LoginScreen />
+        </Suspense>
+      </ErrorBoundary>
     );
   }
 
@@ -203,44 +209,50 @@ function App() {
                 <Route
                   path="/snapshot/:fileName"
                   element={
-                    <Suspense
-                      fallback={
-                        <div className="min-h-screen bg-main flex items-center justify-center">
-                          <Loader2 className="animate-spin text-accent w-10 h-10" />
-                        </div>
-                      }
-                    >
-                      <SnapshotViewer />
-                    </Suspense>
+                    <ErrorBoundary>
+                      <Suspense
+                        fallback={
+                          <div className="min-h-screen bg-main flex items-center justify-center">
+                            <Loader2 className="animate-spin text-accent w-10 h-10" />
+                          </div>
+                        }
+                      >
+                        <SnapshotViewer />
+                      </Suspense>
+                    </ErrorBoundary>
                   }
                 />
                 <Route
                   path="/tag/:shortCode/:token"
                   element={
-                    <Suspense
-                      fallback={
-                        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                          <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
-                        </div>
-                      }
-                    >
-                      <PublicTagView />
-                    </Suspense>
+                    <ErrorBoundary>
+                      <Suspense
+                        fallback={
+                          <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                            <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
+                          </div>
+                        }
+                      >
+                        <PublicTagView />
+                      </Suspense>
+                    </ErrorBoundary>
                   }
                 />
 
                 <Route
                   path="/pickd-report"
                   element={
-                    <Suspense
-                      fallback={
-                        <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center">
-                          <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
-                        </div>
-                      }
-                    >
-                      <PickdReportViewer />
-                    </Suspense>
+                    <ErrorBoundary>
+                      <Suspense
+                        fallback={
+                          <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center">
+                            <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
+                          </div>
+                        }
+                      >
+                        <PickdReportViewer />
+                      </Suspense>
+                    </ErrorBoundary>
                   }
                 />
 
