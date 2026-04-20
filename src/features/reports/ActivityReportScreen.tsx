@@ -23,6 +23,8 @@ import { useReportTasks } from '../projects/hooks/useProjectReportData';
 import { getCurrentNYDate } from '../../lib/nyDate';
 import { useAuth } from '../../context/AuthContext';
 import { useWaitingOrdersCount } from '../picking/hooks/useWaitingOrders';
+import { supabase } from '../../lib/supabase';
+import Mail from 'lucide-react/dist/esm/icons/mail';
 
 function formatDateNav(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00');
@@ -105,6 +107,8 @@ export const ActivityReportScreen = () => {
   const [routineChecklist, setRoutineChecklist] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
   const [routineItems, setRoutineItems] = useState<string[]>(loadRoutineItems);
   const [editingRoutine, setEditingRoutine] = useState(false);
   const [newRoutineItem, setNewRoutineItem] = useState('');
@@ -298,34 +302,16 @@ export const ActivityReportScreen = () => {
     try {
       // Clone the report so we don't mutate the live UI
       const clone = reportEl.cloneNode(true) as HTMLElement;
-      const images = Array.from(clone.querySelectorAll('img'));
 
-      // Fetch all images in parallel and convert to base64 data URIs.
-      // Gmail can't render external R2 URLs inline, so we embed them.
-      await Promise.all(
-        images.map(async (img) => {
-          const url = img.src;
-          // Skip already-inlined data URIs and ephemeral blob: URLs.
-          if (!url || url.startsWith('data:') || url.startsWith('blob:')) return;
-          try {
-            const res = await fetch(url, { mode: 'cors' });
-            if (!res.ok) return;
-            const blob = await res.blob();
-            const dataUrl = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.onerror = reject;
-              reader.readAsDataURL(blob);
-            });
-            img.src = dataUrl;
-          } catch (err) {
-            // Graceful degradation: leave src as-is (same as today's broken behavior).
-            console.warn('Could not inline image:', url, err);
-          }
-        })
-      );
+      // Strip blob: URLs — they're local to this tab and can't be resolved
+      // anywhere else. External https:// URLs are left as-is because Gmail's
+      // paste handler re-hosts them through its own proxy (googleusercontent).
+      // Previous approach converted to base64 data URIs, but Gmail strips those.
+      for (const img of Array.from(clone.querySelectorAll('img'))) {
+        if (img.src.startsWith('blob:')) img.remove();
+      }
 
-      // Use Clipboard API to write HTML with embedded images.
+      // Use Clipboard API to write HTML with external image URLs.
       const html = clone.outerHTML;
       const blob = new Blob([html], { type: 'text/html' });
       const data = [new ClipboardItem({ 'text/html': blob })];
@@ -349,6 +335,42 @@ export const ActivityReportScreen = () => {
       setIsCopying(false);
     }
   }, []);
+
+  const handleEmail = useCallback(async () => {
+    const reportEl = document.getElementById('report-content');
+    if (!reportEl) return;
+
+    const lastEmail = localStorage.getItem('pickd-report-email') || '';
+    const to = window.prompt('Send report to:', lastEmail);
+    if (!to?.trim()) return;
+    localStorage.setItem('pickd-report-email', to.trim());
+
+    setIsSendingEmail(true);
+    try {
+      const html = reportEl.outerHTML;
+      const dateLabel = new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+      const { data, error } = await supabase.functions.invoke('send-daily-report', {
+        body: {
+          to: to.trim(),
+          subject: `Progress Update — ${dateLabel}`,
+          html,
+          account: 'jamis',
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(JSON.stringify(data.error));
+      setEmailSent(true);
+      setTimeout(() => setEmailSent(false), 3000);
+    } catch (err) {
+      console.error('Email failed:', err);
+      alert('Failed to send email. Check console for details.');
+    } finally {
+      setIsSendingEmail(false);
+    }
+  }, [selectedDate]);
 
   // ----- Accuracy display -----
   // For snapshots, the cron already computed pct. For live, compute from raw.
@@ -685,7 +707,7 @@ export const ActivityReportScreen = () => {
                 {isCopying ? (
                   <>
                     <Loader2 size={14} className="animate-spin" />
-                    Copying images...
+                    Copying...
                   </>
                 ) : copied ? (
                   <>
@@ -700,6 +722,30 @@ export const ActivityReportScreen = () => {
                 )}
               </button>
             )}
+
+            {/* Email Report — sends via Resend with CID inline images */}
+            <button
+              onClick={handleEmail}
+              disabled={isSendingEmail}
+              className="w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest bg-card border border-subtle text-content/70 hover:bg-card/80 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isSendingEmail ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Sending...
+                </>
+              ) : emailSent ? (
+                <>
+                  <Check size={14} className="text-green-400" />
+                  Sent!
+                </>
+              ) : (
+                <>
+                  <Mail size={14} />
+                  Email Report
+                </>
+              )}
+            </button>
           </div>
         </div>
 

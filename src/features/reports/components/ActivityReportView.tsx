@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ActivityReport } from '../hooks/useActivityReport';
 import type { ReportTask } from '../../projects/hooks/useProjectReportData';
+import { PhotoLightbox } from '../../../components/ui/PhotoLightbox';
 
 /**
  * Hook that returns a CSS class name that flashes briefly when `value` changes.
@@ -104,10 +105,14 @@ const taskNoteStyle: React.CSSProperties = {
   whiteSpace: 'pre-wrap',
 };
 
+/** Convert a thumbnail URL to its full-size counterpart. */
+const thumbToFull = (url: string) => url.replace('/thumbs/', '/');
+
 function renderTaskList(
   tasks: ReportTask[],
   color: string,
-  bulletChar: '\u25CF' | '\u25CB'
+  bulletChar: '\u25CF' | '\u25CB',
+  onPhotoClick?: (photos: string[], index: number) => void
 ) {
   return tasks.map((task, i) => (
     <div
@@ -124,17 +129,46 @@ function renderTaskList(
         <p style={taskNoteStyle}>{task.note}</p>
       )}
       {task.photo_thumbnails && task.photo_thumbnails.length > 0 && (
-        <div style={{ margin: '6px 0 0 18px', display: 'flex', gap: 4, alignItems: 'center' }}>
+        <div
+          style={{
+            margin: '6px 0 0 18px',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+            gap: 6,
+          }}
+        >
           {task.photo_thumbnails.map((url, j) => (
             <img
               key={j}
               src={url}
               alt=""
-              style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', border: `1px solid ${TEXT_MUTED}33` }}
+              onClick={() =>
+                onPhotoClick?.(
+                  task.photo_thumbnails!.map(thumbToFull),
+                  j
+                )
+              }
+              style={{
+                width: '100%',
+                aspectRatio: '1',
+                borderRadius: 8,
+                objectFit: 'cover',
+                border: `1px solid ${TEXT_MUTED}22`,
+                cursor: onPhotoClick ? 'pointer' : undefined,
+              }}
             />
           ))}
           {(task.photo_count ?? 0) > 3 && (
-            <span style={{ fontSize: 11, color: TEXT_MUTED, fontWeight: 700 }}>
+            <span
+              style={{
+                fontSize: 11,
+                color: TEXT_MUTED,
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
               +{(task.photo_count ?? 0) - 3}
             </span>
           )}
@@ -158,6 +192,13 @@ export const ActivityReportView: React.FC<Props> = ({
   greeting,
 }) => {
   const [detailOpen, setDetailOpen] = useState(false);
+  const [lightboxPhotos, setLightboxPhotos] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const openLightbox = (photos: string[], index: number) => {
+    setLightboxPhotos(photos);
+    setLightboxIndex(index);
+  };
+  const closeLightbox = () => setLightboxPhotos([]);
 
   // Highlight flashes for editable sections
   const winFlash = useHighlight(winOfTheDay);
@@ -362,7 +403,7 @@ export const ActivityReportView: React.FC<Props> = ({
           <>
             <div style={cardStyle}>
               <p style={sectionHeaderStyle(EMERALD)}>DONE TODAY</p>
-              {renderTaskList(doneToday, EMERALD, '\u25CF')}
+              {renderTaskList(doneToday, EMERALD, '\u25CF', openLightbox)}
             </div>
             <div style={spacerStyle} />
           </>
@@ -373,36 +414,52 @@ export const ActivityReportView: React.FC<Props> = ({
           <>
             <div style={cardStyle}>
               <p style={sectionHeaderStyle(EMERALD)}>PALLET PHOTOS</p>
-              {report.completed_orders_with_photos.map((order) => (
-                <div key={order.order_number} style={{ marginBottom: 14 }}>
-                  <p
-                    style={{
-                      margin: '0 0 6px 0',
-                      fontSize: 13,
-                      fontWeight: 800,
-                      color: TEXT_MUTED,
-                    }}
-                  >
-                    Order #{order.order_number}
-                  </p>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {order.photos.map((url, i) => (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+                  gap: 10,
+                }}
+              >
+                {report.completed_orders_with_photos.map((order) =>
+                  order.photos.map((url, i) => (
+                    <div
+                      key={`${order.order_number}-${i}`}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                    >
                       <img
-                        key={i}
                         src={url}
                         alt=""
+                        onClick={() => openLightbox(order.photos, i)}
                         style={{
-                          width: 70,
-                          height: 70,
+                          width: '100%',
+                          aspectRatio: '1',
                           borderRadius: 8,
                           objectFit: 'cover',
-                          border: `1px solid ${TEXT_MUTED}33`,
+                          border: `1px solid ${TEXT_MUTED}22`,
+                          cursor: 'pointer',
                         }}
                       />
-                    ))}
-                  </div>
-                </div>
-              ))}
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 800,
+                          color: TEXT_MUTED,
+                          letterSpacing: '0.04em',
+                        }}
+                      >
+                        #{order.order_number}
+                        {order.photos.length > 1 ? ` (${i + 1}/${order.photos.length})` : ''}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
             <div style={spacerStyle} />
           </>
@@ -436,7 +493,7 @@ export const ActivityReportView: React.FC<Props> = ({
           <>
             <div style={cardStyle}>
               <p style={sectionHeaderStyle(AMBER)}>IN PROGRESS</p>
-              {renderTaskList(inProgress, AMBER, '\u25CF')}
+              {renderTaskList(inProgress, AMBER, '\u25CF', openLightbox)}
             </div>
             <div style={spacerStyle} />
           </>
@@ -447,7 +504,7 @@ export const ActivityReportView: React.FC<Props> = ({
           <>
             <div style={cardStyle}>
               <p style={sectionHeaderStyle(BLUE)}>COMING UP NEXT</p>
-              {renderTaskList(comingUpNext, BLUE, '\u25CB')}
+              {renderTaskList(comingUpNext, BLUE, '\u25CB', openLightbox)}
             </div>
             <div style={spacerStyle} />
           </>
@@ -617,6 +674,15 @@ export const ActivityReportView: React.FC<Props> = ({
           </p>
         </div>
       </div>
+
+      {lightboxPhotos.length > 0 && (
+        <PhotoLightbox
+          photos={lightboxPhotos}
+          index={lightboxIndex}
+          onClose={closeLightbox}
+          onIndexChange={setLightboxIndex}
+        />
+      )}
     </div>
   );
 };
