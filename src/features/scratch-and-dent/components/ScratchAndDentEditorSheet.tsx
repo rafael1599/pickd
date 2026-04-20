@@ -109,6 +109,11 @@ export function ScratchAndDentEditorSheet({ mode, sku, onClose }: Props) {
       });
     } else if (mode === 'create' && sku) {
       setForm((f) => ({ ...f, sku }));
+    } else if (mode === 'create' && !sku) {
+      // Auto-suggest the next sequential S/D SKU
+      scratchAndDentApi.fetchNextSku().then((next) => {
+        setForm((f) => (f.sku ? f : { ...f, sku: next }));
+      });
     }
   }, [mode, existing, sku]);
   /* eslint-enable react-hooks/set-state-in-effect */
