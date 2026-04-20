@@ -253,11 +253,16 @@ const UserModal = ({ user, onClose, onSuccess }: UserModalProps) => {
         userId: user?.id,
       };
 
-      const { error } = await supabase.functions.invoke('manage-users', {
+      const { data: responseData, error } = await supabase.functions.invoke('manage-users', {
         body,
       });
 
-      if (error) throw error;
+      if (error) {
+        // The edge function returns { error: "FUNC_ERROR: ..." } in the body.
+        // supabase.functions.invoke puts the parsed body in `data` even on error.
+        const detail = (responseData as { error?: string } | null)?.error ?? error.message;
+        throw new Error(detail);
+      }
 
       toast.success(isEditing ? 'User updated successfully' : 'User created successfully');
       onSuccess();
