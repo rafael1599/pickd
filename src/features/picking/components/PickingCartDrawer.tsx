@@ -86,15 +86,12 @@ export const PickingCartDrawer: React.FC = () => {
     }
   }, [sessionMode, isOpen]);
 
-  // Close drawer when leaving picking view or navigating away from home
-  // Exception: don't close during reopened mode transition (navigate from /orders → /)
+  // Close drawer when leaving picking view or navigating away from home.
+  // Exception: don't close when there's an external trigger (Verification Board
+  // opens an order from any route) or during reopened mode transition.
   useEffect(() => {
-    if (
-      (viewMode !== 'picking' || pathname !== '/') &&
-      !externalDoubleCheckId &&
-      isOpen &&
-      sessionMode !== 'reopened'
-    ) {
+    if (externalDoubleCheckId) return; // keep open regardless of route
+    if ((viewMode !== 'picking' || pathname !== '/') && isOpen && sessionMode !== 'reopened') {
       setIsOpen(false);
     }
   }, [viewMode, pathname, externalDoubleCheckId, isOpen, sessionMode]);
