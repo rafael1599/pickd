@@ -412,7 +412,7 @@ export const ActivityReportView: React.FC<Props> = ({
         {/* PALLET PHOTOS — orders completed today with photos */}
         {report.completed_orders_with_photos.length > 0 && (
           <>
-            <div style={cardStyle}>
+            <div style={cardStyle} data-section="pallet-photos">
               <p style={sectionHeaderStyle(EMERALD)}>PALLET PHOTOS</p>
               <div
                 style={{

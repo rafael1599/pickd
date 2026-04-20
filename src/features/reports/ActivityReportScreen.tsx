@@ -309,6 +309,9 @@ export const ActivityReportScreen = () => {
         img.remove();
       }
 
+      // Remove the entire PALLET PHOTOS section (images + order numbers).
+      clone.querySelector('[data-section="pallet-photos"]')?.remove();
+
       // Use Clipboard API to write HTML with external image URLs.
       const html = clone.outerHTML;
       const blob = new Blob([html], { type: 'text/html' });
