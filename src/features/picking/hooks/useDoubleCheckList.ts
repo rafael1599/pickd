@@ -107,9 +107,11 @@ export const useDoubleCheckList = () => {
   });
 
   // Realtime subscription — invalidate queries on changes
+  // Unique channel name per mount to avoid stale channel conflicts on re-open
   useEffect(() => {
+    const channelName = `picking_lists_queue_${Date.now()}`;
     const channel = supabase
-      .channel('picking_lists_queue')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -122,7 +124,13 @@ export const useDoubleCheckList = () => {
           queryClient.invalidateQueries({ queryKey: COMPLETED_ORDERS_KEY });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`✅ [VerificationQueue] Realtime subscribed: ${channelName}`);
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error(`❌ [VerificationQueue] Realtime ${status}: ${channelName}`);
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);
@@ -134,7 +142,9 @@ export const useDoubleCheckList = () => {
   const { readyCount, correctionCount, checkingCount, waitingCount } = useMemo(
     () => ({
       readyCount: orders.filter((o) => o.status === 'ready_to_double_check').length,
-      correctionCount: orders.filter((o) => o.status === 'needs_correction' && !o.is_waiting_inventory).length,
+      correctionCount: orders.filter(
+        (o) => o.status === 'needs_correction' && !o.is_waiting_inventory
+      ).length,
       checkingCount: orders.filter((o) => o.status === 'double_checking').length,
       waitingCount: orders.filter((o) => o.is_waiting_inventory).length,
     }),
