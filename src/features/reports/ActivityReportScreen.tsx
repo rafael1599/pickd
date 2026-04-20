@@ -303,12 +303,10 @@ export const ActivityReportScreen = () => {
       // Clone the report so we don't mutate the live UI
       const clone = reportEl.cloneNode(true) as HTMLElement;
 
-      // Strip blob: URLs — they're local to this tab and can't be resolved
-      // anywhere else. External https:// URLs are left as-is because Gmail's
-      // paste handler re-hosts them through its own proxy (googleusercontent).
-      // Previous approach converted to base64 data URIs, but Gmail strips those.
+      // Remove ALL images from the clipboard copy — they don't paste well
+      // into email clients regardless of source (blob:, https:, data:).
       for (const img of Array.from(clone.querySelectorAll('img'))) {
-        if (img.src.startsWith('blob:')) img.remove();
+        img.remove();
       }
 
       // Use Clipboard API to write HTML with external image URLs.
