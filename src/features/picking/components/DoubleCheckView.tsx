@@ -637,10 +637,14 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   );
 
   // When a sub-order is selected, filter the cart down to only its items.
-  // For non-combined orders, editingOrderNumber is just the single order number and
-  // items don't carry source_order tags, so we return the full cart unchanged.
+  // For grouped orders: show ALL items (the user edits the merged view, same as
+  // double check). Each item has a source_order tag for routing corrections to
+  // the correct picking_list. For single sub-order editing (picker modal), filter.
   const editingCartItems = useMemo(() => {
     if (!isCombined || !editingOrderNumber) return cartItems;
+    // If editingOrderNumber contains ' / ', it's the combined group — show all
+    if (editingOrderNumber.includes(' / ')) return cartItems;
+    // Single sub-order selected via picker
     return cartItems.filter((i) => i.source_order === editingOrderNumber);
   }, [cartItems, editingOrderNumber, isCombined]);
 
@@ -648,6 +652,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     () => editingCartItems.filter((i) => i.sku_not_found || i.insufficient_stock),
     [editingCartItems]
   );
+
+  // Map source_order → picking_list id for routing corrections in group edit
+  const [sourceOrderMap, setSourceOrderMap] = useState<Map<string, string>>(new Map());
 
   const openEditDirectly = useCallback((listId: string | null, orderNum: string | null) => {
     setEditingListId(listId);
@@ -689,6 +696,36 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
   const openEditFlow = useCallback(async () => {
     if (!activeListId) return;
+
+    // For grouped orders: build source_order → list_id map so corrections route correctly
+    if (isCombined) {
+      const { data: main } = await supabase
+        .from('picking_lists')
+        .select('group_id')
+        .eq('id', activeListId)
+        .single();
+      if (main?.group_id) {
+        const { data: subs } = await supabase
+          .from('picking_lists')
+          .select('id, order_number')
+          .eq('group_id', main.group_id)
+          .neq('status', 'completed')
+          .neq('status', 'cancelled');
+        if (subs && subs.length > 0) {
+          const map = new Map<string, string>();
+          for (const s of subs) {
+            if (s.order_number) map.set(s.order_number, s.id);
+          }
+          setSourceOrderMap(map);
+          // Open edit with combined order number → shows all items
+          openEditDirectly(activeListId, orderNumber ?? null);
+          return;
+        }
+      }
+    }
+
+    // Non-grouped or fallback
+    setSourceOrderMap(new Map());
     const options = await fetchSubOrderOptions();
     if (!options) {
       openEditDirectly(activeListId, orderNumber ?? null);
@@ -696,7 +733,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     }
     setSubOrders(options);
     setSubOrderPickerMode('edit');
-  }, [activeListId, orderNumber, fetchSubOrderOptions, openEditDirectly]);
+  }, [activeListId, orderNumber, isCombined, fetchSubOrderOptions, openEditDirectly]);
 
   const confirmCancelOrder = useCallback(
     (listId: string, orderNum: string | null) => {
@@ -1769,9 +1806,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             setShowCorrectionMode(false);
             setEditingListId(null);
             setEditingOrderNumber(null);
+            setSourceOrderMap(new Map());
           }}
           orderNumber={editingOrderNumber ?? orderNumber}
           editingListId={editingListId}
+          sourceOrderMap={sourceOrderMap}
           isReopened={status === 'reopened'}
           onCancelReopen={onCancelReopen}
         />

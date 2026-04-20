@@ -29,6 +29,12 @@ interface CorrectionModeViewProps {
    * row in the DB. For non-combined orders this equals the active list id.
    */
   editingListId?: string | null;
+  /**
+   * For grouped orders: maps source_order (order_number) → picking_list id.
+   * Used to route corrections to the correct DB row per item.
+   * Empty map for non-grouped orders.
+   */
+  sourceOrderMap?: Map<string, string>;
   isReopened?: boolean;
   onCancelReopen?: () => void;
 }
@@ -218,9 +224,12 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
   onClose,
   orderNumber,
   editingListId,
+  sourceOrderMap = new Map(),
   isReopened = false,
   onCancelReopen,
 }) => {
+  const isGroupEdit = sourceOrderMap.size > 0;
+  const [addTargetOrder, setAddTargetOrder] = useState<string | null>(null);
   const targetListId = editingListId ?? undefined;
   // Track original items to detect changes for reopened orders
   const [initialSnapshot] = useState(() =>
@@ -236,6 +245,20 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
   const [replaceQty, setReplaceQty] = useState(1);
   const [adjustQty, setAdjustQty] = useState(1);
   const [addQty, setAddQty] = useState(1);
+
+  /** Resolve the correct picking_list_id for a given item's correction. */
+  const getTargetListId = useCallback(
+    (sku: string): string | undefined => {
+      if (!isGroupEdit) return editingListId ?? undefined;
+      // Find which order this item belongs to via source_order
+      const item = allItems.find((i) => i.sku === sku);
+      if (item?.source_order) {
+        return sourceOrderMap.get(item.source_order) ?? editingListId ?? undefined;
+      }
+      return editingListId ?? undefined;
+    },
+    [isGroupEdit, sourceOrderMap, allItems, editingListId]
+  );
   const autoSelect = useAutoSelect();
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedReason, setSelectedReason] = useState('');
@@ -371,7 +394,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
           newQty: qtyChanged ? replaceQty : undefined,
           reason: selectedReason || undefined,
         },
-        targetListId
+        getTargetListId(activePanel.sku)
       );
       setActivePanel(null);
     } finally {
@@ -390,7 +413,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
           newQty: adjustQty,
           reason: selectedReason || undefined,
         },
-        targetListId
+        getTargetListId(activePanel.sku)
       );
       setActivePanel(null);
     } finally {
@@ -408,7 +431,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
           sku: activePanel.sku,
           reason: selectedReason || undefined,
         },
-        targetListId
+        getTargetListId(activePanel.sku)
       );
       setRecentlyRemoved((prev) => [...prev, activePanel.sku]);
       setActivePanel(null);
@@ -421,6 +444,11 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
     if (activePanel?.type !== 'confirm_add' || isProcessing) return;
     setIsProcessing(true);
     try {
+      // For group edit: use the selected target order; for single: use editingListId
+      const addTargetListId =
+        isGroupEdit && addTargetOrder
+          ? (sourceOrderMap.get(addTargetOrder) ?? targetListId)
+          : targetListId;
       await onCorrectItem(
         {
           type: 'add',
@@ -433,7 +461,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
           },
           reason: selectedReason || undefined,
         },
-        targetListId
+        addTargetListId
       );
       setActivePanel(null);
       setSearchQuery('');
@@ -500,6 +528,11 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
                 {item.insufficient_stock && !item.sku_not_found && (
                   <span className="text-[8px] bg-amber-500 text-black px-1 py-0.5 rounded font-black uppercase tracking-tighter animate-pulse">
                     LOW STOCK
+                  </span>
+                )}
+                {isGroupEdit && item.source_order && (
+                  <span className="text-[8px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded font-black uppercase tracking-tighter">
+                    #{item.source_order}
                   </span>
                 )}
               </div>
@@ -814,6 +847,28 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
                   {activePanel.item.location?.replace(/row/i, 'ROW') || 'No location'} ·{' '}
                   {activePanel.item.quantity} available
                 </p>
+                {isGroupEdit && (
+                  <div className="mb-3">
+                    <p className="text-[9px] font-black text-muted/70 uppercase tracking-widest mb-1.5 text-center">
+                      Add to which order?
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 justify-center">
+                      {[...sourceOrderMap.keys()].map((orderNum) => (
+                        <button
+                          key={orderNum}
+                          onClick={() => setAddTargetOrder(orderNum)}
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 ${
+                            addTargetOrder === orderNum
+                              ? 'bg-accent text-white border border-accent'
+                              : 'bg-surface text-muted border border-subtle'
+                          }`}
+                        >
+                          #{orderNum}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <ReasonPicker
                   actionType="add"
                   preselect={
@@ -829,8 +884,10 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
                   }}
                   onConfirm={handleConfirmAdd}
                   isProcessing={isProcessing}
-                  confirmLabel="Add to Order"
-                  disabled={!selectedReason}
+                  confirmLabel={
+                    isGroupEdit && addTargetOrder ? `Add to #${addTargetOrder}` : 'Add to Order'
+                  }
+                  disabled={!selectedReason || (isGroupEdit && !addTargetOrder)}
                 />
               </div>
             ) : (
