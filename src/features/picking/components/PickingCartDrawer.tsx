@@ -504,6 +504,24 @@ export const PickingCartDrawer: React.FC = () => {
             .in('status', COMPLETABLE_STATUSES);
 
           if (siblings && siblings.length > 0) {
+            // Copy pallet photos from main order to all siblings
+            // (same R2 file, just the URL reference — zero extra storage)
+            const { data: mainPhotos } = await supabase
+              .from('picking_lists')
+              .select('pallet_photos')
+              .eq('id', activeListId!)
+              .single();
+            const photosArray = Array.isArray(mainPhotos?.pallet_photos)
+              ? (mainPhotos.pallet_photos as string[])
+              : [];
+            if (photosArray.length > 0) {
+              const siblingIds = siblings.map((s) => s.id);
+              await supabase
+                .from('picking_lists')
+                .update({ pallet_photos: photosArray })
+                .in('id', siblingIds);
+            }
+
             for (const sibling of siblings) {
               const siblingItems = Array.isArray(sibling.items)
                 ? (sibling.items as Array<{ pickingQty?: number }>)
