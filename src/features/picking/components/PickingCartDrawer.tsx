@@ -572,10 +572,13 @@ export const PickingCartDrawer: React.FC = () => {
     }
   };
 
-  // Visibility: only on home page in picking mode with active session, or externally triggered
+  // Visibility: on home page in picking mode with active session, externally triggered,
+  // or already open (keeps drawer alive when externalDoubleCheckId is cleared after load)
   const hasActiveSession = sessionMode !== 'idle' || totalItems > 0;
   const isVisible =
-    (pathname === '/' && viewMode === 'picking' && hasActiveSession) || !!externalDoubleCheckId;
+    (pathname === '/' && viewMode === 'picking' && hasActiveSession) ||
+    !!externalDoubleCheckId ||
+    isOpen;
 
   if (!isVisible) return null;
 
