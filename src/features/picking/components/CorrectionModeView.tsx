@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
 import Search from 'lucide-react/dist/esm/icons/search';
 import AlertTriangle from 'lucide-react/dist/esm/icons/alert-triangle';
