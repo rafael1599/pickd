@@ -96,15 +96,10 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           {} // No weight data available here — falls back to count-only rule
         );
 
-      // Priority = needs_correction WITHOUT manual shipping_type (untriaged)
-      // Once user drags to a lane (sets shipping_type), it leaves Priority
-      if (order.status === 'needs_correction' && order.shipping_type == null) {
-        priorityShipTypes.set(order.id, shippingType);
-        priority.push(order);
-      } else {
-        if (shippingType === 'fedex') fedex.push(order);
-        else regular.push(order);
-      }
+      // All orders go to their lane (FedEx/Regular) based on shipping_type.
+      // needs_correction orders show ⚠️ triangle in their lane — no separate Priority zone.
+      if (shippingType === 'fedex') fedex.push(order);
+      else regular.push(order);
     }
 
     // Recently completed: last 3 of today
