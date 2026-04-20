@@ -135,10 +135,10 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
 
   // ─── DnD sensors ──────────────────────────────────────────────────
   const pointerSensor = useSensor(PointerSensor, {
-    activationConstraint: { delay: 200, tolerance: 15 },
+    activationConstraint: { distance: 10 },
   });
   const touchSensor = useSensor(TouchSensor, {
-    activationConstraint: { delay: 200, tolerance: 15 },
+    activationConstraint: { delay: 150, tolerance: 20 },
   });
   const sensors = useSensors(pointerSensor, touchSensor);
 

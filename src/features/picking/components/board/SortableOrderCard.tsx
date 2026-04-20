@@ -89,9 +89,7 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
       ref={setNodeRef}
       style={style}
       className={`flex items-center gap-0.5 pr-1 rounded-xl transition-all duration-200 group border ${
-        isOver
-          ? 'border-2 border-purple-500 bg-purple-500/10 scale-[1.02]'
-          : statusStyles.border
+        isOver ? 'border-2 border-purple-500 bg-purple-500/10 scale-[1.02]' : statusStyles.border
       } ${statusStyles.hoverBg} ${isDragging ? 'opacity-30 scale-95 z-50' : ''}`}
       {...(attributes as React.HTMLAttributes<HTMLDivElement>)}
       {...(listeners as React.HTMLAttributes<HTMLDivElement>)}
@@ -104,48 +102,79 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
       >
         <div className="flex items-center gap-1.5">
           {(order.status === 'needs_correction' || order.status === 'double_checking') && (
-            <div className={`w-6 h-6 rounded-md flex items-center justify-center border transition-colors shrink-0 ${statusStyles.iconBg}`}>
+            <div
+              className={`w-6 h-6 rounded-md flex items-center justify-center border transition-colors shrink-0 ${statusStyles.iconBg}`}
+            >
               <Icon size={12} />
             </div>
           )}
           <div>
             <div className="text-[11px] font-black uppercase tracking-tight text-content flex items-center gap-1 flex-wrap">
-              {order.source === 'pdf_import' && <span title="PDF Import">📥</span>}
-              #{order.order_number || order.id.toString().slice(-6).toUpperCase()}
+              {order.source === 'pdf_import' && <span title="PDF Import">📥</span>}#
+              {order.order_number || order.id.toString().slice(-6).toUpperCase()}
               {showShippingBadge && (
-                <span className={`text-[7px] ${colors.badge} text-white px-1 py-0.5 rounded font-black uppercase tracking-wider`}>
+                <span
+                  className={`text-[7px] ${colors.badge} text-white px-1 py-0.5 rounded font-black uppercase tracking-wider`}
+                >
                   {colors.badgeText}
                 </span>
               )}
               {order.order_group && (
-                <span className={`text-[7px] ${order.order_group.group_type === 'fedex' ? 'bg-purple-500' : 'bg-sky-500'} text-white px-1 py-0.5 rounded font-black uppercase tracking-wider`}>
+                <span
+                  className={`text-[7px] ${order.order_group.group_type === 'fedex' ? 'bg-purple-500' : 'bg-sky-500'} text-white px-1 py-0.5 rounded font-black uppercase tracking-wider`}
+                >
                   {order.order_group.group_type === 'fedex' ? 'FDX' : 'GRP'}
                 </span>
               )}
               {order.is_waiting_inventory && (
-                <span className="text-[7px] bg-amber-500 text-white px-1 py-0.5 rounded font-black uppercase tracking-wider">WAIT</span>
+                <span className="text-[7px] bg-amber-500 text-white px-1 py-0.5 rounded font-black uppercase tracking-wider">
+                  WAIT
+                </span>
               )}
               {order.is_addon && (
-                <span className="text-[7px] bg-amber-500 text-white px-1 py-0.5 rounded font-black animate-pulse">ADD-ON</span>
+                <span className="text-[7px] bg-amber-500 text-white px-1 py-0.5 rounded font-black animate-pulse">
+                  ADD-ON
+                </span>
               )}
             </div>
             <div className="text-[9px] text-muted font-bold uppercase tracking-wider mt-0.5">
               {order.status === 'needs_correction'
-                ? order.profiles?.full_name ? `Picked by ${order.profiles.full_name.split(' ')[0]}` : null
+                ? order.profiles?.full_name
+                  ? `Picked by ${order.profiles.full_name.split(' ')[0]}`
+                  : null
                 : order.status === 'double_checking'
                   ? `Checking: ${order.checker_profile?.full_name?.split(' ')[0] ?? '...'}`
-                  : order.profiles?.full_name ? `Picked by ${order.profiles.full_name.split(' ')[0]}` : null}
+                  : order.profiles?.full_name
+                    ? `Picked by ${order.profiles.full_name.split(' ')[0]}`
+                    : null}
             </div>
           </div>
         </div>
-        <ChevronDown size={14} className={`-rotate-90 text-subtle ${statusStyles.chevronHover} transition-colors`} />
+        <ChevronDown
+          size={14}
+          className={`-rotate-90 text-subtle ${statusStyles.chevronHover} transition-colors`}
+        />
       </button>
       {order.group_id && onUngroup && (
-        <button onClick={(e) => { e.stopPropagation(); onUngroup(order); }} className="p-1 text-muted hover:text-amber-500 transition-colors" title="Remove from group">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onUngroup(order);
+          }}
+          className="p-1 text-muted hover:text-amber-500 transition-colors"
+          title="Remove from group"
+        >
           <Unlink size={12} />
         </button>
       )}
-      <button onClick={(e) => { e.stopPropagation(); onDelete(order); }} className="p-1 text-muted hover:text-red-500 transition-colors" title="Delete Order">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete(order);
+        }}
+        className="p-1 text-muted hover:text-red-500 transition-colors"
+        title="Delete Order"
+      >
         <Trash2 size={14} />
       </button>
     </div>
@@ -156,61 +185,59 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
 // Uses useDraggable + useDroppable separately to enable drag-out and drop-on
 // without the sorting/reorder behavior that confuses users.
 
-export const SortableOrderCard = React.memo<CardProps>(
-  (props) => {
-    const draggable = useDraggable({
-      id: `drag-${props.order.id}`,
-      data: { order: props.order, shippingType: props.shippingType },
-    });
-    const droppable = useDroppable({
-      id: props.order.id,
-      data: { order: props.order, shippingType: props.shippingType },
-    });
+export const SortableOrderCard = React.memo<CardProps>((props) => {
+  const draggable = useDraggable({
+    id: `drag-${props.order.id}`,
+    data: { order: props.order, shippingType: props.shippingType },
+  });
+  const droppable = useDroppable({
+    id: props.order.id,
+    data: { order: props.order, shippingType: props.shippingType },
+  });
 
-    return (
-      <OrderCardShell
-        {...props}
-        setNodeRef={(node) => {
-          draggable.setNodeRef(node);
-          droppable.setNodeRef(node);
-        }}
-        style={{
-          transform: draggable.transform
-            ? `translate(${draggable.transform.x}px, ${draggable.transform.y}px)`
-            : undefined,
-          touchAction: draggable.isDragging ? 'none' : 'manipulation',
-        }}
-        isDragging={draggable.isDragging}
-        isOver={droppable.isOver}
-        attributes={draggable.attributes}
-        listeners={draggable.listeners}
-      />
-    );
-  }
-);
+  return (
+    <OrderCardShell
+      {...props}
+      setNodeRef={(node) => {
+        draggable.setNodeRef(node);
+        droppable.setNodeRef(node);
+      }}
+      style={{
+        transform: draggable.transform
+          ? `translate(${draggable.transform.x}px, ${draggable.transform.y}px)`
+          : undefined,
+        touchAction: 'none',
+      }}
+      isDragging={draggable.isDragging}
+      isOver={droppable.isOver}
+      attributes={draggable.attributes}
+      listeners={draggable.listeners}
+    />
+  );
+});
 SortableOrderCard.displayName = 'SortableOrderCard';
 
 // ─── DraggableOrderCard (for Priority — drag only, no drop target) ───────────
 
-export const DraggableOrderCard = React.memo<CardProps>(
-  (props) => {
-    const { attributes, listeners, setNodeRef, transform, isDragging } =
-      useDraggable({ id: props.order.id, data: { order: props.order, shippingType: props.shippingType } });
+export const DraggableOrderCard = React.memo<CardProps>((props) => {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: props.order.id,
+    data: { order: props.order, shippingType: props.shippingType },
+  });
 
-    return (
-      <OrderCardShell
-        {...props}
-        setNodeRef={setNodeRef}
-        style={{
-          transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
-          touchAction: isDragging ? 'none' : 'manipulation',
-        }}
-        isDragging={isDragging}
-        isOver={false}
-        attributes={attributes}
-        listeners={listeners}
-      />
-    );
-  }
-);
+  return (
+    <OrderCardShell
+      {...props}
+      setNodeRef={setNodeRef}
+      style={{
+        transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
+        touchAction: 'none',
+      }}
+      isDragging={isDragging}
+      isOver={false}
+      attributes={attributes}
+      listeners={listeners}
+    />
+  );
+});
 DraggableOrderCard.displayName = 'DraggableOrderCard';
