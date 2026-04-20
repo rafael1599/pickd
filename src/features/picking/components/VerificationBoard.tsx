@@ -65,55 +65,63 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   const [reopenReason, setReopenReason] = useState('');
 
   // ─── Classify orders into zones ────────────────────────────────────
-  const { priorityOrders, fedexOrders, regularOrders, waitingOrders, recentCompleted } =
-    useMemo(() => {
-      const priority: PickingList[] = [];
-      const fedex: PickingList[] = [];
-      const regular: PickingList[] = [];
-      const waiting: PickingList[] = [];
+  const {
+    priorityOrders,
+    fedexOrders,
+    regularOrders,
+    waitingOrders,
+    recentCompleted,
+    priorityShippingTypes,
+  } = useMemo(() => {
+    const priorityShipTypes = new Map<string, string>();
+    const priority: PickingList[] = [];
+    const fedex: PickingList[] = [];
+    const regular: PickingList[] = [];
+    const waiting: PickingList[] = [];
 
-      for (const order of orders) {
-        if (order.is_waiting_inventory) {
-          waiting.push(order);
-          continue;
-        }
-
-        // Determine shipping type: persisted or auto-classified
-        const shippingType =
-          order.shipping_type ??
-          autoClassifyShippingType(
-            order.items?.map((i) => ({
-              sku: i.sku,
-              pickingQty: (i as Record<string, unknown>).pickingQty as number,
-            })) ?? [],
-            {} // No weight data available here — falls back to count-only rule
-          );
-
-        // Priority = only needs_correction (something went wrong, fix this)
-        // Lanes = ready_to_double_check + double_checking (normal flow)
-        if (order.status === 'needs_correction') {
-          (order as PickingList & { _shippingType?: string })._shippingType = shippingType;
-          priority.push(order);
-        } else {
-          if (shippingType === 'fedex') fedex.push(order);
-          else regular.push(order);
-        }
+    for (const order of orders) {
+      if (order.is_waiting_inventory) {
+        waiting.push(order);
+        continue;
       }
 
-      // Recently completed: last 3 of today
-      const today = new Date().toISOString().slice(0, 10);
-      const recent = (completedOrders ?? [])
-        .filter((o) => o.updated_at?.slice(0, 10) === today)
-        .slice(0, 3);
+      // Determine shipping type: persisted or auto-classified
+      const shippingType =
+        order.shipping_type ??
+        autoClassifyShippingType(
+          order.items?.map((i) => ({
+            sku: i.sku,
+            pickingQty: (i as Record<string, unknown>).pickingQty as number,
+          })) ?? [],
+          {} // No weight data available here — falls back to count-only rule
+        );
 
-      return {
-        priorityOrders: priority,
-        fedexOrders: fedex,
-        regularOrders: regular,
-        waitingOrders: waiting,
-        recentCompleted: recent,
-      };
-    }, [orders, completedOrders]);
+      // Priority = only needs_correction (something went wrong, fix this)
+      // Lanes = ready_to_double_check + double_checking (normal flow)
+      if (order.status === 'needs_correction') {
+        priorityShipTypes.set(order.id, shippingType);
+        priority.push(order);
+      } else {
+        if (shippingType === 'fedex') fedex.push(order);
+        else regular.push(order);
+      }
+    }
+
+    // Recently completed: last 3 of today
+    const today = new Date().toISOString().slice(0, 10);
+    const recent = (completedOrders ?? [])
+      .filter((o) => o.updated_at?.slice(0, 10) === today)
+      .slice(0, 3);
+
+    return {
+      priorityOrders: priority,
+      fedexOrders: fedex,
+      regularOrders: regular,
+      waitingOrders: waiting,
+      recentCompleted: recent,
+      priorityShippingTypes: priorityShipTypes,
+    };
+  }, [orders, completedOrders]);
 
   // ─── Board layout ──────────────────────────────────────────────────
   const layout = useBoardLayout({
@@ -127,10 +135,10 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
 
   // ─── DnD sensors ──────────────────────────────────────────────────
   const pointerSensor = useSensor(PointerSensor, {
-    activationConstraint: { delay: 300, tolerance: 5 },
+    activationConstraint: { delay: 200, tolerance: 15 },
   });
   const touchSensor = useSensor(TouchSensor, {
-    activationConstraint: { delay: 300, tolerance: 5 },
+    activationConstraint: { delay: 200, tolerance: 15 },
   });
   const sensors = useSensors(pointerSensor, touchSensor);
 
@@ -152,7 +160,9 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     });
     if (all.length === 0) return [];
     // Prefer card-level droppable (for merge) over zone-level (for reclassify)
-    const cardHit = all.find((c) => !(c.id as string).startsWith('zone-') && !(c.id as string).startsWith('drag-'));
+    const cardHit = all.find(
+      (c) => !(c.id as string).startsWith('zone-') && !(c.id as string).startsWith('drag-')
+    );
     if (cardHit) return [cardHit];
     // Fall back to zone
     const zoneHit = all.find((c) => (c.id as string).startsWith('zone-'));
@@ -282,7 +292,9 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                   <DraggableOrderCard
                     key={order.id}
                     order={order}
-                    shippingType={((order as PickingList & { _shippingType?: string })._shippingType as 'fedex' | 'regular') ?? 'regular'}
+                    shippingType={
+                      (priorityShippingTypes.get(order.id) as 'fedex' | 'regular') ?? 'regular'
+                    }
                     onSelect={handleOrderSelect}
                     onDelete={handleDelete}
                     onUngroup={handleUngroup}
@@ -352,7 +364,12 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                 emptyMessage="No active projects"
                 className="h-full"
               >
-                <ProjectsZone onNavigate={() => { navigate('/projects'); onClose(); }} />
+                <ProjectsZone
+                  onNavigate={() => {
+                    navigate('/projects');
+                    onClose();
+                  }}
+                />
               </DroppableZone>
             </div>
 
@@ -404,28 +421,32 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         </div>
 
         <DragOverlay dropAnimation={null}>
-          {dnd.activeOrder && (() => {
-            const st = (dnd.activeOrder as unknown as Record<string, unknown>)._shippingType as string
-              ?? dnd.activeOrder.shipping_type
-              ?? 'regular';
-            return (
-              <div className="flex items-center gap-3 p-3 rounded-2xl bg-surface border-2 border-purple-500 shadow-2xl shadow-purple-500/20 opacity-95 max-w-xs">
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-white text-[10px] font-black ${
-                  st === 'fedex' ? 'bg-purple-500' : 'bg-emerald-500'
-                }`}>
-                  {st === 'fedex' ? 'FDX' : 'TRK'}
-                </div>
-                <div>
-                  <div className="text-xs font-black uppercase tracking-tight text-content">
-                    #{dnd.activeOrder.order_number || dnd.activeOrder.id.slice(-6).toUpperCase()}
+          {dnd.activeOrder &&
+            (() => {
+              const st =
+                priorityShippingTypes.get(dnd.activeOrder.id) ??
+                dnd.activeOrder.shipping_type ??
+                'regular';
+              return (
+                <div className="flex items-center gap-3 p-3 rounded-2xl bg-surface border-2 border-purple-500 shadow-2xl shadow-purple-500/20 opacity-95 max-w-xs">
+                  <div
+                    className={`w-8 h-8 rounded-xl flex items-center justify-center text-white text-[10px] font-black ${
+                      st === 'fedex' ? 'bg-purple-500' : 'bg-emerald-500'
+                    }`}
+                  >
+                    {st === 'fedex' ? 'FDX' : 'TRK'}
                   </div>
-                  <div className="text-[9px] text-muted font-bold uppercase tracking-wider">
-                    Drag to reclassify or merge
+                  <div>
+                    <div className="text-xs font-black uppercase tracking-tight text-content">
+                      #{dnd.activeOrder.order_number || dnd.activeOrder.id.slice(-6).toUpperCase()}
+                    </div>
+                    <div className="text-[9px] text-muted font-bold uppercase tracking-wider">
+                      Drag to reclassify or merge
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })()}
+              );
+            })()}
         </DragOverlay>
       </DndContext>
 
@@ -442,7 +463,9 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       {/* Cross-lane confirmation modal */}
       {dnd.pendingCrossLane && (
         <CrossLaneConfirmModal
-          orderNumber={dnd.pendingCrossLane.order.order_number || dnd.pendingCrossLane.order.id.slice(-6)}
+          orderNumber={
+            dnd.pendingCrossLane.order.order_number || dnd.pendingCrossLane.order.id.slice(-6)
+          }
           fromType={dnd.pendingCrossLane.fromType}
           toType={dnd.pendingCrossLane.toType}
           onConfirm={dnd.confirmCrossLane}
@@ -470,7 +493,10 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             />
             <div className="flex gap-2">
               <button
-                onClick={() => { setWaitingReason(''); dnd.cancelPending(); }}
+                onClick={() => {
+                  setWaitingReason('');
+                  dnd.cancelPending();
+                }}
                 className="flex-1 p-2.5 rounded-xl text-xs font-black uppercase text-muted bg-card border border-subtle transition-all active:scale-[0.98]"
               >
                 Cancel
@@ -480,7 +506,13 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                   if (!waitingReason.trim()) return;
                   markWaiting.mutate(
                     { listId: dnd.pendingWaiting!.order.id, reason: waitingReason.trim() },
-                    { onSuccess: () => { setWaitingReason(''); dnd.setPendingWaiting(null); refresh(); } }
+                    {
+                      onSuccess: () => {
+                        setWaitingReason('');
+                        dnd.setPendingWaiting(null);
+                        refresh();
+                      },
+                    }
                   );
                 }}
                 disabled={!waitingReason.trim() || markWaiting.isPending}
@@ -507,7 +539,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               Reopen Order #{dnd.pendingReopen.order.order_number || '...'}?
             </p>
             <p className="text-[10px] text-muted">
-              This will reopen the completed order and move it to the {dnd.pendingReopen.targetZone === 'fedex' ? 'FedEx' : 'Regular'} lane.
+              This will reopen the completed order and move it to the{' '}
+              {dnd.pendingReopen.targetZone === 'fedex' ? 'FedEx' : 'Regular'} lane.
             </p>
             <ReasonPicker
               actionType="reopen"
@@ -516,7 +549,10 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             />
             <div className="flex gap-2">
               <button
-                onClick={() => { setReopenReason(''); dnd.cancelPending(); }}
+                onClick={() => {
+                  setReopenReason('');
+                  dnd.cancelPending();
+                }}
                 className="flex-1 p-2.5 rounded-xl text-xs font-black uppercase text-muted bg-card border border-subtle transition-all active:scale-[0.98]"
               >
                 Cancel
@@ -526,7 +562,10 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                   if (!reopenReason.trim() || !dnd.pendingReopen) return;
                   try {
                     await reopenOrder(dnd.pendingReopen.order.id, reopenReason.trim());
-                    await supabase.from('picking_lists').update({ shipping_type: dnd.pendingReopen.targetZone }).eq('id', dnd.pendingReopen.order.id);
+                    await supabase
+                      .from('picking_lists')
+                      .update({ shipping_type: dnd.pendingReopen.targetZone })
+                      .eq('id', dnd.pendingReopen.order.id);
                     toast.success('Order reopened');
                     setReopenReason('');
                     dnd.setPendingReopen(null);
