@@ -96,9 +96,9 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           {} // No weight data available here — falls back to count-only rule
         );
 
-      // Priority = only needs_correction (something went wrong, fix this)
-      // Lanes = ready_to_double_check + double_checking (normal flow)
-      if (order.status === 'needs_correction') {
+      // Priority = needs_correction WITHOUT manual shipping_type (untriaged)
+      // Once user drags to a lane (sets shipping_type), it leaves Priority
+      if (order.status === 'needs_correction' && order.shipping_type == null) {
         priorityShipTypes.set(order.id, shippingType);
         priority.push(order);
       } else {
