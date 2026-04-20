@@ -155,7 +155,7 @@ export const ItemHistorySheet: React.FC<ItemHistorySheetProps> = ({ isOpen, onCl
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[55] flex flex-col justify-end">
+    <div className="fixed inset-0 z-[75] flex flex-col justify-end">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-main/60 animate-in fade-in duration-200"

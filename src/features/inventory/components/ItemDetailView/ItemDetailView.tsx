@@ -805,7 +805,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 bg-main overflow-y-auto animate-in fade-in slide-in-from-right duration-200 select-none"
+      className="fixed inset-0 z-[70] bg-main overflow-y-auto animate-in fade-in slide-in-from-right duration-200 select-none"
       onClick={(e) => {
         const tag = (e.target as HTMLElement).tagName;
         const isInteractive = ['INPUT', 'BUTTON', 'TEXTAREA', 'SELECT', 'A'].includes(tag);
