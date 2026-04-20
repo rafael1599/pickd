@@ -268,18 +268,23 @@ export const usePickingActions = ({
         const palletsQty = pallets.length;
 
         // Transition to double_checking immediately
+        // Guard: never write merged group data back — merged order_numbers contain ' / '
+        const isMergedGroup = finalOrderNum?.includes(' / ');
+        const updateData: Record<string, unknown> = {
+          status: 'double_checking',
+          checked_by: user.id,
+          customer_id: customer?.id,
+          load_number: loadNumber,
+          correction_notes: null,
+          pallets_qty: palletsQty,
+        };
+        if (!isMergedGroup) {
+          updateData.items = finalItems as unknown as Json;
+          updateData.order_number = finalOrderNum;
+        }
         const { error } = await supabase
           .from('picking_lists')
-          .update({
-            status: 'double_checking',
-            checked_by: user.id, // Auto-assign to self for verification
-            items: finalItems as unknown as Json,
-            order_number: finalOrderNum,
-            customer_id: customer?.id,
-            load_number: loadNumber,
-            correction_notes: null,
-            pallets_qty: palletsQty, // AUTOMATION: Save the calculated pallets count
-          })
+          .update(updateData)
           .eq('id', activeListId);
 
         if (error) throw error;
