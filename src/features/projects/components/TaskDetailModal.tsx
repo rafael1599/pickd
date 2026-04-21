@@ -1,10 +1,19 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import X from 'lucide-react/dist/esm/icons/x';
 import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
 import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
 import Camera from 'lucide-react/dist/esm/icons/camera';
-import { useTaskPhotoDetails, useUnassignPhoto } from '../hooks/useTaskPhotos';
+import Plus from 'lucide-react/dist/esm/icons/plus';
+import Download from 'lucide-react/dist/esm/icons/download';
+import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
+import {
+  useTaskPhotoDetails,
+  useUnassignPhoto,
+  useAssignPhotosToTask,
+} from '../hooks/useTaskPhotos';
+import { useUploadGalleryPhoto } from '../hooks/useGalleryPhotos';
 import type { ProjectTask } from '../hooks/useProjectTasks';
+import toast from 'react-hot-toast';
 
 interface TaskDetailModalProps {
   task: ProjectTask;
@@ -14,7 +23,11 @@ interface TaskDetailModalProps {
 export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose }) => {
   const { data: photos = [] } = useTaskPhotoDetails(task.id);
   const unassignPhoto = useUnassignPhoto();
+  const uploadPhoto = useUploadGalleryPhoto();
+  const assignPhotos = useAssignPhotosToTask();
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const statusColors: Record<string, string> = {
     future: 'bg-blue-500/20 text-blue-400',
@@ -22,13 +35,56 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose 
     done: 'bg-emerald-500/20 text-emerald-400',
   };
 
+  const isUploading = uploadPhoto.isPending || assignPhotos.isPending;
+
+  // Flow: file input → upload to R2 via edge function → auto-assign the new
+  // photo to this task so it appears in the grid without a separate drag.
+  const handleFilePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file later
+    if (!file) return;
+    try {
+      const photo = await uploadPhoto.mutateAsync({ file });
+      await assignPhotos.mutateAsync({ taskId: task.id, photoIds: [photo.id] });
+    } catch (err) {
+      console.error('Task photo upload failed:', err);
+      toast.error('Upload failed. Check console for details.');
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (isExportingPdf) return;
+    setIsExportingPdf(true);
+    try {
+      const { exportTaskPdf } = await import('../utils/exportTaskPdf');
+      await exportTaskPdf({
+        task: {
+          id: task.id,
+          title: task.title,
+          note: task.note,
+          status: task.status,
+        },
+        photoUrls: photos.map((p) => p.url),
+      });
+    } catch (err) {
+      console.error('Task PDF export failed:', err);
+      toast.error('PDF export failed. Check console for details.');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    // z-[105] clears the app's bottom nav (z-100). The sheet anchors to the
+    // TOP of the viewport on mobile (slides down from above) so the title +
+    // PDF/close controls land in a comfortable thumb zone and never overlap
+    // with the bottom nav.
+    <div className="fixed inset-0 z-[105] flex items-start sm:items-center justify-center">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative w-full sm:max-w-lg bg-card border border-subtle rounded-t-3xl sm:rounded-3xl max-h-[80vh] overflow-y-auto animate-in slide-in-from-bottom-4 duration-200">
+      <div className="relative w-full sm:max-w-lg bg-card border border-subtle rounded-b-3xl sm:rounded-3xl max-h-[85vh] overflow-y-auto animate-in slide-in-from-top-4 duration-200">
         {/* Header */}
         <div className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-subtle p-4 flex items-center justify-between z-10">
           <div className="flex items-center gap-2">
@@ -38,12 +94,28 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose 
               {task.status.replace('_', ' ')}
             </span>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-surface rounded-lg text-muted">
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleDownloadPdf}
+              disabled={isExportingPdf}
+              className="p-1.5 hover:bg-surface rounded-lg text-muted disabled:opacity-50 disabled:cursor-not-allowed"
+              title={isExportingPdf ? 'Generating PDF…' : 'Download project as PDF'}
+            >
+              {isExportingPdf ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <Download size={18} />
+              )}
+            </button>
+            <button onClick={onClose} className="p-1 hover:bg-surface rounded-lg text-muted">
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
-        <div className="p-4 space-y-4">
+        {/* Content — pb-8 (regular) keeps inner breathing room; the sheet
+            itself is already above the bottom nav via z-index. */}
+        <div className="p-4 pb-8 space-y-4">
           {/* Task info */}
           <div>
             <h2 className="text-lg font-bold text-content">{task.title}</h2>
@@ -59,13 +131,34 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose 
               </h3>
             </div>
 
-            {photos.length === 0 ? (
-              <p className="text-xs text-muted/40 font-bold uppercase tracking-wider py-4 text-center">
-                Drag photos here from the gallery
-              </p>
-            ) : (
-              <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
-                {photos.map((photo, index) => (
+            <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
+              {/* "+" upload tile — always first, always visible. Same
+                  dimensions as a photo thumbnail. */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                aria-label="Add photo"
+                className="relative shrink-0 w-20 h-20 rounded-xl border-2 border-dashed border-subtle hover:border-accent/60 hover:bg-accent/5 transition-colors flex items-center justify-center text-muted hover:text-accent disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isUploading ? <Loader2 size={22} className="animate-spin" /> : <Plus size={22} />}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleFilePick}
+              />
+
+              {photos.length === 0 ? (
+                <div className="shrink-0 flex items-center px-3">
+                  <p className="text-xs text-muted/50 font-bold uppercase tracking-wider">
+                    Tap + or drag from the gallery
+                  </p>
+                </div>
+              ) : (
+                photos.map((photo, index) => (
                   <div key={photo.id} className="relative shrink-0 group">
                     <button
                       onClick={() => setLightboxIndex(index)}
@@ -84,9 +177,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose 
                       <X size={10} className="text-white" />
                     </button>
                   </div>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -94,7 +187,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, onClose 
       {/* Fullscreen Lightbox */}
       {lightboxIndex !== null && photos[lightboxIndex] && (
         <div
-          className="fixed inset-0 z-[60] bg-black/95 flex items-center justify-center"
+          className="fixed inset-0 z-[110] bg-black/95 flex items-center justify-center"
           onClick={() => setLightboxIndex(null)}
         >
           <button

@@ -56,6 +56,18 @@ interface Props {
   comingUpNext: ReportTask[];
   waitingOrdersCount?: number;
   greeting?: string;
+  /**
+   * When true, renders a layout optimized for PDF export:
+   * - Uses full-resolution gallery URLs instead of thumbnails
+   * - Expands "Team Detail" inline (hides the collapse button)
+   * - Disables interactive handlers (clicks / hovers)
+   */
+  printMode?: boolean;
+  /**
+   * When true, omits the PALLET PHOTOS section entirely. Used by the PDF
+   * exporter — pallet photos get their own dedicated per-order pages.
+   */
+  skipPalletPhotos?: boolean;
 }
 
 function formatDate(dateStr: string): string {
@@ -112,70 +124,83 @@ function renderTaskList(
   tasks: ReportTask[],
   color: string,
   bulletChar: '\u25CF' | '\u25CB',
-  onPhotoClick?: (photos: string[], index: number) => void
+  onPhotoClick?: (photos: string[], index: number) => void,
+  printMode = false
 ) {
-  return tasks.map((task, i) => (
-    <div
-      key={task.task_id}
-      style={{
-        padding: i < tasks.length - 1 ? '0 0 10px 0' : 0,
-      }}
-    >
-      <p style={{ ...bulletTextStyle, margin: 0 }}>
-        <span style={bulletStyle(color)}>{bulletChar}</span>
-        &nbsp;&nbsp;{task.title}
-      </p>
-      {task.note && task.note.trim().length > 0 && (
-        <p style={taskNoteStyle}>{task.note}</p>
-      )}
-      {task.photo_thumbnails && task.photo_thumbnails.length > 0 && (
-        <div
-          style={{
-            margin: '6px 0 0 18px',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
-            gap: 6,
-          }}
-        >
-          {task.photo_thumbnails.map((url, j) => (
-            <img
-              key={j}
-              src={url}
-              alt=""
-              onClick={() =>
-                onPhotoClick?.(
-                  task.photo_thumbnails!.map(thumbToFull),
-                  j
-                )
-              }
-              style={{
-                width: '100%',
-                aspectRatio: '1',
-                borderRadius: 8,
-                objectFit: 'cover',
-                border: `1px solid ${TEXT_MUTED}22`,
-                cursor: onPhotoClick ? 'pointer' : undefined,
-              }}
-            />
-          ))}
-          {(task.photo_count ?? 0) > 3 && (
-            <span
-              style={{
-                fontSize: 11,
-                color: TEXT_MUTED,
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              +{(task.photo_count ?? 0) - 3}
-            </span>
-          )}
-        </div>
-      )}
-    </div>
-  ));
+  return tasks.map((task, i) => {
+    // In PDF export, use full-res URLs for display. Fall back to thumbnails if
+    // photo_fullsize isn't populated (e.g. older cached data).
+    const displayUrls =
+      printMode && task.photo_fullsize && task.photo_fullsize.length > 0
+        ? task.photo_fullsize
+        : task.photo_thumbnails;
+    const fullUrls =
+      task.photo_fullsize && task.photo_fullsize.length > 0
+        ? task.photo_fullsize
+        : task.photo_thumbnails?.map(thumbToFull);
+
+    return (
+      <div
+        key={task.task_id}
+        style={{
+          padding: i < tasks.length - 1 ? '0 0 10px 0' : 0,
+        }}
+      >
+        <p style={{ ...bulletTextStyle, margin: 0 }}>
+          <span style={bulletStyle(color)}>{bulletChar}</span>
+          &nbsp;&nbsp;{task.title}
+        </p>
+        {task.note && task.note.trim().length > 0 && (
+          <p style={taskNoteStyle}>{task.note}</p>
+        )}
+        {displayUrls && displayUrls.length > 0 && (
+          <div
+            style={{
+              margin: '6px 0 0 18px',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+              gap: 6,
+            }}
+          >
+            {displayUrls.map((url, j) => (
+              <img
+                key={j}
+                src={url}
+                alt=""
+                onClick={
+                  printMode || !onPhotoClick
+                    ? undefined
+                    : () => onPhotoClick(fullUrls ?? [], j)
+                }
+                style={{
+                  width: '100%',
+                  aspectRatio: '1',
+                  borderRadius: 8,
+                  objectFit: 'cover',
+                  border: `1px solid ${TEXT_MUTED}22`,
+                  cursor: !printMode && onPhotoClick ? 'pointer' : undefined,
+                }}
+              />
+            ))}
+            {(task.photo_count ?? 0) > 3 && (
+              <span
+                style={{
+                  fontSize: 11,
+                  color: TEXT_MUTED,
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                +{(task.photo_count ?? 0) - 3}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  });
 }
 
 export const ActivityReportView: React.FC<Props> = ({
@@ -190,6 +215,8 @@ export const ActivityReportView: React.FC<Props> = ({
   comingUpNext,
   waitingOrdersCount = 0,
   greeting,
+  printMode = false,
+  skipPalletPhotos = false,
 }) => {
   const [detailOpen, setDetailOpen] = useState(false);
   const [lightboxPhotos, setLightboxPhotos] = useState<string[]>([]);
@@ -403,14 +430,14 @@ export const ActivityReportView: React.FC<Props> = ({
           <>
             <div style={cardStyle}>
               <p style={sectionHeaderStyle(EMERALD)}>DONE TODAY</p>
-              {renderTaskList(doneToday, EMERALD, '\u25CF', openLightbox)}
+              {renderTaskList(doneToday, EMERALD, '\u25CF', openLightbox, printMode)}
             </div>
             <div style={spacerStyle} />
           </>
         )}
 
         {/* PALLET PHOTOS — orders completed today with photos */}
-        {report.completed_orders_with_photos.length > 0 && (
+        {!skipPalletPhotos && report.completed_orders_with_photos.length > 0 && (
           <>
             <div style={cardStyle} data-section="pallet-photos">
               <p style={sectionHeaderStyle(EMERALD)}>PALLET PHOTOS</p>
@@ -435,14 +462,14 @@ export const ActivityReportView: React.FC<Props> = ({
                       <img
                         src={url}
                         alt=""
-                        onClick={() => openLightbox(order.photos, i)}
+                        onClick={printMode ? undefined : () => openLightbox(order.photos, i)}
                         style={{
                           width: '100%',
                           aspectRatio: '1',
                           borderRadius: 8,
                           objectFit: 'cover',
                           border: `1px solid ${TEXT_MUTED}22`,
-                          cursor: 'pointer',
+                          cursor: printMode ? undefined : 'pointer',
                         }}
                       />
                       <span
@@ -493,7 +520,7 @@ export const ActivityReportView: React.FC<Props> = ({
           <>
             <div style={cardStyle}>
               <p style={sectionHeaderStyle(AMBER)}>IN PROGRESS</p>
-              {renderTaskList(inProgress, AMBER, '\u25CF', openLightbox)}
+              {renderTaskList(inProgress, AMBER, '\u25CF', openLightbox, printMode)}
             </div>
             <div style={spacerStyle} />
           </>
@@ -504,7 +531,7 @@ export const ActivityReportView: React.FC<Props> = ({
           <>
             <div style={cardStyle}>
               <p style={sectionHeaderStyle(BLUE)}>COMING UP NEXT</p>
-              {renderTaskList(comingUpNext, BLUE, '\u25CB', openLightbox)}
+              {renderTaskList(comingUpNext, BLUE, '\u25CB', openLightbox, printMode)}
             </div>
             <div style={spacerStyle} />
           </>
@@ -556,7 +583,7 @@ export const ActivityReportView: React.FC<Props> = ({
         )}
 
         {/* Collapsible Team Detail */}
-        {users.length > 0 && (
+        {users.length > 0 && !printMode && (
           <button
             onClick={() => setDetailOpen((v) => !v)}
             className="print:hidden"
@@ -592,8 +619,8 @@ export const ActivityReportView: React.FC<Props> = ({
           </button>
         )}
 
-        {/* Detail content — always visible on print */}
-        <div className="print:!block" style={{ display: detailOpen ? 'block' : 'none' }}>
+        {/* Detail content — always visible on print (and in PDF export) */}
+        <div className="print:!block" style={{ display: detailOpen || printMode ? 'block' : 'none' }}>
           {users.map((u) => {
             const lines: string[] = [];
             if (u.orders_picked > 0)

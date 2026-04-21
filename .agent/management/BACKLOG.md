@@ -7,6 +7,28 @@
 
 ## P1 — Alto (operación diaria)
 
+### 43. Orders view — UX/UI rework <!-- id: idea-065 -->
+- **Problema:** La vista `/orders` tiene varios pain points:
+  1. El **encabezado de PickD desaparece** en esta ruta. Debería estar siempre presente (consistencia con el resto de la app).
+  2. El **LivePrintPreview** tintea toda la card según el carrier — los colores saturados (naranja FedEx, morado FedEx Ground, etc.) se ven chillones y rompen la estética general.
+  3. La asignación visual del carrier al label no es clara — no hay un logo del carrier identificable a simple vista.
+  4. En general, la densidad y jerarquía visual no son lo suficientemente minimalistas comparado con el resto del sistema.
+- **Solución propuesta:**
+  - Mantener el header global de PickD visible en `/orders` (revisar `AppShell` / layout wrapper — la ruta probablemente lo está ocultando con un `hidden` condicional).
+  - **Invertir el uso del color del carrier:** el color vivo va al **fondo del preview card** con un overlay glass oscuro (matching el glassmorphism del resto — `bg-card/80 backdrop-blur-xl`). El contenido (texto del label) queda legible sin competir con el color.
+  - **Logo del carrier** debajo del label impreso (FedEx / UPS / USPS / Regular), no como fondo inline. Tamaño discreto, en grayscale si el fondo ya expresa el carrier.
+  - Pasar a un estilo más minimalista: menos chrome, más whitespace, tipografía consistente con el dashboard.
+- **Requiere:**
+  - Inventariar qué componentes de la ruta están ocultando el header (OrdersScreen, LivePrintPreview, PickingSessionView).
+  - Definir paleta por carrier (hex del fondo + versión glass) y resolver assets de logos (probablemente SVG) — ver si ya existen en `public/` o hay que agregarlos.
+  - Evaluar si el rework afecta el PDF de labels existente (`jsPDF` en LivePrintPreview) o solo la preview en pantalla.
+
+### ~~37. Activity Report → PDF export~~ <!-- id: idea-059-pdf --> ✅ 2026-04-21
+- Botón "Download PDF" en `/activity-report` con imágenes **full-resolution** (gallery + pallet photos). Client-side via `jsPDF` + `html2canvas` (dynamic import para no inflar el bundle de entrada — chunk se carga solo al click). Filename `activity-report-YYYY-MM-DD.pdf`.
+- **Cambios:** `useProjectReportData.ts` ahora trae `url` además de `thumbnail_url`; `BucketTask.photo_fullsize[]` paralelo a `photo_thumbnails[]`. `ActivityReportView` acepta prop `printMode` que swap-ea a full-res, expande Team Detail, y añade `crossOrigin="anonymous"` para CORS. Utilidad `exportReportPdf.tsx` renderiza el view off-screen, espera `<img>` loads, html2canvas → jsPDF multi-página A4.
+- **Mantenido:** "Save & Copy Report" intacto (sin imágenes, para email). PDF es acción separada.
+- **Nota:** El id `idea-059` colisiona con el id de "Pallet photos en reporte" (`main` BACKLOG — ya done). Usado sufijo `-pdf` aquí para evitar duplicado.
+
 ### 22. Alerta de orden duplicada por cliente + reabrir <!-- id: idea-039 --> (deprioritized)
 - **Problema:** Cuando llega una orden nueva para un cliente cuya orden anterior ya fue completada, el picker no se entera y la procesa por separado.
 - **Solución:** Detectar si existe otra orden completada del mismo `customer_name`. Mostrar alerta con opción de reabrir y mergear.
