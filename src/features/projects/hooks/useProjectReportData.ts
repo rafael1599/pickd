@@ -80,24 +80,35 @@ export function useReportTasks(date: string) {
       if (allBucketTaskIds.length > 0) {
         const { data: photoData } = await supabase
           .from('task_photos')
-          .select('task_id, gallery_photos(thumbnail_url)')
+          .select('task_id, gallery_photos(url, thumbnail_url)')
           .in('task_id', allBucketTaskIds);
 
         if (photoData) {
-          const photoMap = new Map<string, string[]>();
+          // Store [thumb, full] pairs so the order is preserved across both
+          // arrays and photo_thumbnails[i] corresponds to photo_fullsize[i].
+          const photoMap = new Map<string, { thumb: string; full: string }[]>();
           for (const row of photoData) {
-            const url = (
-              row as { task_id: string; gallery_photos: { thumbnail_url: string } | null }
-            ).gallery_photos?.thumbnail_url;
-            if (!url) continue;
+            const gp = (
+              row as {
+                task_id: string;
+                gallery_photos: { url: string; thumbnail_url: string } | null;
+              }
+            ).gallery_photos;
+            if (!gp?.thumbnail_url || !gp.url) continue;
             const arr = photoMap.get(row.task_id) ?? [];
-            arr.push(url);
+            arr.push({ thumb: gp.thumbnail_url, full: gp.url });
             photoMap.set(row.task_id, arr);
           }
 
           const enrich = (t: BucketTask): BucketTask => {
-            const thumbs = photoMap.get(t.task_id) ?? [];
-            return { ...t, photo_count: thumbs.length, photo_thumbnails: thumbs.slice(0, 3) };
+            const pairs = photoMap.get(t.task_id) ?? [];
+            const first3 = pairs.slice(0, 3);
+            return {
+              ...t,
+              photo_count: pairs.length,
+              photo_thumbnails: first3.map((p) => p.thumb),
+              photo_fullsize: first3.map((p) => p.full),
+            };
           };
 
           buckets.done = buckets.done.map(enrich);

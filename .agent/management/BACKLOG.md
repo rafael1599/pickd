@@ -7,6 +7,12 @@
 
 ## P1 — Alto (operación diaria)
 
+### ~~37. Activity Report → PDF export~~ <!-- id: idea-059-pdf --> ✅ 2026-04-21
+- Botón "Download PDF" en `/activity-report` con imágenes **full-resolution** (gallery + pallet photos). Client-side via `jsPDF` + `html2canvas` (dynamic import para no inflar el bundle de entrada — chunk se carga solo al click). Filename `activity-report-YYYY-MM-DD.pdf`.
+- **Cambios:** `useProjectReportData.ts` ahora trae `url` además de `thumbnail_url`; `BucketTask.photo_fullsize[]` paralelo a `photo_thumbnails[]`. `ActivityReportView` acepta prop `printMode` que swap-ea a full-res, expande Team Detail, y añade `crossOrigin="anonymous"` para CORS. Utilidad `exportReportPdf.tsx` renderiza el view off-screen, espera `<img>` loads, html2canvas → jsPDF multi-página A4.
+- **Mantenido:** "Save & Copy Report" intacto (sin imágenes, para email). PDF es acción separada.
+- **Nota:** El id `idea-059` colisiona con el id de "Pallet photos en reporte" (`main` BACKLOG — ya done). Usado sufijo `-pdf` aquí para evitar duplicado.
+
 ### 22. Alerta de orden duplicada por cliente + reabrir <!-- id: idea-039 --> (deprioritized)
 - **Problema:** Cuando llega una orden nueva para un cliente cuya orden anterior ya fue completada, el picker no se entera y la procesa por separado.
 - **Solución:** Detectar si existe otra orden completada del mismo `customer_name`. Mostrar alerta con opción de reabrir y mergear.

@@ -48,6 +48,8 @@ export interface BucketTask {
   note: string | null;
   photo_count?: number;
   photo_thumbnails?: string[];
+  /** Full-size URLs aligned 1:1 with photo_thumbnails (same order, same length). Used for PDF export. */
+  photo_fullsize?: string[];
 }
 
 export interface TaskStatusBuckets {
