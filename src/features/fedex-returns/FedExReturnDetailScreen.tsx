@@ -18,6 +18,7 @@ import {
 } from './hooks/useFedExReturns';
 import { ReturnItemRow } from './components/ReturnItemRow';
 import { AddItemSheet } from './components/AddItemSheet';
+import { SDQuickIntakeModal } from '../scratch-and-dent/components/SDQuickIntakeModal';
 
 export const FedExReturnDetailScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -25,6 +26,7 @@ export const FedExReturnDetailScreen: React.FC = () => {
   useFedExReturnsRealtime();
 
   const [addOpen, setAddOpen] = useState(false);
+  const [sdIntakeOpen, setSdIntakeOpen] = useState(false);
   const [targetLocations, setTargetLocations] = useState<Record<string, string>>({});
 
   const { data: ret, isLoading } = useFedExReturn(id ?? '');
@@ -191,13 +193,22 @@ export const FedExReturnDetailScreen: React.FC = () => {
                 Contents ({items.length})
               </h2>
               {ret.status === 'processing' && (
-                <button
-                  onClick={() => setAddOpen(true)}
-                  className="flex items-center gap-1 text-xs text-accent font-bold"
-                >
-                  <Plus size={12} />
-                  Add Item
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setSdIntakeOpen(true)}
+                    className="flex items-center gap-1 text-xs text-amber-400 font-bold"
+                  >
+                    <Plus size={12} />
+                    Register S/D
+                  </button>
+                  <button
+                    onClick={() => setAddOpen(true)}
+                    className="flex items-center gap-1 text-xs text-accent font-bold"
+                  >
+                    <Plus size={12} />
+                    Add Item
+                  </button>
+                </div>
               )}
             </div>
 
@@ -256,6 +267,7 @@ export const FedExReturnDetailScreen: React.FC = () => {
       </main>
 
       <AddItemSheet returnId={ret.id} open={addOpen} onClose={() => setAddOpen(false)} />
+      <SDQuickIntakeModal open={sdIntakeOpen} onClose={() => setSdIntakeOpen(false)} />
     </div>
   );
 };

@@ -4,28 +4,36 @@ import ImageIcon from 'lucide-react/dist/esm/icons/image';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
+import Archive from 'lucide-react/dist/esm/icons/archive';
 import X from 'lucide-react/dist/esm/icons/x';
+import toast from 'react-hot-toast';
 import {
   useGalleryPhotos,
   useUploadGalleryPhoto,
   useSoftDeletePhotos,
   useTrashPhotos,
+  useArchivedPhotos,
 } from '../hooks/useGalleryPhotos';
 import { PhotoThumbnail } from './PhotoThumbnail';
 import { GalleryToolbar } from './GalleryToolbar';
 import { TrashView } from './TrashView';
+import { ArchivedPhotosView } from './ArchivedPhotosView';
+import { downloadPhotos } from '../utils/downloadPhoto';
 
 export const PhotoGallery: React.FC = () => {
   const { data: photos = [], isLoading } = useGalleryPhotos();
   const uploadPhoto = useUploadGalleryPhoto();
   const softDelete = useSoftDeletePhotos();
   const { data: trashPhotos = [] } = useTrashPhotos();
+  const { data: archivedPhotos = [] } = useArchivedPhotos();
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
+  const [showArchive, setShowArchive] = useState(false);
   const [showSourceModal, setShowSourceModal] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{
     total: number;
     done: number;
@@ -101,6 +109,21 @@ export const PhotoGallery: React.FC = () => {
     });
   };
 
+  const handleDownload = async () => {
+    if (selectedIds.size === 0) return;
+    const toDownload = photos.filter((p) => selectedIds.has(p.id));
+    setIsDownloading(true);
+    try {
+      await downloadPhotos(toDownload);
+      setSelectedIds(new Set());
+    } catch (err) {
+      console.error('Bulk download failed:', err);
+      toast.error('Download failed. Check console for details.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <div className="mt-6">
       {/* Header */}
@@ -116,9 +139,29 @@ export const PhotoGallery: React.FC = () => {
           />
         </button>
         <div className="flex items-center gap-2">
+          {archivedPhotos.length > 0 && (
+            <button
+              onClick={() => {
+                setShowArchive((v) => !v);
+                if (!showArchive) setShowTrash(false);
+              }}
+              className={`flex items-center gap-1 px-2 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider active:scale-95 transition-all ${
+                showArchive
+                  ? 'text-accent bg-accent/10 border border-accent/30'
+                  : 'text-muted/60 bg-surface border border-transparent'
+              }`}
+              title="Assigned photos"
+            >
+              <Archive size={12} />
+              {archivedPhotos.length}
+            </button>
+          )}
           {trashPhotos.length > 0 && (
             <button
-              onClick={() => setShowTrash(!showTrash)}
+              onClick={() => {
+                setShowTrash((v) => !v);
+                if (!showTrash) setShowArchive(false);
+              }}
               className={`flex items-center gap-1 px-2 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider active:scale-95 transition-all ${
                 showTrash
                   ? 'text-red-400 bg-red-500/10 border border-red-500/30'
@@ -271,10 +314,15 @@ export const PhotoGallery: React.FC = () => {
             <GalleryToolbar
               selectedCount={selectedIds.size}
               onDelete={handleDelete}
+              onDownload={handleDownload}
               onCancel={() => setSelectedIds(new Set())}
               isDeleting={softDelete.isPending}
+              isDownloading={isDownloading}
             />
           )}
+
+          {/* Archive (assigned photos) */}
+          {showArchive && <ArchivedPhotosView onClose={() => setShowArchive(false)} />}
 
           {/* Trash */}
           {showTrash && <TrashView onClose={() => setShowTrash(false)} />}

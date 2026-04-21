@@ -25,6 +25,10 @@ import { useAuth } from '../../context/AuthContext';
 import { useWaitingOrdersCount } from '../picking/hooks/useWaitingOrders';
 import { supabase } from '../../lib/supabase';
 import Mail from 'lucide-react/dist/esm/icons/mail';
+import Download from 'lucide-react/dist/esm/icons/download';
+// `./utils/exportReportPdf` is dynamically imported inside handleDownloadPdf
+// to defer @react-pdf/renderer (~490 KB gzipped) until the user actually
+// clicks "Download PDF".
 
 function formatDateNav(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00');
@@ -100,7 +104,7 @@ export const ActivityReportScreen = () => {
   const { data: reportTasks } = useReportTasks(selectedDate);
 
   // ----- Manual editable state -----
-  const [showGreeting, setShowGreeting] = useState(true);
+  // Greeting removed — feature eliminated per design refactor.
   const [notesText, setNotesText] = useState('');
   const [winOfTheDay, setWinOfTheDay] = useState('');
   const [pickdUpdatesText, setPickdUpdatesText] = useState('');
@@ -109,6 +113,7 @@ export const ActivityReportScreen = () => {
   const [isCopying, setIsCopying] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [routineItems, setRoutineItems] = useState<string[]>(loadRoutineItems);
   const [editingRoutine, setEditingRoutine] = useState(false);
   const [newRoutineItem, setNewRoutineItem] = useState('');
@@ -303,13 +308,14 @@ export const ActivityReportScreen = () => {
       // Clone the report so we don't mutate the live UI
       const clone = reportEl.cloneNode(true) as HTMLElement;
 
-      // Strip blob: URLs — they're local to this tab and can't be resolved
-      // anywhere else. External https:// URLs are left as-is because Gmail's
-      // paste handler re-hosts them through its own proxy (googleusercontent).
-      // Previous approach converted to base64 data URIs, but Gmail strips those.
+      // Remove ALL images from the clipboard copy — they don't paste well
+      // into email clients regardless of source (blob:, https:, data:).
       for (const img of Array.from(clone.querySelectorAll('img'))) {
-        if (img.src.startsWith('blob:')) img.remove();
+        img.remove();
       }
+
+      // Remove the entire PALLET PHOTOS section (images + order numbers).
+      clone.querySelector('[data-section="pallet-photos"]')?.remove();
 
       // Use Clipboard API to write HTML with external image URLs.
       const html = clone.outerHTML;
@@ -383,6 +389,47 @@ export const ActivityReportScreen = () => {
     const raw = (reportForView.verified_skus_2m / reportForView.total_skus) * 100;
     return raw >= 10 ? Math.round(raw) : Math.round(raw * 10) / 10;
   }, [useSnapshotComputed, snapshotRow, reportForView]);
+
+  // PDF export (idea-059) — renders <ActivityReportView printMode /> off-screen
+  // with full-resolution images and triggers a download.
+  const handleDownloadPdf = useCallback(async () => {
+    if (!reportForView) return;
+    setIsGeneratingPdf(true);
+    try {
+      // Dynamic import keeps @react-pdf/renderer out of the initial bundle.
+      const { exportActivityReportPdf } = await import('./utils/exportReportPdf');
+      await exportActivityReportPdf({
+        report: reportForView,
+        accuracyPct,
+        notes,
+        winOfTheDay,
+        routineChecklist,
+        pickdUpdates,
+        doneToday,
+        inProgress,
+        comingUpNext,
+        waitingOrdersCount: waitingCount,
+        filenameStem: `activity-report-${selectedDate}`,
+      });
+    } catch (err) {
+      console.error('PDF export failed:', err);
+      alert('Failed to generate PDF. Check console for details.');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }, [
+    reportForView,
+    accuracyPct,
+    notes,
+    winOfTheDay,
+    routineChecklist,
+    pickdUpdates,
+    doneToday,
+    inProgress,
+    comingUpNext,
+    waitingCount,
+    selectedDate,
+  ]);
 
   // Wait for NY date to load before rendering anything date-dependent.
   if (!selectedDate || !today) {
@@ -490,18 +537,6 @@ export const ActivityReportScreen = () => {
         <div className="print:hidden shrink-0 md:w-80 md:min-w-[320px] md:border-r md:border-subtle md:order-1 order-2 border-t md:border-t-0 border-subtle bg-bg-main overflow-y-auto">
           <div className="p-4 space-y-3">
             <p className="text-[10px] font-black uppercase tracking-widest text-muted mb-1">Editor</p>
-
-            {/* Greeting toggle */}
-            <button
-              onClick={() => setShowGreeting((v) => !v)}
-              className={`w-full px-3 py-2 rounded-xl text-[11px] font-bold text-left transition-all active:scale-[0.98] ${
-                showGreeting
-                  ? 'bg-accent/15 border border-accent/30 text-accent'
-                  : 'bg-surface border border-subtle text-muted hover:border-accent/30'
-              }`}
-            >
-              Hi Carine! Here's today's update.
-            </button>
 
             {/* Win of the Day input + save */}
             <div>
@@ -746,6 +781,26 @@ export const ActivityReportScreen = () => {
                 </>
               )}
             </button>
+
+            {/* Download PDF — idea-059, includes full-res gallery + pallet photos */}
+            <button
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf || !reportForView}
+              className="w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest bg-card border border-subtle text-content/70 hover:bg-card/80 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              title="Download report as PDF with full-resolution images"
+            >
+              {isGeneratingPdf ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Generating PDF...
+                </>
+              ) : (
+                <>
+                  <Download size={14} />
+                  Download PDF
+                </>
+              )}
+            </button>
           </div>
         </div>
 
@@ -774,7 +829,6 @@ export const ActivityReportScreen = () => {
                 inProgress={inProgress}
                 comingUpNext={comingUpNext}
                 waitingOrdersCount={waitingCount}
-                greeting={showGreeting ? "Hi Carine! Here's today's update." : undefined}
               />
             </div>
           )}

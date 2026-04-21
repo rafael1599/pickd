@@ -423,15 +423,18 @@ export const usePickingSync = ({
     try {
       const sanitizedItems = items; // Data already in correct format from database
       if (listId) {
-        const { error } = await supabase
-          .from('picking_lists')
-          .update({
-            items: sanitizedItems as unknown as Json,
-            order_number: orderNum,
-            customer_id: customer?.id,
-            load_number: loadNumber,
-          })
-          .eq('id', listId);
+        // Guard: never write merged group data back to DB.
+        // Merged order_numbers contain ' / ' (e.g. "879270 / 879268").
+        const isMergedGroup = orderNum?.includes(' / ');
+        const updateData: Record<string, unknown> = {
+          customer_id: customer?.id,
+          load_number: loadNumber,
+        };
+        if (!isMergedGroup) {
+          updateData.items = sanitizedItems as unknown as Json;
+          updateData.order_number = orderNum;
+        }
+        const { error } = await supabase.from('picking_lists').update(updateData).eq('id', listId);
         if (error) throw error;
       } else if (items.length > 0) {
         const { data, error } = await supabase
@@ -534,6 +537,8 @@ export const usePickingSync = ({
           let combinedOrderNumber = data.order_number || null;
 
           // If order belongs to a group, merge items from all sibling orders
+          // for display in DoubleCheckView. The merged state is READ-ONLY —
+          // write paths (saveToDb, markAsReady) must guard against writing it back.
           if (data.group_id) {
             const { data: siblings } = await supabase
               .from('picking_lists')
@@ -547,7 +552,6 @@ export const usePickingSync = ({
               const orderNumbers = [data.order_number];
               for (const sibling of siblings) {
                 const siblingItems = (sibling.items as unknown as CartItem[]) || [];
-                // Tag each item with source_order for traceability
                 const taggedItems = siblingItems.map((item) => ({
                   ...item,
                   source_order: sibling.order_number || 'unknown',
@@ -555,7 +559,6 @@ export const usePickingSync = ({
                 allItems = [...allItems, ...taggedItems];
                 if (sibling.order_number) orderNumbers.push(sibling.order_number);
               }
-              // Tag original order items too
               allItems = allItems.map((item) =>
                 item.source_order ? item : { ...item, source_order: data.order_number || 'unknown' }
               );

@@ -109,6 +109,25 @@ function mapRowToBikeUnitWithCatalog(row: SkuRow): BikeUnitWithCatalog {
 
 export const scratchAndDentApi = {
   /**
+   * Returns the next available sequential S/D SKU (01-NNNN).
+   * Queries the highest existing 01- numeric SKU and increments by 1.
+   */
+  async fetchNextSku(): Promise<string> {
+    const { data } = await supabase
+      .from('sku_metadata')
+      .select('sku')
+      .like('sku', '01-0%')
+      .order('sku', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!data?.sku) return '01-0001';
+    const num = parseInt(data.sku.replace('01-', ''), 10);
+    if (isNaN(num)) return '01-0490';
+    return `01-${String(num + 1).padStart(4, '0')}`;
+  },
+
+  /**
    * Fetch the S/D catalog. Filters by status are applied client-side because
    * status is derived from inventory state, not stored.
    */

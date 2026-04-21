@@ -8,6 +8,7 @@ import {
 } from './hooks/useScratchAndDentCatalog';
 import type { BikeUnitWithCatalog } from '../../schemas/products.schema';
 import { ScratchAndDentEditorSheet } from './components/ScratchAndDentEditorSheet';
+import { SDQuickIntakeModal } from './components/SDQuickIntakeModal';
 
 const STATUS_TABS: { value: 'available' | 'sold' | 'reserved' | 'retired'; label: string }[] = [
   { value: 'available', label: 'Available' },
@@ -98,6 +99,7 @@ export function ScratchAndDentCatalogScreen() {
   });
 
   const isEditorOpen = action === 'create' || action === 'edit';
+  const [quickIntakeOpen, setQuickIntakeOpen] = useState(false);
 
   const closeEditor = () => {
     const next = new URLSearchParams(searchParams);
@@ -119,12 +121,20 @@ export function ScratchAndDentCatalogScreen() {
               bikes
             </p>
           </div>
-          <button
-            onClick={() => setSearchParams({ action: 'create' }, { replace: true })}
-            className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-accent text-white active:scale-95 transition-all"
-          >
-            + Register S/D unit
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setQuickIntakeOpen(true)}
+              className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-accent text-white active:scale-95 transition-all"
+            >
+              + Quick Intake
+            </button>
+            <button
+              onClick={() => setSearchParams({ action: 'create' }, { replace: true })}
+              className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-card text-muted border border-subtle active:scale-95 transition-all"
+            >
+              + Full Editor
+            </button>
+          </div>
         </div>
 
         {/* Status tabs */}
@@ -223,6 +233,8 @@ export function ScratchAndDentCatalogScreen() {
           onClose={closeEditor}
         />
       )}
+
+      <SDQuickIntakeModal open={quickIntakeOpen} onClose={() => setQuickIntakeOpen(false)} />
     </div>
   );
 }

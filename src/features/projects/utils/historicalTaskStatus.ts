@@ -47,7 +47,13 @@ export interface BucketTask {
   title: string;
   note: string | null;
   photo_count?: number;
+  /** First 3 thumbnail URLs for the screen preview. */
   photo_thumbnails?: string[];
+  /** First 3 full-size URLs, aligned 1:1 with photo_thumbnails. */
+  photo_fullsize?: string[];
+  /** ALL full-size photo URLs for this task (no slice). Used by the PDF
+   *  "Projects" page which needs every photo, not just the preview's first 3. */
+  all_photos_fullsize?: string[];
 }
 
 export interface TaskStatusBuckets {
