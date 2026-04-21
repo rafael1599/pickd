@@ -320,6 +320,31 @@ export const ActivityReportView: React.FC<Props> = ({
           </p>
         )}
 
+        {/* ON THE FLOOR — first block so readers see today's floor activity
+            before anything else. Preview + clipboard copy use this order;
+            the PDF doc (ActivityReportPdfDoc) keeps its own ordering. */}
+        {hasFloorContent && (
+          <>
+            <div style={cardStyle} className={`${checklistFlash} ${notesFlash}`.trim()}>
+              <p style={sectionHeaderStyle(BLUE)}>ON THE FLOOR</p>
+              {floorBullets.map((item, i) => (
+                <p
+                  key={i}
+                  style={{
+                    ...bulletTextStyle,
+                    padding: i < floorBullets.length - 1 ? '0 0 10px 0' : 0,
+                    margin: 0,
+                  }}
+                >
+                  <span style={bulletStyle(BLUE)}>&#9679;</span>
+                  &nbsp;&nbsp;{item}
+                </p>
+              ))}
+            </div>
+            <div style={spacerStyle} />
+          </>
+        )}
+
         {/* Inventory Accuracy KPI — top position */}
         {hasAccuracy && (
           <>
@@ -492,28 +517,6 @@ export const ActivityReportView: React.FC<Props> = ({
           </>
         )}
 
-        {/* ON THE FLOOR — before In Progress */}
-        {hasFloorContent && (
-          <>
-            <div style={cardStyle} className={`${checklistFlash} ${notesFlash}`.trim()}>
-              <p style={sectionHeaderStyle(BLUE)}>ON THE FLOOR</p>
-              {floorBullets.map((item, i) => (
-                <p
-                  key={i}
-                  style={{
-                    ...bulletTextStyle,
-                    padding: i < floorBullets.length - 1 ? '0 0 10px 0' : 0,
-                    margin: 0,
-                  }}
-                >
-                  <span style={bulletStyle(BLUE)}>&#9679;</span>
-                  &nbsp;&nbsp;{item}
-                </p>
-              ))}
-            </div>
-            <div style={spacerStyle} />
-          </>
-        )}
 
         {/* IN PROGRESS — conditional */}
         {hasInProgress && (
