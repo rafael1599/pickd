@@ -13,41 +13,23 @@
  * whole page to a JPEG, producing a blurry non-selectable PDF.
  */
 
-import {
-  Document,
-  Page,
-  View,
-  Text,
-  Image,
-  Svg,
-  Rect,
-  Line,
-} from '@react-pdf/renderer';
+import { Document, Page, View, Text, Image, Svg, Rect } from '@react-pdf/renderer';
 import type { ReactNode } from 'react';
 import type { ActivityReport } from '../hooks/useActivityReport';
 import type { ReportTask } from '../../projects/hooks/useProjectReportData';
-import { registerPdfFonts } from './fonts';
+import { registerPdfFonts } from '../../../lib/pdf/fonts';
+import {
+  TONE,
+  SANS,
+  MONO,
+  A4_MARGIN,
+  pickCols,
+  formatDateLong,
+  formatDateShort,
+} from '../../../lib/pdf/tokens';
+import { Step, CornerMarks } from '../../../lib/pdf/primitives';
 
 registerPdfFonts();
-
-// ── Design tokens ──────────────────────────────────────────────────────
-
-const TONE = {
-  paperWarm: '#FAF8F5',
-  paperPure: '#FFFFFF',
-  ink: '#111111',
-  ink2: '#3A3A3A',
-  muted: '#6B6B6B',
-  mute2: '#8A8A8A',
-  hair: '#E6E4DE',
-  teal: '#0E8C6B',
-  tealSoft: '#E8F3EE',
-};
-
-const SANS = 'Inter';
-const MONO = 'JetBrains Mono';
-
-const A4_MARGIN = 36;
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -101,21 +83,6 @@ function heroSize(density: Density): number {
   return 104;
 }
 
-function formatDateLong(dateStr: string): string {
-  const d = new Date(dateStr + 'T12:00:00');
-  return d.toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
-function formatDateShort(dateStr: string): string {
-  return new Date(dateStr + 'T12:00:00')
-    .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    .toUpperCase();
-}
-
 function buildFloorBullets(args: ActivityReportPdfDocProps): string[] {
   const out: string[] = [];
   const totals = args.report.warehouse_totals;
@@ -160,43 +127,6 @@ function splitFloorBullet(s: string): ActivityItem {
 
 // ── Primitives ─────────────────────────────────────────────────────────
 
-/** Numbered reading-path pill. SVG circle + vector text. */
-function Step({
-  n,
-  size = 16,
-  color = TONE.ink,
-}: {
-  n: string;
-  size?: number;
-  color?: string;
-}) {
-  const fontSize = size * 0.5;
-  const r = size / 2;
-  // In react-pdf's <Svg>, Text uses the `fill` attribute for color — CSS
-  // `color` on the style prop is ignored, so without `fill` the digits
-  // render in the default black and disappear on a dark circle.
-  // Vertical nudge: text baseline sits ~80% from top, so y = r + fontSize*0.35
-  // centers the digits optically within the circle for MONO at this size.
-  return (
-    <Svg width={size} height={size}>
-      <Rect x={0} y={0} width={size} height={size} fill={color} rx={r} ry={r} />
-      <Text
-        fill="#ffffff"
-        style={{
-          fontFamily: MONO,
-          fontSize,
-          fontWeight: 600,
-        }}
-        x={r}
-        y={r + fontSize * 0.35}
-        textAnchor="middle"
-      >
-        {n}
-      </Text>
-    </Svg>
-  );
-}
-
 /** Horizontal label row: numbered step + caps label + hairline rule. */
 function StepHeader({
   n,
@@ -236,72 +166,6 @@ function StepHeader({
   );
 }
 
-/** Corner registration marks like print crop marks. */
-function CornerMarks({
-  color = TONE.teal,
-  inset = 16,
-  size = 14,
-  weight = 1.2,
-}: {
-  color?: string;
-  inset?: number;
-  size?: number;
-  weight?: number;
-}) {
-  interface Corner {
-    top?: number;
-    bottom?: number;
-    left?: number;
-    right?: number;
-    hSide: 'top' | 'bottom';
-    vSide: 'left' | 'right';
-  }
-  const corners: Corner[] = [
-    { top: inset, left: inset, hSide: 'top', vSide: 'left' },
-    { top: inset, right: inset, hSide: 'top', vSide: 'right' },
-    { bottom: inset, left: inset, hSide: 'bottom', vSide: 'left' },
-    { bottom: inset, right: inset, hSide: 'bottom', vSide: 'right' },
-  ];
-  return (
-    <>
-      {corners.map((c, i) => (
-        <View
-          key={i}
-          style={{
-            position: 'absolute',
-            width: size,
-            height: size,
-            ...(c.top !== undefined ? { top: c.top } : {}),
-            ...(c.left !== undefined ? { left: c.left } : {}),
-            ...(c.right !== undefined ? { right: c.right } : {}),
-            ...(c.bottom !== undefined ? { bottom: c.bottom } : {}),
-          }}
-        >
-          <View
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              height: weight,
-              backgroundColor: color,
-              ...(c.hSide === 'top' ? { top: 0 } : { bottom: 0 }),
-            }}
-          />
-          <View
-            style={{
-              position: 'absolute',
-              top: 0,
-              bottom: 0,
-              width: weight,
-              backgroundColor: color,
-              ...(c.vSide === 'left' ? { left: 0 } : { right: 0 }),
-            }}
-          />
-        </View>
-      ))}
-    </>
-  );
-}
 
 // ── Hero KPI ───────────────────────────────────────────────────────────
 
@@ -782,21 +646,16 @@ interface PalletTile {
   url: string;
 }
 
-function pickCols(total: number): number {
-  if (total <= 2) return 2;
-  if (total <= 8) return 3;
-  if (total <= 16) return 4;
-  return 5;
-}
-
 function PalletPage({
   orders,
   date,
   totalPages,
+  pageIndex,
 }: {
   orders: { order_number: string; photos: string[] }[];
   date: string;
   totalPages: number;
+  pageIndex: number;
 }) {
   const tiles: PalletTile[] = [];
   for (const o of orders) {
@@ -872,7 +731,7 @@ function PalletPage({
             {orders.length} ORDER{orders.length !== 1 ? 'S' : ''} · {formatDateShort(date)}
           </Text>
           <Text style={{ fontFamily: MONO, fontSize: 9, color: TONE.muted, marginTop: 2 }}>
-            PAGE 2 / {totalPages}
+          PAGE {pageIndex} / {totalPages}
           </Text>
         </View>
       </View>
@@ -964,7 +823,214 @@ function PalletPage({
             .toUpperCase()}
         </Text>
         <Text style={{ fontFamily: MONO, fontSize: 8, color: TONE.muted }}>
-          PAGE 2 / {totalPages}
+          PAGE {pageIndex} / {totalPages}
+        </Text>
+      </View>
+    </Page>
+  );
+}
+
+// ── PAGE 3: Projects ──────────────────────────────────────────────────
+
+/**
+ * Flat grid of all project photos across done / in-progress / coming-up.
+ * Each tile is overlay-labelled with the parent task's title (not with
+ * the order #, as on the pallet page). Long titles wrap or truncate.
+ */
+
+interface ProjectTile {
+  title: string;
+  url: string;
+}
+
+function collectProjectTiles(props: ActivityReportPdfDocProps): ProjectTile[] {
+  const all = [...props.doneToday, ...props.inProgress, ...props.comingUpNext];
+  const tiles: ProjectTile[] = [];
+  for (const t of all) {
+    const urls = t.all_photos_fullsize ?? t.photo_fullsize ?? [];
+    for (const url of urls) tiles.push({ title: t.title, url });
+  }
+  return tiles;
+}
+
+function ProjectsPage({
+  tiles,
+  date,
+  pageIndex,
+  totalPages,
+}: {
+  tiles: ProjectTile[];
+  date: string;
+  pageIndex: number;
+  totalPages: number;
+}) {
+  const cols = pickCols(tiles.length);
+  const contentW = 595 - A4_MARGIN * 2;
+  const gap = 6;
+  const tileSize = (contentW - gap * (cols - 1)) / cols;
+  const taskCount = new Set(tiles.map((t) => t.title)).size;
+
+  return (
+    <Page
+      size="A4"
+      style={{
+        backgroundColor: TONE.paperWarm,
+        padding: A4_MARGIN,
+        fontFamily: SANS,
+        color: TONE.ink,
+      }}
+    >
+      <View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 5,
+          backgroundColor: TONE.teal,
+        }}
+      />
+      <CornerMarks color={TONE.teal} />
+
+      {/* HEADER */}
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'flex-end',
+          paddingBottom: 10,
+          borderBottomWidth: 1,
+          borderBottomColor: TONE.hair,
+        }}
+      >
+        <View>
+          <Text
+            style={{
+              fontSize: 9,
+              letterSpacing: 2,
+              color: TONE.muted,
+              fontWeight: 500,
+              marginBottom: 6,
+            }}
+          >
+            PICKD · WAREHOUSE OPERATIONS
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Step n="06" color={TONE.teal} size={20} />
+            <Text
+              style={{
+                fontSize: 24,
+                fontWeight: 600,
+                letterSpacing: -0.4,
+                marginLeft: 10,
+              }}
+            >
+              Projects
+            </Text>
+          </View>
+        </View>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={{ fontFamily: MONO, fontSize: 9, color: TONE.muted }}>
+            {taskCount} PROJECT{taskCount !== 1 ? 'S' : ''} · {formatDateShort(date)}
+          </Text>
+          <Text style={{ fontFamily: MONO, fontSize: 9, color: TONE.muted, marginTop: 2 }}>
+            PAGE {pageIndex} / {totalPages}
+          </Text>
+        </View>
+      </View>
+
+      {/* GRID */}
+      <View
+        style={{
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          gap,
+          marginTop: 14,
+        }}
+      >
+        {tiles.map((t, i) => (
+          <View
+            key={i}
+            style={{
+              width: tileSize,
+              height: tileSize,
+              position: 'relative',
+              borderRadius: 2,
+              overflow: 'hidden',
+              backgroundColor: TONE.hair,
+            }}
+            wrap={false}
+          >
+            <Image
+              src={t.url}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+              }}
+            />
+            {/* Title overlay — pill at the bottom; title wraps to 2 lines max. */}
+            <View
+              style={{
+                position: 'absolute',
+                left: 4,
+                right: 4,
+                bottom: 4,
+                alignItems: 'center',
+              }}
+            >
+              <View
+                style={{
+                  backgroundColor: 'rgba(17,17,17,0.78)',
+                  paddingHorizontal: 5,
+                  paddingVertical: 2,
+                  borderRadius: 2,
+                  maxWidth: '100%',
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: SANS,
+                    fontSize: 8,
+                    fontWeight: 500,
+                    color: '#ffffff',
+                    letterSpacing: 0.2,
+                    textAlign: 'center',
+                  }}
+                >
+                  {/* Truncate long titles so the overlay never eats the tile.
+                      ~36 chars fits ~2 lines at font-size 8 inside the tile. */}
+                  {t.title.length > 36 ? t.title.slice(0, 34).trim() + '…' : t.title}
+                </Text>
+              </View>
+            </View>
+          </View>
+        ))}
+      </View>
+
+      {/* FOOTER */}
+      <View
+        style={{
+          position: 'absolute',
+          bottom: A4_MARGIN,
+          left: A4_MARGIN,
+          right: A4_MARGIN,
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingTop: 8,
+          borderTopWidth: 1,
+          borderTopColor: TONE.hair,
+        }}
+      >
+        <Text style={{ fontFamily: MONO, fontSize: 8, color: TONE.muted }}>
+          GENERATED BY PICKD ·{' '}
+          {new Date()
+            .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+            .toUpperCase()}
+        </Text>
+        <Text style={{ fontFamily: MONO, fontSize: 8, color: TONE.muted }}>
+          PAGE {pageIndex} / {totalPages}
         </Text>
       </View>
     </Page>
@@ -975,18 +1041,34 @@ function PalletPage({
 
 export function ActivityReportPdfDoc(props: ActivityReportPdfDocProps): ReactNode {
   const orders = props.report.completed_orders_with_photos;
-  const hasPhotos = orders.length > 0;
-  const totalPages = hasPhotos ? 2 : 1;
+  const hasOrders = orders.length > 0;
+  const projectTiles = collectProjectTiles(props);
+  const hasProjects = projectTiles.length > 0;
+  const totalPages = 1 + (hasOrders ? 1 : 0) + (hasProjects ? 1 : 0);
+
+  const palletPageIndex = 2; // always P2 when it exists
+  const projectsPageIndex = hasOrders ? 3 : 2;
 
   return (
     <Document>
       <SummaryPage {...props} totalPages={totalPages} />
-      {hasPhotos && (
-        <PalletPage orders={orders} date={props.report.date} totalPages={totalPages} />
+      {hasOrders && (
+        <PalletPage
+          orders={orders}
+          date={props.report.date}
+          totalPages={totalPages}
+          pageIndex={palletPageIndex}
+        />
+      )}
+      {hasProjects && (
+        <ProjectsPage
+          tiles={projectTiles}
+          date={props.report.date}
+          totalPages={totalPages}
+          pageIndex={projectsPageIndex}
+        />
       )}
     </Document>
   );
 }
 
-// Quiet unused-symbol warnings for Svg primitives imported for future use.
-void Line;

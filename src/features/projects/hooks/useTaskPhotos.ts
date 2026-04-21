@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
+import { GALLERY_KEY, ARCHIVED_KEY } from './useGalleryPhotos';
 import type { GalleryPhoto } from '../../../schemas/galleryPhoto';
 
 const TASK_PHOTOS_KEY = ['task-photo-counts'] as const;
@@ -43,6 +44,10 @@ export function useAssignPhotosToTask() {
     onSettled: (_d, _e, vars) => {
       qc.invalidateQueries({ queryKey: TASK_PHOTOS_KEY });
       qc.invalidateQueries({ queryKey: TASK_PHOTO_DETAILS_KEY(vars.taskId) });
+      // Gallery filters out assigned photos, so it must refresh when we
+      // create new assignments. Same for the archived view.
+      qc.invalidateQueries({ queryKey: GALLERY_KEY });
+      qc.invalidateQueries({ queryKey: ARCHIVED_KEY });
     },
   });
 }
@@ -84,6 +89,10 @@ export function useUnassignPhoto() {
     onSettled: (_data, _err, vars) => {
       qc.invalidateQueries({ queryKey: TASK_PHOTO_DETAILS_KEY(vars.taskId) });
       qc.invalidateQueries({ queryKey: TASK_PHOTOS_KEY });
+      // Unassigning makes the photo re-appear in the main gallery and
+      // disappear from the archive.
+      qc.invalidateQueries({ queryKey: GALLERY_KEY });
+      qc.invalidateQueries({ queryKey: ARCHIVED_KEY });
     },
   });
 }

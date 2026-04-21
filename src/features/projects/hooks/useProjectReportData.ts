@@ -108,6 +108,7 @@ export function useReportTasks(date: string) {
               photo_count: pairs.length,
               photo_thumbnails: first3.map((p) => p.thumb),
               photo_fullsize: first3.map((p) => p.full),
+              all_photos_fullsize: pairs.map((p) => p.full),
             };
           };
 

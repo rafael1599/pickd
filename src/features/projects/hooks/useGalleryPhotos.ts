@@ -8,21 +8,72 @@ import {
 } from '../../../services/photoUpload.service';
 import type { GalleryPhoto } from '../../../schemas/galleryPhoto';
 
-const GALLERY_KEY = ['gallery-photos'] as const;
+export const GALLERY_KEY = ['gallery-photos'] as const;
+export const ARCHIVED_KEY = ['gallery-photos-archived'] as const;
 
-// ─── Query: fetch active (non-deleted) gallery photos ───────────────────────
+// ─── Query: fetch UNASSIGNED gallery photos (not linked to any task) ───────
 
 export function useGalleryPhotos() {
   return useQuery({
     queryKey: GALLERY_KEY,
     queryFn: async (): Promise<GalleryPhoto[]> => {
+      // Two queries because PostgREST can't do `NOT IN (subquery)` cleanly.
+      // Fetch all active photos + all task_photos mappings, then subtract.
+      const [photosRes, assignedRes] = await Promise.all([
+        supabase
+          .from('gallery_photos')
+          .select('*')
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false }),
+        supabase.from('task_photos').select('photo_id'),
+      ]);
+      if (photosRes.error) throw photosRes.error;
+      if (assignedRes.error) throw assignedRes.error;
+      const assignedIds = new Set(
+        (assignedRes.data ?? []).map((r: { photo_id: string }) => r.photo_id)
+      );
+      return ((photosRes.data as GalleryPhoto[]) ?? []).filter((p) => !assignedIds.has(p.id));
+    },
+  });
+}
+
+// ─── Query: fetch ARCHIVED photos (assigned to a task) + task titles ────────
+
+export interface ArchivedPhoto extends GalleryPhoto {
+  task_id: string;
+  task_title: string;
+  task_status: 'future' | 'in_progress' | 'done';
+  assigned_at: string;
+}
+
+export function useArchivedPhotos() {
+  return useQuery({
+    queryKey: ARCHIVED_KEY,
+    queryFn: async (): Promise<ArchivedPhoto[]> => {
+      // Join task_photos → gallery_photos + project_tasks in a single request.
       const { data, error } = await supabase
-        .from('gallery_photos')
-        .select('*')
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false });
+        .from('task_photos')
+        .select(
+          'photo_id, task_id, assigned_at, gallery_photos(*), project_tasks(id, title, status)'
+        )
+        .order('assigned_at', { ascending: false });
       if (error) throw error;
-      return (data as GalleryPhoto[]) ?? [];
+      const rows = (data ?? []) as unknown as Array<{
+        photo_id: string;
+        task_id: string;
+        assigned_at: string;
+        gallery_photos: GalleryPhoto | null;
+        project_tasks: { id: string; title: string; status: ArchivedPhoto['task_status'] } | null;
+      }>;
+      return rows
+        .filter((r) => r.gallery_photos && !r.gallery_photos.deleted_at && r.project_tasks)
+        .map((r) => ({
+          ...(r.gallery_photos as GalleryPhoto),
+          task_id: r.task_id,
+          task_title: r.project_tasks!.title,
+          task_status: r.project_tasks!.status,
+          assigned_at: r.assigned_at,
+        }));
     },
   });
 }
