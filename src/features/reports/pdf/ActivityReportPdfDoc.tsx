@@ -386,16 +386,26 @@ function ActivityCard({
 
       {items.map((it, i) => (
         <View key={i} style={{ flexDirection: 'row', marginTop: i === 0 ? 0 : 3 }}>
-          <Text
-            style={{
-              fontFamily: SANS,
-              fontSize: 8,
-              color: it.filled ? TONE.teal : TONE.muted,
-              width: 10,
-            }}
-          >
-            {it.filled ? '●' : '○'}
-          </Text>
+          {/* SVG bullet — the Inter-latin WOFF we ship to react-pdf has no
+              glyph for U+25CF/U+25CB (● / ○). fontkit falls back to the
+              low byte of the codepoint (U+00CF `Ï`, U+00CB `Ë`) so text
+              bullets rendered as random Latin letters in the PDF. Drawing
+              the bullet as an SVG circle is font-independent. */}
+          <View style={{ width: 10, paddingTop: 2.5 }}>
+            <Svg width={5} height={5}>
+              <Rect
+                x={0}
+                y={0}
+                width={5}
+                height={5}
+                rx={2.5}
+                ry={2.5}
+                fill={it.filled ? TONE.teal : 'transparent'}
+                stroke={it.filled ? 'transparent' : TONE.muted}
+                strokeWidth={0.6}
+              />
+            </Svg>
+          </View>
           <View style={{ flex: 1 }}>
             <Text
               style={{
@@ -816,12 +826,11 @@ function PalletPage({
                   textAlign: 'center',
                 }}
               >
-                {/* Regular space BEFORE the dot is breakable (where a line
-                    wrap happens). NBSP (\u00a0) AFTER the dot glues the
-                    separator to the next number, so a wrap never leaves a
-                    lonely `·` at the end of a line — the previous line
-                    ends on a number, the next starts with `· #NNN`. */}
-                {t.orderNumbers.map((n) => `#${n}`).join(' ·\u00a0')}
+                {/* Space-only separator — the `#` prefix itself already
+                    delimits each number, so a `·` between them would only
+                    matter as a separator on the INSIDE of a line. Dropping
+                    it: cleaner and no orphan dots at line edges. */}
+                {t.orderNumbers.map((n) => `#${n}`).join(' ')}
               </Text>
             </View>
           );
