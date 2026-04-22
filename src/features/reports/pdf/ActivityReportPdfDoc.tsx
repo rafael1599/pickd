@@ -184,7 +184,7 @@ function HeroKpi({
   const accuracyRounded = Math.round(accuracyPct * 100) / 100;
   const verifiedLabel = `${report.verified_skus_2m.toLocaleString()} of ${report.total_skus.toLocaleString()} SKUs`;
 
-  // 60-day sparkline (deterministic monotonic climb to current pct).
+  // 90-day sparkline (deterministic monotonic climb to current pct).
   const N = 14;
   const bars = Array.from({ length: N }, (_, i) => {
     const t = i / (N - 1);
@@ -256,11 +256,11 @@ function HeroKpi({
           }}
         >
           <Text style={{ fontWeight: 600, color: TONE.teal }}>{verifiedLabel}</Text> physically counted
-          in the last 60 days.
+          in the last 90 days.
         </Text>
       </View>
 
-      {/* Right: progress bar + 60-day sparkline */}
+      {/* Right: progress bar + 90-day sparkline */}
       <View style={{ flex: 1, justifyContent: 'center' }}>
         {/* Progress bar */}
         <View
@@ -299,7 +299,7 @@ function HeroKpi({
             marginTop: 10,
           }}
         >
-          60-DAY TRAJECTORY
+          90-DAY TRAJECTORY
         </Text>
         {/* Sparkline bars — use Svg for vector bars */}
         <Svg width="100%" height={heroNum * 0.22} style={{ marginTop: 6 }}>
