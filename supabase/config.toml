@@ -34,10 +34,6 @@ verify_jwt = true
 [functions.daily-snapshot]
 verify_jwt = true
 
-# send-daily-report: triggered by cron, service role auth.
-[functions.send-daily-report]
-verify_jwt = true
-
 # manage-users: admin function, requires user JWT validation at gateway.
 [functions.manage-users]
 verify_jwt = true
