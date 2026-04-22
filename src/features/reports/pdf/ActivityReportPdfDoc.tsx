@@ -754,72 +754,108 @@ function PalletPage({
         style={{
           flexDirection: 'row',
           flexWrap: 'wrap',
-          // Split horizontal vs vertical gap so the Gestalt proximity makes
-          // it obvious each caption belongs to the image ABOVE it, not the
-          // one in the next row. Horizontal stays tight (6pt), vertical
-          // rows get extra breathing room (20pt) so the photo+caption pair
-          // reads as a single unit.
+          // Each tile is a self-contained card now, so the grid only needs
+          // breathing room between cards — no Gestalt-gap trick required.
           columnGap: gap,
-          rowGap: 20,
+          rowGap: 8,
           marginTop: 14,
         }}
       >
-        {tiles.map((t, i) => (
-          <View
-            key={i}
-            style={{
-              width: tileSize,
-              flexDirection: 'column',
-            }}
-            wrap={false}
-          >
-            {/* Image tile — uniform across the grid. */}
+        {tiles.map((t, i) => {
+          const [primary, ...extra] = t.orderNumbers;
+          const innerSize = tileSize - 6; // minus 2× card padding (3pt)
+          return (
             <View
+              key={i}
               style={{
                 width: tileSize,
-                height: tileSize,
-                borderRadius: 2,
-                overflow: 'hidden',
-                backgroundColor: TONE.hair,
+                // Card frame — unambiguously groups image + caption. Thin
+                // border + paper-white background against the warm page
+                // bg reads as a single "figure" unit.
+                borderWidth: 1,
+                borderColor: TONE.hair,
+                borderRadius: 3,
+                backgroundColor: TONE.paperPure,
+                padding: 3,
               }}
+              wrap={false}
             >
-              <Image
-                src={t.url}
+              {/* Image with the usual bottom-center overlay pill. For a
+                  single-order photo (the majority case) this is all you
+                  see — identical UX to the original design. */}
+              <View
                 style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                }}
-              />
-            </View>
-            {/* Caption — glued tight to the image (2pt gap) so the
-                relationship is unambiguous. Thin teal top border acts as
-                a visual "attaches to" connector. Wraps to as many lines
-                as needed; the image never loses space and IDs are never
-                truncated. */}
-            <View
-              style={{
-                marginTop: 2,
-                paddingTop: 3,
-                borderTopWidth: 1,
-                borderTopColor: TONE.hair,
-              }}
-            >
-              <Text
-                style={{
-                  fontFamily: MONO,
-                  fontSize: 7.5,
-                  fontWeight: 500,
-                  color: TONE.muted,
-                  letterSpacing: 0.3,
-                  lineHeight: 1.3,
+                  width: innerSize,
+                  height: innerSize,
+                  position: 'relative',
+                  borderRadius: 2,
+                  overflow: 'hidden',
+                  backgroundColor: TONE.hair,
                 }}
               >
-                {t.orderNumbers.map((n) => `#${n}`).join(' · ')}
-              </Text>
+                <Image
+                  src={t.url}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                  }}
+                />
+                <View
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    right: 0,
+                    bottom: 5,
+                    alignItems: 'center',
+                  }}
+                >
+                  <View
+                    style={{
+                      backgroundColor: 'rgba(17,17,17,0.78)',
+                      paddingHorizontal: 6,
+                      paddingVertical: 2,
+                      borderRadius: 2,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: MONO,
+                        fontSize: 9,
+                        fontWeight: 500,
+                        color: '#ffffff',
+                        letterSpacing: 0.4,
+                      }}
+                    >
+                      #{primary}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              {/* Spillover — only renders when the same photo belongs to
+                  multiple orders. Stays INSIDE the card so it's visually
+                  tied to the image above. `+ ` prefix reads as "and also
+                  these additional orders". Wraps to as many lines as the
+                  card width allows — no truncation. */}
+              {extra.length > 0 && (
+                <Text
+                  style={{
+                    fontFamily: MONO,
+                    fontSize: 7.5,
+                    fontWeight: 500,
+                    color: TONE.muted,
+                    letterSpacing: 0.3,
+                    lineHeight: 1.3,
+                    marginTop: 4,
+                    paddingHorizontal: 1,
+                  }}
+                >
+                  + {extra.map((n) => `#${n}`).join(' · ')}
+                </Text>
+              )}
             </View>
-          </View>
-        ))}
+          );
+        })}
       </View>
 
       {/* FOOTER */}
