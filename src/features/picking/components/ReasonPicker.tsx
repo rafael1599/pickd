@@ -5,10 +5,21 @@ export type ReasonActionType = 'remove' | 'swap' | 'adjust_qty' | 'add' | 'reope
 
 const REASON_PRESETS: Record<ReasonActionType, string[]> = {
   remove: ['Out of stock', 'Customer cancelled', 'Damaged/defective', 'Wrong item on order'],
-  swap: ['Out of stock — replacing', 'Wrong size/color', 'Customer requested', 'Damaged — swapping'],
+  swap: [
+    'Out of stock — replacing',
+    'Wrong size/color',
+    'Customer requested',
+    'Damaged — swapping',
+  ],
   adjust_qty: ['Partial stock only', 'Customer changed qty', 'Damaged units', 'Count correction'],
   add: ['Replacement for removed item', 'Customer add-on', 'Missing from original order'],
-  reopen: ['Item out of stock', 'Wrong item shipped', 'Customer change request', 'Correction needed'],
+  reopen: [
+    'Item out of stock',
+    'Wrong item shipped',
+    'Customer change request',
+    'Correction needed',
+    'Add On',
+  ],
   waiting: ['Bike not yet received', 'Backorder from vendor', 'Awaiting customer confirmation'],
 };
 
@@ -52,9 +63,7 @@ export const ReasonPicker: React.FC<ReasonPickerProps> = ({
     <div className="mb-3">
       <div className="flex items-center gap-1.5 mb-2">
         <MessageSquare size={10} className="text-muted/60" />
-        <span className="text-[9px] font-black text-muted/60 uppercase tracking-widest">
-          Why?
-        </span>
+        <span className="text-[9px] font-black text-muted/60 uppercase tracking-widest">Why?</span>
       </div>
 
       <div className="grid grid-cols-2 gap-1.5">

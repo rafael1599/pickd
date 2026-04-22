@@ -20,6 +20,8 @@ import { SearchInput } from '../../components/ui/SearchInput.tsx';
 import type { PickingListItem, CombineMeta } from '../../schemas/picking.schema';
 import { saveCustomerAddress } from '../../lib/customerAddresses';
 import { ReasonPicker } from './components/ReasonPicker';
+import { AddOnOrderPicker } from './components/AddOnOrderPicker';
+import { useOrderGroups } from './hooks/useOrderGroups';
 
 interface CustomerDetails {
   id: string;
@@ -52,6 +54,7 @@ interface OrderWithRelations {
   checker: { full_name: string | null } | null;
   presence: { last_seen_at: string | null } | null;
   pallet_photos: string[] | null;
+  group_id: string | null;
   order_group: { group_type: string | null } | null;
 }
 
@@ -77,6 +80,9 @@ export const OrdersScreen = () => {
   const [isMobileOrderListOpen, setIsMobileOrderListOpen] = useState(false);
   const [reopenReasonModal, setReopenReasonModal] = useState(false);
   const [reopenReason, setReopenReason] = useState('');
+  const [addOnPickerOpen, setAddOnPickerOpen] = useState(false);
+  const [addOnSubmitting, setAddOnSubmitting] = useState(false);
+  const { createGroup, addToGroup } = useOrderGroups();
   const filterRef = useRef<HTMLDivElement>(null);
   const mobileDropdownRef = useRef<HTMLDivElement>(null);
   const searchQueryRef = useRef(searchQuery);
@@ -774,6 +780,10 @@ export const OrdersScreen = () => {
   const handleConfirmReopen = async () => {
     if (!selectedOrder || !reopenReason) return;
     setReopenReasonModal(false);
+    if (reopenReason === 'Add On') {
+      setAddOnPickerOpen(true);
+      return;
+    }
     try {
       await loadReopenedOrder(selectedOrder.id, reopenReason);
       // Navigate to home so the drawer renders and auto-opens for reopened mode
@@ -781,6 +791,36 @@ export const OrdersScreen = () => {
       navigate('/');
     } catch {
       // Error already toasted in loadReopenedOrder
+    }
+  };
+
+  const addOnCandidates = useMemo(() => {
+    if (!selectedOrder || !addOnPickerOpen) return [];
+    return orders.filter(
+      (o) =>
+        o.id !== selectedOrder.id &&
+        o.customer_id === selectedOrder.customer_id &&
+        o.status !== 'cancelled' &&
+        o.status !== 'completed'
+    );
+  }, [orders, selectedOrder, addOnPickerOpen]);
+
+  const handleAddOnSelect = async (targetId: string) => {
+    if (!selectedOrder || addOnSubmitting) return;
+    const target = orders.find((o) => o.id === targetId);
+    if (!target) return;
+    setAddOnSubmitting(true);
+    try {
+      if (target.group_id) {
+        await addToGroup(target.group_id, selectedOrder.id);
+      } else if (selectedOrder.group_id) {
+        await addToGroup(selectedOrder.group_id, target.id);
+      } else {
+        await createGroup('general', [selectedOrder.id, target.id]);
+      }
+      setAddOnPickerOpen(false);
+    } finally {
+      setAddOnSubmitting(false);
     }
   };
 
@@ -1231,11 +1271,24 @@ export const OrdersScreen = () => {
                 disabled={!reopenReason}
                 className="flex-1 min-h-12 rounded-xl font-black uppercase tracking-widest text-[10px] bg-orange-500 text-white border border-orange-500 transition-all hover:opacity-80 active:scale-[0.97] disabled:opacity-50"
               >
-                Reopen
+                {reopenReason === 'Add On' ? 'Continue' : 'Reopen'}
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {addOnPickerOpen && selectedOrder && (
+        <AddOnOrderPicker
+          sourceOrder={selectedOrder}
+          candidates={addOnCandidates}
+          submitting={addOnSubmitting}
+          onSelect={handleAddOnSelect}
+          onCancel={() => {
+            if (addOnSubmitting) return;
+            setAddOnPickerOpen(false);
+          }}
+        />
       )}
     </div>
   );
