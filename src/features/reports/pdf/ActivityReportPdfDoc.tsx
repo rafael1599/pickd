@@ -813,6 +813,7 @@ function PalletPage({
                   lineHeight: 1.3,
                   marginTop: 4,
                   paddingHorizontal: 1,
+                  textAlign: 'center',
                 }}
               >
                 {t.orderNumbers.map((n) => `#${n}`).join(' · ')}
