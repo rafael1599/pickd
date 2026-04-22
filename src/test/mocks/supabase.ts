@@ -21,6 +21,7 @@ export const mockSupabase = {
   update: vi.fn().mockReturnThis(),
   insert: vi.fn().mockReturnThis(),
   delete: vi.fn().mockReturnThis(),
+  rpc: vi.fn(),
 };
 
 // Intercept the real supabase import to use our mock
