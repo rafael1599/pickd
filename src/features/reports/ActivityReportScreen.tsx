@@ -102,9 +102,8 @@ export const ActivityReportScreen = () => {
   const { data: reportTasks } = useReportTasks(selectedDate);
 
   // ----- Manual editable state -----
-  // Greeting removed — feature eliminated per design refactor.
+  // Greeting + Win of the Day removed — features eliminated per design refactor.
   const [notesText, setNotesText] = useState('');
-  const [winOfTheDay, setWinOfTheDay] = useState('');
   const [pickdUpdatesText, setPickdUpdatesText] = useState('');
   const [routineChecklist, setRoutineChecklist] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
@@ -113,6 +112,12 @@ export const ActivityReportScreen = () => {
   const [routineItems, setRoutineItems] = useState<string[]>(loadRoutineItems);
   const [editingRoutine, setEditingRoutine] = useState(false);
   const [newRoutineItem, setNewRoutineItem] = useState('');
+  // Quick-add mode for On the Floor: shows a compact inline input below the
+  // chips without entering full edit mode (reorder/delete). Clicking the
+  // gear still opens full edit mode.
+  const [addingRoutine, setAddingRoutine] = useState(false);
+  const [quickAddItem, setQuickAddItem] = useState('');
+  const quickAddInputRef = useRef<HTMLInputElement>(null);
 
   // Last successfully saved/loaded baseline (for dirty tracking)
   const [savedManual, setSavedManual] = useState<DailyReportManual>({});
@@ -174,10 +179,7 @@ export const ActivityReportScreen = () => {
   // and forces re-hydration from the new date's snapshot (or empty).
   useEffect(() => {
     lastHydratedDateRef.current = null;
-     
     setNotesText('');
-     
-    setWinOfTheDay('');
     setPickdUpdatesText('');
     setRoutineChecklist([]);
     setSavedManual({});
@@ -195,19 +197,15 @@ export const ActivityReportScreen = () => {
 
     const m: DailyReportManual =
       (snapshotRow?.data_manual as DailyReportManual | undefined) ?? {};
-    const nextWin = m.win_of_the_day ?? '';
     const nextUpdatesArr = m.pickd_updates ?? [];
     const nextRoutine = m.routine_checklist ?? [];
     const nextNotes = m.user_notes ?? [];
     const nextNotesText = nextNotes.map((n) => n.text).join('\n');
 
-     
-    setWinOfTheDay(nextWin);
     setPickdUpdatesText(nextUpdatesArr.join('\n'));
     setRoutineChecklist(nextRoutine);
     setNotesText(nextNotesText);
     setSavedManual({
-      win_of_the_day: nextWin,
       pickd_updates: nextUpdatesArr,
       routine_checklist: nextRoutine,
       user_notes: nextNotes,
@@ -229,12 +227,11 @@ export const ActivityReportScreen = () => {
   // ----- Dirty tracking -----
   const currentManual: DailyReportManual = useMemo(
     () => ({
-      win_of_the_day: winOfTheDay,
       pickd_updates: pickdUpdates,
       routine_checklist: routineChecklist,
       user_notes: notes,
     }),
-    [winOfTheDay, pickdUpdates, routineChecklist, notes]
+    [pickdUpdates, routineChecklist, notes]
   );
 
   const isDirty = useMemo(
@@ -362,7 +359,9 @@ export const ActivityReportScreen = () => {
         report: reportForView,
         accuracyPct,
         notes,
-        winOfTheDay,
+        // Win of the Day feature removed — PDF doc still accepts the prop
+        // so we pass an empty string; the section is skipped when blank.
+        winOfTheDay: '',
         routineChecklist,
         pickdUpdates,
         doneToday,
@@ -381,7 +380,6 @@ export const ActivityReportScreen = () => {
     reportForView,
     accuracyPct,
     notes,
-    winOfTheDay,
     routineChecklist,
     pickdUpdates,
     doneToday,
@@ -498,24 +496,25 @@ export const ActivityReportScreen = () => {
           <div className="p-4 space-y-3">
             <p className="text-[10px] font-black uppercase tracking-widest text-muted mb-1">Editor</p>
 
-            {/* Win of the Day input + save */}
+            {/* Day Recap — free-form narrative of what happened today.
+                Replaces the old Win of the Day / Notes fields; each line
+                becomes a bullet in the ON THE FLOOR section of the report. */}
             <div>
-              <label className="text-[9px] font-bold uppercase tracking-widest text-muted/70 mb-1 block">Win of the Day</label>
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="text"
-                  value={winOfTheDay}
-                  onChange={(e) => setWinOfTheDay(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && canSave && handleSave()}
+              <label className="text-[9px] font-bold uppercase tracking-widest text-muted/70 mb-1 block">Day Recap</label>
+              <div className="flex gap-1.5">
+                <textarea
+                  value={notesText}
+                  onChange={(e) => setNotesText(e.target.value)}
                   disabled={!canEdit}
-                  placeholder={canEdit ? 'Win of the day...' : '—'}
-                  className="flex-1 h-9 px-3 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40 disabled:opacity-50 disabled:cursor-not-allowed"
+                  placeholder={canEdit ? 'What happened today? Wins, issues, anything worth reporting — one per line.' : '—'}
+                  rows={4}
+                  className="flex-1 px-3 py-2 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 {showSaveControls && (
                   <button
                     onClick={handleSave}
                     disabled={!canSave}
-                    className="h-9 w-9 flex items-center justify-center bg-accent text-main rounded-xl active:scale-90 transition-all disabled:opacity-30 shrink-0"
+                    className="h-9 w-9 flex items-center justify-center bg-accent text-main rounded-xl active:scale-90 transition-all disabled:opacity-30 shrink-0 self-end"
                     title="Save"
                   >
                     {saveManual.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
@@ -562,15 +561,40 @@ export const ActivityReportScreen = () => {
               <div className="flex items-center justify-between mb-1">
                 <label className="text-[9px] font-bold uppercase tracking-widest text-muted/70">On the Floor</label>
                 {canEdit && (
-                  <button
-                    onClick={() => setEditingRoutine((v) => !v)}
-                    className={`p-1 rounded-md transition-colors ${
-                      editingRoutine ? 'bg-accent/20 text-accent' : 'text-muted/50 hover:text-muted'
-                    }`}
-                    title="Edit routine items"
-                  >
-                    <Settings2 size={12} />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => {
+                        setAddingRoutine((v) => {
+                          const next = !v;
+                          if (next) setEditingRoutine(false);
+                          return next;
+                        });
+                        // Auto-focus the input on open
+                        setTimeout(() => quickAddInputRef.current?.focus(), 0);
+                      }}
+                      className={`p-1 rounded-md transition-colors ${
+                        addingRoutine ? 'bg-accent/20 text-accent' : 'text-muted/50 hover:text-muted'
+                      }`}
+                      title="Quick-add a new item"
+                    >
+                      <Plus size={12} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingRoutine((v) => {
+                          const next = !v;
+                          if (next) setAddingRoutine(false);
+                          return next;
+                        });
+                      }}
+                      className={`p-1 rounded-md transition-colors ${
+                        editingRoutine ? 'bg-accent/20 text-accent' : 'text-muted/50 hover:text-muted'
+                      }`}
+                      title="Edit routine items"
+                    >
+                      <Settings2 size={12} />
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -638,51 +662,79 @@ export const ActivityReportScreen = () => {
                   </button>
                 </div>
               ) : (
-                <div className="flex flex-wrap gap-1.5">
-                  {routineItems.map((item) => {
-                    const isChecked = routineChecklist.includes(item);
-                    return (
+                <>
+                  <div className="flex flex-wrap gap-1.5">
+                    {routineItems.map((item) => {
+                      const isChecked = routineChecklist.includes(item);
+                      return (
+                        <button
+                          key={item}
+                          onClick={() => handleToggleRoutine(item)}
+                          disabled={!canEdit}
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 disabled:cursor-not-allowed ${
+                            isChecked
+                              ? 'bg-accent text-main'
+                              : 'bg-surface border border-subtle text-muted hover:border-accent/30'
+                          } ${!canEdit ? 'opacity-50' : ''}`}
+                        >
+                          {item}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {addingRoutine && canEdit && (
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <input
+                        ref={quickAddInputRef}
+                        type="text"
+                        value={quickAddItem}
+                        onChange={(e) => setQuickAddItem(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && quickAddItem.trim()) {
+                            const trimmed = quickAddItem.trim();
+                            if (!routineItems.includes(trimmed)) {
+                              const next = [...routineItems, trimmed];
+                              setRoutineItems(next);
+                              saveRoutineItems(next);
+                            }
+                            // Auto-check the newly added item so it shows in
+                            // today's report without an extra click.
+                            setRoutineChecklist((prev) =>
+                              prev.includes(trimmed) ? prev : [...prev, trimmed]
+                            );
+                            setQuickAddItem('');
+                          } else if (e.key === 'Escape') {
+                            setAddingRoutine(false);
+                            setQuickAddItem('');
+                          }
+                        }}
+                        placeholder="Add something done / ongoing..."
+                        className="flex-1 h-7 px-2 bg-surface border border-subtle rounded-lg text-[11px] text-content placeholder-muted/50 focus:outline-none focus:border-accent/40"
+                      />
                       <button
-                        key={item}
-                        onClick={() => handleToggleRoutine(item)}
-                        disabled={!canEdit}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 disabled:cursor-not-allowed ${
-                          isChecked
-                            ? 'bg-accent text-main'
-                            : 'bg-surface border border-subtle text-muted hover:border-accent/30'
-                        } ${!canEdit ? 'opacity-50' : ''}`}
+                        onClick={() => {
+                          const trimmed = quickAddItem.trim();
+                          if (!trimmed) return;
+                          if (!routineItems.includes(trimmed)) {
+                            const next = [...routineItems, trimmed];
+                            setRoutineItems(next);
+                            saveRoutineItems(next);
+                          }
+                          setRoutineChecklist((prev) =>
+                            prev.includes(trimmed) ? prev : [...prev, trimmed]
+                          );
+                          setQuickAddItem('');
+                        }}
+                        disabled={!quickAddItem.trim()}
+                        className="h-7 w-7 flex items-center justify-center bg-accent text-main rounded-lg active:scale-90 transition-all disabled:opacity-30 shrink-0"
+                        title="Add & check"
                       >
-                        {item}
+                        <Plus size={12} />
                       </button>
-                    );
-                  })}
-                </div>
+                    </div>
+                  )}
+                </>
               )}
-            </div>
-
-            {/* Notes — multiline editable */}
-            <div>
-              <label className="text-[9px] font-bold uppercase tracking-widest text-muted/70 mb-1 block">Notes</label>
-              <div className="flex gap-1.5">
-                <textarea
-                  value={notesText}
-                  onChange={(e) => setNotesText(e.target.value)}
-                  disabled={!canEdit}
-                  placeholder={canEdit ? 'One per line...' : '—'}
-                  rows={3}
-                  className="flex-1 px-3 py-2 bg-surface border border-subtle rounded-xl text-xs text-content placeholder-muted focus:outline-none focus:border-accent/40 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-                {showSaveControls && (
-                  <button
-                    onClick={handleSave}
-                    disabled={!canSave}
-                    className="h-9 w-9 flex items-center justify-center bg-accent text-main rounded-xl active:scale-90 transition-all disabled:opacity-30 shrink-0 self-end"
-                    title="Save"
-                  >
-                    {saveManual.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                  </button>
-                )}
-              </div>
             </div>
 
             {/* Save & Copy button — saves then copies report to clipboard */}
@@ -758,7 +810,6 @@ export const ActivityReportScreen = () => {
                 report={reportForView}
                 accuracyPct={accuracyPct}
                 notes={notes}
-                winOfTheDay={winOfTheDay}
                 routineChecklist={routineChecklist}
                 pickdUpdates={pickdUpdates}
                 doneToday={doneToday}
