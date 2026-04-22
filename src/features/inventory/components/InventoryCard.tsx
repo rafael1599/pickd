@@ -205,6 +205,14 @@ export const InventoryCard = memo(
                     {sku_metadata!.weight_lbs} lbs
                   </div>
                 )}
+                {sku_metadata?.serial_number && (
+                  <div
+                    className="inline-flex px-1.5 py-0.5 rounded-[4px] bg-main text-muted text-[9px] font-black tracking-widest border border-subtle whitespace-nowrap max-w-[140px] md:max-w-none truncate"
+                    title={`Serial: ${sku_metadata.serial_number}`}
+                  >
+                    SN · {sku_metadata.serial_number}
+                  </div>
+                )}
               </div>
 
               {isPicking && available !== null && (

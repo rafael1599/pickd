@@ -25,8 +25,11 @@ import { validateData, validateArray } from '../../../utils/validate';
  */
 export const inventoryApi = {
   /**
-   * OPTIMIZED: Fetch inventory with metadata — paginated with lean column selection.
-   * Returns { data, count } for infinite query support.
+   * Fetch inventory with metadata — paginated, searchable (incl. serial_number).
+   * Delegates to the `search_inventory_with_metadata` RPC so the search can OR
+   * across inventory + sku_metadata columns with normalized matching.
+   * Keeps the { data, count } shape and re-nests sku_metadata so callers are
+   * unchanged.
    */
   async fetchInventoryWithMetadata({
     includeInactive = false,
@@ -45,50 +48,51 @@ export const inventoryApi = {
     limit?: number;
     warehouse?: string;
   } = {}): Promise<{ data: InventoryItem[]; count: number | null }> {
-    const metadataCols =
-      'sku, image_url, length_in, width_in, height_in, weight_lbs, is_bike, is_scratch_dent';
-
-    let query = supabase
-      .from('inventory')
-      .select(
-        `
-        id, sku, quantity, location, location_id, sublocation, item_name,
-        warehouse, is_active, internal_note, distribution, created_at,
-        location_sort_key,
-        sku_metadata!inner ( ${metadataCols} )
-        `,
-        { count: 'exact' }
-      )
-      .order('location_sort_key', { ascending: true })
-      .order('sku', { ascending: true })
-      .range(offset, offset + limit - 1);
-
-    if (warehouse) {
-      query = query.eq('warehouse', warehouse);
-    }
-
-    if (!includeInactive) {
-      query = query.eq('is_active', true).gt('quantity', 0);
-    }
-
-    if (search) {
-      query = query.or(
-        `sku.ilike.%${search}%,item_name.ilike.%${search}%,location.ilike.%${search}%`
-      );
-    }
-
-    if (onlyScratchDent) {
-      // S/D mode: ignore the bike/parts split, just filter by the flag.
-      query = query.eq('sku_metadata.is_scratch_dent', true);
-    } else {
-      // Filter by is_bike: bikes when false, parts when true
-      query = query.eq('sku_metadata.is_bike', !showParts);
-    }
-
-    const { data, error, count } = await query;
+    const { data, error } = await supabase.rpc('search_inventory_with_metadata', {
+      p_search: search,
+      p_warehouse: warehouse ?? undefined,
+      p_include_inactive: includeInactive,
+      p_show_parts: showParts,
+      p_only_scratch_dent: onlyScratchDent,
+      p_offset: offset,
+      p_limit: limit,
+    });
 
     if (error) throw error;
-    return { data: (data || []) as unknown as InventoryItem[], count };
+
+    const rows = (data ?? []) as Array<Record<string, unknown>>;
+    const count = rows.length > 0 ? Number(rows[0].total_count ?? 0) : 0;
+
+    const reshaped = rows.map((row) => {
+      const {
+        total_count: _tc,
+        image_url,
+        length_in,
+        width_in,
+        height_in,
+        weight_lbs,
+        is_bike,
+        is_scratch_dent,
+        serial_number,
+        ...inventoryCols
+      } = row;
+      return {
+        ...inventoryCols,
+        sku_metadata: {
+          sku: inventoryCols.sku,
+          image_url,
+          length_in,
+          width_in,
+          height_in,
+          weight_lbs,
+          is_bike,
+          is_scratch_dent,
+          serial_number,
+        },
+      };
+    });
+
+    return { data: reshaped as unknown as InventoryItem[], count };
   },
 
   /**
