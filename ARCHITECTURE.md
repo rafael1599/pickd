@@ -63,7 +63,6 @@ Generated types from the live DB schema. Regenerate after every migration.
   - `cleanup-gallery-trash` — Daily purge of soft-deleted photos past 14-day window (06:00 UTC)
   - `daily-snapshot` — Inventory snapshot for accuracy tracking
   - `daily-report-snapshot` — Activity Report snapshot at 05:15 UTC
-  - `send-daily-report` — Email distribution
   - `auto-cancel-orders` — Cancels stale picking lists
   - `manage-users` — Admin user management
 
