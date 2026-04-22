@@ -762,7 +762,6 @@ function PalletPage({
         }}
       >
         {tiles.map((t, i) => {
-          const [primary, ...extra] = t.orderNumbers;
           const innerSize = tileSize - 6; // minus 2× card padding (3pt)
           return (
             <View
@@ -780,14 +779,12 @@ function PalletPage({
               }}
               wrap={false}
             >
-              {/* Image with the usual bottom-center overlay pill. For a
-                  single-order photo (the majority case) this is all you
-                  see — identical UX to the original design. */}
+              {/* Image — nothing overlays it. Order IDs live fully in
+                  the caption below so the photo reads cleanly. */}
               <View
                 style={{
                   width: innerSize,
                   height: innerSize,
-                  position: 'relative',
                   borderRadius: 2,
                   overflow: 'hidden',
                   backgroundColor: TONE.hair,
@@ -801,58 +798,25 @@ function PalletPage({
                     objectFit: 'cover',
                   }}
                 />
-                <View
-                  style={{
-                    position: 'absolute',
-                    left: 0,
-                    right: 0,
-                    bottom: 5,
-                    alignItems: 'center',
-                  }}
-                >
-                  <View
-                    style={{
-                      backgroundColor: 'rgba(17,17,17,0.78)',
-                      paddingHorizontal: 6,
-                      paddingVertical: 2,
-                      borderRadius: 2,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontFamily: MONO,
-                        fontSize: 9,
-                        fontWeight: 500,
-                        color: '#ffffff',
-                        letterSpacing: 0.4,
-                      }}
-                    >
-                      #{primary}
-                    </Text>
-                  </View>
-                </View>
               </View>
-              {/* Spillover — only renders when the same photo belongs to
-                  multiple orders. Stays INSIDE the card so it's visually
-                  tied to the image above. `+ ` prefix reads as "and also
-                  these additional orders". Wraps to as many lines as the
-                  card width allows — no truncation. */}
-              {extra.length > 0 && (
-                <Text
-                  style={{
-                    fontFamily: MONO,
-                    fontSize: 7.5,
-                    fontWeight: 500,
-                    color: TONE.muted,
-                    letterSpacing: 0.3,
-                    lineHeight: 1.3,
-                    marginTop: 4,
-                    paddingHorizontal: 1,
-                  }}
-                >
-                  + {extra.map((n) => `#${n}`).join(' · ')}
-                </Text>
-              )}
+              {/* Caption — every order number that owns this photo, joined
+                  by `·`. Stays inside the card so the image ↔ list link
+                  is explicit. Wraps to as many lines as the card width
+                  allows; IDs are never truncated. */}
+              <Text
+                style={{
+                  fontFamily: MONO,
+                  fontSize: 7.5,
+                  fontWeight: 500,
+                  color: TONE.muted,
+                  letterSpacing: 0.3,
+                  lineHeight: 1.3,
+                  marginTop: 4,
+                  paddingHorizontal: 1,
+                }}
+              >
+                {t.orderNumbers.map((n) => `#${n}`).join(' · ')}
+              </Text>
             </View>
           );
         })}
