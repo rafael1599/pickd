@@ -642,7 +642,10 @@ function SummaryPage(props: ActivityReportPdfDocProps & { totalPages: number }) 
 // ── PAGE 2: Pallet photos ─────────────────────────────────────────────
 
 interface PalletTile {
-  orderNumber: string;
+  /** All order numbers that share this photo. A pallet photo can be attached
+   *  to multiple orders (e.g. FedEx auto-grouping) — we de-duplicate by URL
+   *  so the same image never appears twice in the grid. */
+  orderNumbers: string[];
   url: string;
 }
 
@@ -657,10 +660,20 @@ function PalletPage({
   totalPages: number;
   pageIndex: number;
 }) {
-  const tiles: PalletTile[] = [];
+  // Group by URL so each distinct photo renders once with ALL the order
+  // numbers that include it. Preserves original orders's iteration order.
+  const byUrl = new Map<string, string[]>();
   for (const o of orders) {
-    for (const url of o.photos) tiles.push({ orderNumber: o.order_number, url });
+    for (const url of o.photos) {
+      const list = byUrl.get(url) ?? [];
+      if (!list.includes(o.order_number)) list.push(o.order_number);
+      byUrl.set(url, list);
+    }
   }
+  const tiles: PalletTile[] = [...byUrl.entries()].map(([url, orderNumbers]) => ({
+    url,
+    orderNumbers,
+  }));
   const cols = pickCols(tiles.length);
   // Content width after page margin; aspect-ratio square tiles.
   const contentW = 595 - A4_MARGIN * 2;
@@ -750,53 +763,45 @@ function PalletPage({
             key={i}
             style={{
               width: tileSize,
-              height: tileSize,
-              position: 'relative',
-              borderRadius: 2,
-              overflow: 'hidden',
-              backgroundColor: TONE.hair,
+              flexDirection: 'column',
             }}
             wrap={false}
           >
-            <Image
-              src={t.url}
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-              }}
-            />
-            {/* Order # overlay — pill at bottom-center */}
+            {/* Image tile — kept uniform across the grid. */}
             <View
               style={{
-                position: 'absolute',
-                left: 0,
-                right: 0,
-                bottom: 6,
-                alignItems: 'center',
+                width: tileSize,
+                height: tileSize,
+                borderRadius: 2,
+                overflow: 'hidden',
+                backgroundColor: TONE.hair,
               }}
             >
-              <View
+              <Image
+                src={t.url}
                 style={{
-                  backgroundColor: 'rgba(17,17,17,0.78)',
-                  paddingHorizontal: 6,
-                  paddingVertical: 2,
-                  borderRadius: 2,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
                 }}
-              >
-                <Text
-                  style={{
-                    fontFamily: MONO,
-                    fontSize: 9,
-                    fontWeight: 500,
-                    color: '#ffffff',
-                    letterSpacing: 0.4,
-                  }}
-                >
-                  #{t.orderNumber}
-                </Text>
-              </View>
+              />
             </View>
+            {/* Caption below — lists every order number that owns this photo.
+                Wraps to as many lines as needed; the image above never loses
+                space and the order IDs are never truncated. */}
+            <Text
+              style={{
+                fontFamily: MONO,
+                fontSize: 7.5,
+                fontWeight: 500,
+                color: TONE.muted,
+                letterSpacing: 0.3,
+                marginTop: 4,
+                lineHeight: 1.3,
+              }}
+            >
+              {t.orderNumbers.map((n) => `#${n}`).join(' · ')}
+            </Text>
           </View>
         ))}
       </View>
