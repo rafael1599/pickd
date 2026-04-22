@@ -754,7 +754,13 @@ function PalletPage({
         style={{
           flexDirection: 'row',
           flexWrap: 'wrap',
-          gap,
+          // Split horizontal vs vertical gap so the Gestalt proximity makes
+          // it obvious each caption belongs to the image ABOVE it, not the
+          // one in the next row. Horizontal stays tight (6pt), vertical
+          // rows get extra breathing room (20pt) so the photo+caption pair
+          // reads as a single unit.
+          columnGap: gap,
+          rowGap: 20,
           marginTop: 14,
         }}
       >
@@ -767,7 +773,7 @@ function PalletPage({
             }}
             wrap={false}
           >
-            {/* Image tile — kept uniform across the grid. */}
+            {/* Image tile — uniform across the grid. */}
             <View
               style={{
                 width: tileSize,
@@ -786,22 +792,32 @@ function PalletPage({
                 }}
               />
             </View>
-            {/* Caption below — lists every order number that owns this photo.
-                Wraps to as many lines as needed; the image above never loses
-                space and the order IDs are never truncated. */}
-            <Text
+            {/* Caption — glued tight to the image (2pt gap) so the
+                relationship is unambiguous. Thin teal top border acts as
+                a visual "attaches to" connector. Wraps to as many lines
+                as needed; the image never loses space and IDs are never
+                truncated. */}
+            <View
               style={{
-                fontFamily: MONO,
-                fontSize: 7.5,
-                fontWeight: 500,
-                color: TONE.muted,
-                letterSpacing: 0.3,
-                marginTop: 4,
-                lineHeight: 1.3,
+                marginTop: 2,
+                paddingTop: 3,
+                borderTopWidth: 1,
+                borderTopColor: TONE.hair,
               }}
             >
-              {t.orderNumbers.map((n) => `#${n}`).join(' · ')}
-            </Text>
+              <Text
+                style={{
+                  fontFamily: MONO,
+                  fontSize: 7.5,
+                  fontWeight: 500,
+                  color: TONE.muted,
+                  letterSpacing: 0.3,
+                  lineHeight: 1.3,
+                }}
+              >
+                {t.orderNumbers.map((n) => `#${n}`).join(' · ')}
+              </Text>
+            </View>
           </View>
         ))}
       </View>
