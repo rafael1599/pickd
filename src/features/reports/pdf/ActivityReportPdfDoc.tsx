@@ -642,7 +642,10 @@ function SummaryPage(props: ActivityReportPdfDocProps & { totalPages: number }) 
 // ── PAGE 2: Pallet photos ─────────────────────────────────────────────
 
 interface PalletTile {
-  orderNumber: string;
+  /** All order numbers that share this photo. A pallet photo can be attached
+   *  to multiple orders (e.g. FedEx auto-grouping) — we de-duplicate by URL
+   *  so the same image never appears twice in the grid. */
+  orderNumbers: string[];
   url: string;
 }
 
@@ -657,10 +660,20 @@ function PalletPage({
   totalPages: number;
   pageIndex: number;
 }) {
-  const tiles: PalletTile[] = [];
+  // Group by URL so each distinct photo renders once with ALL the order
+  // numbers that include it. Preserves original orders's iteration order.
+  const byUrl = new Map<string, string[]>();
   for (const o of orders) {
-    for (const url of o.photos) tiles.push({ orderNumber: o.order_number, url });
+    for (const url of o.photos) {
+      const list = byUrl.get(url) ?? [];
+      if (!list.includes(o.order_number)) list.push(o.order_number);
+      byUrl.set(url, list);
+    }
   }
+  const tiles: PalletTile[] = [...byUrl.entries()].map(([url, orderNumbers]) => ({
+    url,
+    orderNumbers,
+  }));
   const cols = pickCols(tiles.length);
   // Content width after page margin; aspect-ratio square tiles.
   const contentW = 595 - A4_MARGIN * 2;
@@ -741,7 +754,13 @@ function PalletPage({
         style={{
           flexDirection: 'row',
           flexWrap: 'wrap',
-          gap,
+          // Split horizontal vs vertical gap so the Gestalt proximity makes
+          // it obvious each caption belongs to the image ABOVE it, not the
+          // one in the next row. Horizontal stays tight (6pt), vertical
+          // rows get extra breathing room (20pt) so the photo+caption pair
+          // reads as a single unit.
+          columnGap: gap,
+          rowGap: 20,
           marginTop: 14,
         }}
       >
@@ -750,52 +769,54 @@ function PalletPage({
             key={i}
             style={{
               width: tileSize,
-              height: tileSize,
-              position: 'relative',
-              borderRadius: 2,
-              overflow: 'hidden',
-              backgroundColor: TONE.hair,
+              flexDirection: 'column',
             }}
             wrap={false}
           >
-            <Image
-              src={t.url}
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-              }}
-            />
-            {/* Order # overlay — pill at bottom-center */}
+            {/* Image tile — uniform across the grid. */}
             <View
               style={{
-                position: 'absolute',
-                left: 0,
-                right: 0,
-                bottom: 6,
-                alignItems: 'center',
+                width: tileSize,
+                height: tileSize,
+                borderRadius: 2,
+                overflow: 'hidden',
+                backgroundColor: TONE.hair,
               }}
             >
-              <View
+              <Image
+                src={t.url}
                 style={{
-                  backgroundColor: 'rgba(17,17,17,0.78)',
-                  paddingHorizontal: 6,
-                  paddingVertical: 2,
-                  borderRadius: 2,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                }}
+              />
+            </View>
+            {/* Caption — glued tight to the image (2pt gap) so the
+                relationship is unambiguous. Thin teal top border acts as
+                a visual "attaches to" connector. Wraps to as many lines
+                as needed; the image never loses space and IDs are never
+                truncated. */}
+            <View
+              style={{
+                marginTop: 2,
+                paddingTop: 3,
+                borderTopWidth: 1,
+                borderTopColor: TONE.hair,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: MONO,
+                  fontSize: 7.5,
+                  fontWeight: 500,
+                  color: TONE.muted,
+                  letterSpacing: 0.3,
+                  lineHeight: 1.3,
                 }}
               >
-                <Text
-                  style={{
-                    fontFamily: MONO,
-                    fontSize: 9,
-                    fontWeight: 500,
-                    color: '#ffffff',
-                    letterSpacing: 0.4,
-                  }}
-                >
-                  #{t.orderNumber}
-                </Text>
-              </View>
+                {t.orderNumbers.map((n) => `#${n}`).join(' · ')}
+              </Text>
             </View>
           </View>
         ))}

@@ -23,8 +23,6 @@ import { useReportTasks } from '../projects/hooks/useProjectReportData';
 import { getCurrentNYDate } from '../../lib/nyDate';
 import { useAuth } from '../../context/AuthContext';
 import { useWaitingOrdersCount } from '../picking/hooks/useWaitingOrders';
-import { supabase } from '../../lib/supabase';
-import Mail from 'lucide-react/dist/esm/icons/mail';
 import Download from 'lucide-react/dist/esm/icons/download';
 // `./utils/exportReportPdf` is dynamically imported inside handleDownloadPdf
 // to defer @react-pdf/renderer (~490 KB gzipped) until the user actually
@@ -111,8 +109,6 @@ export const ActivityReportScreen = () => {
   const [routineChecklist, setRoutineChecklist] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
-  const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [routineItems, setRoutineItems] = useState<string[]>(loadRoutineItems);
   const [editingRoutine, setEditingRoutine] = useState(false);
@@ -341,42 +337,6 @@ export const ActivityReportScreen = () => {
       setIsCopying(false);
     }
   }, []);
-
-  const handleEmail = useCallback(async () => {
-    const reportEl = document.getElementById('report-content');
-    if (!reportEl) return;
-
-    const lastEmail = localStorage.getItem('pickd-report-email') || '';
-    const to = window.prompt('Send report to:', lastEmail);
-    if (!to?.trim()) return;
-    localStorage.setItem('pickd-report-email', to.trim());
-
-    setIsSendingEmail(true);
-    try {
-      const html = reportEl.outerHTML;
-      const dateLabel = new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-      });
-      const { data, error } = await supabase.functions.invoke('send-daily-report', {
-        body: {
-          to: to.trim(),
-          subject: `Progress Update — ${dateLabel}`,
-          html,
-          account: 'jamis',
-        },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(JSON.stringify(data.error));
-      setEmailSent(true);
-      setTimeout(() => setEmailSent(false), 3000);
-    } catch (err) {
-      console.error('Email failed:', err);
-      alert('Failed to send email. Check console for details.');
-    } finally {
-      setIsSendingEmail(false);
-    }
-  }, [selectedDate]);
 
   // ----- Accuracy display -----
   // For snapshots, the cron already computed pct. For live, compute from raw.
@@ -757,30 +717,6 @@ export const ActivityReportScreen = () => {
                 )}
               </button>
             )}
-
-            {/* Email Report — sends via Resend with CID inline images */}
-            <button
-              onClick={handleEmail}
-              disabled={isSendingEmail}
-              className="w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest bg-card border border-subtle text-content/70 hover:bg-card/80 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isSendingEmail ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" />
-                  Sending...
-                </>
-              ) : emailSent ? (
-                <>
-                  <Check size={14} className="text-green-400" />
-                  Sent!
-                </>
-              ) : (
-                <>
-                  <Mail size={14} />
-                  Email Report
-                </>
-              )}
-            </button>
 
             {/* Download PDF — idea-059, includes full-res gallery + pallet photos */}
             <button
