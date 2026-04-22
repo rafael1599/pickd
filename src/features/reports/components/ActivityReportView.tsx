@@ -399,7 +399,7 @@ export const ActivityReportView: React.FC<Props> = ({
                 }}
               >
                 {report.verified_skus_2m} of {report.total_skus} SKUs have been physically counted
-                in the last 60 days.
+                in the last 90 days.
               </p>
             </div>
             <div style={spacerStyle} />
