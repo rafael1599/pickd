@@ -34,6 +34,8 @@ verify_jwt = true
 [functions.daily-snapshot]
 verify_jwt = true
 
-# manage-users: admin function, requires user JWT validation at gateway.
+# manage-users: validates JWT internally via adminClient.auth.getUser(token)
+# and checks admin role. Gateway verification DISABLED (same pattern as
+# upload-photo) — otherwise gateway rejects with 401 before function runs.
 [functions.manage-users]
-verify_jwt = true
+verify_jwt = false
