@@ -816,7 +816,12 @@ function PalletPage({
                   textAlign: 'center',
                 }}
               >
-                {t.orderNumbers.map((n) => `#${n}`).join(' · ')}
+                {/* Regular space BEFORE the dot is breakable (where a line
+                    wrap happens). NBSP (\u00a0) AFTER the dot glues the
+                    separator to the next number, so a wrap never leaves a
+                    lonely `·` at the end of a line — the previous line
+                    ends on a number, the next starts with `· #NNN`. */}
+                {t.orderNumbers.map((n) => `#${n}`).join(' ·\u00a0')}
               </Text>
             </View>
           );
