@@ -1,0 +1,22 @@
+Progress Update — April 20, 2026 at 5:12 PM
+
+WIN OF THE DAY:
+The app stopped going black after sitting idle, the Verification Board finally works on phones, and registering Scratch & Dent bikes now takes 30 seconds instead of filling out a full catalog form.
+
+WHAT'S BETTER NOW:
+- The app used to show a black screen after being idle for a while — now it recovers on its own without losing your place. No more force-refreshing.
+- The Verification Board works on mobile now. Drag orders between lanes, tap to open — same as desktop.
+- You can open any order from the Verification Board regardless of what screen you're on. Before, it only worked from the home page.
+- The Priority zone is gone — orders go directly to their FedEx or Regular lane based on their assigned type, even during corrections. Less clutter, clearer board.
+- New "Quick Intake" for Scratch & Dent: five fields (SKU, serial, model, condition, note), next number auto-suggested, bike goes straight to ROW 33. Available from both the S/D Catalog and FedEx Returns.
+- The daily report can now be emailed directly with photos embedded in the body — no more broken image squares in non-Gmail clients.
+- Photos in the report now display as a compact grid instead of a long vertical list. Clickable to fullscreen.
+- Completing a grouped FedEx order now copies pallet photos to all sub-orders automatically, so each one has proof attached.
+- Behind the scenes: fixed a data sync issue where editing a combined order could accidentally overwrite sibling data.
+
+COMING UP NEXT:
+- Open camera automatically when completing an order without photos (skip the extra tap)
+- Manual combine/uncombine orders from the Verification Board
+
+18 done today / 12 in the queue (2 high priority, 6 medium, 3 quick fixes, 1 audit)
+Note: today's changes are ready but not yet live.

@@ -1,0 +1,24 @@
+Progress Update — April 15, 2026 at 2:20 PM
+
+WIN OF THE DAY:
+Inventory accuracy jumped after physically verifying 31 rows in two days — the system now reflects what's actually on the floor. On top of that, each order now shows its carrier's brand color on the label preview, so you can tell at a glance which shipment goes to which truck.
+
+WHAT'S BETTER NOW:
+- New Transport Company selector on every order — pick the carrier (R+L, Rist, TForce, Estes, etc.) and the label preview lights up in that company's color. No more guessing which pallet goes where.
+- Items that run out of stock used to leave behind ghost records that cluttered every view — the system now marks them as inactive automatically. 423 outdated records cleaned up across 59 locations.
+- The Projects board now has photo support — snap a photo from the app, and drag it onto a task to attach it. Photos show up in the daily report automatically.
+- Dragging tasks to reorder priority within each column now works smoothly, and the header hides when you scroll down for more screen space.
+- The picking screen text was bumped up — SKU codes, quantities, and buttons are all easier to read.
+- Updating a task in Projects used to require a page refresh to show in the Activity Report — now it syncs instantly.
+
+ON THE FLOOR:
+- 2026-04-14: Walked rows 32 through 20, plus rows 1 and 2 (15 rows).
+- 2026-04-15: Walked rows 3 through 17 and 20B (16 rows).
+- Total: 31 rows audited, 5 remaining (10 partial, 34, 41, 42, 43, 51).
+
+COMING UP NEXT:
+- Finish the remaining 5 rows to complete the full warehouse audit
+- Quantity tracking per shelf position so the system knows how many bikes are in each section
+
+9 done today / 8 in the queue (2 high priority, 5 medium, 1 audit)
+Note: today's changes are ready but not yet live.
