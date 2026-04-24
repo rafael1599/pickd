@@ -1340,6 +1340,9 @@ export type Database = {
           upc: string | null;
           model: string | null;
           condition_description: string | null;
+          pdf_link: string | null;
+          sd_price: number | null;
+          condition: string | null;
           total_count: number;
         }[];
       };
