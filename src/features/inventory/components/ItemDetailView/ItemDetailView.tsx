@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import CheckCircle2 from 'lucide-react/dist/esm/icons/check-circle-2';
 import Save from 'lucide-react/dist/esm/icons/save';
+import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 
 import { useInventory } from '../../hooks/useInventoryData.ts';
 import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from '../../hooks/useInventoryRealtime';
@@ -96,6 +97,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
+  // idea-083: "Details" section — collapsed by default
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
   // React Hook Form
   const {
     setValue,
@@ -116,6 +120,12 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       ...dimensionDefaults(null),
       internal_note: '',
       sublocation: null,
+      // idea-083: Details section defaults
+      serial_number: '',
+      price: null,
+      condition: '',
+      condition_description: '',
+      pdf_link: '',
     },
   });
 
@@ -157,6 +167,13 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           weight_lbs: initialData.sku_metadata?.weight_lbs ?? null,
           internal_note: initialData.internal_note || '',
           sublocation: initialData.sublocation || null,
+          // idea-083: "Details" section — universal extra info for all items.
+          // `price` maps to sku_metadata.standard_price (single canonical price).
+          serial_number: initialData.sku_metadata?.serial_number || '',
+          price: initialData.sku_metadata?.standard_price ?? null,
+          condition: initialData.sku_metadata?.condition || '',
+          condition_description: initialData.sku_metadata?.condition_description || '',
+          pdf_link: initialData.sku_metadata?.pdf_link || '',
         });
         setDistribution(Array.isArray(initialData.distribution) ? initialData.distribution : []);
         setUserEditedDistribution(false);
@@ -613,6 +630,12 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         width_in: data.width_in,
         height_in: data.height_in,
         weight_lbs: data.weight_lbs,
+        // idea-083: Details-section fields, applicable to any SKU.
+        serial_number: data.serial_number || null,
+        standard_price: data.price ?? null,
+        condition: data.condition || null,
+        condition_description: data.condition_description || null,
+        pdf_link: data.pdf_link || null,
       }).catch((e: unknown) => console.error('Metadata update failed:', e));
 
       const payload = {
@@ -651,6 +674,11 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       internal_note: watch('internal_note'),
       sublocation: watch('sublocation') || null,
       distribution: [],
+      serial_number: watch('serial_number') || null,
+      price: watch('price') ?? null,
+      condition: watch('condition') || null,
+      condition_description: watch('condition_description') || null,
+      pdf_link: watch('pdf_link') || null,
     };
 
     if (prediction.bestGuess && prediction.bestGuess !== data.location) {
@@ -1312,6 +1340,112 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           )}
         </div>
 
+        {/* idea-083: Details — universal extra info (collapsed by default) */}
+        <div className="mx-4 mt-4 border border-subtle rounded-2xl bg-surface">
+          <button
+            type="button"
+            onClick={() => setIsDetailsOpen((v) => !v)}
+            className="w-full flex items-center justify-between px-4 py-3"
+          >
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted">
+              Details
+            </span>
+            <ChevronDown
+              size={14}
+              className={`text-muted transition-transform ${isDetailsOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
+          {isDetailsOpen && (
+            <div className="px-4 pb-4 pt-1 space-y-3">
+              <DetailsField label="Serial">
+                <input
+                  type="text"
+                  value={watch('serial_number') ?? ''}
+                  onChange={(e) => setValue('serial_number', e.target.value)}
+                  placeholder="Optional"
+                  className="details-input font-mono"
+                />
+              </DetailsField>
+
+              <DetailsField label="Price">
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted text-xs">
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={watch('price') ?? ''}
+                    onChange={(e) =>
+                      setValue('price', e.target.value === '' ? null : Number(e.target.value))
+                    }
+                    placeholder="0.00"
+                    className="details-input pl-6"
+                  />
+                </div>
+              </DetailsField>
+
+              <DetailsField label="Condition">
+                <select
+                  value={watch('condition') ?? ''}
+                  onChange={(e) => setValue('condition', e.target.value)}
+                  className="details-input"
+                >
+                  <option value="">—</option>
+                  <option value="new">New</option>
+                  <option value="used">Used</option>
+                  <option value="damaged">Damaged</option>
+                  <option value="refurbished">Refurbished</option>
+                  {/* Preserve legacy S/D values if already stored */}
+                  {watch('condition') &&
+                    !['', 'new', 'used', 'damaged', 'refurbished'].includes(
+                      watch('condition') ?? ''
+                    ) && (
+                      <option value={watch('condition') ?? ''}>
+                        {(watch('condition') ?? '').replace(/_/g, ' ')} (legacy)
+                      </option>
+                    )}
+                </select>
+              </DetailsField>
+
+              <DetailsField label="Notes">
+                <textarea
+                  value={watch('condition_description') ?? ''}
+                  onChange={(e) => setValue('condition_description', e.target.value)}
+                  rows={3}
+                  placeholder="Optional description"
+                  className="details-input resize-none"
+                />
+              </DetailsField>
+
+              <DetailsField label="PDF link">
+                <input
+                  type="text"
+                  value={watch('pdf_link') ?? ''}
+                  onChange={(e) => setValue('pdf_link', e.target.value)}
+                  placeholder="https://…"
+                  className="details-input"
+                />
+              </DetailsField>
+
+              <style>{`
+                .details-input {
+                  width: 100%;
+                  padding: 0.5rem 0.75rem;
+                  border-radius: 0.5rem;
+                  background-color: var(--bg-main, rgba(0,0,0,0.2));
+                  border: 1px solid rgba(255,255,255,0.08);
+                  font-size: 12px;
+                  color: var(--color-content, #fff);
+                  outline: none;
+                }
+                .details-input:focus { border-color: var(--accent, #f59e0b); }
+              `}</style>
+            </div>
+          )}
+        </div>
+
         {/* Validation errors */}
         {(errors.sku || errors.quantity || errors.location) && (
           <div className="mx-4 mt-3 space-y-1">
@@ -1371,3 +1505,13 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     document.body
   );
 };
+
+/** Small helper for the Details section rows (label + input). */
+function DetailsField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="text-[9px] font-bold uppercase tracking-widest text-muted">{label}</span>
+      <div className="mt-1">{children}</div>
+    </label>
+  );
+}
