@@ -221,40 +221,79 @@ const LowStockAlertsBlock: React.FC<{
   alerts: LowStockAlerts;
   hasPrecedingBullets: boolean;
 }> = ({ alerts, hasPrecedingBullets }) => {
-  const renderRow = (
-    row: { sku: string; item_name: string | null; remaining_qty: number },
-    color: string
-  ) => (
-    <p
-      key={`${color}-${row.sku}`}
-      style={{
-        ...bulletTextStyle,
-        margin: 0,
-        padding: '4px 0',
-        display: 'flex',
-        alignItems: 'baseline',
-        gap: 8,
-      }}
-    >
-      <span
+  const fmtTime = (iso: string) => {
+    try {
+      return new Date(iso).toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZone: 'America/New_York',
+      });
+    } catch {
+      return '';
+    }
+  };
+
+  const renderRow = (row: LowStockAlerts['outOfStock'][number], color: string) => (
+    <div key={`${color}-${row.sku}`} style={{ padding: '4px 0' }}>
+      <p
         style={{
-          display: 'inline-block',
-          minWidth: 22,
-          textAlign: 'center',
-          fontSize: 10,
-          fontWeight: 800,
-          padding: '2px 6px',
-          borderRadius: 6,
-          backgroundColor: `${color}1a`,
-          color,
-          letterSpacing: '0.05em',
+          ...bulletTextStyle,
+          margin: 0,
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: 8,
         }}
       >
-        {row.remaining_qty}
-      </span>
-      <span style={{ fontWeight: 700, color: TEXT_BOLD }}>{row.sku}</span>
-      {row.item_name && <span style={{ color: TEXT_MUTED }}>— {row.item_name}</span>}
-    </p>
+        <span
+          style={{
+            display: 'inline-block',
+            minWidth: 22,
+            textAlign: 'center',
+            fontSize: 10,
+            fontWeight: 800,
+            padding: '2px 6px',
+            borderRadius: 6,
+            backgroundColor: `${color}1a`,
+            color,
+            letterSpacing: '0.05em',
+          }}
+        >
+          {row.remaining_qty}
+        </span>
+        <span style={{ fontWeight: 700, color: TEXT_BOLD }}>{row.sku}</span>
+        {row.item_name && <span style={{ color: TEXT_MUTED }}>— {row.item_name}</span>}
+      </p>
+      {row.completions.length > 0 && (
+        <ul style={{ margin: '2px 0 0 30px', padding: 0, listStyle: 'none' }}>
+          {row.completions.map((c, i) => {
+            const qty = Math.abs(c.quantity_change);
+            const deltaParts = [
+              c.order_number ? `#${c.order_number}` : null,
+              qty > 0 ? `−${qty}` : null,
+              c.prev_quantity != null && c.new_quantity != null
+                ? `(${c.prev_quantity}→${c.new_quantity})`
+                : null,
+              c.from_location ? `from ${c.from_location}` : null,
+              c.performed_by ? `by ${c.performed_by}` : null,
+              fmtTime(c.created_at),
+            ].filter(Boolean);
+            return (
+              <li
+                key={`${c.list_id ?? c.order_number ?? i}-${c.created_at}`}
+                style={{
+                  fontSize: 9,
+                  color: TEXT_MUTED,
+                  lineHeight: 1.5,
+                  letterSpacing: '0.02em',
+                }}
+              >
+                {deltaParts.join(' · ')}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 
   const subHeaderStyle: React.CSSProperties = {

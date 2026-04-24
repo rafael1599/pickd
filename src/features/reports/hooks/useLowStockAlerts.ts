@@ -5,6 +5,7 @@ import {
   classifyLowStock,
   getLowStockWindow,
   type LowStockClassification,
+  type LowStockCompletion,
   type LowStockSkuRow,
   type LowStockWindowLabel,
 } from '../utils/lowStockWindow';
@@ -23,6 +24,14 @@ interface InventoryRow {
 
 interface DeductLogRow {
   sku: string | null;
+  order_number: string | null;
+  list_id: string | null;
+  performed_by: string | null;
+  from_location: string | null;
+  quantity_change: number | null;
+  prev_quantity: number | null;
+  new_quantity: number | null;
+  created_at: string;
 }
 
 /**
@@ -53,20 +62,39 @@ export function useLowStockAlerts(nyDate: string) {
         getNYDayBounds(window.endDate),
       ]);
 
-      // Step 1: find SKUs touched by order completions in the window.
+      // Step 1: find SKUs touched by order completions in the window, plus
+      // the per-event metadata we surface for audit (which order, who ran it,
+      // from which location, qty before/after).
       const { data: logRows, error: logErr } = await supabase
         .from('inventory_logs')
-        .select('sku')
+        .select(
+          'sku, order_number, list_id, performed_by, from_location, quantity_change, prev_quantity, new_quantity, created_at'
+        )
         .eq('action_type', 'DEDUCT')
         .eq('is_reversed', false)
         .not('list_id', 'is', null)
         .gte('created_at', startBounds.startsAt)
-        .lte('created_at', endBounds.endsAt);
+        .lte('created_at', endBounds.endsAt)
+        .order('created_at', { ascending: false });
       if (logErr) throw logErr;
 
-      const touchedSkus = Array.from(
-        new Set(((logRows ?? []) as DeductLogRow[]).map((r) => r.sku).filter((s): s is string => !!s))
-      );
+      const logsBySku = new Map<string, LowStockCompletion[]>();
+      for (const row of (logRows ?? []) as DeductLogRow[]) {
+        if (!row.sku) continue;
+        const existing = logsBySku.get(row.sku) ?? [];
+        existing.push({
+          order_number: row.order_number,
+          list_id: row.list_id,
+          performed_by: row.performed_by,
+          from_location: row.from_location,
+          quantity_change: row.quantity_change ?? 0,
+          prev_quantity: row.prev_quantity,
+          new_quantity: row.new_quantity,
+          created_at: row.created_at,
+        });
+        logsBySku.set(row.sku, existing);
+      }
+      const touchedSkus = Array.from(logsBySku.keys());
 
       if (touchedSkus.length === 0) {
         return { outOfStock: [], lastUnit: [], windowLabel: window.label };
@@ -100,6 +128,7 @@ export function useLowStockAlerts(nyDate: string) {
           sku,
           item_name: agg?.name ?? null,
           remaining_qty: agg?.qty ?? 0,
+          completions: logsBySku.get(sku) ?? [],
         };
       });
 

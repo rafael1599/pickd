@@ -21,10 +21,23 @@ export interface LowStockWindow {
   label: LowStockWindowLabel;
 }
 
+export interface LowStockCompletion {
+  order_number: string | null;
+  list_id: string | null;
+  performed_by: string | null;
+  from_location: string | null;
+  quantity_change: number;
+  prev_quantity: number | null;
+  new_quantity: number | null;
+  created_at: string;
+}
+
 export interface LowStockSkuRow {
   sku: string;
   item_name: string | null;
   remaining_qty: number;
+  /** All DEDUCT events for this SKU within the window, ordered newest → oldest. */
+  completions: LowStockCompletion[];
 }
 
 export interface LowStockClassification {
