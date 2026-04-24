@@ -359,12 +359,16 @@ class InventoryService extends BaseService<
         console.log(
           `[InventoryService] SKU ${itemToInsert.sku} not found in metadata. Creating shell entry...`
         );
+        // Default dims for unregistered SKUs: 5×6×30 inches.
+        // (Previous version wrote `length_ft: 5` and omitted `height_in`,
+        // which surfaced as 5×6×0" in the UI.)
         await this.supabase.from('sku_metadata').upsert(
           [
             {
               sku: itemToInsert.sku,
-              length_ft: 5, // Default values
+              length_in: 5,
               width_in: 6,
+              height_in: 30,
             },
           ],
           { onConflict: 'sku' }
