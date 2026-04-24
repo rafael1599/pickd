@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ActivityReport } from '../hooks/useActivityReport';
 import type { ReportTask } from '../../projects/hooks/useProjectReportData';
+import type { LowStockAlerts } from '../hooks/useLowStockAlerts';
 import { PhotoLightbox } from '../../../components/ui/PhotoLightbox';
 
 /**
@@ -53,6 +54,12 @@ interface Props {
   inProgress: ReportTask[];
   comingUpNext: ReportTask[];
   waitingOrdersCount?: number;
+  /**
+   * Low-stock alerts (idea-070 / idea-071). Rendered inside the "On the
+   * Floor" block. If both sub-lists are empty the block renders nothing
+   * extra — we never show "no alerts".
+   */
+  lowStockAlerts?: LowStockAlerts;
   greeting?: string;
   /**
    * When true, renders a layout optimized for PDF export:
@@ -201,6 +208,103 @@ function renderTaskList(
   });
 }
 
+const RED = '#dc2626';
+const AMBER_ALERT = '#d97706';
+
+/**
+ * Sub-block rendered inside the "ON THE FLOOR" card (idea-071). Shows SKUs
+ * that went to 0 units (red) or 1 unit (amber) as a result of today's
+ * completions (or Mon–Fri of the current week on Fridays). Each SKU is
+ * displayed as "SKU — item name" with a remaining-qty badge.
+ */
+const LowStockAlertsBlock: React.FC<{
+  alerts: LowStockAlerts;
+  hasPrecedingBullets: boolean;
+}> = ({ alerts, hasPrecedingBullets }) => {
+  const renderRow = (
+    row: { sku: string; item_name: string | null; remaining_qty: number },
+    color: string
+  ) => (
+    <p
+      key={`${color}-${row.sku}`}
+      style={{
+        ...bulletTextStyle,
+        margin: 0,
+        padding: '4px 0',
+        display: 'flex',
+        alignItems: 'baseline',
+        gap: 8,
+      }}
+    >
+      <span
+        style={{
+          display: 'inline-block',
+          minWidth: 22,
+          textAlign: 'center',
+          fontSize: 10,
+          fontWeight: 800,
+          padding: '2px 6px',
+          borderRadius: 6,
+          backgroundColor: `${color}1a`,
+          color,
+          letterSpacing: '0.05em',
+        }}
+      >
+        {row.remaining_qty}
+      </span>
+      <span style={{ fontWeight: 700, color: TEXT_BOLD }}>{row.sku}</span>
+      {row.item_name && <span style={{ color: TEXT_MUTED }}>— {row.item_name}</span>}
+    </p>
+  );
+
+  const subHeaderStyle: React.CSSProperties = {
+    margin: 0,
+    fontSize: 10,
+    fontWeight: 800,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+  };
+
+  return (
+    <div
+      style={{
+        marginTop: hasPrecedingBullets ? 14 : 0,
+        paddingTop: hasPrecedingBullets ? 12 : 0,
+        borderTop: hasPrecedingBullets ? `1px dashed ${TEXT_MUTED}33` : 'none',
+      }}
+    >
+      <p
+        style={{
+          margin: '0 0 8px 0',
+          fontSize: 10,
+          fontWeight: 700,
+          color: TEXT_MUTED,
+          letterSpacing: '0.1em',
+          textTransform: 'uppercase',
+        }}
+      >
+        Low Stock · {alerts.windowLabel}
+      </p>
+      {alerts.outOfStock.length > 0 && (
+        <div style={{ marginBottom: alerts.lastUnit.length > 0 ? 10 : 0 }}>
+          <p style={{ ...subHeaderStyle, color: RED, marginBottom: 4 }}>
+            Out of stock ({alerts.outOfStock.length})
+          </p>
+          {alerts.outOfStock.map((r) => renderRow(r, RED))}
+        </div>
+      )}
+      {alerts.lastUnit.length > 0 && (
+        <div>
+          <p style={{ ...subHeaderStyle, color: AMBER_ALERT, marginBottom: 4 }}>
+            Last unit ({alerts.lastUnit.length})
+          </p>
+          {alerts.lastUnit.map((r) => renderRow(r, AMBER_ALERT))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const ActivityReportView: React.FC<Props> = ({
   report,
   accuracyPct,
@@ -211,6 +315,7 @@ export const ActivityReportView: React.FC<Props> = ({
   inProgress,
   comingUpNext,
   waitingOrdersCount = 0,
+  lowStockAlerts,
   greeting,
   printMode = false,
   skipPalletPhotos = false,
@@ -259,7 +364,10 @@ export const ActivityReportView: React.FC<Props> = ({
   const hasPickdUpdates = pickdUpdates.length > 0;
   const hasDoneToday = doneToday.length > 0;
   const hasInProgress = inProgress.length > 0;
-  const hasFloorContent = floorBullets.length > 0;
+  const hasLowStockAlerts =
+    !!lowStockAlerts &&
+    (lowStockAlerts.outOfStock.length > 0 || lowStockAlerts.lastUnit.length > 0);
+  const hasFloorContent = floorBullets.length > 0 || hasLowStockAlerts;
   const hasComingUp = comingUpNext.length > 0;
   const hasAccuracy = report.total_skus > 0 && report.verified_skus_2m > 0;
 
@@ -335,6 +443,12 @@ export const ActivityReportView: React.FC<Props> = ({
                   &nbsp;&nbsp;{item}
                 </p>
               ))}
+              {hasLowStockAlerts && (
+                <LowStockAlertsBlock
+                  alerts={lowStockAlerts!}
+                  hasPrecedingBullets={floorBullets.length > 0}
+                />
+              )}
             </div>
             <div style={spacerStyle} />
           </>
