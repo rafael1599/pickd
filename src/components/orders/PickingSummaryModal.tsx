@@ -24,6 +24,7 @@ interface PickingSummaryModalProps {
   pickedBy?: string;
   checkedBy?: string;
   palletPhotos?: string[];
+  status?: string;
   onClose: () => void;
 }
 
@@ -36,6 +37,7 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
   pickedBy,
   checkedBy,
   palletPhotos,
+  status,
   onClose,
 }) => {
   useScrollLock(true, onClose);
@@ -52,6 +54,42 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
   useEffect(() => {
     setPhotos(palletPhotos ?? []);
   }, [palletPhotos]);
+
+  // idea-069: Remaining qty per SKU (warehouse-wide sum across active rows)
+  // Only fetched after deduct has happened (status = 'completed').
+  const [remainingBySku, setRemainingBySku] = useState<Record<string, number>>({});
+  const isCompleted = status === 'completed';
+
+  useEffect(() => {
+    if (!isCompleted) return;
+    const skus = Array.from(new Set(items.map((i) => i.sku).filter(Boolean)));
+    if (skus.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('inventory')
+        .select('sku, quantity')
+        .in('sku', skus)
+        .eq('is_active', true);
+      if (cancelled) return;
+      if (error) {
+        console.error('Failed to fetch remaining qty:', error);
+        return;
+      }
+      const totals: Record<string, number> = {};
+      for (const sku of skus) totals[sku] = 0;
+      for (const row of data ?? []) {
+        if (!row.sku) continue;
+        totals[row.sku] = (totals[row.sku] ?? 0) + (row.quantity ?? 0);
+      }
+      setRemainingBySku(totals);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isCompleted, items]);
 
   const handleDeletePhoto = (index: number) => {
     showConfirmation(
@@ -307,6 +345,19 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
                               </span>
                             )}
                           </div>
+                          {isCompleted && item.sku in remainingBySku && (
+                            <div
+                              className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 ${
+                                remainingBySku[item.sku] === 0
+                                  ? 'text-red-400'
+                                  : remainingBySku[item.sku] === 1
+                                    ? 'text-amber-400'
+                                    : 'text-white/40'
+                              }`}
+                            >
+                              Remaining: {remainingBySku[item.sku]}
+                            </div>
+                          )}
                         </div>
 
                         {/* Row badge */}

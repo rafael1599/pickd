@@ -1190,6 +1190,7 @@ export const OrdersScreen = () => {
           pickedBy={selectedOrder.user?.full_name ?? undefined}
           checkedBy={selectedOrder.checker?.full_name ?? undefined}
           palletPhotos={selectedOrder.pallet_photos ?? undefined}
+          status={selectedOrder.status ?? undefined}
           onClose={() => setIsShowingPickingSummary(false)}
         />
       )}
