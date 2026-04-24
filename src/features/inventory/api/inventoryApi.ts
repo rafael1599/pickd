@@ -46,7 +46,7 @@ export const inventoryApi = {
     warehouse?: string;
   } = {}): Promise<{ data: InventoryItem[]; count: number | null }> {
     const metadataCols =
-      'sku, image_url, length_in, width_in, height_in, weight_lbs, is_bike, is_scratch_dent';
+      'sku, image_url, length_in, width_in, height_in, weight_lbs, is_bike, is_scratch_dent, serial_number';
 
     let query = supabase
       .from('inventory')
