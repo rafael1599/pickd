@@ -68,6 +68,7 @@ describe('classifyLowStock', () => {
     sku,
     item_name: `Item ${sku}`,
     remaining_qty: qty,
+    completions: [],
   });
 
   it('buckets qty=0 into outOfStock and qty=1 into lastUnit', () => {
