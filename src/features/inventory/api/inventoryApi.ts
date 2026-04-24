@@ -74,6 +74,9 @@ export const inventoryApi = {
         is_bike,
         is_scratch_dent,
         serial_number,
+        upc,
+        model,
+        condition_description,
         ...inventoryCols
       } = row;
       return {
@@ -88,6 +91,9 @@ export const inventoryApi = {
           is_bike,
           is_scratch_dent,
           serial_number,
+          upc,
+          model,
+          condition_description,
         },
       };
     });

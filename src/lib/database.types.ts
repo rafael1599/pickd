@@ -1337,6 +1337,9 @@ export type Database = {
           is_bike: boolean | null;
           is_scratch_dent: boolean | null;
           serial_number: string | null;
+          upc: string | null;
+          model: string | null;
+          condition_description: string | null;
           total_count: number;
         }[];
       };
