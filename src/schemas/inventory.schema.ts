@@ -104,6 +104,14 @@ export const InventoryFormSchema = InventoryItemInputSchema.extend({
   width_in: z.coerce.number().optional().nullable(),
   height_in: z.coerce.number().optional().nullable(),
   weight_lbs: z.coerce.number().nonnegative('Weight cannot be negative').optional().nullable(),
+  // idea-083: "Details" section — universal extra info per SKU.
+  // All stored on sku_metadata (columns already exist for S/D). Accepted for
+  // any item regardless of is_bike / is_scratch_dent.
+  serial_number: z.string().optional().nullable(),
+  price: z.coerce.number().nonnegative().optional().nullable(),
+  condition: z.string().optional().nullable(),
+  condition_description: z.string().optional().nullable(),
+  pdf_link: z.string().optional().nullable(),
 });
 
 export type InventoryFormValues = z.infer<typeof InventoryFormSchema>;
