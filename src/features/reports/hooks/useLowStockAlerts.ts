@@ -105,12 +105,13 @@ export function useLowStockAlerts(nyDate: string) {
         return { outOfStock: [], lastUnit: [], windowLabel: window.label };
       }
 
-      // Step 2: current warehouse-wide qty per SKU (active rows only).
-      // `inventory` has one row per (sku, location) so we aggregate client-side.
+      // Step 2: current warehouse-wide qty per SKU. We include inactive rows
+      // so we can still surface `item_name` when the SKU hit 0 (invariant:
+      // qty=0 → is_active=false flips the row inactive). Quantity only sums
+      // from active rows — inactive rows contribute 0.
       const { data: invRows, error: invErr } = await supabase
         .from('inventory')
         .select('sku, quantity, item_name, is_active')
-        .eq('is_active', true)
         .in('sku', touchedSkus);
       if (invErr) throw invErr;
 
@@ -118,8 +119,8 @@ export function useLowStockAlerts(nyDate: string) {
       for (const row of (invRows ?? []) as InventoryRow[]) {
         const prev = totals.get(row.sku) ?? { qty: 0, name: null };
         totals.set(row.sku, {
-          qty: prev.qty + (row.quantity ?? 0),
-          // Prefer the first non-null item_name we see; rows typically share it.
+          qty: prev.qty + (row.is_active ? (row.quantity ?? 0) : 0),
+          // Prefer the first non-null item_name we see across all rows.
           name: prev.name ?? row.item_name ?? null,
         });
       }
