@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useViewMode } from '../../context/ViewModeContext.tsx';
 import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
 import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
@@ -75,6 +76,12 @@ function saveRoutineItems(items: string[]) {
 
 export const ActivityReportScreen = () => {
   const navigate = useNavigate();
+  const { setExternalOrderId, setExternalShowPickingSummary } = useViewMode();
+  const handleClickOrder = (listId: string) => {
+    setExternalOrderId(listId);
+    setExternalShowPickingSummary(true);
+    navigate('/orders');
+  };
   const { isAdmin, user, profile: authProfile } = useAuth();
   const { data: waitingCount = 0 } = useWaitingOrdersCount();
 
@@ -821,6 +828,7 @@ export const ActivityReportScreen = () => {
                 comingUpNext={comingUpNext}
                 waitingOrdersCount={waitingCount}
                 lowStockAlerts={lowStockAlerts}
+                onClickOrder={handleClickOrder}
               />
             </div>
           )}
