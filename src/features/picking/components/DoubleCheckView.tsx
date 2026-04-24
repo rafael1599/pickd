@@ -283,9 +283,14 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     [cartItems]
   );
   const [bikeSkuSet, setBikeSkuSet] = useState<Set<string>>(new Set());
+  // idea-079: S/D (scratch-and-dent) SKUs carry a physical serial number. In
+  // the big item header we display the serial instead of the SKU so pickers
+  // can match the tag visually. Scanning still uses the SKU.
+  const [sdSerialMap, setSdSerialMap] = useState<Map<string, string>>(new Map());
   useEffect(() => {
     if (!cartSkusKey) {
       setBikeSkuSet(new Set());
+      setSdSerialMap(new Map());
       return;
     }
     let cancelled = false;
@@ -294,13 +299,28 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     // Seed immediately with prefix-inferred bikes so stacking applies before the fetch resolves
     setBikeSkuSet(prefixInferred);
     (async () => {
-      const { data } = await supabase.from('sku_metadata').select('sku, is_bike').in('sku', skus);
+      const { data } = await supabase
+        .from('sku_metadata')
+        .select('sku, is_bike, is_scratch_dent, serial_number')
+        .in('sku', skus);
       if (cancelled) return;
       const next = new Set<string>(prefixInferred);
-      (data as { sku: string; is_bike: boolean | null }[] | null)?.forEach((row) => {
+      const serials = new Map<string, string>();
+      (
+        data as
+          | {
+              sku: string;
+              is_bike: boolean | null;
+              is_scratch_dent: boolean | null;
+              serial_number: string | null;
+            }[]
+          | null
+      )?.forEach((row) => {
         if (row.is_bike) next.add(row.sku);
+        if (row.is_scratch_dent && row.serial_number) serials.set(row.sku, row.serial_number);
       });
       setBikeSkuSet(next);
+      setSdSerialMap(serials);
     })();
     return () => {
       cancelled = true;
@@ -1578,20 +1598,28 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                               <span
                                 className={`font-black text-2xl tracking-tight leading-none break-all ${isReviewMode ? (item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-content') : isChecked ? (item.sku_not_found || item.insufficient_stock ? 'text-red-400' : 'text-green-400') : item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-content'}`}
                               >
-                                {similarity?.prefix ? (
-                                  <span className="animate-pulse-highlight">
-                                    {item.sku.substring(0, 2)}
-                                  </span>
+                                {sdSerialMap.has(item.sku) ? (
+                                  // S/D: show the physical serial instead of the SKU.
+                                  // Scanning still uses SKU — this is display-only.
+                                  sdSerialMap.get(item.sku)
                                 ) : (
-                                  item.sku.substring(0, 2)
-                                )}
-                                {item.sku.substring(2, item.sku.length - 2)}
-                                {similarity?.suffix ? (
-                                  <span className="animate-pulse-highlight">
-                                    {item.sku.substring(item.sku.length - 2)}
-                                  </span>
-                                ) : (
-                                  item.sku.substring(item.sku.length - 2)
+                                  <>
+                                    {similarity?.prefix ? (
+                                      <span className="animate-pulse-highlight">
+                                        {item.sku.substring(0, 2)}
+                                      </span>
+                                    ) : (
+                                      item.sku.substring(0, 2)
+                                    )}
+                                    {item.sku.substring(2, item.sku.length - 2)}
+                                    {similarity?.suffix ? (
+                                      <span className="animate-pulse-highlight">
+                                        {item.sku.substring(item.sku.length - 2)}
+                                      </span>
+                                    ) : (
+                                      item.sku.substring(item.sku.length - 2)
+                                    )}
+                                  </>
                                 )}
                               </span>
                               {item.sku_not_found && (
