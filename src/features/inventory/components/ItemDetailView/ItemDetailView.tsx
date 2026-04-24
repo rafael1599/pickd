@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -8,7 +8,6 @@ import toast from 'react-hot-toast';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import CheckCircle2 from 'lucide-react/dist/esm/icons/check-circle-2';
 import Save from 'lucide-react/dist/esm/icons/save';
-import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 
 import { useInventory } from '../../hooks/useInventoryData.ts';
 import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from '../../hooks/useInventoryRealtime';
@@ -43,7 +42,7 @@ import { QuantityControl } from './QuantityControl.tsx';
 import { DistributionPreview } from './DistributionPreview.tsx';
 import { SectionEditorSheet } from './SectionEditorSheet.tsx';
 import { ItemHistorySheet } from './ItemHistorySheet.tsx';
-import { ScratchAndDentSection } from '../../../scratch-and-dent/components/ScratchAndDentSection';
+import { ItemDetailsCard } from './ItemDetailsCard';
 
 type WarehouseType = 'LUDLOW' | 'ATS' | 'DELETED ITEMS';
 
@@ -77,7 +76,6 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   mode = 'add',
   screenType,
 }) => {
-  useScrollLock(isOpen, onClose);
   const queryClient = useQueryClient();
 
   const { ludlowData, atsData, isAdmin, updateSKUMetadata } = useInventory();
@@ -96,9 +94,6 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   // Photo state
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
-
-  // idea-083: "Details" section — collapsed by default
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   // React Hook Form
   const {
@@ -141,6 +136,12 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   const widthIn = watch('width_in');
   const heightIn = watch('height_in');
   const weightLbs = watch('weight_lbs');
+  // idea-083: Details fields watches (for dirty check)
+  const serialNumber = watch('serial_number');
+  const priceField = watch('price');
+  const conditionField = watch('condition');
+  const conditionDescField = watch('condition_description');
+  const pdfLinkField = watch('pdf_link');
 
   // ─── Sync Initial Data ───
   useEffect(() => {
@@ -268,6 +269,14 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       num(heightIn) !== num(meta?.height_in) ||
       num(weightLbs) !== num(meta?.weight_lbs);
     if (metaChanged) return true;
+    // idea-083: Details section fields
+    const detailsChanged =
+      n(serialNumber) !== n(meta?.serial_number) ||
+      num(priceField) !== num(meta?.standard_price) ||
+      n(conditionField) !== n(meta?.condition) ||
+      n(conditionDescField) !== n(meta?.condition_description) ||
+      n(pdfLinkField) !== n(meta?.pdf_link);
+    if (detailsChanged) return true;
     const initDist = Array.isArray(initialData.distribution) ? initialData.distribution : [];
     if (JSON.stringify(distribution) !== JSON.stringify(initDist)) return true;
     // Photo change
@@ -290,7 +299,35 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     heightIn,
     weightLbs,
     photoPreview,
+    serialNumber,
+    priceField,
+    conditionField,
+    conditionDescField,
+    pdfLinkField,
   ]);
+
+  // idea-083: Guard close when there are unsaved changes. Ref keeps requestClose
+  // stable (useScrollLock / DetailToolbar don't remount per keystroke).
+  const hasChangesRef = useRef(hasChanges);
+  hasChangesRef.current = hasChanges;
+
+  const requestClose = useCallback(() => {
+    if (hasChangesRef.current) {
+      showConfirmation(
+        'Unsaved changes',
+        'You have unsaved changes. Discard and close?',
+        () => onClose(),
+        undefined,
+        'Discard',
+        'Keep editing',
+        'warning'
+      );
+    } else {
+      onClose();
+    }
+  }, [onClose, showConfirmation]);
+
+  useScrollLock(isOpen, requestClose);
 
   // ─── Location Predictions & Suggestions ───
   const validLocationNames = useMemo(() => {
@@ -847,7 +884,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       <DetailToolbar
         title={toolbarTitle}
         mode={mode}
-        onBack={onClose}
+        onBack={requestClose}
         onDelete={mode === 'edit' ? handleDelete : undefined}
         onPrintLabel={mode === 'edit' && isBikeItem ? handlePrintLabel : undefined}
       />
@@ -1064,8 +1101,31 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                   </div>
                 </div>
               )}
-              {isScratchDentItem && initialData?.sku && (
-                <ScratchAndDentSection sku={initialData.sku} />
+              {mode === 'edit' && initialData?.sku && (
+                <ItemDetailsCard
+                  sku={initialData.sku}
+                  isScratchDent={isScratchDentItem}
+                  serial={watch('serial_number') ?? ''}
+                  price={watch('price') ?? null}
+                  condition={watch('condition') ?? ''}
+                  conditionDescription={watch('condition_description') ?? ''}
+                  pdfLink={watch('pdf_link') ?? ''}
+                  setSerial={(v) => setValue('serial_number', v)}
+                  setPrice={(v) => setValue('price', v)}
+                  setCondition={(v) => setValue('condition', v)}
+                  setConditionDescription={(v) => setValue('condition_description', v)}
+                  setPdfLink={(v) => setValue('pdf_link', v)}
+                  onOpenCatalogEditor={
+                    isScratchDentItem
+                      ? () => {
+                          navigate(
+                            `/sd-catalog?action=edit&sku=${encodeURIComponent(initialData.sku)}`
+                          );
+                          onClose();
+                        }
+                      : undefined
+                  }
+                />
               )}
               {lastUpdate && (
                 <SectionRow
@@ -1340,112 +1400,6 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           )}
         </div>
 
-        {/* idea-083: Details — universal extra info (collapsed by default) */}
-        <div className="mx-4 mt-4 border border-subtle rounded-2xl bg-surface">
-          <button
-            type="button"
-            onClick={() => setIsDetailsOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-4 py-3"
-          >
-            <span className="text-[10px] font-black uppercase tracking-widest text-muted">
-              Details
-            </span>
-            <ChevronDown
-              size={14}
-              className={`text-muted transition-transform ${isDetailsOpen ? 'rotate-180' : ''}`}
-            />
-          </button>
-          {isDetailsOpen && (
-            <div className="px-4 pb-4 pt-1 space-y-3">
-              <DetailsField label="Serial">
-                <input
-                  type="text"
-                  value={watch('serial_number') ?? ''}
-                  onChange={(e) => setValue('serial_number', e.target.value)}
-                  placeholder="Optional"
-                  className="details-input font-mono"
-                />
-              </DetailsField>
-
-              <DetailsField label="Price">
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted text-xs">
-                    $
-                  </span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={watch('price') ?? ''}
-                    onChange={(e) =>
-                      setValue('price', e.target.value === '' ? null : Number(e.target.value))
-                    }
-                    placeholder="0.00"
-                    className="details-input pl-6"
-                  />
-                </div>
-              </DetailsField>
-
-              <DetailsField label="Condition">
-                <select
-                  value={watch('condition') ?? ''}
-                  onChange={(e) => setValue('condition', e.target.value)}
-                  className="details-input"
-                >
-                  <option value="">—</option>
-                  <option value="new">New</option>
-                  <option value="used">Used</option>
-                  <option value="damaged">Damaged</option>
-                  <option value="refurbished">Refurbished</option>
-                  {/* Preserve legacy S/D values if already stored */}
-                  {watch('condition') &&
-                    !['', 'new', 'used', 'damaged', 'refurbished'].includes(
-                      watch('condition') ?? ''
-                    ) && (
-                      <option value={watch('condition') ?? ''}>
-                        {(watch('condition') ?? '').replace(/_/g, ' ')} (legacy)
-                      </option>
-                    )}
-                </select>
-              </DetailsField>
-
-              <DetailsField label="Notes">
-                <textarea
-                  value={watch('condition_description') ?? ''}
-                  onChange={(e) => setValue('condition_description', e.target.value)}
-                  rows={3}
-                  placeholder="Optional description"
-                  className="details-input resize-none"
-                />
-              </DetailsField>
-
-              <DetailsField label="PDF link">
-                <input
-                  type="text"
-                  value={watch('pdf_link') ?? ''}
-                  onChange={(e) => setValue('pdf_link', e.target.value)}
-                  placeholder="https://…"
-                  className="details-input"
-                />
-              </DetailsField>
-
-              <style>{`
-                .details-input {
-                  width: 100%;
-                  padding: 0.5rem 0.75rem;
-                  border-radius: 0.5rem;
-                  background-color: var(--bg-main, rgba(0,0,0,0.2));
-                  border: 1px solid rgba(255,255,255,0.08);
-                  font-size: 12px;
-                  color: var(--color-content, #fff);
-                  outline: none;
-                }
-                .details-input:focus { border-color: var(--accent, #f59e0b); }
-              `}</style>
-            </div>
-          )}
-        </div>
-
         {/* Validation errors */}
         {(errors.sku || errors.quantity || errors.location) && (
           <div className="mx-4 mt-3 space-y-1">
@@ -1505,13 +1459,3 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     document.body
   );
 };
-
-/** Small helper for the Details section rows (label + input). */
-function DetailsField({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="text-[9px] font-bold uppercase tracking-widest text-muted">{label}</span>
-      <div className="mt-1">{children}</div>
-    </label>
-  );
-}
