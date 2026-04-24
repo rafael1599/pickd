@@ -17,7 +17,6 @@ import MoveIcon from 'lucide-react/dist/esm/icons/move';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import Calendar from 'lucide-react/dist/esm/icons/calendar';
 import User from 'lucide-react/dist/esm/icons/user';
-import Mail from 'lucide-react/dist/esm/icons/mail';
 import Users from 'lucide-react/dist/esm/icons/users';
 import Settings from 'lucide-react/dist/esm/icons/settings';
 import Package from 'lucide-react/dist/esm/icons/package';
@@ -890,156 +889,6 @@ export const HistoryScreen = () => {
     }
   }, [generateDailyPDF, showError]);
 
-  const sendDailyEmail = useCallback(async () => {
-    try {
-      console.log('Attempting to send daily email...');
-
-      const now = new Date();
-      const todayStr = now.toLocaleDateString();
-      const todayStrComp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-
-      const todaysLogs = logs.filter((log) => {
-        if (!log.created_at) return false;
-        if (log.is_reversed) return false;
-
-        const logDate = new Date(log.created_at);
-        const logDateStr = `${logDate.getFullYear()}-${String(logDate.getMonth() + 1).padStart(2, '0')}-${String(logDate.getDate()).padStart(2, '0')}`;
-        return logDateStr === todayStrComp;
-      });
-
-      const moveCount = todaysLogs.filter((l) => l.action_type === 'MOVE').length;
-      const pickCount = todaysLogs.filter((l) => l.action_type === 'DEDUCT').length;
-      const addCount = todaysLogs.filter((l) => l.action_type === 'ADD').length;
-
-      const htmlContent = `
-                <h1>Daily Inventory Summary - ${todayStr}</h1>
-                <p><strong>Total Actions:</strong> ${todaysLogs.length}</p>
-                <ul>
-                    <li>Moves: ${moveCount}</li>
-                    <li>Picks: ${pickCount}</li>
-                    <li>Restocks: ${addCount}</li>
-                </ul>
-                
-                <h2>Activity Details</h2>
-                <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: sans-serif;">
-                    <thead>
-                        <tr style="background-color: #f3f4f6; color: #374151;">
-                            <th style="padding: 12px; border-bottom: 2px solid #e5e7eb; width: 80px;">Time</th>
-                            <th style="padding: 12px; border-bottom: 2px solid #e5e7eb; width: 120px;">SKU</th>
-                            <th style="padding: 12px; border-bottom: 2px solid #e5e7eb;">Activity Description</th>
-                            <th style="padding: 12px; border-bottom: 2px solid #e5e7eb; text-align: right; width: 60px;">Qty</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${todaysLogs
-                          .map((log) => {
-                            const locationStyle = 'font-weight: 600; color: #111827;';
-                            const secondaryColor = '#6b7280';
-
-                            const fromLoc = log.from_location
-                              ? `<span style="${locationStyle}">${log.from_location}</span> <span style="color:${secondaryColor}; font-size: 0.8em;">(${log.from_warehouse || 'N/A'})</span>`
-                              : '';
-                            const toLoc = log.to_location
-                              ? `<span style="${locationStyle}">${log.to_location}</span> <span style="color:${secondaryColor}; font-size: 0.8em;">(${log.to_warehouse || 'N/A'})</span>`
-                              : '';
-
-                            let description = '';
-                            switch (log.action_type) {
-                              case 'MOVE':
-                                description = `Relocated from ${fromLoc} to ${toLoc}`;
-                                break;
-                              case 'ADD':
-                                description = `Restocked inventory in ${toLoc || fromLoc || 'General'}`;
-                                break;
-                              case 'DEDUCT':
-                                description = `Picked stock from ${fromLoc || 'General'}`;
-                                break;
-                              case 'DELETE':
-                                description = `Removed item from ${fromLoc || 'Inventory'}`;
-                                break;
-                              case 'SYSTEM_RECONCILIATION':
-                                description = `System reconciliation audit`;
-                                break;
-                              default:
-                                description = `Updated record for ${fromLoc || toLoc || '-'}`;
-                            }
-
-                            return `
-                                <tr style="border-bottom: 1px solid #f3f4f6;">
-                                    <td style="padding: 12px; color: #6b7280; font-size: 0.9em;">
-                                        ${new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </td>
-                                    <td style="padding: 12px; font-weight: bold; color: #111827;">
-                                        ${log.sku}
-                                    </td>
-                                    <td style="padding: 12px; color: #374151;">
-                                        ${description}
-                                    </td>
-                                    <td style="padding: 12px; text-align: right; font-weight: bold;">
-                                        ${(() => {
-                                          if (log.action_type === 'EDIT')
-                                            return log.new_quantity ?? log.quantity_change ?? 0;
-                                          if (log.action_type === 'PHYSICAL_DISTRIBUTION') {
-                                            const s = log.snapshot_before as
-                                              | DistributionSnapshot
-                                              | null
-                                              | undefined;
-                                            return s?.count && s?.units_each
-                                              ? s.count * s.units_each
-                                              : (log.new_quantity ?? 0);
-                                          }
-                                          if (
-                                            log.action_type === 'MOVE' &&
-                                            (log.quantity_change === 0 || !log.quantity_change) &&
-                                            log.new_quantity
-                                          )
-                                            return log.new_quantity;
-                                          return Math.abs(log.quantity_change || 0);
-                                        })()}
-                                    </td>
-                                </tr>
-                            `;
-                          })
-                          .join('')}
-                    </tbody>
-                </table>
-                
-                <p style="margin-top: 30px; font-size: 11px; color: #9ca3af; text-align: center;">
-                    Automated report generated by PickD • ${new Date().toLocaleString()}
-                </p>
-            `;
-
-      const { data, error } = await supabase.functions.invoke('send-daily-report', {
-        body: {
-          to: 'rafaelukf@gmail.com',
-          subject: `Daily Inventory Report - ${todayStr}`,
-          html: htmlContent,
-        },
-      });
-
-      if (error) {
-        console.error('Edge Function Invocation Error:', error);
-        throw error;
-      }
-
-      if (data?.error) {
-        console.error('Email Sending Error:', data.error);
-        showError('Error sending email', JSON.stringify(data.error));
-        return;
-      }
-
-      console.log('Email sent successfully:', data);
-      localStorage.setItem(`email_sent_${new Date().toDateString()}`, 'true');
-      toast.success(`Daily report sent to rafaelukf@gmail.com`);
-    } catch (err: unknown) {
-      console.error('Failed to send email:', err);
-      showError(
-        'Failed to send daily email',
-        err instanceof Error ? err.message : 'Failed to send daily email via Edge Function.'
-      );
-    }
-  }, [logs, showError]);
-
   return (
     <div className="pb-32 relative max-w-2xl mx-auto w-full px-4">
       {!isSearching && (
@@ -1409,16 +1258,6 @@ export const HistoryScreen = () => {
       </div>
 
       <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 p-2 ios-glass rounded-full shadow-2xl animate-in slide-in-from-bottom-4 duration-700">
-        <button
-          onClick={sendDailyEmail}
-          className="w-12 h-12 bg-white/5 text-muted border border-white/10 rounded-full flex items-center justify-center active:scale-90 ios-transition hover:text-content"
-          title="Send Daily Email Now"
-        >
-          <Mail size={20} />
-        </button>
-
-        <div className="w-px h-6 bg-white/10 mx-1" />
-
         <button
           onClick={handleDownloadReport}
           className="px-6 h-12 bg-accent text-main rounded-full flex items-center gap-2 shadow-lg shadow-accent/20 hover:scale-105 active:scale-90 ios-transition font-black uppercase tracking-widest text-[10px]"

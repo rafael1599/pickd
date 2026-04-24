@@ -64,7 +64,7 @@ export function useActivityReport(date: string) {
       // See src/lib/nyDate.ts and the NY tz migration.
       const { startsAt: dayStart, endsAt: dayEnd } = await getNYDayBounds(date);
 
-      const twoMonthsAgo = new Date(new Date(dayEnd).getTime() - 60 * 24 * 60 * 60 * 1000).toISOString();
+      const twoMonthsAgo = new Date(new Date(dayEnd).getTime() - 90 * 24 * 60 * 60 * 1000).toISOString();
 
       const [pickingRes, logsRes, cycleRes, profilesRes, verifiedRes, moveAddRes, statsRes, notesRes] =
         await Promise.all([
@@ -96,7 +96,7 @@ export function useActivityReport(date: string) {
             .in('status', ['counted', 'verified'])
             .gte('counted_at', twoMonthsAgo)
             .lte('counted_at', dayEnd),
-          // SKUs physically touched via MOVE or ADD in last 60 days (coverage)
+          // SKUs physically touched via MOVE or ADD in last 90 days (coverage)
           supabase
             .from('inventory_logs')
             .select('sku')

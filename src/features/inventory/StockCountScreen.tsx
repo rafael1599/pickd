@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left';
 import CheckCircle2 from 'lucide-react/dist/esm/icons/check-circle-2';
@@ -9,7 +9,9 @@ import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import Play from 'lucide-react/dist/esm/icons/play';
 import Search from 'lucide-react/dist/esm/icons/search';
 import History from 'lucide-react/dist/esm/icons/history';
+import Layers from 'lucide-react/dist/esm/icons/layers';
 import toast from 'react-hot-toast';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useInventory } from './hooks/InventoryProvider.tsx';
 import { useAuth } from '../../context/AuthContext.tsx';
@@ -18,6 +20,40 @@ import { SearchInput } from '../../components/ui/SearchInput.tsx';
 import { ItemDetailView } from './components/ItemDetailView';
 import { InventoryItemWithMetadata, InventoryItemInput } from '../../schemas/inventory.schema.ts';
 import { supabase } from '../../lib/supabase';
+
+interface AuditRow {
+  row_label: string;
+  sku_count: number;
+  skus_touched_90d: number;
+  last_touched_at: string | null;
+  has_waiting_skus: boolean;
+  missing_sublocation_count: number;
+}
+
+type RowFilter = 'all' | 'stale' | 'waiting' | 'subloc';
+
+function describeLastTouched(iso: string | null): {
+  label: string;
+  tone: 'red' | 'amber' | 'green';
+} {
+  if (!iso) return { label: 'Never', tone: 'red' };
+  const ageDays = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (ageDays > 90) return { label: `${ageDays}d ago`, tone: 'red' };
+  if (ageDays > 30) return { label: `${ageDays}d ago`, tone: 'amber' };
+  if (ageDays <= 1) return { label: 'Today', tone: 'green' };
+  return { label: `${ageDays}d ago`, tone: 'green' };
+}
+
+function rowAccuracyPct(r: AuditRow): number {
+  if (r.sku_count === 0) return 0;
+  return Math.round((r.skus_touched_90d / r.sku_count) * 100);
+}
+
+function isRowStale(r: AuditRow): boolean {
+  if (!r.last_touched_at) return true;
+  const ageDays = Math.floor((Date.now() - new Date(r.last_touched_at).getTime()) / 86_400_000);
+  return ageDays > 30;
+}
 
 // ─── Types and Constants ───
 
@@ -48,6 +84,7 @@ const defaultSession: CycleCountSession = {
 // ─── Main Screen Component ───
 export const StockCountScreen = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const {
     inventoryData,
     updateItem,
@@ -55,7 +92,7 @@ export const StockCountScreen = () => {
     setSearchQuery: setGlobalSearchQuery,
   } = useInventory();
   const { locations: allMappedLocations } = useLocationManagement();
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
 
   // ─── Session State Management ───
   const [session, setSession] = useState<CycleCountSession>(() => {
@@ -131,6 +168,37 @@ export const StockCountScreen = () => {
 
   // ─── Input Phase State ───
   const [searchQuery, setSearchQuery] = useState('');
+  const [inputMode, setInputMode] = useState<'sku' | 'row'>('sku');
+  const [rowFilter, setRowFilter] = useState<RowFilter>('all');
+
+  const { data: auditRows = [], isLoading: rowsLoading } = useQuery<AuditRow[]>({
+    queryKey: ['audit-rows', 'LUDLOW'],
+    queryFn: async () => {
+      // RPC not yet in generated Supabase types. Cast through unknown.
+      const { data, error } = await (
+        supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>
+        ) => Promise<{ data: AuditRow[] | null; error: unknown }>
+      )('get_audit_rows', { p_warehouse: 'LUDLOW' });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: (session.status === 'input' && inputMode === 'row') || session.status === 'completed',
+    staleTime: 60_000,
+  });
+
+  // Warehouse total SKUs — used to show per-session accuracy-boost projection.
+  const { data: warehouseTotalSkus = 0 } = useQuery<number>({
+    queryKey: ['inventory-stats', 'total_skus'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_inventory_stats', { p_include_parts: true });
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      return Number((row as { total_skus?: number } | null)?.total_skus ?? 0);
+    },
+    staleTime: 5 * 60_000,
+  });
 
   // Forward local searchQuery to useInventory's global searchQuery (debounced)
   // so that inventoryData contains server-side search results, not just the
@@ -180,21 +248,127 @@ export const StockCountScreen = () => {
     return map;
   }, [inventoryData, directInventory]);
 
-  // Sync verified status back to DB
+  // Ensure a cycle_count_sessions row exists, creating one (plus items) if not.
+  // Ref guards against concurrent calls racing to create duplicate sessions.
+  const ensureDbSessionPromiseRef = useRef<Promise<string | null> | null>(null);
+  const ensureDbSession = useCallback(async (): Promise<string | null> => {
+    if (dbSessionId) return dbSessionId;
+    if (ensureDbSessionPromiseRef.current) return ensureDbSessionPromiseRef.current;
+    if (!user?.id) {
+      toast.error('Not authenticated');
+      return null;
+    }
+
+    const promise = (async () => {
+      const nowIso = new Date().toISOString();
+      const dateLabel = new Date().toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+
+      const { data: newSession, error } = await supabase
+        .from('cycle_count_sessions')
+        .insert({
+          created_by: user.id,
+          warehouse: 'LUDLOW',
+          source: 'manual',
+          label: `Manual Count ${dateLabel}`,
+          status: 'in_progress',
+          started_at: nowIso,
+        })
+        .select('id, label')
+        .single();
+
+      if (error || !newSession) {
+        toast.error('Could not start cycle count session');
+        return null;
+      }
+
+      const itemsToInsert = session.skus.map((sku) => {
+        const group = inventoryBySku.get(sku);
+        const activeItems = (group?.items ?? []).filter((i) => (i.quantity || 0) > 0);
+        const expectedQty = activeItems.reduce((sum, i) => sum + (i.quantity || 0), 0);
+        return {
+          session_id: newSession.id,
+          sku,
+          warehouse: 'LUDLOW',
+          location: null,
+          expected_qty: expectedQty,
+          status: 'pending',
+        };
+      });
+
+      if (itemsToInsert.length > 0) {
+        const { error: itemsError } = await supabase
+          .from('cycle_count_items')
+          .insert(itemsToInsert);
+        if (itemsError) {
+          toast.error('Could not create count items');
+          await supabase.from('cycle_count_sessions').delete().eq('id', newSession.id);
+          return null;
+        }
+      }
+
+      setDbSessionId(newSession.id);
+      setDbSessionLabel(newSession.label);
+      return newSession.id as string;
+    })();
+
+    ensureDbSessionPromiseRef.current = promise;
+    const result = await promise;
+    if (!result) ensureDbSessionPromiseRef.current = null;
+    return result;
+  }, [dbSessionId, user, session.skus, inventoryBySku]);
+
+  // Insert cycle_count_items rows for SKUs added AFTER the session was created.
+  // Needed so syncVerifiedToDb (which does UPDATE) finds a row to update.
+  const insertMissingItems = useCallback(
+    async (sessionId: string, items: Array<{ sku: string; expected_qty: number }>) => {
+      if (items.length === 0) return;
+      const skus = items.map((i) => i.sku);
+      const { data: existing } = await supabase
+        .from('cycle_count_items')
+        .select('sku')
+        .eq('session_id', sessionId)
+        .in('sku', skus);
+      const existingSet = new Set((existing ?? []).map((r) => r.sku));
+      const toInsert = items
+        .filter((i) => !existingSet.has(i.sku))
+        .map((i) => ({
+          session_id: sessionId,
+          sku: i.sku,
+          warehouse: 'LUDLOW',
+          location: null,
+          expected_qty: i.expected_qty,
+          status: 'pending',
+        }));
+      if (toInsert.length > 0) {
+        await supabase.from('cycle_count_items').insert(toInsert);
+      }
+    },
+    []
+  );
+
+  // Sync verified status back to DB. If no DB session yet (user is in counting
+  // phase but session was never persisted, e.g. legacy localStorage session),
+  // create one on-demand so the verification actually sticks.
   const syncVerifiedToDb = useCallback(
     async (sku: string, verified: boolean) => {
-      if (!dbSessionId) return;
+      const sessionId = await ensureDbSession();
+      if (!sessionId) return;
       await supabase
         .from('cycle_count_items')
         .update({
           status: verified ? 'counted' : 'pending',
           counted_qty: verified ? (inventoryBySku.get(sku)?.totalQty ?? 0) : null,
           counted_at: verified ? new Date().toISOString() : null,
+          counted_by: verified ? (user?.id ?? null) : null,
         })
-        .eq('session_id', dbSessionId)
+        .eq('session_id', sessionId)
         .eq('sku', sku);
     },
-    [dbSessionId, inventoryBySku]
+    [ensureDbSession, inventoryBySku, user]
   );
 
   // ─── Input Phase: Search Results ───
@@ -227,20 +401,180 @@ export const StockCountScreen = () => {
 
     setSession((prev) => ({ ...prev, skus: [...prev.skus, upperSku] }));
     setSearchQuery('');
+
+    // If a DB session is already in progress, persist this new SKU so it's
+    // countable from Phase 2 without needing to recreate the session.
+    if (dbSessionId) {
+      const expectedQty = (group?.items ?? [])
+        .filter((i) => (i.quantity || 0) > 0)
+        .reduce((sum, i) => sum + (i.quantity || 0), 0);
+      void insertMissingItems(dbSessionId, [{ sku: upperSku, expected_qty: expectedQty }]);
+    }
   };
 
   const handleRemoveSku = (sku: string) => {
     setSession((prev) => ({ ...prev, skus: prev.skus.filter((s) => s !== sku) }));
   };
 
-  const clearSession = () => {
-    if (window.confirm('Are you sure you want to clear the current counting session?')) {
-      setSession(defaultSession);
+  const handleAddRow = async (rowLabel: string, skuCount: number) => {
+    const { data: invData, error } = await supabase
+      .from('inventory')
+      .select(
+        '*, sku_metadata(sku, image_url, length_in, width_in, height_in, weight_lbs, is_bike)'
+      )
+      .eq('warehouse', 'LUDLOW')
+      .eq('location', rowLabel)
+      .eq('is_active', true);
+
+    if (error || !invData || invData.length === 0) {
+      toast.error(`No active SKUs in ${rowLabel}`);
+      return;
+    }
+
+    const items = invData as unknown as InventoryItemWithMetadata[];
+    setDirectInventory((prev) => {
+      const existingIds = new Set(prev.map((i) => i.id as number));
+      const added = items.filter((i) => !existingIds.has(i.id as number));
+      return added.length > 0 ? [...prev, ...added] : prev;
+    });
+
+    const skusInRow = Array.from(new Set(items.map((i) => i.sku.toUpperCase())));
+    const existingSet = new Set(session.skus);
+    const newSkus = skusInRow.filter((s) => !existingSet.has(s));
+    if (newSkus.length === 0) {
+      toast(`${rowLabel} already in count (${skuCount} SKUs)`);
+      return;
+    }
+    setSession((prev) => ({ ...prev, skus: [...prev.skus, ...newSkus] }));
+    toast.success(`Added ${newSkus.length} SKUs from ${rowLabel}`);
+    setInputMode('sku');
+
+    // If a DB session is already in progress, persist the new SKUs so they're
+    // countable from Phase 2. expected_qty is computed from the just-fetched
+    // inventory rows (inventoryBySku may not yet reflect the setDirectInventory).
+    if (dbSessionId) {
+      const qtyBySku = new Map<string, number>();
+      for (const i of items) {
+        const k = i.sku.toUpperCase();
+        if ((i.quantity || 0) > 0) qtyBySku.set(k, (qtyBySku.get(k) ?? 0) + (i.quantity || 0));
+      }
+      const payload = newSkus.map((sku) => ({
+        sku,
+        expected_qty: qtyBySku.get(sku) ?? 0,
+      }));
+      void insertMissingItems(dbSessionId, payload);
     }
   };
 
-  const startCounting = () => {
+  // One-tap "next audit": pick the stalest row (sorted by RPC priority), then
+  // build session + DB row + items in one shot and drop the user straight into
+  // Phase 2. Avoids the state-update timing issue of chaining stateful helpers.
+  const startRowAuditDirect = useCallback(
+    async (rowLabel: string) => {
+      if (!user?.id) {
+        toast.error('Not authenticated');
+        return;
+      }
+
+      const { data: invData, error: invErr } = await supabase
+        .from('inventory')
+        .select(
+          '*, sku_metadata(sku, image_url, length_in, width_in, height_in, weight_lbs, is_bike)'
+        )
+        .eq('warehouse', 'LUDLOW')
+        .eq('location', rowLabel)
+        .eq('is_active', true);
+
+      if (invErr || !invData || invData.length === 0) {
+        toast.error(`No active SKUs in ${rowLabel}`);
+        return;
+      }
+      const items = invData as unknown as InventoryItemWithMetadata[];
+      const qtyBySku = new Map<string, number>();
+      for (const i of items) {
+        const k = i.sku.toUpperCase();
+        if ((i.quantity || 0) > 0) qtyBySku.set(k, (qtyBySku.get(k) ?? 0) + (i.quantity || 0));
+      }
+      const skus = Array.from(qtyBySku.keys());
+      if (skus.length === 0) {
+        toast.error(`No SKUs with stock in ${rowLabel}`);
+        return;
+      }
+
+      const nowIso = new Date().toISOString();
+      const dateLabel = new Date().toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+      const { data: newSession, error: sErr } = await supabase
+        .from('cycle_count_sessions')
+        .insert({
+          created_by: user.id,
+          warehouse: 'LUDLOW',
+          source: 'manual',
+          label: `${rowLabel} · ${dateLabel}`,
+          status: 'in_progress',
+          started_at: nowIso,
+        })
+        .select('id, label')
+        .single();
+      if (sErr || !newSession) {
+        toast.error('Could not start next audit');
+        return;
+      }
+
+      const { error: iErr } = await supabase.from('cycle_count_items').insert(
+        skus.map((sku) => ({
+          session_id: newSession.id,
+          sku,
+          warehouse: 'LUDLOW',
+          location: null,
+          expected_qty: qtyBySku.get(sku) ?? 0,
+          status: 'pending',
+        }))
+      );
+      if (iErr) {
+        await supabase.from('cycle_count_sessions').delete().eq('id', newSession.id);
+        toast.error('Could not seed items for next audit');
+        return;
+      }
+
+      setDirectInventory(items);
+      setSession({
+        status: 'counting',
+        skus,
+        verifiedSkus: [],
+        adjustments: [],
+      });
+      setDbSessionId(newSession.id);
+      setDbSessionLabel(newSession.label);
+      ensureDbSessionPromiseRef.current = null;
+      toast.success(`Starting ${rowLabel} (${skus.length} SKUs)`);
+    },
+    [user]
+  );
+
+  const clearSession = async () => {
+    if (!window.confirm('Are you sure you want to clear the current counting session?')) {
+      return;
+    }
+    if (dbSessionId) {
+      await supabase
+        .from('cycle_count_sessions')
+        .update({ status: 'cancelled' })
+        .eq('id', dbSessionId);
+    }
+    setSession(defaultSession);
+    setDbSessionId(null);
+    setDbSessionLabel(null);
+    ensureDbSessionPromiseRef.current = null;
+  };
+
+  const startCounting = async () => {
     if (session.skus.length === 0) return;
+    const sessionId = await ensureDbSession();
+    if (!sessionId) return;
     setSession((prev) => ({ ...prev, status: 'counting' }));
   };
 
@@ -252,6 +586,12 @@ export const StockCountScreen = () => {
         .update({ status: 'completed', completed_at: new Date().toISOString() })
         .eq('id', dbSessionId);
     }
+    // Release the id so a subsequent count starts a fresh session.
+    setDbSessionId(null);
+    setDbSessionLabel(null);
+    ensureDbSessionPromiseRef.current = null;
+    // Refresh row-level stats so Phase 3 ("Next Row") shows accurate priorities.
+    queryClient.invalidateQueries({ queryKey: ['audit-rows'] });
   };
 
   // ─── Counting Phase: Sorted list by Picking Order ───
@@ -390,9 +730,18 @@ export const StockCountScreen = () => {
     <header className="sticky top-0 z-30 bg-main/95 backdrop-blur-md border-b border-subtle px-4 py-4 flex items-center gap-3">
       <button
         onClick={() => {
-          if (session.status === 'input') navigate(-1);
-          else if (session.status === 'completed') setSession(defaultSession);
-          else clearSession();
+          // Phase 2 (counting) → back to Phase 1 with session intact.
+          // Phase 3 (completed) → reset to a fresh Phase 1 (By SKU / By Row picker).
+          // Phase 1 (input) → exit to previous page; session persists in DB.
+          if (session.status === 'counting') {
+            setSession((prev) => ({ ...prev, status: 'input' }));
+            return;
+          }
+          if (session.status === 'completed') {
+            setSession(defaultSession);
+            return;
+          }
+          navigate(-1);
         }}
         className="p-2 bg-surface border border-subtle rounded-xl text-muted hover:text-content active:scale-90 transition-all"
       >
@@ -433,14 +782,154 @@ export const StockCountScreen = () => {
       <div className="min-h-screen bg-main text-content">
         {renderHeader()}
         <div className="max-w-2xl mx-auto py-2">
-          <SearchInput
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder="Scan or type SKU to add..."
-          />
+          {/* Mode toggle: SKU search vs Row browser */}
+          <div className="px-4 pt-2 pb-3 flex gap-2">
+            <button
+              onClick={() => setInputMode('sku')}
+              className={`flex-1 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${
+                inputMode === 'sku'
+                  ? 'bg-accent text-white shadow-sm'
+                  : 'bg-surface border border-subtle text-muted active:scale-[0.98]'
+              }`}
+            >
+              <Search size={14} />
+              By SKU
+            </button>
+            <button
+              onClick={() => setInputMode('row')}
+              className={`flex-1 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${
+                inputMode === 'row'
+                  ? 'bg-accent text-white shadow-sm'
+                  : 'bg-surface border border-subtle text-muted active:scale-[0.98]'
+              }`}
+            >
+              <Layers size={14} />
+              By Row
+            </button>
+          </div>
+
+          {inputMode === 'sku' && (
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Scan or type SKU to add..."
+            />
+          )}
+
+          {/* Row browser — rows sorted by natural order, stale rows highlighted */}
+          {inputMode === 'row' && (
+            <div className="px-4 mb-4">
+              {/* Filter pills — priority signals */}
+              <div className="flex gap-1.5 mb-3 overflow-x-auto">
+                {(
+                  [
+                    { k: 'all', l: 'All', count: auditRows.length },
+                    {
+                      k: 'stale',
+                      l: '🔴 Stale',
+                      count: auditRows.filter(isRowStale).length,
+                    },
+                    {
+                      k: 'waiting',
+                      l: '⏱ Waiting',
+                      count: auditRows.filter((r) => r.has_waiting_skus).length,
+                    },
+                    {
+                      k: 'subloc',
+                      l: '📦 No Subloc',
+                      count: auditRows.filter((r) => r.missing_sublocation_count > 0).length,
+                    },
+                  ] as Array<{ k: RowFilter; l: string; count: number }>
+                ).map((f) => (
+                  <button
+                    key={f.k}
+                    onClick={() => setRowFilter(f.k)}
+                    className={`shrink-0 h-8 px-3 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all ${
+                      rowFilter === f.k
+                        ? 'bg-accent text-white shadow-sm'
+                        : 'bg-surface border border-subtle text-muted active:scale-[0.98]'
+                    }`}
+                  >
+                    <span>{f.l}</span>
+                    <span className="opacity-70">{f.count}</span>
+                  </button>
+                ))}
+              </div>
+
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted mb-3">
+                {rowsLoading ? 'Loading rows…' : 'Tap a row to add its SKUs to the count'}
+              </p>
+
+              <div className="space-y-2">
+                {auditRows
+                  .filter((r) => {
+                    if (rowFilter === 'stale') return isRowStale(r);
+                    if (rowFilter === 'waiting') return r.has_waiting_skus;
+                    if (rowFilter === 'subloc') return r.missing_sublocation_count > 0;
+                    return true;
+                  })
+                  .map((r) => {
+                    const { label, tone } = describeLastTouched(r.last_touched_at);
+                    const toneClass =
+                      tone === 'red'
+                        ? 'bg-red-500/10 border-red-500/30 text-red-400'
+                        : tone === 'amber'
+                          ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                          : 'bg-green-500/10 border-green-500/30 text-green-400';
+                    const pct = rowAccuracyPct(r);
+                    const pctTone =
+                      pct === 100
+                        ? 'text-green-400'
+                        : pct >= 50
+                          ? 'text-amber-400'
+                          : 'text-red-400';
+                    return (
+                      <button
+                        key={r.row_label}
+                        onClick={() => handleAddRow(r.row_label, r.sku_count)}
+                        className="w-full bg-card border border-subtle rounded-2xl p-4 flex items-center justify-between hover:border-accent active:scale-[0.98] transition-all"
+                      >
+                        <div className="flex flex-col items-start gap-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-black text-lg tracking-tight uppercase">
+                              {r.row_label}
+                            </span>
+                            {r.has_waiting_skus && (
+                              <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                                ⏱ Waiting
+                              </span>
+                            )}
+                            {r.missing_sublocation_count > 0 && (
+                              <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest bg-blue-500/15 text-blue-400 border border-blue-500/30">
+                                📦 {r.missing_sublocation_count}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-muted font-bold uppercase tracking-widest">
+                            {r.sku_count} SKU{r.sku_count === 1 ? '' : 's'}
+                            <span className="mx-1.5 opacity-40">·</span>
+                            <span className={pctTone}>{pct}% audited</span>
+                          </span>
+                        </div>
+                        <span
+                          className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest border ${toneClass}`}
+                        >
+                          {label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                {!rowsLoading && auditRows.length === 0 && (
+                  <p className="text-xs text-muted text-center py-8 font-bold uppercase">
+                    No rows found
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Search Results Dropdown-like */}
-          {searchQuery && (
+          {inputMode === 'sku' && searchQuery && (
             <div className="px-4 mb-4">
               <div className="bg-card border border-subtle rounded-2xl overflow-hidden shadow-lg shadow-black/20">
                 {searchResults.length > 0 ? (
@@ -697,12 +1186,22 @@ export const StockCountScreen = () => {
           })}
         </div>
 
-        {/* Finalize CTA */}
+        {/* Finalize CTA with session contribution */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-main via-main to-transparent pointer-events-none z-20 pb-safe">
-          <div className="max-w-2xl mx-auto pointer-events-auto shadow-2xl shadow-black">
+          <div className="max-w-2xl mx-auto pointer-events-auto space-y-2">
+            {verified > 0 && (
+              <div className="bg-accent/10 border border-accent/30 rounded-xl px-4 py-2 flex items-center justify-between text-[10px] font-black uppercase tracking-widest">
+                <span className="text-accent">+{verified} verified this session</span>
+                {warehouseTotalSkus > 0 && (
+                  <span className="text-accent/80">
+                    +{((verified / warehouseTotalSkus) * 100).toFixed(2)}% accuracy
+                  </span>
+                )}
+              </div>
+            )}
             <button
               onClick={finishCounting}
-              className={`w-full h-14 font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2 ${
+              className={`w-full h-14 font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-black flex items-center justify-center gap-2 ${
                 verified === total - missing
                   ? 'bg-accent hover:opacity-90 text-white shadow-accent/20'
                   : 'bg-surface border border-subtle text-content'
@@ -727,11 +1226,29 @@ export const StockCountScreen = () => {
   }
 
   // ─── Render: Complete Phase ───
+  // Next stalest row that isn't the one we just finished — powers the chain-audit CTA.
+  const justCountedLocations = new Set(
+    session.skus.map(
+      (sku) => inventoryBySku.get(sku)?.items?.[0]?.location?.toUpperCase().trim() ?? ''
+    )
+  );
+  const nextStaleRow = auditRows
+    .filter((r) => !justCountedLocations.has(r.row_label))
+    .slice()
+    .sort((a, b) => {
+      // Never touched first, then oldest.
+      const aTs = a.last_touched_at ? new Date(a.last_touched_at).getTime() : 0;
+      const bTs = b.last_touched_at ? new Date(b.last_touched_at).getTime() : 0;
+      return aTs - bTs;
+    })[0];
+  const discrepancyCount = session.adjustments.length;
+  const verifiedCount = session.verifiedSkus.length;
+
   return (
     <div className="min-h-screen bg-main text-content">
       {renderHeader()}
-      <div className="max-w-xl mx-auto px-4 py-8 space-y-6">
-        <div className="text-center space-y-2 mb-10">
+      <div className="max-w-xl mx-auto px-4 py-8 space-y-6 pb-32">
+        <div className="text-center space-y-2 mb-8">
           <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-500/20">
             <CheckCircle2 size={40} className="text-green-500" />
           </div>
@@ -741,18 +1258,41 @@ export const StockCountScreen = () => {
           </p>
         </div>
 
-        {/* Adjustments Report */}
+        {/* Summary tiles — verified count + estimated accuracy contribution */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-card border border-subtle rounded-2xl p-4 text-center">
+            <p className="text-3xl font-black text-accent">{verifiedCount}</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted mt-1">
+              Verified
+            </p>
+          </div>
+          <div className="bg-card border border-subtle rounded-2xl p-4 text-center">
+            <p className="text-3xl font-black text-accent">
+              {warehouseTotalSkus > 0
+                ? `+${((verifiedCount / warehouseTotalSkus) * 100).toFixed(2)}%`
+                : '—'}
+            </p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted mt-1">
+              Accuracy boost
+            </p>
+          </div>
+        </div>
+
+        {/* Discrepancies Report — only the SKUs where counted qty differed */}
         <div className="bg-card border border-subtle rounded-3xl overflow-hidden shadow-lg">
-          <div className="p-4 border-b border-subtle bg-surface">
+          <div className="p-4 border-b border-subtle bg-surface flex items-center justify-between">
             <h3 className="font-black uppercase tracking-widest text-sm flex items-center gap-2 text-accent">
               <AlertCircle size={16} />
-              Adjustments Record
+              Discrepancies
             </h3>
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted">
+              {discrepancyCount} {discrepancyCount === 1 ? 'item' : 'items'}
+            </span>
           </div>
           <div className="p-4 bg-main/50 space-y-3">
-            {session.adjustments.length === 0 ? (
+            {discrepancyCount === 0 ? (
               <p className="text-xs font-bold text-muted uppercase tracking-widest text-center py-4">
-                No adjustments made
+                No discrepancies — all counts matched
               </p>
             ) : (
               session.adjustments.map((adj, i) => (
@@ -779,14 +1319,34 @@ export const StockCountScreen = () => {
           </div>
         </div>
 
+        {/* Next Row CTA — chain audits without returning to menu */}
+        {nextStaleRow && (
+          <button
+            onClick={() => startRowAuditDirect(nextStaleRow.row_label)}
+            className="w-full bg-accent hover:opacity-90 active:scale-[0.98] text-white rounded-3xl p-5 flex items-center justify-between transition-all shadow-lg shadow-accent/20"
+          >
+            <div className="flex flex-col items-start gap-1">
+              <span className="text-[10px] font-black uppercase tracking-widest opacity-80">
+                Audit next stale row
+              </span>
+              <span className="text-xl font-black tracking-tight">{nextStaleRow.row_label}</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">
+                {nextStaleRow.sku_count} SKUs ·{' '}
+                {describeLastTouched(nextStaleRow.last_touched_at).label}
+              </span>
+            </div>
+            <Play size={22} fill="currentColor" />
+          </button>
+        )}
+
         <button
           onClick={() => {
             setSession(defaultSession);
-            navigate('/inventory'); // or whatever home is
+            navigate('/inventory');
           }}
-          className="w-full h-14 bg-surface border border-subtle hover:border-accent text-content font-black uppercase tracking-widest rounded-2xl transition-all shadow-sm active:scale-95 mt-8"
+          className="w-full h-12 bg-surface border border-subtle hover:border-accent text-content font-black uppercase tracking-widest rounded-2xl transition-all active:scale-95 text-xs"
         >
-          Wrap UP & Exit
+          Back to Inventory
         </button>
       </div>
     </div>

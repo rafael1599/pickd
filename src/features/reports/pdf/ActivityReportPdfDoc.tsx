@@ -184,7 +184,7 @@ function HeroKpi({
   const accuracyRounded = Math.round(accuracyPct * 100) / 100;
   const verifiedLabel = `${report.verified_skus_2m.toLocaleString()} of ${report.total_skus.toLocaleString()} SKUs`;
 
-  // 60-day sparkline (deterministic monotonic climb to current pct).
+  // 90-day sparkline (deterministic monotonic climb to current pct).
   const N = 14;
   const bars = Array.from({ length: N }, (_, i) => {
     const t = i / (N - 1);
@@ -256,11 +256,11 @@ function HeroKpi({
           }}
         >
           <Text style={{ fontWeight: 600, color: TONE.teal }}>{verifiedLabel}</Text> physically counted
-          in the last 60 days.
+          in the last 90 days.
         </Text>
       </View>
 
-      {/* Right: progress bar + 60-day sparkline */}
+      {/* Right: progress bar + 90-day sparkline */}
       <View style={{ flex: 1, justifyContent: 'center' }}>
         {/* Progress bar */}
         <View
@@ -299,7 +299,7 @@ function HeroKpi({
             marginTop: 10,
           }}
         >
-          60-DAY TRAJECTORY
+          90-DAY TRAJECTORY
         </Text>
         {/* Sparkline bars — use Svg for vector bars */}
         <Svg width="100%" height={heroNum * 0.22} style={{ marginTop: 6 }}>
@@ -386,16 +386,26 @@ function ActivityCard({
 
       {items.map((it, i) => (
         <View key={i} style={{ flexDirection: 'row', marginTop: i === 0 ? 0 : 3 }}>
-          <Text
-            style={{
-              fontFamily: SANS,
-              fontSize: 8,
-              color: it.filled ? TONE.teal : TONE.muted,
-              width: 10,
-            }}
-          >
-            {it.filled ? '●' : '○'}
-          </Text>
+          {/* SVG bullet — the Inter-latin WOFF we ship to react-pdf has no
+              glyph for U+25CF/U+25CB (● / ○). fontkit falls back to the
+              low byte of the codepoint (U+00CF `Ï`, U+00CB `Ë`) so text
+              bullets rendered as random Latin letters in the PDF. Drawing
+              the bullet as an SVG circle is font-independent. */}
+          <View style={{ width: 10, paddingTop: 2.5 }}>
+            <Svg width={5} height={5}>
+              <Rect
+                x={0}
+                y={0}
+                width={5}
+                height={5}
+                rx={2.5}
+                ry={2.5}
+                fill={it.filled ? TONE.teal : 'transparent'}
+                stroke={it.filled ? 'transparent' : TONE.muted}
+                strokeWidth={0.6}
+              />
+            </Svg>
+          </View>
           <View style={{ flex: 1 }}>
             <Text
               style={{
@@ -754,57 +764,55 @@ function PalletPage({
         style={{
           flexDirection: 'row',
           flexWrap: 'wrap',
-          // Split horizontal vs vertical gap so the Gestalt proximity makes
-          // it obvious each caption belongs to the image ABOVE it, not the
-          // one in the next row. Horizontal stays tight (6pt), vertical
-          // rows get extra breathing room (20pt) so the photo+caption pair
-          // reads as a single unit.
+          // Each tile is a self-contained card now, so the grid only needs
+          // breathing room between cards — no Gestalt-gap trick required.
           columnGap: gap,
-          rowGap: 20,
+          rowGap: 8,
           marginTop: 14,
         }}
       >
-        {tiles.map((t, i) => (
-          <View
-            key={i}
-            style={{
-              width: tileSize,
-              flexDirection: 'column',
-            }}
-            wrap={false}
-          >
-            {/* Image tile — uniform across the grid. */}
+        {tiles.map((t, i) => {
+          const innerSize = tileSize - 6; // minus 2× card padding (3pt)
+          return (
             <View
+              key={i}
               style={{
                 width: tileSize,
-                height: tileSize,
-                borderRadius: 2,
-                overflow: 'hidden',
-                backgroundColor: TONE.hair,
+                // Card frame — unambiguously groups image + caption. Thin
+                // border + paper-white background against the warm page
+                // bg reads as a single "figure" unit.
+                borderWidth: 1,
+                borderColor: TONE.hair,
+                borderRadius: 3,
+                backgroundColor: TONE.paperPure,
+                padding: 3,
               }}
+              wrap={false}
             >
-              <Image
-                src={t.url}
+              {/* Image — nothing overlays it. Order IDs live fully in
+                  the caption below so the photo reads cleanly. */}
+              <View
                 style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
+                  width: innerSize,
+                  height: innerSize,
+                  borderRadius: 2,
+                  overflow: 'hidden',
+                  backgroundColor: TONE.hair,
                 }}
-              />
-            </View>
-            {/* Caption — glued tight to the image (2pt gap) so the
-                relationship is unambiguous. Thin teal top border acts as
-                a visual "attaches to" connector. Wraps to as many lines
-                as needed; the image never loses space and IDs are never
-                truncated. */}
-            <View
-              style={{
-                marginTop: 2,
-                paddingTop: 3,
-                borderTopWidth: 1,
-                borderTopColor: TONE.hair,
-              }}
-            >
+              >
+                <Image
+                  src={t.url}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                  }}
+                />
+              </View>
+              {/* Caption — every order number that owns this photo, joined
+                  by `·`. Stays inside the card so the image ↔ list link
+                  is explicit. Wraps to as many lines as the card width
+                  allows; IDs are never truncated. */}
               <Text
                 style={{
                   fontFamily: MONO,
@@ -813,13 +821,20 @@ function PalletPage({
                   color: TONE.muted,
                   letterSpacing: 0.3,
                   lineHeight: 1.3,
+                  marginTop: 4,
+                  paddingHorizontal: 1,
+                  textAlign: 'center',
                 }}
               >
-                {t.orderNumbers.map((n) => `#${n}`).join(' · ')}
+                {/* Space-only separator — the `#` prefix itself already
+                    delimits each number, so a `·` between them would only
+                    matter as a separator on the INSIDE of a line. Dropping
+                    it: cleaner and no orphan dots at line edges. */}
+                {t.orderNumbers.map((n) => `#${n}`).join(' ')}
               </Text>
             </View>
-          </View>
-        ))}
+          );
+        })}
       </View>
 
       {/* FOOTER */}

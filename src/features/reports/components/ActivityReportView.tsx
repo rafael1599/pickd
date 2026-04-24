@@ -31,7 +31,6 @@ const TEXT_MUTED = '#8b95a5';
 const FONT =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
 
-const GREEN = '#10b981';
 const EMERALD = '#059669';
 const INDIGO = '#6366f1';
 const BLUE = '#3b82f6';
@@ -48,7 +47,6 @@ interface Props {
   report: ActivityReport;
   accuracyPct: number;
   notes: UserNote[];
-  winOfTheDay: string;
   routineChecklist: string[];
   pickdUpdates: string[];
   doneToday: ReportTask[];
@@ -207,7 +205,6 @@ export const ActivityReportView: React.FC<Props> = ({
   report,
   accuracyPct,
   notes,
-  winOfTheDay,
   routineChecklist,
   pickdUpdates,
   doneToday,
@@ -228,7 +225,6 @@ export const ActivityReportView: React.FC<Props> = ({
   const closeLightbox = () => setLightboxPhotos([]);
 
   // Highlight flashes for editable sections
-  const winFlash = useHighlight(winOfTheDay);
   const updatesFlash = useHighlight(pickdUpdates.join('\n'));
   const checklistFlash = useHighlight(routineChecklist.join(','));
   const notesFlash = useHighlight(notes.map(n => n.text).join(','));
@@ -260,7 +256,6 @@ export const ActivityReportView: React.FC<Props> = ({
     floorBullets.push(n.text);
   }
 
-  const hasWin = winOfTheDay.trim().length > 0;
   const hasPickdUpdates = pickdUpdates.length > 0;
   const hasDoneToday = doneToday.length > 0;
   const hasInProgress = inProgress.length > 0;
@@ -399,28 +394,7 @@ export const ActivityReportView: React.FC<Props> = ({
                 }}
               >
                 {report.verified_skus_2m} of {report.total_skus} SKUs have been physically counted
-                in the last 60 days.
-              </p>
-            </div>
-            <div style={spacerStyle} />
-          </>
-        )}
-
-        {/* WIN OF THE DAY — conditional */}
-        {hasWin && (
-          <>
-            <div style={cardStyle} className={winFlash}>
-              <p style={sectionHeaderStyle(GREEN)}>WIN OF THE DAY</p>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 18,
-                  fontWeight: 700,
-                  lineHeight: 1.45,
-                  color: TEXT_BOLD,
-                }}
-              >
-                {winOfTheDay}
+                in the last 90 days.
               </p>
             </div>
             <div style={spacerStyle} />

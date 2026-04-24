@@ -1,11 +1,37 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-04-16 (compactado — 13 items archivados)
+> Actualizado: 2026-04-22 (añadido idea-067 Add On Phase 2)
 
 ---
 
 ## P1 — Alto (operación diaria)
+
+### 44. Add On reopen reason — Phase 2 (full feature) <!-- id: idea-067 -->
+- **Contexto:** En el modal "Why are you reopening this order?" se agregó la opción "Add On" para mergear una orden completada con una nueva orden del mismo customer. Fase 1 (DB pre-requisitos) ya en prod: fix `auto_group_fedex_orders` excluye `reopened`, `process_picking_list` rechaza `reopened`. Fase 2 queda pendiente — este ticket.
+- **Objetivo Fase 2:** implementar el feature end-to-end. Al elegir "Add On":
+  1. Reopen la orden completada (snapshot guardado via `reopen_picking_list`).
+  2. Crear/agregar a grupo con la orden nueva (`createGroup`/`addToGroup`, tipo `general`).
+  3. Entrar a DoubleCheckView combinado mostrando items de ambas (la reopened marcada con badge "Previously picked" sutil, editable).
+  4. Al completar, aplicar delta-inventory a la reopened (via `recomplete_picking_list`) Y completar la nueva — **atomic** via nueva RPC `complete_addon_group(p_source_id, p_target_id, ...)`.
+- **Pallet photos:** mostrar fotos viejas (read-only, de la completada) + permitir tomar nuevas para la add-on. Validación bloqueante: ≥1 foto nueva antes de "Complete".
+- **Botón "Cancel Add-On":** en header de DoubleCheckView, ejecuta `cancel_reopen` + remueve `group_id` de ambas.
+- **Guards multi-user:** rechazar Add-On si el target tiene `checked_by ≠ null` (otro usuario editando). Mensaje claro.
+- **Archivos a tocar:** `OrdersScreen.tsx` (handler), `usePickingSync.ts` (merge photos de siblings), `DoubleCheckView.tsx` (visual split photos + badge + validación), `usePickingActions.ts` (hook `completeAddOnGroup`, `cancelAddOn`), `PickingContext.tsx` (entry point), nueva migración SQL. Mantener `AddOnOrderPicker.tsx` y `ReasonPicker.tsx` tal cual (de PR cerrada #14).
+- **Edge cases a resolver:**
+  - Auto-cancel 2h sobre reopened con `group_id` → debe limpiar grupo también (modificar `auto_cancel_stale_reopened`).
+  - Completion atomicity: RPC en transacción BEGIN/EXCEPTION/ROLLBACK.
+  - Insufficient stock en SKU nuevo del add-on → validar en la RPC antes de aplicar deltas.
+  - Shipping type: heredar del target, bloquear auto-reclassify en re-complete.
+  - Watchdog auto-combine del mismo customer durante add-on → ya mitigado en Fase 1 (trigger excluye reopened).
+- **Test matrix resumido:**
+  - F1-F5: flujo happy path (remove item completado → stock sube, adjust qty delta correcto, agregar SKU nuevo, sin cambios, 3+ orders en grupo).
+  - M1: target con `checked_by ≠ null` → rechazado.
+  - P1-P3: fotos viejas visibles, ≥1 nueva requerida, delete de fotos viejas bloqueado.
+  - A1: auto-cancel 2h → reopened revert + group_id NULL ambos.
+  - R1-R5: regresión de reopen normal, merge regular, grouped view sin addon, complete simple, cancel reopen.
+- **Deferrable a Fase 3:** hardening de `takeOverOrder` (checked_by divergente), scoping realtime por group_id, RPC `lock_group_for_check` atomic.
+- **Análisis completo:** conversación 2026-04-22 (sesión claude/addon-db-prereqs). Cerrada PR #14 (merge visual incompleto).
 
 ### 43. Orders view — UX/UI rework <!-- id: idea-065 -->
 - **Problema:** La vista `/orders` tiene varios pain points:
@@ -80,7 +106,8 @@
 - [ ] **Automatic Inventory Email** — Edge function `send-daily-report` + query + cron. <!-- id: idea-007 -->
 - [x] ~~**Fotos Fase 3 — Bulk Upload**~~ ✅ 2026-04-16 — Multi-file picker en gallery (`multiple` attr), uploads paralelos con throttling=3, progress bar `Uploading X of Y` + conteo de errores. `uploadBulk` usa `mutateAsync` + worker pool. Cámara queda single. <!-- id: idea-023-p3 -->
 - [ ] **Migrar cron jobs a pg_cron** — Elimina dependencia de GitHub Actions. <!-- id: idea-030 -->
-- [ ] **Bike/Part/Unknown selector en "New Item"** — Al registrar un SKU nuevo, el form debe forzar la selección manual de tipo (Bike / Part / Unknown). Hoy `is_bike` queda en `false` por default y el picker no tiene manera de clasificarlo. Sirve de respaldo cuando la heurística de prefijo "03-" falle (bikes con prefijos distintos o parts registradas con prefijo 03-). Tocar `UnifiedForm` / `register_new_sku` RPC para persistir el flag. <!-- id: idea-066 -->
+- [ ] **FedEx Returns — "Add Item" → "Return to Stock"** — Renombrar el botón/acción `Add Item` en `src/features/fedex-returns/` (ver `AddItemSheet.tsx`) a `Return to Stock` para reflejar mejor la intención del flujo (el item regresa al inventario, no se "agrega" como si fuera nuevo). <!-- id: idea-066 -->
+- [ ] **Bike/Part/Unknown selector en "New Item"** — Al registrar un SKU nuevo, el form debe forzar la selección manual de tipo (Bike / Part / Unknown). Hoy `is_bike` queda en `false` por default y el picker no tiene manera de clasificarlo. Sirve de respaldo cuando la heurística de prefijo "03-" falle (bikes con prefijos distintos o parts registradas con prefijo 03-). Tocar `UnifiedForm` / `register_new_sku` RPC para persistir el flag. <!-- id: idea-067 -->
 
 ---
 
