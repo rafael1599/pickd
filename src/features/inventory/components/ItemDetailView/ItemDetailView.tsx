@@ -168,10 +168,12 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           weight_lbs: initialData.sku_metadata?.weight_lbs ?? null,
           internal_note: initialData.internal_note || '',
           sublocation: initialData.sublocation || null,
-          // idea-083: "Details" section — universal extra info for all items.
-          // `price` maps to sku_metadata.standard_price (single canonical price).
+          // idea-083 + idea-085: "Details" section — universal extra info.
+          // `price` maps to sku_metadata.sd_price (the canonical selling price).
+          // For S/D items this is the sale price and msrp/standard_price
+          // stay on bike_variants (shown read-only via useScratchAndDentBySku).
           serial_number: initialData.sku_metadata?.serial_number || '',
-          price: initialData.sku_metadata?.standard_price ?? null,
+          price: initialData.sku_metadata?.sd_price ?? null,
           condition: initialData.sku_metadata?.condition || '',
           condition_description: initialData.sku_metadata?.condition_description || '',
           pdf_link: initialData.sku_metadata?.pdf_link || '',
@@ -272,7 +274,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     // idea-083: Details section fields
     const detailsChanged =
       n(serialNumber) !== n(meta?.serial_number) ||
-      num(priceField) !== num(meta?.standard_price) ||
+      num(priceField) !== num(meta?.sd_price) ||
       n(conditionField) !== n(meta?.condition) ||
       n(conditionDescField) !== n(meta?.condition_description) ||
       n(pdfLinkField) !== n(meta?.pdf_link);
@@ -667,9 +669,10 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         width_in: data.width_in,
         height_in: data.height_in,
         weight_lbs: data.weight_lbs,
-        // idea-083: Details-section fields, applicable to any SKU.
+        // idea-083 + idea-085: Details-section fields. `price` persists on
+        // sku_metadata.sd_price (canonical selling price for any item).
         serial_number: data.serial_number || null,
-        standard_price: data.price ?? null,
+        sd_price: data.price ?? null,
         condition: data.condition || null,
         condition_description: data.condition_description || null,
         pdf_link: data.pdf_link || null,
@@ -1115,16 +1118,6 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                   setCondition={(v) => setValue('condition', v)}
                   setConditionDescription={(v) => setValue('condition_description', v)}
                   setPdfLink={(v) => setValue('pdf_link', v)}
-                  onOpenCatalogEditor={
-                    isScratchDentItem
-                      ? () => {
-                          navigate(
-                            `/sd-catalog?action=edit&sku=${encodeURIComponent(initialData.sku)}`
-                          );
-                          onClose();
-                        }
-                      : undefined
-                  }
                 />
               )}
               {lastUpdate && (

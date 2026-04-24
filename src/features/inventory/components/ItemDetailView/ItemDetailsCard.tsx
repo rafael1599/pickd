@@ -64,8 +64,6 @@ interface Props {
   setCondition: (v: string) => void;
   setConditionDescription: (v: string) => void;
   setPdfLink: (v: string) => void;
-  // S/D catalog-level edit (model/size/color/variants) — opens full editor
-  onOpenCatalogEditor?: () => void;
 }
 
 /**
@@ -78,8 +76,8 @@ interface Props {
  *
  * For S/D units (is_scratch_dent=true) we additionally read bike_variants /
  * products via useScratchAndDentBySku and render Model / Size/Color / Status
- * read-only. Those live in a separate relational model; editing them goes
- * through the full S/D catalog editor (onOpenCatalogEditor callback).
+ * read-only. Those live in a separate relational model; deeper editing of
+ * catalog structure is out of scope for this card.
  */
 export function ItemDetailsCard({
   sku,
@@ -94,7 +92,6 @@ export function ItemDetailsCard({
   setCondition,
   setConditionDescription,
   setPdfLink,
-  onOpenCatalogEditor,
 }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   // Snapshot taken when entering edit mode so Cancel can revert without
@@ -351,17 +348,6 @@ export function ItemDetailsCard({
             {isScratchDent ? 'View photos PDF' : 'Open document'}
           </a>
         )
-      )}
-
-      {/* Bike-catalog full-edit link — only for S/D items, only in read mode */}
-      {!isEditing && isScratchDent && onOpenCatalogEditor && (
-        <button
-          type="button"
-          onClick={onOpenCatalogEditor}
-          className="text-[10px] font-bold text-muted hover:text-content underline decoration-dotted"
-        >
-          Full catalog edit →
-        </button>
       )}
 
       <style>{`

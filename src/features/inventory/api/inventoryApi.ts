@@ -77,6 +77,9 @@ export const inventoryApi = {
         upc,
         model,
         condition_description,
+        pdf_link,
+        sd_price,
+        condition,
         ...inventoryCols
       } = row;
       return {
@@ -94,6 +97,9 @@ export const inventoryApi = {
           upc,
           model,
           condition_description,
+          pdf_link,
+          sd_price,
+          condition,
         },
       };
     });
