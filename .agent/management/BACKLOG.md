@@ -103,11 +103,14 @@
 
 - [ ] **Orders PDF preview full-width mobile** — `w-full` en mobile. <!-- id: idea-034 -->
 - [ ] **Order List View** — Picking list first with print option. <!-- id: idea-006 -->
-- [ ] **Automatic Inventory Email** — Edge function `send-daily-report` + query + cron. <!-- id: idea-007 -->
+- [x] ~~**Automatic Inventory Email**~~ ❌ 2026-04-22 — Retirado. Función `send-daily-report` nunca se usó en operación diaria; eliminada del código y del runtime de prod para cerrar endpoint sin auth interna. R2 snapshot upload sigue activo vía `daily-snapshot`. <!-- id: idea-007 -->
 - [x] ~~**Fotos Fase 3 — Bulk Upload**~~ ✅ 2026-04-16 — Multi-file picker en gallery (`multiple` attr), uploads paralelos con throttling=3, progress bar `Uploading X of Y` + conteo de errores. `uploadBulk` usa `mutateAsync` + worker pool. Cámara queda single. <!-- id: idea-023-p3 -->
 - [ ] **Migrar cron jobs a pg_cron** — Elimina dependencia de GitHub Actions. <!-- id: idea-030 -->
 - [ ] **FedEx Returns — "Add Item" → "Return to Stock"** — Renombrar el botón/acción `Add Item` en `src/features/fedex-returns/` (ver `AddItemSheet.tsx`) a `Return to Stock` para reflejar mejor la intención del flujo (el item regresa al inventario, no se "agrega" como si fuera nuevo). <!-- id: idea-066 -->
-- [ ] **Bike/Part/Unknown selector en "New Item"** — Al registrar un SKU nuevo, el form debe forzar la selección manual de tipo (Bike / Part / Unknown). Hoy `is_bike` queda en `false` por default y el picker no tiene manera de clasificarlo. Sirve de respaldo cuando la heurística de prefijo "03-" falle (bikes con prefijos distintos o parts registradas con prefijo 03-). Tocar `UnifiedForm` / `register_new_sku` RPC para persistir el flag. <!-- id: idea-067 -->
+- [ ] **Bike/Part/Unknown selector en "New Item"** — Al registrar un SKU nuevo, el form debe forzar la selección manual de tipo (Bike / Part / Unknown). Hoy `is_bike` queda en `false` por default y el picker no tiene manera de clasificarlo. Sirve de respaldo cuando la heurística de prefijo "03-" falle (bikes con prefijos distintos o parts registradas con prefijo 03-). Tocar `UnifiedForm` / `register_new_sku` RPC para persistir el flag. <!-- id: idea-068 -->
+- [ ] **Remaining qty display en Picking Summary (post-deduct)** — Tras completar una orden, en `PickingSummaryModal` mostrar bajo cada SKU "Remaining: N" con el stock warehouse-wide (suma de `inventory.quantity` activo) resultante después del deduct. Solo lectura, no bloquea nada. <!-- id: idea-069 -->
+- [ ] **Low-stock tracking para reporte** — Al completar una orden, capturar el remanente warehouse-wide por SKU. SKUs que queden en ≤1 unidad se marcan como "last unit" / "out of stock" para el daily report. No se muestra inline al usuario, solo se registra/expone para reporting. <!-- id: idea-070 -->
+- [ ] **Activity Report — low-stock en "On the floor"** — Extender la sección "On the floor" del daily report para incluir SKUs que quedaron en ≤1 unidad hoy (out of stock en rojo, last unit en ámbar). Los viernes, acumular la lista de toda la semana dentro de la misma sección. <!-- id: idea-071 -->
 
 ---
 
