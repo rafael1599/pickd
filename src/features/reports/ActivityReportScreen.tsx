@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useViewMode } from '../../context/ViewModeContext.tsx';
+import { useModal } from '../../context/ModalContext';
 import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
 import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
@@ -76,11 +76,9 @@ function saveRoutineItems(items: string[]) {
 
 export const ActivityReportScreen = () => {
   const navigate = useNavigate();
-  const { setExternalOrderId, setExternalShowPickingSummary } = useViewMode();
+  const { open: openModal } = useModal();
   const handleClickOrder = (listId: string) => {
-    setExternalOrderId(listId);
-    setExternalShowPickingSummary(true);
-    navigate('/orders');
+    openModal({ type: 'picking-summary', listId });
   };
   const { isAdmin, user, profile: authProfile } = useAuth();
   const { data: waitingCount = 0 } = useWaitingOrdersCount();
