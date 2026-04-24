@@ -8,6 +8,7 @@ export interface LastActivity {
   to_location: string | null;
   quantity_change: number;
   order_number: string | null;
+  list_id: string | null;
   created_at: string;
 }
 
@@ -24,7 +25,9 @@ export function useLastActivity(skus: string[]) {
       // Only fetch events that actually changed inventory qty
       const { data, error } = await supabase
         .from('inventory_logs')
-        .select('sku, action_type, from_location, to_location, quantity_change, order_number, created_at')
+        .select(
+          'sku, action_type, from_location, to_location, quantity_change, order_number, list_id, created_at'
+        )
         .in('sku', skus)
         .in('action_type', ['MOVE', 'DEDUCT', 'ADD', 'DELETE'])
         .eq('is_reversed', false)
@@ -54,18 +57,19 @@ export function formatLastActivity(activity: LastActivity): string {
     day: 'numeric',
   });
 
+  const from = activity.from_location ? ` from ${activity.from_location}` : '';
   switch (activity.action_type) {
     case 'MOVE':
-      return `Moved to ${activity.to_location || '?'} · ${date}`;
+      return `Moved${from} to ${activity.to_location || '?'} · ${date}`;
     case 'DEDUCT':
       if (activity.order_number) {
-        return `Shipped in #${activity.order_number} · ${date}`;
+        return `Shipped${from} in #${activity.order_number} · ${date}`;
       }
-      return `Deducted ${Math.abs(activity.quantity_change)} units · ${date}`;
+      return `Deducted ${Math.abs(activity.quantity_change)} units${from} · ${date}`;
     case 'ADD':
       return `Received at ${activity.to_location || activity.from_location || '?'} · ${date}`;
     case 'DELETE':
-      return `Deleted · ${date}`;
+      return `Deleted${from} · ${date}`;
     default:
       return `${activity.action_type} · ${date}`;
   }

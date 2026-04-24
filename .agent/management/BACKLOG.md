@@ -111,6 +111,7 @@
 - [ ] **Remaining qty display en Picking Summary (post-deduct)** — Tras completar una orden, en `PickingSummaryModal` mostrar bajo cada SKU "Remaining: N" con el stock warehouse-wide (suma de `inventory.quantity` activo) resultante después del deduct. Solo lectura, no bloquea nada. <!-- id: idea-069 -->
 - [ ] **Low-stock tracking para reporte** — Al completar una orden, capturar el remanente warehouse-wide por SKU. SKUs que queden en ≤1 unidad se marcan como "last unit" / "out of stock" para el daily report. No se muestra inline al usuario, solo se registra/expone para reporting. <!-- id: idea-070 -->
 - [ ] **Activity Report — low-stock en "On the floor"** — Extender la sección "On the floor" del daily report para incluir SKUs que quedaron en ≤1 unidad hoy (out of stock en rojo, last unit en ámbar). Los viernes, acumular la lista de toda la semana dentro de la misma sección. <!-- id: idea-071 -->
+- [x] ~~**Ghost trail audit — from_location + link a picking list**~~ ✅ 2026-04-24 — `useLastActivity` expone `list_id` y `formatLastActivity` incluye `from {location}`. El activity line de un SKU en qty=0 ahora es clickeable cuando hay `list_id` (abre PickingSummaryModal vía `setExternalOrderId`). <!-- id: idea-072 -->
 
 ---
 
