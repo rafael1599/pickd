@@ -78,9 +78,14 @@ export function useLowStockAlerts(nyDate: string) {
         .order('created_at', { ascending: false });
       if (logErr) throw logErr;
 
+      // Only count deducts that started from real stock. Items marked
+      // `sku_not_found` / `insufficient_stock` during picking can produce logs
+      // with `prev_quantity === 0` (phantom / unregistered stock) — those
+      // aren't genuine depletion events and should not raise alerts.
       const logsBySku = new Map<string, LowStockCompletion[]>();
       for (const row of (logRows ?? []) as DeductLogRow[]) {
         if (!row.sku) continue;
+        if ((row.prev_quantity ?? 0) <= 0) continue;
         const existing = logsBySku.get(row.sku) ?? [];
         existing.push({
           order_number: row.order_number,
