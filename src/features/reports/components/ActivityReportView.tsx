@@ -60,6 +60,8 @@ interface Props {
    * extra — we never show "no alerts".
    */
   lowStockAlerts?: LowStockAlerts;
+  /** Optional click handler for low-stock completions — opens the picking list. */
+  onClickOrder?: (listId: string) => void;
   greeting?: string;
   /**
    * When true, renders a layout optimized for PDF export:
@@ -220,14 +222,22 @@ const AMBER_ALERT = '#d97706';
 const LowStockAlertsBlock: React.FC<{
   alerts: LowStockAlerts;
   hasPrecedingBullets: boolean;
-}> = ({ alerts, hasPrecedingBullets }) => {
-  const fmtTime = (iso: string) => {
+  onClickOrder?: (listId: string) => void;
+}> = ({ alerts, hasPrecedingBullets, onClickOrder }) => {
+  const fmtWhen = (iso: string) => {
     try {
-      return new Date(iso).toLocaleTimeString('en-US', {
+      const d = new Date(iso);
+      const date = d.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        timeZone: 'America/New_York',
+      });
+      const time = d.toLocaleTimeString('en-US', {
         hour: 'numeric',
         minute: '2-digit',
         timeZone: 'America/New_York',
       });
+      return `${date} ${time}`;
     } catch {
       return '';
     }
@@ -267,15 +277,15 @@ const LowStockAlertsBlock: React.FC<{
         <ul style={{ margin: '2px 0 0 30px', padding: 0, listStyle: 'none' }}>
           {row.completions.map((c, i) => {
             const qty = Math.abs(c.quantity_change);
-            const deltaParts = [
-              c.order_number ? `#${c.order_number}` : null,
+            const clickable = !!(onClickOrder && c.list_id);
+            const orderLabel = c.order_number ? `#${c.order_number}` : null;
+            const tail = [
               qty > 0 ? `−${qty}` : null,
               c.prev_quantity != null && c.new_quantity != null
                 ? `(${c.prev_quantity}→${c.new_quantity})`
                 : null,
               c.from_location ? `from ${c.from_location}` : null,
-              c.performed_by ? `by ${c.performed_by}` : null,
-              fmtTime(c.created_at),
+              fmtWhen(c.created_at),
             ].filter(Boolean);
             return (
               <li
@@ -287,7 +297,30 @@ const LowStockAlertsBlock: React.FC<{
                   letterSpacing: '0.02em',
                 }}
               >
-                {deltaParts.join(' · ')}
+                {orderLabel &&
+                  (clickable ? (
+                    <button
+                      type="button"
+                      onClick={() => onClickOrder!(c.list_id!)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        font: 'inherit',
+                        color: TEXT_BOLD,
+                        cursor: 'pointer',
+                        textDecoration: 'underline',
+                        textDecorationColor: `${TEXT_MUTED}66`,
+                        textUnderlineOffset: 2,
+                      }}
+                    >
+                      {orderLabel}
+                    </button>
+                  ) : (
+                    <span style={{ color: TEXT_BOLD }}>{orderLabel}</span>
+                  ))}
+                {orderLabel && tail.length > 0 && ' · '}
+                {tail.join(' · ')}
               </li>
             );
           })}
@@ -355,6 +388,7 @@ export const ActivityReportView: React.FC<Props> = ({
   comingUpNext,
   waitingOrdersCount = 0,
   lowStockAlerts,
+  onClickOrder,
   greeting,
   printMode = false,
   skipPalletPhotos = false,
@@ -486,6 +520,7 @@ export const ActivityReportView: React.FC<Props> = ({
                 <LowStockAlertsBlock
                   alerts={lowStockAlerts!}
                   hasPrecedingBullets={floorBullets.length > 0}
+                  onClickOrder={printMode ? undefined : onClickOrder}
                 />
               )}
             </div>
