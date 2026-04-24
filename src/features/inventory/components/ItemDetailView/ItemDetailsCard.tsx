@@ -292,7 +292,7 @@ export function ItemDetailsCard({
           </div>
           {isEditing ? (
             <div className="relative inline-block">
-              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted text-xs pointer-events-none">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted text-xs pointer-events-none">
                 $
               </span>
               <input
@@ -302,7 +302,8 @@ export function ItemDetailsCard({
                 value={price ?? ''}
                 onChange={(e) => setPrice(e.target.value === '' ? null : Number(e.target.value))}
                 placeholder="0.00"
-                className="card-input pl-7 w-32"
+                className="card-input w-36"
+                style={{ paddingLeft: '1.5rem' }}
               />
             </div>
           ) : (
