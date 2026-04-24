@@ -23,6 +23,7 @@ import { useReportTasks } from '../projects/hooks/useProjectReportData';
 import { getCurrentNYDate } from '../../lib/nyDate';
 import { useAuth } from '../../context/AuthContext';
 import { useWaitingOrdersCount } from '../picking/hooks/useWaitingOrders';
+import { useLowStockAlerts } from './hooks/useLowStockAlerts';
 import Download from 'lucide-react/dist/esm/icons/download';
 // `./utils/exportReportPdf` is dynamically imported inside handleDownloadPdf
 // to defer @react-pdf/renderer (~490 KB gzipped) until the user actually
@@ -100,6 +101,9 @@ export const ActivityReportScreen = () => {
   const { data: liveReport, isLoading: liveLoading, error: liveError } = useActivityReport(selectedDate);
   // useActiveProfiles removed — notes now use current logged-in user
   const { data: reportTasks } = useReportTasks(selectedDate);
+  // Low-stock alerts for the "On the Floor" block (idea-070 / idea-071).
+  // Reporting-only — no picking UI consumes this.
+  const { data: lowStockAlerts } = useLowStockAlerts(selectedDate);
 
   // ----- Manual editable state -----
   // Greeting + Win of the Day removed — features eliminated per design refactor.
@@ -816,6 +820,7 @@ export const ActivityReportScreen = () => {
                 inProgress={inProgress}
                 comingUpNext={comingUpNext}
                 waitingOrdersCount={waitingCount}
+                lowStockAlerts={lowStockAlerts}
               />
             </div>
           )}
