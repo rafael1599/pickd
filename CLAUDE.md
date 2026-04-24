@@ -76,6 +76,11 @@ Ver `JAMIS/SHARED-DB-CONTRACT.md` para ownership de tablas, RPCs, y reglas de mi
 - **`develop`** — Staging/preview. Despliega automáticamente a un URL de preview de Vercel. Misma DB de producción (Supabase compartida).
 - **Flujo:** feature branches → PR a `develop` → testing en staging → PR a `main` → producción.
 - **Regla de migraciones:** Como staging y producción comparten la misma DB, los cambios de esquema deben ser **aditivos** (agregar columnas/funciones OK, renombrar/eliminar NO hasta que producción también se actualice).
+- **⚠️ Aplicar migraciones a prod después del merge:** `git push` NO aplica migraciones a la DB compartida. Mergear un PR con archivos en `supabase/migrations/` solo despliega el frontend — si el código llama a una RPC/columna nueva antes de aplicar la migración, prod tira `404 Not Found` o `column does not exist`. Checklist post-merge para PRs con cambios de DB:
+  1. `npx supabase migration list --linked` — confirma cuáles están pending (columna Remote vacía).
+  2. `npx supabase db push --linked` — aplica todas las pending. Pide confirmación.
+  3. Verifica con un query: `npx supabase db query --linked "SELECT ..."`.
+  4. Refrescar la app en prod (Ctrl+R) — los 404 desaparecen.
 - **Banner de staging:** `StagingBanner.tsx` muestra un banner amarillo "STAGING" automáticamente cuando el hostname no es producción ni localhost.
 - **Reports prebuild:** `pnpm prebuild` copies `reports/daily/*.html` to `public/reports/daily/` for static serving. Runs automatically before `pnpm build`. The `/pickd-report` route serves these via iframe.
 
