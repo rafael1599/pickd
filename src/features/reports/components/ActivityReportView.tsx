@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ActivityReport } from '../hooks/useActivityReport';
 import type { ReportTask } from '../../projects/hooks/useProjectReportData';
+import type { LowStockAlerts } from '../hooks/useLowStockAlerts';
 import { PhotoLightbox } from '../../../components/ui/PhotoLightbox';
 
 /**
@@ -31,7 +32,6 @@ const TEXT_MUTED = '#8b95a5';
 const FONT =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
 
-const GREEN = '#10b981';
 const EMERALD = '#059669';
 const INDIGO = '#6366f1';
 const BLUE = '#3b82f6';
@@ -48,13 +48,20 @@ interface Props {
   report: ActivityReport;
   accuracyPct: number;
   notes: UserNote[];
-  winOfTheDay: string;
   routineChecklist: string[];
   pickdUpdates: string[];
   doneToday: ReportTask[];
   inProgress: ReportTask[];
   comingUpNext: ReportTask[];
   waitingOrdersCount?: number;
+  /**
+   * Low-stock alerts (idea-070 / idea-071). Rendered inside the "On the
+   * Floor" block. If both sub-lists are empty the block renders nothing
+   * extra — we never show "no alerts".
+   */
+  lowStockAlerts?: LowStockAlerts;
+  /** Optional click handler for low-stock completions — opens the picking list. */
+  onClickOrder?: (listId: string) => void;
   greeting?: string;
   /**
    * When true, renders a layout optimized for PDF export:
@@ -203,17 +210,185 @@ function renderTaskList(
   });
 }
 
+const RED = '#dc2626';
+const AMBER_ALERT = '#d97706';
+
+/**
+ * Sub-block rendered inside the "ON THE FLOOR" card (idea-071). Shows SKUs
+ * that went to 0 units (red) or 1 unit (amber) as a result of today's
+ * completions (or Mon–Fri of the current week on Fridays). Each SKU is
+ * displayed as "SKU — item name" with a remaining-qty badge.
+ */
+const LowStockAlertsBlock: React.FC<{
+  alerts: LowStockAlerts;
+  hasPrecedingBullets: boolean;
+  onClickOrder?: (listId: string) => void;
+}> = ({ alerts, hasPrecedingBullets, onClickOrder }) => {
+  const fmtWhen = (iso: string) => {
+    try {
+      const d = new Date(iso);
+      const date = d.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        timeZone: 'America/New_York',
+      });
+      const time = d.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZone: 'America/New_York',
+      });
+      return `${date} ${time}`;
+    } catch {
+      return '';
+    }
+  };
+
+  const renderRow = (row: LowStockAlerts['outOfStock'][number], color: string) => (
+    <div key={`${color}-${row.sku}`} style={{ padding: '4px 0' }}>
+      <p
+        style={{
+          ...bulletTextStyle,
+          margin: 0,
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: 8,
+        }}
+      >
+        <span
+          style={{
+            display: 'inline-block',
+            minWidth: 22,
+            textAlign: 'center',
+            fontSize: 10,
+            fontWeight: 800,
+            padding: '2px 6px',
+            borderRadius: 6,
+            backgroundColor: `${color}1a`,
+            color,
+            letterSpacing: '0.05em',
+          }}
+        >
+          {row.remaining_qty}
+        </span>
+        <span style={{ fontWeight: 700, color: TEXT_BOLD }}>{row.sku}</span>
+        {row.item_name && <span style={{ color: TEXT_MUTED }}>— {row.item_name}</span>}
+      </p>
+      {row.completions.length > 0 && (
+        <ul style={{ margin: '2px 0 0 30px', padding: 0, listStyle: 'none' }}>
+          {row.completions.map((c, i) => {
+            const qty = Math.abs(c.quantity_change);
+            const clickable = !!(onClickOrder && c.list_id);
+            const orderLabel = c.order_number ? `#${c.order_number}` : null;
+            const tail = [
+              qty > 0 ? `−${qty}` : null,
+              c.prev_quantity != null && c.new_quantity != null
+                ? `(${c.prev_quantity}→${c.new_quantity})`
+                : null,
+              c.from_location ? `from ${c.from_location}` : null,
+              fmtWhen(c.created_at),
+            ].filter(Boolean);
+            return (
+              <li
+                key={`${c.list_id ?? c.order_number ?? i}-${c.created_at}`}
+                style={{
+                  fontSize: 9,
+                  color: TEXT_MUTED,
+                  lineHeight: 1.5,
+                  letterSpacing: '0.02em',
+                }}
+              >
+                {orderLabel &&
+                  (clickable ? (
+                    <button
+                      type="button"
+                      onClick={() => onClickOrder!(c.list_id!)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        font: 'inherit',
+                        color: TEXT_BOLD,
+                        cursor: 'pointer',
+                        textDecoration: 'underline',
+                        textDecorationColor: `${TEXT_MUTED}66`,
+                        textUnderlineOffset: 2,
+                      }}
+                    >
+                      {orderLabel}
+                    </button>
+                  ) : (
+                    <span style={{ color: TEXT_BOLD }}>{orderLabel}</span>
+                  ))}
+                {orderLabel && tail.length > 0 && ' · '}
+                {tail.join(' · ')}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+
+  const subHeaderStyle: React.CSSProperties = {
+    margin: 0,
+    fontSize: 10,
+    fontWeight: 800,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+  };
+
+  return (
+    <div
+      style={{
+        marginTop: hasPrecedingBullets ? 14 : 0,
+        paddingTop: hasPrecedingBullets ? 12 : 0,
+        borderTop: hasPrecedingBullets ? `1px dashed ${TEXT_MUTED}33` : 'none',
+      }}
+    >
+      <p
+        style={{
+          margin: '0 0 8px 0',
+          fontSize: 10,
+          fontWeight: 700,
+          color: TEXT_MUTED,
+          letterSpacing: '0.1em',
+          textTransform: 'uppercase',
+        }}
+      >
+        Low Stock · {alerts.windowLabel}
+      </p>
+      {alerts.outOfStock.length > 0 && (
+        <div style={{ marginBottom: alerts.lastUnit.length > 0 ? 10 : 0 }}>
+          <p style={{ ...subHeaderStyle, color: RED, marginBottom: 4 }}>
+            Out of stock ({alerts.outOfStock.length})
+          </p>
+          {alerts.outOfStock.map((r) => renderRow(r, RED))}
+        </div>
+      )}
+      {alerts.lastUnit.length > 0 && (
+        <div>
+          <p style={{ ...subHeaderStyle, color: AMBER_ALERT, marginBottom: 4 }}>
+            Last unit ({alerts.lastUnit.length})
+          </p>
+          {alerts.lastUnit.map((r) => renderRow(r, AMBER_ALERT))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const ActivityReportView: React.FC<Props> = ({
   report,
   accuracyPct,
   notes,
-  winOfTheDay,
   routineChecklist,
   pickdUpdates,
   doneToday,
   inProgress,
   comingUpNext,
   waitingOrdersCount = 0,
+  lowStockAlerts,
+  onClickOrder,
   greeting,
   printMode = false,
   skipPalletPhotos = false,
@@ -228,7 +403,6 @@ export const ActivityReportView: React.FC<Props> = ({
   const closeLightbox = () => setLightboxPhotos([]);
 
   // Highlight flashes for editable sections
-  const winFlash = useHighlight(winOfTheDay);
   const updatesFlash = useHighlight(pickdUpdates.join('\n'));
   const checklistFlash = useHighlight(routineChecklist.join(','));
   const notesFlash = useHighlight(notes.map(n => n.text).join(','));
@@ -260,11 +434,13 @@ export const ActivityReportView: React.FC<Props> = ({
     floorBullets.push(n.text);
   }
 
-  const hasWin = winOfTheDay.trim().length > 0;
   const hasPickdUpdates = pickdUpdates.length > 0;
   const hasDoneToday = doneToday.length > 0;
   const hasInProgress = inProgress.length > 0;
-  const hasFloorContent = floorBullets.length > 0;
+  const hasLowStockAlerts =
+    !!lowStockAlerts &&
+    (lowStockAlerts.outOfStock.length > 0 || lowStockAlerts.lastUnit.length > 0);
+  const hasFloorContent = floorBullets.length > 0 || hasLowStockAlerts;
   const hasComingUp = comingUpNext.length > 0;
   const hasAccuracy = report.total_skus > 0 && report.verified_skus_2m > 0;
 
@@ -340,6 +516,13 @@ export const ActivityReportView: React.FC<Props> = ({
                   &nbsp;&nbsp;{item}
                 </p>
               ))}
+              {hasLowStockAlerts && (
+                <LowStockAlertsBlock
+                  alerts={lowStockAlerts!}
+                  hasPrecedingBullets={floorBullets.length > 0}
+                  onClickOrder={printMode ? undefined : onClickOrder}
+                />
+              )}
             </div>
             <div style={spacerStyle} />
           </>
@@ -399,28 +582,7 @@ export const ActivityReportView: React.FC<Props> = ({
                 }}
               >
                 {report.verified_skus_2m} of {report.total_skus} SKUs have been physically counted
-                in the last 60 days.
-              </p>
-            </div>
-            <div style={spacerStyle} />
-          </>
-        )}
-
-        {/* WIN OF THE DAY — conditional */}
-        {hasWin && (
-          <>
-            <div style={cardStyle} className={winFlash}>
-              <p style={sectionHeaderStyle(GREEN)}>WIN OF THE DAY</p>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 18,
-                  fontWeight: 700,
-                  lineHeight: 1.45,
-                  color: TEXT_BOLD,
-                }}
-              >
-                {winOfTheDay}
+                in the last 90 days.
               </p>
             </div>
             <div style={spacerStyle} />

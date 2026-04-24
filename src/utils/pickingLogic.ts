@@ -12,6 +12,8 @@ export interface PickingItem {
   sku_not_found?: boolean;
   insufficient_stock?: boolean;
   description?: string | null;
+  /** True when stackPartsOnBikes placed this item on top of a bike pallet */
+  isStackedPart?: boolean;
 }
 
 export interface Pallet {
@@ -243,4 +245,85 @@ export const redistributeWithOverrides = (
   }
 
   return result;
+};
+
+/**
+ * Consolidates all non-bike (parts) items onto the last pallet that contains
+ * at least one bike. Parts never get their own pallet when bikes are present.
+ *
+ * If no pallet contains bikes, returns pallets unchanged (orders with only
+ * parts still paginate normally).
+ */
+export const stackPartsOnBikes = (pallets: Pallet[], bikeSkuSet: Set<string>): Pallet[] => {
+  if (pallets.length === 0 || bikeSkuSet.size === 0) return pallets;
+
+  let lastBikeIdx = -1;
+  for (let i = pallets.length - 1; i >= 0; i--) {
+    if (pallets[i].items.some((it) => bikeSkuSet.has(it.sku))) {
+      lastBikeIdx = i;
+      break;
+    }
+  }
+  if (lastBikeIdx === -1) return pallets;
+
+  const partItems: PickingItem[] = [];
+  const working: Pallet[] = pallets.map((p, idx) => {
+    if (idx === lastBikeIdx) return { ...p, items: [...p.items] };
+    const kept: PickingItem[] = [];
+    p.items.forEach((it) => {
+      if (bikeSkuSet.has(it.sku)) kept.push(it);
+      else partItems.push(it);
+    });
+    return {
+      ...p,
+      items: kept,
+      totalUnits: kept.reduce((s, i) => s + (i.pickingQty || 0), 0),
+    };
+  });
+
+  const target = working[lastBikeIdx];
+  partItems.forEach((pi) => {
+    const existing = target.items.find(
+      (i) =>
+        i.sku === pi.sku &&
+        (i.location || '').trim().toUpperCase() === (pi.location || '').trim().toUpperCase()
+    );
+    if (existing) {
+      existing.pickingQty += pi.pickingQty;
+      existing.isStackedPart = true;
+    } else {
+      target.items.push({ ...pi, isStackedPart: true });
+    }
+  });
+  target.totalUnits = target.items.reduce((s, i) => s + (i.pickingQty || 0), 0);
+
+  return working.filter((p) => p.items.length > 0).map((p, i) => ({ ...p, id: i + 1 }));
+};
+
+/**
+ * Builds pallets from an item pool, sizing pallets based on BIKE units only.
+ * Parts are stacked onto the last bike pallet without inflating pallet count.
+ *
+ * - No bikes: falls back to `calculatePallets` on the full pool (parts fill pallets normally).
+ * - Bikes present: `calculatePallets(bikes)` → attach all parts to last pallet.
+ */
+export const calculatePalletsWithBikeAwareness = (
+  items: PickingItem[],
+  bikeSkuSet: Set<string>
+): Pallet[] => {
+  if (items.length === 0) return [];
+  if (bikeSkuSet.size === 0) return calculatePallets(items);
+
+  const bikes = items.filter((i) => bikeSkuSet.has(i.sku));
+  const parts = items.filter((i) => !bikeSkuSet.has(i.sku));
+
+  if (bikes.length === 0) return calculatePallets(items);
+
+  const bikePallets = calculatePallets(bikes);
+  if (parts.length === 0) return bikePallets;
+
+  return stackPartsOnBikes(
+    [...bikePallets, { id: 0, items: parts, totalUnits: 0, footprint_in2: 0, limitPerPallet: 0 }],
+    bikeSkuSet
+  );
 };
