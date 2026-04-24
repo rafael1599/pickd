@@ -21,7 +21,11 @@ import {
   STORAGE_TYPE_LABELS,
   type InventoryItemWithMetadata,
 } from '../../../schemas/inventory.schema.ts';
-import { type Pallet, redistributeWithOverrides } from '../../../utils/pickingLogic.ts';
+import {
+  type Pallet,
+  redistributeWithOverrides,
+  calculatePalletsWithBikeAwareness,
+} from '../../../utils/pickingLogic.ts';
 import { useModal } from '../../../context/ModalContext';
 import Pencil from 'lucide-react/dist/esm/icons/pencil';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
@@ -56,6 +60,7 @@ export interface PickingItem {
   item_name?: string | null;
   description?: string | null;
   source_order?: string;
+  isStackedPart?: boolean;
   sku_metadata?: {
     image_url?: string | null;
     length_in?: number | null;
@@ -265,11 +270,58 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const [editingPalletId, setEditingPalletId] = useState<number | null>(null);
   const [editingValue, setEditingValue] = useState('');
 
-  // Compute display pallets with overrides applied
+  // Infer which cart SKUs are bikes so parts can stack on the last bike pallet.
+  // Watchdog ingests orders from PDFs and doesn't tag items as bike/part, so we
+  // discern it here: (1) sku_metadata.is_bike when the SKU is cataloged, and
+  // (2) SKU prefix "03-" as a fallback for uncataloged SKUs (every "03-" SKU in
+  // sku_metadata is is_bike=true — reliable heuristic for sku_not_found items).
+  const cartSkusKey = useMemo(
+    () =>
+      Array.from(new Set(cartItems.map((i) => i.sku).filter(Boolean)))
+        .sort()
+        .join(','),
+    [cartItems]
+  );
+  const [bikeSkuSet, setBikeSkuSet] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!cartSkusKey) {
+      setBikeSkuSet(new Set());
+      return;
+    }
+    let cancelled = false;
+    const skus = cartSkusKey.split(',');
+    const prefixInferred = new Set(skus.filter((s) => s.startsWith('03-')));
+    // Seed immediately with prefix-inferred bikes so stacking applies before the fetch resolves
+    setBikeSkuSet(prefixInferred);
+    (async () => {
+      const { data } = await supabase.from('sku_metadata').select('sku, is_bike').in('sku', skus);
+      if (cancelled) return;
+      const next = new Set<string>(prefixInferred);
+      (data as { sku: string; is_bike: boolean | null }[] | null)?.forEach((row) => {
+        if (row.is_bike) next.add(row.sku);
+      });
+      setBikeSkuSet(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [cartSkusKey]);
+
+  // Compute display pallets. When bikes are present, pallet count is sized by
+  // BIKE units only and parts stack on top of the last bike pallet. When no
+  // bikes are present, upstream pallets (parts-only) are used as-is.
   const pallets = useMemo(() => {
-    if (palletOverrides.size === 0) return originalPallets;
-    return redistributeWithOverrides(originalPallets, palletOverrides);
-  }, [originalPallets, palletOverrides]);
+    if (bikeSkuSet.size === 0) {
+      return palletOverrides.size === 0
+        ? originalPallets
+        : redistributeWithOverrides(originalPallets, palletOverrides);
+    }
+    const allItems = originalPallets.flatMap((p) => p.items);
+    const bikeAware = calculatePalletsWithBikeAwareness(allItems, bikeSkuSet);
+    return palletOverrides.size === 0
+      ? bikeAware
+      : redistributeWithOverrides(bikeAware, palletOverrides);
+  }, [originalPallets, palletOverrides, bikeSkuSet]);
 
   // Notify parent of pallet count changes
   useEffect(() => {
@@ -1431,213 +1483,229 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               </div>
 
               <div className="flex flex-col gap-3">
-                {pallet.items.map((item: PickingItem) => {
+                {pallet.items.map((item: PickingItem, itemIdx: number) => {
                   const itemKey = `${pallet.id}-${item.sku}-${item.location}`;
                   const isChecked = checkedItems.has(itemKey);
                   const similarity = skuSimilarityMap[item.sku];
+                  const prevItem = itemIdx > 0 ? pallet.items[itemIdx - 1] : null;
+                  const showPartsDivider =
+                    !!item.isStackedPart && (!prevItem || !prevItem.isStackedPart);
 
                   return (
-                    <div
-                      key={itemKey}
-                      onPointerDown={() => handlePointerDown(item)}
-                      onPointerUp={handlePointerUp}
-                      onPointerCancel={handlePointerUp}
-                      onClick={() => {
-                        if (isReviewMode) return;
-                        if (longPressTriggered.current) return;
-                        if (navigator.vibrate) navigator.vibrate(50);
-                        onToggleCheck(item, pallet.id);
-                      }}
-                      className={`transition-all duration-200 rounded-2xl p-4 flex items-center justify-between gap-3 ${isReviewMode ? '' : 'active:scale-[0.98] cursor-pointer'} border ${
-                        isReviewMode
-                          ? item.sku_not_found
-                            ? 'bg-red-500/5 border-red-500/20'
-                            : item.insufficient_stock
-                              ? 'bg-amber-500/5 border-amber-500/20'
-                              : 'bg-card border-subtle'
-                          : isChecked
+                    <React.Fragment key={itemKey}>
+                      {showPartsDivider && (
+                        <div
+                          className="flex items-center gap-3 pt-2 pb-1"
+                          data-testid="parts-divider"
+                        >
+                          <div className="h-[1px] flex-1 bg-emerald-500/20" />
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400/80 px-2">
+                            Parts on section
+                          </span>
+                          <div className="h-[1px] flex-1 bg-emerald-500/20" />
+                        </div>
+                      )}
+                      <div
+                        onPointerDown={() => handlePointerDown(item)}
+                        onPointerUp={handlePointerUp}
+                        onPointerCancel={handlePointerUp}
+                        onClick={() => {
+                          if (isReviewMode) return;
+                          if (longPressTriggered.current) return;
+                          if (navigator.vibrate) navigator.vibrate(50);
+                          onToggleCheck(item, pallet.id);
+                        }}
+                        className={`transition-all duration-200 rounded-2xl p-4 flex items-center justify-between gap-3 ${isReviewMode ? '' : 'active:scale-[0.98] cursor-pointer'} border ${
+                          isReviewMode
                             ? item.sku_not_found
-                              ? 'bg-red-500/20 border-red-500/50'
-                              : 'bg-green-500/10 border-green-500/30'
-                            : item.sku_not_found
-                              ? 'bg-red-500/5 border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.1)]'
-                              : 'bg-card border-subtle hover:border-subtle'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        {/* Qty on the far left */}
-                        <div className="flex flex-col items-center justify-center min-w-[3rem] shrink-0 border-r border-subtle pr-3">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-muted/60 mb-0.5">
-                            QTY
-                          </span>
-                          <span
-                            className={`text-2xl font-black leading-none transition-all ${
-                              item.pickingQty !== 1
-                                ? 'text-amber-500 animate-pulse-warning'
-                                : isChecked
-                                  ? 'text-muted'
-                                  : 'text-content'
-                            }`}
-                          >
-                            {item.pickingQty}
-                          </span>
-                        </div>
-
-                        {item.sku_metadata?.image_url && (
-                          <img
-                            src={
-                              item.sku_metadata.image_url.includes('/catalog/')
-                                ? item.sku_metadata.image_url
-                                    .replace('/catalog/', '/catalog/thumbs/')
-                                    .replace('.png', '.webp')
-                                : item.sku_metadata.image_url.includes('/photos/')
-                                  ? item.sku_metadata.image_url.replace(
-                                      '/photos/',
-                                      '/photos/thumbs/'
-                                    )
-                                  : item.sku_metadata.image_url
-                            }
-                            alt={item.sku}
-                            loading="lazy"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                            className="w-9 h-9 object-contain rounded flex-shrink-0 border border-subtle"
-                          />
-                        )}
-                        <div className="flex flex-col gap-1 min-w-0">
-                          {/* SKU row */}
-                          <div className="flex items-center gap-2 flex-wrap">
+                              ? 'bg-red-500/5 border-red-500/20'
+                              : item.insufficient_stock
+                                ? 'bg-amber-500/5 border-amber-500/20'
+                                : 'bg-card border-subtle'
+                            : isChecked
+                              ? item.sku_not_found
+                                ? 'bg-red-500/20 border-red-500/50'
+                                : 'bg-green-500/10 border-green-500/30'
+                              : item.sku_not_found
+                                ? 'bg-red-500/5 border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.1)]'
+                                : 'bg-card border-subtle hover:border-subtle'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          {/* Qty on the far left */}
+                          <div className="flex flex-col items-center justify-center min-w-[3rem] shrink-0 border-r border-subtle pr-3">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-muted/60 mb-0.5">
+                              QTY
+                            </span>
                             <span
-                              className={`font-black text-2xl tracking-tight leading-none break-all ${isReviewMode ? (item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-content') : isChecked ? (item.sku_not_found || item.insufficient_stock ? 'text-red-400' : 'text-green-400') : item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-content'}`}
+                              className={`text-2xl font-black leading-none transition-all ${
+                                item.pickingQty !== 1
+                                  ? 'text-amber-500 animate-pulse-warning'
+                                  : isChecked
+                                    ? 'text-muted'
+                                    : 'text-content'
+                              }`}
                             >
-                              {similarity?.prefix ? (
-                                <span className="animate-pulse-highlight">
-                                  {item.sku.substring(0, 2)}
-                                </span>
-                              ) : (
-                                item.sku.substring(0, 2)
-                              )}
-                              {item.sku.substring(2, item.sku.length - 2)}
-                              {similarity?.suffix ? (
-                                <span className="animate-pulse-highlight">
-                                  {item.sku.substring(item.sku.length - 2)}
-                                </span>
-                              ) : (
-                                item.sku.substring(item.sku.length - 2)
-                              )}
+                              {item.pickingQty}
                             </span>
-                            {item.sku_not_found && (
-                              <span className="text-[10px] bg-red-500 text-white px-1 py-0.5 rounded font-black uppercase tracking-tighter animate-pulse">
-                                UNREG
-                              </span>
-                            )}
-                            {item.insufficient_stock && !item.sku_not_found && (
-                              <span className="text-[10px] bg-amber-500 text-black px-1 py-0.5 rounded font-black uppercase tracking-tighter animate-pulse">
-                                LOW STOCK
-                              </span>
-                            )}
-                            {(() => {
-                              const scannedCount = scanResults.get(item.sku)?.size ?? 0;
-                              if (scannedCount === 0) return null;
-                              return (
-                                <span
-                                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                                    scannedCount >= item.pickingQty
-                                      ? 'bg-green-500/20 text-green-500'
-                                      : 'bg-amber-500/20 text-amber-500'
-                                  }`}
-                                >
-                                  {scannedCount}/{item.pickingQty} scanned
-                                </span>
-                              );
-                            })()}
                           </div>
-                          {/* Product name — item_name from DB, or description from PDF */}
-                          {(item.item_name || item.description) && (
-                            <span className="text-[13px] font-semibold text-muted uppercase tracking-wide leading-none">
-                              {(item.item_name || item.description || '').slice(0, 17)}
-                            </span>
-                          )}
-                          {/* Distribution-based pick plan */}
-                          {pickPlanMap[item.sku] ? (
-                            <div
-                              className={`${
-                                distributionInconsistencyMap[item.sku] === 'over'
-                                  ? 'text-red-400/90'
-                                  : distributionInconsistencyMap[item.sku] === 'under'
-                                    ? 'text-orange-400/90'
-                                    : 'text-emerald-400/70'
-                              }`}
-                            >
-                              <span className="text-sm font-bold uppercase tracking-wider leading-none">
-                                {pickPlanMap[item.sku].map((step, i) => (
-                                  <span key={i}>
-                                    {i > 0 && ', '}
-                                    {step.icon} {step.type} has {step.units_each}u
-                                  </span>
-                                ))}
-                              </span>
-                              {distributionInconsistencyMap[item.sku] === 'over' && (
-                                <span className="text-[11px]"> ⚠ dist mismatch</span>
-                              )}
-                              {distributionInconsistencyMap[item.sku] === 'under' && (
-                                <span className="text-[11px]"> ~ approx</span>
-                              )}
-                            </div>
-                          ) : (
-                            item.insufficient_stock && (
-                              <span className="text-xs font-black text-amber-500 uppercase tracking-wider leading-none">
-                                {stockMap[item.sku] !== undefined
-                                  ? `${stockMap[item.sku]} in stock (need ${item.pickingQty})`
-                                  : `Need ${item.pickingQty}, checking...`}
-                              </span>
-                            )
-                          )}
-                        </div>
-                      </div>
 
-                      {/* Location Info on the right - No checkbox to maximize space */}
-                      <div className="flex items-center gap-3 shrink-0 ml-auto pl-2 border-l border-subtle">
-                        <div className="flex flex-col items-end">
-                          <span className="text-[10px] text-muted/60 font-black uppercase tracking-widest mb-0.5">
-                            {item.location?.toLowerCase().includes('row') ? 'ROW' : 'LOC'}
-                          </span>
-                          <div className="flex items-center gap-1.5">
-                            <div
-                              className={`font-mono font-black text-amber-500 leading-none ${
-                                (item.location || '').length > 8 ? 'text-lg' : 'text-2xl'
-                              }`}
-                            >
-                              {(item.location || '')
-                                .toLowerCase()
-                                .replace('row', '')
-                                .trim()
-                                .slice(0, 5) || '-'}
-                              {(() => {
-                                const subs =
-                                  item.sublocation ||
-                                  sublocationMap[
-                                    `${item.sku}-${(item.location || '').toUpperCase()}`
-                                  ];
-                                return subs && subs.length > 0 ? (
-                                  <span className="text-xs font-black bg-amber-500/15 text-amber-400 px-1 py-0.5 rounded ml-1 border border-amber-500/20 align-middle">
-                                    {subs.join(',')}
+                          {item.sku_metadata?.image_url && (
+                            <img
+                              src={
+                                item.sku_metadata.image_url.includes('/catalog/')
+                                  ? item.sku_metadata.image_url
+                                      .replace('/catalog/', '/catalog/thumbs/')
+                                      .replace('.png', '.webp')
+                                  : item.sku_metadata.image_url.includes('/photos/')
+                                    ? item.sku_metadata.image_url.replace(
+                                        '/photos/',
+                                        '/photos/thumbs/'
+                                      )
+                                    : item.sku_metadata.image_url
+                              }
+                              alt={item.sku}
+                              loading="lazy"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                              className="w-9 h-9 object-contain rounded flex-shrink-0 border border-subtle"
+                            />
+                          )}
+                          <div className="flex flex-col gap-1 min-w-0">
+                            {/* SKU row */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span
+                                className={`font-black text-2xl tracking-tight leading-none break-all ${isReviewMode ? (item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-content') : isChecked ? (item.sku_not_found || item.insufficient_stock ? 'text-red-400' : 'text-green-400') : item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-content'}`}
+                              >
+                                {similarity?.prefix ? (
+                                  <span className="animate-pulse-highlight">
+                                    {item.sku.substring(0, 2)}
                                   </span>
-                                ) : null;
+                                ) : (
+                                  item.sku.substring(0, 2)
+                                )}
+                                {item.sku.substring(2, item.sku.length - 2)}
+                                {similarity?.suffix ? (
+                                  <span className="animate-pulse-highlight">
+                                    {item.sku.substring(item.sku.length - 2)}
+                                  </span>
+                                ) : (
+                                  item.sku.substring(item.sku.length - 2)
+                                )}
+                              </span>
+                              {item.sku_not_found && (
+                                <span className="text-[10px] bg-red-500 text-white px-1 py-0.5 rounded font-black uppercase tracking-tighter animate-pulse">
+                                  UNREG
+                                </span>
+                              )}
+                              {item.insufficient_stock && !item.sku_not_found && (
+                                <span className="text-[10px] bg-amber-500 text-black px-1 py-0.5 rounded font-black uppercase tracking-tighter animate-pulse">
+                                  LOW STOCK
+                                </span>
+                              )}
+                              {(() => {
+                                const scannedCount = scanResults.get(item.sku)?.size ?? 0;
+                                if (scannedCount === 0) return null;
+                                return (
+                                  <span
+                                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                      scannedCount >= item.pickingQty
+                                        ? 'bg-green-500/20 text-green-500'
+                                        : 'bg-amber-500/20 text-amber-500'
+                                    }`}
+                                  >
+                                    {scannedCount}/{item.pickingQty} scanned
+                                  </span>
+                                );
                               })()}
                             </div>
-                            {!isReviewMode && isChecked && (
+                            {/* Product name — item_name from DB, or description from PDF */}
+                            {(item.item_name || item.description) && (
+                              <span className="text-[13px] font-semibold text-muted uppercase tracking-wide leading-none">
+                                {(item.item_name || item.description || '').slice(0, 17)}
+                              </span>
+                            )}
+                            {/* Distribution-based pick plan */}
+                            {pickPlanMap[item.sku] ? (
                               <div
-                                className={`flex items-center justify-center ${item.sku_not_found ? 'text-red-500' : 'text-green-500'}`}
+                                className={`${
+                                  distributionInconsistencyMap[item.sku] === 'over'
+                                    ? 'text-red-400/90'
+                                    : distributionInconsistencyMap[item.sku] === 'under'
+                                      ? 'text-orange-400/90'
+                                      : 'text-emerald-400/70'
+                                }`}
                               >
-                                <Check size={16} strokeWidth={4} />
+                                <span className="text-sm font-bold uppercase tracking-wider leading-none">
+                                  {pickPlanMap[item.sku].map((step, i) => (
+                                    <span key={i}>
+                                      {i > 0 && ', '}
+                                      {step.icon} {step.type} has {step.units_each}u
+                                    </span>
+                                  ))}
+                                </span>
+                                {distributionInconsistencyMap[item.sku] === 'over' && (
+                                  <span className="text-[11px]"> ⚠ dist mismatch</span>
+                                )}
+                                {distributionInconsistencyMap[item.sku] === 'under' && (
+                                  <span className="text-[11px]"> ~ approx</span>
+                                )}
                               </div>
+                            ) : (
+                              item.insufficient_stock && (
+                                <span className="text-xs font-black text-amber-500 uppercase tracking-wider leading-none">
+                                  {stockMap[item.sku] !== undefined
+                                    ? `${stockMap[item.sku]} in stock (need ${item.pickingQty})`
+                                    : `Need ${item.pickingQty}, checking...`}
+                                </span>
+                              )
                             )}
                           </div>
                         </div>
+
+                        {/* Location Info on the right - No checkbox to maximize space */}
+                        <div className="flex items-center gap-3 shrink-0 ml-auto pl-2 border-l border-subtle">
+                          <div className="flex flex-col items-end">
+                            <span className="text-[10px] text-muted/60 font-black uppercase tracking-widest mb-0.5">
+                              {item.location?.toLowerCase().includes('row') ? 'ROW' : 'LOC'}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <div
+                                className={`font-mono font-black text-amber-500 leading-none ${
+                                  (item.location || '').length > 8 ? 'text-lg' : 'text-2xl'
+                                }`}
+                              >
+                                {(item.location || '')
+                                  .toLowerCase()
+                                  .replace('row', '')
+                                  .trim()
+                                  .slice(0, 5) || '-'}
+                                {(() => {
+                                  const subs =
+                                    item.sublocation ||
+                                    sublocationMap[
+                                      `${item.sku}-${(item.location || '').toUpperCase()}`
+                                    ];
+                                  return subs && subs.length > 0 ? (
+                                    <span className="text-xs font-black bg-amber-500/15 text-amber-400 px-1 py-0.5 rounded ml-1 border border-amber-500/20 align-middle">
+                                      {subs.join(',')}
+                                    </span>
+                                  ) : null;
+                                })()}
+                              </div>
+                              {!isReviewMode && isChecked && (
+                                <div
+                                  className={`flex items-center justify-center ${item.sku_not_found ? 'text-red-500' : 'text-green-500'}`}
+                                >
+                                  <Check size={16} strokeWidth={4} />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    </React.Fragment>
                   );
                 })}
               </div>
