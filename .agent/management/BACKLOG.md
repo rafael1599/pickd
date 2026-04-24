@@ -7,6 +7,26 @@
 
 ## P1 — Alto (operación diaria)
 
+### 45. FedEx Returns en el Activity Report <!-- id: idea-091 -->
+- **Contexto:** El daily Activity Report hoy cuenta órdenes (Done Today, In Progress, Coming Up) y low-stock, pero no refleja **FedEx Returns** — items que regresan al warehouse por returns, que son trabajo operativo diario igual que picking.
+- **Problema:** el equipo no tiene visibilidad del flujo de returns dentro del reporte. Un día con 0 órdenes nuevas pero 15 returns procesados se ve como "día tranquilo" cuando en realidad fue activo.
+- **Solución propuesta:**
+  - Nueva sección o sub-bloque en el Activity Report: **"FedEx Returns"** — similar a los otros bloques del reporte (card glass con header icon).
+  - Contenido mínimo del día:
+    - Count: `N returns processed today`.
+    - Lista de top-5 returns (SKU, qty, original order_number si está, fecha de return).
+    - Total unidades reingresadas al inventario.
+  - Fuente de data: tabla `fedex_returns` (migration `20260416210000_fedex_returns.sql`). Ya tiene `created_at`, `sku`, `qty`, `return_reason`, `original_order_number`.
+  - Hook nuevo: `useFedExReturnsForReport(nyDate)` similar a `useLowStockAlerts` — filtra por ventana NY-day.
+  - Render en `ActivityReportView.tsx` entre "On the Floor" y "Coming Up Next" (o dentro de un nuevo bloque "Returns" si hay espacio).
+- **Edge cases:**
+  - Viernes: acumulado semanal igual que low-stock (Mon-Fri).
+  - Returns sin `original_order_number`: agrupar en bucket "Walk-in returns".
+  - Si no hay returns en la ventana: omitir el bloque entero (no mostrar "0 returns").
+- **Fuera de scope:** dashboard standalone de returns (ya existe `/fedex-returns`). Esto es solo visibilidad en el reporte diario.
+- **Archivos a tocar:** `src/features/reports/hooks/useFedExReturnsForReport.ts` (nuevo), `src/features/reports/components/ActivityReportView.tsx` (render), `src/features/reports/ActivityReportScreen.tsx` (wire hook → view).
+- **Tests:** helper para filtrar by NY window + classify (single-day vs Mon-Fri accumulator) como `lowStockWindow.test.ts`.
+
 ### 44. Add On reopen reason — Phase 2 (full feature) <!-- id: idea-067 -->
 - **Contexto:** En el modal "Why are you reopening this order?" se agregó la opción "Add On" para mergear una orden completada con una nueva orden del mismo customer. Fase 1 (DB pre-requisitos) ya en prod: fix `auto_group_fedex_orders` excluye `reopened`, `process_picking_list` rechaza `reopened`. Fase 2 queda pendiente — este ticket.
 - **Objetivo Fase 2:** implementar el feature end-to-end. Al elegir "Add On":
