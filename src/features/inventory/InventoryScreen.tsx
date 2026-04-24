@@ -630,7 +630,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
         ref={searchInputRef}
         value={localSearch}
         onChange={setLocalSearch}
-        placeholder="Search SKU, Loc, Warehouse..."
+        placeholder="Search SKU, Serial, UPC, Loc, Name..."
         preferenceId="inventory"
         autoFocus={viewMode === 'picking' && !externalDoubleCheckId}
       />

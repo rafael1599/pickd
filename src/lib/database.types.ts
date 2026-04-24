@@ -1305,6 +1305,44 @@ export type Database = {
         };
         Returns: string;
       };
+      search_inventory_with_metadata: {
+        Args: {
+          p_search?: string;
+          p_warehouse?: string;
+          p_include_inactive?: boolean;
+          p_show_parts?: boolean;
+          p_only_scratch_dent?: boolean;
+          p_offset?: number;
+          p_limit?: number;
+        };
+        Returns: {
+          id: number;
+          sku: string;
+          quantity: number;
+          location: string | null;
+          location_id: string | null;
+          sublocation: string[] | null;
+          item_name: string | null;
+          warehouse: string | null;
+          is_active: boolean | null;
+          internal_note: string | null;
+          distribution: Json | null;
+          created_at: string;
+          location_sort_key: number | null;
+          image_url: string | null;
+          length_in: number | null;
+          width_in: number | null;
+          height_in: number | null;
+          weight_lbs: number | null;
+          is_bike: boolean | null;
+          is_scratch_dent: boolean | null;
+          serial_number: string | null;
+          upc: string | null;
+          model: string | null;
+          condition_description: string | null;
+          total_count: number;
+        }[];
+      };
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { '': string }; Returns: string[] };
       undo_inventory_action: { Args: { target_log_id: string }; Returns: Json };
