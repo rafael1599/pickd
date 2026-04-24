@@ -80,6 +80,7 @@
 - [ ] **Automatic Inventory Email** — Edge function `send-daily-report` + query + cron. <!-- id: idea-007 -->
 - [x] ~~**Fotos Fase 3 — Bulk Upload**~~ ✅ 2026-04-16 — Multi-file picker en gallery (`multiple` attr), uploads paralelos con throttling=3, progress bar `Uploading X of Y` + conteo de errores. `uploadBulk` usa `mutateAsync` + worker pool. Cámara queda single. <!-- id: idea-023-p3 -->
 - [ ] **Migrar cron jobs a pg_cron** — Elimina dependencia de GitHub Actions. <!-- id: idea-030 -->
+- [ ] **Bike/Part/Unknown selector en "New Item"** — Al registrar un SKU nuevo, el form debe forzar la selección manual de tipo (Bike / Part / Unknown). Hoy `is_bike` queda en `false` por default y el picker no tiene manera de clasificarlo. Sirve de respaldo cuando la heurística de prefijo "03-" falle (bikes con prefijos distintos o parts registradas con prefijo 03-). Tocar `UnifiedForm` / `register_new_sku` RPC para persistir el flag. <!-- id: idea-066 -->
 
 ---
 
