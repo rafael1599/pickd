@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useInventory } from './hooks/InventoryProvider.tsx';
 import { useViewMode } from '../../context/ViewModeContext.tsx';
-import { useNavigate } from 'react-router-dom';
+import { useModal } from '../../context/ModalContext';
 import { SearchInput } from '../../components/ui/SearchInput.tsx';
 import { useDebounce } from '../../hooks/useDebounce.ts';
 import { InventoryCard } from './components/InventoryCard.tsx';
@@ -269,14 +269,8 @@ export const InventoryScreen = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [debouncedSearch]);
 
-  const {
-    viewMode,
-    isSearching,
-    externalDoubleCheckId,
-    setExternalOrderId,
-    setExternalShowPickingSummary,
-  } = useViewMode(); // 'stock' | 'picking'
-  const navigate = useNavigate();
+  const { viewMode, isSearching, externalDoubleCheckId } = useViewMode(); // 'stock' | 'picking'
+  const { open: openModal } = useModal();
   const verifiedSkus = useVerifiedSkus();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -908,9 +902,9 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setExternalOrderId(activity.list_id);
-                                setExternalShowPickingSummary(true);
-                                navigate('/orders');
+                                if (activity.list_id) {
+                                  openModal({ type: 'picking-summary', listId: activity.list_id });
+                                }
                               }}
                               className="hover:underline hover:brightness-125 active:scale-95 transition-all cursor-pointer"
                             >

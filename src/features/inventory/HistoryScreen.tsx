@@ -27,7 +27,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useError } from '../../context/ErrorContext';
 import { useConfirmation } from '../../context/ConfirmationContext';
 import { useViewMode } from '../../context/ViewModeContext';
-import { useNavigate } from 'react-router-dom';
+import { useModal } from '../../context/ModalContext';
 
 import type { InventoryLog, LogActionTypeValue } from '../../schemas/log.schema';
 
@@ -118,8 +118,8 @@ export const HistoryScreen = () => {
   const [timeFilter, setTimeFilter] = useState('TODAY');
   const [searchQuery, setSearchQuery] = useState('');
   const [undoingId, setUndoingId] = useState<string | null>(null);
-  const { isSearching, setExternalOrderId, setExternalShowPickingSummary } = useViewMode();
-  const navigate = useNavigate();
+  const { isSearching } = useViewMode();
+  const { open: openModal } = useModal();
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   // Auto-scroll to top when searching to ensure results are visible
@@ -1074,9 +1074,10 @@ export const HistoryScreen = () => {
                                   info.orderId
                                     ? (e: React.MouseEvent) => {
                                         e.stopPropagation();
-                                        setExternalOrderId(info.orderId ?? null);
-                                        setExternalShowPickingSummary(true);
-                                        navigate('/orders');
+                                        openModal({
+                                          type: 'picking-summary',
+                                          listId: String(info.orderId),
+                                        });
                                       }
                                     : undefined
                                 }
