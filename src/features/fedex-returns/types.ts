@@ -26,6 +26,8 @@ export interface FedExReturnItem {
   moved_to_location: string | null;
   moved_to_warehouse: string | null;
   moved_at: string | null;
+  target_location: string | null;
+  target_warehouse: string | null;
   created_at: string;
 }
 

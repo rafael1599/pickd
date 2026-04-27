@@ -187,26 +187,129 @@ interface AddItemInput {
   item_name?: string;
   quantity?: number;
   condition?: FedExReturnItem['condition'];
+  target_location?: string;
+  target_warehouse?: string;
 }
 
 export function useAddReturnItem() {
   const queryClient = useQueryClient();
+  const { user, profile } = useAuth();
 
   return useMutation({
     mutationFn: async (input: AddItemInput) => {
+      const qty = input.quantity ?? 1;
+      const sku = input.sku;
+      const performedBy = profile?.full_name ?? 'FedEx Returns';
+      const userId = user?.id;
+      if (!userId) {
+        throw new Error('You must be signed in to register a return.');
+      }
+
+      // Step 1: Ensure sku_metadata exists. If not (brand-new SKU not yet
+      // registered), create both metadata and a placeholder inventory row at
+      // LUDLOW.FDX with qty=0. register_new_sku is idempotent (ON CONFLICT
+      // DO NOTHING) so it is safe to skip when metadata is present.
+      const { data: meta } = await supabase
+        .from('sku_metadata')
+        .select('sku')
+        .eq('sku', sku)
+        .maybeSingle();
+
+      if (!meta) {
+        const { error: registerErr } = await (supabase.rpc as CallableFunction)(
+          'register_new_sku',
+          {
+            p_sku: sku,
+            p_item_name: input.item_name || sku,
+            p_warehouse: 'LUDLOW',
+            p_location: 'FDX',
+          }
+        );
+        if (registerErr) throw registerErr;
+      }
+
+      // Step 2: Bump the LUDLOW.FDX buffer by the return qty. This is what
+      // the later "Resolve Return" flow drains via move_inventory_stock from
+      // LUDLOW.FDX to the real destination. If this fails we abort BEFORE
+      // touching fedex_return_items, so no orphan rows are left behind.
+      const { error: adjustErr } = await supabase.rpc('adjust_inventory_quantity', {
+        p_sku: sku,
+        p_warehouse: 'LUDLOW',
+        p_location: 'FDX',
+        p_delta: qty,
+        p_performed_by: performedBy,
+        p_user_id: userId,
+        p_merge_note: input.item_name ?? undefined,
+      });
+      if (adjustErr) throw adjustErr;
+
+      // Step 3: Insert the return-item row. If this fails, compensate by
+      // rolling back the FDX adjust to keep stock consistent. We log the
+      // compensation failure (rare) so it can be reconciled manually.
       const { data, error } = await supabase
         .from('fedex_return_items')
         .insert({
           return_id: input.return_id,
-          sku: input.sku,
+          sku,
           item_name: input.item_name || null,
-          quantity: input.quantity ?? 1,
+          quantity: qty,
           condition: input.condition ?? 'good',
+          target_location: input.target_location?.trim().toUpperCase() || null,
+          target_warehouse: input.target_warehouse ?? 'LUDLOW',
         })
         .select()
         .single();
-      if (error) throw error;
+
+      if (error) {
+        const { error: rollbackErr } = await supabase.rpc('adjust_inventory_quantity', {
+          p_sku: sku,
+          p_warehouse: 'LUDLOW',
+          p_location: 'FDX',
+          p_delta: -qty,
+          p_performed_by: performedBy,
+          p_user_id: userId,
+        });
+        if (rollbackErr) {
+          console.error('[useAddReturnItem] FDX rollback failed after insert error', rollbackErr);
+        }
+        throw error;
+      }
       return data;
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      // Inventory caches that surface FDX stock should refresh too.
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['locations', 'active'] });
+    },
+  });
+}
+
+// ── Update Return Item (target location only for now) ──────────────
+
+interface UpdateItemInput {
+  itemId: string;
+  target_location?: string | null;
+  target_warehouse?: string | null;
+}
+
+export function useUpdateReturnItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: UpdateItemInput) => {
+      const patch: Record<string, unknown> = {};
+      if (input.target_location !== undefined) {
+        patch.target_location = input.target_location?.trim().toUpperCase() || null;
+      }
+      if (input.target_warehouse !== undefined) {
+        patch.target_warehouse = input.target_warehouse;
+      }
+      const { error } = await supabase
+        .from('fedex_return_items')
+        .update(patch)
+        .eq('id', input.itemId);
+      if (error) throw error;
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
   });
@@ -236,6 +339,7 @@ interface ResolveInput {
     sku: string;
     quantity: number;
     target_location: string;
+    target_warehouse?: string;
   }>;
 }
 
@@ -247,11 +351,12 @@ export function useResolveReturn() {
     mutationFn: async (input: ResolveInput) => {
       // Move each item to inventory
       for (const item of input.items) {
+        const toWarehouse = item.target_warehouse ?? 'LUDLOW';
         const { error: moveError } = await supabase.rpc('move_inventory_stock', {
           p_sku: item.sku,
           p_from_warehouse: 'LUDLOW',
           p_from_location: 'FDX',
-          p_to_warehouse: 'LUDLOW',
+          p_to_warehouse: toWarehouse,
           p_to_location: item.target_location,
           p_qty: item.quantity,
           p_performed_by: profile?.full_name ?? 'Unknown',
@@ -265,7 +370,7 @@ export function useResolveReturn() {
           .from('fedex_return_items')
           .update({
             moved_to_location: item.target_location,
-            moved_to_warehouse: 'LUDLOW',
+            moved_to_warehouse: toWarehouse,
             moved_at: new Date().toISOString(),
           })
           .eq('id', item.id);

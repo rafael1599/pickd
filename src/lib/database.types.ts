@@ -351,6 +351,8 @@ export type Database = {
           quantity: number;
           return_id: string;
           sku: string;
+          target_location: string | null;
+          target_warehouse: string | null;
         };
         Insert: {
           condition?: string;
@@ -363,6 +365,8 @@ export type Database = {
           quantity?: number;
           return_id: string;
           sku: string;
+          target_location?: string | null;
+          target_warehouse?: string | null;
         };
         Update: {
           condition?: string;
@@ -375,6 +379,8 @@ export type Database = {
           quantity?: number;
           return_id?: string;
           sku?: string;
+          target_location?: string | null;
+          target_warehouse?: string | null;
         };
         Relationships: [
           {

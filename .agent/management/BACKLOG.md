@@ -133,6 +133,7 @@
 - [x] ~~**Activity Report — low-stock en "On the floor"**~~ ✅ 2026-04-24 — Sub-bloque "LOW STOCK · Today" / "This week" dentro de la card ON THE FLOOR. Out of stock (rojo) + Last unit (ámbar). Cada SKU lista las completions del día (#ORDER clickeable, −qty, prev→new, from LOC, date+time). PR #20, #22, #23. <!-- id: idea-071 -->
 - [x] ~~**Ghost trail audit — from_location + link a picking list**~~ ✅ 2026-04-24 — `useLastActivity` expone `list_id` y `formatLastActivity` incluye `from {location}`. El activity line de un SKU en qty=0 ahora es clickeable cuando hay `list_id` (abre PickingSummaryModal vía `setExternalOrderId`). <!-- id: idea-072 -->
 - [x] ~~**Low-stock audit details — completions per SKU**~~ ✅ 2026-04-24 — `useLowStockAlerts` incluye `completions[]` por SKU (order_number, performed_by, from_location, quantity_change, prev→new qty, created_at). `LowStockAlertsBlock` renderiza una sub-línea por completion bajo cada SKU alertado. <!-- id: idea-073 -->
+- [ ] **Activity Report — bullets más específicos en "On the Floor"** — Eliminar generalizaciones (ej. "7 corrections made during picking" — quitada en 2026-04-27) y reemplazar por data accionable: qué correcciones se hicieron, en qué órdenes, qué SKUs, qué tipo (remove/swap/adjust_qty/add) con la razón asociada (idea-043 ya captura razones). El criterio: cada bullet del reporte debe responder "qué hago con esta info" — generalizaciones que no llevan a acción se omiten. Aplicar este principio a otros bullets del reporte conforme se identifiquen. <!-- id: idea-074 -->
 
 ---
 

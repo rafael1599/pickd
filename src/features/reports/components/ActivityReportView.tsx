@@ -418,12 +418,6 @@ export const ActivityReportView: React.FC<Props> = ({
       `Completed ${totals.orders_completed} order${totals.orders_completed !== 1 ? 's' : ''} (${totals.total_items} items)`
     );
   }
-  if (report.correction_count > 0) {
-    floorBullets.push(
-      `${report.correction_count} correction${report.correction_count !== 1 ? 's' : ''} made during picking`
-    );
-  }
-
   // Checked routine items
   for (const item of routineChecklist) {
     floorBullets.push(item);

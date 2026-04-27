@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import jsPDF from 'jspdf';
 import { PhotoLightbox } from '../ui/PhotoLightbox';
 
@@ -224,14 +224,54 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
     brandColors,
   ]);
 
+  // Container ref + dynamic scale: on mobile (<768px) the preview fits the
+  // available width; on desktop we use fixed scale tiers via CSS variable.
+  // `transform: scale()` does not shrink the layout box, so we also size a
+  // wrapper to the scaled dimensions to prevent horizontal overflow.
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [isMobile, setIsMobile] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  );
+  const [mobileScale, setMobileScale] = useState<number>(0.28);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const PAGE_MM = 297;
+    const MM_TO_PX = 96 / 25.4; // 1mm ~= 3.7795px at 96dpi
+    const PAGE_PX = PAGE_MM * MM_TO_PX;
+    const compute = () => {
+      const width = el.clientWidth;
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile) {
+        // Fit one page in the container width with a tiny safety margin.
+        const next = Math.min(0.6, Math.max(0.1, (width - 4) / PAGE_PX));
+        setMobileScale(next);
+      }
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    window.addEventListener('resize', compute);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', compute);
+    };
+  }, []);
+
+  const pageCount = pages.length;
+  // Scaled dimensions (only used on mobile to constrain the layout box).
+  const mobileWrapperWidth = `calc(297mm * ${mobileScale})`;
+  const mobileWrapperHeight = `calc(210mm * ${mobileScale} * ${pageCount})`;
+
   return (
     <div className="flex flex-col items-center w-full min-h-full pt-8 px-1 md:px-4 bg-transparent">
-      {/* Standard scaling styles */}
+      {/* Desktop scaling tiers (mobile is computed dynamically). */}
       <style
         dangerouslySetInnerHTML={{
           __html: `
-                :root { --preview-scale: 0.28; }
-                @media (min-width: 640px) { :root { --preview-scale: 0.32; } }
+                :root { --preview-scale: 0.32; }
                 @media (min-width: 1024px) { :root { --preview-scale: 0.38; } }
                 @media (min-width: 1280px) { :root { --preview-scale: 0.45; } }
                 @media (min-width: 1536px) { :root { --preview-scale: 0.52; } }
@@ -276,17 +316,41 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
         )}
       </div>
 
-      <div className="w-full flex-1 flex justify-center pb-32">
-        <div
-          className="grid gap-x-12 gap-y-20 justify-center origin-top h-fit"
-          style={{
-            gridTemplateColumns:
-              pages.length <= 1 ? '297mm' : window.innerWidth < 768 ? '297mm' : 'repeat(2, 297mm)',
-            transform: 'scale(var(--preview-scale))',
-          }}
-        >
-          {pages}
-        </div>
+      <div ref={containerRef} className="w-full flex-1 flex justify-center pb-32 overflow-hidden">
+        {isMobile ? (
+          // Mobile: scaled wrapper sets the layout box; inner grid is absolutely
+          // positioned so its unscaled 297mm width doesn't shift the parent.
+          <div
+            style={{
+              width: mobileWrapperWidth,
+              height: mobileWrapperHeight,
+              position: 'relative',
+            }}
+          >
+            <div
+              className="grid gap-y-8 origin-top-left"
+              style={{
+                gridTemplateColumns: '297mm',
+                transform: `scale(${mobileScale})`,
+                position: 'absolute',
+                top: 0,
+                left: 0,
+              }}
+            >
+              {pages}
+            </div>
+          </div>
+        ) : (
+          <div
+            className="grid gap-x-12 gap-y-20 justify-center origin-top h-fit"
+            style={{
+              gridTemplateColumns: pageCount <= 1 ? '297mm' : 'repeat(2, 297mm)',
+              transform: 'scale(var(--preview-scale))',
+            }}
+          >
+            {pages}
+          </div>
+        )}
       </div>
 
       {lightboxIndex !== null && (
