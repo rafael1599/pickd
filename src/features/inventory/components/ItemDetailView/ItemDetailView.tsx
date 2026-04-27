@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -42,7 +42,7 @@ import { QuantityControl } from './QuantityControl.tsx';
 import { DistributionPreview } from './DistributionPreview.tsx';
 import { SectionEditorSheet } from './SectionEditorSheet.tsx';
 import { ItemHistorySheet } from './ItemHistorySheet.tsx';
-import { ScratchAndDentSection } from '../../../scratch-and-dent/components/ScratchAndDentSection';
+import { ItemDetailsCard } from './ItemDetailsCard';
 
 type WarehouseType = 'LUDLOW' | 'ATS' | 'DELETED ITEMS';
 
@@ -76,7 +76,6 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   mode = 'add',
   screenType,
 }) => {
-  useScrollLock(isOpen, onClose);
   const queryClient = useQueryClient();
 
   const { ludlowData, atsData, isAdmin, updateSKUMetadata } = useInventory();
@@ -116,6 +115,12 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       ...dimensionDefaults(null),
       internal_note: '',
       sublocation: null,
+      // idea-083: Details section defaults
+      serial_number: '',
+      price: null,
+      condition: '',
+      condition_description: '',
+      pdf_link: '',
     },
   });
 
@@ -131,6 +136,12 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   const widthIn = watch('width_in');
   const heightIn = watch('height_in');
   const weightLbs = watch('weight_lbs');
+  // idea-083: Details fields watches (for dirty check)
+  const serialNumber = watch('serial_number');
+  const priceField = watch('price');
+  const conditionField = watch('condition');
+  const conditionDescField = watch('condition_description');
+  const pdfLinkField = watch('pdf_link');
 
   // ─── Sync Initial Data ───
   useEffect(() => {
@@ -157,6 +168,15 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           weight_lbs: initialData.sku_metadata?.weight_lbs ?? null,
           internal_note: initialData.internal_note || '',
           sublocation: initialData.sublocation || null,
+          // idea-083 + idea-085: "Details" section — universal extra info.
+          // `price` maps to sku_metadata.sd_price (the canonical selling price).
+          // For S/D items this is the sale price and msrp/standard_price
+          // stay on bike_variants (shown read-only via useScratchAndDentBySku).
+          serial_number: initialData.sku_metadata?.serial_number || '',
+          price: initialData.sku_metadata?.sd_price ?? null,
+          condition: initialData.sku_metadata?.condition || '',
+          condition_description: initialData.sku_metadata?.condition_description || '',
+          pdf_link: initialData.sku_metadata?.pdf_link || '',
         });
         setDistribution(Array.isArray(initialData.distribution) ? initialData.distribution : []);
         setUserEditedDistribution(false);
@@ -251,6 +271,14 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       num(heightIn) !== num(meta?.height_in) ||
       num(weightLbs) !== num(meta?.weight_lbs);
     if (metaChanged) return true;
+    // idea-083: Details section fields
+    const detailsChanged =
+      n(serialNumber) !== n(meta?.serial_number) ||
+      num(priceField) !== num(meta?.sd_price) ||
+      n(conditionField) !== n(meta?.condition) ||
+      n(conditionDescField) !== n(meta?.condition_description) ||
+      n(pdfLinkField) !== n(meta?.pdf_link);
+    if (detailsChanged) return true;
     const initDist = Array.isArray(initialData.distribution) ? initialData.distribution : [];
     if (JSON.stringify(distribution) !== JSON.stringify(initDist)) return true;
     // Photo change
@@ -273,7 +301,35 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     heightIn,
     weightLbs,
     photoPreview,
+    serialNumber,
+    priceField,
+    conditionField,
+    conditionDescField,
+    pdfLinkField,
   ]);
+
+  // idea-083: Guard close when there are unsaved changes. Ref keeps requestClose
+  // stable (useScrollLock / DetailToolbar don't remount per keystroke).
+  const hasChangesRef = useRef(hasChanges);
+  hasChangesRef.current = hasChanges;
+
+  const requestClose = useCallback(() => {
+    if (hasChangesRef.current) {
+      showConfirmation(
+        'Unsaved changes',
+        'You have unsaved changes. Discard and close?',
+        () => onClose(),
+        undefined,
+        'Discard',
+        'Keep editing',
+        'warning'
+      );
+    } else {
+      onClose();
+    }
+  }, [onClose, showConfirmation]);
+
+  useScrollLock(isOpen, requestClose);
 
   // ─── Location Predictions & Suggestions ───
   const validLocationNames = useMemo(() => {
@@ -613,6 +669,13 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         width_in: data.width_in,
         height_in: data.height_in,
         weight_lbs: data.weight_lbs,
+        // idea-083 + idea-085: Details-section fields. `price` persists on
+        // sku_metadata.sd_price (canonical selling price for any item).
+        serial_number: data.serial_number || null,
+        sd_price: data.price ?? null,
+        condition: data.condition || null,
+        condition_description: data.condition_description || null,
+        pdf_link: data.pdf_link || null,
       }).catch((e: unknown) => console.error('Metadata update failed:', e));
 
       const payload = {
@@ -651,6 +714,11 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       internal_note: watch('internal_note'),
       sublocation: watch('sublocation') || null,
       distribution: [],
+      serial_number: watch('serial_number') || null,
+      price: watch('price') ?? null,
+      condition: watch('condition') || null,
+      condition_description: watch('condition_description') || null,
+      pdf_link: watch('pdf_link') || null,
     };
 
     if (prediction.bestGuess && prediction.bestGuess !== data.location) {
@@ -819,7 +887,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       <DetailToolbar
         title={toolbarTitle}
         mode={mode}
-        onBack={onClose}
+        onBack={requestClose}
         onDelete={mode === 'edit' ? handleDelete : undefined}
         onPrintLabel={mode === 'edit' && isBikeItem ? handlePrintLabel : undefined}
       />
@@ -1036,8 +1104,21 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                   </div>
                 </div>
               )}
-              {isScratchDentItem && initialData?.sku && (
-                <ScratchAndDentSection sku={initialData.sku} />
+              {mode === 'edit' && initialData?.sku && (
+                <ItemDetailsCard
+                  sku={initialData.sku}
+                  isScratchDent={isScratchDentItem}
+                  serial={watch('serial_number') ?? ''}
+                  price={watch('price') ?? null}
+                  condition={watch('condition') ?? ''}
+                  conditionDescription={watch('condition_description') ?? ''}
+                  pdfLink={watch('pdf_link') ?? ''}
+                  setSerial={(v) => setValue('serial_number', v)}
+                  setPrice={(v) => setValue('price', v)}
+                  setCondition={(v) => setValue('condition', v)}
+                  setConditionDescription={(v) => setValue('condition_description', v)}
+                  setPdfLink={(v) => setValue('pdf_link', v)}
+                />
               )}
               {lastUpdate && (
                 <SectionRow

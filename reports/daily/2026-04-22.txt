@@ -1,0 +1,18 @@
+Progress Update — April 22, 2026 at 5:01 PM
+
+WIN OF THE DAY:
+Three workflows advanced today: Cycle Count now anchors every verification into a row-by-row accuracy KPI, orders accept late items through a new Add On reopen, and the daily close wraps with a quick Day Recap.
+
+WHAT'S BETTER NOW:
+- Each Cycle Count verification now persists in real time, with the audit history showing who counted what and when.
+- New "By Row" mode lets you audit a whole row in one tap. Every row displays its current audit percentage and flags the ones never counted, so the team always knows where to focus next.
+- The accuracy window now looks back 90 days, giving a more realistic picture of physical coverage — already lifted 22 SKUs into the verified count.
+- New "Add On" option reopens a completed order to merge a late item into it, keeping pallet photos and history intact.
+- Stock search now finds bikes by serial number with normalized matching, so a unit can be located even when the SKU isn't handy.
+- The Daily Activity Report opens with a flexible Day Recap and quick-add routines, and the exported PDF captions every pallet photo with its order number.
+
+COMING UP NEXT:
+- Close the Add On reopen flow end-to-end with combined-order verification and photo merging.
+- Orders screen visual rework — carrier logos, glass styling, cleaner hierarchy.
+
+12 shipped today / 11 on the roadmap (5 high-priority features, 6 smaller improvements and audits).

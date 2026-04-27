@@ -13,10 +13,8 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { InventorySnapshotModal } from '../features/inventory/components/InventorySnapshotModal';
 import { ItemDetailView } from '../features/inventory/components/ItemDetailView';
-import type {
-  InventoryItemWithMetadata,
-  InventoryItemInput,
-} from '../schemas/inventory.schema';
+import { PickingSummaryModalById } from '../components/orders/PickingSummaryModalById';
+import type { InventoryItemWithMetadata, InventoryItemInput } from '../schemas/inventory.schema';
 
 type ItemDetailSavePayload = InventoryItemInput & {
   length_in?: number;
@@ -34,6 +32,7 @@ export type ModalState =
       onSave?: (data: ItemDetailSavePayload) => Promise<void> | void;
       onDelete?: () => Promise<void> | void;
     }
+  | { type: 'picking-summary'; listId: string }
   | null;
 
 interface ModalContextValue {
@@ -56,8 +55,10 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
       {children}
 
       {/* All critical modals live here — survive opener unmounting */}
-      {modal?.type === 'inventory-snapshot' && (
-        <InventorySnapshotModal isOpen onClose={close} />
+      {modal?.type === 'inventory-snapshot' && <InventorySnapshotModal isOpen onClose={close} />}
+
+      {modal?.type === 'picking-summary' && (
+        <PickingSummaryModalById listId={modal.listId} onClose={close} />
       )}
 
       {modal?.type === 'item-detail' && (

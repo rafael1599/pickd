@@ -7,6 +7,26 @@
 
 ## P1 — Alto (operación diaria)
 
+### 45. FedEx Returns en el Activity Report <!-- id: idea-091 -->
+- **Contexto:** El daily Activity Report hoy cuenta órdenes (Done Today, In Progress, Coming Up) y low-stock, pero no refleja **FedEx Returns** — items que regresan al warehouse por returns, que son trabajo operativo diario igual que picking.
+- **Problema:** el equipo no tiene visibilidad del flujo de returns dentro del reporte. Un día con 0 órdenes nuevas pero 15 returns procesados se ve como "día tranquilo" cuando en realidad fue activo.
+- **Solución propuesta:**
+  - Nueva sección o sub-bloque en el Activity Report: **"FedEx Returns"** — similar a los otros bloques del reporte (card glass con header icon).
+  - Contenido mínimo del día:
+    - Count: `N returns processed today`.
+    - Lista de top-5 returns (SKU, qty, original order_number si está, fecha de return).
+    - Total unidades reingresadas al inventario.
+  - Fuente de data: tabla `fedex_returns` (migration `20260416210000_fedex_returns.sql`). Ya tiene `created_at`, `sku`, `qty`, `return_reason`, `original_order_number`.
+  - Hook nuevo: `useFedExReturnsForReport(nyDate)` similar a `useLowStockAlerts` — filtra por ventana NY-day.
+  - Render en `ActivityReportView.tsx` entre "On the Floor" y "Coming Up Next" (o dentro de un nuevo bloque "Returns" si hay espacio).
+- **Edge cases:**
+  - Viernes: acumulado semanal igual que low-stock (Mon-Fri).
+  - Returns sin `original_order_number`: agrupar en bucket "Walk-in returns".
+  - Si no hay returns en la ventana: omitir el bloque entero (no mostrar "0 returns").
+- **Fuera de scope:** dashboard standalone de returns (ya existe `/fedex-returns`). Esto es solo visibilidad en el reporte diario.
+- **Archivos a tocar:** `src/features/reports/hooks/useFedExReturnsForReport.ts` (nuevo), `src/features/reports/components/ActivityReportView.tsx` (render), `src/features/reports/ActivityReportScreen.tsx` (wire hook → view).
+- **Tests:** helper para filtrar by NY window + classify (single-day vs Mon-Fri accumulator) como `lowStockWindow.test.ts`.
+
 ### 44. Add On reopen reason — Phase 2 (full feature) <!-- id: idea-067 -->
 - **Contexto:** En el modal "Why are you reopening this order?" se agregó la opción "Add On" para mergear una orden completada con una nueva orden del mismo customer. Fase 1 (DB pre-requisitos) ya en prod: fix `auto_group_fedex_orders` excluye `reopened`, `process_picking_list` rechaza `reopened`. Fase 2 queda pendiente — este ticket.
 - **Objetivo Fase 2:** implementar el feature end-to-end. Al elegir "Add On":
@@ -108,9 +128,9 @@
 - [ ] **Migrar cron jobs a pg_cron** — Elimina dependencia de GitHub Actions. <!-- id: idea-030 -->
 - [ ] **FedEx Returns — "Add Item" → "Return to Stock"** — Renombrar el botón/acción `Add Item` en `src/features/fedex-returns/` (ver `AddItemSheet.tsx`) a `Return to Stock` para reflejar mejor la intención del flujo (el item regresa al inventario, no se "agrega" como si fuera nuevo). <!-- id: idea-066 -->
 - [ ] **Bike/Part/Unknown selector en "New Item"** — Al registrar un SKU nuevo, el form debe forzar la selección manual de tipo (Bike / Part / Unknown). Hoy `is_bike` queda en `false` por default y el picker no tiene manera de clasificarlo. Sirve de respaldo cuando la heurística de prefijo "03-" falle (bikes con prefijos distintos o parts registradas con prefijo 03-). Tocar `UnifiedForm` / `register_new_sku` RPC para persistir el flag. <!-- id: idea-068 -->
-- [x] ~~**Remaining qty display en Picking Summary (post-deduct)**~~ ✅ 2026-04-27 — Hook `remainingBySku` en `PickingSummaryModal.tsx:58-92` consulta stock warehouse-wide por SKU y renderiza "Remaining: N" con color (rojo=0, ámbar=1, blanco>1) cuando `status === 'completed'`. Verificado durante revisión de backlog. <!-- id: idea-069 -->
-- [ ] **Low-stock tracking para reporte** — Al completar una orden, capturar el remanente warehouse-wide por SKU. SKUs que queden en ≤1 unidad se marcan como "last unit" / "out of stock" para el daily report. No se muestra inline al usuario, solo se registra/expone para reporting. <!-- id: idea-070 -->
-- [ ] **Activity Report — low-stock en "On the floor"** — Extender la sección "On the floor" del daily report para incluir SKUs que quedaron en ≤1 unidad hoy (out of stock en rojo, last unit en ámbar). Los viernes, acumular la lista de toda la semana dentro de la misma sección. <!-- id: idea-071 -->
+- [x] ~~**Remaining qty display en Picking Summary (post-deduct)**~~ ✅ 2026-04-24 — `PickingSummaryModal` consulta `inventory.quantity` warehouse-wide post-deduct y muestra "Remaining: N" bajo cada SKU (rojo=0, ámbar=1, default >1). PR #19. <!-- id: idea-069 -->
+- [x] ~~**Low-stock tracking para reporte**~~ ✅ 2026-04-24 — `useLowStockAlerts` hook retrospective sobre `inventory_logs` (DEDUCTs no reversados) + suma activa en `inventory`. Filtrado por `prev_quantity > 0` (idea-075) para excluir fantasmas. PR #20. <!-- id: idea-070 -->
+- [x] ~~**Activity Report — low-stock en "On the floor"**~~ ✅ 2026-04-24 — Sub-bloque "LOW STOCK · Today" / "This week" dentro de la card ON THE FLOOR. Out of stock (rojo) + Last unit (ámbar). Cada SKU lista las completions del día (#ORDER clickeable, −qty, prev→new, from LOC, date+time). PR #20, #22, #23. <!-- id: idea-071 -->
 - [x] ~~**Ghost trail audit — from_location + link a picking list**~~ ✅ 2026-04-24 — `useLastActivity` expone `list_id` y `formatLastActivity` incluye `from {location}`. El activity line de un SKU en qty=0 ahora es clickeable cuando hay `list_id` (abre PickingSummaryModal vía `setExternalOrderId`). <!-- id: idea-072 -->
 - [x] ~~**Low-stock audit details — completions per SKU**~~ ✅ 2026-04-24 — `useLowStockAlerts` incluye `completions[]` por SKU (order_number, performed_by, from_location, quantity_change, prev→new qty, created_at). `LowStockAlertsBlock` renderiza una sub-línea por completion bajo cada SKU alertado. <!-- id: idea-073 -->
 - [ ] **Activity Report — bullets más específicos en "On the Floor"** — Eliminar generalizaciones (ej. "7 corrections made during picking" — quitada en 2026-04-27) y reemplazar por data accionable: qué correcciones se hicieron, en qué órdenes, qué SKUs, qué tipo (remove/swap/adjust_qty/add) con la razón asociada (idea-043 ya captura razones). El criterio: cada bullet del reporte debe responder "qué hago con esta info" — generalizaciones que no llevan a acción se omiten. Aplicar este principio a otros bullets del reporte conforme se identifiquen. <!-- id: idea-074 -->

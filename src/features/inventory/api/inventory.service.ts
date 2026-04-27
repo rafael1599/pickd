@@ -359,12 +359,16 @@ class InventoryService extends BaseService<
         console.log(
           `[InventoryService] SKU ${itemToInsert.sku} not found in metadata. Creating shell entry...`
         );
+        // Default dims for unregistered SKUs: standard bike box ~55×8.5×30.5", 45 lbs.
+        // e-bikes and children's bikes should be adjusted manually after ingest.
         await this.supabase.from('sku_metadata').upsert(
           [
             {
               sku: itemToInsert.sku,
-              length_ft: 5, // Default values
-              width_in: 6,
+              length_in: 55,
+              width_in: 8.5,
+              height_in: 30.5,
+              weight_lbs: 45,
             },
           ],
           { onConflict: 'sku' }
