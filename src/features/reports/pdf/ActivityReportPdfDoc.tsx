@@ -93,13 +93,6 @@ function buildFloorBullets(args: ActivityReportPdfDocProps): string[] {
       } — ${totals.total_items} items`
     );
   }
-  if (args.report.correction_count > 0) {
-    out.push(
-      `${args.report.correction_count} correction${
-        args.report.correction_count !== 1 ? 's' : ''
-      } made during picking`
-    );
-  }
   for (const item of args.routineChecklist) out.push(item);
   for (const note of args.notes) out.push(note.text);
   return out;
