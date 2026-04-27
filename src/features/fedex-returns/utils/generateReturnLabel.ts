@@ -98,15 +98,12 @@ export async function generateReturnLabel(data: ReturnLabelData): Promise<string
     doc.setLineWidth(0.02);
     doc.line(pad, qrY + qrSize + 0.1, W - pad, qrY + qrSize + 0.1);
 
-    // RECEIVED / BY info
+    // RECEIVED info
     doc.setFontSize(10);
     const infoY = qrY + qrSize + 0.3;
     const receivedDate = formatDate(data.receivedAt);
     if (receivedDate) {
       doc.text(`RECEIVED: ${receivedDate}`, pad + 0.05, infoY);
-    }
-    if (data.receivedByName) {
-      doc.text(`BY: ${data.receivedByName.toUpperCase()}`, pad + 0.05, infoY + 0.2);
     }
 
     // Bottom border of label

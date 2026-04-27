@@ -105,7 +105,9 @@ export function SDQuickIntakeModal({ open, onClose }: Props) {
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
+    // z-[105] clears the app's bottom nav (z-100); on mobile this sheet anchors
+    // to the bottom edge, where a lower z-index would hide the CTA behind nav.
+    <div className="fixed inset-0 z-[105] flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-main/70 backdrop-blur-sm" onClick={onClose} />
 
       <div className="relative bg-surface border border-subtle rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md max-h-[85vh] overflow-hidden animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 flex flex-col">

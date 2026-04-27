@@ -9,9 +9,13 @@ import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import { supabase } from '../../../lib/supabase';
 import { useDebounce } from '../../../hooks/useDebounce';
 import { useAddReturnItem } from '../hooks/useFedExReturns';
+import { useLocationManagement } from '../../inventory/hooks/useLocationManagement';
+import AutocompleteInput from '../../../components/ui/AutocompleteInput';
 import type { ItemCondition } from '../types';
 
-interface AddItemSheetProps {
+const TARGET_WAREHOUSE = 'LUDLOW';
+
+interface ReturnToStockSheetProps {
   returnId: string;
   open: boolean;
   onClose: () => void;
@@ -50,13 +54,18 @@ const CONDITION_STYLES: Record<string, { active: string; inactive: string }> = {
   },
 };
 
-export const AddItemSheet: React.FC<AddItemSheetProps> = ({ returnId, open, onClose }) => {
+export const ReturnToStockSheet: React.FC<ReturnToStockSheetProps> = ({
+  returnId,
+  open,
+  onClose,
+}) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<InventorySearchRow[]>([]);
   const [searching, setSearching] = useState(false);
   const [selected, setSelected] = useState<InventorySearchRow | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [condition, setCondition] = useState<ItemCondition>('good');
+  const [targetLocation, setTargetLocation] = useState('');
   const [creatingNew, setCreatingNew] = useState(false);
   const [newSku, setNewSku] = useState('');
   const [newName, setNewName] = useState('');
@@ -64,6 +73,20 @@ export const AddItemSheet: React.FC<AddItemSheetProps> = ({ returnId, open, onCl
 
   const debouncedQuery = useDebounce(query, 250);
   const addItem = useAddReturnItem();
+  const { locations } = useLocationManagement();
+
+  const locationSuggestions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (locations ?? [])
+            .filter((l) => l.warehouse === TARGET_WAREHOUSE)
+            .map((l) => (l.location || '').toUpperCase())
+            .filter(Boolean)
+        )
+      ).map((value) => ({ value })),
+    [locations]
+  );
 
   const reset = () => {
     setQuery('');
@@ -71,6 +94,7 @@ export const AddItemSheet: React.FC<AddItemSheetProps> = ({ returnId, open, onCl
     setSelected(null);
     setQuantity(1);
     setCondition('good');
+    setTargetLocation('');
     setCreatingNew(false);
     setNewSku('');
     setNewName('');
@@ -144,8 +168,15 @@ export const AddItemSheet: React.FC<AddItemSheetProps> = ({ returnId, open, onCl
     }
   };
 
+  const trimmedLocation = targetLocation.trim();
+  const canSubmit = !!selected && trimmedLocation.length > 0 && !addItem.isPending;
+
   const handleAdd = async () => {
     if (!selected) return;
+    if (!trimmedLocation) {
+      toast.error('Set a destination location');
+      return;
+    }
     try {
       await addItem.mutateAsync({
         return_id: returnId,
@@ -153,12 +184,14 @@ export const AddItemSheet: React.FC<AddItemSheetProps> = ({ returnId, open, onCl
         item_name: selected.item_name ?? undefined,
         quantity,
         condition,
+        target_location: trimmedLocation,
+        target_warehouse: TARGET_WAREHOUSE,
       });
-      toast.success('Item added');
+      toast.success('Item returned to stock');
       reset();
       onClose();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to add item';
+      const message = err instanceof Error ? err.message : 'Failed to return item';
       toast.error(message);
     }
   };
@@ -170,7 +203,7 @@ export const AddItemSheet: React.FC<AddItemSheetProps> = ({ returnId, open, onCl
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-card border border-subtle rounded-2xl w-full max-w-lg max-h-[70vh] overflow-y-auto p-4 shadow-2xl transition-all duration-300">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-bold text-content">Add Item</h2>
+          <h2 className="text-base font-bold text-content">Return to Stock</h2>
           <button
             onClick={onClose}
             className="p-1.5 text-muted hover:text-content"
@@ -345,9 +378,35 @@ export const AddItemSheet: React.FC<AddItemSheetProps> = ({ returnId, open, onCl
               </div>
             </div>
 
+            <div>
+              <label className="text-xs text-muted uppercase tracking-widest">
+                Destination location
+              </label>
+              <div className="mt-1">
+                <AutocompleteInput
+                  id="return_to_stock_location"
+                  value={targetLocation}
+                  onChange={(v: string) => setTargetLocation(v.toUpperCase())}
+                  suggestions={locationSuggestions}
+                  placeholder="Row/Bin..."
+                  minChars={1}
+                  initialKeyboardMode="numeric"
+                  className="w-full bg-surface border border-subtle rounded-xl px-3 py-2 text-sm text-content placeholder:text-muted/50 focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </div>
+            </div>
+
             <button
+              type="button"
+              onMouseDown={(e) => {
+                // Commit any pending input value (location/qty) before click
+                // fires so handleAdd reads the latest state. Avoids the iOS
+                // first-tap-eaten quirk on numeric keyboards too.
+                const el = document.activeElement;
+                if (el instanceof HTMLElement && el !== e.currentTarget) el.blur();
+              }}
               onClick={handleAdd}
-              disabled={addItem.isPending}
+              disabled={!canSubmit}
               className="w-full bg-accent text-white rounded-xl py-2.5 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40"
             >
               {addItem.isPending ? (
@@ -355,7 +414,7 @@ export const AddItemSheet: React.FC<AddItemSheetProps> = ({ returnId, open, onCl
               ) : (
                 <Plus size={16} />
               )}
-              Add to Return
+              Return Item
             </button>
           </div>
         )}
