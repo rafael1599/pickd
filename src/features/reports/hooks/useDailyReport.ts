@@ -7,7 +7,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
-import type { UserActivity } from './useActivityReport';
+import type { UserActivity, VerifiedSkusBreakdown } from './useActivityReport';
 
 export interface DailyReportComputed {
   warehouse_totals: {
@@ -19,6 +19,12 @@ export interface DailyReportComputed {
     verified_skus_2m: number;
     total_skus: number;
   };
+  /**
+   * Optional breakdown of `verified_skus_2m` by source category (idea-094).
+   * Older snapshots written before this column was emitted will not include
+   * this field; consumers must treat it as nullable.
+   */
+  verified_skus_breakdown?: VerifiedSkusBreakdown;
   correction_count: number;
   users: UserActivity[];
   schema_version?: number;
@@ -29,6 +35,13 @@ export interface DailyReportManual {
   pickd_updates?: string[];
   routine_checklist?: string[];
   user_notes?: { id: string; full_name: string; text: string }[];
+  /**
+   * Opt-in list of project task IDs to include in the report (idea-096).
+   * Tasks whose IDs are NOT in this array will not render in the
+   * Done Today / In Progress / Coming Up Next sections. Empty/missing
+   * means nothing is included — the new opt-in default for old reports.
+   */
+  included_project_ids?: string[];
   schema_version?: number;
 }
 

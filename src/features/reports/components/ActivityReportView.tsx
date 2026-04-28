@@ -60,8 +60,6 @@ interface Props {
    * extra — we never show "no alerts".
    */
   lowStockAlerts?: LowStockAlerts;
-  /** Optional click handler for low-stock completions — opens the picking list. */
-  onClickOrder?: (listId: string) => void;
   greeting?: string;
   /**
    * When true, renders a layout optimized for PDF export:
@@ -222,27 +220,7 @@ const AMBER_ALERT = '#d97706';
 const LowStockAlertsBlock: React.FC<{
   alerts: LowStockAlerts;
   hasPrecedingBullets: boolean;
-  onClickOrder?: (listId: string) => void;
-}> = ({ alerts, hasPrecedingBullets, onClickOrder }) => {
-  const fmtWhen = (iso: string) => {
-    try {
-      const d = new Date(iso);
-      const date = d.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        timeZone: 'America/New_York',
-      });
-      const time = d.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        timeZone: 'America/New_York',
-      });
-      return `${date} ${time}`;
-    } catch {
-      return '';
-    }
-  };
-
+}> = ({ alerts, hasPrecedingBullets }) => {
   const renderRow = (row: LowStockAlerts['outOfStock'][number], color: string) => (
     <div key={`${color}-${row.sku}`} style={{ padding: '4px 0' }}>
       <p
@@ -270,62 +248,15 @@ const LowStockAlertsBlock: React.FC<{
         >
           {row.remaining_qty}
         </span>
-        <span style={{ fontWeight: 700, color: TEXT_BOLD }}>{row.sku}</span>
-        {row.item_name && <span style={{ color: TEXT_MUTED }}>— {row.item_name}</span>}
+        {row.item_name ? (
+          <>
+            <span style={{ fontSize: 14, color: TEXT }}>{row.item_name}</span>
+            <span style={{ fontSize: 12, color: TEXT_MUTED }}>({row.sku})</span>
+          </>
+        ) : (
+          <span style={{ fontWeight: 700, color: TEXT_BOLD }}>{row.sku}</span>
+        )}
       </p>
-      {(row.completions ?? []).length > 0 && (
-        <ul style={{ margin: '2px 0 0 30px', padding: 0, listStyle: 'none' }}>
-          {(row.completions ?? []).map((c, i) => {
-            const qty = Math.abs(c.quantity_change);
-            const clickable = !!(onClickOrder && c.list_id);
-            const orderLabel = c.order_number ? `#${c.order_number}` : null;
-            const tail = [
-              qty > 0 ? `−${qty}` : null,
-              c.prev_quantity != null && c.new_quantity != null
-                ? `(${c.prev_quantity}→${c.new_quantity})`
-                : null,
-              c.from_location ? `from ${c.from_location}` : null,
-              fmtWhen(c.created_at),
-            ].filter(Boolean);
-            return (
-              <li
-                key={`${c.list_id ?? c.order_number ?? i}-${c.created_at}`}
-                style={{
-                  fontSize: 9,
-                  color: TEXT_MUTED,
-                  lineHeight: 1.5,
-                  letterSpacing: '0.02em',
-                }}
-              >
-                {orderLabel &&
-                  (clickable ? (
-                    <button
-                      type="button"
-                      onClick={() => onClickOrder!(c.list_id!)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        padding: 0,
-                        font: 'inherit',
-                        color: TEXT_BOLD,
-                        cursor: 'pointer',
-                        textDecoration: 'underline',
-                        textDecorationColor: `${TEXT_MUTED}66`,
-                        textUnderlineOffset: 2,
-                      }}
-                    >
-                      {orderLabel}
-                    </button>
-                  ) : (
-                    <span style={{ color: TEXT_BOLD }}>{orderLabel}</span>
-                  ))}
-                {orderLabel && tail.length > 0 && ' · '}
-                {tail.join(' · ')}
-              </li>
-            );
-          })}
-        </ul>
-      )}
     </div>
   );
 
@@ -388,7 +319,6 @@ export const ActivityReportView: React.FC<Props> = ({
   comingUpNext,
   waitingOrdersCount = 0,
   lowStockAlerts,
-  onClickOrder,
   greeting,
   printMode = false,
   skipPalletPhotos = false,
@@ -406,6 +336,11 @@ export const ActivityReportView: React.FC<Props> = ({
   const updatesFlash = useHighlight(pickdUpdates.join('\n'));
   const checklistFlash = useHighlight(routineChecklist.join(','));
   const notesFlash = useHighlight(notes.map(n => n.text).join(','));
+  // Project section flashes (idea-096) — key on the filtered task IDs so
+  // the card flashes green each time the user ticks a checkbox in the editor.
+  const doneFlash = useHighlight(doneToday.map((t) => t.task_id).join(','));
+  const inProgressFlash = useHighlight(inProgress.map((t) => t.task_id).join(','));
+  const comingUpFlash = useHighlight(comingUpNext.map((t) => t.task_id).join(','));
   const totals = report.warehouse_totals;
   const users = report.users;
 
@@ -515,7 +450,6 @@ export const ActivityReportView: React.FC<Props> = ({
                 <LowStockAlertsBlock
                   alerts={lowStockAlerts!}
                   hasPrecedingBullets={floorBullets.length > 0}
-                  onClickOrder={printMode ? undefined : onClickOrder}
                 />
               )}
             </div>
@@ -579,6 +513,45 @@ export const ActivityReportView: React.FC<Props> = ({
                 {report.verified_skus_2m} of {report.total_skus} SKUs have been physically counted
                 in the last 90 days.
               </p>
+              {/* Breakdown by source category — idea-094. Show only categories
+                  with count > 0; if all are zero (e.g., older snapshot without
+                  the breakdown field), render nothing extra. */}
+              {(() => {
+                const b = report.verified_skus_breakdown;
+                if (!b) return null;
+                const rows: Array<{ key: string; n: number; label: string }> = [
+                  { key: 'cycle_counted', n: b.cycle_counted, label: 'cycle counted' },
+                  { key: 'movements', n: b.movements, label: 'movements' },
+                  { key: 'additions', n: b.additions, label: 'additions' },
+                  { key: 'on_site_checked', n: b.on_site_checked, label: 'on-site checked' },
+                  { key: 'quantity_edited', n: b.quantity_edited, label: 'quantity edited' },
+                ].filter((r) => r.n > 0);
+                if (rows.length === 0) return null;
+                return (
+                  <ul
+                    style={{
+                      margin: '8px 0 0',
+                      padding: 0,
+                      listStyle: 'none',
+                      fontSize: 12,
+                      color: TEXT_MUTED,
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    {rows.map((r) => (
+                      <li key={r.key} style={{ margin: 0 }}>
+                        <span style={{ color: TEAL, fontWeight: 700 }}>&bull;</span>
+                        &nbsp;
+                        <span style={{ color: TEXT_BOLD, fontWeight: 700 }}>
+                          {r.n.toLocaleString()}
+                        </span>
+                        &nbsp;
+                        <span>{r.label}</span>
+                      </li>
+                    ))}
+                  </ul>
+                );
+              })()}
             </div>
             <div style={spacerStyle} />
           </>
@@ -610,7 +583,7 @@ export const ActivityReportView: React.FC<Props> = ({
         {/* DONE TODAY — auto from kanban "Hecho" */}
         {hasDoneToday && (
           <>
-            <div style={cardStyle}>
+            <div style={cardStyle} className={doneFlash}>
               <p style={sectionHeaderStyle(EMERALD)}>DONE TODAY</p>
               {renderTaskList(doneToday, EMERALD, '\u25CF', openLightbox, printMode)}
             </div>
@@ -678,7 +651,7 @@ export const ActivityReportView: React.FC<Props> = ({
         {/* IN PROGRESS — conditional */}
         {hasInProgress && (
           <>
-            <div style={cardStyle}>
+            <div style={cardStyle} className={inProgressFlash}>
               <p style={sectionHeaderStyle(AMBER)}>IN PROGRESS</p>
               {renderTaskList(inProgress, AMBER, '\u25CF', openLightbox, printMode)}
             </div>
@@ -689,7 +662,7 @@ export const ActivityReportView: React.FC<Props> = ({
         {/* COMING UP NEXT — conditional */}
         {hasComingUp && (
           <>
-            <div style={cardStyle}>
+            <div style={cardStyle} className={comingUpFlash}>
               <p style={sectionHeaderStyle(BLUE)}>COMING UP NEXT</p>
               {renderTaskList(comingUpNext, BLUE, '\u25CB', openLightbox, printMode)}
             </div>

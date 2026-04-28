@@ -21,11 +21,20 @@ export interface CompletedOrderPhotos {
   photos: string[];
 }
 
+export interface VerifiedSkusBreakdown {
+  cycle_counted: number;
+  movements: number;
+  additions: number;
+  on_site_checked: number;
+  quantity_edited: number;
+}
+
 export interface ActivityReport {
   date: string;
   users: UserActivity[];
   warehouse_totals: { orders_completed: number; total_items: number };
   verified_skus_2m: number;
+  verified_skus_breakdown: VerifiedSkusBreakdown;
   total_skus: number;
   correction_count: number;
   completed_orders_with_photos: CompletedOrderPhotos[];
@@ -96,14 +105,21 @@ export function useActivityReport(date: string) {
             .in('status', ['counted', 'verified'])
             .gte('counted_at', twoMonthsAgo)
             .lte('counted_at', dayEnd),
-          // SKUs physically touched via MOVE or ADD in last 90 days (coverage)
+          // SKUs physically touched via MOVE/ADD/PHYSICAL_DISTRIBUTION/EDIT in last 90 days (coverage).
+          // EDIT rows with quantity_change = 0 are filtered post-fetch.
+          // ⚠️ Explicit limit (50_000) — PostgREST defaults to 1000 rows, and a
+          // 90-day window already crosses that on the current dataset (~2k rows
+          // as of 2026-04). Without this the live breakdown silently truncates
+          // and diverges from the snapshot RPC. Hitting this ceiling logs a
+          // warning below.
           supabase
             .from('inventory_logs')
-            .select('sku')
-            .in('action_type', ['MOVE', 'ADD'])
+            .select('sku, action_type, quantity_change')
+            .in('action_type', ['MOVE', 'ADD', 'PHYSICAL_DISTRIBUTION', 'EDIT'])
             .eq('is_reversed', false)
             .gte('created_at', twoMonthsAgo)
-            .lte('created_at', dayEnd),
+            .lte('created_at', dayEnd)
+            .limit(50_000),
           supabase.rpc('get_inventory_stats', { p_include_parts: true }),
           supabase
             .from('picking_list_notes')
@@ -185,11 +201,65 @@ export function useActivityReport(date: string) {
         )
         .sort((a, b) => a.full_name.localeCompare(b.full_name));
 
-      // Verified SKUs (2 months) — cycle counts + moves + adds
+      // Verified SKUs (90 days) — split by source category for the KPI breakdown.
+      interface MoveAddLogRow {
+        sku: string | null;
+        action_type: string;
+        quantity_change: number | null;
+      }
+      const moveAddRows = (moveAddRes.data ?? []) as MoveAddLogRow[];
+      if (moveAddRows.length >= 50_000) {
+        // If we ever hit this it means the dataset has outgrown the live
+        // hook's single-page fetch — bullets will undercount and snapshot/
+        // live will drift. Bump the limit or page through with .range().
+        console.warn(
+          '[useActivityReport] inventory_logs window hit the 50_000-row ceiling — accuracy breakdown may be incomplete.'
+        );
+      }
+
+      const cycleCountedSet = new Set<string>(
+        (verifiedRes.data ?? []).map((r) => r.sku).filter((s): s is string => !!s)
+      );
+      const movementsSet = new Set<string>();
+      const additionsSet = new Set<string>();
+      const onSiteCheckedSet = new Set<string>();
+      const quantityEditedSet = new Set<string>();
+
+      for (const r of moveAddRows) {
+        if (!r.sku) continue;
+        switch (r.action_type) {
+          case 'MOVE':
+            movementsSet.add(r.sku);
+            break;
+          case 'ADD':
+            additionsSet.add(r.sku);
+            break;
+          case 'PHYSICAL_DISTRIBUTION':
+            onSiteCheckedSet.add(r.sku);
+            break;
+          case 'EDIT':
+            // Only EDITs that actually changed a quantity count as verification.
+            if ((r.quantity_change ?? 0) !== 0) quantityEditedSet.add(r.sku);
+            break;
+          default:
+            break;
+        }
+      }
+
       const verifiedSkus = new Set<string>([
-        ...(verifiedRes.data ?? []).map((r) => r.sku).filter((s): s is string => !!s),
-        ...(moveAddRes.data ?? []).map((r) => r.sku).filter((s): s is string => !!s),
+        ...cycleCountedSet,
+        ...movementsSet,
+        ...additionsSet,
+        ...onSiteCheckedSet,
+        ...quantityEditedSet,
       ]);
+      const verifiedSkusBreakdown: VerifiedSkusBreakdown = {
+        cycle_counted: cycleCountedSet.size,
+        movements: movementsSet.size,
+        additions: additionsSet.size,
+        on_site_checked: onSiteCheckedSet.size,
+        quantity_edited: quantityEditedSet.size,
+      };
       const totalSkus = Number(statsRes.data?.[0]?.total_skus ?? 0);
 
       const correctionCount = (notesRes.data ?? []).length;
@@ -206,6 +276,7 @@ export function useActivityReport(date: string) {
         users,
         warehouse_totals: { orders_completed: totalOrders, total_items: totalItems },
         verified_skus_2m: verifiedSkus.size,
+        verified_skus_breakdown: verifiedSkusBreakdown,
         total_skus: totalSkus,
         correction_count: correctionCount,
         completed_orders_with_photos: completedOrdersWithPhotos,
