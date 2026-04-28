@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useModal } from '../../context/ModalContext';
 import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
 import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
@@ -76,10 +75,6 @@ function saveRoutineItems(items: string[]) {
 
 export const ActivityReportScreen = () => {
   const navigate = useNavigate();
-  const { open: openModal } = useModal();
-  const handleClickOrder = (listId: string) => {
-    openModal({ type: 'picking-summary', listId });
-  };
   const { isAdmin, user, profile: authProfile } = useAuth();
   const { data: waitingCount = 0 } = useWaitingOrdersCount();
 
@@ -826,7 +821,6 @@ export const ActivityReportScreen = () => {
                 comingUpNext={comingUpNext}
                 waitingOrdersCount={waitingCount}
                 lowStockAlerts={lowStockAlerts}
-                onClickOrder={handleClickOrder}
               />
             </div>
           )}
