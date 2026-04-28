@@ -110,6 +110,9 @@ export const ActivityReportScreen = () => {
   const [notesText, setNotesText] = useState('');
   const [pickdUpdatesText, setPickdUpdatesText] = useState('');
   const [routineChecklist, setRoutineChecklist] = useState<string[]>([]);
+  // idea-096 — opt-in list of project task IDs to render in the report.
+  // Empty default = nothing shows in Done / In Progress / Coming Up Next.
+  const [includedProjectIds, setIncludedProjectIds] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -188,9 +191,40 @@ export const ActivityReportScreen = () => {
         .filter(Boolean),
     [pickdUpdatesText]
   );
-  const doneToday = reportTasks?.doneToday ?? [];
-  const inProgress = reportTasks?.inProgress ?? [];
-  const comingUpNext = reportTasks?.comingUpNext ?? [];
+  const doneToday = useMemo(() => reportTasks?.doneToday ?? [], [reportTasks]);
+  const inProgress = useMemo(() => reportTasks?.inProgress ?? [], [reportTasks]);
+  const comingUpNext = useMemo(
+    () => reportTasks?.comingUpNext ?? [],
+    [reportTasks]
+  );
+
+  // idea-096 — filter the raw task lists down to only the IDs the user
+  // explicitly opted-in via the "Projects to include" panel. The filtered
+  // lists are what get rendered in the preview AND exported via PDF/copy.
+  // We filter in the Screen (not the View) so the View stays presentational
+  // and `useHighlight` keys naturally on the filtered list, flashing on add.
+  const includedSet = useMemo(
+    () => new Set(includedProjectIds),
+    [includedProjectIds]
+  );
+  const doneTodayIncluded = useMemo(
+    () => doneToday.filter((t) => includedSet.has(t.task_id)),
+    [doneToday, includedSet]
+  );
+  const inProgressIncluded = useMemo(
+    () => inProgress.filter((t) => includedSet.has(t.task_id)),
+    [inProgress, includedSet]
+  );
+  const comingUpNextIncluded = useMemo(
+    () => comingUpNext.filter((t) => includedSet.has(t.task_id)),
+    [comingUpNext, includedSet]
+  );
+
+  const handleToggleProjectId = useCallback((id: string) => {
+    setIncludedProjectIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }, []);
 
   // ----- Hydration: load manual fields from snapshot when date changes -----
   // Reset whenever the selected date changes — clears any stale local state
@@ -200,6 +234,7 @@ export const ActivityReportScreen = () => {
     setNotesText('');
     setPickdUpdatesText('');
     setRoutineChecklist([]);
+    setIncludedProjectIds([]);
     setSavedManual({});
   }, [selectedDate]);
 
@@ -218,15 +253,18 @@ export const ActivityReportScreen = () => {
     const nextUpdatesArr = m.pickd_updates ?? [];
     const nextRoutine = m.routine_checklist ?? [];
     const nextNotes = m.user_notes ?? [];
+    const nextIncluded = m.included_project_ids ?? [];
     const nextNotesText = nextNotes.map((n) => n.text).join('\n');
 
     setPickdUpdatesText(nextUpdatesArr.join('\n'));
     setRoutineChecklist(nextRoutine);
     setNotesText(nextNotesText);
+    setIncludedProjectIds(nextIncluded);
     setSavedManual({
       pickd_updates: nextUpdatesArr,
       routine_checklist: nextRoutine,
       user_notes: nextNotes,
+      included_project_ids: nextIncluded,
     });
     lastHydratedDateRef.current = selectedDate;
   }, [selectedDate, snapshotRow]);
@@ -248,8 +286,9 @@ export const ActivityReportScreen = () => {
       pickd_updates: pickdUpdates,
       routine_checklist: routineChecklist,
       user_notes: notes,
+      included_project_ids: includedProjectIds,
     }),
-    [pickdUpdates, routineChecklist, notes]
+    [pickdUpdates, routineChecklist, notes, includedProjectIds]
   );
 
   const isDirty = useMemo(
@@ -382,9 +421,9 @@ export const ActivityReportScreen = () => {
         winOfTheDay: '',
         routineChecklist,
         pickdUpdates,
-        doneToday,
-        inProgress,
-        comingUpNext,
+        doneToday: doneTodayIncluded,
+        inProgress: inProgressIncluded,
+        comingUpNext: comingUpNextIncluded,
         waitingOrdersCount: waitingCount,
         filenameStem: `activity-report-${selectedDate}`,
       });
@@ -400,9 +439,9 @@ export const ActivityReportScreen = () => {
     notes,
     routineChecklist,
     pickdUpdates,
-    doneToday,
-    inProgress,
-    comingUpNext,
+    doneTodayIncluded,
+    inProgressIncluded,
+    comingUpNextIncluded,
     waitingCount,
     selectedDate,
   ]);
@@ -573,6 +612,75 @@ export const ActivityReportScreen = () => {
                 )}
               </div>
             </details>
+
+            {/* Projects to include (idea-096) — opt-in checkboxes per task,
+                grouped by category. Tasks aren't rendered in the preview
+                until ticked here. Each toggle triggers a green flash on the
+                corresponding section in the preview. */}
+            <div>
+              <label className="text-[9px] font-bold uppercase tracking-widest text-muted/70 mb-1 block">
+                Projects to include
+              </label>
+              <div className="space-y-1">
+                {[
+                  { label: 'Done Today', tasks: doneToday },
+                  { label: 'In Progress', tasks: inProgress },
+                  { label: 'Coming Up Next', tasks: comingUpNext },
+                ].map(({ label, tasks }) => {
+                  const checkedCount = tasks.filter((t) =>
+                    includedSet.has(t.task_id)
+                  ).length;
+                  return (
+                    <details key={label} className="group">
+                      <summary className="flex items-center gap-1 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden py-1">
+                        <ChevronDown
+                          size={12}
+                          className="text-muted/50 transition-transform group-open:rotate-180"
+                        />
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted/70">
+                          {label}
+                        </span>
+                        <span className="text-[10px] font-bold text-muted/50 ml-auto">
+                          {checkedCount}/{tasks.length}
+                        </span>
+                      </summary>
+                      <div className="mt-1 pl-4 space-y-1">
+                        {tasks.length === 0 ? (
+                          <p className="text-[10px] text-muted/40 italic py-1">
+                            No tasks in this bucket.
+                          </p>
+                        ) : (
+                          tasks.map((task) => {
+                            const checked = includedSet.has(task.task_id);
+                            return (
+                              <label
+                                key={task.task_id}
+                                className={`flex items-start gap-2 py-1 text-[11px] text-content cursor-pointer ${
+                                  !canEdit ? 'cursor-not-allowed opacity-60' : ''
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  disabled={!canEdit}
+                                  onChange={() =>
+                                    handleToggleProjectId(task.task_id)
+                                  }
+                                  className="mt-0.5 accent-accent shrink-0"
+                                />
+                                <span className="flex-1 leading-snug">
+                                  {task.title}
+                                </span>
+                              </label>
+                            );
+                          })
+                        )}
+                      </div>
+                    </details>
+                  );
+                })}
+              </div>
+            </div>
 
             {/* Routine checklist toggles */}
             <div>
@@ -830,9 +938,9 @@ export const ActivityReportScreen = () => {
                 notes={notes}
                 routineChecklist={routineChecklist}
                 pickdUpdates={pickdUpdates}
-                doneToday={doneToday}
-                inProgress={inProgress}
-                comingUpNext={comingUpNext}
+                doneToday={doneTodayIncluded}
+                inProgress={inProgressIncluded}
+                comingUpNext={comingUpNextIncluded}
                 waitingOrdersCount={waitingCount}
                 lowStockAlerts={lowStockAlerts}
               />

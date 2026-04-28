@@ -35,6 +35,13 @@ export interface DailyReportManual {
   pickd_updates?: string[];
   routine_checklist?: string[];
   user_notes?: { id: string; full_name: string; text: string }[];
+  /**
+   * Opt-in list of project task IDs to include in the report (idea-096).
+   * Tasks whose IDs are NOT in this array will not render in the
+   * Done Today / In Progress / Coming Up Next sections. Empty/missing
+   * means nothing is included — the new opt-in default for old reports.
+   */
+  included_project_ids?: string[];
   schema_version?: number;
 }
 
