@@ -91,3 +91,41 @@
 
 - bug-017 condujo a la eliminación de la rama verification 24h en `auto_cancel_stale_orders` y al diseño formal de Long-Waiting Orders (idea-053).
 - bug-016 generó `historicalTaskStatus.ts` con 21 unit tests (lógica pura para reconstrucción de estado de tasks por día).
+
+---
+
+## Archived 2026-04-28 — 24 items compacted
+
+### Completed (P1 + P2)
+
+| # | Item | Completed | Commits | ID |
+|---|------|-----------|---------|----|
+| 1 | Activity Report PDF export (idea-059-pdf) | 2026-04-21 | `2a0c7d6` | idea-059-pdf |
+| 2 | Photo Gallery en Projects (4 fases) | 2026-04-15 | `06d7de2` `fc14938` | idea-058 |
+| 3 | Sub-locations alfabéticas por ROW | 2026-04-14 | `efe0d69` `6db7105` `f011085` | idea-024 |
+| 4 | Distribution type "Other" texto libre | 2026-04-14 | `204fb2d` | idea-026 |
+| 5 | Verification Queue Split + DnD (absorbido por idea-055) | 2026-04-13 | `14be449` | idea-037 |
+| 6 | Label Studio — personalización SKU labels (4 fases) | 2026-04-13 | `e2fc436` `3bf12e8` | idea-054 |
+| 7 | Verification Board Redesign — 6-zone kanban | 2026-04-13 | `ba0659c` `14be449` | idea-055 |
+| 8 | Long-Waiting Orders | 2026-04-13 | `fe9907a` | idea-053 |
+| 9 | Pallet photos en reporte y orders | 2026-04-16 | `458addb` `0a38819` `0abedf1` | idea-059 |
+| 10 | Print Label respeta orientación toggle | 2026-04-16 | `58e6b69` | idea-060 |
+| 11 | Imágenes del reporte llegan a Gmail (base64 inline) | 2026-04-16 | `6a7cd24` | idea-061 |
+| 12 | Cámara o Galería del teléfono — selector | 2026-04-16 | `6a7cd24` | idea-063 |
+| 13 | Foto obligatoria antes de completar orden | 2026-04-16 | `53a3b85` `e66339f` | idea-064 |
+| 14 | FedEx default single group (auto-group trigger cross-customer) | 2026-04-16 | `8e836e7` | idea-057 |
+| 15 | Projects — drag to reorder priority | 2026-04-15 | `c115c13` `0b85070` | idea-049 |
+| 16 | Shopping List / Cosas por comprar | 2026-04-14 | `dc2d19f` | idea-056 |
+| 17 | Fotos Fase 3 — Bulk Upload | 2026-04-16 | `81d4b3b` | idea-023-p3 |
+| 18 | Remaining qty display en Picking Summary (post-deduct) | 2026-04-24 | PR #19 | idea-069 |
+| 19 | Low-stock tracking para reporte | 2026-04-24 | `8d91033` (PR #20) | idea-070 |
+| 20 | Activity Report — low-stock en "On the floor" | 2026-04-24 | `8d91033` (PRs #20/22/23) | idea-071 |
+| 21 | Ghost trail audit — from_location + link a picking list | 2026-04-24 | PR #21 | idea-072 |
+| 22 | Low-stock audit details — completions per SKU | 2026-04-24 | PR #22 | idea-073 |
+| 23 | Automatic Inventory Email — retirado | 2026-04-22 | `0d85fc2` `ab01566` | idea-007 |
+
+### Resolved bugs
+
+| Bug | Fixed | Root cause | Commits |
+|-----|-------|-----------|---------|
+| bug-013: Teclado aparece al abrir orden desde Verification Queue | 2026-04-?? | overlay detection con elementFromPoint | `51e55a5` |
