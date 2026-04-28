@@ -128,6 +128,7 @@ export function useActivityReport(date: string) {
         notesRes,
         todayLogsRes,
         todayCyclesRes,
+        bikeSkusRes,
       ] = await Promise.all([
           supabase
             .from('picking_lists')
@@ -172,7 +173,8 @@ export function useActivityReport(date: string) {
             .gte('created_at', twoMonthsAgo)
             .lte('created_at', dayEnd)
             .limit(50_000),
-          supabase.rpc('get_inventory_stats', { p_include_parts: true }),
+          // Bikes-only: matches the bikes-only numerator filter below.
+          supabase.rpc('get_inventory_stats', { p_include_parts: false }),
           supabase
             .from('picking_list_notes')
             .select('id')
@@ -196,7 +198,13 @@ export function useActivityReport(date: string) {
             .gte('counted_at', dayStart)
             .lte('counted_at', dayEnd)
             .limit(50_000),
+          // Bike SKU set used to scope the accuracy KPI numerator to bikes only.
+          supabase.from('sku_metadata').select('sku').eq('is_bike', true).limit(50_000),
         ]);
+
+      const bikeSkuSet = new Set<string>(
+        (bikeSkusRes.data ?? []).map((r) => r.sku).filter((s): s is string => !!s)
+      );
 
       const profiles = (profilesRes.data ?? []) as ProfileRow[];
       const profileMap = new Map(profiles.map((p) => [p.id, p.full_name]));
@@ -287,8 +295,13 @@ export function useActivityReport(date: string) {
         );
       }
 
+      // Inventory Accuracy KPI is scoped to bikes only — the denominator
+      // (get_inventory_stats(false)) counts bike SKUs, so the numerator must
+      // too. Mirrors the SQL filter in compute_daily_report_data.
       const cycleCountedSet = new Set<string>(
-        (verifiedRes.data ?? []).map((r) => r.sku).filter((s): s is string => !!s)
+        (verifiedRes.data ?? [])
+          .map((r) => r.sku)
+          .filter((s): s is string => !!s && bikeSkuSet.has(s))
       );
       const movementsSet = new Set<string>();
       const additionsSet = new Set<string>();
@@ -296,7 +309,7 @@ export function useActivityReport(date: string) {
       const quantityEditedSet = new Set<string>();
 
       for (const r of moveAddRows) {
-        if (!r.sku) continue;
+        if (!r.sku || !bikeSkuSet.has(r.sku)) continue;
         switch (r.action_type) {
           case 'MOVE':
             movementsSet.add(r.sku);
@@ -308,7 +321,6 @@ export function useActivityReport(date: string) {
             onSiteCheckedSet.add(r.sku);
             break;
           case 'EDIT':
-            // Only EDITs that actually changed a quantity count as verification.
             if ((r.quantity_change ?? 0) !== 0) quantityEditedSet.add(r.sku);
             break;
           default:
