@@ -1,31 +1,33 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-04-22 (añadido idea-067 Add On Phase 2)
+> Actualizado: 2026-04-28 (compactado — 24 items archivados)
 
 ---
 
 ## P1 — Alto (operación diaria)
+
+### 46. Auto-resolver SKU format mismatches en intake / pick-time <!-- id: idea-092 -->
+- **Contexto:** Las órdenes llegan con SKUs que no coinciden con `sku_metadata` solo por formato (guion/espacios faltantes). Ej: catalog tiene `09-4802BK` pero el PDF/sistema upstream pone `094802BK`. El picker hoy resuelve manualmente con un `Replaced X → Y` correction y razón "Sku def" / "Wrong name". En las últimas 2 semanas: `094802BK→09-4802BK` (2 órdenes, 2 customers el mismo día) y `033769BLD→03-3769BLD` (1 orden). Detección: la versión normalizada (lowercase + strip `[-\s]`) de ambos SKUs es idéntica → no es variant real, es ruido de formato.
+- **Problema:** trabajo manual recurrente del picker para algo que la DB puede resolver sola. Cada caso suma ~30s + un correction note que infla el dashboard cross-team.
+- **Solución propuesta — dos puntos de entrada que ya tocan la DB:**
+  1. **Watchdog (intake):** al parsear el PDF, antes de crear `picking_lists.items`, normalizar cada SKU y hacer lookup contra `sku_metadata`. Si el SKU literal no existe pero el normalizado coincide con un único SKU canónico, sustituir y registrar la sustitución en `picking_lists.notes` o `combine_meta` (`{ sku_normalized: { from, to, reason: 'format' } }`). Si el normalizado coincide con múltiples canónicos, dejar el original y que el picker resuelva (ambiguous).
+  2. **DoubleCheckView (pick-time, fallback):** al renderizar un item cuyo SKU no matchee `sku_metadata`, hacer la misma búsqueda normalizada. Si hay match único, ofrecer auto-resolución con un botón "Use 03-4070BK instead" (sin generar `Replaced` correction — porque no es un fix real). Si hay >1 match, mostrar selector. Reusa la normalización de la stock search RPC (idea-074) — `regexp_replace(sku, '[-\s]', '', 'g')`.
+- **Out of scope:** variants reales (color/size distinto). Esos siguen requiriendo decisión manual del picker — son señal cross-team legítima para sales.
+- **Impacto medible:** el reporte cross-team de 2 weeks (2026-04-13→2026-04-27) bajó de 5 mismatches a 3 al excluir los format-only. Esperado: ~40% menos correction notes "Sku def" / "Wrong name".
+- **Riesgo:** falso positivo si un SKU `094802BK` existe POR SI MISMO en el catálogo (no debería pasar — todos los SKUs en `sku_metadata` tienen el formato canónico — pero la lookup `WHERE LOWER(REPLACE(sku, '-', '')) = $1` debe protegerse con `LIMIT 2` y rechazar match si retorna >1).
+- **Origen:** sesión 2026-04-27.
 
 ### 45. FedEx Returns en el Activity Report <!-- id: idea-091 -->
 - **Contexto:** El daily Activity Report hoy cuenta órdenes (Done Today, In Progress, Coming Up) y low-stock, pero no refleja **FedEx Returns** — items que regresan al warehouse por returns, que son trabajo operativo diario igual que picking.
 - **Problema:** el equipo no tiene visibilidad del flujo de returns dentro del reporte. Un día con 0 órdenes nuevas pero 15 returns procesados se ve como "día tranquilo" cuando en realidad fue activo.
 - **Solución propuesta:**
   - Nueva sección o sub-bloque en el Activity Report: **"FedEx Returns"** — similar a los otros bloques del reporte (card glass con header icon).
-  - Contenido mínimo del día:
-    - Count: `N returns processed today`.
-    - Lista de top-5 returns (SKU, qty, original order_number si está, fecha de return).
-    - Total unidades reingresadas al inventario.
-  - Fuente de data: tabla `fedex_returns` (migration `20260416210000_fedex_returns.sql`). Ya tiene `created_at`, `sku`, `qty`, `return_reason`, `original_order_number`.
+  - Contenido mínimo del día: count, top-5 returns (SKU, qty, original order_number, fecha), total unidades reingresadas.
+  - Fuente: tabla `fedex_returns` (migration `20260416210000_fedex_returns.sql`).
   - Hook nuevo: `useFedExReturnsForReport(nyDate)` similar a `useLowStockAlerts` — filtra por ventana NY-day.
-  - Render en `ActivityReportView.tsx` entre "On the Floor" y "Coming Up Next" (o dentro de un nuevo bloque "Returns" si hay espacio).
-- **Edge cases:**
-  - Viernes: acumulado semanal igual que low-stock (Mon-Fri).
-  - Returns sin `original_order_number`: agrupar en bucket "Walk-in returns".
-  - Si no hay returns en la ventana: omitir el bloque entero (no mostrar "0 returns").
+- **Edge cases:** Viernes acumulado semanal (Mon-Fri); returns sin `original_order_number` agrupar en "Walk-in returns"; sin returns → omitir bloque.
 - **Fuera de scope:** dashboard standalone de returns (ya existe `/fedex-returns`). Esto es solo visibilidad en el reporte diario.
-- **Archivos a tocar:** `src/features/reports/hooks/useFedExReturnsForReport.ts` (nuevo), `src/features/reports/components/ActivityReportView.tsx` (render), `src/features/reports/ActivityReportScreen.tsx` (wire hook → view).
-- **Tests:** helper para filtrar by NY window + classify (single-day vs Mon-Fri accumulator) como `lowStockWindow.test.ts`.
 
 ### 44. Add On reopen reason — Phase 2 (full feature) <!-- id: idea-067 -->
 - **Contexto:** En el modal "Why are you reopening this order?" se agregó la opción "Add On" para mergear una orden completada con una nueva orden del mismo customer. Fase 1 (DB pre-requisitos) ya en prod: fix `auto_group_fedex_orders` excluye `reopened`, `process_picking_list` rechaza `reopened`. Fase 2 queda pendiente — este ticket.
@@ -37,43 +39,28 @@
 - **Pallet photos:** mostrar fotos viejas (read-only, de la completada) + permitir tomar nuevas para la add-on. Validación bloqueante: ≥1 foto nueva antes de "Complete".
 - **Botón "Cancel Add-On":** en header de DoubleCheckView, ejecuta `cancel_reopen` + remueve `group_id` de ambas.
 - **Guards multi-user:** rechazar Add-On si el target tiene `checked_by ≠ null` (otro usuario editando). Mensaje claro.
-- **Archivos a tocar:** `OrdersScreen.tsx` (handler), `usePickingSync.ts` (merge photos de siblings), `DoubleCheckView.tsx` (visual split photos + badge + validación), `usePickingActions.ts` (hook `completeAddOnGroup`, `cancelAddOn`), `PickingContext.tsx` (entry point), nueva migración SQL. Mantener `AddOnOrderPicker.tsx` y `ReasonPicker.tsx` tal cual (de PR cerrada #14).
 - **Edge cases a resolver:**
   - Auto-cancel 2h sobre reopened con `group_id` → debe limpiar grupo también (modificar `auto_cancel_stale_reopened`).
   - Completion atomicity: RPC en transacción BEGIN/EXCEPTION/ROLLBACK.
   - Insufficient stock en SKU nuevo del add-on → validar en la RPC antes de aplicar deltas.
   - Shipping type: heredar del target, bloquear auto-reclassify en re-complete.
   - Watchdog auto-combine del mismo customer durante add-on → ya mitigado en Fase 1 (trigger excluye reopened).
-- **Test matrix resumido:**
-  - F1-F5: flujo happy path (remove item completado → stock sube, adjust qty delta correcto, agregar SKU nuevo, sin cambios, 3+ orders en grupo).
-  - M1: target con `checked_by ≠ null` → rechazado.
-  - P1-P3: fotos viejas visibles, ≥1 nueva requerida, delete de fotos viejas bloqueado.
-  - A1: auto-cancel 2h → reopened revert + group_id NULL ambos.
-  - R1-R5: regresión de reopen normal, merge regular, grouped view sin addon, complete simple, cancel reopen.
-- **Deferrable a Fase 3:** hardening de `takeOverOrder` (checked_by divergente), scoping realtime por group_id, RPC `lock_group_for_check` atomic.
-- **Análisis completo:** conversación 2026-04-22 (sesión claude/addon-db-prereqs). Cerrada PR #14 (merge visual incompleto).
+- **Test matrix resumido:** F1-F5 happy path; M1 multi-user reject; P1-P3 photos; A1 auto-cancel; R1-R5 regression.
+- **Deferrable a Fase 3:** hardening de `takeOverOrder`, scoping realtime por group_id, RPC `lock_group_for_check` atomic.
+- **Análisis completo:** sesión 2026-04-22 (claude/addon-db-prereqs). Cerrada PR #14 (merge visual incompleto).
 
 ### 43. Orders view — UX/UI rework <!-- id: idea-065 -->
 - **Problema:** La vista `/orders` tiene varios pain points:
-  1. El **encabezado de PickD desaparece** en esta ruta. Debería estar siempre presente (consistencia con el resto de la app).
-  2. El **LivePrintPreview** tintea toda la card según el carrier — los colores saturados (naranja FedEx, morado FedEx Ground, etc.) se ven chillones y rompen la estética general.
-  3. La asignación visual del carrier al label no es clara — no hay un logo del carrier identificable a simple vista.
-  4. En general, la densidad y jerarquía visual no son lo suficientemente minimalistas comparado con el resto del sistema.
+  1. El **encabezado de PickD desaparece** en esta ruta. Debería estar siempre presente.
+  2. **LivePrintPreview** tintea toda la card según el carrier — colores saturados rompen la estética.
+  3. La asignación visual del carrier al label no es clara — sin logo identificable.
+  4. Densidad y jerarquía visual no son lo suficientemente minimalistas comparado con el resto del sistema.
 - **Solución propuesta:**
-  - Mantener el header global de PickD visible en `/orders` (revisar `AppShell` / layout wrapper — la ruta probablemente lo está ocultando con un `hidden` condicional).
-  - **Invertir el uso del color del carrier:** el color vivo va al **fondo del preview card** con un overlay glass oscuro (matching el glassmorphism del resto — `bg-card/80 backdrop-blur-xl`). El contenido (texto del label) queda legible sin competir con el color.
-  - **Logo del carrier** debajo del label impreso (FedEx / UPS / USPS / Regular), no como fondo inline. Tamaño discreto, en grayscale si el fondo ya expresa el carrier.
-  - Pasar a un estilo más minimalista: menos chrome, más whitespace, tipografía consistente con el dashboard.
-- **Requiere:**
-  - Inventariar qué componentes de la ruta están ocultando el header (OrdersScreen, LivePrintPreview, PickingSessionView).
-  - Definir paleta por carrier (hex del fondo + versión glass) y resolver assets de logos (probablemente SVG) — ver si ya existen en `public/` o hay que agregarlos.
-  - Evaluar si el rework afecta el PDF de labels existente (`jsPDF` en LivePrintPreview) o solo la preview en pantalla.
-
-### ~~37. Activity Report → PDF export~~ <!-- id: idea-059-pdf --> ✅ 2026-04-21
-- Botón "Download PDF" en `/activity-report` con imágenes **full-resolution** (gallery + pallet photos). Client-side via `jsPDF` + `html2canvas` (dynamic import para no inflar el bundle de entrada — chunk se carga solo al click). Filename `activity-report-YYYY-MM-DD.pdf`.
-- **Cambios:** `useProjectReportData.ts` ahora trae `url` además de `thumbnail_url`; `BucketTask.photo_fullsize[]` paralelo a `photo_thumbnails[]`. `ActivityReportView` acepta prop `printMode` que swap-ea a full-res, expande Team Detail, y añade `crossOrigin="anonymous"` para CORS. Utilidad `exportReportPdf.tsx` renderiza el view off-screen, espera `<img>` loads, html2canvas → jsPDF multi-página A4.
-- **Mantenido:** "Save & Copy Report" intacto (sin imágenes, para email). PDF es acción separada.
-- **Nota:** El id `idea-059` colisiona con el id de "Pallet photos en reporte" (`main` BACKLOG — ya done). Usado sufijo `-pdf` aquí para evitar duplicado.
+  - Mantener el header global de PickD visible en `/orders` (revisar `AppShell` / layout wrapper).
+  - **Invertir el uso del color del carrier:** color vivo va al **fondo del preview card** con overlay glass oscuro (`bg-card/80 backdrop-blur-xl`).
+  - **Logo del carrier** debajo del label impreso (FedEx / UPS / USPS / Regular), tamaño discreto, grayscale si el fondo ya expresa el carrier.
+  - Pasar a estilo más minimalista: menos chrome, más whitespace.
+- **Requiere:** Inventariar componentes ocultando el header; definir paleta por carrier; resolver assets de logos; evaluar impacto en PDF de labels (`jsPDF`).
 
 ### 22. Alerta de orden duplicada por cliente + reabrir <!-- id: idea-039 --> (deprioritized)
 - **Problema:** Cuando llega una orden nueva para un cliente cuya orden anterior ya fue completada, el picker no se entera y la procesa por separado.
@@ -90,32 +77,8 @@
 ### 30. Cache de datos de orden al cambiar entre órdenes <!-- id: idea-047 -->
 - **Problema:** Al cambiar entre órdenes en OrdersScreen, el frontend recalcula todo (items, distribución, labels, conteos) cada vez. Causa lag perceptible y mala UX, especialmente en mobile.
 - **Solución:** Calcular la información de cada orden una sola vez y mantenerla estática en cache. Suscribirse a cambios vía Realtime (o invalidación de query) para que solo se recalcule cuando hay un cambio real en la orden o configuración del sistema.
-- **Consideraciones antes de implementar:** Investigar edge cases — ¿qué pasa si otro usuario modifica la orden mientras está cacheada? ¿Se necesita una columna `updated_at` más granular o un hash de versión? ¿Impacto en optimistic updates existentes? ¿Posible migración para agregar campo de versión/hash? Evaluar si TanStack Query `staleTime` + `structuralSharing` ya cubre parte del problema o si se necesita un cache layer adicional.
+- **Consideraciones antes de implementar:** Investigar edge cases — ¿qué pasa si otro usuario modifica la orden mientras está cacheada? ¿Se necesita una columna `updated_at` más granular o un hash de versión? ¿Impacto en optimistic updates existentes? Evaluar si TanStack Query `staleTime` + `structuralSharing` ya cubre parte del problema o si se necesita un cache layer adicional.
 - **Requiere:** Análisis profundo antes de implementar.
-
-### ~~36. Photo Gallery en Projects (4 fases)~~ <!-- id: idea-058 --> ✅ 2026-04-15
-- `06d7de2` — Galería de fotos en Projects con captura de cámara, drag-to-assign a tasks (single + batch), trash 14d con restore, integración al Daily Activity Report. Tablas `gallery_photos` + `task_photos` (junction many-to-many). Edge function `upload-photo` extendida con modo `gallery: true`. Edge function `cleanup-gallery-trash` + cron 06:00 UTC. Hardening destructive ops (`fc14938`): confirmación 2-step para "Delete Forever", R2 cleanup antes de DB, fail-safe en cron.
-- **Decisiones clave:** R2 paths `photos/gallery/{uuid}.webp`, soft delete via `deleted_at`, fotos en reportes son live query (no snapshot). Ver CLAUDE.md "Fotos (R2 + Edge Functions)".
-- **Pendiente:** Migrar a `pg_cron` para cleanup (idea-030).
-
-### ~~8. Sub-locations alfabéticas por ROW~~ <!-- id: idea-024 --> ✅ 2026-04-14
-- Migración `20260414210000`: columna `sublocation` en `inventory` con CHECK constraints (`^[A-Z]{1,3}$`, solo `ROW%`), índice compuesto. RPC `move_inventory_stock` con `p_sublocation` y auto-clear en non-ROW. UI: chips en ItemDetailView/MovementModal, badge en InventoryCard/DoubleCheckView. Extendido a `string[]` (`6db7105` `f011085`) para múltiples sublocations por SKU.
-
-### ~~15. Distribution type "Other" → texto libre~~ <!-- id: idea-026 --> ✅ 2026-04-14
-- `204fb2d` — Text input para nombre custom ("Box", "Crate") en distribution JSONB. Inline editable label en InventoryCard.
-
-### ~~20. Verification Queue — Split View con drag & drop~~ <!-- id: idea-037 --> ✅ 2026-04-13
-- Absorbido por idea-055 (Verification Board Redesign).
-
-### ~~35. Label Studio — personalización avanzada de SKU labels~~ <!-- id: idea-054 --> ✅ 2026-04-13
-- 4 fases: LabelStudioScreen modular + UnifiedLabelForm + uFuzzy search → Inline SKU creation (`register_new_sku` RPC) + location obligatoria → Hybrid sync (`possible_locations text[]` + `resolve_tag_location` RPC) → Print + Edit Label desde ItemDetailView. Migraciones `20260413200000` y `20260413220000`.
-- **Pendiente (extensiones futuras):** DoubleCheckView entry point, Receiving flow batch labels, Campos configurables, Phase 3.5 tags virtuales al completar orden, UI resolver location individual.
-
-### ~~35b. Verification Board Redesign — multi-zone kanban~~ <!-- id: idea-055 --> ✅ 2026-04-13
-- Full-screen overlay con 6 zonas: Priority, FedEx lane, Regular lane, In Progress Projects, Recently Completed, Waiting. Auto-clasificación `shipping_type` (>50lbs o ≥5 items → Regular). DnD: reclasificar/merge/waiting/reopen. Absorbe idea-037 + idea-053 fase 4. Plan: `~/.claude/plans/verification-queue-redesign.md`.
-
-### ~~34. Long-Waiting Orders — orders que esperan inventario meses~~ <!-- id: idea-053 --> ✅ 2026-04-13
-- Migración `20260410230000`: 3 columnas (`is_waiting_inventory`, `waiting_since`, `waiting_reason`), 3 RPCs admin-only, rama verification 24h de `auto_cancel_stale_orders` **eliminada**. UI: toggle waiting en verification queue, badge WAIT, "Mark as Waiting" con ReasonPicker. `WaitingConflictModal` para cross-customer SKU conflicts. Activity report con card "WAITING FOR INVENTORY". Plan: `~/.claude/plans/long-waiting-orders.md`.
 
 ---
 
@@ -123,46 +86,24 @@
 
 - [ ] **Orders PDF preview full-width mobile** — `w-full` en mobile. <!-- id: idea-034 -->
 - [ ] **Order List View** — Picking list first with print option. <!-- id: idea-006 -->
-- [x] ~~**Automatic Inventory Email**~~ ❌ 2026-04-22 — Retirado. Función `send-daily-report` nunca se usó en operación diaria; eliminada del código y del runtime de prod para cerrar endpoint sin auth interna. R2 snapshot upload sigue activo vía `daily-snapshot`. <!-- id: idea-007 -->
-- [x] ~~**Fotos Fase 3 — Bulk Upload**~~ ✅ 2026-04-16 — Multi-file picker en gallery (`multiple` attr), uploads paralelos con throttling=3, progress bar `Uploading X of Y` + conteo de errores. `uploadBulk` usa `mutateAsync` + worker pool. Cámara queda single. <!-- id: idea-023-p3 -->
 - [ ] **Migrar cron jobs a pg_cron** — Elimina dependencia de GitHub Actions. <!-- id: idea-030 -->
-- [ ] **FedEx Returns — "Add Item" → "Return to Stock"** — Renombrar el botón/acción `Add Item` en `src/features/fedex-returns/` (ver `AddItemSheet.tsx`) a `Return to Stock` para reflejar mejor la intención del flujo (el item regresa al inventario, no se "agrega" como si fuera nuevo). <!-- id: idea-066 -->
-- [ ] **Bike/Part/Unknown selector en "New Item"** — Al registrar un SKU nuevo, el form debe forzar la selección manual de tipo (Bike / Part / Unknown). Hoy `is_bike` queda en `false` por default y el picker no tiene manera de clasificarlo. Sirve de respaldo cuando la heurística de prefijo "03-" falle (bikes con prefijos distintos o parts registradas con prefijo 03-). Tocar `UnifiedForm` / `register_new_sku` RPC para persistir el flag. <!-- id: idea-068 -->
-- [x] ~~**Remaining qty display en Picking Summary (post-deduct)**~~ ✅ 2026-04-24 — `PickingSummaryModal` consulta `inventory.quantity` warehouse-wide post-deduct y muestra "Remaining: N" bajo cada SKU (rojo=0, ámbar=1, default >1). PR #19. <!-- id: idea-069 -->
-- [x] ~~**Low-stock tracking para reporte**~~ ✅ 2026-04-24 — `useLowStockAlerts` hook retrospective sobre `inventory_logs` (DEDUCTs no reversados) + suma activa en `inventory`. Filtrado por `prev_quantity > 0` (idea-075) para excluir fantasmas. PR #20. <!-- id: idea-070 -->
-- [x] ~~**Activity Report — low-stock en "On the floor"**~~ ✅ 2026-04-24 — Sub-bloque "LOW STOCK · Today" / "This week" dentro de la card ON THE FLOOR. Out of stock (rojo) + Last unit (ámbar). Cada SKU lista las completions del día (#ORDER clickeable, −qty, prev→new, from LOC, date+time). PR #20, #22, #23. <!-- id: idea-071 -->
-- [x] ~~**Ghost trail audit — from_location + link a picking list**~~ ✅ 2026-04-24 — `useLastActivity` expone `list_id` y `formatLastActivity` incluye `from {location}`. El activity line de un SKU en qty=0 ahora es clickeable cuando hay `list_id` (abre PickingSummaryModal vía `setExternalOrderId`). <!-- id: idea-072 -->
-- [x] ~~**Low-stock audit details — completions per SKU**~~ ✅ 2026-04-24 — `useLowStockAlerts` incluye `completions[]` por SKU (order_number, performed_by, from_location, quantity_change, prev→new qty, created_at). `LowStockAlertsBlock` renderiza una sub-línea por completion bajo cada SKU alertado. <!-- id: idea-073 -->
-- [ ] **Activity Report — bullets más específicos en "On the Floor"** — Eliminar generalizaciones (ej. "7 corrections made during picking" — quitada en 2026-04-27) y reemplazar por data accionable: qué correcciones se hicieron, en qué órdenes, qué SKUs, qué tipo (remove/swap/adjust_qty/add) con la razón asociada (idea-043 ya captura razones). El criterio: cada bullet del reporte debe responder "qué hago con esta info" — generalizaciones que no llevan a acción se omiten. Aplicar este principio a otros bullets del reporte conforme se identifiquen. <!-- id: idea-074 -->
+- [ ] **FedEx Returns — "Add Item" → "Return to Stock"** — Renombrar el botón/acción `Add Item` en `src/features/fedex-returns/` (ver `AddItemSheet.tsx`) a `Return to Stock` para reflejar mejor la intención del flujo. <!-- id: idea-066 -->
+- [ ] **Bike/Part/Unknown selector en "New Item"** — Al registrar un SKU nuevo, el form debe forzar la selección manual de tipo (Bike / Part / Unknown). Hoy `is_bike` queda en `false` por default y el picker no tiene manera de clasificarlo. Sirve de respaldo cuando la heurística de prefijo "03-" falle. Tocar `UnifiedForm` / `register_new_sku` RPC para persistir el flag. <!-- id: idea-068 -->
+- [x] ~~**DoubleCheckView — counter "X / N Units Verified" más visible**~~ ✅ 2026-04-28 — `text-lg font-black` + color dinámico (rojo/ámbar/emerald) según progreso. PR #49. <!-- id: idea-093 -->
+- [x] ~~**Activity Report — desglose del KPI Inventory Accuracy**~~ ✅ 2026-04-28 — 5 bullets per-source (cycle counted, movements, additions, on-site checked, quantity edited) en web + PDF. RPC `compute_daily_report_data` v2 mirror. PostgREST cap fix `.limit(50_000)`. PR #51. **Reemplazado por idea-097.** <!-- id: idea-094 -->
+- [x] ~~**Activity Report — Out of Stock formato más simple**~~ ✅ 2026-04-28 — `Name (SKU)` con name primero, completions sub-list eliminada solo en este bloque. Dead code `onClickOrder`/`useModal`/`handleClickOrder` removido. PR #50. <!-- id: idea-095 -->
+- [x] ~~**Activity Report — Projects opcionales con dropdown por categoría + flash on add**~~ ✅ 2026-04-28 — Panel "Projects to include" en el editor con 3 dropdowns colapsables (`<details>`) + checkbox por task. Selección persistida en `DailyReportManual.included_project_ids`. Flash verde via `useHighlight()` keyed sobre IDs filtrados. Filter en Screen, View queda presentational. PR #52. <!-- id: idea-096 -->
+- [ ] **Activity Report — KPI Inventory Accuracy: tabla de eventos del día** — Reemplazar los 5 bullets agregados (idea-094) por 3 tablas responsive con filas per-SKU del día (live only): **MOVED** (4 col: Item, SKU, From → To [+qty parcial entre paréntesis si existe en otra location o move parcial; "also LOC (qty)" en línea nueva si multi-loc], Total now), **VERIFIED ON SITE** (4 col: Item, SKU, Location [con sublocation `ROW 20B / A`], Total), **ADDED** (4 col: Item, SKU, Added → Location, Total). Reglas: (1) omitir SKUs sin `item_name`; (2) cronológico por timestamp del evento, sin mostrar tiempo; (3) dedupe per-SKU por sección; (4) cross-section dedupe — SKU en MOVED se omite de VERIFIED ON SITE; (5) PHYSICAL_DISTRIBUTION ∪ cycle_count_items del día → ambos van a "Verified on site" (Carine no distingue cómo se verificó); (6) headers de sección con count `MOVED — N`; (7) sección con 0 eventos se esconde; (8) `cycle_counted` deja de existir como bullet aparte; (9) EDIT queda fuera. El % accuracy headline sigue 90d (métrica de coverage). Mirror PDF con mismo layout 4 columnas. Item name viene de `inventory.item_name` (bulk query por SKUs únicos del día); `sku_metadata` no tiene name. Tocar: `useActivityReport.ts` (extender fetch + computar `today_events`), `ActivityReport` interface en `useDailyReport.ts`, nuevo `<TodayInventoryEventsBlock>` en `ActivityReportView.tsx`, mirror en `ActivityReportPdfDoc.tsx`. Sin migración SQL. <!-- id: idea-097 -->
+- [ ] **BUG — MOVE inflando inventario** — Reportado por usuario el 2026-04-28: las operaciones MOVE no son zero-sum, el stock total del SKU crece. Sospecha: migración reciente o cambio en `move_inventory_stock` RPC. Pista observada: cada MOVE en `inventory_logs` (data 2026-04-16) genera **2 PHYSICAL_DISTRIBUTION rows duplicados** sobre el mismo SKU al destino (puede ser síntoma o causa). Todos los MOVE rows tienen `quantity_change = 0` (esperado o no?). Investigación en curso por agente — diagnóstico pendiente. Migraciones a auditar primero: `20260427120000_fedex_return_items_target_location.sql`, familia `fedex_returns_*` (Apr 16). <!-- id: idea-098 -->
 
 ---
 
-## P1 — Refinados (sesión 2026-04-16)
-
-### ~~37. Pallet photos en reporte y orders~~ <!-- id: idea-059 --> ✅ 2026-04-16
-- `458addb` Daily Report: nueva sección "PALLET PHOTOS" agrupada por order_number. OrdersScreen: thumbnails arriba del título en LivePrintPreview, clickeables a fullscreen via `PhotoLightbox` (nuevo en `src/components/ui/`).
-- `0a38819` Fix crítico: pallet photo upload usaba SKU mode → fallaba silenciosamente en prod. Cambiado a gallery mode.
-- `0abedf1` Add Photo desde PickingSummaryModal incluso después de completar la orden.
-
-### ~~38. Print Label respeta orientación toggle~~ <!-- id: idea-060 --> ✅ 2026-04-16
-- `58e6b69` Hook `useLabelLayoutPreference` con localStorage (`pickd-label-layout`). 5 entry points fixados (ItemDetailView, HistoryMode, LabelGen reprint+batch, UnifiedForm). LayoutToggle escribe al storage. Cross-tab sync via storage event.
-
-### ~~39. Imágenes del reporte llegan a Gmail~~ <!-- id: idea-061 --> ✅ 2026-04-16
-- `6a7cd24` `handleCopy` async: clona el reporte, fetcha cada `<img>` y la convierte a base64 data URI, escribe HTML al clipboard via `ClipboardItem`. Fallback a `execCommand` si falla. Loading state en botones.
+## P1 — Refinados pendientes
 
 ### 40. Notas de proyecto siempre visibles (quitar line-clamp) <!-- id: idea-062 -->
 - **Problema:** Hoy `line-clamp-2` recorta notas largas en task cards del kanban.
 - **Solución:** Quitar `line-clamp-2` en `TaskCard` (`src/features/projects/ProjectsScreen.tsx`). Las cards crecen tanto como sea necesario para mostrar la nota completa.
 - **Trivial.**
-
-### ~~41. Galería de proyectos: Cámara o Galería del teléfono~~ <!-- id: idea-063 --> ✅ 2026-04-16
-- `6a7cd24` Modal selector con dos opciones (Camera/Gallery), cada una dispara su propio `<input>` (con/sin `capture`). Modal mobile bottom-sheet, desktop centered.
-
-### ~~42. Foto obligatoria antes de completar orden~~ <!-- id: idea-064 --> ✅ 2026-04-16
-- `53a3b85` DoubleCheckView fetcha `pallet_photos` count al montar y trackea local. Si 0 fotos: banner amarillo + slide deshabilitado con texto "PHOTO REQUIRED TO COMPLETE". `e66339f` gate optimista (intent to take photo, no upload success).
-- [x] ~~**FedEx default single group**~~ ✅ 2026-04-16 — Trigger `auto_group_fedex_orders` (migraciones `20260416220000` + `20260416230000`) auto-agrupa TODAS las órdenes FedEx activas en un solo grupo (cross-customer). Operacional: picker maneja todas las FedEx en un Double Check + completa-todo-de-un-jalón. Auto-clasifica server-side via `classify_picking_list_fedex` (join con `sku_metadata.weight_lbs`). 5/5 + 4/4 smoke tests. <!-- id: idea-057 -->
-- [x] ~~**Projects — drag to reorder priority**~~ ✅ 2026-04-15 — `0b85070` `c115c13` @dnd-kit/sortable within-column reorder con position persistence. <!-- id: idea-049 -->
-- [x] ~~**Shopping List / Cosas por comprar**~~ ✅ 2026-04-14 — `dc2d19f` Vista compartida + PDF 4x6 térmico. <!-- id: idea-056 -->
 
 ---
 
@@ -174,7 +115,7 @@
 
 ## Bugs pendientes
 
-- [x] ~~**[bug-013]** Teclado aparece al abrir orden desde Verification Queue~~ — Fix `51e55a5` (overlay detection con `elementFromPoint()`). Pendiente: confirmar en mobile.
+_(ninguno abierto al 2026-04-28 — bug-013 archivado)_
 
 ---
 
@@ -192,3 +133,4 @@
 | History en perfil (idea-035) | Cubierto por filtros en HistoryScreen y OrdersScreen |
 | Resumen diario soft per-user (ID original idea-041, conflicto con `/activity-report`) | Brainstorm orphan, sin commits. El team detail de `/activity-report` cubre el caso. |
 | Auto-cancel → expiración (idea-031) | Nada expira; liberación manual. La rama verification 24h fue eliminada en idea-053. |
+| Automatic Inventory Email (idea-007) | 2026-04-22 — `send-daily-report` nunca se usó en operación; eliminada del runtime para cerrar endpoint sin auth. Snapshot R2 sigue activo vía `daily-snapshot`. `0d85fc2`. |
