@@ -619,6 +619,21 @@ export const ActivityReportView: React.FC<Props> = ({
           <>
             <div style={cardStyle}>
               <p style={sectionHeaderStyle(TEAL)}>INVENTORY ACCURACY</p>
+              <p
+                style={{
+                  margin: '0 0 14px 0',
+                  fontSize: 12.5,
+                  lineHeight: 1.55,
+                  color: TEXT,
+                }}
+              >
+                <strong style={{ color: TEXT_BOLD }}>Why this matters.</strong> Every SKU we
+                physically touch today — moving it, consolidating it, recounting it — counts toward
+                this number for the next 90 days. Goal:{' '}
+                <strong style={{ color: TEXT_BOLD }}>100%</strong>, meaning every bike in the
+                catalog has been seen with our own eyes in the last 3 months. The faster we hit
+                that, the less we'll be guessing when an order comes in.
+              </p>
               <div
                 style={{
                   display: 'flex',

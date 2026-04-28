@@ -625,6 +625,22 @@ function SummaryPage(props: ActivityReportPdfDocProps & { totalPages: number }) 
 
       {/* 01 — HOW THE WAREHOUSE IS DOING */}
       <StepHeader n="01" label="HOW THE WAREHOUSE IS DOING" color={TONE.teal} marginTop={gap} />
+      <Text
+        style={{
+          fontFamily: SANS,
+          fontSize: 9,
+          lineHeight: 1.45,
+          color: TONE.ink2,
+          marginBottom: 6,
+        }}
+      >
+        <Text style={{ fontWeight: 700, color: TONE.ink }}>Why this matters.</Text> Every SKU we
+        physically touch today — moving it, consolidating it, recounting it — counts toward this
+        number for the next 90 days. Goal:{' '}
+        <Text style={{ fontWeight: 700, color: TONE.ink }}>100%</Text>, meaning every bike in the
+        catalog has been seen with our own eyes in the last 3 months. The faster we hit that, the
+        less we'll be guessing when an order comes in.
+      </Text>
       <HeroKpi
         accuracyPct={props.accuracyPct}
         report={props.report}
