@@ -579,6 +579,45 @@ export const ActivityReportView: React.FC<Props> = ({
                 {report.verified_skus_2m} of {report.total_skus} SKUs have been physically counted
                 in the last 90 days.
               </p>
+              {/* Breakdown by source category — idea-094. Show only categories
+                  with count > 0; if all are zero (e.g., older snapshot without
+                  the breakdown field), render nothing extra. */}
+              {(() => {
+                const b = report.verified_skus_breakdown;
+                if (!b) return null;
+                const rows: Array<{ key: string; n: number; label: string }> = [
+                  { key: 'cycle_counted', n: b.cycle_counted, label: 'cycle counted' },
+                  { key: 'movements', n: b.movements, label: 'movements' },
+                  { key: 'additions', n: b.additions, label: 'additions' },
+                  { key: 'on_site_checked', n: b.on_site_checked, label: 'on-site checked' },
+                  { key: 'quantity_edited', n: b.quantity_edited, label: 'quantity edited' },
+                ].filter((r) => r.n > 0);
+                if (rows.length === 0) return null;
+                return (
+                  <ul
+                    style={{
+                      margin: '8px 0 0',
+                      padding: 0,
+                      listStyle: 'none',
+                      fontSize: 12,
+                      color: TEXT_MUTED,
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    {rows.map((r) => (
+                      <li key={r.key} style={{ margin: 0 }}>
+                        <span style={{ color: TEAL, fontWeight: 700 }}>&bull;</span>
+                        &nbsp;
+                        <span style={{ color: TEXT_BOLD, fontWeight: 700 }}>
+                          {r.n.toLocaleString()}
+                        </span>
+                        &nbsp;
+                        <span>{r.label}</span>
+                      </li>
+                    ))}
+                  </ul>
+                );
+              })()}
             </div>
             <div style={spacerStyle} />
           </>

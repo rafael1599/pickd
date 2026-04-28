@@ -156,12 +156,26 @@ export const ActivityReportScreen = () => {
         accuracy: { pct: number; verified_skus_2m: number; total_skus: number };
         correction_count: number;
         users: ActivityReport['users'];
+        verified_skus_breakdown?: ActivityReport['verified_skus_breakdown'];
       };
+      // Older snapshots (pre-idea-094) won't have a breakdown — fall back
+      // to live data when present, otherwise zero out so the view treats
+      // it as "no breakdown to show".
+      const breakdown: ActivityReport['verified_skus_breakdown'] =
+        c.verified_skus_breakdown ??
+        liveReport?.verified_skus_breakdown ?? {
+          cycle_counted: 0,
+          movements: 0,
+          additions: 0,
+          on_site_checked: 0,
+          quantity_edited: 0,
+        };
       return {
         date: selectedDate,
         users: c.users,
         warehouse_totals: c.warehouse_totals,
         verified_skus_2m: c.accuracy.verified_skus_2m,
+        verified_skus_breakdown: breakdown,
         total_skus: c.accuracy.total_skus,
         correction_count: c.correction_count,
         // Photos are live (not snapshotted) — pull from live query if available
