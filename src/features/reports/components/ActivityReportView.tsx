@@ -273,9 +273,9 @@ const LowStockAlertsBlock: React.FC<{
         <span style={{ fontWeight: 700, color: TEXT_BOLD }}>{row.sku}</span>
         {row.item_name && <span style={{ color: TEXT_MUTED }}>— {row.item_name}</span>}
       </p>
-      {row.completions.length > 0 && (
+      {(row.completions ?? []).length > 0 && (
         <ul style={{ margin: '2px 0 0 30px', padding: 0, listStyle: 'none' }}>
-          {row.completions.map((c, i) => {
+          {(row.completions ?? []).map((c, i) => {
             const qty = Math.abs(c.quantity_change);
             const clickable = !!(onClickOrder && c.list_id);
             const orderLabel = c.order_number ? `#${c.order_number}` : null;
@@ -357,20 +357,20 @@ const LowStockAlertsBlock: React.FC<{
       >
         Low Stock · {alerts.windowLabel}
       </p>
-      {alerts.outOfStock.length > 0 && (
-        <div style={{ marginBottom: alerts.lastUnit.length > 0 ? 10 : 0 }}>
+      {(alerts.outOfStock ?? []).length > 0 && (
+        <div style={{ marginBottom: (alerts.lastUnit ?? []).length > 0 ? 10 : 0 }}>
           <p style={{ ...subHeaderStyle, color: RED, marginBottom: 4 }}>
-            Out of stock ({alerts.outOfStock.length})
+            Out of stock ({(alerts.outOfStock ?? []).length})
           </p>
-          {alerts.outOfStock.map((r) => renderRow(r, RED))}
+          {(alerts.outOfStock ?? []).map((r) => renderRow(r, RED))}
         </div>
       )}
-      {alerts.lastUnit.length > 0 && (
+      {(alerts.lastUnit ?? []).length > 0 && (
         <div>
           <p style={{ ...subHeaderStyle, color: AMBER_ALERT, marginBottom: 4 }}>
-            Last unit ({alerts.lastUnit.length})
+            Last unit ({(alerts.lastUnit ?? []).length})
           </p>
-          {alerts.lastUnit.map((r) => renderRow(r, AMBER_ALERT))}
+          {(alerts.lastUnit ?? []).map((r) => renderRow(r, AMBER_ALERT))}
         </div>
       )}
     </div>
@@ -418,12 +418,6 @@ export const ActivityReportView: React.FC<Props> = ({
       `Completed ${totals.orders_completed} order${totals.orders_completed !== 1 ? 's' : ''} (${totals.total_items} items)`
     );
   }
-  if (report.correction_count > 0) {
-    floorBullets.push(
-      `${report.correction_count} correction${report.correction_count !== 1 ? 's' : ''} made during picking`
-    );
-  }
-
   // Checked routine items
   for (const item of routineChecklist) {
     floorBullets.push(item);
@@ -439,7 +433,8 @@ export const ActivityReportView: React.FC<Props> = ({
   const hasInProgress = inProgress.length > 0;
   const hasLowStockAlerts =
     !!lowStockAlerts &&
-    (lowStockAlerts.outOfStock.length > 0 || lowStockAlerts.lastUnit.length > 0);
+    ((lowStockAlerts.outOfStock ?? []).length > 0 ||
+      (lowStockAlerts.lastUnit ?? []).length > 0);
   const hasFloorContent = floorBullets.length > 0 || hasLowStockAlerts;
   const hasComingUp = comingUpNext.length > 0;
   const hasAccuracy = report.total_skus > 0 && report.verified_skus_2m > 0;

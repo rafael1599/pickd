@@ -13,20 +13,79 @@
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Outfit:wght@100..900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <title>PickD</title>
   <script>
-    // Force reload if a script fails to load (common after new deployments)
-    window.addEventListener(
-      'error',
-      (e) => {
-        if (
-          e.target.tagName === 'SCRIPT' ||
-          (e.message && e.message.includes('ChunkLoadError'))
-        ) {
-          console.warn('Script or Chunk failed to load. Forcing reload...');
-          window.location.reload();
+    (function () {
+      // Browser support gate. React 19 needs Safari 15.4+, Chrome 90+, Edge 90+,
+      // Firefox 90+. structuredClone is present in all of those and absent below,
+      // so it's a single clean feature check. If unsupported, render a static
+      // fallback and bail — we never reach the module script below, so the
+      // bundle can't crash and trigger a reload loop (which previously DDoSed
+      // Vercel from a single broken iPad iOS 12 and 403'd everyone).
+      if (typeof window.structuredClone !== 'function') {
+        document.documentElement.innerHTML =
+          '<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PickD — Navegador no compatible</title><style>body{font-family:system-ui,-apple-system,sans-serif;padding:2rem;text-align:center;line-height:1.5;color:#111;background:#fafafa}h1{margin-bottom:.5rem}p{max-width:32rem;margin:.75rem auto;color:#444}</style></head><body><h1>Navegador no compatible</h1><p>Esta app requiere Safari 15.4+, Chrome 90+, Edge 90+ o Firefox 90+.</p><p>El dispositivo o navegador actual es demasiado viejo. Actualizá el sistema operativo o usá un dispositivo más reciente.</p></body>';
+        return;
+      }
+
+      // Reload circuit breaker. After MAX_RELOADS attempts inside RELOAD_WINDOW_MS
+      // we give up rather than spin — the prior naked reload caused an infinite
+      // loop on incompatible browsers.
+      var RELOAD_KEY = 'pickd_reload_attempts';
+      var RELOAD_WINDOW_MS = 30000;
+      var MAX_RELOADS = 3;
+
+      function readAttempts() {
+        try {
+          var raw = sessionStorage.getItem(RELOAD_KEY);
+          if (!raw) return { count: 0, first: Date.now() };
+          var parsed = JSON.parse(raw);
+          if (Date.now() - parsed.first > RELOAD_WINDOW_MS) {
+            return { count: 0, first: Date.now() };
+          }
+          return parsed;
+        } catch (_) {
+          return { count: 0, first: Date.now() };
         }
-      },
-      true
-    );
+      }
+
+      function safeReload(reason) {
+        var state = readAttempts();
+        if (state.count >= MAX_RELOADS) {
+          console.error('[reload-guard] giving up after', state.count, 'reloads:', reason);
+          document.body.innerHTML =
+            '<div style="font-family:system-ui;padding:2rem;text-align:center;line-height:1.5"><h1>Error cargando la app</h1><p>La aplicación falló varias veces al cargar. Cerrá completamente el navegador y volvé a abrirlo.</p></div>';
+          return;
+        }
+        sessionStorage.setItem(
+          RELOAD_KEY,
+          JSON.stringify({ count: state.count + 1, first: state.first })
+        );
+        console.warn('[reload-guard] reloading (attempt ' + (state.count + 1) + '):', reason);
+        window.location.reload();
+      }
+
+      // Clear the counter once the app has been alive for a few seconds —
+      // a successful boot should reset future budgets.
+      window.addEventListener('load', function () {
+        setTimeout(function () {
+          sessionStorage.removeItem(RELOAD_KEY);
+        }, 5000);
+      });
+
+      // Reload when a <script> tag or dynamic chunk fails to load (typically
+      // after a redeploy invalidates the old hashed asset URLs).
+      window.addEventListener(
+        'error',
+        function (e) {
+          if (
+            (e.target && e.target.tagName === 'SCRIPT') ||
+            (e.message && e.message.indexOf('ChunkLoadError') !== -1)
+          ) {
+            safeReload('script/chunk load error');
+          }
+        },
+        true
+      );
+    })();
   </script>
 </head>
 

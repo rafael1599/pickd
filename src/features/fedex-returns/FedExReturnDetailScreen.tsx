@@ -13,11 +13,12 @@ import {
   useFedExReturn,
   useUpdateFedExReturn,
   useRemoveReturnItem,
+  useUpdateReturnItem,
   useResolveReturn,
   useFedExReturnsRealtime,
 } from './hooks/useFedExReturns';
 import { ReturnItemRow } from './components/ReturnItemRow';
-import { AddItemSheet } from './components/AddItemSheet';
+import { ReturnToStockSheet } from './components/ReturnToStockSheet';
 import { SDQuickIntakeModal } from '../scratch-and-dent/components/SDQuickIntakeModal';
 
 export const FedExReturnDetailScreen: React.FC = () => {
@@ -27,16 +28,16 @@ export const FedExReturnDetailScreen: React.FC = () => {
 
   const [addOpen, setAddOpen] = useState(false);
   const [sdIntakeOpen, setSdIntakeOpen] = useState(false);
-  const [targetLocations, setTargetLocations] = useState<Record<string, string>>({});
 
   const { data: ret, isLoading } = useFedExReturn(id ?? '');
   const updateReturn = useUpdateFedExReturn();
   const removeItem = useRemoveReturnItem();
+  const updateItem = useUpdateReturnItem();
   const resolveReturn = useResolveReturn();
 
   const items = useMemo(() => ret?.items ?? [], [ret]);
   const pendingItems = useMemo(() => items.filter((i) => !i.moved_to_location), [items]);
-  const allLocationsSet = pendingItems.every((i) => targetLocations[i.id]?.trim());
+  const allLocationsSet = pendingItems.every((i) => !!i.target_location?.trim());
 
   const handleStartProcessing = async () => {
     if (!ret) return;
@@ -67,7 +68,8 @@ export const FedExReturnDetailScreen: React.FC = () => {
           id: i.id,
           sku: i.sku,
           quantity: i.quantity,
-          target_location: targetLocations[i.id].trim().toUpperCase(),
+          target_location: (i.target_location ?? '').trim().toUpperCase(),
+          target_warehouse: i.target_warehouse ?? 'LUDLOW',
         })),
       });
       toast.success('Return resolved');
@@ -206,7 +208,7 @@ export const FedExReturnDetailScreen: React.FC = () => {
                     className="flex items-center gap-1 text-xs text-accent font-bold"
                   >
                     <Plus size={12} />
-                    Add Item
+                    Return to Stock
                   </button>
                 </div>
               )}
@@ -219,30 +221,24 @@ export const FedExReturnDetailScreen: React.FC = () => {
             ) : (
               <div className="space-y-2">
                 {items.map((item) => (
-                  <div key={item.id} className="space-y-2">
-                    <ReturnItemRow
-                      item={item}
-                      onRemove={
-                        ret.status === 'processing' && !item.moved_to_location
-                          ? () => removeItem.mutate(item.id)
-                          : undefined
-                      }
-                    />
-                    {ret.status === 'processing' && !item.moved_to_location && (
-                      <input
-                        type="text"
-                        placeholder="Destination location (e.g., ROW 15)"
-                        value={targetLocations[item.id] ?? ''}
-                        onChange={(e) =>
-                          setTargetLocations({
-                            ...targetLocations,
-                            [item.id]: e.target.value,
-                          })
-                        }
-                        className="w-full bg-surface border border-subtle rounded-xl px-3 py-1.5 text-xs text-content placeholder:text-muted/50 focus:outline-none focus:ring-1 focus:ring-accent ml-2"
-                      />
-                    )}
-                  </div>
+                  <ReturnItemRow
+                    key={item.id}
+                    item={item}
+                    onRemove={
+                      ret.status === 'processing' && !item.moved_to_location
+                        ? () => removeItem.mutate(item.id)
+                        : undefined
+                    }
+                    onChangeLocation={
+                      ret.status === 'processing' && !item.moved_to_location
+                        ? (loc) =>
+                            updateItem.mutate({
+                              itemId: item.id,
+                              target_location: loc,
+                            })
+                        : undefined
+                    }
+                  />
                 ))}
               </div>
             )}
@@ -266,7 +262,7 @@ export const FedExReturnDetailScreen: React.FC = () => {
         )}
       </main>
 
-      <AddItemSheet returnId={ret.id} open={addOpen} onClose={() => setAddOpen(false)} />
+      <ReturnToStockSheet returnId={ret.id} open={addOpen} onClose={() => setAddOpen(false)} />
       <SDQuickIntakeModal open={sdIntakeOpen} onClose={() => setSdIntakeOpen(false)} />
     </div>
   );

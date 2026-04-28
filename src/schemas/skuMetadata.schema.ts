@@ -31,7 +31,11 @@ export const SKUMetadataSchema = z.object({
   color: z.string().nullable().optional(),
   category: z.string().nullable().optional(),
   serial_number: z.string().nullable().optional(),
-  condition: BikeConditionEnum.nullable().optional(),
+  // Relaxed from BikeConditionEnum in idea-083 so the generic "Details"
+  // section can store general values (new | used | damaged | refurbished)
+  // alongside legacy S/D-specific ones (new_unbuilt, defective_frame, …).
+  // The DB column stores free-form text; UI dropdowns validate per context.
+  condition: z.string().nullable().optional(),
   condition_description: z.string().nullable().optional(),
   sd_category: SDCategoryEnum.nullable().optional(),
   msrp: z.number().nullable().optional(),

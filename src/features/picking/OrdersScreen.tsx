@@ -58,13 +58,7 @@ interface OrderWithRelations {
 export const OrdersScreen = () => {
   const { user } = useAuth();
   const { takeOverOrder, loadReopenedOrder, resumeReopenedOrder } = usePickingSession();
-  const {
-    externalOrderId,
-    setExternalOrderId,
-    externalShowPickingSummary,
-    setExternalShowPickingSummary,
-    setViewMode,
-  } = useViewMode();
+  const { externalOrderId, setExternalOrderId, setViewMode } = useViewMode();
   const [orders, setOrders] = useState<OrderWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<OrderWithRelations | null>(null);
@@ -375,27 +369,16 @@ export const OrdersScreen = () => {
     };
   }, [fetchOrders]);
 
-  // Handle external selections (e.g. from DoubleCheckHeader or History)
+  // Handle external selections (e.g. from DoubleCheckHeader or VerificationBoard)
   useEffect(() => {
     if (externalOrderId && orders.length > 0) {
       const order = orders.find((o) => o.id === externalOrderId);
       if (order) {
-        console.log('🎯 [OrdersScreen] Setting selected order from external ID:', externalOrderId);
         setSelectedOrder(order);
-        if (externalShowPickingSummary) {
-          setIsShowingPickingSummary(true);
-          setExternalShowPickingSummary(false);
-        }
         setExternalOrderId(null);
       }
     }
-  }, [
-    externalOrderId,
-    orders,
-    setExternalOrderId,
-    externalShowPickingSummary,
-    setExternalShowPickingSummary,
-  ]);
+  }, [externalOrderId, orders, setExternalOrderId]);
 
   // Sync form data when selectedOrder changes
   useEffect(() => {

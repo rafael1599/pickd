@@ -1,0 +1,19 @@
+Progress Update — April 16, 2026 at 5:16 PM
+
+WIN OF THE DAY:
+Every completed order now auto-captures photo proof of each pallet, and same-day FedEx orders pick together as one combined shipment instead of being juggled across multiple screens.
+
+WHAT'S BETTER NOW:
+- Orders cannot be closed without at least one photo per pallet — the camera auto-reopens in burst mode until every pallet is covered. Those photos appear on each order in the Orders screen and at the bottom of the Daily Report, clickable to fullscreen.
+- FedEx orders from any customer now automatically combine into a single pick. Editing or cancelling one sub-order used to silently break the others — the app now asks which sub-order you mean before touching anything.
+- New Weight field on every order — fills itself in by default with a calculated estimate, and you can override it when that number's off.
+- Adding a batch of gallery photos from Projects used to process them one-at-a-time — now they all go at once with a progress bar.
+- Print label orientation preference is now remembered across every print spot in the app — set it once and it sticks.
+- Behind the scenes: FedEx Returns intake is taking shape — a dedicated queue for unopened return packages, barcode scanning, and 4x6 thermal labels. Still in progress.
+
+COMING UP NEXT:
+- Finish the FedEx Returns intake so packages can be processed start to finish
+- Finish the remaining 5 rows to complete the full warehouse audit
+
+10 done today / 8 in the queue (2 high priority, 5 medium, 1 audit)
+Note: today's changes are ready but not yet live.

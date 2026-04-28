@@ -1,0 +1,19 @@
+Progress Update — April 24, 2026 at 5:06 PM
+
+WIN OF THE DAY:
+The system got sharper on three fronts today: low-stock alerts carry a full paper trail in the daily report, stock search now finds anything by serial number or UPC, and item details become editable right where any item is opened.
+
+WHAT'S BETTER NOW:
+- Every order completion now shows how many units are left warehouse-wide under each SKU, so the picker knows right away when a part is running dry.
+- The daily report's floor block lists today's depletions with the full story: which SKU, how many went out, which order took them, and at what time — one tap on the order number pulls up the full summary.
+- Stock search used to miss bikes whose serial was on the tag but whose SKU you didn't remember — now it finds them by serial, by UPC barcode, by model name, or by compatible-models description.
+- Scratch-and-dent bikes show their physical serial in the big header during double-check, so pickers can match the tag without guessing the SKU.
+- Opening a bike or part now has a clean "Details" card with Serial, Price, Condition, Notes, and PDF link — same pretty look as before, but click the pencil and it edits in place. Leaving with unsaved changes now asks before throwing them away.
+- All non-S/D bikes in the catalog were marked "New" in bulk (565 units), and four pedals that had been mistakenly tagged as bikes got moved back to parts.
+
+COMING UP NEXT:
+- Orders screen visual rework — carrier logos, glass styling, cleaner hierarchy.
+- Bike / Part / Unknown selector when registering a new SKU, so the system never has to guess.
+
+17 shipped today / 6 on the roadmap (mostly quality-of-life tweaks and one larger visual rework).
+Note: today's changes are live on staging — the production push goes out when the batch is merged to main.

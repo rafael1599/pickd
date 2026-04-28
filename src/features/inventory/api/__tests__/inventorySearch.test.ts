@@ -5,143 +5,136 @@ import { mockSupabase } from '../../../../test/mocks/supabase';
 import { inventoryApi } from '../inventoryApi';
 
 /**
- * Regression tests for inventory search (PostgREST queries).
- *
- * Bug reference: commit 655d7a2 introduced `sku_metadata ( sku, name, image_url )`
- * but the `name` column does not exist in the sku_metadata table, causing
- * PostgREST to return 400 on ALL inventory queries — breaking search entirely.
+ * Tests for inventoryApi.fetchInventoryWithMetadata — now backed by the
+ * `search_inventory_with_metadata` RPC. The RPC ORs across inventory +
+ * sku_metadata columns (including serial_number) with normalized matching.
  */
 describe('inventoryApi.fetchInventoryWithMetadata', () => {
-  let queryResult: { data: unknown[]; error: null; count: number };
-
   beforeEach(() => {
     vi.clearAllMocks();
-
-    queryResult = { data: [], error: null, count: 0 };
-
-    // Build a chainable mock that supports all PostgREST builder methods.
-    // Every method returns `mockSupabase` for chaining.
-    // `await query` resolves via the custom `then`.
-    const chainMethods = [
-      'from',
-      'select',
-      'eq',
-      'neq',
-      'not',
-      'or',
-      'order',
-      'range',
-      'ilike',
-      'like',
-      'in',
-      'gt',
-      'gte',
-      'lte',
-      'limit',
-    ];
-    for (const method of chainMethods) {
-      (mockSupabase as Record<string, unknown>)[method] = vi.fn().mockReturnValue(mockSupabase);
-    }
-
-    // Make the mock thenable so `await query` resolves with queryResult
-    (mockSupabase as Record<string, unknown>).then = vi.fn((resolve: (value: unknown) => void) =>
-      resolve(queryResult)
-    );
+    (mockSupabase.rpc as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: [],
+      error: null,
+    });
   });
 
-  const SKU_METADATA_REAL_COLUMNS = [
-    'sku',
-    'image_url',
-    'is_bike',
-    'is_scratch_dent',
-    'upc',
-    'weight_lbs',
-    'length_in',
-    'width_in',
-    'height_in',
-    'length_ft',
-    'created_at',
-    // S/D extension (added by 20260417100000_extend_sku_metadata_for_sd.sql)
-    'model',
-    'size',
-    'color',
-    'category',
-    'serial_number',
-    'condition',
-    'condition_description',
-    'sd_category',
-    'msrp',
-    'standard_price',
-    'sd_price',
-    'pdf_link',
-  ];
+  it('calls the search_inventory_with_metadata RPC with the expected params', async () => {
+    await inventoryApi.fetchInventoryWithMetadata({
+      search: 'TRAIL',
+      warehouse: 'LUDLOW',
+      includeInactive: true,
+      showParts: false,
+      onlyScratchDent: false,
+      offset: 30,
+      limit: 15,
+    });
 
-  it('should only reference existing sku_metadata columns in the select', async () => {
-    await inventoryApi.fetchInventoryWithMetadata({ search: 'test' });
-
-    const selectCall = (mockSupabase.select as ReturnType<typeof vi.fn>).mock.calls[0];
-    const selectString: string = selectCall[0];
-
-    // Parse embedded resource columns: sku_metadata[!inner] ( col1, col2, ... )
-    const match = selectString.match(/sku_metadata(?:!inner)?\s*\(\s*([^)]+)\)/);
-    expect(match).toBeTruthy();
-
-    const requestedColumns = match![1].split(',').map((c: string) => c.trim());
-    for (const col of requestedColumns) {
-      expect(
-        SKU_METADATA_REAL_COLUMNS,
-        `Column "${col}" does not exist in sku_metadata table`
-      ).toContain(col);
-    }
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('search_inventory_with_metadata', {
+      p_search: 'TRAIL',
+      p_warehouse: 'LUDLOW',
+      p_include_inactive: true,
+      p_show_parts: false,
+      p_only_scratch_dent: false,
+      p_offset: 30,
+      p_limit: 15,
+    });
   });
 
-  it('should apply ilike search filter on sku, item_name, and location', async () => {
-    await inventoryApi.fetchInventoryWithMetadata({ search: 'TRAIL' });
-
-    expect(mockSupabase.or).toHaveBeenCalledWith(
-      'sku.ilike.%TRAIL%,item_name.ilike.%TRAIL%,location.ilike.%TRAIL%'
-    );
-  });
-
-  it('should not apply search filter when search is empty', async () => {
+  it('passes an empty search term verbatim (RPC handles empty on the server)', async () => {
     await inventoryApi.fetchInventoryWithMetadata({ search: '' });
 
-    const orCalls = (mockSupabase.or as ReturnType<typeof vi.fn>).mock.calls;
-    const searchOrCalls = orCalls.filter((call: string[][]) => call[0].includes('ilike'));
-    expect(searchOrCalls).toHaveLength(0);
+    const call = (mockSupabase.rpc as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe('search_inventory_with_metadata');
+    expect(call[1].p_search).toBe('');
   });
 
-  it('should paginate with offset and limit', async () => {
-    await inventoryApi.fetchInventoryWithMetadata({ offset: 30, limit: 15 });
-
-    expect(mockSupabase.range).toHaveBeenCalledWith(30, 44);
-  });
-
-  it('should filter active items with quantity > 0 by default', async () => {
+  it('defaults to p_include_inactive=false, p_show_parts=false, p_only_scratch_dent=false', async () => {
     await inventoryApi.fetchInventoryWithMetadata();
 
-    expect(mockSupabase.eq).toHaveBeenCalledWith('is_active', true);
-    expect(mockSupabase.gt).toHaveBeenCalledWith('quantity', 0);
+    const call = (mockSupabase.rpc as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[1].p_include_inactive).toBe(false);
+    expect(call[1].p_show_parts).toBe(false);
+    expect(call[1].p_only_scratch_dent).toBe(false);
+    expect(call[1].p_offset).toBe(0);
+    expect(call[1].p_limit).toBe(30);
   });
 
-  it('should return data and count from response', async () => {
-    queryResult = {
+  it('re-nests flat RPC rows back into { ..., sku_metadata: {...} } shape', async () => {
+    (mockSupabase.rpc as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       data: [
         {
           id: 1,
           sku: '03-4083BK',
           quantity: 5,
           location: 'ROW 1',
-          sku_metadata: { sku: '03-4083BK', image_url: null },
+          location_id: null,
+          sublocation: null,
+          item_name: 'Test bike',
+          warehouse: 'LUDLOW',
+          is_active: true,
+          internal_note: null,
+          distribution: [],
+          created_at: '2026-04-22T00:00:00Z',
+          location_sort_key: 101,
+          image_url: 'https://example.com/img.webp',
+          length_in: 60,
+          width_in: 20,
+          height_in: 30,
+          weight_lbs: 40,
+          is_bike: true,
+          is_scratch_dent: false,
+          serial_number: '01-1111',
+          total_count: 42,
         },
       ],
       error: null,
-      count: 42,
-    };
+    });
 
-    const result = await inventoryApi.fetchInventoryWithMetadata({ search: '4083' });
+    const result = await inventoryApi.fetchInventoryWithMetadata({ search: '01-1111' });
 
     expect(result.data).toHaveLength(1);
     expect(result.count).toBe(42);
+    const [item] = result.data as unknown as Array<
+      Record<string, unknown> & { sku_metadata: Record<string, unknown> }
+    >;
+    expect(item.sku).toBe('03-4083BK');
+    expect(item.quantity).toBe(5);
+    // Metadata fields are re-nested under sku_metadata
+    expect(item.sku_metadata).toEqual({
+      sku: '03-4083BK',
+      image_url: 'https://example.com/img.webp',
+      length_in: 60,
+      width_in: 20,
+      height_in: 30,
+      weight_lbs: 40,
+      is_bike: true,
+      is_scratch_dent: false,
+      serial_number: '01-1111',
+    });
+    // Flat metadata fields should not leak onto the top-level row
+    expect(item).not.toHaveProperty('image_url');
+    expect(item).not.toHaveProperty('serial_number');
+    expect(item).not.toHaveProperty('total_count');
+  });
+
+  it('returns count=0 when the RPC returns no rows', async () => {
+    (mockSupabase.rpc as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      data: [],
+      error: null,
+    });
+
+    const result = await inventoryApi.fetchInventoryWithMetadata({ search: 'no-match' });
+
+    expect(result.data).toHaveLength(0);
+    expect(result.count).toBe(0);
+  });
+
+  it('surfaces RPC errors by throwing', async () => {
+    (mockSupabase.rpc as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      data: null,
+      error: { message: 'boom' },
+    });
+
+    await expect(inventoryApi.fetchInventoryWithMetadata({ search: 'x' })).rejects.toBeTruthy();
   });
 });

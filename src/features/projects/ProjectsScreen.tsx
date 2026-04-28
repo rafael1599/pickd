@@ -270,9 +270,7 @@ const TaskCard: React.FC<{
 
           <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onOpenDetail?.(task)}>
             <p className="text-sm font-semibold text-content leading-tight">{task.title}</p>
-            {task.note && (
-              <p className="text-xs text-muted mt-1 line-clamp-2 leading-relaxed">{task.note}</p>
-            )}
+            {task.note && <p className="text-xs text-muted mt-1 leading-relaxed">{task.note}</p>}
             <p className="text-[10px] text-muted/60 mt-1.5 font-medium">{timeAgo}</p>
             <PhotoCountBadge count={photoCount ?? 0} />
           </div>
