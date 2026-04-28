@@ -197,7 +197,9 @@ const pdfCell = (width: string, align: 'left' | 'right' = 'left') => ({
 });
 
 function TodayEventsPdfBlock({ report }: { report: ActivityReport }) {
-  const { moved, verified, added } = report.today_events;
+  // Defensive: persisted cache from pre-idea-097 may lack today_events.
+  const today = report.today_events ?? { moved: [], verified: [], added: [] };
+  const { moved, verified, added } = today;
   const sections = [
     { key: 'moved', title: 'Moved', color: TONE.teal, locHeader: 'From → To', items: moved },
     {

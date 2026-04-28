@@ -306,7 +306,14 @@ const AddedRow: React.FC<{ ev: TodayAddedEvent }> = ({ ev }) => (
   </tr>
 );
 
-const TodayInventoryEventsBlock: React.FC<{ events: TodayEvents }> = ({ events }) => {
+const TodayInventoryEventsBlock: React.FC<{ events?: TodayEvents | null }> = ({
+  events,
+}) => {
+  // Defensive: persisted IndexedDB cache from pre-idea-097 deploys lacks
+  // `today_events`. Treat missing as "no events today" instead of crashing.
+  const moved = events?.moved ?? [];
+  const verified = events?.verified ?? [];
+  const added = events?.added ?? [];
   const sections: Array<{
     key: 'moved' | 'verified' | 'added';
     title: string;
@@ -320,24 +327,24 @@ const TodayInventoryEventsBlock: React.FC<{ events: TodayEvents }> = ({ events }
       title: 'Moved',
       color: BLUE,
       locHeader: 'From → To',
-      count: events.moved.length,
-      rows: events.moved.map((ev) => <MovedRow key={ev.sku} ev={ev} />),
+      count: moved.length,
+      rows: moved.map((ev) => <MovedRow key={ev.sku} ev={ev} />),
     },
     {
       key: 'verified',
       title: 'Verified on site',
       color: EMERALD,
       locHeader: 'Location',
-      count: events.verified.length,
-      rows: events.verified.map((ev) => <VerifiedRow key={ev.sku} ev={ev} />),
+      count: verified.length,
+      rows: verified.map((ev) => <VerifiedRow key={ev.sku} ev={ev} />),
     },
     {
       key: 'added',
       title: 'Added',
       color: AMBER,
       locHeader: 'Added → Location',
-      count: events.added.length,
-      rows: events.added.map((ev) => <AddedRow key={ev.sku} ev={ev} />),
+      count: added.length,
+      rows: added.map((ev) => <AddedRow key={ev.sku} ev={ev} />),
     },
   ];
 
