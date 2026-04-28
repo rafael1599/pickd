@@ -1107,7 +1107,17 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           </div>
           {/* Progress Text */}
           <div className="flex items-center gap-3 mt-1">
-            <span className="text-xs font-bold text-muted/70 uppercase tracking-[0.2em]">
+            <span
+              className={`text-lg font-black uppercase tracking-[0.15em] ${
+                totalUnitsCount === 0
+                  ? 'text-muted/70'
+                  : verifiedUnitsCount === 0
+                    ? 'text-red-400'
+                    : verifiedUnitsCount === totalUnitsCount
+                      ? 'text-emerald-400'
+                      : 'text-amber-400'
+              }`}
+            >
               {`${verifiedUnitsCount} / ${totalUnitsCount} Units Verified`}
             </span>
             {!isReviewMode && onSelectAll && totalUnitsCount > 0 && (
