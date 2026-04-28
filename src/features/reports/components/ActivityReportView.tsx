@@ -60,8 +60,6 @@ interface Props {
    * extra — we never show "no alerts".
    */
   lowStockAlerts?: LowStockAlerts;
-  /** Optional click handler for low-stock completions — opens the picking list. */
-  onClickOrder?: (listId: string) => void;
   greeting?: string;
   /**
    * When true, renders a layout optimized for PDF export:
@@ -222,27 +220,7 @@ const AMBER_ALERT = '#d97706';
 const LowStockAlertsBlock: React.FC<{
   alerts: LowStockAlerts;
   hasPrecedingBullets: boolean;
-  onClickOrder?: (listId: string) => void;
-}> = ({ alerts, hasPrecedingBullets, onClickOrder }) => {
-  const fmtWhen = (iso: string) => {
-    try {
-      const d = new Date(iso);
-      const date = d.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        timeZone: 'America/New_York',
-      });
-      const time = d.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        timeZone: 'America/New_York',
-      });
-      return `${date} ${time}`;
-    } catch {
-      return '';
-    }
-  };
-
+}> = ({ alerts, hasPrecedingBullets }) => {
   const renderRow = (row: LowStockAlerts['outOfStock'][number], color: string) => (
     <div key={`${color}-${row.sku}`} style={{ padding: '4px 0' }}>
       <p
@@ -270,62 +248,15 @@ const LowStockAlertsBlock: React.FC<{
         >
           {row.remaining_qty}
         </span>
-        <span style={{ fontWeight: 700, color: TEXT_BOLD }}>{row.sku}</span>
-        {row.item_name && <span style={{ color: TEXT_MUTED }}>— {row.item_name}</span>}
+        {row.item_name ? (
+          <>
+            <span style={{ fontSize: 14, color: TEXT }}>{row.item_name}</span>
+            <span style={{ fontSize: 12, color: TEXT_MUTED }}>({row.sku})</span>
+          </>
+        ) : (
+          <span style={{ fontWeight: 700, color: TEXT_BOLD }}>{row.sku}</span>
+        )}
       </p>
-      {(row.completions ?? []).length > 0 && (
-        <ul style={{ margin: '2px 0 0 30px', padding: 0, listStyle: 'none' }}>
-          {(row.completions ?? []).map((c, i) => {
-            const qty = Math.abs(c.quantity_change);
-            const clickable = !!(onClickOrder && c.list_id);
-            const orderLabel = c.order_number ? `#${c.order_number}` : null;
-            const tail = [
-              qty > 0 ? `−${qty}` : null,
-              c.prev_quantity != null && c.new_quantity != null
-                ? `(${c.prev_quantity}→${c.new_quantity})`
-                : null,
-              c.from_location ? `from ${c.from_location}` : null,
-              fmtWhen(c.created_at),
-            ].filter(Boolean);
-            return (
-              <li
-                key={`${c.list_id ?? c.order_number ?? i}-${c.created_at}`}
-                style={{
-                  fontSize: 9,
-                  color: TEXT_MUTED,
-                  lineHeight: 1.5,
-                  letterSpacing: '0.02em',
-                }}
-              >
-                {orderLabel &&
-                  (clickable ? (
-                    <button
-                      type="button"
-                      onClick={() => onClickOrder!(c.list_id!)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        padding: 0,
-                        font: 'inherit',
-                        color: TEXT_BOLD,
-                        cursor: 'pointer',
-                        textDecoration: 'underline',
-                        textDecorationColor: `${TEXT_MUTED}66`,
-                        textUnderlineOffset: 2,
-                      }}
-                    >
-                      {orderLabel}
-                    </button>
-                  ) : (
-                    <span style={{ color: TEXT_BOLD }}>{orderLabel}</span>
-                  ))}
-                {orderLabel && tail.length > 0 && ' · '}
-                {tail.join(' · ')}
-              </li>
-            );
-          })}
-        </ul>
-      )}
     </div>
   );
 
@@ -388,7 +319,6 @@ export const ActivityReportView: React.FC<Props> = ({
   comingUpNext,
   waitingOrdersCount = 0,
   lowStockAlerts,
-  onClickOrder,
   greeting,
   printMode = false,
   skipPalletPhotos = false,
@@ -515,7 +445,6 @@ export const ActivityReportView: React.FC<Props> = ({
                 <LowStockAlertsBlock
                   alerts={lowStockAlerts!}
                   hasPrecedingBullets={floorBullets.length > 0}
-                  onClickOrder={printMode ? undefined : onClickOrder}
                 />
               )}
             </div>
