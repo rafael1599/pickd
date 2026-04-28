@@ -107,13 +107,19 @@ export function useActivityReport(date: string) {
             .lte('counted_at', dayEnd),
           // SKUs physically touched via MOVE/ADD/PHYSICAL_DISTRIBUTION/EDIT in last 90 days (coverage).
           // EDIT rows with quantity_change = 0 are filtered post-fetch.
+          // ⚠️ Explicit limit (50_000) — PostgREST defaults to 1000 rows, and a
+          // 90-day window already crosses that on the current dataset (~2k rows
+          // as of 2026-04). Without this the live breakdown silently truncates
+          // and diverges from the snapshot RPC. Hitting this ceiling logs a
+          // warning below.
           supabase
             .from('inventory_logs')
             .select('sku, action_type, quantity_change')
             .in('action_type', ['MOVE', 'ADD', 'PHYSICAL_DISTRIBUTION', 'EDIT'])
             .eq('is_reversed', false)
             .gte('created_at', twoMonthsAgo)
-            .lte('created_at', dayEnd),
+            .lte('created_at', dayEnd)
+            .limit(50_000),
           supabase.rpc('get_inventory_stats', { p_include_parts: true }),
           supabase
             .from('picking_list_notes')
@@ -202,6 +208,14 @@ export function useActivityReport(date: string) {
         quantity_change: number | null;
       }
       const moveAddRows = (moveAddRes.data ?? []) as MoveAddLogRow[];
+      if (moveAddRows.length >= 50_000) {
+        // If we ever hit this it means the dataset has outgrown the live
+        // hook's single-page fetch — bullets will undercount and snapshot/
+        // live will drift. Bump the limit or page through with .range().
+        console.warn(
+          '[useActivityReport] inventory_logs window hit the 50_000-row ceiling — accuracy breakdown may be incomplete.'
+        );
+      }
 
       const cycleCountedSet = new Set<string>(
         (verifiedRes.data ?? []).map((r) => r.sku).filter((s): s is string => !!s)
