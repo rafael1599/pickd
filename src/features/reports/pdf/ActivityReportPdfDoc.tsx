@@ -251,6 +251,41 @@ function HeroKpi({
           <Text style={{ fontWeight: 600, color: TONE.teal }}>{verifiedLabel}</Text> physically counted
           in the last 90 days.
         </Text>
+        {/* Breakdown by source category — idea-094 */}
+        {(() => {
+          const b = report.verified_skus_breakdown;
+          if (!b) return null;
+          const rows: Array<{ key: string; n: number; label: string }> = [
+            { key: 'cycle_counted', n: b.cycle_counted, label: 'cycle counted' },
+            { key: 'movements', n: b.movements, label: 'movements' },
+            { key: 'additions', n: b.additions, label: 'additions' },
+            { key: 'on_site_checked', n: b.on_site_checked, label: 'on-site checked' },
+            { key: 'quantity_edited', n: b.quantity_edited, label: 'quantity edited' },
+          ].filter((r) => r.n > 0);
+          if (rows.length === 0) return null;
+          return (
+            <View style={{ marginTop: 6 }}>
+              {rows.map((r) => (
+                <Text
+                  key={r.key}
+                  style={{
+                    fontFamily: SANS,
+                    fontSize: heroBody - 1,
+                    color: TONE.ink2,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  <Text style={{ color: TONE.teal, fontWeight: 700 }}>{'•'}</Text>
+                  {'  '}
+                  <Text style={{ fontWeight: 700, color: TONE.ink }}>
+                    {r.n.toLocaleString()}
+                  </Text>{' '}
+                  {r.label}
+                </Text>
+              ))}
+            </View>
+          );
+        })()}
       </View>
 
       {/* Right: progress bar + 90-day sparkline */}

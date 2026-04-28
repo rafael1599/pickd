@@ -7,7 +7,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
-import type { UserActivity } from './useActivityReport';
+import type { UserActivity, VerifiedSkusBreakdown } from './useActivityReport';
 
 export interface DailyReportComputed {
   warehouse_totals: {
@@ -19,6 +19,12 @@ export interface DailyReportComputed {
     verified_skus_2m: number;
     total_skus: number;
   };
+  /**
+   * Optional breakdown of `verified_skus_2m` by source category (idea-094).
+   * Older snapshots written before this column was emitted will not include
+   * this field; consumers must treat it as nullable.
+   */
+  verified_skus_breakdown?: VerifiedSkusBreakdown;
   correction_count: number;
   users: UserActivity[];
   schema_version?: number;
