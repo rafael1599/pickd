@@ -379,16 +379,23 @@ export function useActivityReport(date: string) {
       const inventoryBySku = new Map<string, InventoryRow[]>();
       const itemNameBySku = new Map<string, string>();
       if (uniqueSkus.size > 0) {
+        // Fetch ALL inventory rows for these SKUs (including qty=0). The
+        // item_name often lives on a stale row with qty=0 while the freshly
+        // moved-into row has an empty name — filtering by qty>0 here would
+        // hide the SKU from the report. We do qty>0 filtering in JS below for
+        // totals and locations, but use any non-empty item_name across all
+        // rows to identify the SKU.
         const { data: inventoryData } = await supabase
           .from('inventory')
           .select('sku, item_name, location, sublocation, quantity')
           .in('sku', [...uniqueSkus])
-          .gt('quantity', 0)
           .limit(50_000);
         for (const r of (inventoryData ?? []) as InventoryRow[]) {
-          const list = inventoryBySku.get(r.sku) ?? [];
-          list.push(r);
-          inventoryBySku.set(r.sku, list);
+          if ((r.quantity ?? 0) > 0) {
+            const list = inventoryBySku.get(r.sku) ?? [];
+            list.push(r);
+            inventoryBySku.set(r.sku, list);
+          }
           if (r.item_name && r.item_name.trim() && !itemNameBySku.has(r.sku)) {
             itemNameBySku.set(r.sku, r.item_name.trim());
           }
