@@ -681,9 +681,11 @@ function SummaryPage(props: ActivityReportPdfDocProps & { totalPages: number }) 
         </>
       )}
 
-      {/* 03 — THE WORK · 2×2 activity grid. Each card hides itself when
-          empty; rows hide when both children are empty; the section header
-          hides when nothing renders below. */}
+      {/* 03 — THE WORK · 2×2 activity grid. Always starts on a new page
+          (per request 2026-04-28) so the warehouse activity has room to
+          breathe and isn't squeezed under the KPI/Win on page 1. Each card
+          hides itself when empty; rows hide when both children are empty;
+          the section header hides when nothing renders below. */}
       {(() => {
         const doneItems = mapTasksToItems(props.doneToday, true);
         const inProgItems = mapTasksToItems(props.inProgress, true);
@@ -693,12 +695,12 @@ function SummaryPage(props: ActivityReportPdfDocProps & { totalPages: number }) 
         const row2Visible = upNextItems.length > 0 || floorItems.length > 0;
         if (!row1Visible && !row2Visible) return null;
         return (
-          <>
+          <View break>
             <StepHeader
               n="03"
               label="THE WORK · DONE / NOW / NEXT / FLOOR"
               color={TONE.ink}
-              marginTop={gap}
+              marginTop={0}
             />
             {row1Visible && (
               <View style={{ flexDirection: 'row', gap: gap - 2, marginBottom: gap - 4 }}>
@@ -712,7 +714,7 @@ function SummaryPage(props: ActivityReportPdfDocProps & { totalPages: number }) 
                 <ActivityCard title="ON THE FLOOR" items={floorItems} density={density} />
               </View>
             )}
-          </>
+          </View>
         );
       })()}
 
