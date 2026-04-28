@@ -37,7 +37,7 @@ export interface TodayLocationQty {
 export interface TodayMoveEvent {
   sku: string;
   item_name: string;
-  from_location: string;
+  from_location: string; // location only — sublocation intentionally hidden
   to_location: string;
   // qty_moved is null when the underlying log row doesn't tell us (idea-098:
   // MOVE rows currently emit quantity_change=0; we fall back to
@@ -48,26 +48,15 @@ export interface TodayMoveEvent {
   total_now: number;
   earliest_ts: string;
 }
-export interface TodayVerifiedEvent {
+export interface TodayConsolidationEvent {
   sku: string;
   item_name: string;
-  primary_location: string;
-  other_locations: TodayLocationQty[];
-  total_now: number;
-  earliest_ts: string;
-}
-export interface TodayAddedEvent {
-  sku: string;
-  item_name: string;
-  qty_added: number;
-  to_location: string;
-  total_now: number;
+  location: string; // location only — sublocation intentionally hidden
   earliest_ts: string;
 }
 export interface TodayEvents {
   moved: TodayMoveEvent[];
-  verified: TodayVerifiedEvent[];
-  added: TodayAddedEvent[];
+  consolidated: TodayConsolidationEvent[];
 }
 
 export interface ActivityReport {
@@ -181,12 +170,14 @@ export function useActivityReport(date: string) {
             .gte('created_at', dayStart)
             .lte('created_at', dayEnd),
           // idea-097 — today's per-SKU events for the new tables (live only).
+          // MOVE → "Moved" section. EDIT with quantity_change=0 → "Consolidation"
+          // section (sublocation/distribution metadata edits, no stock movement).
           supabase
             .from('inventory_logs')
             .select(
               'sku, action_type, from_location, to_location, quantity_change, prev_quantity, new_quantity, created_at'
             )
-            .in('action_type', ['MOVE', 'ADD', 'PHYSICAL_DISTRIBUTION'])
+            .in('action_type', ['MOVE', 'EDIT'])
             .eq('is_reversed', false)
             .gte('created_at', dayStart)
             .lte('created_at', dayEnd)
@@ -378,11 +369,12 @@ export function useActivityReport(date: string) {
       }
 
       const todayLogs = (todayLogsRes.data ?? []) as TodayLogRow[];
-      const todayCycles = (todayCyclesRes.data ?? []) as TodayCycleSkuRow[];
+      // Note: todayCycles is still fetched (used for the legacy verified_skus_2m
+      // KPI denominator) but no longer drives a report section.
+      void (todayCyclesRes.data as TodayCycleSkuRow[] | null);
 
       const uniqueSkus = new Set<string>();
       for (const l of todayLogs) if (l.sku) uniqueSkus.add(l.sku);
-      for (const c of todayCycles) if (c.sku) uniqueSkus.add(c.sku);
 
       const inventoryBySku = new Map<string, InventoryRow[]>();
       const itemNameBySku = new Map<string, string>();
@@ -403,17 +395,19 @@ export function useActivityReport(date: string) {
         }
       }
 
-      const fmtLoc = (location: string, sublocation: string[] | null | undefined): string => {
-        if (!sublocation || sublocation.length === 0) return location;
-        return `${location} / ${sublocation.join(',')}`;
-      };
+      // Sublocations are intentionally hidden in the report (per user request);
+      // only the parent location shows.
       const totalForSku = (sku: string): number =>
         (inventoryBySku.get(sku) ?? []).reduce((sum, r) => sum + (r.quantity ?? 0), 0);
       const otherLocsForSku = (sku: string, exclude: string): TodayLocationQty[] =>
         (inventoryBySku.get(sku) ?? [])
           .filter((r) => r.location !== exclude)
-          .map((r) => ({ location: fmtLoc(r.location, r.sublocation), qty: r.quantity }))
+          .map((r) => ({ location: r.location, qty: r.quantity }))
           .sort((a, b) => b.qty - a.qty);
+      const primaryLocationForSku = (sku: string): string => {
+        const rows = (inventoryBySku.get(sku) ?? []).slice().sort((a, b) => b.quantity - a.quantity);
+        return rows[0]?.location ?? '—';
+      };
 
       // MOVED — dedupe per SKU, keep latest move event for that SKU today.
       const movedBySku = new Map<string, TodayLogRow>();
@@ -429,8 +423,8 @@ export function useActivityReport(date: string) {
       for (const [sku, l] of movedBySku) {
         const others = otherLocsForSku(sku, l.to_location ?? '');
         // idea-098 dependency: MOVE rows have quantity_change=0 in prod, so we
-        // fall back to prev-new on the source row. If that's also missing,
-        // hide the (n) suffix instead of guessing.
+        // fall back to prev-new on the source row. If both are missing we hide
+        // the (n) suffix instead of guessing.
         const fromAbs = Math.abs(l.quantity_change ?? 0);
         const fromDelta = (l.prev_quantity ?? 0) - (l.new_quantity ?? 0);
         const qtyMoved = fromAbs > 0 ? fromAbs : fromDelta > 0 ? fromDelta : null;
@@ -450,88 +444,33 @@ export function useActivityReport(date: string) {
       }
       const movedSkuSet = new Set(moved.map((m) => m.sku));
 
-      // VERIFIED ON SITE — PHYSICAL_DISTRIBUTION today ∪ cycle_count_items today.
-      // Cross-section dedupe: SKU in MOVED is excluded here.
-      const verifiedTimes = new Map<string, string>();
+      // CONSOLIDATION — sublocation/distribution metadata edits today.
+      // Heuristic: inventory_logs.EDIT rows with quantity_change=0 are
+      // metadata-only edits (location/sublocation/distribution tweaks).
+      // Dedupe per SKU, keep earliest event today; exclude SKUs already in MOVED.
+      const consolidatedTimes = new Map<string, string>();
       for (const l of todayLogs) {
-        if (l.action_type !== 'PHYSICAL_DISTRIBUTION') continue;
+        if (l.action_type !== 'EDIT') continue;
+        if ((l.quantity_change ?? 0) !== 0) continue;
         if (!l.sku || movedSkuSet.has(l.sku)) continue;
         if (!itemNameBySku.has(l.sku)) continue;
-        const cur = verifiedTimes.get(l.sku);
-        if (!cur || l.created_at < cur) verifiedTimes.set(l.sku, l.created_at);
+        const cur = consolidatedTimes.get(l.sku);
+        if (!cur || l.created_at < cur) consolidatedTimes.set(l.sku, l.created_at);
       }
-      for (const c of todayCycles) {
-        if (!c.sku || movedSkuSet.has(c.sku)) continue;
-        if (!itemNameBySku.has(c.sku)) continue;
-        const cur = verifiedTimes.get(c.sku);
-        if (!cur || c.counted_at < cur) verifiedTimes.set(c.sku, c.counted_at);
-      }
-
-      const verified: TodayVerifiedEvent[] = [];
-      for (const [sku, ts] of verifiedTimes) {
-        const rows = (inventoryBySku.get(sku) ?? [])
-          .slice()
-          .sort((a, b) => b.quantity - a.quantity);
-        const primary = rows[0];
-        const others = rows.slice(1).map((r) => ({
-          location: fmtLoc(r.location, r.sublocation),
-          qty: r.quantity,
-        }));
-        verified.push({
+      const consolidated: TodayConsolidationEvent[] = [];
+      for (const [sku, ts] of consolidatedTimes) {
+        consolidated.push({
           sku,
           item_name: itemNameBySku.get(sku) ?? sku,
-          primary_location: primary ? fmtLoc(primary.location, primary.sublocation) : '—',
-          other_locations: others,
-          total_now: totalForSku(sku),
+          location: primaryLocationForSku(sku),
           earliest_ts: ts,
         });
       }
 
-      // ADDED — dedupe per SKU. Aggregate qty across all ADD events for that
-      // SKU today; pick destination from the earliest event.
-      const addedAgg = new Map<
-        string,
-        { qty: number; earliestTs: string; toLocation: string }
-      >();
-      for (const l of todayLogs) {
-        if (l.action_type !== 'ADD') continue;
-        if (!l.sku || !itemNameBySku.has(l.sku)) continue;
-        const qty = Math.abs(l.quantity_change ?? 0);
-        const cur = addedAgg.get(l.sku);
-        if (!cur) {
-          addedAgg.set(l.sku, {
-            qty,
-            earliestTs: l.created_at,
-            toLocation: l.to_location ?? '',
-          });
-        } else {
-          cur.qty += qty;
-          if (l.created_at < cur.earliestTs) {
-            cur.earliestTs = l.created_at;
-            cur.toLocation = l.to_location ?? cur.toLocation;
-          }
-        }
-      }
-
-      const added: TodayAddedEvent[] = [];
-      for (const [sku, agg] of addedAgg) {
-        const inventoryRows = inventoryBySku.get(sku) ?? [];
-        const matching = inventoryRows.find((r) => r.location === agg.toLocation);
-        added.push({
-          sku,
-          item_name: itemNameBySku.get(sku) ?? sku,
-          qty_added: agg.qty,
-          to_location: fmtLoc(agg.toLocation, matching?.sublocation),
-          total_now: totalForSku(sku),
-          earliest_ts: agg.earliestTs,
-        });
-      }
-
       moved.sort((a, b) => a.earliest_ts.localeCompare(b.earliest_ts));
-      verified.sort((a, b) => a.earliest_ts.localeCompare(b.earliest_ts));
-      added.sort((a, b) => a.earliest_ts.localeCompare(b.earliest_ts));
+      consolidated.sort((a, b) => a.earliest_ts.localeCompare(b.earliest_ts));
 
-      const today_events: TodayEvents = { moved, verified, added };
+      const today_events: TodayEvents = { moved, consolidated };
 
       return {
         date,

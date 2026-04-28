@@ -3,8 +3,7 @@ import type {
   ActivityReport,
   TodayEvents,
   TodayMoveEvent,
-  TodayVerifiedEvent,
-  TodayAddedEvent,
+  TodayConsolidationEvent,
 } from '../hooks/useActivityReport';
 import type { ReportTask } from '../../projects/hooks/useProjectReportData';
 import type { LowStockAlerts } from '../hooks/useLowStockAlerts';
@@ -281,28 +280,11 @@ const MovedRow: React.FC<{ ev: TodayMoveEvent }> = ({ ev }) => {
   );
 };
 
-const VerifiedRow: React.FC<{ ev: TodayVerifiedEvent }> = ({ ev }) => (
+const ConsolidatedRow: React.FC<{ ev: TodayConsolidationEvent }> = ({ ev }) => (
   <tr>
-    <td style={cellStyle}>{ev.item_name}</td>
-    <td style={{ ...cellStyle, ...skuStyle }}>{ev.sku}</td>
     <td style={cellStyle}>
-      {ev.primary_location}
-      {ev.other_locations.length > 0 && (
-        <span style={subLineStyle}>also {fmtOthers(ev.other_locations)}</span>
-      )}
+      {ev.item_name} <span style={skuStyle}>({ev.sku})</span>, consolidated on {ev.location}
     </td>
-    <td style={totalStyle}>{ev.total_now}</td>
-  </tr>
-);
-
-const AddedRow: React.FC<{ ev: TodayAddedEvent }> = ({ ev }) => (
-  <tr>
-    <td style={cellStyle}>{ev.item_name}</td>
-    <td style={{ ...cellStyle, ...skuStyle }}>{ev.sku}</td>
-    <td style={cellStyle}>
-      +{ev.qty_added} → {ev.to_location}
-    </td>
-    <td style={totalStyle}>{ev.total_now}</td>
   </tr>
 );
 
@@ -312,39 +294,31 @@ const TodayInventoryEventsBlock: React.FC<{ events?: TodayEvents | null }> = ({
   // Defensive: persisted IndexedDB cache from pre-idea-097 deploys lacks
   // `today_events`. Treat missing as "no events today" instead of crashing.
   const moved = events?.moved ?? [];
-  const verified = events?.verified ?? [];
-  const added = events?.added ?? [];
-  const sections: Array<{
-    key: 'moved' | 'verified' | 'added';
+  const consolidated = events?.consolidated ?? [];
+  type Section = {
+    key: 'moved' | 'consolidated';
     title: string;
     color: string;
-    locHeader: string;
+    headers: string[]; // empty array → no header row
     rows: React.ReactNode;
     count: number;
-  }> = [
+  };
+  const sections: Section[] = [
     {
       key: 'moved',
       title: 'Moved',
       color: BLUE,
-      locHeader: 'From → To',
+      headers: ['Item', 'SKU', 'From → To', 'Total'],
       count: moved.length,
       rows: moved.map((ev) => <MovedRow key={ev.sku} ev={ev} />),
     },
     {
-      key: 'verified',
-      title: 'Verified on site',
+      key: 'consolidated',
+      title: 'Consolidation',
       color: EMERALD,
-      locHeader: 'Location',
-      count: verified.length,
-      rows: verified.map((ev) => <VerifiedRow key={ev.sku} ev={ev} />),
-    },
-    {
-      key: 'added',
-      title: 'Added',
-      color: AMBER,
-      locHeader: 'Added → Location',
-      count: added.length,
-      rows: added.map((ev) => <AddedRow key={ev.sku} ev={ev} />),
+      headers: [],
+      count: consolidated.length,
+      rows: consolidated.map((ev) => <ConsolidatedRow key={ev.sku} ev={ev} />),
     },
   ];
 
@@ -367,14 +341,24 @@ const TodayInventoryEventsBlock: React.FC<{ events?: TodayEvents | null }> = ({
                 tableLayout: 'auto',
               }}
             >
-              <thead>
-                <tr>
-                  <th style={cellHeadStyle}>Item</th>
-                  <th style={cellHeadStyle}>SKU</th>
-                  <th style={cellHeadStyle}>{section.locHeader}</th>
-                  <th style={{ ...cellHeadStyle, textAlign: 'right' }}>Total</th>
-                </tr>
-              </thead>
+              {section.headers.length > 0 && (
+                <thead>
+                  <tr>
+                    {section.headers.map((h, i) => (
+                      <th
+                        key={h}
+                        style={
+                          i === section.headers.length - 1 && h === 'Total'
+                            ? { ...cellHeadStyle, textAlign: 'right' }
+                            : cellHeadStyle
+                        }
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+              )}
               <tbody>{section.rows}</tbody>
             </table>
           </div>

@@ -180,7 +180,7 @@ export const ActivityReportScreen = () => {
         completed_orders_with_photos: liveReport?.completed_orders_with_photos ?? [],
         // idea-097 — per-SKU today's events are live-only. Past-day snapshots
         // render an empty block (the section headers hide themselves at N=0).
-        today_events: liveReport?.today_events ?? { moved: [], verified: [], added: [] },
+        today_events: liveReport?.today_events ?? { moved: [], consolidated: [] },
       };
     }
     return liveReport ?? null;

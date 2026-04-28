@@ -18,8 +18,7 @@ import type { ReactNode } from 'react';
 import type {
   ActivityReport,
   TodayMoveEvent,
-  TodayVerifiedEvent,
-  TodayAddedEvent,
+  TodayConsolidationEvent,
 } from '../hooks/useActivityReport';
 import type { ReportTask } from '../../projects/hooks/useProjectReportData';
 import { registerPdfFonts } from '../../../lib/pdf/fonts';
@@ -198,80 +197,42 @@ const pdfCell = (width: string, align: 'left' | 'right' = 'left') => ({
 
 function TodayEventsPdfBlock({ report }: { report: ActivityReport }) {
   // Defensive: persisted cache from pre-idea-097 may lack today_events.
-  const today = report.today_events ?? { moved: [], verified: [], added: [] };
-  const { moved, verified, added } = today;
-  const sections = [
-    { key: 'moved', title: 'Moved', color: TONE.teal, locHeader: 'From → To', items: moved },
-    {
-      key: 'verified',
-      title: 'Verified on site',
-      color: TONE.teal,
-      locHeader: 'Location',
-      items: verified,
-    },
-    { key: 'added', title: 'Added', color: TONE.teal, locHeader: 'Added → Location', items: added },
-  ] as const;
-  const visible = sections.filter((s) => s.items.length > 0);
-  if (visible.length === 0) return null;
+  const today = report.today_events ?? { moved: [], consolidated: [] };
+  const { moved, consolidated } = today;
+  const visibleMoved = moved.length > 0;
+  const visibleConsolidated = consolidated.length > 0;
+  if (!visibleMoved && !visibleConsolidated) return null;
 
   const fmtOthers = (others: { location: string; qty: number }[]) =>
     others.map((o) => `${o.location} (${o.qty})`).join(', ');
+  const sectionTitleStyle = {
+    fontFamily: SANS,
+    fontSize: 8,
+    fontWeight: 700 as const,
+    letterSpacing: 1.2,
+    color: TONE.teal,
+    textTransform: 'uppercase' as const,
+    marginBottom: 4,
+  };
 
   return (
     <View style={{ marginTop: 8 }}>
-      {visible.map((section) => (
-        <View key={section.key} style={{ marginBottom: 10 }}>
-          <Text
-            style={{
-              fontFamily: SANS,
-              fontSize: 8,
-              fontWeight: 700,
-              letterSpacing: 1.2,
-              color: section.color,
-              textTransform: 'uppercase',
-              marginBottom: 4,
-            }}
-          >
-            {section.title} — {section.items.length}
-          </Text>
+      {visibleMoved && (
+        <View style={{ marginBottom: 10 }}>
+          <Text style={sectionTitleStyle}>Moved — {moved.length}</Text>
           {/* Header row */}
           <View style={pdfRowStyle}>
             <Text style={pdfHeadCell('40%')}>Item</Text>
             <Text style={{ ...pdfHeadCell('20%'), fontFamily: MONO }}>SKU</Text>
-            <Text style={pdfHeadCell('30%')}>{section.locHeader}</Text>
+            <Text style={pdfHeadCell('30%')}>From → To</Text>
             <Text style={pdfHeadCell('10%', 'right')}>Total</Text>
           </View>
-          {/* Body rows */}
-          {section.key === 'moved' &&
-            (section.items as TodayMoveEvent[]).map((ev) => {
-              const arrow = ev.from_location
-                ? `${ev.from_location} → ${ev.to_location}`
-                : `→ ${ev.to_location}`;
-              const arrowQty = ev.show_qty_in_arrow ? `${arrow} (${ev.qty_moved})` : arrow;
-              return (
-                <View key={ev.sku} style={pdfRowStyle}>
-                  <Text style={pdfCell('40%')}>{ev.item_name}</Text>
-                  <Text style={{ ...pdfCell('20%'), fontFamily: MONO, color: TONE.ink2 }}>
-                    {ev.sku}
-                  </Text>
-                  <View style={{ width: '30%', paddingHorizontal: 4 }}>
-                    <Text style={{ fontSize: PDF_TBL_FONT, fontFamily: SANS, color: TONE.ink }}>
-                      {arrowQty}
-                    </Text>
-                    {ev.other_locations.length > 0 && (
-                      <Text
-                        style={{ fontSize: PDF_TBL_FONT - 1.5, fontFamily: SANS, color: TONE.ink2 }}
-                      >
-                        also {fmtOthers(ev.other_locations)}
-                      </Text>
-                    )}
-                  </View>
-                  <Text style={{ ...pdfCell('10%', 'right'), fontWeight: 700 }}>{ev.total_now}</Text>
-                </View>
-              );
-            })}
-          {section.key === 'verified' &&
-            (section.items as TodayVerifiedEvent[]).map((ev) => (
+          {(moved as TodayMoveEvent[]).map((ev) => {
+            const arrow = ev.from_location
+              ? `${ev.from_location} → ${ev.to_location}`
+              : `→ ${ev.to_location}`;
+            const arrowQty = ev.show_qty_in_arrow ? `${arrow} (${ev.qty_moved})` : arrow;
+            return (
               <View key={ev.sku} style={pdfRowStyle}>
                 <Text style={pdfCell('40%')}>{ev.item_name}</Text>
                 <Text style={{ ...pdfCell('20%'), fontFamily: MONO, color: TONE.ink2 }}>
@@ -279,7 +240,7 @@ function TodayEventsPdfBlock({ report }: { report: ActivityReport }) {
                 </Text>
                 <View style={{ width: '30%', paddingHorizontal: 4 }}>
                   <Text style={{ fontSize: PDF_TBL_FONT, fontFamily: SANS, color: TONE.ink }}>
-                    {ev.primary_location}
+                    {arrowQty}
                   </Text>
                   {ev.other_locations.length > 0 && (
                     <Text
@@ -291,22 +252,24 @@ function TodayEventsPdfBlock({ report }: { report: ActivityReport }) {
                 </View>
                 <Text style={{ ...pdfCell('10%', 'right'), fontWeight: 700 }}>{ev.total_now}</Text>
               </View>
-            ))}
-          {section.key === 'added' &&
-            (section.items as TodayAddedEvent[]).map((ev) => (
-              <View key={ev.sku} style={pdfRowStyle}>
-                <Text style={pdfCell('40%')}>{ev.item_name}</Text>
-                <Text style={{ ...pdfCell('20%'), fontFamily: MONO, color: TONE.ink2 }}>
-                  {ev.sku}
-                </Text>
-                <Text style={pdfCell('30%')}>
-                  +{ev.qty_added} → {ev.to_location}
-                </Text>
-                <Text style={{ ...pdfCell('10%', 'right'), fontWeight: 700 }}>{ev.total_now}</Text>
-              </View>
-            ))}
+            );
+          })}
         </View>
-      ))}
+      )}
+      {visibleConsolidated && (
+        <View style={{ marginBottom: 10 }}>
+          <Text style={sectionTitleStyle}>Consolidation — {consolidated.length}</Text>
+          {(consolidated as TodayConsolidationEvent[]).map((ev) => (
+            <View key={ev.sku} style={pdfRowStyle}>
+              <Text style={{ fontSize: PDF_TBL_FONT, fontFamily: SANS, color: TONE.ink }}>
+                {ev.item_name}{' '}
+                <Text style={{ fontFamily: MONO, color: TONE.ink2 }}>({ev.sku})</Text>, consolidated
+                on {ev.location}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
