@@ -445,6 +445,9 @@ function ActivityCard({
   items: ActivityItem[];
   density: Density;
 }) {
+  // Hide the card entirely when there's nothing to show — the empty
+  // 'TITLE 0 — ' placeholder was just visual noise.
+  if (items.length === 0) return null;
   const bodyFs = density === 'sparse' ? 10.5 : density === 'dense' ? 9 : 10;
   const pad = density === 'sparse' ? 12 : density === 'dense' ? 8 : 10;
   return (
@@ -678,37 +681,40 @@ function SummaryPage(props: ActivityReportPdfDocProps & { totalPages: number }) 
         </>
       )}
 
-      {/* 03 — THE WORK · 2×2 activity grid */}
-      <StepHeader
-        n="03"
-        label="THE WORK · DONE / NOW / NEXT / FLOOR"
-        color={TONE.ink}
-        marginTop={gap}
-      />
-      <View style={{ flexDirection: 'row', gap: gap - 2, marginBottom: gap - 4 }}>
-        <ActivityCard
-          title="DONE TODAY"
-          items={mapTasksToItems(props.doneToday, true)}
-          density={density}
-        />
-        <ActivityCard
-          title="IN PROGRESS"
-          items={mapTasksToItems(props.inProgress, true)}
-          density={density}
-        />
-      </View>
-      <View style={{ flexDirection: 'row', gap: gap - 2 }}>
-        <ActivityCard
-          title="COMING UP NEXT"
-          items={mapTasksToItems(props.comingUpNext, false)}
-          density={density}
-        />
-        <ActivityCard
-          title="ON THE FLOOR"
-          items={floorBullets.slice(0, 4).map(splitFloorBullet)}
-          density={density}
-        />
-      </View>
+      {/* 03 — THE WORK · 2×2 activity grid. Each card hides itself when
+          empty; rows hide when both children are empty; the section header
+          hides when nothing renders below. */}
+      {(() => {
+        const doneItems = mapTasksToItems(props.doneToday, true);
+        const inProgItems = mapTasksToItems(props.inProgress, true);
+        const upNextItems = mapTasksToItems(props.comingUpNext, false);
+        const floorItems = floorBullets.slice(0, 4).map(splitFloorBullet);
+        const row1Visible = doneItems.length > 0 || inProgItems.length > 0;
+        const row2Visible = upNextItems.length > 0 || floorItems.length > 0;
+        if (!row1Visible && !row2Visible) return null;
+        return (
+          <>
+            <StepHeader
+              n="03"
+              label="THE WORK · DONE / NOW / NEXT / FLOOR"
+              color={TONE.ink}
+              marginTop={gap}
+            />
+            {row1Visible && (
+              <View style={{ flexDirection: 'row', gap: gap - 2, marginBottom: gap - 4 }}>
+                <ActivityCard title="DONE TODAY" items={doneItems} density={density} />
+                <ActivityCard title="IN PROGRESS" items={inProgItems} density={density} />
+              </View>
+            )}
+            {row2Visible && (
+              <View style={{ flexDirection: 'row', gap: gap - 2 }}>
+                <ActivityCard title="COMING UP NEXT" items={upNextItems} density={density} />
+                <ActivityCard title="ON THE FLOOR" items={floorItems} density={density} />
+              </View>
+            )}
+          </>
+        );
+      })()}
 
       {/* 04 — PICKD UPDATES */}
       {props.pickdUpdates.length > 0 && (
