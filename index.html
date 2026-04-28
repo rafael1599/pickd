@@ -15,17 +15,17 @@
   <script>
     (function () {
       // Browser support gate. React 19 needs Safari 15.4+, Chrome 90+, Edge 90+,
-      // Firefox 90+. structuredClone is present in all of those and absent
-      // below — single clean feature check.
+      // Firefox 90+. structuredClone is a single clean feature check across
+      // all of those.
       //
-      // We paint via DOM API (no <head>/<style>/<script> tags inside JS string
-      // literals): Vite's HTML transform runs on this file at build time, finds
-      // the FIRST </style> in the document and injects the bundle script+link
-      // right after it. If that </style> is inside our string literal, Vite's
-      // injection breaks the literal mid-string — the browser sees a stray
-      // </script>, terminates the script with a SyntaxError, and the rest of
-      // the literal renders as visible body content. Keeping HTML out of the
-      // JS string avoids the trap.
+      // Two parser traps to remember:
+      //   1. Vite scans this file as HTML at build time and injects the bundle
+      //      after the first style closing tag it finds. Keep HTML out of JS
+      //      string literals so it does not match anything inside our code.
+      //   2. The browser HTML parser ends a script tag at the first script
+      //      closing sequence in the script body, even inside JS comments.
+      //      Never write a literal script-end-tag anywhere in this block,
+      //      not even in prose like this one.
       if (typeof window.structuredClone !== 'function') {
         window.__pickdUnsupported = true;
         var paint = function () {
@@ -89,7 +89,7 @@
         }, 5000);
       });
 
-      // Reload when a <script> tag or dynamic chunk fails to load (typically
+      // Reload when a script tag or dynamic chunk fails to load (typically
       // after a redeploy invalidates the old hashed asset URLs).
       window.addEventListener(
         'error',
