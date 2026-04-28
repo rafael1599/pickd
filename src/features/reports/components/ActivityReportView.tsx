@@ -336,6 +336,11 @@ export const ActivityReportView: React.FC<Props> = ({
   const updatesFlash = useHighlight(pickdUpdates.join('\n'));
   const checklistFlash = useHighlight(routineChecklist.join(','));
   const notesFlash = useHighlight(notes.map(n => n.text).join(','));
+  // Project section flashes (idea-096) — key on the filtered task IDs so
+  // the card flashes green each time the user ticks a checkbox in the editor.
+  const doneFlash = useHighlight(doneToday.map((t) => t.task_id).join(','));
+  const inProgressFlash = useHighlight(inProgress.map((t) => t.task_id).join(','));
+  const comingUpFlash = useHighlight(comingUpNext.map((t) => t.task_id).join(','));
   const totals = report.warehouse_totals;
   const users = report.users;
 
@@ -578,7 +583,7 @@ export const ActivityReportView: React.FC<Props> = ({
         {/* DONE TODAY — auto from kanban "Hecho" */}
         {hasDoneToday && (
           <>
-            <div style={cardStyle}>
+            <div style={cardStyle} className={doneFlash}>
               <p style={sectionHeaderStyle(EMERALD)}>DONE TODAY</p>
               {renderTaskList(doneToday, EMERALD, '\u25CF', openLightbox, printMode)}
             </div>
@@ -646,7 +651,7 @@ export const ActivityReportView: React.FC<Props> = ({
         {/* IN PROGRESS — conditional */}
         {hasInProgress && (
           <>
-            <div style={cardStyle}>
+            <div style={cardStyle} className={inProgressFlash}>
               <p style={sectionHeaderStyle(AMBER)}>IN PROGRESS</p>
               {renderTaskList(inProgress, AMBER, '\u25CF', openLightbox, printMode)}
             </div>
@@ -657,7 +662,7 @@ export const ActivityReportView: React.FC<Props> = ({
         {/* COMING UP NEXT — conditional */}
         {hasComingUp && (
           <>
-            <div style={cardStyle}>
+            <div style={cardStyle} className={comingUpFlash}>
               <p style={sectionHeaderStyle(BLUE)}>COMING UP NEXT</p>
               {renderTaskList(comingUpNext, BLUE, '\u25CB', openLightbox, printMode)}
             </div>
