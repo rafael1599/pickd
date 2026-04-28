@@ -15,7 +15,12 @@
 
 import { Document, Page, View, Text, Image, Svg, Rect } from '@react-pdf/renderer';
 import type { ReactNode } from 'react';
-import type { ActivityReport } from '../hooks/useActivityReport';
+import type {
+  ActivityReport,
+  TodayMoveEvent,
+  TodayVerifiedEvent,
+  TodayAddedEvent,
+} from '../hooks/useActivityReport';
 import type { ReportTask } from '../../projects/hooks/useProjectReportData';
 import { registerPdfFonts } from '../../../lib/pdf/fonts';
 import {
@@ -160,6 +165,150 @@ function StepHeader({
 }
 
 
+// ── idea-097 — Today's per-SKU events ──────────────────────────────────
+
+const PDF_TBL_FONT = 9;
+const PDF_TBL_HEAD = 7.5;
+
+const pdfRowStyle = {
+  flexDirection: 'row' as const,
+  borderBottomWidth: 0.5,
+  borderBottomColor: TONE.hair,
+  paddingVertical: 4,
+};
+const pdfHeadCell = (width: string, align: 'left' | 'right' = 'left') => ({
+  width,
+  fontSize: PDF_TBL_HEAD,
+  fontFamily: SANS,
+  fontWeight: 700,
+  letterSpacing: 0.6,
+  color: TONE.ink2,
+  textTransform: 'uppercase' as const,
+  textAlign: align,
+  paddingHorizontal: 4,
+});
+const pdfCell = (width: string, align: 'left' | 'right' = 'left') => ({
+  width,
+  fontSize: PDF_TBL_FONT,
+  fontFamily: SANS,
+  color: TONE.ink,
+  textAlign: align,
+  paddingHorizontal: 4,
+});
+
+function TodayEventsPdfBlock({ report }: { report: ActivityReport }) {
+  const { moved, verified, added } = report.today_events;
+  const sections = [
+    { key: 'moved', title: 'Moved', color: TONE.teal, locHeader: 'From → To', items: moved },
+    {
+      key: 'verified',
+      title: 'Verified on site',
+      color: TONE.teal,
+      locHeader: 'Location',
+      items: verified,
+    },
+    { key: 'added', title: 'Added', color: TONE.teal, locHeader: 'Added → Location', items: added },
+  ] as const;
+  const visible = sections.filter((s) => s.items.length > 0);
+  if (visible.length === 0) return null;
+
+  const fmtOthers = (others: { location: string; qty: number }[]) =>
+    others.map((o) => `${o.location} (${o.qty})`).join(', ');
+
+  return (
+    <View style={{ marginTop: 8 }}>
+      {visible.map((section) => (
+        <View key={section.key} style={{ marginBottom: 10 }}>
+          <Text
+            style={{
+              fontFamily: SANS,
+              fontSize: 8,
+              fontWeight: 700,
+              letterSpacing: 1.2,
+              color: section.color,
+              textTransform: 'uppercase',
+              marginBottom: 4,
+            }}
+          >
+            {section.title} — {section.items.length}
+          </Text>
+          {/* Header row */}
+          <View style={pdfRowStyle}>
+            <Text style={pdfHeadCell('40%')}>Item</Text>
+            <Text style={{ ...pdfHeadCell('20%'), fontFamily: MONO }}>SKU</Text>
+            <Text style={pdfHeadCell('30%')}>{section.locHeader}</Text>
+            <Text style={pdfHeadCell('10%', 'right')}>Total</Text>
+          </View>
+          {/* Body rows */}
+          {section.key === 'moved' &&
+            (section.items as TodayMoveEvent[]).map((ev) => {
+              const arrow = ev.from_location
+                ? `${ev.from_location} → ${ev.to_location}`
+                : `→ ${ev.to_location}`;
+              const arrowQty = ev.show_qty_in_arrow ? `${arrow} (${ev.qty_moved})` : arrow;
+              return (
+                <View key={ev.sku} style={pdfRowStyle}>
+                  <Text style={pdfCell('40%')}>{ev.item_name}</Text>
+                  <Text style={{ ...pdfCell('20%'), fontFamily: MONO, color: TONE.ink2 }}>
+                    {ev.sku}
+                  </Text>
+                  <View style={{ width: '30%', paddingHorizontal: 4 }}>
+                    <Text style={{ fontSize: PDF_TBL_FONT, fontFamily: SANS, color: TONE.ink }}>
+                      {arrowQty}
+                    </Text>
+                    {ev.other_locations.length > 0 && (
+                      <Text
+                        style={{ fontSize: PDF_TBL_FONT - 1.5, fontFamily: SANS, color: TONE.ink2 }}
+                      >
+                        also {fmtOthers(ev.other_locations)}
+                      </Text>
+                    )}
+                  </View>
+                  <Text style={{ ...pdfCell('10%', 'right'), fontWeight: 700 }}>{ev.total_now}</Text>
+                </View>
+              );
+            })}
+          {section.key === 'verified' &&
+            (section.items as TodayVerifiedEvent[]).map((ev) => (
+              <View key={ev.sku} style={pdfRowStyle}>
+                <Text style={pdfCell('40%')}>{ev.item_name}</Text>
+                <Text style={{ ...pdfCell('20%'), fontFamily: MONO, color: TONE.ink2 }}>
+                  {ev.sku}
+                </Text>
+                <View style={{ width: '30%', paddingHorizontal: 4 }}>
+                  <Text style={{ fontSize: PDF_TBL_FONT, fontFamily: SANS, color: TONE.ink }}>
+                    {ev.primary_location}
+                  </Text>
+                  {ev.other_locations.length > 0 && (
+                    <Text
+                      style={{ fontSize: PDF_TBL_FONT - 1.5, fontFamily: SANS, color: TONE.ink2 }}
+                    >
+                      also {fmtOthers(ev.other_locations)}
+                    </Text>
+                  )}
+                </View>
+                <Text style={{ ...pdfCell('10%', 'right'), fontWeight: 700 }}>{ev.total_now}</Text>
+              </View>
+            ))}
+          {section.key === 'added' &&
+            (section.items as TodayAddedEvent[]).map((ev) => (
+              <View key={ev.sku} style={pdfRowStyle}>
+                <Text style={pdfCell('40%')}>{ev.item_name}</Text>
+                <Text style={{ ...pdfCell('20%'), fontFamily: MONO, color: TONE.ink2 }}>
+                  {ev.sku}
+                </Text>
+                <Text style={pdfCell('30%')}>
+                  +{ev.qty_added} → {ev.to_location}
+                </Text>
+                <Text style={{ ...pdfCell('10%', 'right'), fontWeight: 700 }}>{ev.total_now}</Text>
+              </View>
+            ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 // ── Hero KPI ───────────────────────────────────────────────────────────
 
 function HeroKpi({
@@ -251,41 +400,9 @@ function HeroKpi({
           <Text style={{ fontWeight: 600, color: TONE.teal }}>{verifiedLabel}</Text> physically counted
           in the last 90 days.
         </Text>
-        {/* Breakdown by source category — idea-094 */}
-        {(() => {
-          const b = report.verified_skus_breakdown;
-          if (!b) return null;
-          const rows: Array<{ key: string; n: number; label: string }> = [
-            { key: 'cycle_counted', n: b.cycle_counted, label: 'cycle counted' },
-            { key: 'movements', n: b.movements, label: 'movements' },
-            { key: 'additions', n: b.additions, label: 'additions' },
-            { key: 'on_site_checked', n: b.on_site_checked, label: 'on-site checked' },
-            { key: 'quantity_edited', n: b.quantity_edited, label: 'quantity edited' },
-          ].filter((r) => r.n > 0);
-          if (rows.length === 0) return null;
-          return (
-            <View style={{ marginTop: 6 }}>
-              {rows.map((r) => (
-                <Text
-                  key={r.key}
-                  style={{
-                    fontFamily: SANS,
-                    fontSize: heroBody - 1,
-                    color: TONE.ink2,
-                    lineHeight: 1.4,
-                  }}
-                >
-                  <Text style={{ color: TONE.teal, fontWeight: 700 }}>{'•'}</Text>
-                  {'  '}
-                  <Text style={{ fontWeight: 700, color: TONE.ink }}>
-                    {r.n.toLocaleString()}
-                  </Text>{' '}
-                  {r.label}
-                </Text>
-              ))}
-            </View>
-          );
-        })()}
+        {/* idea-097 — per-SKU events tables render below HeroKpi (see
+            TodayEventsPdfBlock). The previous breakdown bullets were removed
+            here so the block has the full page width. */}
       </View>
 
       {/* Right: progress bar + 90-day sparkline */}
@@ -548,6 +665,7 @@ function SummaryPage(props: ActivityReportPdfDocProps & { totalPages: number }) 
         report={props.report}
         density={density}
       />
+      <TodayEventsPdfBlock report={props.report} />
 
       {/* 02 — WIN OF THE DAY */}
       {props.winOfTheDay.trim().length > 0 && (

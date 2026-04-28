@@ -29,6 +29,47 @@ export interface VerifiedSkusBreakdown {
   quantity_edited: number;
 }
 
+// idea-097 — today's per-SKU events for the Inventory Accuracy block.
+export interface TodayLocationQty {
+  location: string; // formatted "ROW 20B / A" when sublocation present
+  qty: number;
+}
+export interface TodayMoveEvent {
+  sku: string;
+  item_name: string;
+  from_location: string;
+  to_location: string;
+  // qty_moved is null when the underlying log row doesn't tell us (idea-098:
+  // MOVE rows currently emit quantity_change=0; we fall back to
+  // prev_quantity-new_quantity, but if both are missing we hide the (n) suffix).
+  qty_moved: number | null;
+  show_qty_in_arrow: boolean;
+  other_locations: TodayLocationQty[]; // excluding to_location
+  total_now: number;
+  earliest_ts: string;
+}
+export interface TodayVerifiedEvent {
+  sku: string;
+  item_name: string;
+  primary_location: string;
+  other_locations: TodayLocationQty[];
+  total_now: number;
+  earliest_ts: string;
+}
+export interface TodayAddedEvent {
+  sku: string;
+  item_name: string;
+  qty_added: number;
+  to_location: string;
+  total_now: number;
+  earliest_ts: string;
+}
+export interface TodayEvents {
+  moved: TodayMoveEvent[];
+  verified: TodayVerifiedEvent[];
+  added: TodayAddedEvent[];
+}
+
 export interface ActivityReport {
   date: string;
   users: UserActivity[];
@@ -38,6 +79,7 @@ export interface ActivityReport {
   total_skus: number;
   correction_count: number;
   completed_orders_with_photos: CompletedOrderPhotos[];
+  today_events: TodayEvents;
 }
 
 interface PickingRow {
@@ -75,8 +117,18 @@ export function useActivityReport(date: string) {
 
       const twoMonthsAgo = new Date(new Date(dayEnd).getTime() - 90 * 24 * 60 * 60 * 1000).toISOString();
 
-      const [pickingRes, logsRes, cycleRes, profilesRes, verifiedRes, moveAddRes, statsRes, notesRes] =
-        await Promise.all([
+      const [
+        pickingRes,
+        logsRes,
+        cycleRes,
+        profilesRes,
+        verifiedRes,
+        moveAddRes,
+        statsRes,
+        notesRes,
+        todayLogsRes,
+        todayCyclesRes,
+      ] = await Promise.all([
           supabase
             .from('picking_lists')
             .select('user_id, checked_by, items, order_number, pallet_photos')
@@ -126,6 +178,24 @@ export function useActivityReport(date: string) {
             .select('id')
             .gte('created_at', dayStart)
             .lte('created_at', dayEnd),
+          // idea-097 — today's per-SKU events for the new tables (live only).
+          supabase
+            .from('inventory_logs')
+            .select(
+              'sku, action_type, from_location, to_location, quantity_change, prev_quantity, new_quantity, created_at'
+            )
+            .in('action_type', ['MOVE', 'ADD', 'PHYSICAL_DISTRIBUTION'])
+            .eq('is_reversed', false)
+            .gte('created_at', dayStart)
+            .lte('created_at', dayEnd)
+            .limit(50_000),
+          supabase
+            .from('cycle_count_items')
+            .select('sku, counted_at')
+            .in('status', ['counted', 'verified'])
+            .gte('counted_at', dayStart)
+            .lte('counted_at', dayEnd)
+            .limit(50_000),
         ]);
 
       const profiles = (profilesRes.data ?? []) as ProfileRow[];
@@ -271,6 +341,186 @@ export function useActivityReport(date: string) {
         )
         .map((r) => ({ order_number: r.order_number, photos: r.pallet_photos }));
 
+      // idea-097 — today's per-SKU events.
+      // The interfaces are intentionally narrow: only fields needed by the View.
+      interface TodayLogRow {
+        sku: string | null;
+        action_type: string;
+        from_location: string | null;
+        to_location: string | null;
+        quantity_change: number | null;
+        prev_quantity: number | null;
+        new_quantity: number | null;
+        created_at: string;
+      }
+      interface TodayCycleSkuRow {
+        sku: string | null;
+        counted_at: string;
+      }
+      interface InventoryRow {
+        sku: string;
+        item_name: string | null;
+        location: string;
+        sublocation: string[] | null;
+        quantity: number;
+      }
+
+      const todayLogs = (todayLogsRes.data ?? []) as TodayLogRow[];
+      const todayCycles = (todayCyclesRes.data ?? []) as TodayCycleSkuRow[];
+
+      const uniqueSkus = new Set<string>();
+      for (const l of todayLogs) if (l.sku) uniqueSkus.add(l.sku);
+      for (const c of todayCycles) if (c.sku) uniqueSkus.add(c.sku);
+
+      const inventoryBySku = new Map<string, InventoryRow[]>();
+      const itemNameBySku = new Map<string, string>();
+      if (uniqueSkus.size > 0) {
+        const { data: inventoryData } = await supabase
+          .from('inventory')
+          .select('sku, item_name, location, sublocation, quantity')
+          .in('sku', [...uniqueSkus])
+          .gt('quantity', 0)
+          .limit(50_000);
+        for (const r of (inventoryData ?? []) as InventoryRow[]) {
+          const list = inventoryBySku.get(r.sku) ?? [];
+          list.push(r);
+          inventoryBySku.set(r.sku, list);
+          if (r.item_name && r.item_name.trim() && !itemNameBySku.has(r.sku)) {
+            itemNameBySku.set(r.sku, r.item_name.trim());
+          }
+        }
+      }
+
+      const fmtLoc = (location: string, sublocation: string[] | null | undefined): string => {
+        if (!sublocation || sublocation.length === 0) return location;
+        return `${location} / ${sublocation.join(',')}`;
+      };
+      const totalForSku = (sku: string): number =>
+        (inventoryBySku.get(sku) ?? []).reduce((sum, r) => sum + (r.quantity ?? 0), 0);
+      const otherLocsForSku = (sku: string, exclude: string): TodayLocationQty[] =>
+        (inventoryBySku.get(sku) ?? [])
+          .filter((r) => r.location !== exclude)
+          .map((r) => ({ location: fmtLoc(r.location, r.sublocation), qty: r.quantity }))
+          .sort((a, b) => b.qty - a.qty);
+
+      // MOVED — dedupe per SKU, keep latest move event for that SKU today.
+      const movedBySku = new Map<string, TodayLogRow>();
+      for (const l of todayLogs) {
+        if (l.action_type !== 'MOVE') continue;
+        if (!l.sku) continue;
+        if (!itemNameBySku.has(l.sku)) continue;
+        const cur = movedBySku.get(l.sku);
+        if (!cur || l.created_at > cur.created_at) movedBySku.set(l.sku, l);
+      }
+
+      const moved: TodayMoveEvent[] = [];
+      for (const [sku, l] of movedBySku) {
+        const others = otherLocsForSku(sku, l.to_location ?? '');
+        // idea-098 dependency: MOVE rows have quantity_change=0 in prod, so we
+        // fall back to prev-new on the source row. If that's also missing,
+        // hide the (n) suffix instead of guessing.
+        const fromAbs = Math.abs(l.quantity_change ?? 0);
+        const fromDelta = (l.prev_quantity ?? 0) - (l.new_quantity ?? 0);
+        const qtyMoved = fromAbs > 0 ? fromAbs : fromDelta > 0 ? fromDelta : null;
+        const isPartial = qtyMoved !== null && (l.prev_quantity ?? 0) > qtyMoved;
+        const showQty = qtyMoved !== null && (others.length > 0 || isPartial);
+        moved.push({
+          sku,
+          item_name: itemNameBySku.get(sku) ?? sku,
+          from_location: l.from_location ?? '',
+          to_location: l.to_location ?? '',
+          qty_moved: qtyMoved,
+          show_qty_in_arrow: showQty,
+          other_locations: others,
+          total_now: totalForSku(sku),
+          earliest_ts: l.created_at,
+        });
+      }
+      const movedSkuSet = new Set(moved.map((m) => m.sku));
+
+      // VERIFIED ON SITE — PHYSICAL_DISTRIBUTION today ∪ cycle_count_items today.
+      // Cross-section dedupe: SKU in MOVED is excluded here.
+      const verifiedTimes = new Map<string, string>();
+      for (const l of todayLogs) {
+        if (l.action_type !== 'PHYSICAL_DISTRIBUTION') continue;
+        if (!l.sku || movedSkuSet.has(l.sku)) continue;
+        if (!itemNameBySku.has(l.sku)) continue;
+        const cur = verifiedTimes.get(l.sku);
+        if (!cur || l.created_at < cur) verifiedTimes.set(l.sku, l.created_at);
+      }
+      for (const c of todayCycles) {
+        if (!c.sku || movedSkuSet.has(c.sku)) continue;
+        if (!itemNameBySku.has(c.sku)) continue;
+        const cur = verifiedTimes.get(c.sku);
+        if (!cur || c.counted_at < cur) verifiedTimes.set(c.sku, c.counted_at);
+      }
+
+      const verified: TodayVerifiedEvent[] = [];
+      for (const [sku, ts] of verifiedTimes) {
+        const rows = (inventoryBySku.get(sku) ?? [])
+          .slice()
+          .sort((a, b) => b.quantity - a.quantity);
+        const primary = rows[0];
+        const others = rows.slice(1).map((r) => ({
+          location: fmtLoc(r.location, r.sublocation),
+          qty: r.quantity,
+        }));
+        verified.push({
+          sku,
+          item_name: itemNameBySku.get(sku) ?? sku,
+          primary_location: primary ? fmtLoc(primary.location, primary.sublocation) : '—',
+          other_locations: others,
+          total_now: totalForSku(sku),
+          earliest_ts: ts,
+        });
+      }
+
+      // ADDED — dedupe per SKU. Aggregate qty across all ADD events for that
+      // SKU today; pick destination from the earliest event.
+      const addedAgg = new Map<
+        string,
+        { qty: number; earliestTs: string; toLocation: string }
+      >();
+      for (const l of todayLogs) {
+        if (l.action_type !== 'ADD') continue;
+        if (!l.sku || !itemNameBySku.has(l.sku)) continue;
+        const qty = Math.abs(l.quantity_change ?? 0);
+        const cur = addedAgg.get(l.sku);
+        if (!cur) {
+          addedAgg.set(l.sku, {
+            qty,
+            earliestTs: l.created_at,
+            toLocation: l.to_location ?? '',
+          });
+        } else {
+          cur.qty += qty;
+          if (l.created_at < cur.earliestTs) {
+            cur.earliestTs = l.created_at;
+            cur.toLocation = l.to_location ?? cur.toLocation;
+          }
+        }
+      }
+
+      const added: TodayAddedEvent[] = [];
+      for (const [sku, agg] of addedAgg) {
+        const inventoryRows = inventoryBySku.get(sku) ?? [];
+        const matching = inventoryRows.find((r) => r.location === agg.toLocation);
+        added.push({
+          sku,
+          item_name: itemNameBySku.get(sku) ?? sku,
+          qty_added: agg.qty,
+          to_location: fmtLoc(agg.toLocation, matching?.sublocation),
+          total_now: totalForSku(sku),
+          earliest_ts: agg.earliestTs,
+        });
+      }
+
+      moved.sort((a, b) => a.earliest_ts.localeCompare(b.earliest_ts));
+      verified.sort((a, b) => a.earliest_ts.localeCompare(b.earliest_ts));
+      added.sort((a, b) => a.earliest_ts.localeCompare(b.earliest_ts));
+
+      const today_events: TodayEvents = { moved, verified, added };
+
       return {
         date,
         users,
@@ -280,6 +530,7 @@ export function useActivityReport(date: string) {
         total_skus: totalSkus,
         correction_count: correctionCount,
         completed_orders_with_photos: completedOrdersWithPhotos,
+        today_events,
       } satisfies ActivityReport;
     },
     staleTime: 2 * 60_000,

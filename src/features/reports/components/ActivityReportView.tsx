@@ -1,5 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import type { ActivityReport } from '../hooks/useActivityReport';
+import type {
+  ActivityReport,
+  TodayEvents,
+  TodayMoveEvent,
+  TodayVerifiedEvent,
+  TodayAddedEvent,
+} from '../hooks/useActivityReport';
 import type { ReportTask } from '../../projects/hooks/useProjectReportData';
 import type { LowStockAlerts } from '../hooks/useLowStockAlerts';
 import { PhotoLightbox } from '../../../components/ui/PhotoLightbox';
@@ -210,6 +216,166 @@ function renderTaskList(
 
 const RED = '#dc2626';
 const AMBER_ALERT = '#d97706';
+
+// ─── idea-097 — Today's per-SKU events tables ──────────────────────────────
+const cellHeadStyle: React.CSSProperties = {
+  textAlign: 'left',
+  padding: '6px 10px',
+  fontSize: 10,
+  fontWeight: 700,
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
+  color: TEXT_MUTED,
+  borderBottom: `1px solid ${TEXT_MUTED}33`,
+};
+const cellStyle: React.CSSProperties = {
+  padding: '8px 10px',
+  fontSize: 13,
+  color: TEXT,
+  verticalAlign: 'top',
+  borderBottom: `1px solid ${TEXT_MUTED}1a`,
+};
+const skuStyle: React.CSSProperties = { fontSize: 11, color: TEXT_MUTED, fontFamily: 'monospace' };
+const totalStyle: React.CSSProperties = {
+  ...cellStyle,
+  textAlign: 'right',
+  fontWeight: 700,
+  color: TEXT_BOLD,
+  fontVariantNumeric: 'tabular-nums',
+};
+const subLineStyle: React.CSSProperties = {
+  display: 'block',
+  marginTop: 2,
+  fontSize: 11,
+  color: TEXT_MUTED,
+};
+const sectionTitleStyle = (color: string): React.CSSProperties => ({
+  margin: '0 0 6px 0',
+  fontSize: 11,
+  fontWeight: 800,
+  letterSpacing: '0.12em',
+  textTransform: 'uppercase',
+  color,
+});
+
+const fmtOthers = (others: { location: string; qty: number }[]): string =>
+  others.map((o) => `${o.location} (${o.qty})`).join(', ');
+
+const MovedRow: React.FC<{ ev: TodayMoveEvent }> = ({ ev }) => {
+  const arrow = ev.from_location
+    ? `${ev.from_location} → ${ev.to_location}`
+    : `→ ${ev.to_location}`;
+  const arrowWithQty = ev.show_qty_in_arrow ? `${arrow} (${ev.qty_moved})` : arrow;
+  return (
+    <tr>
+      <td style={cellStyle}>{ev.item_name}</td>
+      <td style={{ ...cellStyle, ...skuStyle }}>{ev.sku}</td>
+      <td style={cellStyle}>
+        {arrowWithQty}
+        {ev.other_locations.length > 0 && (
+          <span style={subLineStyle}>also {fmtOthers(ev.other_locations)}</span>
+        )}
+      </td>
+      <td style={totalStyle}>{ev.total_now}</td>
+    </tr>
+  );
+};
+
+const VerifiedRow: React.FC<{ ev: TodayVerifiedEvent }> = ({ ev }) => (
+  <tr>
+    <td style={cellStyle}>{ev.item_name}</td>
+    <td style={{ ...cellStyle, ...skuStyle }}>{ev.sku}</td>
+    <td style={cellStyle}>
+      {ev.primary_location}
+      {ev.other_locations.length > 0 && (
+        <span style={subLineStyle}>also {fmtOthers(ev.other_locations)}</span>
+      )}
+    </td>
+    <td style={totalStyle}>{ev.total_now}</td>
+  </tr>
+);
+
+const AddedRow: React.FC<{ ev: TodayAddedEvent }> = ({ ev }) => (
+  <tr>
+    <td style={cellStyle}>{ev.item_name}</td>
+    <td style={{ ...cellStyle, ...skuStyle }}>{ev.sku}</td>
+    <td style={cellStyle}>
+      +{ev.qty_added} → {ev.to_location}
+    </td>
+    <td style={totalStyle}>{ev.total_now}</td>
+  </tr>
+);
+
+const TodayInventoryEventsBlock: React.FC<{ events: TodayEvents }> = ({ events }) => {
+  const sections: Array<{
+    key: 'moved' | 'verified' | 'added';
+    title: string;
+    color: string;
+    locHeader: string;
+    rows: React.ReactNode;
+    count: number;
+  }> = [
+    {
+      key: 'moved',
+      title: 'Moved',
+      color: BLUE,
+      locHeader: 'From → To',
+      count: events.moved.length,
+      rows: events.moved.map((ev) => <MovedRow key={ev.sku} ev={ev} />),
+    },
+    {
+      key: 'verified',
+      title: 'Verified on site',
+      color: EMERALD,
+      locHeader: 'Location',
+      count: events.verified.length,
+      rows: events.verified.map((ev) => <VerifiedRow key={ev.sku} ev={ev} />),
+    },
+    {
+      key: 'added',
+      title: 'Added',
+      color: AMBER,
+      locHeader: 'Added → Location',
+      count: events.added.length,
+      rows: events.added.map((ev) => <AddedRow key={ev.sku} ev={ev} />),
+    },
+  ];
+
+  const visible = sections.filter((s) => s.count > 0);
+  if (visible.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      {visible.map((section) => (
+        <div key={section.key} style={{ marginBottom: 14 }}>
+          <p style={sectionTitleStyle(section.color)}>
+            {section.title} — {section.count}
+          </p>
+          <div style={{ overflowX: 'auto' }}>
+            <table
+              style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                fontFamily: FONT,
+                tableLayout: 'auto',
+              }}
+            >
+              <thead>
+                <tr>
+                  <th style={cellHeadStyle}>Item</th>
+                  <th style={cellHeadStyle}>SKU</th>
+                  <th style={cellHeadStyle}>{section.locHeader}</th>
+                  <th style={{ ...cellHeadStyle, textAlign: 'right' }}>Total</th>
+                </tr>
+              </thead>
+              <tbody>{section.rows}</tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 /**
  * Sub-block rendered inside the "ON THE FLOOR" card (idea-071). Shows SKUs
@@ -513,45 +679,9 @@ export const ActivityReportView: React.FC<Props> = ({
                 {report.verified_skus_2m} of {report.total_skus} SKUs have been physically counted
                 in the last 90 days.
               </p>
-              {/* Breakdown by source category — idea-094. Show only categories
-                  with count > 0; if all are zero (e.g., older snapshot without
-                  the breakdown field), render nothing extra. */}
-              {(() => {
-                const b = report.verified_skus_breakdown;
-                if (!b) return null;
-                const rows: Array<{ key: string; n: number; label: string }> = [
-                  { key: 'cycle_counted', n: b.cycle_counted, label: 'cycle counted' },
-                  { key: 'movements', n: b.movements, label: 'movements' },
-                  { key: 'additions', n: b.additions, label: 'additions' },
-                  { key: 'on_site_checked', n: b.on_site_checked, label: 'on-site checked' },
-                  { key: 'quantity_edited', n: b.quantity_edited, label: 'quantity edited' },
-                ].filter((r) => r.n > 0);
-                if (rows.length === 0) return null;
-                return (
-                  <ul
-                    style={{
-                      margin: '8px 0 0',
-                      padding: 0,
-                      listStyle: 'none',
-                      fontSize: 12,
-                      color: TEXT_MUTED,
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    {rows.map((r) => (
-                      <li key={r.key} style={{ margin: 0 }}>
-                        <span style={{ color: TEAL, fontWeight: 700 }}>&bull;</span>
-                        &nbsp;
-                        <span style={{ color: TEXT_BOLD, fontWeight: 700 }}>
-                          {r.n.toLocaleString()}
-                        </span>
-                        &nbsp;
-                        <span>{r.label}</span>
-                      </li>
-                    ))}
-                  </ul>
-                );
-              })()}
+              {/* Today's per-SKU events — idea-097. Replaces the per-source
+                  bullet list (idea-094). Sections with N=0 hide themselves. */}
+              <TodayInventoryEventsBlock events={report.today_events} />
             </div>
             <div style={spacerStyle} />
           </>

@@ -178,6 +178,9 @@ export const ActivityReportScreen = () => {
         correction_count: c.correction_count,
         // Photos are live (not snapshotted) — pull from live query if available
         completed_orders_with_photos: liveReport?.completed_orders_with_photos ?? [],
+        // idea-097 — per-SKU today's events are live-only. Past-day snapshots
+        // render an empty block (the section headers hide themselves at N=0).
+        today_events: liveReport?.today_events ?? { moved: [], verified: [], added: [] },
       };
     }
     return liveReport ?? null;
