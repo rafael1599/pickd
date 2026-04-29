@@ -22,6 +22,7 @@ import Settings from 'lucide-react/dist/esm/icons/settings';
 import Package from 'lucide-react/dist/esm/icons/package';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { getUserColor, getUserBgColor } from '../../utils/userUtils';
+import { moveDeltaUnits } from './utils/inventoryLogShape';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { useError } from '../../context/ErrorContext';
@@ -191,13 +192,9 @@ export const HistoryScreen = () => {
       const snap = l.snapshot_before as DistributionSnapshot | null | undefined;
       return snap?.count && snap?.units_each ? snap.count * snap.units_each : (l.new_quantity ?? 0);
     }
-    // For MOVE logs where quantity_change is 0 but it was actually a location rename, show the total quantity moved
-    if (
-      l.action_type === 'MOVE' &&
-      (l.quantity_change === 0 || !l.quantity_change) &&
-      l.new_quantity
-    )
-      return l.new_quantity;
+    // MOVE logs: tolerate both historical Shape A (qc=0, prev=new=N) and
+    // current Shape B (qc=-N, new=0) via the centralized helper.
+    if (l.action_type === 'MOVE') return moveDeltaUnits(l) ?? 0;
     return Math.abs(l.quantity_change || 0);
   }, []);
 

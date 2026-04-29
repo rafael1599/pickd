@@ -586,6 +586,16 @@ class InventoryService extends BaseService<
       const isRename = hasSkuChanged;
       const actionType = isRename ? 'EDIT' : 'MOVE';
 
+      // For MOVE events emit the same audit shape as CASE 2 (collision):
+      // quantity_change = -source_qty, new_quantity = 0. This makes
+      // `Math.abs(quantity_change)` mean "units moved" uniformly across
+      // both branches — see docs/inventory-log-shapes.md and the helper
+      // in src/features/inventory/utils/inventoryLogShape.ts.
+      // RENAME (EDIT) keeps row-state semantics (prev/new on actual qty).
+      const logQuantityChange =
+        actionType === 'MOVE' ? -originalItem.quantity : newQty - originalItem.quantity;
+      const logNewQuantity = actionType === 'MOVE' ? 0 : newQty;
+
       try {
         await trackLog(
           {
@@ -595,9 +605,9 @@ class InventoryService extends BaseService<
             to_warehouse: targetWarehouse,
             to_location: targetLocation,
             to_location_id: targetLocationId,
-            quantity_change: newQty - originalItem.quantity,
+            quantity_change: logQuantityChange,
             prev_quantity: originalItem.quantity,
-            new_quantity: newQty,
+            new_quantity: logNewQuantity,
             action_type: actionType,
             previous_sku: isRename ? originalItem.sku : undefined,
             item_id: String(originalItem.id),

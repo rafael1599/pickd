@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 import { getNYDayBounds } from '../../../lib/nyDate';
+import { moveDeltaUnits } from '../../inventory/utils/inventoryLogShape';
 
 export interface UserActivity {
   user_id: string;
@@ -429,12 +430,9 @@ export function useActivityReport(date: string) {
       const moved: TodayMoveEvent[] = [];
       for (const [sku, l] of movedBySku) {
         const others = otherLocsForSku(sku, l.to_location ?? '');
-        // idea-098 dependency: MOVE rows have quantity_change=0 in prod, so we
-        // fall back to prev-new on the source row. If both are missing we hide
-        // the (n) suffix instead of guessing.
-        const fromAbs = Math.abs(l.quantity_change ?? 0);
-        const fromDelta = (l.prev_quantity ?? 0) - (l.new_quantity ?? 0);
-        const qtyMoved = fromAbs > 0 ? fromAbs : fromDelta > 0 ? fromDelta : null;
+        // Tolerate both MOVE log shapes (Shape A historical, Shape B current).
+        // See docs/inventory-log-shapes.md.
+        const qtyMoved = moveDeltaUnits(l);
         const isPartial = qtyMoved !== null && (l.prev_quantity ?? 0) > qtyMoved;
         const showQty = qtyMoved !== null && (others.length > 0 || isPartial);
         moved.push({

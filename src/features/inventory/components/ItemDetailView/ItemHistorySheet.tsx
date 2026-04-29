@@ -15,6 +15,7 @@ import { useScrollLock } from '../../../../hooks/useScrollLock';
 import { supabase } from '../../../../lib/supabase';
 import type { InventoryLog, LogActionTypeValue } from '../../../../schemas/log.schema';
 import { getUserColor } from '../../../../utils/userUtils';
+import { moveDeltaUnits } from '../../utils/inventoryLogShape';
 
 interface DistributionSnapshot {
   type?: string;
@@ -97,12 +98,9 @@ const getDisplayQty = (log: InventoryLog) => {
     const snap = log.snapshot_before as DistributionSnapshot | null | undefined;
     return snap?.count && snap?.units_each ? snap.count * snap.units_each : (log.new_quantity ?? 0);
   }
-  if (
-    log.action_type === 'MOVE' &&
-    (log.quantity_change === 0 || !log.quantity_change) &&
-    log.new_quantity
-  )
-    return log.new_quantity;
+  if (log.action_type === 'MOVE') {
+    return moveDeltaUnits(log) ?? 0;
+  }
   return Math.abs(log.quantity_change || 0);
 };
 
