@@ -783,12 +783,16 @@ export const HistoryScreen = () => {
             // and does not include the Unicode arrow glyph (U+2192), which
             // renders as garbage chars and breaks cell layout.
             const arrow = fromLoc ? `${fromLoc} -> ${toLoc}` : `-> ${toLoc}`;
-            activity = `Moved ${arrow} (${qty})`;
             // also LOC (qty) sub-line: other current locations of this SKU
             // outside the destination of this move.
             const others = (otherLocationsBySku.get(log.sku) ?? []).filter(
               (r) => r.location !== toLoc
             );
+            // Drop the (qty) suffix when this SKU sits in a single location
+            // after the move — the QTY column already shows that number, so
+            // it'd be redundant. Keep (qty) when others are present so the
+            // reader can distinguish 'units moved' from 'units elsewhere'.
+            activity = others.length > 0 ? `Moved ${arrow} (${qty})` : `Moved ${arrow}`;
             if (others.length > 0) {
               const list = others
                 .map((r) => `${r.location} (${r.quantity.toLocaleString()})`)
