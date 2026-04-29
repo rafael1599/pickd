@@ -480,7 +480,6 @@ export const ActivityReportView: React.FC<Props> = ({
   printMode = false,
   skipPalletPhotos = false,
 }) => {
-  const [detailOpen, setDetailOpen] = useState(false);
   const [lightboxPhotos, setLightboxPhotos] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const openLightbox = (photos: string[], index: number) => {
@@ -851,69 +850,61 @@ export const ActivityReportView: React.FC<Props> = ({
           </>
         )}
 
-        {/* Collapsible Team Detail */}
-        {users.length > 0 && !printMode && (
-          <button
-            onClick={() => setDetailOpen((v) => !v)}
-            className="print:hidden"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '8px 0',
-              marginBottom: 10,
-              fontSize: 11,
-              fontWeight: 800,
-              textTransform: 'uppercase',
-              letterSpacing: '0.15em',
-              color: BLUE,
-              WebkitUserSelect: detailOpen ? 'auto' : 'none',
-              userSelect: detailOpen ? 'auto' : 'none',
-            }}
-          >
-            <span
-              style={{
-                display: 'inline-block',
-                transition: 'transform 0.2s',
-                transform: detailOpen ? 'rotate(90deg)' : 'rotate(0deg)',
-              }}
-            >
-              &#9654;
-            </span>
-            Team Detail ({users.length} member{users.length !== 1 ? 's' : ''} &middot;{' '}
-            {totals.total_items} items)
-          </button>
-        )}
-
-        {/* Detail content — always visible on print (and in PDF export) */}
-        <div className="print:!block" style={{ display: detailOpen || printMode ? 'block' : 'none' }}>
-          {users.map((u) => {
+        {/* Warehouse Team aggregate — anonymized, always visible, copy-able.
+            Replaces the per-user "Team Detail" collapsible. Per the team's
+            preference, the report attributes all activity to the warehouse
+            team as a unit. */}
+        {users.length > 0 &&
+          (() => {
+            const agg = users.reduce(
+              (acc, u) => {
+                acc.orders_picked += u.orders_picked;
+                acc.items_picked += u.items_picked;
+                acc.orders_checked += u.orders_checked;
+                acc.items_checked += u.items_checked;
+                acc.inventory_adds += u.inventory_adds;
+                acc.inventory_moves += u.inventory_moves;
+                acc.inventory_deducts += u.inventory_deducts;
+                acc.cycle_count_items += u.cycle_count_items;
+                acc.cycle_count_discrepancies += u.cycle_count_discrepancies;
+                return acc;
+              },
+              {
+                orders_picked: 0,
+                items_picked: 0,
+                orders_checked: 0,
+                items_checked: 0,
+                inventory_adds: 0,
+                inventory_moves: 0,
+                inventory_deducts: 0,
+                cycle_count_items: 0,
+                cycle_count_discrepancies: 0,
+              }
+            );
             const lines: string[] = [];
-            if (u.orders_picked > 0)
+            if (agg.orders_picked > 0)
               lines.push(
-                `Picked ${u.orders_picked} order${u.orders_picked !== 1 ? 's' : ''} (${u.items_picked} items)`
+                `Picked ${agg.orders_picked} order${agg.orders_picked !== 1 ? 's' : ''} (${agg.items_picked} items)`
               );
-            if (u.orders_checked > 0)
+            if (agg.orders_checked > 0)
               lines.push(
-                `Verified ${u.orders_checked} order${u.orders_checked !== 1 ? 's' : ''} (${u.items_checked} items)`
+                `Verified ${agg.orders_checked} order${agg.orders_checked !== 1 ? 's' : ''} (${agg.items_checked} items)`
               );
             const inv: string[] = [];
-            if (u.inventory_adds > 0) inv.push(`${u.inventory_adds} units received`);
-            if (u.inventory_moves > 0) inv.push(`${u.inventory_moves} units moved`);
-            if (u.inventory_deducts > 0) inv.push(`${u.inventory_deducts} units manually deducted`);
+            if (agg.inventory_adds > 0) inv.push(`${agg.inventory_adds} units received`);
+            if (agg.inventory_moves > 0) inv.push(`${agg.inventory_moves} units moved`);
+            if (agg.inventory_deducts > 0)
+              inv.push(`${agg.inventory_deducts} units manually deducted`);
             if (inv.length > 0) lines.push(`Inventory: ${inv.join(', ')}`);
-            if (u.cycle_count_items > 0) {
-              let cc = `Cycle counted ${u.cycle_count_items} item${u.cycle_count_items !== 1 ? 's' : ''}`;
-              if (u.cycle_count_discrepancies > 0)
-                cc += ` (${u.cycle_count_discrepancies} discrepanc${u.cycle_count_discrepancies !== 1 ? 'ies' : 'y'})`;
+            if (agg.cycle_count_items > 0) {
+              let cc = `Cycle counted ${agg.cycle_count_items} item${agg.cycle_count_items !== 1 ? 's' : ''}`;
+              if (agg.cycle_count_discrepancies > 0)
+                cc += ` (${agg.cycle_count_discrepancies} discrepanc${agg.cycle_count_discrepancies !== 1 ? 'ies' : 'y'})`;
               lines.push(cc);
             }
-
+            if (lines.length === 0) return null;
             return (
-              <div key={u.user_id} style={{ ...cardStyle, marginBottom: 10 }}>
+              <div style={{ ...cardStyle, marginBottom: 10 }}>
                 <p
                   style={{
                     margin: '0 0 8px',
@@ -924,7 +915,7 @@ export const ActivityReportView: React.FC<Props> = ({
                     letterSpacing: '0.1em',
                   }}
                 >
-                  {u.full_name}
+                  Warehouse Team
                 </p>
                 {lines.map((line, i) => (
                   <p
@@ -941,8 +932,7 @@ export const ActivityReportView: React.FC<Props> = ({
                 ))}
               </div>
             );
-          })}
-        </div>
+          })()}
 
         {/* No activity fallback */}
         {users.length === 0 && !hasFloorContent && (

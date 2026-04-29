@@ -434,6 +434,99 @@ function HeroKpi({
   );
 }
 
+// ── Warehouse Team summary (anonymized aggregate of all users) ─────────
+
+function WarehouseTeamSummary({ report }: { report: ActivityReport }) {
+  const agg = report.users.reduce(
+    (acc, u) => {
+      acc.orders_picked += u.orders_picked;
+      acc.items_picked += u.items_picked;
+      acc.orders_checked += u.orders_checked;
+      acc.items_checked += u.items_checked;
+      acc.inventory_adds += u.inventory_adds;
+      acc.inventory_moves += u.inventory_moves;
+      acc.inventory_deducts += u.inventory_deducts;
+      acc.cycle_count_items += u.cycle_count_items;
+      acc.cycle_count_discrepancies += u.cycle_count_discrepancies;
+      return acc;
+    },
+    {
+      orders_picked: 0,
+      items_picked: 0,
+      orders_checked: 0,
+      items_checked: 0,
+      inventory_adds: 0,
+      inventory_moves: 0,
+      inventory_deducts: 0,
+      cycle_count_items: 0,
+      cycle_count_discrepancies: 0,
+    }
+  );
+
+  const lines: string[] = [];
+  if (agg.orders_picked > 0)
+    lines.push(
+      `Picked ${agg.orders_picked} order${agg.orders_picked !== 1 ? 's' : ''} (${agg.items_picked} items)`
+    );
+  if (agg.orders_checked > 0)
+    lines.push(
+      `Verified ${agg.orders_checked} order${agg.orders_checked !== 1 ? 's' : ''} (${agg.items_checked} items)`
+    );
+  const inv: string[] = [];
+  if (agg.inventory_adds > 0) inv.push(`${agg.inventory_adds} units received`);
+  if (agg.inventory_moves > 0) inv.push(`${agg.inventory_moves} units moved`);
+  if (agg.inventory_deducts > 0) inv.push(`${agg.inventory_deducts} units manually deducted`);
+  if (inv.length > 0) lines.push(`Inventory: ${inv.join(', ')}`);
+  if (agg.cycle_count_items > 0) {
+    let cc = `Cycle counted ${agg.cycle_count_items} item${agg.cycle_count_items !== 1 ? 's' : ''}`;
+    if (agg.cycle_count_discrepancies > 0)
+      cc += ` (${agg.cycle_count_discrepancies} discrepanc${agg.cycle_count_discrepancies !== 1 ? 'ies' : 'y'})`;
+    lines.push(cc);
+  }
+  if (lines.length === 0) return null;
+
+  return (
+    <View
+      style={{
+        marginTop: 10,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderWidth: 1,
+        borderColor: TONE.hair,
+        borderRadius: 2,
+        backgroundColor: TONE.paperPure,
+      }}
+    >
+      <Text
+        style={{
+          fontFamily: SANS,
+          fontSize: 8,
+          fontWeight: 700,
+          letterSpacing: 1.4,
+          color: TONE.muted,
+          marginBottom: 4,
+        }}
+      >
+        WAREHOUSE TEAM
+      </Text>
+      {lines.map((line, i) => (
+        <Text
+          key={i}
+          style={{
+            fontFamily: SANS,
+            fontSize: 10,
+            color: TONE.ink,
+            lineHeight: 1.4,
+            marginTop: i === 0 ? 0 : 2,
+          }}
+        >
+          • {line}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
 // ── Activity card (DONE / IN PROGRESS / COMING UP / ON THE FLOOR) ─────
 
 function ActivityCard({
@@ -714,6 +807,7 @@ function SummaryPage(props: ActivityReportPdfDocProps & { totalPages: number }) 
                 <ActivityCard title="ON THE FLOOR" items={floorItems} density={density} />
               </View>
             )}
+            <WarehouseTeamSummary report={props.report} />
           </View>
         );
       })()}
