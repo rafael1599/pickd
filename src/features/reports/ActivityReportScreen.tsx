@@ -20,6 +20,7 @@ import { useDailyReport, hasComputedData, type DailyReportManual } from './hooks
 import { useSaveDailyReportManual } from './hooks/useSaveDailyReportManual';
 import { ActivityReportView } from './components/ActivityReportView';
 import { useReportTasks } from '../projects/hooks/useProjectReportData';
+import { useCreateTask, type TaskStatus } from '../projects/hooks/useProjectTasks';
 import { getCurrentNYDate } from '../../lib/nyDate';
 import { useAuth } from '../../context/AuthContext';
 import { useWaitingOrdersCount } from '../picking/hooks/useWaitingOrders';
@@ -228,6 +229,47 @@ export const ActivityReportScreen = () => {
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   }, []);
+
+  // idea — inline "create new project" inside the report editor.
+  // One row per section can be in "adding" mode at a time. On save we
+  // call the same useCreateTask the kanban uses, then auto-include the
+  // new task in the report (flash on add fires via useHighlight).
+  const createTask = useCreateTask();
+  const [addingFor, setAddingFor] = useState<TaskStatus | null>(null);
+  const [draftTitle, setDraftTitle] = useState('');
+  const [draftNote, setDraftNote] = useState('');
+  const draftTitleRef = useRef<HTMLInputElement>(null);
+
+  const openAddForm = useCallback((status: TaskStatus) => {
+    setAddingFor(status);
+    setDraftTitle('');
+    setDraftNote('');
+    // focus the title input on next tick
+    setTimeout(() => draftTitleRef.current?.focus(), 0);
+  }, []);
+  const cancelAddForm = useCallback(() => {
+    setAddingFor(null);
+    setDraftTitle('');
+    setDraftNote('');
+  }, []);
+  const submitAddForm = useCallback(async () => {
+    const title = draftTitle.trim();
+    if (!title || !addingFor || createTask.isPending) return;
+    try {
+      const created = await createTask.mutateAsync({
+        title,
+        note: draftNote.trim() || undefined,
+        status: addingFor,
+      });
+      // Auto-include in the report so it shows up immediately + flashes.
+      setIncludedProjectIds((prev) =>
+        prev.includes(created.id) ? prev : [...prev, created.id]
+      );
+      cancelAddForm();
+    } catch (err) {
+      console.error('Failed to create project task:', err);
+    }
+  }, [addingFor, draftTitle, draftNote, createTask, cancelAddForm]);
 
   // ----- Hydration: load manual fields from snapshot when date changes -----
   // Reset whenever the selected date changes — clears any stale local state
@@ -625,14 +667,23 @@ export const ActivityReportScreen = () => {
                 Projects to include
               </label>
               <div className="space-y-1">
-                {[
-                  { label: 'Done Today', tasks: doneToday },
-                  { label: 'In Progress', tasks: inProgress },
-                  { label: 'Coming Up Next', tasks: comingUpNext },
-                ].map(({ label, tasks }) => {
-                  const checkedCount = tasks.filter((t) =>
-                    includedSet.has(t.task_id)
-                  ).length;
+                {(
+                  [
+                    { label: 'Done Today', tasks: doneToday, status: 'done' as TaskStatus },
+                    {
+                      label: 'In Progress',
+                      tasks: inProgress,
+                      status: 'in_progress' as TaskStatus,
+                    },
+                    {
+                      label: 'Coming Up Next',
+                      tasks: comingUpNext,
+                      status: 'future' as TaskStatus,
+                    },
+                  ] as const
+                ).map(({ label, tasks, status }) => {
+                  const checkedCount = tasks.filter((t) => includedSet.has(t.task_id)).length;
+                  const isAdding = addingFor === status;
                   return (
                     <details key={label} className="group">
                       <summary className="flex items-center gap-1 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden py-1">
@@ -666,17 +717,75 @@ export const ActivityReportScreen = () => {
                                   type="checkbox"
                                   checked={checked}
                                   disabled={!canEdit}
-                                  onChange={() =>
-                                    handleToggleProjectId(task.task_id)
-                                  }
+                                  onChange={() => handleToggleProjectId(task.task_id)}
                                   className="mt-0.5 accent-accent shrink-0"
                                 />
-                                <span className="flex-1 leading-snug">
-                                  {task.title}
-                                </span>
+                                <span className="flex-1 leading-snug">{task.title}</span>
                               </label>
                             );
                           })
+                        )}
+                        {/* Inline create-project form */}
+                        {isAdding ? (
+                          <div className="mt-1 space-y-1.5 rounded border border-border/40 bg-card/40 p-2">
+                            <input
+                              ref={draftTitleRef}
+                              type="text"
+                              value={draftTitle}
+                              onChange={(e) => setDraftTitle(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  submitAddForm();
+                                } else if (e.key === 'Escape') {
+                                  cancelAddForm();
+                                }
+                              }}
+                              placeholder="Project title"
+                              disabled={createTask.isPending}
+                              className="w-full rounded border border-border/40 bg-card px-2 py-1 text-[11px] text-content placeholder:text-muted/40 focus:outline-none focus:border-accent/60"
+                            />
+                            <textarea
+                              value={draftNote}
+                              onChange={(e) => setDraftNote(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Escape') cancelAddForm();
+                              }}
+                              placeholder="Optional note"
+                              rows={2}
+                              disabled={createTask.isPending}
+                              className="w-full resize-none rounded border border-border/40 bg-card px-2 py-1 text-[11px] text-content placeholder:text-muted/40 focus:outline-none focus:border-accent/60"
+                            />
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={submitAddForm}
+                                disabled={!draftTitle.trim() || createTask.isPending}
+                                className="rounded bg-accent px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-card disabled:opacity-40"
+                              >
+                                {createTask.isPending ? 'Saving…' : 'Save'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={cancelAddForm}
+                                disabled={createTask.isPending}
+                                className="rounded border border-border/40 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted/70 hover:text-content"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          canEdit && (
+                            <button
+                              type="button"
+                              onClick={() => openAddForm(status)}
+                              className="mt-1 flex w-full items-center gap-1 py-1 text-[10px] font-medium text-accent/80 hover:text-accent"
+                            >
+                              <Plus size={10} />
+                              Click here to add new project
+                            </button>
+                          )
                         )}
                       </div>
                     </details>
