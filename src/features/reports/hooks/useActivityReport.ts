@@ -464,6 +464,10 @@ export function useActivityReport(date: string) {
       }
       const consolidated: TodayConsolidationEvent[] = [];
       for (const [sku, ts] of consolidatedTimes) {
+        // Skip SKUs with zero stock everywhere — a metadata-only EDIT on a
+        // sold-out SKU isn't a real consolidation worth reporting and would
+        // render as "consolidated on —".
+        if (totalForSku(sku) <= 0) continue;
         consolidated.push({
           sku,
           item_name: itemNameBySku.get(sku) ?? sku,
