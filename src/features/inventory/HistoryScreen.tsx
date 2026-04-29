@@ -723,7 +723,8 @@ export const HistoryScreen = () => {
   const generateDailyPDF = useCallback(
     (
       jsPDFInstance: typeof import('jspdf').default,
-      autoTableInstance: typeof import('jspdf-autotable').default
+      autoTableInstance: typeof import('jspdf-autotable').default,
+      otherLocationsBySku: Map<string, Array<{ location: string; quantity: number }>>
     ) => {
       const doc = new jsPDFInstance({
         orientation: 'landscape',
@@ -731,107 +732,97 @@ export const HistoryScreen = () => {
         format: 'a4',
       });
       const today = new Date().toLocaleDateString('es-ES');
-      const generatorName = profile?.full_name || authUser?.email || 'System';
-      const firstName = generatorName.split(' ')[0];
 
-      let title = 'History Report';
+      let title = 'History';
       if (filter !== 'ALL') {
         const labels: Record<string, string> = {
-          MOVE: 'Movement',
-          ADD: 'Restock',
-          DEDUCT: 'Picking',
-          DELETE: 'Removal',
+          MOVE: 'Movements',
+          ADD: 'Restocks',
+          DEDUCT: 'Picks',
+          DELETE: 'Removals',
           SYSTEM_RECONCILIATION: 'Reconciliation',
         };
-        title = `${labels[filter] || filter} Report`;
+        title = `History — ${labels[filter] || filter}`;
       }
 
       if (userFilter !== 'ALL') {
         title += ` (${userFilter})`;
       }
 
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(32);
-      doc.text(title, 5, 15);
-
       const stats = {
         total: filteredLogs.length,
         qty: filteredLogs.reduce((acc, l) => acc + Number(getDisplayQty(l)), 0),
       };
 
-      const metadataLine = `By: ${firstName} | Date: ${today} | Logs: ${stats.total} | Qty: ${stats.qty} | Period: ${timeFilter}`;
-
-      let currentY = 32;
+      // Header line: "History — Today — 2026-04-29 — 6 logs · 89 units"
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(28);
-      doc.text('Time | SKU | Activity Detail | Qty', 5, currentY);
-      currentY += 8;
+      doc.setFontSize(20);
+      doc.text(
+        `${title} · ${timeFilter} · ${today} · ${stats.total} logs · ${stats.qty.toLocaleString()} units`,
+        5,
+        15
+      );
+
+      let currentY = 25;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.text('SKU', 5, currentY);
+      doc.text('ACTIVITY', 105, currentY);
+      doc.text('QTY', 285, currentY, { align: 'right' });
+      currentY += 4;
 
       const tableData = filteredLogs.map((log) => {
-        let description = '';
         const fromLoc = log.from_location || '';
         const toLoc = log.to_location || '';
-        const performer = log.performed_by || 'Unknown';
-        const pFirstName = performer.split(' ')[0];
+        const qty = getDisplayQty(log);
 
-        const whInfo =
-          log.from_warehouse && log.to_warehouse && log.from_warehouse !== log.to_warehouse
-            ? ` [${log.from_warehouse}->${log.to_warehouse}]`
-            : log.from_warehouse
-              ? ` [${log.from_warehouse}]`
-              : '';
-
-        let actionTag = '';
+        let activity = '';
         switch (log.action_type) {
-          case 'MOVE':
-            actionTag = '[MOVE]';
+          case 'MOVE': {
+            const arrow = fromLoc ? `${fromLoc} → ${toLoc}` : `→ ${toLoc}`;
+            activity = `Moved ${arrow} (${qty})`;
+            // also LOC (qty) sub-line: other current locations of this SKU
+            // outside the destination of this move.
+            const others = (otherLocationsBySku.get(log.sku) ?? []).filter(
+              (r) => r.location !== toLoc
+            );
+            if (others.length > 0) {
+              const list = others
+                .map((r) => `${r.location} (${r.quantity.toLocaleString()})`)
+                .join(', ');
+              activity += `\nalso ${list}`;
+            }
             break;
+          }
           case 'ADD':
-            actionTag = '[ADD]';
+            activity = `Added ${qty} to ${toLoc || fromLoc || 'GEN'}`;
             break;
           case 'DEDUCT':
-            actionTag = '[PICK]';
+            activity = log.order_number
+              ? `Picked from ${fromLoc || 'GEN'} in #${log.order_number}`
+              : `Picked ${qty} from ${fromLoc || 'GEN'}`;
             break;
           case 'DELETE':
-            actionTag = '[DEL]';
+            activity = `Removed from ${fromLoc || 'INV'}`;
+            break;
+          case 'EDIT':
+            activity = `Edited at ${toLoc || fromLoc || 'INV'}`;
+            break;
+          case 'PHYSICAL_DISTRIBUTION':
+            activity = `Verified at ${toLoc || fromLoc || 'INV'}`;
             break;
           case 'SYSTEM_RECONCILIATION':
-            actionTag = '[SYS]';
+            activity = 'Reconciliation';
             break;
           default:
-            actionTag = `[${log.action_type}]`;
-        }
-
-        switch (log.action_type) {
-          case 'MOVE':
-            description = `${actionTag} ${pFirstName}: ${fromLoc} -> ${toLoc}${whInfo}`;
-            break;
-          case 'ADD':
-            description = `${actionTag} ${pFirstName}: Stocked @ ${toLoc || fromLoc || 'Gen'}`;
-            break;
-          case 'DEDUCT':
-            description = `${actionTag} ${pFirstName}: Picked @ ${fromLoc || 'Gen'}`;
-            break;
-          case 'DELETE':
-            description = `${actionTag} ${pFirstName}: Removed @ ${fromLoc || 'Inv'}`;
-            break;
-          case 'SYSTEM_RECONCILIATION':
-            description = `${actionTag} Reconciliation Audit`;
-            break;
-          default:
-            description = `${actionTag} ${pFirstName}: Update @ ${fromLoc || toLoc || '-'}`;
+            activity = `${log.action_type} at ${toLoc || fromLoc || '—'}`;
         }
 
         if (log.is_reversed) {
-          description += ' (REVERSED)';
+          activity = `Reversed: ${activity}`;
         }
 
-        return [
-          new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          log.sku,
-          description,
-          getDisplayQty(log).toString(),
-        ];
+        return [log.sku, activity, qty.toString()];
       });
 
       autoTableInstance(doc, {
@@ -839,42 +830,65 @@ export const HistoryScreen = () => {
         body: tableData,
         theme: 'plain',
         styles: {
-          fontSize: 40,
-          cellPadding: 6,
-          minCellHeight: 20,
+          fontSize: 22,
+          cellPadding: 5,
+          minCellHeight: 14,
           textColor: [0, 0, 0],
           lineColor: [0, 0, 0],
-          lineWidth: 1.1,
+          lineWidth: 0.6,
           font: 'helvetica',
-          valign: 'middle',
+          valign: 'top',
         },
         columnStyles: {
-          0: { cellWidth: 40, fontSize: 26, halign: 'center' },
-          1: { cellWidth: 90, fontStyle: 'bold', fontSize: 40, halign: 'left' },
-          2: { cellWidth: 'auto', fontSize: 22, halign: 'left' },
-          3: { cellWidth: 35, fontSize: 40, halign: 'right', fontStyle: 'bold' },
+          0: { cellWidth: 100, fontStyle: 'bold', fontSize: 28, halign: 'left' },
+          1: { cellWidth: 'auto', fontSize: 20, halign: 'left' },
+          2: { cellWidth: 35, fontSize: 28, halign: 'right', fontStyle: 'bold' },
         },
         margin: { top: 5, right: 5, bottom: 5, left: 5 },
-        didDrawPage: () => {
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(14);
-          doc.text(metadataLine, 292, 205, { align: 'right' });
-        },
       });
 
       return doc;
     },
-    [filteredLogs, filter, userFilter, timeFilter, profile, authUser, getDisplayQty]
+    [filteredLogs, filter, userFilter, timeFilter, getDisplayQty]
   );
 
   const handleDownloadReport = useCallback(async () => {
     try {
       setManualLoading(true);
+
+      // Pre-fetch current inventory rows for every MOVE SKU in the filtered
+      // view, so the PDF can append "also LOC (qty)" sub-lines per move.
+      const moveSkus = Array.from(
+        new Set(filteredLogs.filter((l) => l.action_type === 'MOVE').map((l) => l.sku))
+      );
+      const otherLocationsBySku = new Map<string, Array<{ location: string; quantity: number }>>();
+      if (moveSkus.length > 0) {
+        const { data: invRows } = await supabase
+          .from('inventory')
+          .select('sku, location, quantity')
+          .in('sku', moveSkus)
+          .gt('quantity', 0)
+          .limit(50_000);
+        for (const r of (invRows ?? []) as Array<{
+          sku: string;
+          location: string;
+          quantity: number;
+        }>) {
+          const list = otherLocationsBySku.get(r.sku) ?? [];
+          list.push({ location: r.location, quantity: r.quantity });
+          otherLocationsBySku.set(r.sku, list);
+        }
+        // Sort each SKU's locations by qty desc for stable display.
+        for (const list of otherLocationsBySku.values()) {
+          list.sort((a, b) => b.quantity - a.quantity);
+        }
+      }
+
       const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
         import('jspdf'),
         import('jspdf-autotable'),
       ]);
-      const doc = generateDailyPDF(jsPDF, autoTable);
+      const doc = generateDailyPDF(jsPDF, autoTable, otherLocationsBySku);
       const blob = doc.output('bloburl');
       window.open(blob, '_blank');
       toast.success('History report opened in new tab');
@@ -884,7 +898,7 @@ export const HistoryScreen = () => {
     } finally {
       setManualLoading(false);
     }
-  }, [generateDailyPDF, showError]);
+  }, [filteredLogs, generateDailyPDF, showError]);
 
   return (
     <div className="pb-32 relative max-w-2xl mx-auto w-full px-4">

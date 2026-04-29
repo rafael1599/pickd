@@ -283,7 +283,7 @@ export const InventoryScreen = () => {
     null
   );
 
-  const { isAdmin, user: authUser, profile } = useAuth();
+  const { isAdmin } = useAuth();
   const { showError } = useError();
   const { showConfirmation } = useConfirmation();
   const {
@@ -319,19 +319,14 @@ export const InventoryScreen = () => {
     setIsGeneratingPDF(true);
     try {
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      const generatorName = profile?.full_name || authUser?.email || 'System';
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(32);
-      doc.text('Stock View Report', 5, 15);
-
-      const firstName = generatorName.split(' ')[0];
       const today = new Date().toLocaleDateString('es-ES');
 
-      // Group items by Warehouse -> SKU (Aggregate locations)
+      // Group items by Warehouse → SKU, keeping per-location qty so the
+      // PDF can render each location with its individual quantity:
+      //   ROW 1 (40), ROW 28 (27)
       const whAggregates: Record<
         string,
-        Record<string, { qty: number; locations: Set<string>; notes: Set<string> }>
+        Record<string, { qty: number; locations: Map<string, number> }>
       > = {};
 
       allLocationBlocks.forEach((block) => {
@@ -340,40 +335,58 @@ export const InventoryScreen = () => {
 
         block.items.forEach((item) => {
           if (!whGroup[item.sku]) {
-            whGroup[item.sku] = { qty: 0, locations: new Set(), notes: new Set() };
+            whGroup[item.sku] = { qty: 0, locations: new Map() };
           }
           whGroup[item.sku].qty += item.quantity;
-          if (item.location) whGroup[item.sku].locations.add(item.location.trim().toUpperCase());
-          if (item.item_name) whGroup[item.sku].notes.add(item.item_name.trim());
+          const loc = item.location?.trim().toUpperCase();
+          if (loc) {
+            whGroup[item.sku].locations.set(
+              loc,
+              (whGroup[item.sku].locations.get(loc) ?? 0) + item.quantity
+            );
+          }
         });
       });
 
-      let currentY = 32; // Increased from 22
+      let currentY = 15;
 
       Object.entries(whAggregates).forEach(([wh, skuGroups], index) => {
         if (index > 0 && currentY > 150) {
           doc.addPage();
-          currentY = 22; // Start lower on new pages
+          currentY = 15;
         }
 
         const totalSkus = Object.keys(skuGroups).length;
         const totalQty = Object.values(skuGroups).reduce((sum, g) => sum + g.qty, 0);
-        const metadataLine = `By: ${firstName} | Date: ${today} | SKUs: ${totalSkus} | Qty: ${totalQty} | WH: ${wh}`;
+
+        // Header per warehouse: "LUDLOW · 156 SKUs · 4,287 units · 2026-04-29"
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(20);
+        doc.text(
+          `${wh} · ${totalSkus} SKUs · ${totalQty.toLocaleString()} units · ${today}`,
+          5,
+          currentY
+        );
+        currentY += 8;
 
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(28);
-        doc.text('SKU | Locs | Qty | Notes', 5, currentY);
-        currentY += 8; // Increased from 5 for more separation
+        doc.setFontSize(14);
+        doc.text('SKU', 5, currentY);
+        doc.text('LOCATIONS', 105, currentY);
+        doc.text('TOTAL', 285, currentY, { align: 'right' });
+        currentY += 4;
 
-        // Convert grouped data to table rows
+        // Convert grouped data to table rows: SKU | LOC1 (n), LOC2 (n) | TOTAL
         const tableData = Object.entries(skuGroups)
           .sort(([skuA], [skuB]) => skuA.localeCompare(skuB))
-          .map(([sku, data]) => [
-            sku,
-            Array.from(data.locations).sort().join(', ') || 'GEN',
-            data.qty.toString(),
-            Array.from(data.notes).join(' | '),
-          ]);
+          .map(([sku, data]) => {
+            const locsStr =
+              Array.from(data.locations.entries())
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([loc, qty]) => `${loc} (${qty.toLocaleString()})`)
+                .join(', ') || 'GEN';
+            return [sku, locsStr, data.qty.toLocaleString()];
+          });
 
         autoTable(doc, {
           startY: currentY,
@@ -381,31 +394,22 @@ export const InventoryScreen = () => {
           theme: 'plain',
           styles: {
             font: 'helvetica',
-            fontSize: 40,
-            cellPadding: 6,
-            minCellHeight: 20,
+            fontSize: 32,
+            cellPadding: 5,
+            minCellHeight: 16,
             textColor: [0, 0, 0],
             lineColor: [0, 0, 0],
-            lineWidth: 1.12,
+            lineWidth: 0.6,
           },
           columnStyles: {
             0: { cellWidth: 100, fontStyle: 'bold' },
-            1: { cellWidth: 45, fontSize: 18 },
+            1: { cellWidth: 'auto', fontSize: 18 },
             2: { cellWidth: 35, halign: 'right', fontStyle: 'bold' },
-            3: { cellWidth: 'auto', fontSize: 14 },
           },
           margin: { top: 5, right: 5, bottom: 5, left: 5 },
-          didDrawPage: () => {
-            // Footer: By: Rafael | Date: ... | SKUs: ... | Qty: ... | WH: ...
-            // Positioned at bottom right
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(14);
-            doc.text(metadataLine, 292, 205, { align: 'right' });
-            currentY = (doc as JsPDFWithAutoTable).lastAutoTable?.finalY || 15;
-          },
         });
 
-        currentY = ((doc as JsPDFWithAutoTable).lastAutoTable?.finalY ?? 15) + 15;
+        currentY = ((doc as JsPDFWithAutoTable).lastAutoTable?.finalY ?? 15) + 12;
       });
 
       const blob = doc.output('bloburl');
@@ -417,7 +421,7 @@ export const InventoryScreen = () => {
     } finally {
       setIsGeneratingPDF(false);
     }
-  }, [allLocationBlocks, profile, authUser]);
+  }, [allLocationBlocks]);
 
   // Picking Mode State
   const {
