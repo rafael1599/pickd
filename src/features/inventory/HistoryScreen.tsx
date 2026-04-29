@@ -1096,14 +1096,7 @@ export const HistoryScreen = () => {
                               {new Date(log.created_at).toLocaleTimeString([], {
                                 hour: '2-digit',
                                 minute: '2-digit',
-                              })}{' '}
-                              •{' '}
-                              <span
-                                style={{ color: getUserColor(log.performed_by) }}
-                                className="font-black"
-                              >
-                                {log.performed_by || 'Unknown'}
-                              </span>
+                              })}
                             </p>
                           </div>
                         </div>
@@ -1219,7 +1212,13 @@ export const HistoryScreen = () => {
                         </div>
                       </div>
 
-                      {log.prev_quantity !== null &&
+                      {/* Stock Level only when warehouse total actually changed
+                          (DEDUCT/EDIT/ADD/DELETE). MOVE and PHYSICAL_DISTRIBUTION
+                          are zero-sum at the warehouse level — showing 'N → 0'
+                          would suggest a stock loss that didn't happen. */}
+                      {log.action_type !== 'MOVE' &&
+                        log.action_type !== 'PHYSICAL_DISTRIBUTION' &&
+                        log.prev_quantity !== null &&
                         log.new_quantity !== null &&
                         log.prev_quantity !== log.new_quantity && (
                           <div

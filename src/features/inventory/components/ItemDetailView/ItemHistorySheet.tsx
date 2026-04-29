@@ -14,7 +14,6 @@ import Calendar from 'lucide-react/dist/esm/icons/calendar';
 import { useScrollLock } from '../../../../hooks/useScrollLock';
 import { supabase } from '../../../../lib/supabase';
 import type { InventoryLog, LogActionTypeValue } from '../../../../schemas/log.schema';
-import { getUserColor } from '../../../../utils/userUtils';
 import { moveDeltaUnits } from '../../utils/inventoryLogShape';
 
 interface DistributionSnapshot {
@@ -255,7 +254,8 @@ export const ItemHistorySheet: React.FC<ItemHistorySheetProps> = ({ isOpen, onCl
                             )}
                           </div>
 
-                          {/* Time + user */}
+                          {/* Time only — user attribution lives in the
+                              user filter on /history when needed. */}
                           <div className="mt-1.5 flex items-center gap-1.5 text-[9px] text-muted">
                             <span className="font-bold">
                               {new Date(log.created_at).toLocaleTimeString([], {
@@ -263,17 +263,14 @@ export const ItemHistorySheet: React.FC<ItemHistorySheetProps> = ({ isOpen, onCl
                                 minute: '2-digit',
                               })}
                             </span>
-                            <span className="opacity-40">&bull;</span>
-                            <span
-                              style={{ color: getUserColor(log.performed_by) }}
-                              className="font-black"
-                            >
-                              {log.performed_by || 'Unknown'}
-                            </span>
                           </div>
 
-                          {/* Stock level change */}
-                          {log.prev_quantity !== null &&
+                          {/* Stock level change — only when warehouse total
+                              changed. MOVE and PHYSICAL_DISTRIBUTION are
+                              zero-sum so 'N → 0' would mislead. */}
+                          {log.action_type !== 'MOVE' &&
+                            log.action_type !== 'PHYSICAL_DISTRIBUTION' &&
+                            log.prev_quantity !== null &&
                             log.new_quantity !== null &&
                             log.prev_quantity !== log.new_quantity && (
                               <div className="mt-1.5 text-[8px] font-black uppercase tracking-widest text-muted/40">
