@@ -220,12 +220,12 @@ function TodayEventsPdfBlock({ report }: { report: ActivityReport }) {
       {visibleMoved && (
         <View style={{ marginBottom: 10 }}>
           <Text style={sectionTitleStyle}>Moved — {moved.length}</Text>
-          {/* Header row — 3 cols: SKU | FROM → TO | TOTAL (item name dropped
-              per user direction; SKU is the canonical identifier in the PDF). */}
+          {/* Header row */}
           <View style={pdfRowStyle}>
-            <Text style={{ ...pdfHeadCell('25%'), fontFamily: MONO }}>SKU</Text>
-            <Text style={pdfHeadCell('60%')}>From → To</Text>
-            <Text style={pdfHeadCell('15%', 'right')}>Total</Text>
+            <Text style={pdfHeadCell('40%')}>Item</Text>
+            <Text style={{ ...pdfHeadCell('20%'), fontFamily: MONO }}>SKU</Text>
+            <Text style={pdfHeadCell('30%')}>From → To</Text>
+            <Text style={pdfHeadCell('10%', 'right')}>Total</Text>
           </View>
           {(moved as TodayMoveEvent[]).map((ev) => {
             const arrow = ev.from_location
@@ -234,10 +234,11 @@ function TodayEventsPdfBlock({ report }: { report: ActivityReport }) {
             const arrowQty = ev.show_qty_in_arrow ? `${arrow} (${ev.qty_moved})` : arrow;
             return (
               <View key={ev.sku} style={pdfRowStyle}>
-                <Text style={{ ...pdfCell('25%'), fontFamily: MONO, color: TONE.ink2 }}>
+                <Text style={pdfCell('40%')}>{ev.item_name}</Text>
+                <Text style={{ ...pdfCell('20%'), fontFamily: MONO, color: TONE.ink2 }}>
                   {ev.sku}
                 </Text>
-                <View style={{ width: '60%', paddingHorizontal: 4 }}>
+                <View style={{ width: '30%', paddingHorizontal: 4 }}>
                   <Text style={{ fontSize: PDF_TBL_FONT, fontFamily: SANS, color: TONE.ink }}>
                     {arrowQty}
                   </Text>
@@ -249,7 +250,7 @@ function TodayEventsPdfBlock({ report }: { report: ActivityReport }) {
                     </Text>
                   )}
                 </View>
-                <Text style={{ ...pdfCell('15%', 'right'), fontWeight: 700 }}>{ev.total_now}</Text>
+                <Text style={{ ...pdfCell('10%', 'right'), fontWeight: 700 }}>{ev.total_now}</Text>
               </View>
             );
           })}
