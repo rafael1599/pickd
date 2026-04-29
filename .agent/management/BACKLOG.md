@@ -87,7 +87,7 @@
 - [ ] **Orders PDF preview full-width mobile** — `w-full` en mobile. <!-- id: idea-034 -->
 - [ ] **Order List View** — Picking list first with print option. <!-- id: idea-006 -->
 - [ ] **Migrar cron jobs a pg_cron** — Elimina dependencia de GitHub Actions. <!-- id: idea-030 -->
-- [ ] **FedEx Returns — "Add Item" → "Return to Stock"** — Renombrar el botón/acción `Add Item` en `src/features/fedex-returns/` (ver `AddItemSheet.tsx`) a `Return to Stock` para reflejar mejor la intención del flujo. <!-- id: idea-066 -->
+- [x] ~~**FedEx Returns — "Add Item" → "Return to Stock"**~~ ✅ 2026-04-27 — Botón y modal renombrados a `Return to Stock` (`FedExReturnDetailScreen.tsx:211`, `ReturnToStockSheet.tsx`). Archivo `AddItemSheet.tsx` removido — sin referencias en el código. PR #43 (bundle FedEx Returns rework). <!-- id: idea-066 -->
 - [ ] **Bike/Part/Unknown selector en "New Item"** — Al registrar un SKU nuevo, el form debe forzar la selección manual de tipo (Bike / Part / Unknown). Hoy `is_bike` queda en `false` por default y el picker no tiene manera de clasificarlo. Sirve de respaldo cuando la heurística de prefijo "03-" falle. Tocar `UnifiedForm` / `register_new_sku` RPC para persistir el flag. <!-- id: idea-068 -->
 - [x] ~~**DoubleCheckView — counter "X / N Units Verified" más visible**~~ ✅ 2026-04-28 — `text-lg font-black` + color dinámico (rojo/ámbar/emerald) según progreso. PR #49. <!-- id: idea-093 -->
 - [x] ~~**Activity Report — desglose del KPI Inventory Accuracy**~~ ✅ 2026-04-28 — 5 bullets per-source (cycle counted, movements, additions, on-site checked, quantity edited) en web + PDF. RPC `compute_daily_report_data` v2 mirror. PostgREST cap fix `.limit(50_000)`. PR #51. **Reemplazado por idea-097.** <!-- id: idea-094 -->
@@ -100,10 +100,8 @@
 
 ## P1 — Refinados pendientes
 
-### 40. Notas de proyecto siempre visibles (quitar line-clamp) <!-- id: idea-062 -->
-- **Problema:** Hoy `line-clamp-2` recorta notas largas en task cards del kanban.
-- **Solución:** Quitar `line-clamp-2` en `TaskCard` (`src/features/projects/ProjectsScreen.tsx`). Las cards crecen tanto como sea necesario para mostrar la nota completa.
-- **Trivial.**
+### ~~40. Notas de proyecto siempre visibles (quitar line-clamp)~~ <!-- id: idea-062 --> ✅ 2026-04-27
+- `line-clamp-2` removido del `TaskCard` en `src/features/projects/ProjectsScreen.tsx`. Verificado: no quedan refs a `line-clamp` en el archivo. PR #43 (bundle).
 
 ---
 
