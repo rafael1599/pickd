@@ -376,15 +376,26 @@ export const InventoryScreen = () => {
         doc.text('TOTAL', 285, currentY, { align: 'right' });
         currentY += 4;
 
-        // Convert grouped data to table rows: SKU | LOC1 (n), LOC2 (n) | TOTAL
+        // Convert grouped data to table rows: SKU | LOCATIONS | TOTAL
+        // Drop "(qty)" when the SKU lives in a single location — the TOTAL
+        // column already shows the same number, so it'd be redundant.
+        // Multi-location keeps "(qty)" per loc since they sum to TOTAL.
         const tableData = Object.entries(skuGroups)
           .sort(([skuA], [skuB]) => skuA.localeCompare(skuB))
           .map(([sku, data]) => {
-            const locsStr =
-              Array.from(data.locations.entries())
-                .sort(([a], [b]) => a.localeCompare(b))
+            const stockedLocs = Array.from(data.locations.entries())
+              .filter(([, qty]) => qty > 0)
+              .sort(([a], [b]) => a.localeCompare(b));
+            let locsStr: string;
+            if (stockedLocs.length === 0) {
+              locsStr = 'GEN';
+            } else if (stockedLocs.length === 1) {
+              locsStr = stockedLocs[0][0];
+            } else {
+              locsStr = stockedLocs
                 .map(([loc, qty]) => `${loc} (${qty.toLocaleString()})`)
-                .join(', ') || 'GEN';
+                .join(', ');
+            }
             return [sku, locsStr, data.qty.toLocaleString()];
           });
 

@@ -779,7 +779,10 @@ export const HistoryScreen = () => {
         let activity = '';
         switch (log.action_type) {
           case 'MOVE': {
-            const arrow = fromLoc ? `${fromLoc} → ${toLoc}` : `→ ${toLoc}`;
+            // ASCII arrow only — jsPDF default Helvetica is WinAnsiEncoding
+            // and does not include the Unicode arrow glyph (U+2192), which
+            // renders as garbage chars and breaks cell layout.
+            const arrow = fromLoc ? `${fromLoc} -> ${toLoc}` : `-> ${toLoc}`;
             activity = `Moved ${arrow} (${qty})`;
             // also LOC (qty) sub-line: other current locations of this SKU
             // outside the destination of this move.
