@@ -288,7 +288,8 @@ function HeroKpi({
   const heroNum = heroSize(density);
   const heroLabel = Math.max(9, Math.min(12, heroNum * 0.085));
   const heroBody = Math.max(9.5, Math.min(12, heroNum * 0.08));
-  const accuracyRounded = Math.round(accuracyPct * 100) / 100;
+  // Integer only — decimals overlapped the 90-day sparkline on the right.
+  const accuracyRounded = Math.round(accuracyPct);
   const verifiedLabel = `${report.verified_skus_2m.toLocaleString()} of ${report.total_skus.toLocaleString()} SKUs`;
 
   // 90-day sparkline (deterministic monotonic climb to current pct).
