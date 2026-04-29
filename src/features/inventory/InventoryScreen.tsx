@@ -131,13 +131,14 @@ export const InventoryScreen = () => {
   const isActiveSearch = debouncedSearch.length > 0;
   const filteredInventory = useMemo(() => {
     if (!isActiveSearch) return inventoryData;
+    if (showInactive) return inventoryData;
     return inventoryData.filter((item) => item.is_active && item.quantity > 0);
-  }, [inventoryData, isActiveSearch]);
+  }, [inventoryData, isActiveSearch, showInactive]);
 
   const ghostItems = useMemo(() => {
-    if (!isActiveSearch) return [];
+    if (!isActiveSearch || showInactive) return [];
     return inventoryData.filter((item) => !item.is_active || item.quantity <= 0);
-  }, [inventoryData, isActiveSearch]);
+  }, [inventoryData, isActiveSearch, showInactive]);
 
   const ghostSkus = useMemo(() => ghostItems.map((i) => i.sku), [ghostItems]);
   const { data: lastActivityMap } = useLastActivity(ghostSkus);
