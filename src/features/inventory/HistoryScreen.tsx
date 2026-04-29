@@ -754,14 +754,15 @@ export const HistoryScreen = () => {
         qty: filteredLogs.reduce((acc, l) => acc + Number(getDisplayQty(l)), 0),
       };
 
-      // Header line: "History — Today — 2026-04-29 — 6 logs · 89 units"
+      // Header: title left, date + counts right. TIMEFILTER (TODAY/WEEK/etc)
+      // is dropped — redundant with the date when filter=TODAY, and filter
+      // for non-today is reflected in the title via labels above.
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(20);
-      doc.text(
-        `${title} · ${timeFilter} · ${today} · ${stats.total} logs · ${stats.qty.toLocaleString()} units`,
-        5,
-        15
-      );
+      doc.text(title, 5, 15);
+      doc.text(`${today} · ${stats.total} logs · ${stats.qty.toLocaleString()} units`, 292, 15, {
+        align: 'right',
+      });
 
       let currentY = 25;
       doc.setFont('helvetica', 'bold');
