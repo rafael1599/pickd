@@ -628,10 +628,7 @@ export const ActivityReportView: React.FC<Props> = ({
               >
                 <strong style={{ color: TEXT_BOLD }}>Why this matters.</strong> Every SKU we
                 physically touch today — moving it, consolidating it, recounting it — counts toward
-                this number for the next 90 days. Goal:{' '}
-                <strong style={{ color: TEXT_BOLD }}>100%</strong>, meaning every bike in the
-                catalog has been seen with our own eyes in the last 3 months. The faster we hit
-                that, the less we'll be guessing when an order comes in.
+                this number for the next 90 days.
               </p>
               <div
                 style={{
@@ -850,89 +847,8 @@ export const ActivityReportView: React.FC<Props> = ({
           </>
         )}
 
-        {/* Warehouse Team aggregate — anonymized, always visible, copy-able.
-            Replaces the per-user "Team Detail" collapsible. Per the team's
-            preference, the report attributes all activity to the warehouse
-            team as a unit. */}
-        {users.length > 0 &&
-          (() => {
-            const agg = users.reduce(
-              (acc, u) => {
-                acc.orders_picked += u.orders_picked;
-                acc.items_picked += u.items_picked;
-                acc.orders_checked += u.orders_checked;
-                acc.items_checked += u.items_checked;
-                acc.inventory_adds += u.inventory_adds;
-                acc.inventory_moves += u.inventory_moves;
-                acc.inventory_deducts += u.inventory_deducts;
-                acc.cycle_count_items += u.cycle_count_items;
-                acc.cycle_count_discrepancies += u.cycle_count_discrepancies;
-                return acc;
-              },
-              {
-                orders_picked: 0,
-                items_picked: 0,
-                orders_checked: 0,
-                items_checked: 0,
-                inventory_adds: 0,
-                inventory_moves: 0,
-                inventory_deducts: 0,
-                cycle_count_items: 0,
-                cycle_count_discrepancies: 0,
-              }
-            );
-            const lines: string[] = [];
-            if (agg.orders_picked > 0)
-              lines.push(
-                `Picked ${agg.orders_picked} order${agg.orders_picked !== 1 ? 's' : ''} (${agg.items_picked} items)`
-              );
-            if (agg.orders_checked > 0)
-              lines.push(
-                `Verified ${agg.orders_checked} order${agg.orders_checked !== 1 ? 's' : ''} (${agg.items_checked} items)`
-              );
-            const inv: string[] = [];
-            if (agg.inventory_adds > 0) inv.push(`${agg.inventory_adds} units received`);
-            if (agg.inventory_moves > 0) inv.push(`${agg.inventory_moves} units moved`);
-            if (agg.inventory_deducts > 0)
-              inv.push(`${agg.inventory_deducts} units manually deducted`);
-            if (inv.length > 0) lines.push(`Inventory: ${inv.join(', ')}`);
-            if (agg.cycle_count_items > 0) {
-              let cc = `Cycle counted ${agg.cycle_count_items} item${agg.cycle_count_items !== 1 ? 's' : ''}`;
-              if (agg.cycle_count_discrepancies > 0)
-                cc += ` (${agg.cycle_count_discrepancies} discrepanc${agg.cycle_count_discrepancies !== 1 ? 'ies' : 'y'})`;
-              lines.push(cc);
-            }
-            if (lines.length === 0) return null;
-            return (
-              <div style={{ ...cardStyle, marginBottom: 10 }}>
-                <p
-                  style={{
-                    margin: '0 0 8px',
-                    fontSize: 12,
-                    fontWeight: 800,
-                    color: BLUE,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.1em',
-                  }}
-                >
-                  Warehouse Team
-                </p>
-                {lines.map((line, i) => (
-                  <p
-                    key={i}
-                    style={{
-                      ...bulletTextStyle,
-                      padding: i < lines.length - 1 ? '0 0 6px 0' : 0,
-                      margin: 0,
-                    }}
-                  >
-                    <span style={bulletStyle(BLUE)}>&#9679;</span>
-                    &nbsp;&nbsp;{line}
-                  </p>
-                ))}
-              </div>
-            );
-          })()}
+        {/* Per-user / Warehouse Team detail removed — the same activity
+            already surfaces in the ON THE FLOOR card above. */}
 
         {/* No activity fallback */}
         {users.length === 0 && !hasFloorContent && (
