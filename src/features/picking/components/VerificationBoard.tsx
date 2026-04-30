@@ -440,7 +440,10 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                         key={order.id}
                         order={order}
                         shippingType={readyShippingTypes.get(order.id) ?? 'regular'}
-                        showShippingBadge
+                        // Hide the shipping badge when the order is in a group —
+                        // the group badge already shows FDX/GRP and rendering
+                        // both produces a duplicated "FDX FDX".
+                        showShippingBadge={!order.order_group}
                         onSelect={handleOrderSelect}
                         onDelete={handleDelete}
                         onUngroup={handleUngroup}
