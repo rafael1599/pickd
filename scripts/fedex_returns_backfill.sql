@@ -14,37 +14,49 @@ DO $$
 DECLARE
   ret RECORD;
   v_location_id uuid;
+  v_existing_inventory_count int;
 BEGIN
   FOR ret IN
     SELECT fr.id, fr.tracking_number
     FROM public.fedex_returns fr
     WHERE NOT EXISTS (SELECT 1 FROM public.fedex_return_items fri WHERE fri.return_id = fr.id)
   LOOP
-    -- 1. Ensure sku_metadata exists with is_bike=true (returns are always bikes).
+    -- Step 1: Ensure sku_metadata exists with is_bike=true. Forces the flag
+    -- to TRUE even if the row already existed with NULL/false (legacy).
     INSERT INTO public.sku_metadata (sku, is_bike)
     VALUES (ret.tracking_number, true)
     ON CONFLICT (sku) DO UPDATE SET is_bike = true
       WHERE sku_metadata.is_bike IS DISTINCT FROM true;
 
-    -- 2. Resolve LUDLOW.FDX location.
-    v_location_id := public.resolve_location('LUDLOW', 'FDX', 'admin');
+    -- Step 2: If ANY inventory row already exists for this tracking (in any
+    -- location — FDX, FDX 1, FDX RETURNS, CAGE, etc., legacy data), DO NOT
+    -- create a new placeholder. The legacy row already represents this bike;
+    -- creating another would double-count physical stock. Consolidation of
+    -- legacy FDX-like locations into the canonical "FDX" is tracked under
+    -- idea-100 in BACKLOG.md.
+    SELECT COUNT(*) INTO v_existing_inventory_count
+    FROM public.inventory i
+    WHERE i.sku = ret.tracking_number;
 
-    -- 3. Create inventory row at LUDLOW.FDX with qty=1, is_active=true.
-    INSERT INTO public.inventory (sku, warehouse, location, location_id, quantity, is_active, item_name)
-    VALUES (
-      ret.tracking_number,
-      'LUDLOW',
-      'FDX',
-      v_location_id,
-      1,
-      true,
-      'FedEx Return ' || ret.tracking_number
-    )
-    ON CONFLICT (warehouse, sku, location) DO UPDATE
-      SET quantity = GREATEST(inventory.quantity, 1),
-          is_active = true;
+    IF v_existing_inventory_count = 0 THEN
+      v_location_id := public.resolve_location('LUDLOW', 'FDX', 'admin');
+      INSERT INTO public.inventory (sku, warehouse, location, location_id, quantity, is_active, item_name)
+      VALUES (
+        ret.tracking_number,
+        'LUDLOW',
+        'FDX',
+        v_location_id,
+        1,
+        true,
+        'FedEx Return ' || ret.tracking_number
+      )
+      ON CONFLICT (warehouse, sku, location) DO UPDATE
+        SET quantity = GREATEST(inventory.quantity, 1),
+            is_active = true;
+    END IF;
 
-    -- 4. Link via fedex_return_items so search-by-tracking + badge work.
+    -- Step 3: Always link via fedex_return_items so search-by-tracking + badge
+    -- find the row (whether canonical or legacy).
     INSERT INTO public.fedex_return_items (return_id, sku, item_name, quantity, condition, target_warehouse)
     VALUES (
       ret.id,
