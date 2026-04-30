@@ -43,6 +43,7 @@ export interface PickingList {
   is_waiting_inventory?: boolean;
   waiting_reason?: string | null;
   shipping_type?: string | null;
+  pallets_qty?: number | null;
 }
 
 const PICKING_LIST_SELECT = `
@@ -62,7 +63,8 @@ const PICKING_LIST_SELECT = `
   order_group:order_groups(id, group_type),
   is_waiting_inventory,
   waiting_reason,
-  shipping_type
+  shipping_type,
+  pallets_qty
 `;
 
 export const VERIFICATION_QUEUE_KEY = ['picking_lists', 'verification_queue'];

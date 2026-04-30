@@ -417,14 +417,14 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             </div>
           </div>
 
-          {/* Waiting (ready-to-double-check queue) — always visible. Holds
-              orders the picker marked ready for verification. Shows the 2
-              oldest by default; rest is behind a "Show N more" toggle. Drop
-              an active order here to mark it ready_to_double_check. */}
+          {/* Ready to Double-Check queue — always visible. Holds orders the
+              picker marked ready for verification. Shows the 2 oldest by
+              default; rest is behind a "Show N more" toggle. Drop an active
+              order here to mark it ready_to_double_check. */}
           <div className="md:max-w-2xl md:mx-auto">
             <DroppableZone
               id={ZONE_READY}
-              label="Waiting"
+              label="Ready to Double-Check"
               labelColor="text-sky-400"
               borderColor="border-sky-500/30"
               bgColor="bg-sky-500/5"
@@ -465,26 +465,26 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             </DroppableZone>
           </div>
 
-          {/* Waiting for Inventory — collapsible, at bottom (idea-053) */}
-          {waitingOrders.length > 0 && (
-            <div className="md:max-w-2xl md:mx-auto">
-              <DroppableZone
-                id={ZONE_WAITING}
-                label="Waiting for Inventory"
-                labelColor="text-amber-400"
-                borderColor="border-amber-500/30"
-                bgColor="bg-amber-500/5"
-                bgHover="bg-amber-500/10"
-                count={waitingOrders.length}
-                collapsible
-                collapsed={waitingCollapsed}
-                onToggleCollapse={() => setWaitingCollapsed((v) => !v)}
-                emptyMessage="No waiting orders"
-              >
-                <WaitingZone orders={waitingOrders} onSelect={handleOrderSelect} />
-              </DroppableZone>
-            </div>
-          )}
+          {/* Waiting for Inventory — always visible so admins can drag the
+              first order in. Long-wait orders (days/weeks/months) live here.
+              Collapsed by default to keep the board compact. */}
+          <div className="md:max-w-2xl md:mx-auto">
+            <DroppableZone
+              id={ZONE_WAITING}
+              label="Waiting for Inventory"
+              labelColor="text-amber-400"
+              borderColor="border-amber-500/30"
+              bgColor="bg-amber-500/5"
+              bgHover="bg-amber-500/10"
+              count={waitingOrders.length}
+              collapsible
+              collapsed={waitingCollapsed}
+              onToggleCollapse={() => setWaitingCollapsed((v) => !v)}
+              emptyMessage="Drag an order here to flag it as waiting for inventory"
+            >
+              <WaitingZone orders={waitingOrders} onSelect={handleOrderSelect} />
+            </DroppableZone>
+          </div>
         </div>
 
         <DragOverlay dropAnimation={null}>
