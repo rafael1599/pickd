@@ -43,6 +43,7 @@ import { DistributionPreview } from './DistributionPreview.tsx';
 import { SectionEditorSheet } from './SectionEditorSheet.tsx';
 import { ItemHistorySheet } from './ItemHistorySheet.tsx';
 import { InlineItemHistory } from './InlineItemHistory.tsx';
+import { OtherLocationsCard } from './OtherLocationsCard.tsx';
 import { ItemDetailsCard } from './ItemDetailsCard';
 
 type WarehouseType = 'LUDLOW' | 'ATS' | 'DELETED ITEMS';
@@ -1323,6 +1324,18 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           </div>
         )}
 
+        {/* Available in other locations — when this row is qty=0 but the same
+            SKU has stock elsewhere (other location and/or warehouse), surface
+            it so the user knows where to grab it. */}
+        {mode === 'edit' && initialData?.sku && (quantity || 0) === 0 && (
+          <OtherLocationsCard
+            sku={initialData.sku}
+            currentItemId={initialData.id}
+            ludlowData={ludlowData}
+            atsData={atsData}
+          />
+        )}
+
         {/* Section: Recent activity — auto-shown for qty=0 items so users can
             see what happened to the SKU (last DEDUCT, MOVE, ADD, etc.) without
             opening the history sheet manually. */}
@@ -1330,6 +1343,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           <InlineItemHistory
             sku={initialData.sku}
             limit={5}
+            showOutOfStockBanner
             onSeeAll={() => setIsHistorySheetOpen(true)}
           />
         )}

@@ -11,6 +11,9 @@ interface InlineItemHistoryProps {
   sku: string;
   limit?: number;
   onSeeAll?: () => void;
+  /** When true, render an "Out of stock since X · by Y" subtitle pulled from
+   *  the most recent log entry. Caller decides; the component just displays. */
+  showOutOfStockBanner?: boolean;
 }
 
 const formatRelative = (iso: string): string => {
@@ -28,6 +31,7 @@ export const InlineItemHistory: React.FC<InlineItemHistoryProps> = ({
   sku,
   limit = 5,
   onSeeAll,
+  showOutOfStockBanner = false,
 }) => {
   const { data: logs, isLoading } = useQuery({
     queryKey: ['inventory_logs', 'item-inline', sku, limit],
@@ -45,20 +49,35 @@ export const InlineItemHistory: React.FC<InlineItemHistoryProps> = ({
     staleTime: 30_000,
   });
 
+  const latest = logs && logs.length > 0 ? logs[0] : null;
+
   return (
     <div className="bg-card border-b border-subtle mt-4 mx-4 rounded-2xl overflow-hidden">
-      <div className="px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Clock size={12} className="text-accent" />
-          <span className="text-[11px] font-bold text-accent uppercase tracking-wider">
-            Recent activity
-          </span>
+      <div className="px-4 py-3 flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <Clock size={12} className="text-accent shrink-0" />
+            <span className="text-[11px] font-bold text-accent uppercase tracking-wider">
+              {showOutOfStockBanner ? 'Out of stock' : 'Recent activity'}
+            </span>
+          </div>
+          {showOutOfStockBanner && latest && (
+            <div className="mt-1 text-[10px] font-bold text-muted">
+              <span className="text-content/80">since {formatRelative(latest.created_at)}</span>
+              {latest.performed_by && (
+                <>
+                  <span className="text-muted/40"> · by </span>
+                  <span className="text-content/80">{latest.performed_by}</span>
+                </>
+              )}
+            </div>
+          )}
         </div>
         {onSeeAll && logs && logs.length > 0 && (
           <button
             type="button"
             onClick={onSeeAll}
-            className="text-[10px] font-black uppercase tracking-widest text-muted hover:text-content transition-colors"
+            className="text-[10px] font-black uppercase tracking-widest text-muted hover:text-content transition-colors shrink-0"
           >
             See all
           </button>
