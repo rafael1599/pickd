@@ -406,59 +406,53 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               </div>
             ) : (
               <div className="grid grid-cols-2 divide-x divide-subtle/60">
-                {/* FDX side */}
-                <div className="px-3">
-                  <div className="text-[9px] font-black uppercase tracking-widest text-purple-400/60 text-center mb-2">
-                    FDX{' '}
-                    {readyFdxOrders.length > 0 && (
-                      <span className="text-muted/50">({readyFdxOrders.length})</span>
+                {/* FDX side — minimalist (color stripe + tint, no label) */}
+                <div className="bg-purple-500/[0.03]">
+                  <div className="h-[2px] bg-purple-500/50" />
+                  <div className="px-3 py-2">
+                    {readyFdxOrders.length === 0 ? (
+                      <div className="text-center text-[10px] text-purple-400/30 py-2">—</div>
+                    ) : (
+                      (readyExpanded
+                        ? readyFdxOrders
+                        : readyFdxOrders.slice(0, READY_VISIBLE_COUNT)
+                      ).map((order) => (
+                        <SortableOrderCard
+                          key={order.id}
+                          order={order}
+                          shippingType="fedex"
+                          showShippingBadge={false}
+                          onSelect={handleOrderSelect}
+                          onDelete={handleDelete}
+                          onUngroup={handleUngroup}
+                        />
+                      ))
                     )}
                   </div>
-                  {readyFdxOrders.length === 0 ? (
-                    <div className="text-center text-[10px] text-muted/30 py-2">—</div>
-                  ) : (
-                    (readyExpanded
-                      ? readyFdxOrders
-                      : readyFdxOrders.slice(0, READY_VISIBLE_COUNT)
-                    ).map((order) => (
-                      <SortableOrderCard
-                        key={order.id}
-                        order={order}
-                        shippingType="fedex"
-                        showShippingBadge={false}
-                        onSelect={handleOrderSelect}
-                        onDelete={handleDelete}
-                        onUngroup={handleUngroup}
-                      />
-                    ))
-                  )}
                 </div>
-                {/* TRK side */}
-                <div className="px-3">
-                  <div className="text-[9px] font-black uppercase tracking-widest text-emerald-400/60 text-center mb-2">
-                    TRK{' '}
-                    {readyTrkOrders.length > 0 && (
-                      <span className="text-muted/50">({readyTrkOrders.length})</span>
+                {/* TRK side — minimalist (color stripe + tint, no label) */}
+                <div className="bg-emerald-500/[0.03]">
+                  <div className="h-[2px] bg-emerald-500/50" />
+                  <div className="px-3 py-2">
+                    {readyTrkOrders.length === 0 ? (
+                      <div className="text-center text-[10px] text-emerald-400/30 py-2">—</div>
+                    ) : (
+                      (readyExpanded
+                        ? readyTrkOrders
+                        : readyTrkOrders.slice(0, READY_VISIBLE_COUNT)
+                      ).map((order) => (
+                        <SortableOrderCard
+                          key={order.id}
+                          order={order}
+                          shippingType="regular"
+                          showShippingBadge={false}
+                          onSelect={handleOrderSelect}
+                          onDelete={handleDelete}
+                          onUngroup={handleUngroup}
+                        />
+                      ))
                     )}
                   </div>
-                  {readyTrkOrders.length === 0 ? (
-                    <div className="text-center text-[10px] text-muted/30 py-2">—</div>
-                  ) : (
-                    (readyExpanded
-                      ? readyTrkOrders
-                      : readyTrkOrders.slice(0, READY_VISIBLE_COUNT)
-                    ).map((order) => (
-                      <SortableOrderCard
-                        key={order.id}
-                        order={order}
-                        shippingType="regular"
-                        showShippingBadge={false}
-                        onSelect={handleOrderSelect}
-                        onDelete={handleDelete}
-                        onUngroup={handleUngroup}
-                      />
-                    ))
-                  )}
                 </div>
               </div>
             )}
@@ -500,33 +494,39 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               </button>
               {!completedCollapsed && (
                 <div className="grid grid-cols-2 divide-x divide-subtle/60 pb-3">
-                  <div className="px-3">
-                    {fedexCompleted.length === 0 ? (
-                      <div className="text-center text-[10px] text-purple-400/30 py-2">—</div>
-                    ) : (
-                      <CompletedZone
-                        orders={fedexCompleted}
-                        onSelectOrder={(orderId) => {
-                          setExternalOrderId(orderId);
-                          navigate('/orders');
-                          onClose();
-                        }}
-                      />
-                    )}
+                  <div className="bg-purple-500/[0.03]">
+                    <div className="h-[2px] bg-purple-500/50" />
+                    <div className="px-3 py-2">
+                      {fedexCompleted.length === 0 ? (
+                        <div className="text-center text-[10px] text-purple-400/30 py-2">—</div>
+                      ) : (
+                        <CompletedZone
+                          orders={fedexCompleted}
+                          onSelectOrder={(orderId) => {
+                            setExternalOrderId(orderId);
+                            navigate('/orders');
+                            onClose();
+                          }}
+                        />
+                      )}
+                    </div>
                   </div>
-                  <div className="px-3">
-                    {regularCompleted.length === 0 ? (
-                      <div className="text-center text-[10px] text-emerald-400/30 py-2">—</div>
-                    ) : (
-                      <CompletedZone
-                        orders={regularCompleted}
-                        onSelectOrder={(orderId) => {
-                          setExternalOrderId(orderId);
-                          navigate('/orders');
-                          onClose();
-                        }}
-                      />
-                    )}
+                  <div className="bg-emerald-500/[0.03]">
+                    <div className="h-[2px] bg-emerald-500/50" />
+                    <div className="px-3 py-2">
+                      {regularCompleted.length === 0 ? (
+                        <div className="text-center text-[10px] text-emerald-400/30 py-2">—</div>
+                      ) : (
+                        <CompletedZone
+                          orders={regularCompleted}
+                          onSelectOrder={(orderId) => {
+                            setExternalOrderId(orderId);
+                            navigate('/orders');
+                            onClose();
+                          }}
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
