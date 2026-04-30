@@ -1296,7 +1296,19 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             ) : !showWaitingPicker ? (
               <button
                 onClick={() => setShowWaitingPicker(true)}
-                className="flex items-center justify-center gap-2 w-full p-3 rounded-2xl border border-dashed border-amber-500/20 text-amber-500/60 hover:text-amber-500 hover:border-amber-500/40 hover:bg-amber-500/5 transition-all active:scale-[0.98]"
+                className={`flex items-center justify-center gap-2 w-full p-3 rounded-2xl border transition-all active:scale-[0.98] ${
+                  problemItems.length > 0
+                    ? // Highlighted when the order has missing/short stock — the
+                      // operator should consider sending this to Waiting instead
+                      // of pushing forward.
+                      'border-amber-500/60 bg-amber-500/15 text-amber-400 hover:bg-amber-500/20 animate-pulse'
+                    : 'border-dashed border-amber-500/20 text-amber-500/60 hover:text-amber-500 hover:border-amber-500/40 hover:bg-amber-500/5'
+                }`}
+                title={
+                  problemItems.length > 0
+                    ? `This order has ${problemItems.length} item(s) with stock issues — consider waiting for inventory`
+                    : undefined
+                }
               >
                 <Hourglass size={14} />
                 <span className="text-xs font-black uppercase tracking-wider">

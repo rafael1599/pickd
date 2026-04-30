@@ -5,10 +5,20 @@ export type ReasonActionType = 'remove' | 'swap' | 'adjust_qty' | 'add' | 'reope
 
 const REASON_PRESETS: Record<ReasonActionType, string[]> = {
   remove: ['Out of stock', 'Customer cancelled', 'Damaged/defective', 'Wrong item on order'],
-  swap: ['Out of stock — replacing', 'Wrong size/color', 'Customer requested', 'Damaged — swapping'],
+  swap: [
+    'Out of stock — replacing',
+    'Wrong size/color',
+    'Customer requested',
+    'Damaged — swapping',
+  ],
   adjust_qty: ['Partial stock only', 'Customer changed qty', 'Damaged units', 'Count correction'],
   add: ['Replacement for removed item', 'Customer add-on', 'Missing from original order'],
-  reopen: ['Item out of stock', 'Wrong item shipped', 'Customer change request', 'Correction needed'],
+  reopen: [
+    'Item out of stock',
+    'Wrong item shipped',
+    'Customer change request',
+    'Correction needed',
+  ],
   waiting: ['Bike not yet received', 'Backorder from vendor', 'Awaiting customer confirmation'],
 };
 
@@ -48,14 +58,22 @@ export const ReasonPicker: React.FC<ReasonPickerProps> = ({
     onReasonChange('');
   };
 
+  const isWaiting = actionType === 'waiting';
+
   return (
     <div className="mb-3">
       <div className="flex items-center gap-1.5 mb-2">
         <MessageSquare size={10} className="text-muted/60" />
         <span className="text-[9px] font-black text-muted/60 uppercase tracking-widest">
-          Why?
+          {isWaiting ? 'Why is this order waiting for inventory?' : 'Why?'}
         </span>
       </div>
+      {isWaiting && (
+        <div className="mb-3 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[10px] text-amber-300 leading-relaxed">
+          This order will be moved to the <strong>Waiting for Inventory</strong> list at the bottom
+          of the Verification Board. It stays out of the active queue until you bring it back.
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-1.5">
         {presets.map((reason) => {

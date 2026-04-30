@@ -137,16 +137,23 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
                 </span>
               )}
             </div>
-            <div className="text-[9px] text-muted font-bold uppercase tracking-wider mt-0.5">
-              {order.status === 'needs_correction'
-                ? order.profiles?.full_name
-                  ? `Picked by ${order.profiles.full_name.split(' ')[0]}`
-                  : null
-                : order.status === 'double_checking'
-                  ? `Checking: ${order.checker_profile?.full_name?.split(' ')[0] ?? '...'}`
-                  : order.profiles?.full_name
+            <div className="text-[9px] text-muted font-bold uppercase tracking-wider mt-0.5 flex items-center gap-2">
+              <span>
+                {order.status === 'needs_correction'
+                  ? order.profiles?.full_name
                     ? `Picked by ${order.profiles.full_name.split(' ')[0]}`
-                    : null}
+                    : null
+                  : order.status === 'double_checking'
+                    ? `Checking: ${order.checker_profile?.full_name?.split(' ')[0] ?? '...'}`
+                    : order.profiles?.full_name
+                      ? `Picked by ${order.profiles.full_name.split(' ')[0]}`
+                      : null}
+              </span>
+              {typeof order.pallets_qty === 'number' && order.pallets_qty > 0 && (
+                <span className="text-sky-400/80">
+                  · {order.pallets_qty} {order.pallets_qty === 1 ? 'pallet' : 'pallets'}
+                </span>
+              )}
             </div>
           </div>
         </div>
