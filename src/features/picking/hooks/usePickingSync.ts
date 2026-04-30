@@ -199,7 +199,30 @@ export const usePickingSync = ({
             // can legitimately wait days/weeks/months for inventory and the
             // user expects to pick them up later from the orders list.
             // (Previously this DELETEd the row — caused order 879469 to vanish
-            // overnight, 2026-04-30. See follow-up ticket on a Waiting bucket.)
+            // overnight, 2026-04-30. See idea-099 in BACKLOG.md.)
+            //
+            // idea-099: when the idle order sits in `needs_correction`, auto-
+            // flag it as waiting for inventory so it lands in the Waiting
+            // bucket of the Verification Board instead of mixing with active
+            // correction work. Admin-only RPC; failure is non-fatal (the order
+            // is already safe — it just stays in needs_correction without the
+            // waiting flag, which is the previous behavior).
+            const isNeedsCorrection = pickingData.status === 'needs_correction';
+            const alreadyWaiting = !!(pickingData as Record<string, unknown>).is_waiting_inventory;
+            if (isNeedsCorrection && !alreadyWaiting) {
+              const { error: markErr } = await supabase.rpc('mark_picking_list_waiting', {
+                p_list_id: pickingData.id as string,
+                p_reason: 'Auto-flagged: idle from a previous session',
+              });
+              if (markErr) {
+                console.warn(
+                  '⚠️ Could not auto-flag idle order as waiting (likely non-admin):',
+                  markErr.message
+                );
+              } else {
+                console.log('🕒 Idle needs_correction order auto-flagged as waiting');
+              }
+            }
             console.log('🧹 Picking session idle (>5h) — releasing local session');
             resetSession();
           } else {
