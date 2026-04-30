@@ -7,6 +7,7 @@ import Send from 'lucide-react/dist/esm/icons/send';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import { CorrectionModeView } from './CorrectionModeView';
+import { ShippingTypeToggle } from './ShippingTypeToggle';
 import { SelectSubOrderModal, type SubOrderOption } from './SelectSubOrderModal';
 import { PhotoLightbox } from '../../../components/ui/PhotoLightbox';
 import { supabase } from '../../../lib/supabase';
@@ -1104,6 +1105,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                   ? `#${activeListId.slice(-6).toUpperCase()}`
                   : 'STOCK DEDUCTION'}
             </span>
+            {activeListId && <ShippingTypeToggle listId={activeListId} />}
           </div>
           {/* Progress Text */}
           <div className="flex items-center gap-3 mt-1">
