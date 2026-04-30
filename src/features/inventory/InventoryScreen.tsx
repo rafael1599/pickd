@@ -140,9 +140,33 @@ export const InventoryScreen = () => {
     return inventoryData.filter((item) => !item.is_active || item.quantity <= 0);
   }, [inventoryData, isActiveSearch, showInactive]);
 
+  // Split ghost items into two buckets: SKUs that still have stock somewhere
+  // else ("moved" — not really gone, just relocated) vs SKUs with zero stock
+  // anywhere ("out of stock" — actually empty). Helps the user not panic when
+  // an item appears as 0 but lives in another location.
+  const { movedGhostItems, oosGhostItems } = useMemo(() => {
+    if (ghostItems.length === 0) {
+      return { movedGhostItems: [], oosGhostItems: [] };
+    }
+    const skusWithStockElsewhere = new Set<string>();
+    for (const item of inventoryData) {
+      if ((item.quantity || 0) > 0 && item.is_active && item.sku) {
+        skusWithStockElsewhere.add(item.sku.trim());
+      }
+    }
+    const moved: typeof ghostItems = [];
+    const oos: typeof ghostItems = [];
+    for (const item of ghostItems) {
+      if (skusWithStockElsewhere.has((item.sku || '').trim())) moved.push(item);
+      else oos.push(item);
+    }
+    return { movedGhostItems: moved, oosGhostItems: oos };
+  }, [ghostItems, inventoryData]);
+
   const ghostSkus = useMemo(() => ghostItems.map((i) => i.sku), [ghostItems]);
   const { data: lastActivityMap } = useLastActivity(ghostSkus);
-  const [ghostTrailOpen, setGhostTrailOpen] = useState(false);
+  const [movedTrailOpen, setMovedTrailOpen] = useState(false);
+  const [oosTrailOpen, setOosTrailOpen] = useState(false);
 
   const isLoading = loading;
 
@@ -874,91 +898,122 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
               );
             })}
 
-        {/* Ghost trail — qty=0 / inactive items from search */}
-        {isActiveSearch && ghostItems.length > 0 && (
-          <div className="max-w-2xl mx-auto">
-            <button
-              onClick={() => setGhostTrailOpen((v) => !v)}
-              className="flex items-center gap-2 w-full py-3 px-1 text-muted hover:text-content transition-colors"
-            >
-              <div className="h-px flex-1 bg-subtle" />
-              <span className="text-[10px] font-black uppercase tracking-widest shrink-0">
-                No stock ({ghostItems.length})
-              </span>
-              <ChevronDown
-                size={14}
-                className={`shrink-0 transition-transform ${ghostTrailOpen ? 'rotate-180' : ''}`}
-              />
-              <div className="h-px flex-1 bg-subtle" />
-            </button>
-
-            {ghostTrailOpen && (
-              <div className="space-y-1 pb-4">
-                {ghostItems.map((item) => {
-                  const activity = lastActivityMap?.get(item.sku);
-                  return (
-                    <div
-                      key={`ghost-${item.id}-${item.sku}`}
-                      onClick={() => handleCardClick(item)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          handleCardClick(item);
-                        }
-                      }}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface/50 border border-subtle/50 cursor-pointer hover:bg-surface/80 active:scale-[0.99] transition-all"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs font-bold text-content/70 tracking-tight">
-                          {item.sku}
+        {/* Ghost trails — qty=0 items split into two buckets:
+              · "Moved" — same SKU has stock in another location
+              · "Out of stock" — no stock anywhere */}
+        {isActiveSearch &&
+          (movedGhostItems.length > 0 || oosGhostItems.length > 0) &&
+          (() => {
+            const renderRow = (item: (typeof ghostItems)[number]) => {
+              const activity = lastActivityMap?.get(item.sku);
+              return (
+                <div
+                  key={`ghost-${item.id}-${item.sku}`}
+                  onClick={() => handleCardClick(item)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleCardClick(item);
+                    }
+                  }}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface/50 border border-subtle/50 cursor-pointer hover:bg-surface/80 active:scale-[0.99] transition-all"
+                >
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-bold text-content/70 tracking-tight">
+                      {item.sku}
+                    </span>
+                    {item.item_name && (
+                      <span className="text-[10px] text-muted/60 ml-2 truncate">
+                        {item.item_name}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-muted shrink-0 text-right">
+                    {activity ? (
+                      activity.list_id ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (activity.list_id) {
+                              openModal({ type: 'picking-summary', listId: activity.list_id });
+                            }
+                          }}
+                          className="hover:underline hover:brightness-125 active:scale-95 transition-all cursor-pointer"
+                        >
+                          {activity.action_type === 'MOVE' && '↗ '}
+                          {activity.action_type === 'DEDUCT' && '📦 '}
+                          {activity.action_type === 'ADD' && '+ '}
+                          {formatLastActivity(activity)}
+                        </button>
+                      ) : (
+                        <span>
+                          {activity.action_type === 'MOVE' && '↗ '}
+                          {activity.action_type === 'DEDUCT' && '📦 '}
+                          {activity.action_type === 'ADD' && '+ '}
+                          {formatLastActivity(activity)}
                         </span>
-                        {item.item_name && (
-                          <span className="text-[10px] text-muted/60 ml-2 truncate">
-                            {item.item_name}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[10px] text-muted shrink-0 text-right">
-                        {activity ? (
-                          activity.list_id ? (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (activity.list_id) {
-                                  openModal({ type: 'picking-summary', listId: activity.list_id });
-                                }
-                              }}
-                              className="hover:underline hover:brightness-125 active:scale-95 transition-all cursor-pointer"
-                            >
-                              {activity.action_type === 'MOVE' && '↗ '}
-                              {activity.action_type === 'DEDUCT' && '📦 '}
-                              {activity.action_type === 'ADD' && '+ '}
-                              {formatLastActivity(activity)}
-                            </button>
-                          ) : (
-                            <span>
-                              {activity.action_type === 'MOVE' && '↗ '}
-                              {activity.action_type === 'DEDUCT' && '📦 '}
-                              {activity.action_type === 'ADD' && '+ '}
-                              {formatLastActivity(activity)}
-                            </span>
-                          )
-                        ) : !item.is_active ? (
-                          <span className="text-muted/50">Inactive</span>
-                        ) : (
-                          <span>No recent activity</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                      )
+                    ) : !item.is_active ? (
+                      <span className="text-muted/50">Inactive</span>
+                    ) : (
+                      <span>No recent activity</span>
+                    )}
+                  </div>
+                </div>
+              );
+            };
+
+            return (
+              <div className="max-w-2xl mx-auto space-y-1">
+                {movedGhostItems.length > 0 && (
+                  <div>
+                    <button
+                      onClick={() => setMovedTrailOpen((v) => !v)}
+                      className="flex items-center gap-2 w-full py-3 px-1 text-emerald-500/80 hover:text-emerald-400 transition-colors"
+                    >
+                      <div className="h-px flex-1 bg-emerald-500/20" />
+                      <span className="text-[10px] font-black uppercase tracking-widest shrink-0">
+                        Moved ({movedGhostItems.length})
+                      </span>
+                      <ChevronDown
+                        size={14}
+                        className={`shrink-0 transition-transform ${movedTrailOpen ? 'rotate-180' : ''}`}
+                      />
+                      <div className="h-px flex-1 bg-emerald-500/20" />
+                    </button>
+                    {movedTrailOpen && (
+                      <div className="space-y-1 pb-4">{movedGhostItems.map(renderRow)}</div>
+                    )}
+                  </div>
+                )}
+
+                {oosGhostItems.length > 0 && (
+                  <div>
+                    <button
+                      onClick={() => setOosTrailOpen((v) => !v)}
+                      className="flex items-center gap-2 w-full py-3 px-1 text-muted hover:text-content transition-colors"
+                    >
+                      <div className="h-px flex-1 bg-subtle" />
+                      <span className="text-[10px] font-black uppercase tracking-widest shrink-0">
+                        Out of stock ({oosGhostItems.length})
+                      </span>
+                      <ChevronDown
+                        size={14}
+                        className={`shrink-0 transition-transform ${oosTrailOpen ? 'rotate-180' : ''}`}
+                      />
+                      <div className="h-px flex-1 bg-subtle" />
+                    </button>
+                    {oosTrailOpen && (
+                      <div className="space-y-1 pb-4">{oosGhostItems.map(renderRow)}</div>
+                    )}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        )}
+            );
+          })()}
 
         {hasMoreItems && !isServerSearching ? (
           <div ref={loadMoreSentinelRef} className="py-8 flex justify-center">
