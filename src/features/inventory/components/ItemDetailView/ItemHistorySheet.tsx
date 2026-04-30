@@ -29,7 +29,7 @@ interface ItemHistorySheetProps {
   sku: string;
 }
 
-const getActionInfo = (type: LogActionTypeValue, log: InventoryLog) => {
+export const getActionInfo = (type: LogActionTypeValue, log: InventoryLog) => {
   switch (type) {
     case 'MOVE':
       return {
@@ -91,7 +91,7 @@ const getActionInfo = (type: LogActionTypeValue, log: InventoryLog) => {
   }
 };
 
-const getDisplayQty = (log: InventoryLog) => {
+export const getDisplayQty = (log: InventoryLog) => {
   if (log.action_type === 'EDIT') return log.new_quantity ?? log.quantity_change ?? 0;
   if (log.action_type === 'PHYSICAL_DISTRIBUTION') {
     const snap = log.snapshot_before as DistributionSnapshot | null | undefined;

@@ -7,6 +7,17 @@
 
 ## P1 — Alto (operación diaria)
 
+### 47. Reactivación de SKU al cambiar qty — investigar antes de implementar <!-- id: idea-098 -->
+- **Contexto:** Cuando un SKU queda con qty=0 se marca `is_active=false` (invariante documentado en CLAUDE.md). Hoy no hay botón explícito de "Reactivate" en ItemDetailView, ni se quiere — la reactivación **debe ocurrir solo como efecto secundario de subir qty**.
+- **Investigación previa (obligatoria antes de tocar código):**
+  1. Confirmar qué hace hoy `adjust_inventory_quantity` cuando un row qty=0 / is_active=false recibe un delta positivo: ¿flipea `is_active=true` automáticamente? La nota en CLAUDE.md sobre el invariante "qty=0 → is_active=false" sugiere que sí es bidireccional, pero hay que verificarlo en la migración real.
+  2. Verificar el path de UI: si un user abre un ghost item (qty=0) en ItemDetailView e ingresa qty>0, ¿la mutation actual ya lo deja activo en prod? ¿O el row queda inactive y desaparece de la búsqueda hasta refresh?
+  3. Revisar `register_new_sku` — la excepción documentada (qty=0, is_active=true) para placeholders de bikes nuevos. No romper este caso.
+  4. Considerar el caso "Discontinued" — si en el futuro hay un toggle manual de discontinue, debe ser independiente del flag `is_active` o usar otra columna (ej. `is_discontinued`) para no chocar con la reactivación auto.
+- **Decisión esperada al final de la investigación:** o bien (a) "ya funciona, solo falta verificar el flujo UI", o (b) "falta implementar el flip en X RPC / Y mutation", con plan de cambio mínimo.
+- **Out of scope:** botón explícito de Reactivate en ItemDetailView (descartado por el user — la reactivación debe ser implícita al ajustar qty).
+- **Origen:** sesión 2026-04-30, conversación sobre qty=0 ghost trail.
+
 ### 46. Auto-resolver SKU format mismatches en intake / pick-time <!-- id: idea-092 -->
 - **Contexto:** Las órdenes llegan con SKUs que no coinciden con `sku_metadata` solo por formato (guion/espacios faltantes). Ej: catalog tiene `09-4802BK` pero el PDF/sistema upstream pone `094802BK`. El picker hoy resuelve manualmente con un `Replaced X → Y` correction y razón "Sku def" / "Wrong name". En las últimas 2 semanas: `094802BK→09-4802BK` (2 órdenes, 2 customers el mismo día) y `033769BLD→03-3769BLD` (1 orden). Detección: la versión normalizada (lowercase + strip `[-\s]`) de ambos SKUs es idéntica → no es variant real, es ruido de formato.
 - **Problema:** trabajo manual recurrente del picker para algo que la DB puede resolver sola. Cada caso suma ~30s + un correction note que infla el dashboard cross-team.

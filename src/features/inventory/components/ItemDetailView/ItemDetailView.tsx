@@ -42,6 +42,7 @@ import { QuantityControl } from './QuantityControl.tsx';
 import { DistributionPreview } from './DistributionPreview.tsx';
 import { SectionEditorSheet } from './SectionEditorSheet.tsx';
 import { ItemHistorySheet } from './ItemHistorySheet.tsx';
+import { InlineItemHistory } from './InlineItemHistory.tsx';
 import { ItemDetailsCard } from './ItemDetailsCard';
 
 type WarehouseType = 'LUDLOW' | 'ATS' | 'DELETED ITEMS';
@@ -1311,14 +1312,27 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           )}
         </div>
 
-        {/* Section: Distribution */}
-        <div className="bg-card border-b border-subtle mt-4 mx-4 rounded-2xl overflow-hidden">
-          <DistributionPreview
-            distribution={distribution}
-            quantity={quantity || 0}
-            onTap={() => setIsDistributionSheetOpen(true)}
+        {/* Section: Distribution — only when there's stock to distribute */}
+        {(quantity || 0) > 0 && (
+          <div className="bg-card border-b border-subtle mt-4 mx-4 rounded-2xl overflow-hidden">
+            <DistributionPreview
+              distribution={distribution}
+              quantity={quantity || 0}
+              onTap={() => setIsDistributionSheetOpen(true)}
+            />
+          </div>
+        )}
+
+        {/* Section: Recent activity — auto-shown for qty=0 items so users can
+            see what happened to the SKU (last DEDUCT, MOVE, ADD, etc.) without
+            opening the history sheet manually. */}
+        {mode === 'edit' && initialData?.sku && (quantity || 0) === 0 && (
+          <InlineItemHistory
+            sku={initialData.sku}
+            limit={5}
+            onSeeAll={() => setIsHistorySheetOpen(true)}
           />
-        </div>
+        )}
 
         {/* Section: Dimensions — always visible, editable only for admin */}
         <div className="bg-card border-b border-subtle mt-4 mx-4 rounded-2xl overflow-hidden">
