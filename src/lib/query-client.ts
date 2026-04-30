@@ -17,7 +17,7 @@ interface ServiceError extends Error {
   };
 }
 
-const CACHE_VERSION = 'v1.4.0';
+const CACHE_VERSION = 'v1.5.0';
 const BASE_CACHE_KEY = 'pickd-inventory-cache';
 const VERSIONED_KEY = `${BASE_CACHE_KEY}-${CACHE_VERSION}`;
 

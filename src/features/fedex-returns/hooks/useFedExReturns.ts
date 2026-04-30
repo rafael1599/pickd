@@ -55,19 +55,75 @@ export function useAddFedExReturn() {
 
   return useMutation({
     mutationFn: async (input: AddReturnInput) => {
-      const { data, error } = await supabase
+      const tracking = input.tracking_number;
+      const performedBy = profile?.full_name ?? 'FedEx Returns';
+      const userId = user?.id;
+      if (!userId) {
+        throw new Error('You must be signed in to register a return.');
+      }
+
+      // 1. Create the return envelope (unique tracking_number guards dupes).
+      const { data: ret, error } = await supabase
         .from('fedex_returns')
         .insert({
-          tracking_number: input.tracking_number,
+          tracking_number: tracking,
           label_photo_url: input.label_photo_url || null,
           notes: input.notes || null,
-          received_by: user?.id ?? null,
+          received_by: userId,
           received_by_name: profile?.full_name ?? null,
         })
         .select()
         .single();
       if (error) throw error;
-      return data;
+
+      // 2. Create a placeholder inventory row at LUDLOW.FDX with the tracking
+      //    number as a temporary SKU. Users later "rename" this SKU when they
+      //    identify the bike model via Return-to-Stock. is_bike forced to true
+      //    because returns are always bikes (per ops policy).
+      const placeholderName = `FedEx Return ${tracking}`;
+      const { error: registerErr } = await (supabase.rpc as CallableFunction)('register_new_sku', {
+        p_sku: tracking,
+        p_item_name: placeholderName,
+        p_warehouse: 'LUDLOW',
+        p_location: 'FDX',
+      });
+      if (registerErr) throw registerErr;
+
+      // The trigger set_sku_metadata_is_bike defaults non-bike-pattern SKUs to
+      // false. Tracking numbers are pure digits — they fall through to FALSE.
+      // Force TRUE so this placeholder shows up in stock view (bikes lane).
+      await supabase
+        .from('sku_metadata')
+        .update({ is_bike: true })
+        .eq('sku', tracking)
+        .is('is_bike', false);
+
+      // 3. Bump qty to 1 (the bike physically arrived).
+      const { error: adjustErr } = await supabase.rpc('adjust_inventory_quantity', {
+        p_sku: tracking,
+        p_warehouse: 'LUDLOW',
+        p_location: 'FDX',
+        p_delta: 1,
+        p_performed_by: performedBy,
+        p_user_id: userId,
+        p_merge_note: placeholderName,
+      });
+      if (adjustErr) throw adjustErr;
+
+      // 4. Link the inventory row to the return so search-by-tracking and the
+      //    NOW-badge enrichment find it. condition='unknown' until the user
+      //    inspects it via Return-to-Stock.
+      const { error: itemErr } = await supabase.from('fedex_return_items').insert({
+        return_id: ret.id,
+        sku: tracking,
+        item_name: placeholderName,
+        quantity: 1,
+        condition: 'unknown',
+        target_warehouse: 'LUDLOW',
+      });
+      if (itemErr) throw itemErr;
+
+      return ret;
     },
     onMutate: async (input) => {
       await queryClient.cancelQueries({ queryKey: QUERY_KEY });
@@ -95,7 +151,12 @@ export function useAddFedExReturn() {
     onError: (_err, _input, context) => {
       if (context?.previous) queryClient.setQueryData(QUERY_KEY, context.previous);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      // Intake now creates an inventory row at LUDLOW.FDX → refresh stock.
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['locations', 'active'] });
+    },
   });
 }
 

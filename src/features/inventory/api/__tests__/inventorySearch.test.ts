@@ -35,6 +35,7 @@ describe('inventoryApi.fetchInventoryWithMetadata', () => {
       p_include_inactive: true,
       p_show_parts: false,
       p_only_scratch_dent: false,
+      p_only_fedex_returns: false,
       p_offset: 30,
       p_limit: 15,
     });

@@ -3,7 +3,12 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { supabase } from '../../../lib/supabase';
 import { inventoryApi } from '../api/inventoryApi';
-import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY, SD_BINS_KEY } from './useInventoryRealtime';
+import {
+  INVENTORY_ROOT_KEY,
+  PARTS_BINS_KEY,
+  SD_BINS_KEY,
+  FDX_BINS_KEY,
+} from './useInventoryRealtime';
 import { useInventoryMutations } from './useInventoryMutations';
 import { useInventoryLogs } from './useInventoryLogs';
 import { useLocationManagement } from './useLocationManagement';
@@ -45,6 +50,7 @@ export const useInventory = () => {
   const [showInactive, setShowInactive] = useState(false);
   const [showParts, setShowParts] = useState(false);
   const [showScratchDent, setShowScratchDent] = useState(false);
+  const [showFedexReturns, setShowFedexReturns] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { fetchLogs, undoAction } = useInventoryLogs();
   const { locations } = useLocationManagement();
@@ -53,6 +59,7 @@ export const useInventory = () => {
   const [bikesTotal, setBikesTotal] = useState<number | null>(null);
   const [partsTotal, setPartsTotal] = useState<number | null>(null);
   const [scratchDentTotal, setScratchDentTotal] = useState<number | null>(null);
+  const [fedexReturnsTotal, setFedexReturnsTotal] = useState<number | null>(null);
   // searchTotal is now derived from searchData query result (no separate state)
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const isLoadingMoreRef = useRef(false);
@@ -147,6 +154,26 @@ export const useInventory = () => {
     staleTime: Infinity,
     refetchOnWindowFocus: false,
     enabled: showScratchDent,
+  });
+
+  // ── FedEx Returns query — only when toggled ────────────────────────
+  const { data: fedexReturnsData, isLoading: fedexReturnsLoading } = useQuery<
+    InventoryItemWithMetadata[]
+  >({
+    queryKey: [...FDX_BINS_KEY, showInactive],
+    queryFn: async () => {
+      const { data, count } = await inventoryApi.fetchInventoryWithMetadata({
+        includeInactive: showInactive,
+        onlyFedexReturns: true,
+        warehouse: 'LUDLOW',
+        limit: INITIAL_PAGE_SIZE,
+      });
+      setFedexReturnsTotal(count);
+      return data.map(mapItem);
+    },
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    enabled: showFedexReturns,
   });
 
   // ── Server-side search query (separate from main cache) ───────────
@@ -307,6 +334,7 @@ export const useInventory = () => {
     if (isActiveSearch) {
       return searchResults ?? EMPTY_INVENTORY;
     }
+    if (showFedexReturns) return fedexReturnsData ?? EMPTY_INVENTORY;
     if (showScratchDent) return scratchDentData ?? EMPTY_INVENTORY;
     const bikes = rawData ?? EMPTY_INVENTORY;
     const parts = partsData ?? EMPTY_INVENTORY;
@@ -318,8 +346,10 @@ export const useInventory = () => {
     rawData,
     partsData,
     scratchDentData,
+    fedexReturnsData,
     showParts,
     showScratchDent,
+    showFedexReturns,
   ]);
 
   // All filtering (warehouse, inactive) now handled server-side
@@ -512,6 +542,10 @@ export const useInventory = () => {
     setShowScratchDent,
     scratchDentLoading,
     scratchDentTotal,
+    showFedexReturns,
+    setShowFedexReturns,
+    fedexReturnsLoading,
+    fedexReturnsTotal,
     setSearchQuery,
     partsLoading,
     isSearching,

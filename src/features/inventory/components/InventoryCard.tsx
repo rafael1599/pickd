@@ -29,6 +29,9 @@ interface InventoryCardProps {
   onCartDecrement?: () => void;
   onCartRemove?: () => void;
   lastCounted?: Date | null;
+  fedex_tracking_number?: string | null;
+  fedex_return_id?: string | null;
+  fedex_return_status?: 'received' | 'processing' | 'resolved' | null;
 }
 
 export const InventoryCard = memo(
@@ -57,6 +60,9 @@ export const InventoryCard = memo(
     onCartDecrement,
     onCartRemove,
     lastCounted = null,
+    fedex_tracking_number = null,
+    fedex_return_id = null,
+    fedex_return_status = null,
   }: InventoryCardProps) => {
     const [flash, setFlash] = useState(false);
     const prevQuantityRef = useRef(quantity);
@@ -120,6 +126,25 @@ export const InventoryCard = memo(
           )}
 
           <div className="flex-1 min-w-0 flex flex-col">
+            {fedex_tracking_number && (
+              <a
+                href={fedex_return_id ? `/fedex-returns/${fedex_return_id}` : undefined}
+                onClick={(e) => e.stopPropagation()}
+                className={`mb-1 inline-flex items-center gap-1 self-start text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border ${
+                  fedex_return_status === 'resolved'
+                    ? 'bg-muted/10 text-muted border-muted/20'
+                    : 'bg-purple-500/15 text-purple-400 border-purple-500/30'
+                }`}
+                title="FedEx Return — tap to open"
+              >
+                FDX {fedex_tracking_number}
+                {sku !== fedex_tracking_number && (
+                  <span className="text-muted/60 font-bold normal-case tracking-normal">
+                    → now {sku}
+                  </span>
+                )}
+              </a>
+            )}
             <div className="flex justify-between items-center">
               <div className="flex flex-col">
                 {location && (

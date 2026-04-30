@@ -81,6 +81,8 @@ export const InventoryScreen = () => {
     setShowParts,
     showScratchDent,
     setShowScratchDent,
+    showFedexReturns,
+    setShowFedexReturns,
     setSearchQuery,
     loadMore: loadMoreItems,
     hasMoreItems,
@@ -776,11 +778,33 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
               checked={showScratchDent}
               onChange={(e) => {
                 setShowScratchDent(e.target.checked);
-                if (e.target.checked) setShowParts(false);
+                if (e.target.checked) {
+                  setShowParts(false);
+                  setShowFedexReturns(false);
+                }
               }}
               className="rounded transition-colors h-3.5 w-3.5 border-neutral-600 bg-surface text-accent focus:ring-accent focus:ring-offset-0"
             />
             S/D
+          </label>
+          <label
+            htmlFor="show-fdx"
+            className="flex items-center gap-1.5 text-xs font-medium cursor-pointer select-none text-muted"
+          >
+            <input
+              type="checkbox"
+              id="show-fdx"
+              checked={showFedexReturns}
+              onChange={(e) => {
+                setShowFedexReturns(e.target.checked);
+                if (e.target.checked) {
+                  setShowParts(false);
+                  setShowScratchDent(false);
+                }
+              }}
+              className="rounded transition-colors h-3.5 w-3.5 border-neutral-600 bg-surface text-accent focus:ring-accent focus:ring-offset-0"
+            />
+            FedEx Returns
           </label>
         </div>
       )}
@@ -889,6 +913,9 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                             onCartDecrement={() => updateCartQty(item, -1)}
                             onCartRemove={() => removeFromCart(item)}
                             lastCounted={verifiedSkus.get(item.sku) ?? null}
+                            fedex_tracking_number={item.fedex_tracking_number}
+                            fedex_return_id={item.fedex_return_id}
+                            fedex_return_status={item.fedex_return_status}
                           />
                         </div>
                       );
