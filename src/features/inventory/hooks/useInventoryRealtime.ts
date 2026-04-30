@@ -10,6 +10,7 @@ import { type SKUMetadata } from '../../../schemas/skuMetadata.schema';
 export const INVENTORY_ROOT_KEY = ['inventory', 'grouped-all'];
 export const PARTS_BINS_KEY = ['inventory', 'parts-bins'];
 export const SD_BINS_KEY = ['inventory', 'sd-bins'];
+export const FDX_BINS_KEY = ['inventory', 'fdx-bins'];
 
 /**
  * Motor Websocket: Escucha cambios en 'inventory' y 'sku_metadata'
@@ -83,6 +84,7 @@ export function useInventoryRealtime() {
           applyInventoryChange(INVENTORY_ROOT_KEY, payload);
           applyInventoryChange(PARTS_BINS_KEY, payload);
           applyInventoryChange(SD_BINS_KEY, payload);
+          applyInventoryChange(FDX_BINS_KEY, payload);
         })
         .on(
           'postgres_changes',
@@ -94,6 +96,7 @@ export function useInventoryRealtime() {
               applyMetadataChange(INVENTORY_ROOT_KEY, newMeta);
               applyMetadataChange(PARTS_BINS_KEY, newMeta);
               applyMetadataChange(SD_BINS_KEY, newMeta);
+              applyMetadataChange(FDX_BINS_KEY, newMeta);
               // The catalog screen (`/sd-catalog`) reads with its own keys —
               // invalidate when an S/D SKU changes.
               if (newMeta?.is_scratch_dent) {
