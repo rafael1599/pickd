@@ -80,7 +80,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   // DnD logic — all zone reclassification, merge, prompts
   const dnd = useBoardDnD(isAdmin, refresh);
 
-  const [waitingCollapsed, setWaitingCollapsed] = useState(true);
+  const [waitingCollapsed, setWaitingCollapsed] = useState(false);
   const [waitingReason, setWaitingReason] = useState('');
   const [reopenReason, setReopenReason] = useState('');
   const [readyExpanded, setReadyExpanded] = useState(false);
@@ -470,9 +470,44 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             )}
           </DropZone>
 
+          {/* WAITING FOR INVENTORY — collapsable, always-visible drop target.
+              Open by default so the empty-state ("Drag an order here…") guides
+              first-time use. */}
+          <DropZone id={ZONE_WAITING} className="border-b border-subtle">
+            <button
+              onClick={() => setWaitingCollapsed((v) => !v)}
+              className="w-full flex items-center justify-center gap-2 py-3 hover:bg-amber-500/5 transition-colors"
+            >
+              <span className="text-xs font-black uppercase tracking-widest text-amber-400">
+                Waiting for Inventory
+              </span>
+              {waitingOrders.length > 0 && (
+                <span className="text-[10px] text-muted/60">({waitingOrders.length})</span>
+              )}
+              <ChevronDown
+                size={14}
+                className={`text-amber-400/60 transition-transform ${
+                  waitingCollapsed ? '' : 'rotate-180'
+                }`}
+              />
+            </button>
+            {!waitingCollapsed && (
+              <div className="px-3 pb-3">
+                {waitingOrders.length > 0 ? (
+                  <WaitingZone orders={waitingOrders} onSelect={handleOrderSelect} />
+                ) : (
+                  <div className="text-center text-[10px] text-muted/40 italic py-2">
+                    Drag an order here to flag it as waiting for inventory
+                  </div>
+                )}
+              </div>
+            )}
+          </DropZone>
+
           {/* COMPLETED TODAY — full-width, collapsable. Reference info,
-              not action — keeps it out of the active lanes. FDX | TRK split
-              mirrors the Ready-to-Double-Check pattern for consistency. */}
+              not action — sits below Waiting for Inventory so it doesn't
+              compete with the active queue. FDX | TRK split mirrors the
+              Ready-to-Double-Check pattern for consistency. */}
           {(fedexCompleted.length > 0 || regularCompleted.length > 0) && (
             <div className="border-b border-subtle">
               <button
@@ -532,38 +567,6 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               )}
             </div>
           )}
-
-          {/* WAITING FOR INVENTORY — collapsable, always-visible drop target */}
-          <DropZone id={ZONE_WAITING} className="border-b border-subtle">
-            <button
-              onClick={() => setWaitingCollapsed((v) => !v)}
-              className="w-full flex items-center justify-center gap-2 py-3 hover:bg-amber-500/5 transition-colors"
-            >
-              <span className="text-xs font-black uppercase tracking-widest text-amber-400">
-                Waiting for Inventory
-              </span>
-              {waitingOrders.length > 0 && (
-                <span className="text-[10px] text-muted/60">({waitingOrders.length})</span>
-              )}
-              <ChevronDown
-                size={14}
-                className={`text-amber-400/60 transition-transform ${
-                  waitingCollapsed ? '' : 'rotate-180'
-                }`}
-              />
-            </button>
-            {!waitingCollapsed && (
-              <div className="px-3 pb-3">
-                {waitingOrders.length > 0 ? (
-                  <WaitingZone orders={waitingOrders} onSelect={handleOrderSelect} />
-                ) : (
-                  <div className="text-center text-[10px] text-muted/40 italic py-2">
-                    Drag an order here to flag it as waiting for inventory
-                  </div>
-                )}
-              </div>
-            )}
-          </DropZone>
 
           {/* PROJECTS — read-only context, at the very bottom */}
           <div className="px-3 py-3">
