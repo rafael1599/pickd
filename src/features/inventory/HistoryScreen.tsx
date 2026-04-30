@@ -749,9 +749,24 @@ export const HistoryScreen = () => {
         title += ` (${userFilter})`;
       }
 
+      // Dedupe MOVE rows: when the same SKU was relocated multiple times the
+      // same day with the same qty, the units are almost always the same
+      // batch passing through hops (ROW 14 → ROW 32 → ROW 33). Showing every
+      // hop in the report is noise — keep only the most recent one. Logs are
+      // already sorted newest-first, so a Set keyed by (sku, qty) preserves
+      // the first occurrence we see (= the latest hop).
+      const seenMove = new Set<string>();
+      const dedupedLogs = filteredLogs.filter((log) => {
+        if (log.action_type !== 'MOVE') return true;
+        const key = `${log.sku}::${getDisplayQty(log)}`;
+        if (seenMove.has(key)) return false;
+        seenMove.add(key);
+        return true;
+      });
+
       const stats = {
-        total: filteredLogs.length,
-        qty: filteredLogs.reduce((acc, l) => acc + Number(getDisplayQty(l)), 0),
+        total: dedupedLogs.length,
+        qty: dedupedLogs.reduce((acc, l) => acc + Number(getDisplayQty(l)), 0),
       };
 
       // Header: title left, date + counts right. TIMEFILTER (TODAY/WEEK/etc)
@@ -772,7 +787,7 @@ export const HistoryScreen = () => {
       doc.text('QTY', 285, currentY, { align: 'right' });
       currentY += 4;
 
-      const tableData = filteredLogs.map((log) => {
+      const tableData = dedupedLogs.map((log) => {
         const fromLoc = log.from_location || '';
         const toLoc = log.to_location || '';
         const qty = getDisplayQty(log);
