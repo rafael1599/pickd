@@ -723,8 +723,7 @@ export const HistoryScreen = () => {
   const generateDailyPDF = useCallback(
     (
       jsPDFInstance: typeof import('jspdf').default,
-      autoTableInstance: typeof import('jspdf-autotable').default,
-      otherLocationsBySku: Map<string, Array<{ location: string; quantity: number }>>
+      autoTableInstance: typeof import('jspdf-autotable').default
     ) => {
       const doc = new jsPDFInstance({
         orientation: 'landscape',
@@ -749,9 +748,41 @@ export const HistoryScreen = () => {
         title += ` (${userFilter})`;
       }
 
+      // Collapse MOVE rows: when the same SKU was relocated multiple times
+      // the same day with the same qty, it is almost always the same batch
+      // passing through hops (ROW 14 → ROW 32 → ROW 33). Print one row that
+      // shows the full path instead of N noisy rows. Build a per-(sku,qty)
+      // index of the chained locations, oldest hop first.
+      const movePathBySkuQty = new Map<string, string[]>();
+      // Iterate oldest-first so the path reads left-to-right naturally.
+      // filteredLogs is sorted DESC, so reverse a shallow copy.
+      for (const log of [...filteredLogs].reverse()) {
+        if (log.action_type !== 'MOVE') continue;
+        const qty = getDisplayQty(log);
+        const key = `${log.sku}::${qty}`;
+        const path = movePathBySkuQty.get(key) ?? [];
+        const from = log.from_location || '';
+        const to = log.to_location || '';
+        if (path.length === 0 && from) path.push(from);
+        if (to && path[path.length - 1] !== to) path.push(to);
+        movePathBySkuQty.set(key, path);
+      }
+
+      // Dedupe MOVE rows in the table: keep only the most recent log per
+      // (sku, qty). The activity column will pull the full chained path
+      // from movePathBySkuQty so no audit info is hidden.
+      const seenMove = new Set<string>();
+      const dedupedLogs = filteredLogs.filter((log) => {
+        if (log.action_type !== 'MOVE') return true;
+        const key = `${log.sku}::${getDisplayQty(log)}`;
+        if (seenMove.has(key)) return false;
+        seenMove.add(key);
+        return true;
+      });
+
       const stats = {
-        total: filteredLogs.length,
-        qty: filteredLogs.reduce((acc, l) => acc + Number(getDisplayQty(l)), 0),
+        total: dedupedLogs.length,
+        qty: dedupedLogs.reduce((acc, l) => acc + Number(getDisplayQty(l)), 0),
       };
 
       // Header: title left, date + counts right. TIMEFILTER (TODAY/WEEK/etc)
@@ -772,7 +803,7 @@ export const HistoryScreen = () => {
       doc.text('QTY', 285, currentY, { align: 'right' });
       currentY += 4;
 
-      const tableData = filteredLogs.map((log) => {
+      const tableData = dedupedLogs.map((log) => {
         const fromLoc = log.from_location || '';
         const toLoc = log.to_location || '';
         const qty = getDisplayQty(log);
@@ -780,26 +811,12 @@ export const HistoryScreen = () => {
         let activity = '';
         switch (log.action_type) {
           case 'MOVE': {
-            // ASCII arrow only — jsPDF default Helvetica is WinAnsiEncoding
-            // and does not include the Unicode arrow glyph (U+2192), which
-            // renders as garbage chars and breaks cell layout.
-            const arrow = fromLoc ? `${fromLoc} -> ${toLoc}` : `-> ${toLoc}`;
-            // also LOC (qty) sub-line: other current locations of this SKU
-            // outside the destination of this move.
-            const others = (otherLocationsBySku.get(log.sku) ?? []).filter(
-              (r) => r.location !== toLoc
-            );
-            // Drop the (qty) suffix when this SKU sits in a single location
-            // after the move — the QTY column already shows that number, so
-            // it'd be redundant. Keep (qty) when others are present so the
-            // reader can distinguish 'units moved' from 'units elsewhere'.
-            activity = others.length > 0 ? `Moved ${arrow} (${qty})` : `Moved ${arrow}`;
-            if (others.length > 0) {
-              const list = others
-                .map((r) => `${r.location} (${r.quantity.toLocaleString()})`)
-                .join(', ');
-              activity += `\nalso ${list}`;
-            }
+            // Show the full hop chain (ROW 14 -> ROW 32 -> ROW 33) collected
+            // earlier. ASCII arrows only — jsPDF default Helvetica is
+            // WinAnsiEncoding and does not include U+2192.
+            const path = movePathBySkuQty.get(`${log.sku}::${qty}`) ?? [];
+            const chain = path.length > 0 ? path.join(' -> ') : `${fromLoc} -> ${toLoc}`;
+            activity = `Moved ${chain}`;
             break;
           }
           case 'ADD':
@@ -864,39 +881,11 @@ export const HistoryScreen = () => {
     try {
       setManualLoading(true);
 
-      // Pre-fetch current inventory rows for every MOVE SKU in the filtered
-      // view, so the PDF can append "also LOC (qty)" sub-lines per move.
-      const moveSkus = Array.from(
-        new Set(filteredLogs.filter((l) => l.action_type === 'MOVE').map((l) => l.sku))
-      );
-      const otherLocationsBySku = new Map<string, Array<{ location: string; quantity: number }>>();
-      if (moveSkus.length > 0) {
-        const { data: invRows } = await supabase
-          .from('inventory')
-          .select('sku, location, quantity')
-          .in('sku', moveSkus)
-          .gt('quantity', 0)
-          .limit(50_000);
-        for (const r of (invRows ?? []) as Array<{
-          sku: string;
-          location: string;
-          quantity: number;
-        }>) {
-          const list = otherLocationsBySku.get(r.sku) ?? [];
-          list.push({ location: r.location, quantity: r.quantity });
-          otherLocationsBySku.set(r.sku, list);
-        }
-        // Sort each SKU's locations by qty desc for stable display.
-        for (const list of otherLocationsBySku.values()) {
-          list.sort((a, b) => b.quantity - a.quantity);
-        }
-      }
-
       const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
         import('jspdf'),
         import('jspdf-autotable'),
       ]);
-      const doc = generateDailyPDF(jsPDF, autoTable, otherLocationsBySku);
+      const doc = generateDailyPDF(jsPDF, autoTable);
       const blob = doc.output('bloburl');
       window.open(blob, '_blank');
       toast.success('History report opened in new tab');
