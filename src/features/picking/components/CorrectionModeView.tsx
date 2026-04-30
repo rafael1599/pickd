@@ -15,6 +15,7 @@ import type { InventoryItemWithMetadata } from '../../../schemas/inventory.schem
 import type { InventoryItem } from '../../../schemas/inventory.schema';
 import { useAutoSelect } from '../../../hooks/useAutoSelect';
 import { ReasonPicker } from './ReasonPicker';
+import { useSkuSuggestion } from '../hooks/useSkuSuggestion';
 
 interface CorrectionModeViewProps {
   problemItems: PickingItem[];
@@ -83,6 +84,30 @@ const ResultRow: React.FC<{
     </div>
   </button>
 );
+
+/* ── SKU canonical-form suggestion (idea-092) ──
+ * When a SKU is unregistered ("UNREG"), look up sku_metadata for any SKU
+ * whose normalized form (lowercase, dashes/spaces stripped) matches. If
+ * exactly one canonical exists, surface a one-tap button so the picker
+ * doesn't have to manually search for the right SKU. Common case: PDF
+ * import dropped a dash ("034666BR" → "03-4666BR"). */
+const SkuFormatSuggestion: React.FC<{
+  rawSku: string;
+  enabled: boolean;
+  onUseCanonical: (canonical: string) => void;
+}> = ({ rawSku, enabled, onUseCanonical }) => {
+  const { canonicalSku } = useSkuSuggestion(rawSku, enabled);
+  if (!canonicalSku) return null;
+  return (
+    <button
+      onClick={() => onUseCanonical(canonicalSku)}
+      className="self-start mt-1 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all active:scale-[0.97]"
+      title={`This looks like a format mismatch — ${canonicalSku} is the registered SKU.`}
+    >
+      Use {canonicalSku} instead
+    </button>
+  );
+};
 
 /* ── Search input + results (shared by Replace and Add Item) ── */
 const SearchPanel: React.FC<{
@@ -342,6 +367,14 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
     setActivePanel({ type: 'replace', sku });
   };
 
+  // idea-092: open the replace panel with the canonical SKU pre-filled in
+  // the search. The picker still confirms (one click on the result row),
+  // which preserves the audit trail through the existing swap flow.
+  const handleUseCanonicalSku = (originalSku: string, canonicalSku: string) => {
+    setSearchQuery(canonicalSku);
+    setActivePanel({ type: 'replace', sku: originalSku });
+  };
+
   const handleOpenAdjustQty = async (item: PickingItem) => {
     setAdjustQty(item.pickingQty);
     setActivePanel({ type: 'adjust_qty', sku: item.sku, availableStock: -1 });
@@ -541,6 +574,11 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
                   {(item.item_name || item.description || '').slice(0, 30)}
                 </span>
               )}
+              <SkuFormatSuggestion
+                rawSku={item.sku}
+                enabled={!!item.sku_not_found}
+                onUseCanonical={(canonical) => handleUseCanonicalSku(item.sku, canonical)}
+              />
             </div>
 
             <div className="flex flex-col items-end shrink-0">
