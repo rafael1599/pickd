@@ -42,6 +42,9 @@ const ZONE_REGULAR = 'zone-regular';
 const ZONE_PROJECTS = 'zone-projects';
 const ZONE_COMPLETED = 'zone-completed';
 const ZONE_WAITING = 'zone-waiting';
+// "Ready to double-check" queue, distinct from Waiting-for-Inventory.
+const ZONE_READY = 'zone-ready';
+const READY_VISIBLE_COUNT = 2;
 
 interface VerificationBoardProps {
   onClose: () => void;
@@ -63,6 +66,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   const [waitingCollapsed, setWaitingCollapsed] = useState(true);
   const [waitingReason, setWaitingReason] = useState('');
   const [reopenReason, setReopenReason] = useState('');
+  const [readyExpanded, setReadyExpanded] = useState(false);
 
   // ─── Classify orders into zones ────────────────────────────────────
   const {
@@ -70,14 +74,18 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     fedexOrders,
     regularOrders,
     waitingOrders,
+    readyOrders,
+    readyShippingTypes,
     recentCompleted,
     priorityShippingTypes,
   } = useMemo(() => {
     const priorityShipTypes = new Map<string, string>();
+    const readyShipTypes = new Map<string, 'fedex' | 'regular'>();
     const priority: PickingList[] = [];
     const fedex: PickingList[] = [];
     const regular: PickingList[] = [];
     const waiting: PickingList[] = [];
+    const ready: PickingList[] = [];
 
     for (const order of orders) {
       if (order.is_waiting_inventory) {
@@ -96,11 +104,25 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           {} // No weight data available here — falls back to count-only rule
         );
 
-      // All orders go to their lane (FedEx/Regular) based on shipping_type.
+      // ready_to_double_check → goes to the "Waiting" queue at the bottom,
+      // not to the FedEx/Regular lanes. The lane badge (FDX/TRK) is preserved
+      // so the verifier still knows the category.
+      if (order.status === 'ready_to_double_check') {
+        ready.push(order);
+        readyShipTypes.set(order.id, shippingType === 'fedex' ? 'fedex' : 'regular');
+        continue;
+      }
+
+      // All other active orders go to their lane (FedEx/Regular).
       // needs_correction orders show ⚠️ triangle in their lane — no separate Priority zone.
       if (shippingType === 'fedex') fedex.push(order);
       else regular.push(order);
     }
+
+    // Oldest first (the verifier should pick up what's been waiting longest).
+    ready.sort(
+      (a, b) => new Date(a.updated_at ?? 0).getTime() - new Date(b.updated_at ?? 0).getTime()
+    );
 
     // Recently completed: last 3 of today
     const today = new Date().toISOString().slice(0, 10);
@@ -113,6 +135,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       fedexOrders: fedex,
       regularOrders: regular,
       waitingOrders: waiting,
+      readyOrders: ready,
+      readyShippingTypes: readyShipTypes,
       recentCompleted: recent,
       priorityShippingTypes: priorityShipTypes,
     };
@@ -393,7 +417,52 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             </div>
           </div>
 
-          {/* Waiting Zone — collapsible, at bottom */}
+          {/* Waiting (ready-to-double-check queue) — always visible. Holds
+              orders the picker marked ready for verification. Shows the 2
+              oldest by default; rest is behind a "Show N more" toggle. Drop
+              an active order here to mark it ready_to_double_check. */}
+          <div className="md:max-w-2xl md:mx-auto">
+            <DroppableZone
+              id={ZONE_READY}
+              label="Waiting"
+              labelColor="text-sky-400"
+              borderColor="border-sky-500/30"
+              bgColor="bg-sky-500/5"
+              bgHover="bg-sky-500/10"
+              count={readyOrders.length}
+              emptyMessage="Drag orders here when they are ready for double-check"
+            >
+              {readyOrders.length > 0 && (
+                <div className="space-y-1">
+                  {(readyExpanded ? readyOrders : readyOrders.slice(0, READY_VISIBLE_COUNT)).map(
+                    (order) => (
+                      <SortableOrderCard
+                        key={order.id}
+                        order={order}
+                        shippingType={readyShippingTypes.get(order.id) ?? 'regular'}
+                        showShippingBadge
+                        onSelect={handleOrderSelect}
+                        onDelete={handleDelete}
+                        onUngroup={handleUngroup}
+                      />
+                    )
+                  )}
+                  {readyOrders.length > READY_VISIBLE_COUNT && (
+                    <button
+                      onClick={() => setReadyExpanded((v) => !v)}
+                      className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-sky-400 hover:text-sky-300 border border-dashed border-sky-500/30 rounded-xl"
+                    >
+                      {readyExpanded
+                        ? 'Show less'
+                        : `Show ${readyOrders.length - READY_VISIBLE_COUNT} more`}
+                    </button>
+                  )}
+                </div>
+              )}
+            </DroppableZone>
+          </div>
+
+          {/* Waiting for Inventory — collapsible, at bottom (idea-053) */}
           {waitingOrders.length > 0 && (
             <div className="md:max-w-2xl md:mx-auto">
               <DroppableZone
