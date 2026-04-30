@@ -84,6 +84,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   const [waitingReason, setWaitingReason] = useState('');
   const [reopenReason, setReopenReason] = useState('');
   const [readyExpanded, setReadyExpanded] = useState(false);
+  const [completedCollapsed, setCompletedCollapsed] = useState(true);
 
   // ─── Classify orders into zones ────────────────────────────────────
   const {
@@ -148,14 +149,24 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     const readyFdx = ready.filter((o) => readyShipTypes.get(o.id) === 'fedex');
     const readyTrk = ready.filter((o) => readyShipTypes.get(o.id) !== 'fedex');
 
-    // Recently completed: last 3 of today, split by carrier so each lane
-    // shows its own completed history.
+    // Recently completed today, split by carrier. Falls back to
+    // autoClassifyShippingType when shipping_type is NULL — older orders
+    // (pre-idea-055 or completed before the auto-persist landed) wouldn't
+    // appear under the right side otherwise.
     const today = new Date().toISOString().slice(0, 10);
-    const recent = (completedOrders ?? [])
-      .filter((o) => o.updated_at?.slice(0, 10) === today)
-      .slice(0, 3);
-    const fedexCompleted = recent.filter((o) => o.shipping_type === 'fedex');
-    const regularCompleted = recent.filter((o) => o.shipping_type !== 'fedex');
+    const recent = (completedOrders ?? []).filter((o) => o.updated_at?.slice(0, 10) === today);
+    const completedShipType = (o: PickingList): 'fedex' | 'regular' =>
+      o.shipping_type === 'fedex' || o.shipping_type === 'regular'
+        ? (o.shipping_type as 'fedex' | 'regular')
+        : autoClassifyShippingType(
+            o.items?.map((i) => ({
+              sku: i.sku,
+              pickingQty: (i as Record<string, unknown>).pickingQty as number,
+            })) ?? [],
+            {}
+          );
+    const fedexCompleted = recent.filter((o) => completedShipType(o) === 'fedex');
+    const regularCompleted = recent.filter((o) => completedShipType(o) !== 'fedex');
 
     return {
       priorityOrders: priority,
@@ -342,79 +353,37 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             </DropZone>
           )}
 
-          {/* FEDEX | REGULAR active lanes — completed orders nest inside
-              their carrier's column, separated by a faint line+label. */}
+          {/* FEDEX | REGULAR active lanes — minimalist: no text labels,
+              just a 3px color stripe at the top + a faint background tint
+              per column. The vertical divider between them frames the
+              split. Drop targets unchanged (ZONE_FEDEX / ZONE_REGULAR). */}
           <div className="grid grid-cols-2 divide-x divide-subtle border-b border-subtle">
             {/* FEDEX */}
-            <DropZone id={ZONE_FEDEX} className="px-3 py-3 min-h-[120px]">
-              <div className="flex items-center justify-center gap-2 mb-3">
-                <span className="text-xs font-black uppercase tracking-widest text-purple-400">
-                  FedEx
-                </span>
-                <span className="text-[10px] text-muted/60">({fedexOrders.length})</span>
-              </div>
-              {fedexOrders.length > 0 ? (
-                renderOrderCards(fedexOrders, 'fedex')
-              ) : (
-                <div className="text-center text-[10px] text-muted/40 italic py-2">
-                  No active FedEx orders
-                </div>
-              )}
-              {fedexCompleted.length > 0 && (
-                <>
-                  <div className="mt-4 mb-2 flex items-center gap-2">
-                    <div className="h-px flex-1 bg-subtle" />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-purple-400/40">
-                      Completed today
-                    </span>
-                    <div className="h-px flex-1 bg-subtle" />
+            <DropZone id={ZONE_FEDEX} className="bg-purple-500/[0.03] min-h-[120px]">
+              <div className="h-[3px] bg-purple-500/60" />
+              <div className="px-3 py-3">
+                {fedexOrders.length > 0 ? (
+                  renderOrderCards(fedexOrders, 'fedex')
+                ) : (
+                  <div className="text-center text-[10px] text-purple-400/40 italic py-2">
+                    No active FedEx orders
                   </div>
-                  <CompletedZone
-                    orders={fedexCompleted}
-                    onSelectOrder={(orderId) => {
-                      setExternalOrderId(orderId);
-                      navigate('/orders');
-                      onClose();
-                    }}
-                  />
-                </>
-              )}
+                )}
+              </div>
             </DropZone>
 
             {/* REGULAR */}
-            <DropZone id={ZONE_REGULAR} className="px-3 py-3 min-h-[120px]">
-              <div className="flex items-center justify-center gap-2 mb-3">
-                <span className="text-xs font-black uppercase tracking-widest text-emerald-400">
-                  Regular
-                </span>
-                <span className="text-[10px] text-muted/60">({regularOrders.length})</span>
-              </div>
-              {regularOrders.length > 0 ? (
-                renderOrderCards(regularOrders, 'regular')
-              ) : (
-                <div className="text-center text-[10px] text-muted/40 italic py-2">
-                  No active Regular orders
-                </div>
-              )}
-              {regularCompleted.length > 0 && (
-                <>
-                  <div className="mt-4 mb-2 flex items-center gap-2">
-                    <div className="h-px flex-1 bg-subtle" />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400/40">
-                      Completed today
-                    </span>
-                    <div className="h-px flex-1 bg-subtle" />
+            <DropZone id={ZONE_REGULAR} className="bg-emerald-500/[0.03] min-h-[120px]">
+              <div className="h-[3px] bg-emerald-500/60" />
+              <div className="px-3 py-3">
+                {regularOrders.length > 0 ? (
+                  renderOrderCards(regularOrders, 'regular')
+                ) : (
+                  <div className="text-center text-[10px] text-emerald-400/40 italic py-2">
+                    No active Regular orders
                   </div>
-                  <CompletedZone
-                    orders={regularCompleted}
-                    onSelectOrder={(orderId) => {
-                      setExternalOrderId(orderId);
-                      navigate('/orders');
-                      onClose();
-                    }}
-                  />
-                </>
-              )}
+                )}
+              </div>
             </DropZone>
           </div>
 
@@ -506,6 +475,63 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               </div>
             )}
           </DropZone>
+
+          {/* COMPLETED TODAY — full-width, collapsable. Reference info,
+              not action — keeps it out of the active lanes. FDX | TRK split
+              mirrors the Ready-to-Double-Check pattern for consistency. */}
+          {(fedexCompleted.length > 0 || regularCompleted.length > 0) && (
+            <div className="border-b border-subtle">
+              <button
+                onClick={() => setCompletedCollapsed((v) => !v)}
+                className="w-full flex items-center justify-center gap-2 py-3 hover:bg-content/5 transition-colors"
+              >
+                <span className="text-xs font-black uppercase tracking-widest text-content/60">
+                  Completed Today
+                </span>
+                <span className="text-[10px] text-muted/60">
+                  ({fedexCompleted.length + regularCompleted.length})
+                </span>
+                <ChevronDown
+                  size={14}
+                  className={`text-content/40 transition-transform ${
+                    completedCollapsed ? '' : 'rotate-180'
+                  }`}
+                />
+              </button>
+              {!completedCollapsed && (
+                <div className="grid grid-cols-2 divide-x divide-subtle/60 pb-3">
+                  <div className="px-3">
+                    {fedexCompleted.length === 0 ? (
+                      <div className="text-center text-[10px] text-purple-400/30 py-2">—</div>
+                    ) : (
+                      <CompletedZone
+                        orders={fedexCompleted}
+                        onSelectOrder={(orderId) => {
+                          setExternalOrderId(orderId);
+                          navigate('/orders');
+                          onClose();
+                        }}
+                      />
+                    )}
+                  </div>
+                  <div className="px-3">
+                    {regularCompleted.length === 0 ? (
+                      <div className="text-center text-[10px] text-emerald-400/30 py-2">—</div>
+                    ) : (
+                      <CompletedZone
+                        orders={regularCompleted}
+                        onSelectOrder={(orderId) => {
+                          setExternalOrderId(orderId);
+                          navigate('/orders');
+                          onClose();
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* WAITING FOR INVENTORY — collapsable, always-visible drop target */}
           <DropZone id={ZONE_WAITING} className="border-b border-subtle">
