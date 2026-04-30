@@ -899,7 +899,16 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                   return (
                     <div
                       key={`ghost-${item.id}-${item.sku}`}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface/50 border border-subtle/50"
+                      onClick={() => handleCardClick(item)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleCardClick(item);
+                        }
+                      }}
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface/50 border border-subtle/50 cursor-pointer hover:bg-surface/80 active:scale-[0.99] transition-all"
                     >
                       <div className="flex-1 min-w-0">
                         <span className="text-xs font-bold text-content/70 tracking-tight">
