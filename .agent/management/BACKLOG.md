@@ -7,30 +7,18 @@
 
 ## P1 — Alto (operación diaria)
 
-### 48. Auto-mover órdenes idle a Waiting (en vez de borrarlas) <!-- id: idea-099 -->
-- **Contexto:** Hoy 2026-04-30 desapareció la orden `879469` que se dejó pendiente la noche anterior por falta de un item. Causa raíz: `usePickingSync.ts` borraba con DELETE las órdenes `active|needs_correction|reopened` cuyo `updated_at` fuera mayor a 5h cuando el user reabre la app. Ya se quitó ese DELETE (commit pendiente), ahora solo libera la sesión local sin tocar la DB.
-- **Problema que sigue:** la orden queda en `needs_correction` ocupando ese estado, pero conceptualmente está esperando inventario por días/semanas/meses. El usuario quiere que estas órdenes se identifiquen explícitamente como "Waiting" en vez de mezclarse con las que sí necesitan corrección activa.
-- **Solución propuesta:** cuando `usePickingSync` detecte una sesión idle (>X horas, con X a definir — quizá 12h o "del día anterior"), en vez de solo `resetSession()`, marcar la orden con `is_waiting_inventory = true` (la columna ya existe, idea-053). De esa forma:
-  - Aparece en el bucket "Waiting" del Verification Board.
-  - Verification Queue la oculta por defecto (toggle "Waiting for Inventory").
-  - El admin/picker puede desmarcarla con `unmark_picking_list_waiting` cuando llegue el item.
-- **Edge cases:**
-  - Solo aplicar si la orden tiene items con `insufficient_stock` o si fue dejada en `needs_correction` (no en `active` recién empezada).
-  - No tocar órdenes en `reopened` (esas ya tienen su propia lógica de auto-cancel a 2h).
-  - El threshold debería contemplar zona horaria del warehouse (NY) — "del día anterior" más útil que "5h".
-- **Audit complementario (out of scope pero recomendado):** trigger `BEFORE DELETE ON picking_lists` que escriba a `picking_lists_deleted_audit` con quién/cuándo/qué orden. Sin esto, si vuelve a desaparecer una orden no hay rastro.
-- **Origen:** sesión 2026-04-30, post-incidente orden 879469.
+### ~~48. Auto-mover órdenes idle a Waiting (en vez de borrarlas)~~ <!-- id: idea-099 --> ✅ 2026-04-30
+- **Contexto:** El 2026-04-30 desapareció la orden `879469` que se dejó pendiente la noche anterior por falta de un item. Causa raíz: `usePickingSync.ts` borraba con DELETE las órdenes `active|needs_correction|reopened` cuyo `updated_at` fuera mayor a 5h cuando el user reabre la app.
+- **Resuelto en commits:**
+  - `1645bff` — quitar el DELETE: ahora solo libera la sesión local, la orden sobrevive.
+  - `37c2060` — auto-flag idle `needs_correction` como `is_waiting_inventory` via `mark_picking_list_waiting`. Aterriza en la Waiting zone del Verification Board (UI ya existente desde idea-053/idea-055). RPC admin-only: si el caller no es admin, warn y queda en `needs_correction`.
+  - Migración `20260430140000_picking_lists_delete_audit.sql` — trigger `BEFORE DELETE` que captura row + auth.uid() en tabla `picking_lists_deleted_audit`. Cualquier delete futuro deja rastro forensic.
+- **Threshold actual:** 5h (heredado del código previo). Si en uso real resulta corto/largo, ajustar a "del día NY anterior" (TODO menor).
 
-### 47. Reactivación de SKU al cambiar qty — investigar antes de implementar <!-- id: idea-098 -->
-- **Contexto:** Cuando un SKU queda con qty=0 se marca `is_active=false` (invariante documentado en CLAUDE.md). Hoy no hay botón explícito de "Reactivate" en ItemDetailView, ni se quiere — la reactivación **debe ocurrir solo como efecto secundario de subir qty**.
-- **Investigación previa (obligatoria antes de tocar código):**
-  1. Confirmar qué hace hoy `adjust_inventory_quantity` cuando un row qty=0 / is_active=false recibe un delta positivo: ¿flipea `is_active=true` automáticamente? La nota en CLAUDE.md sobre el invariante "qty=0 → is_active=false" sugiere que sí es bidireccional, pero hay que verificarlo en la migración real.
-  2. Verificar el path de UI: si un user abre un ghost item (qty=0) en ItemDetailView e ingresa qty>0, ¿la mutation actual ya lo deja activo en prod? ¿O el row queda inactive y desaparece de la búsqueda hasta refresh?
-  3. Revisar `register_new_sku` — la excepción documentada (qty=0, is_active=true) para placeholders de bikes nuevos. No romper este caso.
-  4. Considerar el caso "Discontinued" — si en el futuro hay un toggle manual de discontinue, debe ser independiente del flag `is_active` o usar otra columna (ej. `is_discontinued`) para no chocar con la reactivación auto.
-- **Decisión esperada al final de la investigación:** o bien (a) "ya funciona, solo falta verificar el flujo UI", o (b) "falta implementar el flip en X RPC / Y mutation", con plan de cambio mínimo.
-- **Out of scope:** botón explícito de Reactivate en ItemDetailView (descartado por el user — la reactivación debe ser implícita al ajustar qty).
-- **Origen:** sesión 2026-04-30, conversación sobre qty=0 ghost trail.
+### ~~47. Reactivación de SKU al cambiar qty~~ <!-- id: idea-098 --> ✅ 2026-04-30 (no requiere código)
+- **Investigación 2026-04-30:** `adjust_inventory_quantity` en prod ya hace el flip bidireccional automático (`is_active = (v_new_qty > 0)` — comentario explícito *"Bidirectional: activate when stock arrives, deactivate when depleted"*). Cliente la usa en `useInventoryMutations.ts:38`. Resultado: subir qty desde 0 reactiva el row sin cambio adicional.
+- **`register_new_sku`** sigue creando placeholders con qty=0/is_active=true, no se ve afectado.
+- **No se requiere botón "Reactivate"** — descartado.
 
 ### 46. Auto-resolver SKU format mismatches en intake / pick-time <!-- id: idea-092 -->
 - **Contexto:** Las órdenes llegan con SKUs que no coinciden con `sku_metadata` solo por formato (guion/espacios faltantes). Ej: catalog tiene `09-4802BK` pero el PDF/sistema upstream pone `094802BK`. El picker hoy resuelve manualmente con un `Replaced X → Y` correction y razón "Sku def" / "Wrong name". En las últimas 2 semanas: `094802BK→09-4802BK` (2 órdenes, 2 customers el mismo día) y `033769BLD→03-3769BLD` (1 orden). Detección: la versión normalizada (lowercase + strip `[-\s]`) de ambos SKUs es idéntica → no es variant real, es ruido de formato.
