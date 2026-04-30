@@ -194,8 +194,13 @@ export const usePickingSync = ({
           const isStale = Date.now() - updatedAt > FIVE_HOURS_MS;
 
           if (isStale) {
-            console.log('🧹 Picking session expired (>5h)');
-            await supabase.from('picking_lists').delete().eq('id', pickingData.id);
+            // Stale (>5h since last touch): release the local session so the
+            // user doesn't auto-resume, but DO NOT delete the order. Orders
+            // can legitimately wait days/weeks/months for inventory and the
+            // user expects to pick them up later from the orders list.
+            // (Previously this DELETEd the row — caused order 879469 to vanish
+            // overnight, 2026-04-30. See follow-up ticket on a Waiting bucket.)
+            console.log('🧹 Picking session idle (>5h) — releasing local session');
             resetSession();
           } else {
             setCartItems((pickingData.items as unknown as CartItem[]) || []);

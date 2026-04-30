@@ -7,6 +7,20 @@
 
 ## P1 — Alto (operación diaria)
 
+### 48. Auto-mover órdenes idle a Waiting (en vez de borrarlas) <!-- id: idea-099 -->
+- **Contexto:** Hoy 2026-04-30 desapareció la orden `879469` que se dejó pendiente la noche anterior por falta de un item. Causa raíz: `usePickingSync.ts` borraba con DELETE las órdenes `active|needs_correction|reopened` cuyo `updated_at` fuera mayor a 5h cuando el user reabre la app. Ya se quitó ese DELETE (commit pendiente), ahora solo libera la sesión local sin tocar la DB.
+- **Problema que sigue:** la orden queda en `needs_correction` ocupando ese estado, pero conceptualmente está esperando inventario por días/semanas/meses. El usuario quiere que estas órdenes se identifiquen explícitamente como "Waiting" en vez de mezclarse con las que sí necesitan corrección activa.
+- **Solución propuesta:** cuando `usePickingSync` detecte una sesión idle (>X horas, con X a definir — quizá 12h o "del día anterior"), en vez de solo `resetSession()`, marcar la orden con `is_waiting_inventory = true` (la columna ya existe, idea-053). De esa forma:
+  - Aparece en el bucket "Waiting" del Verification Board.
+  - Verification Queue la oculta por defecto (toggle "Waiting for Inventory").
+  - El admin/picker puede desmarcarla con `unmark_picking_list_waiting` cuando llegue el item.
+- **Edge cases:**
+  - Solo aplicar si la orden tiene items con `insufficient_stock` o si fue dejada en `needs_correction` (no en `active` recién empezada).
+  - No tocar órdenes en `reopened` (esas ya tienen su propia lógica de auto-cancel a 2h).
+  - El threshold debería contemplar zona horaria del warehouse (NY) — "del día anterior" más útil que "5h".
+- **Audit complementario (out of scope pero recomendado):** trigger `BEFORE DELETE ON picking_lists` que escriba a `picking_lists_deleted_audit` con quién/cuándo/qué orden. Sin esto, si vuelve a desaparecer una orden no hay rastro.
+- **Origen:** sesión 2026-04-30, post-incidente orden 879469.
+
 ### 47. Reactivación de SKU al cambiar qty — investigar antes de implementar <!-- id: idea-098 -->
 - **Contexto:** Cuando un SKU queda con qty=0 se marca `is_active=false` (invariante documentado en CLAUDE.md). Hoy no hay botón explícito de "Reactivate" en ItemDetailView, ni se quiere — la reactivación **debe ocurrir solo como efecto secundario de subir qty**.
 - **Investigación previa (obligatoria antes de tocar código):**
