@@ -736,15 +736,25 @@ export const usePickingActions = ({
 
       if (activeListId) {
         // Reuse existing picking_list record (user returned from double-check to correct items)
+        // Guard (mirrors dd64e78): never write merged group / watchdog-combined
+        // data back to DB. Merged order_numbers contain ' / ' (e.g.
+        // "879484 / 879460"). Local cartItems can lag behind the DB after a
+        // watchdog combine (realtime only syncs metadata), so writing the
+        // local snapshot here would silently delete items the watchdog merged.
+        // Order 879460 lost 11 items on 2026-04-30 through this exact path.
+        const isMergedGroup = orderNumber?.includes(' / ');
+        const updateData: Record<string, unknown> = {
+          status: 'active',
+          customer_id: customerId,
+          load_number: loadNumber,
+        };
+        if (!isMergedGroup) {
+          updateData.items = cartItems as unknown as Json;
+          updateData.order_number = orderNumber;
+        }
         const result = await supabase
           .from('picking_lists')
-          .update({
-            items: cartItems as unknown as Json,
-            status: 'active',
-            order_number: orderNumber,
-            customer_id: customerId,
-            load_number: loadNumber,
-          })
+          .update(updateData)
           .eq('id', activeListId)
           .select()
           .single();
