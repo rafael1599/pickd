@@ -15,11 +15,13 @@ interface GroupCardProps {
   onUngroup: (order: PickingList) => void;
 }
 
+// Group label drops the carrier prefix — FedEx groups already live on the
+// purple lane so 'FDX GROUP' is redundant; just 'GROUP' is enough.
 const GROUP_COLORS: Record<string, { border: string; bg: string; label: string; text: string }> = {
   fedex: {
     border: 'border-purple-500/30',
     bg: 'bg-purple-500/5',
-    label: 'FDX GROUP',
+    label: 'GROUP',
     text: 'text-purple-400',
   },
   general: {

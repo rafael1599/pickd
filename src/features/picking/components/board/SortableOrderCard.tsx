@@ -119,11 +119,12 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
                   {colors.badgeText}
                 </span>
               )}
-              {order.order_group && (
-                <span
-                  className={`text-[7px] ${order.order_group.group_type === 'fedex' ? 'bg-purple-500' : 'bg-sky-500'} text-white px-1 py-0.5 rounded font-black uppercase tracking-wider`}
-                >
-                  {order.order_group.group_type === 'fedex' ? 'FDX' : 'GRP'}
+              {/* Group badge: only for non-fedex groups. FedEx groups are
+                  already visually identified by the purple lane / stripe,
+                  so 'FDX' on the card is redundant. */}
+              {order.order_group && order.order_group.group_type !== 'fedex' && (
+                <span className="text-[7px] bg-sky-500 text-white px-1 py-0.5 rounded font-black uppercase tracking-wider">
+                  GRP
                 </span>
               )}
               {order.is_waiting_inventory && (
