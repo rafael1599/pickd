@@ -308,7 +308,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     <div className="fixed inset-0 z-[60] flex flex-col bg-main">
       {/* Header */}
       <div className="px-3 py-2 md:px-5 md:py-3 border-b border-subtle bg-surface flex items-center justify-between shrink-0">
-        <h2 className="text-base md:text-lg lg:text-xl font-black text-content uppercase tracking-tight">
+        <h2 className="text-base md:text-xl lg:text-xl font-black text-content uppercase tracking-tight">
           Verification Board
         </h2>
         <button
@@ -336,10 +336,10 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               className="border-b border-subtle px-2 py-2 md:px-4 md:py-3"
             >
               <div className="flex items-center justify-center gap-2 mb-2 md:mb-3">
-                <span className="text-[10px] md:text-xs lg:text-sm font-black uppercase tracking-widest text-red-400">
+                <span className="text-[10px] md:text-sm lg:text-sm font-black uppercase tracking-widest text-red-400">
                   Priority
                 </span>
-                <span className="text-[10px] md:text-xs text-muted/60">
+                <span className="text-[10px] md:text-sm text-muted/60">
                   ({priorityOrders.length})
                 </span>
               </div>
@@ -373,7 +373,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                 {fedexOrders.length > 0 ? (
                   renderOrderCards(fedexOrders, 'fedex')
                 ) : (
-                  <div className="text-center text-[9px] md:text-[10px] lg:text-xs text-purple-400/40 italic">
+                  <div className="text-center text-[9px] md:text-xs lg:text-xs text-purple-400/40 italic">
                     No active FedEx orders
                   </div>
                 )}
@@ -390,7 +390,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                 {regularOrders.length > 0 ? (
                   renderOrderCards(regularOrders, 'regular')
                 ) : (
-                  <div className="text-center text-[9px] md:text-[10px] lg:text-xs text-emerald-400/40 italic">
+                  <div className="text-center text-[9px] md:text-xs lg:text-xs text-emerald-400/40 italic">
                     No active Regular orders
                   </div>
                 )}
@@ -404,15 +404,15 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               ready_to_double_check (handled in useBoardDnD). */}
           <DropZone id={ZONE_READY} className="border-b border-subtle px-2 py-2 md:px-4 md:py-3">
             <div className="flex items-center justify-center gap-2 mb-2 md:mb-3">
-              <span className="text-[10px] md:text-xs lg:text-sm font-black uppercase tracking-widest text-sky-400">
+              <span className="text-[10px] md:text-sm lg:text-sm font-black uppercase tracking-widest text-sky-400">
                 Ready to Double-Check
               </span>
               {readyOrders.length > 0 && (
-                <span className="text-[10px] md:text-xs text-muted/60">({readyOrders.length})</span>
+                <span className="text-[10px] md:text-sm text-muted/60">({readyOrders.length})</span>
               )}
             </div>
             {readyOrders.length === 0 ? (
-              <div className="text-center text-[9px] md:text-[10px] lg:text-xs text-muted/40 italic">
+              <div className="text-center text-[9px] md:text-xs lg:text-xs text-muted/40 italic">
                 Drag orders here when they are ready for double-check
               </div>
             ) : (
@@ -422,7 +422,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                   <div className="h-[2px] bg-purple-500/50" />
                   <div className="px-2 py-2 md:px-3">
                     {readyFdxOrders.length === 0 ? (
-                      <div className="text-center text-[9px] md:text-[10px] text-purple-400/30 py-1">
+                      <div className="text-center text-[9px] md:text-xs text-purple-400/30 py-1">
                         —
                       </div>
                     ) : (
@@ -448,7 +448,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                   <div className="h-[2px] bg-emerald-500/50" />
                   <div className="px-2 py-2 md:px-3">
                     {readyTrkOrders.length === 0 ? (
-                      <div className="text-center text-[9px] md:text-[10px] text-emerald-400/30 py-1">
+                      <div className="text-center text-[9px] md:text-xs text-emerald-400/30 py-1">
                         —
                       </div>
                     ) : (
@@ -475,7 +475,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               <div className="flex justify-center mt-2 md:mt-3">
                 <button
                   onClick={() => setReadyExpanded((v) => !v)}
-                  className="px-4 py-1.5 text-[10px] md:text-xs font-black uppercase tracking-widest text-sky-400 hover:text-sky-300 border border-dashed border-sky-500/30 rounded-full"
+                  className="px-4 py-1.5 text-[10px] md:text-sm font-black uppercase tracking-widest text-sky-400 hover:text-sky-300 border border-dashed border-sky-500/30 rounded-full"
                 >
                   {readyExpanded
                     ? 'Show less'
@@ -493,11 +493,11 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               onClick={() => setWaitingCollapsed((v) => !v)}
               className="w-full flex items-center justify-center gap-2 py-2 md:py-3 hover:bg-amber-500/5 transition-colors"
             >
-              <span className="text-[10px] md:text-xs lg:text-sm font-black uppercase tracking-widest text-amber-400">
+              <span className="text-[10px] md:text-sm lg:text-sm font-black uppercase tracking-widest text-amber-400">
                 Waiting for Inventory
               </span>
               {waitingOrders.length > 0 && (
-                <span className="text-[10px] md:text-xs text-muted/60">
+                <span className="text-[10px] md:text-sm text-muted/60">
                   ({waitingOrders.length})
                 </span>
               )}
@@ -513,7 +513,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                 {waitingOrders.length > 0 ? (
                   <WaitingZone orders={waitingOrders} onSelect={handleOrderSelect} />
                 ) : (
-                  <div className="text-center text-[9px] md:text-[10px] lg:text-xs text-muted/40 italic py-1">
+                  <div className="text-center text-[9px] md:text-xs lg:text-xs text-muted/40 italic py-1">
                     Drag an order here to flag it as waiting for inventory
                   </div>
                 )}
@@ -531,10 +531,10 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                 onClick={() => setCompletedCollapsed((v) => !v)}
                 className="w-full flex items-center justify-center gap-2 py-2 md:py-3 hover:bg-content/5 transition-colors"
               >
-                <span className="text-[10px] md:text-xs lg:text-sm font-black uppercase tracking-widest text-content/60">
+                <span className="text-[10px] md:text-sm lg:text-sm font-black uppercase tracking-widest text-content/60">
                   Completed Today
                 </span>
-                <span className="text-[10px] md:text-xs text-muted/60">
+                <span className="text-[10px] md:text-sm text-muted/60">
                   ({fedexCompleted.length + regularCompleted.length})
                 </span>
                 <ChevronDown
@@ -550,7 +550,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                     <div className="h-[2px] bg-purple-500/50" />
                     <div className="px-2 py-2 md:px-3">
                       {fedexCompleted.length === 0 ? (
-                        <div className="text-center text-[9px] md:text-[10px] text-purple-400/30 py-1">
+                        <div className="text-center text-[9px] md:text-xs text-purple-400/30 py-1">
                           —
                         </div>
                       ) : (
@@ -569,7 +569,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                     <div className="h-[2px] bg-emerald-500/50" />
                     <div className="px-2 py-2 md:px-3">
                       {regularCompleted.length === 0 ? (
-                        <div className="text-center text-[9px] md:text-[10px] text-emerald-400/30 py-1">
+                        <div className="text-center text-[9px] md:text-xs text-emerald-400/30 py-1">
                           —
                         </div>
                       ) : (
@@ -592,7 +592,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           {/* PROJECTS — read-only context, at the very bottom */}
           <div className="px-2 py-2 md:px-4 md:py-3">
             <div className="flex items-center justify-center gap-2 mb-2 md:mb-3">
-              <span className="text-[10px] md:text-xs lg:text-sm font-black uppercase tracking-widest text-indigo-400">
+              <span className="text-[10px] md:text-sm lg:text-sm font-black uppercase tracking-widest text-indigo-400">
                 Projects
               </span>
             </div>
