@@ -6,16 +6,17 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
+  useDroppable,
   pointerWithin,
   rectIntersection,
   type CollisionDetection,
 } from '@dnd-kit/core';
+import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 // SortableContext removed — lanes use useDraggable+useDroppable, not sorting
 import { useNavigate } from 'react-router-dom';
 import X from 'lucide-react/dist/esm/icons/x';
 import { useDoubleCheckList, type PickingList } from '../hooks/useDoubleCheckList';
 import { useOrderGroups } from '../hooks/useOrderGroups';
-import { useBoardLayout } from '../hooks/useBoardLayout';
 import { useBoardDnD } from '../hooks/useBoardDnD';
 import { useMarkWaiting } from '../hooks/useWaitingOrders';
 import { useViewMode } from '../../../context/ViewModeContext';
@@ -23,7 +24,6 @@ import { usePickingSession } from '../../../context/PickingContext';
 import { useConfirmation } from '../../../context/ConfirmationContext';
 import { useAuth } from '../../../context/AuthContext';
 import { autoClassifyShippingType } from '../../../utils/shippingClassification';
-import { DroppableZone } from './board/DroppableZone';
 import { SortableOrderCard, DraggableOrderCard } from './board/SortableOrderCard';
 import { CompletedZone } from './board/CompletedZone';
 import { ProjectsZone } from './board/ProjectsZone';
@@ -35,16 +35,33 @@ import { ReasonPicker } from './ReasonPicker';
 import { supabase } from '../../../lib/supabase';
 import toast from 'react-hot-toast';
 
-// Zone IDs
+// Zone IDs (must stay in sync with useBoardDnD)
 const ZONE_PRIORITY = 'zone-priority';
 const ZONE_FEDEX = 'zone-fedex';
 const ZONE_REGULAR = 'zone-regular';
-const ZONE_PROJECTS = 'zone-projects';
-const ZONE_COMPLETED = 'zone-completed';
 const ZONE_WAITING = 'zone-waiting';
 // "Ready to double-check" queue, distinct from Waiting-for-Inventory.
 const ZONE_READY = 'zone-ready';
-const READY_VISIBLE_COUNT = 2;
+const READY_VISIBLE_COUNT = 2; // per side (FDX / TRK) before "Show N more"
+
+// Lightweight drop target wrapper. Replaces the chunky <DroppableZone> card
+// look with a transparent drop region — line-based separators handle the
+// visual structure now.
+const DropZone: React.FC<{
+  id: string;
+  className?: string;
+  children: React.ReactNode;
+}> = ({ id, className = '', children }) => {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`${className} ${isOver ? 'bg-accent/5' : ''} transition-colors`}
+    >
+      {children}
+    </div>
+  );
+};
 
 interface VerificationBoardProps {
   onClose: () => void;
@@ -63,10 +80,11 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   // DnD logic — all zone reclassification, merge, prompts
   const dnd = useBoardDnD(isAdmin, refresh);
 
-  const [waitingCollapsed, setWaitingCollapsed] = useState(true);
+  const [waitingCollapsed, setWaitingCollapsed] = useState(false);
   const [waitingReason, setWaitingReason] = useState('');
   const [reopenReason, setReopenReason] = useState('');
   const [readyExpanded, setReadyExpanded] = useState(false);
+  const [completedCollapsed, setCompletedCollapsed] = useState(true);
 
   // ─── Classify orders into zones ────────────────────────────────────
   const {
@@ -75,8 +93,10 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     regularOrders,
     waitingOrders,
     readyOrders,
-    readyShippingTypes,
-    recentCompleted,
+    readyFdxOrders,
+    readyTrkOrders,
+    fedexCompleted,
+    regularCompleted,
     priorityShippingTypes,
   } = useMemo(() => {
     const priorityShipTypes = new Map<string, string>();
@@ -124,11 +144,29 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       (a, b) => new Date(a.updated_at ?? 0).getTime() - new Date(b.updated_at ?? 0).getTime()
     );
 
-    // Recently completed: last 3 of today
+    // Split Ready into FDX vs TRK columns so the section can be rendered as
+    // two side-by-side lists.
+    const readyFdx = ready.filter((o) => readyShipTypes.get(o.id) === 'fedex');
+    const readyTrk = ready.filter((o) => readyShipTypes.get(o.id) !== 'fedex');
+
+    // Recently completed today, split by carrier. Falls back to
+    // autoClassifyShippingType when shipping_type is NULL — older orders
+    // (pre-idea-055 or completed before the auto-persist landed) wouldn't
+    // appear under the right side otherwise.
     const today = new Date().toISOString().slice(0, 10);
-    const recent = (completedOrders ?? [])
-      .filter((o) => o.updated_at?.slice(0, 10) === today)
-      .slice(0, 3);
+    const recent = (completedOrders ?? []).filter((o) => o.updated_at?.slice(0, 10) === today);
+    const completedShipType = (o: PickingList): 'fedex' | 'regular' =>
+      o.shipping_type === 'fedex' || o.shipping_type === 'regular'
+        ? (o.shipping_type as 'fedex' | 'regular')
+        : autoClassifyShippingType(
+            o.items?.map((i) => ({
+              sku: i.sku,
+              pickingQty: (i as Record<string, unknown>).pickingQty as number,
+            })) ?? [],
+            {}
+          );
+    const fedexCompleted = recent.filter((o) => completedShipType(o) === 'fedex');
+    const regularCompleted = recent.filter((o) => completedShipType(o) !== 'fedex');
 
     return {
       priorityOrders: priority,
@@ -136,21 +174,15 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       regularOrders: regular,
       waitingOrders: waiting,
       readyOrders: ready,
+      readyFdxOrders: readyFdx,
+      readyTrkOrders: readyTrk,
       readyShippingTypes: readyShipTypes,
       recentCompleted: recent,
+      fedexCompleted,
+      regularCompleted,
       priorityShippingTypes: priorityShipTypes,
     };
   }, [orders, completedOrders]);
-
-  // ─── Board layout ──────────────────────────────────────────────────
-  const layout = useBoardLayout({
-    priority: priorityOrders.length,
-    fedex: fedexOrders.length,
-    regular: regularOrders.length,
-    projects: 1, // ProjectsZone manages its own data; assume non-empty for layout
-    completed: recentCompleted.length,
-    waiting: waitingOrders.length,
-  });
 
   // ─── DnD sensors ──────────────────────────────────────────────────
   const pointerSensor = useSensor(PointerSensor, {
@@ -275,8 +307,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-main">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-subtle bg-surface flex items-center justify-between shrink-0">
-        <h2 className="text-lg font-black text-content uppercase tracking-tight">
+      <div className="px-3 py-2 md:px-5 md:py-3 border-b border-subtle bg-surface flex items-center justify-between shrink-0">
+        <h2 className="text-base md:text-xl lg:text-xl font-black text-content uppercase tracking-tight">
           Verification Board
         </h2>
         <button
@@ -293,197 +325,283 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         onDragStart={dnd.handleDragStart}
         onDragEnd={dnd.handleDragEnd}
       >
-        <div className="flex-1 overflow-y-auto min-h-0 p-3 pb-20 space-y-3">
-          {/* Priority Zone — auto-populated, not a lane */}
+        <div className="flex-1 overflow-y-auto min-h-0 pb-20 max-w-6xl w-full mx-auto">
+          {/* Priority — auto-populated, top of the board (rare, only when
+              the queue computes priority candidates; today's classifier
+              keeps this empty by design but the drop target stays so the
+              flow is reachable). */}
           {priorityOrders.length > 0 && (
-            <div className="md:max-w-2xl md:mx-auto">
-              <DroppableZone
-                id={ZONE_PRIORITY}
-                label="Priority"
-                labelColor="text-red-400"
-                borderColor="border-red-500/30"
-                bgColor="bg-red-500/5"
-                bgHover="bg-red-500/10"
-                count={priorityOrders.length}
-                emptyMessage="No priority orders"
+            <DropZone
+              id={ZONE_PRIORITY}
+              className="border-b border-subtle px-2 py-2 md:px-4 md:py-3"
+            >
+              <div className="flex items-center justify-center gap-2 mb-2 md:mb-3">
+                <span className="text-[10px] md:text-sm lg:text-sm font-black uppercase tracking-widest text-red-400">
+                  Priority
+                </span>
+                <span className="text-[10px] md:text-sm text-muted/60">
+                  ({priorityOrders.length})
+                </span>
+              </div>
+              {priorityOrders.map((order) => (
+                <DraggableOrderCard
+                  key={order.id}
+                  order={order}
+                  shippingType={
+                    (priorityShippingTypes.get(order.id) as 'fedex' | 'regular') ?? 'regular'
+                  }
+                  onSelect={handleOrderSelect}
+                  onDelete={handleDelete}
+                  onUngroup={handleUngroup}
+                />
+              ))}
+            </DropZone>
+          )}
+
+          {/* FEDEX | REGULAR active lanes — minimalist: no text labels,
+              just a 3px color stripe at the top + a faint background tint
+              per column. The vertical divider between them frames the
+              split. Drop targets unchanged (ZONE_FEDEX / ZONE_REGULAR). */}
+          <div className="grid grid-cols-2 divide-x divide-subtle border-b border-subtle">
+            {/* FEDEX */}
+            <DropZone
+              id={ZONE_FEDEX}
+              className="bg-purple-500/[0.03] min-h-[44px] md:min-h-[64px] lg:min-h-[80px]"
+            >
+              <div className="h-[3px] md:h-[4px] bg-purple-500/60" />
+              <div className="px-2 py-2 md:px-4 md:py-3 lg:px-5 lg:py-4">
+                {fedexOrders.length > 0 ? (
+                  renderOrderCards(fedexOrders, 'fedex')
+                ) : (
+                  <div className="text-center text-[9px] md:text-xs lg:text-xs text-purple-400/40 italic">
+                    No active FedEx orders
+                  </div>
+                )}
+              </div>
+            </DropZone>
+
+            {/* REGULAR */}
+            <DropZone
+              id={ZONE_REGULAR}
+              className="bg-emerald-500/[0.03] min-h-[44px] md:min-h-[64px] lg:min-h-[80px]"
+            >
+              <div className="h-[3px] md:h-[4px] bg-emerald-500/60" />
+              <div className="px-2 py-2 md:px-4 md:py-3 lg:px-5 lg:py-4">
+                {regularOrders.length > 0 ? (
+                  renderOrderCards(regularOrders, 'regular')
+                ) : (
+                  <div className="text-center text-[9px] md:text-xs lg:text-xs text-emerald-400/40 italic">
+                    No active Regular orders
+                  </div>
+                )}
+              </div>
+            </DropZone>
+          </div>
+
+          {/* READY TO DOUBLE-CHECK — split into FDX | TRK columns sharing
+              one global "Show N more" toggle. Drop on either side reclasses
+              shipping_type via the existing CrossLaneConfirmModal AND marks
+              ready_to_double_check (handled in useBoardDnD). */}
+          <DropZone id={ZONE_READY} className="border-b border-subtle px-2 py-2 md:px-4 md:py-3">
+            <div className="flex items-center justify-center gap-2 mb-2 md:mb-3">
+              <span className="text-[10px] md:text-sm lg:text-sm font-black uppercase tracking-widest text-sky-400">
+                Ready to Double-Check
+              </span>
+              {readyOrders.length > 0 && (
+                <span className="text-[10px] md:text-sm text-muted/60">({readyOrders.length})</span>
+              )}
+            </div>
+            {readyOrders.length === 0 ? (
+              <div className="text-center text-[9px] md:text-xs lg:text-xs text-muted/40 italic">
+                Drag orders here when they are ready for double-check
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 divide-x divide-subtle/60">
+                {/* FDX side — minimalist (color stripe + tint, no label) */}
+                <div className="bg-purple-500/[0.03]">
+                  <div className="h-[2px] bg-purple-500/50" />
+                  <div className="px-2 py-2 md:px-3">
+                    {readyFdxOrders.length === 0 ? (
+                      <div className="text-center text-[9px] md:text-xs text-purple-400/30 py-1">
+                        —
+                      </div>
+                    ) : (
+                      (readyExpanded
+                        ? readyFdxOrders
+                        : readyFdxOrders.slice(0, READY_VISIBLE_COUNT)
+                      ).map((order) => (
+                        <SortableOrderCard
+                          key={order.id}
+                          order={order}
+                          shippingType="fedex"
+                          showShippingBadge={false}
+                          onSelect={handleOrderSelect}
+                          onDelete={handleDelete}
+                          onUngroup={handleUngroup}
+                        />
+                      ))
+                    )}
+                  </div>
+                </div>
+                {/* TRK side — minimalist (color stripe + tint, no label) */}
+                <div className="bg-emerald-500/[0.03]">
+                  <div className="h-[2px] bg-emerald-500/50" />
+                  <div className="px-2 py-2 md:px-3">
+                    {readyTrkOrders.length === 0 ? (
+                      <div className="text-center text-[9px] md:text-xs text-emerald-400/30 py-1">
+                        —
+                      </div>
+                    ) : (
+                      (readyExpanded
+                        ? readyTrkOrders
+                        : readyTrkOrders.slice(0, READY_VISIBLE_COUNT)
+                      ).map((order) => (
+                        <SortableOrderCard
+                          key={order.id}
+                          order={order}
+                          shippingType="regular"
+                          showShippingBadge={false}
+                          onSelect={handleOrderSelect}
+                          onDelete={handleDelete}
+                          onUngroup={handleUngroup}
+                        />
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            {readyOrders.length > READY_VISIBLE_COUNT * 2 && (
+              <div className="flex justify-center mt-2 md:mt-3">
+                <button
+                  onClick={() => setReadyExpanded((v) => !v)}
+                  className="px-4 py-1.5 text-[10px] md:text-sm font-black uppercase tracking-widest text-sky-400 hover:text-sky-300 border border-dashed border-sky-500/30 rounded-full"
+                >
+                  {readyExpanded
+                    ? 'Show less'
+                    : `Show ${readyOrders.length - READY_VISIBLE_COUNT * 2} more`}
+                </button>
+              </div>
+            )}
+          </DropZone>
+
+          {/* WAITING FOR INVENTORY — collapsable, always-visible drop target.
+              Open by default so the empty-state ("Drag an order here…") guides
+              first-time use. */}
+          <DropZone id={ZONE_WAITING} className="border-b border-subtle">
+            <button
+              onClick={() => setWaitingCollapsed((v) => !v)}
+              className="w-full flex items-center justify-center gap-2 py-2 md:py-3 hover:bg-amber-500/5 transition-colors"
+            >
+              <span className="text-[10px] md:text-sm lg:text-sm font-black uppercase tracking-widest text-amber-400">
+                Waiting for Inventory
+              </span>
+              {waitingOrders.length > 0 && (
+                <span className="text-[10px] md:text-sm text-muted/60">
+                  ({waitingOrders.length})
+                </span>
+              )}
+              <ChevronDown
+                size={14}
+                className={`text-amber-400/60 transition-transform ${
+                  waitingCollapsed ? '' : 'rotate-180'
+                }`}
+              />
+            </button>
+            {!waitingCollapsed && (
+              <div className="px-2 pb-2 md:px-4 md:pb-3">
+                {waitingOrders.length > 0 ? (
+                  <WaitingZone orders={waitingOrders} onSelect={handleOrderSelect} />
+                ) : (
+                  <div className="text-center text-[9px] md:text-xs lg:text-xs text-muted/40 italic py-1">
+                    Drag an order here to flag it as waiting for inventory
+                  </div>
+                )}
+              </div>
+            )}
+          </DropZone>
+
+          {/* COMPLETED TODAY — full-width, collapsable. Reference info,
+              not action — sits below Waiting for Inventory so it doesn't
+              compete with the active queue. FDX | TRK split mirrors the
+              Ready-to-Double-Check pattern for consistency. */}
+          {(fedexCompleted.length > 0 || regularCompleted.length > 0) && (
+            <div className="border-b border-subtle">
+              <button
+                onClick={() => setCompletedCollapsed((v) => !v)}
+                className="w-full flex items-center justify-center gap-2 py-2 md:py-3 hover:bg-content/5 transition-colors"
               >
-                {priorityOrders.map((order) => (
-                  <DraggableOrderCard
-                    key={order.id}
-                    order={order}
-                    shippingType={
-                      (priorityShippingTypes.get(order.id) as 'fedex' | 'regular') ?? 'regular'
-                    }
-                    onSelect={handleOrderSelect}
-                    onDelete={handleDelete}
-                    onUngroup={handleUngroup}
-                  />
-                ))}
-              </DroppableZone>
+                <span className="text-[10px] md:text-sm lg:text-sm font-black uppercase tracking-widest text-content/60">
+                  Completed Today
+                </span>
+                <span className="text-[10px] md:text-sm text-muted/60">
+                  ({fedexCompleted.length + regularCompleted.length})
+                </span>
+                <ChevronDown
+                  size={14}
+                  className={`text-content/40 transition-transform ${
+                    completedCollapsed ? '' : 'rotate-180'
+                  }`}
+                />
+              </button>
+              {!completedCollapsed && (
+                <div className="grid grid-cols-2 divide-x divide-subtle/60 pb-2 md:pb-3">
+                  <div className="bg-purple-500/[0.03]">
+                    <div className="h-[2px] bg-purple-500/50" />
+                    <div className="px-2 py-2 md:px-3">
+                      {fedexCompleted.length === 0 ? (
+                        <div className="text-center text-[9px] md:text-xs text-purple-400/30 py-1">
+                          —
+                        </div>
+                      ) : (
+                        <CompletedZone
+                          orders={fedexCompleted}
+                          onSelectOrder={(orderId) => {
+                            setExternalOrderId(orderId);
+                            navigate('/orders');
+                            onClose();
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                  <div className="bg-emerald-500/[0.03]">
+                    <div className="h-[2px] bg-emerald-500/50" />
+                    <div className="px-2 py-2 md:px-3">
+                      {regularCompleted.length === 0 ? (
+                        <div className="text-center text-[9px] md:text-xs text-emerald-400/30 py-1">
+                          —
+                        </div>
+                      ) : (
+                        <CompletedZone
+                          orders={regularCompleted}
+                          onSelectOrder={(orderId) => {
+                            setExternalOrderId(orderId);
+                            navigate('/orders');
+                            onClose();
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Main Lanes — responsive grid */}
-          <div
-            className="grid grid-cols-2 gap-3 md:grid-cols-4 min-h-0"
-            style={{
-              // Desktop: animated column sizing
-              ...(typeof window !== 'undefined' && window.innerWidth >= 768
-                ? {
-                    gridTemplateColumns: layout.desktopGridCols,
-                    transition: 'grid-template-columns 300ms ease',
-                  }
-                : {}),
-            }}
-          >
-            {/* FedEx Lane */}
-            <div className={`${layout.mobileFedex} md:col-span-1 min-h-0`}>
-              <DroppableZone
-                id={ZONE_FEDEX}
-                label="FedEx"
-                labelColor="text-purple-400"
-                borderColor="border-purple-500/30"
-                bgColor="bg-purple-500/5"
-                bgHover="bg-purple-500/10"
-                count={fedexOrders.length}
-                className="h-full"
-                emptyMessage="No FedEx orders"
-              >
-                {renderOrderCards(fedexOrders, 'fedex')}
-              </DroppableZone>
+          {/* PROJECTS — read-only context, at the very bottom */}
+          <div className="px-2 py-2 md:px-4 md:py-3">
+            <div className="flex items-center justify-center gap-2 mb-2 md:mb-3">
+              <span className="text-[10px] md:text-sm lg:text-sm font-black uppercase tracking-widest text-indigo-400">
+                Projects
+              </span>
             </div>
-
-            {/* Regular Lane */}
-            <div className={`${layout.mobileRegular} md:col-span-1 min-h-0`}>
-              <DroppableZone
-                id={ZONE_REGULAR}
-                label="Regular"
-                labelColor="text-emerald-400"
-                borderColor="border-emerald-500/30"
-                bgColor="bg-emerald-500/5"
-                bgHover="bg-emerald-500/10"
-                count={regularOrders.length}
-                className="h-full"
-                emptyMessage="No regular orders"
-              >
-                {renderOrderCards(regularOrders, 'regular')}
-              </DroppableZone>
-            </div>
-
-            {/* In Progress Projects */}
-            <div className={`${layout.mobileProjects} md:col-span-1 min-h-0`}>
-              <DroppableZone
-                id={ZONE_PROJECTS}
-                disabled
-                label="Projects"
-                labelColor="text-indigo-400"
-                borderColor="border-indigo-500/30"
-                bgColor="bg-indigo-500/5"
-                bgHover="bg-indigo-500/5"
-                emptyMessage="No active projects"
-                className="h-full"
-              >
-                <ProjectsZone
-                  onNavigate={() => {
-                    navigate('/projects');
-                    onClose();
-                  }}
-                />
-              </DroppableZone>
-            </div>
-
-            {/* Recently Completed */}
-            <div className={`${layout.mobileCompleted} md:col-span-1 min-h-0`}>
-              <DroppableZone
-                id={ZONE_COMPLETED}
-                label="Completed"
-                labelColor="text-gray-400"
-                borderColor="border-subtle"
-                bgColor="bg-subtle/5"
-                bgHover="bg-accent/5"
-                count={recentCompleted.length}
-                className="h-full"
-                emptyMessage="No orders completed today"
-              >
-                <CompletedZone
-                  orders={recentCompleted}
-                  onSelectOrder={(orderId) => {
-                    setExternalOrderId(orderId);
-                    navigate('/orders');
-                    onClose();
-                  }}
-                />
-              </DroppableZone>
-            </div>
-          </div>
-
-          {/* Ready to Double-Check queue — always visible. Holds orders the
-              picker marked ready for verification. Shows the 2 oldest by
-              default; rest is behind a "Show N more" toggle. Drop an active
-              order here to mark it ready_to_double_check. */}
-          <div className="md:max-w-2xl md:mx-auto">
-            <DroppableZone
-              id={ZONE_READY}
-              label="Ready to Double-Check"
-              labelColor="text-sky-400"
-              borderColor="border-sky-500/30"
-              bgColor="bg-sky-500/5"
-              bgHover="bg-sky-500/10"
-              count={readyOrders.length}
-              emptyMessage="Drag orders here when they are ready for double-check"
-            >
-              {readyOrders.length > 0 && (
-                <div className="space-y-1">
-                  {(readyExpanded ? readyOrders : readyOrders.slice(0, READY_VISIBLE_COUNT)).map(
-                    (order) => (
-                      <SortableOrderCard
-                        key={order.id}
-                        order={order}
-                        shippingType={readyShippingTypes.get(order.id) ?? 'regular'}
-                        // Hide the shipping badge when the order is in a group —
-                        // the group badge already shows FDX/GRP and rendering
-                        // both produces a duplicated "FDX FDX".
-                        showShippingBadge={!order.order_group}
-                        onSelect={handleOrderSelect}
-                        onDelete={handleDelete}
-                        onUngroup={handleUngroup}
-                      />
-                    )
-                  )}
-                  {readyOrders.length > READY_VISIBLE_COUNT && (
-                    <button
-                      onClick={() => setReadyExpanded((v) => !v)}
-                      className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-sky-400 hover:text-sky-300 border border-dashed border-sky-500/30 rounded-xl"
-                    >
-                      {readyExpanded
-                        ? 'Show less'
-                        : `Show ${readyOrders.length - READY_VISIBLE_COUNT} more`}
-                    </button>
-                  )}
-                </div>
-              )}
-            </DroppableZone>
-          </div>
-
-          {/* Waiting for Inventory — always visible so admins can drag the
-              first order in. Long-wait orders (days/weeks/months) live here.
-              Collapsed by default to keep the board compact. */}
-          <div className="md:max-w-2xl md:mx-auto">
-            <DroppableZone
-              id={ZONE_WAITING}
-              label="Waiting for Inventory"
-              labelColor="text-amber-400"
-              borderColor="border-amber-500/30"
-              bgColor="bg-amber-500/5"
-              bgHover="bg-amber-500/10"
-              count={waitingOrders.length}
-              collapsible
-              collapsed={waitingCollapsed}
-              onToggleCollapse={() => setWaitingCollapsed((v) => !v)}
-              emptyMessage="Drag an order here to flag it as waiting for inventory"
-            >
-              <WaitingZone orders={waitingOrders} onSelect={handleOrderSelect} />
-            </DroppableZone>
+            <ProjectsZone
+              onNavigate={() => {
+                navigate('/projects');
+                onClose();
+              }}
+            />
           </div>
         </div>
 

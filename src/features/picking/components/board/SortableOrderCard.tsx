@@ -119,11 +119,12 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
                   {colors.badgeText}
                 </span>
               )}
-              {order.order_group && (
-                <span
-                  className={`text-[7px] ${order.order_group.group_type === 'fedex' ? 'bg-purple-500' : 'bg-sky-500'} text-white px-1 py-0.5 rounded font-black uppercase tracking-wider`}
-                >
-                  {order.order_group.group_type === 'fedex' ? 'FDX' : 'GRP'}
+              {/* Group badge: only for non-fedex groups. FedEx groups are
+                  already visually identified by the purple lane / stripe,
+                  so 'FDX' on the card is redundant. */}
+              {order.order_group && order.order_group.group_type !== 'fedex' && (
+                <span className="text-[7px] bg-sky-500 text-white px-1 py-0.5 rounded font-black uppercase tracking-wider">
+                  GRP
                 </span>
               )}
               {order.is_waiting_inventory && (
@@ -138,20 +139,12 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
               )}
             </div>
             <div className="text-[9px] text-muted font-bold uppercase tracking-wider mt-0.5 flex items-center gap-2">
-              <span>
-                {order.status === 'needs_correction'
-                  ? order.profiles?.full_name
-                    ? `Picked by ${order.profiles.full_name.split(' ')[0]}`
-                    : null
-                  : order.status === 'double_checking'
-                    ? `Checking: ${order.checker_profile?.full_name?.split(' ')[0] ?? '...'}`
-                    : order.profiles?.full_name
-                      ? `Picked by ${order.profiles.full_name.split(' ')[0]}`
-                      : null}
-              </span>
+              {order.status === 'double_checking' && (
+                <span>{`Checking: ${order.checker_profile?.full_name?.split(' ')[0] ?? '...'}`}</span>
+              )}
               {typeof order.pallets_qty === 'number' && order.pallets_qty > 0 && (
                 <span className="text-sky-400/80">
-                  · {order.pallets_qty} {order.pallets_qty === 1 ? 'pallet' : 'pallets'}
+                  {order.pallets_qty} {order.pallets_qty === 1 ? 'pallet' : 'pallets'}
                 </span>
               )}
             </div>
