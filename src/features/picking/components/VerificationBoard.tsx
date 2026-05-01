@@ -307,8 +307,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-main">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-subtle bg-surface flex items-center justify-between shrink-0">
-        <h2 className="text-lg font-black text-content uppercase tracking-tight">
+      <div className="px-3 py-2 md:px-5 md:py-3 border-b border-subtle bg-surface flex items-center justify-between shrink-0">
+        <h2 className="text-base md:text-lg lg:text-xl font-black text-content uppercase tracking-tight">
           Verification Board
         </h2>
         <button
@@ -325,18 +325,23 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         onDragStart={dnd.handleDragStart}
         onDragEnd={dnd.handleDragEnd}
       >
-        <div className="flex-1 overflow-y-auto min-h-0 pb-20">
+        <div className="flex-1 overflow-y-auto min-h-0 pb-20 max-w-6xl w-full mx-auto">
           {/* Priority — auto-populated, top of the board (rare, only when
               the queue computes priority candidates; today's classifier
               keeps this empty by design but the drop target stays so the
               flow is reachable). */}
           {priorityOrders.length > 0 && (
-            <DropZone id={ZONE_PRIORITY} className="border-b border-subtle px-3 py-3">
-              <div className="flex items-center justify-center gap-2 mb-3">
-                <span className="text-xs font-black uppercase tracking-widest text-red-400">
+            <DropZone
+              id={ZONE_PRIORITY}
+              className="border-b border-subtle px-2 py-2 md:px-4 md:py-3"
+            >
+              <div className="flex items-center justify-center gap-2 mb-2 md:mb-3">
+                <span className="text-[10px] md:text-xs lg:text-sm font-black uppercase tracking-widest text-red-400">
                   Priority
                 </span>
-                <span className="text-[10px] text-muted/60">({priorityOrders.length})</span>
+                <span className="text-[10px] md:text-xs text-muted/60">
+                  ({priorityOrders.length})
+                </span>
               </div>
               {priorityOrders.map((order) => (
                 <DraggableOrderCard
@@ -359,13 +364,16 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               split. Drop targets unchanged (ZONE_FEDEX / ZONE_REGULAR). */}
           <div className="grid grid-cols-2 divide-x divide-subtle border-b border-subtle">
             {/* FEDEX */}
-            <DropZone id={ZONE_FEDEX} className="bg-purple-500/[0.03] min-h-[120px]">
-              <div className="h-[3px] bg-purple-500/60" />
-              <div className="px-3 py-3">
+            <DropZone
+              id={ZONE_FEDEX}
+              className="bg-purple-500/[0.03] min-h-[44px] md:min-h-[64px] lg:min-h-[80px]"
+            >
+              <div className="h-[3px] md:h-[4px] bg-purple-500/60" />
+              <div className="px-2 py-2 md:px-4 md:py-3 lg:px-5 lg:py-4">
                 {fedexOrders.length > 0 ? (
                   renderOrderCards(fedexOrders, 'fedex')
                 ) : (
-                  <div className="text-center text-[10px] text-purple-400/40 italic py-2">
+                  <div className="text-center text-[9px] md:text-[10px] lg:text-xs text-purple-400/40 italic">
                     No active FedEx orders
                   </div>
                 )}
@@ -373,13 +381,16 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             </DropZone>
 
             {/* REGULAR */}
-            <DropZone id={ZONE_REGULAR} className="bg-emerald-500/[0.03] min-h-[120px]">
-              <div className="h-[3px] bg-emerald-500/60" />
-              <div className="px-3 py-3">
+            <DropZone
+              id={ZONE_REGULAR}
+              className="bg-emerald-500/[0.03] min-h-[44px] md:min-h-[64px] lg:min-h-[80px]"
+            >
+              <div className="h-[3px] md:h-[4px] bg-emerald-500/60" />
+              <div className="px-2 py-2 md:px-4 md:py-3 lg:px-5 lg:py-4">
                 {regularOrders.length > 0 ? (
                   renderOrderCards(regularOrders, 'regular')
                 ) : (
-                  <div className="text-center text-[10px] text-emerald-400/40 italic py-2">
+                  <div className="text-center text-[9px] md:text-[10px] lg:text-xs text-emerald-400/40 italic">
                     No active Regular orders
                   </div>
                 )}
@@ -391,17 +402,17 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               one global "Show N more" toggle. Drop on either side reclasses
               shipping_type via the existing CrossLaneConfirmModal AND marks
               ready_to_double_check (handled in useBoardDnD). */}
-          <DropZone id={ZONE_READY} className="border-b border-subtle px-2 py-3">
-            <div className="flex items-center justify-center gap-2 mb-3">
-              <span className="text-xs font-black uppercase tracking-widest text-sky-400">
+          <DropZone id={ZONE_READY} className="border-b border-subtle px-2 py-2 md:px-4 md:py-3">
+            <div className="flex items-center justify-center gap-2 mb-2 md:mb-3">
+              <span className="text-[10px] md:text-xs lg:text-sm font-black uppercase tracking-widest text-sky-400">
                 Ready to Double-Check
               </span>
               {readyOrders.length > 0 && (
-                <span className="text-[10px] text-muted/60">({readyOrders.length})</span>
+                <span className="text-[10px] md:text-xs text-muted/60">({readyOrders.length})</span>
               )}
             </div>
             {readyOrders.length === 0 ? (
-              <div className="text-center text-[10px] text-muted/40 italic py-2">
+              <div className="text-center text-[9px] md:text-[10px] lg:text-xs text-muted/40 italic">
                 Drag orders here when they are ready for double-check
               </div>
             ) : (
@@ -409,9 +420,11 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                 {/* FDX side — minimalist (color stripe + tint, no label) */}
                 <div className="bg-purple-500/[0.03]">
                   <div className="h-[2px] bg-purple-500/50" />
-                  <div className="px-3 py-2">
+                  <div className="px-2 py-2 md:px-3">
                     {readyFdxOrders.length === 0 ? (
-                      <div className="text-center text-[10px] text-purple-400/30 py-2">—</div>
+                      <div className="text-center text-[9px] md:text-[10px] text-purple-400/30 py-1">
+                        —
+                      </div>
                     ) : (
                       (readyExpanded
                         ? readyFdxOrders
@@ -433,9 +446,11 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                 {/* TRK side — minimalist (color stripe + tint, no label) */}
                 <div className="bg-emerald-500/[0.03]">
                   <div className="h-[2px] bg-emerald-500/50" />
-                  <div className="px-3 py-2">
+                  <div className="px-2 py-2 md:px-3">
                     {readyTrkOrders.length === 0 ? (
-                      <div className="text-center text-[10px] text-emerald-400/30 py-2">—</div>
+                      <div className="text-center text-[9px] md:text-[10px] text-emerald-400/30 py-1">
+                        —
+                      </div>
                     ) : (
                       (readyExpanded
                         ? readyTrkOrders
@@ -457,10 +472,10 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               </div>
             )}
             {readyOrders.length > READY_VISIBLE_COUNT * 2 && (
-              <div className="flex justify-center mt-3">
+              <div className="flex justify-center mt-2 md:mt-3">
                 <button
                   onClick={() => setReadyExpanded((v) => !v)}
-                  className="px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-sky-400 hover:text-sky-300 border border-dashed border-sky-500/30 rounded-full"
+                  className="px-4 py-1.5 text-[10px] md:text-xs font-black uppercase tracking-widest text-sky-400 hover:text-sky-300 border border-dashed border-sky-500/30 rounded-full"
                 >
                   {readyExpanded
                     ? 'Show less'
@@ -476,13 +491,15 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           <DropZone id={ZONE_WAITING} className="border-b border-subtle">
             <button
               onClick={() => setWaitingCollapsed((v) => !v)}
-              className="w-full flex items-center justify-center gap-2 py-3 hover:bg-amber-500/5 transition-colors"
+              className="w-full flex items-center justify-center gap-2 py-2 md:py-3 hover:bg-amber-500/5 transition-colors"
             >
-              <span className="text-xs font-black uppercase tracking-widest text-amber-400">
+              <span className="text-[10px] md:text-xs lg:text-sm font-black uppercase tracking-widest text-amber-400">
                 Waiting for Inventory
               </span>
               {waitingOrders.length > 0 && (
-                <span className="text-[10px] text-muted/60">({waitingOrders.length})</span>
+                <span className="text-[10px] md:text-xs text-muted/60">
+                  ({waitingOrders.length})
+                </span>
               )}
               <ChevronDown
                 size={14}
@@ -492,11 +509,11 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               />
             </button>
             {!waitingCollapsed && (
-              <div className="px-3 pb-3">
+              <div className="px-2 pb-2 md:px-4 md:pb-3">
                 {waitingOrders.length > 0 ? (
                   <WaitingZone orders={waitingOrders} onSelect={handleOrderSelect} />
                 ) : (
-                  <div className="text-center text-[10px] text-muted/40 italic py-2">
+                  <div className="text-center text-[9px] md:text-[10px] lg:text-xs text-muted/40 italic py-1">
                     Drag an order here to flag it as waiting for inventory
                   </div>
                 )}
@@ -512,12 +529,12 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             <div className="border-b border-subtle">
               <button
                 onClick={() => setCompletedCollapsed((v) => !v)}
-                className="w-full flex items-center justify-center gap-2 py-3 hover:bg-content/5 transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-2 md:py-3 hover:bg-content/5 transition-colors"
               >
-                <span className="text-xs font-black uppercase tracking-widest text-content/60">
+                <span className="text-[10px] md:text-xs lg:text-sm font-black uppercase tracking-widest text-content/60">
                   Completed Today
                 </span>
-                <span className="text-[10px] text-muted/60">
+                <span className="text-[10px] md:text-xs text-muted/60">
                   ({fedexCompleted.length + regularCompleted.length})
                 </span>
                 <ChevronDown
@@ -528,12 +545,14 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                 />
               </button>
               {!completedCollapsed && (
-                <div className="grid grid-cols-2 divide-x divide-subtle/60 pb-3">
+                <div className="grid grid-cols-2 divide-x divide-subtle/60 pb-2 md:pb-3">
                   <div className="bg-purple-500/[0.03]">
                     <div className="h-[2px] bg-purple-500/50" />
-                    <div className="px-3 py-2">
+                    <div className="px-2 py-2 md:px-3">
                       {fedexCompleted.length === 0 ? (
-                        <div className="text-center text-[10px] text-purple-400/30 py-2">—</div>
+                        <div className="text-center text-[9px] md:text-[10px] text-purple-400/30 py-1">
+                          —
+                        </div>
                       ) : (
                         <CompletedZone
                           orders={fedexCompleted}
@@ -548,9 +567,11 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                   </div>
                   <div className="bg-emerald-500/[0.03]">
                     <div className="h-[2px] bg-emerald-500/50" />
-                    <div className="px-3 py-2">
+                    <div className="px-2 py-2 md:px-3">
                       {regularCompleted.length === 0 ? (
-                        <div className="text-center text-[10px] text-emerald-400/30 py-2">—</div>
+                        <div className="text-center text-[9px] md:text-[10px] text-emerald-400/30 py-1">
+                          —
+                        </div>
                       ) : (
                         <CompletedZone
                           orders={regularCompleted}
@@ -569,9 +590,9 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           )}
 
           {/* PROJECTS — read-only context, at the very bottom */}
-          <div className="px-3 py-3">
-            <div className="flex items-center justify-center gap-2 mb-3">
-              <span className="text-xs font-black uppercase tracking-widest text-indigo-400">
+          <div className="px-2 py-2 md:px-4 md:py-3">
+            <div className="flex items-center justify-center gap-2 mb-2 md:mb-3">
+              <span className="text-[10px] md:text-xs lg:text-sm font-black uppercase tracking-widest text-indigo-400">
                 Projects
               </span>
             </div>
