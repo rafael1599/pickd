@@ -366,9 +366,9 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             {/* FEDEX */}
             <DropZone
               id={ZONE_FEDEX}
-              className="bg-purple-500/[0.03] min-h-[44px] md:min-h-[64px] lg:min-h-[80px]"
+              className="bg-purple-500/[0.08] min-h-[44px] md:min-h-[64px] lg:min-h-[80px]"
             >
-              <div className="h-[3px] md:h-[4px] bg-purple-500/60" />
+              <div className="h-[5px] md:h-[6px] bg-purple-500/70" />
               <div className="px-2 py-2 md:px-4 md:py-3 lg:px-5 lg:py-4">
                 {fedexOrders.length > 0 ? (
                   renderOrderCards(fedexOrders, 'fedex')
@@ -383,9 +383,9 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             {/* REGULAR */}
             <DropZone
               id={ZONE_REGULAR}
-              className="bg-emerald-500/[0.03] min-h-[44px] md:min-h-[64px] lg:min-h-[80px]"
+              className="bg-emerald-500/[0.08] min-h-[44px] md:min-h-[64px] lg:min-h-[80px]"
             >
-              <div className="h-[3px] md:h-[4px] bg-emerald-500/60" />
+              <div className="h-[5px] md:h-[6px] bg-emerald-500/70" />
               <div className="px-2 py-2 md:px-4 md:py-3 lg:px-5 lg:py-4">
                 {regularOrders.length > 0 ? (
                   renderOrderCards(regularOrders, 'regular')
@@ -418,8 +418,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             ) : (
               <div className="grid grid-cols-2 divide-x divide-subtle/60">
                 {/* FDX side — minimalist (color stripe + tint, no label) */}
-                <div className="bg-purple-500/[0.03]">
-                  <div className="h-[2px] bg-purple-500/50" />
+                <div className="bg-purple-500/[0.08]">
+                  <div className="h-[3px] bg-purple-500/60" />
                   <div className="px-2 py-2 md:px-3">
                     {readyFdxOrders.length === 0 ? (
                       <div className="text-center text-[9px] md:text-xs text-purple-400/30 py-1">
@@ -444,8 +444,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                   </div>
                 </div>
                 {/* TRK side — minimalist (color stripe + tint, no label) */}
-                <div className="bg-emerald-500/[0.03]">
-                  <div className="h-[2px] bg-emerald-500/50" />
+                <div className="bg-emerald-500/[0.08]">
+                  <div className="h-[3px] bg-emerald-500/60" />
                   <div className="px-2 py-2 md:px-3">
                     {readyTrkOrders.length === 0 ? (
                       <div className="text-center text-[9px] md:text-xs text-emerald-400/30 py-1">
@@ -546,8 +546,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               </button>
               {!completedCollapsed && (
                 <div className="grid grid-cols-2 divide-x divide-subtle/60 pb-2 md:pb-3">
-                  <div className="bg-purple-500/[0.03]">
-                    <div className="h-[2px] bg-purple-500/50" />
+                  <div className="bg-purple-500/[0.08]">
+                    <div className="h-[3px] bg-purple-500/60" />
                     <div className="px-2 py-2 md:px-3">
                       {fedexCompleted.length === 0 ? (
                         <div className="text-center text-[9px] md:text-xs text-purple-400/30 py-1">
@@ -565,8 +565,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                       )}
                     </div>
                   </div>
-                  <div className="bg-emerald-500/[0.03]">
-                    <div className="h-[2px] bg-emerald-500/50" />
+                  <div className="bg-emerald-500/[0.08]">
+                    <div className="h-[3px] bg-emerald-500/60" />
                     <div className="px-2 py-2 md:px-3">
                       {regularCompleted.length === 0 ? (
                         <div className="text-center text-[9px] md:text-xs text-emerald-400/30 py-1">
