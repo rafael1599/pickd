@@ -7,6 +7,79 @@
 
 ## P1 — Alto (operación diaria)
 
+### 53. SKU normalization at intake — auto-resolve dash-stripped SKUs without picker action <!-- id: idea-101 -->
+- **Contexto:** PDFs de watchdog llegan con SKUs sin guión (`034664BR` cuando el catálogo tiene `03-4664BR`). idea-092 ya entregó la RPC `lookup_canonical_sku` y el botón "Use X instead" en CorrectionModeView, pero **el flag `sku_not_found` se sigue prendiendo en DoubleCheckView** porque el matching contra `sku_metadata` se hace por igualdad estricta (`sku = '034664BR'`) sin pasar por la normalización.
+- **Problema:** el picker entra a la orden y ve UNREG en rojo + tiene que hacer click en "Use 03-4664BR instead" para cada SKU. Caso 100% determinístico (la versión normalizada es idéntica) que no debería requerir intervención humana.
+- **Solución (3 capas, en orden de impacto):**
+  1. **Watchdog (intake)** — path (1) de idea-092, todavía pendiente. Llamar `lookup_canonical_sku` antes de insertar el item; si hay match único, sustituir el SKU en `picking_lists.items` y registrar en `combine_meta`. Repo: `watchdog-pickd`.
+  2. **DoubleCheckView (validación)** — al armar `cartItems` y calcular `sku_not_found`, en vez de comparar literal contra `sku_metadata`, usar la búsqueda normalizada (`regexp_replace(sku, '[-\s]', '', 'g')`). Si match único, **auto-corregir el item silenciosamente** y NO marcar `sku_not_found=true`. El picker no ve UNREG ni tiene que clickear nada.
+  3. **CorrectionModeView botón** sigue ahí como red de seguridad para casos ambiguos (>1 match) o no normalizables.
+- **Por qué auto-corregir vs sugerir:** el guión es ruido de formato, no decisión operativa. La regla "si hay UN canónico cuya forma normalizada matchea exactamente, es ese SKU" es 100% segura — ya está validado en idea-092 que no hay falsos positivos en producción.
+- **Riesgo:** si surge un edge case donde un SKU sin guión es legítimamente distinto de su versión con guión, romperíamos esa orden. Mitigación: mantener `lookup_canonical_sku` con `LIMIT 2` y solo auto-corregir cuando devuelve exactamente 1 row.
+- **Origen:** sesión 2026-05-01. Reportado: orden `879484/879460` con `034664BR` sigue saliendo UNREG.
+
+### 54. Verification Board — increase color identification weight <!-- id: idea-102 -->
+- **Contexto:** Tras el rework de PR #59, los lados FedEx/Regular se identifican por: stripe de 3-4px arriba + tinte de fondo `bg-X-500/[3%]`. En operación el tinte de 3% es casi imperceptible bajo luz fuerte de almacén; los pickers no distinguen las columnas a la primera mirada.
+- **Solución:**
+  - Subir el tinte de fondo: `bg-purple-500/[3%]` → `bg-purple-500/[8%]` (FDX) y `bg-emerald-500/[3%]` → `bg-emerald-500/[8%]` (Regular). Probar primero en local con luz alta para no exagerar en pantallas oscuras.
+  - Engrosar las stripes: `h-[3px] md:h-[4px]` → `h-[5px] md:h-[6px]`.
+  - Agregar un suave gradient vertical desde el stripe hacia abajo para que el ojo lea "sección" en vez de "panel plano".
+- **Out of scope:** volver a poner labels de texto (FEDEX/REGULAR) — el rationale fue minimalismo. Si tras estos ajustes el color sigue insuficiente, **fallback explícito**: agregar dot de 8px circular en la esquina top-left de cada lane.
+- **Origen:** sesión 2026-05-01.
+
+### 55. New orders never auto-route to Ready to Double-Check <!-- id: idea-103 -->
+- **Contexto:** Reportado en sesión 2026-05-01: una orden recién creada apareció directamente en la zona "Ready to Double-Check" del Verification Board en lugar de en su lane FedEx/Regular. La sección "Ready to Double-Check" debe ser exclusivamente para órdenes que el picker ya marcó como completadas y que esperan verificación.
+- **Hipótesis:** alguna orden está siendo creada con `status='ready_to_double_check'` (en vez de `active`). Posibles caminos:
+  - Watchdog intake con default status incorrecto.
+  - Reabrir una orden completada deja status en `ready_to_double_check` antes de que el user empiece a corregir.
+  - Auto-flag idle (idea-099 commit `37c2060`) que cambia status sin querer.
+- **Solución:**
+  1. **Diagnóstico (read-only):** query a `picking_lists` filtrando `status='ready_to_double_check' AND created_at = updated_at` (proxy de "recién creada y nunca tocada") por las últimas 7 días. Ver si hay un patrón.
+  2. **Guard en intake:** asegurar que cualquier path que crea una orden la deja en `status='active'`. Posible CHECK constraint o trigger BEFORE INSERT que rechace `ready_to_double_check` si el row es nuevo (no UPDATE).
+  3. **UI fallback (defensa en profundidad):** la VerificationBoard ya filtra; si una orden recién creada cae en Ready, sería evidente que la causa es upstream — pero no causaría daño operativo grave.
+- **Origen:** sesión 2026-05-01.
+
+### 56. Explicit "Ready to Double-Check" button after Select-All in DoubleCheckView <!-- id: idea-104 -->
+- **Contexto:** Hoy en DoubleCheckView el flow es: el verificador chequea items uno por uno, y cuando todos los items están seleccionados puede presionar **Complete** (que cierra la orden y mueve a `completed`). No hay un paso explícito para "esta orden está lista para que la verifique alguien más" — esa señal hoy se da implícitamente cuando un picker termina y "deja" la orden (status pasa a `ready_to_double_check`).
+- **Problema:** los pickers que terminan una orden, en vez de marcarla como ready, a veces directamente clickean Complete (porque no tienen el flow claro) — resultado: la orden no pasa por el filtro de un segundo verificador. Otras veces, no marcan nada y la orden queda "perdida".
+- **Solución propuesta:**
+  1. La primera vez que el usuario hace **Select All** (o cuando `verifiedUnitsCount === totalUnitsCount`) en DoubleCheckView, aparece un nuevo botón **"Ready to Double-Check"** al lado de **Complete**.
+  2. Click → marca la orden con `status='ready_to_double_check'`, `checked_by=null` (libera el lock para que cualquier verificador la tome). La orden aparece en la sección "Ready to Double-Check" del Verification Board.
+  3. **Complete** sigue existiendo y hace lo de hoy (cerrar directo).
+  4. Tooltip o copy claro: *"Hand off to a teammate for double-check"* en el primero, *"Close the order now (skip second verification)"* en el segundo.
+- **Resultado esperado:** dos flows claros — picker termina y elige uno o el otro según política operativa. Los pickers que quieran segunda verificación tienen un botón explícito; los que no, siguen como hoy.
+- **Edge:** si la orden ya estaba `double_checking` (alguien la tomó), el botón "Ready" la libera de vuelta. Si estaba `ready_to_double_check` ya, no debería verse el botón (idempotente).
+- **Origen:** sesión 2026-05-01.
+
+### 57. Realtime stock reservation visibility across DoubleCheck + ItemDetail <!-- id: idea-105 -->
+- **Contexto:** En operación con varias órdenes activas simultáneas, dos pickers pueden estar viendo el mismo SKU en distintas órdenes. Hoy:
+  - DoubleCheckView muestra "14 disponibles en ROW 32" pero NO descuenta las que otro picker ya seleccionó/recogió en otra orden.
+  - ItemDetail (en /inventory) muestra qty total sin distinguir qué está reservado/en movimiento.
+  - El picker percibe el sistema como "estático" — no refleja que el warehouse es un proceso vivo con varias manos.
+- **Problema operativo:** el conteo de stock visible no es la cantidad disponible real. Pickers se confunden, pelean por items, retrabajos.
+- **Solución (dos vistas, dos comportamientos):**
+  1. **DoubleCheckView (otra orden) — descuento dinámico:**
+     - Cuando el picker A selecciona un item (lo "recoge físicamente"), el client envía señal a la DB: `picking_list_items.is_picked = true` o crea `picking_list_reservations` row con qty.
+     - DoubleCheckView del picker B suscribe via Realtime; al ver el evento, recalcula `available = stock - reservedByOthers - pickedByOthers` y refresca el conteo: "14" → "12" en vivo.
+     - El número visible refleja "available for me" no "stock total".
+  2. **ItemDetail (en /inventory) — desglose explícito:**
+     - Muestra `Total: 14` con sub-líneas:
+       - `2 reserved for #879484` (cuando seleccionados pero no aún picked / order aún active).
+       - `2 picked for #879484` (cuando ya recogidos físicamente).
+       - `10 available`.
+     - Cuando el picker abre ItemDetail debe entender quién está consumiendo qué, sin redundancia ("12 disponibles, 2 yendo a tal orden" — no "14 menos 2 reservados menos 2 recogidos = 10").
+     - Tap en el order# linkea a la orden destinataria.
+- **Implementación técnica:**
+  - **DB:** decisión clave — ¿usamos `picking_list_items.is_picked` (boolean) o tabla nueva `picking_list_reservations` (sku, list_id, qty, status='reserved'|'picked')? Hipótesis: la tabla nueva es más limpia para múltiples reservas por mismo SKU en distintas órdenes.
+  - **Realtime:** suscribirse al canal de la nueva tabla. Cada cambio dispara recompute en DoubleCheckView abierto.
+  - **Cálculo:** ya hay `usePickingActions.ts` que hace algo similar (calcula reserved across active lists), reutilizar y extender.
+- **Riesgos:**
+  - Latencia de Realtime: si Picker A selecciona y la actualización tarda 2s en llegar a Picker B, sigue habiendo race condition. Mitigación: optimistic `available -= 1` apenas se selecciona localmente, confirmar con el server.
+  - Estado inconsistente si picker abandona (cierra browser sin completar). Mitigación: TTL en reservations + cleanup job (similar a idle release de idea-099).
+  - Cambio grande en datamodel; afecta watchdog también si crea reservations en intake.
+- **Out of scope para v1:** mostrar avatar/nombre de quién tiene reservado (privacy + complejidad). Solo número y order#.
+- **Origen:** sesión 2026-05-01.
+
 ### ~~48. Auto-mover órdenes idle a Waiting (en vez de borrarlas)~~ <!-- id: idea-099 --> ✅ 2026-04-30
 - **Contexto:** El 2026-04-30 desapareció la orden `879469` que se dejó pendiente la noche anterior por falta de un item. Causa raíz: `usePickingSync.ts` borraba con DELETE las órdenes `active|needs_correction|reopened` cuyo `updated_at` fuera mayor a 5h cuando el user reabre la app.
 - **Resuelto en commits:**
