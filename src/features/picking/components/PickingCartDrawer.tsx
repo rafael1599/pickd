@@ -805,7 +805,6 @@ export const PickingCartDrawer: React.FC = () => {
 
             {combineModalOpen && activeListId && (
               <AddOnTargetPickerModal
-                mode="combine-any"
                 sourceOrderId={activeListId}
                 sourceCustomerId={customer?.id ?? null}
                 sourceCustomerName={customer?.name ?? null}

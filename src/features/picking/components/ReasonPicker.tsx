@@ -3,10 +3,6 @@ import MessageSquare from 'lucide-react/dist/esm/icons/message-square';
 
 export type ReasonActionType = 'remove' | 'swap' | 'adjust_qty' | 'add' | 'reopen' | 'waiting';
 
-/** Sentinel for the Add-On reopen flow (idea-067 Phase 2). Importable so
- *  callers can compare without typo risk. */
-export const REOPEN_REASON_ADDON = 'Add On — merge with new order';
-
 const REASON_PRESETS: Record<ReasonActionType, string[]> = {
   remove: ['Out of stock', 'Customer cancelled', 'Damaged/defective', 'Wrong item on order'],
   swap: [
@@ -18,7 +14,8 @@ const REASON_PRESETS: Record<ReasonActionType, string[]> = {
   adjust_qty: ['Partial stock only', 'Customer changed qty', 'Damaged units', 'Count correction'],
   add: ['Replacement for removed item', 'Customer add-on', 'Missing from original order'],
   reopen: [
-    'Add On — merge with new order',
+    // Add-On flow lives on open orders via the COMBINE button — no longer a
+    // reopen reason. See DoubleCheckView + AddOnTargetPickerModal.
     'Item out of stock',
     'Wrong item shipped',
     'Customer change request',

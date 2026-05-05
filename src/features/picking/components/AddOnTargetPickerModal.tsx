@@ -6,7 +6,7 @@ import Package from 'lucide-react/dist/esm/icons/package';
 
 import { supabase } from '../../../lib/supabase';
 
-/** Open statuses — eligible as merge targets in any mode. */
+/** Statuses we'll surface as eligible merge targets. */
 const OPEN_STATUSES = [
   'active',
   'ready_to_double_check',
@@ -14,9 +14,8 @@ const OPEN_STATUSES = [
   'needs_correction',
 ] as const;
 
-/** In 'combine-any' mode we also surface completed orders — but cap them to
- *  this many hours back so the list stays focused on operationally-relevant
- *  candidates. */
+/** Completed orders also surface, capped to this lookback window so we don't
+ *  flood the modal with months of history. */
 const COMPLETED_LOOKBACK_HOURS = 24;
 
 export interface AddOnTargetCandidate {
@@ -35,20 +34,12 @@ export interface AddOnTargetCandidate {
   stale_group_id: string | null;
 }
 
-export type AddOnPickerMode =
-  /** Legacy: from a completed order being reopened, list OPEN targets only. */
-  | 'add-target'
-  /** Option A: from an open order, list ANY other order (open + recent completed). */
-  | 'combine-any';
-
 interface AddOnTargetPickerModalProps {
   /** Source order's customer (used to highlight matches). */
   sourceCustomerId: string | null;
   sourceCustomerName: string | null;
   /** picking_lists.id of the source — never list it as a target. */
   sourceOrderId: string;
-  /** Picker mode (default 'add-target'). */
-  mode?: AddOnPickerMode;
   onClose: () => void;
   onPick: (target: AddOnTargetCandidate) => void;
 }
@@ -68,7 +59,6 @@ export const AddOnTargetPickerModal: React.FC<AddOnTargetPickerModalProps> = ({
   sourceCustomerId,
   sourceCustomerName,
   sourceOrderId,
-  mode = 'add-target',
   onClose,
   onPick,
 }) => {
@@ -84,7 +74,7 @@ export const AddOnTargetPickerModal: React.FC<AddOnTargetPickerModalProps> = ({
       const SELECT_COLS =
         'id, order_number, status, customer_id, group_id, items, updated_at, customer:customers(name)';
 
-      // Open orders — always eligible in both modes.
+      // Open orders — always eligible.
       const openP = supabase
         .from('picking_lists')
         .select(SELECT_COLS)
@@ -93,22 +83,16 @@ export const AddOnTargetPickerModal: React.FC<AddOnTargetPickerModalProps> = ({
         .order('created_at', { ascending: false })
         .limit(100);
 
-      // Completed orders — only in 'combine-any' mode, scoped to the recent
-      // window so we don't flood the modal with months of history.
-      const completedP =
-        mode === 'combine-any'
-          ? supabase
-              .from('picking_lists')
-              .select(SELECT_COLS)
-              .eq('status', 'completed')
-              .gte(
-                'updated_at',
-                new Date(Date.now() - COMPLETED_LOOKBACK_HOURS * 3600_000).toISOString()
-              )
-              .neq('id', sourceOrderId)
-              .order('updated_at', { ascending: false })
-              .limit(100)
-          : Promise.resolve({ data: [] as RawRow[], error: null });
+      // Completed orders, scoped to the recent window so we don't flood the
+      // modal with months of history.
+      const completedP = supabase
+        .from('picking_lists')
+        .select(SELECT_COLS)
+        .eq('status', 'completed')
+        .gte('updated_at', new Date(Date.now() - COMPLETED_LOOKBACK_HOURS * 3600_000).toISOString())
+        .neq('id', sourceOrderId)
+        .order('updated_at', { ascending: false })
+        .limit(100);
 
       const [openRes, completedRes] = await Promise.all([openP, completedP]);
       if (cancelled) return;
@@ -167,7 +151,7 @@ export const AddOnTargetPickerModal: React.FC<AddOnTargetPickerModalProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [sourceOrderId, mode]);
+  }, [sourceOrderId]);
 
   const { sameCustomer, others } = useMemo(() => {
     if (!sourceCustomerId) return { sameCustomer: [], others: candidates };
@@ -180,15 +164,10 @@ export const AddOnTargetPickerModal: React.FC<AddOnTargetPickerModalProps> = ({
     return { sameCustomer: same, others: rest };
   }, [candidates, sourceCustomerId]);
 
-  const heading =
-    mode === 'combine-any' ? 'Pick an order to combine with' : 'Pick an order to merge into';
-  const subhead =
-    mode === 'combine-any'
-      ? 'These items will be combined into a single delivery.'
-      : 'Add-on items will land in the order you pick.';
-  const emptyHeadline =
-    mode === 'combine-any' ? 'No other orders to combine with' : 'No open orders to merge into';
-  const otherSectionLabel = mode === 'combine-any' ? 'Other orders' : 'Other open orders';
+  const heading = 'Pick an order to combine with';
+  const subhead = 'These items will be combined into a single delivery.';
+  const emptyHeadline = 'No other orders to combine with';
+  const otherSectionLabel = 'Other orders';
 
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-main/60 backdrop-blur-md p-4">
@@ -222,9 +201,7 @@ export const AddOnTargetPickerModal: React.FC<AddOnTargetPickerModalProps> = ({
                 {emptyHeadline}
               </p>
               <p className="text-[10px] text-muted/50 mt-2">
-                {mode === 'combine-any'
-                  ? 'Try again later — only open orders or those completed in the last 24h are listed.'
-                  : 'Import a new order first, then try again.'}
+                Try again later — only open orders or those completed in the last 24h are listed.
               </p>
             </div>
           ) : (

@@ -19,12 +19,7 @@ import { SplitOrderModal } from '../../components/orders/SplitOrderModal.tsx';
 import { SearchInput } from '../../components/ui/SearchInput.tsx';
 import type { PickingListItem, CombineMeta } from '../../schemas/picking.schema';
 import { saveCustomerAddress } from '../../lib/customerAddresses';
-import { ReasonPicker, REOPEN_REASON_ADDON } from './components/ReasonPicker';
-import {
-  AddOnTargetPickerModal,
-  type AddOnTargetCandidate,
-} from './components/AddOnTargetPickerModal';
-import { useOrderGroups } from './hooks/useOrderGroups';
+import { ReasonPicker } from './components/ReasonPicker';
 
 interface CustomerDetails {
   id: string;
@@ -62,15 +57,7 @@ interface OrderWithRelations {
 
 export const OrdersScreen = () => {
   const { user } = useAuth();
-  const {
-    takeOverOrder,
-    loadReopenedOrder,
-    resumeReopenedOrder,
-    reopenOrder,
-    loadExternalList,
-    setSessionMode,
-  } = usePickingSession();
-  const { createGroup } = useOrderGroups();
+  const { takeOverOrder, loadReopenedOrder, resumeReopenedOrder } = usePickingSession();
   const { externalOrderId, setExternalOrderId, setViewMode } = useViewMode();
   const [orders, setOrders] = useState<OrderWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,9 +72,6 @@ export const OrdersScreen = () => {
   const [reopenReasonModal, setReopenReasonModal] = useState(false);
   const [reopenReason, setReopenReason] = useState('');
   // Add-On reopen flow (idea-067 Phase 2): after the user picks the reason,
-  // we open a target picker modal listing all open orders, highlighting any
-  // from the same customer.
-  const [addOnPickerOpen, setAddOnPickerOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
   const mobileDropdownRef = useRef<HTMLDivElement>(null);
   const searchQueryRef = useRef(searchQuery);
@@ -774,16 +758,6 @@ export const OrdersScreen = () => {
   const handleConfirmReopen = async () => {
     if (!selectedOrder || !reopenReason) return;
     setReopenReasonModal(false);
-
-    // idea-067 Phase 2: Add-On flow takes a separate path — instead of going
-    // straight into reopened mode, the user must pick which open order to
-    // merge into. The actual reopen + group-create + nav happens in
-    // handleAddOnTargetPicked once they choose a target.
-    if (reopenReason === REOPEN_REASON_ADDON) {
-      setAddOnPickerOpen(true);
-      return;
-    }
-
     try {
       await loadReopenedOrder(selectedOrder.id, reopenReason);
       // Navigate to home so the drawer renders and auto-opens for reopened mode
@@ -791,60 +765,6 @@ export const OrdersScreen = () => {
       navigate('/');
     } catch {
       // Error already toasted in loadReopenedOrder
-    }
-  };
-
-  const handleAddOnTargetPicked = async (target: AddOnTargetCandidate) => {
-    setAddOnPickerOpen(false);
-    if (!selectedOrder) return;
-    const sourceId = selectedOrder.id;
-
-    // Multi-user guard: don't merge into an order someone else is verifying.
-    if (target.status === 'double_checking') {
-      toast.error(
-        `#${target.order_number} is being verified by another user. Cancel that session first.`,
-        { duration: 4500 }
-      );
-      return;
-    }
-
-    try {
-      // 0. If the target had a stale singleton group_id (orphan from a prior
-      //    canceled flow), free it before creating the new group. The modal
-      //    already filtered out genuinely-grouped rows; whatever stale_group_id
-      //    we get here is a true orphan.
-      if (target.stale_group_id) {
-        await supabase.from('picking_lists').update({ group_id: null }).eq('id', target.id);
-        await supabase.from('order_groups').delete().eq('id', target.stale_group_id);
-      }
-
-      // 1. Reopen the completed source (saves snapshot, status → reopened).
-      await reopenOrder(sourceId, REOPEN_REASON_ADDON);
-
-      // 2. Bind both orders into a 'general' group so loadExternalList merges
-      //    items for display in DoubleCheckView (idea-053/idea-055/idea-067).
-      const groupId = await createGroup('general', [sourceId, target.id]);
-      if (!groupId) {
-        // createGroup already toasts on failure. Rollback the reopen so the
-        // user isn't left with an orphan in 'reopened'.
-        toast.error('Could not create the group — undoing reopen.');
-        if (user?.id) {
-          await supabase.rpc('cancel_reopen', { p_list_id: sourceId, p_user_id: user.id });
-        }
-        return;
-      }
-
-      // 3. Load the merged view and tag the session as reopened so
-      //    DoubleCheckView renders the right controls.
-      await loadExternalList(sourceId);
-      setSessionMode('reopened');
-
-      // 4. Take the user to the home route where PickingCartDrawer mounts.
-      setViewMode('picking');
-      navigate('/');
-    } catch (err) {
-      console.error('Add-On flow failed:', err);
-      toast.error('Add-On failed. Please try again.');
     }
   };
 
@@ -1269,17 +1189,6 @@ export const OrdersScreen = () => {
             setSelectedOrder(null);
             fetchOrders();
           }}
-        />
-      )}
-
-      {/* Add-On target picker (idea-067 Phase 2) */}
-      {addOnPickerOpen && selectedOrder && (
-        <AddOnTargetPickerModal
-          sourceOrderId={selectedOrder.id}
-          sourceCustomerId={selectedOrder.customer_id}
-          sourceCustomerName={selectedOrder.customer?.name ?? null}
-          onClose={() => setAddOnPickerOpen(false)}
-          onPick={handleAddOnTargetPicked}
         />
       )}
 
