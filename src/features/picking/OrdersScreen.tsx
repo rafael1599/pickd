@@ -819,7 +819,9 @@ export const OrdersScreen = () => {
         // createGroup already toasts on failure. Rollback the reopen so the
         // user isn't left with an orphan in 'reopened'.
         toast.error('Could not create the group — undoing reopen.');
-        await supabase.rpc('cancel_reopen', { p_list_id: sourceId, p_user_id: user?.id });
+        if (user?.id) {
+          await supabase.rpc('cancel_reopen', { p_list_id: sourceId, p_user_id: user.id });
+        }
         return;
       }
 

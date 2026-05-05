@@ -16,8 +16,8 @@ interface InlineItemHistoryProps {
   showOutOfStockBanner?: boolean;
 }
 
-const formatRelative = (iso: string): string => {
-  const then = new Date(iso).getTime();
+const formatRelative = (iso: string | Date): string => {
+  const then = iso instanceof Date ? iso.getTime() : new Date(iso).getTime();
   const diffDays = Math.floor((Date.now() - then) / 86_400_000);
   if (diffDays === 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
