@@ -303,15 +303,54 @@ export const PickingCartDrawer: React.FC = () => {
 
   const toggleCheck = (item: PickingItem, palletId: number | string) => {
     const key = `${palletId}-${item.sku}-${item.location}`;
+    const isChecking = !checkedItems.has(key);
+
     setCheckedItems((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
+
+    // idea-105 Phase 2: per-item DEDUCT/RESTORE on toggle. Trigger
+    // compensate_picking_list_changes handles inventory when items[].picked flips.
+    if (
+      sessionMode !== 'double_checking' ||
+      !activeListId ||
+      !user ||
+      !item.warehouse ||
+      !item.location ||
+      item.sku_not_found
+    ) {
+      return;
+    }
+    const rpcName = isChecking ? 'pick_item' : 'unpick_item';
+    void supabase
+      .rpc(
+        rpcName as never,
+        {
+          p_list_id: activeListId,
+          p_sku: item.sku,
+          p_warehouse: item.warehouse,
+          p_location: item.location,
+          p_qty: item.pickingQty,
+          p_user_id: user.id,
+        } as never
+      )
+      .then(({ error }) => {
+        if (error) {
+          console.warn(`[PickingCartDrawer] ${rpcName} failed:`, error);
+          toast.error(
+            `Couldn't ${isChecking ? 'deduct' : 'restore'} ${item.sku}: ${error.message}`
+          );
+          setCheckedItems((prev) => {
+            const next = new Set(prev);
+            if (next.has(key)) next.delete(key);
+            else next.add(key);
+            return next;
+          });
+        }
+      });
   };
 
   const handleSelectAll = (keys?: string[]) => {

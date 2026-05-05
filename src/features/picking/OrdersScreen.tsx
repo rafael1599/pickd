@@ -52,6 +52,7 @@ interface OrderWithRelations {
   checker: { full_name: string | null } | null;
   presence: { last_seen_at: string | null } | null;
   pallet_photos: string[] | null;
+  group_id: string | null;
   order_group: { group_type: string | null } | null;
 }
 
@@ -406,8 +407,57 @@ export const OrdersScreen = () => {
   }, [selectedOrder]);
 
   const filteredOrders = useMemo(() => {
+    // 1. Hide FedEx-grouped orders entirely — they live in the Verification
+    //    Board, not /orders.
+    const noFedex = orders.filter(
+      (o) => (o.order_group as { group_type?: string } | null)?.group_type !== 'fedex'
+    );
+
+    // 2. Collapse 'general' group siblings into a single virtual entry per
+    //    group_id. We pick the OLDEST (first by created_at ASC) sibling as
+    //    the underlying picking_list — clicks/select operate on its id, and
+    //    loadExternalList merges sibling items via group_id at open time.
+    //    The display order_number becomes "A / B" sorted ascending.
+    const byGroup = new Map<string, typeof noFedex>();
+    const ungrouped: typeof noFedex = [];
+    for (const o of noFedex) {
+      const isGeneralGroup =
+        o.group_id && (o.order_group as { group_type?: string } | null)?.group_type === 'general';
+      if (isGeneralGroup) {
+        const arr = byGroup.get(o.group_id!) ?? [];
+        arr.push(o);
+        byGroup.set(o.group_id!, arr);
+      } else {
+        ungrouped.push(o);
+      }
+    }
+
+    const collapsed = [...ungrouped];
+    for (const siblings of byGroup.values()) {
+      // Sort siblings by created_at asc — oldest is the "anchor" row.
+      siblings.sort((a, b) => a.created_at.localeCompare(b.created_at));
+      const anchor = siblings[0];
+      const allOrderNumbers = siblings
+        .map((s) => s.order_number)
+        .filter((n): n is string => !!n)
+        .sort((a, b) => a.localeCompare(b));
+      const combinedOrderNumber = allOrderNumbers.join(' / ');
+      collapsed.push({
+        ...anchor,
+        order_number: combinedOrderNumber || anchor.order_number,
+        // Mark as combined so OrderChip styles it like the watchdog combines.
+        combine_meta: {
+          ...(anchor.combine_meta ?? {}),
+          is_combined: true,
+        } as typeof anchor.combine_meta,
+      });
+    }
+
+    // Re-sort by created_at desc to preserve the original list ordering.
+    collapsed.sort((a, b) => b.created_at.localeCompare(a.created_at));
+
     const query = searchQuery.toLowerCase().trim();
-    const results = orders.filter((order) => {
+    const results = collapsed.filter((order) => {
       const orderNum = String(order.order_number || '').toLowerCase();
       const customer = String(order.customer?.name || '').toLowerCase();
       return !query || orderNum.includes(query) || customer.includes(query);
