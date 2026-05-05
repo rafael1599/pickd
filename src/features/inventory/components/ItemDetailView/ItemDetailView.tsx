@@ -39,6 +39,7 @@ import { PhotoHero } from './PhotoHero.tsx';
 import { TappableField } from './TappableField.tsx';
 import { SectionRow } from './SectionRow.tsx';
 import { QuantityControl } from './QuantityControl.tsx';
+import { StockReservationBreakdown } from './StockReservationBreakdown.tsx';
 import { DistributionPreview } from './DistributionPreview.tsx';
 import { SectionEditorSheet } from './SectionEditorSheet.tsx';
 import { ItemHistorySheet } from './ItemHistorySheet.tsx';
@@ -1179,6 +1180,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
             }}
             totalStock={totalStock}
           />
+          {!isAddMode && sku && warehouse && location && (
+            <StockReservationBreakdown sku={sku} warehouse={warehouse} location={location} />
+          )}
         </div>
 
         {/* Section: Location */}

@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 
 export interface ReservingOrder {
@@ -8,6 +9,7 @@ export interface ReservingOrder {
   customerName: string | null;
   isWaiting: boolean;
   picked: boolean;
+  pickedAt: string | null;
 }
 
 export interface ReservationInfo {
@@ -45,6 +47,7 @@ interface PickingItemRow {
   location?: string | null;
   pickingQty?: number;
   picked?: boolean;
+  picked_at?: string | null;
 }
 
 interface PickingListRow {
@@ -62,11 +65,32 @@ interface PickingListRow {
  * `{ stock, reserved, picked, reservingOrders }` per key. `excludeListId`
  * removes the caller's own list so it doesn't count itself.
  *
- * Freshness: the global `usePickingListsSubscription` invalidates
- * `['picking_lists']` on any Realtime change → this query auto-refetches.
+ * Freshness: subscribes to Realtime postgres_changes on `picking_lists` while
+ * mounted. Any change anywhere invalidates this hook's queryKey → refetch.
+ * Cleans up the channel on unmount so we don't leak subscriptions.
  */
 export const useStockReservations = (itemKeys: string[], excludeListId: string | null) => {
   const sortedKeys = [...itemKeys].sort();
+  const queryClient = useQueryClient();
+  const enabled = sortedKeys.length > 0;
+
+  useEffect(() => {
+    if (!enabled) return;
+    const channelName = `stock-reservations-${Math.random().toString(36).slice(2, 9)}`;
+    const channel = supabase
+      .channel(channelName)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'picking_lists' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['picking_lists', 'reservations'] });
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'inventory' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['picking_lists', 'reservations'] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [enabled, queryClient]);
 
   return useQuery<ReservationsMap>({
     queryKey: ['picking_lists', 'reservations', { keys: sortedKeys, excludeListId }],
@@ -129,6 +153,7 @@ export const useStockReservations = (itemKeys: string[], excludeListId: string |
             customerName: list.customers?.name ?? null,
             isWaiting: !!list.is_waiting_inventory,
             picked,
+            pickedAt: it.picked_at ?? null,
           });
         });
       });
