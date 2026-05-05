@@ -6,6 +6,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: '14.1';
   };
+  graphql_public: {
+    Tables: {
+      [_ in never]: never;
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json;
+          operationName?: string;
+          query?: string;
+          variables?: Json;
+        };
+        Returns: Json;
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
   public: {
     Tables: {
       app_users: {
@@ -47,6 +72,7 @@ export type Database = {
           order_id: string | null;
           other_notes: string | null;
           po_number: string | null;
+          possible_locations: string[] | null;
           printed_at: string | null;
           public_token: string;
           serial_number: string | null;
@@ -68,6 +94,7 @@ export type Database = {
           order_id?: string | null;
           other_notes?: string | null;
           po_number?: string | null;
+          possible_locations?: string[] | null;
           printed_at?: string | null;
           public_token?: string;
           serial_number?: string | null;
@@ -89,6 +116,7 @@ export type Database = {
           order_id?: string | null;
           other_notes?: string | null;
           po_number?: string | null;
+          possible_locations?: string[] | null;
           printed_at?: string | null;
           public_token?: string;
           serial_number?: string | null;
@@ -559,34 +587,34 @@ export type Database = {
       };
       gallery_photos: {
         Row: {
-          id: string;
-          filename: string;
-          url: string;
-          thumbnail_url: string;
           caption: string | null;
-          deleted_at: string | null;
-          created_by: string | null;
           created_at: string | null;
+          created_by: string | null;
+          deleted_at: string | null;
+          filename: string;
+          id: string;
+          thumbnail_url: string;
+          url: string;
         };
         Insert: {
-          id?: string;
-          filename: string;
-          url: string;
-          thumbnail_url: string;
           caption?: string | null;
-          deleted_at?: string | null;
-          created_by?: string | null;
           created_at?: string | null;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          filename: string;
+          id?: string;
+          thumbnail_url: string;
+          url: string;
         };
         Update: {
-          id?: string;
-          filename?: string;
-          url?: string;
-          thumbnail_url?: string;
           caption?: string | null;
-          deleted_at?: string | null;
-          created_by?: string | null;
           created_at?: string | null;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          filename?: string;
+          id?: string;
+          thumbnail_url?: string;
+          url?: string;
         };
         Relationships: [
           {
@@ -653,12 +681,12 @@ export type Database = {
           location_hint?: string | null;
           location_id?: string | null;
           location_sort_key?: number | null;
-          sublocation?: string[] | null;
           quantity?: number | null;
           sku?: string;
           stowage_index?: number | null;
           stowage_qty?: number | null;
           stowage_type?: string | null;
+          sublocation?: string[] | null;
           updated_at?: string | null;
           warehouse?: string | null;
         };
@@ -989,6 +1017,7 @@ export type Database = {
           transport_company: string | null;
           updated_at: string | null;
           user_id: string;
+          verified_item_keys: Json;
           waiting_reason: string | null;
           waiting_since: string | null;
         };
@@ -1022,6 +1051,7 @@ export type Database = {
           transport_company?: string | null;
           updated_at?: string | null;
           user_id: string;
+          verified_item_keys?: Json;
           waiting_reason?: string | null;
           waiting_since?: string | null;
         };
@@ -1055,6 +1085,7 @@ export type Database = {
           transport_company?: string | null;
           updated_at?: string | null;
           user_id?: string;
+          verified_item_keys?: Json;
           waiting_reason?: string | null;
           waiting_since?: string | null;
         };
@@ -1102,6 +1133,81 @@ export type Database = {
             referencedColumns: ['id'];
           },
         ];
+      };
+      picking_lists_deleted_audit: {
+        Row: {
+          deleted_at: string;
+          deleted_by: string | null;
+          id: string;
+          list_id: string;
+          order_number: string | null;
+          row_snapshot: Json;
+          status: string | null;
+          user_id: string | null;
+        };
+        Insert: {
+          deleted_at?: string;
+          deleted_by?: string | null;
+          id?: string;
+          list_id: string;
+          order_number?: string | null;
+          row_snapshot: Json;
+          status?: string | null;
+          user_id?: string | null;
+        };
+        Update: {
+          deleted_at?: string;
+          deleted_by?: string | null;
+          id?: string;
+          list_id?: string;
+          order_number?: string | null;
+          row_snapshot?: Json;
+          status?: string | null;
+          user_id?: string | null;
+        };
+        Relationships: [];
+      };
+      picking_lists_items_shrink_audit: {
+        Row: {
+          caller: string | null;
+          id: string;
+          list_id: string;
+          new_item_count: number;
+          new_items: Json;
+          occurred_at: string;
+          order_number: string | null;
+          prev_item_count: number;
+          prev_items: Json;
+          shrink_by: number | null;
+          status: string | null;
+        };
+        Insert: {
+          caller?: string | null;
+          id?: string;
+          list_id: string;
+          new_item_count: number;
+          new_items: Json;
+          occurred_at?: string;
+          order_number?: string | null;
+          prev_item_count: number;
+          prev_items: Json;
+          shrink_by?: number | null;
+          status?: string | null;
+        };
+        Update: {
+          caller?: string | null;
+          id?: string;
+          list_id?: string;
+          new_item_count?: number;
+          new_items?: Json;
+          occurred_at?: string;
+          order_number?: string | null;
+          prev_item_count?: number;
+          prev_items?: Json;
+          shrink_by?: number | null;
+          status?: string | null;
+        };
+        Relationships: [];
       };
       profiles: {
         Row: {
@@ -1188,6 +1294,66 @@ export type Database = {
           },
         ];
       };
+      shopping_list: {
+        Row: {
+          created_at: string | null;
+          done_at: string | null;
+          done_by: string | null;
+          id: string;
+          item_name: string;
+          note: string | null;
+          quantity: string | null;
+          requested_by: string | null;
+          requested_by_name: string | null;
+          status: string;
+          updated_at: string | null;
+          urgent: boolean;
+        };
+        Insert: {
+          created_at?: string | null;
+          done_at?: string | null;
+          done_by?: string | null;
+          id?: string;
+          item_name: string;
+          note?: string | null;
+          quantity?: string | null;
+          requested_by?: string | null;
+          requested_by_name?: string | null;
+          status?: string;
+          updated_at?: string | null;
+          urgent?: boolean;
+        };
+        Update: {
+          created_at?: string | null;
+          done_at?: string | null;
+          done_by?: string | null;
+          id?: string;
+          item_name?: string;
+          note?: string | null;
+          quantity?: string | null;
+          requested_by?: string | null;
+          requested_by_name?: string | null;
+          status?: string;
+          updated_at?: string | null;
+          urgent?: boolean;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'shopping_list_done_by_fkey';
+            columns: ['done_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'shopping_list_requested_by_fkey';
+            columns: ['requested_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       sku_metadata: {
         Row: {
           category: string | null;
@@ -1266,6 +1432,52 @@ export type Database = {
         };
         Relationships: [];
       };
+      task_photos: {
+        Row: {
+          assigned_at: string | null;
+          assigned_by: string | null;
+          id: string;
+          photo_id: string;
+          task_id: string;
+        };
+        Insert: {
+          assigned_at?: string | null;
+          assigned_by?: string | null;
+          id?: string;
+          photo_id: string;
+          task_id: string;
+        };
+        Update: {
+          assigned_at?: string | null;
+          assigned_by?: string | null;
+          id?: string;
+          photo_id?: string;
+          task_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'task_photos_assigned_by_fkey';
+            columns: ['assigned_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'task_photos_photo_id_fkey';
+            columns: ['photo_id'];
+            isOneToOne: false;
+            referencedRelation: 'gallery_photos';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'task_photos_task_id_fkey';
+            columns: ['task_id'];
+            isOneToOne: false;
+            referencedRelation: 'project_tasks';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       task_state_changes: {
         Row: {
           changed_at: string | null;
@@ -1304,52 +1516,6 @@ export type Database = {
             columns: ['task_id'];
             isOneToOne: false;
             referencedRelation: 'project_tasks';
-            referencedColumns: ['id'];
-          },
-        ];
-      };
-      task_photos: {
-        Row: {
-          id: string;
-          task_id: string;
-          photo_id: string;
-          assigned_by: string | null;
-          assigned_at: string | null;
-        };
-        Insert: {
-          id?: string;
-          task_id: string;
-          photo_id: string;
-          assigned_by?: string | null;
-          assigned_at?: string | null;
-        };
-        Update: {
-          id?: string;
-          task_id?: string;
-          photo_id?: string;
-          assigned_by?: string | null;
-          assigned_at?: string | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'task_photos_task_id_fkey';
-            columns: ['task_id'];
-            isOneToOne: false;
-            referencedRelation: 'project_tasks';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'task_photos_photo_id_fkey';
-            columns: ['photo_id'];
-            isOneToOne: false;
-            referencedRelation: 'gallery_photos';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'task_photos_assigned_by_fkey';
-            columns: ['assigned_by'];
-            isOneToOne: false;
-            referencedRelation: 'profiles';
             referencedColumns: ['id'];
           },
         ];
@@ -1422,6 +1588,21 @@ export type Database = {
         Args: { p_list_id: string; p_user_id: string };
         Returns: boolean;
       };
+      classify_picking_list_fedex: { Args: { p_items: Json }; Returns: boolean };
+      complete_addon_group: {
+        Args: {
+          p_performed_by: string;
+          p_source_id: string;
+          p_source_pallets?: number;
+          p_source_units?: number;
+          p_target_id: string;
+          p_target_pallets?: number;
+          p_target_units?: number;
+          p_user_id: string;
+          p_user_role?: string;
+        };
+        Returns: Json;
+      };
       compute_daily_report_data: {
         Args: { p_report_date: string };
         Returns: Json;
@@ -1441,10 +1622,22 @@ export type Database = {
         Returns: boolean;
       };
       generate_short_code: { Args: never; Returns: string };
+      get_audit_rows: {
+        Args: { p_warehouse?: string };
+        Returns: {
+          has_waiting_skus: boolean;
+          last_touched_at: string;
+          missing_sublocation_count: number;
+          row_label: string;
+          sku_count: number;
+          skus_touched_90d: number;
+        }[];
+      };
       get_daily_activity_report: { Args: { p_date: string }; Returns: Json };
       get_inventory_stats: {
         Args: { p_include_parts?: boolean };
         Returns: {
+          total_capacity: number;
           total_skus: number;
           total_units: number;
         }[];
@@ -1477,6 +1670,12 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean };
       is_manager: { Args: never; Returns: boolean };
       is_user_online: { Args: { p_user_id: string }; Returns: boolean };
+      lookup_canonical_sku: {
+        Args: { p_raw: string };
+        Returns: {
+          sku: string;
+        }[];
+      };
       mark_picking_list_waiting: {
         Args: { p_list_id: string; p_reason: string };
         Returns: undefined;
@@ -1489,11 +1688,11 @@ export type Database = {
           p_performed_by: string;
           p_qty: number;
           p_sku: string;
+          p_sublocation?: string[];
           p_to_location: string;
           p_to_warehouse: string;
           p_user_id?: string;
           p_user_role?: string;
-          p_sublocation?: string[];
         };
         Returns: Json;
       };
@@ -1547,50 +1746,58 @@ export type Database = {
         };
         Returns: string;
       };
-      search_inventory_with_metadata: {
-        Args: {
-          p_search?: string;
-          p_warehouse?: string;
-          p_include_inactive?: boolean;
-          p_show_parts?: boolean;
-          p_only_scratch_dent?: boolean;
-          p_offset?: number;
-          p_limit?: number;
-        };
-        Returns: {
-          id: number;
-          sku: string;
-          quantity: number;
-          location: string | null;
-          location_id: string | null;
-          sublocation: string[] | null;
-          item_name: string | null;
-          warehouse: string | null;
-          is_active: boolean | null;
-          internal_note: string | null;
-          distribution: Json | null;
-          created_at: string;
-          location_sort_key: number | null;
-          image_url: string | null;
-          length_in: number | null;
-          width_in: number | null;
-          height_in: number | null;
-          weight_lbs: number | null;
-          is_bike: boolean | null;
-          is_scratch_dent: boolean | null;
-          serial_number: string | null;
-          upc: string | null;
-          model: string | null;
-          condition_description: string | null;
-          pdf_link: string | null;
-          sd_price: number | null;
-          condition: string | null;
-          total_count: number;
-        }[];
+      resolve_tag_location: {
+        Args: { p_location: string; p_tag_id: string };
+        Returns: undefined;
       };
       save_daily_report_manual: {
         Args: { p_manual: Json; p_report_date: string };
         Returns: undefined;
+      };
+      search_inventory_with_metadata: {
+        Args: {
+          p_include_inactive?: boolean;
+          p_limit?: number;
+          p_offset?: number;
+          p_only_fedex_returns?: boolean;
+          p_only_scratch_dent?: boolean;
+          p_search?: string;
+          p_show_parts?: boolean;
+          p_warehouse?: string;
+        };
+        Returns: {
+          condition: string;
+          condition_description: string;
+          created_at: string;
+          distribution: Json;
+          fedex_return_id: string;
+          fedex_return_status: string;
+          fedex_tracking_number: string;
+          height_in: number;
+          id: number;
+          image_url: string;
+          internal_note: string;
+          is_active: boolean;
+          is_bike: boolean;
+          is_scratch_dent: boolean;
+          item_name: string;
+          length_in: number;
+          location: string;
+          location_id: string;
+          location_sort_key: number;
+          model: string;
+          pdf_link: string;
+          quantity: number;
+          sd_price: number;
+          serial_number: string;
+          sku: string;
+          sublocation: string[];
+          total_count: number;
+          upc: string;
+          warehouse: string;
+          weight_lbs: number;
+          width_in: number;
+        }[];
       };
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { '': string }; Returns: string[] };
@@ -1632,6 +1839,7 @@ export type Database = {
         };
         Returns: string;
       };
+      valid_sublocation_array: { Args: { arr: string[] }; Returns: boolean };
     };
     Enums: {
       [_ in never]: never;
@@ -1758,6 +1966,9 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },
