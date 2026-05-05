@@ -1087,6 +1087,7 @@ export const OrdersScreen = () => {
                 completedAt={selectedOrder.updated_at}
                 transportCompany={formData.transportCompany}
                 palletPhotos={selectedOrder.pallet_photos ?? undefined}
+                screenOnly
               />
 
               {/* Parts Weight Editor (idea-028) */}
