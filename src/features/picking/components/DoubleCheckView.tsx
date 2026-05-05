@@ -1859,34 +1859,44 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
              - Ready to DC: hand off to a second verifier (status →
                ready_to_double_check, lands in the bottom Ready section).
              - Slide to Complete: close now (requires ≥1 pallet photo). */
-          <>
-            {palletPhotosCount === 0 && (
-              <div className="mb-3 px-4 py-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center gap-2">
-                <Camera size={16} className="text-amber-500 shrink-0" />
-                <p className="text-xs font-bold text-amber-500 uppercase tracking-wider">
-                  Take at least 1 pallet photo before completing
-                </p>
-              </div>
-            )}
-            <div className="flex gap-3">
-              <button
-                onClick={() => onSendToVerifyQueue?.()}
-                className="flex-1 py-4 bg-card border border-sky-500/40 text-sky-400 font-black uppercase tracking-widest text-xs rounded-2xl active:scale-95 transition-all hover:bg-sky-500/5"
-              >
-                Ready to DC
-              </button>
-              <div className="flex-[2]">
+          <div className="flex gap-3">
+            <button
+              onClick={() => onSendToVerifyQueue?.()}
+              className="flex-1 py-4 bg-card border border-sky-500/40 text-sky-400 font-black uppercase tracking-widest text-xs rounded-2xl active:scale-95 transition-all hover:bg-sky-500/5"
+            >
+              Ready to DC
+            </button>
+            <div className="flex-[2]">
+              {palletPhotosCount === 0 ? (
+                /* No photo yet — replace the disabled slider with the
+                   camera trigger so the verifier doesn't need to scroll
+                   back up to find the Take Photo button. After capture,
+                   palletPhotosCount > 0 → next render swaps in the slide.
+                   Single tap finishes the order. */
+                <button
+                  onClick={() => scanInputRef.current?.click()}
+                  disabled={cartItems.length === 0 || isScanning}
+                  className="w-full h-full min-h-[56px] py-4 bg-amber-500 text-main font-black uppercase tracking-widest text-xs rounded-2xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isScanning ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Camera size={16} strokeWidth={3} />
+                  )}
+                  {isScanning ? 'Scanning...' : 'Take Photo to Complete'}
+                </button>
+              ) : (
                 <SlideToConfirm
                   onConfirm={handleConfirm}
                   isLoading={isDeducting}
-                  text={palletPhotosCount === 0 ? 'PHOTO REQUIRED' : 'SLIDE TO COMPLETE'}
+                  text="SLIDE TO COMPLETE"
                   confirmedText="COMPLETING..."
                   variant="default"
-                  disabled={cartItems.length === 0 || palletPhotosCount === 0}
+                  disabled={cartItems.length === 0}
                 />
-              </div>
+              )}
             </div>
-          </>
+          </div>
         ) : (
           /* Estado B — partial verification. Two paths:
              - Park Order: release lock, status untouched. Order returns to
