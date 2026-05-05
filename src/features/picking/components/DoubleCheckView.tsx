@@ -30,6 +30,7 @@ import {
 import { useModal } from '../../../context/ModalContext';
 import Pencil from 'lucide-react/dist/esm/icons/pencil';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
+import GitMerge from 'lucide-react/dist/esm/icons/git-merge';
 import Lock from 'lucide-react/dist/esm/icons/lock';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import toast from 'react-hot-toast';
@@ -126,6 +127,10 @@ interface DoubleCheckViewProps {
   onParkOrder?: () => void;
   onRecomplete?: (items: PickingItem[]) => Promise<void>;
   onCancelReopen?: () => void;
+  /** idea-067 Phase 2 / Option A: opens the AddOn target picker in
+   *  "combine-any" mode (any order, completed or open). Parent handles the
+   *  actual group/reopen wiring. */
+  onCombineWith?: () => void;
   correctionNotes?: string | null;
 }
 
@@ -156,6 +161,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   onParkOrder,
   onRecomplete,
   onCancelReopen,
+  onCombineWith,
   correctionNotes: correctionNotesProp,
 }) => {
   const {
@@ -241,16 +247,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   );
   const scanInputRef = useRef<HTMLInputElement>(null);
 
-  // Track original items snapshot for reopened orders to detect changes
-  const [reopenedSnapshot] = useState(() =>
-    status === 'reopened'
-      ? JSON.stringify(cartItems.map((i) => ({ sku: i.sku, qty: i.pickingQty })))
-      : null
-  );
-  const hasReopenedChanges =
-    status === 'reopened' &&
-    reopenedSnapshot !== null &&
-    reopenedSnapshot !== JSON.stringify(cartItems.map((i) => ({ sku: i.sku, qty: i.pickingQty })));
+  // Reopened-changes detection was used to gate Re-Complete (forced the user
+  // to add a SKU before completing). Step B removed the gate — keeping the
+  // hook removed so we don't compute unused state on every re-render.
 
   // idea-067 Phase 2: Add-On mode detection. The reopened source carries a
   // group_id pointing to a 'general' order_groups row when the user came in
@@ -1291,6 +1290,25 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               className={`rotate-[-90deg] ${problemItems.length > 0 ? 'text-red-400/60' : 'text-muted/40'}`}
             />
           </button>
+          {/* idea-067 Phase 2 / Option A: COMBINE button. Visible only when
+              the order is in an open status AND not already part of a group
+              (one combine at a time). Opens the AddOn target picker in
+              'combine-any' mode (any other order, completed or open). */}
+          {onCombineWith &&
+            !isCombined &&
+            (status === 'active' ||
+              status === 'ready_to_double_check' ||
+              status === 'double_checking' ||
+              status === 'needs_correction') && (
+              <button
+                onClick={() => onCombineWith()}
+                className="h-full px-3 py-3 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/15 rounded-2xl text-emerald-400 transition-all active:scale-95 self-stretch flex flex-col items-center justify-center gap-1"
+                title="Combine with another order"
+              >
+                <GitMerge size={16} />
+                <span className="text-[8px] font-black uppercase tracking-widest">Combine</span>
+              </button>
+            )}
           <button
             onClick={() => openCancelFlow()}
             className="h-full p-4 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 rounded-2xl text-red-500 transition-all active:scale-95 self-stretch flex items-center justify-center"
@@ -1884,12 +1902,16 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
       <div className="fixed bottom-0 left-0 right-0 px-6 pt-6 pb-28 bg-gradient-to-t from-main via-main/90 to-transparent shrink-0 z-20">
         {status === 'reopened' ? (
-          /* Reopened order — show Re-Complete and Cancel */
+          /* Reopened order — show Re-Complete and Cancel.
+             Step B: removed all gates that block Re-Complete (was forcing the
+             user to add a new SKU just to enable the button when items hadn't
+             changed vs snapshot). For Add-On the photo is now a soft hint, not
+             a blocker. The user can always cancel via the Cancel button. */
           <>
             {isAddonMode && addonGateBlocked && (
               <div className="mb-3 px-4 py-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center gap-2">
                 <span className="text-[10px] font-black text-amber-300 uppercase tracking-widest">
-                  Add-On — take at least 1 new pallet photo before completing
+                  Add-On — recommended: take at least 1 new pallet photo
                 </span>
               </div>
             )}
@@ -1911,12 +1933,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                     }
                   }
                 }}
-                disabled={
-                  isDeducting ||
-                  cartItems.length === 0 ||
-                  // Plain reopen: must have edits. Add-On: must have new photos.
-                  (isAddonMode ? addonGateBlocked : !hasReopenedChanges)
-                }
+                disabled={isDeducting || cartItems.length === 0}
                 className="flex-[2] py-4 bg-orange-500 text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-lg shadow-orange-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-30"
               >
                 <Check size={16} strokeWidth={3} />

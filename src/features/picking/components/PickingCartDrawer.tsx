@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import ChevronUp from 'lucide-react/dist/esm/icons/chevron-up';
 import { DoubleCheckView, PickingItem, type CorrectionAction } from './DoubleCheckView';
+import { AddOnTargetPickerModal, type AddOnTargetCandidate } from './AddOnTargetPickerModal';
+import { useOrderGroups } from '../hooks/useOrderGroups';
 import { useAuth } from '../../../context/AuthContext';
 import { useConfirmation } from '../../../context/ConfirmationContext';
 import { usePickingSession } from '../../../context/PickingContext';
@@ -48,13 +50,17 @@ export const PickingCartDrawer: React.FC = () => {
     claimAsPicker,
     cancelReopen,
     completeAddonGroup,
+    reopenOrder,
   } = usePickingSession();
+  const { createGroup } = useOrderGroups();
 
   const { inventoryData, processPickingList, recompletePickingList } = useInventory();
 
   const [isOpen, setIsOpen] = useState(false);
   // currentView removed — always renders DoubleCheckView (idea-032 phase 2)
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
+  // idea-067 Phase 2 / Option A: COMBINE flow from open orders.
+  const [combineModalOpen, setCombineModalOpen] = useState(false);
   const isOwner = user?.id === ownerId;
   const isConfirmingRef = React.useRef(false);
   const isRecompletingRef = React.useRef(false);
@@ -540,10 +546,16 @@ export const PickingCartDrawer: React.FC = () => {
       // Batch completion: complete sibling orders in the same group
       if (mainOrder?.group_id) {
         try {
+          // idea-067 Phase 2 / Option A: 'reopened' siblings come from a
+          // COMBINE flow where the user merged the current open order with a
+          // recently-completed one. We finalize them via recompletePickingList
+          // (delta vs snapshot), not processPickingList (which rejects
+          // 'reopened' per migration 20260422120100).
           const COMPLETABLE_STATUSES = [
             'ready_to_double_check',
             'double_checking',
             'needs_correction',
+            'reopened',
           ];
           const { data: siblings } = await supabase
             .from('picking_lists')
@@ -600,7 +612,12 @@ export const PickingCartDrawer: React.FC = () => {
                 sibPalletsQty = calculatePallets(sibPath).length;
               }
 
-              await processPickingList(sibling.id, sibPalletsQty, siblingUnits);
+              if (sibling.status === 'reopened') {
+                // Reopened sibling — apply inventory delta vs completed_snapshot.
+                await recompletePickingList(sibling.id, sibPalletsQty, siblingUnits);
+              } else {
+                await processPickingList(sibling.id, sibPalletsQty, siblingUnits);
+              }
             }
             toast.success(`Group completed (${siblings.length + 1} orders)`, {
               duration: 4000,
@@ -782,8 +799,68 @@ export const PickingCartDrawer: React.FC = () => {
                 await cancelReopen(activeListId);
                 setIsOpen(false);
               }}
+              onCombineWith={() => setCombineModalOpen(true)}
               correctionNotes={correctionNotes}
             />
+
+            {combineModalOpen && activeListId && (
+              <AddOnTargetPickerModal
+                mode="combine-any"
+                sourceOrderId={activeListId}
+                sourceCustomerId={customer?.id ?? null}
+                sourceCustomerName={customer?.name ?? null}
+                onClose={() => setCombineModalOpen(false)}
+                onPick={async (target: AddOnTargetCandidate) => {
+                  setCombineModalOpen(false);
+                  if (!activeListId) return;
+                  if (target.status === 'double_checking') {
+                    toast.error(
+                      `#${target.order_number} is being verified by another user. Cancel that session first.`
+                    );
+                    return;
+                  }
+                  try {
+                    // Branch by target status:
+                    //   * completed  → reopen target + bind both into a group;
+                    //                  the cart re-loads merged via group_id
+                    //                  and final completion goes through the
+                    //                  Add-On atomic RPC.
+                    //   * any open   → just bind both into a group; cart
+                    //                  re-loads merged. Final completion
+                    //                  uses the FedEx-batch path that already
+                    //                  completes all siblings together.
+                    if (target.status === 'completed') {
+                      await reopenOrder(target.id, 'Add On — combined from open order');
+                    }
+                    const groupId = await createGroup('general', [activeListId, target.id]);
+                    if (!groupId) {
+                      // createGroup already toasts. If we reopened, undo it.
+                      if (target.status === 'completed' && user?.id) {
+                        await supabase.rpc('cancel_reopen', {
+                          p_list_id: target.id,
+                          p_user_id: user.id,
+                        });
+                      }
+                      return;
+                    }
+                    // Re-load with the merged sibling items so DoubleCheckView
+                    // shows the combined cart immediately. Keep the current
+                    // sessionMode untouched: if we reopened a completed
+                    // target, the source stays in its current open status —
+                    // the reopened one lives as a sibling in the group.
+                    await loadExternalList(activeListId);
+                    toast.success(
+                      target.status === 'completed'
+                        ? `Combined with #${target.order_number} — completed order reopened`
+                        : `Combined with #${target.order_number}`
+                    );
+                  } catch (err) {
+                    console.error('Combine failed:', err);
+                    toast.error('Combine failed. Please try again.');
+                  }
+                }}
+              />
+            )}
           </div>
         </div>
       )}
