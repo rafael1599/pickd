@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import ChevronUp from 'lucide-react/dist/esm/icons/chevron-up';
@@ -70,21 +70,48 @@ export const PickingCartDrawer: React.FC = () => {
     if (!isOpen) wasExternallyOpenedRef.current = false;
   }, [isOpen]);
 
-  // 0. Restore checked items on load if in double-check session
+  // idea-105 phase 1 — hydrate the verified-keys Set from DB first; if the
+  // column is empty (legacy orders or freshly-parked-on-another-device-with-
+  // no-network) fall back to the local browser cache. The DB column is the
+  // cross-user source of truth so a Park Order on one device shows up to
+  // the next picker.
+  const hydrateVerifiedItems = useCallback(async (listId: string) => {
+    try {
+      // Column was added in migration 20260505140000 (idea-105 phase 1).
+      // Supabase types haven't been regenerated yet — cast through unknown.
+      const { data } = (await supabase
+        .from('picking_lists')
+        .select('verified_item_keys')
+        .eq('id', listId)
+        .maybeSingle()) as unknown as { data: { verified_item_keys: string[] | null } | null };
+      const dbKeys = data?.verified_item_keys ?? [];
+      if (dbKeys.length > 0) {
+        setCheckedItems(new Set(dbKeys));
+        return;
+      }
+    } catch {
+      /* swallow — fall through to localStorage */
+    }
+    const saved = localStorage.getItem(`double_check_progress_${listId}`);
+    if (saved) {
+      try {
+        setCheckedItems(new Set(JSON.parse(saved)));
+        return;
+      } catch {
+        /* corrupt, reset */
+      }
+    }
+    setCheckedItems(new Set());
+  }, []);
+
+  // 0. Restore checked items on load if in double-check session.
   useEffect(() => {
     if (sessionMode === 'double_checking' && activeListId) {
-      const savedProgress = localStorage.getItem(`double_check_progress_${activeListId}`);
-      if (savedProgress) {
-        try {
-          setCheckedItems(new Set(JSON.parse(savedProgress)));
-        } catch {
-          /* ignore corrupt localStorage */
-        }
-      }
+      void hydrateVerifiedItems(activeListId);
     } else {
       setCheckedItems(new Set());
     }
-  }, [sessionMode, activeListId]);
+  }, [sessionMode, activeListId, hydrateVerifiedItems]);
 
   // Auto-open full-screen when entering reopened mode
   useEffect(() => {
@@ -164,11 +191,7 @@ export const PickingCartDrawer: React.FC = () => {
                 async () => {
                   console.log('⚔️ [PickingCartDrawer] confirmed takeover');
                   await lockForCheck(String(externalDoubleCheckId));
-                  const savedProgress = localStorage.getItem(
-                    `double_check_progress_${externalDoubleCheckId}`
-                  );
-                  if (savedProgress) setCheckedItems(new Set(JSON.parse(savedProgress)));
-                  else setCheckedItems(new Set());
+                  await hydrateVerifiedItems(String(externalDoubleCheckId));
                   wasExternallyOpenedRef.current = true;
                   setIsOpen(true);
                   setExternalDoubleCheckId(null);
@@ -187,19 +210,7 @@ export const PickingCartDrawer: React.FC = () => {
 
             console.log('🔒 [PickingCartDrawer] Locking list for user...');
             await lockForCheck(String(externalDoubleCheckId));
-
-            const savedProgress = localStorage.getItem(
-              `double_check_progress_${externalDoubleCheckId}`
-            );
-            if (savedProgress) {
-              try {
-                setCheckedItems(new Set(JSON.parse(savedProgress)));
-              } catch {
-                setCheckedItems(new Set());
-              }
-            } else {
-              setCheckedItems(new Set());
-            }
+            await hydrateVerifiedItems(String(externalDoubleCheckId));
 
             console.log('🔓 [PickingCartDrawer] Opening drawer for double check');
             wasExternallyOpenedRef.current = true;
@@ -228,14 +239,33 @@ export const PickingCartDrawer: React.FC = () => {
     showConfirmation,
   ]);
 
-  // 3. Persist local progress for double check
+  // 3. Persist double-check progress.
+  //    - localStorage: instant cache for the current device (offline-safe).
+  //    - picking_lists.verified_item_keys: cross-user source of truth.
+  //      Debounced so rapid toggles batch into one UPDATE.
+  const dbWriteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (sessionMode === 'double_checking' && activeListId && checkedItems.size >= 0) {
-      localStorage.setItem(
-        `double_check_progress_${activeListId}`,
-        JSON.stringify(Array.from(checkedItems))
-      );
-    }
+    if (sessionMode !== 'double_checking' || !activeListId) return;
+    const keys = Array.from(checkedItems);
+    localStorage.setItem(`double_check_progress_${activeListId}`, JSON.stringify(keys));
+
+    if (dbWriteTimer.current) clearTimeout(dbWriteTimer.current);
+    dbWriteTimer.current = setTimeout(() => {
+      // Cast: types not regenerated post-migration yet (idea-105 phase 1).
+      void supabase
+        .from('picking_lists')
+        .update({ verified_item_keys: keys as unknown as Json } as never)
+        .eq('id', activeListId)
+        .then(({ error }) => {
+          if (error) {
+            console.warn('[PickingCartDrawer] Failed to persist verified_item_keys:', error);
+          }
+        });
+    }, 500);
+
+    return () => {
+      if (dbWriteTimer.current) clearTimeout(dbWriteTimer.current);
+    };
   }, [checkedItems, activeListId, sessionMode]);
 
   const handleMarkAsReady = async (finalOrderNumber: string) => {
