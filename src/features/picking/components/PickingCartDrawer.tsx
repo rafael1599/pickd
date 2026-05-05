@@ -820,6 +820,18 @@ export const PickingCartDrawer: React.FC = () => {
                     return;
                   }
                   try {
+                    // If the target had a stale singleton group_id (orphan
+                    // from a prior canceled flow), free it up first so
+                    // createGroup can re-assign cleanly. Drop the orphan
+                    // order_groups row too.
+                    if (target.stale_group_id) {
+                      await supabase
+                        .from('picking_lists')
+                        .update({ group_id: null })
+                        .eq('id', target.id);
+                      await supabase.from('order_groups').delete().eq('id', target.stale_group_id);
+                    }
+
                     // Branch by target status:
                     //   * completed  → reopen target + bind both into a group;
                     //                  the cart re-loads merged via group_id

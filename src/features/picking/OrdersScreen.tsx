@@ -809,6 +809,15 @@ export const OrdersScreen = () => {
     }
 
     try {
+      // 0. If the target had a stale singleton group_id (orphan from a prior
+      //    canceled flow), free it before creating the new group. The modal
+      //    already filtered out genuinely-grouped rows; whatever stale_group_id
+      //    we get here is a true orphan.
+      if (target.stale_group_id) {
+        await supabase.from('picking_lists').update({ group_id: null }).eq('id', target.id);
+        await supabase.from('order_groups').delete().eq('id', target.stale_group_id);
+      }
+
       // 1. Reopen the completed source (saves snapshot, status → reopened).
       await reopenOrder(sourceId, REOPEN_REASON_ADDON);
 

@@ -26,7 +26,13 @@ export interface AddOnTargetCandidate {
   customer_id: string | null;
   customer_name: string | null;
   item_count: number;
-  completed_at: string | null;
+  /** Time the order last changed status (proxy for completion time when
+   *  status is 'completed'). picking_lists has no dedicated completed_at. */
+  updated_at: string | null;
+  /** Singleton group_id (if any). The modal already filtered out genuinely-
+   *  grouped rows (>=2 siblings); when this is non-null, it's a stale
+   *  singleton that the click handler should dissolve as part of the combine. */
+  stale_group_id: string | null;
 }
 
 export type AddOnPickerMode =
@@ -54,7 +60,7 @@ interface RawRow {
   customer_id: string | null;
   group_id: string | null;
   items: unknown;
-  completed_at: string | null;
+  updated_at: string | null;
   customer: { name: string | null } | null;
 }
 
@@ -72,14 +78,17 @@ export const AddOnTargetPickerModal: React.FC<AddOnTargetPickerModalProps> = ({
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // picking_lists has no completed_at column — use updated_at as the
+      // proxy for "when did this status last change". For a row in 'completed'
+      // that's the moment it landed there.
+      const SELECT_COLS =
+        'id, order_number, status, customer_id, group_id, items, updated_at, customer:customers(name)';
+
       // Open orders — always eligible in both modes.
       const openP = supabase
         .from('picking_lists')
-        .select(
-          'id, order_number, status, customer_id, group_id, items, completed_at, customer:customers(name)'
-        )
+        .select(SELECT_COLS)
         .in('status', OPEN_STATUSES as unknown as string[])
-        .is('group_id', null)
         .neq('id', sourceOrderId)
         .order('created_at', { ascending: false })
         .limit(100);
@@ -90,16 +99,14 @@ export const AddOnTargetPickerModal: React.FC<AddOnTargetPickerModalProps> = ({
         mode === 'combine-any'
           ? supabase
               .from('picking_lists')
-              .select(
-                'id, order_number, status, customer_id, group_id, items, completed_at, customer:customers(name)'
-              )
+              .select(SELECT_COLS)
               .eq('status', 'completed')
               .gte(
-                'completed_at',
+                'updated_at',
                 new Date(Date.now() - COMPLETED_LOOKBACK_HOURS * 3600_000).toISOString()
               )
               .neq('id', sourceOrderId)
-              .order('completed_at', { ascending: false })
+              .order('updated_at', { ascending: false })
               .limit(100)
           : Promise.resolve({ data: [] as RawRow[], error: null });
 
@@ -114,12 +121,35 @@ export const AddOnTargetPickerModal: React.FC<AddOnTargetPickerModalProps> = ({
       const completedRows = (completedRes.data ?? []) as unknown as RawRow[];
 
       const all = [...openRows, ...completedRows];
-      // Deduplicate by id just in case (shouldn't happen — disjoint statuses).
+
+      // Resolve which group_ids are "genuinely grouped" (>=2 active siblings).
+      // Singleton groups (1 member, leftover from a previous flow) are treated
+      // as if the order were ungrouped — we'll dissolve them on combine.
+      const groupIds = Array.from(
+        new Set(all.map((r) => r.group_id).filter((g): g is string => !!g))
+      );
+      let realGroups = new Set<string>();
+      if (groupIds.length > 0) {
+        const { data: counts } = await supabase
+          .from('picking_lists')
+          .select('group_id')
+          .in('group_id', groupIds);
+        const counter = new Map<string, number>();
+        for (const row of counts ?? []) {
+          const gid = (row as { group_id: string | null }).group_id;
+          if (!gid) continue;
+          counter.set(gid, (counter.get(gid) ?? 0) + 1);
+        }
+        realGroups = new Set([...counter.entries()].filter(([, n]) => n >= 2).map(([gid]) => gid));
+      }
+
+      // Deduplicate + drop genuinely-grouped rows.
       const seen = new Set<string>();
       const merged: AddOnTargetCandidate[] = [];
       for (const r of all) {
         if (seen.has(r.id)) continue;
         seen.add(r.id);
+        if (r.group_id && realGroups.has(r.group_id)) continue;
         merged.push({
           id: r.id,
           order_number: r.order_number,
@@ -127,7 +157,8 @@ export const AddOnTargetPickerModal: React.FC<AddOnTargetPickerModalProps> = ({
           customer_id: r.customer_id,
           customer_name: r.customer?.name ?? null,
           item_count: Array.isArray(r.items) ? r.items.length : 0,
-          completed_at: r.completed_at,
+          updated_at: r.updated_at,
+          stale_group_id: r.group_id ?? null,
         });
       }
       setCandidates(merged);
@@ -256,7 +287,9 @@ const CandidateButton: React.FC<{
   highlight: boolean;
   onPick: (c: AddOnTargetCandidate) => void;
 }> = ({ candidate, highlight, onPick }) => {
-  const ago = relativeAgo(candidate.completed_at);
+  // Show "Xh ago" only for completed orders — for open ones the timestamp is
+  // less meaningful and would just clutter the chip line.
+  const ago = candidate.status === 'completed' ? relativeAgo(candidate.updated_at) : null;
   return (
     <button
       type="button"
