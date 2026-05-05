@@ -7,6 +7,21 @@
 
 ## P1 — Alto (operación diaria)
 
+### 58. DoubleCheckView — agrandar SKU/location/sublocation/distribution en tablet <!-- id: idea-106 -->
+- **Contexto:** En tablet (orientación landscape, ~10–12") la card del item dentro de DoubleCheckView muestra SKU, location, sublocation y la distribution (pallet/qty) con tamaños pensados para móvil. El picker camina por el warehouse con la tablet en una mano y a >1m de distancia esos datos son apenas legibles — sobre todo en luz alta.
+- **Datos a agrandar (en orden de criticidad para el picker):**
+  1. **Location** (ej. `ROW 16`) — la usa primero para ubicar físicamente el item.
+  2. **Sublocation chip** (`A,B`, `C`, etc.) — segunda señal espacial.
+  3. **SKU** — confirmación visual del item recogido.
+  4. **Distribution** (`8 UNITS`, pallet number, etc.) — cuánto poner en cada pallet.
+- **Solución propuesta:**
+  - Breakpoint nuevo `md:` o `lg:` específicamente para la card del item en DoubleCheckView. Subir SKU de `text-2xl/3xl` a `text-4xl/5xl` aprox.
+  - Location y sublocation con peso visual similar — quizá agruparlas en un bloque "ROW 16 · A,B" más alto (el dato espacial completo en una sola lectura).
+  - Distribution pallet-by-pallet con qty números más grandes y separación entre pallets más clara.
+- **No tocar:** layout en móvil (sigue siendo el caso primario en handhelds). Solo agrandar en `md:` para arriba.
+- **Validación esperada:** picker camina con tablet a 1m, identifica row + sublocation + sku correctos sin acercarla.
+- **Origen:** sesión 2026-05-05.
+
 ### 53. SKU normalization at intake — close idea-092 path 1 <!-- id: idea-101 -->
 - **Hallazgo verificado 2026-05-01:** la flag `sku_not_found` se setea EN watchdog al ingestar el PDF (vive como campo dentro del JSONB `picking_lists.items`). Pickd la lee, nunca la escribe — confirmado en migraciones (`process_picking_list`, `reopen_completed_orders` solo leen) y en src/ (todas las refs en DoubleCheckView/CorrectionModeView son lecturas). Conclusión: **no hay un fallback client-side viable** para auto-corregir el guion. El item JSON es inmutable post-intake.
 - **Síntoma operativo:** `034664BR` desde el PDF queda como UNREG en DoubleCheckView aunque `03-4664BR` exista en `sku_metadata`. El picker tiene que hacer click en "Use 03-4666BR instead" (botón ya entregado en idea-092 path 2). 100% determinístico, no debería requerir intervención manual.

@@ -41,6 +41,7 @@ import { compressImage, base64ToBlobUrl } from '../../../services/photoUpload.se
 import { useAuth } from '../../../context/AuthContext';
 import { useMarkWaiting, useUnmarkWaiting, useTakeOverSku } from '../hooks/useWaitingOrders';
 import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingConflicts';
+import { useStockReservations, buildReservationKey } from '../hooks/useStockReservations';
 import { WaitingConflictModal } from './WaitingConflictModal';
 import { ReasonPicker } from './ReasonPicker';
 import Hourglass from 'lucide-react/dist/esm/icons/hourglass';
@@ -206,6 +207,16 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     customer?.name ?? null
   );
   const [conflictDismissed, setConflictDismissed] = useState(false);
+
+  // idea-105 Phase 3 — cross-order reservation visibility
+  const reservationKeys = useMemo(
+    () =>
+      cartItems
+        .filter((i) => !i.sku_not_found && i.warehouse && i.location)
+        .map((i) => buildReservationKey(i.sku, i.warehouse, i.location)),
+    [cartItems]
+  );
+  const { data: reservationsMap } = useStockReservations(reservationKeys, activeListId ?? null);
   const [isDeducting, setIsDeducting] = useState(false);
   const [showWaitingPicker, setShowWaitingPicker] = useState(false);
   const [waitingReason, setWaitingReason] = useState('');
@@ -1732,6 +1743,39 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                   LOW STOCK
                                 </span>
                               )}
+                              {(() => {
+                                if (item.sku_not_found || !item.warehouse || !item.location)
+                                  return null;
+                                const key = buildReservationKey(
+                                  item.sku,
+                                  item.warehouse,
+                                  item.location
+                                );
+                                const info = reservationsMap?.get(key);
+                                if (!info) return null;
+                                const otherDemand = info.reserved + info.picked;
+                                if (otherDemand <= 0) return null;
+                                const availableForMe = info.stock - info.reserved;
+                                const conflict = availableForMe < item.pickingQty;
+                                const orderList = info.reservingOrders
+                                  .map(
+                                    (o) =>
+                                      `${o.picked ? '✓' : '◷'} ${o.qty}× #${o.orderNumber}${o.customerName ? ` (${o.customerName})` : ''}${o.isWaiting ? ' [waiting]' : ''}`
+                                  )
+                                  .join('\n');
+                                return (
+                                  <span
+                                    title={`Stock: ${info.stock}\nReserved by other orders: ${info.reserved}\nAlready picked elsewhere: ${info.picked}\nAvailable for me: ${availableForMe}\n\n${orderList}`}
+                                    className={`text-[10px] px-1 py-0.5 rounded font-black uppercase tracking-tighter ${
+                                      conflict
+                                        ? 'bg-red-500/20 text-red-400 border border-red-500/40'
+                                        : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                                    }`}
+                                  >
+                                    🔒 {otherDemand} elsewhere
+                                  </span>
+                                );
+                              })()}
                               {(() => {
                                 const scannedCount = scanResults.get(item.sku)?.size ?? 0;
                                 if (scannedCount === 0) return null;
