@@ -373,6 +373,41 @@ export const usePickingActions = ({
     [user]
   );
 
+  // Park: release the lock without transitioning status. Used when the
+  // verifier wants to leave a half-checked order back in its lane (FedEx /
+  // Regular) so any teammate can pick it up — distinct from releaseCheck,
+  // which sends the order to the Ready-to-Double-Check queue.
+  const parkOrder = useCallback(
+    async (listId: string) => {
+      const { data: order } = await supabase
+        .from('picking_lists')
+        .select('group_id')
+        .eq('id', listId)
+        .single();
+
+      const { error } = await supabase
+        .from('picking_lists')
+        .update({ checked_by: null, updated_at: new Date().toISOString() })
+        .eq('id', listId)
+        .neq('status', 'completed')
+        .neq('status', 'cancelled');
+      if (error) throw error;
+
+      if (order?.group_id) {
+        await supabase
+          .from('picking_lists')
+          .update({ checked_by: null, updated_at: new Date().toISOString() })
+          .eq('group_id', order.group_id)
+          .neq('id', listId)
+          .neq('status', 'completed')
+          .neq('status', 'cancelled');
+      }
+
+      resetSession();
+    },
+    [resetSession]
+  );
+
   const releaseCheck = useCallback(
     async (listId: string) => {
       // Check if order belongs to a group — release all siblings too
@@ -997,6 +1032,7 @@ export const usePickingActions = ({
     markAsReady,
     lockForCheck,
     releaseCheck,
+    parkOrder,
     returnToPicker,
     revertToPicking,
     deleteList,

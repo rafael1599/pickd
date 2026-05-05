@@ -123,6 +123,7 @@ interface DoubleCheckViewProps {
   onSetWaitingInventory?: (val: boolean) => void;
   onMarkAsReady?: () => void;
   onSendToVerifyQueue?: () => void;
+  onParkOrder?: () => void;
   onRecomplete?: (items: PickingItem[]) => Promise<void>;
   onCancelReopen?: () => void;
   correctionNotes?: string | null;
@@ -152,6 +153,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   inventoryData: inventoryDataProp,
   onMarkAsReady,
   onSendToVerifyQueue,
+  onParkOrder,
   onRecomplete,
   onCancelReopen,
   correctionNotes: correctionNotesProp,
@@ -1853,7 +1855,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             </button>
           </div>
         ) : verifiedUnitsCount === totalUnitsCount ? (
-          /* All verified — show slide to complete (requires at least 1 pallet photo) */
+          /* Estado C — all verified. Two paths:
+             - Ready to DC: hand off to a second verifier (status →
+               ready_to_double_check, lands in the bottom Ready section).
+             - Slide to Complete: close now (requires ≥1 pallet photo). */
           <>
             {palletPhotosCount === 0 && (
               <div className="mb-3 px-4 py-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center gap-2">
@@ -1863,23 +1868,37 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 </p>
               </div>
             )}
-            <SlideToConfirm
-              onConfirm={handleConfirm}
-              isLoading={isDeducting}
-              text={palletPhotosCount === 0 ? 'PHOTO REQUIRED TO COMPLETE' : 'SLIDE TO COMPLETE'}
-              confirmedText="COMPLETING..."
-              variant="default"
-              disabled={cartItems.length === 0 || palletPhotosCount === 0}
-            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => onSendToVerifyQueue?.()}
+                className="flex-1 py-4 bg-card border border-sky-500/40 text-sky-400 font-black uppercase tracking-widest text-xs rounded-2xl active:scale-95 transition-all hover:bg-sky-500/5"
+              >
+                Ready to DC
+              </button>
+              <div className="flex-[2]">
+                <SlideToConfirm
+                  onConfirm={handleConfirm}
+                  isLoading={isDeducting}
+                  text={palletPhotosCount === 0 ? 'PHOTO REQUIRED' : 'SLIDE TO COMPLETE'}
+                  confirmedText="COMPLETING..."
+                  variant="default"
+                  disabled={cartItems.length === 0 || palletPhotosCount === 0}
+                />
+              </div>
+            </div>
           </>
         ) : (
-          /* Not all verified — show action buttons */
+          /* Estado B — partial verification. Two paths:
+             - Park Order: release lock, status untouched. Order returns to
+               its FedEx/Regular lane in the top section so anyone can take it.
+             - Complete Now: just Select-All everything (transitions UI to
+               Estado C without changing DB status). */
           <div className="flex gap-3">
             <button
-              onClick={() => onSendToVerifyQueue?.()}
+              onClick={() => onParkOrder?.()}
               className="flex-1 py-4 bg-card border border-subtle text-content/70 font-black uppercase tracking-widest text-xs rounded-2xl active:scale-95 transition-all"
             >
-              Send to Verify
+              Park Order
             </button>
             <button
               onClick={() => {

@@ -65,6 +65,7 @@ interface PickingContextType {
   markAsReady: (items?: CartItem[], orderNum?: string) => Promise<string | null>;
   lockForCheck: (id: string) => Promise<void>;
   releaseCheck: (id: string) => Promise<void>;
+  parkOrder: (id: string) => Promise<void>;
   returnToPicker: (id: string, notes: string) => Promise<void>;
   revertToPicking: () => Promise<void>;
   deleteList: (id: string | null, keepLocalState?: boolean) => Promise<void>;
@@ -260,6 +261,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
     markAsReady,
     lockForCheck,
     releaseCheck,
+    parkOrder,
     returnToPicker,
     revertToPicking,
     deleteList,
@@ -459,6 +461,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       markAsReady,
       lockForCheck,
       releaseCheck,
+      parkOrder,
       returnToPicker,
       revertToPicking,
       deleteList,
@@ -519,6 +522,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       markAsReady,
       lockForCheck,
       releaseCheck,
+      parkOrder,
       returnToPicker,
       revertToPicking,
       takeOverOrder,

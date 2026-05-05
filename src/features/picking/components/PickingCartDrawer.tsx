@@ -33,6 +33,7 @@ export const PickingCartDrawer: React.FC = () => {
     loadExternalList,
     lockForCheck,
     releaseCheck,
+    parkOrder,
     returnToPicker,
     markAsReady,
     ownerId,
@@ -252,6 +253,15 @@ export const PickingCartDrawer: React.FC = () => {
       setIsOpen(false);
       toast.success('Order sent to verification queue');
     }
+  };
+
+  // Park: half-checked order back to FedEx/Regular lane (status untouched).
+  // Distinct from "Send to Verify" which transitions to ready_to_double_check.
+  const handleParkOrder = async () => {
+    if (!activeListId) return;
+    await parkOrder(activeListId);
+    setIsOpen(false);
+    toast.success('Order parked — back in lane for anyone to pick up');
   };
 
   const toggleCheck = (item: PickingItem, palletId: number | string) => {
@@ -631,6 +641,7 @@ export const PickingCartDrawer: React.FC = () => {
               inventoryData={inventoryData}
               onMarkAsReady={() => orderNumber && handleMarkAsReady(orderNumber)}
               onSendToVerifyQueue={handleSendToVerifyQueue}
+              onParkOrder={handleParkOrder}
               onRecomplete={async (items) => {
                 if (!activeListId) return;
                 isRecompletingRef.current = true;
