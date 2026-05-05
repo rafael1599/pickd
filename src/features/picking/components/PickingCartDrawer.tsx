@@ -47,6 +47,7 @@ export const PickingCartDrawer: React.FC = () => {
     setIsWaitingInventory,
     claimAsPicker,
     cancelReopen,
+    completeAddonGroup,
   } = usePickingSession();
 
   const { inventoryData, processPickingList, recompletePickingList } = useInventory();
@@ -646,7 +647,6 @@ export const PickingCartDrawer: React.FC = () => {
                 if (!activeListId) return;
                 isRecompletingRef.current = true;
                 try {
-                  const totalUnits = items.reduce((acc, item) => acc + (item.pickingQty || 0), 0);
                   const allLocations: Location[] = inventoryData.map((i) => ({
                     id: i.location_id || '',
                     location: i.location || '',
@@ -659,8 +659,71 @@ export const PickingCartDrawer: React.FC = () => {
                     length_ft: null,
                     bike_line: null,
                   }));
-                  const path = getOptimizedPickingPath(items, allLocations);
-                  const palletsQty = calculatePallets(path).length;
+                  const calcMetrics = (its: PickingItem[]) => {
+                    const totalUnits = its.reduce((acc, i) => acc + (i.pickingQty || 0), 0);
+                    const palletsQty = calculatePallets(
+                      getOptimizedPickingPath(its, allLocations)
+                    ).length;
+                    return { totalUnits, palletsQty };
+                  };
+
+                  // idea-067 Phase 2: detect Add-On mode (source has group_id
+                  // → 'general' group with one open sibling target). When so,
+                  // route through complete_addon_group RPC (atomic on both
+                  // orders) instead of plain recomplete.
+                  const { data: src } = await supabase
+                    .from('picking_lists')
+                    .select('group_id, items')
+                    .eq('id', activeListId)
+                    .single();
+
+                  if (src?.group_id) {
+                    const { data: group } = await supabase
+                      .from('order_groups')
+                      .select('group_type')
+                      .eq('id', src.group_id)
+                      .single();
+
+                    if (group?.group_type === 'general') {
+                      const { data: siblings } = await supabase
+                        .from('picking_lists')
+                        .select('id, items')
+                        .eq('group_id', src.group_id)
+                        .neq('id', activeListId)
+                        .in('status', [
+                          'active',
+                          'ready_to_double_check',
+                          'double_checking',
+                          'needs_correction',
+                        ]);
+
+                      if (siblings && siblings.length >= 1) {
+                        const target = siblings[0];
+                        const targetItems = Array.isArray(target.items)
+                          ? (target.items as unknown as PickingItem[])
+                          : [];
+                        const sourceItems = Array.isArray(src.items)
+                          ? (src.items as unknown as PickingItem[])
+                          : [];
+                        const tm = calcMetrics(targetItems);
+                        const sm = calcMetrics(sourceItems);
+                        await completeAddonGroup(
+                          activeListId,
+                          target.id as string,
+                          sm.palletsQty,
+                          sm.totalUnits,
+                          tm.palletsQty,
+                          tm.totalUnits
+                        );
+                        resetSession();
+                        setIsOpen(false);
+                        return;
+                      }
+                    }
+                  }
+
+                  // Non-addon path: normal recomplete on the merged cart.
+                  const { totalUnits, palletsQty } = calcMetrics(items);
                   await recompletePickingList(activeListId, palletsQty, totalUnits);
                   resetSession();
                   setIsOpen(false);
@@ -670,6 +733,22 @@ export const PickingCartDrawer: React.FC = () => {
               }}
               onCancelReopen={async () => {
                 if (!activeListId) return;
+                // idea-067 Phase 2: if this reopened order belongs to a group
+                // (Add-On flow created one), dissolve it first so the target
+                // order returns to its prior status without a dangling
+                // group_id pointing nowhere.
+                const { data: srcRow } = await supabase
+                  .from('picking_lists')
+                  .select('group_id')
+                  .eq('id', activeListId)
+                  .single();
+                if (srcRow?.group_id) {
+                  await supabase
+                    .from('picking_lists')
+                    .update({ group_id: null })
+                    .eq('group_id', srcRow.group_id);
+                  await supabase.from('order_groups').delete().eq('id', srcRow.group_id);
+                }
                 await cancelReopen(activeListId);
                 setIsOpen(false);
               }}

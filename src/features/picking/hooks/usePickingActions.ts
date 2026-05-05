@@ -1005,6 +1005,54 @@ export const usePickingActions = ({
     [user, setIsSaving, resetSession]
   );
 
+  /**
+   * idea-067 Phase 2: atomic completion for an Add-On reopen flow. Calls the
+   * complete_addon_group RPC which re-completes the source (delta inventory)
+   * AND completes the target in a single transaction.
+   */
+  const completeAddonGroup = useCallback(
+    async (
+      sourceId: string,
+      targetId: string,
+      sourcePallets: number,
+      sourceUnits: number,
+      targetPallets: number,
+      targetUnits: number
+    ) => {
+      if (!user) return;
+      setIsSaving(true);
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, role')
+          .eq('id', user.id)
+          .single();
+
+        const { error } = await supabase.rpc('complete_addon_group', {
+          p_source_id: sourceId,
+          p_target_id: targetId,
+          p_performed_by: profile?.full_name || user.email || 'Unknown',
+          p_user_id: user.id,
+          p_source_pallets: sourcePallets,
+          p_source_units: sourceUnits,
+          p_target_pallets: targetPallets,
+          p_target_units: targetUnits,
+          p_user_role: profile?.role || 'staff',
+        });
+        if (error) throw error;
+        toast.success('Add-On completed');
+        resetSession();
+      } catch (err) {
+        console.error('Failed to complete Add-On:', err);
+        toast.error(err instanceof Error ? err.message : 'Failed to complete Add-On');
+        throw err;
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [user, setIsSaving, resetSession]
+  );
+
   const cancelReopen = useCallback(
     async (listId: string) => {
       if (!user) return;
@@ -1043,5 +1091,6 @@ export const usePickingActions = ({
     reopenOrder,
     recompleteOrder,
     cancelReopen,
+    completeAddonGroup,
   };
 };

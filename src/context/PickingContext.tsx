@@ -81,6 +81,14 @@ interface PickingContextType {
   reopenOrder: (listId: string, reason?: string) => Promise<void>;
   recompleteOrder: (listId: string, palletsQty: number, totalUnits: number) => Promise<void>;
   cancelReopen: (listId: string) => Promise<void>;
+  completeAddonGroup: (
+    sourceId: string,
+    targetId: string,
+    sourcePallets: number,
+    sourceUnits: number,
+    targetPallets: number,
+    targetUnits: number
+  ) => Promise<void>;
 
   // returnToBuilding removed (idea-032) — Edit Order replaces it
 
@@ -272,6 +280,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
     reopenOrder,
     recompleteOrder,
     cancelReopen,
+    completeAddonGroup,
   } = usePickingActions({
     user,
     activeListId,
@@ -472,6 +481,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       reopenOrder,
       recompleteOrder,
       cancelReopen,
+      completeAddonGroup,
       takeOverOrder,
       claimAsPicker,
       isLoaded,
@@ -535,6 +545,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       reopenOrder,
       recompleteOrder,
       cancelReopen,
+      completeAddonGroup,
       isLoaded,
       isSaving,
       lastSaved,

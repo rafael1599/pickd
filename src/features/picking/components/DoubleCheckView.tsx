@@ -252,6 +252,62 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     reopenedSnapshot !== null &&
     reopenedSnapshot !== JSON.stringify(cartItems.map((i) => ({ sku: i.sku, qty: i.pickingQty })));
 
+  // idea-067 Phase 2: Add-On mode detection. The reopened source carries a
+  // group_id pointing to a 'general' order_groups row when the user came in
+  // through the Add-On flow. We track:
+  //   - isAddonMode: switches the bottom CTA copy + adds a "new photo" gate.
+  //   - addonInitialPhotoCount: captured once, so newPhotosTaken = current - initial.
+  // The "must take at least 1 new photo" rule replaces hasReopenedChanges
+  // as the gate to enable Re-Complete in Add-On mode (items can be unchanged
+  // if the add-on items live solely on the target row, but new photos are
+  // mandatory evidence).
+  const [isAddonMode, setIsAddonMode] = useState(false);
+  const [addonInitialPhotoCount, setAddonInitialPhotoCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (status !== 'reopened' || !activeListId) {
+      setIsAddonMode(false);
+      setAddonInitialPhotoCount(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data: src } = await supabase
+        .from('picking_lists')
+        .select('group_id')
+        .eq('id', activeListId)
+        .single();
+      if (cancelled) return;
+      if (!src?.group_id) {
+        setIsAddonMode(false);
+        return;
+      }
+      const { data: grp } = await supabase
+        .from('order_groups')
+        .select('group_type')
+        .eq('id', src.group_id)
+        .single();
+      if (cancelled) return;
+      setIsAddonMode(grp?.group_type === 'general');
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [status, activeListId]);
+
+  // Capture the initial photo count the first time we observe addon-mode +
+  // photos loaded, so we can later compute "new photos taken in this session".
+  useEffect(() => {
+    if (isAddonMode && addonInitialPhotoCount === null && palletPhotosCount >= 0) {
+      setAddonInitialPhotoCount(palletPhotosCount);
+    }
+  }, [isAddonMode, addonInitialPhotoCount, palletPhotosCount]);
+
+  const addonNewPhotosTaken =
+    isAddonMode && addonInitialPhotoCount !== null
+      ? Math.max(palletPhotosCount - addonInitialPhotoCount, 0)
+      : 0;
+  const addonGateBlocked = isAddonMode && addonNewPhotosTaken < 1;
+
   // All statuses use full verification mode (checkboxes, select all).
   // The picker checks off items as they collect them, then sends to verify.
   const isReviewMode = false;
@@ -1829,31 +1885,51 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       <div className="fixed bottom-0 left-0 right-0 px-6 pt-6 pb-28 bg-gradient-to-t from-main via-main/90 to-transparent shrink-0 z-20">
         {status === 'reopened' ? (
           /* Reopened order — show Re-Complete and Cancel */
-          <div className="flex gap-3">
-            <button
-              onClick={() => onCancelReopen?.()}
-              className="flex-1 py-4 bg-card border border-subtle text-content/70 font-black uppercase tracking-widest text-xs rounded-2xl active:scale-95 transition-all"
-            >
-              Cancel Edit
-            </button>
-            <button
-              onClick={async () => {
-                if (onRecomplete) {
-                  setIsDeducting(true);
-                  try {
-                    await onRecomplete(cartItems);
-                  } finally {
-                    setIsDeducting(false);
+          <>
+            {isAddonMode && addonGateBlocked && (
+              <div className="mb-3 px-4 py-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center gap-2">
+                <span className="text-[10px] font-black text-amber-300 uppercase tracking-widest">
+                  Add-On — take at least 1 new pallet photo before completing
+                </span>
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => onCancelReopen?.()}
+                className="flex-1 py-4 bg-card border border-subtle text-content/70 font-black uppercase tracking-widest text-xs rounded-2xl active:scale-95 transition-all"
+              >
+                {isAddonMode ? 'Cancel Add-On' : 'Cancel Edit'}
+              </button>
+              <button
+                onClick={async () => {
+                  if (onRecomplete) {
+                    setIsDeducting(true);
+                    try {
+                      await onRecomplete(cartItems);
+                    } finally {
+                      setIsDeducting(false);
+                    }
                   }
+                }}
+                disabled={
+                  isDeducting ||
+                  cartItems.length === 0 ||
+                  // Plain reopen: must have edits. Add-On: must have new photos.
+                  (isAddonMode ? addonGateBlocked : !hasReopenedChanges)
                 }
-              }}
-              disabled={isDeducting || cartItems.length === 0 || !hasReopenedChanges}
-              className="flex-[2] py-4 bg-orange-500 text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-lg shadow-orange-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-30"
-            >
-              <Check size={16} strokeWidth={3} />
-              {isDeducting ? 'Re-Completing...' : 'Re-Complete Order'}
-            </button>
-          </div>
+                className="flex-[2] py-4 bg-orange-500 text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-lg shadow-orange-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-30"
+              >
+                <Check size={16} strokeWidth={3} />
+                {isDeducting
+                  ? isAddonMode
+                    ? 'Completing Add-On…'
+                    : 'Re-Completing...'
+                  : isAddonMode
+                    ? 'Complete Add-On'
+                    : 'Re-Complete Order'}
+              </button>
+            </div>
+          </>
         ) : verifiedUnitsCount === totalUnitsCount ? (
           /* Estado C — all verified. Two paths:
              - Ready to DC: hand off to a second verifier (status →
