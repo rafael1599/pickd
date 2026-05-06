@@ -16,7 +16,7 @@ import {
   type ActivityReportPdfDocProps,
 } from '../pdf/ActivityReportPdfDoc';
 import { buildInlineMap, applyInlineMap } from '../../../lib/pdf/inlineImages';
-import type { ActivityReport } from '../hooks/useActivityReport';
+import type { ActivityReport, FedExReturnSummary } from '../hooks/useActivityReport';
 import type { ReportTask } from '../../projects/hooks/useProjectReportData';
 
 interface UserNote {
@@ -36,6 +36,9 @@ export interface ExportReportPdfArgs {
   inProgress: ReportTask[];
   comingUpNext: ReportTask[];
   waitingOrdersCount?: number;
+  /** idea-091 weekly toggle — passed straight through to the PDF doc. */
+  weeklyFedexReturns?: FedExReturnSummary[];
+  showWeeklyFedex?: boolean;
   filenameStem?: string;
 }
 
@@ -78,6 +81,8 @@ export async function exportActivityReportPdf(
     comingUpNext: inlineTasks(args.comingUpNext),
     notes: args.notes,
     routineChecklist: args.routineChecklist,
+    weeklyFedexReturns: args.weeklyFedexReturns,
+    showWeeklyFedex: args.showWeeklyFedex,
   };
 
   const blob = await pdf(<ActivityReportPdfDoc {...docProps} />).toBlob();

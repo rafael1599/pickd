@@ -25,6 +25,7 @@ import { getCurrentNYDate } from '../../lib/nyDate';
 import { useAuth } from '../../context/AuthContext';
 import { useWaitingOrdersCount } from '../picking/hooks/useWaitingOrders';
 import { useLowStockAlerts } from './hooks/useLowStockAlerts';
+import { useFedExReturnsWeekly } from './hooks/useFedExReturnsWeekly';
 import Download from 'lucide-react/dist/esm/icons/download';
 // `./utils/exportReportPdf` is dynamically imported inside handleDownloadPdf
 // to defer @react-pdf/renderer (~490 KB gzipped) until the user actually
@@ -111,6 +112,10 @@ export const ActivityReportScreen = () => {
   const [notesText, setNotesText] = useState('');
   const [pickdUpdatesText, setPickdUpdatesText] = useState('');
   const [routineChecklist, setRoutineChecklist] = useState<string[]>([]);
+  // idea-091 — checkbox in the editor: when on, the FedEx Returns block
+  // shows the 7-day window instead of just today.
+  const [showWeeklyFedex, setShowWeeklyFedex] = useState(false);
+  const { data: weeklyFedexReturns } = useFedExReturnsWeekly(selectedDate, showWeeklyFedex);
   // idea-096 — opt-in list of project task IDs to render in the report.
   // Empty default = nothing shows in Done / In Progress / Coming Up Next.
   const [includedProjectIds, setIncludedProjectIds] = useState<string[]>([]);
@@ -182,6 +187,8 @@ export const ActivityReportScreen = () => {
         // idea-097 — per-SKU today's events are live-only. Past-day snapshots
         // render an empty block (the section headers hide themselves at N=0).
         today_events: liveReport?.today_events ?? { moved: [], consolidated: [] },
+        // idea-091 — same treatment: fedex_returns is live-only.
+        fedex_returns: liveReport?.fedex_returns ?? [],
       };
     }
     return liveReport ?? null;
@@ -470,6 +477,8 @@ export const ActivityReportScreen = () => {
         inProgress: inProgressIncluded,
         comingUpNext: comingUpNextIncluded,
         waitingOrdersCount: waitingCount,
+        weeklyFedexReturns,
+        showWeeklyFedex,
         filenameStem: `activity-report-${selectedDate}`,
       });
     } catch (err) {
@@ -488,6 +497,8 @@ export const ActivityReportScreen = () => {
     inProgressIncluded,
     comingUpNextIncluded,
     waitingCount,
+    weeklyFedexReturns,
+    showWeeklyFedex,
     selectedDate,
   ]);
 
@@ -657,6 +668,21 @@ export const ActivityReportScreen = () => {
                 )}
               </div>
             </details>
+
+            {/* idea-091 weekly toggle for FedEx Returns. Off by default —
+                checking it pulls the 7-day window for both the on-screen
+                preview AND the PDF export. */}
+            <label className="flex items-center gap-2 cursor-pointer select-none mt-2">
+              <input
+                type="checkbox"
+                checked={showWeeklyFedex}
+                onChange={(e) => setShowWeeklyFedex(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border border-subtle bg-surface text-accent focus:ring-accent focus:ring-offset-0"
+              />
+              <span className="text-[9px] font-bold uppercase tracking-widest text-muted/70">
+                Show this week's FedEx Returns
+              </span>
+            </label>
 
             {/* Projects to include (idea-096) — opt-in checkboxes per task,
                 grouped by category. Tasks aren't rendered in the preview
@@ -1055,6 +1081,8 @@ export const ActivityReportScreen = () => {
                 comingUpNext={comingUpNextIncluded}
                 waitingOrdersCount={waitingCount}
                 lowStockAlerts={lowStockAlerts}
+                weeklyFedexReturns={weeklyFedexReturns}
+                showWeeklyFedex={showWeeklyFedex}
               />
             </div>
           )}

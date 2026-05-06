@@ -79,6 +79,13 @@ interface Props {
    * exporter — pallet photos get their own dedicated per-order pages.
    */
   skipPalletPhotos?: boolean;
+  /**
+   * idea-091 weekly toggle. When provided + `showWeeklyFedex=true`, replaces
+   * the day-scoped FedEx Returns list with the 7-day window. Falls back to
+   * the day-scoped report.fedex_returns when off or undefined.
+   */
+  weeklyFedexReturns?: FedExReturnSummary[];
+  showWeeklyFedex?: boolean;
 }
 
 function formatDate(dateStr: string): string {
@@ -290,19 +297,26 @@ const ConsolidatedRow: React.FC<{ ev: TodayConsolidationEvent }> = ({ ev }) => (
 );
 
 /** idea-091 — minimal FedEx Returns block for the daily report.
- *  Renders nothing when there are no returns today. */
-const FedExReturnsBlock: React.FC<{ returns: FedExReturnSummary[] | undefined }> = ({
-  returns,
-}) => {
+ *  Renders nothing when there are no returns in the chosen window. */
+const FedExReturnsBlock: React.FC<{
+  returns: FedExReturnSummary[] | undefined;
+  /** When true, the `returns` list represents the full 7-day window ending
+   *  on the report date. The block re-labels itself to reflect that. */
+  weekly?: boolean;
+}> = ({ returns, weekly = false }) => {
   const list = returns ?? [];
   if (list.length === 0) return null;
   const totalQty = list.reduce((sum, r) => sum + r.total_qty, 0);
+  const heading = weekly ? 'FedEx Returns — This Week' : 'FedEx Returns';
+  const subline = weekly
+    ? `${totalQty} ${totalQty === 1 ? 'unit' : 'units'} received in the last 7 days.`
+    : `${totalQty} ${totalQty === 1 ? 'unit' : 'units'} received today.`;
   return (
     <div style={{ marginTop: 16 }}>
-      <p style={sectionTitleStyle(AMBER)}>FedEx Returns — {list.length}</p>
-      <p style={{ ...subLineStyle, margin: '0 0 8px 0', display: 'block' }}>
-        {totalQty} {totalQty === 1 ? 'unit' : 'units'} received today.
+      <p style={sectionTitleStyle(AMBER)}>
+        {heading} — {list.length}
       </p>
+      <p style={{ ...subLineStyle, margin: '0 0 8px 0', display: 'block' }}>{subline}</p>
       <div style={{ overflowX: 'auto' }}>
         <table
           style={{
@@ -527,6 +541,8 @@ export const ActivityReportView: React.FC<Props> = ({
   greeting,
   printMode = false,
   skipPalletPhotos = false,
+  weeklyFedexReturns,
+  showWeeklyFedex = false,
 }) => {
   const [lightboxPhotos, setLightboxPhotos] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -733,7 +749,10 @@ export const ActivityReportView: React.FC<Props> = ({
                   bullet list (idea-094). Sections with N=0 hide themselves. */}
               <TodayInventoryEventsBlock events={report.today_events} />
               {/* idea-091 — FedEx Returns received today. Hidden when none. */}
-              <FedExReturnsBlock returns={report.fedex_returns} />
+              <FedExReturnsBlock
+                returns={showWeeklyFedex ? weeklyFedexReturns : report.fedex_returns}
+                weekly={showWeeklyFedex}
+              />
             </div>
             <div style={spacerStyle} />
           </>

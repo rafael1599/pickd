@@ -19,6 +19,7 @@ import type {
   ActivityReport,
   TodayMoveEvent,
   TodayConsolidationEvent,
+  FedExReturnSummary,
 } from '../hooks/useActivityReport';
 import type { ReportTask } from '../../projects/hooks/useProjectReportData';
 import { registerPdfFonts } from '../../../lib/pdf/fonts';
@@ -53,6 +54,9 @@ export interface ActivityReportPdfDocProps {
   comingUpNext: ReportTask[];
   notes: UserNote[];
   routineChecklist: string[];
+  /** idea-091 weekly toggle — same data the on-screen view uses. */
+  weeklyFedexReturns?: FedExReturnSummary[];
+  showWeeklyFedex?: boolean;
 }
 
 type Density = 'sparse' | 'normal' | 'dense';
@@ -270,6 +274,73 @@ function TodayEventsPdfBlock({ report }: { report: ActivityReport }) {
           ))}
         </View>
       )}
+    </View>
+  );
+}
+
+/** idea-091 — FedEx Returns block in the PDF. Mirrors the on-screen
+ *  FedExReturnsBlock: minimal info (tracking, status, item count, units),
+ *  no names, no timestamps. Renders nothing when the list is empty. */
+function FedExReturnsPdfBlock({
+  returns,
+  weekly,
+}: {
+  returns: FedExReturnSummary[] | undefined;
+  weekly: boolean;
+}) {
+  const list = returns ?? [];
+  if (list.length === 0) return null;
+  const totalQty = list.reduce((sum, r) => sum + r.total_qty, 0);
+  const heading = weekly ? 'FedEx Returns — This Week' : 'FedEx Returns';
+  const subline = weekly
+    ? `${totalQty} ${totalQty === 1 ? 'unit' : 'units'} received in the last 7 days.`
+    : `${totalQty} ${totalQty === 1 ? 'unit' : 'units'} received today.`;
+  const sectionTitleStyle = {
+    fontFamily: SANS,
+    fontSize: 8,
+    fontWeight: 700 as const,
+    letterSpacing: 1.2,
+    color: TONE.amber ?? TONE.ink,
+    textTransform: 'uppercase' as const,
+    marginBottom: 4,
+  };
+  return (
+    <View style={{ marginTop: 12 }}>
+      <Text style={sectionTitleStyle}>
+        {heading} — {list.length}
+      </Text>
+      <Text
+        style={{
+          fontFamily: SANS,
+          fontSize: PDF_TBL_FONT,
+          color: TONE.ink2,
+          marginBottom: 4,
+        }}
+      >
+        {subline}
+      </Text>
+      <View style={pdfRowStyle}>
+        <Text style={pdfHeadCell('45%')}>Tracking</Text>
+        <Text style={pdfHeadCell('25%')}>Status</Text>
+        <Text style={pdfHeadCell('15%', 'right')}>Items</Text>
+        <Text style={pdfHeadCell('15%', 'right')}>Units</Text>
+      </View>
+      {list.map((r) => (
+        <View key={r.tracking_number} style={pdfRowStyle}>
+          <Text style={{ width: '45%', fontSize: PDF_TBL_FONT, fontFamily: MONO, color: TONE.ink, paddingHorizontal: 4 }}>
+            {r.tracking_number}
+          </Text>
+          <Text style={{ width: '25%', fontSize: PDF_TBL_FONT, fontFamily: SANS, color: TONE.ink, paddingHorizontal: 4 }}>
+            {r.status}
+          </Text>
+          <Text style={{ width: '15%', fontSize: PDF_TBL_FONT, fontFamily: SANS, color: TONE.ink, paddingHorizontal: 4, textAlign: 'right' }}>
+            {r.item_count}
+          </Text>
+          <Text style={{ width: '15%', fontSize: PDF_TBL_FONT, fontFamily: SANS, color: TONE.ink, paddingHorizontal: 4, textAlign: 'right' }}>
+            {r.total_qty}
+          </Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -648,6 +719,12 @@ function SummaryPage(props: ActivityReportPdfDocProps & { totalPages: number }) 
         density={density}
       />
       <TodayEventsPdfBlock report={props.report} />
+      <FedExReturnsPdfBlock
+        returns={
+          props.showWeeklyFedex ? props.weeklyFedexReturns : props.report.fedex_returns
+        }
+        weekly={!!props.showWeeklyFedex}
+      />
 
       {/* 02 — WIN OF THE DAY */}
       {props.winOfTheDay.trim().length > 0 && (
