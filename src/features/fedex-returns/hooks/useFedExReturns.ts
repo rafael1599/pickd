@@ -510,6 +510,44 @@ export function useResolveReturn() {
   });
 }
 
+// ── Dispose Return (atomic: drain ghosts + mark items disposed + resolve)
+
+interface DisposeReturnInput {
+  returnId: string;
+  reason?: string | null;
+}
+
+export function useDisposeReturn() {
+  const queryClient = useQueryClient();
+  const { user, profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: DisposeReturnInput) => {
+      const userId = user?.id;
+      if (!userId) throw new Error('You must be signed in to dispose a return.');
+
+      const { data, error } = await (supabase.rpc as CallableFunction)('dispose_fedex_return', {
+        p_return_id: input.returnId,
+        p_user_id: userId,
+        p_performed_by: profile?.full_name ?? 'FedEx Returns',
+        p_dispose_reason: input.reason ?? null,
+      });
+      if (error) throw error;
+      return data as {
+        return_id: string;
+        tracking: string;
+        disposed_items: number;
+        drained_inventory_rows: number;
+      };
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['locations', 'active'] });
+    },
+  });
+}
+
 // ── Realtime ───────────────────────────────────────────────────────
 
 export function useFedExReturnsRealtime() {

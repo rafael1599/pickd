@@ -8,6 +8,7 @@ import Check from 'lucide-react/dist/esm/icons/check';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import Package from 'lucide-react/dist/esm/icons/package';
 import Printer from 'lucide-react/dist/esm/icons/printer';
+import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import { printReturnLabel } from './utils/generateReturnLabel';
 import {
   useFedExReturn,
@@ -15,6 +16,7 @@ import {
   useRemoveReturnItem,
   useUpdateReturnItem,
   useResolveReturn,
+  useDisposeReturn,
   useFedExReturnsRealtime,
 } from './hooks/useFedExReturns';
 import { ReturnItemRow } from './components/ReturnItemRow';
@@ -28,12 +30,15 @@ export const FedExReturnDetailScreen: React.FC = () => {
 
   const [addOpen, setAddOpen] = useState(false);
   const [sdIntakeOpen, setSdIntakeOpen] = useState(false);
+  const [disposeOpen, setDisposeOpen] = useState(false);
+  const [disposeReason, setDisposeReason] = useState('');
 
   const { data: ret, isLoading } = useFedExReturn(id ?? '');
   const updateReturn = useUpdateFedExReturn();
   const removeItem = useRemoveReturnItem();
   const updateItem = useUpdateReturnItem();
   const resolveReturn = useResolveReturn();
+  const disposeReturn = useDisposeReturn();
 
   const items = useMemo(() => ret?.items ?? [], [ret]);
   const pendingItems = useMemo(() => items.filter((i) => !i.moved_to_location), [items]);
@@ -211,6 +216,15 @@ export const FedExReturnDetailScreen: React.FC = () => {
                     <Plus size={12} />
                     Return to Stock
                   </button>
+                  <button
+                    onClick={() => setDisposeOpen(true)}
+                    disabled={disposeReturn.isPending}
+                    className="flex items-center gap-1 text-xs text-red-400 font-bold disabled:opacity-50"
+                    title="Dispose this return — drains placeholder stock and marks resolved"
+                  >
+                    <Trash2 size={12} />
+                    Dispose
+                  </button>
                 </div>
               )}
             </div>
@@ -265,6 +279,69 @@ export const FedExReturnDetailScreen: React.FC = () => {
 
       <ReturnToStockSheet returnId={ret.id} open={addOpen} onClose={() => setAddOpen(false)} />
       <SDQuickIntakeModal open={sdIntakeOpen} onClose={() => setSdIntakeOpen(false)} />
+
+      {disposeOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => !disposeReturn.isPending && setDisposeOpen(false)}
+        >
+          <div
+            className="bg-card border border-red-500/30 rounded-2xl w-full max-w-md p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <Trash2 size={18} className="text-red-400" />
+              <h2 className="text-base font-bold text-content">Dispose this return?</h2>
+            </div>
+            <p className="text-[12px] text-muted leading-snug mb-3">
+              This drains all pending FDX placeholder stock to 0, marks every pending item as
+              <span className="text-red-300 font-bold"> DISPOSED</span>, and closes the return as
+              resolved. No items will land in inventory. This action is final.
+            </p>
+            <textarea
+              value={disposeReason}
+              onChange={(e) => setDisposeReason(e.target.value)}
+              rows={2}
+              placeholder="Reason (optional) — e.g. damaged on arrival"
+              className="w-full bg-surface border border-subtle rounded-xl px-3 py-2 text-sm text-content placeholder:text-muted/50 focus:outline-none focus:border-red-400 resize-none"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => setDisposeOpen(false)}
+                disabled={disposeReturn.isPending}
+                className="px-4 py-2 rounded-xl text-[12px] font-bold text-muted hover:text-content"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const result = await disposeReturn.mutateAsync({
+                      returnId: ret.id,
+                      reason: disposeReason.trim() || null,
+                    });
+                    toast.success(
+                      `Disposed ${result.disposed_items} item${result.disposed_items === 1 ? '' : 's'}`
+                    );
+                    setDisposeOpen(false);
+                    setDisposeReason('');
+                    navigate('/fedex-returns');
+                  } catch (err) {
+                    const msg = err instanceof Error ? err.message : 'Failed to dispose';
+                    toast.error(msg);
+                  }
+                }}
+                disabled={disposeReturn.isPending}
+                className="px-4 py-2 rounded-xl text-[12px] font-bold bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 flex items-center gap-2"
+              >
+                {disposeReturn.isPending && <Loader2 size={14} className="animate-spin" />}
+                Dispose Return
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
