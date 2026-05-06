@@ -834,7 +834,8 @@ export const HistoryScreen = () => {
     (
       jsPDFInstance: typeof import('jspdf').default,
       autoTableInstance: typeof import('jspdf-autotable').default,
-      reportNote?: string | null
+      reportNote?: string | null,
+      mode: 'full' | 'as400' = 'as400'
     ) => {
       const doc = new jsPDFInstance({
         orientation: 'landscape',
@@ -843,6 +844,169 @@ export const HistoryScreen = () => {
       });
       const today = new Date().toLocaleDateString('es-ES');
 
+      // ── AS400 SYNC MODE ─────────────────────────────────────────────
+      // Compresses today's activity to a per-(sku,location) "WAS → NOW"
+      // table for the encargada to update the legacy AS400 system. No
+      // intermediate hops, no users, no timestamps. Notes ride along on
+      // a second line if the operator added them.
+      if (mode === 'as400') {
+        type Endpoint = { qty: number; loc: string | null };
+        type Row = {
+          sku: string;
+          itemName?: string | null;
+          location: string;
+          wasQty: number | null; // null → didn't exist there at start of day
+          nowQty: number | null; // null → no longer exists there
+          notes: string[];
+        };
+
+        // Build per-(sku, location) start-of-day + end-of-day endpoints by
+        // walking the day's logs chronologically. previous_quantity gives the
+        // 'before' state of the row at the time of the FIRST log touching it.
+        const endpoints = new Map<
+          string,
+          {
+            was: Endpoint | null;
+            now: Endpoint | null;
+            itemName?: string | null;
+            notes: Set<string>;
+          }
+        >();
+        const noteOf = (l: InventoryLog & { note?: string | null }) => (l.note ?? '').trim();
+        const ascending = [...filteredLogs].reverse();
+
+        const upsert = (
+          sku: string,
+          loc: string,
+          was: number | null,
+          now: number | null,
+          itemName: string | null | undefined,
+          note: string
+        ) => {
+          const key = `${sku}::${loc}`;
+          const e = endpoints.get(key) ?? {
+            was: null,
+            now: null,
+            itemName,
+            notes: new Set<string>(),
+          };
+          if (e.was === null && was !== null) e.was = { qty: was, loc };
+          if (now !== null) e.now = { qty: now, loc };
+          if (note) e.notes.add(note);
+          if (!e.itemName && itemName) e.itemName = itemName;
+          endpoints.set(key, e);
+        };
+
+        for (const log of ascending) {
+          const sku = log.sku;
+          if (!sku) continue;
+          const note = noteOf(log as InventoryLog & { note?: string | null });
+          const itemName = (log as InventoryLog & { item_name?: string | null }).item_name ?? null;
+          if (log.action_type === 'MOVE') {
+            const fromLoc = log.from_location || '';
+            const toLoc = log.to_location || '';
+            const qty = getDisplayQty(log);
+            if (fromLoc) {
+              const prev = log.prev_quantity ?? null;
+              const newAtFrom = prev !== null ? prev - qty : null;
+              upsert(sku, fromLoc, prev, newAtFrom, itemName, note);
+            }
+            if (toLoc) {
+              const newQ = log.new_quantity ?? null;
+              const wasAtTo = newQ !== null ? newQ - qty : null;
+              upsert(sku, toLoc, wasAtTo, newQ, itemName, note);
+            }
+          } else {
+            const loc = log.to_location || log.from_location || '';
+            if (!loc) continue;
+            const prev = log.prev_quantity ?? null;
+            const now = log.new_quantity ?? null;
+            upsert(sku, loc, prev, now, itemName, note);
+          }
+        }
+
+        const rows: Row[] = [];
+        for (const [key, e] of endpoints) {
+          const [sku, location] = key.split('::');
+          const wasQty = e.was?.qty ?? null;
+          const nowQty = e.now?.qty ?? null;
+          // Skip if nothing actually changed at this (sku, location)
+          if (wasQty === nowQty && !((wasQty === null) !== (nowQty === null))) continue;
+          rows.push({
+            sku,
+            itemName: e.itemName,
+            location,
+            wasQty,
+            nowQty,
+            notes: Array.from(e.notes).filter(Boolean),
+          });
+        }
+        rows.sort((a, b) => a.sku.localeCompare(b.sku) || a.location.localeCompare(b.location));
+
+        let title = 'History — AS400 Sync';
+        if (userFilter !== 'ALL') title += ` (${userFilter})`;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(20);
+        doc.text(title, 5, 15);
+        doc.text(`${today} · ${rows.length} item${rows.length === 1 ? '' : 's'} changed`, 292, 15, {
+          align: 'right',
+        });
+
+        let currentY = 25;
+        if (reportNote && reportNote.trim().length > 0) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(11);
+          const wrapped = doc.splitTextToSize(reportNote.trim(), 287);
+          const lineHeight = 6;
+          const noteHeight = wrapped.length * lineHeight + 6;
+          doc.setDrawColor(0);
+          doc.setLineWidth(0.4);
+          doc.rect(5, currentY - 4, 287, noteHeight);
+          doc.text(wrapped, 8, currentY + 2);
+          currentY += noteHeight + 4;
+        }
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text('SKU', 5, currentY);
+        doc.text('WAS', 105, currentY);
+        doc.text('NOW', 200, currentY);
+        currentY += 4;
+
+        const tableBody = rows.map((r) => {
+          const wasCell = r.wasQty === null ? '—' : `${r.location} (${r.wasQty})`;
+          const nowCell = r.nowQty === null || r.nowQty === 0 ? '—' : `${r.location} (${r.nowQty})`;
+          const skuCell = r.notes.length > 0 ? `${r.sku}\n${r.notes.join(' · ')}` : r.sku;
+          return [skuCell, wasCell, nowCell];
+        });
+
+        autoTableInstance(doc, {
+          startY: currentY,
+          body: tableBody,
+          theme: 'plain',
+          styles: {
+            fontSize: 22,
+            cellPadding: 5,
+            minCellHeight: 14,
+            textColor: [0, 0, 0],
+            lineColor: [0, 0, 0],
+            lineWidth: 0.6,
+            font: 'helvetica',
+            valign: 'top',
+          },
+          columnStyles: {
+            0: { cellWidth: 100, fontStyle: 'bold', fontSize: 28, halign: 'left' },
+            1: { cellWidth: 95, fontSize: 22, halign: 'left' },
+            2: { cellWidth: 'auto', fontSize: 26, fontStyle: 'bold', halign: 'left' },
+          },
+          margin: { top: 5, right: 5, bottom: 5, left: 5 },
+        });
+
+        return doc;
+      }
+
+      // ── FULL MODE (existing flow with two improvements) ─────────────
       let title = 'History';
       if (filter !== 'ALL') {
         const labels: Record<string, string> = {
@@ -936,14 +1100,19 @@ export const HistoryScreen = () => {
         const rawNote = (log as InventoryLog & { note?: string | null }).note;
 
         let activity = '';
+        let chainHops: string | null = null;
         switch (log.action_type) {
           case 'MOVE': {
-            // Show the full hop chain (ROW 14 -> ROW 32 -> ROW 33) collected
-            // earlier. ASCII arrows only — jsPDF default Helvetica is
-            // WinAnsiEncoding and does not include U+2192.
+            // Activity line shows endpoints only (FIRST -> LAST). Intermediate
+            // hops, when present, ride a smaller second line so a multi-hop
+            // chain doesn't wrap and break the table layout.
             const path = movePathBySkuQty.get(`${log.sku}::${qty}`) ?? [];
-            const chain = path.length > 0 ? path.join(' -> ') : `${fromLoc} -> ${toLoc}`;
-            activity = `Moved ${chain}`;
+            const first = path[0] ?? fromLoc;
+            const last = path[path.length - 1] ?? toLoc;
+            activity = `Moved ${first} -> ${last}`;
+            if (path.length > 2) {
+              chainHops = `via ${path.slice(1, -1).join(' -> ')}`;
+            }
             break;
           }
           case 'ADD':
@@ -978,7 +1147,8 @@ export const HistoryScreen = () => {
         // For FedEx Returns the prefix "FedEx Return " is dropped — the
         // tracking number alone is enough context on the second line.
         const noteLine = rawNote ? rawNote.replace(/^FedEx Return\s+/i, '') : null;
-        const cellText = noteLine ? `${activity}\n${noteLine}` : activity;
+        const extraLines = [chainHops, noteLine].filter(Boolean) as string[];
+        const cellText = extraLines.length > 0 ? `${activity}\n${extraLines.join('\n')}` : activity;
 
         return [log.sku, cellText, qty.toString()];
       });
@@ -1012,6 +1182,7 @@ export const HistoryScreen = () => {
 
   const [reportNoteOpen, setReportNoteOpen] = useState(false);
   const [reportNote, setReportNote] = useState('');
+  const [reportMode, setReportMode] = useState<'full' | 'as400'>('as400');
 
   const handleDownloadReport = useCallback(async () => {
     try {
@@ -1021,7 +1192,7 @@ export const HistoryScreen = () => {
         import('jspdf'),
         import('jspdf-autotable'),
       ]);
-      const doc = generateDailyPDF(jsPDF, autoTable, reportNote.trim() || null);
+      const doc = generateDailyPDF(jsPDF, autoTable, reportNote.trim() || null, reportMode);
       const blob = doc.output('bloburl');
       window.open(blob, '_blank');
       toast.success('History report opened in new tab');
@@ -1033,7 +1204,7 @@ export const HistoryScreen = () => {
     } finally {
       setManualLoading(false);
     }
-  }, [generateDailyPDF, showError, reportNote]);
+  }, [generateDailyPDF, showError, reportNote, reportMode]);
 
   return (
     <div className="pb-32 relative max-w-2xl mx-auto w-full px-4">
@@ -1426,18 +1597,64 @@ export const HistoryScreen = () => {
             className="bg-card border border-subtle rounded-2xl w-full max-w-md p-5 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-base font-bold text-content mb-1">Report note (optional)</h2>
-            <p className="text-[11px] text-muted mb-3">
-              Shown above the table on the PDF. Leave blank to skip.
-            </p>
+            <h2 className="text-base font-bold text-content mb-3">Generate report</h2>
+
+            <div className="mb-4">
+              <div className="text-[10px] font-black text-muted uppercase tracking-widest mb-2">
+                Mode
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setReportMode('as400')}
+                  className={`p-2.5 rounded-xl border text-left transition-all ${
+                    reportMode === 'as400'
+                      ? 'bg-accent/15 border-accent/50'
+                      : 'bg-surface border-subtle hover:border-subtle/80'
+                  }`}
+                >
+                  <div
+                    className={`text-[12px] font-bold ${reportMode === 'as400' ? 'text-accent' : 'text-content'}`}
+                  >
+                    AS400 Sync
+                  </div>
+                  <div className="text-[10px] text-muted/80 mt-0.5">
+                    Where each SKU was vs is now
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReportMode('full')}
+                  className={`p-2.5 rounded-xl border text-left transition-all ${
+                    reportMode === 'full'
+                      ? 'bg-accent/15 border-accent/50'
+                      : 'bg-surface border-subtle hover:border-subtle/80'
+                  }`}
+                >
+                  <div
+                    className={`text-[12px] font-bold ${reportMode === 'full' ? 'text-accent' : 'text-content'}`}
+                  >
+                    Full
+                  </div>
+                  <div className="text-[10px] text-muted/80 mt-0.5">Every action with notes</div>
+                </button>
+              </div>
+            </div>
+
+            <div className="text-[10px] font-black text-muted uppercase tracking-widest mb-2">
+              Note (optional)
+            </div>
             <textarea
               value={reportNote}
               onChange={(e) => setReportNote(e.target.value)}
               rows={3}
-              placeholder="e.g. End-of-day verification — 2026-05-06"
+              placeholder="e.g. End-of-day verification"
               className="w-full bg-surface border border-subtle rounded-xl px-3 py-2 text-sm text-content placeholder:text-muted/50 focus:outline-none focus:border-accent resize-none"
               autoFocus
             />
+            <p className="text-[10px] text-muted/60 mt-1">
+              Shown above the table on the PDF. Leave blank to skip.
+            </p>
             <div className="flex justify-end gap-2 mt-4">
               <button
                 onClick={() => {
