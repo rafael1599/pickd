@@ -46,6 +46,7 @@ import { WaitingConflictModal } from './WaitingConflictModal';
 import { ReasonPicker } from './ReasonPicker';
 import Hourglass from 'lucide-react/dist/esm/icons/hourglass';
 import Play from 'lucide-react/dist/esm/icons/play';
+import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
 
 /** Priority: lower number = pick first. Pallets are overstock we want gone ASAP. */
 const DISTRIBUTION_PRIORITY: Record<string, number> = { PALLET: 0, LINE: 1, TOWER: 2, OTHER: 3 };
@@ -220,6 +221,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const [isDeducting, setIsDeducting] = useState(false);
   const [showWaitingPicker, setShowWaitingPicker] = useState(false);
   const [waitingReason, setWaitingReason] = useState('');
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const [scanResults, setScanResults] = useState<Map<string, Set<string>>>(new Map());
   const [isScanning, setIsScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState<string>('');
@@ -1218,37 +1220,29 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               </button>
             )}
           </div>
-
-          {/* Order Summary Brief */}
-          <div className="flex items-center gap-2 mt-2">
-            <div className="flex items-center gap-1 bg-card px-2 py-0.5 rounded border border-subtle">
-              <span className="text-[11px] font-black text-muted/60 uppercase tracking-tighter">
-                Units:
-              </span>
-              <span className="text-[11px] font-black text-blue-400 uppercase">
-                {totalUnitsCount}
-              </span>
-            </div>
-            <div className="flex items-center gap-1 bg-card px-2 py-0.5 rounded border border-subtle">
-              <span className="text-[11px] font-black text-muted/60 uppercase tracking-tighter">
-                SKUs:
-              </span>
-              <span className="text-[11px] font-black text-content/70 uppercase">
-                {cartItems.length}
-              </span>
-            </div>
-            <div className="flex items-center gap-1 bg-card px-2 py-0.5 rounded border border-subtle">
-              <span className="text-[11px] font-black text-muted/60 uppercase tracking-tighter">
-                Pallets:
-              </span>
-              <span className="text-[11px] font-black text-content/70 uppercase">
-                {pallets.length}
-              </span>
-            </div>
-          </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 relative">
+          {/* Actions kebab — opens dropdown with Edit Order / Combine /
+              Mark Waiting / Cancel. Hidden in review mode and when complete. */}
+          {!isReviewMode && status !== 'completed' && (
+            <button
+              onClick={() => setActionsMenuOpen((v) => !v)}
+              className={`p-2 rounded-full transition-colors ${
+                actionsMenuOpen
+                  ? 'bg-card text-content'
+                  : 'hover:bg-card text-muted hover:text-content'
+              }`}
+              title="Actions"
+              aria-haspopup="true"
+              aria-expanded={actionsMenuOpen}
+            >
+              <MoreVertical size={22} />
+              {problemItems.length > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 ring-2 ring-main" />
+              )}
+            </button>
+          )}
           {!correctionNotes.trim() && status !== 'completed' && (
             <button
               onClick={status === 'reopened' ? onCancelReopen : onRelease}
@@ -1261,190 +1255,189 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         </div>
       </div>
 
-      {/* Clean Item List */}
-      <div className="flex-1 overflow-y-auto p-4 bg-main min-h-0 pb-32">
-        <div className="flex items-center gap-2 mb-6">
-          <button
-            onClick={() => openEditFlow()}
-            className={`flex-1 p-4 border rounded-2xl flex items-center justify-between gap-3 active:scale-[0.98] transition-all ${
-              problemItems.length > 0 ? 'bg-red-500/10 border-red-500/30' : 'bg-card border-subtle'
-            }`}
+      {/* Actions menu — kebab dropdown (Edit Order / Combine / Mark Waiting /
+          Cancel Order). Backdrop catches outside-clicks; menu is anchored
+          relative to the viewport top-right since the header itself is
+          sticky. */}
+      {actionsMenuOpen && (
+        <div className="fixed inset-0 z-40" onClick={() => setActionsMenuOpen(false)}>
+          <div
+            className="absolute right-3 top-20 md:top-24 w-72 bg-card border border-subtle rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
+            onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center gap-3">
-              <div
-                className={`p-2 rounded-xl ${
-                  problemItems.length > 0 ? 'bg-red-500/20' : 'bg-card'
-                }`}
-              >
-                <Pencil
-                  size={18}
-                  className={problemItems.length > 0 ? 'text-red-400' : 'text-muted'}
-                />
-              </div>
-              <div className="text-left">
-                <span
-                  className={`text-xs font-black uppercase tracking-widest block ${
-                    problemItems.length > 0 ? 'text-red-400' : 'text-muted'
-                  }`}
+            <button
+              onClick={() => {
+                setActionsMenuOpen(false);
+                openEditFlow();
+              }}
+              className={`w-full flex items-center gap-3 px-4 py-3 transition-colors text-left ${
+                problemItems.length > 0 ? 'bg-red-500/10 hover:bg-red-500/15' : 'hover:bg-main/40'
+              }`}
+            >
+              <Pencil
+                size={16}
+                className={problemItems.length > 0 ? 'text-red-400' : 'text-muted'}
+              />
+              <div className="flex-1">
+                <div
+                  className={`text-sm font-bold ${problemItems.length > 0 ? 'text-red-400' : 'text-content'}`}
                 >
-                  {problemItems.length > 0
-                    ? `${problemItems.length} issue${problemItems.length > 1 ? 's' : ''} — Edit Order`
-                    : 'Edit Order'}
-                </span>
-                <span className="text-xs text-muted/70 font-bold">
-                  Add, remove, or adjust items
-                </span>
+                  Edit Order
+                </div>
+                <div className="text-[11px] text-muted/70">Add, remove, or adjust items</div>
               </div>
-            </div>
-            <ChevronDown
-              size={16}
-              className={`rotate-[-90deg] ${problemItems.length > 0 ? 'text-red-400/60' : 'text-muted/40'}`}
-            />
-          </button>
-          {/* idea-067 Phase 2 / Option A: COMBINE button. Visible only when
-              the order is in an open status AND not already part of a group
-              (one combine at a time). Opens the AddOn target picker in
-              'combine-any' mode (any other order, completed or open). */}
-          {onCombineWith &&
-            !isCombined &&
-            (status === 'active' ||
-              status === 'ready_to_double_check' ||
-              status === 'double_checking' ||
-              status === 'needs_correction') && (
-              <button
-                onClick={() => onCombineWith()}
-                className="h-full px-3 py-3 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/15 rounded-2xl text-emerald-400 transition-all active:scale-95 self-stretch flex flex-col items-center justify-center gap-1"
-                title="Combine with another order"
-              >
-                <GitMerge size={16} />
-                <span className="text-[8px] font-black uppercase tracking-widest">Combine</span>
-              </button>
-            )}
-          <button
-            onClick={() => openCancelFlow()}
-            className="h-full p-4 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 rounded-2xl text-red-500 transition-all active:scale-95 self-stretch flex items-center justify-center"
-            title="Cancel Order"
-          >
-            <Trash2 size={18} />
-          </button>
-        </div>
+              {problemItems.length > 0 && (
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 uppercase tracking-wider">
+                  {problemItems.length} issue{problemItems.length > 1 ? 's' : ''}
+                </span>
+              )}
+            </button>
 
-        {/* Waiting for Inventory — admin-only (idea-053) */}
-        {isAdmin && status !== 'completed' && status !== 'cancelled' && (
-          <>
-            {isWaitingInventory ? (
-              <div className="flex items-center gap-2 p-3 rounded-2xl border border-amber-500/30 bg-amber-500/10">
-                <Hourglass size={16} className="text-amber-500 shrink-0" />
-                <span className="text-xs font-black text-amber-500 uppercase tracking-wider flex-1">
-                  Waiting for Inventory
-                </span>
+            {onCombineWith &&
+              !isCombined &&
+              (status === 'active' ||
+                status === 'ready_to_double_check' ||
+                status === 'double_checking' ||
+                status === 'needs_correction') && (
                 <button
                   onClick={() => {
-                    if (!activeListId) return;
-                    unmarkWaiting.mutate(
-                      { listId: activeListId, action: 'resume' },
-                      {
-                        onSuccess: () => onSetWaitingInventory?.(false),
-                      }
-                    );
+                    setActionsMenuOpen(false);
+                    onCombineWith();
                   }}
-                  disabled={unmarkWaiting.isPending}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-accent bg-accent/10 border border-accent/30 rounded-xl hover:bg-accent/20 transition-all active:scale-95"
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-main/40 transition-colors text-left border-t border-subtle"
                 >
-                  <Play size={12} />
-                  Resume
+                  <GitMerge size={16} className="text-emerald-400" />
+                  <div className="flex-1">
+                    <div className="text-sm font-bold text-content">Combine</div>
+                    <div className="text-[11px] text-muted/70">Merge with another order</div>
+                  </div>
                 </button>
-                <button
-                  onClick={() => {
-                    showConfirmation(
-                      'Cancel Waiting Order',
-                      'This will cancel the entire order. Items will be released back to inventory.',
-                      () => {
+              )}
+
+            {isAdmin && status !== 'cancelled' && (
+              <>
+                {isWaitingInventory ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        setActionsMenuOpen(false);
                         if (!activeListId) return;
                         unmarkWaiting.mutate(
-                          { listId: activeListId, action: 'cancel' },
-                          {
-                            onSuccess: () => onClose(),
-                          }
+                          { listId: activeListId, action: 'resume' },
+                          { onSuccess: () => onSetWaitingInventory?.(false) }
                         );
-                      },
-                      () => {},
-                      'Cancel Order',
-                      'Go Back',
-                      'danger'
-                    );
-                  }}
-                  disabled={unmarkWaiting.isPending}
-                  className="px-3 py-1.5 text-xs font-black uppercase tracking-wider text-red-500 bg-red-500/10 border border-red-500/30 rounded-xl hover:bg-red-500/20 transition-all active:scale-95"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : !showWaitingPicker ? (
-              <button
-                onClick={() => setShowWaitingPicker(true)}
-                className={`flex items-center justify-center gap-2 w-full p-3 rounded-2xl border transition-all active:scale-[0.98] ${
-                  problemItems.length > 0
-                    ? // Highlighted when the order has missing/short stock — the
-                      // operator should consider sending this to Waiting instead
-                      // of pushing forward.
-                      'border-amber-500/60 bg-amber-500/15 text-amber-400 hover:bg-amber-500/20 animate-pulse'
-                    : 'border-dashed border-amber-500/20 text-amber-500/60 hover:text-amber-500 hover:border-amber-500/40 hover:bg-amber-500/5'
-                }`}
-                title={
-                  problemItems.length > 0
-                    ? `This order has ${problemItems.length} item(s) with stock issues — consider waiting for inventory`
-                    : undefined
-                }
-              >
-                <Hourglass size={14} />
-                <span className="text-xs font-black uppercase tracking-wider">
-                  Mark as Waiting for Inventory
-                </span>
-              </button>
-            ) : (
-              <div className="p-3 rounded-2xl border border-amber-500/30 bg-amber-500/5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-amber-500 uppercase tracking-wider">
-                    Why is this order waiting?
-                  </span>
+                      }}
+                      disabled={unmarkWaiting.isPending}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-main/40 transition-colors text-left border-t border-subtle disabled:opacity-50"
+                    >
+                      <Play size={16} className="text-accent" />
+                      <div className="flex-1">
+                        <div className="text-sm font-bold text-content">Resume Order</div>
+                        <div className="text-[11px] text-muted/70">
+                          Currently waiting for inventory
+                        </div>
+                      </div>
+                    </button>
+                  </>
+                ) : (
                   <button
                     onClick={() => {
-                      setShowWaitingPicker(false);
-                      setWaitingReason('');
+                      setActionsMenuOpen(false);
+                      setShowWaitingPicker(true);
                     }}
-                    className="p-1 text-muted hover:text-content transition-colors"
+                    className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-amber-500/10 transition-colors text-left border-t border-subtle ${
+                      problemItems.length > 0 ? 'bg-amber-500/5' : ''
+                    }`}
                   >
-                    <X size={14} />
+                    <Hourglass size={16} className="text-amber-400" />
+                    <div className="flex-1">
+                      <div className="text-sm font-bold text-content">Mark as Waiting</div>
+                      <div className="text-[11px] text-muted/70">
+                        {problemItems.length > 0
+                          ? `${problemItems.length} stock issue${problemItems.length > 1 ? 's' : ''} — consider this`
+                          : 'Hold for inventory'}
+                      </div>
+                    </div>
                   </button>
-                </div>
-                <ReasonPicker
-                  actionType="waiting"
-                  selectedReason={waitingReason}
-                  onReasonChange={setWaitingReason}
-                />
+                )}
+              </>
+            )}
+
+            <button
+              onClick={() => {
+                setActionsMenuOpen(false);
+                openCancelFlow();
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 transition-colors text-left border-t border-subtle"
+            >
+              <Trash2 size={16} className="text-red-500" />
+              <div className="flex-1">
+                <div className="text-sm font-bold text-red-400">Cancel Order</div>
+                <div className="text-[11px] text-muted/70">Release items back to stock</div>
+              </div>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Clean Item List */}
+      <div className="flex-1 overflow-y-auto p-4 bg-main min-h-0 pb-32">
+        {/* Inline 'Mark as Waiting' reason picker (only when triggered from menu) */}
+        {showWaitingPicker &&
+          isAdmin &&
+          status !== 'completed' &&
+          status !== 'cancelled' &&
+          !isWaitingInventory && (
+            <div className="mb-4 p-3 rounded-2xl border border-amber-500/30 bg-amber-500/5 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-amber-500 uppercase tracking-wider">
+                  Why is this order waiting?
+                </span>
                 <button
                   onClick={() => {
-                    if (!activeListId || !waitingReason.trim()) return;
-                    markWaiting.mutate(
-                      { listId: activeListId, reason: waitingReason.trim() },
-                      {
-                        onSuccess: () => {
-                          setShowWaitingPicker(false);
-                          setWaitingReason('');
-                          onSetWaitingInventory?.(true);
-                        },
-                      }
-                    );
+                    setShowWaitingPicker(false);
+                    setWaitingReason('');
                   }}
-                  disabled={!waitingReason.trim() || markWaiting.isPending}
-                  className="w-full p-3 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
+                  className="p-1 text-muted hover:text-content transition-colors"
                 >
-                  {markWaiting.isPending ? 'Marking...' : 'Confirm — Mark as Waiting'}
+                  <X size={14} />
                 </button>
               </div>
-            )}
-          </>
+              <ReasonPicker
+                actionType="waiting"
+                selectedReason={waitingReason}
+                onReasonChange={setWaitingReason}
+              />
+              <button
+                onClick={() => {
+                  if (!activeListId || !waitingReason.trim()) return;
+                  markWaiting.mutate(
+                    { listId: activeListId, reason: waitingReason.trim() },
+                    {
+                      onSuccess: () => {
+                        setShowWaitingPicker(false);
+                        setWaitingReason('');
+                        onSetWaitingInventory?.(true);
+                      },
+                    }
+                  );
+                }}
+                disabled={!waitingReason.trim() || markWaiting.isPending}
+                className="w-full p-3 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
+              >
+                {markWaiting.isPending ? 'Marking...' : 'Confirm — Mark as Waiting'}
+              </button>
+            </div>
+          )}
+
+        {/* Persistent waiting badge when the order is currently on hold */}
+        {isWaitingInventory && status !== 'completed' && status !== 'cancelled' && (
+          <div className="mb-4 flex items-center gap-2 p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10">
+            <Hourglass size={14} className="text-amber-500 shrink-0" />
+            <span className="text-[11px] font-black text-amber-500 uppercase tracking-wider">
+              Waiting for Inventory
+            </span>
+          </div>
         )}
 
         {/* Hidden camera input for pallet scan */}
@@ -1646,7 +1639,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                           if (navigator.vibrate) navigator.vibrate(50);
                           onToggleCheck(item, pallet.id);
                         }}
-                        className={`transition-all duration-200 rounded-2xl p-4 flex items-center justify-between gap-3 ${isReviewMode ? '' : 'active:scale-[0.98] cursor-pointer'} border ${
+                        className={`transition-all duration-200 rounded-2xl flex items-center justify-between gap-3 ${isReviewMode ? '' : 'active:scale-[0.98] cursor-pointer'} border ${
+                          isChecked && !isReviewMode ? 'p-2 opacity-70 scale-[0.97]' : 'p-4'
+                        } ${
                           isReviewMode
                             ? item.sku_not_found
                               ? 'bg-red-500/5 border-red-500/20'
