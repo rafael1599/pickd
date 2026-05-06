@@ -1293,6 +1293,59 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               )}
             </button>
 
+            <button
+              onClick={() => {
+                setActionsMenuOpen(false);
+                scanInputRef.current?.click();
+              }}
+              disabled={isScanning}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-main/40 transition-colors text-left border-t border-subtle disabled:opacity-50"
+            >
+              {isScanning ? (
+                <Loader2 size={16} className="text-accent animate-spin" />
+              ) : (
+                <Camera
+                  size={16}
+                  className={
+                    pallets.length > 0 && palletPhotosCount >= pallets.length
+                      ? 'text-emerald-400'
+                      : palletPhotosCount > 0
+                        ? 'text-amber-400'
+                        : 'text-accent'
+                  }
+                />
+              )}
+              <div className="flex-1">
+                <div className="text-sm font-bold text-content">
+                  {isScanning
+                    ? 'Processing…'
+                    : pallets.length > 0 &&
+                        palletPhotosCount > 0 &&
+                        palletPhotosCount < pallets.length
+                      ? `Take Photo ${palletPhotosCount + 1} of ${pallets.length}`
+                      : 'Take Photo'}
+                </div>
+                <div className="text-[11px] text-muted/70">
+                  {pallets.length > 0
+                    ? `${palletPhotosCount} of ${pallets.length} pallet${pallets.length > 1 ? 's' : ''} captured`
+                    : 'Capture pallet photos'}
+                </div>
+              </div>
+              {pallets.length > 0 && (
+                <span
+                  className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                    palletPhotosCount >= pallets.length
+                      ? 'bg-emerald-500/20 text-emerald-400'
+                      : palletPhotosCount > 0
+                        ? 'bg-amber-500/20 text-amber-400'
+                        : 'bg-red-500/20 text-red-400'
+                  }`}
+                >
+                  {palletPhotosCount}/{pallets.length}
+                </span>
+              )}
+            </button>
+
             {onCombineWith &&
               !isCombined &&
               (status === 'active' ||
@@ -1440,7 +1493,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           </div>
         )}
 
-        {/* Hidden camera input for pallet scan */}
+        {/* Hidden camera input for pallet scan — triggered by 'Take Photo' in
+            the kebab menu. Status text surfaces inline below when scanning. */}
         <input
           ref={scanInputRef}
           type="file"
@@ -1449,36 +1503,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           onChange={handleScanPallet}
           className="hidden"
         />
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <button
-            onClick={() => scanInputRef.current?.click()}
-            disabled={isScanning}
-            className="flex items-center gap-2 px-4 py-2 bg-accent/10 border border-accent/20 rounded-xl text-accent text-xs font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-50"
-          >
-            {isScanning ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
-            {isScanning
-              ? 'Processing...'
-              : palletPhotosCount !== null &&
-                  palletPhotosCount > 0 &&
-                  palletPhotosCount < pallets.length
-                ? `Take Photo ${palletPhotosCount + 1} of ${pallets.length}`
-                : 'Take Photo'}
-          </button>
-          {palletPhotosCount !== null && pallets.length > 0 && (
-            <span
-              className={`text-xs font-black px-2 py-1 rounded-md ${
-                palletPhotosCount >= pallets.length
-                  ? 'bg-emerald-500/15 text-emerald-400'
-                  : palletPhotosCount > 0
-                    ? 'bg-amber-500/15 text-amber-400'
-                    : 'bg-red-500/15 text-red-400'
-              }`}
-            >
-              {palletPhotosCount} / {pallets.length}
-            </span>
-          )}
-          {scanStatus && <p className="text-xs text-accent font-bold">{scanStatus}</p>}
-        </div>
+        {scanStatus && (
+          <p className="text-xs text-accent font-bold mb-3 flex items-center gap-2">
+            <Loader2 size={12} className="animate-spin" />
+            {scanStatus}
+          </p>
+        )}
 
         {/* Pallet photo thumbnails with delete */}
         {palletPhotos.length > 0 && (
