@@ -102,21 +102,25 @@ export async function generateReturnLabel(data: ReturnLabelData): Promise<string
     doc.setLineWidth(0.02);
     doc.line(pad, qrY + qrSize + 0.1, W - pad, qrY + qrSize + 0.1);
 
-    // RECEIVED info
-    doc.setFontSize(10);
+    // Bottom info row — RMA on the LEFT (matches the serial print size
+    // under the barcode so it stays prominent and easy to fill in by hand),
+    // RECEIVED date on the RIGHT in the smaller secondary size.
     const infoY = qrY + qrSize + 0.3;
-    const receivedDate = formatDate(data.receivedAt);
-    if (receivedDate) {
-      doc.text(`RECEIVED: ${receivedDate}`, pad + 0.05, infoY);
-    }
 
-    // RMA line — printed value when known, fillable blank when not so the
-    // operator can hand-write it onto the physical label.
+    // RMA — printed value when known, fillable blank when not.
     const rma = (data.rma ?? '').trim();
     const rmaText = rma ? `RMA#: ${rma}` : 'RMA#: __________';
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text(rmaText, pad + 0.05, infoY + 0.25);
+    doc.setFontSize(12);
+    doc.text(rmaText, pad + 0.05, infoY);
+
+    // RECEIVED date — right-aligned, smaller weight for the secondary slot.
+    const receivedDate = formatDate(data.receivedAt);
+    if (receivedDate) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.text(`RECEIVED: ${receivedDate}`, W - pad - 0.05, infoY, { align: 'right' });
+    }
     doc.setFont('helvetica', 'normal');
 
     // Bottom border of label
