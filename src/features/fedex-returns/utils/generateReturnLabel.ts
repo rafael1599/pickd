@@ -111,7 +111,7 @@ export async function generateReturnLabel(data: ReturnLabelData): Promise<string
     const rma = (data.rma ?? '').trim();
     const rmaText = rma ? `RMA#: ${rma}` : 'RMA#: __________';
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
+    doc.setFontSize(16);
     doc.text(rmaText, pad + 0.05, infoY);
 
     // RECEIVED date — right-aligned, smaller weight for the secondary slot.
