@@ -933,11 +933,7 @@ export const HistoryScreen = () => {
         const fromLoc = log.from_location || '';
         const toLoc = log.to_location || '';
         const qty = getDisplayQty(log);
-        // idea-111: per-action note rendered inline in the activity text.
-        // For FedEx Returns the note is "FedEx Return <tracking>" — strip the
-        // prefix so the parenthetical reads "(<tracking>)".
         const rawNote = (log as InventoryLog & { note?: string | null }).note;
-        const noteParen = rawNote ? ` (${rawNote.replace(/^FedEx Return\s+/i, '')})` : '';
 
         let activity = '';
         switch (log.action_type) {
@@ -947,38 +943,44 @@ export const HistoryScreen = () => {
             // WinAnsiEncoding and does not include U+2192.
             const path = movePathBySkuQty.get(`${log.sku}::${qty}`) ?? [];
             const chain = path.length > 0 ? path.join(' -> ') : `${fromLoc} -> ${toLoc}`;
-            activity = `Moved${noteParen} ${chain}`;
+            activity = `Moved ${chain}`;
             break;
           }
           case 'ADD':
-            activity = `Added${noteParen} ${qty} to ${toLoc || fromLoc || 'GEN'}`;
+            activity = `Added ${qty} to ${toLoc || fromLoc || 'GEN'}`;
             break;
           case 'DEDUCT':
             activity = log.order_number
-              ? `Picked from ${fromLoc || 'GEN'} in #${log.order_number}${noteParen}`
-              : `Picked${noteParen} ${qty} from ${fromLoc || 'GEN'}`;
+              ? `Picked from ${fromLoc || 'GEN'} in #${log.order_number}`
+              : `Picked ${qty} from ${fromLoc || 'GEN'}`;
             break;
           case 'DELETE':
-            activity = `Removed${noteParen} from ${fromLoc || 'INV'}`;
+            activity = `Removed from ${fromLoc || 'INV'}`;
             break;
           case 'EDIT':
-            activity = `Edited${noteParen} at ${toLoc || fromLoc || 'INV'}`;
+            activity = `Edited at ${toLoc || fromLoc || 'INV'}`;
             break;
           case 'PHYSICAL_DISTRIBUTION':
-            activity = `Verified${noteParen} at ${toLoc || fromLoc || 'INV'}`;
+            activity = `Verified at ${toLoc || fromLoc || 'INV'}`;
             break;
           case 'SYSTEM_RECONCILIATION':
-            activity = `Reconciliation${noteParen}`;
+            activity = `Reconciliation`;
             break;
           default:
-            activity = `${log.action_type}${noteParen} at ${toLoc || fromLoc || '—'}`;
+            activity = `${log.action_type} at ${toLoc || fromLoc || '—'}`;
         }
 
         if (log.is_reversed) {
           activity = `Reversed: ${activity}`;
         }
 
-        return [log.sku, activity, qty.toString()];
+        // idea-111: note rendered on a separate line below the activity.
+        // For FedEx Returns the prefix "FedEx Return " is dropped — the
+        // tracking number alone is enough context on the second line.
+        const noteLine = rawNote ? rawNote.replace(/^FedEx Return\s+/i, '') : null;
+        const cellText = noteLine ? `${activity}\n${noteLine}` : activity;
+
+        return [log.sku, cellText, qty.toString()];
       });
 
       autoTableInstance(doc, {
