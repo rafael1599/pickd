@@ -10,6 +10,7 @@ import { supabase } from '../../../lib/supabase';
 import { useDebounce } from '../../../hooks/useDebounce';
 import { useAddReturnItem } from '../hooks/useFedExReturns';
 import { useLocationManagement } from '../../inventory/hooks/useLocationManagement';
+import { inventoryApi } from '../../inventory/api/inventoryApi';
 import AutocompleteInput from '../../../components/ui/AutocompleteInput';
 import type { ItemCondition } from '../types';
 
@@ -26,6 +27,9 @@ interface InventorySearchRow {
   item_name: string | null;
   quantity: number;
   location: string | null;
+  image_url?: string | null;
+  totalQty?: number;
+  locationCount?: number;
 }
 
 const CONDITIONS: Array<{ key: ItemCondition; label: string; color: string }> = [
@@ -115,20 +119,60 @@ export const ReturnToStockSheet: React.FC<ReturnToStockSheetProps> = ({
     setSearching(true);
 
     const run = async () => {
-      const { data, error } = await supabase
-        .from('inventory')
-        .select('sku, item_name, quantity, location')
-        .eq('is_active', true)
-        .or(`sku.ilike.%${q}%,item_name.ilike.%${q}%`)
-        .limit(20);
-      if (cancelled) return;
-      if (error) {
-        console.error(error);
-        setResults([]);
-      } else {
-        setResults((data ?? []) as InventorySearchRow[]);
+      try {
+        // Use the same search_inventory_with_metadata RPC that powers the
+        // InventoryScreen — it normalizes the query (strips dashes/whitespace)
+        // and ORs across SKU + item_name + serial. So '094802BK' finds
+        // '09-4802BK', and partial product names also match.
+        const { data } = await inventoryApi.fetchInventoryWithMetadata({
+          search: q,
+          includeInactive: false,
+          limit: 60,
+        });
+        if (cancelled) return;
+
+        // Group by SKU: one row per SKU, picking the location with the most
+        // stock. Stash totalQty + locationCount for context. This mirrors
+        // InventoryScreen's grouped view so a verifier sees "06-4438BK has
+        // 30 units across 1 location" instead of 1 row per location row.
+        const bySku = new Map<string, InventorySearchRow>();
+        for (const row of data) {
+          const sku = String(row.sku ?? '');
+          if (!sku) continue;
+          const qty = Number(row.quantity ?? 0);
+          const existing = bySku.get(sku);
+          if (!existing) {
+            bySku.set(sku, {
+              sku,
+              item_name: (row.item_name as string | null) ?? null,
+              quantity: qty,
+              location: (row.location as string | null) ?? null,
+              image_url:
+                (row as unknown as { sku_metadata?: { image_url?: string | null } }).sku_metadata
+                  ?.image_url ?? null,
+              totalQty: qty,
+              locationCount: qty > 0 ? 1 : 0,
+            });
+          } else {
+            existing.totalQty = (existing.totalQty ?? 0) + qty;
+            if (qty > 0) existing.locationCount = (existing.locationCount ?? 0) + 1;
+            // Prefer the row with the highest qty as the displayed location.
+            if (qty > (existing.quantity ?? 0)) {
+              existing.quantity = qty;
+              existing.location = (row.location as string | null) ?? existing.location;
+            }
+          }
+        }
+
+        setResults(Array.from(bySku.values()).slice(0, 20));
+      } catch (err) {
+        if (!cancelled) {
+          console.error('[ReturnToStockSheet] search failed:', err);
+          setResults([]);
+        }
+      } finally {
+        if (!cancelled) setSearching(false);
       }
-      setSearching(false);
     };
     run();
 
@@ -235,24 +279,56 @@ export const ReturnToStockSheet: React.FC<ReturnToStockSheetProps> = ({
 
             {!searching && results.length > 0 && (
               <div className="space-y-2 mb-3">
-                {results.map((row) => (
-                  <button
-                    key={row.sku}
-                    onClick={() => setSelected(row)}
-                    className="w-full bg-surface border border-subtle rounded-xl p-3 flex items-center justify-between text-left hover:border-accent/40 transition-colors"
-                  >
-                    <div className="min-w-0">
-                      <div className="font-mono font-bold text-content text-sm">{row.sku}</div>
-                      {row.item_name && (
-                        <div className="text-xs text-muted truncate">{row.item_name}</div>
+                {results.map((row) => {
+                  const total = row.totalQty ?? row.quantity ?? 0;
+                  const locs = row.locationCount ?? (row.quantity > 0 ? 1 : 0);
+                  return (
+                    <button
+                      key={row.sku}
+                      onClick={() => {
+                        setSelected(row);
+                        // Auto-fill the target location with the row's primary
+                        // location so a returning bike defaults to where the
+                        // model already lives. Verifier can still edit.
+                        if (row.location && !targetLocation) {
+                          setTargetLocation(row.location.toUpperCase());
+                        }
+                      }}
+                      className="w-full bg-surface border border-subtle rounded-xl p-3 flex items-center gap-3 text-left hover:border-accent/40 transition-colors"
+                    >
+                      {row.image_url ? (
+                        <img
+                          src={row.image_url}
+                          alt=""
+                          className="w-12 h-12 rounded-lg object-contain bg-main border border-subtle flex-shrink-0"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-main border border-subtle flex-shrink-0 flex items-center justify-center text-muted/40">
+                          <PackagePlus size={18} />
+                        </div>
                       )}
-                    </div>
-                    <div className="text-right flex-shrink-0 ml-2">
-                      <div className="text-xs text-content">{row.quantity}</div>
-                      <div className="text-[10px] text-muted">{row.location ?? '—'}</div>
-                    </div>
-                  </button>
-                ))}
+                      <div className="min-w-0 flex-1">
+                        <div className="font-mono font-bold text-content text-sm truncate">
+                          {row.sku}
+                        </div>
+                        {row.item_name && (
+                          <div className="text-xs text-muted truncate">{row.item_name}</div>
+                        )}
+                        <div className="text-[10px] text-muted/70 mt-0.5">
+                          {total} unit{total === 1 ? '' : 's'}
+                          {locs > 1
+                            ? ` · ${locs} locations`
+                            : row.location
+                              ? ` · ${row.location}`
+                              : ''}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
 
