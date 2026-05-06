@@ -60,6 +60,16 @@ export interface TodayEvents {
   consolidated: TodayConsolidationEvent[];
 }
 
+/** idea-091: minimal summary for the FedEx Returns block in the daily
+ *  Activity Report. Intentionally drops names and timestamps — operationally
+ *  we just want to know how much landed today. */
+export interface FedExReturnSummary {
+  tracking_number: string;
+  status: string;
+  item_count: number;
+  total_qty: number;
+}
+
 export interface ActivityReport {
   date: string;
   users: UserActivity[];
@@ -70,6 +80,7 @@ export interface ActivityReport {
   correction_count: number;
   completed_orders_with_photos: CompletedOrderPhotos[];
   today_events: TodayEvents;
+  fedex_returns: FedExReturnSummary[];
 }
 
 interface PickingRow {
@@ -119,6 +130,7 @@ export function useActivityReport(date: string) {
         todayLogsRes,
         todayCyclesRes,
         bikeSkusRes,
+        fedexReturnsRes,
       ] = await Promise.all([
           supabase
             .from('picking_lists')
@@ -192,6 +204,15 @@ export function useActivityReport(date: string) {
             .limit(50_000),
           // Bike SKU set used to scope the accuracy KPI numerator to bikes only.
           supabase.from('sku_metadata').select('sku').eq('is_bike', true).limit(50_000),
+          // idea-091 — today's FedEx returns. Basic info only: tracking +
+          // status + item totals. No names, no timestamps.
+          supabase
+            .from('fedex_returns')
+            .select('tracking_number, status, items:fedex_return_items(quantity)')
+            .gte('received_at', dayStart)
+            .lte('received_at', dayEnd)
+            .order('received_at', { ascending: false })
+            .limit(200),
         ]);
 
       const bikeSkuSet = new Set<string>(
@@ -481,6 +502,25 @@ export function useActivityReport(date: string) {
 
       const today_events: TodayEvents = { moved, consolidated };
 
+      // idea-091 — aggregate today's FedEx returns to the minimal basic
+      // info the user wants in the daily report.
+      type FedexReturnRow = {
+        tracking_number: string | null;
+        status: string | null;
+        items: { quantity: number | null }[] | null;
+      };
+      const fedex_returns: FedExReturnSummary[] = (
+        (fedexReturnsRes.data ?? []) as unknown as FedexReturnRow[]
+      ).map((r) => {
+        const items = r.items ?? [];
+        return {
+          tracking_number: r.tracking_number ?? '—',
+          status: r.status ?? 'unknown',
+          item_count: items.length,
+          total_qty: items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0),
+        };
+      });
+
       return {
         date,
         users,
@@ -491,6 +531,7 @@ export function useActivityReport(date: string) {
         correction_count: correctionCount,
         completed_orders_with_photos: completedOrdersWithPhotos,
         today_events,
+        fedex_returns,
       } satisfies ActivityReport;
     },
     staleTime: 2 * 60_000,

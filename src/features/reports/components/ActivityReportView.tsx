@@ -4,6 +4,7 @@ import type {
   TodayEvents,
   TodayMoveEvent,
   TodayConsolidationEvent,
+  FedExReturnSummary,
 } from '../hooks/useActivityReport';
 import type { ReportTask } from '../../projects/hooks/useProjectReportData';
 import type { LowStockAlerts } from '../hooks/useLowStockAlerts';
@@ -287,6 +288,53 @@ const ConsolidatedRow: React.FC<{ ev: TodayConsolidationEvent }> = ({ ev }) => (
     </td>
   </tr>
 );
+
+/** idea-091 — minimal FedEx Returns block for the daily report.
+ *  Renders nothing when there are no returns today. */
+const FedExReturnsBlock: React.FC<{ returns: FedExReturnSummary[] | undefined }> = ({
+  returns,
+}) => {
+  const list = returns ?? [];
+  if (list.length === 0) return null;
+  const totalQty = list.reduce((sum, r) => sum + r.total_qty, 0);
+  return (
+    <div style={{ marginTop: 16 }}>
+      <p style={sectionTitleStyle(AMBER)}>FedEx Returns — {list.length}</p>
+      <p style={{ ...subLineStyle, margin: '0 0 8px 0', display: 'block' }}>
+        {totalQty} {totalQty === 1 ? 'unit' : 'units'} received today.
+      </p>
+      <div style={{ overflowX: 'auto' }}>
+        <table
+          style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            fontFamily: FONT,
+            tableLayout: 'auto',
+          }}
+        >
+          <thead>
+            <tr>
+              <th style={cellHeadStyle}>Tracking</th>
+              <th style={cellHeadStyle}>Status</th>
+              <th style={{ ...cellHeadStyle, textAlign: 'right' }}>Items</th>
+              <th style={{ ...cellHeadStyle, textAlign: 'right' }}>Units</th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((r) => (
+              <tr key={r.tracking_number}>
+                <td style={{ ...cellStyle, ...skuStyle }}>{r.tracking_number}</td>
+                <td style={cellStyle}>{r.status}</td>
+                <td style={{ ...cellStyle, textAlign: 'right' }}>{r.item_count}</td>
+                <td style={{ ...cellStyle, ...totalStyle }}>{r.total_qty}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
 
 const TodayInventoryEventsBlock: React.FC<{ events?: TodayEvents | null }> = ({
   events,
@@ -684,6 +732,8 @@ export const ActivityReportView: React.FC<Props> = ({
               {/* Today's per-SKU events — idea-097. Replaces the per-source
                   bullet list (idea-094). Sections with N=0 hide themselves. */}
               <TodayInventoryEventsBlock events={report.today_events} />
+              {/* idea-091 — FedEx Returns received today. Hidden when none. */}
+              <FedExReturnsBlock returns={report.fedex_returns} />
             </div>
             <div style={spacerStyle} />
           </>
