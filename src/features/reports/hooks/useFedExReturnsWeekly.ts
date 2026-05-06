@@ -24,7 +24,7 @@ export function useFedExReturnsWeekly(date: string, enabled: boolean) {
 
       const { data, error } = await supabase
         .from('fedex_returns')
-        .select('tracking_number, status, items:fedex_return_items(quantity)')
+        .select('tracking_number, status, rma, items:fedex_return_items(quantity)')
         .gte('received_at', sevenDaysAgoIso)
         .lte('received_at', dayEnd)
         .order('received_at', { ascending: false })
@@ -34,6 +34,7 @@ export function useFedExReturnsWeekly(date: string, enabled: boolean) {
       type Row = {
         tracking_number: string | null;
         status: string | null;
+        rma: string | null;
         items: { quantity: number | null }[] | null;
       };
       return (data as unknown as Row[]).map((r) => {
@@ -41,6 +42,7 @@ export function useFedExReturnsWeekly(date: string, enabled: boolean) {
         return {
           tracking_number: r.tracking_number ?? '—',
           status: r.status ?? 'unknown',
+          rma: r.rma ?? null,
           item_count: items.length,
           total_qty: items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0),
         };

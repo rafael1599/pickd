@@ -4,6 +4,7 @@ export interface FedExReturn {
   status: 'received' | 'processing' | 'resolved';
   label_photo_url: string | null;
   notes: string | null;
+  rma: string | null;
   received_by: string | null;
   received_by_name: string | null;
   processed_by: string | null;

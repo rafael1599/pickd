@@ -532,6 +532,7 @@ export type Database = {
           received_by: string | null;
           received_by_name: string | null;
           resolved_at: string | null;
+          rma: string | null;
           status: string;
           tracking_number: string;
           updated_at: string | null;
@@ -548,6 +549,7 @@ export type Database = {
           received_by?: string | null;
           received_by_name?: string | null;
           resolved_at?: string | null;
+          rma?: string | null;
           status?: string;
           tracking_number: string;
           updated_at?: string | null;
@@ -564,6 +566,7 @@ export type Database = {
           received_by?: string | null;
           received_by_name?: string | null;
           resolved_at?: string | null;
+          rma?: string | null;
           status?: string;
           tracking_number?: string;
           updated_at?: string | null;
@@ -1703,6 +1706,18 @@ export type Database = {
           starts_at: string;
         }[];
       };
+      pick_item: {
+        Args: {
+          p_list_id: string;
+          p_location: string;
+          p_performed_by?: string;
+          p_qty: number;
+          p_sku: string;
+          p_user_id: string;
+          p_warehouse: string;
+        };
+        Returns: Json;
+      };
       process_picking_list: {
         Args: {
           p_list_id: string;
@@ -1814,6 +1829,18 @@ export type Database = {
       unmark_picking_list_waiting: {
         Args: { p_action: string; p_list_id: string };
         Returns: undefined;
+      };
+      unpick_item: {
+        Args: {
+          p_list_id: string;
+          p_location: string;
+          p_performed_by?: string;
+          p_qty: number;
+          p_sku: string;
+          p_user_id: string;
+          p_warehouse: string;
+        };
+        Returns: Json;
       };
       update_user_presence: { Args: { p_user_id: string }; Returns: undefined };
       upsert_inventory_log: {

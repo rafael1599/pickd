@@ -329,7 +329,7 @@ const FedExReturnsBlock: React.FC<{
           <thead>
             <tr>
               <th style={cellHeadStyle}>Tracking</th>
-              <th style={cellHeadStyle}>Status</th>
+              <th style={cellHeadStyle}>RMA</th>
               <th style={{ ...cellHeadStyle, textAlign: 'right' }}>Units</th>
             </tr>
           </thead>
@@ -337,7 +337,7 @@ const FedExReturnsBlock: React.FC<{
             {list.map((r) => (
               <tr key={r.tracking_number}>
                 <td style={{ ...cellStyle, ...skuStyle }}>{r.tracking_number}</td>
-                <td style={cellStyle}>{r.status}</td>
+                <td style={{ ...cellStyle, ...skuStyle }}>{r.rma ?? '—'}</td>
                 <td style={{ ...cellStyle, ...totalStyle }}>{r.total_qty}</td>
               </tr>
             ))}

@@ -46,6 +46,9 @@ export const IntakeBar: React.FC = () => {
   const [candidatesOpen, setCandidatesOpen] = useState(false);
   const [notes, setNotes] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
+  // RMA — optional Return Merchandise Authorization issued by the
+  // manufacturer/vendor. Captured at intake; surfaced on the daily report.
+  const [rma, setRma] = useState('');
   const [isUploading, setIsUploading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -67,6 +70,7 @@ export const IntakeBar: React.FC = () => {
     setCandidatesOpen(false);
     setNotes('');
     setNotesOpen(false);
+    setRma('');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -120,6 +124,7 @@ export const IntakeBar: React.FC = () => {
         tracking_number: tracking,
         label_photo_url: photoUrl,
         notes: notes.trim() || undefined,
+        rma: rma.trim() || undefined,
       });
       toast.success('Return added to queue');
       reset();
@@ -251,6 +256,17 @@ export const IntakeBar: React.FC = () => {
               className="w-full bg-surface border border-subtle rounded-xl px-3 py-2 text-sm text-content placeholder:text-muted/50 focus:outline-none focus:ring-1 focus:ring-accent resize-none"
             />
           )}
+
+          <input
+            type="text"
+            value={rma}
+            onChange={(e) => setRma(e.target.value.toUpperCase())}
+            placeholder="RMA (optional)"
+            className="w-full bg-surface border border-subtle rounded-xl px-3 py-2 text-sm font-mono text-content placeholder:text-muted/50 focus:outline-none focus:ring-1 focus:ring-accent uppercase tracking-wider"
+            autoCapitalize="characters"
+            autoCorrect="off"
+            spellCheck={false}
+          />
 
           <button
             onClick={submit}

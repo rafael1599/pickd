@@ -320,17 +320,17 @@ function FedExReturnsPdfBlock({
         {subline}
       </Text>
       <View style={pdfRowStyle}>
-        <Text style={pdfHeadCell('55%')}>Tracking</Text>
-        <Text style={pdfHeadCell('30%')}>Status</Text>
+        <Text style={pdfHeadCell('45%')}>Tracking</Text>
+        <Text style={pdfHeadCell('40%')}>RMA</Text>
         <Text style={pdfHeadCell('15%', 'right')}>Units</Text>
       </View>
       {list.map((r) => (
         <View key={r.tracking_number} style={pdfRowStyle}>
-          <Text style={{ width: '55%', fontSize: PDF_TBL_FONT, fontFamily: MONO, color: TONE.ink, paddingHorizontal: 4 }}>
+          <Text style={{ width: '45%', fontSize: PDF_TBL_FONT, fontFamily: MONO, color: TONE.ink, paddingHorizontal: 4 }}>
             {r.tracking_number}
           </Text>
-          <Text style={{ width: '30%', fontSize: PDF_TBL_FONT, fontFamily: SANS, color: TONE.ink, paddingHorizontal: 4 }}>
-            {r.status}
+          <Text style={{ width: '40%', fontSize: PDF_TBL_FONT, fontFamily: MONO, color: TONE.ink, paddingHorizontal: 4 }}>
+            {r.rma ?? '—'}
           </Text>
           <Text style={{ width: '15%', fontSize: PDF_TBL_FONT, fontFamily: SANS, color: TONE.ink, paddingHorizontal: 4, textAlign: 'right' }}>
             {r.total_qty}

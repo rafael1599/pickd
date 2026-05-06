@@ -66,6 +66,10 @@ export interface TodayEvents {
 export interface FedExReturnSummary {
   tracking_number: string;
   status: string;
+  /** Optional RMA / Return Merchandise Authorization issued by the
+   *  manufacturer for this return. Captured at intake; null for legacy
+   *  rows (column added 2026-05-06). */
+  rma: string | null;
   item_count: number;
   total_qty: number;
 }
@@ -208,7 +212,7 @@ export function useActivityReport(date: string) {
           // status + item totals. No names, no timestamps.
           supabase
             .from('fedex_returns')
-            .select('tracking_number, status, items:fedex_return_items(quantity)')
+            .select('tracking_number, status, rma, items:fedex_return_items(quantity)')
             .gte('received_at', dayStart)
             .lte('received_at', dayEnd)
             .order('received_at', { ascending: false })
@@ -507,6 +511,7 @@ export function useActivityReport(date: string) {
       type FedexReturnRow = {
         tracking_number: string | null;
         status: string | null;
+        rma: string | null;
         items: { quantity: number | null }[] | null;
       };
       const fedex_returns: FedExReturnSummary[] = (
@@ -516,6 +521,7 @@ export function useActivityReport(date: string) {
         return {
           tracking_number: r.tracking_number ?? '—',
           status: r.status ?? 'unknown',
+          rma: r.rma ?? null,
           item_count: items.length,
           total_qty: items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0),
         };

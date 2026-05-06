@@ -47,6 +47,9 @@ interface AddReturnInput {
   tracking_number: string;
   label_photo_url?: string;
   notes?: string;
+  /** Optional RMA / Return Merchandise Authorization issued by the
+   *  manufacturer. Captured at intake; persisted to fedex_returns.rma. */
+  rma?: string;
 }
 
 export function useAddFedExReturn() {
@@ -69,6 +72,7 @@ export function useAddFedExReturn() {
           tracking_number: tracking,
           label_photo_url: input.label_photo_url || null,
           notes: input.notes || null,
+          rma: input.rma?.trim() || null,
           received_by: userId,
           received_by_name: profile?.full_name ?? null,
         })
@@ -134,6 +138,7 @@ export function useAddFedExReturn() {
         status: 'received',
         label_photo_url: input.label_photo_url || null,
         notes: input.notes || null,
+        rma: input.rma?.trim() || null,
         received_by: user?.id ?? null,
         received_by_name: profile?.full_name ?? null,
         processed_by: null,
