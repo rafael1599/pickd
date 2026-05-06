@@ -5,6 +5,7 @@ export interface FedExReturn {
   label_photo_url: string | null;
   notes: string | null;
   rma: string | null;
+  is_misship: boolean;
   received_by: string | null;
   received_by_name: string | null;
   processed_by: string | null;

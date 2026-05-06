@@ -523,6 +523,7 @@ export type Database = {
         Row: {
           created_at: string | null;
           id: string;
+          is_misship: boolean;
           label_photo_url: string | null;
           notes: string | null;
           processed_at: string | null;
@@ -540,6 +541,7 @@ export type Database = {
         Insert: {
           created_at?: string | null;
           id?: string;
+          is_misship?: boolean;
           label_photo_url?: string | null;
           notes?: string | null;
           processed_at?: string | null;
@@ -557,6 +559,7 @@ export type Database = {
         Update: {
           created_at?: string | null;
           id?: string;
+          is_misship?: boolean;
           label_photo_url?: string | null;
           notes?: string | null;
           processed_at?: string | null;

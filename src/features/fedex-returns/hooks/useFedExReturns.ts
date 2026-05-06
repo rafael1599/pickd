@@ -50,6 +50,9 @@ interface AddReturnInput {
   /** Optional RMA / Return Merchandise Authorization issued by the
    *  manufacturer. Captured at intake; persisted to fedex_returns.rma. */
   rma?: string;
+  /** True when the return came back due to a mis-ship rather than an RMA.
+   *  Mutually independent from rma at the data layer. */
+  is_misship?: boolean;
 }
 
 export function useAddFedExReturn() {
@@ -73,6 +76,7 @@ export function useAddFedExReturn() {
           label_photo_url: input.label_photo_url || null,
           notes: input.notes || null,
           rma: input.rma?.trim() || null,
+          is_misship: input.is_misship ?? false,
           received_by: userId,
           received_by_name: profile?.full_name ?? null,
         })
@@ -139,6 +143,7 @@ export function useAddFedExReturn() {
         label_photo_url: input.label_photo_url || null,
         notes: input.notes || null,
         rma: input.rma?.trim() || null,
+        is_misship: input.is_misship ?? false,
         received_by: user?.id ?? null,
         received_by_name: profile?.full_name ?? null,
         processed_by: null,
@@ -172,6 +177,8 @@ interface UpdateReturnInput {
   status?: ReturnStatus;
   notes?: string | null;
   label_photo_url?: string;
+  rma?: string | null;
+  is_misship?: boolean;
 }
 
 export function useUpdateFedExReturn() {
