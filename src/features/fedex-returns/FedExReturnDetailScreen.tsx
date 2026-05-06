@@ -171,6 +171,7 @@ export const FedExReturnDetailScreen: React.FC = () => {
                   receivedAt: ret.received_at,
                   receivedByName: ret.received_by_name,
                   notes: ret.notes,
+                  rma: ret.rma,
                 });
               } catch (err) {
                 const message = err instanceof Error ? err.message : 'Print failed';

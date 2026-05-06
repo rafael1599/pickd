@@ -53,12 +53,16 @@ export const EditReturnSheet: React.FC<EditReturnSheetProps> = ({ ret, onClose }
   };
 
   return createPortal(
+    // z-[110] keeps the modal above the bottom navigation (z-[100]).
+    // Padding-bottom on the wrapper guarantees the action row clears the
+    // floating nav on small screens; centering the dialog vertically also
+    // ensures it doesn't anchor to the bottom edge where the nav lives.
     <div
-      className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center bg-main/60 backdrop-blur-md"
+      className="fixed inset-0 z-[110] flex items-center justify-center bg-main/60 backdrop-blur-md p-4 pb-28"
       onClick={onClose}
     >
       <div
-        className="w-full sm:w-full sm:max-w-md bg-[#1a1a1a] border border-white/10 sm:rounded-2xl rounded-t-2xl p-5"
+        className="w-full max-w-md bg-[#1a1a1a] border border-white/10 rounded-2xl p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">

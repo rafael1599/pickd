@@ -12,6 +12,10 @@ export interface ReturnLabelData {
   receivedAt: string | null;
   receivedByName: string | null;
   notes?: string | null;
+  /** RMA / Return Merchandise Authorization number. When present, the label
+   *  prints "RMA#: XXX". When null/empty it prints "RMA#: __________"
+   *  (a fillable blank for hand-writing on the printed sheet). */
+  rma?: string | null;
 }
 
 function formatDate(iso: string | null): string {
@@ -105,6 +109,15 @@ export async function generateReturnLabel(data: ReturnLabelData): Promise<string
     if (receivedDate) {
       doc.text(`RECEIVED: ${receivedDate}`, pad + 0.05, infoY);
     }
+
+    // RMA line — printed value when known, fillable blank when not so the
+    // operator can hand-write it onto the physical label.
+    const rma = (data.rma ?? '').trim();
+    const rmaText = rma ? `RMA#: ${rma}` : 'RMA#: __________';
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text(rmaText, pad + 0.05, infoY + 0.25);
+    doc.setFont('helvetica', 'normal');
 
     // Bottom border of label
     doc.setLineWidth(0.02);

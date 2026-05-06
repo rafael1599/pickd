@@ -57,6 +57,7 @@ export const ReturnCard: React.FC<ReturnCardProps> = ({ return: returnItem, onTa
         receivedAt: returnItem.received_at,
         receivedByName: returnItem.received_by_name,
         notes: returnItem.notes,
+        rma: returnItem.rma,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Print failed';
