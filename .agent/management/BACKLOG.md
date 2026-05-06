@@ -7,6 +7,25 @@
 
 ## P1 — Alto (operación diaria)
 
+### 59. Inventory log notes — capture, edit, and surface in History reports <!-- id: idea-111 --> 🔥 prioridad máxima
+- **Contexto:** Hoy un MOVE en `inventory_logs` no captura *por qué* se hizo. `inventory.internal_note` existe pero es per-row (sobrevive el MOVE), no per-acción. El picker o admin pierden contexto: "¿por qué movieron 3 bikes de ROW 5 a ROW 12 hace 3 días?" — sin nota.
+- **Pieza 1 — Note al hacer MOVE (Relocate Stock):**
+  - Migración aditiva: `ALTER TABLE inventory_logs ADD COLUMN note text`.
+  - RPC `move_inventory_stock`: nuevo param `p_move_note text DEFAULT NULL`. Escribe `note` en el `inventory_logs` row generado. No rompe callers existentes.
+  - `MovementModal.tsx`: textarea opcional debajo del Target location. Placeholder ej. `"e.g. consolidating to free ROW 10"`.
+- **Pieza 2 — Editar nota retroactivamente desde History:**
+  - **Permisos: cualquier usuario** (no admin-only).
+  - **Cualquier tipo de log** acepta nota — MOVE, ADD, DEDUCT, EDIT, todos.
+  - Nueva RPC `update_inventory_log_note(p_log_id uuid, p_note text, p_user_id uuid)` — UPDATE inventory_logs SET note = p_note WHERE id = p_log_id.
+  - `HistoryScreen` / `ItemHistorySheet`: botón ✏️ pequeño en cada row → modal con textarea pre-cargado → save → invalida query.
+- **Pieza 3 — Report con note custom encima de la tabla:**
+  - Botón Report en HistoryScreen abre modal "Report note (optional)" con textarea.
+  - User escribe (o salta) → continúa al PDF.
+  - `generateDailyPDF` recibe `reportNote?: string` y lo renderiza como bloque arriba de la tabla.
+  - **No se persiste** — contextual al PDF generado en ese momento.
+- **Tamaño estimado:** 1 sesión completa. 1 migración + 2 RPCs + 3 piezas de UI.
+- **Origen:** sesión 2026-05-06.
+
 ### 58. DoubleCheckView — agrandar SKU/location/sublocation/distribution en tablet <!-- id: idea-106 -->
 - **Contexto:** En tablet (orientación landscape, ~10–12") la card del item dentro de DoubleCheckView muestra SKU, location, sublocation y la distribution (pallet/qty) con tamaños pensados para móvil. El picker camina por el warehouse con la tablet en una mano y a >1m de distancia esos datos son apenas legibles — sobre todo en luz alta.
 - **Datos a agrandar (en orden de criticidad para el picker):**

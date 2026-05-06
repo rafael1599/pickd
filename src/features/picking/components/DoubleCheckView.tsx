@@ -1707,7 +1707,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                             {/* SKU row */}
                             <div className="flex items-center gap-2 flex-wrap">
                               <span
-                                className={`font-black text-2xl tracking-tight leading-none break-all ${isReviewMode ? (item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-content') : isChecked ? (item.sku_not_found || item.insufficient_stock ? 'text-red-400' : 'text-green-400') : item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-content'}`}
+                                className={`font-black text-2xl md:text-5xl tracking-tight leading-none break-all ${isReviewMode ? (item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-content') : isChecked ? (item.sku_not_found || item.insufficient_stock ? 'text-red-400' : 'text-green-400') : item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-content'}`}
                               >
                                 {sdSerialMap.has(item.sku) ? (
                                   // S/D: show the physical serial instead of the SKU.
@@ -1794,7 +1794,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                             </div>
                             {/* Product name — item_name from DB, or description from PDF */}
                             {(item.item_name || item.description) && (
-                              <span className="text-[13px] font-semibold text-muted uppercase tracking-wide leading-none">
+                              <span className="text-[13px] md:text-xl font-semibold text-muted uppercase tracking-wide leading-none">
                                 {(item.item_name || item.description || '').slice(0, 17)}
                               </span>
                             )}
@@ -1809,7 +1809,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                       : 'text-emerald-400/70'
                                 }`}
                               >
-                                <span className="text-sm font-bold uppercase tracking-wider leading-none">
+                                <span className="text-sm md:text-2xl font-bold uppercase tracking-wider leading-none">
                                   {pickPlanMap[item.sku].map((step, i) => (
                                     <span key={i}>
                                       {i > 0 && ', '}
@@ -1839,13 +1839,15 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                         {/* Location Info on the right - No checkbox to maximize space */}
                         <div className="flex items-center gap-3 shrink-0 ml-auto pl-2 border-l border-subtle">
                           <div className="flex flex-col items-end">
-                            <span className="text-[10px] text-muted/60 font-black uppercase tracking-widest mb-0.5">
+                            <span className="text-[10px] md:text-base text-muted/60 font-black uppercase tracking-widest mb-0.5">
                               {item.location?.toLowerCase().includes('row') ? 'ROW' : 'LOC'}
                             </span>
                             <div className="flex items-center gap-1.5">
                               <div
                                 className={`font-mono font-black text-amber-500 leading-none ${
-                                  (item.location || '').length > 8 ? 'text-lg' : 'text-2xl'
+                                  (item.location || '').length > 8
+                                    ? 'text-lg md:text-4xl'
+                                    : 'text-2xl md:text-6xl'
                                 }`}
                               >
                                 {(item.location || '')
@@ -1860,7 +1862,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                       `${item.sku}-${(item.location || '').toUpperCase()}`
                                     ];
                                   return subs && subs.length > 0 ? (
-                                    <span className="text-xs font-black bg-amber-500/15 text-amber-400 px-1 py-0.5 rounded ml-1 border border-amber-500/20 align-middle">
+                                    <span className="text-xs md:text-2xl font-black bg-amber-500/15 text-amber-400 px-1 md:px-2 py-0.5 md:py-1 rounded ml-1 border border-amber-500/20 align-middle">
                                       {subs.join(',')}
                                     </span>
                                   ) : null;
