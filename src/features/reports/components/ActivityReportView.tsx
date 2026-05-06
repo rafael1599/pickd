@@ -330,7 +330,6 @@ const FedExReturnsBlock: React.FC<{
             <tr>
               <th style={cellHeadStyle}>Tracking</th>
               <th style={cellHeadStyle}>Status</th>
-              <th style={{ ...cellHeadStyle, textAlign: 'right' }}>Items</th>
               <th style={{ ...cellHeadStyle, textAlign: 'right' }}>Units</th>
             </tr>
           </thead>
@@ -339,7 +338,6 @@ const FedExReturnsBlock: React.FC<{
               <tr key={r.tracking_number}>
                 <td style={{ ...cellStyle, ...skuStyle }}>{r.tracking_number}</td>
                 <td style={cellStyle}>{r.status}</td>
-                <td style={{ ...cellStyle, textAlign: 'right' }}>{r.item_count}</td>
                 <td style={{ ...cellStyle, ...totalStyle }}>{r.total_qty}</td>
               </tr>
             ))}
