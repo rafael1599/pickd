@@ -342,7 +342,7 @@ GRANT EXECUTE ON FUNCTION public.process_fedex_return_item(uuid, text, text, tex
 -- Retroactive note editing from History. Any signed-in user can edit any log.
 
 CREATE OR REPLACE FUNCTION public.update_inventory_log_note(
-  p_log_id bigint,
+  p_log_id uuid,
   p_note text,
   p_user_id uuid
 )
@@ -369,5 +369,9 @@ BEGIN
 END;
 $function$;
 
-GRANT EXECUTE ON FUNCTION public.update_inventory_log_note(bigint, text, uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.update_inventory_log_note(bigint, text, uuid) TO service_role;
+-- The earlier (bigint) signature accidentally shipped during smoke; drop it
+-- so PostgREST does not pick it over the uuid one.
+DROP FUNCTION IF EXISTS public.update_inventory_log_note(bigint, text, uuid);
+
+GRANT EXECUTE ON FUNCTION public.update_inventory_log_note(uuid, text, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.update_inventory_log_note(uuid, text, uuid) TO service_role;

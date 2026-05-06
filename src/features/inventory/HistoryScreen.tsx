@@ -143,7 +143,7 @@ const LogNoteRow: React.FC<LogNoteRowProps> = ({ log, userId, onSaved }) => {
   if (editing) {
     return (
       <div
-        className="mt-3 p-2 bg-main/40 border border-accent/30 rounded-xl"
+        className="relative z-30 mt-3 p-2 bg-main/40 border border-accent/30 rounded-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <textarea
@@ -154,26 +154,26 @@ const LogNoteRow: React.FC<LogNoteRowProps> = ({ log, userId, onSaved }) => {
           className="w-full bg-surface border border-subtle rounded-lg px-2 py-1.5 text-[11px] text-content placeholder:text-muted/50 focus:outline-none focus:border-accent resize-none"
           autoFocus
         />
-        <div className="flex justify-end gap-2 mt-2">
+        <div className="relative z-40 flex justify-end gap-2 mt-2">
           <button
             type="button"
-            onClick={(e) => {
+            onPointerDown={(e) => {
               e.stopPropagation();
               setEditing(false);
               setValue(initial);
             }}
-            className="px-3 py-1 text-[10px] font-bold text-muted hover:text-content"
+            className="px-3 py-1 text-[10px] font-bold text-muted hover:text-content cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="button"
-            onClick={(e) => {
+            onPointerDown={(e) => {
               e.stopPropagation();
-              void save();
+              if (!saving) void save();
             }}
             disabled={saving}
-            className="px-3 py-1 text-[10px] font-bold bg-accent text-main rounded-lg disabled:opacity-50"
+            className="px-3 py-1 text-[10px] font-bold bg-accent text-main rounded-lg disabled:opacity-50 cursor-pointer"
           >
             {saving ? 'Saving…' : 'Save'}
           </button>
