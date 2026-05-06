@@ -142,7 +142,10 @@ const LogNoteRow: React.FC<LogNoteRowProps> = ({ log, userId, onSaved }) => {
 
   if (editing) {
     return (
-      <div className="mt-3 p-2 bg-main/40 border border-accent/30 rounded-xl">
+      <div
+        className="mt-3 p-2 bg-main/40 border border-accent/30 rounded-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <textarea
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -153,7 +156,9 @@ const LogNoteRow: React.FC<LogNoteRowProps> = ({ log, userId, onSaved }) => {
         />
         <div className="flex justify-end gap-2 mt-2">
           <button
-            onClick={() => {
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
               setEditing(false);
               setValue(initial);
             }}
@@ -162,7 +167,11 @@ const LogNoteRow: React.FC<LogNoteRowProps> = ({ log, userId, onSaved }) => {
             Cancel
           </button>
           <button
-            onClick={save}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              void save();
+            }}
             disabled={saving}
             className="px-3 py-1 text-[10px] font-bold bg-accent text-main rounded-lg disabled:opacity-50"
           >
@@ -176,7 +185,11 @@ const LogNoteRow: React.FC<LogNoteRowProps> = ({ log, userId, onSaved }) => {
   if (!initial) {
     return (
       <button
-        onClick={() => setEditing(true)}
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setEditing(true);
+        }}
         className="mt-3 text-[10px] font-bold text-muted/60 hover:text-accent uppercase tracking-widest"
       >
         + Add note
@@ -188,7 +201,11 @@ const LogNoteRow: React.FC<LogNoteRowProps> = ({ log, userId, onSaved }) => {
     <div className="mt-3 flex items-start gap-2 p-2 bg-main/30 border border-subtle rounded-xl">
       <p className="flex-1 text-[11px] text-content leading-snug italic">{initial}</p>
       <button
-        onClick={() => setEditing(true)}
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setEditing(true);
+        }}
         className="text-[10px] font-bold text-muted hover:text-accent uppercase tracking-widest"
       >
         Edit
