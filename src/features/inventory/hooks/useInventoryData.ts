@@ -446,7 +446,8 @@ export const useInventory = () => {
       qty: number,
       _isReversal?: boolean,
       internalNote?: string | null,
-      targetSublocation?: string[] | null
+      targetSublocation?: string[] | null,
+      moveNote?: string | null
     ) => {
       await mutMoveItem.mutateAsync({
         sourceItem,
@@ -455,6 +456,7 @@ export const useInventory = () => {
         qty,
         internalNote,
         targetSublocation,
+        moveNote,
       });
     },
     [mutMoveItem]

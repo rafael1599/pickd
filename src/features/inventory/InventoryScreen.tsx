@@ -514,6 +514,7 @@ export const InventoryScreen = () => {
       quantity: number;
       internalNote?: string | null;
       targetSublocation?: string[] | null;
+      moveNote?: string | null;
     }) => {
       try {
         await moveItem(
@@ -523,7 +524,8 @@ export const InventoryScreen = () => {
           moveData.quantity,
           undefined,
           moveData.internalNote,
-          moveData.targetSublocation
+          moveData.targetSublocation,
+          moveData.moveNote
         );
         toast.success('Stock successfully moved!');
       } catch (err: unknown) {

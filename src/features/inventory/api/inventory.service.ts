@@ -780,7 +780,8 @@ class InventoryService extends BaseService<
     qty: number,
     ctx: InventoryServiceContext,
     internalNote?: string | null,
-    targetSublocation?: string[] | null
+    targetSublocation?: string[] | null,
+    moveNote?: string | null
   ) {
     const { userInfo } = ctx;
 
@@ -798,6 +799,7 @@ class InventoryService extends BaseService<
       p_user_role: 'staff',
       ...(internalNote !== undefined && { p_internal_note: internalNote ?? undefined }),
       ...(targetSublocation !== undefined && { p_sublocation: targetSublocation ?? undefined }),
+      ...(moveNote !== undefined && { p_move_note: moveNote ?? undefined }),
     });
 
     if (error) {

@@ -104,6 +104,99 @@ interface ActionTypeInfo {
   orderId?: string | null;
 }
 
+interface LogNoteRowProps {
+  log: InventoryLog;
+  userId: string | null;
+  onSaved: () => void;
+}
+
+const LogNoteRow: React.FC<LogNoteRowProps> = ({ log, userId, onSaved }) => {
+  const initial = (log as InventoryLog & { note?: string | null }).note ?? '';
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(initial);
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (!userId) {
+      toast.error('Sign in to edit notes');
+      return;
+    }
+    setSaving(true);
+    try {
+      const { error } = await (supabase.rpc as CallableFunction)('update_inventory_log_note', {
+        p_log_id: log.id,
+        p_note: value,
+        p_user_id: userId,
+      });
+      if (error) throw error;
+      toast.success('Note saved');
+      setEditing(false);
+      onSaved();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to save note';
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (editing) {
+    return (
+      <div className="mt-3 p-2 bg-main/40 border border-accent/30 rounded-xl">
+        <textarea
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          rows={2}
+          placeholder="Note (optional)"
+          className="w-full bg-surface border border-subtle rounded-lg px-2 py-1.5 text-[11px] text-content placeholder:text-muted/50 focus:outline-none focus:border-accent resize-none"
+          autoFocus
+        />
+        <div className="flex justify-end gap-2 mt-2">
+          <button
+            onClick={() => {
+              setEditing(false);
+              setValue(initial);
+            }}
+            className="px-3 py-1 text-[10px] font-bold text-muted hover:text-content"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={save}
+            disabled={saving}
+            className="px-3 py-1 text-[10px] font-bold bg-accent text-main rounded-lg disabled:opacity-50"
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!initial) {
+    return (
+      <button
+        onClick={() => setEditing(true)}
+        className="mt-3 text-[10px] font-bold text-muted/60 hover:text-accent uppercase tracking-widest"
+      >
+        + Add note
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-3 flex items-start gap-2 p-2 bg-main/30 border border-subtle rounded-xl">
+      <p className="flex-1 text-[11px] text-content leading-snug italic">{initial}</p>
+      <button
+        onClick={() => setEditing(true)}
+        className="text-[10px] font-bold text-muted hover:text-accent uppercase tracking-widest"
+      >
+        Edit
+      </button>
+    </div>
+  );
+};
+
 export const HistoryScreen = () => {
   const { isAdmin, profile, user: authUser } = useAuth();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -723,7 +816,8 @@ export const HistoryScreen = () => {
   const generateDailyPDF = useCallback(
     (
       jsPDFInstance: typeof import('jspdf').default,
-      autoTableInstance: typeof import('jspdf-autotable').default
+      autoTableInstance: typeof import('jspdf-autotable').default,
+      reportNote?: string | null
     ) => {
       const doc = new jsPDFInstance({
         orientation: 'landscape',
@@ -796,6 +890,21 @@ export const HistoryScreen = () => {
       });
 
       let currentY = 25;
+
+      // idea-111 piece 3 — optional report-note rendered above the table.
+      if (reportNote && reportNote.trim().length > 0) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(11);
+        const wrapped = doc.splitTextToSize(reportNote.trim(), 287);
+        const lineHeight = 6;
+        const noteHeight = wrapped.length * lineHeight + 6;
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.4);
+        doc.rect(5, currentY - 4, 287, noteHeight);
+        doc.text(wrapped, 8, currentY + 2);
+        currentY += noteHeight + 4;
+      }
+
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(14);
       doc.text('SKU', 5, currentY);
@@ -807,6 +916,11 @@ export const HistoryScreen = () => {
         const fromLoc = log.from_location || '';
         const toLoc = log.to_location || '';
         const qty = getDisplayQty(log);
+        // idea-111: per-action note rendered inline in the activity text.
+        // For FedEx Returns the note is "FedEx Return <tracking>" — strip the
+        // prefix so the parenthetical reads "(<tracking>)".
+        const rawNote = (log as InventoryLog & { note?: string | null }).note;
+        const noteParen = rawNote ? ` (${rawNote.replace(/^FedEx Return\s+/i, '')})` : '';
 
         let activity = '';
         switch (log.action_type) {
@@ -816,31 +930,31 @@ export const HistoryScreen = () => {
             // WinAnsiEncoding and does not include U+2192.
             const path = movePathBySkuQty.get(`${log.sku}::${qty}`) ?? [];
             const chain = path.length > 0 ? path.join(' -> ') : `${fromLoc} -> ${toLoc}`;
-            activity = `Moved ${chain}`;
+            activity = `Moved${noteParen} ${chain}`;
             break;
           }
           case 'ADD':
-            activity = `Added ${qty} to ${toLoc || fromLoc || 'GEN'}`;
+            activity = `Added${noteParen} ${qty} to ${toLoc || fromLoc || 'GEN'}`;
             break;
           case 'DEDUCT':
             activity = log.order_number
-              ? `Picked from ${fromLoc || 'GEN'} in #${log.order_number}`
-              : `Picked ${qty} from ${fromLoc || 'GEN'}`;
+              ? `Picked from ${fromLoc || 'GEN'} in #${log.order_number}${noteParen}`
+              : `Picked${noteParen} ${qty} from ${fromLoc || 'GEN'}`;
             break;
           case 'DELETE':
-            activity = `Removed from ${fromLoc || 'INV'}`;
+            activity = `Removed${noteParen} from ${fromLoc || 'INV'}`;
             break;
           case 'EDIT':
-            activity = `Edited at ${toLoc || fromLoc || 'INV'}`;
+            activity = `Edited${noteParen} at ${toLoc || fromLoc || 'INV'}`;
             break;
           case 'PHYSICAL_DISTRIBUTION':
-            activity = `Verified at ${toLoc || fromLoc || 'INV'}`;
+            activity = `Verified${noteParen} at ${toLoc || fromLoc || 'INV'}`;
             break;
           case 'SYSTEM_RECONCILIATION':
-            activity = 'Reconciliation';
+            activity = `Reconciliation${noteParen}`;
             break;
           default:
-            activity = `${log.action_type} at ${toLoc || fromLoc || '—'}`;
+            activity = `${log.action_type}${noteParen} at ${toLoc || fromLoc || '—'}`;
         }
 
         if (log.is_reversed) {
@@ -877,6 +991,9 @@ export const HistoryScreen = () => {
     [filteredLogs, filter, userFilter, timeFilter, getDisplayQty]
   );
 
+  const [reportNoteOpen, setReportNoteOpen] = useState(false);
+  const [reportNote, setReportNote] = useState('');
+
   const handleDownloadReport = useCallback(async () => {
     try {
       setManualLoading(true);
@@ -885,17 +1002,19 @@ export const HistoryScreen = () => {
         import('jspdf'),
         import('jspdf-autotable'),
       ]);
-      const doc = generateDailyPDF(jsPDF, autoTable);
+      const doc = generateDailyPDF(jsPDF, autoTable, reportNote.trim() || null);
       const blob = doc.output('bloburl');
       window.open(blob, '_blank');
       toast.success('History report opened in new tab');
+      setReportNoteOpen(false);
+      setReportNote('');
     } catch (err: unknown) {
       console.error('Failed to generate PDF:', err);
       showError('Error generating PDF report.', err instanceof Error ? err.message : String(err));
     } finally {
       setManualLoading(false);
     }
-  }, [filteredLogs, generateDailyPDF, showError]);
+  }, [generateDailyPDF, showError, reportNote]);
 
   return (
     <div className="pb-32 relative max-w-2xl mx-auto w-full px-4">
@@ -1256,6 +1375,9 @@ export const HistoryScreen = () => {
                           </div>
                         </div>
                       )}
+
+                      {/* idea-111: per-action note display + edit affordance */}
+                      <LogNoteRow log={log} userId={authUser?.id ?? null} onSaved={fetchLogs} />
                     </div>
                   );
                 })}
@@ -1267,7 +1389,7 @@ export const HistoryScreen = () => {
 
       <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 p-2 ios-glass rounded-full shadow-2xl animate-in slide-in-from-bottom-4 duration-700">
         <button
-          onClick={handleDownloadReport}
+          onClick={() => setReportNoteOpen(true)}
           className="px-6 h-12 bg-accent text-main rounded-full flex items-center gap-2 shadow-lg shadow-accent/20 hover:scale-105 active:scale-90 ios-transition font-black uppercase tracking-widest text-[10px]"
           title="Download Daily Report"
         >
@@ -1275,6 +1397,50 @@ export const HistoryScreen = () => {
           Report
         </button>
       </div>
+
+      {reportNoteOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => !manualLoading && setReportNoteOpen(false)}
+        >
+          <div
+            className="bg-card border border-subtle rounded-2xl w-full max-w-md p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-base font-bold text-content mb-1">Report note (optional)</h2>
+            <p className="text-[11px] text-muted mb-3">
+              Shown above the table on the PDF. Leave blank to skip.
+            </p>
+            <textarea
+              value={reportNote}
+              onChange={(e) => setReportNote(e.target.value)}
+              rows={3}
+              placeholder="e.g. End-of-day verification — 2026-05-06"
+              className="w-full bg-surface border border-subtle rounded-xl px-3 py-2 text-sm text-content placeholder:text-muted/50 focus:outline-none focus:border-accent resize-none"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => {
+                  setReportNoteOpen(false);
+                  setReportNote('');
+                }}
+                disabled={manualLoading}
+                className="px-4 py-2 rounded-xl text-[11px] font-bold text-muted hover:text-content"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDownloadReport}
+                disabled={manualLoading}
+                className="px-4 py-2 rounded-xl text-[11px] font-bold bg-accent text-main hover:opacity-90 disabled:opacity-50"
+              >
+                {manualLoading ? 'Generating…' : 'Generate PDF'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
