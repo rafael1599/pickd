@@ -570,7 +570,7 @@ export const usePickingSync = ({
           if (data.group_id) {
             const { data: siblings } = await supabase
               .from('picking_lists')
-              .select('items, order_number')
+              .select('id, items, order_number')
               .eq('group_id', data.group_id)
               .neq('id', listId)
               .neq('status', 'completed')
@@ -578,18 +578,23 @@ export const usePickingSync = ({
 
             if (siblings && siblings.length > 0) {
               const orderNumbers = [data.order_number];
+              // Tag anchor items with their owning list_id so per-item RPCs
+              // (pick_item / unpick_item) route to the correct picking_list.
+              allItems = allItems.map((item) => ({
+                ...item,
+                source_order: item.source_order || data.order_number || 'unknown',
+                source_list_id: item.source_list_id || (data.id as string),
+              }));
               for (const sibling of siblings) {
                 const siblingItems = (sibling.items as unknown as CartItem[]) || [];
                 const taggedItems = siblingItems.map((item) => ({
                   ...item,
                   source_order: sibling.order_number || 'unknown',
+                  source_list_id: sibling.id as string,
                 }));
                 allItems = [...allItems, ...taggedItems];
                 if (sibling.order_number) orderNumbers.push(sibling.order_number);
               }
-              allItems = allItems.map((item) =>
-                item.source_order ? item : { ...item, source_order: data.order_number || 'unknown' }
-              );
               combinedOrderNumber = orderNumbers.filter(Boolean).join(' / ');
             }
           }

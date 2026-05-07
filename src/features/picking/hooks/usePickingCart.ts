@@ -6,6 +6,7 @@ import type { Customer } from '../../../types/schema';
 export interface CartItem extends InventoryItemWithMetadata {
   pickingQty: number;
   source_order?: string;
+  source_list_id?: string;
 }
 
 const LOCAL_STORAGE_KEY = 'picking_cart_items';

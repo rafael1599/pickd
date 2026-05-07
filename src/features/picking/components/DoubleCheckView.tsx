@@ -64,6 +64,7 @@ export interface PickingItem {
   item_name?: string | null;
   description?: string | null;
   source_order?: string;
+  source_list_id?: string;
   isStackedPart?: boolean;
   sku_metadata?: {
     image_url?: string | null;

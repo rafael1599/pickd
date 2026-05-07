@@ -325,11 +325,14 @@ export const PickingCartDrawer: React.FC = () => {
       return;
     }
     const rpcName = isChecking ? 'pick_item' : 'unpick_item';
+    // For grouped orders, items merged from sibling lists carry source_list_id —
+    // route the RPC to the list that actually owns the item, not the anchor.
+    const targetListId = item.source_list_id ?? activeListId;
     void supabase
       .rpc(
         rpcName as never,
         {
-          p_list_id: activeListId,
+          p_list_id: targetListId,
           p_sku: item.sku,
           p_warehouse: item.warehouse,
           p_location: item.location,
