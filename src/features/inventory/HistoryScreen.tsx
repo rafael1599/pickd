@@ -32,6 +32,24 @@ import { useModal } from '../../context/ModalContext';
 
 import type { InventoryLog, LogActionTypeValue } from '../../schemas/log.schema';
 
+/** Format a yyyy-mm-dd ISO date as 'May 5' for the custom-range button. */
+const formatRangeLabel = (iso: string): string => {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return iso;
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
+
+/** Today as yyyy-mm-dd in local time, used as the default upper bound. */
+const todayIsoLocal = (): string => {
+  const d = new Date();
+  const yr = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, '0');
+  const da = String(d.getDate()).padStart(2, '0');
+  return `${yr}-${mo}-${da}`;
+};
+
 /** Snapshot shape used by PHYSICAL_DISTRIBUTION logs */
 interface DistributionSnapshot {
   type?: string;
@@ -227,6 +245,10 @@ export const HistoryScreen = () => {
   const [filter, setFilter] = useState<LogActionTypeValue | 'ALL'>('ALL');
   const [userFilter, setUserFilter] = useState('ALL');
   const [timeFilter, setTimeFilter] = useState('TODAY');
+  // ISO yyyy-mm-dd inclusive range. Used when timeFilter === 'CUSTOM'.
+  const [customFrom, setCustomFrom] = useState<string>('');
+  const [customTo, setCustomTo] = useState<string>('');
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [undoingId, setUndoingId] = useState<string | null>(null);
   const { isSearching } = useViewMode();
@@ -246,7 +268,7 @@ export const HistoryScreen = () => {
     error: queryError,
     refetch,
   } = useQuery({
-    queryKey: ['inventory_logs', timeFilter],
+    queryKey: ['inventory_logs', timeFilter, customFrom, customTo],
     queryFn: async () => {
       let query = supabase
         .from('inventory_logs')
@@ -280,8 +302,19 @@ export const HistoryScreen = () => {
         const lastMonth = new Date(startOfToday);
         lastMonth.setMonth(lastMonth.getMonth() - 1);
         query = query.gte('created_at', lastMonth.toISOString());
+      } else if (timeFilter === 'CUSTOM' && customFrom && customTo) {
+        // Inclusive day range. From = local 00:00 of customFrom; To = end
+        // of customTo (next day 00:00 - 1ms). Both treated as local time
+        // so the operator's date picker matches what they see.
+        const [fy, fm, fd] = customFrom.split('-').map(Number);
+        const [ty, tm, td] = customTo.split('-').map(Number);
+        const fromDate = new Date(fy, fm - 1, fd, 0, 0, 0, 0);
+        const toDate = new Date(ty, tm - 1, td + 1, 0, 0, 0, -1);
+        query = query
+          .gte('created_at', fromDate.toISOString())
+          .lte('created_at', toDate.toISOString());
       } else {
-        query = query.limit(300); // Increased limit for ALL
+        query = query.limit(300);
       }
 
       const { data, error } = await query;
@@ -1145,10 +1178,16 @@ export const HistoryScreen = () => {
               <div className="shrink-0 p-2 bg-surface/50 rounded-full border border-subtle">
                 <Clock size={14} className="text-muted" />
               </div>
-              {['TODAY', 'YESTERDAY', 'WEEK', 'MONTH', 'ALL'].map((tf) => (
+              {['TODAY', 'YESTERDAY', 'WEEK', 'MONTH'].map((tf) => (
                 <button
                   key={tf}
-                  onClick={() => setTimeFilter(tf)}
+                  onClick={() => {
+                    setTimeFilter(tf);
+                    if (timeFilter === 'CUSTOM') {
+                      setCustomFrom('');
+                      setCustomTo('');
+                    }
+                  }}
                   className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border shrink-0 ${
                     timeFilter === tf
                       ? 'bg-accent border-accent/20 text-main shadow-lg shadow-accent/20'
@@ -1158,6 +1197,19 @@ export const HistoryScreen = () => {
                   {tf.toLowerCase()}
                 </button>
               ))}
+              <button
+                onClick={() => setDatePickerOpen(true)}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border shrink-0 ${
+                  timeFilter === 'CUSTOM'
+                    ? 'bg-accent border-accent/20 text-main shadow-lg shadow-accent/20'
+                    : 'bg-surface text-muted border-subtle hover:border-muted/30'
+                }`}
+              >
+                <Calendar size={12} />
+                {timeFilter === 'CUSTOM' && customFrom && customTo
+                  ? `${formatRangeLabel(customFrom)} → ${formatRangeLabel(customTo)}`
+                  : 'Custom Range'}
+              </button>
             </div>
           </>
         )}
@@ -1525,6 +1577,91 @@ export const HistoryScreen = () => {
               >
                 {manualLoading ? 'Generating…' : 'Generate PDF'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {datePickerOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => setDatePickerOpen(false)}
+        >
+          <div
+            className="bg-card border border-subtle rounded-2xl w-full max-w-md p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-base font-bold text-content mb-1">Custom date range</h2>
+            <p className="text-[11px] text-muted mb-4">
+              Pick a start and end date. Both days are included.
+            </p>
+
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div>
+                <label className="text-[10px] font-black text-muted uppercase tracking-widest mb-1 block">
+                  From
+                </label>
+                <input
+                  type="date"
+                  value={customFrom}
+                  max={customTo || todayIsoLocal()}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  className="w-full bg-surface border border-subtle rounded-xl px-3 py-2 text-sm text-content focus:outline-none focus:border-accent"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-muted uppercase tracking-widest mb-1 block">
+                  To
+                </label>
+                <input
+                  type="date"
+                  value={customTo}
+                  min={customFrom || undefined}
+                  max={todayIsoLocal()}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  className="w-full bg-surface border border-subtle rounded-xl px-3 py-2 text-sm text-content focus:outline-none focus:border-accent"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <button
+                onClick={() => {
+                  setCustomFrom('');
+                  setCustomTo('');
+                  setTimeFilter('TODAY');
+                  setDatePickerOpen(false);
+                }}
+                className="px-3 py-2 text-[11px] font-bold text-muted hover:text-content"
+              >
+                Clear
+              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setDatePickerOpen(false)}
+                  className="px-4 py-2 rounded-xl text-[11px] font-bold text-muted hover:text-content"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (!customFrom || !customTo) {
+                      toast.error('Pick both dates');
+                      return;
+                    }
+                    if (customFrom > customTo) {
+                      toast.error('From date must be before To');
+                      return;
+                    }
+                    setTimeFilter('CUSTOM');
+                    setDatePickerOpen(false);
+                  }}
+                  disabled={!customFrom || !customTo}
+                  className="px-4 py-2 rounded-xl text-[11px] font-bold bg-accent text-main hover:opacity-90 disabled:opacity-50"
+                >
+                  Apply
+                </button>
+              </div>
             </div>
           </div>
         </div>
