@@ -844,170 +844,12 @@ export const HistoryScreen = () => {
       });
       const today = new Date().toLocaleDateString('es-ES');
 
-      // ── AS400 SYNC MODE ─────────────────────────────────────────────
-      // Compresses today's activity to a per-(sku,location) "WAS → NOW"
-      // table for the encargada to update the legacy AS400 system. No
-      // intermediate hops, no users, no timestamps. Notes ride along on
-      // a second line if the operator added them.
-      if (mode === 'as400') {
-        type Endpoint = { qty: number; loc: string | null };
-        type Row = {
-          sku: string;
-          itemName?: string | null;
-          location: string;
-          wasQty: number | null; // null → didn't exist there at start of day
-          nowQty: number | null; // null → no longer exists there
-          notes: string[];
-        };
-
-        // Build per-(sku, location) start-of-day + end-of-day endpoints by
-        // walking the day's logs chronologically. previous_quantity gives the
-        // 'before' state of the row at the time of the FIRST log touching it.
-        const endpoints = new Map<
-          string,
-          {
-            was: Endpoint | null;
-            now: Endpoint | null;
-            itemName?: string | null;
-            notes: Set<string>;
-          }
-        >();
-        const noteOf = (l: InventoryLog & { note?: string | null }) => (l.note ?? '').trim();
-        const ascending = [...filteredLogs].reverse();
-
-        const upsert = (
-          sku: string,
-          loc: string,
-          was: number | null,
-          now: number | null,
-          itemName: string | null | undefined,
-          note: string
-        ) => {
-          const key = `${sku}::${loc}`;
-          const e = endpoints.get(key) ?? {
-            was: null,
-            now: null,
-            itemName,
-            notes: new Set<string>(),
-          };
-          if (e.was === null && was !== null) e.was = { qty: was, loc };
-          if (now !== null) e.now = { qty: now, loc };
-          if (note) e.notes.add(note);
-          if (!e.itemName && itemName) e.itemName = itemName;
-          endpoints.set(key, e);
-        };
-
-        for (const log of ascending) {
-          const sku = log.sku;
-          if (!sku) continue;
-          const note = noteOf(log as InventoryLog & { note?: string | null });
-          const itemName = (log as InventoryLog & { item_name?: string | null }).item_name ?? null;
-          if (log.action_type === 'MOVE') {
-            const fromLoc = log.from_location || '';
-            const toLoc = log.to_location || '';
-            const qty = getDisplayQty(log);
-            if (fromLoc) {
-              const prev = log.prev_quantity ?? null;
-              const newAtFrom = prev !== null ? prev - qty : null;
-              upsert(sku, fromLoc, prev, newAtFrom, itemName, note);
-            }
-            if (toLoc) {
-              const newQ = log.new_quantity ?? null;
-              const wasAtTo = newQ !== null ? newQ - qty : null;
-              upsert(sku, toLoc, wasAtTo, newQ, itemName, note);
-            }
-          } else {
-            const loc = log.to_location || log.from_location || '';
-            if (!loc) continue;
-            const prev = log.prev_quantity ?? null;
-            const now = log.new_quantity ?? null;
-            upsert(sku, loc, prev, now, itemName, note);
-          }
-        }
-
-        const rows: Row[] = [];
-        for (const [key, e] of endpoints) {
-          const [sku, location] = key.split('::');
-          const wasQty = e.was?.qty ?? null;
-          const nowQty = e.now?.qty ?? null;
-          // Skip if nothing actually changed at this (sku, location)
-          if (wasQty === nowQty && !((wasQty === null) !== (nowQty === null))) continue;
-          rows.push({
-            sku,
-            itemName: e.itemName,
-            location,
-            wasQty,
-            nowQty,
-            notes: Array.from(e.notes).filter(Boolean),
-          });
-        }
-        rows.sort((a, b) => a.sku.localeCompare(b.sku) || a.location.localeCompare(b.location));
-
-        let title = 'History — AS400 Sync';
-        if (userFilter !== 'ALL') title += ` (${userFilter})`;
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(20);
-        doc.text(title, 5, 15);
-        doc.text(`${today} · ${rows.length} item${rows.length === 1 ? '' : 's'} changed`, 292, 15, {
-          align: 'right',
-        });
-
-        let currentY = 25;
-        if (reportNote && reportNote.trim().length > 0) {
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(11);
-          const wrapped = doc.splitTextToSize(reportNote.trim(), 287);
-          const lineHeight = 6;
-          const noteHeight = wrapped.length * lineHeight + 6;
-          doc.setDrawColor(0);
-          doc.setLineWidth(0.4);
-          doc.rect(5, currentY - 4, 287, noteHeight);
-          doc.text(wrapped, 8, currentY + 2);
-          currentY += noteHeight + 4;
-        }
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(14);
-        doc.text('SKU', 5, currentY);
-        doc.text('WAS', 105, currentY);
-        doc.text('NOW', 200, currentY);
-        currentY += 4;
-
-        const tableBody = rows.map((r) => {
-          const wasCell = r.wasQty === null ? '—' : `${r.location} (${r.wasQty})`;
-          const nowCell = r.nowQty === null || r.nowQty === 0 ? '—' : `${r.location} (${r.nowQty})`;
-          const skuCell = r.notes.length > 0 ? `${r.sku}\n${r.notes.join(' · ')}` : r.sku;
-          return [skuCell, wasCell, nowCell];
-        });
-
-        autoTableInstance(doc, {
-          startY: currentY,
-          body: tableBody,
-          theme: 'plain',
-          styles: {
-            fontSize: 22,
-            cellPadding: 5,
-            minCellHeight: 14,
-            textColor: [0, 0, 0],
-            lineColor: [0, 0, 0],
-            lineWidth: 0.6,
-            font: 'helvetica',
-            valign: 'top',
-          },
-          columnStyles: {
-            0: { cellWidth: 100, fontStyle: 'bold', fontSize: 28, halign: 'left' },
-            1: { cellWidth: 95, fontSize: 22, halign: 'left' },
-            2: { cellWidth: 'auto', fontSize: 26, fontStyle: 'bold', halign: 'left' },
-          },
-          margin: { top: 5, right: 5, bottom: 5, left: 5 },
-        });
-
-        return doc;
-      }
-
-      // ── FULL MODE (existing flow with two improvements) ─────────────
-      let title = 'History';
+      // ── Title differs by mode ───────────────────────────────────────
+      // AS400 Sync = same table as Full, with two operational tweaks:
+      //   - Multi-hop MOVE chains collapse to endpoints (no 'via X -> Y')
+      //   - Rows sorted alphabetically by SKU for fast scanning
+      // Full = chronological + chain hops on a small second line.
+      let title = mode === 'as400' ? 'History — AS400 Sync' : 'History';
       if (filter !== 'ALL') {
         const labels: Record<string, string> = {
           MOVE: 'Movements',
@@ -1110,7 +952,10 @@ export const HistoryScreen = () => {
             const first = path[0] ?? fromLoc;
             const last = path[path.length - 1] ?? toLoc;
             activity = `Moved ${first} -> ${last}`;
-            if (path.length > 2) {
+            // AS400 Sync hides intermediate hops — the encargada only needs
+            // the endpoints to reconcile the legacy system. Full mode keeps
+            // the full chain on a small second line.
+            if (mode !== 'as400' && path.length > 2) {
               chainHops = `via ${path.slice(1, -1).join(' -> ')}`;
             }
             break;
@@ -1153,9 +998,16 @@ export const HistoryScreen = () => {
         return [log.sku, cellText, qty.toString()];
       });
 
+      // AS400 Sync: alphabetical scan beats chronological. Locale-compare so
+      // numeric suffixes ('03-3' < '03-30') sort intuitively.
+      const tableBody =
+        mode === 'as400'
+          ? [...tableData].sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+          : tableData;
+
       autoTableInstance(doc, {
         startY: currentY,
-        body: tableData,
+        body: tableBody,
         theme: 'plain',
         styles: {
           fontSize: 22,
