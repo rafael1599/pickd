@@ -155,7 +155,7 @@ export const InventoryCard = memo(
                     >
                       {location}
                       {sublocation && sublocation.length > 0 && (
-                        <span className="ml-1 text-[9px] font-black bg-accent/15 text-accent px-1 py-0.5 rounded border border-accent/20">
+                        <span className="ml-1 text-[10px] font-black uppercase tracking-tighter bg-accent/15 text-accent px-1.5 py-0.5 rounded border border-accent/20">
                           {sublocation.join(',')}
                         </span>
                       )}
