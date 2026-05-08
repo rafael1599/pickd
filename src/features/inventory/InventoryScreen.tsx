@@ -95,21 +95,10 @@ export const InventoryScreen = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
 
-  // Text scaler — operator-controlled zoom for the stock view. Persisted in
-  // localStorage so the chosen size survives refresh. Range 70%–200%, 5% step.
-  // Once we settle on the right number, we bake it as default and remove the
-  // floating control.
-  const [stockScale, setStockScale] = useState<number>(() => {
-    if (typeof window === 'undefined') return 1;
-    const saved = window.localStorage.getItem('stock_view_scale');
-    const n = saved ? parseFloat(saved) : NaN;
-    return Number.isFinite(n) && n >= 0.7 && n <= 2 ? n : 1;
-  });
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('stock_view_scale', String(stockScale));
-    }
-  }, [stockScale]);
+  // Stock view text scale — baked at 155% per operator dial-in. Buttons inside
+  // InventoryCard counter-scale to 125% of baseline (~0.806 zoom relative to
+  // the 1.55 parent) so they don't dominate the card. See InventoryCard.
+  const STOCK_SCALE = 1.55;
 
   // Auto-load more when sentinel enters viewport (with cooldown to prevent tight loop)
   const loadCooldownRef = useRef(false);
@@ -684,43 +673,6 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
     <div className="pb-4 relative">
       <SessionInitializationModal />
 
-      {/* Temporary text-scaler control. Lets the operator dial in a comfortable
-          size for the stock view; the chosen value is persisted to
-          localStorage. Once we settle on a number we'll bake it as default and
-          remove this floating widget. Hidden in picking mode and during search. */}
-      {viewMode === 'stock' && !isSearching && (
-        <div className="fixed top-20 right-3 z-50 flex items-center gap-1 bg-card/90 backdrop-blur border border-subtle rounded-full shadow-lg px-2 py-1">
-          <button
-            type="button"
-            onClick={() => setStockScale((s) => Math.max(0.7, +(s - 0.05).toFixed(2)))}
-            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-main/40 text-content text-base font-black"
-            aria-label="Decrease stock view text size"
-          >
-            −
-          </button>
-          <span className="text-[10px] font-black tabular-nums text-muted uppercase tracking-widest min-w-[3rem] text-center">
-            {Math.round(stockScale * 100)}%
-          </span>
-          <button
-            type="button"
-            onClick={() => setStockScale((s) => Math.min(2, +(s + 0.05).toFixed(2)))}
-            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-main/40 text-content text-base font-black"
-            aria-label="Increase stock view text size"
-          >
-            +
-          </button>
-          <button
-            type="button"
-            onClick={() => setStockScale(1)}
-            disabled={stockScale === 1}
-            className="px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-muted hover:text-content disabled:opacity-40"
-            aria-label="Reset stock view text size"
-          >
-            Reset
-          </button>
-        </div>
-      )}
-
       <SearchInput
         ref={searchInputRef}
         value={localSearch}
@@ -873,8 +825,8 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                   key={`${wh}-${location}`}
                   className="space-y-2 max-w-2xl mx-auto"
                   style={
-                    viewMode === 'stock' && stockScale !== 1
-                      ? ({ zoom: stockScale } as React.CSSProperties)
+                    viewMode === 'stock'
+                      ? ({ zoom: STOCK_SCALE } as React.CSSProperties)
                       : undefined
                   }
                 >

@@ -260,7 +260,11 @@ export const InventoryCard = memo(
             </div>
 
             {mode === 'stock' && (
-              <div className="flex gap-2 mt-0.5">
+              // Stock view bakes a 1.55 zoom on the location card so all the
+              // text reads at arm's length. The action buttons would dominate
+              // at that size — counter-scale to 1.25 effective (≈0.806 of the
+              // 1.55 parent) so they stay comfortable but not gigantic.
+              <div className="flex gap-2 mt-0.5" style={{ zoom: 0.806 } as React.CSSProperties}>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
