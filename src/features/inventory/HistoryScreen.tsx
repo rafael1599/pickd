@@ -312,9 +312,19 @@ export const HistoryScreen = () => {
         const toDate = new Date(ty, tm - 1, td + 1, 0, 0, 0, -1);
         query = query
           .gte('created_at', fromDate.toISOString())
-          .lte('created_at', toDate.toISOString());
+          .lte('created_at', toDate.toISOString())
+          // Multi-month ranges easily exceed Supabase's default 1000-row
+          // ceiling. Bump to 50k for parity with the activity-report
+          // approach.
+          .limit(50_000);
       } else {
         query = query.limit(300);
+      }
+
+      // WEEK / MONTH ranges can also exceed the default; raise their cap
+      // so we don't silently truncate historical data.
+      if (timeFilter === 'WEEK' || timeFilter === 'MONTH') {
+        query = query.limit(50_000);
       }
 
       const { data, error } = await query;
@@ -898,37 +908,45 @@ export const HistoryScreen = () => {
         title += ` (${userFilter})`;
       }
 
-      // Collapse MOVE rows: when the same SKU was relocated multiple times
-      // the same day with the same qty, it is almost always the same batch
-      // passing through hops (ROW 14 → ROW 32 → ROW 33). Print one row that
-      // shows the full path instead of N noisy rows. Build a per-(sku,qty)
-      // index of the chained locations, oldest hop first.
+      // Collapse MOVE rows ONLY when looking at a single day's activity.
+      // Across a multi-day range the same (sku, qty) typically represents
+      // distinct moves (e.g. bike A moved March, returned April) — collapsing
+      // them loses real audit information and dramatically under-reports
+      // history (one customer reported 640 moves displayed as 100). Today's
+      // chains stay collapsed because intermediate hops are noise.
+      const collapseChains = timeFilter === 'TODAY';
+
       const movePathBySkuQty = new Map<string, string[]>();
-      // Iterate oldest-first so the path reads left-to-right naturally.
-      // filteredLogs is sorted DESC, so reverse a shallow copy.
-      for (const log of [...filteredLogs].reverse()) {
-        if (log.action_type !== 'MOVE') continue;
-        const qty = getDisplayQty(log);
-        const key = `${log.sku}::${qty}`;
-        const path = movePathBySkuQty.get(key) ?? [];
-        const from = log.from_location || '';
-        const to = log.to_location || '';
-        if (path.length === 0 && from) path.push(from);
-        if (to && path[path.length - 1] !== to) path.push(to);
-        movePathBySkuQty.set(key, path);
+      if (collapseChains) {
+        // Iterate oldest-first so the path reads left-to-right naturally.
+        // filteredLogs is sorted DESC, so reverse a shallow copy.
+        for (const log of [...filteredLogs].reverse()) {
+          if (log.action_type !== 'MOVE') continue;
+          const qty = getDisplayQty(log);
+          const key = `${log.sku}::${qty}`;
+          const path = movePathBySkuQty.get(key) ?? [];
+          const from = log.from_location || '';
+          const to = log.to_location || '';
+          if (path.length === 0 && from) path.push(from);
+          if (to && path[path.length - 1] !== to) path.push(to);
+          movePathBySkuQty.set(key, path);
+        }
       }
 
       // Dedupe MOVE rows in the table: keep only the most recent log per
       // (sku, qty). The activity column will pull the full chained path
-      // from movePathBySkuQty so no audit info is hidden.
+      // from movePathBySkuQty so no audit info is hidden. Disabled for
+      // multi-day ranges per the same reasoning above.
       const seenMove = new Set<string>();
-      const dedupedLogs = filteredLogs.filter((log) => {
-        if (log.action_type !== 'MOVE') return true;
-        const key = `${log.sku}::${getDisplayQty(log)}`;
-        if (seenMove.has(key)) return false;
-        seenMove.add(key);
-        return true;
-      });
+      const dedupedLogs = collapseChains
+        ? filteredLogs.filter((log) => {
+            if (log.action_type !== 'MOVE') return true;
+            const key = `${log.sku}::${getDisplayQty(log)}`;
+            if (seenMove.has(key)) return false;
+            seenMove.add(key);
+            return true;
+          })
+        : filteredLogs;
 
       const stats = {
         total: dedupedLogs.length,
