@@ -8,9 +8,11 @@ WHAT'S BETTER NOW:
 - Reports across multiple days used to chain unrelated moves of the same item into one confusing line — now each move stands on its own row so the audit trail is honest.
 - The AS400 sync report now arrives sorted alphabetically by SKU with a simple from-to per move, ready to copy into the legacy system without parsing through the trip history.
 - Picking an item that had drifted to a sibling order in a combined group used to fail with a vague error — now it lands on the right list automatically and the group's stock stays accurate.
+- The Stock view used to need a lean-in to read SKU and shelf labels — now the cards read comfortably at arm's length while the action buttons stay sized so they don't dominate.
+- Stock cards used to spend space on box dimensions and weight that the floor team never used — now each card shows the storage breakdown, free space on the row, and a sublocation tag pinned to the same spot on every card.
 
 COMING UP NEXT:
 - Tablet sizing for the picking screen so SKU and shelf labels read at arm's length.
 - Sweep the historical FedEx Returns duplicates so the queue reflects only real items.
 
-5 done today / 12 in the queue (5 high priority, 7 medium)
+8 done today / 12 in the queue (5 high priority, 7 medium)
