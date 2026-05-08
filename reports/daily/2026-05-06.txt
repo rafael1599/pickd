@@ -1,0 +1,18 @@
+Progress Update — May 6, 2026 at 12:34 PM
+
+WIN OF THE DAY:
+FedEx returns now flow through the system in a single tap — return to stock, dispose, or process — with smarter search that finds the right bike even with missing dashes, and every inventory move can carry a note explaining why.
+
+WHAT'S BETTER NOW:
+- Returning a bike to stock used to leave behind a duplicate placeholder and a phantom unit on the shelf — now one tap renames the placeholder, moves it to the destination, and closes the return automatically.
+- Searching for a model in the return flow used to demand the exact SKU with dashes — now it finds the right bike even when the typed format is off, and shows the catalog photo so verifiers don't second-guess.
+- A damaged-on-arrival return used to require inventing a fake destination — now a Dispose button drains it cleanly with an optional reason that travels into the audit trail.
+- Every inventory move can now carry a note explaining the why, and notes can also be added or edited later from history without redoing the move.
+- The daily report PDF can now lead with a custom note above the table, and the FedEx returns block joins the report so the team sees today's intake in one place.
+- On a tablet, the bike SKU and shelf location show roughly twice as large — the picker can read them at arm's length even under harsh warehouse lighting.
+
+COMING UP NEXT:
+- Sweep the historical FedEx Returns duplicates so the queue reflects only real items going forward.
+- Decide whether to bring tablet sizing improvements to the picking screen too.
+
+7 done today / 11 in the queue (5 high priority, 6 medium)

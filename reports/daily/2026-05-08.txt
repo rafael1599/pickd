@@ -1,0 +1,16 @@
+Progress Update — May 8, 2026 at 2:21 PM
+
+WIN OF THE DAY:
+The history report now anchors AS400 sync work — pulling any past window is two date taps, with each SKU's start and end position laid out alphabetically and the noisy sideways hops kept out of the way for the AS400 admin to scan.
+
+WHAT'S BETTER NOW:
+- Pulling historical activity used to top out around 100 moves no matter the range — now picking any from/to date brings back every move that happened in the window.
+- Reports across multiple days used to chain unrelated moves of the same item into one confusing line — now each move stands on its own row so the audit trail is honest.
+- The AS400 sync report now arrives sorted alphabetically by SKU with a simple from-to per move, ready to copy into the legacy system without parsing through the trip history.
+- Picking an item that had drifted to a sibling order in a combined group used to fail with a vague error — now it lands on the right list automatically and the group's stock stays accurate.
+
+COMING UP NEXT:
+- Tablet sizing for the picking screen so SKU and shelf labels read at arm's length.
+- Sweep the historical FedEx Returns duplicates so the queue reflects only real items.
+
+5 done today / 12 in the queue (5 high priority, 7 medium)
