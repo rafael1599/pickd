@@ -471,18 +471,22 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                 </div>
               </div>
             )}
-            {readyOrders.length > READY_VISIBLE_COUNT * 2 && (
-              <div className="flex justify-center mt-2 md:mt-3">
-                <button
-                  onClick={() => setReadyExpanded((v) => !v)}
-                  className="px-4 py-1.5 text-[10px] md:text-sm font-black uppercase tracking-widest text-sky-400 hover:text-sky-300 border border-dashed border-sky-500/30 rounded-full"
-                >
-                  {readyExpanded
-                    ? 'Show less'
-                    : `Show ${readyOrders.length - READY_VISIBLE_COUNT * 2} more`}
-                </button>
-              </div>
-            )}
+            {(() => {
+              const hiddenFdx = Math.max(0, readyFdxOrders.length - READY_VISIBLE_COUNT);
+              const hiddenTrk = Math.max(0, readyTrkOrders.length - READY_VISIBLE_COUNT);
+              const hiddenTotal = hiddenFdx + hiddenTrk;
+              if (hiddenTotal === 0) return null;
+              return (
+                <div className="flex justify-center mt-2 md:mt-3">
+                  <button
+                    onClick={() => setReadyExpanded((v) => !v)}
+                    className="px-4 py-1.5 text-[10px] md:text-sm font-black uppercase tracking-widest text-sky-400 hover:text-sky-300 border border-dashed border-sky-500/30 rounded-full"
+                  >
+                    {readyExpanded ? 'Show less' : `Show ${hiddenTotal} more`}
+                  </button>
+                </div>
+              );
+            })()}
           </DropZone>
 
           {/* WAITING FOR INVENTORY — collapsable, always-visible drop target.
