@@ -28,6 +28,7 @@ import { SortableOrderCard, DraggableOrderCard } from './board/SortableOrderCard
 import { CompletedZone } from './board/CompletedZone';
 import { ProjectsZone } from './board/ProjectsZone';
 import { WaitingZone } from './board/WaitingZone';
+import { InPickingZone } from './board/InPickingZone';
 import { GroupCard } from './board/GroupCard';
 import { GroupOrderModal } from './GroupOrderModal';
 import { CrossLaneConfirmModal } from './board/CrossLaneConfirmModal';
@@ -81,6 +82,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   const dnd = useBoardDnD(isAdmin, refresh);
 
   const [waitingCollapsed, setWaitingCollapsed] = useState(false);
+  const [inPickingCollapsed, setInPickingCollapsed] = useState(false);
   const [waitingReason, setWaitingReason] = useState('');
   const [reopenReason, setReopenReason] = useState('');
   const [readyExpanded, setReadyExpanded] = useState(false);
@@ -92,6 +94,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     fedexOrders,
     regularOrders,
     waitingOrders,
+    inPickingOrders,
     readyOrders,
     readyFdxOrders,
     readyTrkOrders,
@@ -105,11 +108,20 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     const fedex: PickingList[] = [];
     const regular: PickingList[] = [];
     const waiting: PickingList[] = [];
+    const inPicking: PickingList[] = [];
     const ready: PickingList[] = [];
 
     for (const order of orders) {
       if (order.is_waiting_inventory) {
         waiting.push(order);
+        continue;
+      }
+
+      // Active orders (status === 'active') are still being picked. They live
+      // in a read-only "In Picking" zone so they're visible somewhere on the
+      // board (per requirement: every order must appear).
+      if (order.status === 'active') {
+        inPicking.push(order);
         continue;
       }
 
@@ -173,6 +185,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       fedexOrders: fedex,
       regularOrders: regular,
       waitingOrders: waiting,
+      inPickingOrders: inPicking,
       readyOrders: ready,
       readyFdxOrders: readyFdx,
       readyTrkOrders: readyTrk,
@@ -397,6 +410,44 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               </div>
             </DropZone>
           </div>
+
+          {/* IN PICKING — read-only zone showing orders currently being picked
+              (status = 'active'). Always visible so every order has a home on
+              the board; collapsable to reduce noise. Click navigates the user
+              into the order (same handler as other zones). */}
+          {inPickingOrders.length > 0 && (
+            <div className="border-b border-subtle">
+              <button
+                onClick={() => setInPickingCollapsed((v) => !v)}
+                className="w-full flex items-center justify-center gap-2 py-2 md:py-3 hover:bg-sky-500/5 transition-colors"
+              >
+                <span className="text-[10px] md:text-sm lg:text-sm font-black uppercase tracking-widest text-sky-400">
+                  In Picking
+                </span>
+                <span className="text-[10px] md:text-sm text-muted/60">
+                  ({inPickingOrders.length})
+                </span>
+                <ChevronDown
+                  size={14}
+                  className={`text-sky-400/60 transition-transform ${
+                    inPickingCollapsed ? '' : 'rotate-180'
+                  }`}
+                />
+              </button>
+              {!inPickingCollapsed && (
+                <div className="px-2 pb-2 md:px-4 md:pb-3">
+                  <InPickingZone
+                    orders={inPickingOrders}
+                    onSelect={(order) => {
+                      setExternalOrderId(order.id);
+                      navigate('/orders');
+                      onClose();
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           {/* READY TO DOUBLE-CHECK — split into FDX | TRK columns sharing
               one global "Show N more" toggle. Drop on either side reclasses
