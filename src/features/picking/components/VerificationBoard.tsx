@@ -436,14 +436,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               </button>
               {!inPickingCollapsed && (
                 <div className="px-2 pb-2 md:px-4 md:pb-3">
-                  <InPickingZone
-                    orders={inPickingOrders}
-                    onSelect={(order) => {
-                      setExternalOrderId(order.id);
-                      navigate('/orders');
-                      onClose();
-                    }}
-                  />
+                  <InPickingZone orders={inPickingOrders} onSelect={handleOrderSelect} />
                 </div>
               )}
             </div>
