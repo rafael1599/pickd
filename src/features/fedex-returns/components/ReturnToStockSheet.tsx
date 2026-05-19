@@ -198,10 +198,10 @@ export const ReturnToStockSheet: React.FC<ReturnToStockSheetProps> = ({
         p_sku: sku,
         p_item_name: name,
         p_warehouse: 'LUDLOW',
-        p_location: 'FDX',
+        p_location: 'FDX RETURNS',
       });
       if (error) throw error;
-      setSelected({ sku, item_name: name, quantity: 0, location: 'FDX' });
+      setSelected({ sku, item_name: name, quantity: 0, location: 'FDX RETURNS' });
       setCreatingNew(false);
       toast.success(data ? 'SKU registered' : 'SKU already existed, using it');
     } catch (err) {

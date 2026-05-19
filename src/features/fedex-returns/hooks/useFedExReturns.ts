@@ -84,16 +84,18 @@ export function useAddFedExReturn() {
         .single();
       if (error) throw error;
 
-      // 2. Create a placeholder inventory row at LUDLOW.FDX with the tracking
-      //    number as a temporary SKU. Users later "rename" this SKU when they
-      //    identify the bike model via Return-to-Stock. is_bike forced to true
-      //    because returns are always bikes (per ops policy).
+      // 2. Create a placeholder inventory row at LUDLOW.'FDX RETURNS' with the
+      //    tracking number as a temporary SKU. Users later "rename" this SKU
+      //    when they identify the bike model via Return-to-Stock. is_bike
+      //    forced to true because returns are always bikes (per ops policy).
+      //    Note: legacy rows live at LUDLOW.FDX — both resolve via the
+      //    process_fedex_return_item RPC which matches LIKE 'FDX%'.
       const placeholderName = `FedEx Return ${tracking}`;
       const { error: registerErr } = await (supabase.rpc as CallableFunction)('register_new_sku', {
         p_sku: tracking,
         p_item_name: placeholderName,
         p_warehouse: 'LUDLOW',
-        p_location: 'FDX',
+        p_location: 'FDX RETURNS',
       });
       if (registerErr) throw registerErr;
 
@@ -110,7 +112,7 @@ export function useAddFedExReturn() {
       const { error: adjustErr } = await supabase.rpc('adjust_inventory_quantity', {
         p_sku: tracking,
         p_warehouse: 'LUDLOW',
-        p_location: 'FDX',
+        p_location: 'FDX RETURNS',
         p_delta: 1,
         p_performed_by: performedBy,
         p_user_id: userId,
@@ -163,7 +165,7 @@ export function useAddFedExReturn() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY });
-      // Intake now creates an inventory row at LUDLOW.FDX → refresh stock.
+      // Intake creates an inventory row at LUDLOW.'FDX RETURNS' → refresh stock.
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
       queryClient.invalidateQueries({ queryKey: ['locations', 'active'] });
     },
@@ -474,7 +476,12 @@ export function useResolveReturn() {
         const { error: moveError } = await supabase.rpc('move_inventory_stock', {
           p_sku: item.sku,
           p_from_warehouse: 'LUDLOW',
-          p_from_location: 'FDX',
+          // Legacy intake used 'FDX'; new intake uses 'FDX RETURNS'. The
+          // useResolveReturn fallback path is rarely hit because most flows
+          // route through process_fedex_return_item (which auto-finds the
+          // placeholder row via LIKE 'FDX%'). Use the new default here so
+          // freshly registered returns resolve cleanly.
+          p_from_location: 'FDX RETURNS',
           p_to_warehouse: toWarehouse,
           p_to_location: item.target_location,
           p_qty: item.quantity,
