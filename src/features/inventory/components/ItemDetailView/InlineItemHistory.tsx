@@ -36,12 +36,12 @@ export const InlineItemHistory: React.FC<InlineItemHistoryProps> = ({
   const { data: logs, isLoading } = useQuery({
     queryKey: ['inventory_logs', 'item-inline', sku, limit],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('inventory_logs')
-        .select('*')
-        .eq('sku', sku)
-        .order('created_at', { ascending: false })
-        .limit(limit);
+      // Alias-aware RPC: includes history under any previous SKU names.
+      // See migration 20260519120000_sku_alias_chain.sql.
+      const { data, error } = await supabase.rpc('get_inventory_logs_for_sku', {
+        p_sku: sku,
+        p_limit: limit,
+      });
       if (error) throw error;
       return (data || []) as unknown as InventoryLog[];
     },

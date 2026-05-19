@@ -107,12 +107,12 @@ export const ItemHistorySheet: React.FC<ItemHistorySheetProps> = ({ isOpen, onCl
   const { data: logs, isLoading } = useQuery({
     queryKey: ['inventory_logs', 'item', sku],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('inventory_logs')
-        .select('*')
-        .eq('sku', sku)
-        .order('created_at', { ascending: false })
-        .limit(50);
+      // Use alias-aware RPC so renamed SKUs surface history under old names.
+      // See migration 20260519120000_sku_alias_chain.sql.
+      const { data, error } = await supabase.rpc('get_inventory_logs_for_sku', {
+        p_sku: sku,
+        p_limit: 50,
+      });
 
       if (error) throw error;
       return (data || []) as unknown as InventoryLog[];

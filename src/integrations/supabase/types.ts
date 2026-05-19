@@ -1,11 +1,6 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: '14.1';
-  };
   graphql_public: {
     Tables: {
       [_ in never]: never;
@@ -523,7 +518,7 @@ export type Database = {
         Row: {
           created_at: string | null;
           id: string;
-          is_misship: boolean;
+          is_misship: boolean | null;
           label_photo_url: string | null;
           notes: string | null;
           processed_at: string | null;
@@ -541,7 +536,7 @@ export type Database = {
         Insert: {
           created_at?: string | null;
           id?: string;
-          is_misship?: boolean;
+          is_misship?: boolean | null;
           label_photo_url?: string | null;
           notes?: string | null;
           processed_at?: string | null;
@@ -559,7 +554,7 @@ export type Database = {
         Update: {
           created_at?: string | null;
           id?: string;
-          is_misship?: boolean;
+          is_misship?: boolean | null;
           label_photo_url?: string | null;
           notes?: string | null;
           processed_at?: string | null;
@@ -725,6 +720,7 @@ export type Database = {
           list_id: string | null;
           location_id: string | null;
           new_quantity: number | null;
+          note: string | null;
           order_number: string | null;
           performed_by: string | null;
           prev_quantity: number | null;
@@ -749,6 +745,7 @@ export type Database = {
           list_id?: string | null;
           location_id?: string | null;
           new_quantity?: number | null;
+          note?: string | null;
           order_number?: string | null;
           performed_by?: string | null;
           prev_quantity?: number | null;
@@ -773,6 +770,7 @@ export type Database = {
           list_id?: string | null;
           location_id?: string | null;
           new_quantity?: number | null;
+          note?: string | null;
           order_number?: string | null;
           performed_by?: string | null;
           prev_quantity?: number | null;
@@ -1139,81 +1137,6 @@ export type Database = {
             referencedColumns: ['id'];
           },
         ];
-      };
-      picking_lists_deleted_audit: {
-        Row: {
-          deleted_at: string;
-          deleted_by: string | null;
-          id: string;
-          list_id: string;
-          order_number: string | null;
-          row_snapshot: Json;
-          status: string | null;
-          user_id: string | null;
-        };
-        Insert: {
-          deleted_at?: string;
-          deleted_by?: string | null;
-          id?: string;
-          list_id: string;
-          order_number?: string | null;
-          row_snapshot: Json;
-          status?: string | null;
-          user_id?: string | null;
-        };
-        Update: {
-          deleted_at?: string;
-          deleted_by?: string | null;
-          id?: string;
-          list_id?: string;
-          order_number?: string | null;
-          row_snapshot?: Json;
-          status?: string | null;
-          user_id?: string | null;
-        };
-        Relationships: [];
-      };
-      picking_lists_items_shrink_audit: {
-        Row: {
-          caller: string | null;
-          id: string;
-          list_id: string;
-          new_item_count: number;
-          new_items: Json;
-          occurred_at: string;
-          order_number: string | null;
-          prev_item_count: number;
-          prev_items: Json;
-          shrink_by: number | null;
-          status: string | null;
-        };
-        Insert: {
-          caller?: string | null;
-          id?: string;
-          list_id: string;
-          new_item_count: number;
-          new_items: Json;
-          occurred_at?: string;
-          order_number?: string | null;
-          prev_item_count: number;
-          prev_items: Json;
-          shrink_by?: number | null;
-          status?: string | null;
-        };
-        Update: {
-          caller?: string | null;
-          id?: string;
-          list_id?: string;
-          new_item_count?: number;
-          new_items?: Json;
-          occurred_at?: string;
-          order_number?: string | null;
-          prev_item_count?: number;
-          prev_items?: Json;
-          shrink_by?: number | null;
-          status?: string | null;
-        };
-        Relationships: [];
       };
       profiles: {
         Row: {
@@ -1595,20 +1518,6 @@ export type Database = {
         Returns: boolean;
       };
       classify_picking_list_fedex: { Args: { p_items: Json }; Returns: boolean };
-      complete_addon_group: {
-        Args: {
-          p_performed_by: string;
-          p_source_id: string;
-          p_source_pallets?: number;
-          p_source_units?: number;
-          p_target_id: string;
-          p_target_pallets?: number;
-          p_target_units?: number;
-          p_user_id: string;
-          p_user_role?: string;
-        };
-        Returns: Json;
-      };
       compute_daily_report_data: {
         Args: { p_report_date: string };
         Returns: Json;
@@ -1627,6 +1536,15 @@ export type Database = {
         Args: { p_item_id: number; p_performed_by: string; p_user_id?: string };
         Returns: boolean;
       };
+      dispose_fedex_return: {
+        Args: {
+          p_dispose_reason?: string;
+          p_performed_by?: string;
+          p_return_id: string;
+          p_user_id: string;
+        };
+        Returns: Json;
+      };
       generate_short_code: { Args: never; Returns: string };
       get_audit_rows: {
         Args: { p_warehouse?: string };
@@ -1639,7 +1557,40 @@ export type Database = {
           skus_touched_90d: number;
         }[];
       };
-      get_daily_activity_report: { Args: { p_date: string }; Returns: Json };
+      get_inventory_logs_for_sku: {
+        Args: { p_limit?: number; p_sku: string };
+        Returns: {
+          action_type: string;
+          created_at: string | null;
+          from_location: string | null;
+          from_warehouse: string | null;
+          id: string;
+          is_reversed: boolean | null;
+          item_id: number | null;
+          list_id: string | null;
+          location_id: string | null;
+          new_quantity: number | null;
+          note: string | null;
+          order_number: string | null;
+          performed_by: string | null;
+          prev_quantity: number | null;
+          previous_quantity: number | null;
+          previous_sku: string | null;
+          quantity_change: number;
+          sku: string;
+          snapshot_before: Json | null;
+          to_location: string | null;
+          to_location_id: string | null;
+          to_warehouse: string | null;
+          user_id: string | null;
+        }[];
+        SetofOptions: {
+          from: '*';
+          to: 'inventory_logs';
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
       get_inventory_stats: {
         Args: { p_include_parts?: boolean };
         Returns: {
@@ -1691,6 +1642,7 @@ export type Database = {
           p_from_location: string;
           p_from_warehouse: string;
           p_internal_note?: string;
+          p_move_note?: string;
           p_performed_by: string;
           p_qty: number;
           p_sku: string;
@@ -1718,6 +1670,19 @@ export type Database = {
           p_sku: string;
           p_user_id: string;
           p_warehouse: string;
+        };
+        Returns: Json;
+      };
+      process_fedex_return_item: {
+        Args: {
+          p_condition: string;
+          p_item_id: string;
+          p_item_name: string;
+          p_performed_by?: string;
+          p_real_sku: string;
+          p_target_location: string;
+          p_target_warehouse: string;
+          p_user_id: string;
         };
         Returns: Json;
       };
@@ -1764,6 +1729,7 @@ export type Database = {
         };
         Returns: string;
       };
+      resolve_sku_chain: { Args: { p_sku: string }; Returns: string[] };
       resolve_tag_location: {
         Args: { p_location: string; p_tag_id: string };
         Returns: undefined;
@@ -1845,6 +1811,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      update_inventory_log_note: {
+        Args: { p_log_id: string; p_note: string; p_user_id: string };
+        Returns: Json;
+      };
       update_user_presence: { Args: { p_user_id: string }; Returns: undefined };
       upsert_inventory_log: {
         Args: {
@@ -1856,9 +1826,11 @@ export type Database = {
           p_list_id?: string;
           p_location_id: string;
           p_new_quantity: number;
+          p_note?: string;
           p_order_number?: string;
           p_performed_by: string;
           p_prev_quantity: number;
+          p_previous_sku?: string;
           p_quantity_change: number;
           p_sku: string;
           p_snapshot_before?: Json;
@@ -1867,7 +1839,7 @@ export type Database = {
           p_to_warehouse: string;
           p_user_id: string;
         };
-        Returns: string;
+        Returns: undefined;
       };
       valid_sublocation_array: { Args: { arr: string[] }; Returns: boolean };
     };
