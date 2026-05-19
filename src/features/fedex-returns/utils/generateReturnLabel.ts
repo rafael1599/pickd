@@ -143,22 +143,21 @@ export async function generateReturnLabel(data: ReturnLabelData): Promise<string
   doc.setFontSize(8);
   doc.text('— CUT HERE —', W / 2, 3, { align: 'center', baseline: 'middle' });
 
-  return doc.output('dataurlstring');
+  return doc.output('bloburl') as unknown as string;
 }
 
 /**
- * Opens a new window with the generated PDF and triggers print dialog.
+ * Opens the generated PDF in a new tab using the browser's native PDF viewer.
+ * Matches the pattern used by PalletLabelsPrinter (orders) so Safari prints
+ * the 4×6 sheet at exact size instead of splitting it across Letter/A4 pages.
  */
 export async function printReturnLabel(data: ReturnLabelData): Promise<void> {
-  const dataUrl = await generateReturnLabel(data);
-  const w = window.open('');
-  if (!w) {
+  const blobUrl = await generateReturnLabel(data);
+  const opened = window.open(blobUrl, '_blank');
+  if (!opened) {
     const link = document.createElement('a');
-    link.href = dataUrl;
+    link.href = blobUrl;
     link.download = `return-label-${data.trackingNumber}.pdf`;
     link.click();
-    return;
   }
-  w.document.write(`<iframe src="${dataUrl}" style="width:100%;height:100vh;border:0"></iframe>`);
-  w.document.close();
 }
