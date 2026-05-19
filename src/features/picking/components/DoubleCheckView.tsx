@@ -223,6 +223,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const [showWaitingPicker, setShowWaitingPicker] = useState(false);
   const [waitingReason, setWaitingReason] = useState('');
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
+  const [orderListOpen, setOrderListOpen] = useState(false);
   const [scanResults, setScanResults] = useState<Map<string, Set<string>>>(new Map());
   const [isScanning, setIsScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState<string>('');
@@ -1168,15 +1169,63 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         </button>
 
         <div className="flex flex-col items-center">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono font-bold text-accent/90 tracking-widest bg-accent/10 px-2 py-0.5 rounded border border-accent/20">
-              {orderNumber
-                ? `#${orderNumber}`
+          <div className="flex items-center gap-2 relative">
+            {(() => {
+              const orderList = orderNumber
+                ? orderNumber
+                    .split(' / ')
+                    .map((s) => s.trim())
+                    .filter(Boolean)
+                : [];
+              const hasMultiple = orderList.length > 1;
+              const label = orderNumber
+                ? `#${orderList[0]}`
                 : activeListId
                   ? `#${activeListId.slice(-6).toUpperCase()}`
-                  : 'STOCK DEDUCTION'}
-            </span>
+                  : 'STOCK DEDUCTION';
+              if (!hasMultiple) {
+                return (
+                  <span className="text-xs font-mono font-bold text-accent/90 tracking-widest bg-accent/10 px-2 py-0.5 rounded border border-accent/20">
+                    {label}
+                  </span>
+                );
+              }
+              return (
+                <button
+                  onClick={() => setOrderListOpen((v) => !v)}
+                  className="text-xs font-mono font-bold text-accent/90 tracking-widest bg-accent/10 px-2 py-0.5 rounded border border-accent/20 flex items-center gap-1 hover:bg-accent/20 transition-colors"
+                  title={`${orderList.length} orders combined`}
+                  aria-haspopup="true"
+                  aria-expanded={orderListOpen}
+                >
+                  <span>{label}</span>
+                  <span className="text-[10px] font-black bg-accent/20 text-accent px-1 rounded">
+                    +{orderList.length - 1}
+                  </span>
+                  <ChevronDown
+                    size={10}
+                    className={`transition-transform ${orderListOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+              );
+            })()}
             {activeListId && <ShippingTypeToggle listId={activeListId} />}
+            {orderListOpen && orderNumber && orderNumber.includes(' / ') && (
+              <div className="absolute top-full left-0 mt-1 bg-card border border-subtle rounded-xl shadow-2xl overflow-hidden z-20 min-w-[140px] animate-in fade-in slide-in-from-top-2 duration-150">
+                {orderNumber
+                  .split(' / ')
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+                  .map((num) => (
+                    <div
+                      key={num}
+                      className="px-3 py-2 text-xs font-mono font-bold text-content tracking-widest border-b border-subtle last:border-b-0"
+                    >
+                      #{num}
+                    </div>
+                  ))}
+              </div>
+            )}
           </div>
           {/* Progress Text */}
           <div className="flex items-center gap-3 mt-1">
@@ -1191,7 +1240,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                       : 'text-amber-400'
               }`}
             >
-              {`${verifiedUnitsCount} / ${totalUnitsCount} Units Verified`}
+              {`${verifiedUnitsCount} / ${totalUnitsCount} Pickd`}
             </span>
             {!isReviewMode && onSelectAll && totalUnitsCount > 0 && (
               <button
