@@ -880,10 +880,15 @@ export const HistoryScreen = () => {
       reportNote?: string | null,
       mode: 'full' | 'as400' = 'as400'
     ) => {
+      // 6×4" landscape thermal label (matches orders/FedEx pattern so the PDF
+      // prints at 100% on the warehouse thermal printer without scaling).
+      const PAGE_W = 152.4; // 6 in
+      const PAGE_H = 101.6; // 4 in
+      const MARGIN = 3;
       const doc = new jsPDFInstance({
         orientation: 'landscape',
         unit: 'mm',
-        format: 'a4',
+        format: [PAGE_W, PAGE_H],
       });
       const today = new Date().toLocaleDateString('es-ES');
 
@@ -953,38 +958,41 @@ export const HistoryScreen = () => {
         qty: dedupedLogs.reduce((acc, l) => acc + Number(getDisplayQty(l)), 0),
       };
 
-      // Header: title left, date + counts right. TIMEFILTER (TODAY/WEEK/etc)
-      // is dropped — redundant with the date when filter=TODAY, and filter
-      // for non-today is reflected in the title via labels above.
+      // Header: title left, date + counts stacked below on a narrow 4×6 page.
+      const contentWidth = PAGE_W - MARGIN * 2;
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(20);
-      doc.text(title, 5, 15);
-      doc.text(`${today} · ${stats.total} logs · ${stats.qty.toLocaleString()} units`, 292, 15, {
-        align: 'right',
-      });
+      doc.setFontSize(14);
+      doc.text(title, MARGIN, MARGIN + 5);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text(
+        `${today} · ${stats.total} logs · ${stats.qty.toLocaleString()} units`,
+        MARGIN,
+        MARGIN + 9
+      );
 
-      let currentY = 25;
+      let currentY = MARGIN + 13;
 
       // idea-111 piece 3 — optional report-note rendered above the table.
       if (reportNote && reportNote.trim().length > 0) {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(11);
-        const wrapped = doc.splitTextToSize(reportNote.trim(), 287);
-        const lineHeight = 6;
-        const noteHeight = wrapped.length * lineHeight + 6;
+        const wrapped = doc.splitTextToSize(reportNote.trim(), contentWidth - 2);
+        const lineHeight = 4.5;
+        const noteHeight = wrapped.length * lineHeight + 3;
         doc.setDrawColor(0);
-        doc.setLineWidth(0.4);
-        doc.rect(5, currentY - 4, 287, noteHeight);
-        doc.text(wrapped, 8, currentY + 2);
-        currentY += noteHeight + 4;
+        doc.setLineWidth(0.3);
+        doc.rect(MARGIN, currentY - 2, contentWidth, noteHeight);
+        doc.text(wrapped, MARGIN + 1.5, currentY + 1.5);
+        currentY += noteHeight + 2;
       }
 
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.text('SKU', 5, currentY);
-      doc.text('ACTIVITY', 105, currentY);
-      doc.text('QTY', 285, currentY, { align: 'right' });
-      currentY += 4;
+      doc.setFontSize(11);
+      doc.text('SKU', MARGIN, currentY);
+      doc.text('ACTIVITY', MARGIN + 30, currentY);
+      doc.text('QTY', PAGE_W - MARGIN, currentY, { align: 'right' });
+      currentY += 3;
 
       const tableData = dedupedLogs.map((log) => {
         const fromLoc = log.from_location || '';
@@ -1061,21 +1069,21 @@ export const HistoryScreen = () => {
         body: tableBody,
         theme: 'plain',
         styles: {
-          fontSize: 22,
-          cellPadding: 5,
-          minCellHeight: 14,
+          fontSize: 11,
+          cellPadding: 1.8,
+          minCellHeight: 6.5,
           textColor: [0, 0, 0],
           lineColor: [0, 0, 0],
-          lineWidth: 0.6,
+          lineWidth: 0.3,
           font: 'helvetica',
           valign: 'top',
         },
         columnStyles: {
-          0: { cellWidth: 100, fontStyle: 'bold', fontSize: 28, halign: 'left' },
-          1: { cellWidth: 'auto', fontSize: 20, halign: 'left' },
-          2: { cellWidth: 35, fontSize: 28, halign: 'right', fontStyle: 'bold' },
+          0: { cellWidth: 30, fontStyle: 'bold', fontSize: 13, halign: 'left' },
+          1: { cellWidth: 'auto', fontSize: 10.5, halign: 'left' },
+          2: { cellWidth: 13, fontSize: 13, halign: 'right', fontStyle: 'bold' },
         },
-        margin: { top: 5, right: 5, bottom: 5, left: 5 },
+        margin: { top: MARGIN, right: MARGIN, bottom: MARGIN, left: MARGIN },
       });
 
       return doc;
