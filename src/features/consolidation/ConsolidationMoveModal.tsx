@@ -1,0 +1,245 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import X from 'lucide-react/dist/esm/icons/x';
+import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
+import toast from 'react-hot-toast';
+import { supabase } from '../../lib/supabase';
+import { useInventoryMutations } from '../inventory/hooks/useInventoryMutations';
+import { useAuth } from '../../context/AuthContext';
+import type { InventoryItemWithMetadata } from '../../schemas/inventory.schema';
+
+interface Candidate {
+  inventory_id: number;
+  sku: string;
+  item_name: string | null;
+  warehouse: string;
+  source_row: string;
+  sublocation: string[] | null;
+  qty: number;
+}
+
+interface TargetRow {
+  location: string;
+  max_capacity: number | null;
+  used: number;
+  free: number;
+}
+
+interface Props {
+  candidate: Candidate;
+  onClose: () => void;
+  onMoved: () => void;
+}
+
+// Default destination zone for consolidation moves.
+const TARGET_ROWS = [
+  'ROW 20',
+  'ROW 21',
+  'ROW 22',
+  'ROW 23',
+  'ROW 24',
+  'ROW 25',
+  'ROW 26',
+  'ROW 27',
+  'ROW 28',
+  'ROW 29',
+  'ROW 30',
+  'ROW 31',
+];
+
+export const ConsolidationMoveModal: React.FC<Props> = ({ candidate, onClose, onMoved }) => {
+  const { profile } = useAuth();
+  const { moveItem } = useInventoryMutations();
+  const [targetRow, setTargetRow] = useState<string>('');
+  const [sublocation, setSublocation] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  // Fetch target row occupancy so we can show free capacity in the picker.
+  const { data: targets = [] } = useQuery({
+    queryKey: ['consolidation-targets', candidate.warehouse],
+    queryFn: async (): Promise<TargetRow[]> => {
+      const { data: locs, error: lErr } = await supabase
+        .from('locations')
+        .select('id, location, max_capacity')
+        .eq('warehouse', candidate.warehouse)
+        .in('location', TARGET_ROWS)
+        .eq('is_active', true);
+      if (lErr) throw lErr;
+
+      const { data: inv, error: iErr } = await supabase
+        .from('inventory')
+        .select('location, quantity, is_active')
+        .eq('warehouse', candidate.warehouse)
+        .in('location', TARGET_ROWS)
+        .eq('is_active', true)
+        .gt('quantity', 0);
+      if (iErr) throw iErr;
+
+      const usedByLoc = new Map<string, number>();
+      for (const r of inv || []) {
+        usedByLoc.set(r.location || '', (usedByLoc.get(r.location || '') || 0) + (r.quantity || 0));
+      }
+
+      return (locs || [])
+        .map((l) => {
+          const used = usedByLoc.get(l.location) || 0;
+          return {
+            location: l.location,
+            max_capacity: l.max_capacity,
+            used,
+            free: (l.max_capacity || 0) - used,
+          };
+        })
+        .sort((a, b) => {
+          const an = Number(a.location.match(/^ROW\s+(\d+)/)?.[1] || 9999);
+          const bn = Number(b.location.match(/^ROW\s+(\d+)/)?.[1] || 9999);
+          return an - bn;
+        });
+    },
+  });
+
+  const fitWarning = useMemo(() => {
+    const t = targets.find((r) => r.location === targetRow);
+    if (!t) return null;
+    if (t.free < candidate.qty)
+      return `Only ${t.free}u free in ${targetRow} — moving ${candidate.qty}u will overflow capacity.`;
+    return null;
+  }, [targetRow, targets, candidate.qty]);
+
+  useEffect(() => {
+    const onEsc = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onEsc);
+    return () => window.removeEventListener('keydown', onEsc);
+  }, [onClose]);
+
+  const submit = async () => {
+    if (!targetRow || submitting) return;
+    setSubmitting(true);
+    try {
+      const sublocs = sublocation.trim()
+        ? sublocation
+            .toUpperCase()
+            .split(/[+,\s]+/)
+            .filter(Boolean)
+        : null;
+
+      // Build a minimal InventoryItemWithMetadata-shaped sourceItem from the
+      // candidate. The mutation only reads sku/warehouse/location/quantity from
+      // it; the rest is cast for typing.
+      const sourceItem = {
+        id: candidate.inventory_id,
+        sku: candidate.sku,
+        warehouse: candidate.warehouse,
+        location: candidate.source_row,
+        quantity: candidate.qty,
+        sublocation: candidate.sublocation,
+      } as unknown as InventoryItemWithMetadata;
+
+      await moveItem.mutateAsync({
+        sourceItem,
+        targetWarehouse: candidate.warehouse,
+        targetLocation: targetRow,
+        qty: candidate.qty,
+        targetSublocation: sublocs,
+        moveNote: `consolidation: ${profile?.full_name || 'user'}`,
+      });
+      toast.success(`Moved ${candidate.sku} → ${targetRow}`);
+      onMoved();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Move failed';
+      toast.error(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center">
+      <div className="bg-card border border-subtle rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="px-4 py-3 border-b border-subtle flex items-center justify-between sticky top-0 bg-card">
+          <div className="min-w-0">
+            <div className="text-[10px] text-muted font-bold uppercase tracking-widest">
+              Move to consolidation zone
+            </div>
+            <div className="font-mono text-sm font-bold text-content truncate">
+              {candidate.sku}{' '}
+              <span className="text-muted font-sans font-normal text-xs">
+                · {candidate.qty}u from {candidate.source_row}
+                {candidate.sublocation?.length ? `:${candidate.sublocation.join('+')}` : ''}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 -mr-1 rounded-lg text-muted hover:text-content"
+            aria-label="Close"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          <div>
+            <label className="text-[10px] text-muted font-bold uppercase tracking-widest mb-2 block">
+              Target row
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {targets.map((t) => (
+                <button
+                  key={t.location}
+                  onClick={() => setTargetRow(t.location)}
+                  className={`p-2 rounded-xl border text-left transition-colors ${
+                    targetRow === t.location
+                      ? 'bg-accent text-white border-accent'
+                      : t.free >= candidate.qty
+                        ? 'bg-surface border-subtle text-content hover:border-accent/50'
+                        : 'bg-surface border-subtle text-muted opacity-60'
+                  }`}
+                >
+                  <div className="text-xs font-bold">{t.location}</div>
+                  <div className="text-[9px] uppercase font-bold opacity-70">{t.free}u free</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[10px] text-muted font-bold uppercase tracking-widest mb-2 block">
+              Sublocation (optional)
+            </label>
+            <input
+              type="text"
+              value={sublocation}
+              onChange={(e) => setSublocation(e.target.value)}
+              placeholder="e.g. A, B+C"
+              className="w-full bg-surface border border-subtle rounded-xl px-3 py-2 text-sm text-content placeholder:text-muted/50 focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </div>
+
+          {fitWarning && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-[11px] text-amber-500 font-medium">
+              {fitWarning}
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-3 rounded-xl border border-subtle text-content text-xs font-bold uppercase tracking-wider"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={submit}
+              disabled={!targetRow || submitting}
+              className="flex-1 px-4 py-3 rounded-xl bg-accent text-white text-xs font-bold uppercase tracking-wider disabled:opacity-30 flex items-center justify-center gap-2"
+            >
+              {submitting && <Loader2 size={12} className="animate-spin" />}
+              Confirm move
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
