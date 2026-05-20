@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import RefreshCw from 'lucide-react/dist/esm/icons/refresh-cw';
@@ -62,10 +62,15 @@ function formatLastShipped(iso: string | null): string {
 
 export const ConsolidationScreen: React.FC = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [maxOrders, setMaxOrders] = useState(0);
   const [onlyBikes, setOnlyBikes] = useState(true);
   const [excludeDeepSlow, setExcludeDeepSlow] = useState(true);
   const [moving, setMoving] = useState<Candidate | null>(null);
+  // SKUs that have just been moved — used to optimistically hide them
+  // until the next refetch confirms the new state. Prevents the user from
+  // re-clicking a stale row before react-query has refreshed.
+  const [movedIds, setMovedIds] = useState<Set<number>>(new Set());
 
   const {
     data: candidates = [],
@@ -82,14 +87,22 @@ export const ConsolidationScreen: React.FC = () => {
       if (error) throw error;
       return (data || []) as unknown as Candidate[];
     },
-    staleTime: 60_000,
+    // Tight staleness: after a move, neighbouring rows might show stale
+    // qty/locations. Always refetch on focus / key change.
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   // Apply client-side deep-slow filter so toggling doesn't re-fetch.
+  // Also hide rows that we've just moved (until refetch completes).
   const filtered = useMemo(
     () =>
-      excludeDeepSlow ? candidates.filter((c) => !DEEP_SLOW_ROWS.has(c.source_row)) : candidates,
-    [candidates, excludeDeepSlow]
+      candidates.filter((c) => {
+        if (movedIds.has(c.inventory_id)) return false;
+        if (excludeDeepSlow && DEEP_SLOW_ROWS.has(c.source_row)) return false;
+        return true;
+      }),
+    [candidates, excludeDeepSlow, movedIds]
   );
 
   const grouped = useMemo(() => {
@@ -246,7 +259,8 @@ export const ConsolidationScreen: React.FC = () => {
 
                       <button
                         onClick={() => setMoving(c)}
-                        className="px-3 py-2 rounded-lg bg-accent/10 border border-accent/30 text-accent text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-accent/20 transition-colors"
+                        disabled={isFetching}
+                        className="px-3 py-2 rounded-lg bg-accent/10 border border-accent/30 text-accent text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-accent/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                       >
                         <MoveRight size={12} />
                         Move
@@ -264,9 +278,25 @@ export const ConsolidationScreen: React.FC = () => {
         <ConsolidationMoveModal
           candidate={moving}
           onClose={() => setMoving(null)}
-          onMoved={() => {
+          onMoved={async (movedId) => {
+            // Hide the row instantly so a fast double-click doesn't re-target
+            // a stale candidate. Then invalidate the list query so any
+            // sibling rows (same SKU split across locations, etc.) pick up
+            // the fresh state from get_consolidation_candidates.
+            setMovedIds((prev) => {
+              const next = new Set(prev);
+              next.add(movedId);
+              return next;
+            });
             setMoving(null);
-            refetch();
+            await queryClient.invalidateQueries({ queryKey: ['consolidation-candidates'] });
+            // After refetch lands the row is gone; drop the optimistic id
+            // so movedIds doesn't accumulate indefinitely.
+            setMovedIds((prev) => {
+              const next = new Set(prev);
+              next.delete(movedId);
+              return next;
+            });
           }}
         />
       )}

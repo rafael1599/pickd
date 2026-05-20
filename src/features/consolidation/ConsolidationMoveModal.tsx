@@ -28,7 +28,7 @@ interface TargetRow {
 interface Props {
   candidate: Candidate;
   onClose: () => void;
-  onMoved: () => void;
+  onMoved: (inventoryId: number) => void | Promise<void>;
 }
 
 // Default destination zone for consolidation moves.
@@ -116,6 +116,31 @@ export const ConsolidationMoveModal: React.FC<Props> = ({ candidate, onClose, on
     if (!targetRow || submitting) return;
     setSubmitting(true);
     try {
+      // Defensive check: confirm the inventory row is still at the source we
+      // think before calling the RPC. The consolidation list can go stale if
+      // another user moved the same row, or if a fast double-click on the
+      // screen targets an in-flight candidate.
+      const { data: fresh, error: freshErr } = await supabase
+        .from('inventory')
+        .select('id, sku, warehouse, location, quantity, is_active')
+        .eq('id', candidate.inventory_id)
+        .maybeSingle();
+      if (freshErr) throw freshErr;
+      if (!fresh || !fresh.is_active || (fresh.quantity ?? 0) <= 0) {
+        toast.error('Item no longer available — refreshing list.');
+        onMoved(candidate.inventory_id);
+        return;
+      }
+      if (
+        fresh.sku !== candidate.sku ||
+        fresh.warehouse !== candidate.warehouse ||
+        (fresh.location || '').toUpperCase() !== candidate.source_row.toUpperCase()
+      ) {
+        toast.error(`Item moved by someone else (now at ${fresh.location}). Refreshing list.`);
+        onMoved(candidate.inventory_id);
+        return;
+      }
+
       const sublocs = sublocation.trim()
         ? sublocation
             .toUpperCase()
@@ -124,14 +149,14 @@ export const ConsolidationMoveModal: React.FC<Props> = ({ candidate, onClose, on
         : null;
 
       // Build a minimal InventoryItemWithMetadata-shaped sourceItem from the
-      // candidate. The mutation only reads sku/warehouse/location/quantity from
-      // it; the rest is cast for typing.
+      // (verified-fresh) row. The mutation only reads
+      // sku/warehouse/location/quantity from it; rest is cast for typing.
       const sourceItem = {
-        id: candidate.inventory_id,
-        sku: candidate.sku,
-        warehouse: candidate.warehouse,
-        location: candidate.source_row,
-        quantity: candidate.qty,
+        id: fresh.id,
+        sku: fresh.sku,
+        warehouse: fresh.warehouse,
+        location: fresh.location,
+        quantity: fresh.quantity,
         sublocation: candidate.sublocation,
       } as unknown as InventoryItemWithMetadata;
 
@@ -139,12 +164,12 @@ export const ConsolidationMoveModal: React.FC<Props> = ({ candidate, onClose, on
         sourceItem,
         targetWarehouse: candidate.warehouse,
         targetLocation: targetRow,
-        qty: candidate.qty,
+        qty: fresh.quantity ?? candidate.qty,
         targetSublocation: sublocs,
         moveNote: `consolidation: ${profile?.full_name || 'user'}`,
       });
       toast.success(`Moved ${candidate.sku} → ${targetRow}`);
-      onMoved();
+      onMoved(candidate.inventory_id);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Move failed';
       toast.error(msg);
