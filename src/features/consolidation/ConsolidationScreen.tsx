@@ -31,6 +31,11 @@ interface Candidate {
   alias_chain: string[];
   /** Only populated in clear-row mode: 'active' or 'slow'. */
   suggested_zone?: 'active' | 'slow';
+  /** Specific row chosen by the smart planner (NULL if no row fits). */
+  suggested_row?: string | null;
+  suggested_row_free?: number | null;
+  suggested_row_picking_order?: number | null;
+  suggestion_reason?: string | null;
 }
 
 const DEEP_SLOW_ROWS = new Set([
@@ -437,6 +442,14 @@ export const ConsolidationScreen: React.FC = () => {
       {/* List — pb-32 leaves room for the floating BottomNavigation. See
           .claude/skills/project-skills/pickd/ui-rules. */}
       <div className="p-4 pb-32">
+        {mode === 'clear-row' && clearRow && filtered.length > 0 && (
+          <SmartSuggestionsPanel
+            candidates={filtered}
+            onMove={(c) => setMoving(c)}
+            isFetching={isFetching}
+          />
+        )}
+
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="animate-spin text-accent w-6 h-6 opacity-30" />
@@ -545,6 +558,7 @@ export const ConsolidationScreen: React.FC = () => {
                 ? 'consolidation zone'
                 : 'active zone'
           }
+          suggestedRow={mode === 'clear-row' ? moving.suggested_row : null}
           onClose={() => setMoving(null)}
           onMoved={async (movedId) => {
             // Hide the row instantly so a fast double-click doesn't re-target
@@ -578,6 +592,128 @@ export const ConsolidationScreen: React.FC = () => {
 };
 
 export default ConsolidationScreen;
+
+// ─────────────────────────────────────────────────────────────────────
+// Smart Suggestions panel (clear-row mode)
+// ─────────────────────────────────────────────────────────────────────
+// Shown above the full list. For each SKU in the chosen source row, the
+// backend RPC pre-computed a specific destination row based on movement
+// + capacity + picking_order. This panel surfaces the recommendation
+// prominently so the operator can act on it directly, with an info
+// disclosure explaining the algorithm.
+
+interface SmartSuggestionsPanelProps {
+  candidates: Candidate[];
+  onMove: (c: Candidate) => void;
+  isFetching: boolean;
+}
+
+const SmartSuggestionsPanel: React.FC<SmartSuggestionsPanelProps> = ({
+  candidates,
+  onMove,
+  isFetching,
+}) => {
+  const [showHow, setShowHow] = useState(false);
+  const withSuggestion = candidates.filter((c) => c.suggested_row);
+  const withoutSuggestion = candidates.filter((c) => !c.suggested_row);
+  if (withSuggestion.length === 0 && withoutSuggestion.length === 0) return null;
+
+  return (
+    <div className="mb-6 bg-accent/5 border border-accent/30 rounded-2xl p-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[11px] font-black uppercase tracking-widest text-accent">
+          Smart suggestions
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowHow((v) => !v)}
+          className="text-[10px] text-muted hover:text-content font-bold uppercase tracking-wider"
+        >
+          {showHow ? 'Hide how' : 'How does this work?'}
+        </button>
+      </div>
+
+      {showHow && (
+        <div className="mb-3 text-[11px] text-muted/90 leading-relaxed bg-card border border-subtle rounded-xl p-3 space-y-1">
+          <p>
+            For each SKU in this row, the system picks a single destination by combining three
+            signals:
+          </p>
+          <ul className="list-disc list-inside space-y-0.5">
+            <li>
+              <span className="text-content font-bold">Movement</span> — SKUs with ≥ 2 completed
+              orders (rename-aware) are tagged <span className="text-emerald-500">active</span>; the
+              rest <span className="text-blue-400">slow</span>.
+            </li>
+            <li>
+              <span className="text-content font-bold">Capacity</span> — only rows with enough free
+              units to fit the current qty are candidates.
+            </li>
+            <li>
+              <span className="text-content font-bold">Picking order</span> — active SKUs head to
+              the row with the <em>highest</em> picking_order (closest to packing); slow SKUs to the{' '}
+              <em>lowest</em> (deepest into the warehouse).
+            </li>
+          </ul>
+          <p>
+            Tiebreak: if two rows have the same picking_order, the one with more free space wins
+            (spreads load). You can still override the destination inside the Move modal.
+          </p>
+        </div>
+      )}
+
+      <div className="space-y-1.5">
+        {withSuggestion.map((c) => (
+          <div
+            key={c.inventory_id}
+            className="bg-card border border-subtle rounded-xl p-2 flex items-center gap-3"
+          >
+            <div className="flex flex-col items-center justify-center min-w-[3.5rem] shrink-0 border-r border-subtle pr-2">
+              <span className="text-[8px] font-black uppercase tracking-widest text-muted/60 leading-none">
+                QTY
+              </span>
+              <span className="text-2xl font-black tracking-tight leading-none text-content mt-0.5">
+                {c.qty}
+              </span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-mono text-xs font-bold text-content">{c.sku}</span>
+                <span
+                  className={`text-[9px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-wider ${
+                    c.suggested_zone === 'active'
+                      ? 'bg-emerald-500/10 text-emerald-500'
+                      : 'bg-blue-500/10 text-blue-400'
+                  }`}
+                >
+                  → {c.suggested_row}
+                </span>
+              </div>
+              <div className="text-[10px] text-muted/80 mt-0.5 truncate">{c.suggestion_reason}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onMove(c)}
+              disabled={isFetching}
+              className="px-3 py-2 rounded-lg bg-accent text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 hover:bg-accent/90 transition-colors disabled:opacity-30"
+            >
+              <MoveRight size={12} />
+              Move
+            </button>
+          </div>
+        ))}
+
+        {withoutSuggestion.length > 0 && (
+          <div className="mt-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-500 font-medium">
+            {withoutSuggestion.length} SKU{withoutSuggestion.length === 1 ? '' : 's'} could not be
+            placed automatically — no row in the target zone has enough free space. Use the full
+            list below to move them manually.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────────────
 // Card
