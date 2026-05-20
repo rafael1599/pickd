@@ -68,11 +68,45 @@ function formatLastShipped(iso: string | null): string {
   return d.toLocaleDateString();
 }
 
+type ScreenMode = 'consolidate' | 'promote';
+
+// Rows where consolidated items end up (slow zone).
+const CONSOLIDATE_TARGETS = [
+  'ROW 20',
+  'ROW 21',
+  'ROW 22',
+  'ROW 23',
+  'ROW 24',
+  'ROW 25',
+  'ROW 26',
+  'ROW 27',
+  'ROW 28',
+  'ROW 29',
+  'ROW 30',
+  'ROW 31',
+];
+// Rows where promoted (high-rotation) items go (active zone near packing).
+const PROMOTE_TARGETS = [
+  'ROW 1',
+  'ROW 2',
+  'ROW 3',
+  'ROW 4',
+  'ROW 5',
+  'ROW 6',
+  'ROW 7',
+  'ROW 8',
+  'ROW 9',
+  'ROW 10',
+  'ROW 16',
+];
+
 export const ConsolidationScreen: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { addItem, updateItem, deleteItem } = useInventory();
+  const [mode, setMode] = useState<ScreenMode>('consolidate');
   const [maxOrders, setMaxOrders] = useState(0);
+  const [minOrders, setMinOrders] = useState(2);
   const [onlyBikes, setOnlyBikes] = useState(true);
   const [excludeDeepSlow, setExcludeDeepSlow] = useState(true);
   const [moving, setMoving] = useState<Candidate | null>(null);
@@ -103,10 +137,18 @@ export const ConsolidationScreen: React.FC = () => {
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ['consolidation-candidates', maxOrders, onlyBikes],
+    queryKey: ['consolidation-candidates', mode, maxOrders, minOrders, onlyBikes],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_consolidation_candidates', {
-        p_max_orders: maxOrders,
+      if (mode === 'consolidate') {
+        const { data, error } = await supabase.rpc('get_consolidation_candidates', {
+          p_max_orders: maxOrders,
+          p_only_bikes: onlyBikes,
+        });
+        if (error) throw error;
+        return (data || []) as unknown as Candidate[];
+      }
+      const { data, error } = await supabase.rpc('get_promotion_candidates', {
+        p_min_orders: minOrders,
         p_only_bikes: onlyBikes,
       });
       if (error) throw error;
@@ -118,16 +160,19 @@ export const ConsolidationScreen: React.FC = () => {
     refetchOnWindowFocus: true,
   });
 
-  // Apply client-side deep-slow filter so toggling doesn't re-fetch.
-  // Also hide rows that we've just moved (until refetch completes).
+  // Apply client-side filters.
+  //  - 'exclude deep slow' is only meaningful in consolidate mode (in
+  //    promote mode the deep zone IS the source — we want it visible).
+  //  - moved-ids hide is universal.
   const preSearch = useMemo(
     () =>
       candidates.filter((c) => {
         if (movedIds.has(c.inventory_id)) return false;
-        if (excludeDeepSlow && DEEP_SLOW_ROWS.has(c.source_row)) return false;
+        if (mode === 'consolidate' && excludeDeepSlow && DEEP_SLOW_ROWS.has(c.source_row))
+          return false;
         return true;
       }),
-    [candidates, excludeDeepSlow, movedIds]
+    [candidates, excludeDeepSlow, movedIds, mode]
   );
 
   const filtered = useMemo(
@@ -211,22 +256,63 @@ export const ConsolidationScreen: React.FC = () => {
           </button>
         </div>
 
-        {/* Filters */}
+        {/* Mode tabs */}
+        <div className="flex items-center gap-1 bg-card border border-subtle rounded-xl p-1 mb-3">
+          {(
+            [
+              ['consolidate', 'Send to slow zone', 'Slow movers → ROW 20–31'],
+              ['promote', 'Bring to active zone', 'High movers stuck deep → ROW 1–10, 16'],
+            ] as [ScreenMode, string, string][]
+          ).map(([m, label, hint]) => (
+            <button
+              key={m}
+              onClick={() => {
+                setMode(m);
+                setSelectedIds(new Set());
+              }}
+              title={hint}
+              className={`flex-1 px-3 py-2 rounded-lg text-[11px] font-black uppercase tracking-wider transition-colors ${
+                mode === m ? 'bg-accent text-white' : 'text-muted hover:text-content'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Filters — adapt to mode */}
         <div className="flex flex-wrap items-center gap-2 text-[11px]">
-          <div className="flex items-center gap-1 bg-card border border-subtle rounded-xl p-1">
-            <span className="px-2 text-muted uppercase font-bold">Max orders</span>
-            {[0, 1, 2, 5].map((n) => (
-              <button
-                key={n}
-                onClick={() => setMaxOrders(n)}
-                className={`px-2 py-1 rounded-lg font-bold uppercase transition-colors ${
-                  maxOrders === n ? 'bg-accent text-white' : 'text-muted hover:text-content'
-                }`}
-              >
-                ≤{n}
-              </button>
-            ))}
-          </div>
+          {mode === 'consolidate' ? (
+            <div className="flex items-center gap-1 bg-card border border-subtle rounded-xl p-1">
+              <span className="px-2 text-muted uppercase font-bold">Max orders</span>
+              {[0, 1, 2, 5].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setMaxOrders(n)}
+                  className={`px-2 py-1 rounded-lg font-bold uppercase transition-colors ${
+                    maxOrders === n ? 'bg-accent text-white' : 'text-muted hover:text-content'
+                  }`}
+                >
+                  ≤{n}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 bg-card border border-subtle rounded-xl p-1">
+              <span className="px-2 text-muted uppercase font-bold">Min orders</span>
+              {[2, 3, 5, 10].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setMinOrders(n)}
+                  className={`px-2 py-1 rounded-lg font-bold uppercase transition-colors ${
+                    minOrders === n ? 'bg-accent text-white' : 'text-muted hover:text-content'
+                  }`}
+                >
+                  ≥{n}
+                </button>
+              ))}
+            </div>
+          )}
 
           <button
             onClick={() => setOnlyBikes((v) => !v)}
@@ -239,17 +325,19 @@ export const ConsolidationScreen: React.FC = () => {
             Bikes only
           </button>
 
-          <button
-            onClick={() => setExcludeDeepSlow((v) => !v)}
-            className={`px-3 py-2 rounded-xl border font-bold uppercase transition-colors ${
-              excludeDeepSlow
-                ? 'bg-accent/10 border-accent/30 text-accent'
-                : 'bg-card border-subtle text-muted'
-            }`}
-            title="Hide rows already in the deep-slow zone (20–34)"
-          >
-            Exclude ROW 20–34
-          </button>
+          {mode === 'consolidate' && (
+            <button
+              onClick={() => setExcludeDeepSlow((v) => !v)}
+              className={`px-3 py-2 rounded-xl border font-bold uppercase transition-colors ${
+                excludeDeepSlow
+                  ? 'bg-accent/10 border-accent/30 text-accent'
+                  : 'bg-card border-subtle text-muted'
+              }`}
+              title="Hide rows already in the deep-slow zone (20–34)"
+            >
+              Exclude ROW 20–34
+            </button>
+          )}
 
           <div className="ml-auto text-muted font-bold uppercase tracking-wider">
             {totals.skus} SKUs · {totals.units}u · {totals.rows} rows
@@ -357,6 +445,8 @@ export const ConsolidationScreen: React.FC = () => {
       {moving && (
         <ConsolidationMoveModal
           candidate={moving}
+          targetRows={mode === 'consolidate' ? CONSOLIDATE_TARGETS : PROMOTE_TARGETS}
+          modeLabel={mode === 'consolidate' ? 'consolidation zone' : 'active zone'}
           onClose={() => setMoving(null)}
           onMoved={async (movedId) => {
             // Hide the row instantly so a fast double-click doesn't re-target
