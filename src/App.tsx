@@ -64,6 +64,11 @@ const FedExReturnDetailScreen = lazyWithRetry(() =>
     default: m.FedExReturnDetailScreen,
   }))
 );
+const ConsolidationScreen = lazyWithRetry(() =>
+  import('./features/consolidation/ConsolidationScreen.tsx').then((m) => ({
+    default: m.ConsolidationScreen,
+  }))
+);
 
 import { ViewModeProvider } from './context/ViewModeContext.tsx';
 import { PickingProvider } from './context/PickingContext.tsx';
@@ -112,6 +117,10 @@ const AuthenticatedContent = () => {
               <Route
                 path="/labels"
                 element={isAdmin ? <LabelStudioScreen /> : <Navigate to="/" replace />}
+              />
+              <Route
+                path="/consolidation"
+                element={isAdmin ? <ConsolidationScreen /> : <Navigate to="/" replace />}
               />
               {/* Catch-all for unknown routes */}
               <Route path="*" element={<Navigate to="/" replace />} />

@@ -1557,6 +1557,26 @@ export type Database = {
           skus_touched_90d: number;
         }[];
       };
+      get_consolidation_candidates: {
+        Args: {
+          p_max_orders?: number;
+          p_only_bikes?: boolean;
+          p_since?: string;
+        };
+        Returns: {
+          alias_chain: string[];
+          inventory_id: number;
+          item_name: string;
+          last_shipped: string;
+          orders_completed: number;
+          qty: number;
+          sku: string;
+          source_row: string;
+          sublocation: string[];
+          units_shipped: number;
+          warehouse: string;
+        }[];
+      };
       get_inventory_logs_for_sku: {
         Args: { p_limit?: number; p_sku: string };
         Returns: {
@@ -1602,6 +1622,28 @@ export type Database = {
       get_public_tag: {
         Args: { p_short_code: string; p_token: string };
         Returns: Json;
+      };
+      get_sku_movement_stats: {
+        Args: { p_since?: string; p_sku: string };
+        Returns: {
+          alias_chain: string[];
+          first_shipped: string;
+          last_shipped: string;
+          orders_completed: number;
+          sku: string;
+          units_shipped: number;
+        }[];
+      };
+      get_sku_movement_stats_batch: {
+        Args: { p_since?: string; p_skus: string[] };
+        Returns: {
+          alias_chain: string[];
+          first_shipped: string;
+          last_shipped: string;
+          orders_completed: number;
+          sku: string;
+          units_shipped: number;
+        }[];
       };
       get_snapshot: {
         Args: { p_target_date: string };
