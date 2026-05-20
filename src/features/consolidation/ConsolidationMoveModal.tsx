@@ -32,6 +32,8 @@ interface Props {
   targetRows: string[];
   /** Short label shown in the modal header ('consolidation zone' / 'active zone'). */
   modeLabel: string;
+  /** Optional pre-selection (smart suggestion from clear-row mode). */
+  suggestedRow?: string | null;
   onClose: () => void;
   onMoved: (inventoryId: number) => void | Promise<void>;
 }
@@ -40,11 +42,14 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
   candidate,
   targetRows,
   modeLabel,
+  suggestedRow,
   onClose,
   onMoved,
 }) => {
   const { moveItem } = useInventoryMutations();
-  const [targetRow, setTargetRow] = useState<string>('');
+  // Pre-select the smart-suggested row if it's in the allowed list.
+  const initialTarget = suggestedRow && targetRows.includes(suggestedRow) ? suggestedRow : '';
+  const [targetRow, setTargetRow] = useState<string>(initialTarget);
   const [sublocation, setSublocation] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const sublocInputRef = useRef<HTMLInputElement>(null);
@@ -221,24 +226,33 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
         <div className="p-4 space-y-4">
           <div>
             <label className="text-[10px] text-muted font-bold uppercase tracking-widest mb-2 block">
-              Target row
+              Target row{' '}
+              {suggestedRow && <span className="text-accent">· suggested {suggestedRow}</span>}
             </label>
             <div className="grid grid-cols-3 gap-2">
               {targets.map((t) => {
                 const fits = t.free >= candidate.qty;
                 const selected = targetRow === t.location;
+                const isSuggested = suggestedRow === t.location;
                 return (
                   <button
                     key={t.location}
                     onClick={() => setTargetRow(t.location)}
-                    className={`p-3 rounded-2xl border text-left transition-colors active:scale-[0.97] ${
+                    className={`relative p-3 rounded-2xl border text-left transition-colors active:scale-[0.97] ${
                       selected
                         ? 'bg-accent text-white border-accent shadow-md shadow-accent/20'
-                        : fits
-                          ? 'bg-surface border-subtle text-content hover:border-accent/50'
-                          : 'bg-surface border-subtle text-muted opacity-60'
+                        : isSuggested
+                          ? 'bg-accent/5 border-accent/60 text-content ring-1 ring-accent/40'
+                          : fits
+                            ? 'bg-surface border-subtle text-content hover:border-accent/50'
+                            : 'bg-surface border-subtle text-muted opacity-60'
                     }`}
                   >
+                    {isSuggested && !selected && (
+                      <span className="absolute top-1 right-1 text-[8px] px-1 py-0.5 rounded bg-accent/20 text-accent font-black uppercase tracking-tighter">
+                        ★
+                      </span>
+                    )}
                     <div className="text-base md:text-lg font-black tracking-tight leading-none">
                       {t.location}
                     </div>

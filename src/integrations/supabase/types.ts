@@ -1587,9 +1587,11 @@ export type Database = {
       };
       get_clear_row_plan: {
         Args: {
+          p_active_rows?: string[];
           p_active_threshold?: number;
           p_only_bikes?: boolean;
           p_since?: string;
+          p_slow_rows?: string[];
           p_source_row: string;
           p_warehouse?: string;
         };
@@ -1603,7 +1605,11 @@ export type Database = {
           sku: string;
           source_row: string;
           sublocation: string[];
+          suggested_row: string;
+          suggested_row_free: number;
+          suggested_row_picking_order: number;
           suggested_zone: string;
+          suggestion_reason: string;
           units_shipped: number;
           warehouse: string;
         }[];

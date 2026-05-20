@@ -87,5 +87,42 @@ SELECT CASE
   THEN 'PASS' ELSE 'FAIL' END AS result;
 
 \echo
+\echo === TEST 6: smart plan picks specific destination row with capacity ===
+-- Add target rows with picking_order and capacity, then check the picker:
+-- active SKU should land in the highest-picking-order target with room.
+INSERT INTO public.locations (id, warehouse, location, picking_order, max_capacity, is_active)
+VALUES
+  ('cccccccc-0000-0000-0000-000000000001', 'TEST_WH', 'ACT-HI', 390, 50, true),
+  ('cccccccc-0000-0000-0000-000000000002', 'TEST_WH', 'ACT-LO', 300, 50, true),
+  ('cccccccc-0000-0000-0000-000000000010', 'TEST_WH', 'SLOW-HI', 200, 50, true),
+  ('cccccccc-0000-0000-0000-000000000011', 'TEST_WH', 'SLOW-LO', 130, 50, true);
+
+SELECT CASE
+  WHEN (SELECT suggested_row FROM public.get_clear_row_plan(
+          'CR ROW','TEST_WH',true,2,
+          ARRAY['ACT-HI','ACT-LO'], ARRAY['SLOW-HI','SLOW-LO']
+        ) WHERE sku='CR-HOT')  = 'ACT-HI'
+   AND (SELECT suggested_row FROM public.get_clear_row_plan(
+          'CR ROW','TEST_WH',true,2,
+          ARRAY['ACT-HI','ACT-LO'], ARRAY['SLOW-HI','SLOW-LO']
+        ) WHERE sku='CR-COLD') = 'SLOW-LO'
+  THEN 'PASS' ELSE 'FAIL' END AS result;
+
+\echo
+\echo === TEST 7: rows without enough free are skipped (suggested_row NULL) ===
+-- Fill ACT-HI so it has only 1u free; CR-HOT needs 10u → must skip to ACT-LO.
+INSERT INTO public.sku_metadata (sku, is_bike) VALUES ('CR-FILLER', true)
+ON CONFLICT (sku) DO NOTHING;
+INSERT INTO public.inventory (sku, warehouse, location, location_id, quantity, is_active)
+VALUES ('CR-FILLER','TEST_WH','ACT-HI','cccccccc-0000-0000-0000-000000000001', 49, true);
+
+SELECT CASE
+  WHEN (SELECT suggested_row FROM public.get_clear_row_plan(
+          'CR ROW','TEST_WH',true,2,
+          ARRAY['ACT-HI','ACT-LO'], ARRAY['SLOW-HI','SLOW-LO']
+        ) WHERE sku='CR-HOT') = 'ACT-LO'
+  THEN 'PASS' ELSE 'FAIL' END AS result;
+
+\echo
 \echo === All tests done. Look for FAIL above. ===
 ROLLBACK;
