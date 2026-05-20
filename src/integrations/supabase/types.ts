@@ -1477,7 +1477,35 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      v_inventory_location_drift: {
+        Row: {
+          fk_location: string | null;
+          inventory_id: number | null;
+          is_active: boolean | null;
+          location_id: string | null;
+          quantity: number | null;
+          raw_location: string | null;
+          sku: string | null;
+          updated_at: string | null;
+          warehouse: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'inventory_location_id_fkey';
+            columns: ['location_id'];
+            isOneToOne: false;
+            referencedRelation: 'locations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'inventory_sku_fkey';
+            columns: ['sku'];
+            isOneToOne: false;
+            referencedRelation: 'sku_metadata';
+            referencedColumns: ['sku'];
+          },
+        ];
+      };
     };
     Functions: {
       adjust_distribution: {
@@ -1617,6 +1645,27 @@ export type Database = {
           total_capacity: number;
           total_skus: number;
           total_units: number;
+        }[];
+      };
+      get_promotion_candidates: {
+        Args: {
+          p_min_orders?: number;
+          p_only_bikes?: boolean;
+          p_since?: string;
+          p_source_rows?: string[];
+        };
+        Returns: {
+          alias_chain: string[];
+          inventory_id: number;
+          item_name: string;
+          last_shipped: string;
+          orders_completed: number;
+          qty: number;
+          sku: string;
+          source_row: string;
+          sublocation: string[];
+          units_shipped: number;
+          warehouse: string;
         }[];
       };
       get_public_tag: {

@@ -28,27 +28,21 @@ interface TargetRow {
 
 interface Props {
   candidate: Candidate;
+  /** Allowed destination rows. Caller decides slow vs active. */
+  targetRows: string[];
+  /** Short label shown in the modal header ('consolidation zone' / 'active zone'). */
+  modeLabel: string;
   onClose: () => void;
   onMoved: (inventoryId: number) => void | Promise<void>;
 }
 
-// Default destination zone for consolidation moves.
-const TARGET_ROWS = [
-  'ROW 20',
-  'ROW 21',
-  'ROW 22',
-  'ROW 23',
-  'ROW 24',
-  'ROW 25',
-  'ROW 26',
-  'ROW 27',
-  'ROW 28',
-  'ROW 29',
-  'ROW 30',
-  'ROW 31',
-];
-
-export const ConsolidationMoveModal: React.FC<Props> = ({ candidate, onClose, onMoved }) => {
+export const ConsolidationMoveModal: React.FC<Props> = ({
+  candidate,
+  targetRows,
+  modeLabel,
+  onClose,
+  onMoved,
+}) => {
   const { moveItem } = useInventoryMutations();
   const [targetRow, setTargetRow] = useState<string>('');
   const [sublocation, setSublocation] = useState('');
@@ -72,14 +66,15 @@ export const ConsolidationMoveModal: React.FC<Props> = ({ candidate, onClose, on
   };
 
   // Fetch target row occupancy so we can show free capacity in the picker.
+  const targetRowsKey = targetRows.join(',');
   const { data: targets = [] } = useQuery({
-    queryKey: ['consolidation-targets', candidate.warehouse],
+    queryKey: ['consolidation-targets', candidate.warehouse, targetRowsKey],
     queryFn: async (): Promise<TargetRow[]> => {
       const { data: locs, error: lErr } = await supabase
         .from('locations')
         .select('id, location, max_capacity')
         .eq('warehouse', candidate.warehouse)
-        .in('location', TARGET_ROWS)
+        .in('location', targetRows)
         .eq('is_active', true);
       if (lErr) throw lErr;
 
@@ -87,7 +82,7 @@ export const ConsolidationMoveModal: React.FC<Props> = ({ candidate, onClose, on
         .from('inventory')
         .select('location, quantity, is_active')
         .eq('warehouse', candidate.warehouse)
-        .in('location', TARGET_ROWS)
+        .in('location', targetRows)
         .eq('is_active', true)
         .gt('quantity', 0);
       if (iErr) throw iErr;
@@ -204,7 +199,7 @@ export const ConsolidationMoveModal: React.FC<Props> = ({ candidate, onClose, on
         <div className="px-4 py-3 border-b border-subtle flex items-center justify-between sticky top-0 bg-card">
           <div className="min-w-0">
             <div className="text-[10px] text-muted font-bold uppercase tracking-widest">
-              Move to consolidation zone
+              Move to {modeLabel}
             </div>
             <div className="font-mono text-sm font-bold text-content truncate">
               {candidate.sku}{' '}
