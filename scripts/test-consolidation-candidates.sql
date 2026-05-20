@@ -128,10 +128,16 @@ INSERT INTO public.locations (id, warehouse, location, is_active)
 VALUES ('77777777-cccc-cccc-cccc-000000000099', 'TEST_WH', 'ROW 99-FK', true)
 ON CONFLICT (id) DO NOTHING;
 
+-- Bypass the sync_inventory_location_columns trigger to fabricate the legacy
+-- drift state (in real life the trigger now prevents this — but we want to
+-- prove the RPC still does the right thing for any drift that may exist
+-- from before the trigger was added).
+ALTER TABLE public.inventory DISABLE TRIGGER trg_zz_inventory_sync_location;
 UPDATE public.inventory
 SET location = 'ROW 23',
     location_id = '77777777-cccc-cccc-cccc-000000000099'
 WHERE sku = 'CONS-BIKE-NEVER';
+ALTER TABLE public.inventory ENABLE TRIGGER trg_zz_inventory_sync_location;
 
 SELECT CASE
          WHEN source_row = 'ROW 23' THEN 'PASS'
