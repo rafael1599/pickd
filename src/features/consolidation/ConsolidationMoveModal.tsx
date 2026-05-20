@@ -158,12 +158,24 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
         return;
       }
 
-      const sublocs = sublocation.trim()
+      // Parse the sublocation input into a clean array. Empty array gets
+      // normalized to NULL so the server doesn't end up storing '{}' for
+      // a row whose sublocation was meant to be cleared.
+      const parsed = sublocation.trim()
         ? sublocation
             .toUpperCase()
             .split(/[+,\s]+/)
             .filter(Boolean)
-        : null;
+        : [];
+      const sublocs = parsed.length > 0 ? parsed : null;
+
+      // Defensive: refuse same-location moves at the client too (the RPC
+      // now raises, but this surfaces a friendlier message and avoids the
+      // round-trip).
+      if (targetRow.toUpperCase().trim() === (fresh.location || '').toUpperCase().trim()) {
+        toast.error(`${candidate.sku} is already in ${targetRow}.`);
+        return;
+      }
 
       // Build a minimal InventoryItemWithMetadata-shaped sourceItem from the
       // (verified-fresh) row. The mutation only reads
@@ -230,38 +242,43 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
               {suggestedRow && <span className="text-accent">· suggested {suggestedRow}</span>}
             </label>
             <div className="grid grid-cols-3 gap-2">
-              {targets.map((t) => {
-                const fits = t.free >= candidate.qty;
-                const selected = targetRow === t.location;
-                const isSuggested = suggestedRow === t.location;
-                return (
-                  <button
-                    key={t.location}
-                    onClick={() => setTargetRow(t.location)}
-                    className={`relative p-3 rounded-2xl border text-left transition-colors active:scale-[0.97] ${
-                      selected
-                        ? 'bg-accent text-white border-accent shadow-md shadow-accent/20'
-                        : isSuggested
-                          ? 'bg-accent/5 border-accent/60 text-content ring-1 ring-accent/40'
-                          : fits
-                            ? 'bg-surface border-subtle text-content hover:border-accent/50'
-                            : 'bg-surface border-subtle text-muted opacity-60'
-                    }`}
-                  >
-                    {isSuggested && !selected && (
-                      <span className="absolute top-1 right-1 text-[8px] px-1 py-0.5 rounded bg-accent/20 text-accent font-black uppercase tracking-tighter">
-                        ★
-                      </span>
-                    )}
-                    <div className="text-base md:text-lg font-black tracking-tight leading-none">
-                      {t.location}
-                    </div>
-                    <div className="text-[10px] uppercase font-bold opacity-80 mt-1 tracking-wider">
-                      {t.free}u free
-                    </div>
-                  </button>
-                );
-              })}
+              {targets
+                // Hide the source row — moving to the same location is a no-op
+                // and the RPC now rejects it. Filtering early keeps the UI
+                // honest about what's actionable.
+                .filter((t) => t.location.toUpperCase() !== candidate.source_row.toUpperCase())
+                .map((t) => {
+                  const fits = t.free >= candidate.qty;
+                  const selected = targetRow === t.location;
+                  const isSuggested = suggestedRow === t.location;
+                  return (
+                    <button
+                      key={t.location}
+                      onClick={() => setTargetRow(t.location)}
+                      className={`relative p-3 rounded-2xl border text-left transition-colors active:scale-[0.97] ${
+                        selected
+                          ? 'bg-accent text-white border-accent shadow-md shadow-accent/20'
+                          : isSuggested
+                            ? 'bg-accent/5 border-accent/60 text-content ring-1 ring-accent/40'
+                            : fits
+                              ? 'bg-surface border-subtle text-content hover:border-accent/50'
+                              : 'bg-surface border-subtle text-muted opacity-60'
+                      }`}
+                    >
+                      {isSuggested && !selected && (
+                        <span className="absolute top-1 right-1 text-[8px] px-1 py-0.5 rounded bg-accent/20 text-accent font-black uppercase tracking-tighter">
+                          ★
+                        </span>
+                      )}
+                      <div className="text-base md:text-lg font-black tracking-tight leading-none">
+                        {t.location}
+                      </div>
+                      <div className="text-[10px] uppercase font-bold opacity-80 mt-1 tracking-wider">
+                        {t.free}u free
+                      </div>
+                    </button>
+                  );
+                })}
             </div>
           </div>
 
