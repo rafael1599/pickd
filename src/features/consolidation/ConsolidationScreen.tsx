@@ -463,87 +463,82 @@ const ConsolidationCard: React.FC<ConsolidationCardProps> = ({
         )}
       </div>
 
-      {/* Right column: SKU + name + metadata + Move button. */}
-      <div className="flex-1 min-w-0 flex flex-col justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-black text-xl md:text-2xl tracking-tight leading-none text-content break-all">
-              {c.sku}
+      {/* Middle column: SKU + name + metadata. */}
+      <div className="flex-1 min-w-0 flex flex-col justify-center">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-black text-xl md:text-2xl tracking-tight leading-none text-content break-all">
+            {c.sku}
+          </span>
+          {c.alias_chain?.length > 1 && (
+            <span
+              className="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 font-bold uppercase"
+              title={`Aliases: ${c.alias_chain.join(', ')}`}
+            >
+              renamed
             </span>
-            {c.alias_chain?.length > 1 && (
-              <span
-                className="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 font-bold uppercase"
-                title={`Aliases: ${c.alias_chain.join(', ')}`}
-              >
-                renamed
-              </span>
-            )}
-          </div>
-          {c.item_name && (
-            <div className="text-xs md:text-sm text-muted mt-1 leading-snug line-clamp-2">
-              {c.item_name}
-            </div>
           )}
-          <div className="flex items-center gap-2 mt-1.5 text-[10px] text-muted/80">
-            <span className="font-bold uppercase tracking-wider">
-              {c.orders_completed === 0
-                ? 'never shipped'
-                : `${c.orders_completed} order${c.orders_completed === 1 ? '' : 's'}`}
-            </span>
-            {c.last_shipped && (
-              <>
-                <span>·</span>
-                <span className="font-bold uppercase tracking-wider">
-                  {formatLastShipped(c.last_shipped)}
-                </span>
-              </>
-            )}
+        </div>
+        {c.item_name && (
+          <div className="text-xs md:text-sm text-muted mt-1 leading-snug line-clamp-2">
+            {c.item_name}
           </div>
+        )}
+        <div className="flex items-center gap-2 mt-1.5 text-[10px] text-muted/80">
+          <span className="font-bold uppercase tracking-wider">
+            {c.orders_completed === 0
+              ? 'never shipped'
+              : `${c.orders_completed} order${c.orders_completed === 1 ? '' : 's'}`}
+          </span>
+          {c.last_shipped && (
+            <>
+              <span>·</span>
+              <span className="font-bold uppercase tracking-wider">
+                {formatLastShipped(c.last_shipped)}
+              </span>
+            </>
+          )}
         </div>
+      </div>
 
-        {/* Right-aligned column: checkbox sits on top of the Move button.
-         *  Interaction model:
-         *   - First tap on EITHER checkbox or Move → selects (visual mark).
-         *   - When already selected:
-         *       · Tap checkbox → deselects.
-         *       · Tap Move     → opens the move modal.
-         *  This way new users don't get stuck (Move "just works") and
-         *  power users get the safety of explicit deselect via the box. */}
-        <div className="flex flex-col items-end gap-1.5">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleSelected();
-            }}
-            aria-label={isSelected ? 'Unselect' : 'Select to move'}
-            className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${
-              isSelected
-                ? 'bg-accent border-accent text-white'
-                : 'bg-surface border-subtle hover:border-accent/60'
-            }`}
-          >
-            {isSelected && <Check size={14} strokeWidth={3} />}
-          </button>
+      {/* Right column: checkbox + Move stacked, each filling 50% of the
+       *  card height with a small aesthetic gap.
+       *  Interaction:
+       *   - First tap on EITHER → selects.
+       *   - Selected state: checkbox deselects, Move opens the modal. */}
+      <div className="flex flex-col gap-2 self-stretch w-20 shrink-0">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelected();
+          }}
+          aria-label={isSelected ? 'Unselect' : 'Select to move'}
+          className={`flex-1 rounded-xl border-2 flex items-center justify-center transition-colors ${
+            isSelected
+              ? 'bg-accent border-accent text-white'
+              : 'bg-surface border-subtle hover:border-accent/60'
+          }`}
+        >
+          {isSelected && <Check size={20} strokeWidth={3} />}
+        </button>
 
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (isSelected) onMove();
-              else onToggleSelected();
-            }}
-            disabled={isFetching}
-            className={`px-3 py-2 rounded-lg border text-[11px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
-              isSelected
-                ? 'bg-accent text-white border-accent hover:bg-accent/90'
-                : 'bg-accent/10 text-accent border-accent/30 hover:bg-accent/20'
-            }`}
-          >
-            <MoveRight size={14} />
-            Move
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (isSelected) onMove();
+            else onToggleSelected();
+          }}
+          disabled={isFetching}
+          className={`flex-1 rounded-xl border text-[11px] font-black uppercase tracking-wider flex flex-col items-center justify-center gap-0.5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+            isSelected
+              ? 'bg-accent text-white border-accent hover:bg-accent/90'
+              : 'bg-accent/10 text-accent border-accent/30 hover:bg-accent/20'
+          }`}
+        >
+          <MoveRight size={18} />
+          <span>Move</span>
+        </button>
       </div>
     </div>
   );
