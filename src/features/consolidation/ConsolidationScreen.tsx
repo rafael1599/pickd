@@ -180,28 +180,49 @@ export const ConsolidationScreen: React.FC = () => {
   });
 
   // Rows that currently have active bike inventory (used as options in the
-  // clear-row picker). Only fetched when that tab is active to keep the
-  // first paint of the screen lean.
+  // clear-row picker). Includes unit count per row so the picker can sort
+  // by "easiest to clear" and show the count under each chip.
   const { data: availableRows = [] } = useQuery({
     queryKey: ['consolidation-available-rows', onlyBikes],
     enabled: mode === 'clear-row',
-    queryFn: async () => {
+    queryFn: async (): Promise<{ location: string; units: number; skus: number }[]> => {
       const q = supabase
         .from('inventory')
-        .select('location, sku_metadata!inner(is_bike)')
+        .select('location, quantity, sku, sku_metadata!inner(is_bike)')
         .eq('is_active', true)
         .gt('quantity', 0);
       if (onlyBikes) q.eq('sku_metadata.is_bike', true);
       const { data, error } = await q;
       if (error) throw error;
-      const rows = new Set<string>();
-      for (const r of (data || []) as { location: string | null }[]) {
-        if (r.location && /^ROW /.test(r.location)) rows.add(r.location);
+      const byRow = new Map<string, { units: number; skus: Set<string> }>();
+      for (const r of (data || []) as {
+        location: string | null;
+        quantity: number | null;
+        sku: string | null;
+      }[]) {
+        if (!r.location || !/^ROW /.test(r.location)) continue;
+        const entry = byRow.get(r.location) || { units: 0, skus: new Set() };
+        entry.units += r.quantity || 0;
+        if (r.sku) entry.skus.add(r.sku);
+        byRow.set(r.location, entry);
       }
-      return Array.from(rows).sort((a, b) => rowSortKey(a) - rowSortKey(b));
+      return Array.from(byRow.entries())
+        .map(([location, v]) => ({ location, units: v.units, skus: v.skus.size }))
+        .sort((a, b) => rowSortKey(a.location) - rowSortKey(b.location));
     },
     staleTime: 60_000,
   });
+
+  // Top 3 rows easiest to clear out (fewest total units). Surfaced as
+  // a 'Quick picks' row above the full grid.
+  const easiestToClear = useMemo(
+    () =>
+      [...availableRows]
+        .filter((r) => r.units > 0)
+        .sort((a, b) => a.units - b.units)
+        .slice(0, 3),
+    [availableRows]
+  );
 
   // Apply client-side filters.
   //  - 'exclude deep slow' is only meaningful in consolidate mode (in
@@ -392,36 +413,77 @@ export const ConsolidationScreen: React.FC = () => {
         {/* clear-row: pick the source row to empty out */}
         {mode === 'clear-row' && (
           <div className="mt-3">
+            {easiestToClear.length > 0 && (
+              <>
+                <div className="text-[10px] text-muted font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                  <span className="text-emerald-500">★</span>
+                  Easiest to clear
+                  <span className="text-muted/60 font-normal normal-case">
+                    · fewest units to relocate
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  {easiestToClear.map((r) => (
+                    <button
+                      key={r.location}
+                      onClick={() => {
+                        setClearRow(r.location);
+                        setSelectedIds(new Set());
+                      }}
+                      className={`p-2 rounded-xl border-2 text-left transition-colors active:scale-[0.97] ${
+                        clearRow === r.location
+                          ? 'bg-accent text-white border-accent shadow-md shadow-accent/20'
+                          : 'bg-card border-emerald-500/40 text-content hover:border-emerald-500/70'
+                      }`}
+                    >
+                      <div className="text-sm md:text-base font-black tracking-tight leading-none">
+                        {r.location}
+                      </div>
+                      <div className="text-[9px] uppercase font-bold opacity-80 tracking-wider mt-1">
+                        {r.units}u · {r.skus} SKU
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
             <div className="text-[10px] text-muted font-bold uppercase tracking-widest mb-2">
-              Pick a row to clear
+              All rows
             </div>
             <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
               {availableRows.length === 0 ? (
                 <span className="text-[11px] text-muted/60">Loading rows…</span>
               ) : (
-                availableRows.map((row) => (
+                availableRows.map((r) => (
                   <button
-                    key={row}
+                    key={r.location}
                     onClick={() => {
-                      setClearRow(row);
+                      setClearRow(r.location);
                       setSelectedIds(new Set());
                     }}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-black uppercase tracking-tight transition-colors ${
-                      clearRow === row
+                    className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-tight transition-colors flex flex-col items-center gap-0 ${
+                      clearRow === r.location
                         ? 'bg-accent text-white'
                         : 'bg-card border border-subtle text-content hover:border-accent/50'
                     }`}
                   >
-                    {row}
+                    <span>{r.location}</span>
+                    <span
+                      className={`text-[9px] font-bold opacity-80 normal-case tracking-normal ${clearRow === r.location ? 'text-white/80' : 'text-muted'}`}
+                    >
+                      {r.units}u
+                    </span>
                   </button>
                 ))
               )}
             </div>
             {!clearRow && (
               <p className="text-[10px] text-muted/70 mt-2">
-                Once you pick a row, the system suggests <span className="text-accent">active</span>{' '}
-                or <span className="text-accent">slow</span> destinations per SKU based on its
-                movement history.
+                Pick a row above. The system then suggests{' '}
+                <span className="text-accent">active</span> or{' '}
+                <span className="text-accent">slow</span> destinations per SKU based on its movement
+                history.
               </p>
             )}
           </div>
