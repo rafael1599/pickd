@@ -179,8 +179,11 @@ export const ConsolidationMoveModal: React.FC<Props> = ({ candidate, onClose, on
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center">
-      <div className="bg-card border border-subtle rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md max-h-[90vh] overflow-y-auto">
+    // z-[110] sits above BottomNavigation (z-[100]) — bottom-sheet modals on
+    // mobile dock at items-end, so without this the panel's action buttons
+    // get hidden under the floating nav bar. See ui-rules skill §1.
+    <div className="fixed inset-0 z-[110] bg-black/60 flex items-end sm:items-center justify-center">
+      <div className="bg-card border border-subtle rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md max-h-[90vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]">
         <div className="px-4 py-3 border-b border-subtle flex items-center justify-between sticky top-0 bg-card">
           <div className="min-w-0">
             <div className="text-[10px] text-muted font-bold uppercase tracking-widest">
