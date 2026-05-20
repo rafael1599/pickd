@@ -109,6 +109,36 @@ SELECT CASE
          WHEN NOT exists(SELECT 1 FROM public.get_consolidation_candidates(0, true) WHERE sku = 'CONS-BIKE-NEVER')
          THEN 'PASS' ELSE 'FAIL' END AS result;
 
+-- =========================================================================
+-- TEST 7: source_row uses inventory.location (raw text) as source of truth
+-- when it disagrees with the FK-joined locations.location.
+--
+-- Regression: 03-4227BL had inventory.location='ROW 23' but the FK pointed
+-- to a locations row whose name='ROW 1'. The Stock screen showed ROW 23,
+-- the consolidation screen showed ROW 1 — confusing for the operator.
+-- =========================================================================
+\echo
+\echo === TEST 7: source_row prefers inventory.location over FK mismatch ===
+-- Re-activate the SKU from TEST 6 (rolled back at script end anyway)
+UPDATE public.inventory SET is_active=true WHERE sku='CONS-BIKE-NEVER';
+
+-- Make sure target row exists, then point the inventory FK at a *different*
+-- row id while leaving the text column at the canonical name.
+INSERT INTO public.locations (id, warehouse, location, is_active)
+VALUES ('77777777-cccc-cccc-cccc-000000000099', 'TEST_WH', 'ROW 99-FK', true)
+ON CONFLICT (id) DO NOTHING;
+
+UPDATE public.inventory
+SET location = 'ROW 23',
+    location_id = '77777777-cccc-cccc-cccc-000000000099'
+WHERE sku = 'CONS-BIKE-NEVER';
+
+SELECT CASE
+         WHEN source_row = 'ROW 23' THEN 'PASS'
+         ELSE 'FAIL: got ' || source_row END AS result
+FROM public.get_consolidation_candidates(0, true)
+WHERE sku = 'CONS-BIKE-NEVER';
+
 \echo
 \echo === All tests done. Look for FAIL above. ===
 ROLLBACK;
