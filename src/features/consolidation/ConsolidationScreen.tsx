@@ -29,6 +29,8 @@ interface Candidate {
   units_shipped: number | string;
   last_shipped: string | null;
   alias_chain: string[];
+  /** Only populated in clear-row mode: 'active' or 'slow'. */
+  suggested_zone?: 'active' | 'slow';
 }
 
 const DEEP_SLOW_ROWS = new Set([
@@ -68,7 +70,7 @@ function formatLastShipped(iso: string | null): string {
   return d.toLocaleDateString();
 }
 
-type ScreenMode = 'consolidate' | 'promote';
+type ScreenMode = 'consolidate' | 'promote' | 'clear-row';
 
 // Rows where consolidated items end up (slow zone).
 const CONSOLIDATE_TARGETS = [
@@ -109,6 +111,8 @@ export const ConsolidationScreen: React.FC = () => {
   const [minOrders, setMinOrders] = useState(2);
   const [onlyBikes, setOnlyBikes] = useState(true);
   const [excludeDeepSlow, setExcludeDeepSlow] = useState(true);
+  /** Source row selected to be cleared (clear-row mode). Empty until picked. */
+  const [clearRow, setClearRow] = useState<string>('');
   const [moving, setMoving] = useState<Candidate | null>(null);
   const [detailItem, setDetailItem] = useState<InventoryItemWithMetadata | null>(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
@@ -137,7 +141,7 @@ export const ConsolidationScreen: React.FC = () => {
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ['consolidation-candidates', mode, maxOrders, minOrders, onlyBikes],
+    queryKey: ['consolidation-candidates', mode, maxOrders, minOrders, onlyBikes, clearRow],
     queryFn: async () => {
       if (mode === 'consolidate') {
         const { data, error } = await supabase.rpc('get_consolidation_candidates', {
@@ -147,8 +151,18 @@ export const ConsolidationScreen: React.FC = () => {
         if (error) throw error;
         return (data || []) as unknown as Candidate[];
       }
-      const { data, error } = await supabase.rpc('get_promotion_candidates', {
-        p_min_orders: minOrders,
+      if (mode === 'promote') {
+        const { data, error } = await supabase.rpc('get_promotion_candidates', {
+          p_min_orders: minOrders,
+          p_only_bikes: onlyBikes,
+        });
+        if (error) throw error;
+        return (data || []) as unknown as Candidate[];
+      }
+      // clear-row: only run after the operator picks a source row.
+      if (!clearRow) return [];
+      const { data, error } = await supabase.rpc('get_clear_row_plan', {
+        p_source_row: clearRow,
         p_only_bikes: onlyBikes,
       });
       if (error) throw error;
@@ -158,6 +172,30 @@ export const ConsolidationScreen: React.FC = () => {
     // qty/locations. Always refetch on focus / key change.
     staleTime: 0,
     refetchOnWindowFocus: true,
+  });
+
+  // Rows that currently have active bike inventory (used as options in the
+  // clear-row picker). Only fetched when that tab is active to keep the
+  // first paint of the screen lean.
+  const { data: availableRows = [] } = useQuery({
+    queryKey: ['consolidation-available-rows', onlyBikes],
+    enabled: mode === 'clear-row',
+    queryFn: async () => {
+      const q = supabase
+        .from('inventory')
+        .select('location, sku_metadata!inner(is_bike)')
+        .eq('is_active', true)
+        .gt('quantity', 0);
+      if (onlyBikes) q.eq('sku_metadata.is_bike', true);
+      const { data, error } = await q;
+      if (error) throw error;
+      const rows = new Set<string>();
+      for (const r of (data || []) as { location: string | null }[]) {
+        if (r.location && /^ROW /.test(r.location)) rows.add(r.location);
+      }
+      return Array.from(rows).sort((a, b) => rowSortKey(a) - rowSortKey(b));
+    },
+    staleTime: 60_000,
   });
 
   // Apply client-side filters.
@@ -260,8 +298,9 @@ export const ConsolidationScreen: React.FC = () => {
         <div className="flex items-center gap-1 bg-card border border-subtle rounded-xl p-1 mb-3">
           {(
             [
-              ['consolidate', 'Send to slow zone', 'Slow movers → ROW 20–31'],
-              ['promote', 'Bring to active zone', 'High movers stuck deep → ROW 1–10, 16'],
+              ['consolidate', 'Send to slow', 'Slow movers → ROW 20–31'],
+              ['promote', 'Bring to active', 'High movers stuck deep → ROW 1–10, 16'],
+              ['clear-row', 'Clear a row', 'Empty a specific row; movers go active, idle go slow'],
             ] as [ScreenMode, string, string][]
           ).map(([m, label, hint]) => (
             <button
@@ -271,7 +310,7 @@ export const ConsolidationScreen: React.FC = () => {
                 setSelectedIds(new Set());
               }}
               title={hint}
-              className={`flex-1 px-3 py-2 rounded-lg text-[11px] font-black uppercase tracking-wider transition-colors ${
+              className={`flex-1 px-2 py-2 rounded-lg text-[10px] md:text-[11px] font-black uppercase tracking-wider transition-colors ${
                 mode === m ? 'bg-accent text-white' : 'text-muted hover:text-content'
               }`}
             >
@@ -282,7 +321,7 @@ export const ConsolidationScreen: React.FC = () => {
 
         {/* Filters — adapt to mode */}
         <div className="flex flex-wrap items-center gap-2 text-[11px]">
-          {mode === 'consolidate' ? (
+          {mode === 'consolidate' && (
             <div className="flex items-center gap-1 bg-card border border-subtle rounded-xl p-1">
               <span className="px-2 text-muted uppercase font-bold">Max orders</span>
               {[0, 1, 2, 5].map((n) => (
@@ -297,7 +336,8 @@ export const ConsolidationScreen: React.FC = () => {
                 </button>
               ))}
             </div>
-          ) : (
+          )}
+          {mode === 'promote' && (
             <div className="flex items-center gap-1 bg-card border border-subtle rounded-xl p-1">
               <span className="px-2 text-muted uppercase font-bold">Min orders</span>
               {[2, 3, 5, 10].map((n) => (
@@ -344,6 +384,44 @@ export const ConsolidationScreen: React.FC = () => {
           </div>
         </div>
 
+        {/* clear-row: pick the source row to empty out */}
+        {mode === 'clear-row' && (
+          <div className="mt-3">
+            <div className="text-[10px] text-muted font-bold uppercase tracking-widest mb-2">
+              Pick a row to clear
+            </div>
+            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+              {availableRows.length === 0 ? (
+                <span className="text-[11px] text-muted/60">Loading rows…</span>
+              ) : (
+                availableRows.map((row) => (
+                  <button
+                    key={row}
+                    onClick={() => {
+                      setClearRow(row);
+                      setSelectedIds(new Set());
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-black uppercase tracking-tight transition-colors ${
+                      clearRow === row
+                        ? 'bg-accent text-white'
+                        : 'bg-card border border-subtle text-content hover:border-accent/50'
+                    }`}
+                  >
+                    {row}
+                  </button>
+                ))
+              )}
+            </div>
+            {!clearRow && (
+              <p className="text-[10px] text-muted/70 mt-2">
+                Once you pick a row, the system suggests <span className="text-accent">active</span>{' '}
+                or <span className="text-accent">slow</span> destinations per SKU based on its
+                movement history.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Search */}
         <div className="mt-3">
           <SearchInput
@@ -367,7 +445,11 @@ export const ConsolidationScreen: React.FC = () => {
           <div className="text-center text-muted text-sm py-12">
             {debouncedSearch
               ? `No matches for "${debouncedSearch}".`
-              : 'No candidates match the current filters.'}
+              : mode === 'clear-row' && !clearRow
+                ? 'Pick a row above to see its contents and suggested destinations.'
+                : mode === 'clear-row'
+                  ? `${clearRow} is already empty.`
+                  : 'No candidates match the current filters.'}
           </div>
         ) : debouncedSearch ? (
           // Active search → flat list (ranked by search relevance, not grouped).
@@ -445,8 +527,24 @@ export const ConsolidationScreen: React.FC = () => {
       {moving && (
         <ConsolidationMoveModal
           candidate={moving}
-          targetRows={mode === 'consolidate' ? CONSOLIDATE_TARGETS : PROMOTE_TARGETS}
-          modeLabel={mode === 'consolidate' ? 'consolidation zone' : 'active zone'}
+          targetRows={
+            mode === 'clear-row'
+              ? moving.suggested_zone === 'active'
+                ? PROMOTE_TARGETS
+                : CONSOLIDATE_TARGETS
+              : mode === 'consolidate'
+                ? CONSOLIDATE_TARGETS
+                : PROMOTE_TARGETS
+          }
+          modeLabel={
+            mode === 'clear-row'
+              ? moving.suggested_zone === 'active'
+                ? 'active zone (suggested)'
+                : 'slow zone (suggested)'
+              : mode === 'consolidate'
+                ? 'consolidation zone'
+                : 'active zone'
+          }
           onClose={() => setMoving(null)}
           onMoved={async (movedId) => {
             // Hide the row instantly so a fast double-click doesn't re-target
@@ -565,6 +663,22 @@ const ConsolidationCard: React.FC<ConsolidationCardProps> = ({
               title={`Aliases: ${c.alias_chain.join(', ')}`}
             >
               renamed
+            </span>
+          )}
+          {c.suggested_zone && (
+            <span
+              className={`text-[9px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-wider ${
+                c.suggested_zone === 'active'
+                  ? 'bg-emerald-500/10 text-emerald-500'
+                  : 'bg-blue-500/10 text-blue-400'
+              }`}
+              title={
+                c.suggested_zone === 'active'
+                  ? 'Suggested: active zone (ROW 1–10, 16)'
+                  : 'Suggested: slow zone (ROW 20–31)'
+              }
+            >
+              → {c.suggested_zone}
             </span>
           )}
         </div>

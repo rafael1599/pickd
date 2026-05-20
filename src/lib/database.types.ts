@@ -1585,6 +1585,29 @@ export type Database = {
           skus_touched_90d: number;
         }[];
       };
+      get_clear_row_plan: {
+        Args: {
+          p_active_threshold?: number;
+          p_only_bikes?: boolean;
+          p_since?: string;
+          p_source_row: string;
+          p_warehouse?: string;
+        };
+        Returns: {
+          alias_chain: string[];
+          inventory_id: number;
+          item_name: string;
+          last_shipped: string;
+          orders_completed: number;
+          qty: number;
+          sku: string;
+          source_row: string;
+          sublocation: string[];
+          suggested_zone: string;
+          units_shipped: number;
+          warehouse: string;
+        }[];
+      };
       get_consolidation_candidates: {
         Args: {
           p_max_orders?: number;
