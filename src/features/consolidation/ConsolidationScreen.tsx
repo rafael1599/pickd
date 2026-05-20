@@ -7,7 +7,10 @@ import RefreshCw from 'lucide-react/dist/esm/icons/refresh-cw';
 import Boxes from 'lucide-react/dist/esm/icons/boxes';
 import MoveRight from 'lucide-react/dist/esm/icons/move-right';
 import { supabase } from '../../lib/supabase';
+import { SearchInput } from '../../components/ui/SearchInput';
+import { useDebounce } from '../../hooks/useDebounce';
 import { ConsolidationMoveModal } from './ConsolidationMoveModal';
+import { searchCandidates } from './searchCandidates';
 
 interface Candidate {
   inventory_id: number;
@@ -71,6 +74,8 @@ export const ConsolidationScreen: React.FC = () => {
   // until the next refetch confirms the new state. Prevents the user from
   // re-clicking a stale row before react-query has refreshed.
   const [movedIds, setMovedIds] = useState<Set<number>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 200);
 
   const {
     data: candidates = [],
@@ -95,7 +100,7 @@ export const ConsolidationScreen: React.FC = () => {
 
   // Apply client-side deep-slow filter so toggling doesn't re-fetch.
   // Also hide rows that we've just moved (until refetch completes).
-  const filtered = useMemo(
+  const preSearch = useMemo(
     () =>
       candidates.filter((c) => {
         if (movedIds.has(c.inventory_id)) return false;
@@ -103,6 +108,11 @@ export const ConsolidationScreen: React.FC = () => {
         return true;
       }),
     [candidates, excludeDeepSlow, movedIds]
+  );
+
+  const filtered = useMemo(
+    () => searchCandidates(preSearch, debouncedSearch),
+    [preSearch, debouncedSearch]
   );
 
   const grouped = useMemo(() => {
@@ -192,17 +202,79 @@ export const ConsolidationScreen: React.FC = () => {
             {totals.skus} SKUs · {totals.units}u · {totals.rows} rows
           </div>
         </div>
+
+        {/* Search */}
+        <div className="mt-3">
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search SKU, name, row, sublocation…"
+            variant="inline"
+            preferenceId="consolidation"
+          />
+        </div>
       </div>
 
-      {/* List */}
-      <div className="p-4 pb-24">
+      {/* List — pb-32 leaves room for the floating BottomNavigation. See
+          .claude/skills/project-skills/pickd/ui-rules. */}
+      <div className="p-4 pb-32">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="animate-spin text-accent w-6 h-6 opacity-30" />
           </div>
-        ) : grouped.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="text-center text-muted text-sm py-12">
-            No candidates match the current filters.
+            {debouncedSearch
+              ? `No matches for "${debouncedSearch}".`
+              : 'No candidates match the current filters.'}
+          </div>
+        ) : debouncedSearch ? (
+          // Active search → flat list (ranked by search relevance, not grouped).
+          <div className="space-y-1">
+            {filtered.map((c) => (
+              <div
+                key={c.inventory_id}
+                className="bg-card border border-subtle rounded-xl p-3 flex items-center gap-3"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-xs font-bold text-content">{c.sku}</span>
+                    {c.alias_chain?.length > 1 && (
+                      <span
+                        className="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 font-bold uppercase"
+                        title={`Aliases: ${c.alias_chain.join(', ')}`}
+                      >
+                        renamed
+                      </span>
+                    )}
+                    <span className="text-[10px] text-muted font-bold uppercase">
+                      {c.qty}u · {c.source_row}
+                      {c.sublocation?.length ? `:${c.sublocation.join('+')}` : ''}
+                    </span>
+                  </div>
+                  {c.item_name && (
+                    <div className="text-[11px] text-muted mt-0.5 truncate">{c.item_name}</div>
+                  )}
+                  <div className="flex items-center gap-2 mt-1 text-[10px] text-muted">
+                    <span>
+                      {c.orders_completed === 0
+                        ? 'never shipped'
+                        : `${c.orders_completed} order${c.orders_completed === 1 ? '' : 's'}`}
+                    </span>
+                    <span>·</span>
+                    <span>{formatLastShipped(c.last_shipped)}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setMoving(c)}
+                  disabled={isFetching}
+                  className="px-3 py-2 rounded-lg bg-accent/10 border border-accent/30 text-accent text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-accent/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <MoveRight size={12} />
+                  Move
+                </button>
+              </div>
+            ))}
           </div>
         ) : (
           grouped.map(([row, items]) => {
