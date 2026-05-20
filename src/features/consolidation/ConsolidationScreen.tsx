@@ -443,24 +443,6 @@ const ConsolidationCard: React.FC<ConsolidationCardProps> = ({
           : 'bg-card border-subtle hover:border-accent/40'
       }`}
     >
-      {/* Selection checkbox (left of the QTY column) */}
-      <div className="flex items-center pr-1">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleSelected();
-          }}
-          aria-label={isSelected ? 'Unselect' : 'Select to move'}
-          className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${
-            isSelected
-              ? 'bg-accent border-accent text-white'
-              : 'bg-surface border-subtle hover:border-accent/60'
-          }`}
-        >
-          {isSelected && <Check size={14} strokeWidth={3} />}
-        </button>
-      </div>
       {/* Left column: QTY + sublocation. The visually dominant block. */}
       <div className="flex flex-col items-center justify-center min-w-[5rem] shrink-0 border-r border-subtle pr-3 gap-1">
         <span className="text-[9px] font-black uppercase tracking-widest text-muted/60 leading-none">
@@ -519,20 +501,44 @@ const ConsolidationCard: React.FC<ConsolidationCardProps> = ({
           </div>
         </div>
 
-        <div className="flex justify-end">
+        {/* Right-aligned column: checkbox sits on top of the Move button.
+         *  Interaction model:
+         *   - First tap on EITHER checkbox or Move → selects (visual mark).
+         *   - When already selected:
+         *       · Tap checkbox → deselects.
+         *       · Tap Move     → opens the move modal.
+         *  This way new users don't get stuck (Move "just works") and
+         *  power users get the safety of explicit deselect via the box. */}
+        <div className="flex flex-col items-end gap-1.5">
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onMove();
+              onToggleSelected();
             }}
-            disabled={isFetching || !isSelected}
-            title={!isSelected ? 'Tick the checkbox first to enable Move' : undefined}
-            className={`px-3 py-2 rounded-lg border text-[11px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors ${
+            aria-label={isSelected ? 'Unselect' : 'Select to move'}
+            className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${
+              isSelected
+                ? 'bg-accent border-accent text-white'
+                : 'bg-surface border-subtle hover:border-accent/60'
+            }`}
+          >
+            {isSelected && <Check size={14} strokeWidth={3} />}
+          </button>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isSelected) onMove();
+              else onToggleSelected();
+            }}
+            disabled={isFetching}
+            className={`px-3 py-2 rounded-lg border text-[11px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
               isSelected
                 ? 'bg-accent text-white border-accent hover:bg-accent/90'
-                : 'bg-surface text-muted border-subtle cursor-not-allowed opacity-60'
-            } disabled:cursor-not-allowed`}
+                : 'bg-accent/10 text-accent border-accent/30 hover:bg-accent/20'
+            }`}
           >
             <MoveRight size={14} />
             Move
