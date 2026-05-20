@@ -4,6 +4,7 @@ import X from 'lucide-react/dist/esm/icons/x';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import Type from 'lucide-react/dist/esm/icons/type';
 import Hash from 'lucide-react/dist/esm/icons/hash';
+import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { useInventoryMutations } from '../inventory/hooks/useInventoryMutations';
@@ -50,6 +51,13 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
   // Pre-select the smart-suggested row if it's in the allowed list.
   const initialTarget = suggestedRow && targetRows.includes(suggestedRow) ? suggestedRow : '';
   const [targetRow, setTargetRow] = useState<string>(initialTarget);
+  // 'Other' mode: operator types a destination not in the suggested tiles.
+  const [otherMode, setOtherMode] = useState(false);
+  const [otherRow, setOtherRow] = useState('');
+  const otherInputRef = useRef<HTMLInputElement>(null);
+  // Effective target — typed-other beats tile selection when otherMode is on.
+  const normalizedOther = otherRow.trim().toUpperCase();
+  const effectiveTarget = otherMode ? normalizedOther : targetRow;
   const [sublocation, setSublocation] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const sublocInputRef = useRef<HTMLInputElement>(null);
@@ -115,13 +123,66 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
     },
   });
 
+  // Lookup capacity for a typed-other row. Only runs when the operator
+  // has switched to Other mode AND typed something — keeps the round-
+  // trips down to one per change-of-input.
+  const { data: otherInfo, isFetching: otherFetching } = useQuery({
+    queryKey: ['move-modal-other-row', candidate.warehouse, normalizedOther],
+    enabled: otherMode && normalizedOther.length > 0,
+    queryFn: async (): Promise<{ exists: boolean; free: number; is_same_as_source: boolean }> => {
+      const isSameAsSource = normalizedOther === candidate.source_row.toUpperCase().trim();
+      const { data: loc } = await supabase
+        .from('locations')
+        .select('id, location, max_capacity')
+        .eq('warehouse', candidate.warehouse)
+        .eq('location', normalizedOther)
+        .eq('is_active', true)
+        .maybeSingle();
+      if (!loc) return { exists: false, free: 0, is_same_as_source: isSameAsSource };
+      const { data: inv } = await supabase
+        .from('inventory')
+        .select('quantity')
+        .eq('warehouse', candidate.warehouse)
+        .eq('location', normalizedOther)
+        .eq('is_active', true)
+        .gt('quantity', 0);
+      const used = (inv || []).reduce((s, r) => s + (r.quantity || 0), 0);
+      return {
+        exists: true,
+        free: (loc.max_capacity || 0) - used,
+        is_same_as_source: isSameAsSource,
+      };
+    },
+    staleTime: 0,
+  });
+
   const fitWarning = useMemo(() => {
+    if (otherMode) {
+      if (!normalizedOther) return null;
+      if (otherFetching) return null;
+      if (!otherInfo?.exists)
+        return `Row "${normalizedOther}" doesn't exist in ${candidate.warehouse}.`;
+      if (otherInfo.is_same_as_source)
+        return `${normalizedOther} is the SKU's current location — pick a different row.`;
+      if (otherInfo.free < candidate.qty)
+        return `Only ${otherInfo.free}u free in ${normalizedOther} — moving ${candidate.qty}u will overflow capacity.`;
+      return null;
+    }
     const t = targets.find((r) => r.location === targetRow);
     if (!t) return null;
     if (t.free < candidate.qty)
       return `Only ${t.free}u free in ${targetRow} — moving ${candidate.qty}u will overflow capacity.`;
     return null;
-  }, [targetRow, targets, candidate.qty]);
+  }, [
+    targetRow,
+    targets,
+    candidate.qty,
+    candidate.warehouse,
+    otherMode,
+    normalizedOther,
+    otherInfo,
+    otherFetching,
+  ]);
 
   useEffect(() => {
     const onEsc = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -130,7 +191,14 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
   }, [onClose]);
 
   const submit = async () => {
-    if (!targetRow || submitting) return;
+    if (!effectiveTarget || submitting) return;
+    if (otherMode) {
+      // Hard-block submission for typed rows that don't validate.
+      if (!otherInfo?.exists) {
+        toast.error(`Row "${normalizedOther}" doesn't exist.`);
+        return;
+      }
+    }
     setSubmitting(true);
     try {
       // Defensive check: confirm the inventory row is still at the source we
@@ -172,8 +240,8 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
       // Defensive: refuse same-location moves at the client too (the RPC
       // now raises, but this surfaces a friendlier message and avoids the
       // round-trip).
-      if (targetRow.toUpperCase().trim() === (fresh.location || '').toUpperCase().trim()) {
-        toast.error(`${candidate.sku} is already in ${targetRow}.`);
+      if (effectiveTarget.toUpperCase().trim() === (fresh.location || '').toUpperCase().trim()) {
+        toast.error(`${candidate.sku} is already in ${effectiveTarget}.`);
         return;
       }
 
@@ -192,12 +260,12 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
       await moveItem.mutateAsync({
         sourceItem,
         targetWarehouse: candidate.warehouse,
-        targetLocation: targetRow,
+        targetLocation: effectiveTarget,
         qty: fresh.quantity ?? candidate.qty,
         targetSublocation: sublocs,
         moveNote: 'Consolidation',
       });
-      toast.success(`Moved ${candidate.sku} → ${targetRow}`);
+      toast.success(`Moved ${candidate.sku} → ${effectiveTarget}`);
       onMoved(candidate.inventory_id);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Move failed';
@@ -279,7 +347,84 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
                     </button>
                   );
                 })}
+
+              {/* 'Other' escape hatch — operator types any row not in the
+               *  suggested set. Useful when the smart planner couldn't fit
+               *  the SKU anywhere or the user has a different intent. */}
+              <button
+                type="button"
+                onClick={() => {
+                  setOtherMode(true);
+                  setTargetRow('');
+                  // Focus the input on the next tick so iOS opens the keyboard.
+                  setTimeout(() => otherInputRef.current?.focus(), 0);
+                }}
+                className={`p-3 rounded-2xl border text-left transition-colors active:scale-[0.97] flex flex-col items-start gap-1 ${
+                  otherMode
+                    ? 'bg-accent text-white border-accent shadow-md shadow-accent/20'
+                    : 'bg-surface border-dashed border-subtle text-content hover:border-accent/50'
+                }`}
+              >
+                <MoreHorizontal size={16} />
+                <div className="text-base md:text-lg font-black tracking-tight leading-none">
+                  Other
+                </div>
+                <div className="text-[10px] uppercase font-bold opacity-80 tracking-wider">
+                  type a row
+                </div>
+              </button>
             </div>
+
+            {otherMode && (
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center bg-surface border border-subtle rounded-xl pr-2 focus-within:ring-1 focus-within:ring-accent">
+                  <input
+                    ref={otherInputRef}
+                    type="text"
+                    value={otherRow}
+                    onChange={(e) => setOtherRow(e.target.value)}
+                    placeholder="e.g. ROW 15"
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    spellCheck="false"
+                    className="flex-1 bg-transparent border-none outline-none px-3 py-2 text-sm text-content placeholder:text-muted/50 font-bold uppercase"
+                  />
+                  {normalizedOther && (
+                    <span className="text-[10px] font-bold uppercase tracking-wider mr-2">
+                      {otherFetching ? (
+                        <Loader2 size={12} className="animate-spin text-muted" />
+                      ) : otherInfo?.exists ? (
+                        otherInfo.is_same_as_source ? (
+                          <span className="text-amber-500">same as source</span>
+                        ) : (
+                          <span
+                            className={
+                              otherInfo.free >= candidate.qty
+                                ? 'text-emerald-500'
+                                : 'text-amber-500'
+                            }
+                          >
+                            {otherInfo.free}u free
+                          </span>
+                        )
+                      ) : (
+                        <span className="text-red-500">not found</span>
+                      )}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOtherMode(false);
+                    setOtherRow('');
+                  }}
+                  className="text-[10px] text-muted hover:text-content font-bold uppercase tracking-wider underline"
+                >
+                  Back to suggestions
+                </button>
+              </div>
+            )}
           </div>
 
           <div>
@@ -331,7 +476,11 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
             </button>
             <button
               onClick={submit}
-              disabled={!targetRow || submitting}
+              disabled={
+                !effectiveTarget ||
+                submitting ||
+                (otherMode && (!otherInfo?.exists || otherInfo?.is_same_as_source || otherFetching))
+              }
               className="flex-1 px-4 py-3 rounded-xl bg-accent text-white text-xs font-bold uppercase tracking-wider disabled:opacity-30 flex items-center justify-center gap-2"
             >
               {submitting && <Loader2 size={12} className="animate-spin" />}
