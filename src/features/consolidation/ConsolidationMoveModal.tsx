@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import X from 'lucide-react/dist/esm/icons/x';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
+import Type from 'lucide-react/dist/esm/icons/type';
+import Hash from 'lucide-react/dist/esm/icons/hash';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { useInventoryMutations } from '../inventory/hooks/useInventoryMutations';
-import { useAuth } from '../../context/AuthContext';
 import type { InventoryItemWithMetadata } from '../../schemas/inventory.schema';
 
 interface Candidate {
@@ -48,11 +49,27 @@ const TARGET_ROWS = [
 ];
 
 export const ConsolidationMoveModal: React.FC<Props> = ({ candidate, onClose, onMoved }) => {
-  const { profile } = useAuth();
   const { moveItem } = useInventoryMutations();
   const [targetRow, setTargetRow] = useState<string>('');
   const [sublocation, setSublocation] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const sublocInputRef = useRef<HTMLInputElement>(null);
+  // Keyboard mode (numeric vs alpha) for the sublocation input, persisted
+  // per-screen like SearchInput does. Default 'text' — sublocations are
+  // almost always letters.
+  const [kbMode, setKbMode] = useState<'text' | 'numeric'>(() => {
+    if (typeof window === 'undefined') return 'text';
+    const saved = window.localStorage.getItem('kb_pref_consolidation_subloc');
+    return (saved as 'text' | 'numeric') || 'text';
+  });
+  const toggleKb = () => {
+    const next = kbMode === 'text' ? 'numeric' : 'text';
+    setKbMode(next);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('kb_pref_consolidation_subloc', next);
+    }
+    sublocInputRef.current?.focus();
+  };
 
   // Fetch target row occupancy so we can show free capacity in the picker.
   const { data: targets = [] } = useQuery({
@@ -166,7 +183,7 @@ export const ConsolidationMoveModal: React.FC<Props> = ({ candidate, onClose, on
         targetLocation: targetRow,
         qty: fresh.quantity ?? candidate.qty,
         targetSublocation: sublocs,
-        moveNote: `consolidation: ${profile?.full_name || 'user'}`,
+        moveNote: 'Consolidation',
       });
       toast.success(`Moved ${candidate.sku} → ${targetRow}`);
       onMoved(candidate.inventory_id);
@@ -212,22 +229,30 @@ export const ConsolidationMoveModal: React.FC<Props> = ({ candidate, onClose, on
               Target row
             </label>
             <div className="grid grid-cols-3 gap-2">
-              {targets.map((t) => (
-                <button
-                  key={t.location}
-                  onClick={() => setTargetRow(t.location)}
-                  className={`p-2 rounded-xl border text-left transition-colors ${
-                    targetRow === t.location
-                      ? 'bg-accent text-white border-accent'
-                      : t.free >= candidate.qty
-                        ? 'bg-surface border-subtle text-content hover:border-accent/50'
-                        : 'bg-surface border-subtle text-muted opacity-60'
-                  }`}
-                >
-                  <div className="text-xs font-bold">{t.location}</div>
-                  <div className="text-[9px] uppercase font-bold opacity-70">{t.free}u free</div>
-                </button>
-              ))}
+              {targets.map((t) => {
+                const fits = t.free >= candidate.qty;
+                const selected = targetRow === t.location;
+                return (
+                  <button
+                    key={t.location}
+                    onClick={() => setTargetRow(t.location)}
+                    className={`p-3 rounded-2xl border text-left transition-colors active:scale-[0.97] ${
+                      selected
+                        ? 'bg-accent text-white border-accent shadow-md shadow-accent/20'
+                        : fits
+                          ? 'bg-surface border-subtle text-content hover:border-accent/50'
+                          : 'bg-surface border-subtle text-muted opacity-60'
+                    }`}
+                  >
+                    <div className="text-base md:text-lg font-black tracking-tight leading-none">
+                      {t.location}
+                    </div>
+                    <div className="text-[10px] uppercase font-bold opacity-80 mt-1 tracking-wider">
+                      {t.free}u free
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -235,13 +260,34 @@ export const ConsolidationMoveModal: React.FC<Props> = ({ candidate, onClose, on
             <label className="text-[10px] text-muted font-bold uppercase tracking-widest mb-2 block">
               Sublocation (optional)
             </label>
-            <input
-              type="text"
-              value={sublocation}
-              onChange={(e) => setSublocation(e.target.value)}
-              placeholder="e.g. A, B+C"
-              className="w-full bg-surface border border-subtle rounded-xl px-3 py-2 text-sm text-content placeholder:text-muted/50 focus:outline-none focus:ring-1 focus:ring-accent"
-            />
+            <div className="flex items-center bg-surface border border-subtle rounded-xl pr-2 focus-within:ring-1 focus-within:ring-accent">
+              <input
+                ref={sublocInputRef}
+                type="text"
+                value={sublocation}
+                onChange={(e) => setSublocation(e.target.value)}
+                placeholder="e.g. A, B+C"
+                inputMode={kbMode}
+                autoCapitalize="characters"
+                autoCorrect="off"
+                spellCheck="false"
+                className="flex-1 bg-transparent border-none outline-none px-3 py-2 text-sm text-content placeholder:text-muted/50 font-bold uppercase"
+              />
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={toggleKb}
+                className={`p-1.5 rounded-lg active:scale-90 transition-all ${
+                  kbMode === 'numeric' ? 'text-accent' : 'text-muted'
+                }`}
+                title={
+                  kbMode === 'numeric' ? 'Switch to alpha keyboard' : 'Switch to numeric keyboard'
+                }
+                aria-label="Toggle keyboard mode"
+              >
+                {kbMode === 'numeric' ? <Hash size={16} /> : <Type size={16} />}
+              </button>
+            </div>
           </div>
 
           {fitWarning && (

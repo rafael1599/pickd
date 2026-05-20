@@ -6,11 +6,16 @@ import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import RefreshCw from 'lucide-react/dist/esm/icons/refresh-cw';
 import Boxes from 'lucide-react/dist/esm/icons/boxes';
 import MoveRight from 'lucide-react/dist/esm/icons/move-right';
+import Check from 'lucide-react/dist/esm/icons/check';
+import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { useDebounce } from '../../hooks/useDebounce';
+import { useInventory } from '../inventory/hooks/InventoryProvider';
+import { ItemDetailView } from '../inventory/components/ItemDetailView';
 import { ConsolidationMoveModal } from './ConsolidationMoveModal';
 import { searchCandidates } from './searchCandidates';
+import type { InventoryItemInput, InventoryItemWithMetadata } from '../../schemas/inventory.schema';
 
 interface Candidate {
   inventory_id: number;
@@ -66,10 +71,25 @@ function formatLastShipped(iso: string | null): string {
 export const ConsolidationScreen: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { addItem, updateItem, deleteItem } = useInventory();
   const [maxOrders, setMaxOrders] = useState(0);
   const [onlyBikes, setOnlyBikes] = useState(true);
   const [excludeDeepSlow, setExcludeDeepSlow] = useState(true);
   const [moving, setMoving] = useState<Candidate | null>(null);
+  const [detailItem, setDetailItem] = useState<InventoryItemWithMetadata | null>(null);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  // Per-card selection. Tick → visual mark + Move button becomes active.
+  // Unticked cards have their Move button disabled (prevents accidental moves).
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  const toggleSelected = (inventoryId: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(inventoryId)) next.delete(inventoryId);
+      else next.add(inventoryId);
+      return next;
+    });
+  };
   // SKUs that have just been moved — used to optimistically hide them
   // until the next refetch confirms the new state. Prevents the user from
   // re-clicking a stale row before react-query has refreshed.
@@ -131,6 +151,39 @@ export const ConsolidationScreen: React.FC = () => {
     }),
     [filtered, grouped]
   );
+
+  // Card click → fetch the full inventory row + sku_metadata and open the
+  // shared ItemDetailView (the same modal Stock uses). Avoids a navigation
+  // jump out of Consolidation.
+  const openDetail = async (c: Candidate) => {
+    setIsDetailLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('inventory')
+        .select('*, sku_metadata(*)')
+        .eq('id', c.inventory_id)
+        .single();
+      if (error) throw error;
+      setDetailItem(data as unknown as InventoryItemWithMetadata);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not load item');
+    } finally {
+      setIsDetailLoading(false);
+    }
+  };
+
+  const handleSaveDetail = async (
+    formData: InventoryItemInput & { length_in?: number; width_in?: number; height_in?: number }
+  ) => {
+    if (!detailItem) return await addItem(formData.warehouse, formData);
+    return await updateItem(detailItem, formData);
+  };
+
+  const handleDeleteDetail = () => {
+    if (detailItem) {
+      deleteItem(detailItem.warehouse, detailItem.sku, detailItem.location);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-surface">
@@ -230,55 +283,26 @@ export const ConsolidationScreen: React.FC = () => {
           </div>
         ) : debouncedSearch ? (
           // Active search → flat list (ranked by search relevance, not grouped).
-          <div className="space-y-1">
+          <div className="space-y-2">
             {filtered.map((c) => (
-              <div
+              <ConsolidationCard
                 key={c.inventory_id}
-                className="bg-card border border-subtle rounded-xl p-3 flex items-center gap-3"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono text-xs font-bold text-content">{c.sku}</span>
-                    {c.alias_chain?.length > 1 && (
-                      <span
-                        className="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 font-bold uppercase"
-                        title={`Aliases: ${c.alias_chain.join(', ')}`}
-                      >
-                        renamed
-                      </span>
-                    )}
-                    <span className="text-[10px] text-muted font-bold uppercase">
-                      {c.qty}u · {c.source_row}
-                      {c.sublocation?.length ? `:${c.sublocation.join('+')}` : ''}
-                    </span>
-                  </div>
-                  {c.item_name && (
-                    <div className="text-[11px] text-muted mt-0.5 truncate">{c.item_name}</div>
-                  )}
-                  <div className="flex items-center gap-2 mt-1 text-[10px] text-muted">
-                    <span>
-                      {c.orders_completed === 0
-                        ? 'never shipped'
-                        : `${c.orders_completed} order${c.orders_completed === 1 ? '' : 's'}`}
-                    </span>
-                    <span>·</span>
-                    <span>{formatLastShipped(c.last_shipped)}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setMoving(c)}
-                  disabled={isFetching}
-                  className="px-3 py-2 rounded-lg bg-accent/10 border border-accent/30 text-accent text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-accent/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <MoveRight size={12} />
-                  Move
-                </button>
-              </div>
+                candidate={c}
+                showSourceRow={true}
+                isFetching={isFetching}
+                isSelected={selectedIds.has(c.inventory_id)}
+                onToggleSelected={() => toggleSelected(c.inventory_id)}
+                onMove={() => setMoving(c)}
+                onOpenDetail={() => openDetail(c)}
+              />
             ))}
           </div>
         ) : (
           grouped.map(([row, items]) => {
             const rowUnits = items.reduce((acc, i) => acc + i.qty, 0);
+            // Hide the "N SKU · Mu" subtitle when the row has a single SKU —
+            // the card itself already shows the qty. Avoids visual duplication.
+            const showRowSummary = items.length > 1;
             return (
               <div key={row} className="mb-6">
                 <div className="sticky top-[120px] z-[5] -mx-4 px-4 py-2 bg-surface/95 backdrop-blur border-b border-subtle">
@@ -286,58 +310,26 @@ export const ConsolidationScreen: React.FC = () => {
                     <h2 className="text-xs font-black uppercase tracking-widest text-content">
                       {row}
                     </h2>
-                    <span className="text-[10px] text-muted font-bold uppercase">
-                      {items.length} SKU · {rowUnits}u
-                    </span>
+                    {showRowSummary && (
+                      <span className="text-[10px] text-muted font-bold uppercase">
+                        {items.length} SKU · {rowUnits}u
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                <div className="mt-2 space-y-1">
+                <div className="mt-2 space-y-2">
                   {items.map((c) => (
-                    <div
+                    <ConsolidationCard
                       key={c.inventory_id}
-                      className="bg-card border border-subtle rounded-xl p-3 flex items-center gap-3"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-xs font-bold text-content">{c.sku}</span>
-                          {c.alias_chain?.length > 1 && (
-                            <span
-                              className="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 font-bold uppercase"
-                              title={`Aliases: ${c.alias_chain.join(', ')}`}
-                            >
-                              renamed
-                            </span>
-                          )}
-                          <span className="text-[10px] text-muted font-bold uppercase">
-                            {c.qty}u{c.sublocation?.length ? ` · ${c.sublocation.join('+')}` : ''}
-                          </span>
-                        </div>
-                        {c.item_name && (
-                          <div className="text-[11px] text-muted mt-0.5 truncate">
-                            {c.item_name}
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2 mt-1 text-[10px] text-muted">
-                          <span>
-                            {c.orders_completed === 0
-                              ? 'never shipped'
-                              : `${c.orders_completed} order${c.orders_completed === 1 ? '' : 's'}`}
-                          </span>
-                          <span>·</span>
-                          <span>{formatLastShipped(c.last_shipped)}</span>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => setMoving(c)}
-                        disabled={isFetching}
-                        className="px-3 py-2 rounded-lg bg-accent/10 border border-accent/30 text-accent text-[10px] font-bold uppercase flex items-center gap-1 hover:bg-accent/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                      >
-                        <MoveRight size={12} />
-                        Move
-                      </button>
-                    </div>
+                      candidate={c}
+                      showSourceRow={false}
+                      isFetching={isFetching}
+                      isSelected={selectedIds.has(c.inventory_id)}
+                      onToggleSelected={() => toggleSelected(c.inventory_id)}
+                      onMove={() => setMoving(c)}
+                      onOpenDetail={() => openDetail(c)}
+                    />
                   ))}
                 </div>
               </div>
@@ -345,6 +337,22 @@ export const ConsolidationScreen: React.FC = () => {
           })
         )}
       </div>
+
+      <ItemDetailView
+        isOpen={!!detailItem}
+        onClose={() => setDetailItem(null)}
+        onSave={handleSaveDetail}
+        onDelete={handleDeleteDetail}
+        initialData={detailItem}
+        mode="edit"
+        screenType={detailItem?.warehouse || 'LUDLOW'}
+      />
+
+      {isDetailLoading && (
+        <div className="fixed inset-0 z-[105] bg-black/40 flex items-center justify-center pointer-events-none">
+          <Loader2 className="animate-spin text-accent w-8 h-8 opacity-70" />
+        </div>
+      )}
 
       {moving && (
         <ConsolidationMoveModal
@@ -355,6 +363,11 @@ export const ConsolidationScreen: React.FC = () => {
             // a stale candidate. Then invalidate the list query so any
             // sibling rows (same SKU split across locations, etc.) pick up
             // the fresh state from get_consolidation_candidates.
+            setSelectedIds((prev) => {
+              const next = new Set(prev);
+              next.delete(movedId);
+              return next;
+            });
             setMovedIds((prev) => {
               const next = new Set(prev);
               next.add(movedId);
@@ -377,3 +390,155 @@ export const ConsolidationScreen: React.FC = () => {
 };
 
 export default ConsolidationScreen;
+
+// ─────────────────────────────────────────────────────────────────────
+// Card
+// ─────────────────────────────────────────────────────────────────────
+// Two pieces of info dominate the layout: QTY (how many units to grab)
+// and the SOURCE ROW + SUBLOCATION (where to find them). Everything else
+// (movement stats, item name, alias chain) is secondary metadata.
+//
+// Whole card is clickable → opens the SKU's ItemDetailView. The Move
+// button stopPropagations so it doesn't trigger the card click.
+
+interface ConsolidationCardProps {
+  candidate: Candidate;
+  /** In flat-search mode we show the source row inside the card;
+   *  in grouped-by-row mode the row header carries it already. */
+  showSourceRow: boolean;
+  isFetching: boolean;
+  isSelected: boolean;
+  onToggleSelected: () => void;
+  onMove: () => void;
+  onOpenDetail: () => void;
+}
+
+const ConsolidationCard: React.FC<ConsolidationCardProps> = ({
+  candidate: c,
+  showSourceRow,
+  isFetching,
+  isSelected,
+  onToggleSelected,
+  onMove,
+  onOpenDetail,
+}) => {
+  const sub = c.sublocation?.length ? c.sublocation.join('+') : null;
+  return (
+    // div + role=button: the outer card needs to be clickable, but it
+    // contains nested <button> elements (Move, checkbox). HTML disallows
+    // nested buttons; using div + keyboard handlers keeps a11y intact.
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpenDetail}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpenDetail();
+        }
+      }}
+      className={`w-full text-left rounded-2xl p-3 flex items-stretch gap-3 border transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-[0.99] ${
+        isSelected
+          ? 'bg-accent/5 border-accent/50 shadow-md shadow-accent/10'
+          : 'bg-card border-subtle hover:border-accent/40'
+      }`}
+    >
+      {/* Selection checkbox (left of the QTY column) */}
+      <div className="flex items-center pr-1">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelected();
+          }}
+          aria-label={isSelected ? 'Unselect' : 'Select to move'}
+          className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${
+            isSelected
+              ? 'bg-accent border-accent text-white'
+              : 'bg-surface border-subtle hover:border-accent/60'
+          }`}
+        >
+          {isSelected && <Check size={14} strokeWidth={3} />}
+        </button>
+      </div>
+      {/* Left column: QTY + sublocation. The visually dominant block. */}
+      <div className="flex flex-col items-center justify-center min-w-[5rem] shrink-0 border-r border-subtle pr-3 gap-1">
+        <span className="text-[9px] font-black uppercase tracking-widest text-muted/60 leading-none">
+          QTY
+        </span>
+        <span className="text-4xl md:text-5xl font-black tracking-tight leading-none text-content">
+          {c.qty}
+        </span>
+        {sub && (
+          <span className="mt-1 px-2 py-0.5 rounded-md bg-accent/10 text-accent text-base md:text-lg font-black uppercase tracking-tight leading-none">
+            {sub}
+          </span>
+        )}
+        {showSourceRow && (
+          <span className="text-[9px] font-bold uppercase tracking-widest text-muted/70 leading-none mt-1">
+            {c.source_row}
+          </span>
+        )}
+      </div>
+
+      {/* Right column: SKU + name + metadata + Move button. */}
+      <div className="flex-1 min-w-0 flex flex-col justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-black text-xl md:text-2xl tracking-tight leading-none text-content break-all">
+              {c.sku}
+            </span>
+            {c.alias_chain?.length > 1 && (
+              <span
+                className="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 font-bold uppercase"
+                title={`Aliases: ${c.alias_chain.join(', ')}`}
+              >
+                renamed
+              </span>
+            )}
+          </div>
+          {c.item_name && (
+            <div className="text-xs md:text-sm text-muted mt-1 leading-snug line-clamp-2">
+              {c.item_name}
+            </div>
+          )}
+          <div className="flex items-center gap-2 mt-1.5 text-[10px] text-muted/80">
+            <span className="font-bold uppercase tracking-wider">
+              {c.orders_completed === 0
+                ? 'never shipped'
+                : `${c.orders_completed} order${c.orders_completed === 1 ? '' : 's'}`}
+            </span>
+            {c.last_shipped && (
+              <>
+                <span>·</span>
+                <span className="font-bold uppercase tracking-wider">
+                  {formatLastShipped(c.last_shipped)}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onMove();
+            }}
+            disabled={isFetching || !isSelected}
+            title={!isSelected ? 'Tick the checkbox first to enable Move' : undefined}
+            className={`px-3 py-2 rounded-lg border text-[11px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors ${
+              isSelected
+                ? 'bg-accent text-white border-accent hover:bg-accent/90'
+                : 'bg-surface text-muted border-subtle cursor-not-allowed opacity-60'
+            } disabled:cursor-not-allowed`}
+          >
+            <MoveRight size={14} />
+            Move
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
