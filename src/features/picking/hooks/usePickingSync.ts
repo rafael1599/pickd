@@ -453,12 +453,15 @@ export const usePickingSync = ({
               }
               setListStatus(newData.status as string);
             }
-            // Guard: only setState when value actually changed to avoid re-render loops
+            // No previous-value compare needed — the setter is a
+            // useState dispatch in the parent, and React bails on
+            // identical values internally via Object.is. The function
+            // form here only made tsc unhappy because the prop is typed
+            // as the narrow `(s: string) => void` (no SetStateAction).
             const newShippingType =
               ((newData as Record<string, unknown>).shipping_type as string | null) ?? null;
-            setShippingType((prev) => (prev === newShippingType ? prev : newShippingType));
-            const newWaiting = !!(newData as Record<string, unknown>).is_waiting_inventory;
-            setIsWaitingInventory((prev) => (prev === newWaiting ? prev : newWaiting));
+            setShippingType(newShippingType as string);
+            setIsWaitingInventory(!!(newData as Record<string, unknown>).is_waiting_inventory);
             if (newData.correction_notes !== correctionNotesRef.current)
               setCorrectionNotes(newData.correction_notes as string | null);
             if (newData.checked_by !== checkedByRef.current)
