@@ -123,6 +123,34 @@ describe('buildShipOutSmsBody', () => {
     );
   });
 
+  it('omits PALLETS line for FedEx orders', () => {
+    const order: ShipOutSmsOrder = {
+      order_number: '999',
+      pallets_qty: 1,
+      total_weight_lbs: null,
+      shipping_type: 'fedex',
+      items: [{ sku: 'PART-X', pickingQty: 2 }],
+    };
+    const metrics = computeShipOutMetrics(order, skuMeta);
+    const body = buildShipOutSmsBody(customer, order, metrics);
+    expect(body).not.toContain('PALLETS');
+    expect(body).toContain('PARTS: 2');
+    expect(body).toContain('WEIGHT:');
+  });
+
+  it('keeps PALLETS line for non-FedEx orders', () => {
+    const order: ShipOutSmsOrder = {
+      order_number: '999',
+      pallets_qty: 2,
+      total_weight_lbs: null,
+      shipping_type: 'regular',
+      items: [{ sku: 'BIKE-A', pickingQty: 1 }],
+    };
+    const metrics = computeShipOutMetrics(order, skuMeta);
+    const body = buildShipOutSmsBody(customer, order, metrics);
+    expect(body).toContain('PALLETS: 2');
+  });
+
   it('omits address lines that are blank without leaving gaps', () => {
     const sparse: ShipOutSmsCustomer = {
       name: 'Customer X',
@@ -212,6 +240,21 @@ describe('buildShipOutSmsUrl', () => {
     const url = buildShipOutSmsUrl(recipients, body, 'other');
     expect(url.startsWith('sms:')).toBe(true);
     expect(url).toContain('?body=');
+  });
+
+  it('Android: empty recipients → sms:?body= (no destination)', () => {
+    const url = buildShipOutSmsUrl([], 'hi there', 'android');
+    expect(url).toBe('sms:?body=hi%20there');
+  });
+
+  it('iOS: empty recipients → sms:&body=', () => {
+    const url = buildShipOutSmsUrl([], 'hi there', 'ios');
+    expect(url).toBe('sms:&body=hi%20there');
+  });
+
+  it('treats all-invalid recipients as empty', () => {
+    const url = buildShipOutSmsUrl(['abc', '   '], 'hi', 'android');
+    expect(url).toBe('sms:?body=hi');
   });
 
   it('encodes recipients through normalizeRecipients before joining', () => {

@@ -47,16 +47,21 @@ export function useShipOutSms() {
     },
   });
 
-  const isEnabled =
-    !!settings?.shipping_sms_enabled &&
-    normalizeRecipients(settings?.shipping_sms_recipients).length > 0;
+  // The toggle alone gates the feature now — recipients are optional.
+  // When empty, the SMS URL opens Messages without a pre-filled
+  // destination, so the operator just taps their existing group thread.
+  // Pre-filling recipients tends to spawn a brand-new thread instead of
+  // matching the existing group (tiny differences in formatting / who's
+  // counted as "the sender" cause the mismatch), so empty is the
+  // recommended default now.
+  const isEnabled = !!settings?.shipping_sms_enabled;
 
   const triggerForList = useCallback(
     async (listId: string | null | undefined) => {
       if (!listId || !isEnabled || !settings) return;
 
+      // Optional advanced setup: pre-fill recipients if configured.
       const recipients = normalizeRecipients(settings.shipping_sms_recipients);
-      if (recipients.length === 0) return;
 
       // Pull the list + joined customer in one round trip.
       const { data: list, error: listErr } = await supabase

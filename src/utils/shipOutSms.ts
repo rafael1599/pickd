@@ -95,7 +95,8 @@ export function computeShipOutMetrics(
 }
 
 /**
- * Formats the SMS body exactly like the example Rafael uses today:
+ * Formats the SMS body. Skips the PALLETS line for FedEx orders since
+ * those ship as parcels, not pallet freight.
  *
  *   READY TO SHIP:
  *
@@ -104,7 +105,7 @@ export function computeShipOutMetrics(
  *   {city}, {state} {zip}
  *
  *   ORDER #: {order_number}
- *   PALLETS: {pallets}
+ *   PALLETS: {pallets}      ← omitted when shipping_type === 'fedex'
  *   PARTS: {parts}
  *   WEIGHT: {weight} LBS
  */
@@ -125,7 +126,10 @@ export function buildShipOutSmsBody(
 
   lines.push('');
   if (order.order_number) lines.push(`ORDER #: ${order.order_number}`);
-  lines.push(`PALLETS: ${metrics.pallets}`);
+
+  const isFedex = (order.shipping_type ?? '').toLowerCase() === 'fedex';
+  if (!isFedex) lines.push(`PALLETS: ${metrics.pallets}`);
+
   lines.push(`PARTS: ${metrics.parts}`);
   lines.push(`WEIGHT: ${metrics.weightLbs} LBS`);
 
@@ -156,16 +160,18 @@ export function detectSmsPlatform(userAgent: string): SmsPlatform {
 /**
  * Build the `sms:` URL for the detected platform.
  *
- * - Android (Google Messages and most third-party SMS apps): the
- *   recipient list goes comma-separated in the URL path, body in `?body=`.
- *   Multiple recipients prompt Messages to open the matching group MMS
- *   thread when one already exists.
+ * Default mode (no recipients passed): open Messages with just the body
+ * prefilled and let the operator pick the destination conversation
+ * themselves. This is the reliable cross-platform path — passing a
+ * recipient list to match an existing group MMS thread is finicky
+ * (small differences like country code formatting, who's "the sender"
+ * on the running device, or thread fragmentation create a brand-new
+ * thread instead of matching), so we just hand the user the body and
+ * let them tap their existing group in the Messages app's recent list.
  *
- * - iOS (Messages.app): Apple's documented form is
- *   `sms:/open?addresses=A,B&body=...`. Same group-thread matching rule.
- *
- * - Other: fall back to the Android form (works on desktop Chrome too,
- *   which just opens the system handler).
+ * With recipients (kept for completeness / advanced setups):
+ *   - Android: `sms:N1,N2?body=...`
+ *   - iOS:     `sms:/open?addresses=N1,N2&body=...`
  */
 export function buildShipOutSmsUrl(
   recipients: string[],
@@ -174,15 +180,20 @@ export function buildShipOutSmsUrl(
 ): string {
   const cleanRecipients = normalizeRecipients(recipients);
   const encodedBody = encodeURIComponent(body);
-  const numbers = cleanRecipients.join(',');
 
-  if (platform === 'ios') {
-    // iOS accepts both `sms:N1,N2&body=...` and `sms:/open?addresses=...`.
-    // The `/open?addresses=` form is more reliable for group-thread
-    // matching on recent iOS versions.
-    return `sms:/open?addresses=${numbers}&body=${encodedBody}`;
+  // No recipients → open Messages empty-addressed so the user picks the
+  // existing thread on their phone.
+  if (cleanRecipients.length === 0) {
+    if (platform === 'ios') {
+      // iOS treats `sms:&body=` as "no recipient, body prefilled".
+      return `sms:&body=${encodedBody}`;
+    }
+    return `sms:?body=${encodedBody}`;
   }
 
-  // Android / other: numbers go in the path, body as ?body=.
+  const numbers = cleanRecipients.join(',');
+  if (platform === 'ios') {
+    return `sms:/open?addresses=${numbers}&body=${encodedBody}`;
+  }
   return `sms:${numbers}?body=${encodedBody}`;
 }

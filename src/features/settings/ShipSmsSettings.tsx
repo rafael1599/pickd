@@ -134,8 +134,8 @@ const ShipSmsSettingsBody: React.FC<BodyProps> = ({
               Ship-Out SMS
             </h2>
             <p className="text-xs text-muted font-medium">
-              After slide-to-complete in Double-Check, open Messages with a prefilled "READY TO
-              SHIP" body addressed to your group.
+              After slide-to-complete, open Messages with a prefilled "READY TO SHIP" body. You pick
+              the destination thread (e.g. your existing shipping group) on your phone.
             </p>
           </div>
         </div>
@@ -155,7 +155,7 @@ const ShipSmsSettingsBody: React.FC<BodyProps> = ({
       </div>
 
       <label className="block text-[10px] font-black uppercase tracking-widest text-muted mb-2">
-        Recipient phone numbers (one per line, E.164 preferred)
+        Recipient phone numbers (optional — leave empty to pick the thread yourself)
       </label>
       <textarea
         value={recipientsText}
