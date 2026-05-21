@@ -117,10 +117,28 @@ describe('buildShipOutSmsBody', () => {
         '',
         'ORDER #: 879807',
         'PALLETS: 1',
+        'BIKES: 0',
         'PARTS: 1',
         'WEIGHT: 40 LBS',
       ].join('\n')
     );
+  });
+
+  it('includes BIKES line with the auto-computed bike unit count', () => {
+    const order: ShipOutSmsOrder = {
+      order_number: '1000',
+      pallets_qty: 1,
+      total_weight_lbs: null,
+      items: [
+        { sku: 'BIKE-A', pickingQty: 2 },
+        { sku: 'BIKE-B', pickingQty: 1 },
+        { sku: 'PART-X', pickingQty: 4 },
+      ],
+    };
+    const metrics = computeShipOutMetrics(order, skuMeta);
+    const body = buildShipOutSmsBody(customer, order, metrics);
+    expect(body).toContain('BIKES: 3');
+    expect(body).toContain('PARTS: 4');
   });
 
   it('omits PALLETS line for FedEx orders', () => {
