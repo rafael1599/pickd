@@ -550,7 +550,7 @@ export const ConsolidationScreen: React.FC = () => {
             const showRowSummary = items.length > 1;
             return (
               <div key={row} className="mb-6">
-                <div className="sticky top-[120px] z-[5] -mx-4 px-4 py-2 bg-surface/95 backdrop-blur border-b border-subtle">
+                <div className="sticky top-[148px] z-20 -mx-4 px-4 py-2 bg-surface/95 backdrop-blur border-b border-subtle">
                   <div className="flex items-center gap-2">
                     <h2 className="text-xs font-black uppercase tracking-widest text-content">
                       {row}
