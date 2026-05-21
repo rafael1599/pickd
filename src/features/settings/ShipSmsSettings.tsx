@@ -21,25 +21,49 @@ export const ShipSmsSettings: React.FC = () => {
   const { user } = useAuth();
   const profileKey = ['profile-ship-sms', user?.id];
 
-  const { data: profile, isLoading } = useQuery({
+  const {
+    data: profile,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: profileKey,
     enabled: !!user?.id,
     queryFn: async () => {
+      // maybeSingle so a missing profile row doesn't blow up the query —
+      // we just fall back to defaults and the first save will populate
+      // the row (or the upsert path below if you prefer that flow).
       const { data, error } = await supabase
         .from('profiles')
         .select('shipping_sms_enabled, shipping_sms_recipients')
         .eq('id', user!.id)
-        .single();
+        .maybeSingle();
       if (error) throw error;
-      return data;
+      return (
+        data ?? {
+          shipping_sms_enabled: false,
+          shipping_sms_recipients: [] as string[],
+        }
+      );
     },
   });
 
   if (!user) return null;
-  if (isLoading || !profile) {
+  if (isLoading) {
     return (
       <div className="bg-card border border-subtle rounded-3xl p-6 mb-8 backdrop-blur-sm">
         <div className="text-xs text-muted font-medium">Loading Ship-Out SMS settings…</div>
+      </div>
+    );
+  }
+  if (error || !profile) {
+    return (
+      <div className="bg-card border border-red-500/40 rounded-3xl p-6 mb-8 backdrop-blur-sm">
+        <h2 className="text-lg font-bold text-content uppercase tracking-tight mb-2">
+          Ship-Out SMS
+        </h2>
+        <div className="text-xs text-red-400 font-mono whitespace-pre-wrap break-words">
+          {error instanceof Error ? error.message : 'No profile data returned.'}
+        </div>
       </div>
     );
   }
