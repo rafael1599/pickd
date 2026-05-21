@@ -1556,6 +1556,36 @@ export type Database = {
           },
         ];
       };
+      warehouse_slot_layouts: {
+        Row: {
+          created_at: string;
+          id: string;
+          layout: Json;
+          row_name: string;
+          updated_at: string;
+          user_id: string;
+          warehouse: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          layout?: Json;
+          row_name: string;
+          updated_at?: string;
+          user_id: string;
+          warehouse: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          layout?: Json;
+          row_name?: string;
+          updated_at?: string;
+          user_id?: string;
+          warehouse?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       v_inventory_location_drift: {
@@ -1816,6 +1846,28 @@ export type Database = {
           orders_completed: number;
           sku: string;
           units_shipped: number;
+        }[];
+      };
+      get_slot_fill_candidates: {
+        Args: {
+          p_exclude_active_rows?: string[];
+          p_only_bikes?: boolean;
+          p_slots: Json;
+          p_top_n_per_slot?: number;
+        };
+        Returns: {
+          current_qty: number;
+          current_row: string;
+          fit_precision: number;
+          item_name: string;
+          last_shipped: string;
+          orders_30d: number;
+          orders_90d: number;
+          sku: string;
+          slot_id: string;
+          units_30d: number;
+          units_90d: number;
+          velocity_score: number;
         }[];
       };
       get_snapshot: {
