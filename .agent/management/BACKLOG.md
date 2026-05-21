@@ -1,45 +1,11 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-04-28 (compactado — 24 items archivados)
+> Actualizado: 2026-05-21 (compactado — 30+ items archivados desde la última pasada).
 
 ---
 
 ## P1 — Alto (operación diaria)
-
-### 59. Inventory log notes — capture, edit, and surface in History reports <!-- id: idea-111 --> 🔥 prioridad máxima
-- **Contexto:** Hoy un MOVE en `inventory_logs` no captura *por qué* se hizo. `inventory.internal_note` existe pero es per-row (sobrevive el MOVE), no per-acción. El picker o admin pierden contexto: "¿por qué movieron 3 bikes de ROW 5 a ROW 12 hace 3 días?" — sin nota.
-- **Pieza 1 — Note al hacer MOVE (Relocate Stock):**
-  - Migración aditiva: `ALTER TABLE inventory_logs ADD COLUMN note text`.
-  - RPC `move_inventory_stock`: nuevo param `p_move_note text DEFAULT NULL`. Escribe `note` en el `inventory_logs` row generado. No rompe callers existentes.
-  - `MovementModal.tsx`: textarea opcional debajo del Target location. Placeholder ej. `"e.g. consolidating to free ROW 10"`.
-- **Pieza 2 — Editar nota retroactivamente desde History:**
-  - **Permisos: cualquier usuario** (no admin-only).
-  - **Cualquier tipo de log** acepta nota — MOVE, ADD, DEDUCT, EDIT, todos.
-  - Nueva RPC `update_inventory_log_note(p_log_id uuid, p_note text, p_user_id uuid)` — UPDATE inventory_logs SET note = p_note WHERE id = p_log_id.
-  - `HistoryScreen` / `ItemHistorySheet`: botón ✏️ pequeño en cada row → modal con textarea pre-cargado → save → invalida query.
-- **Pieza 3 — Report con note custom encima de la tabla:**
-  - Botón Report en HistoryScreen abre modal "Report note (optional)" con textarea.
-  - User escribe (o salta) → continúa al PDF.
-  - `generateDailyPDF` recibe `reportNote?: string` y lo renderiza como bloque arriba de la tabla.
-  - **No se persiste** — contextual al PDF generado en ese momento.
-- **Tamaño estimado:** 1 sesión completa. 1 migración + 2 RPCs + 3 piezas de UI.
-- **Origen:** sesión 2026-05-06.
-
-### 58. DoubleCheckView — agrandar SKU/location/sublocation/distribution en tablet <!-- id: idea-106 -->
-- **Contexto:** En tablet (orientación landscape, ~10–12") la card del item dentro de DoubleCheckView muestra SKU, location, sublocation y la distribution (pallet/qty) con tamaños pensados para móvil. El picker camina por el warehouse con la tablet en una mano y a >1m de distancia esos datos son apenas legibles — sobre todo en luz alta.
-- **Datos a agrandar (en orden de criticidad para el picker):**
-  1. **Location** (ej. `ROW 16`) — la usa primero para ubicar físicamente el item.
-  2. **Sublocation chip** (`A,B`, `C`, etc.) — segunda señal espacial.
-  3. **SKU** — confirmación visual del item recogido.
-  4. **Distribution** (`8 UNITS`, pallet number, etc.) — cuánto poner en cada pallet.
-- **Solución propuesta:**
-  - Breakpoint nuevo `md:` o `lg:` específicamente para la card del item en DoubleCheckView. Subir SKU de `text-2xl/3xl` a `text-4xl/5xl` aprox.
-  - Location y sublocation con peso visual similar — quizá agruparlas en un bloque "ROW 16 · A,B" más alto (el dato espacial completo en una sola lectura).
-  - Distribution pallet-by-pallet con qty números más grandes y separación entre pallets más clara.
-- **No tocar:** layout en móvil (sigue siendo el caso primario en handhelds). Solo agrandar en `md:` para arriba.
-- **Validación esperada:** picker camina con tablet a 1m, identifica row + sublocation + sku correctos sin acercarla.
-- **Origen:** sesión 2026-05-05.
 
 ### 53. SKU normalization at intake — close idea-092 path 1 <!-- id: idea-101 -->
 - **Hallazgo verificado 2026-05-01:** la flag `sku_not_found` se setea EN watchdog al ingestar el PDF (vive como campo dentro del JSONB `picking_lists.items`). Pickd la lee, nunca la escribe — confirmado en migraciones (`process_picking_list`, `reopen_completed_orders` solo leen) y en src/ (todas las refs en DoubleCheckView/CorrectionModeView son lecturas). Conclusión: **no hay un fallback client-side viable** para auto-corregir el guion. El item JSON es inmutable post-intake.
@@ -47,15 +13,6 @@
 - **Solución única:** path (1) de idea-092 — watchdog (otro repo `watchdog-pickd`) llama `lookup_canonical_sku(p_raw)` (RPC ya disponible en migración `20260430160000`) antes de armar `picking_lists.items`. Si match único, sustituye el SKU + registra la sustitución en `combine_meta` o `notes` para auditar. Si match múltiple, deja el original (ambiguous → manual).
 - **Riesgo:** falsos positivos teóricos si dos SKUs canónicos comparten forma normalizada (ej. `034-666-BR` y `03-4666BR`). `register_new_sku` no normaliza al guardar y no hay CHECK constraint en `sku_metadata.sku`. La RPC ya tiene `LIMIT 2` y solo un `=` exacto sobre normalizados — devuelve >1 row si hay ambigüedad real, watchdog no auto-corrige en ese caso.
 - **Fuera de scope:** auto-corrección en pickd. La flag viene del intake — no podemos modificar el item JSON sin un correction.
-- **Origen:** sesión 2026-05-01.
-
-### 54. Verification Board — color identification stronger <!-- id: idea-102 -->
-- **Contexto:** Tras PR #59 los lados FedEx/Regular se identifican por: stripe 3-4px arriba + tinte fondo `bg-X-500/[3%]`. En operación con luz fuerte de almacén el tinte 3% queda imperceptible — los pickers no distinguen las columnas a la primera mirada.
-- **Solución (incremental):**
-  - Pass 1: subir el tinte de fondo `bg-purple-500/[3%]` → `bg-purple-500/[8%]` (FDX) y emerald equivalente (Regular). Engrosar stripe `h-[3px] md:h-[4px]` → `h-[5px] md:h-[6px]`.
-  - Si pass 1 no alcanza en testing real con luz alta: agregar gradient suave del stripe hacia abajo. Si tampoco: dot circular 8px en esquina top-left de cada lane.
-- **Decisión pendiente al implementar:** probar pass 1 solo y validar antes de agregar gradient/dot. No exagerar en pantallas oscuras.
-- **Out of scope:** volver a poner labels FEDEX/REGULAR (rationale anterior era minimalismo).
 - **Origen:** sesión 2026-05-01.
 
 ### 55. New orders never auto-route to Ready to Double-Check <!-- id: idea-103 -->
@@ -67,48 +24,6 @@
 - **Plan al implementar:** primero diagnosticar — query a `picking_lists` filtrando `status='ready_to_double_check' AND created_at = updated_at` (proxy de "recién creada y nunca tocada") los últimos 7 días. Identificar patrón antes de proponer fix. Probable: guard en intake (CHECK constraint o trigger BEFORE INSERT que rechace `ready_to_double_check` para rows nuevos).
 - **Datos pendientes para diagnóstico:** order_number observado + día/hora + si fue de watchdog o creación manual / reopen.
 - **Origen:** sesión 2026-05-01.
-
-### 56. Explicit "Ready to Double-Check" button after Select-All in DoubleCheckView <!-- id: idea-104 -->
-- **Contexto:** Hoy en DoubleCheckView el flow es: el verificador chequea items uno por uno, y cuando todos están seleccionados puede presionar **Complete** (cierra a `completed`). No hay paso explícito para "esta orden está lista para que la verifique alguien más" — esa señal hoy se da implícitamente cuando un picker termina y "deja" la orden (status → `ready_to_double_check`).
-- **Problema:** los pickers que terminan una orden a veces clickean Complete directamente, evitando segundo verificador. Otras veces no marcan nada y la orden queda perdida.
-- **Solución propuesta:**
-  1. Cuando `verifiedUnitsCount === totalUnitsCount` (Select All completo) por primera vez en DoubleCheckView, aparece nuevo botón **"Ready to Double-Check"** al lado de **Complete**.
-  2. Click → marca la orden con `status='ready_to_double_check'`, `checked_by=null` (libera lock para que cualquier verificador la tome). Aparece en sección "Ready to Double-Check" del Verification Board.
-  3. **Complete** sigue existiendo y hace lo de hoy (cerrar directo).
-  4. Tooltip claro: *"Hand off to a teammate for double-check"* vs *"Close the order now (skip second verification)"*.
-- **Decisión pendiente al implementar:** verificar el flow real de Complete hoy — si pasa por `double_checking` y luego `completed` o salta directo. Eso afecta semántica del nuevo botón.
-- **Edge:** si la orden ya está `ready_to_double_check` no se muestra botón (idempotente). Si está `double_checking` (alguien la tomó), botón "Ready" la libera de vuelta.
-- **Origen:** sesión 2026-05-01.
-
-### 57. Realtime stock reservation visibility (cross-order live awareness) <!-- id: idea-105 -->
-- **Contexto:** En operación con varias órdenes activas simultáneas, dos pickers pueden estar viendo el mismo SKU. Hoy DoubleCheckView muestra "14 disponibles en ROW 32" sin descontar lo que otro picker ya recogió en otra orden. ItemDetail muestra qty total sin distinguir reservado/recogido. El sistema se siente estático.
-- **Modelo conceptual confirmado en sesión 2026-05-01:**
-  - **Reservado** = item dentro de `picking_lists.items` mientras la orden está activa (no completada/cancelada). Implícito por la existencia del row.
-  - **Recogido** = picker clickeó el item en DoubleCheckView. Persiste como flag `picked: true` (o `picked_at`) dentro del item JSONB.
-- **Decisiones tomadas:**
-  - **(β) Recogido descuenta `inventory.quantity` inmediatamente** — emite DEDUCT log al click. `available = quantity - reserved_no_recogido_de_otras_ordenes`. Plan detallado de compensación antes de implementar (cómo deshacer DEDUCT al cancelar/quitar item recogido).
-  - **Item removido en EditOrder libera la reserva** (si solo reserved → quita del JSON; si recogido → emite ADD compensatorio para devolver al stock).
-  - **Watchdog agnóstico** — sigue creando órdenes con cantidad pedida sin consultar reservas. El cálculo de available vive client-side en pickd al renderizar.
-  - **UX ItemDetail (formato narrativa):**
-    ```
-    Total: 8
-    └─ 2 reserved for #879484 (Pedal Pushers)
-    └─ 6 free
-    ```
-    El order# es clickeable y abre la orden destinataria.
-  - **Move semantics (Opción B):** un MOVE de inventario se permite aunque haya reservas — la reserva se traslada a la nueva location. El item de la orden ahora apunta a la nueva location automáticamente.
-  - **Concurrency:** optimistic local + UPDATE condicional server-side que valide `available_for_me >= requested`. Si rechaza, rollback optimistic + toast "Item just got picked by someone else, refresh".
-  - **Reservas en Waiting for Inventory:** se mantienen activas mientras la orden viva (incluso meses). Botón "Release reservation" para admin en el detalle de la orden waiting permite liberar stock virtual manualmente sin cancelar la orden.
-- **Implementación técnica:**
-  - **DB:** extender `picking_lists.items` JSONB con `picked: bool` + `picked_at: timestamp`. Sin tabla nueva.
-  - **Realtime:** suscribir DoubleCheckView a `picking_lists` (cambios en items field). Cada cambio dispara recompute del available local.
-  - **Cálculo:** `usePickingActions.ts` ya hace algo similar (calcula reserved across active lists al markAsReady). Reusar y extender.
-  - **Compensación on cancel/remove:** RPC nueva `release_picked_item(p_list_id, p_sku, p_qty)` que emite ADD log y restaura inventory.quantity. Ejecutada por el flow de cancel + remove en EditOrder.
-- **Riesgos:**
-  - Latencia Realtime ~500ms-2s; race condition en doble-pick simultáneo. Mitigado por UPDATE condicional.
-  - Estado inconsistente si picker abandona post-pick (cierra browser). idea-099 tiene precedente de TTL para órdenes idle, extender ese mecanismo a recogidos.
-- **Out of scope v1:** mostrar avatar/nombre del picker que reservó (privacy + complejidad). Solo número y order#.
-- **Origen:** sesión 2026-05-01. Tamaño estimado: 1-2 sprints.
 
 ### ~~48. Auto-mover órdenes idle a Waiting (en vez de borrarlas)~~ <!-- id: idea-099 --> ✅ 2026-04-30
 - **Contexto:** El 2026-04-30 desapareció la orden `879469` que se dejó pendiente la noche anterior por falta de un item. Causa raíz: `usePickingSync.ts` borraba con DELETE las órdenes `active|needs_correction|reopened` cuyo `updated_at` fuera mayor a 5h cuando el user reabre la app.
@@ -141,26 +56,6 @@
   - `useActivityReport`: nuevo `FedExReturnSummary` type + query paralela a `fedex_returns` (joined con `fedex_return_items`) en la ventana NY-day.
   - `ActivityReportView`: `FedExReturnsBlock` con tabla 4-col + total summary line. Color AMBER para diferenciar de Moved/Consolidated.
 - **Out of scope (descartado del spec original):** Viernes acumulado semanal, agrupación walk-in returns, top-5. El user prefirió listado simple full-day, no top.
-
-### 44. Add On reopen reason — Phase 2 (full feature) <!-- id: idea-067 -->
-- **Contexto:** En el modal "Why are you reopening this order?" se agregó la opción "Add On" para mergear una orden completada con una nueva orden del mismo customer. Fase 1 (DB pre-requisitos) ya en prod: fix `auto_group_fedex_orders` excluye `reopened`, `process_picking_list` rechaza `reopened`. Fase 2 queda pendiente — este ticket.
-- **Objetivo Fase 2:** implementar el feature end-to-end. Al elegir "Add On":
-  1. Reopen la orden completada (snapshot guardado via `reopen_picking_list`).
-  2. Crear/agregar a grupo con la orden nueva (`createGroup`/`addToGroup`, tipo `general`).
-  3. Entrar a DoubleCheckView combinado mostrando items de ambas (la reopened marcada con badge "Previously picked" sutil, editable).
-  4. Al completar, aplicar delta-inventory a la reopened (via `recomplete_picking_list`) Y completar la nueva — **atomic** via nueva RPC `complete_addon_group(p_source_id, p_target_id, ...)`.
-- **Pallet photos:** mostrar fotos viejas (read-only, de la completada) + permitir tomar nuevas para la add-on. Validación bloqueante: ≥1 foto nueva antes de "Complete".
-- **Botón "Cancel Add-On":** en header de DoubleCheckView, ejecuta `cancel_reopen` + remueve `group_id` de ambas.
-- **Guards multi-user:** rechazar Add-On si el target tiene `checked_by ≠ null` (otro usuario editando). Mensaje claro.
-- **Edge cases a resolver:**
-  - Auto-cancel 2h sobre reopened con `group_id` → debe limpiar grupo también (modificar `auto_cancel_stale_reopened`).
-  - Completion atomicity: RPC en transacción BEGIN/EXCEPTION/ROLLBACK.
-  - Insufficient stock en SKU nuevo del add-on → validar en la RPC antes de aplicar deltas.
-  - Shipping type: heredar del target, bloquear auto-reclassify en re-complete.
-  - Watchdog auto-combine del mismo customer durante add-on → ya mitigado en Fase 1 (trigger excluye reopened).
-- **Test matrix resumido:** F1-F5 happy path; M1 multi-user reject; P1-P3 photos; A1 auto-cancel; R1-R5 regression.
-- **Deferrable a Fase 3:** hardening de `takeOverOrder`, scoping realtime por group_id, RPC `lock_group_for_check` atomic.
-- **Análisis completo:** sesión 2026-04-22 (claude/addon-db-prereqs). Cerrada PR #14 (merge visual incompleto).
 
 ### 43. Orders view — UX/UI rework <!-- id: idea-065 -->
 - **Problema:** La vista `/orders` tiene varios pain points:
