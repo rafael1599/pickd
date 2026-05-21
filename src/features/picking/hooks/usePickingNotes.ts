@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { withSupabaseRetry } from '../../../lib/supabaseRetry';
 
 export interface PickingNote {
   id: string;
@@ -22,16 +23,20 @@ export const usePickingNotes = (listId: string | null) => {
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('picking_list_notes')
-        .select(
-          `
+      const { data, error } = await withSupabaseRetry(
+        () =>
+          supabase
+            .from('picking_list_notes')
+            .select(
+              `
                     *,
                     profiles (email, full_name)
                 `
-        )
-        .eq('list_id', listId)
-        .order('created_at', { ascending: true });
+            )
+            .eq('list_id', listId)
+            .order('created_at', { ascending: true }),
+        { label: 'usePickingNotes.fetch' }
+      );
 
       if (error) throw error;
 
@@ -74,11 +79,15 @@ export const usePickingNotes = (listId: string | null) => {
           const newNote = payload.new as PickingNote;
 
           // Fetch profile for the new note to get the name
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('email, full_name')
-            .eq('id', newNote.user_id)
-            .single();
+          const { data: profile } = await withSupabaseRetry(
+            () =>
+              supabase
+                .from('profiles')
+                .select('email, full_name')
+                .eq('id', newNote.user_id)
+                .single(),
+            { label: 'usePickingNotes.realtimeProfile', maxAttempts: 2 }
+          );
 
           setNotes((prev) => [
             ...prev,

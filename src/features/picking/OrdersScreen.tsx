@@ -15,6 +15,7 @@ import { OrderChip } from '../../components/orders/OrderChip.tsx';
 import { OrderSidebar } from '../../components/orders/OrderSidebar.tsx';
 import { FloatingActionButtons } from '../../components/orders/FloatingActionButtons.tsx';
 import { useShipOutSms } from './hooks/useShipOutSms';
+import { withSupabaseRetry } from '../../lib/supabaseRetry';
 import { PickingSummaryModal } from '../../components/orders/PickingSummaryModal.tsx';
 import { SplitOrderModal } from '../../components/orders/SplitOrderModal.tsx';
 import { SearchInput } from '../../components/ui/SearchInput.tsx';
@@ -325,7 +326,13 @@ export const OrdersScreen = () => {
         query = query.gte('created_at', lastWeek.toISOString());
       }
 
-      const { data, error } = await query;
+      // Wrap the supabase call so transient network/5xx errors get
+      // retried with exponential backoff. Without this, a single
+      // flake on a flaky network surfaces as "Failed to load orders"
+      // and the picker has to manually refresh.
+      const { data, error } = await withSupabaseRetry(() => query, {
+        label: 'OrdersScreen.fetchOrders',
+      });
 
       if (error) throw error;
 
