@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+// react-hook-form 7.71.1's published dist/*.d.ts files import from
+// `../src/types`, a path missing from the npm tarball — runtime is fine,
+// only tsc trips. @ts-ignore localized; drop when the package ships a
+// release with corrected type paths.
+// @ts-expect-error -- broken types in react-hook-form 7.71.1
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
@@ -256,7 +261,10 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   // ─── Dirty check ───
   const hasChanges = useMemo(() => {
     if (mode !== 'edit' || !initialData) return true;
-    const n = (v: string | number | null | undefined) => String(v ?? '').trim();
+    // Accepts arrays too — `sublocation` is `string[] | null`, and
+    // `String(['A','B'])` produces "A,B" which is what we want for the
+    // string-compare downstream.
+    const n = (v: string | number | string[] | null | undefined) => String(v ?? '').trim();
     const num = (v: string | number | null | undefined) => Number(v ?? 0);
     const formChanged =
       n(sku) !== n(initialData.sku) ||
@@ -1217,9 +1225,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                           key={letter}
                           type="button"
                           onClick={() => {
-                            const current = sublocation || [];
+                            const current: string[] = sublocation || [];
                             const updated = isSelected
-                              ? current.filter((l) => l !== letter)
+                              ? current.filter((l: string) => l !== letter)
                               : [...current, letter].sort();
                             setValue('sublocation', updated.length > 0 ? updated : null);
                           }}
@@ -1285,9 +1293,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                           key={letter}
                           type="button"
                           onClick={() => {
-                            const current = sublocation || [];
+                            const current: string[] = sublocation || [];
                             const updated = isSelected
-                              ? current.filter((l) => l !== letter)
+                              ? current.filter((l: string) => l !== letter)
                               : [...current, letter].sort();
                             setValue('sublocation', updated.length > 0 ? updated : null);
                           }}
