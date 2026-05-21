@@ -130,6 +130,7 @@ export function buildShipOutSmsBody(
   const isFedex = (order.shipping_type ?? '').toLowerCase() === 'fedex';
   if (!isFedex) lines.push(`PALLETS: ${metrics.pallets}`);
 
+  lines.push(`BIKES: ${metrics.bikes}`);
   lines.push(`PARTS: ${metrics.parts}`);
   lines.push(`WEIGHT: ${metrics.weightLbs} LBS`);
 
