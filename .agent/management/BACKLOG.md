@@ -88,6 +88,23 @@
 - **Consideraciones antes de implementar:** Investigar edge cases — ¿qué pasa si otro usuario modifica la orden mientras está cacheada? ¿Se necesita una columna `updated_at` más granular o un hash de versión? ¿Impacto en optimistic updates existentes? Evaluar si TanStack Query `staleTime` + `structuralSharing` ya cubre parte del problema o si se necesita un cache layer adicional.
 - **Requiere:** Análisis profundo antes de implementar.
 
+### 60. Optimistic updates — Top 2 a 5 pendientes <!-- id: idea-112 -->
+- **Contexto:** Auditoría 2026-05-21 identificó 5 mutations donde el optimistic update está mal usado o ausente. Top 1 (pick/unpick) resuelto en este sprint (`usePickItemMutation` hook). Quedan 4. Patrón canónico para todos: `useMutation` con `onMutate` capturando snapshot de `queryClient.getQueryData`, `setQueryData` para aplicar el cambio, `onError(err, vars, ctx)` restaura desde el snapshot del context. NO invalidar en `onSuccess` cuando hay realtime echo o polling fallback que reconcilie — invalidar agrega latencia innecesaria.
+- **#2 — `ShippingTypeToggle.apply` (`src/features/picking/components/ShippingTypeToggle.tsx:42`)** [~30min, ROI 🔥🔥]
+  - Hoy: `setType(next)` local + `.update({ shipping_type })` directo. Si la response se pierde mid-flight, `setType(previous)` no refleja lo que el servidor hizo.
+  - Fix: envolver en `useMutation` con `mutationKey: ['shipping-type', listId]`. `onMutate` captura snapshot del `picking_list` query (si existe) o el `setType` previo. `onError` restaura. Inherits retry × 3 del config global.
+- **#3 — `usePickingActions.markAsReady` batch (`src/features/picking/hooks/usePickingActions.ts:157-168`)** [~1.5h, ROI 🔥🔥]
+  - Hoy: 2-3 `.update()` calls secuenciales sin onMutate. Si una falla, el estado local no rollback.
+  - Fix: una sola mutation `useMarkAsReady` que ejecute las updates, capture snapshot de los affected lists, y rollback en bloque si una de las queries fail. Transactionar server-side via RPC `mark_picking_list_ready_with_release(p_list_id, p_user_id)` es la opción más limpia (también lo deja idempotente).
+- **#4 — `usePickingNotes.addNote` (`src/features/picking/hooks/usePickingNotes.ts:103`)** [~45min, ROI 🔥]
+  - Hoy: `.insert(...)` sin optimistic; nota aparece lentamente en UI (espera realtime echo).
+  - Fix: convertir a `useMutation`. `onMutate` agrega la nota al array local con un ID tentativo (`'pending-' + Date.now()`). `onSuccess` no necesita acción (realtime echoes con el ID real y reemplaza). `onError` quita la nota tentativa.
+- **#5 — Photo upload de pallets (`PickingCartDrawer.tsx:624`, `DoubleCheckView.tsx:250`)** [~1.5h, ROI 🔥]
+  - Hoy: sube foto + `.update({ pallet_photos })` sin optimistic.
+  - Fix: `useMutation` que en `onMutate` agrega un blob URL local al array `pallet_photos` (preview instantáneo). `mutationFn` sube a storage + persiste. `onSuccess` reemplaza el blob URL por la URL final. `onError` lo quita. Cleanup del blob URL en ambos casos.
+- **Patrón de implementación compartido:** todas las 4 mutations comparten la misma forma — un hook `use{Action}Mutation` que wrappea la RPC/operation, expone `mutate({ vars }, { onError })` al sitio de llamada. Idempotency via `mutationKey` derivado del recurso (`['shipping-type', listId]`, `['add-note', listId]`, etc.). Reusar el patrón de `usePickItemMutation.ts` como template.
+- **Origen:** auditoría 2026-05-21.
+
 ---
 
 ## P2 — Medio (conveniencia)
