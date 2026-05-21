@@ -40,6 +40,7 @@ import Camera from 'lucide-react/dist/esm/icons/camera';
 import { compressImage, base64ToBlobUrl } from '../../../services/photoUpload.service';
 import { useAuth } from '../../../context/AuthContext';
 import { useMarkWaiting, useUnmarkWaiting, useTakeOverSku } from '../hooks/useWaitingOrders';
+import { useShipOutSms } from '../hooks/useShipOutSms';
 import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingConflicts';
 import { useStockReservations, buildReservationKey } from '../hooks/useStockReservations';
 import { WaitingConflictModal } from './WaitingConflictModal';
@@ -203,6 +204,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const markWaiting = useMarkWaiting();
   const unmarkWaiting = useUnmarkWaiting();
   const takeOverSku = useTakeOverSku();
+  const { triggerForList: triggerShipOutSms } = useShipOutSms();
   const { data: waitingConflicts } = useWaitingConflicts(
     cartItems,
     activeListId ?? null,
@@ -1124,6 +1126,17 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         await new Promise((r) => setTimeout(r, 300));
       }
       await onDeduct(cartItems, isFullyVerified);
+      // Ship-Out SMS: only after a fully-verified completion. The hook
+      // no-ops silently if the operator hasn't enabled the feature or
+      // hasn't configured recipients. Errors here must NOT bubble up —
+      // the order completion already succeeded; SMS is best-effort.
+      if (isFullyVerified) {
+        try {
+          await triggerShipOutSms(activeListId);
+        } catch (smsErr) {
+          console.warn('Ship-Out SMS trigger failed (non-fatal):', smsErr);
+        }
+      }
     } catch (error) {
       console.error(error);
     } finally {
