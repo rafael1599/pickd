@@ -14,6 +14,7 @@ import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import { OrderChip } from '../../components/orders/OrderChip.tsx';
 import { OrderSidebar } from '../../components/orders/OrderSidebar.tsx';
 import { FloatingActionButtons } from '../../components/orders/FloatingActionButtons.tsx';
+import { useShipOutSms } from './hooks/useShipOutSms';
 import { PickingSummaryModal } from '../../components/orders/PickingSummaryModal.tsx';
 import { SplitOrderModal } from '../../components/orders/SplitOrderModal.tsx';
 import { SearchInput } from '../../components/ui/SearchInput.tsx';
@@ -58,6 +59,9 @@ interface OrderWithRelations {
 
 export const OrdersScreen = () => {
   const { user } = useAuth();
+  // Ship-Out SMS resend button on the FAB. The hook gives us `isEnabled`
+  // so the button hides cleanly when the user hasn't configured it.
+  const { isEnabled: isShipSmsEnabled, triggerForList: triggerShipOutSms } = useShipOutSms();
   const { takeOverOrder, loadReopenedOrder, resumeReopenedOrder } = usePickingSession();
   const { externalOrderId, setExternalOrderId, setViewMode } = useViewMode();
   const [orders, setOrders] = useState<OrderWithRelations[]>([]);
@@ -1165,6 +1169,14 @@ export const OrdersScreen = () => {
             isPrinting={isPrinting}
             hasOrders={!!selectedOrder}
             pressedKey={pressedKey}
+            isShipSmsEnabled={isShipSmsEnabled}
+            onSendSms={
+              selectedOrder
+                ? () => {
+                    void triggerShipOutSms(selectedOrder.id);
+                  }
+                : undefined
+            }
           />
         </div>
       </div>
