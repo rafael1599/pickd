@@ -3,6 +3,7 @@ import Printer from 'lucide-react/dist/esm/icons/printer';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
 import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
+import MessageSquare from 'lucide-react/dist/esm/icons/message-square';
 
 interface FloatingActionButtonsProps {
   onPrint: () => void;
@@ -11,6 +12,9 @@ interface FloatingActionButtonsProps {
   isPrinting: boolean;
   hasOrders: boolean;
   pressedKey?: 'left' | 'right' | null;
+  /** Show a "resend Ship-Out SMS" icon button. Hidden when SMS feature is disabled. */
+  onSendSms?: () => void;
+  isShipSmsEnabled?: boolean;
 }
 
 export const FloatingActionButtons: React.FC<FloatingActionButtonsProps> = ({
@@ -20,6 +24,8 @@ export const FloatingActionButtons: React.FC<FloatingActionButtonsProps> = ({
   isPrinting,
   hasOrders,
   pressedKey,
+  onSendSms,
+  isShipSmsEnabled,
 }) => {
   const [glowKey, setGlowKey] = useState<'left' | 'right' | null>(null);
   const [glowId, setGlowId] = useState(0);
@@ -85,6 +91,18 @@ export const FloatingActionButtons: React.FC<FloatingActionButtonsProps> = ({
             {isPrinting ? 'Preparing...' : 'Print Labels'}
           </span>
         </button>
+
+        {/* Resend Ship-Out SMS — only renders when the feature is enabled in Settings */}
+        {isShipSmsEnabled && onSendSms && (
+          <button
+            onClick={onSendSms}
+            title="Resend Ship-Out SMS"
+            aria-label="Resend Ship-Out SMS"
+            className="flex items-center justify-center w-14 h-14 bg-surface hover:bg-main text-emerald-400 rounded-full transition-all shadow-xl active:scale-90 border border-subtle"
+          >
+            <MessageSquare className="w-7 h-7" />
+          </button>
+        )}
 
         {/* Next Button */}
         <button
