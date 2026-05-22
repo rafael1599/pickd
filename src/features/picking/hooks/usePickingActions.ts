@@ -547,10 +547,34 @@ export const usePickingActions = ({
           .eq('id', listId)
           .maybeSingle();
 
+        // Completed/reopened: restore inventory + mark cancelled via RPC.
+        // The RPC is idempotent and handles the reopen-revert + group cleanup.
         if (currentList?.status === 'completed' || currentList?.status === 'reopened') {
-          console.log(
-            'Blocked deletion of a completed/reopened order to protect inventory history.'
-          );
+          const { data, error: rpcError } = await supabase.rpc('cancel_completed_order', {
+            p_list_id: listId,
+            p_user_id: user?.id ?? null,
+          });
+
+          if (rpcError) {
+            console.error('cancel_completed_order failed:', rpcError);
+            toast.error('Failed to cancel order: ' + rpcError.message);
+            throw rpcError;
+          }
+
+          const result =
+            (data as {
+              restored_units?: number;
+              items_restored?: number;
+              already_cancelled?: boolean;
+            } | null) ?? {};
+          if (result.already_cancelled) {
+            toast('Order was already cancelled', { icon: 'ℹ️' });
+          } else {
+            toast.success(
+              `Order cancelled — ${result.restored_units ?? 0} units restored to inventory`
+            );
+          }
+
           if (listId === activeListId && !keepLocalState) {
             resetSession();
           }
@@ -653,7 +677,7 @@ export const usePickingActions = ({
         throw err;
       }
     },
-    [activeListId, resetSession]
+    [activeListId, resetSession, user]
   );
 
   const generatePickingPath = useCallback(async () => {
