@@ -13,6 +13,7 @@ import { useInventory } from '../../inventory/hooks/InventoryProvider';
 import { getOptimizedPickingPath, calculatePallets } from '../../../utils/pickingLogic';
 import type { Location } from '../../../schemas/location.schema';
 import { supabase } from '../../../lib/supabase';
+import { usePickItemMutation } from '../hooks/usePickItemMutation';
 import type { Json } from '../../../lib/database.types';
 import toast from 'react-hot-toast';
 import { useScrollLock } from '../../../hooks/useScrollLock';
@@ -22,6 +23,12 @@ export const PickingCartDrawer: React.FC = () => {
   const { showConfirmation } = useConfirmation();
   const { externalDoubleCheckId, setExternalDoubleCheckId, viewMode } = useViewMode();
   const { pathname } = useLocation();
+  // Per-item pick/unpick mutation. Inherits the project's mutation
+  // defaults (retry × 3 with exponential backoff capped at 30s,
+  // networkMode: offlineFirst) from query-client.ts — replaces the
+  // previous fire-and-forget supabase.rpc().then() that gave up after
+  // the first network blip.
+  const pickItem = usePickItemMutation();
 
   const {
     cartItems,
@@ -305,6 +312,9 @@ export const PickingCartDrawer: React.FC = () => {
     const key = `${palletId}-${item.sku}-${item.location}`;
     const isChecking = !checkedItems.has(key);
 
+    // Instant local toggle so the UI never feels laggy. The mutation
+    // runs in the background and only rolls this back if all retries
+    // are exhausted.
     setCheckedItems((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
@@ -312,8 +322,10 @@ export const PickingCartDrawer: React.FC = () => {
       return next;
     });
 
-    // idea-105 Phase 2: per-item DEDUCT/RESTORE on toggle. Trigger
-    // compensate_picking_list_changes handles inventory when items[].picked flips.
+    // idea-105 Phase 2: per-item DEDUCT/RESTORE on toggle. The
+    // `compensate_picking_list_changes` trigger handles inventory when
+    // items[].picked flips. Skip the RPC for picking mode or rows we
+    // can't deduct from (unregistered SKU, no warehouse/location).
     if (
       sessionMode !== 'double_checking' ||
       !activeListId ||
@@ -324,36 +336,37 @@ export const PickingCartDrawer: React.FC = () => {
     ) {
       return;
     }
-    const rpcName = isChecking ? 'pick_item' : 'unpick_item';
-    // For grouped orders, items merged from sibling lists carry source_list_id —
-    // route the RPC to the list that actually owns the item, not the anchor.
+    // For grouped orders, items merged from sibling lists carry
+    // source_list_id — route the RPC to the list that actually owns
+    // the item, not the anchor list.
     const targetListId = item.source_list_id ?? activeListId;
-    void supabase
-      .rpc(
-        rpcName as never,
-        {
-          p_list_id: targetListId,
-          p_sku: item.sku,
-          p_warehouse: item.warehouse,
-          p_location: item.location,
-          p_qty: item.pickingQty,
-          p_user_id: user.id,
-        } as never
-      )
-      .then(({ error }) => {
-        if (error) {
-          console.warn(`[PickingCartDrawer] ${rpcName} failed:`, error);
+    pickItem.mutate(
+      {
+        action: isChecking ? 'pick' : 'unpick',
+        listId: targetListId,
+        sku: item.sku,
+        warehouse: item.warehouse,
+        location: item.location,
+        qty: item.pickingQty,
+        userId: user.id,
+      },
+      {
+        onError: (error) => {
+          const verb = isChecking ? 'deduct' : 'restore';
+          console.warn(`[PickingCartDrawer] ${verb} ${item.sku} failed:`, error);
           toast.error(
-            `Couldn't ${isChecking ? 'deduct' : 'restore'} ${item.sku}: ${error.message}`
+            `Couldn't ${verb} ${item.sku}: ${error instanceof Error ? error.message : 'network error'}`
           );
+          // Rollback the optimistic Set toggle.
           setCheckedItems((prev) => {
             const next = new Set(prev);
             if (next.has(key)) next.delete(key);
             else next.add(key);
             return next;
           });
-        }
-      });
+        },
+      }
+    );
   };
 
   const handleSelectAll = (keys?: string[]) => {

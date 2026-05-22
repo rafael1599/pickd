@@ -5,9 +5,11 @@ import MessageSquare from 'lucide-react/dist/esm/icons/message-square';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import Camera from 'lucide-react/dist/esm/icons/camera';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
+import Send from 'lucide-react/dist/esm/icons/send';
 import toast from 'react-hot-toast';
 import { useLocationManagement } from '../../features/inventory/hooks/useLocationManagement';
 import { usePickingNotes } from '../../features/picking/hooks/usePickingNotes';
+import { useShipOutSms } from '../../features/picking/hooks/useShipOutSms';
 import { getOptimizedPickingPath, calculatePallets } from '../../utils/pickingLogic';
 import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.service';
 import { supabase } from '../../lib/supabase';
@@ -44,6 +46,9 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
   const { locations } = useLocationManagement();
   const { notes } = usePickingNotes(listId);
   const { showConfirmation } = useConfirmation();
+  // Ship-Out SMS resend — only rendered when the user has enabled it +
+  // configured recipients in Settings. Cleanly hidden otherwise.
+  const { isEnabled: isShipSmsEnabled, triggerForList: triggerShipOutSms } = useShipOutSms();
   const [notesOpen, setNotesOpen] = useState(false);
   const [photos, setPhotos] = useState<string[]>(palletPhotos ?? []);
   const [isUploading, setIsUploading] = useState(false);
@@ -234,13 +239,27 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
                 )}
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="shrink-0 w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white/40 hover:text-white transition-all active:scale-90"
-              title="Close"
-            >
-              <X size={20} />
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              {isShipSmsEnabled && (
+                <button
+                  onClick={() => {
+                    void triggerShipOutSms(listId);
+                  }}
+                  className="w-10 h-10 flex items-center justify-center bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 rounded-xl text-emerald-300 hover:text-emerald-100 transition-all active:scale-90"
+                  title="Resend Ship-Out SMS"
+                  aria-label="Resend Ship-Out SMS"
+                >
+                  <Send size={18} />
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white/40 hover:text-white transition-all active:scale-90"
+                title="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
           </div>
 
           {/* Notes accordion trigger — only when notes exist */}

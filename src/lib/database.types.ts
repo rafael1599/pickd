@@ -518,7 +518,7 @@ export type Database = {
         Row: {
           created_at: string | null;
           id: string;
-          is_misship: boolean | null;
+          is_misship: boolean;
           label_photo_url: string | null;
           notes: string | null;
           processed_at: string | null;
@@ -536,7 +536,7 @@ export type Database = {
         Insert: {
           created_at?: string | null;
           id?: string;
-          is_misship?: boolean | null;
+          is_misship?: boolean;
           label_photo_url?: string | null;
           notes?: string | null;
           processed_at?: string | null;
@@ -554,7 +554,7 @@ export type Database = {
         Update: {
           created_at?: string | null;
           id?: string;
-          is_misship?: boolean | null;
+          is_misship?: boolean;
           label_photo_url?: string | null;
           notes?: string | null;
           processed_at?: string | null;
@@ -1138,6 +1138,81 @@ export type Database = {
           },
         ];
       };
+      picking_lists_deleted_audit: {
+        Row: {
+          deleted_at: string;
+          deleted_by: string | null;
+          id: string;
+          list_id: string;
+          order_number: string | null;
+          row_snapshot: Json;
+          status: string | null;
+          user_id: string | null;
+        };
+        Insert: {
+          deleted_at?: string;
+          deleted_by?: string | null;
+          id?: string;
+          list_id: string;
+          order_number?: string | null;
+          row_snapshot: Json;
+          status?: string | null;
+          user_id?: string | null;
+        };
+        Update: {
+          deleted_at?: string;
+          deleted_by?: string | null;
+          id?: string;
+          list_id?: string;
+          order_number?: string | null;
+          row_snapshot?: Json;
+          status?: string | null;
+          user_id?: string | null;
+        };
+        Relationships: [];
+      };
+      picking_lists_items_shrink_audit: {
+        Row: {
+          caller: string | null;
+          id: string;
+          list_id: string;
+          new_item_count: number;
+          new_items: Json;
+          occurred_at: string;
+          order_number: string | null;
+          prev_item_count: number;
+          prev_items: Json;
+          shrink_by: number | null;
+          status: string | null;
+        };
+        Insert: {
+          caller?: string | null;
+          id?: string;
+          list_id: string;
+          new_item_count: number;
+          new_items: Json;
+          occurred_at?: string;
+          order_number?: string | null;
+          prev_item_count: number;
+          prev_items: Json;
+          shrink_by?: number | null;
+          status?: string | null;
+        };
+        Update: {
+          caller?: string | null;
+          id?: string;
+          list_id?: string;
+          new_item_count?: number;
+          new_items?: Json;
+          occurred_at?: string;
+          order_number?: string | null;
+          prev_item_count?: number;
+          prev_items?: Json;
+          shrink_by?: number | null;
+          status?: string | null;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
           created_at: string | null;
@@ -1148,6 +1223,8 @@ export type Database = {
           is_active: boolean | null;
           last_seen_at: string | null;
           role: string | null;
+          shipping_sms_enabled: boolean;
+          shipping_sms_recipients: string[];
           updated_at: string | null;
         };
         Insert: {
@@ -1159,6 +1236,8 @@ export type Database = {
           is_active?: boolean | null;
           last_seen_at?: string | null;
           role?: string | null;
+          shipping_sms_enabled?: boolean;
+          shipping_sms_recipients?: string[];
           updated_at?: string | null;
         };
         Update: {
@@ -1170,6 +1249,8 @@ export type Database = {
           is_active?: boolean | null;
           last_seen_at?: string | null;
           role?: string | null;
+          shipping_sms_enabled?: boolean;
+          shipping_sms_recipients?: string[];
           updated_at?: string | null;
         };
         Relationships: [
@@ -1475,6 +1556,36 @@ export type Database = {
           },
         ];
       };
+      warehouse_slot_layouts: {
+        Row: {
+          created_at: string;
+          id: string;
+          layout: Json;
+          row_name: string;
+          updated_at: string;
+          user_id: string;
+          warehouse: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          layout?: Json;
+          row_name: string;
+          updated_at?: string;
+          user_id: string;
+          warehouse: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          layout?: Json;
+          row_name?: string;
+          updated_at?: string;
+          user_id?: string;
+          warehouse?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       v_inventory_location_drift: {
@@ -1546,6 +1657,20 @@ export type Database = {
         Returns: boolean;
       };
       classify_picking_list_fedex: { Args: { p_items: Json }; Returns: boolean };
+      complete_addon_group: {
+        Args: {
+          p_performed_by: string;
+          p_source_id: string;
+          p_source_pallets?: number;
+          p_source_units?: number;
+          p_target_id: string;
+          p_target_pallets?: number;
+          p_target_units?: number;
+          p_user_id: string;
+          p_user_role?: string;
+        };
+        Returns: Json;
+      };
       compute_daily_report_data: {
         Args: { p_report_date: string };
         Returns: Json;
@@ -1721,6 +1846,28 @@ export type Database = {
           orders_completed: number;
           sku: string;
           units_shipped: number;
+        }[];
+      };
+      get_slot_fill_candidates: {
+        Args: {
+          p_exclude_active_rows?: string[];
+          p_only_bikes?: boolean;
+          p_slots: Json;
+          p_top_n_per_slot?: number;
+        };
+        Returns: {
+          current_qty: number;
+          current_row: string;
+          fit_precision: number;
+          item_name: string;
+          last_shipped: string;
+          orders_30d: number;
+          orders_90d: number;
+          sku: string;
+          slot_id: string;
+          units_30d: number;
+          units_90d: number;
+          velocity_score: number;
         }[];
       };
       get_snapshot: {

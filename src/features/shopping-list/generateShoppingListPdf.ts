@@ -106,6 +106,8 @@ export const generateShoppingListPdf = async (items: ShoppingItem[]) => {
     },
   });
 
+  // jsPDF.output('bloburl') returns a URL object in newer @types; open
+  // accepts a string, so coerce via the URL's serialized form.
   const blob = doc.output('bloburl');
-  window.open(blob as string, '_blank');
+  window.open(typeof blob === 'string' ? blob : blob.toString(), '_blank');
 };

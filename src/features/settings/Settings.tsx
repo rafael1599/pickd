@@ -1,6 +1,7 @@
 import SettingsIcon from 'lucide-react/dist/esm/icons/settings';
 import { IntegratedMapManager } from '../warehouse-management/components/IntegratedMapManager';
 import { useTheme } from '../../context/ThemeContext';
+import { ShipSmsSettings } from './ShipSmsSettings';
 
 export default function Settings() {
   const { theme, toggleTheme } = useTheme();
@@ -43,6 +44,9 @@ export default function Settings() {
             </div>
           </div>
         </div>
+
+        {/* Ship-Out SMS — per-user prefilled SMS at Double-Check complete */}
+        <ShipSmsSettings />
 
         {/* Integrated Warehouse Management (Zones, Map, Reports) */}
         <IntegratedMapManager />

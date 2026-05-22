@@ -40,6 +40,8 @@ import Camera from 'lucide-react/dist/esm/icons/camera';
 import { compressImage, base64ToBlobUrl } from '../../../services/photoUpload.service';
 import { useAuth } from '../../../context/AuthContext';
 import { useMarkWaiting, useUnmarkWaiting, useTakeOverSku } from '../hooks/useWaitingOrders';
+import { useShipOutSms } from '../hooks/useShipOutSms';
+import { withSupabaseRetry } from '../../../lib/supabaseRetry';
 import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingConflicts';
 import { useStockReservations, buildReservationKey } from '../hooks/useStockReservations';
 import { WaitingConflictModal } from './WaitingConflictModal';
@@ -203,6 +205,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const markWaiting = useMarkWaiting();
   const unmarkWaiting = useUnmarkWaiting();
   const takeOverSku = useTakeOverSku();
+  const { triggerForList: triggerShipOutSms } = useShipOutSms();
   const { data: waitingConflicts } = useWaitingConflicts(
     cartItems,
     activeListId ?? null,
@@ -285,21 +288,23 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     }
     let cancelled = false;
     (async () => {
-      const { data: src } = await supabase
-        .from('picking_lists')
-        .select('group_id')
-        .eq('id', activeListId)
-        .single();
+      // Both queries wrapped in retry — Add-On detection running once
+      // at DoubleCheckView mount; a single flaky-network failure
+      // left the order rendering without its Add-On context.
+      const { data: src } = await withSupabaseRetry(
+        () => supabase.from('picking_lists').select('group_id').eq('id', activeListId).single(),
+        { label: 'DoubleCheckView.addonDetect.list' }
+      );
       if (cancelled) return;
-      if (!src?.group_id) {
+      const groupId = src?.group_id;
+      if (!groupId) {
         setIsAddonMode(false);
         return;
       }
-      const { data: grp } = await supabase
-        .from('order_groups')
-        .select('group_type')
-        .eq('id', src.group_id)
-        .single();
+      const { data: grp } = await withSupabaseRetry(
+        () => supabase.from('order_groups').select('group_type').eq('id', groupId).single(),
+        { label: 'DoubleCheckView.addonDetect.group' }
+      );
       if (cancelled) return;
       setIsAddonMode(grp?.group_type === 'general');
     })();
@@ -1124,6 +1129,17 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         await new Promise((r) => setTimeout(r, 300));
       }
       await onDeduct(cartItems, isFullyVerified);
+      // Ship-Out SMS: only after a fully-verified completion. The hook
+      // no-ops silently if the operator hasn't enabled the feature or
+      // hasn't configured recipients. Errors here must NOT bubble up —
+      // the order completion already succeeded; SMS is best-effort.
+      if (isFullyVerified) {
+        try {
+          await triggerShipOutSms(activeListId);
+        } catch (smsErr) {
+          console.warn('Ship-Out SMS trigger failed (non-fatal):', smsErr);
+        }
+      }
     } catch (error) {
       console.error(error);
     } finally {

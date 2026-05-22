@@ -14,6 +14,8 @@ import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import { OrderChip } from '../../components/orders/OrderChip.tsx';
 import { OrderSidebar } from '../../components/orders/OrderSidebar.tsx';
 import { FloatingActionButtons } from '../../components/orders/FloatingActionButtons.tsx';
+import { useShipOutSms } from './hooks/useShipOutSms';
+import { withSupabaseRetry } from '../../lib/supabaseRetry';
 import { PickingSummaryModal } from '../../components/orders/PickingSummaryModal.tsx';
 import { SplitOrderModal } from '../../components/orders/SplitOrderModal.tsx';
 import { SearchInput } from '../../components/ui/SearchInput.tsx';
@@ -58,6 +60,9 @@ interface OrderWithRelations {
 
 export const OrdersScreen = () => {
   const { user } = useAuth();
+  // Ship-Out SMS resend button on the FAB. The hook gives us `isEnabled`
+  // so the button hides cleanly when the user hasn't configured it.
+  const { isEnabled: isShipSmsEnabled, triggerForList: triggerShipOutSms } = useShipOutSms();
   const { takeOverOrder, loadReopenedOrder, resumeReopenedOrder } = usePickingSession();
   const { externalOrderId, setExternalOrderId, setViewMode } = useViewMode();
   const [orders, setOrders] = useState<OrderWithRelations[]>([]);
@@ -321,7 +326,13 @@ export const OrdersScreen = () => {
         query = query.gte('created_at', lastWeek.toISOString());
       }
 
-      const { data, error } = await query;
+      // Wrap the supabase call so transient network/5xx errors get
+      // retried with exponential backoff. Without this, a single
+      // flake on a flaky network surfaces as "Failed to load orders"
+      // and the picker has to manually refresh.
+      const { data, error } = await withSupabaseRetry(() => query, {
+        label: 'OrdersScreen.fetchOrders',
+      });
 
       if (error) throw error;
 
@@ -1165,6 +1176,14 @@ export const OrdersScreen = () => {
             isPrinting={isPrinting}
             hasOrders={!!selectedOrder}
             pressedKey={pressedKey}
+            isShipSmsEnabled={isShipSmsEnabled}
+            onSendSms={
+              selectedOrder
+                ? () => {
+                    void triggerShipOutSms(selectedOrder.id);
+                  }
+                : undefined
+            }
           />
         </div>
       </div>

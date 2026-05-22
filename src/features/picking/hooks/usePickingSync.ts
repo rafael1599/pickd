@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { type User } from '@supabase/supabase-js';
 import { supabase } from '../../../lib/supabase';
+import { withSupabaseRetry } from '../../../lib/supabaseRetry';
 import { debounce, type DebouncedFunction } from '../../../utils/debounce';
 import toast from 'react-hot-toast';
 import type { CartItem } from './usePickingCart';
@@ -132,13 +133,20 @@ export const usePickingSync = ({
         const FIVE_HOURS_MS = 1000 * 60 * 60 * 5;
 
         // A. Check for double-check session first (Highest priority)
-        const { data: doubleCheckData } = await supabase
-          .from('picking_lists')
-          .select('*, customer:customers(*)')
-          .eq('checked_by', user.id)
-          .eq('status', 'double_checking')
-          .limit(1)
-          .maybeSingle();
+        // Retry-wrapped: this query runs on every app load and was a
+        // common flaky-network failure point (silent — the user sees
+        // no order even though one exists).
+        const { data: doubleCheckData } = await withSupabaseRetry(
+          () =>
+            supabase
+              .from('picking_lists')
+              .select('*, customer:customers(*)')
+              .eq('checked_by', user.id)
+              .eq('status', 'double_checking')
+              .limit(1)
+              .maybeSingle(),
+          { label: 'usePickingSync.loadDoubleCheck' }
+        );
 
         if (doubleCheckData) {
           const updatedAt = doubleCheckData.updated_at
@@ -176,14 +184,18 @@ export const usePickingSync = ({
         }
 
         // B. Check for active picking sessions owned by this user
-        const { data: pickingData, error } = await supabase
-          .from('picking_lists')
-          .select('*, customer:customers(*)')
-          .eq('user_id', user.id)
-          .in('status', ['active', 'needs_correction', 'reopened'])
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        const { data: pickingData, error } = await withSupabaseRetry(
+          () =>
+            supabase
+              .from('picking_lists')
+              .select('*, customer:customers(*)')
+              .eq('user_id', user.id)
+              .in('status', ['active', 'needs_correction', 'reopened'])
+              .order('updated_at', { ascending: false })
+              .limit(1)
+              .maybeSingle(),
+          { label: 'usePickingSync.loadActive' }
+        );
 
         if (error) console.error('Error loading picking session:', error);
 
@@ -282,6 +294,76 @@ export const usePickingSync = ({
 
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let retryTimeout: NodeJS.Timeout;
+    // Polling fallback handle. When the realtime channel can't connect
+    // after its own retries we drop to slow polling so the user still
+    // sees status changes (takeovers, completions) — just at 30s
+    // granularity instead of <1s. Cleared on cleanup or when the
+    // channel finally reconnects.
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+    const POLL_INTERVAL_MS = 30_000;
+
+    const stopPolling = () => {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    };
+
+    const pollOnce = async () => {
+      if (!activeListId) return;
+      const { data, error } = await withSupabaseRetry(
+        () =>
+          supabase
+            .from('picking_lists')
+            .select(
+              'status, user_id, checked_by, correction_notes, shipping_type, is_waiting_inventory'
+            )
+            .eq('id', activeListId)
+            .maybeSingle(),
+        { label: 'usePickingSync.pollFallback', maxAttempts: 2 }
+      );
+      if (error || !data) return;
+
+      // Same fan-out as the realtime UPDATE handler below, but reusing
+      // the refs to avoid double-firing on unchanged values.
+      if (
+        sessionModeRef.current === 'picking' &&
+        data.user_id &&
+        (data.user_id as string) !== user.id &&
+        (data.user_id as string) !== ownerIdRef.current
+      ) {
+        showTakeoverAlert(data.user_id as string);
+        return;
+      }
+      if (
+        sessionModeRef.current === 'double_checking' &&
+        data.checked_by &&
+        (data.checked_by as string) !== user.id &&
+        (data.checked_by as string) !== checkedByRef.current
+      ) {
+        showTakeoverAlert(data.checked_by as string);
+        return;
+      }
+      if (data.status !== listStatusRef.current) {
+        if (data.status === 'completed' || data.status === 'cancelled') {
+          resetSession();
+          stopPolling();
+          return;
+        }
+        setListStatus(data.status as string);
+      }
+      // Note: shippingType/isWaitingInventory don't have stable refs to
+      // compare against — accepting a possible no-op write here. React
+      // bails out internally if value is identical.
+      const shipNew = (data.shipping_type as string | null) ?? null;
+      setShippingType(shipNew as string);
+      const waitNew = !!data.is_waiting_inventory;
+      setIsWaitingInventory(waitNew);
+      if (data.correction_notes !== correctionNotesRef.current)
+        setCorrectionNotes(data.correction_notes as string | null);
+      if (data.checked_by !== checkedByRef.current) setCheckedBy(data.checked_by as string | null);
+      if (data.user_id !== ownerIdRef.current) setOwnerId(data.user_id as string | null);
+    };
 
     const showTakeoverAlert = async (takerId: string) => {
       if (takeoverSyncRef.current === activeListId) return;
@@ -371,12 +453,15 @@ export const usePickingSync = ({
               }
               setListStatus(newData.status as string);
             }
-            // Guard: only setState when value actually changed to avoid re-render loops
+            // No previous-value compare needed — the setter is a
+            // useState dispatch in the parent, and React bails on
+            // identical values internally via Object.is. The function
+            // form here only made tsc unhappy because the prop is typed
+            // as the narrow `(s: string) => void` (no SetStateAction).
             const newShippingType =
               ((newData as Record<string, unknown>).shipping_type as string | null) ?? null;
-            setShippingType((prev) => (prev === newShippingType ? prev : newShippingType));
-            const newWaiting = !!(newData as Record<string, unknown>).is_waiting_inventory;
-            setIsWaitingInventory((prev) => (prev === newWaiting ? prev : newWaiting));
+            setShippingType(newShippingType as string);
+            setIsWaitingInventory(!!(newData as Record<string, unknown>).is_waiting_inventory);
             if (newData.correction_notes !== correctionNotesRef.current)
               setCorrectionNotes(newData.correction_notes as string | null);
             if (newData.checked_by !== checkedByRef.current)
@@ -398,6 +483,8 @@ export const usePickingSync = ({
           if (status === 'SUBSCRIBED') {
             retryCount = 0; // Reset on success
             console.log(`✅ [Realtime] Subscribed to ${channelName}`);
+            // Realtime is back — stop the polling fallback if it was on.
+            stopPolling();
           }
 
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
@@ -416,12 +503,24 @@ export const usePickingSync = ({
               retryTimeout = setTimeout(setupSubscription, 5000);
             } else {
               console.error(
-                `❌ [Realtime] Max retries reached for ${channelName}. Live sync disabled.`
+                `❌ [Realtime] Max retries reached for ${channelName}. Falling back to polling every ${POLL_INTERVAL_MS / 1000}s.`
               );
-              toast.error('Sync lost for this order. Changes by others may not appear.', {
-                duration: 5000,
-                id: `sync-error-${activeListId}`,
-              });
+              toast(
+                'Live sync lost. Falling back to slow polling — changes from others may take up to 30s.',
+                { duration: 5000, id: `sync-fallback-${activeListId}`, icon: '⚠️' }
+              );
+              // Start polling if not already running. We keep trying the
+              // channel in the background via `setupSubscription` is NOT
+              // retried here, but `refetchOnReconnect` + the next mount
+              // will revive it.
+              if (!pollTimer) {
+                // Fire one poll immediately so the user isn't waiting
+                // a full interval to catch up on whatever they missed.
+                void pollOnce();
+                pollTimer = setInterval(() => {
+                  void pollOnce();
+                }, POLL_INTERVAL_MS);
+              }
             }
           }
         });
@@ -433,6 +532,7 @@ export const usePickingSync = ({
       console.log(`🧹 Cleaning up channel list_status_sync_${activeListId}`);
       if (channel) supabase.removeChannel(channel);
       if (retryTimeout) clearTimeout(retryTimeout);
+      stopPolling();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Subscribes to realtime channel; setter functions use refs to avoid re-subscribing on every state change
   }, [activeListId, user?.id]);

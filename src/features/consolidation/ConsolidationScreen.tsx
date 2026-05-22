@@ -15,6 +15,7 @@ import { useInventory } from '../inventory/hooks/InventoryProvider';
 import { ItemDetailView } from '../inventory/components/ItemDetailView';
 import { ConsolidationMoveModal } from './ConsolidationMoveModal';
 import { searchCandidates } from './searchCandidates';
+import { SlotFillTab } from './slot-fill/SlotFillTab';
 import type { InventoryItemInput, InventoryItemWithMetadata } from '../../schemas/inventory.schema';
 
 interface Candidate {
@@ -75,7 +76,7 @@ function formatLastShipped(iso: string | null): string {
   return d.toLocaleDateString();
 }
 
-type ScreenMode = 'consolidate' | 'promote' | 'clear-row';
+type ScreenMode = 'consolidate' | 'promote' | 'clear-row' | 'slot-fill';
 
 // Rows where consolidated items end up (slow zone).
 const CONSOLIDATE_TARGETS = [
@@ -327,6 +328,11 @@ export const ConsolidationScreen: React.FC = () => {
               ['consolidate', 'Send to slow', 'Slow movers → ROW 20–31'],
               ['promote', 'Bring to active', 'High movers stuck deep → ROW 1–10, 16'],
               ['clear-row', 'Clear a row', 'Empty a specific row; movers go active, idle go slow'],
+              [
+                'slot-fill',
+                'Fill space',
+                'Define empty slots in an active row and get ranked SKU candidates',
+              ],
             ] as [ScreenMode, string, string][]
           ).map(([m, label, hint]) => (
             <button
@@ -345,70 +351,73 @@ export const ConsolidationScreen: React.FC = () => {
           ))}
         </div>
 
-        {/* Filters — adapt to mode */}
-        <div className="flex flex-wrap items-center gap-2 text-[11px]">
-          {mode === 'consolidate' && (
-            <div className="flex items-center gap-1 bg-card border border-subtle rounded-xl p-1">
-              <span className="px-2 text-muted uppercase font-bold">Max orders</span>
-              {[0, 1, 2, 5].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setMaxOrders(n)}
-                  className={`px-2 py-1 rounded-lg font-bold uppercase transition-colors ${
-                    maxOrders === n ? 'bg-accent text-white' : 'text-muted hover:text-content'
-                  }`}
-                >
-                  ≤{n}
-                </button>
-              ))}
-            </div>
-          )}
-          {mode === 'promote' && (
-            <div className="flex items-center gap-1 bg-card border border-subtle rounded-xl p-1">
-              <span className="px-2 text-muted uppercase font-bold">Min orders</span>
-              {[2, 3, 5, 10].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setMinOrders(n)}
-                  className={`px-2 py-1 rounded-lg font-bold uppercase transition-colors ${
-                    minOrders === n ? 'bg-accent text-white' : 'text-muted hover:text-content'
-                  }`}
-                >
-                  ≥{n}
-                </button>
-              ))}
-            </div>
-          )}
+        {/* Filters — adapt to mode. Slot-fill has its own UI below
+            and doesn't use these filters/search at all. */}
+        {mode !== 'slot-fill' && (
+          <div className="flex flex-wrap items-center gap-2 text-[11px]">
+            {mode === 'consolidate' && (
+              <div className="flex items-center gap-1 bg-card border border-subtle rounded-xl p-1">
+                <span className="px-2 text-muted uppercase font-bold">Max orders</span>
+                {[0, 1, 2, 5].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setMaxOrders(n)}
+                    className={`px-2 py-1 rounded-lg font-bold uppercase transition-colors ${
+                      maxOrders === n ? 'bg-accent text-white' : 'text-muted hover:text-content'
+                    }`}
+                  >
+                    ≤{n}
+                  </button>
+                ))}
+              </div>
+            )}
+            {mode === 'promote' && (
+              <div className="flex items-center gap-1 bg-card border border-subtle rounded-xl p-1">
+                <span className="px-2 text-muted uppercase font-bold">Min orders</span>
+                {[2, 3, 5, 10].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setMinOrders(n)}
+                    className={`px-2 py-1 rounded-lg font-bold uppercase transition-colors ${
+                      minOrders === n ? 'bg-accent text-white' : 'text-muted hover:text-content'
+                    }`}
+                  >
+                    ≥{n}
+                  </button>
+                ))}
+              </div>
+            )}
 
-          <button
-            onClick={() => setOnlyBikes((v) => !v)}
-            className={`px-3 py-2 rounded-xl border font-bold uppercase transition-colors ${
-              onlyBikes
-                ? 'bg-accent/10 border-accent/30 text-accent'
-                : 'bg-card border-subtle text-muted'
-            }`}
-          >
-            Bikes only
-          </button>
-
-          {mode === 'consolidate' && (
             <button
-              onClick={() => setExcludeDeepSlow((v) => !v)}
+              onClick={() => setOnlyBikes((v) => !v)}
               className={`px-3 py-2 rounded-xl border font-bold uppercase transition-colors ${
-                excludeDeepSlow
+                onlyBikes
                   ? 'bg-accent/10 border-accent/30 text-accent'
                   : 'bg-card border-subtle text-muted'
               }`}
-              title="Hide rows already in the deep-slow zone (20–34)"
             >
-              Exclude ROW 20–34
+              Bikes only
             </button>
-          )}
 
-          <div className="ml-auto text-muted font-bold uppercase tracking-wider">
-            {totals.skus} SKUs · {totals.units}u · {totals.rows} rows
+            {mode === 'consolidate' && (
+              <button
+                onClick={() => setExcludeDeepSlow((v) => !v)}
+                className={`px-3 py-2 rounded-xl border font-bold uppercase transition-colors ${
+                  excludeDeepSlow
+                    ? 'bg-accent/10 border-accent/30 text-accent'
+                    : 'bg-card border-subtle text-muted'
+                }`}
+                title="Hide rows already in the deep-slow zone (20–34)"
+              >
+                Exclude ROW 20–34
+              </button>
+            )}
+
+            <div className="ml-auto text-muted font-bold uppercase tracking-wider">
+              {totals.skus} SKUs · {totals.units}u · {totals.rows} rows
+            </div>
           </div>
-        </div>
+        )}
 
         {/* clear-row: pick the source row to empty out */}
         {mode === 'clear-row' && (
@@ -489,99 +498,110 @@ export const ConsolidationScreen: React.FC = () => {
           </div>
         )}
 
-        {/* Search */}
-        <div className="mt-3">
-          <SearchInput
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder="Search SKU, name, row, sublocation…"
-            variant="inline"
-            preferenceId="consolidation"
-          />
-        </div>
+        {/* Search (hidden in slot-fill — that tab is layout-driven) */}
+        {mode !== 'slot-fill' && (
+          <div className="mt-3">
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search SKU, name, row, sublocation…"
+              variant="inline"
+              preferenceId="consolidation"
+            />
+          </div>
+        )}
       </div>
+
+      {/* Slot-fill mode has its own layout-driven body. */}
+      {mode === 'slot-fill' && (
+        <div className="p-4 pb-32">
+          <SlotFillTab />
+        </div>
+      )}
 
       {/* List — pb-32 leaves room for the floating BottomNavigation. See
           .claude/skills/project-skills/pickd/ui-rules. */}
-      <div className="p-4 pb-32">
-        {mode === 'clear-row' && clearRow && filtered.length > 0 && (
-          <SmartSuggestionsPanel
-            candidates={filtered}
-            onMove={(c) => setMoving(c)}
-            isFetching={isFetching}
-          />
-        )}
+      {mode !== 'slot-fill' && (
+        <div className="p-4 pb-32">
+          {mode === 'clear-row' && clearRow && filtered.length > 0 && (
+            <SmartSuggestionsPanel
+              candidates={filtered}
+              onMove={(c) => setMoving(c)}
+              isFetching={isFetching}
+            />
+          )}
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="animate-spin text-accent w-6 h-6 opacity-30" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center text-muted text-sm py-12">
-            {debouncedSearch
-              ? `No matches for "${debouncedSearch}".`
-              : mode === 'clear-row' && !clearRow
-                ? 'Pick a row above to see its contents and suggested destinations.'
-                : mode === 'clear-row'
-                  ? `${clearRow} is already empty.`
-                  : 'No candidates match the current filters.'}
-          </div>
-        ) : debouncedSearch ? (
-          // Active search → flat list (ranked by search relevance, not grouped).
-          <div className="space-y-2">
-            {filtered.map((c) => (
-              <ConsolidationCard
-                key={c.inventory_id}
-                candidate={c}
-                showSourceRow={true}
-                isFetching={isFetching}
-                isSelected={selectedIds.has(c.inventory_id)}
-                onToggleSelected={() => toggleSelected(c.inventory_id)}
-                onMove={() => setMoving(c)}
-                onOpenDetail={() => openDetail(c)}
-              />
-            ))}
-          </div>
-        ) : (
-          grouped.map(([row, items]) => {
-            const rowUnits = items.reduce((acc, i) => acc + i.qty, 0);
-            // Hide the "N SKU · Mu" subtitle when the row has a single SKU —
-            // the card itself already shows the qty. Avoids visual duplication.
-            const showRowSummary = items.length > 1;
-            return (
-              <div key={row} className="mb-6">
-                <div className="sticky top-0 z-20 -mx-4 px-4 py-2 bg-surface/95 backdrop-blur border-b border-subtle">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-xs font-black uppercase tracking-widest text-content">
-                      {row}
-                    </h2>
-                    {showRowSummary && (
-                      <span className="text-[10px] text-muted font-bold uppercase">
-                        {items.length} SKU · {rowUnits}u
-                      </span>
-                    )}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="animate-spin text-accent w-6 h-6 opacity-30" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center text-muted text-sm py-12">
+              {debouncedSearch
+                ? `No matches for "${debouncedSearch}".`
+                : mode === 'clear-row' && !clearRow
+                  ? 'Pick a row above to see its contents and suggested destinations.'
+                  : mode === 'clear-row'
+                    ? `${clearRow} is already empty.`
+                    : 'No candidates match the current filters.'}
+            </div>
+          ) : debouncedSearch ? (
+            // Active search → flat list (ranked by search relevance, not grouped).
+            <div className="space-y-2">
+              {filtered.map((c) => (
+                <ConsolidationCard
+                  key={c.inventory_id}
+                  candidate={c}
+                  showSourceRow={true}
+                  isFetching={isFetching}
+                  isSelected={selectedIds.has(c.inventory_id)}
+                  onToggleSelected={() => toggleSelected(c.inventory_id)}
+                  onMove={() => setMoving(c)}
+                  onOpenDetail={() => openDetail(c)}
+                />
+              ))}
+            </div>
+          ) : (
+            grouped.map(([row, items]) => {
+              const rowUnits = items.reduce((acc, i) => acc + i.qty, 0);
+              // Hide the "N SKU · Mu" subtitle when the row has a single SKU —
+              // the card itself already shows the qty. Avoids visual duplication.
+              const showRowSummary = items.length > 1;
+              return (
+                <div key={row} className="mb-6">
+                  <div className="sticky top-0 z-20 -mx-4 px-4 py-2 bg-surface/95 backdrop-blur border-b border-subtle">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xs font-black uppercase tracking-widest text-content">
+                        {row}
+                      </h2>
+                      {showRowSummary && (
+                        <span className="text-[10px] text-muted font-bold uppercase">
+                          {items.length} SKU · {rowUnits}u
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-2 space-y-2">
+                    {items.map((c) => (
+                      <ConsolidationCard
+                        key={c.inventory_id}
+                        candidate={c}
+                        showSourceRow={false}
+                        isFetching={isFetching}
+                        isSelected={selectedIds.has(c.inventory_id)}
+                        onToggleSelected={() => toggleSelected(c.inventory_id)}
+                        onMove={() => setMoving(c)}
+                        onOpenDetail={() => openDetail(c)}
+                      />
+                    ))}
                   </div>
                 </div>
-
-                <div className="mt-2 space-y-2">
-                  {items.map((c) => (
-                    <ConsolidationCard
-                      key={c.inventory_id}
-                      candidate={c}
-                      showSourceRow={false}
-                      isFetching={isFetching}
-                      isSelected={selectedIds.has(c.inventory_id)}
-                      onToggleSelected={() => toggleSelected(c.inventory_id)}
-                      onMove={() => setMoving(c)}
-                      onOpenDetail={() => openDetail(c)}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
+              );
+            })
+          )}
+        </div>
+      )}
 
       <ItemDetailView
         isOpen={!!detailItem}
