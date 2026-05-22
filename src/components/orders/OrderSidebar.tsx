@@ -164,7 +164,7 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
   const handleDelete = () => {
     showConfirmation(
       'Delete Order',
-      'Are you sure you want to delete this order? It will be marked as cancelled and will no longer reserve inventory.',
+      'Mark this order as cancelled? Any picked units will be returned to inventory. Only do this if the order has NOT shipped.',
       async () => {
         onDelete();
         await deleteList(selectedOrder.id);
