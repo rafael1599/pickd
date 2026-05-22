@@ -855,7 +855,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                           : undefined
                       }
                     >
-                      <div className="flex-[3]">
+                      <div className="flex-1 min-w-0">
                         <CapacityBar
                           current={
                             locationCapacities[`${wh}-${(location || '').trim().toUpperCase()}`]
@@ -868,9 +868,9 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                         />
                       </div>
 
-                      <div className="flex-1 min-w-0">
+                      <div className="shrink-0">
                         <h3
-                          className={`text-content text-xl font-black uppercase tracking-tighter truncate ${isAdmin && viewMode === 'stock' ? 'hover:text-accent transition-colors' : ''}`}
+                          className={`text-content text-xl font-black uppercase tracking-tighter ${isAdmin && viewMode === 'stock' ? 'hover:text-accent transition-colors' : ''}`}
                           style={{ fontFamily: 'var(--font-heading)' }}
                           title={
                             isAdmin && viewMode === 'stock' ? 'Tap to edit location' : location
