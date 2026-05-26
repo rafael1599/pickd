@@ -137,18 +137,6 @@ export function buildShipOutSmsBody(
   return lines.join('\n');
 }
 
-/**
- * Normalize a list of typed phone numbers into E.164-ish strings the
- * `sms:` URL accepts. Strips spaces / dashes / parens; preserves the
- * leading `+`. Drops empty or obviously-bad entries.
- */
-export function normalizeRecipients(input: string[] | string | null | undefined): string[] {
-  const raw = Array.isArray(input) ? input : typeof input === 'string' ? input.split(/[\n,]/) : [];
-  return raw
-    .map((s) => (s ?? '').replace(/[\s()\-.]/g, '').trim())
-    .filter((s) => /^\+?\d{7,15}$/.test(s));
-}
-
 export type SmsPlatform = 'ios' | 'android' | 'other';
 
 export function detectSmsPlatform(userAgent: string): SmsPlatform {
@@ -161,40 +149,19 @@ export function detectSmsPlatform(userAgent: string): SmsPlatform {
 /**
  * Build the `sms:` URL for the detected platform.
  *
- * Default mode (no recipients passed): open Messages with just the body
- * prefilled and let the operator pick the destination conversation
- * themselves. This is the reliable cross-platform path — passing a
- * recipient list to match an existing group MMS thread is finicky
- * (small differences like country code formatting, who's "the sender"
- * on the running device, or thread fragmentation create a brand-new
- * thread instead of matching), so we just hand the user the body and
- * let them tap their existing group in the Messages app's recent list.
- *
- * With recipients (kept for completeness / advanced setups):
- *   - Android: `sms:N1,N2?body=...`
- *   - iOS:     `sms:/open?addresses=N1,N2&body=...`
+ * Always opens Messages with NO recipient prefilled — only the body. The
+ * operator picks the destination conversation (e.g. their existing
+ * shipping group thread) on their phone. This is intentional: passing a
+ * recipient list to match an existing group MMS thread is unreliable
+ * (small differences in country-code formatting, who counts as "the
+ * sender" on the running device, or thread fragmentation spawn a
+ * brand-new thread instead of matching the existing one).
  */
-export function buildShipOutSmsUrl(
-  recipients: string[],
-  body: string,
-  platform: SmsPlatform
-): string {
-  const cleanRecipients = normalizeRecipients(recipients);
+export function buildShipOutSmsUrl(body: string, platform: SmsPlatform): string {
   const encodedBody = encodeURIComponent(body);
-
-  // No recipients → open Messages empty-addressed so the user picks the
-  // existing thread on their phone.
-  if (cleanRecipients.length === 0) {
-    if (platform === 'ios') {
-      // iOS treats `sms:&body=` as "no recipient, body prefilled".
-      return `sms:&body=${encodedBody}`;
-    }
-    return `sms:?body=${encodedBody}`;
-  }
-
-  const numbers = cleanRecipients.join(',');
   if (platform === 'ios') {
-    return `sms:/open?addresses=${numbers}&body=${encodedBody}`;
+    // iOS treats `sms:&body=` as "no recipient, body prefilled".
+    return `sms:&body=${encodedBody}`;
   }
-  return `sms:${numbers}?body=${encodedBody}`;
+  return `sms:?body=${encodedBody}`;
 }

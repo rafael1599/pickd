@@ -5,17 +5,22 @@ import Save from 'lucide-react/dist/esm/icons/save';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { normalizeRecipients } from '../../utils/shipOutSms';
 
 /**
- * Per-user settings for the "Ship-Out SMS" feature.
+ * Per-user toggle for the "Ship-Out SMS" feature.
+ *
+ * When enabled, the slide-to-complete flow on DoubleCheckView surfaces a
+ * toast offering to open Messages with a prefilled "READY TO SHIP" body.
+ * NO recipient is ever pre-filled — the operator picks the destination
+ * conversation (e.g. their existing shipping group thread) on their
+ * phone. We tried pre-filling numbers and it consistently spawned brand
+ * new threads instead of matching the existing group.
  *
  * Pattern: a thin parent waits for the profile row to load, then mounts
  * the editable body with the profile as its initial-state seed. After a
  * save we invalidate the query → fresh profile → remount via the
- * profile-snapshot key. This avoids setState-in-effect (which the lint
- * rule rightly flags as an anti-pattern) without losing the
- * "form-driven-by-server-state" UX.
+ * profile-snapshot key. This avoids setState-in-effect without losing
+ * the "form-driven-by-server-state" UX.
  */
 export const ShipSmsSettings: React.FC = () => {
   const { user } = useAuth();
@@ -31,19 +36,14 @@ export const ShipSmsSettings: React.FC = () => {
     queryFn: async () => {
       // maybeSingle so a missing profile row doesn't blow up the query —
       // we just fall back to defaults and the first save will populate
-      // the row (or the upsert path below if you prefer that flow).
+      // the row.
       const { data, error } = await supabase
         .from('profiles')
-        .select('shipping_sms_enabled, shipping_sms_recipients')
+        .select('shipping_sms_enabled')
         .eq('id', user!.id)
         .maybeSingle();
       if (error) throw error;
-      return (
-        data ?? {
-          shipping_sms_enabled: false,
-          shipping_sms_recipients: [] as string[],
-        }
-      );
+      return data ?? { shipping_sms_enabled: false };
     },
   });
 
@@ -70,16 +70,13 @@ export const ShipSmsSettings: React.FC = () => {
 
   // Remount whenever the persisted snapshot changes, so the form's
   // initial state always matches what's saved.
-  const snapshotKey = `${profile.shipping_sms_enabled ? '1' : '0'}|${(
-    profile.shipping_sms_recipients ?? []
-  ).join(',')}`;
+  const snapshotKey = profile.shipping_sms_enabled ? '1' : '0';
 
   return (
     <ShipSmsSettingsBody
       key={snapshotKey}
       userId={user.id}
       initialEnabled={profile.shipping_sms_enabled ?? false}
-      initialRecipients={(profile.shipping_sms_recipients ?? []).join('\n')}
       profileKey={profileKey}
     />
   );
@@ -88,32 +85,20 @@ export const ShipSmsSettings: React.FC = () => {
 interface BodyProps {
   userId: string;
   initialEnabled: boolean;
-  initialRecipients: string;
   profileKey: readonly unknown[];
 }
 
-const ShipSmsSettingsBody: React.FC<BodyProps> = ({
-  userId,
-  initialEnabled,
-  initialRecipients,
-  profileKey,
-}) => {
+const ShipSmsSettingsBody: React.FC<BodyProps> = ({ userId, initialEnabled, profileKey }) => {
   const queryClient = useQueryClient();
   const [enabled, setEnabled] = useState(initialEnabled);
-  const [recipientsText, setRecipientsText] = useState(initialRecipients);
 
-  const normalized = normalizeRecipients(recipientsText);
-  const dirty =
-    enabled !== initialEnabled || normalized.join('|') !== initialRecipients.split('\n').join('|');
+  const dirty = enabled !== initialEnabled;
 
   const save = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
         .from('profiles')
-        .update({
-          shipping_sms_enabled: enabled,
-          shipping_sms_recipients: normalized,
-        })
+        .update({ shipping_sms_enabled: enabled })
         .eq('id', userId);
       if (error) throw error;
     },
@@ -135,7 +120,8 @@ const ShipSmsSettingsBody: React.FC<BodyProps> = ({
             </h2>
             <p className="text-xs text-muted font-medium">
               After slide-to-complete, open Messages with a prefilled "READY TO SHIP" body. You pick
-              the destination thread (e.g. your existing shipping group) on your phone.
+              the destination thread (e.g. your existing shipping group) on your phone — no
+              recipient is ever pre-filled.
             </p>
           </div>
         </div>
@@ -154,26 +140,7 @@ const ShipSmsSettingsBody: React.FC<BodyProps> = ({
         </button>
       </div>
 
-      <label className="block text-[10px] font-black uppercase tracking-widest text-muted mb-2">
-        Recipient phone numbers (optional — leave empty to pick the thread yourself)
-      </label>
-      <textarea
-        value={recipientsText}
-        onChange={(e) => setRecipientsText(e.target.value)}
-        placeholder={'+19144268047\n+13055551212'}
-        rows={4}
-        spellCheck={false}
-        autoCapitalize="off"
-        autoCorrect="off"
-        className="w-full bg-surface border border-subtle rounded-xl px-3 py-2 text-sm font-mono text-content placeholder:text-muted/60 focus:outline-none focus:ring-1 focus:ring-accent"
-      />
-      <div className="mt-2 flex items-center justify-between text-[11px]">
-        <span className="text-muted">
-          {normalized.length} valid recipient{normalized.length === 1 ? '' : 's'}
-          {recipientsText.trim() && normalized.length === 0 && (
-            <span className="text-amber-400 ml-2">⚠ no usable numbers</span>
-          )}
-        </span>
+      <div className="flex justify-end">
         <button
           onClick={() => save.mutate()}
           disabled={!dirty || save.isPending}
