@@ -16,6 +16,7 @@ import { ItemDetailView } from '../inventory/components/ItemDetailView';
 import { ConsolidationMoveModal } from './ConsolidationMoveModal';
 import { searchCandidates } from './searchCandidates';
 import { SlotFillTab } from './slot-fill/SlotFillTab';
+import { PlaceSkuTab } from './PlaceSkuTab';
 import type { InventoryItemInput, InventoryItemWithMetadata } from '../../schemas/inventory.schema';
 
 interface Candidate {
@@ -76,7 +77,7 @@ function formatLastShipped(iso: string | null): string {
   return d.toLocaleDateString();
 }
 
-type ScreenMode = 'consolidate' | 'promote' | 'clear-row' | 'slot-fill';
+type ScreenMode = 'consolidate' | 'promote' | 'clear-row' | 'slot-fill' | 'place-sku';
 
 // Rows where consolidated items end up (slow zone).
 const CONSOLIDATE_TARGETS = [
@@ -120,6 +121,9 @@ export const ConsolidationScreen: React.FC = () => {
   /** Source row selected to be cleared (clear-row mode). Empty until picked. */
   const [clearRow, setClearRow] = useState<string>('');
   const [moving, setMoving] = useState<Candidate | null>(null);
+  /** Pre-selected destination row when the move was triggered from
+   *  PlaceSkuTab. Null in every other mode. */
+  const [placeTargetRow, setPlaceTargetRow] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<InventoryItemWithMetadata | null>(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   // Per-card selection. Tick → visual mark + Move button becomes active.
@@ -327,6 +331,11 @@ export const ConsolidationScreen: React.FC = () => {
             [
               ['consolidate', 'Send to slow', 'Slow movers → ROW 20–31'],
               ['promote', 'Bring to active', 'High movers stuck deep → ROW 1–10, 16'],
+              [
+                'place-sku',
+                'Where to put?',
+                'Search a SKU and see ranked destination rows to move it to',
+              ],
               ['clear-row', 'Clear a row', 'Empty a specific row; movers go active, idle go slow'],
               [
                 'slot-fill',
@@ -351,9 +360,9 @@ export const ConsolidationScreen: React.FC = () => {
           ))}
         </div>
 
-        {/* Filters — adapt to mode. Slot-fill has its own UI below
-            and doesn't use these filters/search at all. */}
-        {mode !== 'slot-fill' && (
+        {/* Filters — adapt to mode. Slot-fill and place-sku have their
+            own UI below and don't use these filters/search at all. */}
+        {mode !== 'slot-fill' && mode !== 'place-sku' && (
           <div className="flex flex-wrap items-center gap-2 text-[11px]">
             {mode === 'consolidate' && (
               <div className="flex items-center gap-1 bg-card border border-subtle rounded-xl p-1">
@@ -519,9 +528,39 @@ export const ConsolidationScreen: React.FC = () => {
         </div>
       )}
 
+      {/* Place-sku mode: SKU search + ranked destinations. The chosen
+          destination becomes the moving target with the picked source row
+          as the `Candidate`; we then fall through to the shared
+          ConsolidationMoveModal below. */}
+      {mode === 'place-sku' && (
+        <div className="p-4 pb-32">
+          <PlaceSkuTab
+            onPickMove={(source, targetRow) => {
+              setPlaceTargetRow(targetRow);
+              setMoving({
+                inventory_id: source.inventory_id,
+                sku: source.sku,
+                item_name: source.item_name,
+                warehouse: source.warehouse,
+                source_row: source.source_row,
+                sublocation: source.sublocation,
+                qty: source.qty,
+                // Place-sku doesn't classify via the consolidation/promote
+                // RPCs, so these are unused but must exist on the Candidate
+                // type. Picking sane defaults so the modal renders cleanly.
+                orders_completed: 0,
+                units_shipped: 0,
+                last_shipped: null,
+                alias_chain: [source.sku],
+              });
+            }}
+          />
+        </div>
+      )}
+
       {/* List — pb-32 leaves room for the floating BottomNavigation. See
           .claude/skills/project-skills/pickd/ui-rules. */}
-      {mode !== 'slot-fill' && (
+      {mode !== 'slot-fill' && mode !== 'place-sku' && (
         <div className="p-4 pb-32">
           {mode === 'clear-row' && clearRow && filtered.length > 0 && (
             <SmartSuggestionsPanel
@@ -623,25 +662,40 @@ export const ConsolidationScreen: React.FC = () => {
         <ConsolidationMoveModal
           candidate={moving}
           targetRows={
-            mode === 'clear-row'
-              ? moving.suggested_zone === 'active'
-                ? PROMOTE_TARGETS
-                : CONSOLIDATE_TARGETS
-              : mode === 'consolidate'
-                ? CONSOLIDATE_TARGETS
-                : PROMOTE_TARGETS
+            mode === 'place-sku'
+              ? // Place-sku: surface BOTH active + slow zones as tiles so the
+                // operator can override the suggestion without typing.
+                Array.from(new Set([...PROMOTE_TARGETS, ...CONSOLIDATE_TARGETS]))
+              : mode === 'clear-row'
+                ? moving.suggested_zone === 'active'
+                  ? PROMOTE_TARGETS
+                  : CONSOLIDATE_TARGETS
+                : mode === 'consolidate'
+                  ? CONSOLIDATE_TARGETS
+                  : PROMOTE_TARGETS
           }
           modeLabel={
-            mode === 'clear-row'
-              ? moving.suggested_zone === 'active'
-                ? 'active zone (suggested)'
-                : 'slow zone (suggested)'
-              : mode === 'consolidate'
-                ? 'consolidation zone'
-                : 'active zone'
+            mode === 'place-sku'
+              ? 'suggested destination'
+              : mode === 'clear-row'
+                ? moving.suggested_zone === 'active'
+                  ? 'active zone (suggested)'
+                  : 'slow zone (suggested)'
+                : mode === 'consolidate'
+                  ? 'consolidation zone'
+                  : 'active zone'
           }
-          suggestedRow={mode === 'clear-row' ? moving.suggested_row : null}
-          onClose={() => setMoving(null)}
+          suggestedRow={
+            mode === 'place-sku'
+              ? placeTargetRow
+              : mode === 'clear-row'
+                ? moving.suggested_row
+                : null
+          }
+          onClose={() => {
+            setMoving(null);
+            setPlaceTargetRow(null);
+          }}
           onMoved={async (movedId) => {
             // Hide the row instantly so a fast double-click doesn't re-target
             // a stale candidate. Then invalidate the list query so any
@@ -658,7 +712,13 @@ export const ConsolidationScreen: React.FC = () => {
               return next;
             });
             setMoving(null);
+            setPlaceTargetRow(null);
             await queryClient.invalidateQueries({ queryKey: ['consolidation-candidates'] });
+            // Place-sku reads from inventory + suggest_locations_for_sku;
+            // both depend on the post-move inventory state. Invalidate so
+            // the operator can immediately follow up with another move.
+            await queryClient.invalidateQueries({ queryKey: ['place-sku-current'] });
+            await queryClient.invalidateQueries({ queryKey: ['place-sku-suggestions'] });
             // After refetch lands the row is gone; drop the optimistic id
             // so movedIds doesn't accumulate indefinitely.
             setMovedIds((prev) => {
