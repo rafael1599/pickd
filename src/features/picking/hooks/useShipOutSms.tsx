@@ -8,7 +8,6 @@ import {
   buildShipOutSmsUrl,
   computeShipOutMetrics,
   detectSmsPlatform,
-  normalizeRecipients,
   type ShipOutSmsItem,
   type ShipOutSmsSkuMeta,
 } from '../../../utils/shipOutSms';
@@ -16,11 +15,12 @@ import {
 /**
  * Wraps the "open Messages with the READY TO SHIP body prefilled" flow.
  *
- * Reads the operator's SMS settings (toggle + recipients) once and keeps
- * them cached. After a successful Double-Check slide, the caller invokes
- * `triggerForList(listId)`. We fetch the picking list, its customer, and
- * the sku_metadata for the items, then compute pallets / parts / weight
- * the same way OrdersScreen does and hand the user a `sms:` URL.
+ * Reads the operator's SMS toggle once and keeps it cached. After a
+ * successful Double-Check slide, the caller invokes `triggerForList(listId)`.
+ * We fetch the picking list, its customer, and the sku_metadata for the
+ * items, then compute pallets / parts / weight the same way OrdersScreen
+ * does and hand the user a `sms:` URL with NO recipient — they pick the
+ * destination conversation themselves on the phone.
  *
  * We do not auto-navigate to the URL — Android Chrome's popup-blocker
  * silently kills `window.location.href = "sms:..."` if not in a tap
@@ -39,7 +39,7 @@ export function useShipOutSms() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('shipping_sms_enabled, shipping_sms_recipients')
+        .select('shipping_sms_enabled')
         .eq('id', user!.id)
         .single();
       if (error) throw error;
@@ -47,21 +47,14 @@ export function useShipOutSms() {
     },
   });
 
-  // The toggle alone gates the feature now — recipients are optional.
-  // When empty, the SMS URL opens Messages without a pre-filled
-  // destination, so the operator just taps their existing group thread.
-  // Pre-filling recipients tends to spawn a brand-new thread instead of
-  // matching the existing group (tiny differences in formatting / who's
-  // counted as "the sender" cause the mismatch), so empty is the
-  // recommended default now.
+  // The toggle alone gates the feature. The SMS URL never carries a
+  // pre-filled recipient — operators pick the destination conversation
+  // (typically an existing shipping group thread) on their phone.
   const isEnabled = !!settings?.shipping_sms_enabled;
 
   const triggerForList = useCallback(
     async (listId: string | null | undefined) => {
       if (!listId || !isEnabled || !settings) return;
-
-      // Optional advanced setup: pre-fill recipients if configured.
-      const recipients = normalizeRecipients(settings.shipping_sms_recipients);
 
       // Pull the list + joined customer in one round trip.
       const { data: list, error: listErr } = await supabase
@@ -134,7 +127,7 @@ export function useShipOutSms() {
       );
 
       const platform = detectSmsPlatform(navigator.userAgent || '');
-      const url = buildShipOutSmsUrl(recipients, body, platform);
+      const url = buildShipOutSmsUrl(body, platform);
 
       // Surface a toast with an action. Tapping the action counts as the
       // user gesture mobile browsers require to follow an `sms:` URL.

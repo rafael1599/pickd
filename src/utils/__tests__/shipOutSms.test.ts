@@ -4,7 +4,6 @@ import {
   buildShipOutSmsUrl,
   computeShipOutMetrics,
   detectSmsPlatform,
-  normalizeRecipients,
   type ShipOutSmsCustomer,
   type ShipOutSmsOrder,
   type ShipOutSmsSkuMeta,
@@ -195,31 +194,6 @@ describe('buildShipOutSmsBody', () => {
   });
 });
 
-describe('normalizeRecipients', () => {
-  it('strips formatting and keeps digits + leading plus', () => {
-    expect(normalizeRecipients(['+1 (914) 426-8047'])).toEqual(['+19144268047']);
-    expect(normalizeRecipients(['914.426.8047'])).toEqual(['9144268047']);
-  });
-
-  it('parses newline / comma-separated strings', () => {
-    expect(normalizeRecipients('+19144268047\n+13055551212')).toEqual([
-      '+19144268047',
-      '+13055551212',
-    ]);
-    expect(normalizeRecipients('+19144268047, +13055551212')).toEqual([
-      '+19144268047',
-      '+13055551212',
-    ]);
-  });
-
-  it('drops empties and obviously bad entries', () => {
-    expect(normalizeRecipients(['', '   ', 'abc', '123'])).toEqual([]);
-    // 7-15 digits required
-    expect(normalizeRecipients(['12345'])).toEqual([]);
-    expect(normalizeRecipients(['1234567'])).toEqual(['1234567']);
-  });
-});
-
 describe('detectSmsPlatform', () => {
   it('detects iOS', () => {
     expect(
@@ -239,50 +213,28 @@ describe('detectSmsPlatform', () => {
 });
 
 describe('buildShipOutSmsUrl', () => {
-  const recipients = ['+19144268047', '+13055551212'];
   const body = 'READY TO SHIP:\nORDER #: 1';
 
-  it('Android: numbers in path, body in query', () => {
-    const url = buildShipOutSmsUrl(recipients, body, 'android');
-    expect(url.startsWith('sms:+19144268047,+13055551212?body=')).toBe(true);
+  it('Android: sms:?body= (no recipient)', () => {
+    const url = buildShipOutSmsUrl(body, 'android');
+    expect(url.startsWith('sms:?body=')).toBe(true);
     expect(url).toContain(encodeURIComponent(body));
   });
 
-  it('iOS: uses /open?addresses= form', () => {
-    const url = buildShipOutSmsUrl(recipients, body, 'ios');
-    expect(url.startsWith('sms:/open?addresses=+19144268047,+13055551212&body=')).toBe(true);
+  it('iOS: sms:&body= (no recipient)', () => {
+    const url = buildShipOutSmsUrl(body, 'ios');
+    expect(url.startsWith('sms:&body=')).toBe(true);
     expect(url).toContain(encodeURIComponent(body));
   });
 
   it('other: falls back to Android form', () => {
-    const url = buildShipOutSmsUrl(recipients, body, 'other');
-    expect(url.startsWith('sms:')).toBe(true);
-    expect(url).toContain('?body=');
-  });
-
-  it('Android: empty recipients → sms:?body= (no destination)', () => {
-    const url = buildShipOutSmsUrl([], 'hi there', 'android');
-    expect(url).toBe('sms:?body=hi%20there');
-  });
-
-  it('iOS: empty recipients → sms:&body=', () => {
-    const url = buildShipOutSmsUrl([], 'hi there', 'ios');
-    expect(url).toBe('sms:&body=hi%20there');
-  });
-
-  it('treats all-invalid recipients as empty', () => {
-    const url = buildShipOutSmsUrl(['abc', '   '], 'hi', 'android');
-    expect(url).toBe('sms:?body=hi');
-  });
-
-  it('encodes recipients through normalizeRecipients before joining', () => {
-    const url = buildShipOutSmsUrl(['+1 (914) 426-8047'], 'hi', 'android');
-    expect(url).toBe('sms:+19144268047?body=hi');
+    const url = buildShipOutSmsUrl(body, 'other');
+    expect(url).toBe(`sms:?body=${encodeURIComponent(body)}`);
   });
 
   it('preserves newlines via URL encoding so the SMS app keeps formatting', () => {
     const multilineBody = 'line1\nline2';
-    const url = buildShipOutSmsUrl(recipients, multilineBody, 'android');
+    const url = buildShipOutSmsUrl(multilineBody, 'android');
     expect(url).toContain('line1%0Aline2');
   });
 });
