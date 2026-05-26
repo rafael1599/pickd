@@ -2,8 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import X from 'lucide-react/dist/esm/icons/x';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
-import Type from 'lucide-react/dist/esm/icons/type';
-import Hash from 'lucide-react/dist/esm/icons/hash';
 import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
@@ -61,22 +59,6 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
   const [sublocation, setSublocation] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const sublocInputRef = useRef<HTMLInputElement>(null);
-  // Keyboard mode (numeric vs alpha) for the sublocation input, persisted
-  // per-screen like SearchInput does. Default 'text' — sublocations are
-  // almost always letters.
-  const [kbMode, setKbMode] = useState<'text' | 'numeric'>(() => {
-    if (typeof window === 'undefined') return 'text';
-    const saved = window.localStorage.getItem('kb_pref_consolidation_subloc');
-    return (saved as 'text' | 'numeric') || 'text';
-  });
-  const toggleKb = () => {
-    const next = kbMode === 'text' ? 'numeric' : 'text';
-    setKbMode(next);
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('kb_pref_consolidation_subloc', next);
-    }
-    sublocInputRef.current?.focus();
-  };
 
   // Fetch target row occupancy so we can show free capacity in the picker.
   const targetRowsKey = targetRows.join(',');
@@ -438,26 +420,12 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
                 value={sublocation}
                 onChange={(e) => setSublocation(e.target.value)}
                 placeholder="e.g. A, B+C"
-                inputMode={kbMode}
+                inputMode="text"
                 autoCapitalize="characters"
                 autoCorrect="off"
                 spellCheck="false"
                 className="flex-1 bg-transparent border-none outline-none px-3 py-2 text-sm text-content placeholder:text-muted/50 font-bold uppercase"
               />
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={toggleKb}
-                className={`p-1.5 rounded-lg active:scale-90 transition-all ${
-                  kbMode === 'numeric' ? 'text-accent' : 'text-muted'
-                }`}
-                title={
-                  kbMode === 'numeric' ? 'Switch to alpha keyboard' : 'Switch to numeric keyboard'
-                }
-                aria-label="Toggle keyboard mode"
-              >
-                {kbMode === 'numeric' ? <Hash size={16} /> : <Type size={16} />}
-              </button>
             </div>
           </div>
 

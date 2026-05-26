@@ -632,14 +632,6 @@ const ConsolidationCard: React.FC<ConsolidationCardProps> = ({
           <span className="font-black text-xl md:text-2xl tracking-tight leading-none text-content break-all">
             {c.sku}
           </span>
-          {c.alias_chain?.length > 1 && (
-            <span
-              className="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 font-bold uppercase"
-              title={`Aliases: ${c.alias_chain.join(', ')}`}
-            >
-              renamed
-            </span>
-          )}
         </div>
         {c.item_name && (
           <div className="text-xs md:text-sm text-muted mt-1 leading-snug line-clamp-2">
