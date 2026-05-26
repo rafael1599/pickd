@@ -821,17 +821,16 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
               const isFirstInWarehouse = index === 0 || locationBlocks[index - 1].wh !== wh;
 
               return (
-                <div
-                  key={`${wh}-${location}`}
-                  className="space-y-2 max-w-2xl mx-auto"
-                  style={
-                    viewMode === 'stock'
-                      ? ({ zoom: STOCK_SCALE } as React.CSSProperties)
-                      : undefined
-                  }
-                >
+                <div key={`${wh}-${location}`} className="space-y-2 max-w-2xl mx-auto">
                   {isFirstInWarehouse && !isSearching && wh !== 'LUDLOW' && (
-                    <div className="flex items-center gap-4 pt-8 pb-2">
+                    <div
+                      className="flex items-center gap-4 pt-8 pb-2"
+                      style={
+                        viewMode === 'stock'
+                          ? ({ zoom: STOCK_SCALE } as React.CSSProperties)
+                          : undefined
+                      }
+                    >
                       <div className="h-px flex-1 bg-subtle" />
                       <h2
                         className="text-2xl font-black uppercase tracking-tighter text-content bg-surface px-6 py-2 rounded-full border border-subtle shadow-sm flex items-center gap-3"
@@ -848,8 +847,15 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                     className={`sticky top-[84px] bg-main/95 backdrop-blur-sm z-30 py-3 border-b border-subtle group ${isAdmin && viewMode === 'stock' && !isSearching ? 'cursor-pointer' : ''}`}
                     onClick={() => handleOpenLocationEditor(wh, location, locationId)}
                   >
-                    <div className="flex items-center gap-4 px-1">
-                      <div className="flex-[3]">
+                    <div
+                      className="flex items-center gap-4 px-1"
+                      style={
+                        viewMode === 'stock'
+                          ? ({ zoom: STOCK_SCALE } as React.CSSProperties)
+                          : undefined
+                      }
+                    >
+                      <div className="flex-1 min-w-0">
                         <CapacityBar
                           current={
                             locationCapacities[`${wh}-${(location || '').trim().toUpperCase()}`]
@@ -862,9 +868,9 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                         />
                       </div>
 
-                      <div className="flex-1 min-w-0">
+                      <div className="shrink-0">
                         <h3
-                          className={`text-content text-xl font-black uppercase tracking-tighter truncate ${isAdmin && viewMode === 'stock' ? 'hover:text-accent transition-colors' : ''}`}
+                          className={`text-content text-xl font-black uppercase tracking-tighter ${isAdmin && viewMode === 'stock' ? 'hover:text-accent transition-colors' : ''}`}
                           style={{ fontFamily: 'var(--font-heading)' }}
                           title={
                             isAdmin && viewMode === 'stock' ? 'Tap to edit location' : location
@@ -876,7 +882,14 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-1">
+                  <div
+                    className="grid grid-cols-1 gap-1"
+                    style={
+                      viewMode === 'stock'
+                        ? ({ zoom: STOCK_SCALE } as React.CSSProperties)
+                        : undefined
+                    }
+                  >
                     {items.map((item) => {
                       const cartItem = cartItems.find(
                         (c) =>

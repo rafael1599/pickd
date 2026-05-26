@@ -297,8 +297,8 @@ export const ConsolidationScreen: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-surface">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-surface border-b border-subtle px-4 py-3">
+      {/* Header — scrolls away with the page so only the row label stays pinned. */}
+      <div className="bg-surface border-b border-subtle px-4 py-3">
         <div className="flex items-center gap-2 mb-3">
           <button
             onClick={() => navigate('/')}
@@ -569,7 +569,7 @@ export const ConsolidationScreen: React.FC = () => {
               const showRowSummary = items.length > 1;
               return (
                 <div key={row} className="mb-6">
-                  <div className="sticky top-[120px] z-[5] -mx-4 px-4 py-2 bg-surface/95 backdrop-blur border-b border-subtle">
+                  <div className="sticky top-0 z-20 -mx-4 px-4 py-2 bg-surface/95 backdrop-blur border-b border-subtle">
                     <div className="flex items-center gap-2">
                       <h2 className="text-xs font-black uppercase tracking-widest text-content">
                         {row}

@@ -56,8 +56,17 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
 
   return (
     <ModalProvider>
+      {/*
+        `overflow-x: clip` (instead of `hidden`) avoids creating an implicit
+        scroll container. With `hidden`, overflow-y computes to `auto` per
+        spec — that promotes the element to a scroll container even though
+        the real scroll happens on `window`, and `position: sticky` inside
+        any descendant silently breaks (it pegs to a container that never
+        scrolls). The Consolidation row labels and the Stock location bar
+        were both losing their sticky behavior because of this.
+      */}
       <div
-        className={`flex flex-col min-h-screen bg-main transition-all duration-700 ease-in-out relative overflow-x-hidden ${pbClass}`}
+        className={`flex flex-col min-h-screen bg-main transition-all duration-700 ease-in-out relative [overflow-x:clip] ${pbClass}`}
       >
         {/* Decorative Atmospheric Backdrop */}
         <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
