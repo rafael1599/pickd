@@ -15,7 +15,6 @@ import { useInventory } from '../inventory/hooks/InventoryProvider';
 import { ItemDetailView } from '../inventory/components/ItemDetailView';
 import { ConsolidationMoveModal } from './ConsolidationMoveModal';
 import { searchCandidates } from './searchCandidates';
-import { SlotFillTab } from './slot-fill/SlotFillTab';
 import { PlaceSkuTab } from './PlaceSkuTab';
 import type { InventoryItemInput, InventoryItemWithMetadata } from '../../schemas/inventory.schema';
 
@@ -77,7 +76,7 @@ function formatLastShipped(iso: string | null): string {
   return d.toLocaleDateString();
 }
 
-type ScreenMode = 'consolidate' | 'promote' | 'clear-row' | 'slot-fill' | 'place-sku';
+type ScreenMode = 'consolidate' | 'promote' | 'clear-row' | 'place-sku';
 
 // Rows where consolidated items end up (slow zone).
 const CONSOLIDATE_TARGETS = [
@@ -337,11 +336,6 @@ export const ConsolidationScreen: React.FC = () => {
                 'Search a SKU and see ranked destination rows to move it to',
               ],
               ['clear-row', 'Clear a row', 'Empty a specific row; movers go active, idle go slow'],
-              [
-                'slot-fill',
-                'Fill space',
-                'Define empty slots in an active row and get ranked SKU candidates',
-              ],
             ] as [ScreenMode, string, string][]
           ).map(([m, label, hint]) => (
             <button
@@ -360,9 +354,9 @@ export const ConsolidationScreen: React.FC = () => {
           ))}
         </div>
 
-        {/* Filters — adapt to mode. Slot-fill and place-sku have their
-            own UI below and don't use these filters/search at all. */}
-        {mode !== 'slot-fill' && mode !== 'place-sku' && (
+        {/* Filters — adapt to mode. Place-sku has its own search-driven
+            UI below and doesn't use these filters at all. */}
+        {mode !== 'place-sku' && (
           <div className="flex flex-wrap items-center gap-2 text-[11px]">
             {mode === 'consolidate' && (
               <div className="flex items-center gap-1 bg-card border border-subtle rounded-xl p-1">
@@ -507,8 +501,8 @@ export const ConsolidationScreen: React.FC = () => {
           </div>
         )}
 
-        {/* Search (hidden in slot-fill — that tab is layout-driven) */}
-        {mode !== 'slot-fill' && (
+        {/* Search (hidden in place-sku — that tab uses its own SKU input) */}
+        {mode !== 'place-sku' && (
           <div className="mt-3">
             <SearchInput
               value={searchQuery}
@@ -520,13 +514,6 @@ export const ConsolidationScreen: React.FC = () => {
           </div>
         )}
       </div>
-
-      {/* Slot-fill mode has its own layout-driven body. */}
-      {mode === 'slot-fill' && (
-        <div className="p-4 pb-32">
-          <SlotFillTab />
-        </div>
-      )}
 
       {/* Place-sku mode: SKU search + ranked destinations. The chosen
           destination becomes the moving target with the picked source row
@@ -560,7 +547,7 @@ export const ConsolidationScreen: React.FC = () => {
 
       {/* List — pb-32 leaves room for the floating BottomNavigation. See
           .claude/skills/project-skills/pickd/ui-rules. */}
-      {mode !== 'slot-fill' && mode !== 'place-sku' && (
+      {mode !== 'place-sku' && (
         <div className="p-4 pb-32">
           {mode === 'clear-row' && clearRow && filtered.length > 0 && (
             <SmartSuggestionsPanel
