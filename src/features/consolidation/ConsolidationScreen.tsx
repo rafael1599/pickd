@@ -252,12 +252,32 @@ export const ConsolidationScreen: React.FC = () => {
     [preSearch, debouncedSearch]
   );
 
+  // Two-level grouping: row → sublocation → cards. Each (row, subloc) pair
+  // gets its own sticky header so as the operator scrolls within a row,
+  // the header swaps from "ROW 12 · A" to "ROW 12 · B" automatically when
+  // cards from a different sublocation come into view. Sublocation arrays
+  // are normalized to a sorted join ('+') so ['B','A'] and ['A','B'] share
+  // a section. Empty sublocation sorts last so "no sub" cards group at the
+  // bottom of each row.
   const grouped = useMemo(() => {
-    const groups: Record<string, Candidate[]> = {};
+    const rows = new Map<string, Map<string, Candidate[]>>();
     for (const c of filtered) {
-      (groups[c.source_row] ||= []).push(c);
+      const subKey = c.sublocation?.length ? [...c.sublocation].sort().join('+') : '';
+      if (!rows.has(c.source_row)) rows.set(c.source_row, new Map());
+      const subMap = rows.get(c.source_row)!;
+      if (!subMap.has(subKey)) subMap.set(subKey, []);
+      subMap.get(subKey)!.push(c);
     }
-    return Object.entries(groups).sort((a, b) => rowSortKey(a[0]) - rowSortKey(b[0]));
+    return Array.from(rows.entries())
+      .sort((a, b) => rowSortKey(a[0]) - rowSortKey(b[0]))
+      .map(([row, subMap]) => {
+        const sections = Array.from(subMap.entries()).sort(([a], [b]) => {
+          if (a === '' && b !== '') return 1;
+          if (b === '' && a !== '') return -1;
+          return a.localeCompare(b);
+        });
+        return [row, sections] as const;
+      });
   }, [filtered]);
 
   const totals = useMemo(
@@ -585,43 +605,56 @@ export const ConsolidationScreen: React.FC = () => {
               ))}
             </div>
           ) : (
-            grouped.map(([row, items]) => {
-              const rowUnits = items.reduce((acc, i) => acc + i.qty, 0);
-              // Hide the "N SKU · Mu" subtitle when the row has a single SKU —
-              // the card itself already shows the qty. Avoids visual duplication.
-              const showRowSummary = items.length > 1;
-              return (
-                <div key={row} className="mb-6">
-                  <div className="sticky top-0 z-20 -mx-4 px-4 py-2 bg-surface/95 backdrop-blur border-b border-subtle">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-xs font-black uppercase tracking-widest text-content">
-                        {row}
-                      </h2>
-                      {showRowSummary && (
-                        <span className="text-[10px] text-muted font-bold uppercase">
-                          {items.length} SKU · {rowUnits}u
-                        </span>
-                      )}
-                    </div>
-                  </div>
+            grouped.map(([row, sections]) => (
+              <div key={row} className="mb-6">
+                {sections.map(([subKey, items]) => {
+                  const sectionUnits = items.reduce((acc, i) => acc + i.qty, 0);
+                  // Hide the "N SKU · Mu" subtitle when the section has a
+                  // single SKU — the card itself already shows the qty.
+                  const showSectionSummary = items.length > 1;
+                  return (
+                    <div key={`${row}::${subKey}`} className="mb-3">
+                      {/* One sticky header per (row, subloc) — when the
+                          operator scrolls past section A, B's header
+                          replaces it at the top, so the "where am I"
+                          context updates automatically. */}
+                      <div className="sticky top-0 z-20 -mx-4 px-4 py-2 bg-surface/95 backdrop-blur border-b border-subtle">
+                        <div className="flex items-center gap-2">
+                          <h2 className="text-xs font-black uppercase tracking-widest text-content">
+                            {row}
+                          </h2>
+                          {subKey && (
+                            <span className="px-1.5 py-0.5 rounded-md bg-accent/15 text-accent text-[11px] font-black uppercase tracking-tight leading-none">
+                              {subKey}
+                            </span>
+                          )}
+                          {showSectionSummary && (
+                            <span className="text-[10px] text-muted font-bold uppercase">
+                              {items.length} SKU · {sectionUnits}u
+                            </span>
+                          )}
+                        </div>
+                      </div>
 
-                  <div className="mt-2 space-y-2">
-                    {items.map((c) => (
-                      <ConsolidationCard
-                        key={c.inventory_id}
-                        candidate={c}
-                        showSourceRow={false}
-                        isFetching={isFetching}
-                        isSelected={selectedIds.has(c.inventory_id)}
-                        onToggleSelected={() => toggleSelected(c.inventory_id)}
-                        onMove={() => setMoving(c)}
-                        onOpenDetail={() => openDetail(c)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })
+                      <div className="mt-2 space-y-2">
+                        {items.map((c) => (
+                          <ConsolidationCard
+                            key={c.inventory_id}
+                            candidate={c}
+                            showSourceRow={false}
+                            isFetching={isFetching}
+                            isSelected={selectedIds.has(c.inventory_id)}
+                            onToggleSelected={() => toggleSelected(c.inventory_id)}
+                            onMove={() => setMoving(c)}
+                            onOpenDetail={() => openDetail(c)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))
           )}
         </div>
       )}
