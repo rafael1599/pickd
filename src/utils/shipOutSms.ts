@@ -101,13 +101,15 @@ export function computeShipOutMetrics(
  *   READY TO SHIP:
  *
  *   {customer name}
- *   {street}
- *   {city}, {state} {zip}
  *
  *   ORDER #: {order_number}
  *   PALLETS: {pallets}      ← omitted when shipping_type === 'fedex'
- *   PARTS: {parts}
- *   WEIGHT: {weight} LBS
+ *   BIKES:   {bikes}        ← omitted when bikes === 0
+ *   PARTS:   {parts}        ← omitted when parts === 0
+ *   WEIGHT:  {weight} LBS
+ *
+ * Customer address intentionally omitted: the SMS goes to the customer, who
+ * already knows where their order is shipping. Including it was noise.
  */
 export function buildShipOutSmsBody(
   customer: ShipOutSmsCustomer,
@@ -117,12 +119,6 @@ export function buildShipOutSmsBody(
   const lines: string[] = ['READY TO SHIP:', ''];
 
   if (customer.name?.trim()) lines.push(customer.name.trim().toUpperCase());
-  if (customer.street?.trim()) lines.push(customer.street.trim().toUpperCase());
-
-  const cityLine = [customer.city, customer.state].filter(Boolean).join(', ').trim();
-  const zip = customer.zip_code?.trim() ?? '';
-  const cityStateZip = [cityLine, zip].filter(Boolean).join(' ').trim();
-  if (cityStateZip) lines.push(cityStateZip.toUpperCase());
 
   lines.push('');
   if (order.order_number) lines.push(`ORDER #: ${order.order_number}`);
@@ -130,8 +126,10 @@ export function buildShipOutSmsBody(
   const isFedex = (order.shipping_type ?? '').toLowerCase() === 'fedex';
   if (!isFedex) lines.push(`PALLETS: ${metrics.pallets}`);
 
-  lines.push(`BIKES: ${metrics.bikes}`);
-  lines.push(`PARTS: ${metrics.parts}`);
+  // Hide zero-count lines — operator complained that "BIKES: 0" / "PARTS: 0"
+  // adds noise when the shipment has none of that category.
+  if (metrics.bikes > 0) lines.push(`BIKES: ${metrics.bikes}`);
+  if (metrics.parts > 0) lines.push(`PARTS: ${metrics.parts}`);
   lines.push(`WEIGHT: ${metrics.weightLbs} LBS`);
 
   return lines.join('\n');

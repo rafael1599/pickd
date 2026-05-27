@@ -64,7 +64,7 @@ interface InventoryRow {
   location: string;
   sublocation: string[] | null;
   quantity: number;
-  sku_metadata: { item_name: string | null } | null;
+  item_name: string | null;
 }
 
 interface Props {
@@ -111,7 +111,7 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
     queryFn: async (): Promise<InventoryRow[]> => {
       const { data, error } = await supabase
         .from('inventory')
-        .select('id, sku, warehouse, location, sublocation, quantity, sku_metadata(item_name)')
+        .select('id, sku, warehouse, location, sublocation, quantity, item_name')
         .eq('sku', debounced)
         .eq('is_active', true)
         .gt('quantity', 0);
@@ -159,7 +159,7 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
       {
         inventory_id: source.id,
         sku: source.sku,
-        item_name: source.sku_metadata?.item_name ?? null,
+        item_name: source.item_name ?? null,
         warehouse: source.warehouse,
         source_row: source.location,
         sublocation: source.sublocation,
@@ -259,8 +259,8 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
                     <MapPin size={12} />
                     <span className="font-bold text-sm">{r.location}</span>
                     {r.sublocation && r.sublocation.length > 0 && (
-                      <span className="text-[10px] font-mono text-muted">
-                        {r.sublocation.join(',')}
+                      <span className="px-1.5 py-0.5 rounded-md bg-accent/10 text-accent text-[11px] font-black uppercase tracking-tight leading-none">
+                        {r.sublocation.join('+')}
                       </span>
                     )}
                   </div>
