@@ -16,6 +16,8 @@ import { ItemDetailView } from '../inventory/components/ItemDetailView';
 import { ConsolidationMoveModal } from './ConsolidationMoveModal';
 import { searchCandidates } from './searchCandidates';
 import { PlaceSkuTab } from './PlaceSkuTab';
+import { HiddenRowsPicker } from './components/HiddenRowsPicker';
+import { useHiddenRows } from './hooks/useHiddenRows';
 import type { InventoryItemInput, InventoryItemWithMetadata } from '../../schemas/inventory.schema';
 
 interface Candidate {
@@ -120,7 +122,15 @@ export const ConsolidationScreen: React.FC = () => {
   // (instead of inlining `true` at every callsite) makes it trivial to
   // re-expose as a toggle later if a real use case shows up.
   const onlyBikes = true;
-  const [excludeDeepSlow, setExcludeDeepSlow] = useState(true);
+  // idea-117: per-tab user filter for "rows to hide from results". For
+  // `consolidate` mode we seed DEEP_SLOW_ROWS as the default so first-time
+  // users get the same view as before (items already in slow zone hidden),
+  // but they can clear or fine-tune via the picker. Defaults are only used
+  // on first visit; subsequent visits load whatever the operator last left.
+  const hiddenRowsApi = useHiddenRows(
+    `mode_${mode}`,
+    mode === 'consolidate' ? Array.from(DEEP_SLOW_ROWS) : []
+  );
   /** Source row selected to be cleared (clear-row mode). Empty until picked. */
   const [clearRow, setClearRow] = useState<string>('');
   const [moving, setMoving] = useState<Candidate | null>(null);
@@ -233,19 +243,31 @@ export const ConsolidationScreen: React.FC = () => {
   );
 
   // Apply client-side filters.
-  //  - 'exclude deep slow' is only meaningful in consolidate mode (in
-  //    promote mode the deep zone IS the source — we want it visible).
-  //  - moved-ids hide is universal.
+  //  - moved-ids hide is universal (operator just moved them, don't re-show).
+  //  - hidden-rows filter (idea-117) replaces the older "Exclude deep slow"
+  //    binary toggle — operator chooses exactly which rows to hide per tab.
   const preSearch = useMemo(
     () =>
       candidates.filter((c) => {
         if (movedIds.has(c.inventory_id)) return false;
-        if (mode === 'consolidate' && excludeDeepSlow && DEEP_SLOW_ROWS.has(c.source_row))
-          return false;
+        if (hiddenRowsApi.isHidden(c.source_row)) return false;
         return true;
       }),
-    [candidates, excludeDeepSlow, movedIds, mode]
+    [candidates, hiddenRowsApi, movedIds]
   );
+
+  // Rows actually present in the raw candidate set (post-moved filter, pre-
+  // search filter) — feeds the HiddenRowsPicker so it only offers rows that
+  // exist. Computed pre-hide so hidden rows stay listable for un-hiding.
+  // Named with `Hide` prefix to disambiguate from the `availableRows` query
+  // above which lists all picker-target rows for the clear-row mode UI.
+  const hideablePresentRows = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of candidates) {
+      if (!movedIds.has(c.inventory_id)) set.add(c.source_row);
+    }
+    return Array.from(set);
+  }, [candidates, movedIds]);
 
   const filtered = useMemo(
     () => searchCandidates(preSearch, debouncedSearch),
@@ -419,18 +441,19 @@ export const ConsolidationScreen: React.FC = () => {
                 via the `onlyBikes` const above — parts are never desired
                 in consolidation flows. */}
 
-            {mode === 'consolidate' && (
-              <button
-                onClick={() => setExcludeDeepSlow((v) => !v)}
-                className={`px-3 py-2 rounded-xl border font-bold uppercase transition-colors ${
-                  excludeDeepSlow
-                    ? 'bg-accent/10 border-accent/30 text-accent'
-                    : 'bg-card border-subtle text-muted'
-                }`}
-                title="Hide rows already in the deep-slow zone (20–34)"
-              >
-                Exclude ROW 20–34
-              </button>
+            {/* idea-117: hide-rows picker. Replaces the prior binary
+                "Exclude ROW 20-34" toggle with fine-grained multi-select.
+                Available in every mode that lists candidates. */}
+            {mode !== 'place-sku' && (
+              <HiddenRowsPicker
+                availableRows={hideablePresentRows}
+                api={hiddenRowsApi}
+                presets={
+                  mode === 'consolidate'
+                    ? [{ label: 'Deep slow 20-34', rows: Array.from(DEEP_SLOW_ROWS) }]
+                    : []
+                }
+              />
             )}
 
             <div className="ml-auto text-muted font-bold uppercase tracking-wider">

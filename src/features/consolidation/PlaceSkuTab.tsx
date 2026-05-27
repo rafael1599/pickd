@@ -8,6 +8,8 @@ import Snowflake from 'lucide-react/dist/esm/icons/snowflake';
 import Sun from 'lucide-react/dist/esm/icons/sun';
 import { supabase } from '../../lib/supabase';
 import { useDebounce } from '../../hooks/useDebounce';
+import { useHiddenRows } from './hooks/useHiddenRows';
+import { HiddenRowsPicker } from './components/HiddenRowsPicker';
 
 /**
  * "Where to put?" — given a SKU you have in hand, see ranked destination
@@ -226,12 +228,20 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
     );
   };
 
+  // idea-117: per-tab hidden-rows filter for destination suggestions. Operator
+  // can hide e.g. ROW 28-31 if they want to consolidate only into 20-27.
+  const hiddenRowsApi = useHiddenRows('mode_place-sku', []);
+  const availableRows = useMemo(
+    () => Array.from(new Set(suggestions.map((s) => s.location))),
+    [suggestions]
+  );
+
   // Hide the source location from suggestions (moving to itself is a no-op).
   // React Compiler memoizes this filter automatically — no useMemo needed.
   const sourceLocation = source?.location ?? null;
-  const visibleSuggestions = sourceLocation
-    ? suggestions.filter((s) => s.location !== sourceLocation)
-    : suggestions;
+  const visibleSuggestions = suggestions.filter(
+    (s) => s.location !== sourceLocation && !hiddenRowsApi.isHidden(s.location)
+  );
 
   const confirmSku = (sku: string) => {
     setQuery(sku);
@@ -412,10 +422,13 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
       )}
 
       {/* Ranked destinations */}
-      {visibleSuggestions.length > 0 && (
+      {(visibleSuggestions.length > 0 || availableRows.length > 0) && confirmed && (
         <div>
-          <div className="text-[10px] font-black uppercase tracking-widest text-muted mb-1.5">
-            Suggested destinations — ranked best to worst
+          <div className="flex items-center justify-between mb-1.5 gap-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted">
+              Suggested destinations — ranked best to worst
+            </span>
+            <HiddenRowsPicker availableRows={availableRows} api={hiddenRowsApi} />
           </div>
           <div className="flex flex-col gap-2">
             {visibleSuggestions.map((s) => {
