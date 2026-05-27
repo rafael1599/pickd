@@ -99,15 +99,71 @@ function scoreColor(score: number): string {
   return 'bg-zinc-700/40 text-muted border-subtle';
 }
 
+interface SkuSuggestion {
+  sku: string;
+  item_name: string | null;
+  total_qty: number;
+  location_count: number;
+}
+
 export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
   const [query, setQuery] = useState('');
-  const debounced = useDebounce(query.trim().toUpperCase(), 250);
+  const debounced = useDebounce(query.trim().toUpperCase(), 200);
   const [pickedSourceId, setPickedSourceId] = useState<number | null>(null);
+  // Whether the user has confirmed a SKU (clicked a suggestion or typed the
+  // full exact match). When false, we show autocomplete and skip the
+  // expensive RPC + location-suggestion queries.
+  const [confirmed, setConfirmed] = useState(false);
 
-  // Inventory rows for the typed SKU (where it currently lives).
+  // Autocomplete: SKUs in active inventory matching the typed prefix/contains.
+  // Only inventory we ALREADY HAVE — this tab is about placing existing stock,
+  // not registering new SKUs. Dedupe by SKU and roll up qty / location count.
+  const { data: skuMatches = [], isFetching: matchesFetching } = useQuery({
+    queryKey: ['place-sku-autocomplete', debounced],
+    enabled: !confirmed && debounced.length >= 1,
+    queryFn: async (): Promise<SkuSuggestion[]> => {
+      const { data, error } = await supabase
+        .from('inventory')
+        .select('sku, item_name, quantity, location')
+        .ilike('sku', `%${debounced}%`)
+        .eq('is_active', true)
+        .gt('quantity', 0)
+        .limit(80);
+      if (error) throw error;
+      const bySku = new Map<string, SkuSuggestion>();
+      for (const r of data ?? []) {
+        const key = r.sku;
+        const existing = bySku.get(key);
+        if (existing) {
+          existing.total_qty += r.quantity ?? 0;
+          existing.location_count += 1;
+          if (!existing.item_name && r.item_name) existing.item_name = r.item_name;
+        } else {
+          bySku.set(key, {
+            sku: key,
+            item_name: r.item_name ?? null,
+            total_qty: r.quantity ?? 0,
+            location_count: 1,
+          });
+        }
+      }
+      // Sort: exact match first, then prefix matches, then by total_qty desc.
+      return Array.from(bySku.values())
+        .sort((a, b) => {
+          const ax = a.sku === debounced ? 0 : a.sku.startsWith(debounced) ? 1 : 2;
+          const bx = b.sku === debounced ? 0 : b.sku.startsWith(debounced) ? 1 : 2;
+          if (ax !== bx) return ax - bx;
+          return b.total_qty - a.total_qty;
+        })
+        .slice(0, 8);
+    },
+    staleTime: 30_000,
+  });
+
+  // Inventory rows for the confirmed SKU (where it currently lives).
   const { data: currentRows = [], isFetching: rowsFetching } = useQuery({
     queryKey: ['place-sku-current', debounced],
-    enabled: debounced.length > 0,
+    enabled: confirmed && debounced.length > 0,
     queryFn: async (): Promise<InventoryRow[]> => {
       const { data, error } = await supabase
         .from('inventory')
@@ -121,12 +177,13 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
     staleTime: 0,
   });
 
-  // Ranked destination suggestions. Always runs when there's a query, even
-  // if the SKU has zero current inventory — the operator might be placing a
-  // brand-new arrival.
+  // Ranked destination suggestions. Only runs once the user picks a concrete
+  // SKU from the autocomplete (or types an exact match) — otherwise the RPC
+  // fires on every keystroke and surfaces noisy "no inventory" suggestions
+  // for partial prefixes.
   const { data: suggestions = [], isFetching: suggFetching } = useQuery({
     queryKey: ['place-sku-suggestions', debounced],
-    enabled: debounced.length > 0,
+    enabled: confirmed && debounced.length > 0,
     queryFn: async (): Promise<Suggestion[]> => {
       // RPC is new in this PR; generated types regen on next deploy.
       // Cast is safe — runtime payload matches Suggestion exactly.
@@ -176,6 +233,18 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
     ? suggestions.filter((s) => s.location !== sourceLocation)
     : suggestions;
 
+  const confirmSku = (sku: string) => {
+    setQuery(sku);
+    setPickedSourceId(null);
+    setConfirmed(true);
+  };
+
+  const resetSku = () => {
+    setQuery('');
+    setPickedSourceId(null);
+    setConfirmed(false);
+  };
+
   return (
     <div className="flex flex-col gap-3">
       {/* Search input */}
@@ -191,13 +260,33 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
           onChange={(e) => {
             setQuery(e.target.value);
             setPickedSourceId(null);
+            // Any edit invalidates the previous confirmation — user is
+            // searching again.
+            setConfirmed(false);
           }}
-          placeholder="Type a SKU (e.g. 12-0528PR)"
+          onKeyDown={(e) => {
+            // Enter confirms top autocomplete match. Avoids forcing a click
+            // on mobile or when scanning quickly.
+            if (e.key === 'Enter' && !confirmed && skuMatches.length > 0) {
+              e.preventDefault();
+              confirmSku(skuMatches[0].sku);
+            }
+          }}
+          placeholder="Type to search SKU (e.g. 0528 or 12-0528PR)"
           autoCapitalize="characters"
           autoCorrect="off"
           spellCheck={false}
           className="w-full bg-card border border-subtle rounded-xl pl-9 pr-3 py-2.5 text-sm font-mono text-content placeholder:text-muted/60 focus:outline-none focus:ring-1 focus:ring-accent uppercase tracking-wider"
         />
+        {confirmed && (
+          <button
+            type="button"
+            onClick={resetSku}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-content px-2 py-1 rounded-md border border-subtle"
+          >
+            Change
+          </button>
+        )}
       </div>
 
       {!debounced && (
@@ -206,7 +295,49 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
         </div>
       )}
 
-      {debounced && (suggFetching || rowsFetching) && suggestions.length === 0 && (
+      {/* Autocomplete dropdown — only when actively searching, not yet
+          confirmed. Operator can also press Enter to take the top match. */}
+      {!confirmed && debounced.length >= 1 && (
+        <div className="border border-subtle rounded-2xl bg-card overflow-hidden">
+          {matchesFetching && skuMatches.length === 0 && (
+            <div className="text-center text-muted py-6 text-xs">
+              <Loader2 size={16} className="animate-spin inline" />
+            </div>
+          )}
+          {!matchesFetching && skuMatches.length === 0 && (
+            <div className="text-center text-muted py-6 text-xs px-3">
+              No active stock matches{' '}
+              <span className="font-mono font-bold text-content">{debounced}</span>. Register the
+              SKU first via Stock → New Item.
+            </div>
+          )}
+          {skuMatches.length > 0 && (
+            <ul className="divide-y divide-subtle">
+              {skuMatches.map((m) => (
+                <li key={m.sku}>
+                  <button
+                    type="button"
+                    onClick={() => confirmSku(m.sku)}
+                    className="w-full text-left px-3 py-2 hover:bg-surface/60 active:bg-surface/80 transition-colors flex items-center gap-2"
+                  >
+                    <span className="font-mono font-black text-sm text-content uppercase">
+                      {m.sku}
+                    </span>
+                    {m.item_name && (
+                      <span className="text-xs text-muted truncate flex-1">{m.item_name}</span>
+                    )}
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted shrink-0">
+                      {m.total_qty}u · {m.location_count} loc
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {confirmed && debounced && (suggFetching || rowsFetching) && suggestions.length === 0 && (
         <div className="text-center text-muted py-12 text-sm">
           <Loader2 size={20} className="animate-spin inline" />
         </div>
