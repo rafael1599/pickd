@@ -893,9 +893,10 @@ const ConsolidationCard: React.FC<ConsolidationCardProps> = ({
           : 'bg-card border-subtle hover:border-accent/40'
       }`}
     >
-      {/* Left column: QTY + (source_row · sublocation) inline at the bottom.
-          Sublocation goes to the RIGHT of the row label so the operator
-          reads "ROW 12 · A" the same way it would be read off a label. */}
+      {/* Left column: QTY only. source_row stays here as a small footer when
+          the card lives outside a grouped section (search mode); sublocation
+          moved to the middle column next to the row badge to keep "where it
+          is" reading as one unit. */}
       <div className="flex flex-col items-center justify-center min-w-[5rem] shrink-0 border-r border-subtle pr-3 gap-1">
         <span className="text-[9px] font-black uppercase tracking-widest text-muted/60 leading-none">
           QTY
@@ -903,25 +904,22 @@ const ConsolidationCard: React.FC<ConsolidationCardProps> = ({
         <span className="text-4xl md:text-5xl font-black tracking-tight leading-none text-content">
           {c.qty}
         </span>
-        {(showSourceRow || sub) && (
-          <div className="flex items-center gap-1.5 mt-1">
-            {showSourceRow && (
-              <span className="text-[9px] font-bold uppercase tracking-widest text-muted/70 leading-none">
-                {c.source_row}
-              </span>
-            )}
-            {sub && (
-              <span className="px-1.5 py-0.5 rounded-md bg-accent/10 text-accent text-xs font-black uppercase tracking-tight leading-none">
-                {sub}
-              </span>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Middle column: SKU + name + metadata. */}
       <div className="flex-1 min-w-0 flex flex-col justify-center">
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Location badge — sublocation chip sits inline to the right of
+              the ROW label so the operator reads "ROW 12 · A" as one unit.
+              In grouped mode (showSourceRow=false) we still show the chip
+              alone because the ROW name lives in the sticky group header
+              right above, and the chip is the per-card variant. */}
+          {(showSourceRow || sub) && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-surface/80 border border-subtle text-muted text-[10px] font-black uppercase tracking-widest leading-none">
+              {showSourceRow && <span>{c.source_row}</span>}
+              {sub && <span className="px-1 rounded bg-accent/15 text-accent">{sub}</span>}
+            </span>
+          )}
           <span className="font-black text-xl md:text-2xl tracking-tight leading-none text-content break-all">
             {c.sku}
           </span>
