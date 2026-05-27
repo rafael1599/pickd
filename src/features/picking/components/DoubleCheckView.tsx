@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Check from 'lucide-react/dist/esm/icons/check';
 import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
 import MessageSquare from 'lucide-react/dist/esm/icons/message-square';
@@ -206,10 +207,31 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const unmarkWaiting = useUnmarkWaiting();
   const takeOverSku = useTakeOverSku();
   const { triggerForList: triggerShipOutSms } = useShipOutSms();
+  // idea-119: fetch the active list's group_id so cross-order hooks can skip
+  // siblings of the same combined order. Without this, the picker sees false
+  // "reserved by another order" / "waiting in another order" warnings for
+  // items that are actually part of the same combined cart.
+  const { data: activeGroupId = null } = useQuery({
+    queryKey: ['picking_list_group_id', activeListId],
+    enabled: !!activeListId,
+    staleTime: 60_000,
+    queryFn: async (): Promise<string | null> => {
+      if (!activeListId) return null;
+      const { data, error } = await supabase
+        .from('picking_lists')
+        .select('group_id')
+        .eq('id', activeListId)
+        .single();
+      if (error) throw error;
+      return data?.group_id ?? null;
+    },
+  });
+
   const { data: waitingConflicts } = useWaitingConflicts(
     cartItems,
     activeListId ?? null,
-    customer?.name ?? null
+    customer?.name ?? null,
+    activeGroupId
   );
   const [conflictDismissed, setConflictDismissed] = useState(false);
 
@@ -221,7 +243,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         .map((i) => buildReservationKey(i.sku, i.warehouse, i.location)),
     [cartItems]
   );
-  const { data: reservationsMap } = useStockReservations(reservationKeys, activeListId ?? null);
+  const { data: reservationsMap } = useStockReservations(
+    reservationKeys,
+    activeListId ?? null,
+    activeGroupId
+  );
   const [isDeducting, setIsDeducting] = useState(false);
   const [showWaitingPicker, setShowWaitingPicker] = useState(false);
   const [waitingReason, setWaitingReason] = useState('');
