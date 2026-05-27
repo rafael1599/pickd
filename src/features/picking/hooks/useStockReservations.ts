@@ -55,6 +55,7 @@ interface PickingListRow {
   order_number: string | null;
   items: PickingItemRow[] | null;
   is_waiting_inventory: boolean | null;
+  group_id: string | null;
   customers?: { name: string | null } | null;
 }
 
@@ -65,11 +66,20 @@ interface PickingListRow {
  * `{ stock, reserved, picked, reservingOrders }` per key. `excludeListId`
  * removes the caller's own list so it doesn't count itself.
  *
+ * idea-119: `excludeGroupId` additionally removes every list belonging to the
+ * same combined order group as the caller. Without this, sibling lists of a
+ * combined order were treated as external reservations — surfacing false
+ * "reserved elsewhere" badges for items already in the operator's own cart.
+ *
  * Freshness: subscribes to Realtime postgres_changes on `picking_lists` while
  * mounted. Any change anywhere invalidates this hook's queryKey → refetch.
  * Cleans up the channel on unmount so we don't leak subscriptions.
  */
-export const useStockReservations = (itemKeys: string[], excludeListId: string | null) => {
+export const useStockReservations = (
+  itemKeys: string[],
+  excludeListId: string | null,
+  excludeGroupId: string | null = null
+) => {
   const sortedKeys = [...itemKeys].sort();
   const queryClient = useQueryClient();
   const enabled = sortedKeys.length > 0;
@@ -93,7 +103,11 @@ export const useStockReservations = (itemKeys: string[], excludeListId: string |
   }, [enabled, queryClient]);
 
   return useQuery<ReservationsMap>({
-    queryKey: ['picking_lists', 'reservations', { keys: sortedKeys, excludeListId }],
+    queryKey: [
+      'picking_lists',
+      'reservations',
+      { keys: sortedKeys, excludeListId, excludeGroupId },
+    ],
     enabled: sortedKeys.length > 0,
     staleTime: 10_000,
     queryFn: async () => {
@@ -110,14 +124,18 @@ export const useStockReservations = (itemKeys: string[], excludeListId: string |
         (() => {
           const q = supabase
             .from('picking_lists')
-            .select('id, order_number, items, is_waiting_inventory, customers(name)')
+            .select('id, order_number, items, is_waiting_inventory, group_id, customers(name)')
             .in('status', ACTIVE_STATES as unknown as string[]);
           return excludeListId ? q.neq('id', excludeListId) : q;
         })(),
       ]);
 
       const invRows = (invResult.data as InventoryRow[] | null) ?? [];
-      const lists = (listsResult.data as unknown as PickingListRow[] | null) ?? [];
+      const allLists = (listsResult.data as unknown as PickingListRow[] | null) ?? [];
+      // idea-119: drop siblings from the same combined-order group.
+      const lists = excludeGroupId
+        ? allLists.filter((l) => l.group_id !== excludeGroupId)
+        : allLists;
 
       const map: ReservationsMap = new Map();
       parsed.forEach(({ key, sku, warehouse, location }) => {
