@@ -26,20 +26,25 @@ export interface WaitingConflict {
 export function useWaitingConflicts(
   cartItems: { sku: string; pickingQty: number; insufficient_stock?: boolean }[],
   activeListId: string | null,
-  myCustomerName: string | null
+  myCustomerName: string | null,
+  /**
+   * idea-119: if the active list belongs to a combined order group, pass
+   * the group id so we skip every sibling list — they were already merged
+   * into the current cart and should not show as a "waiting in another
+   * order" conflict.
+   */
+  myGroupId: string | null = null
 ) {
-  const insufficientSkus = cartItems
-    .filter((i) => i.insufficient_stock)
-    .map((i) => i.sku);
+  const insufficientSkus = cartItems.filter((i) => i.insufficient_stock).map((i) => i.sku);
 
   return useQuery({
-    queryKey: ['waiting-conflicts', activeListId, insufficientSkus.sort().join(',')],
+    queryKey: ['waiting-conflicts', activeListId, myGroupId, insufficientSkus.sort().join(',')],
     queryFn: async (): Promise<WaitingConflict[]> => {
       if (insufficientSkus.length === 0) return [];
 
       const { data, error } = await supabase
         .from('picking_lists')
-        .select('id, order_number, items, customer:customers(name)')
+        .select('id, order_number, items, group_id, customer:customers(name)')
         .eq('is_waiting_inventory', true)
         .neq('id', activeListId ?? '');
 
@@ -51,6 +56,13 @@ export function useWaitingConflicts(
 
       for (const waitingOrder of data) {
         const customerName = (waitingOrder.customer as { name: string } | null)?.name ?? 'Unknown';
+
+        // idea-119: skip siblings of the same combined order. They share
+        // the cart with the active list, so listing them as conflicts shows
+        // false warnings to the picker.
+        if (myGroupId && (waitingOrder as { group_id?: string | null }).group_id === myGroupId) {
+          continue;
+        }
 
         // Skip same-customer (auto-merged by watchdog, not a conflict)
         if (myCustomerName && customerName.toLowerCase() === myCustomerName.toLowerCase()) continue;
