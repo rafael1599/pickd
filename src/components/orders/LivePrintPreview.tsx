@@ -27,6 +27,11 @@ interface LivePrintPreviewProps {
   completedAt?: string;
   transportCompany?: string;
   palletPhotos?: string[];
+  /** When true, render a single info-label card regardless of palletCount and
+   *  skip the "PALLET X of Y" cards. Used by the on-screen preview in
+   *  OrdersScreen — operationally there's no value seeing the same label
+   *  repeated N times. The PDF print path keeps the full multi-page output. */
+  screenOnly?: boolean;
 }
 
 /** Build the BIKES/PARTS lines for labels */
@@ -53,6 +58,7 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
   completedAt,
   transportCompany,
   palletPhotos,
+  screenOnly = false,
 }) => {
   const brandColors = transportCompany ? TRANSPORT_COLORS[transportCompany] : undefined;
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -134,7 +140,11 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
 
   const pages = useMemo(() => {
     const p = [];
-    for (let i = 0; i < palletCount; i++) {
+    // Screen-only mode: render exactly one info-label card and no pallet
+    // number cards. The on-screen preview doesn't need to mirror the PDF
+    // (which still gets all pages via its own generator).
+    const iterations = screenOnly ? 1 : palletCount;
+    for (let i = 0; i < iterations; i++) {
       // INFO LABEL
       p.push(
         <div
@@ -180,7 +190,8 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
       );
 
       // PALLET NUMBER (Only rendered if more than one pallet exists)
-      if (palletCount > 1) {
+      // Skipped entirely in screenOnly mode.
+      if (!screenOnly && palletCount > 1) {
         p.push(
           <div
             key={`num-${i}`}
@@ -222,6 +233,7 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
     cityStateZip,
     orderNumber,
     brandColors,
+    screenOnly,
   ]);
 
   // Container ref + dynamic scale: on mobile (<768px) the preview fits the

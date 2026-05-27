@@ -39,6 +39,7 @@ interface MovementModalProps {
     quantity: number;
     internalNote?: string | null;
     targetSublocation?: string[] | null;
+    moveNote?: string | null;
   }) => void;
   initialSourceItem?: InventoryItemWithMetadata | null;
 }
@@ -67,8 +68,10 @@ export const MovementModal: React.FC<MovementModalProps> = ({
       quantity: number;
     };
   } | null>(null);
+  const [moveNote, setMoveNote] = useState('');
   const handleClose = useCallback(() => {
     setNoteConflict(null);
+    setMoveNote('');
     onClose();
   }, [onClose]);
 
@@ -207,10 +210,11 @@ export const MovementModal: React.FC<MovementModalProps> = ({
         ...moveData,
         internalNote: noteOverride,
         targetSublocation: formData.targetSublocation,
+        moveNote: moveNote.trim() || null,
       });
       handleClose();
     },
-    [onMove, handleClose, formData.targetSublocation]
+    [onMove, handleClose, formData.targetSublocation, moveNote]
   );
 
   const handleSubmit = () => {
@@ -564,6 +568,22 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                   </div>
                 </div>
               )}
+
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted mb-1 block">
+                  Note (optional)
+                </label>
+                <textarea
+                  value={moveNote}
+                  onChange={(e) => setMoveNote(e.target.value)}
+                  rows={2}
+                  placeholder="e.g. consolidating ROW 10 → ROW 12"
+                  className="w-full bg-surface border border-subtle rounded-xl px-3 py-2 text-[12px] text-content placeholder:text-muted/50 focus:outline-none focus:border-accent resize-none"
+                />
+                <p className="text-[10px] text-muted/60 mt-1">
+                  Shown in History next to this move. Editable later.
+                </p>
+              </div>
 
               {isSameLocation && (
                 <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl animate-in fade-in slide-in-from-top-2">

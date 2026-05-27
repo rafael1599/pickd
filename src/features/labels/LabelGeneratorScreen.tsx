@@ -321,7 +321,10 @@ export const LabelGeneratorScreen = () => {
         Array.from({ length: e.qty }, () => ({
           sku: e.sku,
           warehouse: 'LUDLOW',
-          location: e.location,
+          // Coerce null → undefined so the row matches the generated
+          // Database['public']['Tables']['asset_tags']['Insert'] type
+          // (which uses `string | undefined`, not `string | null`).
+          location: e.location ?? undefined,
           created_by: user.id,
           printed_at: new Date().toISOString(),
         }))

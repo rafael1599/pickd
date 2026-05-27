@@ -22,6 +22,7 @@ import Settings from 'lucide-react/dist/esm/icons/settings';
 import Package from 'lucide-react/dist/esm/icons/package';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { getUserColor, getUserBgColor } from '../../utils/userUtils';
+import { moveDeltaUnits } from './utils/inventoryLogShape';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import { useError } from '../../context/ErrorContext';
@@ -30,6 +31,24 @@ import { useViewMode } from '../../context/ViewModeContext';
 import { useModal } from '../../context/ModalContext';
 
 import type { InventoryLog, LogActionTypeValue } from '../../schemas/log.schema';
+
+/** Format a yyyy-mm-dd ISO date as 'May 5' for the custom-range button. */
+const formatRangeLabel = (iso: string): string => {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return iso;
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
+
+/** Today as yyyy-mm-dd in local time, used as the default upper bound. */
+const todayIsoLocal = (): string => {
+  const d = new Date();
+  const yr = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, '0');
+  const da = String(d.getDate()).padStart(2, '0');
+  return `${yr}-${mo}-${da}`;
+};
 
 /** Snapshot shape used by PHYSICAL_DISTRIBUTION logs */
 interface DistributionSnapshot {
@@ -103,6 +122,116 @@ interface ActionTypeInfo {
   orderId?: string | null;
 }
 
+interface LogNoteRowProps {
+  log: InventoryLog;
+  userId: string | null;
+  onSaved: () => void;
+}
+
+const LogNoteRow: React.FC<LogNoteRowProps> = ({ log, userId, onSaved }) => {
+  const initial = (log as InventoryLog & { note?: string | null }).note ?? '';
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(initial);
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (!userId) {
+      toast.error('Sign in to edit notes');
+      return;
+    }
+    setSaving(true);
+    try {
+      const { error } = await (supabase.rpc as CallableFunction)('update_inventory_log_note', {
+        p_log_id: log.id,
+        p_note: value,
+        p_user_id: userId,
+      });
+      if (error) throw error;
+      toast.success('Note saved');
+      setEditing(false);
+      onSaved();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to save note';
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (editing) {
+    return (
+      <div
+        className="relative z-30 mt-3 p-2 bg-main/40 border border-accent/30 rounded-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <textarea
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          rows={2}
+          placeholder="Note (optional)"
+          className="w-full bg-surface border border-subtle rounded-lg px-2 py-1.5 text-[11px] text-content placeholder:text-muted/50 focus:outline-none focus:border-accent resize-none"
+          autoFocus
+        />
+        <div className="relative z-40 flex justify-end gap-2 mt-2">
+          <button
+            type="button"
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              setEditing(false);
+              setValue(initial);
+            }}
+            className="px-3 py-1 text-[10px] font-bold text-muted hover:text-content cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              if (!saving) void save();
+            }}
+            disabled={saving}
+            className="px-3 py-1 text-[10px] font-bold bg-accent text-main rounded-lg disabled:opacity-50 cursor-pointer"
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!initial) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setEditing(true);
+        }}
+        className="mt-3 text-[10px] font-bold text-muted/60 hover:text-accent uppercase tracking-widest"
+      >
+        + Add note
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-3 flex items-start gap-2 p-2 bg-main/30 border border-subtle rounded-xl">
+      <p className="flex-1 text-[11px] text-content leading-snug italic">{initial}</p>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setEditing(true);
+        }}
+        className="text-[10px] font-bold text-muted hover:text-accent uppercase tracking-widest"
+      >
+        Edit
+      </button>
+    </div>
+  );
+};
+
 export const HistoryScreen = () => {
   const { isAdmin, profile, user: authUser } = useAuth();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -116,6 +245,10 @@ export const HistoryScreen = () => {
   const [filter, setFilter] = useState<LogActionTypeValue | 'ALL'>('ALL');
   const [userFilter, setUserFilter] = useState('ALL');
   const [timeFilter, setTimeFilter] = useState('TODAY');
+  // ISO yyyy-mm-dd inclusive range. Used when timeFilter === 'CUSTOM'.
+  const [customFrom, setCustomFrom] = useState<string>('');
+  const [customTo, setCustomTo] = useState<string>('');
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [undoingId, setUndoingId] = useState<string | null>(null);
   const { isSearching } = useViewMode();
@@ -135,7 +268,7 @@ export const HistoryScreen = () => {
     error: queryError,
     refetch,
   } = useQuery({
-    queryKey: ['inventory_logs', timeFilter],
+    queryKey: ['inventory_logs', timeFilter, customFrom, customTo],
     queryFn: async () => {
       let query = supabase
         .from('inventory_logs')
@@ -169,8 +302,29 @@ export const HistoryScreen = () => {
         const lastMonth = new Date(startOfToday);
         lastMonth.setMonth(lastMonth.getMonth() - 1);
         query = query.gte('created_at', lastMonth.toISOString());
+      } else if (timeFilter === 'CUSTOM' && customFrom && customTo) {
+        // Inclusive day range. From = local 00:00 of customFrom; To = end
+        // of customTo (next day 00:00 - 1ms). Both treated as local time
+        // so the operator's date picker matches what they see.
+        const [fy, fm, fd] = customFrom.split('-').map(Number);
+        const [ty, tm, td] = customTo.split('-').map(Number);
+        const fromDate = new Date(fy, fm - 1, fd, 0, 0, 0, 0);
+        const toDate = new Date(ty, tm - 1, td + 1, 0, 0, 0, -1);
+        query = query
+          .gte('created_at', fromDate.toISOString())
+          .lte('created_at', toDate.toISOString())
+          // Multi-month ranges easily exceed Supabase's default 1000-row
+          // ceiling. Bump to 50k for parity with the activity-report
+          // approach.
+          .limit(50_000);
       } else {
-        query = query.limit(300); // Increased limit for ALL
+        query = query.limit(300);
+      }
+
+      // WEEK / MONTH ranges can also exceed the default; raise their cap
+      // so we don't silently truncate historical data.
+      if (timeFilter === 'WEEK' || timeFilter === 'MONTH') {
+        query = query.limit(50_000);
       }
 
       const { data, error } = await query;
@@ -191,13 +345,9 @@ export const HistoryScreen = () => {
       const snap = l.snapshot_before as DistributionSnapshot | null | undefined;
       return snap?.count && snap?.units_each ? snap.count * snap.units_each : (l.new_quantity ?? 0);
     }
-    // For MOVE logs where quantity_change is 0 but it was actually a location rename, show the total quantity moved
-    if (
-      l.action_type === 'MOVE' &&
-      (l.quantity_change === 0 || !l.quantity_change) &&
-      l.new_quantity
-    )
-      return l.new_quantity;
+    // MOVE logs: tolerate both historical Shape A (qc=0, prev=new=N) and
+    // current Shape B (qc=-N, new=0) via the centralized helper.
+    if (l.action_type === 'MOVE') return moveDeltaUnits(l) ?? 0;
     return Math.abs(l.quantity_change || 0);
   }, []);
 
@@ -726,168 +876,246 @@ export const HistoryScreen = () => {
   const generateDailyPDF = useCallback(
     (
       jsPDFInstance: typeof import('jspdf').default,
-      autoTableInstance: typeof import('jspdf-autotable').default
+      autoTableInstance: typeof import('jspdf-autotable').default,
+      reportNote?: string | null,
+      mode: 'full' | 'as400' = 'as400'
     ) => {
+      // 6×4" landscape thermal label (matches orders/FedEx pattern so the PDF
+      // prints at 100% on the warehouse thermal printer without scaling).
+      const PAGE_W = 152.4; // 6 in
+      const PAGE_H = 101.6; // 4 in
+      const MARGIN = 3;
       const doc = new jsPDFInstance({
         orientation: 'landscape',
         unit: 'mm',
-        format: 'a4',
+        format: [PAGE_W, PAGE_H],
       });
       const today = new Date().toLocaleDateString('es-ES');
-      const generatorName = profile?.full_name || authUser?.email || 'System';
-      const firstName = generatorName.split(' ')[0];
 
-      let title = 'History Report';
+      // ── Title differs by mode ───────────────────────────────────────
+      // AS400 Sync = same table as Full, with two operational tweaks:
+      //   - Multi-hop MOVE chains collapse to endpoints (no 'via X -> Y')
+      //   - Rows sorted alphabetically by SKU for fast scanning
+      // Full = chronological + chain hops on a small second line.
+      let title = mode === 'as400' ? 'History — AS400 Sync' : 'History';
       if (filter !== 'ALL') {
         const labels: Record<string, string> = {
-          MOVE: 'Movement',
-          ADD: 'Restock',
-          DEDUCT: 'Picking',
-          DELETE: 'Removal',
+          MOVE: 'Movements',
+          ADD: 'Restocks',
+          DEDUCT: 'Picks',
+          DELETE: 'Removals',
           SYSTEM_RECONCILIATION: 'Reconciliation',
         };
-        title = `${labels[filter] || filter} Report`;
+        title = `History — ${labels[filter] || filter}`;
       }
 
       if (userFilter !== 'ALL') {
         title += ` (${userFilter})`;
       }
 
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(32);
-      doc.text(title, 5, 15);
+      // Collapse MOVE rows ONLY when looking at a single day's activity.
+      // Across a multi-day range the same (sku, qty) typically represents
+      // distinct moves (e.g. bike A moved March, returned April) — collapsing
+      // them loses real audit information and dramatically under-reports
+      // history (one customer reported 640 moves displayed as 100). Today's
+      // chains stay collapsed because intermediate hops are noise.
+      const collapseChains = timeFilter === 'TODAY';
+
+      const movePathBySkuQty = new Map<string, string[]>();
+      if (collapseChains) {
+        // Iterate oldest-first so the path reads left-to-right naturally.
+        // filteredLogs is sorted DESC, so reverse a shallow copy.
+        for (const log of [...filteredLogs].reverse()) {
+          if (log.action_type !== 'MOVE') continue;
+          const qty = getDisplayQty(log);
+          const key = `${log.sku}::${qty}`;
+          const path = movePathBySkuQty.get(key) ?? [];
+          const from = log.from_location || '';
+          const to = log.to_location || '';
+          if (path.length === 0 && from) path.push(from);
+          if (to && path[path.length - 1] !== to) path.push(to);
+          movePathBySkuQty.set(key, path);
+        }
+      }
+
+      // Dedupe MOVE rows in the table: keep only the most recent log per
+      // (sku, qty). The activity column will pull the full chained path
+      // from movePathBySkuQty so no audit info is hidden. Disabled for
+      // multi-day ranges per the same reasoning above.
+      const seenMove = new Set<string>();
+      const dedupedLogs = collapseChains
+        ? filteredLogs.filter((log) => {
+            if (log.action_type !== 'MOVE') return true;
+            const key = `${log.sku}::${getDisplayQty(log)}`;
+            if (seenMove.has(key)) return false;
+            seenMove.add(key);
+            return true;
+          })
+        : filteredLogs;
 
       const stats = {
-        total: filteredLogs.length,
-        qty: filteredLogs.reduce((acc, l) => acc + Number(getDisplayQty(l)), 0),
+        total: dedupedLogs.length,
+        qty: dedupedLogs.reduce((acc, l) => acc + Number(getDisplayQty(l)), 0),
       };
 
-      const metadataLine = `By: ${firstName} | Date: ${today} | Logs: ${stats.total} | Qty: ${stats.qty} | Period: ${timeFilter}`;
-
-      let currentY = 32;
+      // Header: title left, date + counts stacked below on a narrow 4×6 page.
+      const contentWidth = PAGE_W - MARGIN * 2;
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(28);
-      doc.text('Time | SKU | Activity Detail | Qty', 5, currentY);
-      currentY += 8;
+      doc.setFontSize(14);
+      doc.text(title, MARGIN, MARGIN + 5);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text(
+        `${today} · ${stats.total} logs · ${stats.qty.toLocaleString()} units`,
+        MARGIN,
+        MARGIN + 9
+      );
 
-      const tableData = filteredLogs.map((log) => {
-        let description = '';
+      let currentY = MARGIN + 13;
+
+      // idea-111 piece 3 — optional report-note rendered above the table.
+      if (reportNote && reportNote.trim().length > 0) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(11);
+        const wrapped = doc.splitTextToSize(reportNote.trim(), contentWidth - 2);
+        const lineHeight = 4.5;
+        const noteHeight = wrapped.length * lineHeight + 3;
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.3);
+        doc.rect(MARGIN, currentY - 2, contentWidth, noteHeight);
+        doc.text(wrapped, MARGIN + 1.5, currentY + 1.5);
+        currentY += noteHeight + 2;
+      }
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text('SKU', MARGIN, currentY);
+      doc.text('ACTIVITY', MARGIN + 30, currentY);
+      doc.text('QTY', PAGE_W - MARGIN, currentY, { align: 'right' });
+      currentY += 3;
+
+      const tableData = dedupedLogs.map((log) => {
         const fromLoc = log.from_location || '';
         const toLoc = log.to_location || '';
-        const performer = log.performed_by || 'Unknown';
-        const pFirstName = performer.split(' ')[0];
+        const qty = getDisplayQty(log);
+        const rawNote = (log as InventoryLog & { note?: string | null }).note;
 
-        const whInfo =
-          log.from_warehouse && log.to_warehouse && log.from_warehouse !== log.to_warehouse
-            ? ` [${log.from_warehouse}->${log.to_warehouse}]`
-            : log.from_warehouse
-              ? ` [${log.from_warehouse}]`
-              : '';
-
-        let actionTag = '';
+        let activity = '';
+        let chainHops: string | null = null;
         switch (log.action_type) {
-          case 'MOVE':
-            actionTag = '[MOVE]';
+          case 'MOVE': {
+            // Activity line shows endpoints only (FIRST -> LAST). Intermediate
+            // hops, when present, ride a smaller second line so a multi-hop
+            // chain doesn't wrap and break the table layout.
+            const path = movePathBySkuQty.get(`${log.sku}::${qty}`) ?? [];
+            const first = path[0] ?? fromLoc;
+            const last = path[path.length - 1] ?? toLoc;
+            activity = `Moved ${first} -> ${last}`;
+            // AS400 Sync hides intermediate hops — the encargada only needs
+            // the endpoints to reconcile the legacy system. Full mode keeps
+            // the full chain on a small second line.
+            if (mode !== 'as400' && path.length > 2) {
+              chainHops = `via ${path.slice(1, -1).join(' -> ')}`;
+            }
             break;
+          }
           case 'ADD':
-            actionTag = '[ADD]';
+            activity = `Added ${qty} to ${toLoc || fromLoc || 'GEN'}`;
             break;
           case 'DEDUCT':
-            actionTag = '[PICK]';
+            activity = log.order_number
+              ? `Picked from ${fromLoc || 'GEN'} in #${log.order_number}`
+              : `Picked ${qty} from ${fromLoc || 'GEN'}`;
             break;
           case 'DELETE':
-            actionTag = '[DEL]';
+            activity = `Removed from ${fromLoc || 'INV'}`;
+            break;
+          case 'EDIT':
+            activity = `Edited at ${toLoc || fromLoc || 'INV'}`;
+            break;
+          case 'PHYSICAL_DISTRIBUTION':
+            activity = `Verified at ${toLoc || fromLoc || 'INV'}`;
             break;
           case 'SYSTEM_RECONCILIATION':
-            actionTag = '[SYS]';
+            activity = `Reconciliation`;
             break;
           default:
-            actionTag = `[${log.action_type}]`;
-        }
-
-        switch (log.action_type) {
-          case 'MOVE':
-            description = `${actionTag} ${pFirstName}: ${fromLoc} -> ${toLoc}${whInfo}`;
-            break;
-          case 'ADD':
-            description = `${actionTag} ${pFirstName}: Stocked @ ${toLoc || fromLoc || 'Gen'}`;
-            break;
-          case 'DEDUCT':
-            description = `${actionTag} ${pFirstName}: Picked @ ${fromLoc || 'Gen'}`;
-            break;
-          case 'DELETE':
-            description = `${actionTag} ${pFirstName}: Removed @ ${fromLoc || 'Inv'}`;
-            break;
-          case 'SYSTEM_RECONCILIATION':
-            description = `${actionTag} Reconciliation Audit`;
-            break;
-          default:
-            description = `${actionTag} ${pFirstName}: Update @ ${fromLoc || toLoc || '-'}`;
+            activity = `${log.action_type} at ${toLoc || fromLoc || '—'}`;
         }
 
         if (log.is_reversed) {
-          description += ' (REVERSED)';
+          activity = `Reversed: ${activity}`;
         }
 
-        return [
-          new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          log.sku,
-          description,
-          getDisplayQty(log).toString(),
-        ];
+        // idea-111: note rendered on a separate line below the activity.
+        // For FedEx Returns the prefix "FedEx Return " is dropped — the
+        // tracking number alone is enough context on the second line.
+        const noteLine = rawNote ? rawNote.replace(/^FedEx Return\s+/i, '') : null;
+        const extraLines = [chainHops, noteLine].filter(Boolean) as string[];
+        const cellText = extraLines.length > 0 ? `${activity}\n${extraLines.join('\n')}` : activity;
+
+        return [log.sku, cellText, qty.toString()];
       });
+
+      // AS400 Sync: alphabetical scan beats chronological. Locale-compare so
+      // numeric suffixes ('03-3' < '03-30') sort intuitively.
+      const tableBody =
+        mode === 'as400'
+          ? [...tableData].sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+          : tableData;
 
       autoTableInstance(doc, {
         startY: currentY,
-        body: tableData,
+        body: tableBody,
         theme: 'plain',
         styles: {
-          fontSize: 40,
-          cellPadding: 6,
-          minCellHeight: 20,
+          fontSize: 11,
+          cellPadding: 1.8,
+          minCellHeight: 6.5,
           textColor: [0, 0, 0],
           lineColor: [0, 0, 0],
-          lineWidth: 1.1,
+          lineWidth: 0.3,
           font: 'helvetica',
-          valign: 'middle',
+          valign: 'top',
         },
         columnStyles: {
-          0: { cellWidth: 40, fontSize: 26, halign: 'center' },
-          1: { cellWidth: 90, fontStyle: 'bold', fontSize: 40, halign: 'left' },
-          2: { cellWidth: 'auto', fontSize: 22, halign: 'left' },
-          3: { cellWidth: 35, fontSize: 40, halign: 'right', fontStyle: 'bold' },
+          0: { cellWidth: 30, fontStyle: 'bold', fontSize: 13, halign: 'left' },
+          1: { cellWidth: 'auto', fontSize: 10.5, halign: 'left' },
+          2: { cellWidth: 13, fontSize: 13, halign: 'right', fontStyle: 'bold' },
         },
-        margin: { top: 5, right: 5, bottom: 5, left: 5 },
-        didDrawPage: () => {
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(14);
-          doc.text(metadataLine, 292, 205, { align: 'right' });
-        },
+        margin: { top: MARGIN, right: MARGIN, bottom: MARGIN, left: MARGIN },
       });
 
       return doc;
     },
-    [filteredLogs, filter, userFilter, timeFilter, profile, authUser, getDisplayQty]
+    [filteredLogs, filter, userFilter, timeFilter, getDisplayQty]
   );
+
+  const [reportNoteOpen, setReportNoteOpen] = useState(false);
+  const [reportNote, setReportNote] = useState('');
+  const [reportMode, setReportMode] = useState<'full' | 'as400'>('as400');
 
   const handleDownloadReport = useCallback(async () => {
     try {
       setManualLoading(true);
+
       const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
         import('jspdf'),
         import('jspdf-autotable'),
       ]);
-      const doc = generateDailyPDF(jsPDF, autoTable);
+      const doc = generateDailyPDF(jsPDF, autoTable, reportNote.trim() || null, reportMode);
       const blob = doc.output('bloburl');
       window.open(blob, '_blank');
       toast.success('History report opened in new tab');
+      setReportNoteOpen(false);
+      setReportNote('');
     } catch (err: unknown) {
       console.error('Failed to generate PDF:', err);
       showError('Error generating PDF report.', err instanceof Error ? err.message : String(err));
     } finally {
       setManualLoading(false);
     }
-  }, [generateDailyPDF, showError]);
+  }, [generateDailyPDF, showError, reportNote, reportMode]);
 
   return (
     <div className="pb-32 relative max-w-2xl mx-auto w-full px-4">
@@ -976,10 +1204,16 @@ export const HistoryScreen = () => {
               <div className="shrink-0 p-2 bg-surface/50 rounded-full border border-subtle">
                 <Clock size={14} className="text-muted" />
               </div>
-              {['TODAY', 'YESTERDAY', 'WEEK', 'MONTH', 'ALL'].map((tf) => (
+              {['TODAY', 'YESTERDAY', 'WEEK', 'MONTH'].map((tf) => (
                 <button
                   key={tf}
-                  onClick={() => setTimeFilter(tf)}
+                  onClick={() => {
+                    setTimeFilter(tf);
+                    if (timeFilter === 'CUSTOM') {
+                      setCustomFrom('');
+                      setCustomTo('');
+                    }
+                  }}
                   className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border shrink-0 ${
                     timeFilter === tf
                       ? 'bg-accent border-accent/20 text-main shadow-lg shadow-accent/20'
@@ -989,6 +1223,19 @@ export const HistoryScreen = () => {
                   {tf.toLowerCase()}
                 </button>
               ))}
+              <button
+                onClick={() => setDatePickerOpen(true)}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border shrink-0 ${
+                  timeFilter === 'CUSTOM'
+                    ? 'bg-accent border-accent/20 text-main shadow-lg shadow-accent/20'
+                    : 'bg-surface text-muted border-subtle hover:border-muted/30'
+                }`}
+              >
+                <Calendar size={12} />
+                {timeFilter === 'CUSTOM' && customFrom && customTo
+                  ? `${formatRangeLabel(customFrom)} → ${formatRangeLabel(customTo)}`
+                  : 'Custom Range'}
+              </button>
             </div>
           </>
         )}
@@ -1099,14 +1346,7 @@ export const HistoryScreen = () => {
                               {new Date(log.created_at).toLocaleTimeString([], {
                                 hour: '2-digit',
                                 minute: '2-digit',
-                              })}{' '}
-                              •{' '}
-                              <span
-                                style={{ color: getUserColor(log.performed_by) }}
-                                className="font-black"
-                              >
-                                {log.performed_by || 'Unknown'}
-                              </span>
+                              })}
                             </p>
                           </div>
                         </div>
@@ -1222,7 +1462,13 @@ export const HistoryScreen = () => {
                         </div>
                       </div>
 
-                      {log.prev_quantity !== null &&
+                      {/* Stock Level only when warehouse total actually changed
+                          (DEDUCT/EDIT/ADD/DELETE). MOVE and PHYSICAL_DISTRIBUTION
+                          are zero-sum at the warehouse level — showing 'N → 0'
+                          would suggest a stock loss that didn't happen. */}
+                      {log.action_type !== 'MOVE' &&
+                        log.action_type !== 'PHYSICAL_DISTRIBUTION' &&
+                        log.prev_quantity !== null &&
                         log.new_quantity !== null &&
                         log.prev_quantity !== log.new_quantity && (
                           <div
@@ -1249,6 +1495,9 @@ export const HistoryScreen = () => {
                           </div>
                         </div>
                       )}
+
+                      {/* idea-111: per-action note display + edit affordance */}
+                      <LogNoteRow log={log} userId={authUser?.id ?? null} onSaved={fetchLogs} />
                     </div>
                   );
                 })}
@@ -1260,7 +1509,7 @@ export const HistoryScreen = () => {
 
       <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 p-2 ios-glass rounded-full shadow-2xl animate-in slide-in-from-bottom-4 duration-700">
         <button
-          onClick={handleDownloadReport}
+          onClick={() => setReportNoteOpen(true)}
           className="px-6 h-12 bg-accent text-main rounded-full flex items-center gap-2 shadow-lg shadow-accent/20 hover:scale-105 active:scale-90 ios-transition font-black uppercase tracking-widest text-[10px]"
           title="Download Daily Report"
         >
@@ -1268,6 +1517,181 @@ export const HistoryScreen = () => {
           Report
         </button>
       </div>
+
+      {reportNoteOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => !manualLoading && setReportNoteOpen(false)}
+        >
+          <div
+            className="bg-card border border-subtle rounded-2xl w-full max-w-md p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-base font-bold text-content mb-3">Generate report</h2>
+
+            <div className="mb-4">
+              <div className="text-[10px] font-black text-muted uppercase tracking-widest mb-2">
+                Mode
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setReportMode('as400')}
+                  className={`p-2.5 rounded-xl border text-left transition-all ${
+                    reportMode === 'as400'
+                      ? 'bg-accent/15 border-accent/50'
+                      : 'bg-surface border-subtle hover:border-subtle/80'
+                  }`}
+                >
+                  <div
+                    className={`text-[12px] font-bold ${reportMode === 'as400' ? 'text-accent' : 'text-content'}`}
+                  >
+                    AS400 Sync
+                  </div>
+                  <div className="text-[10px] text-muted/80 mt-0.5">
+                    Where each SKU was vs is now
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReportMode('full')}
+                  className={`p-2.5 rounded-xl border text-left transition-all ${
+                    reportMode === 'full'
+                      ? 'bg-accent/15 border-accent/50'
+                      : 'bg-surface border-subtle hover:border-subtle/80'
+                  }`}
+                >
+                  <div
+                    className={`text-[12px] font-bold ${reportMode === 'full' ? 'text-accent' : 'text-content'}`}
+                  >
+                    Full
+                  </div>
+                  <div className="text-[10px] text-muted/80 mt-0.5">Every action with notes</div>
+                </button>
+              </div>
+            </div>
+
+            <div className="text-[10px] font-black text-muted uppercase tracking-widest mb-2">
+              Note (optional)
+            </div>
+            <textarea
+              value={reportNote}
+              onChange={(e) => setReportNote(e.target.value)}
+              rows={3}
+              placeholder="e.g. End-of-day verification"
+              className="w-full bg-surface border border-subtle rounded-xl px-3 py-2 text-sm text-content placeholder:text-muted/50 focus:outline-none focus:border-accent resize-none"
+              autoFocus
+            />
+            <p className="text-[10px] text-muted/60 mt-1">
+              Shown above the table on the PDF. Leave blank to skip.
+            </p>
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => {
+                  setReportNoteOpen(false);
+                  setReportNote('');
+                }}
+                disabled={manualLoading}
+                className="px-4 py-2 rounded-xl text-[11px] font-bold text-muted hover:text-content"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDownloadReport}
+                disabled={manualLoading}
+                className="px-4 py-2 rounded-xl text-[11px] font-bold bg-accent text-main hover:opacity-90 disabled:opacity-50"
+              >
+                {manualLoading ? 'Generating…' : 'Generate PDF'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {datePickerOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => setDatePickerOpen(false)}
+        >
+          <div
+            className="bg-card border border-subtle rounded-2xl w-full max-w-md p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-base font-bold text-content mb-1">Custom date range</h2>
+            <p className="text-[11px] text-muted mb-4">
+              Pick a start and end date. Both days are included.
+            </p>
+
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div>
+                <label className="text-[10px] font-black text-muted uppercase tracking-widest mb-1 block">
+                  From
+                </label>
+                <input
+                  type="date"
+                  value={customFrom}
+                  max={customTo || todayIsoLocal()}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  className="w-full bg-surface border border-subtle rounded-xl px-3 py-2 text-sm text-content focus:outline-none focus:border-accent"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-muted uppercase tracking-widest mb-1 block">
+                  To
+                </label>
+                <input
+                  type="date"
+                  value={customTo}
+                  min={customFrom || undefined}
+                  max={todayIsoLocal()}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  className="w-full bg-surface border border-subtle rounded-xl px-3 py-2 text-sm text-content focus:outline-none focus:border-accent"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <button
+                onClick={() => {
+                  setCustomFrom('');
+                  setCustomTo('');
+                  setTimeFilter('TODAY');
+                  setDatePickerOpen(false);
+                }}
+                className="px-3 py-2 text-[11px] font-bold text-muted hover:text-content"
+              >
+                Clear
+              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setDatePickerOpen(false)}
+                  className="px-4 py-2 rounded-xl text-[11px] font-bold text-muted hover:text-content"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (!customFrom || !customTo) {
+                      toast.error('Pick both dates');
+                      return;
+                    }
+                    if (customFrom > customTo) {
+                      toast.error('From date must be before To');
+                      return;
+                    }
+                    setTimeFilter('CUSTOM');
+                    setDatePickerOpen(false);
+                  }}
+                  disabled={!customFrom || !customTo}
+                  className="px-4 py-2 rounded-xl text-[11px] font-bold bg-accent text-main hover:opacity-90 disabled:opacity-50"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,0 +1,469 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import X from 'lucide-react/dist/esm/icons/x';
+import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
+import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal';
+import toast from 'react-hot-toast';
+import { supabase } from '../../lib/supabase';
+import { useInventoryMutations } from '../inventory/hooks/useInventoryMutations';
+import type { InventoryItemWithMetadata } from '../../schemas/inventory.schema';
+
+interface Candidate {
+  inventory_id: number;
+  sku: string;
+  item_name: string | null;
+  warehouse: string;
+  source_row: string;
+  sublocation: string[] | null;
+  qty: number;
+}
+
+interface TargetRow {
+  location: string;
+  max_capacity: number | null;
+  used: number;
+  free: number;
+}
+
+interface Props {
+  candidate: Candidate;
+  /** Allowed destination rows. Caller decides slow vs active. */
+  targetRows: string[];
+  /** Short label shown in the modal header ('consolidation zone' / 'active zone'). */
+  modeLabel: string;
+  /** Optional pre-selection (smart suggestion from clear-row mode). */
+  suggestedRow?: string | null;
+  onClose: () => void;
+  onMoved: (inventoryId: number) => void | Promise<void>;
+}
+
+export const ConsolidationMoveModal: React.FC<Props> = ({
+  candidate,
+  targetRows,
+  modeLabel,
+  suggestedRow,
+  onClose,
+  onMoved,
+}) => {
+  const { moveItem } = useInventoryMutations();
+  // Pre-select the smart-suggested row if it's in the allowed list.
+  const initialTarget = suggestedRow && targetRows.includes(suggestedRow) ? suggestedRow : '';
+  const [targetRow, setTargetRow] = useState<string>(initialTarget);
+  // 'Other' mode: operator types a destination not in the suggested tiles.
+  const [otherMode, setOtherMode] = useState(false);
+  const [otherRow, setOtherRow] = useState('');
+  const otherInputRef = useRef<HTMLInputElement>(null);
+  // Effective target — typed-other beats tile selection when otherMode is on.
+  const normalizedOther = otherRow.trim().toUpperCase();
+  const effectiveTarget = otherMode ? normalizedOther : targetRow;
+  // idea-116: sublocation is now an array of A-F letters selected via chips
+  // (same UX as MovementModal). Replaces the prior free-text input — which
+  // accepted any string and required parsing — with a constrained selector
+  // that matches the DB CHECK constraint (`^[A-Z]{1,3}$`).
+  const [sublocLetters, setSublocLetters] = useState<string[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Fetch target row occupancy so we can show free capacity in the picker.
+  const targetRowsKey = targetRows.join(',');
+  const { data: targets = [] } = useQuery({
+    queryKey: ['consolidation-targets', candidate.warehouse, targetRowsKey],
+    queryFn: async (): Promise<TargetRow[]> => {
+      const { data: locs, error: lErr } = await supabase
+        .from('locations')
+        .select('id, location, max_capacity')
+        .eq('warehouse', candidate.warehouse)
+        .in('location', targetRows)
+        .eq('is_active', true);
+      if (lErr) throw lErr;
+
+      const { data: inv, error: iErr } = await supabase
+        .from('inventory')
+        .select('location, quantity, is_active')
+        .eq('warehouse', candidate.warehouse)
+        .in('location', targetRows)
+        .eq('is_active', true)
+        .gt('quantity', 0);
+      if (iErr) throw iErr;
+
+      const usedByLoc = new Map<string, number>();
+      for (const r of inv || []) {
+        usedByLoc.set(r.location || '', (usedByLoc.get(r.location || '') || 0) + (r.quantity || 0));
+      }
+
+      return (locs || [])
+        .map((l) => {
+          const used = usedByLoc.get(l.location) || 0;
+          return {
+            location: l.location,
+            max_capacity: l.max_capacity,
+            used,
+            free: (l.max_capacity || 0) - used,
+          };
+        })
+        .sort((a, b) => {
+          const an = Number(a.location.match(/^ROW\s+(\d+)/)?.[1] || 9999);
+          const bn = Number(b.location.match(/^ROW\s+(\d+)/)?.[1] || 9999);
+          return an - bn;
+        });
+    },
+  });
+
+  // Lookup capacity for a typed-other row. Only runs when the operator
+  // has switched to Other mode AND typed something — keeps the round-
+  // trips down to one per change-of-input.
+  const { data: otherInfo, isFetching: otherFetching } = useQuery({
+    queryKey: ['move-modal-other-row', candidate.warehouse, normalizedOther],
+    enabled: otherMode && normalizedOther.length > 0,
+    queryFn: async (): Promise<{ exists: boolean; free: number; is_same_as_source: boolean }> => {
+      const isSameAsSource = normalizedOther === candidate.source_row.toUpperCase().trim();
+      const { data: loc } = await supabase
+        .from('locations')
+        .select('id, location, max_capacity')
+        .eq('warehouse', candidate.warehouse)
+        .eq('location', normalizedOther)
+        .eq('is_active', true)
+        .maybeSingle();
+      if (!loc) return { exists: false, free: 0, is_same_as_source: isSameAsSource };
+      const { data: inv } = await supabase
+        .from('inventory')
+        .select('quantity')
+        .eq('warehouse', candidate.warehouse)
+        .eq('location', normalizedOther)
+        .eq('is_active', true)
+        .gt('quantity', 0);
+      const used = (inv || []).reduce((s, r) => s + (r.quantity || 0), 0);
+      return {
+        exists: true,
+        free: (loc.max_capacity || 0) - used,
+        is_same_as_source: isSameAsSource,
+      };
+    },
+    staleTime: 0,
+  });
+
+  const fitWarning = useMemo(() => {
+    if (otherMode) {
+      if (!normalizedOther) return null;
+      if (otherFetching) return null;
+      if (!otherInfo?.exists)
+        return `Row "${normalizedOther}" doesn't exist in ${candidate.warehouse}.`;
+      if (otherInfo.is_same_as_source)
+        return `${normalizedOther} is the SKU's current location — pick a different row.`;
+      if (otherInfo.free < candidate.qty)
+        return `Only ${otherInfo.free}u free in ${normalizedOther} — moving ${candidate.qty}u will overflow capacity.`;
+      return null;
+    }
+    const t = targets.find((r) => r.location === targetRow);
+    if (!t) return null;
+    if (t.free < candidate.qty)
+      return `Only ${t.free}u free in ${targetRow} — moving ${candidate.qty}u will overflow capacity.`;
+    return null;
+  }, [
+    targetRow,
+    targets,
+    candidate.qty,
+    candidate.warehouse,
+    otherMode,
+    normalizedOther,
+    otherInfo,
+    otherFetching,
+  ]);
+
+  useEffect(() => {
+    const onEsc = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onEsc);
+    return () => window.removeEventListener('keydown', onEsc);
+  }, [onClose]);
+
+  const submit = async () => {
+    if (!effectiveTarget || submitting) return;
+    if (otherMode) {
+      // Hard-block submission for typed rows that don't validate.
+      if (!otherInfo?.exists) {
+        toast.error(`Row "${normalizedOther}" doesn't exist.`);
+        return;
+      }
+    }
+    setSubmitting(true);
+    try {
+      // Defensive check: confirm the inventory row is still at the source we
+      // think before calling the RPC. The consolidation list can go stale if
+      // another user moved the same row, or if a fast double-click on the
+      // screen targets an in-flight candidate.
+      const { data: fresh, error: freshErr } = await supabase
+        .from('inventory')
+        .select('id, sku, warehouse, location, quantity, is_active')
+        .eq('id', candidate.inventory_id)
+        .maybeSingle();
+      if (freshErr) throw freshErr;
+      if (!fresh || !fresh.is_active || (fresh.quantity ?? 0) <= 0) {
+        toast.error('Item no longer available — refreshing list.');
+        onMoved(candidate.inventory_id);
+        return;
+      }
+      if (
+        fresh.sku !== candidate.sku ||
+        fresh.warehouse !== candidate.warehouse ||
+        (fresh.location || '').toUpperCase() !== candidate.source_row.toUpperCase()
+      ) {
+        toast.error(`Item moved by someone else (now at ${fresh.location}). Refreshing list.`);
+        onMoved(candidate.inventory_id);
+        return;
+      }
+
+      // Empty selection normalizes to NULL so the server doesn't store '{}'
+      // for a row whose sublocation was meant to be cleared.
+      const sublocs = sublocLetters.length > 0 ? sublocLetters : null;
+
+      // Defensive: refuse same-location moves at the client too (the RPC
+      // now raises, but this surfaces a friendlier message and avoids the
+      // round-trip).
+      if (effectiveTarget.toUpperCase().trim() === (fresh.location || '').toUpperCase().trim()) {
+        toast.error(`${candidate.sku} is already in ${effectiveTarget}.`);
+        return;
+      }
+
+      // Build a minimal InventoryItemWithMetadata-shaped sourceItem from the
+      // (verified-fresh) row. The mutation only reads
+      // sku/warehouse/location/quantity from it; rest is cast for typing.
+      const sourceItem = {
+        id: fresh.id,
+        sku: fresh.sku,
+        warehouse: fresh.warehouse,
+        location: fresh.location,
+        quantity: fresh.quantity,
+        sublocation: candidate.sublocation,
+      } as unknown as InventoryItemWithMetadata;
+
+      await moveItem.mutateAsync({
+        sourceItem,
+        targetWarehouse: candidate.warehouse,
+        targetLocation: effectiveTarget,
+        qty: fresh.quantity ?? candidate.qty,
+        targetSublocation: sublocs,
+        moveNote: 'Consolidation',
+      });
+      toast.success(`Moved ${candidate.sku} → ${effectiveTarget}`);
+      onMoved(candidate.inventory_id);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Move failed';
+      toast.error(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    // z-[110] sits above BottomNavigation (z-[100]) — bottom-sheet modals on
+    // mobile dock at items-end, so without this the panel's action buttons
+    // get hidden under the floating nav bar. See ui-rules skill §1.
+    <div className="fixed inset-0 z-[110] bg-black/60 flex items-end sm:items-center justify-center">
+      <div className="bg-card border border-subtle rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md max-h-[90vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]">
+        <div className="px-4 py-3 border-b border-subtle flex items-center justify-between sticky top-0 bg-card">
+          <div className="min-w-0">
+            <div className="text-[10px] text-muted font-bold uppercase tracking-widest">
+              Move to {modeLabel}
+            </div>
+            <div className="font-mono text-sm font-bold text-content truncate">
+              {candidate.sku}{' '}
+              <span className="text-muted font-sans font-normal text-xs">
+                · {candidate.qty}u from {candidate.source_row}
+                {candidate.sublocation?.length ? `:${candidate.sublocation.join('+')}` : ''}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 -mr-1 rounded-lg text-muted hover:text-content"
+            aria-label="Close"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          <div>
+            <label className="text-[10px] text-muted font-bold uppercase tracking-widest mb-2 block">
+              Target row{' '}
+              {suggestedRow && <span className="text-accent">· suggested {suggestedRow}</span>}
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {targets
+                // Hide the source row — moving to the same location is a no-op
+                // and the RPC now rejects it. Filtering early keeps the UI
+                // honest about what's actionable.
+                .filter((t) => t.location.toUpperCase() !== candidate.source_row.toUpperCase())
+                .map((t) => {
+                  const fits = t.free >= candidate.qty;
+                  const selected = targetRow === t.location;
+                  const isSuggested = suggestedRow === t.location;
+                  return (
+                    <button
+                      key={t.location}
+                      onClick={() => setTargetRow(t.location)}
+                      className={`relative p-3 rounded-2xl border text-left transition-colors active:scale-[0.97] ${
+                        selected
+                          ? 'bg-accent text-white border-accent shadow-md shadow-accent/20'
+                          : isSuggested
+                            ? 'bg-accent/5 border-accent/60 text-content ring-1 ring-accent/40'
+                            : fits
+                              ? 'bg-surface border-subtle text-content hover:border-accent/50'
+                              : 'bg-surface border-subtle text-muted opacity-60'
+                      }`}
+                    >
+                      {isSuggested && !selected && (
+                        <span className="absolute top-1 right-1 text-[8px] px-1 py-0.5 rounded bg-accent/20 text-accent font-black uppercase tracking-tighter">
+                          ★
+                        </span>
+                      )}
+                      <div className="text-base md:text-lg font-black tracking-tight leading-none">
+                        {t.location}
+                      </div>
+                      <div className="text-[10px] uppercase font-bold opacity-80 mt-1 tracking-wider">
+                        {t.free}u free
+                      </div>
+                    </button>
+                  );
+                })}
+
+              {/* 'Other' escape hatch — operator types any row not in the
+               *  suggested set. Useful when the smart planner couldn't fit
+               *  the SKU anywhere or the user has a different intent. */}
+              <button
+                type="button"
+                onClick={() => {
+                  setOtherMode(true);
+                  setTargetRow('');
+                  // Focus the input on the next tick so iOS opens the keyboard.
+                  setTimeout(() => otherInputRef.current?.focus(), 0);
+                }}
+                className={`p-3 rounded-2xl border text-left transition-colors active:scale-[0.97] flex flex-col items-start gap-1 ${
+                  otherMode
+                    ? 'bg-accent text-white border-accent shadow-md shadow-accent/20'
+                    : 'bg-surface border-dashed border-subtle text-content hover:border-accent/50'
+                }`}
+              >
+                <MoreHorizontal size={16} />
+                <div className="text-base md:text-lg font-black tracking-tight leading-none">
+                  Other
+                </div>
+                <div className="text-[10px] uppercase font-bold opacity-80 tracking-wider">
+                  type a row
+                </div>
+              </button>
+            </div>
+
+            {otherMode && (
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center bg-surface border border-subtle rounded-xl pr-2 focus-within:ring-1 focus-within:ring-accent">
+                  <input
+                    ref={otherInputRef}
+                    type="text"
+                    value={otherRow}
+                    onChange={(e) => setOtherRow(e.target.value)}
+                    placeholder="e.g. ROW 15"
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    spellCheck="false"
+                    className="flex-1 bg-transparent border-none outline-none px-3 py-2 text-sm text-content placeholder:text-muted/50 font-bold uppercase"
+                  />
+                  {normalizedOther && (
+                    <span className="text-[10px] font-bold uppercase tracking-wider mr-2">
+                      {otherFetching ? (
+                        <Loader2 size={12} className="animate-spin text-muted" />
+                      ) : otherInfo?.exists ? (
+                        otherInfo.is_same_as_source ? (
+                          <span className="text-amber-500">same as source</span>
+                        ) : (
+                          <span
+                            className={
+                              otherInfo.free >= candidate.qty
+                                ? 'text-emerald-500'
+                                : 'text-amber-500'
+                            }
+                          >
+                            {otherInfo.free}u free
+                          </span>
+                        )
+                      ) : (
+                        <span className="text-red-500">not found</span>
+                      )}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOtherMode(false);
+                    setOtherRow('');
+                  }}
+                  className="text-[10px] text-muted hover:text-content font-bold uppercase tracking-wider underline"
+                >
+                  Back to suggestions
+                </button>
+              </div>
+            )}
+          </div>
+
+          {effectiveTarget.toUpperCase().startsWith('ROW') && (
+            <div>
+              <label className="text-[10px] text-muted font-bold uppercase tracking-widest mb-2 block">
+                Sublocation (optional)
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {['A', 'B', 'C', 'D', 'E', 'F'].map((letter) => {
+                  const isSelected = sublocLetters.includes(letter);
+                  return (
+                    <button
+                      key={letter}
+                      type="button"
+                      onClick={() => {
+                        setSublocLetters((prev) =>
+                          isSelected ? prev.filter((l) => l !== letter) : [...prev, letter].sort()
+                        );
+                      }}
+                      className={`w-9 h-9 rounded-lg text-xs font-black transition-all ${
+                        isSelected
+                          ? 'bg-accent text-main shadow-lg shadow-accent/20'
+                          : 'bg-surface text-muted border border-subtle hover:border-accent/40'
+                      }`}
+                    >
+                      {letter}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {fitWarning && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-[11px] text-amber-500 font-medium">
+              {fitWarning}
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-3 rounded-xl border border-subtle text-content text-xs font-bold uppercase tracking-wider"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={submit}
+              disabled={
+                !effectiveTarget ||
+                submitting ||
+                (otherMode && (!otherInfo?.exists || otherInfo?.is_same_as_source || otherFetching))
+              }
+              className="flex-1 px-4 py-3 rounded-xl bg-accent text-white text-xs font-bold uppercase tracking-wider disabled:opacity-30 flex items-center justify-center gap-2"
+            >
+              {submitting && <Loader2 size={12} className="animate-spin" />}
+              Confirm move
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

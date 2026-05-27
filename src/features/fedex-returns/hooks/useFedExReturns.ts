@@ -47,6 +47,12 @@ interface AddReturnInput {
   tracking_number: string;
   label_photo_url?: string;
   notes?: string;
+  /** Optional RMA / Return Merchandise Authorization issued by the
+   *  manufacturer. Captured at intake; persisted to fedex_returns.rma. */
+  rma?: string;
+  /** True when the return came back due to a mis-ship rather than an RMA.
+   *  Mutually independent from rma at the data layer. */
+  is_misship?: boolean;
 }
 
 export function useAddFedExReturn() {
@@ -55,19 +61,79 @@ export function useAddFedExReturn() {
 
   return useMutation({
     mutationFn: async (input: AddReturnInput) => {
-      const { data, error } = await supabase
+      const tracking = input.tracking_number;
+      const performedBy = profile?.full_name ?? 'FedEx Returns';
+      const userId = user?.id;
+      if (!userId) {
+        throw new Error('You must be signed in to register a return.');
+      }
+
+      // 1. Create the return envelope (unique tracking_number guards dupes).
+      const { data: ret, error } = await supabase
         .from('fedex_returns')
         .insert({
-          tracking_number: input.tracking_number,
+          tracking_number: tracking,
           label_photo_url: input.label_photo_url || null,
           notes: input.notes || null,
-          received_by: user?.id ?? null,
+          rma: input.rma?.trim() || null,
+          is_misship: input.is_misship ?? false,
+          received_by: userId,
           received_by_name: profile?.full_name ?? null,
         })
         .select()
         .single();
       if (error) throw error;
-      return data;
+
+      // 2. Create a placeholder inventory row at LUDLOW.'FDX RETURNS' with the
+      //    tracking number as a temporary SKU. Users later "rename" this SKU
+      //    when they identify the bike model via Return-to-Stock. is_bike
+      //    forced to true because returns are always bikes (per ops policy).
+      //    Note: legacy rows live at LUDLOW.FDX — both resolve via the
+      //    process_fedex_return_item RPC which matches LIKE 'FDX%'.
+      const placeholderName = `FedEx Return ${tracking}`;
+      const { error: registerErr } = await (supabase.rpc as CallableFunction)('register_new_sku', {
+        p_sku: tracking,
+        p_item_name: placeholderName,
+        p_warehouse: 'LUDLOW',
+        p_location: 'FDX RETURNS',
+      });
+      if (registerErr) throw registerErr;
+
+      // The trigger set_sku_metadata_is_bike defaults non-bike-pattern SKUs to
+      // false. Tracking numbers are pure digits — they fall through to FALSE.
+      // Force TRUE so this placeholder shows up in stock view (bikes lane).
+      await supabase
+        .from('sku_metadata')
+        .update({ is_bike: true })
+        .eq('sku', tracking)
+        .is('is_bike', false);
+
+      // 3. Bump qty to 1 (the bike physically arrived).
+      const { error: adjustErr } = await supabase.rpc('adjust_inventory_quantity', {
+        p_sku: tracking,
+        p_warehouse: 'LUDLOW',
+        p_location: 'FDX RETURNS',
+        p_delta: 1,
+        p_performed_by: performedBy,
+        p_user_id: userId,
+        p_merge_note: placeholderName,
+      });
+      if (adjustErr) throw adjustErr;
+
+      // 4. Link the inventory row to the return so search-by-tracking and the
+      //    NOW-badge enrichment find it. condition='unknown' until the user
+      //    inspects it via Return-to-Stock.
+      const { error: itemErr } = await supabase.from('fedex_return_items').insert({
+        return_id: ret.id,
+        sku: tracking,
+        item_name: placeholderName,
+        quantity: 1,
+        condition: 'unknown',
+        target_warehouse: 'LUDLOW',
+      });
+      if (itemErr) throw itemErr;
+
+      return ret;
     },
     onMutate: async (input) => {
       await queryClient.cancelQueries({ queryKey: QUERY_KEY });
@@ -78,6 +144,8 @@ export function useAddFedExReturn() {
         status: 'received',
         label_photo_url: input.label_photo_url || null,
         notes: input.notes || null,
+        rma: input.rma?.trim() || null,
+        is_misship: input.is_misship ?? false,
         received_by: user?.id ?? null,
         received_by_name: profile?.full_name ?? null,
         processed_by: null,
@@ -95,7 +163,12 @@ export function useAddFedExReturn() {
     onError: (_err, _input, context) => {
       if (context?.previous) queryClient.setQueryData(QUERY_KEY, context.previous);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      // Intake creates an inventory row at LUDLOW.'FDX RETURNS' → refresh stock.
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['locations', 'active'] });
+    },
   });
 }
 
@@ -106,6 +179,8 @@ interface UpdateReturnInput {
   status?: ReturnStatus;
   notes?: string | null;
   label_photo_url?: string;
+  rma?: string | null;
+  is_misship?: boolean;
 }
 
 export function useUpdateFedExReturn() {
@@ -204,48 +279,92 @@ export function useAddReturnItem() {
       if (!userId) {
         throw new Error('You must be signed in to register a return.');
       }
+      const targetLocation = input.target_location?.trim().toUpperCase() || null;
+      if (!targetLocation) {
+        throw new Error('Target location is required.');
+      }
+      const targetWarehouse = input.target_warehouse ?? 'LUDLOW';
 
-      // Step 1: Ensure sku_metadata exists. If not (brand-new SKU not yet
-      // registered), create both metadata and a placeholder inventory row at
-      // LUDLOW.FDX with qty=0. register_new_sku is idempotent (ON CONFLICT
-      // DO NOTHING) so it is safe to skip when metadata is present.
-      const { data: meta } = await supabase
-        .from('sku_metadata')
-        .select('sku')
-        .eq('sku', sku)
+      // idea-111 + fedex-returns bundle: prefer the atomic
+      // process_fedex_return_item RPC. It renames the intake placeholder, MOVEs
+      // FDX → target, and auto-resolves the return — all in one transaction
+      // and one inventory_logs MOVE row with the tracking number in `note`.
+      // We look for an unresolved placeholder item on this return whose sku
+      // matches its parent return's tracking_number (the intake convention).
+      const { data: ret, error: retErr } = await supabase
+        .from('fedex_returns')
+        .select('id, tracking_number')
+        .eq('id', input.return_id)
+        .single();
+      if (retErr || !ret) throw retErr ?? new Error('Return not found');
+
+      const { data: placeholder } = await supabase
+        .from('fedex_return_items')
+        .select('id, quantity')
+        .eq('return_id', input.return_id)
+        .eq('sku', ret.tracking_number)
+        .is('moved_to_location', null)
+        .order('created_at', { ascending: true })
+        .limit(1)
         .maybeSingle();
 
-      if (!meta) {
+      if (placeholder) {
+        // Path A: rename + move + resolve via the new RPC (preferred).
+        const { data, error } = await (supabase.rpc as CallableFunction)(
+          'process_fedex_return_item',
+          {
+            p_item_id: placeholder.id,
+            p_real_sku: sku,
+            p_item_name: input.item_name || sku,
+            p_target_warehouse: targetWarehouse,
+            p_target_location: targetLocation,
+            p_condition: input.condition ?? 'good',
+            p_user_id: userId,
+            p_performed_by: performedBy,
+          }
+        );
+        if (error) throw error;
+        return data;
+      }
+
+      // Path B (fallback): no placeholder found — extra item being added to a
+      // return that was already cleaned up. Insert a fresh items row, bump the
+      // destination directly (skip the FDX buffer entirely), and auto-resolve
+      // if this completes the return.
+      const { data: invertedRow, error: invErr } = await supabase
+        .from('inventory')
+        .select('id')
+        .eq('sku', sku)
+        .eq('warehouse', targetWarehouse)
+        .eq('location', targetLocation)
+        .maybeSingle();
+      if (invErr) throw invErr;
+
+      if (!invertedRow) {
         const { error: registerErr } = await (supabase.rpc as CallableFunction)(
           'register_new_sku',
           {
             p_sku: sku,
             p_item_name: input.item_name || sku,
-            p_warehouse: 'LUDLOW',
-            p_location: 'FDX',
+            p_warehouse: targetWarehouse,
+            p_location: targetLocation,
           }
         );
         if (registerErr) throw registerErr;
       }
 
-      // Step 2: Bump the LUDLOW.FDX buffer by the return qty. This is what
-      // the later "Resolve Return" flow drains via move_inventory_stock from
-      // LUDLOW.FDX to the real destination. If this fails we abort BEFORE
-      // touching fedex_return_items, so no orphan rows are left behind.
       const { error: adjustErr } = await supabase.rpc('adjust_inventory_quantity', {
         p_sku: sku,
-        p_warehouse: 'LUDLOW',
-        p_location: 'FDX',
+        p_warehouse: targetWarehouse,
+        p_location: targetLocation,
         p_delta: qty,
         p_performed_by: performedBy,
         p_user_id: userId,
-        p_merge_note: input.item_name ?? undefined,
+        p_merge_note: `FedEx Return ${ret.tracking_number}`,
       });
       if (adjustErr) throw adjustErr;
 
-      // Step 3: Insert the return-item row. If this fails, compensate by
-      // rolling back the FDX adjust to keep stock consistent. We log the
-      // compensation failure (rare) so it can be reconciled manually.
+      const nowIso = new Date().toISOString();
       const { data, error } = await supabase
         .from('fedex_return_items')
         .insert({
@@ -254,25 +373,27 @@ export function useAddReturnItem() {
           item_name: input.item_name || null,
           quantity: qty,
           condition: input.condition ?? 'good',
-          target_location: input.target_location?.trim().toUpperCase() || null,
-          target_warehouse: input.target_warehouse ?? 'LUDLOW',
+          target_location: targetLocation,
+          target_warehouse: targetWarehouse,
+          moved_to_location: targetLocation,
+          moved_to_warehouse: targetWarehouse,
+          moved_at: nowIso,
         })
         .select()
         .single();
+      if (error) throw error;
 
-      if (error) {
-        const { error: rollbackErr } = await supabase.rpc('adjust_inventory_quantity', {
-          p_sku: sku,
-          p_warehouse: 'LUDLOW',
-          p_location: 'FDX',
-          p_delta: -qty,
-          p_performed_by: performedBy,
-          p_user_id: userId,
-        });
-        if (rollbackErr) {
-          console.error('[useAddReturnItem] FDX rollback failed after insert error', rollbackErr);
-        }
-        throw error;
+      // Auto-resolve check for path B too.
+      const { count } = await supabase
+        .from('fedex_return_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('return_id', input.return_id)
+        .is('moved_to_location', null);
+      if ((count ?? 0) === 0) {
+        await supabase
+          .from('fedex_returns')
+          .update({ status: 'resolved', resolved_at: nowIso, updated_at: nowIso })
+          .eq('id', input.return_id);
       }
       return data;
     },
@@ -355,7 +476,12 @@ export function useResolveReturn() {
         const { error: moveError } = await supabase.rpc('move_inventory_stock', {
           p_sku: item.sku,
           p_from_warehouse: 'LUDLOW',
-          p_from_location: 'FDX',
+          // Legacy intake used 'FDX'; new intake uses 'FDX RETURNS'. The
+          // useResolveReturn fallback path is rarely hit because most flows
+          // route through process_fedex_return_item (which auto-finds the
+          // placeholder row via LIKE 'FDX%'). Use the new default here so
+          // freshly registered returns resolve cleanly.
+          p_from_location: 'FDX RETURNS',
           p_to_warehouse: toWarehouse,
           p_to_location: item.target_location,
           p_qty: item.quantity,
@@ -388,6 +514,44 @@ export function useResolveReturn() {
       if (error) throw error;
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
+  });
+}
+
+// ── Dispose Return (atomic: drain ghosts + mark items disposed + resolve)
+
+interface DisposeReturnInput {
+  returnId: string;
+  reason?: string | null;
+}
+
+export function useDisposeReturn() {
+  const queryClient = useQueryClient();
+  const { user, profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: DisposeReturnInput) => {
+      const userId = user?.id;
+      if (!userId) throw new Error('You must be signed in to dispose a return.');
+
+      const { data, error } = await (supabase.rpc as CallableFunction)('dispose_fedex_return', {
+        p_return_id: input.returnId,
+        p_user_id: userId,
+        p_performed_by: profile?.full_name ?? 'FedEx Returns',
+        p_dispose_reason: input.reason ?? null,
+      });
+      if (error) throw error;
+      return data as {
+        return_id: string;
+        tracking: string;
+        disposed_items: number;
+        drained_inventory_rows: number;
+      };
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['locations', 'active'] });
+    },
   });
 }
 

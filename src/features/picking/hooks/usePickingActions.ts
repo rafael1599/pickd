@@ -373,6 +373,41 @@ export const usePickingActions = ({
     [user]
   );
 
+  // Park: release the lock without transitioning status. Used when the
+  // verifier wants to leave a half-checked order back in its lane (FedEx /
+  // Regular) so any teammate can pick it up — distinct from releaseCheck,
+  // which sends the order to the Ready-to-Double-Check queue.
+  const parkOrder = useCallback(
+    async (listId: string) => {
+      const { data: order } = await supabase
+        .from('picking_lists')
+        .select('group_id')
+        .eq('id', listId)
+        .single();
+
+      const { error } = await supabase
+        .from('picking_lists')
+        .update({ checked_by: null, updated_at: new Date().toISOString() })
+        .eq('id', listId)
+        .neq('status', 'completed')
+        .neq('status', 'cancelled');
+      if (error) throw error;
+
+      if (order?.group_id) {
+        await supabase
+          .from('picking_lists')
+          .update({ checked_by: null, updated_at: new Date().toISOString() })
+          .eq('group_id', order.group_id)
+          .neq('id', listId)
+          .neq('status', 'completed')
+          .neq('status', 'cancelled');
+      }
+
+      resetSession();
+    },
+    [resetSession]
+  );
+
   const releaseCheck = useCallback(
     async (listId: string) => {
       // Check if order belongs to a group — release all siblings too
@@ -512,10 +547,34 @@ export const usePickingActions = ({
           .eq('id', listId)
           .maybeSingle();
 
+        // Completed/reopened: restore inventory + mark cancelled via RPC.
+        // The RPC is idempotent and handles the reopen-revert + group cleanup.
         if (currentList?.status === 'completed' || currentList?.status === 'reopened') {
-          console.log(
-            'Blocked deletion of a completed/reopened order to protect inventory history.'
-          );
+          const { data, error: rpcError } = await supabase.rpc('cancel_completed_order', {
+            p_list_id: listId,
+            p_user_id: user?.id ?? null,
+          });
+
+          if (rpcError) {
+            console.error('cancel_completed_order failed:', rpcError);
+            toast.error('Failed to cancel order: ' + rpcError.message);
+            throw rpcError;
+          }
+
+          const result =
+            (data as {
+              restored_units?: number;
+              items_restored?: number;
+              already_cancelled?: boolean;
+            } | null) ?? {};
+          if (result.already_cancelled) {
+            toast('Order was already cancelled', { icon: 'ℹ️' });
+          } else {
+            toast.success(
+              `Order cancelled — ${result.restored_units ?? 0} units restored to inventory`
+            );
+          }
+
           if (listId === activeListId && !keepLocalState) {
             resetSession();
           }
@@ -618,7 +677,7 @@ export const usePickingActions = ({
         throw err;
       }
     },
-    [activeListId, resetSession]
+    [activeListId, resetSession, user]
   );
 
   const generatePickingPath = useCallback(async () => {
@@ -736,15 +795,25 @@ export const usePickingActions = ({
 
       if (activeListId) {
         // Reuse existing picking_list record (user returned from double-check to correct items)
+        // Guard (mirrors dd64e78): never write merged group / watchdog-combined
+        // data back to DB. Merged order_numbers contain ' / ' (e.g.
+        // "879484 / 879460"). Local cartItems can lag behind the DB after a
+        // watchdog combine (realtime only syncs metadata), so writing the
+        // local snapshot here would silently delete items the watchdog merged.
+        // Order 879460 lost 11 items on 2026-04-30 through this exact path.
+        const isMergedGroup = orderNumber?.includes(' / ');
+        const updateData: Record<string, unknown> = {
+          status: 'active',
+          customer_id: customerId,
+          load_number: loadNumber,
+        };
+        if (!isMergedGroup) {
+          updateData.items = cartItems as unknown as Json;
+          updateData.order_number = orderNumber;
+        }
         const result = await supabase
           .from('picking_lists')
-          .update({
-            items: cartItems as unknown as Json,
-            status: 'active',
-            order_number: orderNumber,
-            customer_id: customerId,
-            load_number: loadNumber,
-          })
+          .update(updateData)
           .eq('id', activeListId)
           .select()
           .single();
@@ -960,6 +1029,54 @@ export const usePickingActions = ({
     [user, setIsSaving, resetSession]
   );
 
+  /**
+   * idea-067 Phase 2: atomic completion for an Add-On reopen flow. Calls the
+   * complete_addon_group RPC which re-completes the source (delta inventory)
+   * AND completes the target in a single transaction.
+   */
+  const completeAddonGroup = useCallback(
+    async (
+      sourceId: string,
+      targetId: string,
+      sourcePallets: number,
+      sourceUnits: number,
+      targetPallets: number,
+      targetUnits: number
+    ) => {
+      if (!user) return;
+      setIsSaving(true);
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, role')
+          .eq('id', user.id)
+          .single();
+
+        const { error } = await supabase.rpc('complete_addon_group', {
+          p_source_id: sourceId,
+          p_target_id: targetId,
+          p_performed_by: profile?.full_name || user.email || 'Unknown',
+          p_user_id: user.id,
+          p_source_pallets: sourcePallets,
+          p_source_units: sourceUnits,
+          p_target_pallets: targetPallets,
+          p_target_units: targetUnits,
+          p_user_role: profile?.role || 'staff',
+        });
+        if (error) throw error;
+        toast.success('Add-On completed');
+        resetSession();
+      } catch (err) {
+        console.error('Failed to complete Add-On:', err);
+        toast.error(err instanceof Error ? err.message : 'Failed to complete Add-On');
+        throw err;
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [user, setIsSaving, resetSession]
+  );
+
   const cancelReopen = useCallback(
     async (listId: string) => {
       if (!user) return;
@@ -987,6 +1104,7 @@ export const usePickingActions = ({
     markAsReady,
     lockForCheck,
     releaseCheck,
+    parkOrder,
     returnToPicker,
     revertToPicking,
     deleteList,
@@ -997,5 +1115,6 @@ export const usePickingActions = ({
     reopenOrder,
     recompleteOrder,
     cancelReopen,
+    completeAddonGroup,
   };
 };

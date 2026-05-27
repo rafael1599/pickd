@@ -14,7 +14,7 @@ import Calendar from 'lucide-react/dist/esm/icons/calendar';
 import { useScrollLock } from '../../../../hooks/useScrollLock';
 import { supabase } from '../../../../lib/supabase';
 import type { InventoryLog, LogActionTypeValue } from '../../../../schemas/log.schema';
-import { getUserColor } from '../../../../utils/userUtils';
+import { moveDeltaUnits } from '../../utils/inventoryLogShape';
 
 interface DistributionSnapshot {
   type?: string;
@@ -29,7 +29,7 @@ interface ItemHistorySheetProps {
   sku: string;
 }
 
-const getActionInfo = (type: LogActionTypeValue, log: InventoryLog) => {
+export const getActionInfo = (type: LogActionTypeValue, log: InventoryLog) => {
   switch (type) {
     case 'MOVE':
       return {
@@ -91,18 +91,15 @@ const getActionInfo = (type: LogActionTypeValue, log: InventoryLog) => {
   }
 };
 
-const getDisplayQty = (log: InventoryLog) => {
+export const getDisplayQty = (log: InventoryLog) => {
   if (log.action_type === 'EDIT') return log.new_quantity ?? log.quantity_change ?? 0;
   if (log.action_type === 'PHYSICAL_DISTRIBUTION') {
     const snap = log.snapshot_before as DistributionSnapshot | null | undefined;
     return snap?.count && snap?.units_each ? snap.count * snap.units_each : (log.new_quantity ?? 0);
   }
-  if (
-    log.action_type === 'MOVE' &&
-    (log.quantity_change === 0 || !log.quantity_change) &&
-    log.new_quantity
-  )
-    return log.new_quantity;
+  if (log.action_type === 'MOVE') {
+    return moveDeltaUnits(log) ?? 0;
+  }
   return Math.abs(log.quantity_change || 0);
 };
 
@@ -110,12 +107,12 @@ export const ItemHistorySheet: React.FC<ItemHistorySheetProps> = ({ isOpen, onCl
   const { data: logs, isLoading } = useQuery({
     queryKey: ['inventory_logs', 'item', sku],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('inventory_logs')
-        .select('*')
-        .eq('sku', sku)
-        .order('created_at', { ascending: false })
-        .limit(50);
+      // Use alias-aware RPC so renamed SKUs surface history under old names.
+      // See migration 20260519120000_sku_alias_chain.sql.
+      const { data, error } = await supabase.rpc('get_inventory_logs_for_sku', {
+        p_sku: sku,
+        p_limit: 50,
+      });
 
       if (error) throw error;
       return (data || []) as unknown as InventoryLog[];
@@ -257,7 +254,8 @@ export const ItemHistorySheet: React.FC<ItemHistorySheetProps> = ({ isOpen, onCl
                             )}
                           </div>
 
-                          {/* Time + user */}
+                          {/* Time only — user attribution lives in the
+                              user filter on /history when needed. */}
                           <div className="mt-1.5 flex items-center gap-1.5 text-[9px] text-muted">
                             <span className="font-bold">
                               {new Date(log.created_at).toLocaleTimeString([], {
@@ -265,17 +263,14 @@ export const ItemHistorySheet: React.FC<ItemHistorySheetProps> = ({ isOpen, onCl
                                 minute: '2-digit',
                               })}
                             </span>
-                            <span className="opacity-40">&bull;</span>
-                            <span
-                              style={{ color: getUserColor(log.performed_by) }}
-                              className="font-black"
-                            >
-                              {log.performed_by || 'Unknown'}
-                            </span>
                           </div>
 
-                          {/* Stock level change */}
-                          {log.prev_quantity !== null &&
+                          {/* Stock level change — only when warehouse total
+                              changed. MOVE and PHYSICAL_DISTRIBUTION are
+                              zero-sum so 'N → 0' would mislead. */}
+                          {log.action_type !== 'MOVE' &&
+                            log.action_type !== 'PHYSICAL_DISTRIBUTION' &&
+                            log.prev_quantity !== null &&
                             log.new_quantity !== null &&
                             log.prev_quantity !== log.new_quantity && (
                               <div className="mt-1.5 text-[8px] font-black uppercase tracking-widest text-muted/40">

@@ -16,6 +16,7 @@ import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
 import Printer from 'lucide-react/dist/esm/icons/printer';
 import ShoppingCart from 'lucide-react/dist/esm/icons/shopping-cart';
 import PackageOpen from 'lucide-react/dist/esm/icons/package-open';
+import Boxes from 'lucide-react/dist/esm/icons/boxes';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import { useModal } from '../../context/ModalContext';
 
@@ -338,6 +339,28 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                 <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-3 block">
                   Admin Tools
                 </label>
+
+                <button
+                  onClick={() => navTo('/consolidation')}
+                  className="flex items-center justify-between w-full group text-left mb-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-surface border border-subtle rounded-xl text-orange-500">
+                      <Boxes size={16} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-content uppercase tracking-tight">
+                        Consolidation
+                      </p>
+                      <p className="text-[9px] text-muted font-bold uppercase">
+                        Slow-mover slotting
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-accent group-hover:translate-x-1 transition-transform">
+                    →
+                  </div>
+                </button>
 
                 <button
                   onClick={() => navTo('/labels')}

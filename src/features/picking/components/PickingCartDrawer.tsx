@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import ChevronUp from 'lucide-react/dist/esm/icons/chevron-up';
 import { DoubleCheckView, PickingItem, type CorrectionAction } from './DoubleCheckView';
+import { AddOnTargetPickerModal, type AddOnTargetCandidate } from './AddOnTargetPickerModal';
+import { useOrderGroups } from '../hooks/useOrderGroups';
 import { useAuth } from '../../../context/AuthContext';
 import { useConfirmation } from '../../../context/ConfirmationContext';
 import { usePickingSession } from '../../../context/PickingContext';
@@ -11,6 +13,7 @@ import { useInventory } from '../../inventory/hooks/InventoryProvider';
 import { getOptimizedPickingPath, calculatePallets } from '../../../utils/pickingLogic';
 import type { Location } from '../../../schemas/location.schema';
 import { supabase } from '../../../lib/supabase';
+import { usePickItemMutation } from '../hooks/usePickItemMutation';
 import type { Json } from '../../../lib/database.types';
 import toast from 'react-hot-toast';
 import { useScrollLock } from '../../../hooks/useScrollLock';
@@ -20,6 +23,12 @@ export const PickingCartDrawer: React.FC = () => {
   const { showConfirmation } = useConfirmation();
   const { externalDoubleCheckId, setExternalDoubleCheckId, viewMode } = useViewMode();
   const { pathname } = useLocation();
+  // Per-item pick/unpick mutation. Inherits the project's mutation
+  // defaults (retry × 3 with exponential backoff capped at 30s,
+  // networkMode: offlineFirst) from query-client.ts — replaces the
+  // previous fire-and-forget supabase.rpc().then() that gave up after
+  // the first network blip.
+  const pickItem = usePickItemMutation();
 
   const {
     cartItems,
@@ -33,6 +42,7 @@ export const PickingCartDrawer: React.FC = () => {
     loadExternalList,
     lockForCheck,
     releaseCheck,
+    parkOrder,
     returnToPicker,
     markAsReady,
     ownerId,
@@ -46,13 +56,18 @@ export const PickingCartDrawer: React.FC = () => {
     setIsWaitingInventory,
     claimAsPicker,
     cancelReopen,
+    completeAddonGroup,
+    reopenOrder,
   } = usePickingSession();
+  const { createGroup } = useOrderGroups();
 
   const { inventoryData, processPickingList, recompletePickingList } = useInventory();
 
   const [isOpen, setIsOpen] = useState(false);
   // currentView removed — always renders DoubleCheckView (idea-032 phase 2)
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
+  // idea-067 Phase 2 / Option A: COMBINE flow from open orders.
+  const [combineModalOpen, setCombineModalOpen] = useState(false);
   const isOwner = user?.id === ownerId;
   const isConfirmingRef = React.useRef(false);
   const isRecompletingRef = React.useRef(false);
@@ -69,21 +84,48 @@ export const PickingCartDrawer: React.FC = () => {
     if (!isOpen) wasExternallyOpenedRef.current = false;
   }, [isOpen]);
 
-  // 0. Restore checked items on load if in double-check session
+  // idea-105 phase 1 — hydrate the verified-keys Set from DB first; if the
+  // column is empty (legacy orders or freshly-parked-on-another-device-with-
+  // no-network) fall back to the local browser cache. The DB column is the
+  // cross-user source of truth so a Park Order on one device shows up to
+  // the next picker.
+  const hydrateVerifiedItems = useCallback(async (listId: string) => {
+    try {
+      // Column was added in migration 20260505140000 (idea-105 phase 1).
+      // Supabase types haven't been regenerated yet — cast through unknown.
+      const { data } = (await supabase
+        .from('picking_lists')
+        .select('verified_item_keys')
+        .eq('id', listId)
+        .maybeSingle()) as unknown as { data: { verified_item_keys: string[] | null } | null };
+      const dbKeys = data?.verified_item_keys ?? [];
+      if (dbKeys.length > 0) {
+        setCheckedItems(new Set(dbKeys));
+        return;
+      }
+    } catch {
+      /* swallow — fall through to localStorage */
+    }
+    const saved = localStorage.getItem(`double_check_progress_${listId}`);
+    if (saved) {
+      try {
+        setCheckedItems(new Set(JSON.parse(saved)));
+        return;
+      } catch {
+        /* corrupt, reset */
+      }
+    }
+    setCheckedItems(new Set());
+  }, []);
+
+  // 0. Restore checked items on load if in double-check session.
   useEffect(() => {
     if (sessionMode === 'double_checking' && activeListId) {
-      const savedProgress = localStorage.getItem(`double_check_progress_${activeListId}`);
-      if (savedProgress) {
-        try {
-          setCheckedItems(new Set(JSON.parse(savedProgress)));
-        } catch {
-          /* ignore corrupt localStorage */
-        }
-      }
+      void hydrateVerifiedItems(activeListId);
     } else {
       setCheckedItems(new Set());
     }
-  }, [sessionMode, activeListId]);
+  }, [sessionMode, activeListId, hydrateVerifiedItems]);
 
   // Auto-open full-screen when entering reopened mode
   useEffect(() => {
@@ -163,11 +205,7 @@ export const PickingCartDrawer: React.FC = () => {
                 async () => {
                   console.log('⚔️ [PickingCartDrawer] confirmed takeover');
                   await lockForCheck(String(externalDoubleCheckId));
-                  const savedProgress = localStorage.getItem(
-                    `double_check_progress_${externalDoubleCheckId}`
-                  );
-                  if (savedProgress) setCheckedItems(new Set(JSON.parse(savedProgress)));
-                  else setCheckedItems(new Set());
+                  await hydrateVerifiedItems(String(externalDoubleCheckId));
                   wasExternallyOpenedRef.current = true;
                   setIsOpen(true);
                   setExternalDoubleCheckId(null);
@@ -186,19 +224,7 @@ export const PickingCartDrawer: React.FC = () => {
 
             console.log('🔒 [PickingCartDrawer] Locking list for user...');
             await lockForCheck(String(externalDoubleCheckId));
-
-            const savedProgress = localStorage.getItem(
-              `double_check_progress_${externalDoubleCheckId}`
-            );
-            if (savedProgress) {
-              try {
-                setCheckedItems(new Set(JSON.parse(savedProgress)));
-              } catch {
-                setCheckedItems(new Set());
-              }
-            } else {
-              setCheckedItems(new Set());
-            }
+            await hydrateVerifiedItems(String(externalDoubleCheckId));
 
             console.log('🔓 [PickingCartDrawer] Opening drawer for double check');
             wasExternallyOpenedRef.current = true;
@@ -227,14 +253,33 @@ export const PickingCartDrawer: React.FC = () => {
     showConfirmation,
   ]);
 
-  // 3. Persist local progress for double check
+  // 3. Persist double-check progress.
+  //    - localStorage: instant cache for the current device (offline-safe).
+  //    - picking_lists.verified_item_keys: cross-user source of truth.
+  //      Debounced so rapid toggles batch into one UPDATE.
+  const dbWriteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (sessionMode === 'double_checking' && activeListId && checkedItems.size >= 0) {
-      localStorage.setItem(
-        `double_check_progress_${activeListId}`,
-        JSON.stringify(Array.from(checkedItems))
-      );
-    }
+    if (sessionMode !== 'double_checking' || !activeListId) return;
+    const keys = Array.from(checkedItems);
+    localStorage.setItem(`double_check_progress_${activeListId}`, JSON.stringify(keys));
+
+    if (dbWriteTimer.current) clearTimeout(dbWriteTimer.current);
+    dbWriteTimer.current = setTimeout(() => {
+      // Cast: types not regenerated post-migration yet (idea-105 phase 1).
+      void supabase
+        .from('picking_lists')
+        .update({ verified_item_keys: keys as unknown as Json } as never)
+        .eq('id', activeListId)
+        .then(({ error }) => {
+          if (error) {
+            console.warn('[PickingCartDrawer] Failed to persist verified_item_keys:', error);
+          }
+        });
+    }, 500);
+
+    return () => {
+      if (dbWriteTimer.current) clearTimeout(dbWriteTimer.current);
+    };
   }, [checkedItems, activeListId, sessionMode]);
 
   const handleMarkAsReady = async (finalOrderNumber: string) => {
@@ -254,17 +299,74 @@ export const PickingCartDrawer: React.FC = () => {
     }
   };
 
+  // Park: half-checked order back to FedEx/Regular lane (status untouched).
+  // Distinct from "Send to Verify" which transitions to ready_to_double_check.
+  const handleParkOrder = async () => {
+    if (!activeListId) return;
+    await parkOrder(activeListId);
+    setIsOpen(false);
+    toast.success('Order parked — back in lane for anyone to pick up');
+  };
+
   const toggleCheck = (item: PickingItem, palletId: number | string) => {
     const key = `${palletId}-${item.sku}-${item.location}`;
+    const isChecking = !checkedItems.has(key);
+
+    // Instant local toggle so the UI never feels laggy. The mutation
+    // runs in the background and only rolls this back if all retries
+    // are exhausted.
     setCheckedItems((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
+
+    // idea-105 Phase 2: per-item DEDUCT/RESTORE on toggle. The
+    // `compensate_picking_list_changes` trigger handles inventory when
+    // items[].picked flips. Skip the RPC for picking mode or rows we
+    // can't deduct from (unregistered SKU, no warehouse/location).
+    if (
+      sessionMode !== 'double_checking' ||
+      !activeListId ||
+      !user ||
+      !item.warehouse ||
+      !item.location ||
+      item.sku_not_found
+    ) {
+      return;
+    }
+    // For grouped orders, items merged from sibling lists carry
+    // source_list_id — route the RPC to the list that actually owns
+    // the item, not the anchor list.
+    const targetListId = item.source_list_id ?? activeListId;
+    pickItem.mutate(
+      {
+        action: isChecking ? 'pick' : 'unpick',
+        listId: targetListId,
+        sku: item.sku,
+        warehouse: item.warehouse,
+        location: item.location,
+        qty: item.pickingQty,
+        userId: user.id,
+      },
+      {
+        onError: (error) => {
+          const verb = isChecking ? 'deduct' : 'restore';
+          console.warn(`[PickingCartDrawer] ${verb} ${item.sku} failed:`, error);
+          toast.error(
+            `Couldn't ${verb} ${item.sku}: ${error instanceof Error ? error.message : 'network error'}`
+          );
+          // Rollback the optimistic Set toggle.
+          setCheckedItems((prev) => {
+            const next = new Set(prev);
+            if (next.has(key)) next.delete(key);
+            else next.add(key);
+            return next;
+          });
+        },
+      }
+    );
   };
 
   const handleSelectAll = (keys?: string[]) => {
@@ -499,10 +601,16 @@ export const PickingCartDrawer: React.FC = () => {
       // Batch completion: complete sibling orders in the same group
       if (mainOrder?.group_id) {
         try {
+          // idea-067 Phase 2 / Option A: 'reopened' siblings come from a
+          // COMBINE flow where the user merged the current open order with a
+          // recently-completed one. We finalize them via recompletePickingList
+          // (delta vs snapshot), not processPickingList (which rejects
+          // 'reopened' per migration 20260422120100).
           const COMPLETABLE_STATUSES = [
             'ready_to_double_check',
             'double_checking',
             'needs_correction',
+            'reopened',
           ];
           const { data: siblings } = await supabase
             .from('picking_lists')
@@ -559,7 +667,12 @@ export const PickingCartDrawer: React.FC = () => {
                 sibPalletsQty = calculatePallets(sibPath).length;
               }
 
-              await processPickingList(sibling.id, sibPalletsQty, siblingUnits);
+              if (sibling.status === 'reopened') {
+                // Reopened sibling — apply inventory delta vs completed_snapshot.
+                await recompletePickingList(sibling.id, sibPalletsQty, siblingUnits);
+              } else {
+                await processPickingList(sibling.id, sibPalletsQty, siblingUnits);
+              }
             }
             toast.success(`Group completed (${siblings.length + 1} orders)`, {
               duration: 4000,
@@ -631,11 +744,11 @@ export const PickingCartDrawer: React.FC = () => {
               inventoryData={inventoryData}
               onMarkAsReady={() => orderNumber && handleMarkAsReady(orderNumber)}
               onSendToVerifyQueue={handleSendToVerifyQueue}
+              onParkOrder={handleParkOrder}
               onRecomplete={async (items) => {
                 if (!activeListId) return;
                 isRecompletingRef.current = true;
                 try {
-                  const totalUnits = items.reduce((acc, item) => acc + (item.pickingQty || 0), 0);
                   const allLocations: Location[] = inventoryData.map((i) => ({
                     id: i.location_id || '',
                     location: i.location || '',
@@ -648,8 +761,71 @@ export const PickingCartDrawer: React.FC = () => {
                     length_ft: null,
                     bike_line: null,
                   }));
-                  const path = getOptimizedPickingPath(items, allLocations);
-                  const palletsQty = calculatePallets(path).length;
+                  const calcMetrics = (its: PickingItem[]) => {
+                    const totalUnits = its.reduce((acc, i) => acc + (i.pickingQty || 0), 0);
+                    const palletsQty = calculatePallets(
+                      getOptimizedPickingPath(its, allLocations)
+                    ).length;
+                    return { totalUnits, palletsQty };
+                  };
+
+                  // idea-067 Phase 2: detect Add-On mode (source has group_id
+                  // → 'general' group with one open sibling target). When so,
+                  // route through complete_addon_group RPC (atomic on both
+                  // orders) instead of plain recomplete.
+                  const { data: src } = await supabase
+                    .from('picking_lists')
+                    .select('group_id, items')
+                    .eq('id', activeListId)
+                    .single();
+
+                  if (src?.group_id) {
+                    const { data: group } = await supabase
+                      .from('order_groups')
+                      .select('group_type')
+                      .eq('id', src.group_id)
+                      .single();
+
+                    if (group?.group_type === 'general') {
+                      const { data: siblings } = await supabase
+                        .from('picking_lists')
+                        .select('id, items')
+                        .eq('group_id', src.group_id)
+                        .neq('id', activeListId)
+                        .in('status', [
+                          'active',
+                          'ready_to_double_check',
+                          'double_checking',
+                          'needs_correction',
+                        ]);
+
+                      if (siblings && siblings.length >= 1) {
+                        const target = siblings[0];
+                        const targetItems = Array.isArray(target.items)
+                          ? (target.items as unknown as PickingItem[])
+                          : [];
+                        const sourceItems = Array.isArray(src.items)
+                          ? (src.items as unknown as PickingItem[])
+                          : [];
+                        const tm = calcMetrics(targetItems);
+                        const sm = calcMetrics(sourceItems);
+                        await completeAddonGroup(
+                          activeListId,
+                          target.id as string,
+                          sm.palletsQty,
+                          sm.totalUnits,
+                          tm.palletsQty,
+                          tm.totalUnits
+                        );
+                        resetSession();
+                        setIsOpen(false);
+                        return;
+                      }
+                    }
+                  }
+
+                  // Non-addon path: normal recomplete on the merged cart.
+                  const { totalUnits, palletsQty } = calcMetrics(items);
                   await recompletePickingList(activeListId, palletsQty, totalUnits);
                   resetSession();
                   setIsOpen(false);
@@ -659,11 +835,98 @@ export const PickingCartDrawer: React.FC = () => {
               }}
               onCancelReopen={async () => {
                 if (!activeListId) return;
+                // idea-067 Phase 2: if this reopened order belongs to a group
+                // (Add-On flow created one), dissolve it first so the target
+                // order returns to its prior status without a dangling
+                // group_id pointing nowhere.
+                const { data: srcRow } = await supabase
+                  .from('picking_lists')
+                  .select('group_id')
+                  .eq('id', activeListId)
+                  .single();
+                if (srcRow?.group_id) {
+                  await supabase
+                    .from('picking_lists')
+                    .update({ group_id: null })
+                    .eq('group_id', srcRow.group_id);
+                  await supabase.from('order_groups').delete().eq('id', srcRow.group_id);
+                }
                 await cancelReopen(activeListId);
                 setIsOpen(false);
               }}
+              onCombineWith={() => setCombineModalOpen(true)}
               correctionNotes={correctionNotes}
             />
+
+            {combineModalOpen && activeListId && (
+              <AddOnTargetPickerModal
+                sourceOrderId={activeListId}
+                sourceCustomerId={customer?.id ?? null}
+                sourceCustomerName={customer?.name ?? null}
+                onClose={() => setCombineModalOpen(false)}
+                onPick={async (target: AddOnTargetCandidate) => {
+                  setCombineModalOpen(false);
+                  if (!activeListId) return;
+                  if (target.status === 'double_checking') {
+                    toast.error(
+                      `#${target.order_number} is being verified by another user. Cancel that session first.`
+                    );
+                    return;
+                  }
+                  try {
+                    // If the target had a stale singleton group_id (orphan
+                    // from a prior canceled flow), free it up first so
+                    // createGroup can re-assign cleanly. Drop the orphan
+                    // order_groups row too.
+                    if (target.stale_group_id) {
+                      await supabase
+                        .from('picking_lists')
+                        .update({ group_id: null })
+                        .eq('id', target.id);
+                      await supabase.from('order_groups').delete().eq('id', target.stale_group_id);
+                    }
+
+                    // Branch by target status:
+                    //   * completed  → reopen target + bind both into a group;
+                    //                  the cart re-loads merged via group_id
+                    //                  and final completion goes through the
+                    //                  Add-On atomic RPC.
+                    //   * any open   → just bind both into a group; cart
+                    //                  re-loads merged. Final completion
+                    //                  uses the FedEx-batch path that already
+                    //                  completes all siblings together.
+                    if (target.status === 'completed') {
+                      await reopenOrder(target.id, 'Add On — combined from open order');
+                    }
+                    const groupId = await createGroup('general', [activeListId, target.id]);
+                    if (!groupId) {
+                      // createGroup already toasts. If we reopened, undo it.
+                      if (target.status === 'completed' && user?.id) {
+                        await supabase.rpc('cancel_reopen', {
+                          p_list_id: target.id,
+                          p_user_id: user.id,
+                        });
+                      }
+                      return;
+                    }
+                    // Re-load with the merged sibling items so DoubleCheckView
+                    // shows the combined cart immediately. Keep the current
+                    // sessionMode untouched: if we reopened a completed
+                    // target, the source stays in its current open status —
+                    // the reopened one lives as a sibling in the group.
+                    await loadExternalList(activeListId);
+                    toast.success(
+                      target.status === 'completed'
+                        ? `Combined with #${target.order_number} — completed order reopened`
+                        : `Combined with #${target.order_number}`
+                    );
+                  } catch (err) {
+                    console.error('Combine failed:', err);
+                    toast.error('Combine failed. Please try again.');
+                  }
+                }}
+              />
+            )}
           </div>
         </div>
       )}

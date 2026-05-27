@@ -24,6 +24,7 @@ export interface PickingList {
   id: string;
   order_number: string;
   status:
+    | 'active'
     | 'ready_to_double_check'
     | 'double_checking'
     | 'needs_correction'
@@ -43,6 +44,7 @@ export interface PickingList {
   is_waiting_inventory?: boolean;
   waiting_reason?: string | null;
   shipping_type?: string | null;
+  pallets_qty?: number | null;
 }
 
 const PICKING_LIST_SELECT = `
@@ -62,7 +64,8 @@ const PICKING_LIST_SELECT = `
   order_group:order_groups(id, group_type),
   is_waiting_inventory,
   waiting_reason,
-  shipping_type
+  shipping_type,
+  pallets_qty
 `;
 
 export const VERIFICATION_QUEUE_KEY = ['picking_lists', 'verification_queue'];
@@ -77,12 +80,14 @@ export const useDoubleCheckList = () => {
       const { data, error } = await supabase
         .from('picking_lists')
         .select(PICKING_LIST_SELECT)
-        .in('status', ['ready_to_double_check', 'double_checking', 'needs_correction'])
+        .in('status', ['active', 'ready_to_double_check', 'double_checking', 'needs_correction'])
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
+      // Active orders are always shown (even with empty items) so manually-created
+      // orders are visible. Other statuses still require items to be present.
       return ((data ?? []) as PickingList[]).filter(
-        (o) => o.items && Array.isArray(o.items) && o.items.length > 0
+        (o) => o.status === 'active' || (o.items && Array.isArray(o.items) && o.items.length > 0)
       );
     },
     staleTime: 5_000,

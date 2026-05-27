@@ -7,6 +7,7 @@ import Send from 'lucide-react/dist/esm/icons/send';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import { CorrectionModeView } from './CorrectionModeView';
+import { ShippingTypeToggle } from './ShippingTypeToggle';
 import { SelectSubOrderModal, type SubOrderOption } from './SelectSubOrderModal';
 import { PhotoLightbox } from '../../../components/ui/PhotoLightbox';
 import { supabase } from '../../../lib/supabase';
@@ -29,6 +30,7 @@ import {
 import { useModal } from '../../../context/ModalContext';
 import Pencil from 'lucide-react/dist/esm/icons/pencil';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
+import GitMerge from 'lucide-react/dist/esm/icons/git-merge';
 import Lock from 'lucide-react/dist/esm/icons/lock';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import toast from 'react-hot-toast';
@@ -38,11 +40,15 @@ import Camera from 'lucide-react/dist/esm/icons/camera';
 import { compressImage, base64ToBlobUrl } from '../../../services/photoUpload.service';
 import { useAuth } from '../../../context/AuthContext';
 import { useMarkWaiting, useUnmarkWaiting, useTakeOverSku } from '../hooks/useWaitingOrders';
+import { useShipOutSms } from '../hooks/useShipOutSms';
+import { withSupabaseRetry } from '../../../lib/supabaseRetry';
 import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingConflicts';
+import { useStockReservations, buildReservationKey } from '../hooks/useStockReservations';
 import { WaitingConflictModal } from './WaitingConflictModal';
 import { ReasonPicker } from './ReasonPicker';
 import Hourglass from 'lucide-react/dist/esm/icons/hourglass';
 import Play from 'lucide-react/dist/esm/icons/play';
+import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
 
 /** Priority: lower number = pick first. Pallets are overstock we want gone ASAP. */
 const DISTRIBUTION_PRIORITY: Record<string, number> = { PALLET: 0, LINE: 1, TOWER: 2, OTHER: 3 };
@@ -60,6 +66,7 @@ export interface PickingItem {
   item_name?: string | null;
   description?: string | null;
   source_order?: string;
+  source_list_id?: string;
   isStackedPart?: boolean;
   sku_metadata?: {
     image_url?: string | null;
@@ -122,8 +129,13 @@ interface DoubleCheckViewProps {
   onSetWaitingInventory?: (val: boolean) => void;
   onMarkAsReady?: () => void;
   onSendToVerifyQueue?: () => void;
+  onParkOrder?: () => void;
   onRecomplete?: (items: PickingItem[]) => Promise<void>;
   onCancelReopen?: () => void;
+  /** idea-067 Phase 2 / Option A: opens the AddOn target picker in
+   *  "combine-any" mode (any order, completed or open). Parent handles the
+   *  actual group/reopen wiring. */
+  onCombineWith?: () => void;
   correctionNotes?: string | null;
 }
 
@@ -151,8 +163,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   inventoryData: inventoryDataProp,
   onMarkAsReady,
   onSendToVerifyQueue,
+  onParkOrder,
   onRecomplete,
   onCancelReopen,
+  onCombineWith,
   correctionNotes: correctionNotesProp,
 }) => {
   const {
@@ -191,15 +205,28 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const markWaiting = useMarkWaiting();
   const unmarkWaiting = useUnmarkWaiting();
   const takeOverSku = useTakeOverSku();
+  const { triggerForList: triggerShipOutSms } = useShipOutSms();
   const { data: waitingConflicts } = useWaitingConflicts(
     cartItems,
     activeListId ?? null,
     customer?.name ?? null
   );
   const [conflictDismissed, setConflictDismissed] = useState(false);
+
+  // idea-105 Phase 3 — cross-order reservation visibility
+  const reservationKeys = useMemo(
+    () =>
+      cartItems
+        .filter((i) => !i.sku_not_found && i.warehouse && i.location)
+        .map((i) => buildReservationKey(i.sku, i.warehouse, i.location)),
+    [cartItems]
+  );
+  const { data: reservationsMap } = useStockReservations(reservationKeys, activeListId ?? null);
   const [isDeducting, setIsDeducting] = useState(false);
   const [showWaitingPicker, setShowWaitingPicker] = useState(false);
   const [waitingReason, setWaitingReason] = useState('');
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
+  const [orderListOpen, setOrderListOpen] = useState(false);
   const [scanResults, setScanResults] = useState<Map<string, Set<string>>>(new Map());
   const [isScanning, setIsScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState<string>('');
@@ -238,16 +265,67 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   );
   const scanInputRef = useRef<HTMLInputElement>(null);
 
-  // Track original items snapshot for reopened orders to detect changes
-  const [reopenedSnapshot] = useState(() =>
-    status === 'reopened'
-      ? JSON.stringify(cartItems.map((i) => ({ sku: i.sku, qty: i.pickingQty })))
-      : null
-  );
-  const hasReopenedChanges =
-    status === 'reopened' &&
-    reopenedSnapshot !== null &&
-    reopenedSnapshot !== JSON.stringify(cartItems.map((i) => ({ sku: i.sku, qty: i.pickingQty })));
+  // Reopened-changes detection was used to gate Re-Complete (forced the user
+  // to add a SKU before completing). Step B removed the gate — keeping the
+  // hook removed so we don't compute unused state on every re-render.
+
+  // idea-067 Phase 2: Add-On mode detection. The reopened source carries a
+  // group_id pointing to a 'general' order_groups row when the user came in
+  // through the Add-On flow. We track:
+  //   - isAddonMode: switches the bottom CTA copy + adds a "new photo" gate.
+  //   - addonInitialPhotoCount: captured once, so newPhotosTaken = current - initial.
+  // The "must take at least 1 new photo" rule replaces hasReopenedChanges
+  // as the gate to enable Re-Complete in Add-On mode (items can be unchanged
+  // if the add-on items live solely on the target row, but new photos are
+  // mandatory evidence).
+  const [isAddonMode, setIsAddonMode] = useState(false);
+  const [addonInitialPhotoCount, setAddonInitialPhotoCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (status !== 'reopened' || !activeListId) {
+      setIsAddonMode(false);
+      setAddonInitialPhotoCount(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      // Both queries wrapped in retry — Add-On detection running once
+      // at DoubleCheckView mount; a single flaky-network failure
+      // left the order rendering without its Add-On context.
+      const { data: src } = await withSupabaseRetry(
+        () => supabase.from('picking_lists').select('group_id').eq('id', activeListId).single(),
+        { label: 'DoubleCheckView.addonDetect.list' }
+      );
+      if (cancelled) return;
+      const groupId = src?.group_id;
+      if (!groupId) {
+        setIsAddonMode(false);
+        return;
+      }
+      const { data: grp } = await withSupabaseRetry(
+        () => supabase.from('order_groups').select('group_type').eq('id', groupId).single(),
+        { label: 'DoubleCheckView.addonDetect.group' }
+      );
+      if (cancelled) return;
+      setIsAddonMode(grp?.group_type === 'general');
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [status, activeListId]);
+
+  // Capture the initial photo count the first time we observe addon-mode +
+  // photos loaded, so we can later compute "new photos taken in this session".
+  useEffect(() => {
+    if (isAddonMode && addonInitialPhotoCount === null && palletPhotosCount >= 0) {
+      setAddonInitialPhotoCount(palletPhotosCount);
+    }
+  }, [isAddonMode, addonInitialPhotoCount, palletPhotosCount]);
+
+  const addonNewPhotosTaken =
+    isAddonMode && addonInitialPhotoCount !== null
+      ? Math.max(palletPhotosCount - addonInitialPhotoCount, 0)
+      : 0;
+  const addonGateBlocked = isAddonMode && addonNewPhotosTaken < 1;
 
   // All statuses use full verification mode (checkboxes, select all).
   // The picker checks off items as they collect them, then sends to verify.
@@ -1051,6 +1129,17 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         await new Promise((r) => setTimeout(r, 300));
       }
       await onDeduct(cartItems, isFullyVerified);
+      // Ship-Out SMS: only after a fully-verified completion. The hook
+      // no-ops silently if the operator hasn't enabled the feature or
+      // hasn't configured recipients. Errors here must NOT bubble up —
+      // the order completion already succeeded; SMS is best-effort.
+      if (isFullyVerified) {
+        try {
+          await triggerShipOutSms(activeListId);
+        } catch (smsErr) {
+          console.warn('Ship-Out SMS trigger failed (non-fatal):', smsErr);
+        }
+      }
     } catch (error) {
       console.error(error);
     } finally {
@@ -1096,14 +1185,63 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         </button>
 
         <div className="flex flex-col items-center">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono font-bold text-accent/90 tracking-widest bg-accent/10 px-2 py-0.5 rounded border border-accent/20">
-              {orderNumber
-                ? `#${orderNumber}`
+          <div className="flex items-center gap-2 relative">
+            {(() => {
+              const orderList = orderNumber
+                ? orderNumber
+                    .split(' / ')
+                    .map((s) => s.trim())
+                    .filter(Boolean)
+                : [];
+              const hasMultiple = orderList.length > 1;
+              const label = orderNumber
+                ? `#${orderList[0]}`
                 : activeListId
                   ? `#${activeListId.slice(-6).toUpperCase()}`
-                  : 'STOCK DEDUCTION'}
-            </span>
+                  : 'STOCK DEDUCTION';
+              if (!hasMultiple) {
+                return (
+                  <span className="text-xs font-mono font-bold text-accent/90 tracking-widest bg-accent/10 px-2 py-0.5 rounded border border-accent/20">
+                    {label}
+                  </span>
+                );
+              }
+              return (
+                <button
+                  onClick={() => setOrderListOpen((v) => !v)}
+                  className="text-xs font-mono font-bold text-accent/90 tracking-widest bg-accent/10 px-2 py-0.5 rounded border border-accent/20 flex items-center gap-1 hover:bg-accent/20 transition-colors"
+                  title={`${orderList.length} orders combined`}
+                  aria-haspopup="true"
+                  aria-expanded={orderListOpen}
+                >
+                  <span>{label}</span>
+                  <span className="text-[10px] font-black bg-accent/20 text-accent px-1 rounded">
+                    +{orderList.length - 1}
+                  </span>
+                  <ChevronDown
+                    size={10}
+                    className={`transition-transform ${orderListOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+              );
+            })()}
+            {activeListId && <ShippingTypeToggle listId={activeListId} />}
+            {orderListOpen && orderNumber && orderNumber.includes(' / ') && (
+              <div className="absolute top-full left-0 mt-1 bg-card border border-subtle rounded-xl shadow-2xl overflow-hidden z-20 min-w-[140px] animate-in fade-in slide-in-from-top-2 duration-150">
+                {orderNumber
+                  .split(' / ')
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+                  .map((num) => (
+                    <div
+                      key={num}
+                      className="px-3 py-2 text-xs font-mono font-bold text-content tracking-widest border-b border-subtle last:border-b-0"
+                    >
+                      #{num}
+                    </div>
+                  ))}
+              </div>
+            )}
           </div>
           {/* Progress Text */}
           <div className="flex items-center gap-3 mt-1">
@@ -1118,7 +1256,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                       : 'text-amber-400'
               }`}
             >
-              {`${verifiedUnitsCount} / ${totalUnitsCount} Units Verified`}
+              {`${verifiedUnitsCount} / ${totalUnitsCount} Pickd`}
             </span>
             {!isReviewMode && onSelectAll && totalUnitsCount > 0 && (
               <button
@@ -1148,37 +1286,29 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               </button>
             )}
           </div>
-
-          {/* Order Summary Brief */}
-          <div className="flex items-center gap-2 mt-2">
-            <div className="flex items-center gap-1 bg-card px-2 py-0.5 rounded border border-subtle">
-              <span className="text-[11px] font-black text-muted/60 uppercase tracking-tighter">
-                Units:
-              </span>
-              <span className="text-[11px] font-black text-blue-400 uppercase">
-                {totalUnitsCount}
-              </span>
-            </div>
-            <div className="flex items-center gap-1 bg-card px-2 py-0.5 rounded border border-subtle">
-              <span className="text-[11px] font-black text-muted/60 uppercase tracking-tighter">
-                SKUs:
-              </span>
-              <span className="text-[11px] font-black text-content/70 uppercase">
-                {cartItems.length}
-              </span>
-            </div>
-            <div className="flex items-center gap-1 bg-card px-2 py-0.5 rounded border border-subtle">
-              <span className="text-[11px] font-black text-muted/60 uppercase tracking-tighter">
-                Pallets:
-              </span>
-              <span className="text-[11px] font-black text-content/70 uppercase">
-                {pallets.length}
-              </span>
-            </div>
-          </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 relative">
+          {/* Actions kebab — opens dropdown with Edit Order / Combine /
+              Mark Waiting / Cancel. Hidden in review mode and when complete. */}
+          {!isReviewMode && status !== 'completed' && (
+            <button
+              onClick={() => setActionsMenuOpen((v) => !v)}
+              className={`p-2 rounded-full transition-colors ${
+                actionsMenuOpen
+                  ? 'bg-card text-content'
+                  : 'hover:bg-card text-muted hover:text-content'
+              }`}
+              title="Actions"
+              aria-haspopup="true"
+              aria-expanded={actionsMenuOpen}
+            >
+              <MoreVertical size={22} />
+              {problemItems.length > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 ring-2 ring-main" />
+              )}
+            </button>
+          )}
           {!correctionNotes.trim() && status !== 'completed' && (
             <button
               onClick={status === 'reopened' ? onCancelReopen : onRelease}
@@ -1191,162 +1321,246 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         </div>
       </div>
 
-      {/* Clean Item List */}
-      <div className="flex-1 overflow-y-auto p-4 bg-main min-h-0 pb-32">
-        <div className="flex items-center gap-2 mb-6">
-          <button
-            onClick={() => openEditFlow()}
-            className={`flex-1 p-4 border rounded-2xl flex items-center justify-between gap-3 active:scale-[0.98] transition-all ${
-              problemItems.length > 0 ? 'bg-red-500/10 border-red-500/30' : 'bg-card border-subtle'
-            }`}
+      {/* Actions menu — kebab dropdown (Edit Order / Combine / Mark Waiting /
+          Cancel Order). Backdrop catches outside-clicks; menu is anchored
+          relative to the viewport top-right since the header itself is
+          sticky. */}
+      {actionsMenuOpen && (
+        <div className="fixed inset-0 z-40" onClick={() => setActionsMenuOpen(false)}>
+          <div
+            className="absolute right-3 top-20 md:top-24 w-72 bg-card border border-subtle rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
+            onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center gap-3">
-              <div
-                className={`p-2 rounded-xl ${
-                  problemItems.length > 0 ? 'bg-red-500/20' : 'bg-card'
-                }`}
-              >
-                <Pencil
-                  size={18}
-                  className={problemItems.length > 0 ? 'text-red-400' : 'text-muted'}
-                />
+            <button
+              onClick={() => {
+                setActionsMenuOpen(false);
+                openEditFlow();
+              }}
+              className={`w-full flex items-center gap-3 px-4 py-3 transition-colors text-left ${
+                problemItems.length > 0 ? 'bg-red-500/10 hover:bg-red-500/15' : 'hover:bg-main/40'
+              }`}
+            >
+              <Pencil
+                size={16}
+                className={problemItems.length > 0 ? 'text-red-400' : 'text-muted'}
+              />
+              <div className="flex-1">
+                <div
+                  className={`text-sm font-bold ${problemItems.length > 0 ? 'text-red-400' : 'text-content'}`}
+                >
+                  Edit Order
+                </div>
+                <div className="text-[11px] text-muted/70">Add, remove, or adjust items</div>
               </div>
-              <div className="text-left">
+              {problemItems.length > 0 && (
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 uppercase tracking-wider">
+                  {problemItems.length} issue{problemItems.length > 1 ? 's' : ''}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
+                setActionsMenuOpen(false);
+                scanInputRef.current?.click();
+              }}
+              disabled={isScanning}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-main/40 transition-colors text-left border-t border-subtle disabled:opacity-50"
+            >
+              {isScanning ? (
+                <Loader2 size={16} className="text-accent animate-spin" />
+              ) : (
+                <Camera
+                  size={16}
+                  className={
+                    pallets.length > 0 && palletPhotosCount >= pallets.length
+                      ? 'text-emerald-400'
+                      : palletPhotosCount > 0
+                        ? 'text-amber-400'
+                        : 'text-accent'
+                  }
+                />
+              )}
+              <div className="flex-1">
+                <div className="text-sm font-bold text-content">
+                  {isScanning
+                    ? 'Processing…'
+                    : pallets.length > 0 &&
+                        palletPhotosCount > 0 &&
+                        palletPhotosCount < pallets.length
+                      ? `Take Photo ${palletPhotosCount + 1} of ${pallets.length}`
+                      : 'Take Photo'}
+                </div>
+                <div className="text-[11px] text-muted/70">
+                  {pallets.length > 0
+                    ? `${palletPhotosCount} of ${pallets.length} pallet${pallets.length > 1 ? 's' : ''} captured`
+                    : 'Capture pallet photos'}
+                </div>
+              </div>
+              {pallets.length > 0 && (
                 <span
-                  className={`text-xs font-black uppercase tracking-widest block ${
-                    problemItems.length > 0 ? 'text-red-400' : 'text-muted'
+                  className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                    palletPhotosCount >= pallets.length
+                      ? 'bg-emerald-500/20 text-emerald-400'
+                      : palletPhotosCount > 0
+                        ? 'bg-amber-500/20 text-amber-400'
+                        : 'bg-red-500/20 text-red-400'
                   }`}
                 >
-                  {problemItems.length > 0
-                    ? `${problemItems.length} issue${problemItems.length > 1 ? 's' : ''} — Edit Order`
-                    : 'Edit Order'}
+                  {palletPhotosCount}/{pallets.length}
                 </span>
-                <span className="text-xs text-muted/70 font-bold">
-                  Add, remove, or adjust items
-                </span>
-              </div>
-            </div>
-            <ChevronDown
-              size={16}
-              className={`rotate-[-90deg] ${problemItems.length > 0 ? 'text-red-400/60' : 'text-muted/40'}`}
-            />
-          </button>
-          <button
-            onClick={() => openCancelFlow()}
-            className="h-full p-4 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 rounded-2xl text-red-500 transition-all active:scale-95 self-stretch flex items-center justify-center"
-            title="Cancel Order"
-          >
-            <Trash2 size={18} />
-          </button>
-        </div>
+              )}
+            </button>
 
-        {/* Waiting for Inventory — admin-only (idea-053) */}
-        {isAdmin && status !== 'completed' && status !== 'cancelled' && (
-          <>
-            {isWaitingInventory ? (
-              <div className="flex items-center gap-2 p-3 rounded-2xl border border-amber-500/30 bg-amber-500/10">
-                <Hourglass size={16} className="text-amber-500 shrink-0" />
-                <span className="text-xs font-black text-amber-500 uppercase tracking-wider flex-1">
-                  Waiting for Inventory
-                </span>
+            {onCombineWith &&
+              !isCombined &&
+              (status === 'active' ||
+                status === 'ready_to_double_check' ||
+                status === 'double_checking' ||
+                status === 'needs_correction') && (
                 <button
                   onClick={() => {
-                    if (!activeListId) return;
-                    unmarkWaiting.mutate(
-                      { listId: activeListId, action: 'resume' },
-                      {
-                        onSuccess: () => onSetWaitingInventory?.(false),
-                      }
-                    );
+                    setActionsMenuOpen(false);
+                    onCombineWith();
                   }}
-                  disabled={unmarkWaiting.isPending}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-accent bg-accent/10 border border-accent/30 rounded-xl hover:bg-accent/20 transition-all active:scale-95"
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-main/40 transition-colors text-left border-t border-subtle"
                 >
-                  <Play size={12} />
-                  Resume
+                  <GitMerge size={16} className="text-emerald-400" />
+                  <div className="flex-1">
+                    <div className="text-sm font-bold text-content">Combine</div>
+                    <div className="text-[11px] text-muted/70">Merge with another order</div>
+                  </div>
                 </button>
-                <button
-                  onClick={() => {
-                    showConfirmation(
-                      'Cancel Waiting Order',
-                      'This will cancel the entire order. Items will be released back to inventory.',
-                      () => {
+              )}
+
+            {isAdmin && status !== 'cancelled' && (
+              <>
+                {isWaitingInventory ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        setActionsMenuOpen(false);
                         if (!activeListId) return;
                         unmarkWaiting.mutate(
-                          { listId: activeListId, action: 'cancel' },
-                          {
-                            onSuccess: () => onClose(),
-                          }
+                          { listId: activeListId, action: 'resume' },
+                          { onSuccess: () => onSetWaitingInventory?.(false) }
                         );
-                      },
-                      () => {},
-                      'Cancel Order',
-                      'Go Back',
-                      'danger'
-                    );
-                  }}
-                  disabled={unmarkWaiting.isPending}
-                  className="px-3 py-1.5 text-xs font-black uppercase tracking-wider text-red-500 bg-red-500/10 border border-red-500/30 rounded-xl hover:bg-red-500/20 transition-all active:scale-95"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : !showWaitingPicker ? (
-              <button
-                onClick={() => setShowWaitingPicker(true)}
-                className="flex items-center justify-center gap-2 w-full p-3 rounded-2xl border border-dashed border-amber-500/20 text-amber-500/60 hover:text-amber-500 hover:border-amber-500/40 hover:bg-amber-500/5 transition-all active:scale-[0.98]"
-              >
-                <Hourglass size={14} />
-                <span className="text-xs font-black uppercase tracking-wider">
-                  Mark as Waiting for Inventory
-                </span>
-              </button>
-            ) : (
-              <div className="p-3 rounded-2xl border border-amber-500/30 bg-amber-500/5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-amber-500 uppercase tracking-wider">
-                    Why is this order waiting?
-                  </span>
+                      }}
+                      disabled={unmarkWaiting.isPending}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-main/40 transition-colors text-left border-t border-subtle disabled:opacity-50"
+                    >
+                      <Play size={16} className="text-accent" />
+                      <div className="flex-1">
+                        <div className="text-sm font-bold text-content">Resume Order</div>
+                        <div className="text-[11px] text-muted/70">
+                          Currently waiting for inventory
+                        </div>
+                      </div>
+                    </button>
+                  </>
+                ) : (
                   <button
                     onClick={() => {
-                      setShowWaitingPicker(false);
-                      setWaitingReason('');
+                      setActionsMenuOpen(false);
+                      setShowWaitingPicker(true);
                     }}
-                    className="p-1 text-muted hover:text-content transition-colors"
+                    className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-amber-500/10 transition-colors text-left border-t border-subtle ${
+                      problemItems.length > 0 ? 'bg-amber-500/5' : ''
+                    }`}
                   >
-                    <X size={14} />
+                    <Hourglass size={16} className="text-amber-400" />
+                    <div className="flex-1">
+                      <div className="text-sm font-bold text-content">Mark as Waiting</div>
+                      <div className="text-[11px] text-muted/70">
+                        {problemItems.length > 0
+                          ? `${problemItems.length} stock issue${problemItems.length > 1 ? 's' : ''} — consider this`
+                          : 'Hold for inventory'}
+                      </div>
+                    </div>
                   </button>
-                </div>
-                <ReasonPicker
-                  actionType="waiting"
-                  selectedReason={waitingReason}
-                  onReasonChange={setWaitingReason}
-                />
+                )}
+              </>
+            )}
+
+            <button
+              onClick={() => {
+                setActionsMenuOpen(false);
+                openCancelFlow();
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 transition-colors text-left border-t border-subtle"
+            >
+              <Trash2 size={16} className="text-red-500" />
+              <div className="flex-1">
+                <div className="text-sm font-bold text-red-400">Cancel Order</div>
+                <div className="text-[11px] text-muted/70">Release items back to stock</div>
+              </div>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Clean Item List */}
+      <div className="flex-1 overflow-y-auto p-4 bg-main min-h-0 pb-32">
+        {/* Inline 'Mark as Waiting' reason picker (only when triggered from menu) */}
+        {showWaitingPicker &&
+          isAdmin &&
+          status !== 'completed' &&
+          status !== 'cancelled' &&
+          !isWaitingInventory && (
+            <div className="mb-4 p-3 rounded-2xl border border-amber-500/30 bg-amber-500/5 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-amber-500 uppercase tracking-wider">
+                  Why is this order waiting?
+                </span>
                 <button
                   onClick={() => {
-                    if (!activeListId || !waitingReason.trim()) return;
-                    markWaiting.mutate(
-                      { listId: activeListId, reason: waitingReason.trim() },
-                      {
-                        onSuccess: () => {
-                          setShowWaitingPicker(false);
-                          setWaitingReason('');
-                          onSetWaitingInventory?.(true);
-                        },
-                      }
-                    );
+                    setShowWaitingPicker(false);
+                    setWaitingReason('');
                   }}
-                  disabled={!waitingReason.trim() || markWaiting.isPending}
-                  className="w-full p-3 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
+                  className="p-1 text-muted hover:text-content transition-colors"
                 >
-                  {markWaiting.isPending ? 'Marking...' : 'Confirm — Mark as Waiting'}
+                  <X size={14} />
                 </button>
               </div>
-            )}
-          </>
+              <ReasonPicker
+                actionType="waiting"
+                selectedReason={waitingReason}
+                onReasonChange={setWaitingReason}
+              />
+              <button
+                onClick={() => {
+                  if (!activeListId || !waitingReason.trim()) return;
+                  markWaiting.mutate(
+                    { listId: activeListId, reason: waitingReason.trim() },
+                    {
+                      onSuccess: () => {
+                        setShowWaitingPicker(false);
+                        setWaitingReason('');
+                        onSetWaitingInventory?.(true);
+                      },
+                    }
+                  );
+                }}
+                disabled={!waitingReason.trim() || markWaiting.isPending}
+                className="w-full p-3 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
+              >
+                {markWaiting.isPending ? 'Marking...' : 'Confirm — Mark as Waiting'}
+              </button>
+            </div>
+          )}
+
+        {/* Persistent waiting badge when the order is currently on hold */}
+        {isWaitingInventory && status !== 'completed' && status !== 'cancelled' && (
+          <div className="mb-4 flex items-center gap-2 p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10">
+            <Hourglass size={14} className="text-amber-500 shrink-0" />
+            <span className="text-[11px] font-black text-amber-500 uppercase tracking-wider">
+              Waiting for Inventory
+            </span>
+          </div>
         )}
 
-        {/* Hidden camera input for pallet scan */}
+        {/* Hidden camera input for pallet scan — triggered by 'Take Photo' in
+            the kebab menu. Status text surfaces inline below when scanning. */}
         <input
           ref={scanInputRef}
           type="file"
@@ -1355,36 +1569,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           onChange={handleScanPallet}
           className="hidden"
         />
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <button
-            onClick={() => scanInputRef.current?.click()}
-            disabled={isScanning}
-            className="flex items-center gap-2 px-4 py-2 bg-accent/10 border border-accent/20 rounded-xl text-accent text-xs font-black uppercase tracking-widest active:scale-95 transition-all disabled:opacity-50"
-          >
-            {isScanning ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
-            {isScanning
-              ? 'Processing...'
-              : palletPhotosCount !== null &&
-                  palletPhotosCount > 0 &&
-                  palletPhotosCount < pallets.length
-                ? `Take Photo ${palletPhotosCount + 1} of ${pallets.length}`
-                : 'Take Photo'}
-          </button>
-          {palletPhotosCount !== null && pallets.length > 0 && (
-            <span
-              className={`text-xs font-black px-2 py-1 rounded-md ${
-                palletPhotosCount >= pallets.length
-                  ? 'bg-emerald-500/15 text-emerald-400'
-                  : palletPhotosCount > 0
-                    ? 'bg-amber-500/15 text-amber-400'
-                    : 'bg-red-500/15 text-red-400'
-              }`}
-            >
-              {palletPhotosCount} / {pallets.length}
-            </span>
-          )}
-          {scanStatus && <p className="text-xs text-accent font-bold">{scanStatus}</p>}
-        </div>
+        {scanStatus && (
+          <p className="text-xs text-accent font-bold mb-3 flex items-center gap-2">
+            <Loader2 size={12} className="animate-spin" />
+            {scanStatus}
+          </p>
+        )}
 
         {/* Pallet photo thumbnails with delete */}
         {palletPhotos.length > 0 && (
@@ -1545,7 +1735,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                           if (navigator.vibrate) navigator.vibrate(50);
                           onToggleCheck(item, pallet.id);
                         }}
-                        className={`transition-all duration-200 rounded-2xl p-4 flex items-center justify-between gap-3 ${isReviewMode ? '' : 'active:scale-[0.98] cursor-pointer'} border ${
+                        className={`transition-all duration-200 rounded-2xl flex items-center justify-between gap-3 ${isReviewMode ? '' : 'active:scale-[0.98] cursor-pointer'} border ${
+                          isChecked && !isReviewMode ? 'p-2 opacity-70 scale-[0.97]' : 'p-4'
+                        } ${
                           isReviewMode
                             ? item.sku_not_found
                               ? 'bg-red-500/5 border-red-500/20'
@@ -1606,7 +1798,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                             {/* SKU row */}
                             <div className="flex items-center gap-2 flex-wrap">
                               <span
-                                className={`font-black text-2xl tracking-tight leading-none break-all ${isReviewMode ? (item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-content') : isChecked ? (item.sku_not_found || item.insufficient_stock ? 'text-red-400' : 'text-green-400') : item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-content'}`}
+                                className={`font-black text-2xl md:text-5xl tracking-tight leading-none break-all ${isReviewMode ? (item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-content') : isChecked ? (item.sku_not_found || item.insufficient_stock ? 'text-red-400' : 'text-green-400') : item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-content'}`}
                               >
                                 {sdSerialMap.has(item.sku) ? (
                                   // S/D: show the physical serial instead of the SKU.
@@ -1643,6 +1835,39 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                 </span>
                               )}
                               {(() => {
+                                if (item.sku_not_found || !item.warehouse || !item.location)
+                                  return null;
+                                const key = buildReservationKey(
+                                  item.sku,
+                                  item.warehouse,
+                                  item.location
+                                );
+                                const info = reservationsMap?.get(key);
+                                if (!info) return null;
+                                const otherDemand = info.reserved + info.picked;
+                                if (otherDemand <= 0) return null;
+                                const availableForMe = info.stock - info.reserved;
+                                const conflict = availableForMe < item.pickingQty;
+                                const orderList = info.reservingOrders
+                                  .map(
+                                    (o) =>
+                                      `${o.picked ? '✓' : '◷'} ${o.qty}× #${o.orderNumber}${o.customerName ? ` (${o.customerName})` : ''}${o.isWaiting ? ' [waiting]' : ''}`
+                                  )
+                                  .join('\n');
+                                return (
+                                  <span
+                                    title={`Stock: ${info.stock}\nReserved by other orders: ${info.reserved}\nAlready picked elsewhere: ${info.picked}\nAvailable for me: ${availableForMe}\n\n${orderList}`}
+                                    className={`text-[10px] px-1 py-0.5 rounded font-black uppercase tracking-tighter ${
+                                      conflict
+                                        ? 'bg-red-500/20 text-red-400 border border-red-500/40'
+                                        : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                                    }`}
+                                  >
+                                    🔒 {otherDemand} elsewhere
+                                  </span>
+                                );
+                              })()}
+                              {(() => {
                                 const scannedCount = scanResults.get(item.sku)?.size ?? 0;
                                 if (scannedCount === 0) return null;
                                 return (
@@ -1660,7 +1885,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                             </div>
                             {/* Product name — item_name from DB, or description from PDF */}
                             {(item.item_name || item.description) && (
-                              <span className="text-[13px] font-semibold text-muted uppercase tracking-wide leading-none">
+                              <span className="text-[13px] md:text-xl font-semibold text-muted uppercase tracking-wide leading-none">
                                 {(item.item_name || item.description || '').slice(0, 17)}
                               </span>
                             )}
@@ -1675,7 +1900,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                       : 'text-emerald-400/70'
                                 }`}
                               >
-                                <span className="text-sm font-bold uppercase tracking-wider leading-none">
+                                <span className="text-sm md:text-2xl font-bold uppercase tracking-wider leading-none">
                                   {pickPlanMap[item.sku].map((step, i) => (
                                     <span key={i}>
                                       {i > 0 && ', '}
@@ -1705,13 +1930,15 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                         {/* Location Info on the right - No checkbox to maximize space */}
                         <div className="flex items-center gap-3 shrink-0 ml-auto pl-2 border-l border-subtle">
                           <div className="flex flex-col items-end">
-                            <span className="text-[10px] text-muted/60 font-black uppercase tracking-widest mb-0.5">
+                            <span className="text-[10px] md:text-base text-muted/60 font-black uppercase tracking-widest mb-0.5">
                               {item.location?.toLowerCase().includes('row') ? 'ROW' : 'LOC'}
                             </span>
                             <div className="flex items-center gap-1.5">
                               <div
                                 className={`font-mono font-black text-amber-500 leading-none ${
-                                  (item.location || '').length > 8 ? 'text-lg' : 'text-2xl'
+                                  (item.location || '').length > 8
+                                    ? 'text-lg md:text-4xl'
+                                    : 'text-2xl md:text-6xl'
                                 }`}
                               >
                                 {(item.location || '')
@@ -1726,7 +1953,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                       `${item.sku}-${(item.location || '').toUpperCase()}`
                                     ];
                                   return subs && subs.length > 0 ? (
-                                    <span className="text-xs font-black bg-amber-500/15 text-amber-400 px-1 py-0.5 rounded ml-1 border border-amber-500/20 align-middle">
+                                    <span className="text-xs md:text-2xl font-black bg-amber-500/15 text-amber-400 px-1 md:px-2 py-0.5 md:py-1 rounded ml-1 border border-amber-500/20 align-middle">
                                       {subs.join(',')}
                                     </span>
                                   ) : null;
@@ -1812,60 +2039,106 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
       <div className="fixed bottom-0 left-0 right-0 px-6 pt-6 pb-28 bg-gradient-to-t from-main via-main/90 to-transparent shrink-0 z-20">
         {status === 'reopened' ? (
-          /* Reopened order — show Re-Complete and Cancel */
-          <div className="flex gap-3">
-            <button
-              onClick={() => onCancelReopen?.()}
-              className="flex-1 py-4 bg-card border border-subtle text-content/70 font-black uppercase tracking-widest text-xs rounded-2xl active:scale-95 transition-all"
-            >
-              Cancel Edit
-            </button>
-            <button
-              onClick={async () => {
-                if (onRecomplete) {
-                  setIsDeducting(true);
-                  try {
-                    await onRecomplete(cartItems);
-                  } finally {
-                    setIsDeducting(false);
-                  }
-                }
-              }}
-              disabled={isDeducting || cartItems.length === 0 || !hasReopenedChanges}
-              className="flex-[2] py-4 bg-orange-500 text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-lg shadow-orange-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-30"
-            >
-              <Check size={16} strokeWidth={3} />
-              {isDeducting ? 'Re-Completing...' : 'Re-Complete Order'}
-            </button>
-          </div>
-        ) : verifiedUnitsCount === totalUnitsCount ? (
-          /* All verified — show slide to complete (requires at least 1 pallet photo) */
+          /* Reopened order — show Re-Complete and Cancel.
+             Step B: removed all gates that block Re-Complete (was forcing the
+             user to add a new SKU just to enable the button when items hadn't
+             changed vs snapshot). For Add-On the photo is now a soft hint, not
+             a blocker. The user can always cancel via the Cancel button. */
           <>
-            {palletPhotosCount === 0 && (
+            {isAddonMode && addonGateBlocked && (
               <div className="mb-3 px-4 py-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center gap-2">
-                <Camera size={16} className="text-amber-500 shrink-0" />
-                <p className="text-xs font-bold text-amber-500 uppercase tracking-wider">
-                  Take at least 1 pallet photo before completing
-                </p>
+                <span className="text-[10px] font-black text-amber-300 uppercase tracking-widest">
+                  Add-On — recommended: take at least 1 new pallet photo
+                </span>
               </div>
             )}
-            <SlideToConfirm
-              onConfirm={handleConfirm}
-              isLoading={isDeducting}
-              text={palletPhotosCount === 0 ? 'PHOTO REQUIRED TO COMPLETE' : 'SLIDE TO COMPLETE'}
-              confirmedText="COMPLETING..."
-              variant="default"
-              disabled={cartItems.length === 0 || palletPhotosCount === 0}
-            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => onCancelReopen?.()}
+                className="flex-1 py-4 bg-card border border-subtle text-content/70 font-black uppercase tracking-widest text-xs rounded-2xl active:scale-95 transition-all"
+              >
+                {isAddonMode ? 'Cancel Add-On' : 'Cancel Edit'}
+              </button>
+              <button
+                onClick={async () => {
+                  if (onRecomplete) {
+                    setIsDeducting(true);
+                    try {
+                      await onRecomplete(cartItems);
+                    } finally {
+                      setIsDeducting(false);
+                    }
+                  }
+                }}
+                disabled={isDeducting || cartItems.length === 0}
+                className="flex-[2] py-4 bg-orange-500 text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-lg shadow-orange-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-30"
+              >
+                <Check size={16} strokeWidth={3} />
+                {isDeducting
+                  ? isAddonMode
+                    ? 'Completing Add-On…'
+                    : 'Re-Completing...'
+                  : isAddonMode
+                    ? 'Complete Add-On'
+                    : 'Re-Complete Order'}
+              </button>
+            </div>
           </>
-        ) : (
-          /* Not all verified — show action buttons */
+        ) : verifiedUnitsCount === totalUnitsCount ? (
+          /* Estado C — all verified. Two paths:
+             - Ready to DC: hand off to a second verifier (status →
+               ready_to_double_check, lands in the bottom Ready section).
+             - Slide to Complete: close now (requires ≥1 pallet photo). */
           <div className="flex gap-3">
             <button
               onClick={() => onSendToVerifyQueue?.()}
+              className="flex-1 py-4 bg-card border border-sky-500/40 text-sky-400 font-black uppercase tracking-widest text-xs rounded-2xl active:scale-95 transition-all hover:bg-sky-500/5"
+            >
+              Ready to DC
+            </button>
+            <div className="flex-[2]">
+              {palletPhotosCount === 0 ? (
+                /* No photo yet — replace the disabled slider with the
+                   camera trigger so the verifier doesn't need to scroll
+                   back up to find the Take Photo button. After capture,
+                   palletPhotosCount > 0 → next render swaps in the slide.
+                   Single tap finishes the order. */
+                <button
+                  onClick={() => scanInputRef.current?.click()}
+                  disabled={cartItems.length === 0 || isScanning}
+                  className="w-full h-full min-h-[56px] py-4 bg-amber-500 text-main font-black uppercase tracking-widest text-xs rounded-2xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isScanning ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Camera size={16} strokeWidth={3} />
+                  )}
+                  {isScanning ? 'Scanning...' : 'Take Photo to Complete'}
+                </button>
+              ) : (
+                <SlideToConfirm
+                  onConfirm={handleConfirm}
+                  isLoading={isDeducting}
+                  text="SLIDE TO COMPLETE"
+                  confirmedText="COMPLETING..."
+                  variant="default"
+                  disabled={cartItems.length === 0}
+                />
+              )}
+            </div>
+          </div>
+        ) : (
+          /* Estado B — partial verification. Two paths:
+             - Park Order: release lock, status untouched. Order returns to
+               its FedEx/Regular lane in the top section so anyone can take it.
+             - Complete Now: just Select-All everything (transitions UI to
+               Estado C without changing DB status). */
+          <div className="flex gap-3">
+            <button
+              onClick={() => onParkOrder?.()}
               className="flex-1 py-4 bg-card border border-subtle text-content/70 font-black uppercase tracking-widest text-xs rounded-2xl active:scale-95 transition-all"
             >
-              Send to Verify
+              Park Order
             </button>
             <button
               onClick={() => {

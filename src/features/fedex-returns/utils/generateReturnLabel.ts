@@ -12,6 +12,10 @@ export interface ReturnLabelData {
   receivedAt: string | null;
   receivedByName: string | null;
   notes?: string | null;
+  /** RMA / Return Merchandise Authorization number. When present, the label
+   *  prints "RMA#: XXX". When null/empty it prints "RMA#: __________"
+   *  (a fillable blank for hand-writing on the printed sheet). */
+  rma?: string | null;
 }
 
 function formatDate(iso: string | null): string {
@@ -98,13 +102,26 @@ export async function generateReturnLabel(data: ReturnLabelData): Promise<string
     doc.setLineWidth(0.02);
     doc.line(pad, qrY + qrSize + 0.1, W - pad, qrY + qrSize + 0.1);
 
-    // RECEIVED info
-    doc.setFontSize(10);
+    // Bottom info row — RMA on the LEFT (matches the serial print size
+    // under the barcode so it stays prominent and easy to fill in by hand),
+    // RECEIVED date on the RIGHT in the smaller secondary size.
     const infoY = qrY + qrSize + 0.3;
+
+    // RMA — printed value when known, fillable blank when not.
+    const rma = (data.rma ?? '').trim();
+    const rmaText = rma ? `RMA#: ${rma}` : 'RMA#: __________';
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text(rmaText, pad + 0.05, infoY);
+
+    // RECEIVED date — right-aligned, smaller weight for the secondary slot.
     const receivedDate = formatDate(data.receivedAt);
     if (receivedDate) {
-      doc.text(`RECEIVED: ${receivedDate}`, pad + 0.05, infoY);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.text(`RECEIVED: ${receivedDate}`, W - pad - 0.05, infoY, { align: 'right' });
     }
+    doc.setFont('helvetica', 'normal');
 
     // Bottom border of label
     doc.setLineWidth(0.02);
@@ -126,22 +143,21 @@ export async function generateReturnLabel(data: ReturnLabelData): Promise<string
   doc.setFontSize(8);
   doc.text('— CUT HERE —', W / 2, 3, { align: 'center', baseline: 'middle' });
 
-  return doc.output('dataurlstring');
+  return doc.output('bloburl') as unknown as string;
 }
 
 /**
- * Opens a new window with the generated PDF and triggers print dialog.
+ * Opens the generated PDF in a new tab using the browser's native PDF viewer.
+ * Matches the pattern used by PalletLabelsPrinter (orders) so Safari prints
+ * the 4×6 sheet at exact size instead of splitting it across Letter/A4 pages.
  */
 export async function printReturnLabel(data: ReturnLabelData): Promise<void> {
-  const dataUrl = await generateReturnLabel(data);
-  const w = window.open('');
-  if (!w) {
+  const blobUrl = await generateReturnLabel(data);
+  const opened = window.open(blobUrl, '_blank');
+  if (!opened) {
     const link = document.createElement('a');
-    link.href = dataUrl;
+    link.href = blobUrl;
     link.download = `return-label-${data.trackingNumber}.pdf`;
     link.click();
-    return;
   }
-  w.document.write(`<iframe src="${dataUrl}" style="width:100%;height:100vh;border:0"></iframe>`);
-  w.document.close();
 }

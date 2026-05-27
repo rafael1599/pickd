@@ -129,3 +129,53 @@
 | Bug | Fixed | Root cause | Commits |
 |-----|-------|-----------|---------|
 | bug-013: Teclado aparece al abrir orden desde Verification Queue | 2026-04-?? | overlay detection con elementFromPoint | `51e55a5` |
+
+---
+
+## Archived 2026-05-21 — May ops batch (33 items + 3 bugs)
+
+### P1 features delivered
+
+| # | Item | Completed | Commits | ID |
+|---|------|-----------|---------|----|
+| 1 | Add-On reopen Phase 2 (end-to-end full feature) | 2026-05-05 | `df1a2d3` | idea-067 P2 |
+| 2 | Add-On Phase 3 — COMBINE button + drop Re-Complete gate + single canonical entry | 2026-05-05 | `ce01b64` `8c57506` `e31d476` | idea-067 P3 |
+| 3 | Verification Board — color identification (tint bump + thicker stripes, pass 1) | 2026-05-05 | `2708280` (PR #63) | idea-102 |
+| 4 | Explicit "Ready to Double-Check" button — split Park Order vs Ready to DC | 2026-05-05 | `cb458c1` (PR #64) | idea-104 |
+| 5 | Realtime stock reservations — Phase 1 (persist verified_item_keys cross-user) | 2026-05-05 | `f320dc3` (PR #66) | idea-105 P1 |
+| 6 | Realtime stock reservations — Phase 3 (reservations + realtime + pill UI) | 2026-05-?? | `69bbc3f` | idea-105 P3 |
+| 7 | DoubleCheckView — agrandar SKU/loc/sublocation/distribution en tablet (`md:+`) | 2026-05-06 | `79b558d` | idea-106 |
+| 8 | Inventory log notes — `inventory_logs.note` + edit retroactive + report note | 2026-05-06 | `1a25dd0` `f26cb3e` `cd587c5` `059720c` `a8af404` `18a2d19` `ba35a5f` | idea-111 |
+| 9 | Consolidation admin screen — slow-mover slotting end-to-end (15 PRs) | 2026-05-20 | `ff14c8f` (PR #71) → `1db9059` (PR #85) | new |
+| 10 | Consolidation — Send-to-slow / Bring-to-active / Clear-a-row tabs | 2026-05-20 | `9a87de7` (PR #80) `5664239` (PR #81) | new |
+| 11 | Consolidation — smart per-SKU destination + Smart Suggestions panel | 2026-05-20 | `3cdba8c` (PR #82) | new |
+| 12 | Consolidation — "Other" tile in Move modal + top-3 easiest to clear | 2026-05-20 | `ae45588` (PR #84) `1db9059` (PR #85) | new |
+| 13 | Consolidation — visual revamp + select-to-move + checkbox UX | 2026-05-20 | `2336c98` (PR #77) `866362b` (PR #78) `96f923d` (PR #79) | new |
+| 14 | Consolidation — modal z-index above BottomNavigation + safe-area pad | 2026-05-20 | `16afafe` (PR #75) | new |
+| 15 | Ship-Out SMS at Double-Check slide-to-complete (Android+iOS, prefilled body) | 2026-05-21 | `c5a0a0d` (PR #87) | new |
+| 16 | Ship-Out SMS — resend button in Picking Summary modal + Orders FAB | 2026-05-21 | `6b2713e` (PR #88) | new |
+| 17 | Ship-Out SMS — empty-addressed Messages + skip PALLETS for FedEx + BIKES line | 2026-05-21 | `d8d2f62` (PR #89) `fc6e6de` (PR #90) | new |
+| 18 | Sticky row headers fix — consolidation + stock (`overflow-x:clip` on LayoutMain) | 2026-05-21 | `f9cc1e9` (PR #86) | new |
+| 19 | SKU history rename-aware via alias chain (resolve_sku_chain RPC) | 2026-05-19 | `b8b327a` (PR #69) `b3fb4b6` (PR #70) | new |
+| 20 | Inventory location ↔ location_id drift fix via sync trigger + monitoring view | 2026-05-20 | `4c6a0be` (PR #76) `66e6e01` (PR #74) | new |
+| 21 | Move stock edge guards — refuse no-op moves (same loc, zero qty) | 2026-05-20 | `5bbb266` (PR #83) | new |
+| 22 | pick_item RPC group fallback — route to owning sibling list in grouped orders | 2026-05-08 | `716eb59` (PR #67) | new |
+| 23 | Verification Board — "In Picking" zone + open active orders in DoubleCheckView | 2026-05-15 | `5129a6d` `ee7d688` | new |
+| 24 | Verification Board — Show N more when either lane exceeds cap | 2026-05-13 | `03a207d` (PR #68) | new |
+| 25 | DoubleCheckView header — compact + kebab actions + Pickd counter + collapsed combined list | 2026-05-06/19 | `224cd70` `a6127be` `99e3beb` | new |
+| 26 | FedEx Returns rework — Misship flag, RMA on label, atomic process_fedex_return_item, Dispose button | 2026-05-06 | `5fbbe9b` `3bc6a89` `1276667` `bf5da10` `da94f7e` `66422d6` `0cb14ff` `1a25dd0` | new |
+| 27 | FDX RETURNS — intake rename + bin reassignment dropdown | 2026-05-19 | `4272d94` | new |
+| 28 | FedEx + history PDF labels at 4×6 native size | 2026-05-19 | `0ed1553` | new |
+| 29 | Stock card visual revamp — operator text scaler + sublocation chip parity + 155% scale baked + distribution + pinned sublocation | 2026-05-08 | `4865155` `6e143ad` `3c905a8` | new |
+| 30 | History — custom date range picker + multi-day moves preserved + AS400 Sync PDF mode | 2026-05-06/08 | `d4533c1` `e6424d8` `d55b3a8` `6d5d9a6` `18a2d19` | new |
+| 31 | register_new_sku redirects to canonical SKU (closes idea-101 prereq path in pickd; watchdog wiring still pending) | 2026-05-04 | `5ff57e5` (PR #62) | idea-101 prereq |
+| 32 | Orders UI — hide FedEx + collapse general groups into one card | 2026-05-05 | `ce1b89e` | new |
+| 33 | DoubleCheckView — Take Photo CTA replaces disabled slider when no photo yet | 2026-05-05 | `aaa57e4` (PR #65) | new |
+
+### Resolved bugs (this batch)
+
+| Bug | Fixed | Commits |
+|-----|-------|---------|
+| Consolidation list 400s after a move (stale list refetch) | 2026-05-20 | `bbad1e8` (PR #72) |
+| Consolidation source_row showing wrong location (FK join vs raw `inventory.location`) | 2026-05-20 | `66e6e01` (PR #74) |
+| Ship-Out SMS settings page stuck on "Loading…" (prod migration not applied + setState-in-effect lint) | 2026-05-21 | (in PR #87 follow-up) |

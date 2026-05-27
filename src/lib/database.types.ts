@@ -55,6 +55,83 @@ export type Database = {
         };
         Relationships: [];
       };
+      asset_tags: {
+        Row: {
+          c_number: string | null;
+          created_at: string | null;
+          created_by: string | null;
+          id: string;
+          label_photo_url: string | null;
+          location: string;
+          made_in: string | null;
+          order_id: string | null;
+          other_notes: string | null;
+          po_number: string | null;
+          possible_locations: string[] | null;
+          printed_at: string | null;
+          public_token: string;
+          serial_number: string | null;
+          short_code: string;
+          sku: string;
+          status: string;
+          upc: string | null;
+          updated_at: string | null;
+          warehouse: string;
+        };
+        Insert: {
+          c_number?: string | null;
+          created_at?: string | null;
+          created_by?: string | null;
+          id?: string;
+          label_photo_url?: string | null;
+          location?: string;
+          made_in?: string | null;
+          order_id?: string | null;
+          other_notes?: string | null;
+          po_number?: string | null;
+          possible_locations?: string[] | null;
+          printed_at?: string | null;
+          public_token?: string;
+          serial_number?: string | null;
+          short_code?: string;
+          sku: string;
+          status?: string;
+          upc?: string | null;
+          updated_at?: string | null;
+          warehouse?: string;
+        };
+        Update: {
+          c_number?: string | null;
+          created_at?: string | null;
+          created_by?: string | null;
+          id?: string;
+          label_photo_url?: string | null;
+          location?: string;
+          made_in?: string | null;
+          order_id?: string | null;
+          other_notes?: string | null;
+          po_number?: string | null;
+          possible_locations?: string[] | null;
+          printed_at?: string | null;
+          public_token?: string;
+          serial_number?: string | null;
+          short_code?: string;
+          sku?: string;
+          status?: string;
+          upc?: string | null;
+          updated_at?: string | null;
+          warehouse?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'asset_tags_created_by_fkey';
+            columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       customer_addresses: {
         Row: {
           city: string | null;
@@ -339,6 +416,51 @@ export type Database = {
           },
         ];
       };
+      daily_reports: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          data_computed: Json;
+          data_manual: Json;
+          report_date: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          data_computed?: Json;
+          data_manual?: Json;
+          report_date: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          data_computed?: Json;
+          data_manual?: Json;
+          report_date?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'daily_reports_created_by_fkey';
+            columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'daily_reports_updated_by_fkey';
+            columns: ['updated_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       fedex_return_items: {
         Row: {
           condition: string;
@@ -396,6 +518,7 @@ export type Database = {
         Row: {
           created_at: string | null;
           id: string;
+          is_misship: boolean;
           label_photo_url: string | null;
           notes: string | null;
           processed_at: string | null;
@@ -405,6 +528,7 @@ export type Database = {
           received_by: string | null;
           received_by_name: string | null;
           resolved_at: string | null;
+          rma: string | null;
           status: string;
           tracking_number: string;
           updated_at: string | null;
@@ -412,6 +536,7 @@ export type Database = {
         Insert: {
           created_at?: string | null;
           id?: string;
+          is_misship?: boolean;
           label_photo_url?: string | null;
           notes?: string | null;
           processed_at?: string | null;
@@ -421,6 +546,7 @@ export type Database = {
           received_by?: string | null;
           received_by_name?: string | null;
           resolved_at?: string | null;
+          rma?: string | null;
           status?: string;
           tracking_number: string;
           updated_at?: string | null;
@@ -428,6 +554,7 @@ export type Database = {
         Update: {
           created_at?: string | null;
           id?: string;
+          is_misship?: boolean;
           label_photo_url?: string | null;
           notes?: string | null;
           processed_at?: string | null;
@@ -437,6 +564,7 @@ export type Database = {
           received_by?: string | null;
           received_by_name?: string | null;
           resolved_at?: string | null;
+          rma?: string | null;
           status?: string;
           tracking_number?: string;
           updated_at?: string | null;
@@ -460,34 +588,34 @@ export type Database = {
       };
       gallery_photos: {
         Row: {
-          id: string;
-          filename: string;
-          url: string;
-          thumbnail_url: string;
           caption: string | null;
-          deleted_at: string | null;
-          created_by: string | null;
           created_at: string | null;
+          created_by: string | null;
+          deleted_at: string | null;
+          filename: string;
+          id: string;
+          thumbnail_url: string;
+          url: string;
         };
         Insert: {
-          id?: string;
-          filename: string;
-          url: string;
-          thumbnail_url: string;
           caption?: string | null;
-          deleted_at?: string | null;
-          created_by?: string | null;
           created_at?: string | null;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          filename: string;
+          id?: string;
+          thumbnail_url: string;
+          url: string;
         };
         Update: {
-          id?: string;
-          filename?: string;
-          url?: string;
-          thumbnail_url?: string;
           caption?: string | null;
-          deleted_at?: string | null;
-          created_by?: string | null;
           created_at?: string | null;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          filename?: string;
+          id?: string;
+          thumbnail_url?: string;
+          url?: string;
         };
         Relationships: [
           {
@@ -511,6 +639,7 @@ export type Database = {
           location: string | null;
           location_hint: string | null;
           location_id: string | null;
+          location_sort_key: number | null;
           quantity: number | null;
           sku: string;
           stowage_index: number | null;
@@ -531,6 +660,7 @@ export type Database = {
           location?: string | null;
           location_hint?: string | null;
           location_id?: string | null;
+          location_sort_key?: number | null;
           quantity?: number | null;
           sku: string;
           stowage_index?: number | null;
@@ -551,6 +681,7 @@ export type Database = {
           location?: string | null;
           location_hint?: string | null;
           location_id?: string | null;
+          location_sort_key?: number | null;
           quantity?: number | null;
           sku?: string;
           stowage_index?: number | null;
@@ -589,6 +720,7 @@ export type Database = {
           list_id: string | null;
           location_id: string | null;
           new_quantity: number | null;
+          note: string | null;
           order_number: string | null;
           performed_by: string | null;
           prev_quantity: number | null;
@@ -613,6 +745,7 @@ export type Database = {
           list_id?: string | null;
           location_id?: string | null;
           new_quantity?: number | null;
+          note?: string | null;
           order_number?: string | null;
           performed_by?: string | null;
           prev_quantity?: number | null;
@@ -637,6 +770,7 @@ export type Database = {
           list_id?: string | null;
           location_id?: string | null;
           new_quantity?: number | null;
+          note?: string | null;
           order_number?: string | null;
           performed_by?: string | null;
           prev_quantity?: number | null;
@@ -867,16 +1001,19 @@ export type Database = {
           group_id: string | null;
           id: string;
           is_addon: boolean | null;
+          is_waiting_inventory: boolean;
           items: Json | null;
           last_activity_at: string | null;
           load_number: string | null;
           notes: string | null;
           order_number: string | null;
+          pallet_photos: Json | null;
           pallets_qty: number | null;
           priority: string | null;
           reopen_count: number | null;
           reopened_at: string | null;
           reopened_by: string | null;
+          shipping_type: string | null;
           source: string | null;
           status: string | null;
           total_units: number | null;
@@ -884,6 +1021,9 @@ export type Database = {
           transport_company: string | null;
           updated_at: string | null;
           user_id: string;
+          verified_item_keys: Json;
+          waiting_reason: string | null;
+          waiting_since: string | null;
         };
         Insert: {
           checked_by?: string | null;
@@ -895,16 +1035,19 @@ export type Database = {
           group_id?: string | null;
           id?: string;
           is_addon?: boolean | null;
+          is_waiting_inventory?: boolean;
           items?: Json | null;
           last_activity_at?: string | null;
           load_number?: string | null;
           notes?: string | null;
           order_number?: string | null;
+          pallet_photos?: Json | null;
           pallets_qty?: number | null;
           priority?: string | null;
           reopen_count?: number | null;
           reopened_at?: string | null;
           reopened_by?: string | null;
+          shipping_type?: string | null;
           source?: string | null;
           status?: string | null;
           total_units?: number | null;
@@ -912,6 +1055,9 @@ export type Database = {
           transport_company?: string | null;
           updated_at?: string | null;
           user_id: string;
+          verified_item_keys?: Json;
+          waiting_reason?: string | null;
+          waiting_since?: string | null;
         };
         Update: {
           checked_by?: string | null;
@@ -923,16 +1069,19 @@ export type Database = {
           group_id?: string | null;
           id?: string;
           is_addon?: boolean | null;
+          is_waiting_inventory?: boolean;
           items?: Json | null;
           last_activity_at?: string | null;
           load_number?: string | null;
           notes?: string | null;
           order_number?: string | null;
+          pallet_photos?: Json | null;
           pallets_qty?: number | null;
           priority?: string | null;
           reopen_count?: number | null;
           reopened_at?: string | null;
           reopened_by?: string | null;
+          shipping_type?: string | null;
           source?: string | null;
           status?: string | null;
           total_units?: number | null;
@@ -940,6 +1089,9 @@ export type Database = {
           transport_company?: string | null;
           updated_at?: string | null;
           user_id?: string;
+          verified_item_keys?: Json;
+          waiting_reason?: string | null;
+          waiting_since?: string | null;
         };
         Relationships: [
           {
@@ -986,6 +1138,81 @@ export type Database = {
           },
         ];
       };
+      picking_lists_deleted_audit: {
+        Row: {
+          deleted_at: string;
+          deleted_by: string | null;
+          id: string;
+          list_id: string;
+          order_number: string | null;
+          row_snapshot: Json;
+          status: string | null;
+          user_id: string | null;
+        };
+        Insert: {
+          deleted_at?: string;
+          deleted_by?: string | null;
+          id?: string;
+          list_id: string;
+          order_number?: string | null;
+          row_snapshot: Json;
+          status?: string | null;
+          user_id?: string | null;
+        };
+        Update: {
+          deleted_at?: string;
+          deleted_by?: string | null;
+          id?: string;
+          list_id?: string;
+          order_number?: string | null;
+          row_snapshot?: Json;
+          status?: string | null;
+          user_id?: string | null;
+        };
+        Relationships: [];
+      };
+      picking_lists_items_shrink_audit: {
+        Row: {
+          caller: string | null;
+          id: string;
+          list_id: string;
+          new_item_count: number;
+          new_items: Json;
+          occurred_at: string;
+          order_number: string | null;
+          prev_item_count: number;
+          prev_items: Json;
+          shrink_by: number | null;
+          status: string | null;
+        };
+        Insert: {
+          caller?: string | null;
+          id?: string;
+          list_id: string;
+          new_item_count: number;
+          new_items: Json;
+          occurred_at?: string;
+          order_number?: string | null;
+          prev_item_count: number;
+          prev_items: Json;
+          shrink_by?: number | null;
+          status?: string | null;
+        };
+        Update: {
+          caller?: string | null;
+          id?: string;
+          list_id?: string;
+          new_item_count?: number;
+          new_items?: Json;
+          occurred_at?: string;
+          order_number?: string | null;
+          prev_item_count?: number;
+          prev_items?: Json;
+          shrink_by?: number | null;
+          status?: string | null;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
           created_at: string | null;
@@ -996,6 +1223,8 @@ export type Database = {
           is_active: boolean | null;
           last_seen_at: string | null;
           role: string | null;
+          shipping_sms_enabled: boolean;
+          shipping_sms_recipients: string[];
           updated_at: string | null;
         };
         Insert: {
@@ -1007,6 +1236,8 @@ export type Database = {
           is_active?: boolean | null;
           last_seen_at?: string | null;
           role?: string | null;
+          shipping_sms_enabled?: boolean;
+          shipping_sms_recipients?: string[];
           updated_at?: string | null;
         };
         Update: {
@@ -1018,12 +1249,115 @@ export type Database = {
           is_active?: boolean | null;
           last_seen_at?: string | null;
           role?: string | null;
+          shipping_sms_enabled?: boolean;
+          shipping_sms_recipients?: string[];
           updated_at?: string | null;
         };
         Relationships: [
           {
             foreignKeyName: 'profiles_created_by_fkey';
             columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      project_tasks: {
+        Row: {
+          created_at: string | null;
+          created_by: string | null;
+          id: string;
+          note: string | null;
+          position: number;
+          status: string;
+          title: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          created_by?: string | null;
+          id?: string;
+          note?: string | null;
+          position?: number;
+          status?: string;
+          title: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          created_by?: string | null;
+          id?: string;
+          note?: string | null;
+          position?: number;
+          status?: string;
+          title?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'project_tasks_created_by_fkey';
+            columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      shopping_list: {
+        Row: {
+          created_at: string | null;
+          done_at: string | null;
+          done_by: string | null;
+          id: string;
+          item_name: string;
+          note: string | null;
+          quantity: string | null;
+          requested_by: string | null;
+          requested_by_name: string | null;
+          status: string;
+          updated_at: string | null;
+          urgent: boolean;
+        };
+        Insert: {
+          created_at?: string | null;
+          done_at?: string | null;
+          done_by?: string | null;
+          id?: string;
+          item_name: string;
+          note?: string | null;
+          quantity?: string | null;
+          requested_by?: string | null;
+          requested_by_name?: string | null;
+          status?: string;
+          updated_at?: string | null;
+          urgent?: boolean;
+        };
+        Update: {
+          created_at?: string | null;
+          done_at?: string | null;
+          done_by?: string | null;
+          id?: string;
+          item_name?: string;
+          note?: string | null;
+          quantity?: string | null;
+          requested_by?: string | null;
+          requested_by_name?: string | null;
+          status?: string;
+          updated_at?: string | null;
+          urgent?: boolean;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'shopping_list_done_by_fkey';
+            columns: ['done_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'shopping_list_requested_by_fkey';
+            columns: ['requested_by'];
             isOneToOne: false;
             referencedRelation: 'profiles';
             referencedColumns: ['id'];
@@ -1110,32 +1444,32 @@ export type Database = {
       };
       task_photos: {
         Row: {
-          id: string;
-          task_id: string;
-          photo_id: string;
-          assigned_by: string | null;
           assigned_at: string | null;
+          assigned_by: string | null;
+          id: string;
+          photo_id: string;
+          task_id: string;
         };
         Insert: {
-          id?: string;
-          task_id: string;
-          photo_id: string;
-          assigned_by?: string | null;
           assigned_at?: string | null;
+          assigned_by?: string | null;
+          id?: string;
+          photo_id: string;
+          task_id: string;
         };
         Update: {
-          id?: string;
-          task_id?: string;
-          photo_id?: string;
-          assigned_by?: string | null;
           assigned_at?: string | null;
+          assigned_by?: string | null;
+          id?: string;
+          photo_id?: string;
+          task_id?: string;
         };
         Relationships: [
           {
-            foreignKeyName: 'task_photos_task_id_fkey';
-            columns: ['task_id'];
+            foreignKeyName: 'task_photos_assigned_by_fkey';
+            columns: ['assigned_by'];
             isOneToOne: false;
-            referencedRelation: 'project_tasks';
+            referencedRelation: 'profiles';
             referencedColumns: ['id'];
           },
           {
@@ -1146,10 +1480,52 @@ export type Database = {
             referencedColumns: ['id'];
           },
           {
-            foreignKeyName: 'task_photos_assigned_by_fkey';
-            columns: ['assigned_by'];
+            foreignKeyName: 'task_photos_task_id_fkey';
+            columns: ['task_id'];
+            isOneToOne: false;
+            referencedRelation: 'project_tasks';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      task_state_changes: {
+        Row: {
+          changed_at: string | null;
+          changed_by: string | null;
+          from_status: string;
+          id: string;
+          task_id: string;
+          to_status: string;
+        };
+        Insert: {
+          changed_at?: string | null;
+          changed_by?: string | null;
+          from_status: string;
+          id?: string;
+          task_id: string;
+          to_status: string;
+        };
+        Update: {
+          changed_at?: string | null;
+          changed_by?: string | null;
+          from_status?: string;
+          id?: string;
+          task_id?: string;
+          to_status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'task_state_changes_changed_by_fkey';
+            columns: ['changed_by'];
             isOneToOne: false;
             referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'task_state_changes_task_id_fkey';
+            columns: ['task_id'];
+            isOneToOne: false;
+            referencedRelation: 'project_tasks';
             referencedColumns: ['id'];
           },
         ];
@@ -1180,9 +1556,67 @@ export type Database = {
           },
         ];
       };
+      warehouse_slot_layouts: {
+        Row: {
+          created_at: string;
+          id: string;
+          layout: Json;
+          row_name: string;
+          updated_at: string;
+          user_id: string;
+          warehouse: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          layout?: Json;
+          row_name: string;
+          updated_at?: string;
+          user_id: string;
+          warehouse: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          layout?: Json;
+          row_name?: string;
+          updated_at?: string;
+          user_id?: string;
+          warehouse?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
-      [_ in never]: never;
+      v_inventory_location_drift: {
+        Row: {
+          fk_location: string | null;
+          inventory_id: number | null;
+          is_active: boolean | null;
+          location_id: string | null;
+          quantity: number | null;
+          raw_location: string | null;
+          sku: string | null;
+          updated_at: string | null;
+          warehouse: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'inventory_location_id_fkey';
+            columns: ['location_id'];
+            isOneToOne: false;
+            referencedRelation: 'locations';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'inventory_sku_fkey';
+            columns: ['sku'];
+            isOneToOne: false;
+            referencedRelation: 'sku_metadata';
+            referencedColumns: ['sku'];
+          },
+        ];
+      };
     };
     Functions: {
       adjust_distribution: {
@@ -1218,24 +1652,226 @@ export type Database = {
         Args: { p_qty: number; p_sku: string };
         Returns: Json;
       };
+      cancel_completed_order: {
+        Args: { p_list_id: string; p_user_id: string | null };
+        Returns: Json;
+      };
       cancel_reopen: {
         Args: { p_list_id: string; p_user_id: string };
         Returns: boolean;
+      };
+      classify_picking_list_fedex: { Args: { p_items: Json }; Returns: boolean };
+      complete_addon_group: {
+        Args: {
+          p_performed_by: string;
+          p_source_id: string;
+          p_source_pallets?: number;
+          p_source_units?: number;
+          p_target_id: string;
+          p_target_pallets?: number;
+          p_target_units?: number;
+          p_user_id: string;
+          p_user_role?: string;
+        };
+        Returns: Json;
+      };
+      compute_daily_report_data: {
+        Args: { p_report_date: string };
+        Returns: Json;
+      };
+      create_daily_report_snapshot: {
+        Args: { p_report_date: string };
+        Returns: Json;
       };
       create_daily_snapshot: {
         Args: { p_snapshot_date?: string };
         Returns: Json;
       };
+      current_ny_date: { Args: never; Returns: string };
       current_user_id: { Args: never; Returns: string };
       delete_inventory_item: {
         Args: { p_item_id: number; p_performed_by: string; p_user_id?: string };
         Returns: boolean;
       };
+      dispose_fedex_return: {
+        Args: {
+          p_dispose_reason?: string;
+          p_performed_by?: string;
+          p_return_id: string;
+          p_user_id: string;
+        };
+        Returns: Json;
+      };
+      generate_short_code: { Args: never; Returns: string };
+      get_audit_rows: {
+        Args: { p_warehouse?: string };
+        Returns: {
+          has_waiting_skus: boolean;
+          last_touched_at: string;
+          missing_sublocation_count: number;
+          row_label: string;
+          sku_count: number;
+          skus_touched_90d: number;
+        }[];
+      };
+      get_clear_row_plan: {
+        Args: {
+          p_active_rows?: string[];
+          p_active_threshold?: number;
+          p_only_bikes?: boolean;
+          p_since?: string;
+          p_slow_rows?: string[];
+          p_source_row: string;
+          p_warehouse?: string;
+        };
+        Returns: {
+          alias_chain: string[];
+          inventory_id: number;
+          item_name: string;
+          last_shipped: string;
+          orders_completed: number;
+          qty: number;
+          sku: string;
+          source_row: string;
+          sublocation: string[];
+          suggested_row: string;
+          suggested_row_free: number;
+          suggested_row_picking_order: number;
+          suggested_zone: string;
+          suggestion_reason: string;
+          units_shipped: number;
+          warehouse: string;
+        }[];
+      };
+      get_consolidation_candidates: {
+        Args: {
+          p_max_orders?: number;
+          p_only_bikes?: boolean;
+          p_since?: string;
+        };
+        Returns: {
+          alias_chain: string[];
+          inventory_id: number;
+          item_name: string;
+          last_shipped: string;
+          orders_completed: number;
+          qty: number;
+          sku: string;
+          source_row: string;
+          sublocation: string[];
+          units_shipped: number;
+          warehouse: string;
+        }[];
+      };
+      get_inventory_logs_for_sku: {
+        Args: { p_limit?: number; p_sku: string };
+        Returns: {
+          action_type: string;
+          created_at: string | null;
+          from_location: string | null;
+          from_warehouse: string | null;
+          id: string;
+          is_reversed: boolean | null;
+          item_id: number | null;
+          list_id: string | null;
+          location_id: string | null;
+          new_quantity: number | null;
+          note: string | null;
+          order_number: string | null;
+          performed_by: string | null;
+          prev_quantity: number | null;
+          previous_quantity: number | null;
+          previous_sku: string | null;
+          quantity_change: number;
+          sku: string;
+          snapshot_before: Json | null;
+          to_location: string | null;
+          to_location_id: string | null;
+          to_warehouse: string | null;
+          user_id: string | null;
+        }[];
+        SetofOptions: {
+          from: '*';
+          to: 'inventory_logs';
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
       get_inventory_stats: {
         Args: { p_include_parts?: boolean };
         Returns: {
+          total_capacity: number;
           total_skus: number;
           total_units: number;
+        }[];
+      };
+      get_promotion_candidates: {
+        Args: {
+          p_min_orders?: number;
+          p_only_bikes?: boolean;
+          p_since?: string;
+          p_source_rows?: string[];
+        };
+        Returns: {
+          alias_chain: string[];
+          inventory_id: number;
+          item_name: string;
+          last_shipped: string;
+          orders_completed: number;
+          qty: number;
+          sku: string;
+          source_row: string;
+          sublocation: string[];
+          units_shipped: number;
+          warehouse: string;
+        }[];
+      };
+      get_public_tag: {
+        Args: { p_short_code: string; p_token: string };
+        Returns: Json;
+      };
+      get_sku_movement_stats: {
+        Args: { p_since?: string; p_sku: string };
+        Returns: {
+          alias_chain: string[];
+          first_shipped: string;
+          last_shipped: string;
+          orders_completed: number;
+          sku: string;
+          units_shipped: number;
+        }[];
+      };
+      get_sku_movement_stats_batch: {
+        Args: { p_since?: string; p_skus: string[] };
+        Returns: {
+          alias_chain: string[];
+          first_shipped: string;
+          last_shipped: string;
+          orders_completed: number;
+          sku: string;
+          units_shipped: number;
+        }[];
+      };
+      get_slot_fill_candidates: {
+        Args: {
+          p_exclude_active_rows?: string[];
+          p_only_bikes?: boolean;
+          p_slots: Json;
+          p_top_n_per_slot?: number;
+        };
+        Returns: {
+          current_qty: number;
+          current_row: string;
+          fit_precision: number;
+          item_name: string;
+          last_shipped: string;
+          orders_30d: number;
+          orders_90d: number;
+          sku: string;
+          slot_id: string;
+          units_30d: number;
+          units_90d: number;
+          velocity_score: number;
         }[];
       };
       get_snapshot: {
@@ -1262,18 +1898,62 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean };
       is_manager: { Args: never; Returns: boolean };
       is_user_online: { Args: { p_user_id: string }; Returns: boolean };
+      lookup_canonical_sku: {
+        Args: { p_raw: string };
+        Returns: {
+          sku: string;
+        }[];
+      };
+      mark_picking_list_waiting: {
+        Args: { p_list_id: string; p_reason: string };
+        Returns: undefined;
+      };
       move_inventory_stock: {
         Args: {
           p_from_location: string;
           p_from_warehouse: string;
           p_internal_note?: string;
+          p_move_note?: string;
           p_performed_by: string;
           p_qty: number;
           p_sku: string;
+          p_sublocation?: string[];
           p_to_location: string;
           p_to_warehouse: string;
           p_user_id?: string;
           p_user_role?: string;
+        };
+        Returns: Json;
+      };
+      ny_day_bounds: {
+        Args: { p_ny_date: string };
+        Returns: {
+          ends_at: string;
+          starts_at: string;
+        }[];
+      };
+      pick_item: {
+        Args: {
+          p_list_id: string;
+          p_location: string;
+          p_performed_by?: string;
+          p_qty: number;
+          p_sku: string;
+          p_user_id: string;
+          p_warehouse: string;
+        };
+        Returns: Json;
+      };
+      process_fedex_return_item: {
+        Args: {
+          p_condition: string;
+          p_item_id: string;
+          p_item_name: string;
+          p_performed_by?: string;
+          p_real_sku: string;
+          p_target_location: string;
+          p_target_warehouse: string;
+          p_user_id: string;
         };
         Returns: Json;
       };
@@ -1299,6 +1979,15 @@ export type Database = {
         };
         Returns: boolean;
       };
+      register_new_sku: {
+        Args: {
+          p_item_name: string;
+          p_location?: string;
+          p_sku: string;
+          p_warehouse?: string;
+        };
+        Returns: Json;
+      };
       reopen_picking_list: {
         Args: { p_list_id: string; p_reason?: string; p_reopened_by: string };
         Returns: boolean;
@@ -1311,50 +2000,92 @@ export type Database = {
         };
         Returns: string;
       };
+      resolve_sku_chain: { Args: { p_sku: string }; Returns: string[] };
+      resolve_tag_location: {
+        Args: { p_location: string; p_tag_id: string };
+        Returns: undefined;
+      };
+      save_daily_report_manual: {
+        Args: { p_manual: Json; p_report_date: string };
+        Returns: undefined;
+      };
       search_inventory_with_metadata: {
         Args: {
-          p_search?: string;
-          p_warehouse?: string;
           p_include_inactive?: boolean;
-          p_show_parts?: boolean;
-          p_only_scratch_dent?: boolean;
-          p_offset?: number;
           p_limit?: number;
+          p_offset?: number;
+          p_only_fedex_returns?: boolean;
+          p_only_scratch_dent?: boolean;
+          p_search?: string;
+          p_show_parts?: boolean;
+          p_warehouse?: string;
         };
         Returns: {
-          id: number;
-          sku: string;
-          quantity: number;
-          location: string | null;
-          location_id: string | null;
-          sublocation: string[] | null;
-          item_name: string | null;
-          warehouse: string | null;
-          is_active: boolean | null;
-          internal_note: string | null;
-          distribution: Json | null;
+          condition: string;
+          condition_description: string;
           created_at: string;
-          location_sort_key: number | null;
-          image_url: string | null;
-          length_in: number | null;
-          width_in: number | null;
-          height_in: number | null;
-          weight_lbs: number | null;
-          is_bike: boolean | null;
-          is_scratch_dent: boolean | null;
-          serial_number: string | null;
-          upc: string | null;
-          model: string | null;
-          condition_description: string | null;
-          pdf_link: string | null;
-          sd_price: number | null;
-          condition: string | null;
+          distribution: Json;
+          fedex_return_id: string;
+          fedex_return_status: string;
+          fedex_tracking_number: string;
+          height_in: number;
+          id: number;
+          image_url: string;
+          internal_note: string;
+          is_active: boolean;
+          is_bike: boolean;
+          is_scratch_dent: boolean;
+          item_name: string;
+          length_in: number;
+          location: string;
+          location_id: string;
+          location_sort_key: number;
+          model: string;
+          pdf_link: string;
+          quantity: number;
+          sd_price: number;
+          serial_number: string;
+          sku: string;
+          sublocation: string[];
           total_count: number;
+          upc: string;
+          warehouse: string;
+          weight_lbs: number;
+          width_in: number;
         }[];
       };
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { '': string }; Returns: string[] };
+      take_over_sku_from_waiting: {
+        Args: {
+          p_qty: number;
+          p_sku: string;
+          p_target_list_id: string;
+          p_waiting_list_id: string;
+        };
+        Returns: undefined;
+      };
       undo_inventory_action: { Args: { target_log_id: string }; Returns: Json };
+      unmark_picking_list_waiting: {
+        Args: { p_action: string; p_list_id: string };
+        Returns: undefined;
+      };
+      unpick_item: {
+        Args: {
+          p_list_id: string;
+          p_location: string;
+          p_performed_by?: string;
+          p_qty: number;
+          p_sku: string;
+          p_user_id: string;
+          p_warehouse: string;
+        };
+        Returns: Json;
+      };
+      update_inventory_log_note: {
+        Args: { p_log_id: string; p_note: string; p_user_id: string };
+        Returns: Json;
+      };
       update_user_presence: { Args: { p_user_id: string }; Returns: undefined };
       upsert_inventory_log: {
         Args: {
@@ -1366,9 +2097,11 @@ export type Database = {
           p_list_id?: string;
           p_location_id: string;
           p_new_quantity: number;
+          p_note?: string;
           p_order_number?: string;
           p_performed_by: string;
           p_prev_quantity: number;
+          p_previous_sku?: string;
           p_quantity_change: number;
           p_sku: string;
           p_snapshot_before?: Json;
@@ -1377,8 +2110,9 @@ export type Database = {
           p_to_warehouse: string;
           p_user_id: string;
         };
-        Returns: string;
+        Returns: undefined;
       };
+      valid_sublocation_array: { Args: { arr: string[] }; Returns: boolean };
     };
     Enums: {
       [_ in never]: never;

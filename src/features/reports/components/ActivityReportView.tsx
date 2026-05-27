@@ -1,5 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import type { ActivityReport } from '../hooks/useActivityReport';
+import type {
+  ActivityReport,
+  TodayEvents,
+  TodayMoveEvent,
+  TodayConsolidationEvent,
+  FedExReturnSummary,
+} from '../hooks/useActivityReport';
 import type { ReportTask } from '../../projects/hooks/useProjectReportData';
 import type { LowStockAlerts } from '../hooks/useLowStockAlerts';
 import { PhotoLightbox } from '../../../components/ui/PhotoLightbox';
@@ -73,6 +79,13 @@ interface Props {
    * exporter — pallet photos get their own dedicated per-order pages.
    */
   skipPalletPhotos?: boolean;
+  /**
+   * idea-091 weekly toggle. When provided + `showWeeklyFedex=true`, replaces
+   * the day-scoped FedEx Returns list with the 7-day window. Falls back to
+   * the day-scoped report.fedex_returns when off or undefined.
+   */
+  weeklyFedexReturns?: FedExReturnSummary[];
+  showWeeklyFedex?: boolean;
 }
 
 function formatDate(dateStr: string): string {
@@ -211,6 +224,210 @@ function renderTaskList(
 const RED = '#dc2626';
 const AMBER_ALERT = '#d97706';
 
+// ─── idea-097 — Today's per-SKU events tables ──────────────────────────────
+const cellHeadStyle: React.CSSProperties = {
+  textAlign: 'left',
+  padding: '6px 10px',
+  fontSize: 10,
+  fontWeight: 700,
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
+  color: TEXT_MUTED,
+  borderBottom: `1px solid ${TEXT_MUTED}33`,
+};
+const cellStyle: React.CSSProperties = {
+  padding: '8px 10px',
+  fontSize: 13,
+  color: TEXT,
+  verticalAlign: 'top',
+  borderBottom: `1px solid ${TEXT_MUTED}1a`,
+};
+const skuStyle: React.CSSProperties = { fontSize: 11, color: TEXT_MUTED, fontFamily: 'monospace' };
+const totalStyle: React.CSSProperties = {
+  ...cellStyle,
+  textAlign: 'right',
+  fontWeight: 700,
+  color: TEXT_BOLD,
+  fontVariantNumeric: 'tabular-nums',
+};
+const subLineStyle: React.CSSProperties = {
+  display: 'block',
+  marginTop: 2,
+  fontSize: 11,
+  color: TEXT_MUTED,
+};
+const sectionTitleStyle = (color: string): React.CSSProperties => ({
+  margin: '0 0 6px 0',
+  fontSize: 11,
+  fontWeight: 800,
+  letterSpacing: '0.12em',
+  textTransform: 'uppercase',
+  color,
+});
+
+const fmtOthers = (others: { location: string; qty: number }[]): string =>
+  others.map((o) => `${o.location} (${o.qty})`).join(', ');
+
+const MovedRow: React.FC<{ ev: TodayMoveEvent }> = ({ ev }) => {
+  const arrow = ev.from_location
+    ? `${ev.from_location} → ${ev.to_location}`
+    : `→ ${ev.to_location}`;
+  const arrowWithQty = ev.show_qty_in_arrow ? `${arrow} (${ev.qty_moved})` : arrow;
+  return (
+    <tr>
+      <td style={cellStyle}>{ev.item_name}</td>
+      <td style={{ ...cellStyle, ...skuStyle }}>{ev.sku}</td>
+      <td style={cellStyle}>
+        {arrowWithQty}
+        {ev.other_locations.length > 0 && (
+          <span style={subLineStyle}>also {fmtOthers(ev.other_locations)}</span>
+        )}
+      </td>
+      <td style={totalStyle}>{ev.total_now}</td>
+    </tr>
+  );
+};
+
+const ConsolidatedRow: React.FC<{ ev: TodayConsolidationEvent }> = ({ ev }) => (
+  <tr>
+    <td style={cellStyle}>
+      {ev.item_name} <span style={skuStyle}>({ev.sku})</span>, consolidated on {ev.location}
+    </td>
+  </tr>
+);
+
+/** idea-091 — minimal FedEx Returns block for the daily report.
+ *  Renders nothing when there are no returns in the chosen window. */
+const FedExReturnsBlock: React.FC<{
+  returns: FedExReturnSummary[] | undefined;
+  /** When true, the `returns` list represents the full 7-day window ending
+   *  on the report date. The block re-labels itself to reflect that. */
+  weekly?: boolean;
+}> = ({ returns, weekly = false }) => {
+  const list = returns ?? [];
+  if (list.length === 0) return null;
+  const totalQty = list.reduce((sum, r) => sum + r.total_qty, 0);
+  const heading = weekly ? 'FedEx Returns — This Week' : 'FedEx Returns';
+  const subline = weekly
+    ? `${totalQty} ${totalQty === 1 ? 'unit' : 'units'} received in the last 7 days.`
+    : `${totalQty} ${totalQty === 1 ? 'unit' : 'units'} received today.`;
+  return (
+    <div style={{ marginTop: 16 }}>
+      <p style={sectionTitleStyle(AMBER)}>
+        {heading} — {list.length}
+      </p>
+      <p style={{ ...subLineStyle, margin: '0 0 8px 0', display: 'block' }}>{subline}</p>
+      <div style={{ overflowX: 'auto' }}>
+        <table
+          style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            fontFamily: FONT,
+            tableLayout: 'auto',
+          }}
+        >
+          <thead>
+            <tr>
+              <th style={cellHeadStyle}>Tracking</th>
+              <th style={cellHeadStyle}>RMA</th>
+              <th style={{ ...cellHeadStyle, textAlign: 'right' }}>Units</th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((r) => (
+              <tr key={r.tracking_number}>
+                <td style={{ ...cellStyle, ...skuStyle }}>{r.tracking_number}</td>
+                <td style={{ ...cellStyle, ...skuStyle }}>{r.rma ?? '—'}</td>
+                <td style={{ ...cellStyle, ...totalStyle }}>{r.total_qty}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+const TodayInventoryEventsBlock: React.FC<{ events?: TodayEvents | null }> = ({
+  events,
+}) => {
+  // Defensive: persisted IndexedDB cache from pre-idea-097 deploys lacks
+  // `today_events`. Treat missing as "no events today" instead of crashing.
+  const moved = events?.moved ?? [];
+  const consolidated = events?.consolidated ?? [];
+  type Section = {
+    key: 'moved' | 'consolidated';
+    title: string;
+    color: string;
+    headers: string[]; // empty array → no header row
+    rows: React.ReactNode;
+    count: number;
+  };
+  const sections: Section[] = [
+    {
+      key: 'moved',
+      title: 'Moved',
+      color: BLUE,
+      headers: ['Item', 'SKU', 'From → To', 'Total'],
+      count: moved.length,
+      rows: moved.map((ev) => <MovedRow key={ev.sku} ev={ev} />),
+    },
+    {
+      key: 'consolidated',
+      title: 'Consolidation',
+      color: EMERALD,
+      headers: [],
+      count: consolidated.length,
+      rows: consolidated.map((ev) => <ConsolidatedRow key={ev.sku} ev={ev} />),
+    },
+  ];
+
+  const visible = sections.filter((s) => s.count > 0);
+  if (visible.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      {visible.map((section) => (
+        <div key={section.key} style={{ marginBottom: 14 }}>
+          <p style={sectionTitleStyle(section.color)}>
+            {section.title} — {section.count}
+          </p>
+          <div style={{ overflowX: 'auto' }}>
+            <table
+              style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                fontFamily: FONT,
+                tableLayout: 'auto',
+              }}
+            >
+              {section.headers.length > 0 && (
+                <thead>
+                  <tr>
+                    {section.headers.map((h, i) => (
+                      <th
+                        key={h}
+                        style={
+                          i === section.headers.length - 1 && h === 'Total'
+                            ? { ...cellHeadStyle, textAlign: 'right' }
+                            : cellHeadStyle
+                        }
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+              )}
+              <tbody>{section.rows}</tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 /**
  * Sub-block rendered inside the "ON THE FLOOR" card (idea-071). Shows SKUs
  * that went to 0 units (red) or 1 unit (amber) as a result of today's
@@ -322,8 +539,9 @@ export const ActivityReportView: React.FC<Props> = ({
   greeting,
   printMode = false,
   skipPalletPhotos = false,
+  weeklyFedexReturns,
+  showWeeklyFedex = false,
 }) => {
-  const [detailOpen, setDetailOpen] = useState(false);
   const [lightboxPhotos, setLightboxPhotos] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const openLightbox = (photos: string[], index: number) => {
@@ -462,6 +680,18 @@ export const ActivityReportView: React.FC<Props> = ({
           <>
             <div style={cardStyle}>
               <p style={sectionHeaderStyle(TEAL)}>INVENTORY ACCURACY</p>
+              <p
+                style={{
+                  margin: '0 0 14px 0',
+                  fontSize: 12.5,
+                  lineHeight: 1.55,
+                  color: TEXT,
+                }}
+              >
+                <strong style={{ color: TEXT_BOLD }}>Why this matters.</strong> Every SKU we
+                physically touch today — moving it, consolidating it, recounting it — counts toward
+                this number for the next 90 days.
+              </p>
               <div
                 style={{
                   display: 'flex',
@@ -513,45 +743,14 @@ export const ActivityReportView: React.FC<Props> = ({
                 {report.verified_skus_2m} of {report.total_skus} SKUs have been physically counted
                 in the last 90 days.
               </p>
-              {/* Breakdown by source category — idea-094. Show only categories
-                  with count > 0; if all are zero (e.g., older snapshot without
-                  the breakdown field), render nothing extra. */}
-              {(() => {
-                const b = report.verified_skus_breakdown;
-                if (!b) return null;
-                const rows: Array<{ key: string; n: number; label: string }> = [
-                  { key: 'cycle_counted', n: b.cycle_counted, label: 'cycle counted' },
-                  { key: 'movements', n: b.movements, label: 'movements' },
-                  { key: 'additions', n: b.additions, label: 'additions' },
-                  { key: 'on_site_checked', n: b.on_site_checked, label: 'on-site checked' },
-                  { key: 'quantity_edited', n: b.quantity_edited, label: 'quantity edited' },
-                ].filter((r) => r.n > 0);
-                if (rows.length === 0) return null;
-                return (
-                  <ul
-                    style={{
-                      margin: '8px 0 0',
-                      padding: 0,
-                      listStyle: 'none',
-                      fontSize: 12,
-                      color: TEXT_MUTED,
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    {rows.map((r) => (
-                      <li key={r.key} style={{ margin: 0 }}>
-                        <span style={{ color: TEAL, fontWeight: 700 }}>&bull;</span>
-                        &nbsp;
-                        <span style={{ color: TEXT_BOLD, fontWeight: 700 }}>
-                          {r.n.toLocaleString()}
-                        </span>
-                        &nbsp;
-                        <span>{r.label}</span>
-                      </li>
-                    ))}
-                  </ul>
-                );
-              })()}
+              {/* Today's per-SKU events — idea-097. Replaces the per-source
+                  bullet list (idea-094). Sections with N=0 hide themselves. */}
+              <TodayInventoryEventsBlock events={report.today_events} />
+              {/* idea-091 — FedEx Returns received today. Hidden when none. */}
+              <FedExReturnsBlock
+                returns={showWeeklyFedex ? weeklyFedexReturns : report.fedex_returns}
+                weekly={showWeeklyFedex}
+              />
             </div>
             <div style={spacerStyle} />
           </>
@@ -715,98 +914,8 @@ export const ActivityReportView: React.FC<Props> = ({
           </>
         )}
 
-        {/* Collapsible Team Detail */}
-        {users.length > 0 && !printMode && (
-          <button
-            onClick={() => setDetailOpen((v) => !v)}
-            className="print:hidden"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '8px 0',
-              marginBottom: 10,
-              fontSize: 11,
-              fontWeight: 800,
-              textTransform: 'uppercase',
-              letterSpacing: '0.15em',
-              color: BLUE,
-              WebkitUserSelect: detailOpen ? 'auto' : 'none',
-              userSelect: detailOpen ? 'auto' : 'none',
-            }}
-          >
-            <span
-              style={{
-                display: 'inline-block',
-                transition: 'transform 0.2s',
-                transform: detailOpen ? 'rotate(90deg)' : 'rotate(0deg)',
-              }}
-            >
-              &#9654;
-            </span>
-            Team Detail ({users.length} member{users.length !== 1 ? 's' : ''} &middot;{' '}
-            {totals.total_items} items)
-          </button>
-        )}
-
-        {/* Detail content — always visible on print (and in PDF export) */}
-        <div className="print:!block" style={{ display: detailOpen || printMode ? 'block' : 'none' }}>
-          {users.map((u) => {
-            const lines: string[] = [];
-            if (u.orders_picked > 0)
-              lines.push(
-                `Picked ${u.orders_picked} order${u.orders_picked !== 1 ? 's' : ''} (${u.items_picked} items)`
-              );
-            if (u.orders_checked > 0)
-              lines.push(
-                `Verified ${u.orders_checked} order${u.orders_checked !== 1 ? 's' : ''} (${u.items_checked} items)`
-              );
-            const inv: string[] = [];
-            if (u.inventory_adds > 0) inv.push(`${u.inventory_adds} units received`);
-            if (u.inventory_moves > 0) inv.push(`${u.inventory_moves} units moved`);
-            if (u.inventory_deducts > 0) inv.push(`${u.inventory_deducts} units manually deducted`);
-            if (inv.length > 0) lines.push(`Inventory: ${inv.join(', ')}`);
-            if (u.cycle_count_items > 0) {
-              let cc = `Cycle counted ${u.cycle_count_items} item${u.cycle_count_items !== 1 ? 's' : ''}`;
-              if (u.cycle_count_discrepancies > 0)
-                cc += ` (${u.cycle_count_discrepancies} discrepanc${u.cycle_count_discrepancies !== 1 ? 'ies' : 'y'})`;
-              lines.push(cc);
-            }
-
-            return (
-              <div key={u.user_id} style={{ ...cardStyle, marginBottom: 10 }}>
-                <p
-                  style={{
-                    margin: '0 0 8px',
-                    fontSize: 12,
-                    fontWeight: 800,
-                    color: BLUE,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.1em',
-                  }}
-                >
-                  {u.full_name}
-                </p>
-                {lines.map((line, i) => (
-                  <p
-                    key={i}
-                    style={{
-                      ...bulletTextStyle,
-                      padding: i < lines.length - 1 ? '0 0 6px 0' : 0,
-                      margin: 0,
-                    }}
-                  >
-                    <span style={bulletStyle(BLUE)}>&#9679;</span>
-                    &nbsp;&nbsp;{line}
-                  </p>
-                ))}
-              </div>
-            );
-          })}
-        </div>
+        {/* Per-user / Warehouse Team detail removed — the same activity
+            already surfaces in the ON THE FLOOR card above. */}
 
         {/* No activity fallback */}
         {users.length === 0 && !hasFloorContent && (

@@ -22,7 +22,11 @@ export function useLastActivity(skus: string[]) {
     queryFn: async (): Promise<Map<string, LastActivity>> => {
       if (skus.length === 0) return new Map();
 
-      // Only fetch events that actually changed inventory qty
+      // The previous filter `.neq('quantity_change', 0)` accidentally hid
+      // legacy MOVE logs that emit Shape A (qc=0, prev=new=N — see
+      // docs/inventory-log-shapes.md). Those moves did relocate stock,
+      // they just chose a row-state-centric audit shape. Filter only by
+      // action_type and is_reversed so the ghost trail keeps tracking them.
       const { data, error } = await supabase
         .from('inventory_logs')
         .select(
@@ -31,7 +35,6 @@ export function useLastActivity(skus: string[]) {
         .in('sku', skus)
         .in('action_type', ['MOVE', 'DEDUCT', 'ADD', 'DELETE'])
         .eq('is_reversed', false)
-        .neq('quantity_change', 0)
         .order('created_at', { ascending: false });
 
       if (error) throw error;

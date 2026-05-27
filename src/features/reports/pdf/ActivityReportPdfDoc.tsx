@@ -15,7 +15,12 @@
 
 import { Document, Page, View, Text, Image, Svg, Rect } from '@react-pdf/renderer';
 import type { ReactNode } from 'react';
-import type { ActivityReport } from '../hooks/useActivityReport';
+import type {
+  ActivityReport,
+  TodayMoveEvent,
+  TodayConsolidationEvent,
+  FedExReturnSummary,
+} from '../hooks/useActivityReport';
 import type { ReportTask } from '../../projects/hooks/useProjectReportData';
 import { registerPdfFonts } from '../../../lib/pdf/fonts';
 import {
@@ -49,6 +54,9 @@ export interface ActivityReportPdfDocProps {
   comingUpNext: ReportTask[];
   notes: UserNote[];
   routineChecklist: string[];
+  /** idea-091 weekly toggle — same data the on-screen view uses. */
+  weeklyFedexReturns?: FedExReturnSummary[];
+  showWeeklyFedex?: boolean;
 }
 
 type Density = 'sparse' | 'normal' | 'dense';
@@ -160,6 +168,179 @@ function StepHeader({
 }
 
 
+// ── idea-097 — Today's per-SKU events ──────────────────────────────────
+
+const PDF_TBL_FONT = 9;
+const PDF_TBL_HEAD = 7.5;
+
+const pdfRowStyle = {
+  flexDirection: 'row' as const,
+  borderBottomWidth: 0.5,
+  borderBottomColor: TONE.hair,
+  paddingVertical: 4,
+};
+const pdfHeadCell = (width: string, align: 'left' | 'right' = 'left') => ({
+  width,
+  fontSize: PDF_TBL_HEAD,
+  fontFamily: SANS,
+  fontWeight: 700,
+  letterSpacing: 0.6,
+  color: TONE.ink2,
+  textTransform: 'uppercase' as const,
+  textAlign: align,
+  paddingHorizontal: 4,
+});
+const pdfCell = (width: string, align: 'left' | 'right' = 'left') => ({
+  width,
+  fontSize: PDF_TBL_FONT,
+  fontFamily: SANS,
+  color: TONE.ink,
+  textAlign: align,
+  paddingHorizontal: 4,
+});
+
+function TodayEventsPdfBlock({ report }: { report: ActivityReport }) {
+  // Defensive: persisted cache from pre-idea-097 may lack today_events.
+  const today = report.today_events ?? { moved: [], consolidated: [] };
+  const { moved, consolidated } = today;
+  const visibleMoved = moved.length > 0;
+  const visibleConsolidated = consolidated.length > 0;
+  if (!visibleMoved && !visibleConsolidated) return null;
+
+  const fmtOthers = (others: { location: string; qty: number }[]) =>
+    others.map((o) => `${o.location} (${o.qty})`).join(', ');
+  const sectionTitleStyle = {
+    fontFamily: SANS,
+    fontSize: 8,
+    fontWeight: 700 as const,
+    letterSpacing: 1.2,
+    color: TONE.teal,
+    textTransform: 'uppercase' as const,
+    marginBottom: 4,
+  };
+
+  return (
+    <View style={{ marginTop: 8 }}>
+      {visibleMoved && (
+        <View style={{ marginBottom: 10 }}>
+          <Text style={sectionTitleStyle}>Moved — {moved.length}</Text>
+          {/* Header row */}
+          <View style={pdfRowStyle}>
+            <Text style={pdfHeadCell('40%')}>Item</Text>
+            <Text style={{ ...pdfHeadCell('20%'), fontFamily: MONO }}>SKU</Text>
+            <Text style={pdfHeadCell('30%')}>From → To</Text>
+            <Text style={pdfHeadCell('10%', 'right')}>Total</Text>
+          </View>
+          {(moved as TodayMoveEvent[]).map((ev) => {
+            const arrow = ev.from_location
+              ? `${ev.from_location} → ${ev.to_location}`
+              : `→ ${ev.to_location}`;
+            const arrowQty = ev.show_qty_in_arrow ? `${arrow} (${ev.qty_moved})` : arrow;
+            return (
+              <View key={ev.sku} style={pdfRowStyle}>
+                <Text style={pdfCell('40%')}>{ev.item_name}</Text>
+                <Text style={{ ...pdfCell('20%'), fontFamily: MONO, color: TONE.ink2 }}>
+                  {ev.sku}
+                </Text>
+                <View style={{ width: '30%', paddingHorizontal: 4 }}>
+                  <Text style={{ fontSize: PDF_TBL_FONT, fontFamily: SANS, color: TONE.ink }}>
+                    {arrowQty}
+                  </Text>
+                  {ev.other_locations.length > 0 && (
+                    <Text
+                      style={{ fontSize: PDF_TBL_FONT - 1.5, fontFamily: SANS, color: TONE.ink2 }}
+                    >
+                      also {fmtOthers(ev.other_locations)}
+                    </Text>
+                  )}
+                </View>
+                <Text style={{ ...pdfCell('10%', 'right'), fontWeight: 700 }}>{ev.total_now}</Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
+      {visibleConsolidated && (
+        <View style={{ marginBottom: 10 }}>
+          <Text style={sectionTitleStyle}>Consolidation — {consolidated.length}</Text>
+          {(consolidated as TodayConsolidationEvent[]).map((ev) => (
+            <View key={ev.sku} style={pdfRowStyle}>
+              <Text style={{ fontSize: PDF_TBL_FONT, fontFamily: SANS, color: TONE.ink }}>
+                {ev.item_name}{' '}
+                <Text style={{ fontFamily: MONO, color: TONE.ink2 }}>({ev.sku})</Text>, consolidated
+                on {ev.location}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+/** idea-091 — FedEx Returns block in the PDF. Mirrors the on-screen
+ *  FedExReturnsBlock: minimal info (tracking, status, item count, units),
+ *  no names, no timestamps. Renders nothing when the list is empty. */
+function FedExReturnsPdfBlock({
+  returns,
+  weekly,
+}: {
+  returns: FedExReturnSummary[] | undefined;
+  weekly: boolean;
+}) {
+  const list = returns ?? [];
+  if (list.length === 0) return null;
+  const totalQty = list.reduce((sum, r) => sum + r.total_qty, 0);
+  const heading = weekly ? 'FedEx Returns — This Week' : 'FedEx Returns';
+  const subline = weekly
+    ? `${totalQty} ${totalQty === 1 ? 'unit' : 'units'} received in the last 7 days.`
+    : `${totalQty} ${totalQty === 1 ? 'unit' : 'units'} received today.`;
+  const sectionTitleStyle = {
+    fontFamily: SANS,
+    fontSize: 8,
+    fontWeight: 700 as const,
+    letterSpacing: 1.2,
+    color: TONE.amber ?? TONE.ink,
+    textTransform: 'uppercase' as const,
+    marginBottom: 4,
+  };
+  return (
+    <View style={{ marginTop: 12 }}>
+      <Text style={sectionTitleStyle}>
+        {heading} — {list.length}
+      </Text>
+      <Text
+        style={{
+          fontFamily: SANS,
+          fontSize: PDF_TBL_FONT,
+          color: TONE.ink2,
+          marginBottom: 4,
+        }}
+      >
+        {subline}
+      </Text>
+      <View style={pdfRowStyle}>
+        <Text style={pdfHeadCell('45%')}>Tracking</Text>
+        <Text style={pdfHeadCell('40%')}>RMA</Text>
+        <Text style={pdfHeadCell('15%', 'right')}>Units</Text>
+      </View>
+      {list.map((r) => (
+        <View key={r.tracking_number} style={pdfRowStyle}>
+          <Text style={{ width: '45%', fontSize: PDF_TBL_FONT, fontFamily: MONO, color: TONE.ink, paddingHorizontal: 4 }}>
+            {r.tracking_number}
+          </Text>
+          <Text style={{ width: '40%', fontSize: PDF_TBL_FONT, fontFamily: MONO, color: TONE.ink, paddingHorizontal: 4 }}>
+            {r.rma ?? '—'}
+          </Text>
+          <Text style={{ width: '15%', fontSize: PDF_TBL_FONT, fontFamily: SANS, color: TONE.ink, paddingHorizontal: 4, textAlign: 'right' }}>
+            {r.total_qty}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 // ── Hero KPI ───────────────────────────────────────────────────────────
 
 function HeroKpi({
@@ -174,7 +355,8 @@ function HeroKpi({
   const heroNum = heroSize(density);
   const heroLabel = Math.max(9, Math.min(12, heroNum * 0.085));
   const heroBody = Math.max(9.5, Math.min(12, heroNum * 0.08));
-  const accuracyRounded = Math.round(accuracyPct * 100) / 100;
+  // Integer only — decimals overlapped the 90-day sparkline on the right.
+  const accuracyRounded = Math.round(accuracyPct);
   const verifiedLabel = `${report.verified_skus_2m.toLocaleString()} of ${report.total_skus.toLocaleString()} SKUs`;
 
   // 90-day sparkline (deterministic monotonic climb to current pct).
@@ -251,41 +433,9 @@ function HeroKpi({
           <Text style={{ fontWeight: 600, color: TONE.teal }}>{verifiedLabel}</Text> physically counted
           in the last 90 days.
         </Text>
-        {/* Breakdown by source category — idea-094 */}
-        {(() => {
-          const b = report.verified_skus_breakdown;
-          if (!b) return null;
-          const rows: Array<{ key: string; n: number; label: string }> = [
-            { key: 'cycle_counted', n: b.cycle_counted, label: 'cycle counted' },
-            { key: 'movements', n: b.movements, label: 'movements' },
-            { key: 'additions', n: b.additions, label: 'additions' },
-            { key: 'on_site_checked', n: b.on_site_checked, label: 'on-site checked' },
-            { key: 'quantity_edited', n: b.quantity_edited, label: 'quantity edited' },
-          ].filter((r) => r.n > 0);
-          if (rows.length === 0) return null;
-          return (
-            <View style={{ marginTop: 6 }}>
-              {rows.map((r) => (
-                <Text
-                  key={r.key}
-                  style={{
-                    fontFamily: SANS,
-                    fontSize: heroBody - 1,
-                    color: TONE.ink2,
-                    lineHeight: 1.4,
-                  }}
-                >
-                  <Text style={{ color: TONE.teal, fontWeight: 700 }}>{'•'}</Text>
-                  {'  '}
-                  <Text style={{ fontWeight: 700, color: TONE.ink }}>
-                    {r.n.toLocaleString()}
-                  </Text>{' '}
-                  {r.label}
-                </Text>
-              ))}
-            </View>
-          );
-        })()}
+        {/* idea-097 — per-SKU events tables render below HeroKpi (see
+            TodayEventsPdfBlock). The previous breakdown bullets were removed
+            here so the block has the full page width. */}
       </View>
 
       {/* Right: progress bar + 90-day sparkline */}
@@ -363,6 +513,9 @@ function ActivityCard({
   items: ActivityItem[];
   density: Density;
 }) {
+  // Hide the card entirely when there's nothing to show — the empty
+  // 'TITLE 0 — ' placeholder was just visual noise.
+  if (items.length === 0) return null;
   const bodyFs = density === 'sparse' ? 10.5 : density === 'dense' ? 9 : 10;
   const pad = density === 'sparse' ? 12 : density === 'dense' ? 8 : 10;
   return (
@@ -543,10 +696,30 @@ function SummaryPage(props: ActivityReportPdfDocProps & { totalPages: number }) 
 
       {/* 01 — HOW THE WAREHOUSE IS DOING */}
       <StepHeader n="01" label="HOW THE WAREHOUSE IS DOING" color={TONE.teal} marginTop={gap} />
+      <Text
+        style={{
+          fontFamily: SANS,
+          fontSize: 9,
+          lineHeight: 1.45,
+          color: TONE.ink2,
+          marginBottom: 6,
+        }}
+      >
+        <Text style={{ fontWeight: 700, color: TONE.ink }}>Why this matters.</Text> Every SKU we
+        physically touch today — moving it, consolidating it, recounting it — counts toward this
+        number for the next 90 days.
+      </Text>
       <HeroKpi
         accuracyPct={props.accuracyPct}
         report={props.report}
         density={density}
+      />
+      <TodayEventsPdfBlock report={props.report} />
+      <FedExReturnsPdfBlock
+        returns={
+          props.showWeeklyFedex ? props.weeklyFedexReturns : props.report.fedex_returns
+        }
+        weekly={!!props.showWeeklyFedex}
       />
 
       {/* 02 — WIN OF THE DAY */}
@@ -579,37 +752,42 @@ function SummaryPage(props: ActivityReportPdfDocProps & { totalPages: number }) 
         </>
       )}
 
-      {/* 03 — THE WORK · 2×2 activity grid */}
-      <StepHeader
-        n="03"
-        label="THE WORK · DONE / NOW / NEXT / FLOOR"
-        color={TONE.ink}
-        marginTop={gap}
-      />
-      <View style={{ flexDirection: 'row', gap: gap - 2, marginBottom: gap - 4 }}>
-        <ActivityCard
-          title="DONE TODAY"
-          items={mapTasksToItems(props.doneToday, true)}
-          density={density}
-        />
-        <ActivityCard
-          title="IN PROGRESS"
-          items={mapTasksToItems(props.inProgress, true)}
-          density={density}
-        />
-      </View>
-      <View style={{ flexDirection: 'row', gap: gap - 2 }}>
-        <ActivityCard
-          title="COMING UP NEXT"
-          items={mapTasksToItems(props.comingUpNext, false)}
-          density={density}
-        />
-        <ActivityCard
-          title="ON THE FLOOR"
-          items={floorBullets.slice(0, 4).map(splitFloorBullet)}
-          density={density}
-        />
-      </View>
+      {/* 03 — THE WORK · 2×2 activity grid. Always starts on a new page
+          (per request 2026-04-28) so the warehouse activity has room to
+          breathe and isn't squeezed under the KPI/Win on page 1. Each card
+          hides itself when empty; rows hide when both children are empty;
+          the section header hides when nothing renders below. */}
+      {(() => {
+        const doneItems = mapTasksToItems(props.doneToday, true);
+        const inProgItems = mapTasksToItems(props.inProgress, true);
+        const upNextItems = mapTasksToItems(props.comingUpNext, false);
+        const floorItems = floorBullets.slice(0, 4).map(splitFloorBullet);
+        const row1Visible = doneItems.length > 0 || inProgItems.length > 0;
+        const row2Visible = upNextItems.length > 0 || floorItems.length > 0;
+        if (!row1Visible && !row2Visible) return null;
+        return (
+          <View break>
+            <StepHeader
+              n="03"
+              label="THE WORK · DONE / NOW / NEXT / FLOOR"
+              color={TONE.ink}
+              marginTop={0}
+            />
+            {row1Visible && (
+              <View style={{ flexDirection: 'row', gap: gap - 2, marginBottom: gap - 4 }}>
+                <ActivityCard title="DONE TODAY" items={doneItems} density={density} />
+                <ActivityCard title="IN PROGRESS" items={inProgItems} density={density} />
+              </View>
+            )}
+            {row2Visible && (
+              <View style={{ flexDirection: 'row', gap: gap - 2 }}>
+                <ActivityCard title="COMING UP NEXT" items={upNextItems} density={density} />
+                <ActivityCard title="ON THE FLOOR" items={floorItems} density={density} />
+              </View>
+            )}
+          </View>
+        );
+      })()}
 
       {/* 04 — PICKD UPDATES */}
       {props.pickdUpdates.length > 0 && (

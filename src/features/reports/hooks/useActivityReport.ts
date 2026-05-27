@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 import { getNYDayBounds } from '../../../lib/nyDate';
+import { moveDeltaUnits } from '../../inventory/utils/inventoryLogShape';
 
 export interface UserActivity {
   user_id: string;
@@ -29,6 +30,50 @@ export interface VerifiedSkusBreakdown {
   quantity_edited: number;
 }
 
+// idea-097 — today's per-SKU events for the Inventory Accuracy block.
+export interface TodayLocationQty {
+  location: string; // formatted "ROW 20B / A" when sublocation present
+  qty: number;
+}
+export interface TodayMoveEvent {
+  sku: string;
+  item_name: string;
+  from_location: string; // location only — sublocation intentionally hidden
+  to_location: string;
+  // qty_moved is null when the underlying log row doesn't tell us (idea-098:
+  // MOVE rows currently emit quantity_change=0; we fall back to
+  // prev_quantity-new_quantity, but if both are missing we hide the (n) suffix).
+  qty_moved: number | null;
+  show_qty_in_arrow: boolean;
+  other_locations: TodayLocationQty[]; // excluding to_location
+  total_now: number;
+  earliest_ts: string;
+}
+export interface TodayConsolidationEvent {
+  sku: string;
+  item_name: string;
+  location: string; // location only — sublocation intentionally hidden
+  earliest_ts: string;
+}
+export interface TodayEvents {
+  moved: TodayMoveEvent[];
+  consolidated: TodayConsolidationEvent[];
+}
+
+/** idea-091: minimal summary for the FedEx Returns block in the daily
+ *  Activity Report. Intentionally drops names and timestamps — operationally
+ *  we just want to know how much landed today. */
+export interface FedExReturnSummary {
+  tracking_number: string;
+  status: string;
+  /** Optional RMA / Return Merchandise Authorization issued by the
+   *  manufacturer for this return. Captured at intake; null for legacy
+   *  rows (column added 2026-05-06). */
+  rma: string | null;
+  item_count: number;
+  total_qty: number;
+}
+
 export interface ActivityReport {
   date: string;
   users: UserActivity[];
@@ -38,6 +83,8 @@ export interface ActivityReport {
   total_skus: number;
   correction_count: number;
   completed_orders_with_photos: CompletedOrderPhotos[];
+  today_events: TodayEvents;
+  fedex_returns: FedExReturnSummary[];
 }
 
 interface PickingRow {
@@ -75,8 +122,20 @@ export function useActivityReport(date: string) {
 
       const twoMonthsAgo = new Date(new Date(dayEnd).getTime() - 90 * 24 * 60 * 60 * 1000).toISOString();
 
-      const [pickingRes, logsRes, cycleRes, profilesRes, verifiedRes, moveAddRes, statsRes, notesRes] =
-        await Promise.all([
+      const [
+        pickingRes,
+        logsRes,
+        cycleRes,
+        profilesRes,
+        verifiedRes,
+        moveAddRes,
+        statsRes,
+        notesRes,
+        todayLogsRes,
+        todayCyclesRes,
+        bikeSkusRes,
+        fedexReturnsRes,
+      ] = await Promise.all([
           supabase
             .from('picking_lists')
             .select('user_id, checked_by, items, order_number, pallet_photos')
@@ -120,13 +179,49 @@ export function useActivityReport(date: string) {
             .gte('created_at', twoMonthsAgo)
             .lte('created_at', dayEnd)
             .limit(50_000),
-          supabase.rpc('get_inventory_stats', { p_include_parts: true }),
+          // Bikes-only: matches the bikes-only numerator filter below.
+          supabase.rpc('get_inventory_stats', { p_include_parts: false }),
           supabase
             .from('picking_list_notes')
             .select('id')
             .gte('created_at', dayStart)
             .lte('created_at', dayEnd),
+          // idea-097 — today's per-SKU events for the new tables (live only).
+          // MOVE → "Moved" section. EDIT with quantity_change=0 → "Consolidation"
+          // section (sublocation/distribution metadata edits, no stock movement).
+          supabase
+            .from('inventory_logs')
+            .select(
+              'sku, action_type, from_location, to_location, quantity_change, prev_quantity, new_quantity, created_at'
+            )
+            .in('action_type', ['MOVE', 'EDIT'])
+            .eq('is_reversed', false)
+            .gte('created_at', dayStart)
+            .lte('created_at', dayEnd)
+            .limit(50_000),
+          supabase
+            .from('cycle_count_items')
+            .select('sku, counted_at')
+            .in('status', ['counted', 'verified'])
+            .gte('counted_at', dayStart)
+            .lte('counted_at', dayEnd)
+            .limit(50_000),
+          // Bike SKU set used to scope the accuracy KPI numerator to bikes only.
+          supabase.from('sku_metadata').select('sku').eq('is_bike', true).limit(50_000),
+          // idea-091 — today's FedEx returns. Basic info only: tracking +
+          // status + item totals. No names, no timestamps.
+          supabase
+            .from('fedex_returns')
+            .select('tracking_number, status, rma, items:fedex_return_items(quantity)')
+            .gte('received_at', dayStart)
+            .lte('received_at', dayEnd)
+            .order('received_at', { ascending: false })
+            .limit(200),
         ]);
+
+      const bikeSkuSet = new Set<string>(
+        (bikeSkusRes.data ?? []).map((r) => r.sku).filter((s): s is string => !!s)
+      );
 
       const profiles = (profilesRes.data ?? []) as ProfileRow[];
       const profileMap = new Map(profiles.map((p) => [p.id, p.full_name]));
@@ -217,8 +312,13 @@ export function useActivityReport(date: string) {
         );
       }
 
+      // Inventory Accuracy KPI is scoped to bikes only — the denominator
+      // (get_inventory_stats(false)) counts bike SKUs, so the numerator must
+      // too. Mirrors the SQL filter in compute_daily_report_data.
       const cycleCountedSet = new Set<string>(
-        (verifiedRes.data ?? []).map((r) => r.sku).filter((s): s is string => !!s)
+        (verifiedRes.data ?? [])
+          .map((r) => r.sku)
+          .filter((s): s is string => !!s && bikeSkuSet.has(s))
       );
       const movementsSet = new Set<string>();
       const additionsSet = new Set<string>();
@@ -226,7 +326,7 @@ export function useActivityReport(date: string) {
       const quantityEditedSet = new Set<string>();
 
       for (const r of moveAddRows) {
-        if (!r.sku) continue;
+        if (!r.sku || !bikeSkuSet.has(r.sku)) continue;
         switch (r.action_type) {
           case 'MOVE':
             movementsSet.add(r.sku);
@@ -238,7 +338,6 @@ export function useActivityReport(date: string) {
             onSiteCheckedSet.add(r.sku);
             break;
           case 'EDIT':
-            // Only EDITs that actually changed a quantity count as verification.
             if ((r.quantity_change ?? 0) !== 0) quantityEditedSet.add(r.sku);
             break;
           default:
@@ -271,6 +370,163 @@ export function useActivityReport(date: string) {
         )
         .map((r) => ({ order_number: r.order_number, photos: r.pallet_photos }));
 
+      // idea-097 — today's per-SKU events.
+      // The interfaces are intentionally narrow: only fields needed by the View.
+      interface TodayLogRow {
+        sku: string | null;
+        action_type: string;
+        from_location: string | null;
+        to_location: string | null;
+        quantity_change: number | null;
+        prev_quantity: number | null;
+        new_quantity: number | null;
+        created_at: string;
+      }
+      interface TodayCycleSkuRow {
+        sku: string | null;
+        counted_at: string;
+      }
+      interface InventoryRow {
+        sku: string;
+        item_name: string | null;
+        location: string;
+        sublocation: string[] | null;
+        quantity: number;
+      }
+
+      const todayLogs = (todayLogsRes.data ?? []) as TodayLogRow[];
+      // Note: todayCycles is still fetched (used for the legacy verified_skus_2m
+      // KPI denominator) but no longer drives a report section.
+      void (todayCyclesRes.data as TodayCycleSkuRow[] | null);
+
+      const uniqueSkus = new Set<string>();
+      for (const l of todayLogs) if (l.sku) uniqueSkus.add(l.sku);
+
+      const inventoryBySku = new Map<string, InventoryRow[]>();
+      const itemNameBySku = new Map<string, string>();
+      if (uniqueSkus.size > 0) {
+        // Fetch ALL inventory rows for these SKUs (including qty=0). The
+        // item_name often lives on a stale row with qty=0 while the freshly
+        // moved-into row has an empty name — filtering by qty>0 here would
+        // hide the SKU from the report. We do qty>0 filtering in JS below for
+        // totals and locations, but use any non-empty item_name across all
+        // rows to identify the SKU.
+        const { data: inventoryData } = await supabase
+          .from('inventory')
+          .select('sku, item_name, location, sublocation, quantity')
+          .in('sku', [...uniqueSkus])
+          .limit(50_000);
+        for (const r of (inventoryData ?? []) as InventoryRow[]) {
+          if ((r.quantity ?? 0) > 0) {
+            const list = inventoryBySku.get(r.sku) ?? [];
+            list.push(r);
+            inventoryBySku.set(r.sku, list);
+          }
+          if (r.item_name && r.item_name.trim() && !itemNameBySku.has(r.sku)) {
+            itemNameBySku.set(r.sku, r.item_name.trim());
+          }
+        }
+      }
+
+      // Sublocations are intentionally hidden in the report (per user request);
+      // only the parent location shows.
+      const totalForSku = (sku: string): number =>
+        (inventoryBySku.get(sku) ?? []).reduce((sum, r) => sum + (r.quantity ?? 0), 0);
+      const otherLocsForSku = (sku: string, exclude: string): TodayLocationQty[] =>
+        (inventoryBySku.get(sku) ?? [])
+          .filter((r) => r.location !== exclude)
+          .map((r) => ({ location: r.location, qty: r.quantity }))
+          .sort((a, b) => b.qty - a.qty);
+      const primaryLocationForSku = (sku: string): string => {
+        const rows = (inventoryBySku.get(sku) ?? []).slice().sort((a, b) => b.quantity - a.quantity);
+        return rows[0]?.location ?? '—';
+      };
+
+      // MOVED — dedupe per SKU, keep latest move event for that SKU today.
+      const movedBySku = new Map<string, TodayLogRow>();
+      for (const l of todayLogs) {
+        if (l.action_type !== 'MOVE') continue;
+        if (!l.sku) continue;
+        if (!itemNameBySku.has(l.sku)) continue;
+        const cur = movedBySku.get(l.sku);
+        if (!cur || l.created_at > cur.created_at) movedBySku.set(l.sku, l);
+      }
+
+      const moved: TodayMoveEvent[] = [];
+      for (const [sku, l] of movedBySku) {
+        const others = otherLocsForSku(sku, l.to_location ?? '');
+        // Tolerate both MOVE log shapes (Shape A historical, Shape B current).
+        // See docs/inventory-log-shapes.md.
+        const qtyMoved = moveDeltaUnits(l);
+        const isPartial = qtyMoved !== null && (l.prev_quantity ?? 0) > qtyMoved;
+        const showQty = qtyMoved !== null && (others.length > 0 || isPartial);
+        moved.push({
+          sku,
+          item_name: itemNameBySku.get(sku) ?? sku,
+          from_location: l.from_location ?? '',
+          to_location: l.to_location ?? '',
+          qty_moved: qtyMoved,
+          show_qty_in_arrow: showQty,
+          other_locations: others,
+          total_now: totalForSku(sku),
+          earliest_ts: l.created_at,
+        });
+      }
+      const movedSkuSet = new Set(moved.map((m) => m.sku));
+
+      // CONSOLIDATION — sublocation/distribution metadata edits today.
+      // Heuristic: inventory_logs.EDIT rows with quantity_change=0 are
+      // metadata-only edits (location/sublocation/distribution tweaks).
+      // Dedupe per SKU, keep earliest event today; exclude SKUs already in MOVED.
+      const consolidatedTimes = new Map<string, string>();
+      for (const l of todayLogs) {
+        if (l.action_type !== 'EDIT') continue;
+        if ((l.quantity_change ?? 0) !== 0) continue;
+        if (!l.sku || movedSkuSet.has(l.sku)) continue;
+        if (!itemNameBySku.has(l.sku)) continue;
+        const cur = consolidatedTimes.get(l.sku);
+        if (!cur || l.created_at < cur) consolidatedTimes.set(l.sku, l.created_at);
+      }
+      const consolidated: TodayConsolidationEvent[] = [];
+      for (const [sku, ts] of consolidatedTimes) {
+        // Skip SKUs with zero stock everywhere — a metadata-only EDIT on a
+        // sold-out SKU isn't a real consolidation worth reporting and would
+        // render as "consolidated on —".
+        if (totalForSku(sku) <= 0) continue;
+        consolidated.push({
+          sku,
+          item_name: itemNameBySku.get(sku) ?? sku,
+          location: primaryLocationForSku(sku),
+          earliest_ts: ts,
+        });
+      }
+
+      moved.sort((a, b) => a.earliest_ts.localeCompare(b.earliest_ts));
+      consolidated.sort((a, b) => a.earliest_ts.localeCompare(b.earliest_ts));
+
+      const today_events: TodayEvents = { moved, consolidated };
+
+      // idea-091 — aggregate today's FedEx returns to the minimal basic
+      // info the user wants in the daily report.
+      type FedexReturnRow = {
+        tracking_number: string | null;
+        status: string | null;
+        rma: string | null;
+        items: { quantity: number | null }[] | null;
+      };
+      const fedex_returns: FedExReturnSummary[] = (
+        (fedexReturnsRes.data ?? []) as unknown as FedexReturnRow[]
+      ).map((r) => {
+        const items = r.items ?? [];
+        return {
+          tracking_number: r.tracking_number ?? '—',
+          status: r.status ?? 'unknown',
+          rma: r.rma ?? null,
+          item_count: items.length,
+          total_qty: items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0),
+        };
+      });
+
       return {
         date,
         users,
@@ -280,6 +536,8 @@ export function useActivityReport(date: string) {
         total_skus: totalSkus,
         correction_count: correctionCount,
         completed_orders_with_photos: completedOrdersWithPhotos,
+        today_events,
+        fedex_returns,
       } satisfies ActivityReport;
     },
     staleTime: 2 * 60_000,

@@ -35,6 +35,7 @@ export const inventoryApi = {
     includeInactive = false,
     showParts = false,
     onlyScratchDent = false,
+    onlyFedexReturns = false,
     search = '',
     offset = 0,
     limit = 30,
@@ -43,6 +44,7 @@ export const inventoryApi = {
     includeInactive?: boolean;
     showParts?: boolean;
     onlyScratchDent?: boolean;
+    onlyFedexReturns?: boolean;
     search?: string;
     offset?: number;
     limit?: number;
@@ -54,6 +56,7 @@ export const inventoryApi = {
       p_include_inactive: includeInactive,
       p_show_parts: showParts,
       p_only_scratch_dent: onlyScratchDent,
+      p_only_fedex_returns: onlyFedexReturns,
       p_offset: offset,
       p_limit: limit,
     });
@@ -80,10 +83,16 @@ export const inventoryApi = {
         pdf_link,
         sd_price,
         condition,
+        fedex_tracking_number,
+        fedex_return_id,
+        fedex_return_status,
         ...inventoryCols
       } = row;
       return {
         ...inventoryCols,
+        fedex_tracking_number,
+        fedex_return_id,
+        fedex_return_status,
         sku_metadata: {
           sku: inventoryCols.sku,
           image_url,

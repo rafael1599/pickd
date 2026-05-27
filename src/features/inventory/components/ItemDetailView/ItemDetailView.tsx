@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+// react-hook-form 7.71.1's published dist/*.d.ts files import from
+// `../src/types`, a path missing from the npm tarball — runtime is fine,
+// only tsc trips. @ts-ignore localized; drop when the package ships a
+// release with corrected type paths.
+// @ts-expect-error -- broken types in react-hook-form 7.71.1
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
@@ -39,9 +44,12 @@ import { PhotoHero } from './PhotoHero.tsx';
 import { TappableField } from './TappableField.tsx';
 import { SectionRow } from './SectionRow.tsx';
 import { QuantityControl } from './QuantityControl.tsx';
+import { StockReservationBreakdown } from './StockReservationBreakdown.tsx';
 import { DistributionPreview } from './DistributionPreview.tsx';
 import { SectionEditorSheet } from './SectionEditorSheet.tsx';
 import { ItemHistorySheet } from './ItemHistorySheet.tsx';
+import { InlineItemHistory } from './InlineItemHistory.tsx';
+import { OtherLocationsCard } from './OtherLocationsCard.tsx';
 import { ItemDetailsCard } from './ItemDetailsCard';
 
 type WarehouseType = 'LUDLOW' | 'ATS' | 'DELETED ITEMS';
@@ -253,7 +261,10 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   // ─── Dirty check ───
   const hasChanges = useMemo(() => {
     if (mode !== 'edit' || !initialData) return true;
-    const n = (v: string | number | null | undefined) => String(v ?? '').trim();
+    // Accepts arrays too — `sublocation` is `string[] | null`, and
+    // `String(['A','B'])` produces "A,B" which is what we want for the
+    // string-compare downstream.
+    const n = (v: string | number | string[] | null | undefined) => String(v ?? '').trim();
     const num = (v: string | number | null | undefined) => Number(v ?? 0);
     const formChanged =
       n(sku) !== n(initialData.sku) ||
@@ -1177,6 +1188,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
             }}
             totalStock={totalStock}
           />
+          {!isAddMode && sku && warehouse && location && (
+            <StockReservationBreakdown sku={sku} warehouse={warehouse} location={location} />
+          )}
         </div>
 
         {/* Section: Location */}
@@ -1211,9 +1225,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                           key={letter}
                           type="button"
                           onClick={() => {
-                            const current = sublocation || [];
+                            const current: string[] = sublocation || [];
                             const updated = isSelected
-                              ? current.filter((l) => l !== letter)
+                              ? current.filter((l: string) => l !== letter)
                               : [...current, letter].sort();
                             setValue('sublocation', updated.length > 0 ? updated : null);
                           }}
@@ -1279,9 +1293,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                           key={letter}
                           type="button"
                           onClick={() => {
-                            const current = sublocation || [];
+                            const current: string[] = sublocation || [];
                             const updated = isSelected
-                              ? current.filter((l) => l !== letter)
+                              ? current.filter((l: string) => l !== letter)
                               : [...current, letter].sort();
                             setValue('sublocation', updated.length > 0 ? updated : null);
                           }}
@@ -1311,14 +1325,40 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           )}
         </div>
 
-        {/* Section: Distribution */}
-        <div className="bg-card border-b border-subtle mt-4 mx-4 rounded-2xl overflow-hidden">
-          <DistributionPreview
-            distribution={distribution}
-            quantity={quantity || 0}
-            onTap={() => setIsDistributionSheetOpen(true)}
+        {/* Section: Distribution — only when there's stock to distribute */}
+        {(quantity || 0) > 0 && (
+          <div className="bg-card border-b border-subtle mt-4 mx-4 rounded-2xl overflow-hidden">
+            <DistributionPreview
+              distribution={distribution}
+              quantity={quantity || 0}
+              onTap={() => setIsDistributionSheetOpen(true)}
+            />
+          </div>
+        )}
+
+        {/* Available in other locations — when this row is qty=0 but the same
+            SKU has stock elsewhere (other location and/or warehouse), surface
+            it so the user knows where to grab it. */}
+        {mode === 'edit' && initialData?.sku && (quantity || 0) === 0 && (
+          <OtherLocationsCard
+            sku={initialData.sku}
+            currentItemId={initialData.id}
+            ludlowData={ludlowData}
+            atsData={atsData}
           />
-        </div>
+        )}
+
+        {/* Section: Recent activity — auto-shown for qty=0 items so users can
+            see what happened to the SKU (last DEDUCT, MOVE, ADD, etc.) without
+            opening the history sheet manually. */}
+        {mode === 'edit' && initialData?.sku && (quantity || 0) === 0 && (
+          <InlineItemHistory
+            sku={initialData.sku}
+            limit={5}
+            showOutOfStockBanner
+            onSeeAll={() => setIsHistorySheetOpen(true)}
+          />
+        )}
 
         {/* Section: Dimensions — always visible, editable only for admin */}
         <div className="bg-card border-b border-subtle mt-4 mx-4 rounded-2xl overflow-hidden">

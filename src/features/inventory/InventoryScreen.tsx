@@ -81,6 +81,8 @@ export const InventoryScreen = () => {
     setShowParts,
     showScratchDent,
     setShowScratchDent,
+    showFedexReturns,
+    setShowFedexReturns,
     setSearchQuery,
     loadMore: loadMoreItems,
     hasMoreItems,
@@ -92,6 +94,11 @@ export const InventoryScreen = () => {
   const [localSearch, setLocalSearch] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
+
+  // Stock view text scale — baked at 155% per operator dial-in. Buttons inside
+  // InventoryCard counter-scale to 125% of baseline (~0.806 zoom relative to
+  // the 1.55 parent) so they don't dominate the card. See InventoryCard.
+  const STOCK_SCALE = 1.55;
 
   // Auto-load more when sentinel enters viewport (with cooldown to prevent tight loop)
   const loadCooldownRef = useRef(false);
@@ -131,17 +138,42 @@ export const InventoryScreen = () => {
   const isActiveSearch = debouncedSearch.length > 0;
   const filteredInventory = useMemo(() => {
     if (!isActiveSearch) return inventoryData;
+    if (showInactive) return inventoryData;
     return inventoryData.filter((item) => item.is_active && item.quantity > 0);
-  }, [inventoryData, isActiveSearch]);
+  }, [inventoryData, isActiveSearch, showInactive]);
 
   const ghostItems = useMemo(() => {
-    if (!isActiveSearch) return [];
+    if (!isActiveSearch || showInactive) return [];
     return inventoryData.filter((item) => !item.is_active || item.quantity <= 0);
-  }, [inventoryData, isActiveSearch]);
+  }, [inventoryData, isActiveSearch, showInactive]);
+
+  // Split ghost items into two buckets: SKUs that still have stock somewhere
+  // else ("moved" — not really gone, just relocated) vs SKUs with zero stock
+  // anywhere ("out of stock" — actually empty). Helps the user not panic when
+  // an item appears as 0 but lives in another location.
+  const { movedGhostItems, oosGhostItems } = useMemo(() => {
+    if (ghostItems.length === 0) {
+      return { movedGhostItems: [], oosGhostItems: [] };
+    }
+    const skusWithStockElsewhere = new Set<string>();
+    for (const item of inventoryData) {
+      if ((item.quantity || 0) > 0 && item.is_active && item.sku) {
+        skusWithStockElsewhere.add(item.sku.trim());
+      }
+    }
+    const moved: typeof ghostItems = [];
+    const oos: typeof ghostItems = [];
+    for (const item of ghostItems) {
+      if (skusWithStockElsewhere.has((item.sku || '').trim())) moved.push(item);
+      else oos.push(item);
+    }
+    return { movedGhostItems: moved, oosGhostItems: oos };
+  }, [ghostItems, inventoryData]);
 
   const ghostSkus = useMemo(() => ghostItems.map((i) => i.sku), [ghostItems]);
   const { data: lastActivityMap } = useLastActivity(ghostSkus);
-  const [ghostTrailOpen, setGhostTrailOpen] = useState(false);
+  const [movedTrailOpen, setMovedTrailOpen] = useState(false);
+  const [oosTrailOpen, setOosTrailOpen] = useState(false);
 
   const isLoading = loading;
 
@@ -283,7 +315,7 @@ export const InventoryScreen = () => {
     null
   );
 
-  const { isAdmin, user: authUser, profile } = useAuth();
+  const { isAdmin } = useAuth();
   const { showError } = useError();
   const { showConfirmation } = useConfirmation();
   const {
@@ -319,19 +351,14 @@ export const InventoryScreen = () => {
     setIsGeneratingPDF(true);
     try {
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      const generatorName = profile?.full_name || authUser?.email || 'System';
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(32);
-      doc.text('Stock View Report', 5, 15);
-
-      const firstName = generatorName.split(' ')[0];
       const today = new Date().toLocaleDateString('es-ES');
 
-      // Group items by Warehouse -> SKU (Aggregate locations)
+      // Group items by Warehouse → SKU, keeping per-location qty so the
+      // PDF can render each location with its individual quantity:
+      //   ROW 1 (40), ROW 28 (27)
       const whAggregates: Record<
         string,
-        Record<string, { qty: number; locations: Set<string>; notes: Set<string> }>
+        Record<string, { qty: number; locations: Map<string, number> }>
       > = {};
 
       allLocationBlocks.forEach((block) => {
@@ -340,40 +367,69 @@ export const InventoryScreen = () => {
 
         block.items.forEach((item) => {
           if (!whGroup[item.sku]) {
-            whGroup[item.sku] = { qty: 0, locations: new Set(), notes: new Set() };
+            whGroup[item.sku] = { qty: 0, locations: new Map() };
           }
           whGroup[item.sku].qty += item.quantity;
-          if (item.location) whGroup[item.sku].locations.add(item.location.trim().toUpperCase());
-          if (item.item_name) whGroup[item.sku].notes.add(item.item_name.trim());
+          const loc = item.location?.trim().toUpperCase();
+          if (loc) {
+            whGroup[item.sku].locations.set(
+              loc,
+              (whGroup[item.sku].locations.get(loc) ?? 0) + item.quantity
+            );
+          }
         });
       });
 
-      let currentY = 32; // Increased from 22
+      let currentY = 15;
 
       Object.entries(whAggregates).forEach(([wh, skuGroups], index) => {
         if (index > 0 && currentY > 150) {
           doc.addPage();
-          currentY = 22; // Start lower on new pages
+          currentY = 15;
         }
 
         const totalSkus = Object.keys(skuGroups).length;
         const totalQty = Object.values(skuGroups).reduce((sum, g) => sum + g.qty, 0);
-        const metadataLine = `By: ${firstName} | Date: ${today} | SKUs: ${totalSkus} | Qty: ${totalQty} | WH: ${wh}`;
+
+        // Header per warehouse: "LUDLOW · 156 SKUs · 4,287 units · 2026-04-29"
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(20);
+        doc.text(
+          `${wh} · ${totalSkus} SKUs · ${totalQty.toLocaleString()} units · ${today}`,
+          5,
+          currentY
+        );
+        currentY += 8;
 
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(28);
-        doc.text('SKU | Locs | Qty | Notes', 5, currentY);
-        currentY += 8; // Increased from 5 for more separation
+        doc.setFontSize(14);
+        doc.text('SKU', 5, currentY);
+        doc.text('LOCATIONS', 105, currentY);
+        doc.text('TOTAL', 285, currentY, { align: 'right' });
+        currentY += 4;
 
-        // Convert grouped data to table rows
+        // Convert grouped data to table rows: SKU | LOCATIONS | TOTAL
+        // Drop "(qty)" when the SKU lives in a single location — the TOTAL
+        // column already shows the same number, so it'd be redundant.
+        // Multi-location keeps "(qty)" per loc since they sum to TOTAL.
         const tableData = Object.entries(skuGroups)
           .sort(([skuA], [skuB]) => skuA.localeCompare(skuB))
-          .map(([sku, data]) => [
-            sku,
-            Array.from(data.locations).sort().join(', ') || 'GEN',
-            data.qty.toString(),
-            Array.from(data.notes).join(' | '),
-          ]);
+          .map(([sku, data]) => {
+            const stockedLocs = Array.from(data.locations.entries())
+              .filter(([, qty]) => qty > 0)
+              .sort(([a], [b]) => a.localeCompare(b));
+            let locsStr: string;
+            if (stockedLocs.length === 0) {
+              locsStr = 'GEN';
+            } else if (stockedLocs.length === 1) {
+              locsStr = stockedLocs[0][0];
+            } else {
+              locsStr = stockedLocs
+                .map(([loc, qty]) => `${loc} (${qty.toLocaleString()})`)
+                .join(', ');
+            }
+            return [sku, locsStr, data.qty.toLocaleString()];
+          });
 
         autoTable(doc, {
           startY: currentY,
@@ -381,31 +437,22 @@ export const InventoryScreen = () => {
           theme: 'plain',
           styles: {
             font: 'helvetica',
-            fontSize: 40,
-            cellPadding: 6,
-            minCellHeight: 20,
+            fontSize: 32,
+            cellPadding: 5,
+            minCellHeight: 16,
             textColor: [0, 0, 0],
             lineColor: [0, 0, 0],
-            lineWidth: 1.12,
+            lineWidth: 0.6,
           },
           columnStyles: {
             0: { cellWidth: 100, fontStyle: 'bold' },
-            1: { cellWidth: 45, fontSize: 18 },
+            1: { cellWidth: 'auto', fontSize: 18 },
             2: { cellWidth: 35, halign: 'right', fontStyle: 'bold' },
-            3: { cellWidth: 'auto', fontSize: 14 },
           },
           margin: { top: 5, right: 5, bottom: 5, left: 5 },
-          didDrawPage: () => {
-            // Footer: By: Rafael | Date: ... | SKUs: ... | Qty: ... | WH: ...
-            // Positioned at bottom right
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(14);
-            doc.text(metadataLine, 292, 205, { align: 'right' });
-            currentY = (doc as JsPDFWithAutoTable).lastAutoTable?.finalY || 15;
-          },
         });
 
-        currentY = ((doc as JsPDFWithAutoTable).lastAutoTable?.finalY ?? 15) + 15;
+        currentY = ((doc as JsPDFWithAutoTable).lastAutoTable?.finalY ?? 15) + 12;
       });
 
       const blob = doc.output('bloburl');
@@ -417,7 +464,7 @@ export const InventoryScreen = () => {
     } finally {
       setIsGeneratingPDF(false);
     }
-  }, [allLocationBlocks, profile, authUser]);
+  }, [allLocationBlocks]);
 
   // Picking Mode State
   const {
@@ -472,6 +519,7 @@ export const InventoryScreen = () => {
       quantity: number;
       internalNote?: string | null;
       targetSublocation?: string[] | null;
+      moveNote?: string | null;
     }) => {
       try {
         await moveItem(
@@ -481,7 +529,8 @@ export const InventoryScreen = () => {
           moveData.quantity,
           undefined,
           moveData.internalNote,
-          moveData.targetSublocation
+          moveData.targetSublocation,
+          moveData.moveNote
         );
         toast.success('Stock successfully moved!');
       } catch (err: unknown) {
@@ -624,8 +673,6 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
     <div className="pb-4 relative">
       <SessionInitializationModal />
 
-      {/* Intentionally removed — PDF download moved to FAB menu below */}
-
       <SearchInput
         ref={searchInputRef}
         value={localSearch}
@@ -736,11 +783,33 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
               checked={showScratchDent}
               onChange={(e) => {
                 setShowScratchDent(e.target.checked);
-                if (e.target.checked) setShowParts(false);
+                if (e.target.checked) {
+                  setShowParts(false);
+                  setShowFedexReturns(false);
+                }
               }}
               className="rounded transition-colors h-3.5 w-3.5 border-neutral-600 bg-surface text-accent focus:ring-accent focus:ring-offset-0"
             />
             S/D
+          </label>
+          <label
+            htmlFor="show-fdx"
+            className="flex items-center gap-1.5 text-xs font-medium cursor-pointer select-none text-muted"
+          >
+            <input
+              type="checkbox"
+              id="show-fdx"
+              checked={showFedexReturns}
+              onChange={(e) => {
+                setShowFedexReturns(e.target.checked);
+                if (e.target.checked) {
+                  setShowParts(false);
+                  setShowScratchDent(false);
+                }
+              }}
+              className="rounded transition-colors h-3.5 w-3.5 border-neutral-600 bg-surface text-accent focus:ring-accent focus:ring-offset-0"
+            />
+            FedEx Returns
           </label>
         </div>
       )}
@@ -754,7 +823,14 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
               return (
                 <div key={`${wh}-${location}`} className="space-y-2 max-w-2xl mx-auto">
                   {isFirstInWarehouse && !isSearching && wh !== 'LUDLOW' && (
-                    <div className="flex items-center gap-4 pt-8 pb-2">
+                    <div
+                      className="flex items-center gap-4 pt-8 pb-2"
+                      style={
+                        viewMode === 'stock'
+                          ? ({ zoom: STOCK_SCALE } as React.CSSProperties)
+                          : undefined
+                      }
+                    >
                       <div className="h-px flex-1 bg-subtle" />
                       <h2
                         className="text-2xl font-black uppercase tracking-tighter text-content bg-surface px-6 py-2 rounded-full border border-subtle shadow-sm flex items-center gap-3"
@@ -771,8 +847,15 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                     className={`sticky top-[84px] bg-main/95 backdrop-blur-sm z-30 py-3 border-b border-subtle group ${isAdmin && viewMode === 'stock' && !isSearching ? 'cursor-pointer' : ''}`}
                     onClick={() => handleOpenLocationEditor(wh, location, locationId)}
                   >
-                    <div className="flex items-center gap-4 px-1">
-                      <div className="flex-[3]">
+                    <div
+                      className="flex items-center gap-4 px-1"
+                      style={
+                        viewMode === 'stock'
+                          ? ({ zoom: STOCK_SCALE } as React.CSSProperties)
+                          : undefined
+                      }
+                    >
+                      <div className="flex-1 min-w-0">
                         <CapacityBar
                           current={
                             locationCapacities[`${wh}-${(location || '').trim().toUpperCase()}`]
@@ -785,9 +868,9 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                         />
                       </div>
 
-                      <div className="flex-1 min-w-0">
+                      <div className="shrink-0">
                         <h3
-                          className={`text-content text-xl font-black uppercase tracking-tighter truncate ${isAdmin && viewMode === 'stock' ? 'hover:text-accent transition-colors' : ''}`}
+                          className={`text-content text-xl font-black uppercase tracking-tighter ${isAdmin && viewMode === 'stock' ? 'hover:text-accent transition-colors' : ''}`}
                           style={{ fontFamily: 'var(--font-heading)' }}
                           title={
                             isAdmin && viewMode === 'stock' ? 'Tap to edit location' : location
@@ -799,7 +882,14 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-1">
+                  <div
+                    className="grid grid-cols-1 gap-1"
+                    style={
+                      viewMode === 'stock'
+                        ? ({ zoom: STOCK_SCALE } as React.CSSProperties)
+                        : undefined
+                    }
+                  >
                     {items.map((item) => {
                       const cartItem = cartItems.find(
                         (c) =>
@@ -849,6 +939,9 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                             onCartDecrement={() => updateCartQty(item, -1)}
                             onCartRemove={() => removeFromCart(item)}
                             lastCounted={verifiedSkus.get(item.sku) ?? null}
+                            fedex_tracking_number={item.fedex_tracking_number}
+                            fedex_return_id={item.fedex_return_id}
+                            fedex_return_status={item.fedex_return_status}
                           />
                         </div>
                       );
@@ -858,82 +951,122 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
               );
             })}
 
-        {/* Ghost trail — qty=0 / inactive items from search */}
-        {isActiveSearch && ghostItems.length > 0 && (
-          <div className="max-w-2xl mx-auto">
-            <button
-              onClick={() => setGhostTrailOpen((v) => !v)}
-              className="flex items-center gap-2 w-full py-3 px-1 text-muted hover:text-content transition-colors"
-            >
-              <div className="h-px flex-1 bg-subtle" />
-              <span className="text-[10px] font-black uppercase tracking-widest shrink-0">
-                No stock ({ghostItems.length})
-              </span>
-              <ChevronDown
-                size={14}
-                className={`shrink-0 transition-transform ${ghostTrailOpen ? 'rotate-180' : ''}`}
-              />
-              <div className="h-px flex-1 bg-subtle" />
-            </button>
-
-            {ghostTrailOpen && (
-              <div className="space-y-1 pb-4">
-                {ghostItems.map((item) => {
-                  const activity = lastActivityMap?.get(item.sku);
-                  return (
-                    <div
-                      key={`ghost-${item.id}-${item.sku}`}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface/50 border border-subtle/50"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs font-bold text-content/70 tracking-tight">
-                          {item.sku}
+        {/* Ghost trails — qty=0 items split into two buckets:
+              · "Moved" — same SKU has stock in another location
+              · "Out of stock" — no stock anywhere */}
+        {isActiveSearch &&
+          (movedGhostItems.length > 0 || oosGhostItems.length > 0) &&
+          (() => {
+            const renderRow = (item: (typeof ghostItems)[number]) => {
+              const activity = lastActivityMap?.get(item.sku);
+              return (
+                <div
+                  key={`ghost-${item.id}-${item.sku}`}
+                  onClick={() => handleCardClick(item)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleCardClick(item);
+                    }
+                  }}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface/50 border border-subtle/50 cursor-pointer hover:bg-surface/80 active:scale-[0.99] transition-all"
+                >
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-bold text-content/70 tracking-tight">
+                      {item.sku}
+                    </span>
+                    {item.item_name && (
+                      <span className="text-[10px] text-muted/60 ml-2 truncate">
+                        {item.item_name}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-muted shrink-0 text-right">
+                    {activity ? (
+                      activity.list_id ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (activity.list_id) {
+                              openModal({ type: 'picking-summary', listId: activity.list_id });
+                            }
+                          }}
+                          className="hover:underline hover:brightness-125 active:scale-95 transition-all cursor-pointer"
+                        >
+                          {activity.action_type === 'MOVE' && '↗ '}
+                          {activity.action_type === 'DEDUCT' && '📦 '}
+                          {activity.action_type === 'ADD' && '+ '}
+                          {formatLastActivity(activity)}
+                        </button>
+                      ) : (
+                        <span>
+                          {activity.action_type === 'MOVE' && '↗ '}
+                          {activity.action_type === 'DEDUCT' && '📦 '}
+                          {activity.action_type === 'ADD' && '+ '}
+                          {formatLastActivity(activity)}
                         </span>
-                        {item.item_name && (
-                          <span className="text-[10px] text-muted/60 ml-2 truncate">
-                            {item.item_name}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[10px] text-muted shrink-0 text-right">
-                        {activity ? (
-                          activity.list_id ? (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (activity.list_id) {
-                                  openModal({ type: 'picking-summary', listId: activity.list_id });
-                                }
-                              }}
-                              className="hover:underline hover:brightness-125 active:scale-95 transition-all cursor-pointer"
-                            >
-                              {activity.action_type === 'MOVE' && '↗ '}
-                              {activity.action_type === 'DEDUCT' && '📦 '}
-                              {activity.action_type === 'ADD' && '+ '}
-                              {formatLastActivity(activity)}
-                            </button>
-                          ) : (
-                            <span>
-                              {activity.action_type === 'MOVE' && '↗ '}
-                              {activity.action_type === 'DEDUCT' && '📦 '}
-                              {activity.action_type === 'ADD' && '+ '}
-                              {formatLastActivity(activity)}
-                            </span>
-                          )
-                        ) : !item.is_active ? (
-                          <span className="text-muted/50">Inactive</span>
-                        ) : (
-                          <span>No recent activity</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                      )
+                    ) : !item.is_active ? (
+                      <span className="text-muted/50">Inactive</span>
+                    ) : (
+                      <span>No recent activity</span>
+                    )}
+                  </div>
+                </div>
+              );
+            };
+
+            return (
+              <div className="max-w-2xl mx-auto space-y-1">
+                {movedGhostItems.length > 0 && (
+                  <div>
+                    <button
+                      onClick={() => setMovedTrailOpen((v) => !v)}
+                      className="flex items-center gap-2 w-full py-3 px-1 text-emerald-500/80 hover:text-emerald-400 transition-colors"
+                    >
+                      <div className="h-px flex-1 bg-emerald-500/20" />
+                      <span className="text-[10px] font-black uppercase tracking-widest shrink-0">
+                        Moved ({movedGhostItems.length})
+                      </span>
+                      <ChevronDown
+                        size={14}
+                        className={`shrink-0 transition-transform ${movedTrailOpen ? 'rotate-180' : ''}`}
+                      />
+                      <div className="h-px flex-1 bg-emerald-500/20" />
+                    </button>
+                    {movedTrailOpen && (
+                      <div className="space-y-1 pb-4">{movedGhostItems.map(renderRow)}</div>
+                    )}
+                  </div>
+                )}
+
+                {oosGhostItems.length > 0 && (
+                  <div>
+                    <button
+                      onClick={() => setOosTrailOpen((v) => !v)}
+                      className="flex items-center gap-2 w-full py-3 px-1 text-muted hover:text-content transition-colors"
+                    >
+                      <div className="h-px flex-1 bg-subtle" />
+                      <span className="text-[10px] font-black uppercase tracking-widest shrink-0">
+                        Out of stock ({oosGhostItems.length})
+                      </span>
+                      <ChevronDown
+                        size={14}
+                        className={`shrink-0 transition-transform ${oosTrailOpen ? 'rotate-180' : ''}`}
+                      />
+                      <div className="h-px flex-1 bg-subtle" />
+                    </button>
+                    {oosTrailOpen && (
+                      <div className="space-y-1 pb-4">{oosGhostItems.map(renderRow)}</div>
+                    )}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        )}
+            );
+          })()}
 
         {hasMoreItems && !isServerSearching ? (
           <div ref={loadMoreSentinelRef} className="py-8 flex justify-center">

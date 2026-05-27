@@ -12,6 +12,7 @@ const ZONE_WAITING = 'zone-waiting';
 const ZONE_COMPLETED = 'zone-completed';
 const ZONE_PROJECTS = 'zone-projects';
 const ZONE_PRIORITY = 'zone-priority';
+const ZONE_READY = 'zone-ready';
 
 export interface PendingWaitingAction {
   order: PickingList;
@@ -37,15 +38,10 @@ export function useBoardDnD(isAdmin: boolean, refresh: () => void) {
   const { createGroup, addToGroup } = useOrderGroups();
 
   const [activeOrder, setActiveOrder] = useState<PickingList | null>(null);
-  const [pendingMerge, setPendingMerge] = useState<PendingMergeAction | null>(
-    null
-  );
-  const [pendingWaiting, setPendingWaiting] =
-    useState<PendingWaitingAction | null>(null);
-  const [pendingReopen, setPendingReopen] =
-    useState<PendingReopenAction | null>(null);
-  const [pendingCrossLane, setPendingCrossLane] =
-    useState<PendingCrossLaneAction | null>(null);
+  const [pendingMerge, setPendingMerge] = useState<PendingMergeAction | null>(null);
+  const [pendingWaiting, setPendingWaiting] = useState<PendingWaitingAction | null>(null);
+  const [pendingReopen, setPendingReopen] = useState<PendingReopenAction | null>(null);
+  const [pendingCrossLane, setPendingCrossLane] = useState<PendingCrossLaneAction | null>(null);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const order = event.active.data.current?.order as PickingList | undefined;
@@ -63,8 +59,7 @@ export function useBoardDnD(isAdmin: boolean, refresh: () => void) {
 
       const overId = over.id as string;
       const sourceShippingType =
-        (active.data.current?.shippingType as string) ??
-        sourceOrder.shipping_type;
+        (active.data.current?.shippingType as string) ?? sourceOrder.shipping_type;
       const isFromCompleted = sourceOrder.status === 'completed';
 
       // ─── Drop on a zone ─────────────────────────────────
@@ -73,13 +68,25 @@ export function useBoardDnD(isAdmin: boolean, refresh: () => void) {
         if (overId === ZONE_PROJECTS) return;
         if (overId === ZONE_COMPLETED) return;
 
-        // Drop on Waiting zone
+        // Drop on Waiting zone (long-waiting inventory)
         if (overId === ZONE_WAITING) {
           if (!isAdmin) {
             toast.error('Only admins can mark orders as waiting');
             return;
           }
           setPendingWaiting({ order: sourceOrder });
+          return;
+        }
+
+        // Drop on Ready (new "Waiting" double-check queue) — mark order as
+        // ready_to_double_check. The verification board today only fetches
+        // ready_to_double_check / double_checking / needs_correction, so the
+        // valid sources here are double_checking (cancel the check) or
+        // needs_correction (post-fix → re-queue).
+        if (overId === ZONE_READY) {
+          if (sourceOrder.status === 'ready_to_double_check') return;
+          await markReadyForDoubleCheck(sourceOrder.id);
+          refresh();
           return;
         }
 
@@ -99,6 +106,11 @@ export function useBoardDnD(isAdmin: boolean, refresh: () => void) {
           setPendingReopen({ order: sourceOrder, targetZone: targetType });
           return;
         }
+
+        // Drop from Ready ("Waiting" queue) onto FDX/Regular: only
+        // reclassifies shipping_type — the order stays ready_to_double_check
+        // and the next render puts it back in Waiting. To take an order out
+        // of Waiting, the verifier opens it normally (start double-check).
 
         // Cross-lane validation: if original type differs, confirm
         if (sourceShippingType && sourceShippingType !== targetType) {
@@ -161,7 +173,7 @@ export function useBoardDnD(isAdmin: boolean, refresh: () => void) {
         setPendingMerge({ source: sourceOrder, target: targetOrder });
       }
     },
-    [isAdmin, addToGroup, refresh]
+    [isAdmin, addToGroup, createGroup, refresh]
   );
 
   // ─── Action handlers for prompt confirmations ──────────
@@ -208,10 +220,7 @@ export function useBoardDnD(isAdmin: boolean, refresh: () => void) {
 }
 
 // ─── Helpers ────────────────────────────────────────────────
-async function reclassifyOrder(
-  orderId: string,
-  shippingType: 'fedex' | 'regular'
-) {
+async function reclassifyOrder(orderId: string, shippingType: 'fedex' | 'regular') {
   const { error } = await supabase
     .from('picking_lists')
     .update({ shipping_type: shippingType })
@@ -221,8 +230,19 @@ async function reclassifyOrder(
     toast.error('Failed to reclassify order');
     console.error('reclassify error:', error);
   } else {
-    toast.success(
-      `Order moved to ${shippingType === 'fedex' ? 'FedEx' : 'Regular'}`
-    );
+    toast.success(`Order moved to ${shippingType === 'fedex' ? 'FedEx' : 'Regular'}`);
+  }
+}
+
+async function markReadyForDoubleCheck(orderId: string) {
+  const { error } = await supabase
+    .from('picking_lists')
+    .update({ status: 'ready_to_double_check', checked_by: null })
+    .eq('id', orderId);
+  if (error) {
+    toast.error('Failed to queue for double-check');
+    console.error('markReady error:', error);
+  } else {
+    toast.success('Queued for double-check');
   }
 }

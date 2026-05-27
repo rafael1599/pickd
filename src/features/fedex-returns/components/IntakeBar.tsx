@@ -46,6 +46,12 @@ export const IntakeBar: React.FC = () => {
   const [candidatesOpen, setCandidatesOpen] = useState(false);
   const [notes, setNotes] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
+  // RMA — optional Return Merchandise Authorization issued by the
+  // manufacturer/vendor. Captured at intake; surfaced on the daily report.
+  const [rma, setRma] = useState('');
+  // Misship — alternative categorization for returns that came back due to
+  // a wrong-recipient/wrong-address ship rather than an RMA.
+  const [isMisship, setIsMisship] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -67,6 +73,8 @@ export const IntakeBar: React.FC = () => {
     setCandidatesOpen(false);
     setNotes('');
     setNotesOpen(false);
+    setRma('');
+    setIsMisship(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -120,6 +128,8 @@ export const IntakeBar: React.FC = () => {
         tracking_number: tracking,
         label_photo_url: photoUrl,
         notes: notes.trim() || undefined,
+        rma: rma.trim() || undefined,
+        is_misship: isMisship,
       });
       toast.success('Return added to queue');
       reset();
@@ -251,6 +261,31 @@ export const IntakeBar: React.FC = () => {
               className="w-full bg-surface border border-subtle rounded-xl px-3 py-2 text-sm text-content placeholder:text-muted/50 focus:outline-none focus:ring-1 focus:ring-accent resize-none"
             />
           )}
+
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={rma}
+              onChange={(e) => setRma(e.target.value.toUpperCase())}
+              placeholder="RMA (optional)"
+              className="flex-1 bg-surface border border-subtle rounded-xl px-3 py-2 text-sm font-mono text-content placeholder:text-muted/50 focus:outline-none focus:ring-1 focus:ring-accent uppercase tracking-wider"
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+            <button
+              type="button"
+              onClick={() => setIsMisship((v) => !v)}
+              className={`px-3 rounded-xl text-xs font-bold tracking-wider uppercase border transition-colors shrink-0 ${
+                isMisship
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                  : 'bg-surface text-muted border-subtle hover:border-accent/40'
+              }`}
+              title={isMisship ? 'This return is flagged as a misship' : 'Mark as misship'}
+            >
+              Misship
+            </button>
+          </div>
 
           <button
             onClick={submit}

@@ -29,6 +29,9 @@ interface InventoryCardProps {
   onCartDecrement?: () => void;
   onCartRemove?: () => void;
   lastCounted?: Date | null;
+  fedex_tracking_number?: string | null;
+  fedex_return_id?: string | null;
+  fedex_return_status?: 'received' | 'processing' | 'resolved' | null;
 }
 
 export const InventoryCard = memo(
@@ -57,6 +60,9 @@ export const InventoryCard = memo(
     onCartDecrement,
     onCartRemove,
     lastCounted = null,
+    fedex_tracking_number = null,
+    fedex_return_id = null,
+    fedex_return_status = null,
   }: InventoryCardProps) => {
     const [flash, setFlash] = useState(false);
     const prevQuantityRef = useRef(quantity);
@@ -120,6 +126,25 @@ export const InventoryCard = memo(
           )}
 
           <div className="flex-1 min-w-0 flex flex-col">
+            {fedex_tracking_number && (
+              <a
+                href={fedex_return_id ? `/fedex-returns/${fedex_return_id}` : undefined}
+                onClick={(e) => e.stopPropagation()}
+                className={`mb-1 inline-flex items-center gap-1 self-start text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border ${
+                  fedex_return_status === 'resolved'
+                    ? 'bg-muted/10 text-muted border-muted/20'
+                    : 'bg-purple-500/15 text-purple-400 border-purple-500/30'
+                }`}
+                title="FedEx Return — tap to open"
+              >
+                FDX {fedex_tracking_number}
+                {sku !== fedex_tracking_number && (
+                  <span className="text-muted/60 font-bold normal-case tracking-normal">
+                    → now {sku}
+                  </span>
+                )}
+              </a>
+            )}
             <div className="flex justify-between items-center">
               <div className="flex flex-col">
                 {location && (
@@ -129,11 +154,6 @@ export const InventoryCard = memo(
                       style={{ fontFamily: 'var(--font-heading)' }}
                     >
                       {location}
-                      {sublocation && sublocation.length > 0 && (
-                        <span className="ml-1 text-[9px] font-black bg-accent/15 text-accent px-1 py-0.5 rounded border border-accent/20">
-                          {sublocation.join(',')}
-                        </span>
-                      )}
                     </div>
                     {internal_note && (
                       <span
@@ -174,21 +194,11 @@ export const InventoryCard = memo(
                     {quantity}
                   </span>
                 </div>
-                {distribution && distribution.length > 0 && (
-                  <span className="hidden md:inline-flex text-[8px] font-black text-muted/50 uppercase tracking-widest leading-none">
-                    {distribution
-                      .map(
-                        (d) =>
-                          `${d.count} ${d.type.charAt(0) + d.type.slice(1).toLowerCase()}${d.count > 1 ? 's' : ''}`
-                      )
-                      .join(' · ')}
-                  </span>
-                )}
               </div>
             </div>
 
             <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {detail && (
                   <div className="flex items-center gap-2">
                     <div className="px-1.5 py-0.5 rounded-[4px] bg-main text-muted text-[9px] font-bold uppercase tracking-tight inline-flex items-center border border-subtle">
@@ -196,21 +206,38 @@ export const InventoryCard = memo(
                     </div>
                   </div>
                 )}
-                {sku_metadata &&
-                  ((sku_metadata.length_in ?? 0) > 0 ||
-                    (sku_metadata.width_in ?? 0) > 0 ||
-                    (sku_metadata.height_in ?? 0) > 0) && (
-                    <div className="inline-flex px-1.5 py-0.5 rounded-[4px] bg-accent/5 text-accent/70 text-[9px] font-black tracking-widest border border-accent/10 whitespace-nowrap">
-                      {sku_metadata.length_in ?? 0}×{sku_metadata.width_in ?? 0}×
-                      {sku_metadata.height_in ?? 0}"
-                    </div>
-                  )}
-                {(sku_metadata?.weight_lbs ?? 0) > 0 && (
-                  <div className="inline-flex px-1.5 py-0.5 rounded-[4px] bg-amber-500/5 text-amber-500/70 text-[9px] font-black tracking-widest border border-amber-500/10 whitespace-nowrap">
-                    {sku_metadata!.weight_lbs} lbs
-                  </div>
-                )}
+                {distribution &&
+                  distribution.length > 0 &&
+                  (() => {
+                    // Roll up multiple entries of the same type so a card with
+                    // two TOWER rows reads '2 Towers' instead of '1 Tower · 1
+                    // Tower'. Order is preserved by first appearance.
+                    const totalsByType = new Map<string, number>();
+                    for (const d of distribution) {
+                      totalsByType.set(d.type, (totalsByType.get(d.type) ?? 0) + d.count);
+                    }
+                    const summary = Array.from(totalsByType.entries())
+                      .map(
+                        ([type, count]) =>
+                          `${count} ${type.charAt(0) + type.slice(1).toLowerCase()}${count > 1 ? 's' : ''}`
+                      )
+                      .join(' · ');
+                    return (
+                      <div className="inline-flex px-1.5 py-0.5 rounded-[4px] bg-accent/5 text-accent/80 text-[9px] font-black uppercase tracking-widest border border-accent/10 whitespace-nowrap">
+                        {summary}
+                      </div>
+                    );
+                  })()}
               </div>
+
+              {/* Sublocation pinned to a fixed spot at the right edge of the
+                  card. Letters sized to match the Stock qty number above so
+                  the spatial cue reads at the same visual weight. */}
+              {sublocation && sublocation.length > 0 && (
+                <div className="ml-auto inline-flex px-2 py-0.5 rounded-[4px] bg-amber-500/10 text-amber-500 text-xl font-black uppercase tracking-tighter tabular-nums leading-none border border-amber-500/20 whitespace-nowrap shrink-0">
+                  {sublocation.join(',')}
+                </div>
+              )}
 
               {isPicking && available !== null && (
                 <div className="flex items-center gap-2">
@@ -235,7 +262,11 @@ export const InventoryCard = memo(
             </div>
 
             {mode === 'stock' && (
-              <div className="flex gap-2 mt-0.5">
+              // Stock view bakes a 1.55 zoom on the location card so all the
+              // text reads at arm's length. The action buttons would dominate
+              // at that size — counter-scale to 1.25 effective (≈0.806 of the
+              // 1.55 parent) so they stay comfortable but not gigantic.
+              <div className="flex gap-2 mt-0.5" style={{ zoom: 0.806 } as React.CSSProperties}>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

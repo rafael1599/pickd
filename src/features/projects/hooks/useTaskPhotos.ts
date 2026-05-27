@@ -64,8 +64,13 @@ export function useTaskPhotoDetails(taskId: string) {
         .eq('task_id', taskId)
         .order('assigned_at', { ascending: false });
       if (error) throw error;
+      // supabase's inferred row shape differs slightly from
+      // GalleryPhoto (some nullable timestamps), so we type-erase
+      // through `unknown` and re-narrow at the boundary instead of
+      // annotating the callback parameter (which collided with the
+      // inferred type).
       return (data ?? [])
-        .map((row: { gallery_photos: GalleryPhoto | null }) => row.gallery_photos)
+        .map((row) => (row as unknown as { gallery_photos: GalleryPhoto | null }).gallery_photos)
         .filter(Boolean) as GalleryPhoto[];
     },
     enabled: !!taskId,

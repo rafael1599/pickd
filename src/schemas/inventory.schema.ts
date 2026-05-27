@@ -53,6 +53,11 @@ export const InventoryItemDBSchema = z.object({
   created_at: z.coerce.date(),
   internal_note: z.string().nullable().optional(),
   distribution: z.array(DistributionItemSchema).default([]),
+  // Enrichment fields populated by search_inventory_with_metadata when the
+  // row is linked to a FedEx return. NULL for non-return inventory rows.
+  fedex_tracking_number: z.string().nullable().optional(),
+  fedex_return_id: z.string().uuid().nullable().optional(),
+  fedex_return_status: z.enum(['received', 'processing', 'resolved']).nullable().optional(),
 });
 
 /**
