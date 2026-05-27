@@ -2,8 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import X from 'lucide-react/dist/esm/icons/x';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
-import Type from 'lucide-react/dist/esm/icons/type';
-import Hash from 'lucide-react/dist/esm/icons/hash';
 import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
@@ -58,25 +56,12 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
   // Effective target — typed-other beats tile selection when otherMode is on.
   const normalizedOther = otherRow.trim().toUpperCase();
   const effectiveTarget = otherMode ? normalizedOther : targetRow;
-  const [sublocation, setSublocation] = useState('');
+  // idea-116: sublocation is now an array of A-F letters selected via chips
+  // (same UX as MovementModal). Replaces the prior free-text input — which
+  // accepted any string and required parsing — with a constrained selector
+  // that matches the DB CHECK constraint (`^[A-Z]{1,3}$`).
+  const [sublocLetters, setSublocLetters] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const sublocInputRef = useRef<HTMLInputElement>(null);
-  // Keyboard mode (numeric vs alpha) for the sublocation input, persisted
-  // per-screen like SearchInput does. Default 'text' — sublocations are
-  // almost always letters.
-  const [kbMode, setKbMode] = useState<'text' | 'numeric'>(() => {
-    if (typeof window === 'undefined') return 'text';
-    const saved = window.localStorage.getItem('kb_pref_consolidation_subloc');
-    return (saved as 'text' | 'numeric') || 'text';
-  });
-  const toggleKb = () => {
-    const next = kbMode === 'text' ? 'numeric' : 'text';
-    setKbMode(next);
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('kb_pref_consolidation_subloc', next);
-    }
-    sublocInputRef.current?.focus();
-  };
 
   // Fetch target row occupancy so we can show free capacity in the picker.
   const targetRowsKey = targetRows.join(',');
@@ -226,16 +211,9 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
         return;
       }
 
-      // Parse the sublocation input into a clean array. Empty array gets
-      // normalized to NULL so the server doesn't end up storing '{}' for
-      // a row whose sublocation was meant to be cleared.
-      const parsed = sublocation.trim()
-        ? sublocation
-            .toUpperCase()
-            .split(/[+,\s]+/)
-            .filter(Boolean)
-        : [];
-      const sublocs = parsed.length > 0 ? parsed : null;
+      // Empty selection normalizes to NULL so the server doesn't store '{}'
+      // for a row whose sublocation was meant to be cleared.
+      const sublocs = sublocLetters.length > 0 ? sublocLetters : null;
 
       // Defensive: refuse same-location moves at the client too (the RPC
       // now raises, but this surfaces a friendlier message and avoids the
@@ -427,39 +405,36 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
             )}
           </div>
 
-          <div>
-            <label className="text-[10px] text-muted font-bold uppercase tracking-widest mb-2 block">
-              Sublocation (optional)
-            </label>
-            <div className="flex items-center bg-surface border border-subtle rounded-xl pr-2 focus-within:ring-1 focus-within:ring-accent">
-              <input
-                ref={sublocInputRef}
-                type="text"
-                value={sublocation}
-                onChange={(e) => setSublocation(e.target.value)}
-                placeholder="e.g. A, B+C"
-                inputMode={kbMode}
-                autoCapitalize="characters"
-                autoCorrect="off"
-                spellCheck="false"
-                className="flex-1 bg-transparent border-none outline-none px-3 py-2 text-sm text-content placeholder:text-muted/50 font-bold uppercase"
-              />
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={toggleKb}
-                className={`p-1.5 rounded-lg active:scale-90 transition-all ${
-                  kbMode === 'numeric' ? 'text-accent' : 'text-muted'
-                }`}
-                title={
-                  kbMode === 'numeric' ? 'Switch to alpha keyboard' : 'Switch to numeric keyboard'
-                }
-                aria-label="Toggle keyboard mode"
-              >
-                {kbMode === 'numeric' ? <Hash size={16} /> : <Type size={16} />}
-              </button>
+          {effectiveTarget.toUpperCase().startsWith('ROW') && (
+            <div>
+              <label className="text-[10px] text-muted font-bold uppercase tracking-widest mb-2 block">
+                Sublocation (optional)
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {['A', 'B', 'C', 'D', 'E', 'F'].map((letter) => {
+                  const isSelected = sublocLetters.includes(letter);
+                  return (
+                    <button
+                      key={letter}
+                      type="button"
+                      onClick={() => {
+                        setSublocLetters((prev) =>
+                          isSelected ? prev.filter((l) => l !== letter) : [...prev, letter].sort()
+                        );
+                      }}
+                      className={`w-9 h-9 rounded-lg text-xs font-black transition-all ${
+                        isSelected
+                          ? 'bg-accent text-main shadow-lg shadow-accent/20'
+                          : 'bg-surface text-muted border border-subtle hover:border-accent/40'
+                      }`}
+                    >
+                      {letter}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {fitWarning && (
             <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-[11px] text-amber-500 font-medium">

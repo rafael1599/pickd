@@ -106,21 +106,51 @@ describe('buildShipOutSmsBody', () => {
     };
     const metrics = computeShipOutMetrics(order, skuMeta);
     const body = buildShipOutSmsBody(customer, order, metrics);
+    // Address fields intentionally omitted (idea-114); BIKES: 0 also omitted.
     expect(body).toBe(
       [
         'READY TO SHIP:',
         '',
         'MIAMI BEACH BICYCLE CENTER INC',
-        '746-5TH STREET',
-        'MIAMI BEACH, FL 33139',
         '',
         'ORDER #: 879807',
         'PALLETS: 1',
-        'BIKES: 0',
         'PARTS: 1',
         'WEIGHT: 40 LBS',
       ].join('\n')
     );
+  });
+
+  it('omits BIKES and PARTS lines when both counts are zero', () => {
+    const order: ShipOutSmsOrder = {
+      order_number: '500',
+      pallets_qty: 1,
+      total_weight_lbs: 20,
+      items: [],
+    };
+    const body = buildShipOutSmsBody(customer, order, {
+      pallets: 1,
+      parts: 0,
+      bikes: 0,
+      weightLbs: 20,
+    });
+    expect(body).not.toContain('BIKES');
+    expect(body).not.toContain('PARTS');
+    expect(body).toContain('WEIGHT: 20 LBS');
+  });
+
+  it('never includes customer street, city, state, or zip', () => {
+    const order: ShipOutSmsOrder = {
+      order_number: '700',
+      pallets_qty: 1,
+      total_weight_lbs: 30,
+      items: [{ sku: 'BIKE-A', pickingQty: 1 }],
+    };
+    const metrics = computeShipOutMetrics(order, skuMeta);
+    const body = buildShipOutSmsBody(customer, order, metrics);
+    expect(body).not.toContain('746-5TH STREET');
+    expect(body).not.toContain('MIAMI BEACH, FL');
+    expect(body).not.toContain('33139');
   });
 
   it('includes BIKES line with the auto-computed bike unit count', () => {
@@ -168,7 +198,7 @@ describe('buildShipOutSmsBody', () => {
     expect(body).toContain('PALLETS: 2');
   });
 
-  it('omits address lines that are blank without leaving gaps', () => {
+  it('includes customer name (uppercased) but skips address entirely', () => {
     const sparse: ShipOutSmsCustomer = {
       name: 'Customer X',
       street: null,
@@ -189,7 +219,7 @@ describe('buildShipOutSmsBody', () => {
       weightLbs: 50,
     });
     expect(body).toContain('CUSTOMER X');
-    expect(body).toContain('BOSTON, MA');
+    expect(body).not.toContain('BOSTON');
     expect(body).not.toContain('null');
   });
 });

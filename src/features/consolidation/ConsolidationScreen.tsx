@@ -115,7 +115,11 @@ export const ConsolidationScreen: React.FC = () => {
   const [mode, setMode] = useState<ScreenMode>('consolidate');
   const [maxOrders, setMaxOrders] = useState(0);
   const [minOrders, setMinOrders] = useState(2);
-  const [onlyBikes, setOnlyBikes] = useState(true);
+  // idea-115: "Bikes only" is now a hardcoded invariant — operations never
+  // wants parts mixed into consolidation candidates. Keeping the const here
+  // (instead of inlining `true` at every callsite) makes it trivial to
+  // re-expose as a toggle later if a real use case shows up.
+  const onlyBikes = true;
   const [excludeDeepSlow, setExcludeDeepSlow] = useState(true);
   /** Source row selected to be cleared (clear-row mode). Empty until picked. */
   const [clearRow, setClearRow] = useState<string>('');
@@ -391,16 +395,9 @@ export const ConsolidationScreen: React.FC = () => {
               </div>
             )}
 
-            <button
-              onClick={() => setOnlyBikes((v) => !v)}
-              className={`px-3 py-2 rounded-xl border font-bold uppercase transition-colors ${
-                onlyBikes
-                  ? 'bg-accent/10 border-accent/30 text-accent'
-                  : 'bg-card border-subtle text-muted'
-              }`}
-            >
-              Bikes only
-            </button>
+            {/* "Bikes only" toggle removed (idea-115). Now hardcoded ON
+                via the `onlyBikes` const above — parts are never desired
+                in consolidation flows. */}
 
             {mode === 'consolidate' && (
               <button
@@ -896,7 +893,9 @@ const ConsolidationCard: React.FC<ConsolidationCardProps> = ({
           : 'bg-card border-subtle hover:border-accent/40'
       }`}
     >
-      {/* Left column: QTY + sublocation. The visually dominant block. */}
+      {/* Left column: QTY + (source_row · sublocation) inline at the bottom.
+          Sublocation goes to the RIGHT of the row label so the operator
+          reads "ROW 12 · A" the same way it would be read off a label. */}
       <div className="flex flex-col items-center justify-center min-w-[5rem] shrink-0 border-r border-subtle pr-3 gap-1">
         <span className="text-[9px] font-black uppercase tracking-widest text-muted/60 leading-none">
           QTY
@@ -904,15 +903,19 @@ const ConsolidationCard: React.FC<ConsolidationCardProps> = ({
         <span className="text-4xl md:text-5xl font-black tracking-tight leading-none text-content">
           {c.qty}
         </span>
-        {sub && (
-          <span className="mt-1 px-2 py-0.5 rounded-md bg-accent/10 text-accent text-base md:text-lg font-black uppercase tracking-tight leading-none">
-            {sub}
-          </span>
-        )}
-        {showSourceRow && (
-          <span className="text-[9px] font-bold uppercase tracking-widest text-muted/70 leading-none mt-1">
-            {c.source_row}
-          </span>
+        {(showSourceRow || sub) && (
+          <div className="flex items-center gap-1.5 mt-1">
+            {showSourceRow && (
+              <span className="text-[9px] font-bold uppercase tracking-widest text-muted/70 leading-none">
+                {c.source_row}
+              </span>
+            )}
+            {sub && (
+              <span className="px-1.5 py-0.5 rounded-md bg-accent/10 text-accent text-xs font-black uppercase tracking-tight leading-none">
+                {sub}
+              </span>
+            )}
+          </div>
         )}
       </div>
 
