@@ -206,7 +206,14 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
           name: string,
           args: { p_sku: string; p_top_n: number }
         ) => Promise<{ data: Suggestion[] | null; error: Error | null }>
-      )('suggest_locations_for_sku', { p_sku: debounced, p_top_n: 10 });
+      )(
+        // Return every ROW destination (warehouse has ~54), ranked. The
+        // operator must be able to reach slow rows (20-31) that score low
+        // for a fast SKU — capping at 10 hid them entirely. The UI collapses
+        // the list to the top picks by default with a "show all" expander.
+        'suggest_locations_for_sku',
+        { p_sku: debounced, p_top_n: 200 }
+      );
       if (error) throw error;
       return data ?? [];
     },
@@ -255,16 +262,28 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
     (s) => s.location !== sourceLocation && !hiddenRowsApi.isHidden(s.location)
   );
 
+  // The RPC now returns every ROW (~54). Default to the top picks so the
+  // common "take the best fit" path stays clean; expand to reach any row
+  // (e.g. deliberately placing a fast SKU into a slow row).
+  const TOP_PICKS = 12;
+  const [showAllDest, setShowAllDest] = useState(false);
+  const displayedSuggestions = showAllDest
+    ? visibleSuggestions
+    : visibleSuggestions.slice(0, TOP_PICKS);
+  const hasMoreDest = visibleSuggestions.length > TOP_PICKS;
+
   const confirmSku = (sku: string) => {
     setQuery(sku);
     setPickedSourceId(null);
     setConfirmed(true);
+    setShowAllDest(false);
   };
 
   const resetSku = () => {
     setQuery('');
     setPickedSourceId(null);
     setConfirmed(false);
+    setShowAllDest(false);
   };
 
   return (
@@ -449,7 +468,7 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
             <HiddenRowsPicker availableRows={availableRows} api={hiddenRowsApi} />
           </div>
           <div className="flex flex-col gap-2">
-            {visibleSuggestions.map((s) => {
+            {displayedSuggestions.map((s) => {
               const enabled = !!source;
               return (
                 <button
@@ -516,6 +535,16 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
               );
             })}
           </div>
+
+          {hasMoreDest && (
+            <button
+              type="button"
+              onClick={() => setShowAllDest((v) => !v)}
+              className="w-full mt-2 px-3 py-2 rounded-xl border border-subtle bg-card text-xs font-bold uppercase tracking-widest text-muted hover:border-accent/40 hover:text-content transition-colors"
+            >
+              {showAllDest ? `Show top ${TOP_PICKS}` : `Show all ${visibleSuggestions.length} rows`}
+            </button>
+          )}
 
           {!source && currentRows.length > 1 && (
             <div className="text-[11px] text-muted mt-2 text-center">
