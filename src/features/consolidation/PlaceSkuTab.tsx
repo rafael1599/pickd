@@ -5,8 +5,7 @@ import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import MapPin from 'lucide-react/dist/esm/icons/map-pin';
 import { supabase } from '../../lib/supabase';
 import { useDebounce } from '../../hooks/useDebounce';
-import { useHiddenRows } from './hooks/useHiddenRows';
-import { HiddenRowsPicker } from './components/HiddenRowsPicker';
+import { DestinationList } from './components/DestinationList';
 
 /**
  * "Where to put?" — given a SKU you have in hand, see ranked destination
@@ -68,12 +67,12 @@ interface InventoryRow {
 interface Props {
   /** Open Move modal with this source row + the picked target row. */
   onPickMove: (source: PlaceSkuSource, targetRow: string) => void;
-}
-
-function scoreColor(score: number): string {
-  if (score >= 70) return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
-  if (score >= 40) return 'bg-amber-500/20 text-amber-300 border-amber-500/40';
-  return 'bg-zinc-700/40 text-muted border-subtle';
+  /** Controlled search state (lifted to ConsolidationScreen so it survives
+      tab switches — PlaceSkuTab unmounts when another tab is active). */
+  query: string;
+  setQuery: (q: string) => void;
+  confirmed: boolean;
+  setConfirmed: (c: boolean) => void;
 }
 
 // Mirror InventoryCard's thumbnail transform so the card looks identical to
@@ -104,14 +103,15 @@ interface SkuSuggestion {
   location_count: number;
 }
 
-export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
-  const [query, setQuery] = useState('');
+export const PlaceSkuTab: React.FC<Props> = ({
+  onPickMove,
+  query,
+  setQuery,
+  confirmed,
+  setConfirmed,
+}) => {
   const debounced = useDebounce(query.trim().toUpperCase(), 200);
   const [pickedSourceId, setPickedSourceId] = useState<number | null>(null);
-  // Whether the user has confirmed a SKU (clicked a suggestion or typed the
-  // full exact match). When false, we show autocomplete and skip the
-  // expensive RPC + location-suggestion queries.
-  const [confirmed, setConfirmed] = useState(false);
 
   // Autocomplete: SKUs in active inventory matching the typed prefix/contains.
   // Only inventory we ALREADY HAVE — this tab is about placing existing stock,
@@ -181,25 +181,20 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
   // SKU from the autocomplete (or types an exact match) — otherwise the RPC
   // fires on every keystroke and surfaces noisy "no inventory" suggestions
   // for partial prefixes.
+  // SKU context (orders / stock / last order). Shares the queryKey with
+  // DestinationList so react-query dedupes to a single RPC call. We only read
+  // suggestions[0] here for the header card; the ranked list itself is
+  // rendered by DestinationList.
   const { data: suggestions = [], isFetching: suggFetching } = useQuery({
-    queryKey: ['place-sku-suggestions', debounced],
+    queryKey: ['suggest-locations', debounced],
     enabled: confirmed && debounced.length > 0,
     queryFn: async (): Promise<Suggestion[]> => {
-      // RPC is new in this PR; generated types regen on next deploy.
-      // Cast is safe — runtime payload matches Suggestion exactly.
       const { data, error } = await (
         supabase.rpc as unknown as (
           name: string,
           args: { p_sku: string; p_top_n: number }
         ) => Promise<{ data: Suggestion[] | null; error: Error | null }>
-      )(
-        // Return every ROW destination (warehouse has ~54), ranked. The
-        // operator must be able to reach slow rows (20-31) that score low
-        // for a fast SKU — capping at 10 hid them entirely. The UI collapses
-        // the list to the top picks by default with a "show all" expander.
-        'suggest_locations_for_sku',
-        { p_sku: debounced, p_top_n: 200 }
-      );
+      )('suggest_locations_for_sku', { p_sku: debounced, p_top_n: 200 });
       if (error) throw error;
       return data ?? [];
     },
@@ -217,7 +212,7 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
   const source = currentRows.find((r) => r.id === effectiveSourceId) ?? null;
   const skuHeader = suggestions[0]; // every row repeats the same SKU context
 
-  const handleDestinationClick = (s: Suggestion) => {
+  const handlePick = (targetRow: string) => {
     if (!source) return;
     onPickMove(
       {
@@ -229,47 +224,20 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
         sublocation: source.sublocation,
         qty: source.quantity,
       },
-      s.location
+      targetRow
     );
   };
-
-  // idea-117: per-tab hidden-rows filter for destination suggestions. Operator
-  // can hide e.g. ROW 28-31 if they want to consolidate only into 20-27.
-  const hiddenRowsApi = useHiddenRows('mode_place-sku', []);
-  const availableRows = useMemo(
-    () => Array.from(new Set(suggestions.map((s) => s.location))),
-    [suggestions]
-  );
-
-  // Hide the source location from suggestions (moving to itself is a no-op).
-  // React Compiler memoizes this filter automatically — no useMemo needed.
-  const sourceLocation = source?.location ?? null;
-  const visibleSuggestions = suggestions.filter(
-    (s) => s.location !== sourceLocation && !hiddenRowsApi.isHidden(s.location)
-  );
-
-  // The RPC now returns every ROW (~54). Default to the top picks so the
-  // common "take the best fit" path stays clean; expand to reach any row
-  // (e.g. deliberately placing a fast SKU into a slow row).
-  const TOP_PICKS = 12;
-  const [showAllDest, setShowAllDest] = useState(false);
-  const displayedSuggestions = showAllDest
-    ? visibleSuggestions
-    : visibleSuggestions.slice(0, TOP_PICKS);
-  const hasMoreDest = visibleSuggestions.length > TOP_PICKS;
 
   const confirmSku = (sku: string) => {
     setQuery(sku);
     setPickedSourceId(null);
     setConfirmed(true);
-    setShowAllDest(false);
   };
 
   const resetSku = () => {
     setQuery('');
     setPickedSourceId(null);
     setConfirmed(false);
-    setShowAllDest(false);
   };
 
   return (
@@ -479,91 +447,19 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
         </div>
       )}
 
-      {/* Ranked destinations */}
-      {(visibleSuggestions.length > 0 || availableRows.length > 0) && confirmed && (
-        <div>
-          <div className="flex items-center justify-between mb-1.5 gap-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-muted">
-              Suggested destinations — ranked best to worst
-            </span>
-            <HiddenRowsPicker availableRows={availableRows} api={hiddenRowsApi} />
-          </div>
-          <div className="flex flex-col gap-2">
-            {displayedSuggestions.map((s) => {
-              const enabled = !!source;
-              return (
-                <button
-                  key={s.location}
-                  disabled={!enabled}
-                  onClick={() => handleDestinationClick(s)}
-                  className={`w-full bg-card border rounded-2xl p-3 text-left transition-colors ${
-                    enabled
-                      ? 'border-subtle hover:border-accent/40 cursor-pointer'
-                      : 'border-subtle/50 opacity-60 cursor-not-allowed'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={`flex flex-col items-center justify-center min-w-[52px] px-2 py-1 rounded-lg border ${scoreColor(s.score)}`}
-                    >
-                      <span className="text-xl font-black leading-none">{s.score}</span>
-                      <span className="text-[9px] uppercase tracking-widest opacity-80">score</span>
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-2 flex-wrap">
-                        <span className="font-bold text-base text-content">{s.location}</span>
-                        <span className="text-[11px] text-muted">
-                          {s.free_units}/{s.max_capacity} free
-                        </span>
-                        {s.has_same_sku && (
-                          <span className="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded border bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
-                            Already has {s.same_sku_qty}
-                          </span>
-                        )}
-                      </div>
-
-                      {s.reasons.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1.5">
-                          {s.reasons.map((r, i) => (
-                            <span
-                              key={i}
-                              className="text-[10px] text-muted bg-surface/60 px-1.5 py-0.5 rounded border border-subtle/40"
-                            >
-                              {r}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {hasMoreDest && (
-            <button
-              type="button"
-              onClick={() => setShowAllDest((v) => !v)}
-              className="w-full mt-2 px-3 py-2 rounded-xl border border-subtle bg-card text-xs font-bold uppercase tracking-widest text-muted hover:border-accent/40 hover:text-content transition-colors"
-            >
-              {showAllDest ? `Show top ${TOP_PICKS}` : `Show all ${visibleSuggestions.length} rows`}
-            </button>
-          )}
-
-          {!source && currentRows.length > 1 && (
-            <div className="text-[11px] text-muted mt-2 text-center">
-              Pick a source row above to enable moves.
-            </div>
-          )}
-        </div>
-      )}
-
-      {debounced && !suggFetching && visibleSuggestions.length === 0 && (
-        <div className="text-center text-muted py-8 text-sm border border-dashed border-subtle rounded-2xl">
-          No destinations to suggest for <span className="font-mono">{debounced}</span>.
-        </div>
+      {/* Ranked destinations — shared component (also used inline in Send to
+          slow / Bring to active). */}
+      {confirmed && (
+        <DestinationList
+          sku={debounced}
+          sourceLocation={source?.location ?? null}
+          enabled={!!source}
+          hiddenRowsKey="mode_place-sku"
+          onPick={handlePick}
+          disabledHint={
+            currentRows.length > 1 ? 'Pick a source row above to enable moves.' : undefined
+          }
+        />
       )}
     </div>
   );
