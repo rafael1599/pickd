@@ -101,6 +101,17 @@ function scoreColor(score: number): string {
   return 'bg-zinc-700/40 text-muted border-subtle';
 }
 
+function formatLastOrder(iso: string | null): string {
+  if (!iso) return 'never';
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (days <= 0) return 'today';
+  if (days === 1) return '1d ago';
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
 interface SkuSuggestion {
   sku: string;
   item_name: string | null;
@@ -160,6 +171,27 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
         .slice(0, 8);
     },
     staleTime: 30_000,
+  });
+
+  // idea-118: last shipped date for the confirmed SKU — the single most
+  // recent completed order containing it. Gives the operator a sense of how
+  // "live" the SKU is beyond the 30/90d order counts.
+  const { data: lastOrderAt = null } = useQuery({
+    queryKey: ['place-sku-last-order', debounced],
+    enabled: confirmed && debounced.length > 0,
+    staleTime: 60_000,
+    queryFn: async (): Promise<string | null> => {
+      const { data, error } = await supabase
+        .from('picking_lists')
+        .select('updated_at')
+        .eq('status', 'completed')
+        .contains('items', [{ sku: debounced }])
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.updated_at ?? null;
+    },
   });
 
   // Inventory rows for the confirmed SKU (where it currently lives).
@@ -372,6 +404,10 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
           <div className="text-xs text-muted">
             Total stock: <span className="font-bold text-content">{skuHeader.sku_total_qty}</span>{' '}
             units
+          </div>
+          <div className="text-xs text-muted">
+            Last order:{' '}
+            <span className="font-bold text-content">{formatLastOrder(lastOrderAt)}</span>
           </div>
         </div>
       )}
