@@ -31,6 +31,7 @@ interface Suggestion {
   sku_orders_30d: number;
   sku_orders_90d: number;
   sku_total_qty: number;
+  sku_last_order_at: string | null;
 
   location: string;
   zone: string | null;
@@ -171,27 +172,6 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
         .slice(0, 8);
     },
     staleTime: 30_000,
-  });
-
-  // idea-118: last shipped date for the confirmed SKU — the single most
-  // recent completed order containing it. Gives the operator a sense of how
-  // "live" the SKU is beyond the 30/90d order counts.
-  const { data: lastOrderAt = null } = useQuery({
-    queryKey: ['place-sku-last-order', debounced],
-    enabled: confirmed && debounced.length > 0,
-    staleTime: 60_000,
-    queryFn: async (): Promise<string | null> => {
-      const { data, error } = await supabase
-        .from('picking_lists')
-        .select('updated_at')
-        .eq('status', 'completed')
-        .contains('items', [{ sku: debounced }])
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error) throw error;
-      return data?.updated_at ?? null;
-    },
   });
 
   // Inventory rows for the confirmed SKU (where it currently lives).
@@ -407,7 +387,9 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
           </div>
           <div className="text-xs text-muted">
             Last order:{' '}
-            <span className="font-bold text-content">{formatLastOrder(lastOrderAt)}</span>
+            <span className="font-bold text-content">
+              {formatLastOrder(skuHeader.sku_last_order_at)}
+            </span>
           </div>
         </div>
       )}

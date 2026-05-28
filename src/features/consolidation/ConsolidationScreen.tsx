@@ -256,18 +256,38 @@ export const ConsolidationScreen: React.FC = () => {
     [candidates, hiddenRowsApi, movedIds]
   );
 
-  // Rows actually present in the raw candidate set (post-moved filter, pre-
-  // search filter) — feeds the HiddenRowsPicker so it only offers rows that
-  // exist. Computed pre-hide so hidden rows stay listable for un-hiding.
-  // Named with `Hide` prefix to disambiguate from the `availableRows` query
-  // above which lists all picker-target rows for the clear-row mode UI.
+  // Canonical list of every ROW location in the warehouse — feeds the
+  // HiddenRowsPicker so the operator can hide ANY row, not just the few that
+  // happen to have candidates right now. Without this the picker looked empty
+  // in clear-row mode (no candidates until a source is picked) and only
+  // showed a handful of rows in consolidate/promote.
+  const { data: allRowLocations = [] } = useQuery({
+    queryKey: ['consolidation-all-rows'],
+    queryFn: async (): Promise<string[]> => {
+      const { data, error } = await supabase
+        .from('locations')
+        .select('location')
+        .ilike('location', 'ROW%');
+      if (error) throw error;
+      const set = new Set<string>();
+      for (const r of (data || []) as { location: string | null }[]) {
+        if (r.location) set.add(r.location);
+      }
+      return Array.from(set);
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  // Rows present in the raw candidate set — merged with the canonical list so
+  // the picker always offers the full warehouse but also surfaces any ad-hoc
+  // row that appears in data but isn't in `locations` (defensive).
   const hideablePresentRows = useMemo(() => {
-    const set = new Set<string>();
+    const set = new Set<string>(allRowLocations);
     for (const c of candidates) {
       if (!movedIds.has(c.inventory_id)) set.add(c.source_row);
     }
     return Array.from(set);
-  }, [candidates, movedIds]);
+  }, [allRowLocations, candidates, movedIds]);
 
   const filtered = useMemo(
     () => searchCandidates(preSearch, debouncedSearch),
