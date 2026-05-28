@@ -190,19 +190,22 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         setUserEditedDistribution(false);
         setPhotoPreview(initialData?.sku_metadata?.image_url || null);
       } else {
+        // Add mode. Seed from initialData when provided so callers can
+        // pre-fill known fields (e.g. DoubleCheckView long-press on an
+        // unregistered item passes the SKU + name straight from the order).
         reset({
-          sku: '',
-          location: '',
-          quantity: 0,
-          item_name: '',
-          warehouse: (screenType as WarehouseType) || 'LUDLOW',
+          sku: initialData?.sku || '',
+          location: initialData?.location || '',
+          quantity: initialData?.quantity ? Number(initialData.quantity) : 0,
+          item_name: initialData?.item_name || '',
+          warehouse: initialData?.warehouse || (screenType as WarehouseType) || 'LUDLOW',
           ...dimensionDefaults(null),
           internal_note: '',
           sublocation: null,
         });
         setDistribution([]);
         setUserEditedDistribution(false);
-        setPhotoPreview(null);
+        setPhotoPreview(initialData?.sku_metadata?.image_url || null);
       }
     } else {
       setIsNavHidden?.(false);

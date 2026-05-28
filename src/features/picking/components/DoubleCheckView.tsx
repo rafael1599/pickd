@@ -176,6 +176,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     inventoryData: inventoryDataCtx,
     updateItem,
     deleteItem,
+    addItem,
   } = useInventory();
   const inventoryData = inventoryDataProp ?? inventoryDataCtx;
 
@@ -548,7 +549,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   // Ref keeps modal callbacks fresh without re-binding handlePointerDown.
   // Modal lives at root via ModalProvider — must call latest hook callbacks
   // even if this component unmounts after the modal opens.
-  const editCallbacksRef = useRef({ updateItem, deleteItem, fetchDistributions: async () => {} });
+  const editCallbacksRef = useRef({
+    updateItem,
+    deleteItem,
+    addItem,
+    fetchDistributions: async () => {},
+  });
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevItemCountRef = useRef(cartItems.length);
 
@@ -601,7 +607,25 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             },
           });
         } else {
-          toast.error('Item not found in inventory');
+          // Not in the DB inventory (typically an `sku_not_found` / UNREG
+          // item the picker found on the floor). Open New Item pre-filled with
+          // what the order already knows so they only enter the missing bits.
+          const prefill = {
+            sku: item.sku,
+            item_name: item.item_name ?? '',
+            warehouse: 'LUDLOW',
+          } as unknown as InventoryItemWithMetadata;
+          openModal({
+            type: 'item-detail',
+            item: prefill,
+            mode: 'add',
+            screenType: 'LUDLOW',
+            onSave: async (formData) => {
+              await editCallbacksRef.current.addItem(formData.warehouse, formData);
+              await editCallbacksRef.current.fetchDistributions();
+              toast.success(`Registered ${formData.sku}`);
+            },
+          });
         }
       }, 500);
     },
@@ -717,8 +741,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
   // Keep edit-callbacks ref fresh — see editCallbacksRef declaration above
   useEffect(() => {
-    editCallbacksRef.current = { updateItem, deleteItem, fetchDistributions };
-  }, [updateItem, deleteItem, fetchDistributions]);
+    editCallbacksRef.current = { updateItem, deleteItem, addItem, fetchDistributions };
+  }, [updateItem, deleteItem, addItem, fetchDistributions]);
 
   /**
    * Pick Plan Map: For each SKU, build a full picking plan that covers the order quantity.
