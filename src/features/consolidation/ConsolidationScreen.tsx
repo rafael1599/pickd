@@ -122,15 +122,12 @@ export const ConsolidationScreen: React.FC = () => {
   // (instead of inlining `true` at every callsite) makes it trivial to
   // re-expose as a toggle later if a real use case shows up.
   const onlyBikes = true;
-  // idea-117: per-tab user filter for "rows to hide from results". For
-  // `consolidate` mode we seed DEEP_SLOW_ROWS as the default so first-time
-  // users get the same view as before (items already in slow zone hidden),
-  // but they can clear or fine-tune via the picker. Defaults are only used
-  // on first visit; subsequent visits load whatever the operator last left.
-  const hiddenRowsApi = useHiddenRows(
-    `mode_${mode}`,
-    mode === 'consolidate' ? Array.from(DEEP_SLOW_ROWS) : []
-  );
+  // idea-117: per-tab user filter for "rows to hide from results". No default
+  // seed anymore — the candidate RPCs now decide which SKUs are mis-slotted
+  // via picking_order (a 0-order SKU already in a slow slot won't surface),
+  // so the old DEEP_SLOW_ROWS name-based default-hide is redundant. Hidden
+  // rows are now a pure user preference.
+  const hiddenRowsApi = useHiddenRows(`mode_${mode}`, []);
   /** Source row selected to be cleared (clear-row mode). Empty until picked. */
   const [clearRow, setClearRow] = useState<string>('');
   const [moving, setMoving] = useState<Candidate | null>(null);
