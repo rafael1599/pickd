@@ -3,9 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import Search from 'lucide-react/dist/esm/icons/search';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import MapPin from 'lucide-react/dist/esm/icons/map-pin';
-import Flame from 'lucide-react/dist/esm/icons/flame';
-import Snowflake from 'lucide-react/dist/esm/icons/snowflake';
-import Sun from 'lucide-react/dist/esm/icons/sun';
 import { supabase } from '../../lib/supabase';
 import { useDebounce } from '../../hooks/useDebounce';
 import { useHiddenRows } from './hooks/useHiddenRows';
@@ -27,14 +24,12 @@ import { HiddenRowsPicker } from './components/HiddenRowsPicker';
  */
 
 interface Suggestion {
-  sku_velocity_tier: 'HOT' | 'WARM' | 'COLD';
   sku_orders_30d: number;
   sku_orders_90d: number;
   sku_total_qty: number;
   sku_last_order_at: string | null;
 
   location: string;
-  zone: string | null;
   picking_order: number | null;
   max_capacity: number;
   current_units: number;
@@ -43,10 +38,9 @@ interface Suggestion {
   same_sku_qty: number;
 
   score: number;
-  velocity_pts: number;
+  position_pts: number;
   capacity_pts: number;
   consolidation_pts: number;
-  proximity_pts: number;
   reasons: string[];
 }
 
@@ -74,27 +68,6 @@ interface Props {
   /** Open Move modal with this source row + the picked target row. */
   onPickMove: (source: PlaceSkuSource, targetRow: string) => void;
 }
-
-const TIER_STYLE: Record<
-  Suggestion['sku_velocity_tier'],
-  { label: string; cls: string; icon: React.ReactNode }
-> = {
-  HOT: {
-    label: 'HOT',
-    cls: 'bg-red-500/15 text-red-400 border-red-500/40',
-    icon: <Flame size={12} />,
-  },
-  WARM: {
-    label: 'WARM',
-    cls: 'bg-amber-500/15 text-amber-300 border-amber-500/40',
-    icon: <Sun size={12} />,
-  },
-  COLD: {
-    label: 'COLD',
-    cls: 'bg-blue-500/15 text-blue-400 border-blue-500/40',
-    icon: <Snowflake size={12} />,
-  },
-};
 
 function scoreColor(score: number): string {
   if (score >= 70) return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
@@ -384,17 +357,9 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
         </div>
       )}
 
-      {/* SKU header */}
+      {/* SKU header — plain facts, no velocity label (idea: simplest view). */}
       {skuHeader && (
         <div className="bg-card border border-subtle rounded-2xl p-3 flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-1">
-            <span
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-widest ${TIER_STYLE[skuHeader.sku_velocity_tier].cls}`}
-            >
-              {TIER_STYLE[skuHeader.sku_velocity_tier].icon}
-              {TIER_STYLE[skuHeader.sku_velocity_tier].label}
-            </span>
-          </div>
           <div className="text-xs text-muted">
             <span className="font-bold text-content">{skuHeader.sku_orders_30d}</span> orders / 30d
             <span className="px-1.5 text-subtle">·</span>
@@ -492,21 +457,6 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-2 flex-wrap">
                         <span className="font-bold text-base text-content">{s.location}</span>
-                        {s.zone && (
-                          <span
-                            className={`text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded border ${
-                              s.zone === 'HOT'
-                                ? 'bg-red-500/10 text-red-400 border-red-500/30'
-                                : s.zone === 'WARM'
-                                  ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
-                                  : s.zone === 'COLD'
-                                    ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
-                                    : 'bg-subtle text-muted border-subtle'
-                            }`}
-                          >
-                            {s.zone}
-                          </span>
-                        )}
                         <span className="text-[11px] text-muted">
                           {s.free_units}/{s.max_capacity} free
                         </span>
