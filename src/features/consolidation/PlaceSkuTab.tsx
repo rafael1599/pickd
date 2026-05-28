@@ -62,6 +62,7 @@ interface InventoryRow {
   sublocation: string[] | null;
   quantity: number;
   item_name: string | null;
+  sku_metadata: { image_url: string | null } | null;
 }
 
 interface Props {
@@ -73,6 +74,16 @@ function scoreColor(score: number): string {
   if (score >= 70) return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
   if (score >= 40) return 'bg-amber-500/20 text-amber-300 border-amber-500/40';
   return 'bg-zinc-700/40 text-muted border-subtle';
+}
+
+// Mirror InventoryCard's thumbnail transform so the card looks identical to
+// Stock / Send to slow cards.
+function thumbUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.includes('/catalog/'))
+    return url.replace('/catalog/', '/catalog/thumbs/').replace('.png', '.webp');
+  if (url.includes('/photos/')) return url.replace('/photos/', '/photos/thumbs/');
+  return url;
 }
 
 function formatLastOrder(iso: string | null): string {
@@ -154,7 +165,9 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
     queryFn: async (): Promise<InventoryRow[]> => {
       const { data, error } = await supabase
         .from('inventory')
-        .select('id, sku, warehouse, location, sublocation, quantity, item_name')
+        .select(
+          'id, sku, warehouse, location, sublocation, quantity, item_name, sku_metadata(image_url)'
+        )
         .eq('sku', debounced)
         .eq('is_active', true)
         .gt('quantity', 0);
@@ -357,22 +370,65 @@ export const PlaceSkuTab: React.FC<Props> = ({ onPickMove }) => {
         </div>
       )}
 
-      {/* SKU header — plain facts, no velocity label (idea: simplest view). */}
-      {skuHeader && (
-        <div className="bg-card border border-subtle rounded-2xl p-3 flex items-center gap-3 flex-wrap">
-          <div className="text-xs text-muted">
-            <span className="font-bold text-content">{skuHeader.sku_orders_30d}</span> orders / 30d
-            <span className="px-1.5 text-subtle">·</span>
-            <span className="font-bold text-content">{skuHeader.sku_orders_90d}</span> / 90d
+      {/* Selected SKU card — same visual language as Stock / Send to slow
+          cards: image thumbnail + SKU heading + name on the left, big stock
+          number on the right, movement facts underneath. No velocity labels. */}
+      {confirmed && (skuHeader || currentRows.length > 0) && (
+        <div className="bg-card border border-subtle rounded-2xl p-3 flex gap-3 shadow-sm">
+          {(() => {
+            const thumb = thumbUrl(currentRows[0]?.sku_metadata?.image_url);
+            return thumb ? (
+              <img
+                src={thumb}
+                alt={debounced}
+                loading="lazy"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+                className="w-[64px] object-contain rounded bg-white/5 flex-shrink-0 self-stretch"
+              />
+            ) : null;
+          })()}
+
+          <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+            <div
+              className="text-lg font-extrabold text-content tracking-tighter leading-tight break-all"
+              style={{ fontFamily: 'var(--font-heading)' }}
+            >
+              {debounced}
+            </div>
+            {currentRows[0]?.item_name && (
+              <div className="text-xs text-muted truncate">{currentRows[0].item_name}</div>
+            )}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted mt-0.5">
+              <span>
+                <span className="font-bold text-content">{skuHeader?.sku_orders_30d ?? 0}</span> ord
+                / 30d
+              </span>
+              <span className="text-subtle">·</span>
+              <span>
+                <span className="font-bold text-content">{skuHeader?.sku_orders_90d ?? 0}</span> /
+                90d
+              </span>
+              <span className="text-subtle">·</span>
+              <span>
+                Last:{' '}
+                <span className="font-bold text-content">
+                  {formatLastOrder(skuHeader?.sku_last_order_at ?? null)}
+                </span>
+              </span>
+            </div>
           </div>
-          <div className="text-xs text-muted">
-            Total stock: <span className="font-bold text-content">{skuHeader.sku_total_qty}</span>{' '}
-            units
-          </div>
-          <div className="text-xs text-muted">
-            Last order:{' '}
-            <span className="font-bold text-content">
-              {formatLastOrder(skuHeader.sku_last_order_at)}
+
+          <div className="flex flex-col items-end justify-center gap-0.5 shrink-0">
+            <span className="text-[9px] text-muted uppercase font-bold tracking-widest leading-none">
+              Stock
+            </span>
+            <span className="text-2xl font-black text-accent tabular-nums tracking-tighter leading-none">
+              {skuHeader?.sku_total_qty ?? currentRows.reduce((a, r) => a + r.quantity, 0)}
+            </span>
+            <span className="text-[9px] text-muted uppercase tracking-widest leading-none">
+              units
             </span>
           </div>
         </div>
