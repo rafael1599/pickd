@@ -81,88 +81,102 @@ export const HiddenRowsPicker: React.FC<HiddenRowsPickerProps> = ({
       </button>
 
       {open && (
-        <div className="absolute z-30 mt-2 right-0 w-72 bg-card border border-subtle rounded-2xl shadow-2xl p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-widest text-muted">
-              Hide rows
-            </span>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="text-muted hover:text-content"
-              aria-label="Close"
-            >
-              <X size={14} />
-            </button>
-          </div>
-
-          {presets.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {presets.map((p) => {
-                // A preset is "active" when every row in it is currently hidden.
-                const allHidden = p.rows.every((r) => api.isHidden(r));
-                return (
-                  <button
-                    key={p.label}
-                    type="button"
-                    onClick={() => api.setMany(p.rows, !allHidden)}
-                    className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest border ${
-                      allHidden
-                        ? 'bg-accent/15 border-accent/30 text-accent'
-                        : 'bg-surface border-subtle text-muted hover:border-accent/40'
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                );
-              })}
-              {hiddenCount > 0 && (
-                <button
-                  type="button"
-                  onClick={api.clear}
-                  className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest border bg-surface border-subtle text-muted hover:border-red-500/50 hover:text-red-500"
-                >
-                  Clear all
-                </button>
-              )}
+        <>
+          {/* Mobile backdrop — tap to dismiss the bottom sheet. Hidden on
+              desktop where the panel is a popover anchored to the button. */}
+          <div
+            className="fixed inset-0 z-30 bg-black/40 sm:hidden"
+            onClick={() => setOpen(false)}
+          />
+          <div
+            className="
+              fixed inset-x-0 bottom-0 z-40 max-h-[75vh] rounded-t-2xl
+              sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:mt-2 sm:w-72 sm:max-h-none sm:rounded-2xl
+              bg-card border border-subtle shadow-2xl p-3 space-y-2 overflow-y-auto
+            "
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted">
+                Hide rows
+              </span>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="text-muted hover:text-content"
+                aria-label="Close"
+              >
+                <X size={14} />
+              </button>
             </div>
-          )}
 
-          <div className="max-h-64 overflow-y-auto">
-            {sorted.length === 0 && (
-              <div className="text-[11px] text-muted/70 py-3 text-center">
-                No rows in current data.
+            {presets.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {presets.map((p) => {
+                  // A preset is "active" when every row in it is currently hidden.
+                  const allHidden = p.rows.every((r) => api.isHidden(r));
+                  return (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => api.setMany(p.rows, !allHidden)}
+                      className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest border ${
+                        allHidden
+                          ? 'bg-accent/15 border-accent/30 text-accent'
+                          : 'bg-surface border-subtle text-muted hover:border-accent/40'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+                {hiddenCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={api.clear}
+                    className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest border bg-surface border-subtle text-muted hover:border-red-500/50 hover:text-red-500"
+                  >
+                    Clear all
+                  </button>
+                )}
               </div>
             )}
-            <div className="grid grid-cols-3 gap-1.5">
-              {sorted.map((row) => {
-                const isHidden = api.isHidden(row);
-                return (
-                  <button
-                    key={row}
-                    type="button"
-                    onClick={() => api.toggle(row)}
-                    className={`px-2 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-tight border transition-colors ${
-                      isHidden
-                        ? 'bg-accent/15 border-accent/40 text-accent line-through'
-                        : 'bg-surface border-subtle text-content hover:border-accent/40'
-                    }`}
-                    title={isHidden ? 'Click to show' : 'Click to hide'}
-                  >
-                    {row.replace(/^ROW\s+/i, '')}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
-          {hiddenNotPresent.length > 0 && (
-            <div className="text-[10px] text-muted/70 pt-1 border-t border-subtle">
-              {hiddenNotPresent.length} hidden row{hiddenNotPresent.length === 1 ? '' : 's'} not in
-              current data ({hiddenNotPresent.join(', ')}).
+            <div className="sm:max-h-64 sm:overflow-y-auto">
+              {sorted.length === 0 && (
+                <div className="text-[11px] text-muted/70 py-3 text-center">
+                  No rows in current data.
+                </div>
+              )}
+              <div className="grid grid-cols-3 gap-1.5">
+                {sorted.map((row) => {
+                  const isHidden = api.isHidden(row);
+                  return (
+                    <button
+                      key={row}
+                      type="button"
+                      onClick={() => api.toggle(row)}
+                      className={`px-2 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-tight border transition-colors ${
+                        isHidden
+                          ? 'bg-accent/15 border-accent/40 text-accent line-through'
+                          : 'bg-surface border-subtle text-content hover:border-accent/40'
+                      }`}
+                      title={isHidden ? 'Click to show' : 'Click to hide'}
+                    >
+                      {row.replace(/^ROW\s+/i, '')}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          )}
-        </div>
+
+            {hiddenNotPresent.length > 0 && (
+              <div className="text-[10px] text-muted/70 pt-1 border-t border-subtle">
+                {hiddenNotPresent.length} hidden row{hiddenNotPresent.length === 1 ? '' : 's'} not
+                in current data ({hiddenNotPresent.join(', ')}).
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
