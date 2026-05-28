@@ -102,6 +102,10 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   // Photo state
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  // idea-068: Bike/Part classification, editable in both add & edit. Persisted
+  // to sku_metadata.is_bike on save (add) or immediately (edit). Defaults to
+  // bike since the vast majority of registered SKUs are bikes.
+  const [typeIsBike, setTypeIsBike] = useState(true);
 
   // React Hook Form
   const {
@@ -189,6 +193,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         setDistribution(Array.isArray(initialData.distribution) ? initialData.distribution : []);
         setUserEditedDistribution(false);
         setPhotoPreview(initialData?.sku_metadata?.image_url || null);
+        setTypeIsBike(initialData.sku_metadata?.is_bike !== false);
       } else {
         // Add mode. Seed from initialData when provided so callers can
         // pre-fill known fields (e.g. DoubleCheckView long-press on an
@@ -206,6 +211,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         setDistribution([]);
         setUserEditedDistribution(false);
         setPhotoPreview(initialData?.sku_metadata?.image_url || null);
+        setTypeIsBike(initialData?.sku_metadata?.is_bike !== false);
       }
     } else {
       setIsNavHidden?.(false);
@@ -679,6 +685,8 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     async (data: InventoryFormValues) => {
       updateSKUMetadata({
         sku: data.sku,
+        // idea-068: persist the Bike/Part classification chosen in the form.
+        is_bike: typeIsBike,
         length_in: data.length_in,
         width_in: data.width_in,
         height_in: data.height_in,
@@ -707,7 +715,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       );
       onClose();
     },
-    [distribution, onSave, onClose, updateSKUMetadata]
+    [distribution, onSave, onClose, updateSKUMetadata, typeIsBike]
   );
 
   const handleSave = useCallback(() => {
@@ -1057,47 +1065,54 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                 onChange={(v) => setValue('item_name', v, { shouldValidate: true })}
                 placeholder="e.g. Desk Frame..."
               />
-              {/* Bike/Part toggle — manual override */}
-              {mode === 'edit' && (
-                <div className="flex items-center justify-between px-4 py-2.5 border-b border-subtle">
-                  <span className="text-[10px] font-black text-muted uppercase tracking-widest">
-                    Type
-                  </span>
-                  <div className="flex gap-1.5">
-                    <button
-                      onClick={async () => {
-                        if (!initialData?.sku) return;
+              {/* Bike/Part toggle — manual classification. Shown in both add &
+                  edit (idea-068). In edit it also updates the DB immediately;
+                  in add it just sets local state, persisted on save. S/D is
+                  edit-only (needs an existing SKU to open the S/D catalog). */}
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-subtle">
+                <span className="text-[10px] font-black text-muted uppercase tracking-widest">
+                  Type
+                </span>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={async () => {
+                      setTypeIsBike(true);
+                      if (mode === 'edit' && initialData?.sku) {
                         await supabase
                           .from('sku_metadata')
                           .update({ is_bike: true })
                           .eq('sku', initialData.sku);
                         toast.success('Marked as bike');
-                      }}
-                      className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 ${
-                        isBikeItem && !isScratchDentItem
-                          ? 'bg-accent text-white'
-                          : 'bg-surface text-muted border border-subtle'
-                      }`}
-                    >
-                      Bike
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (!initialData?.sku) return;
+                      }
+                    }}
+                    className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 ${
+                      typeIsBike && !isScratchDentItem
+                        ? 'bg-accent text-white'
+                        : 'bg-surface text-muted border border-subtle'
+                    }`}
+                  >
+                    Bike
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setTypeIsBike(false);
+                      if (mode === 'edit' && initialData?.sku) {
                         await supabase
                           .from('sku_metadata')
                           .update({ is_bike: false })
                           .eq('sku', initialData.sku);
                         toast.success('Marked as part');
-                      }}
-                      className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 ${
-                        !isBikeItem && !isScratchDentItem
-                          ? 'bg-accent text-white'
-                          : 'bg-surface text-muted border border-subtle'
-                      }`}
-                    >
-                      Part
-                    </button>
+                      }
+                    }}
+                    className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 ${
+                      !typeIsBike && !isScratchDentItem
+                        ? 'bg-accent text-white'
+                        : 'bg-surface text-muted border border-subtle'
+                    }`}
+                  >
+                    Part
+                  </button>
+                  {mode === 'edit' && (
                     <button
                       onClick={() => {
                         if (!initialData?.sku) return;
@@ -1115,9 +1130,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                     >
                       S/D
                     </button>
-                  </div>
+                  )}
                 </div>
-              )}
+              </div>
               {mode === 'edit' && initialData?.sku && (
                 <ItemDetailsCard
                   sku={initialData.sku}
