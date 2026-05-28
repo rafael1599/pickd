@@ -17,6 +17,7 @@ import { ConsolidationMoveModal } from './ConsolidationMoveModal';
 import { searchCandidates } from './searchCandidates';
 import { PlaceSkuTab } from './PlaceSkuTab';
 import { HiddenRowsPicker } from './components/HiddenRowsPicker';
+import { DestinationList } from './components/DestinationList';
 import { useHiddenRows } from './hooks/useHiddenRows';
 import type { InventoryItemInput, InventoryItemWithMetadata } from '../../schemas/inventory.schema';
 
@@ -131,6 +132,10 @@ export const ConsolidationScreen: React.FC = () => {
   /** Source row selected to be cleared (clear-row mode). Empty until picked. */
   const [clearRow, setClearRow] = useState<string>('');
   const [moving, setMoving] = useState<Candidate | null>(null);
+  // idea-122: candidate whose inline ranked-destination list is expanded in
+  // Send to slow / Bring to active. Tapping "Move" toggles it; picking a
+  // destination opens the move modal pre-targeted to that row.
+  const [destFor, setDestFor] = useState<Candidate | null>(null);
   /** Pre-selected destination row when the move was triggered from
    *  PlaceSkuTab. Null in every other mode. */
   const [placeTargetRow, setPlaceTargetRow] = useState<string | null>(null);
@@ -154,6 +159,10 @@ export const ConsolidationScreen: React.FC = () => {
   const [movedIds, setMovedIds] = useState<Set<number>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 200);
+  // idea-122: place-sku search lifted here so it survives tab switches
+  // (PlaceSkuTab unmounts when another mode is active).
+  const [placeSkuQuery, setPlaceSkuQuery] = useState('');
+  const [placeSkuConfirmed, setPlaceSkuConfirmed] = useState(false);
 
   const {
     data: candidates = [],
@@ -348,6 +357,23 @@ export const ConsolidationScreen: React.FC = () => {
     }
   };
 
+  // idea-122: in Send to slow / Bring to active, "Move" expands a ranked
+  // destination list inline (instead of jumping straight to the modal with
+  // hardcoded target chips). Other modes keep the direct-modal behaviour.
+  const isDestMode = mode === 'consolidate' || mode === 'promote';
+  const handleCardMove = (c: Candidate) => {
+    if (isDestMode) {
+      setDestFor((prev) => (prev?.inventory_id === c.inventory_id ? null : c));
+    } else {
+      setMoving(c);
+    }
+  };
+  const handleDestPick = (c: Candidate, targetRow: string) => {
+    setPlaceTargetRow(targetRow);
+    setMoving(c);
+    setDestFor(null);
+  };
+
   const handleSaveDetail = async (
     formData: InventoryItemInput & { length_in?: number; width_in?: number; height_in?: number }
   ) => {
@@ -406,6 +432,7 @@ export const ConsolidationScreen: React.FC = () => {
               onClick={() => {
                 setMode(m);
                 setSelectedIds(new Set());
+                setDestFor(null);
               }}
               title={hint}
               className={`flex-1 px-2 py-2 rounded-lg text-[10px] md:text-[11px] font-black uppercase tracking-wider transition-colors ${
@@ -579,6 +606,10 @@ export const ConsolidationScreen: React.FC = () => {
       {mode === 'place-sku' && (
         <div className="p-4 pb-32">
           <PlaceSkuTab
+            query={placeSkuQuery}
+            setQuery={setPlaceSkuQuery}
+            confirmed={placeSkuConfirmed}
+            setConfirmed={setPlaceSkuConfirmed}
             onPickMove={(source, targetRow) => {
               setPlaceTargetRow(targetRow);
               setMoving({
@@ -632,16 +663,28 @@ export const ConsolidationScreen: React.FC = () => {
             // Active search → flat list (ranked by search relevance, not grouped).
             <div className="space-y-2">
               {filtered.map((c) => (
-                <ConsolidationCard
-                  key={c.inventory_id}
-                  candidate={c}
-                  showSourceRow={true}
-                  isFetching={isFetching}
-                  isSelected={selectedIds.has(c.inventory_id)}
-                  onToggleSelected={() => toggleSelected(c.inventory_id)}
-                  onMove={() => setMoving(c)}
-                  onOpenDetail={() => openDetail(c)}
-                />
+                <div key={c.inventory_id}>
+                  <ConsolidationCard
+                    candidate={c}
+                    showSourceRow={true}
+                    isFetching={isFetching}
+                    isSelected={selectedIds.has(c.inventory_id)}
+                    onToggleSelected={() => toggleSelected(c.inventory_id)}
+                    onMove={() => handleCardMove(c)}
+                    onOpenDetail={() => openDetail(c)}
+                  />
+                  {destFor?.inventory_id === c.inventory_id && (
+                    <div className="mt-2 mb-1 pl-3 border-l-2 border-accent/40">
+                      <DestinationList
+                        sku={c.sku}
+                        sourceLocation={c.source_row}
+                        enabled
+                        hiddenRowsKey={`dest_${mode}`}
+                        onPick={(row) => handleDestPick(c, row)}
+                      />
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           ) : (
@@ -678,16 +721,28 @@ export const ConsolidationScreen: React.FC = () => {
 
                       <div className="mt-2 space-y-2">
                         {items.map((c) => (
-                          <ConsolidationCard
-                            key={c.inventory_id}
-                            candidate={c}
-                            showSourceRow={false}
-                            isFetching={isFetching}
-                            isSelected={selectedIds.has(c.inventory_id)}
-                            onToggleSelected={() => toggleSelected(c.inventory_id)}
-                            onMove={() => setMoving(c)}
-                            onOpenDetail={() => openDetail(c)}
-                          />
+                          <div key={c.inventory_id}>
+                            <ConsolidationCard
+                              candidate={c}
+                              showSourceRow={false}
+                              isFetching={isFetching}
+                              isSelected={selectedIds.has(c.inventory_id)}
+                              onToggleSelected={() => toggleSelected(c.inventory_id)}
+                              onMove={() => handleCardMove(c)}
+                              onOpenDetail={() => openDetail(c)}
+                            />
+                            {destFor?.inventory_id === c.inventory_id && (
+                              <div className="mt-2 mb-1 pl-3 border-l-2 border-accent/40">
+                                <DestinationList
+                                  sku={c.sku}
+                                  sourceLocation={c.source_row}
+                                  enabled
+                                  hiddenRowsKey={`dest_${mode}`}
+                                  onPick={(row) => handleDestPick(c, row)}
+                                />
+                              </div>
+                            )}
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -719,17 +774,24 @@ export const ConsolidationScreen: React.FC = () => {
         <ConsolidationMoveModal
           candidate={moving}
           targetRows={
-            mode === 'place-sku'
-              ? // Place-sku: surface BOTH active + slow zones as tiles so the
-                // operator can override the suggestion without typing.
-                Array.from(new Set([...PROMOTE_TARGETS, ...CONSOLIDATE_TARGETS]))
-              : mode === 'clear-row'
-                ? moving.suggested_zone === 'active'
-                  ? PROMOTE_TARGETS
-                  : CONSOLIDATE_TARGETS
-                : mode === 'consolidate'
-                  ? CONSOLIDATE_TARGETS
-                  : PROMOTE_TARGETS
+            // Always include the inline-picked row so it shows as a chip even
+            // if it's outside the hardcoded zone lists (e.g. ROW 42).
+            Array.from(
+              new Set(
+                [
+                  ...(placeTargetRow ? [placeTargetRow] : []),
+                  ...(mode === 'place-sku'
+                    ? [...PROMOTE_TARGETS, ...CONSOLIDATE_TARGETS]
+                    : mode === 'clear-row'
+                      ? moving.suggested_zone === 'active'
+                        ? PROMOTE_TARGETS
+                        : CONSOLIDATE_TARGETS
+                      : mode === 'consolidate'
+                        ? CONSOLIDATE_TARGETS
+                        : PROMOTE_TARGETS),
+                ].filter(Boolean)
+              )
+            )
           }
           modeLabel={
             mode === 'place-sku'
@@ -743,11 +805,9 @@ export const ConsolidationScreen: React.FC = () => {
                   : 'active zone'
           }
           suggestedRow={
-            mode === 'place-sku'
-              ? placeTargetRow
-              : mode === 'clear-row'
-                ? moving.suggested_row
-                : null
+            // placeTargetRow is set both by Where to put? and by picking a
+            // ranked destination inline in Send to slow / Bring to active.
+            placeTargetRow ?? (mode === 'clear-row' ? moving.suggested_row : null)
           }
           onClose={() => {
             setMoving(null);
