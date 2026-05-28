@@ -57,6 +57,17 @@ export const HiddenRowsPicker: React.FC<HiddenRowsPickerProps> = ({
     };
   }, [open]);
 
+  // Lock body scroll while the sheet is open so swiping inside the panel
+  // doesn't scroll the page behind it (mobile). Restores on close/unmount.
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
   const sorted = sortRows(availableRows);
   const hiddenCount = api.hidden.size;
   // Some hidden rows may not be in `availableRows` (e.g. operator left them
@@ -83,15 +94,17 @@ export const HiddenRowsPicker: React.FC<HiddenRowsPickerProps> = ({
       {open && (
         <>
           {/* Mobile backdrop — tap to dismiss the bottom sheet. Hidden on
-              desktop where the panel is a popover anchored to the button. */}
+              desktop where the panel is a popover anchored to the button.
+              z above the bottom nav (z-[100]) so it covers everything. */}
           <div
-            className="fixed inset-0 z-30 bg-black/40 sm:hidden"
+            className="fixed inset-0 z-[105] bg-black/40 sm:hidden"
             onClick={() => setOpen(false)}
           />
           <div
             className="
-              fixed inset-x-0 bottom-0 z-40 max-h-[75vh] rounded-t-2xl
-              sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:mt-2 sm:w-72 sm:max-h-none sm:rounded-2xl
+              fixed inset-x-0 bottom-0 z-[110] max-h-[75vh] rounded-t-2xl
+              pb-[max(1rem,env(safe-area-inset-bottom))] overscroll-contain
+              sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:z-30 sm:mt-2 sm:w-72 sm:max-h-none sm:rounded-2xl sm:pb-3
               bg-card border border-subtle shadow-2xl p-3 space-y-2 overflow-y-auto
             "
           >
