@@ -54,6 +54,15 @@ interface DestinationListProps {
 
 const TOP_PICKS = 12;
 
+// idea-124: "Hide full rows" — a row with no free capacity can't receive the
+// item, so it's dead weight in the ranked list. Default ON; persisted per
+// context so the operator's choice sticks.
+function loadHideFull(key: string): boolean {
+  if (typeof window === 'undefined') return true;
+  const raw = window.localStorage.getItem(`hide_full_${key}`);
+  return raw === null ? true : raw === '1';
+}
+
 export const DestinationList: React.FC<DestinationListProps> = ({
   sku,
   sourceLocation = null,
@@ -63,7 +72,18 @@ export const DestinationList: React.FC<DestinationListProps> = ({
   disabledHint,
 }) => {
   const [showAll, setShowAll] = useState(false);
+  const [hideFull, setHideFull] = useState(() => loadHideFull(hiddenRowsKey));
   const hiddenRowsApi = useHiddenRows(hiddenRowsKey, []);
+
+  const toggleHideFull = () => {
+    setHideFull((v) => {
+      const next = !v;
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(`hide_full_${hiddenRowsKey}`, next ? '1' : '0');
+      }
+      return next;
+    });
+  };
 
   const { data: suggestions = [], isFetching } = useQuery({
     queryKey: ['suggest-locations', sku],
@@ -83,7 +103,10 @@ export const DestinationList: React.FC<DestinationListProps> = ({
 
   const availableRows = Array.from(new Set(suggestions.map((s) => s.location)));
   const visible = suggestions.filter(
-    (s) => s.location !== sourceLocation && !hiddenRowsApi.isHidden(s.location)
+    (s) =>
+      s.location !== sourceLocation &&
+      !hiddenRowsApi.isHidden(s.location) &&
+      (!hideFull || s.free_units > 0)
   );
   const displayed = showAll ? visible : visible.slice(0, TOP_PICKS);
   const hasMore = visible.length > TOP_PICKS;
@@ -106,7 +129,21 @@ export const DestinationList: React.FC<DestinationListProps> = ({
         <span className="text-[10px] font-black uppercase tracking-widest text-muted">
           Suggested destinations — best to worst
         </span>
-        <HiddenRowsPicker availableRows={availableRows} api={hiddenRowsApi} />
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={toggleHideFull}
+            title="Hide rows with no free capacity"
+            className={`px-2.5 py-2 rounded-xl border text-[11px] font-bold uppercase tracking-wider transition-colors ${
+              hideFull
+                ? 'bg-accent/10 border-accent/30 text-accent'
+                : 'bg-card border-subtle text-muted hover:border-accent/40'
+            }`}
+          >
+            Hide full
+          </button>
+          <HiddenRowsPicker availableRows={availableRows} api={hiddenRowsApi} />
+        </div>
       </div>
 
       <div className="flex flex-col gap-2">
