@@ -1034,6 +1034,38 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                 placeholder="e.g. Desk Frame, Monitor Stand..."
                 forceEdit
               />
+              {/* idea-068: Bike/Part classification at registration time.
+                  Local state only (SKU doesn't exist yet); persisted on save
+                  via updateSKUMetadata({ is_bike }). */}
+              <div className="flex items-center justify-between px-4 py-2.5">
+                <span className="text-[10px] font-black text-muted uppercase tracking-widest">
+                  Type
+                </span>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setTypeIsBike(true)}
+                    className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 ${
+                      typeIsBike
+                        ? 'bg-accent text-white'
+                        : 'bg-surface text-muted border border-subtle'
+                    }`}
+                  >
+                    Bike
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTypeIsBike(false)}
+                    className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 ${
+                      !typeIsBike
+                        ? 'bg-accent text-white'
+                        : 'bg-surface text-muted border border-subtle'
+                    }`}
+                  >
+                    Part
+                  </button>
+                </div>
+              </div>
             </>
           ) : (
             <>
