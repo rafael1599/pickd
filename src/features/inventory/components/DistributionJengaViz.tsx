@@ -1,5 +1,6 @@
-import { memo } from 'react';
-import Plus from 'lucide-react/dist/esm/icons/plus';
+import { memo, useEffect, useRef, useState } from 'react';
+import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal';
+import Edit3 from 'lucide-react/dist/esm/icons/edit-3';
 import type { DistributionItem } from '../../../schemas/inventory.schema';
 
 interface DistributionJengaVizProps {
@@ -37,23 +38,76 @@ export const DistributionJengaViz = memo(
             )
           )}
         </div>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onAdjust();
-          }}
-          aria-label="Adjust distribution"
-          title={isEmpty ? 'Set distribution' : 'Adjust distribution'}
-          className="shrink-0 h-7 w-7 rounded-md bg-accent/15 hover:bg-accent/25 text-accent border border-accent/40 flex items-center justify-center active:scale-90 transition-transform"
-        >
-          <Plus size={14} strokeWidth={3} />
-        </button>
+        <DistributionMenu isEmpty={isEmpty} onAdjust={onAdjust} />
       </div>
     );
   }
 );
 DistributionJengaViz.displayName = 'DistributionJengaViz';
+
+/** "..." menu next to the Jenga strip. Single item for now (Edit) but the
+ *  structure leaves room for future actions (Quick add tower, Quick add line,
+ *  Clear, etc.) without restructuring the button. */
+function DistributionMenu({ isEmpty, onAdjust }: { isEmpty: boolean; onAdjust: () => void }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        aria-label="Distribution options"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title={isEmpty ? 'Set distribution' : 'Distribution options'}
+        className="h-7 w-7 rounded-md bg-accent/15 hover:bg-accent/25 text-accent border border-accent/40 flex items-center justify-center active:scale-90 transition-transform"
+      >
+        <MoreHorizontal size={16} strokeWidth={3} />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full mt-1 z-30 min-w-[180px] bg-card border border-subtle rounded-md shadow-xl py-1"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+              onAdjust();
+            }}
+            className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-content hover:bg-surface/70 active:bg-surface"
+          >
+            <Edit3 size={13} />
+            {isEmpty ? 'Set distribution' : 'Edit distribution'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const STROKE = '#5C2E0A'; // darker brown for outlines
 const FRONT = '#E8A04A'; // amber front face
