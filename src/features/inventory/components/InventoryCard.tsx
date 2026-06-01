@@ -107,12 +107,13 @@ export const InventoryCard = memo(
             : `border-subtle active:scale-[0.98] active:bg-main/50 cursor-pointer ${isZeroStock ? 'opacity-70 border-dashed bg-main/20' : ''} ${flash ? 'animate-flash-update scale-[1.02] border-accent/50 z-10' : ''}`
         }`}
       >
-        {distribution && distribution.length > 0 && (
-          <DistributionJengaViz
-            distribution={distribution}
-            onAdjust={() => (onAdjust ?? onClick)()}
-          />
-        )}
+        {/* idea-126: always render — empty distribution shows a "messy pile"
+            so the operator can fix it via the + button. */}
+        <DistributionJengaViz
+          distribution={distribution}
+          onAdjust={() => (onAdjust ?? onClick)()}
+        />
+
         <div className="flex gap-2">
           {sku_metadata?.image_url && (
             <img
