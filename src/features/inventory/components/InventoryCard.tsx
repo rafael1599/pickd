@@ -4,6 +4,7 @@ import Minus from 'lucide-react/dist/esm/icons/minus';
 import ArrowRightLeft from 'lucide-react/dist/esm/icons/arrow-right-left';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import type { DistributionItem } from '../../../schemas/inventory.schema';
+import { DistributionJengaViz } from './DistributionJengaViz';
 
 interface InventoryCardProps {
   sku: string;
@@ -24,6 +25,7 @@ interface InventoryCardProps {
   internal_note?: string | null;
   sublocation?: string[] | null;
   distribution?: DistributionItem[];
+  onAdjust?: () => void;
   cartQty?: number;
   onCartIncrement?: () => void;
   onCartDecrement?: () => void;
@@ -55,6 +57,7 @@ export const InventoryCard = memo(
     internal_note = null,
     sublocation = null,
     distribution = [],
+    onAdjust,
     cartQty = 0,
     onCartIncrement,
     onCartDecrement,
@@ -104,6 +107,12 @@ export const InventoryCard = memo(
             : `border-subtle active:scale-[0.98] active:bg-main/50 cursor-pointer ${isZeroStock ? 'opacity-70 border-dashed bg-main/20' : ''} ${flash ? 'animate-flash-update scale-[1.02] border-accent/50 z-10' : ''}`
         }`}
       >
+        {distribution && distribution.length > 0 && (
+          <DistributionJengaViz
+            distribution={distribution}
+            onAdjust={() => (onAdjust ?? onClick)()}
+          />
+        )}
         <div className="flex gap-2">
           {sku_metadata?.image_url && (
             <img
@@ -206,28 +215,9 @@ export const InventoryCard = memo(
                     </div>
                   </div>
                 )}
-                {distribution &&
-                  distribution.length > 0 &&
-                  (() => {
-                    // Roll up multiple entries of the same type so a card with
-                    // two TOWER rows reads '2 Towers' instead of '1 Tower · 1
-                    // Tower'. Order is preserved by first appearance.
-                    const totalsByType = new Map<string, number>();
-                    for (const d of distribution) {
-                      totalsByType.set(d.type, (totalsByType.get(d.type) ?? 0) + d.count);
-                    }
-                    const summary = Array.from(totalsByType.entries())
-                      .map(
-                        ([type, count]) =>
-                          `${count} ${type.charAt(0) + type.slice(1).toLowerCase()}${count > 1 ? 's' : ''}`
-                      )
-                      .join(' · ');
-                    return (
-                      <div className="inline-flex px-1.5 py-0.5 rounded-[4px] bg-accent/5 text-accent/80 text-[9px] font-black uppercase tracking-widest border border-accent/10 whitespace-nowrap">
-                        {summary}
-                      </div>
-                    );
-                  })()}
+                {/* idea-126: distribution text rollup replaced by
+                    DistributionJengaViz strip rendered at the top of the
+                    card. */}
               </div>
 
               {/* Sublocation pinned to a fixed spot at the right edge of the

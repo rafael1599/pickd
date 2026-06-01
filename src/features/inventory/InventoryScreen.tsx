@@ -925,6 +925,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                             }
                             onMove={() => handleQuickMove(item)}
                             onClick={() => handleCardClick(item)}
+                            onAdjust={() => handleCardClick(item)}
                             mode={viewMode === 'picking' ? sessionMode : 'stock'}
                             reservedByOthers={stockInfo?.reservedByOthers || 0}
                             available={stockInfo?.available}

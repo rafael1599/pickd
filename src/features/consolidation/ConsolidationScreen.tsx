@@ -19,6 +19,7 @@ import { PlaceSkuTab } from './PlaceSkuTab';
 import { HiddenRowsPicker } from './components/HiddenRowsPicker';
 import { DestinationList } from './components/DestinationList';
 import { useHiddenRows } from './hooks/useHiddenRows';
+import { useQtyBucketFilter, matchesBucket, type QtyBucket } from './hooks/useQtyBucketFilter';
 import type { InventoryItemInput, InventoryItemWithMetadata } from '../../schemas/inventory.schema';
 
 interface Candidate {
@@ -129,6 +130,9 @@ export const ConsolidationScreen: React.FC = () => {
   // so the old DEEP_SLOW_ROWS name-based default-hide is redundant. Hidden
   // rows are now a pure user preference.
   const hiddenRowsApi = useHiddenRows(`mode_${mode}`, []);
+  // idea-125: per-tab qty-bucket filter (Singles / Lines / 1 Tower / 1 Tower+).
+  // Single-select, persisted, no default seed.
+  const qtyBucketApi = useQtyBucketFilter(`mode_${mode}`);
   /** Source row selected to be cleared (clear-row mode). Empty until picked. */
   const [clearRow, setClearRow] = useState<string>('');
   const [moving, setMoving] = useState<Candidate | null>(null);
@@ -257,9 +261,12 @@ export const ConsolidationScreen: React.FC = () => {
       candidates.filter((c) => {
         if (movedIds.has(c.inventory_id)) return false;
         if (hiddenRowsApi.isHidden(c.source_row)) return false;
+        // idea-125: optional qty-bucket filter. When no bucket is active,
+        // everything passes.
+        if (qtyBucketApi.bucket && !matchesBucket(c.qty, qtyBucketApi.bucket)) return false;
         return true;
       }),
-    [candidates, hiddenRowsApi, movedIds]
+    [candidates, hiddenRowsApi, movedIds, qtyBucketApi.bucket]
   );
 
   // Canonical list of every ROW location in the warehouse — feeds the
@@ -484,6 +491,35 @@ export const ConsolidationScreen: React.FC = () => {
             {/* "Bikes only" toggle removed (idea-115). Now hardcoded ON
                 via the `onlyBikes` const above — parts are never desired
                 in consolidation flows. */}
+
+            {/* idea-125: qty-bucket single-select filter. Click the active
+                bucket to clear it. Hidden in place-sku mode (which lists
+                destinations, not candidates with qty). */}
+            <div className="flex items-center gap-1 bg-card border border-subtle rounded-xl p-1">
+              <span className="px-2 text-muted uppercase font-bold">Qty</span>
+              {(
+                [
+                  { key: 'singles', label: 'Singles' },
+                  { key: 'lines', label: 'Lines' },
+                  { key: 'tower1', label: '1 Tower' },
+                  { key: 'towerPlus', label: '1 Tower+' },
+                ] as Array<{ key: QtyBucket; label: string }>
+              ).map(({ key, label }) => {
+                const active = qtyBucketApi.bucket === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => qtyBucketApi.setBucket(active ? null : key)}
+                    className={`px-2 py-1 rounded-lg font-bold uppercase transition-colors ${
+                      active ? 'bg-accent text-white' : 'text-muted hover:text-content'
+                    }`}
+                    title={active ? 'Click to clear filter' : `Show only ${label.toLowerCase()}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
 
             {/* idea-117: hide-rows picker. Replaces the prior binary
                 "Exclude ROW 20-34" toggle with fine-grained multi-select.
