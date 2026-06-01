@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left';
@@ -112,13 +112,43 @@ const PROMOTE_TARGETS = [
   'ROW 16',
 ];
 
+// idea-127: persist Consolidation work-state across sessions so the operator
+// can leave and come back to exactly where they were. Filters that already
+// live in their own localStorage hooks (useHiddenRows, useQtyBucketFilter)
+// don't need to be re-persisted here.
+interface PersistedConsolidationState {
+  mode?: ScreenMode;
+  maxOrders?: number;
+  minOrders?: number;
+  searchQuery?: string;
+  placeSkuQuery?: string;
+  placeSkuConfirmed?: boolean;
+  clearRow?: string;
+  movedIds?: number[];
+  selectedIds?: number[];
+  destForId?: number | null;
+}
+const PERSIST_KEY = 'consolidation_state_v1';
+
+function loadPersisted(): PersistedConsolidationState {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(PERSIST_KEY);
+    return raw ? (JSON.parse(raw) as PersistedConsolidationState) : {};
+  } catch {
+    return {};
+  }
+}
+
 export const ConsolidationScreen: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { addItem, updateItem, deleteItem } = useInventory();
-  const [mode, setMode] = useState<ScreenMode>('consolidate');
-  const [maxOrders, setMaxOrders] = useState(0);
-  const [minOrders, setMinOrders] = useState(2);
+  // Read once at mount — lazy initializers below hydrate from this snapshot.
+  const persisted = useMemo(loadPersisted, []);
+  const [mode, setMode] = useState<ScreenMode>(persisted.mode ?? 'consolidate');
+  const [maxOrders, setMaxOrders] = useState(persisted.maxOrders ?? 0);
+  const [minOrders, setMinOrders] = useState(persisted.minOrders ?? 2);
   // idea-115: "Bikes only" is now a hardcoded invariant — operations never
   // wants parts mixed into consolidation candidates. Keeping the const here
   // (instead of inlining `true` at every callsite) makes it trivial to
@@ -134,7 +164,7 @@ export const ConsolidationScreen: React.FC = () => {
   // Single-select, persisted, no default seed.
   const qtyBucketApi = useQtyBucketFilter(`mode_${mode}`);
   /** Source row selected to be cleared (clear-row mode). Empty until picked. */
-  const [clearRow, setClearRow] = useState<string>('');
+  const [clearRow, setClearRow] = useState<string>(persisted.clearRow ?? '');
   const [moving, setMoving] = useState<Candidate | null>(null);
   // idea-122: candidate whose inline ranked-destination list is expanded in
   // Send to slow / Bring to active. Tapping "Move" toggles it; picking a
@@ -147,7 +177,9 @@ export const ConsolidationScreen: React.FC = () => {
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   // Per-card selection. Tick → visual mark + Move button becomes active.
   // Unticked cards have their Move button disabled (prevents accidental moves).
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(
+    () => new Set(persisted.selectedIds ?? [])
+  );
 
   const toggleSelected = (inventoryId: number) => {
     setSelectedIds((prev) => {
@@ -160,13 +192,56 @@ export const ConsolidationScreen: React.FC = () => {
   // SKUs that have just been moved — used to optimistically hide them
   // until the next refetch confirms the new state. Prevents the user from
   // re-clicking a stale row before react-query has refreshed.
-  const [movedIds, setMovedIds] = useState<Set<number>>(new Set());
-  const [searchQuery, setSearchQuery] = useState('');
+  const [movedIds, setMovedIds] = useState<Set<number>>(() => new Set(persisted.movedIds ?? []));
+  const [searchQuery, setSearchQuery] = useState(persisted.searchQuery ?? '');
   const debouncedSearch = useDebounce(searchQuery, 200);
   // idea-122: place-sku search lifted here so it survives tab switches
   // (PlaceSkuTab unmounts when another mode is active).
-  const [placeSkuQuery, setPlaceSkuQuery] = useState('');
-  const [placeSkuConfirmed, setPlaceSkuConfirmed] = useState(false);
+  const [placeSkuQuery, setPlaceSkuQuery] = useState(persisted.placeSkuQuery ?? '');
+  const [placeSkuConfirmed, setPlaceSkuConfirmed] = useState(persisted.placeSkuConfirmed ?? false);
+  // idea-127: deferred destFor restoration. The persisted blob only carries
+  // the candidate's inventory_id; we resolve to the full Candidate once the
+  // RPC returns its list. Cleared after the first resolution attempt so we
+  // don't keep overwriting a user-initiated dismissal.
+  const [pendingDestForId, setPendingDestForId] = useState<number | null>(
+    persisted.destForId ?? null
+  );
+
+  // idea-127: write-through persistence. Stringifies the relevant slice of
+  // state to localStorage every time anything inside changes. Filters that
+  // own their own localStorage (useHiddenRows, useQtyBucketFilter) are NOT
+  // duplicated here — they read/write from their own keys.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const payload: PersistedConsolidationState = {
+      mode,
+      maxOrders,
+      minOrders,
+      searchQuery,
+      placeSkuQuery,
+      placeSkuConfirmed,
+      clearRow,
+      movedIds: Array.from(movedIds),
+      selectedIds: Array.from(selectedIds),
+      destForId: destFor?.inventory_id ?? null,
+    };
+    try {
+      window.localStorage.setItem(PERSIST_KEY, JSON.stringify(payload));
+    } catch {
+      // Quota or serialization issue — non-fatal, just lose this update.
+    }
+  }, [
+    mode,
+    maxOrders,
+    minOrders,
+    searchQuery,
+    placeSkuQuery,
+    placeSkuConfirmed,
+    clearRow,
+    movedIds,
+    selectedIds,
+    destFor,
+  ]);
 
   const {
     data: candidates = [],
@@ -206,6 +281,18 @@ export const ConsolidationScreen: React.FC = () => {
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
+
+  // idea-127: once candidates land, re-attach the persisted destFor by id.
+  // If the candidate no longer exists (already moved, filtered out, etc.) we
+  // silently drop it. Clears the pending id on first attempt to avoid
+  // re-applying it after the operator dismisses the inline list.
+  useEffect(() => {
+    if (pendingDestForId == null) return;
+    if (candidates.length === 0) return;
+    const found = candidates.find((c) => c.inventory_id === pendingDestForId);
+    if (found && !destFor) setDestFor(found);
+    setPendingDestForId(null);
+  }, [candidates, pendingDestForId, destFor]);
 
   // Rows that currently have active bike inventory (used as options in the
   // clear-row picker). Includes unit count per row so the picker can sort
