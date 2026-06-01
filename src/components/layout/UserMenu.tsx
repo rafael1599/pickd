@@ -373,7 +373,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                     </div>
                     <div>
                       <p className="text-xs font-bold text-content uppercase tracking-tight">
-                        Registrar Container
+                        Register Container
                       </p>
                       <p className="text-[9px] text-muted font-bold uppercase">Intake from Excel</p>
                     </div>

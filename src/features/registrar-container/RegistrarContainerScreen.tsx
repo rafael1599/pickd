@@ -8,20 +8,23 @@ import type { ContainerInputItem, ParsedSheet, RegisterSummary, ResolvedItem } f
 
 type Step = 'upload' | 'preview' | 'done';
 
-const WAREHOUSES = ['LUDLOW', 'ATS'];
+// Stock from these container imports always lands in the LUDLOW warehouse.
+const WAREHOUSE = 'LUDLOW';
 
 function toInputItems(sheet: ParsedSheet): ContainerInputItem[] {
   return sheet.items.map((i) => ({ sku: i.sku, qty: i.qty, item_name: i.itemName }));
+}
+
+function locLabel(t?: ResolvedItem['existing_locations'][number]): string {
+  if (!t) return '—';
+  return `${t.location}${t.sublocation?.length ? ' ' + t.sublocation.join(',') : ''}`;
 }
 
 function buildReportText(location: string, resolved: ResolvedItem[]): string {
   const lines = ['Consolidation — container ' + location, ''];
   for (const r of resolved) {
     if (r.existing_qty <= 0) continue;
-    const target = r.existing_locations[0];
-    const loc = target
-      ? `${target.location}${target.sublocation?.length ? ' ' + target.sublocation.join(',') : ''}`
-      : '—';
+    const loc = locLabel(r.existing_locations[0]);
     lines.push(
       `${r.canonical_sku}\t${r.qty} (${formatTowersLines(r.qty)})\t→ ${loc} · ${r.existing_qty} (${formatTowersLines(r.existing_qty)})\t= ${r.qty + r.existing_qty} (${formatTowersLines(r.qty + r.existing_qty)})`
     );
@@ -37,9 +40,7 @@ export function RegistrarContainerScreen() {
   const [fileName, setFileName] = useState<string>('');
   const [sheets, setSheets] = useState<ParsedSheet[]>([]);
   const [selectedSheet, setSelectedSheet] = useState<string>('');
-  const [warehouse, setWarehouse] = useState<string>('LUDLOW');
   const [location, setLocation] = useState<string>('');
-  const [orderNumber, setOrderNumber] = useState<string>('');
   const [parsing, setParsing] = useState(false);
 
   const [resolved, setResolved] = useState<ResolvedItem[]>([]);
@@ -49,53 +50,72 @@ export function RegistrarContainerScreen() {
     () => sheets.find((s) => s.name === selectedSheet) ?? null,
     [sheets, selectedSheet]
   );
+  const sheetsWithItems = useMemo(() => sheets.filter((s) => s.items.length > 0), [sheets]);
 
-  const handleFile = useCallback(async (file: File) => {
-    setParsing(true);
-    try {
-      const parsed = await parseShipmentXlsx(file);
-      const withItems = parsed.filter((s) => s.items.length > 0);
-      setFileName(file.name);
-      setSheets(parsed);
-      setSelectedSheet(withItems[0]?.name ?? parsed[0]?.name ?? '');
-      if (withItems.length === 0) {
-        toast.error('No SKU lines found in the file.');
+  // Resolve a sheet and move straight to the preview — no manual "Analyze" step.
+  const analyzeSheet = useCallback(
+    async (sheet: ParsedSheet) => {
+      const data = await resolve.mutateAsync({
+        items: toInputItems(sheet),
+        warehouse: WAREHOUSE,
+      });
+      setResolved(data);
+      setStep('preview');
+    },
+    [resolve]
+  );
+
+  const handleFile = useCallback(
+    async (file: File) => {
+      setParsing(true);
+      try {
+        const parsed = await parseShipmentXlsx(file);
+        const withItems = parsed.filter((s) => s.items.length > 0);
+        setFileName(file.name);
+        setSheets(parsed);
+        if (withItems.length === 0) {
+          toast.error('No SKU lines found in the file.');
+          return;
+        }
+        setSelectedSheet(withItems[0].name);
+        // Single sheet → analyze automatically. Multiple → let the user pick
+        // (picking a sheet triggers the analysis; still no button).
+        if (withItems.length === 1) {
+          await analyzeSheet(withItems[0]);
+        }
+      } catch (err) {
+        toast.error(`Could not read the Excel: ${(err as Error).message}`);
+      } finally {
+        setParsing(false);
       }
-    } catch (err) {
-      toast.error(`Could not read the Excel: ${(err as Error).message}`);
-    } finally {
-      setParsing(false);
-    }
-  }, []);
+    },
+    [analyzeSheet]
+  );
 
-  const handleAnalyze = useCallback(async () => {
-    if (!activeSheet || activeSheet.items.length === 0) {
-      toast.error('Select a sheet with lines.');
-      return;
-    }
+  const handleSelectSheet = useCallback(
+    async (name: string) => {
+      setSelectedSheet(name);
+      const sheet = sheets.find((s) => s.name === name);
+      if (sheet && sheet.items.length > 0) await analyzeSheet(sheet);
+    },
+    [sheets, analyzeSheet]
+  );
+
+  const handleRegister = useCallback(async () => {
+    if (!activeSheet) return;
     if (!location.trim()) {
       toast.error('Enter the location name (e.g. FLORIDA).');
       return;
     }
-    const data = await resolve.mutateAsync({
-      items: toInputItems(activeSheet),
-      warehouse,
-    });
-    setResolved(data);
-    setStep('preview');
-  }, [activeSheet, location, warehouse, resolve]);
-
-  const handleRegister = useCallback(async () => {
-    if (!activeSheet) return;
     const result = await register.mutateAsync({
       location: location.trim(),
       items: toInputItems(activeSheet),
-      warehouse,
-      orderNumber: orderNumber.trim() || null,
+      warehouse: WAREHOUSE,
+      orderNumber: null,
     });
     setSummary(result);
     setStep('done');
-  }, [activeSheet, location, warehouse, orderNumber, register]);
+  }, [activeSheet, location, register]);
 
   const reset = useCallback(() => {
     setStep('upload');
@@ -103,7 +123,6 @@ export function RegistrarContainerScreen() {
     setSheets([]);
     setSelectedSheet('');
     setLocation('');
-    setOrderNumber('');
     setResolved([]);
     setSummary(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -119,18 +138,22 @@ export function RegistrarContainerScreen() {
   const consolidations = useMemo(() => resolved.filter((r) => r.existing_qty > 0), [resolved]);
   const newPlacements = useMemo(() => resolved.filter((r) => r.existing_qty <= 0), [resolved]);
 
+  const analyzing = resolve.isPending;
+
   return (
-    <div className="max-w-5xl mx-auto p-4 sm:p-6">
-      <header className="flex items-center gap-3 mb-6">
-        <Package className="w-6 h-6 text-accent" />
-        <h1 className="text-xl font-semibold">Register Container</h1>
+    <div
+      className={`max-w-5xl mx-auto p-3 sm:p-6 ${step === 'preview' ? 'pb-44' : 'pb-24 sm:pb-6'}`}
+    >
+      <header className="flex items-center gap-3 mb-5 sm:mb-6">
+        <Package className="w-6 h-6 text-accent shrink-0" />
+        <h1 className="text-lg sm:text-xl font-semibold">Register Container</h1>
         <StepBadge step={step} />
       </header>
 
       {/* ───────── STEP 1: UPLOAD ───────── */}
       {step === 'upload' && (
         <div className="space-y-5">
-          <label className="block border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-accent transition-colors">
+          <label className="block border-2 border-dashed border-gray-300 rounded-2xl p-10 sm:p-8 text-center cursor-pointer hover:border-accent active:border-accent transition-colors">
             <input
               ref={fileInputRef}
               type="file"
@@ -141,83 +164,43 @@ export function RegistrarContainerScreen() {
                 if (f) void handleFile(f);
               }}
             />
-            {parsing ? (
-              <Loader2 className="w-8 h-8 mx-auto animate-spin text-accent" />
+            {parsing || analyzing ? (
+              <Loader2 className="w-9 h-9 mx-auto animate-spin text-accent" />
             ) : (
-              <Upload className="w-8 h-8 mx-auto text-gray-400" />
+              <Upload className="w-9 h-9 mx-auto text-gray-400" />
             )}
-            <p className="mt-2 text-sm text-gray-600">
-              {fileName || 'Upload the shipment Excel (.xlsx)'}
+            <p className="mt-3 text-sm text-gray-600">
+              {analyzing ? 'Analyzing…' : fileName || 'Tap to upload the shipment Excel (.xlsx)'}
             </p>
+            {!fileName && !analyzing && (
+              <p className="mt-1 text-xs text-gray-400">It analyzes automatically</p>
+            )}
           </label>
 
-          {sheets.length > 0 && (
-            <div className="space-y-4 rounded-xl border border-gray-200 p-4">
-              <div>
-                <p className="text-sm font-medium mb-2">Sheet to import</p>
-                <div className="space-y-1">
-                  {sheets.map((s) => (
-                    <label
-                      key={s.name}
-                      className={`flex items-center gap-2 text-sm px-2 py-1 rounded ${
-                        s.items.length === 0 ? 'opacity-40' : 'cursor-pointer'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="sheet"
-                        disabled={s.items.length === 0}
-                        checked={selectedSheet === s.name}
-                        onChange={() => setSelectedSheet(s.name)}
-                      />
-                      <span className="font-mono">{s.name}</span>
-                      <span className="text-gray-500">
-                        — {s.items.length} lines · {s.total} units
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Field label="Location (new)">
-                  <input
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value.toUpperCase())}
-                    placeholder="FLORIDA"
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-accent focus:outline-none"
-                  />
-                </Field>
-                <Field label="Warehouse">
-                  <select
-                    value={warehouse}
-                    onChange={(e) => setWarehouse(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-accent focus:outline-none"
+          {/* Sheet picker only when the file has more than one sheet with items. */}
+          {sheetsWithItems.length > 1 && (
+            <div className="rounded-2xl border border-gray-200 p-4">
+              <p className="text-sm font-medium mb-2">Pick the sheet to import</p>
+              <div className="space-y-1">
+                {sheetsWithItems.map((s) => (
+                  <label
+                    key={s.name}
+                    className="flex items-center gap-3 text-sm px-2 py-3 rounded-lg cursor-pointer active:bg-gray-50"
                   >
-                    {WAREHOUSES.map((w) => (
-                      <option key={w} value={w}>
-                        {w}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Order # (optional)">
-                  <input
-                    value={orderNumber}
-                    onChange={(e) => setOrderNumber(e.target.value)}
-                    placeholder="879908"
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-accent focus:outline-none"
-                  />
-                </Field>
+                    <input
+                      type="radio"
+                      name="sheet"
+                      className="w-4 h-4"
+                      checked={selectedSheet === s.name}
+                      onChange={() => void handleSelectSheet(s.name)}
+                    />
+                    <span className="font-mono">{s.name}</span>
+                    <span className="text-gray-500">
+                      — {s.items.length} lines · {s.total} units
+                    </span>
+                  </label>
+                ))}
               </div>
-
-              <button
-                onClick={() => void handleAnalyze()}
-                disabled={resolve.isPending}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50 sm:w-auto"
-              >
-                {resolve.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Analyze'}
-              </button>
             </div>
           )}
         </div>
@@ -226,15 +209,31 @@ export function RegistrarContainerScreen() {
       {/* ───────── STEP 2: PREVIEW ───────── */}
       {step === 'preview' && (
         <div className="space-y-4">
+          {/* The only thing the user enters: the destination location name. */}
+          <div className="rounded-2xl border border-gray-200 p-4">
+            <label className="block">
+              <span className="text-xs text-gray-500">
+                Location name (where this container lands)
+              </span>
+              <input
+                autoFocus
+                value={location}
+                onChange={(e) => setLocation(e.target.value.toUpperCase())}
+                placeholder="FLORIDA"
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-3 text-base focus:border-accent focus:outline-none"
+              />
+            </label>
+          </div>
+
           <SummaryBar
             location={location}
-            warehouse={warehouse}
             skus={totals.skus}
             units={totals.units}
             extra={`${totals.newCount} new · ${totals.mergedCount} merged`}
           />
 
-          <div className="overflow-x-auto rounded-xl border border-gray-200">
+          {/* Desktop table */}
+          <div className="hidden sm:block overflow-x-auto rounded-xl border border-gray-200">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-left text-gray-500">
                 <tr>
@@ -253,17 +252,7 @@ export function RegistrarContainerScreen() {
                     <td className="px-3 py-2 text-right font-medium">{r.qty}</td>
                     <td className="px-3 py-2">{r.is_bike ? formatTowersLines(r.qty) : '—'}</td>
                     <td className="px-3 py-2 space-x-1">
-                      {r.is_new && <Badge tone="green">NEW</Badge>}
-                      {r.merged_from.length > 1 && (
-                        <Badge tone="blue" title={r.merged_from.join(' + ')}>
-                          MERGED ×{r.merged_from.length}
-                        </Badge>
-                      )}
-                      {r.existing_qty > 0 && (
-                        <Badge tone="amber">
-                          {r.existing_locations.length} loc. · {r.existing_qty}
-                        </Badge>
-                      )}
+                      <StatusBadges r={r} />
                     </td>
                   </tr>
                 ))}
@@ -271,24 +260,53 @@ export function RegistrarContainerScreen() {
             </table>
           </div>
 
-          <div className="flex gap-3">
-            <button
-              onClick={() => setStep('upload')}
-              className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
-            >
-              <ArrowLeft className="w-4 h-4" /> Back
-            </button>
-            <button
-              onClick={() => void handleRegister()}
-              disabled={register.isPending}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-            >
-              {register.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                `Confirm & register in ${location || '—'}`
-              )}
-            </button>
+          {/* Mobile cards */}
+          <div className="sm:hidden space-y-2">
+            {resolved.map((r) => (
+              <div key={r.canonical_sku} className="rounded-xl border border-gray-200 p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="font-mono text-sm">{r.canonical_sku}</span>
+                  <span className="text-sm font-semibold whitespace-nowrap">
+                    {r.qty}
+                    {r.is_bike && (
+                      <span className="text-gray-400 font-normal">
+                        {' '}
+                        · {formatTowersLines(r.qty)}
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs text-gray-600">{r.item_name}</p>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  <StatusBadges r={r} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Actions — float ABOVE the app's bottom nav, always visible (no need
+              to scroll to the end). The nav bar is fixed bottom-0 h-24 z-[100],
+              so we sit at bottom-24 with z-40. */}
+          <div className="fixed inset-x-0 bottom-24 z-40 px-3 sm:px-6 pointer-events-none">
+            <div className="mx-auto flex max-w-5xl flex-col-reverse gap-2 rounded-2xl border border-gray-200 bg-white/95 p-3 shadow-lg backdrop-blur pointer-events-auto sm:flex-row sm:gap-3">
+              <button
+                onClick={reset}
+                className="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-gray-300 px-3 py-3 text-sm text-gray-600 active:bg-gray-50 sm:w-auto sm:py-2"
+              >
+                <ArrowLeft className="w-4 h-4" /> Back
+              </button>
+              <button
+                onClick={() => void handleRegister()}
+                disabled={register.isPending}
+                className="inline-flex w-full flex-1 items-center justify-center gap-2 rounded-lg bg-accent px-4 py-3 text-sm font-medium text-white disabled:opacity-50 sm:py-2"
+              >
+                {register.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  `Confirm & register in ${location || '—'}`
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -296,8 +314,8 @@ export function RegistrarContainerScreen() {
       {/* ───────── STEP 3: DONE / REPORT ───────── */}
       {step === 'done' && summary && (
         <div className="space-y-5">
-          <div className="rounded-xl border border-green-200 bg-green-50 p-4 flex items-center gap-3">
-            <CheckCircle2 className="w-6 h-6 text-green-600" />
+          <div className="rounded-2xl border border-green-200 bg-green-50 p-4 flex items-center gap-3">
+            <CheckCircle2 className="w-6 h-6 text-green-600 shrink-0" />
             <div className="text-sm">
               <p className="font-medium text-green-800">
                 {summary.skus} SKUs · {summary.units} units in {summary.warehouse} /{' '}
@@ -309,14 +327,14 @@ export function RegistrarContainerScreen() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <h2 className="font-semibold">Suggested consolidation</h2>
             <button
               onClick={() => {
                 void navigator.clipboard.writeText(buildReportText(summary.location, resolved));
                 toast.success('Report copied');
               }}
-              className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+              className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 active:bg-gray-50 shrink-0"
             >
               <Copy className="w-4 h-4" /> Copy
             </button>
@@ -327,52 +345,95 @@ export function RegistrarContainerScreen() {
               No SKU has prior stock — everything stays in {summary.location}.
             </p>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-gray-200">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-left text-gray-500">
-                  <tr>
-                    <th className="px-3 py-2">SKU</th>
-                    <th className="px-3 py-2">In {summary.location}</th>
-                    <th className="px-3 py-2">Move to</th>
-                    <th className="px-3 py-2">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {consolidations.map((r) => {
-                    const t = r.existing_locations[0];
-                    const loc = t
-                      ? `${t.location}${t.sublocation?.length ? ' ' + t.sublocation.join(',') : ''}`
-                      : '—';
-                    const total = r.qty + r.existing_qty;
-                    return (
-                      <tr key={r.canonical_sku} className="border-t border-gray-100">
-                        <td className="px-3 py-2 font-mono">{r.canonical_sku}</td>
-                        <td className="px-3 py-2">
+            <>
+              {/* Desktop table */}
+              <div className="hidden sm:block overflow-x-auto rounded-xl border border-gray-200">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-left text-gray-500">
+                    <tr>
+                      <th className="px-3 py-2">SKU</th>
+                      <th className="px-3 py-2">In {summary.location}</th>
+                      <th className="px-3 py-2">Move to</th>
+                      <th className="px-3 py-2">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {consolidations.map((r) => {
+                      const total = r.qty + r.existing_qty;
+                      return (
+                        <tr key={r.canonical_sku} className="border-t border-gray-100">
+                          <td className="px-3 py-2 font-mono">{r.canonical_sku}</td>
+                          <td className="px-3 py-2">
+                            {r.qty}{' '}
+                            <span className="text-gray-400">({formatTowersLines(r.qty)})</span>
+                          </td>
+                          <td className="px-3 py-2">
+                            {locLabel(r.existing_locations[0])} · {r.existing_qty}{' '}
+                            <span className="text-gray-400">
+                              ({formatTowersLines(r.existing_qty)})
+                            </span>
+                            {r.existing_locations.length > 1 && (
+                              <span className="text-amber-600">
+                                {' '}
+                                +{r.existing_locations.length - 1} more
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 font-medium">
+                            {total}{' '}
+                            <span className="text-gray-400">({formatTowersLines(total)})</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile cards */}
+              <div className="sm:hidden space-y-2">
+                {consolidations.map((r) => {
+                  const total = r.qty + r.existing_qty;
+                  return (
+                    <div
+                      key={r.canonical_sku}
+                      className="rounded-xl border border-gray-200 p-3 text-sm"
+                    >
+                      <div className="font-mono mb-2">{r.canonical_sku}</div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">In {summary.location}</span>
+                        <span>
                           {r.qty}{' '}
                           <span className="text-gray-400">({formatTowersLines(r.qty)})</span>
-                        </td>
-                        <td className="px-3 py-2">
-                          {loc} · {r.existing_qty}{' '}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-gray-500">Move to</span>
+                        <span className="text-right">
+                          {locLabel(r.existing_locations[0])} · {r.existing_qty}{' '}
                           <span className="text-gray-400">
                             ({formatTowersLines(r.existing_qty)})
                           </span>
                           {r.existing_locations.length > 1 && (
                             <span className="text-amber-600">
                               {' '}
-                              +{r.existing_locations.length - 1} more
+                              +{r.existing_locations.length - 1}
                             </span>
                           )}
-                        </td>
-                        <td className="px-3 py-2 font-medium">
+                        </span>
+                      </div>
+                      <div className="flex justify-between font-medium">
+                        <span className="text-gray-500">Total</span>
+                        <span>
                           {total}{' '}
                           <span className="text-gray-400">({formatTowersLines(total)})</span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
 
           {newPlacements.length > 0 && (
@@ -388,7 +449,7 @@ export function RegistrarContainerScreen() {
 
           <button
             onClick={reset}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 py-3 text-sm font-medium text-white disabled:opacity-50 sm:w-auto sm:py-2"
           >
             Register another container
           </button>
@@ -398,34 +459,41 @@ export function RegistrarContainerScreen() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function StatusBadges({ r }: { r: ResolvedItem }) {
   return (
-    <label className="block">
-      <span className="text-xs text-gray-500">{label}</span>
-      {children}
-    </label>
+    <>
+      {r.is_new && <Badge tone="green">NEW</Badge>}
+      {r.merged_from.length > 1 && (
+        <Badge tone="blue" title={r.merged_from.join(' + ')}>
+          MERGED ×{r.merged_from.length}
+        </Badge>
+      )}
+      {r.existing_qty > 0 && (
+        <Badge tone="amber">
+          {r.existing_locations.length} loc. · {r.existing_qty}
+        </Badge>
+      )}
+    </>
   );
 }
 
 function SummaryBar({
   location,
-  warehouse,
   skus,
   units,
   extra,
 }: {
   location: string;
-  warehouse: string;
   skus: number;
   units: number;
   extra?: string;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
       <span>
         <span className="text-gray-500">Target:</span>{' '}
         <span className="font-medium">
-          {warehouse} / {location || '—'}
+          {WAREHOUSE} / {location || '—'}
         </span>
       </span>
       <span>
@@ -446,7 +514,7 @@ function StepBadge({ step }: { step: Step }) {
     done: '3 · Report',
   };
   return (
-    <span className="ml-auto text-xs rounded-full bg-gray-100 px-3 py-1 text-gray-600">
+    <span className="ml-auto text-xs rounded-full bg-gray-100 px-3 py-1 text-gray-600 whitespace-nowrap">
       {map[step]}
     </span>
   );
