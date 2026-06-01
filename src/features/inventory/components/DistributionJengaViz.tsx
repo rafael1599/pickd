@@ -68,7 +68,9 @@ interface GlyphProps {
 
 function DistributionGlyph({ type, unitsEach }: GlyphProps) {
   if (type === 'TOWER') return <JengaTower n={unitsEach} />;
-  // LINE + Pallet/Other fallback → standing stick.
+  if (type === 'PALLET') return <JengaPallet n={unitsEach} />;
+  if (type === 'OTHER') return <JengaCrate n={unitsEach} />;
+  // LINE → standing stick.
   return <JengaStick n={unitsEach} />;
 }
 
@@ -190,6 +192,157 @@ function JengaTower({ n }: { n: number }) {
           backgroundColor: '#3C1A04',
           color: '#FCD9A0',
         }}
+      >
+        {n}
+      </span>
+    </div>
+  );
+}
+
+/** Pallet — wooden base with 3 visible planks + a box stacked on top.
+ *  Iconic warehouse pallet, isometric 3D look. */
+function JengaPallet({ n }: { n: number }) {
+  return (
+    <div className="relative inline-block" title={`Pallet · ${n}`}>
+      <svg width="42" height="48" viewBox="0 0 42 48" aria-hidden>
+        {/* Box on top of the pallet */}
+        {/* top of box */}
+        <polygon
+          points="9,8 29,8 33,4 13,4"
+          fill={TOP}
+          stroke={STROKE}
+          strokeWidth="0.7"
+          strokeLinejoin="round"
+        />
+        {/* front of box */}
+        <rect x="9" y="8" width="20" height="18" fill={FRONT} stroke={STROKE} strokeWidth="0.7" />
+        {/* right side of box */}
+        <polygon
+          points="29,8 33,4 33,22 29,26"
+          fill={SIDE}
+          stroke={STROKE}
+          strokeWidth="0.7"
+          strokeLinejoin="round"
+        />
+        {/* Pallet base — 3 horizontal planks with gaps between */}
+        {/* top plank */}
+        <rect
+          x="4"
+          y="28"
+          width="30"
+          height="3"
+          fill={FRONT_ALT}
+          stroke={STROKE}
+          strokeWidth="0.5"
+        />
+        <polygon
+          points="34,28 37,25 7,25 4,28"
+          fill={TOP}
+          stroke={STROKE}
+          strokeWidth="0.5"
+          strokeLinejoin="round"
+        />
+        <polygon
+          points="34,28 37,25 37,28 34,31"
+          fill={SIDE}
+          stroke={STROKE}
+          strokeWidth="0.5"
+          strokeLinejoin="round"
+        />
+        {/* middle plank */}
+        <rect
+          x="4"
+          y="33"
+          width="30"
+          height="3"
+          fill={FRONT_ALT}
+          stroke={STROKE}
+          strokeWidth="0.5"
+        />
+        <polygon
+          points="34,33 37,30 7,30 4,33"
+          fill={TOP}
+          stroke={STROKE}
+          strokeWidth="0.5"
+          strokeLinejoin="round"
+        />
+        <polygon
+          points="34,33 37,30 37,33 34,36"
+          fill={SIDE}
+          stroke={STROKE}
+          strokeWidth="0.5"
+          strokeLinejoin="round"
+        />
+        {/* bottom plank */}
+        <rect
+          x="4"
+          y="38"
+          width="30"
+          height="3"
+          fill={FRONT_ALT}
+          stroke={STROKE}
+          strokeWidth="0.5"
+        />
+        <polygon
+          points="34,38 37,35 7,35 4,38"
+          fill={TOP}
+          stroke={STROKE}
+          strokeWidth="0.5"
+          strokeLinejoin="round"
+        />
+        <polygon
+          points="34,38 37,35 37,38 34,41"
+          fill={SIDE}
+          stroke={STROKE}
+          strokeWidth="0.5"
+          strokeLinejoin="round"
+        />
+        {/* Ground shadow */}
+        <ellipse cx="20" cy="45" rx="17" ry="1.5" fill="black" opacity="0.22" />
+      </svg>
+      {/* Number on the box face */}
+      <span
+        className="absolute left-[9px] top-[8px] w-[20px] h-[18px] flex items-center justify-center text-[11px] font-black tabular-nums leading-none pointer-events-none"
+        style={{ fontFamily: 'var(--font-heading)', color: '#3C1A04' }}
+      >
+        {n}
+      </span>
+    </div>
+  );
+}
+
+/** Generic crate — fallback for `OTHER` type. Plain isometric cube. */
+function JengaCrate({ n }: { n: number }) {
+  return (
+    <div className="relative inline-block" title={`Other · ${n}`}>
+      <svg width="32" height="40" viewBox="0 0 32 40" aria-hidden>
+        {/* top */}
+        <polygon
+          points="4,10 22,10 28,5 10,5"
+          fill={TOP}
+          stroke={STROKE}
+          strokeWidth="0.7"
+          strokeLinejoin="round"
+        />
+        {/* front */}
+        <rect x="4" y="10" width="18" height="22" fill={FRONT} stroke={STROKE} strokeWidth="0.7" />
+        {/* right */}
+        <polygon
+          points="22,10 28,5 28,27 22,32"
+          fill={SIDE}
+          stroke={STROKE}
+          strokeWidth="0.7"
+          strokeLinejoin="round"
+        />
+        {/* Crate strap detail on front (a horizontal line + a vertical) */}
+        <line x1="4" y1="20" x2="22" y2="20" stroke={STROKE} strokeWidth="0.6" opacity="0.6" />
+        <line x1="13" y1="10" x2="13" y2="32" stroke={STROKE} strokeWidth="0.6" opacity="0.6" />
+        {/* Ground shadow */}
+        <ellipse cx="15" cy="35" rx="12" ry="1.4" fill="black" opacity="0.22" />
+      </svg>
+      <span
+        className="absolute left-[4px] top-[10px] w-[18px] h-[22px] flex items-center justify-center text-[11px] font-black tabular-nums leading-none pointer-events-none"
+        style={{ fontFamily: 'var(--font-heading)', color: '#3C1A04' }}
       >
         {n}
       </span>
