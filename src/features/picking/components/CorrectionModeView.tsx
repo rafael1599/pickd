@@ -312,11 +312,6 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
       setSearchResults([]);
       return;
     }
-    const excludeSku =
-      activePanel?.type === 'replace'
-        ? allItems.find((i) => i.sku === activePanel.sku)?.sku
-        : undefined;
-
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     setIsSearching(true);
 
@@ -334,11 +329,11 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
             limit: 15,
           }),
         ]);
-        setSearchResults(
-          [...bikesRes.data, ...partsRes.data].filter(
-            (inv) => (!excludeSku || inv.sku !== excludeSku) && inv.quantity > 0
-          )
-        );
+        // Show every in-stock match — including the SAME SKU in OTHER locations,
+        // which is exactly what's needed to re-source a pick when the assigned
+        // location is empty. (Previously the item's own SKU was excluded by
+        // value, which hid valid stock sitting in a different row/location.)
+        setSearchResults([...bikesRes.data, ...partsRes.data].filter((inv) => inv.quantity > 0));
       } catch {
         setSearchResults([]);
       } finally {
@@ -349,7 +344,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
     return () => {
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     };
-  }, [searchQuery, activePanel, allItems]);
+  }, [searchQuery, activePanel]);
 
   // Reset reason when panel changes
   useEffect(() => {

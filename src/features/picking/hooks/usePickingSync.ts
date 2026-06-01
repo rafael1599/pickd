@@ -549,13 +549,39 @@ export const usePickingSync = ({
     isSyncingRef.current = true;
     setIsSaving(true);
     try {
+      // Resolve the customer the same way generatePickingPath does: a manually
+      // started order carries { name } with no id, so we must find-or-create the
+      // customers row here — otherwise the typed customer name is dropped and the
+      // order is saved with customer_id = null. Cache the id back into state so the
+      // next debounced save reuses it (no repeated lookups / duplicate inserts).
+      let resolvedCustomerId = customer?.id;
+      if (!resolvedCustomerId && customer?.name?.trim()) {
+        const name = customer.name.trim();
+        const { data: existing } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('name', name)
+          .maybeSingle();
+        if (existing) {
+          resolvedCustomerId = existing.id;
+        } else {
+          const { data: newCust } = await supabase
+            .from('customers')
+            .insert({ name })
+            .select('id')
+            .single();
+          resolvedCustomerId = newCust?.id;
+        }
+        if (resolvedCustomerId) setCustomer({ ...customer, id: resolvedCustomerId });
+      }
+
       const sanitizedItems = items; // Data already in correct format from database
       if (listId) {
         // Guard: never write merged group data back to DB.
         // Merged order_numbers contain ' / ' (e.g. "879270 / 879268").
         const isMergedGroup = orderNum?.includes(' / ');
         const updateData: Record<string, unknown> = {
-          customer_id: customer?.id,
+          customer_id: resolvedCustomerId ?? null,
           load_number: loadNumber,
         };
         if (!isMergedGroup) {
@@ -572,7 +598,7 @@ export const usePickingSync = ({
             items: sanitizedItems as unknown as Json,
             status: 'active',
             order_number: orderNum,
-            customer_id: customer?.id ?? null,
+            customer_id: resolvedCustomerId ?? null,
             load_number: loadNumber,
           })
           .select('*, customer:customers(*)')
