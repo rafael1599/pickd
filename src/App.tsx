@@ -14,6 +14,11 @@ const InventoryScreen = lazyWithRetry(() =>
 const HistoryScreen = lazyWithRetry(() =>
   import('./features/inventory/HistoryScreen.tsx').then((m) => ({ default: m.HistoryScreen }))
 );
+const RegistrarContainerScreen = lazyWithRetry(() =>
+  import('./features/registrar-container/RegistrarContainerScreen.tsx').then((m) => ({
+    default: m.RegistrarContainerScreen,
+  }))
+);
 const Settings = lazyWithRetry(() => import('./features/settings/Settings.tsx'));
 const LoginScreen = lazyWithRetry(() =>
   import('./features/auth/LoginScreen.tsx').then((m) => ({ default: m.LoginScreen }))
@@ -121,6 +126,10 @@ const AuthenticatedContent = () => {
               <Route
                 path="/consolidation"
                 element={isAdmin ? <ConsolidationScreen /> : <Navigate to="/" replace />}
+              />
+              <Route
+                path="/registrar-container"
+                element={isAdmin ? <RegistrarContainerScreen /> : <Navigate to="/" replace />}
               />
               {/* Catch-all for unknown routes */}
               <Route path="*" element={<Navigate to="/" replace />} />

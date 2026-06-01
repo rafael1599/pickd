@@ -17,6 +17,7 @@ import Printer from 'lucide-react/dist/esm/icons/printer';
 import ShoppingCart from 'lucide-react/dist/esm/icons/shopping-cart';
 import PackageOpen from 'lucide-react/dist/esm/icons/package-open';
 import Boxes from 'lucide-react/dist/esm/icons/boxes';
+import Container from 'lucide-react/dist/esm/icons/container';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import { useModal } from '../../context/ModalContext';
 
@@ -355,6 +356,26 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                       <p className="text-[9px] text-muted font-bold uppercase">
                         Slow-mover slotting
                       </p>
+                    </div>
+                  </div>
+                  <div className="text-accent group-hover:translate-x-1 transition-transform">
+                    →
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => navTo('/registrar-container')}
+                  className="flex items-center justify-between w-full group text-left mb-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-surface border border-subtle rounded-xl text-blue-500">
+                      <Container size={16} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-content uppercase tracking-tight">
+                        Registrar Container
+                      </p>
+                      <p className="text-[9px] text-muted font-bold uppercase">Intake from Excel</p>
                     </div>
                   </div>
                   <div className="text-accent group-hover:translate-x-1 transition-transform">
