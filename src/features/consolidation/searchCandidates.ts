@@ -41,6 +41,11 @@ function normalize(s: string | null | undefined): string {
   return (s ?? '').toLowerCase();
 }
 
+/** Dash-insensitive form: drop hyphens so "033768BL" matches "03-3768BL". */
+function stripDash(s: string): string {
+  return s.replace(/-/g, '');
+}
+
 function buildHaystack(c: SearchableCandidate): string {
   const parts: string[] = [c.sku];
   if (c.item_name) parts.push(c.item_name);
@@ -56,10 +61,14 @@ function buildHaystack(c: SearchableCandidate): string {
 
 function rankFor(c: SearchableCandidate, query: string): number {
   const q = query.toLowerCase();
+  const qd = stripDash(q);
   const aliases = [c.sku, ...(c.alias_chain ?? [])].filter(Boolean).map((s) => s.toLowerCase());
-  if (aliases.some((a) => a === q)) return RANK_EXACT_SKU;
-  if (aliases.some((a) => a.startsWith(q))) return RANK_SKU_STARTS;
-  if (aliases.some((a) => a.includes(q))) return RANK_SKU_CONTAINS;
+  const aliasesD = aliases.map(stripDash);
+  if (aliases.some((a) => a === q) || aliasesD.some((a) => a === qd)) return RANK_EXACT_SKU;
+  if (aliases.some((a) => a.startsWith(q)) || aliasesD.some((a) => a.startsWith(qd)))
+    return RANK_SKU_STARTS;
+  if (aliases.some((a) => a.includes(q)) || aliasesD.some((a) => a.includes(qd)))
+    return RANK_SKU_CONTAINS;
   return RANK_OTHER_FIELD;
 }
 
@@ -81,7 +90,11 @@ export function searchCandidates<C extends SearchableCandidate>(
   for (let i = 0; i < candidates.length; i++) {
     const c = candidates[i];
     const haystack = buildHaystack(c);
-    const allMatch = tokens.every((t) => haystack.includes(t));
+    const haystackD = stripDash(haystack);
+    // A token matches if it's a substring of the haystack, OR — ignoring
+    // hyphens on both sides — of the dash-stripped haystack. So "033768BL"
+    // finds "03-3768BL" even without the dash.
+    const allMatch = tokens.every((t) => haystack.includes(t) || haystackD.includes(stripDash(t)));
     if (!allMatch) continue;
     // Rank by the whole query (joined) so "TAXI 26" ranks by both tokens.
     ranked.push({ c, rank: rankFor(c, normalize(trimmed)), idx: i });
