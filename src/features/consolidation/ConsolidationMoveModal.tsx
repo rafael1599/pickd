@@ -63,6 +63,10 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
   const [sublocLetters, setSublocLetters] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
+  // Sub-location (A–F) is mandatory when moving into a ROW.
+  const targetIsRow = effectiveTarget.toUpperCase().startsWith('ROW');
+  const needsSubloc = targetIsRow && sublocLetters.length === 0;
+
   // Fetch target row occupancy so we can show free capacity in the picker.
   const targetRowsKey = targetRows.join(',');
   const { data: targets = [] } = useQuery({
@@ -176,7 +180,7 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
   }, [onClose]);
 
   const submit = async () => {
-    if (!effectiveTarget || submitting) return;
+    if (!effectiveTarget || submitting || needsSubloc) return;
     if (otherMode) {
       // Hard-block submission for typed rows that don't validate.
       if (!otherInfo?.exists) {
@@ -408,7 +412,7 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
           {effectiveTarget.toUpperCase().startsWith('ROW') && (
             <div>
               <label className="text-[10px] text-muted font-bold uppercase tracking-widest mb-2 block">
-                Sublocation (optional)
+                Sublocation <span className="text-red-500">*</span>
               </label>
               <div className="flex flex-wrap gap-1.5">
                 {['A', 'B', 'C', 'D', 'E', 'F'].map((letter) => {
@@ -433,6 +437,11 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
                   );
                 })}
               </div>
+              {needsSubloc && (
+                <p className="text-[10px] font-bold text-red-500 mt-1.5">
+                  Select a sub-location to move into a ROW.
+                </p>
+              )}
             </div>
           )}
 
@@ -454,6 +463,7 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
               disabled={
                 !effectiveTarget ||
                 submitting ||
+                needsSubloc ||
                 (otherMode && (!otherInfo?.exists || otherInfo?.is_same_as_source || otherFetching))
               }
               className="flex-1 px-4 py-3 rounded-xl bg-accent text-white text-xs font-bold uppercase tracking-wider disabled:opacity-30 flex items-center justify-center gap-2"
