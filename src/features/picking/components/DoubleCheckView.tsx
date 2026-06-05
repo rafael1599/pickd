@@ -46,6 +46,7 @@ import { withSupabaseRetry } from '../../../lib/supabaseRetry';
 import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingConflicts';
 import { useStockReservations, buildReservationKey } from '../hooks/useStockReservations';
 import { useStaleLocationCheck } from '../hooks/useStaleLocationCheck';
+import { useCanonicalSkuResolution } from '../hooks/useCanonicalSkuResolution';
 import { DistributionGlyph } from '../../inventory/components/DistributionJengaViz';
 import { WaitingConflictModal } from './WaitingConflictModal';
 import { ReasonPicker } from './ReasonPicker';
@@ -260,6 +261,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     !isNotesLoading,
     onAddNote
   );
+  // Resolve items whose SKU has a spurious extra trailing letter (e.g. watcher
+  // produced "03-3768BLD" for "03-3768BL") to their canonical inventory, so we
+  // can show WHERE to pick instead of flagging them not-found.
+  const canonicalResolution = useCanonicalSkuResolution(cartItems);
 
   const [isDeducting, setIsDeducting] = useState(false);
   const [showWaitingPicker, setShowWaitingPicker] = useState(false);
@@ -1798,6 +1803,23 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                   const itemKey = `${pallet.id}-${item.sku}-${item.location}`;
                   const isChecked = checkedItems.has(itemKey);
                   const similarity = skuSimilarityMap[item.sku];
+                  // Canonical-SKU fallback: if a not-found item resolves via its
+                  // canonical SKU, treat it as found and show its location.
+                  const canonResolved = canonicalResolution.get(item.sku);
+                  const skuNotFound = !!item.sku_not_found && !canonResolved;
+                  const displayLocation = item.location || canonResolved?.location || null;
+                  // Pick-plan steps: exact-SKU plan, else the canonical SKU's distribution.
+                  const planSteps: { type: string; units_each: number }[] | null =
+                    pickPlanMap[item.sku] ??
+                    (canonResolved
+                      ? [...canonResolved.distribution]
+                          .sort(
+                            (a, b) =>
+                              (DISTRIBUTION_PRIORITY[a.type] ?? 99) -
+                                (DISTRIBUTION_PRIORITY[b.type] ?? 99) || a.units_each - b.units_each
+                          )
+                          .map((d) => ({ type: d.type, units_each: d.units_each }))
+                      : null);
                   const prevItem = itemIdx > 0 ? pallet.items[itemIdx - 1] : null;
                   const showPartsDivider =
                     !!item.isStackedPart && (!prevItem || !prevItem.isStackedPart);
@@ -1832,16 +1854,16 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                             : 'px-4 py-9'
                         } ${
                           isReviewMode
-                            ? item.sku_not_found
+                            ? skuNotFound
                               ? 'bg-red-500/5 border-red-500/20'
                               : item.insufficient_stock
                                 ? 'bg-amber-500/5 border-amber-500/20'
                                 : 'bg-card border-subtle'
                             : isChecked
-                              ? item.sku_not_found
+                              ? skuNotFound
                                 ? 'bg-red-500/20 border-red-500/50'
                                 : 'bg-green-500/10 border-green-500/30'
-                              : item.sku_not_found
+                              : skuNotFound
                                 ? 'bg-red-500/5 border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.1)]'
                                 : 'bg-card border-subtle hover:border-subtle'
                         }`}
@@ -1890,11 +1912,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                               className="w-9 h-9 object-contain rounded flex-shrink-0 border border-subtle"
                             />
                           )}
-                          <div className="flex flex-col gap-1 min-w-0">
+                          <div className="flex flex-col gap-2 min-w-0">
                             {/* SKU row */}
-                            <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center gap-2 flex-wrap min-w-0">
                               <span
-                                className={`font-black text-2xl md:text-5xl tracking-tight leading-none break-all ${isReviewMode ? (item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-content') : isChecked ? (item.sku_not_found || item.insufficient_stock ? 'text-red-400' : 'text-green-400') : item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-content'}`}
+                                className={`font-black text-2xl md:text-5xl tracking-tight leading-none whitespace-nowrap ${isReviewMode ? (skuNotFound || item.insufficient_stock ? 'text-red-500' : 'text-content') : isChecked ? (skuNotFound || item.insufficient_stock ? 'text-red-400' : 'text-green-400') : skuNotFound || item.insufficient_stock ? 'text-red-500' : 'text-content'}`}
                               >
                                 {sdSerialMap.has(item.sku) ? (
                                   // S/D: show the physical serial instead of the SKU.
@@ -1920,12 +1942,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                   </>
                                 )}
                               </span>
-                              {item.sku_not_found && (
+                              {skuNotFound && (
                                 <span className="text-[10px] bg-red-500 text-white px-1 py-0.5 rounded font-black uppercase tracking-tighter animate-pulse">
                                   UNREG
                                 </span>
                               )}
-                              {item.insufficient_stock && !item.sku_not_found && (
+                              {item.insufficient_stock && !skuNotFound && (
                                 <span className="text-[10px] bg-amber-500 text-black px-1 py-0.5 rounded font-black uppercase tracking-tighter animate-pulse">
                                   LOW STOCK
                                 </span>
@@ -1985,8 +2007,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                 {(item.item_name || item.description || '').slice(0, 17)}
                               </span>
                             )}
-                            {/* Distribution-based pick plan */}
-                            {pickPlanMap[item.sku] ? (
+                            {/* Distribution-based pick plan (canonical SKU fallback included) */}
+                            {planSteps && planSteps.length > 0 ? (
                               <div
                                 className={`${
                                   distributionInconsistencyMap[item.sku] === 'over'
@@ -1996,8 +2018,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                       : 'text-emerald-400/70'
                                 }`}
                               >
-                                <div className="flex items-end gap-3 flex-wrap">
-                                  {pickPlanMap[item.sku].map((step, i) => (
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  {planSteps.map((step, i) => (
                                     <DistributionGlyph
                                       key={i}
                                       type={step.type as DistributionItem['type']}
@@ -2005,12 +2027,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                     />
                                   ))}
                                 </div>
-                                {distributionInconsistencyMap[item.sku] === 'over' && (
-                                  <span className="text-[11px]"> ⚠ dist mismatch</span>
-                                )}
-                                {distributionInconsistencyMap[item.sku] === 'under' && (
-                                  <span className="text-[11px]"> ~ approx</span>
-                                )}
                               </div>
                             ) : (
                               item.insufficient_stock && (
@@ -2031,27 +2047,28 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                         >
                           <div className="flex flex-col items-end">
                             <span className="text-[10px] md:text-base text-muted/60 font-black uppercase tracking-widest mb-0.5">
-                              {item.location?.toLowerCase().includes('row') ? 'ROW' : 'LOC'}
+                              {displayLocation?.toLowerCase().includes('row') ? 'ROW' : 'LOC'}
                             </span>
                             <div className="flex items-center gap-1.5">
                               <div
                                 className={`font-mono font-black text-amber-500 leading-none ${
-                                  (item.location || '').length > 8
+                                  (displayLocation || '').replace(/row/i, '').trim().length > 4
                                     ? 'text-lg md:text-4xl'
-                                    : 'text-2xl md:text-6xl'
+                                    : 'text-3xl md:text-6xl'
                                 }`}
                               >
-                                {(item.location || '')
-                                  .toLowerCase()
-                                  .replace('row', '')
+                                {(displayLocation || '')
+                                  .replace(/row/i, '')
                                   .trim()
-                                  .slice(0, 5) || '-'}
+                                  .toUpperCase()
+                                  .slice(0, 12) || '-'}
                                 {(() => {
                                   const subs =
                                     item.sublocation ||
                                     sublocationMap[
-                                      `${item.sku}-${(item.location || '').toUpperCase()}`
-                                    ];
+                                      `${item.sku}-${(displayLocation || '').toUpperCase()}`
+                                    ] ||
+                                    canonResolved?.sublocation;
                                   return subs && subs.length > 0 ? (
                                     <span className="text-xs md:text-2xl font-black bg-amber-500/15 text-amber-400 px-1 md:px-2 py-0.5 md:py-1 rounded ml-1 border border-amber-500/20 align-middle">
                                       {subs.join(',')}
@@ -2061,7 +2078,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                               </div>
                               {!isReviewMode && isChecked && (
                                 <div
-                                  className={`flex items-center justify-center ${item.sku_not_found ? 'text-red-500' : 'text-green-500'}`}
+                                  className={`flex items-center justify-center ${skuNotFound ? 'text-red-500' : 'text-green-500'}`}
                                 >
                                   <Check size={16} strokeWidth={4} />
                                 </div>
