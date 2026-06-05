@@ -169,7 +169,10 @@ export const MovementModal: React.FC<MovementModalProps> = ({
     );
   }, [formData.targetLocation, formData.targetWarehouse, initialSourceItem]);
 
-  const isValid = validate().isValid && !isSameLocation;
+  // Sub-location (A–F) is mandatory when moving INTO a ROW location.
+  const targetIsRow = formData.targetLocation.trim().toUpperCase().startsWith('ROW');
+  const needsSublocation = targetIsRow && (formData.targetSublocation?.length ?? 0) === 0;
+  const isValid = validate().isValid && !isSameLocation && !needsSublocation;
 
   const previewDistribution = useMemo(() => {
     if (!initialSourceItem || !initialSourceItem.sku_metadata?.is_bike) return null;
@@ -539,7 +542,7 @@ export const MovementModal: React.FC<MovementModalProps> = ({
               {formData.targetLocation.toUpperCase().startsWith('ROW') && (
                 <div className="pt-1">
                   <label className="block text-[10px] font-black text-muted uppercase tracking-widest mb-1.5">
-                    Sub-location
+                    Sub-location <span className="text-red-500">*</span>
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {['A', 'B', 'C', 'D', 'E', 'F'].map((letter) => {
@@ -566,6 +569,11 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                       );
                     })}
                   </div>
+                  {needsSublocation && (
+                    <p className="text-[10px] font-bold text-red-500 mt-1.5">
+                      Select a sub-location to move into a ROW.
+                    </p>
+                  )}
                 </div>
               )}
 
