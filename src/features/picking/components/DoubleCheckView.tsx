@@ -46,6 +46,7 @@ import { withSupabaseRetry } from '../../../lib/supabaseRetry';
 import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingConflicts';
 import { useStockReservations, buildReservationKey } from '../hooks/useStockReservations';
 import { useStaleLocationCheck } from '../hooks/useStaleLocationCheck';
+import { DistributionGlyph } from '../../inventory/components/DistributionJengaViz';
 import { WaitingConflictModal } from './WaitingConflictModal';
 import { ReasonPicker } from './ReasonPicker';
 import Hourglass from 'lucide-react/dist/esm/icons/hourglass';
@@ -1826,7 +1827,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                           onToggleCheck(item, pallet.id);
                         }}
                         className={`transition-all duration-200 rounded-2xl flex items-center justify-between gap-3 ${isReviewMode ? '' : 'active:scale-[0.98] cursor-pointer'} border ${
-                          isChecked && !isReviewMode ? 'p-2 opacity-70 scale-[0.97]' : 'p-4'
+                          isChecked && !isReviewMode
+                            ? 'px-2 py-3 opacity-70 scale-[0.97]'
+                            : 'px-4 py-7'
                         } ${
                           isReviewMode
                             ? item.sku_not_found
@@ -1990,14 +1993,15 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                       : 'text-emerald-400/70'
                                 }`}
                               >
-                                <span className="text-sm md:text-2xl font-bold uppercase tracking-wider leading-none">
+                                <div className="flex items-end gap-3 flex-wrap">
                                   {pickPlanMap[item.sku].map((step, i) => (
-                                    <span key={i}>
-                                      {i > 0 && ', '}
-                                      {step.icon} {step.type} has {step.units_each}u
-                                    </span>
+                                    <DistributionGlyph
+                                      key={i}
+                                      type={step.type as DistributionItem['type']}
+                                      unitsEach={step.units_each}
+                                    />
                                   ))}
-                                </span>
+                                </div>
                                 {distributionInconsistencyMap[item.sku] === 'over' && (
                                   <span className="text-[11px]"> ⚠ dist mismatch</span>
                                 )}
