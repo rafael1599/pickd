@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useInventory } from './hooks/InventoryProvider.tsx';
 import { useViewMode } from '../../context/ViewModeContext.tsx';
 import { useModal } from '../../context/ModalContext';
+import { useScrollLock } from '../../hooks/useScrollLock';
 import { SearchInput } from '../../components/ui/SearchInput.tsx';
 import { useDebounce } from '../../hooks/useDebounce.ts';
 import { InventoryCard } from './components/InventoryCard.tsx';
@@ -311,6 +312,7 @@ export const InventoryScreen = () => {
   const [selectedWarehouseForAdd, setSelectedWarehouseForAdd] = useState('LUDLOW');
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
+  useScrollLock(fabMenuOpen, fabMenuOpen ? () => setFabMenuOpen(false) : undefined);
   const [locationBeingEdited, setLocationBeingEdited] = useState<Location | NewLocationStub | null>(
     null
   );
@@ -1089,9 +1091,12 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
 
       {viewMode === 'stock' ? (
         <>
-          {/* Backdrop to close menu */}
+          {/* Backdrop to close menu — blurred + scroll-locked so only the menu is interactive */}
           {fabMenuOpen && (
-            <div className="fixed inset-0 z-40" onClick={() => setFabMenuOpen(false)} />
+            <div
+              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+              onClick={() => setFabMenuOpen(false)}
+            />
           )}
           <div className="fixed bottom-24 right-4 flex flex-col items-end gap-2 z-40">
             {/* Expandable actions */}

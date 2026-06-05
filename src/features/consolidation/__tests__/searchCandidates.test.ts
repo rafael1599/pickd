@@ -240,6 +240,22 @@ describe('searchCandidates', () => {
       expect(searchCandidates(input, 'ROW 10').map((x) => x.sku)).toEqual(['aaa-bbb']);
     });
 
+    it('matches a SKU when the query omits the dash', () => {
+      const input = [c({ sku: '03-3768BL', item_name: 'DIVIDE' }), c({ sku: '99-0000ZZ' })];
+      expect(searchCandidates(input, '033768BL').map((x) => x.sku)).toEqual(['03-3768BL']);
+      expect(searchCandidates(input, '033768').map((x) => x.sku)).toEqual(['03-3768BL']);
+    });
+
+    it('still matches with the dash present', () => {
+      const input = [c({ sku: '03-3768BL' })];
+      expect(searchCandidates(input, '03-3768BL').map((x) => x.sku)).toEqual(['03-3768BL']);
+    });
+
+    it('matches a dash-less alias in the chain when query omits the dash', () => {
+      const input = [c({ sku: 'NEW-1', alias_chain: ['03-3768BL'] })];
+      expect(searchCandidates(input, '033768bl').map((x) => x.sku)).toEqual(['NEW-1']);
+    });
+
     it('does not crash on very long query strings', () => {
       const input = [c({ sku: 'A' })];
       const longQuery = 'foo '.repeat(500);

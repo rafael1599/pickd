@@ -120,13 +120,24 @@ export const PlaceSkuTab: React.FC<Props> = ({
     queryKey: ['place-sku-autocomplete', debounced],
     enabled: !confirmed && debounced.length >= 1,
     queryFn: async (): Promise<SkuSuggestion[]> => {
-      const { data, error } = await supabase
+      // Dash-insensitive: if the typed query has no dash but looks like a bike
+      // SKU (2+4 digits), also match the canonical dashed form so "033768BL"
+      // finds "03-3768BL".
+      const noDash = debounced.replace(/-/g, '');
+      const dashed = /^\d{6}/.test(noDash) ? `${noDash.slice(0, 2)}-${noDash.slice(2)}` : null;
+
+      let builder = supabase
         .from('inventory')
         .select('sku, item_name, quantity, location')
-        .ilike('sku', `%${debounced}%`)
         .eq('is_active', true)
-        .gt('quantity', 0)
-        .limit(80);
+        .gt('quantity', 0);
+
+      builder =
+        dashed && dashed !== debounced
+          ? builder.or(`sku.ilike.*${debounced}*,sku.ilike.*${dashed}*`)
+          : builder.ilike('sku', `%${debounced}%`);
+
+      const { data, error } = await builder.limit(80);
       if (error) throw error;
       const bySku = new Map<string, SkuSuggestion>();
       for (const r of data ?? []) {
