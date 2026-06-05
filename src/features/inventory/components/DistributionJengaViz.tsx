@@ -1,7 +1,8 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useRef, useState } from 'react';
 import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal';
 import Edit3 from 'lucide-react/dist/esm/icons/edit-3';
 import type { DistributionItem } from '../../../schemas/inventory.schema';
+import { MenuOverlay } from '../../../components/ui/MenuOverlay';
 
 interface DistributionJengaVizProps {
   distribution: DistributionItem[];
@@ -50,27 +51,12 @@ DistributionJengaViz.displayName = 'DistributionJengaViz';
  *  Clear, etc.) without restructuring the button. */
 function DistributionMenu({ isEmpty, onAdjust }: { isEmpty: boolean; onAdjust: () => void }) {
   const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onClick = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', onClick);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onClick);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
+  const btnRef = useRef<HTMLButtonElement>(null);
 
   return (
-    <div ref={rootRef} className="relative shrink-0">
+    <div className="shrink-0">
       <button
+        ref={btnRef}
         type="button"
         onClick={(e) => {
           e.stopPropagation();
@@ -84,12 +70,8 @@ function DistributionMenu({ isEmpty, onAdjust }: { isEmpty: boolean; onAdjust: (
       >
         <MoreHorizontal size={16} strokeWidth={3} />
       </button>
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 top-full mt-1 z-30 min-w-[180px] bg-card border border-subtle rounded-md shadow-xl py-1"
-          onClick={(e) => e.stopPropagation()}
-        >
+      <MenuOverlay anchorRef={btnRef} open={open} onClose={() => setOpen(false)} align="right">
+        <div className="min-w-[180px] bg-card border border-subtle rounded-md shadow-xl py-1">
           <button
             type="button"
             role="menuitem"
@@ -104,7 +86,7 @@ function DistributionMenu({ isEmpty, onAdjust }: { isEmpty: boolean; onAdjust: (
             {isEmpty ? 'Set distribution' : 'Edit distribution'}
           </button>
         </div>
-      )}
+      </MenuOverlay>
     </div>
   );
 }
