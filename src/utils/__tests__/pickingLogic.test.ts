@@ -312,10 +312,23 @@ describe('stackPartsOnBikes', () => {
 // calculatePalletsWithBikeAwareness
 // ---------------------------------------------------------------------------
 describe('calculatePalletsWithBikeAwareness', () => {
-  it('falls back to calculatePallets when no bikes are present', () => {
+  it('parts-only order consolidates into a single pallet regardless of quantity', () => {
     const items: PickingItem[] = [{ sku: 'PART-A', location: 'R1', pickingQty: 30 }];
     const result = calculatePalletsWithBikeAwareness(items, new Set());
-    expect(result).toEqual(calculatePallets(items));
+    expect(result).toHaveLength(1);
+    expect(result[0].totalUnits).toBe(30);
+  });
+
+  it('parts-only order with several SKUs still yields exactly one pallet', () => {
+    const items: PickingItem[] = [
+      { sku: 'PART-A', location: 'R1', pickingQty: 40 },
+      { sku: 'PART-B', location: 'R2', pickingQty: 25 },
+      { sku: 'PART-C', location: 'R3', pickingQty: 5 },
+    ];
+    const result = calculatePalletsWithBikeAwareness(items, new Set());
+    expect(result).toHaveLength(1);
+    expect(result[0].totalUnits).toBe(70);
+    expect(result[0].items).toHaveLength(3);
   });
 
   it('sizes pallets by bike units only — 15 bikes + 300 parts fits in 2 pallets', () => {
@@ -345,10 +358,25 @@ describe('calculatePalletsWithBikeAwareness', () => {
     expect(result[0].totalUnits).toBe(5003);
   });
 
-  it('parts-only order with empty bikeSkuSet still paginates normally', () => {
+  it('parts-only order whose bikeSkuSet has no matching items → single pallet', () => {
     const items: PickingItem[] = [{ sku: 'PART-A', location: 'R1', pickingQty: 30 }];
     const result = calculatePalletsWithBikeAwareness(items, new Set(['BIKE-X']));
-    // bikeSkuSet has entries but no items match → falls back to calculatePallets
-    expect(result).toEqual(calculatePallets(items));
+    // bikeSkuSet has entries but no items match → everything is parts → one pallet
+    expect(result).toHaveLength(1);
+    expect(result[0].totalUnits).toBe(30);
+  });
+
+  it('merges duplicate sku+location parts within the single pallet', () => {
+    const items: PickingItem[] = [
+      { sku: 'PART-A', location: 'R1', pickingQty: 4 },
+      { sku: 'PART-A', location: 'R1', pickingQty: 6 },
+      { sku: 'PART-A', location: 'R2', pickingQty: 2 },
+    ];
+    const result = calculatePalletsWithBikeAwareness(items, new Set());
+    expect(result).toHaveLength(1);
+    expect(result[0].totalUnits).toBe(12);
+    // R1 entries merged into one, R2 separate
+    expect(result[0].items).toHaveLength(2);
+    expect(result[0].items.find((i) => i.location === 'R1')?.pickingQty).toBe(10);
   });
 });

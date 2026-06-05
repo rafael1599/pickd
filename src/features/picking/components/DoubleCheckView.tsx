@@ -447,11 +447,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   // BIKE units only and parts stack on top of the last bike pallet. When no
   // bikes are present, upstream pallets (parts-only) are used as-is.
   const pallets = useMemo(() => {
-    if (bikeSkuSet.size === 0) {
-      return palletOverrides.size === 0
-        ? originalPallets
-        : redistributeWithOverrides(originalPallets, palletOverrides);
-    }
+    // Bikes paginate by capacity; parts always consolidate into one pallet.
+    // calculatePalletsWithBikeAwareness handles the no-bikes case (parts-only → 1 pallet).
     const allItems = originalPallets.flatMap((p) => p.items);
     const bikeAware = calculatePalletsWithBikeAwareness(allItems, bikeSkuSet);
     return palletOverrides.size === 0
