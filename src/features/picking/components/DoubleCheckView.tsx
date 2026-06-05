@@ -1828,8 +1828,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                         }}
                         className={`transition-all duration-200 rounded-2xl flex items-center justify-between gap-3 ${isReviewMode ? '' : 'active:scale-[0.98] cursor-pointer'} border ${
                           isChecked && !isReviewMode
-                            ? 'px-2 py-3 opacity-70 scale-[0.97]'
-                            : 'px-4 py-7'
+                            ? 'px-2 py-4 opacity-70 scale-[0.97]'
+                            : 'px-4 py-9'
                         } ${
                           isReviewMode
                             ? item.sku_not_found
@@ -1846,7 +1846,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                 : 'bg-card border-subtle hover:border-subtle'
                         }`}
                       >
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div
+                          className="flex items-center gap-3 flex-1 min-w-0"
+                          style={{ transform: 'scaleY(1.5)' }}
+                        >
                           {/* Qty on the far left */}
                           <div className="flex flex-col items-center justify-center min-w-[3rem] shrink-0 border-r border-subtle pr-3">
                             <span className="text-[10px] font-black uppercase tracking-widest text-muted/60 mb-0.5">
@@ -2022,7 +2025,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                         </div>
 
                         {/* Location Info on the right - No checkbox to maximize space */}
-                        <div className="flex items-center gap-3 shrink-0 ml-auto pl-2 border-l border-subtle">
+                        <div
+                          className="flex items-center gap-3 shrink-0 ml-auto pl-2 border-l border-subtle"
+                          style={{ transform: 'scaleY(1.5)' }}
+                        >
                           <div className="flex flex-col items-end">
                             <span className="text-[10px] md:text-base text-muted/60 font-black uppercase tracking-widest mb-0.5">
                               {item.location?.toLowerCase().includes('row') ? 'ROW' : 'LOC'}
