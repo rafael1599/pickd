@@ -10,7 +10,11 @@ import toast from 'react-hot-toast';
 import { useLocationManagement } from '../../features/inventory/hooks/useLocationManagement';
 import { usePickingNotes } from '../../features/picking/hooks/usePickingNotes';
 import { useShipOutSms } from '../../features/picking/hooks/useShipOutSms';
-import { getOptimizedPickingPath, calculatePallets } from '../../utils/pickingLogic';
+import {
+  getOptimizedPickingPath,
+  calculatePalletsWithBikeAwareness,
+} from '../../utils/pickingLogic';
+import { useBikeSkuSet } from '../../hooks/useBikeSkuSet';
 import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.service';
 import { supabase } from '../../lib/supabase';
 import { useConfirmation } from '../../context/ConfirmationContext';
@@ -176,11 +180,12 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
   };
 
   // Group items into pallets using the same logic as the Picking flow
+  const bikeSkuSet = useBikeSkuSet((items || []).map((i) => i.sku));
   const pallets = useMemo(() => {
     if (!items || items.length === 0) return [];
     const optimizedItems = getOptimizedPickingPath(items, locations);
-    return calculatePallets(optimizedItems);
-  }, [items, locations]);
+    return calculatePalletsWithBikeAwareness(optimizedItems, bikeSkuSet);
+  }, [items, locations, bikeSkuSet]);
 
   const totalUnits = useMemo(() => {
     return pallets.reduce((sum, p) => sum + p.totalUnits, 0);

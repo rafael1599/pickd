@@ -5,9 +5,10 @@ import type { CartItem } from './usePickingCart';
 import type { Customer } from '../../../types/schema';
 import {
   getOptimizedPickingPath,
-  calculatePallets,
+  calculatePalletsWithBikeAwareness,
   type PickingItem,
 } from '../../../utils/pickingLogic';
+import { resolveBikeSkuSet } from '../../../utils/bikeDetection';
 import type { User } from '@supabase/supabase-js';
 import type { Json } from '../../../integrations/supabase/types';
 import type { Location } from '../../../schemas/location.schema';
@@ -264,7 +265,8 @@ export const usePickingActions = ({
           finalItems as unknown as PickingItem[],
           (locationsData as Location[]) || []
         );
-        const pallets = calculatePallets(optimizedItems);
+        const bikeSkuSet = await resolveBikeSkuSet(optimizedItems.map((i) => i.sku));
+        const pallets = calculatePalletsWithBikeAwareness(optimizedItems, bikeSkuSet);
         const palletsQty = pallets.length;
 
         // Transition to double_checking immediately

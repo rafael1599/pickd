@@ -301,27 +301,59 @@ export const stackPartsOnBikes = (pallets: Pallet[], bikeSkuSet: Set<string>): P
 };
 
 /**
- * Builds pallets from an item pool, sizing pallets based on BIKE units only.
- * Parts are stacked onto the last bike pallet without inflating pallet count.
+ * Consolidates a pool of items into a SINGLE pallet, merging duplicate
+ * sku+location entries. Parts never paginate by bike capacity — all parts in an
+ * order ride in one pallet regardless of quantity.
+ */
+export const consolidateIntoSinglePallet = (items: PickingItem[]): Pallet[] => {
+  if (items.length === 0) return [];
+
+  const merged: PickingItem[] = [];
+  items.forEach((item) => {
+    const existing = merged.find(
+      (i) =>
+        i.sku === item.sku &&
+        (i.location || '').trim().toUpperCase() === (item.location || '').trim().toUpperCase()
+    );
+    if (existing) {
+      existing.pickingQty += item.pickingQty || 0;
+    } else {
+      merged.push({ ...item, pickingQty: item.pickingQty || 0 });
+    }
+  });
+
+  const totalUnits = merged.reduce((sum, i) => sum + (i.pickingQty || 0), 0);
+  return [{ id: 1, items: merged, totalUnits, footprint_in2: 0, limitPerPallet: totalUnits }];
+};
+
+/**
+ * Builds pallets from an item pool. Only BIKES paginate by capacity (8/10/12);
+ * PARTS always consolidate into a single pallet regardless of quantity.
  *
- * - No bikes: falls back to `calculatePallets` on the full pool (parts fill pallets normally).
- * - Bikes present: `calculatePallets(bikes)` → attach all parts to last pallet.
+ * - No bikes (parts-only): all parts in ONE pallet (`consolidateIntoSinglePallet`).
+ * - Bikes present: `calculatePallets(bikes)` → all parts stacked on the last pallet.
+ *
+ * Contract: `bikeSkuSet` must reflect real detection for these items. An empty
+ * set means "this order has no bikes" → everything is treated as parts → one
+ * pallet. Callers must resolve the bike set (see `resolveBikeSkuSet`) rather than
+ * pass an empty set when detection is merely unavailable.
  */
 export const calculatePalletsWithBikeAwareness = (
   items: PickingItem[],
   bikeSkuSet: Set<string>
 ): Pallet[] => {
   if (items.length === 0) return [];
-  if (bikeSkuSet.size === 0) return calculatePallets(items);
 
   const bikes = items.filter((i) => bikeSkuSet.has(i.sku));
   const parts = items.filter((i) => !bikeSkuSet.has(i.sku));
 
-  if (bikes.length === 0) return calculatePallets(items);
+  // Parts-only order: all parts in a single pallet, regardless of quantity.
+  if (bikes.length === 0) return consolidateIntoSinglePallet(parts);
 
   const bikePallets = calculatePallets(bikes);
   if (parts.length === 0) return bikePallets;
 
+  // Bikes present: stack all parts onto the last bike pallet (one parts location).
   return stackPartsOnBikes(
     [...bikePallets, { id: 0, items: parts, totalUnits: 0, footprint_in2: 0, limitPerPallet: 0 }],
     bikeSkuSet

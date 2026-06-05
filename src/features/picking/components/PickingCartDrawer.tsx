@@ -10,7 +10,12 @@ import { useConfirmation } from '../../../context/ConfirmationContext';
 import { usePickingSession } from '../../../context/PickingContext';
 import { useViewMode } from '../../../context/ViewModeContext';
 import { useInventory } from '../../inventory/hooks/InventoryProvider';
-import { getOptimizedPickingPath, calculatePallets } from '../../../utils/pickingLogic';
+import {
+  getOptimizedPickingPath,
+  calculatePalletsWithBikeAwareness,
+} from '../../../utils/pickingLogic';
+import { resolveBikeSkuSet } from '../../../utils/bikeDetection';
+import { useBikeSkuSet } from '../../../hooks/useBikeSkuSet';
 import type { Location } from '../../../schemas/location.schema';
 import { supabase } from '../../../lib/supabase';
 import { usePickItemMutation } from '../hooks/usePickItemMutation';
@@ -62,6 +67,7 @@ export const PickingCartDrawer: React.FC = () => {
   const { createGroup } = useOrderGroups();
 
   const { inventoryData, processPickingList, recompletePickingList } = useInventory();
+  const cartBikeSkuSet = useBikeSkuSet(cartItems.map((i) => i.sku));
 
   const [isOpen, setIsOpen] = useState(false);
   // currentView removed — always renders DoubleCheckView (idea-032 phase 2)
@@ -390,7 +396,7 @@ export const PickingCartDrawer: React.FC = () => {
     }));
 
     const path = getOptimizedPickingPath(cartItems, allLocations);
-    const pallets = calculatePallets(path);
+    const pallets = calculatePalletsWithBikeAwareness(path, cartBikeSkuSet);
 
     const newChecked = new Set<string>();
     pallets.forEach((p) => {
@@ -591,7 +597,8 @@ export const PickingCartDrawer: React.FC = () => {
           bike_line: null,
         }));
         const optimizedPath = getOptimizedPickingPath(mainCartItems, allLocations);
-        const calculatedPallets = calculatePallets(optimizedPath);
+        const mainBikeSkuSet = await resolveBikeSkuSet(optimizedPath.map((i) => i.sku));
+        const calculatedPallets = calculatePalletsWithBikeAwareness(optimizedPath, mainBikeSkuSet);
         pallets_qty = calculatedPallets.length;
       }
 
@@ -664,7 +671,8 @@ export const PickingCartDrawer: React.FC = () => {
                   bike_line: null,
                 }));
                 const sibPath = getOptimizedPickingPath(siblingCartItems, sibLocations);
-                sibPalletsQty = calculatePallets(sibPath).length;
+                const sibBikeSkuSet = await resolveBikeSkuSet(sibPath.map((i) => i.sku));
+                sibPalletsQty = calculatePalletsWithBikeAwareness(sibPath, sibBikeSkuSet).length;
               }
 
               if (sibling.status === 'reopened') {
@@ -761,11 +769,11 @@ export const PickingCartDrawer: React.FC = () => {
                     length_ft: null,
                     bike_line: null,
                   }));
-                  const calcMetrics = (its: PickingItem[]) => {
+                  const calcMetrics = async (its: PickingItem[]) => {
                     const totalUnits = its.reduce((acc, i) => acc + (i.pickingQty || 0), 0);
-                    const palletsQty = calculatePallets(
-                      getOptimizedPickingPath(its, allLocations)
-                    ).length;
+                    const path = getOptimizedPickingPath(its, allLocations);
+                    const bikeSkuSet = await resolveBikeSkuSet(path.map((i) => i.sku));
+                    const palletsQty = calculatePalletsWithBikeAwareness(path, bikeSkuSet).length;
                     return { totalUnits, palletsQty };
                   };
 
@@ -807,8 +815,8 @@ export const PickingCartDrawer: React.FC = () => {
                         const sourceItems = Array.isArray(src.items)
                           ? (src.items as unknown as PickingItem[])
                           : [];
-                        const tm = calcMetrics(targetItems);
-                        const sm = calcMetrics(sourceItems);
+                        const tm = await calcMetrics(targetItems);
+                        const sm = await calcMetrics(sourceItems);
                         await completeAddonGroup(
                           activeListId,
                           target.id as string,
@@ -825,7 +833,7 @@ export const PickingCartDrawer: React.FC = () => {
                   }
 
                   // Non-addon path: normal recomplete on the merged cart.
-                  const { totalUnits, palletsQty } = calcMetrics(items);
+                  const { totalUnits, palletsQty } = await calcMetrics(items);
                   await recompletePickingList(activeListId, palletsQty, totalUnits);
                   resetSession();
                   setIsOpen(false);

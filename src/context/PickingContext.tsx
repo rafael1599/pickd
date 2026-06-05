@@ -17,7 +17,12 @@ import { usePickingNotes, PickingNote } from '../features/picking/hooks/usePicki
 import type { Customer } from '../types/schema';
 import type { InventoryItem } from '../schemas/inventory.schema';
 import { useLocationManagement } from '../features/inventory/hooks/useLocationManagement';
-import { getOptimizedPickingPath, calculatePallets, type Pallet } from '../utils/pickingLogic';
+import {
+  getOptimizedPickingPath,
+  calculatePalletsWithBikeAwareness,
+  type Pallet,
+} from '../utils/pickingLogic';
+import { useBikeSkuSet } from '../hooks/useBikeSkuSet';
 
 interface PickingContextType {
   cartItems: CartItem[];
@@ -167,11 +172,12 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
   // 4. Automated Pallet Calculation
   // This calculates pallets once the session moves into picking/double_checking mode
   // fulfilling the requirement of grouping "when receiving from DB"
+  const bikeSkuSet = useBikeSkuSet(cartItems.map((i) => i.sku));
   const pallets = useMemo(() => {
     if (sessionMode === 'idle' || cartItems.length === 0) return [];
     const optimizedItems = getOptimizedPickingPath(cartItems, locations);
-    return calculatePallets(optimizedItems);
-  }, [cartItems, locations, sessionMode]);
+    return calculatePalletsWithBikeAwareness(optimizedItems, bikeSkuSet);
+  }, [cartItems, locations, sessionMode, bikeSkuSet]);
 
   const resetSession = useCallback(
     (skipState = false) => {
