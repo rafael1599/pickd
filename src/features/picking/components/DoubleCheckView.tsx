@@ -45,6 +45,7 @@ import { useShipOutSms } from '../hooks/useShipOutSms';
 import { withSupabaseRetry } from '../../../lib/supabaseRetry';
 import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingConflicts';
 import { useStockReservations, buildReservationKey } from '../hooks/useStockReservations';
+import { useStaleLocationCheck } from '../hooks/useStaleLocationCheck';
 import { WaitingConflictModal } from './WaitingConflictModal';
 import { ReasonPicker } from './ReasonPicker';
 import Hourglass from 'lucide-react/dist/esm/icons/hourglass';
@@ -249,6 +250,16 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     activeListId ?? null,
     activeGroupId
   );
+  // Drift guard (#1): flag items whose frozen location is now empty while the
+  // SKU has stock elsewhere, and persist a deduped [AUTO] note (#3) for analysis.
+  const staleLocations = useStaleLocationCheck(
+    cartItems,
+    activeListId ?? null,
+    notes,
+    !isNotesLoading,
+    onAddNote
+  );
+
   const [isDeducting, setIsDeducting] = useState(false);
   const [showWaitingPicker, setShowWaitingPicker] = useState(false);
   const [waitingReason, setWaitingReason] = useState('');
@@ -1686,6 +1697,38 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               <p className="text-sm font-medium text-content italic leading-relaxed">
                 &ldquo;{correctionNotesProp}&rdquo;
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Stale pick-location guard (drift): frozen location empty but stock exists elsewhere */}
+        {staleLocations.length > 0 && (
+          <div className="mb-4 p-4 bg-amber-500/5 border border-amber-500/20 rounded-2xl flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0">
+              <AlertCircle size={18} />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-black text-amber-500/80 uppercase tracking-widest mb-1">
+                Stale pick location{staleLocations.length > 1 ? 's' : ''}
+              </p>
+              <p className="text-[11px] font-medium text-muted mb-2 leading-relaxed">
+                The frozen location is empty but stock exists elsewhere — pick from the suggested
+                location (verify physically before picking).
+              </p>
+              <ul className="space-y-1">
+                {staleLocations.map((s) => (
+                  <li
+                    key={`${s.sku}-${s.frozenLocation}`}
+                    className="text-sm font-medium text-content"
+                  >
+                    <span className="font-black">{s.sku}</span>{' '}
+                    <span className="text-amber-500/80 line-through">{s.frozenLocation}</span>{' '}
+                    <span className="text-muted">→</span>{' '}
+                    <span className="font-black text-emerald-400">{s.suggestedLocation}</span>{' '}
+                    <span className="text-muted">({s.suggestedQty} in stock)</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         )}
