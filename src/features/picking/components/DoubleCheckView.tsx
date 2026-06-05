@@ -1890,11 +1890,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                               className="w-9 h-9 object-contain rounded flex-shrink-0 border border-subtle"
                             />
                           )}
-                          <div className="flex flex-col gap-1 min-w-0">
+                          <div className="flex flex-col gap-2 min-w-0">
                             {/* SKU row */}
-                            <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center gap-2 flex-wrap min-w-0">
                               <span
-                                className={`font-black text-2xl md:text-5xl tracking-tight leading-none break-all ${isReviewMode ? (item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-content') : isChecked ? (item.sku_not_found || item.insufficient_stock ? 'text-red-400' : 'text-green-400') : item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-content'}`}
+                                className={`font-black text-2xl md:text-5xl tracking-tight leading-none whitespace-nowrap ${isReviewMode ? (item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-content') : isChecked ? (item.sku_not_found || item.insufficient_stock ? 'text-red-400' : 'text-green-400') : item.sku_not_found || item.insufficient_stock ? 'text-red-500' : 'text-content'}`}
                               >
                                 {sdSerialMap.has(item.sku) ? (
                                   // S/D: show the physical serial instead of the SKU.
@@ -1996,7 +1996,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                       : 'text-emerald-400/70'
                                 }`}
                               >
-                                <div className="flex items-end gap-3 flex-wrap">
+                                <div className="flex items-center gap-2 mt-0.5">
                                   {pickPlanMap[item.sku].map((step, i) => (
                                     <DistributionGlyph
                                       key={i}
@@ -2005,12 +2005,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                     />
                                   ))}
                                 </div>
-                                {distributionInconsistencyMap[item.sku] === 'over' && (
-                                  <span className="text-[11px]"> ⚠ dist mismatch</span>
-                                )}
-                                {distributionInconsistencyMap[item.sku] === 'under' && (
-                                  <span className="text-[11px]"> ~ approx</span>
-                                )}
                               </div>
                             ) : (
                               item.insufficient_stock && (
@@ -2036,16 +2030,16 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                             <div className="flex items-center gap-1.5">
                               <div
                                 className={`font-mono font-black text-amber-500 leading-none ${
-                                  (item.location || '').length > 8
+                                  (item.location || '').replace(/row/i, '').trim().length > 4
                                     ? 'text-lg md:text-4xl'
-                                    : 'text-2xl md:text-6xl'
+                                    : 'text-3xl md:text-6xl'
                                 }`}
                               >
                                 {(item.location || '')
-                                  .toLowerCase()
-                                  .replace('row', '')
+                                  .replace(/row/i, '')
                                   .trim()
-                                  .slice(0, 5) || '-'}
+                                  .toUpperCase()
+                                  .slice(0, 12) || '-'}
                                 {(() => {
                                   const subs =
                                     item.sublocation ||
