@@ -120,7 +120,13 @@ interface GlyphProps {
   unitsEach: number;
 }
 
-function DistributionGlyph({ type, unitsEach }: GlyphProps) {
+/**
+ * A single distribution glyph (LINE → standing stick, TOWER → jenga tower,
+ * PALLET → pallet, OTHER → crate) with its unit count drawn in the middle.
+ * Exported so other views (e.g. the Double-Check pick plan) can render the same
+ * graphical representation used in stock view.
+ */
+export function DistributionGlyph({ type, unitsEach }: GlyphProps) {
   if (type === 'TOWER') return <JengaTower n={unitsEach} />;
   if (type === 'PALLET') return <JengaPallet n={unitsEach} />;
   if (type === 'OTHER') return <JengaCrate n={unitsEach} />;
