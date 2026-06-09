@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import X from 'lucide-react/dist/esm/icons/x';
 import MessageSquare from 'lucide-react/dist/esm/icons/message-square';
@@ -49,6 +50,25 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
   useScrollLock(true, onClose);
   const { locations } = useLocationManagement();
   const { notes } = usePickingNotes(listId);
+
+  // Watcher-origin note: the import daemon stores the AS400 "Order Comments"
+  // (e.g. "FREE FREIGHT") in picking_lists.notes (manual notes live elsewhere).
+  // Shown in red under the order header.
+  const { data: watcherNote = null } = useQuery({
+    queryKey: ['picking_list_watcher_note', listId],
+    enabled: !!listId,
+    staleTime: 60_000,
+    queryFn: async (): Promise<string | null> => {
+      const { data, error } = await supabase
+        .from('picking_lists')
+        .select('notes')
+        .eq('id', listId)
+        .single();
+      if (error) throw error;
+      const n = (data?.notes ?? '').trim();
+      return n || null;
+    },
+  });
   const { showConfirmation } = useConfirmation();
   // Ship-Out SMS resend — only rendered when the user has enabled it +
   // configured recipients in Settings. Cleanly hidden otherwise.
@@ -243,6 +263,9 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
                   </span>
                 )}
               </div>
+              {watcherNote && (
+                <p className="text-red-400 text-xs font-bold mt-1.5">{watcherNote}</p>
+              )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {isShipSmsEnabled && (

@@ -44,6 +44,7 @@ interface OrderWithRelations {
   status: string;
   items: PickingListItem[] | null;
   correction_notes: string | null;
+  notes: string | null;
   checked_by: string | null;
   combine_meta: CombineMeta;
   created_at: string;
