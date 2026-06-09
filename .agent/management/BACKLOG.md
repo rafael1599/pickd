@@ -101,6 +101,80 @@
 
 ---
 
+## Reportado 2026-06-09 — batch operador (corto plazo)
+
+> 12 ítems reportados por el operador en una sola pasada. Cada uno lleva **❓ preguntas bloqueantes** que hay que responder antes de implementar. Repo indicado donde no sea pickd.
+
+### 61. Separar (un-merge) órdenes combinadas de distinto customer <!-- id: idea-128 -->
+- **Problema:** "No puedo separar estas 2 órdenes que no son del mismo customer." El flujo de combine (watchdog `combine_into_order` + `combine_meta`/`source_order` por item) une órdenes; falta el camino inverso para separarlas, y bloquea más cuando son de distinto cliente.
+- **Contexto:** items combinados llevan `source_order`; `combine_meta.source_orders` guarda procedencia. Un split debería poder reconstruir cada orden original desde esos campos.
+- **❓ Bloqueantes:** (a) ¿el split debe crear de nuevo N órdenes separadas (una por `source_order`) y cancelar/eliminar la combinada, o mover los items a una orden existente? (b) ¿quién puede separar (admin/cualquiera)? (c) ¿qué pasa con correcciones/qty ya hechas sobre la combinada — se reparten por `source_order`? (d) ¿desde qué vista se dispara (OrdersView, DoubleCheckView)?
+- **Origen:** sesión 2026-06-09.
+
+### 62. Botón "Stock" desde DoubleCheckView no oculta la vista <!-- id: idea-129 -->
+- **Problema:** Al presionar el botón de stock dentro de DoubleCheckView, la vista double-check no desaparece para mostrar el stock — quedan superpuestas/confusas.
+- **❓ Bloqueantes:** (a) ¿stock debe abrir como overlay full-screen (ocultando double-check por debajo) o reemplazar la vista y volver con un "back"? (b) ¿el estado de la orden en double-check se preserva al volver del stock?
+- **Origen:** sesión 2026-06-09.
+
+### 63. Verification Board → reabrir la MISMA orden no debe bloquear <!-- id: idea-130 -->
+- **Problema:** Estando en la vista stock, abro Verification Board y selecciono **la misma orden** que estaba trabajando → pop-up "primero libera la orden en la que trabajas". No tiene sentido: debería dejar volver a abrirla en DoubleCheckView directamente. Si fuese una orden **distinta**, basta una **advertencia** ("tienes la orden X abierta, ¿seguro que quieres abrir otra?") con confirmar.
+- **Solución propuesta:** distinguir "misma orden que ya tengo abierta" (re-entrar sin fricción) vs "orden distinta" (confirmar, no bloquear).
+- **❓ Bloqueantes:** (a) al abrir una orden DISTINTA tras confirmar, ¿se libera automáticamente la anterior o se quedan ambas abiertas? (b) ¿la advertencia aplica también si otro usuario tiene la orden (take-over) o solo a la propia sesión?
+- **Origen:** sesión 2026-06-09.
+
+### 64. Búsqueda de consolidation no encuentra sin guion <!-- id: idea-131 -->
+- **Problema:** La búsqueda en consolidation no matchea si no se escribe el guion (`034664BR` no encuentra `03-4664BR`). Falta normalizar (strip `[-\s]`, lowercase) en el lado de búsqueda, como ya se hace en la stock search RPC (idea-074: `regexp_replace(sku,'[-\s]','','g')`).
+- **❓ Bloqueantes:** (a) ¿la búsqueda de consolidation es client-side o RPC? (confirma dónde aplicar la normalización). (b) ¿reusar exactamente la normalización de stock search para consistencia? (asumo sí salvo que digas lo contrario).
+- **Origen:** sesión 2026-06-09.
+
+### 65. Overlays/menus con blur + scroll-lock del background <!-- id: idea-132 -->
+- **Problema:** Cuando un menú se superpone (distribution, los tres puntitos en stock, y otros), el background sigue interactuable y el scroll lo afecta. Se quiere: **blur** del background, interacción SOLO con el menú de encima, y que cualquier scroll afecte únicamente al menú (no al fondo).
+- **Solución propuesta:** estandarizar vía Modal Manager (`useModal()` + `ModalProvider`, ver `docs/modal-pattern.md`): backdrop con `backdrop-blur`, `aria-modal`, focus trap y `overflow-hidden` en el body mientras está abierto. Auditar los menús que hoy NO pasan por el Modal Manager (distribution, three-dots de stock).
+- **❓ Bloqueantes:** (a) ¿aplica a TODOS los popovers/dropdowns o solo a estos menús "pesados"? (los tooltips/popovers efímeros están exentos por convención). (b) ¿intensidad del blur / debe oscurecer también?
+- **Origen:** sesión 2026-06-09.
+
+### 66. Bug de dirección (imagen de Roman) <!-- id: idea-133 -->
+- **Problema:** Roman envió una imagen sobre un bug de la dirección (shipping address). **Falta la imagen** para diagnosticar.
+- **❓ BLOQUEANTE:** adjuntar la captura de Roman + el `order_number` afectado. Sin eso no se puede reproducir. Hipótesis a confirmar: parsing del Ship-to en watchdog (`parse_shipping_address_struct`) o el render en pickd.
+- **Origen:** sesión 2026-06-09.
+
+### 67. Formatear Order Date de AS400 (060826 → 06/08/2026) <!-- id: idea-134 --> (repo: watchdog-pickd + pickd)
+- **Problema:** La fecha de la orden llega de AS400 como `060826` (MMDDYY) y se debería mostrar `06/08/2026`.
+- **Solución propuesta:** watchdog parsea `Order Date: 060826` → ISO `2026-06-08`; pickd la formatea a `MM/DD/YYYY` en la UI. Hoy el watcher ni extrae la order date.
+- **❓ Bloqueantes:** (a) ¿formato de salida definitivo `MM/DD/YYYY`? (b) ¿dónde mostrarla (DoubleCheckView, OrdersView, ambas)? (c) ¿guardarla en una columna nueva de `picking_lists` (ej. `order_date date`) o solo en `notes`/`combine_meta`? (recomiendo columna para poder ordenar/filtrar).
+- **Origen:** sesión 2026-06-09.
+
+### 68. Al reiniciar la MacBook: Safari (UI) a la derecha + AS400 a la izquierda <!-- id: idea-135 --> (repo: watchdog-pickd)
+- **Problema:** Al reiniciar la MacBook de Bay 2 se quiere que quede Safari con la interfaz en la mitad derecha de la pantalla y Mocha/AS400 en la mitad izquierda, listos.
+- **Solución propuesta:** en `scripts/start_pickd.py`, tras abrir ambos, posicionar ventanas vía AppleScript (`bounds` de Safari y de Mocha a media pantalla cada uno).
+- **❓ Bloqueantes:** (a) ¿una sola pantalla o hay monitor externo? (b) ¿proporción exacta 50/50 o algo distinto? (c) ¿siempre Safari (no otro browser)?
+- **Origen:** sesión 2026-06-09.
+
+### 69. Captura/envío automático de órdenes — planificar <!-- id: idea-136 --> (repo: watchdog-pickd)
+- **Estado:** parcialmente hecho — el auto-scanner ya **captura** 880112→ cada 20 min a una cache local (no envía). Falta planear el **auto-envío** a PickD.
+- **Plan recomendado (a confirmar):** modo auto-envío que cree la picking list directamente; **retener para revisión** (no enviar) las órdenes con `total_mismatch` (el guard de Sub-Total) o `sku_not_found`, para no mandar a ciegas.
+- **❓ Bloqueantes:** (a) ¿auto-enviar TODO, o solo las "limpias" y dejar las dudosas en una bandeja? (b) ¿status inicial al auto-enviar (`ready_to_double_check`)? (c) ¿necesita aprobación humana por orden, o full-auto con retención solo de las dudosas?
+- **Origen:** sesión 2026-06-09.
+
+### 70. Número de cantidad de distribución grande, al costado de LINE/TOWER/unassigned <!-- id: idea-137 -->
+- **Problema:** En DoubleCheckView, la cantidad de cada distribución debe verse **grande y reconocible de lejos**, al costado de la etiqueta LINE / TOWER / unassigned, como los otros números grandes (qty, ROW).
+- **Contexto:** hoy las tiles de distribución son chicas (`.dist .tile` en la vista). Se quiere el número prominente.
+- **❓ Bloqueantes:** (a) ¿el número grande es `units_each` por tile o el total por tipo? (b) ¿se mantiene el desglose por tipo o se colapsa en un solo número por ubicación?
+- **Origen:** sesión 2026-06-09.
+
+### 71. Notas del watcher en rojo en DoubleCheckView y Orders <!-- id: idea-138 -->
+- **Problema:** Las notas que extrae el watcher (ej. "FREE FREIGHT" de Order Comments) deben verse en **rojo**, debajo del header "Order #880083 / 880121 · Jun 9, 2026 · 3:47 PM", tanto en DoubleCheckView como en Orders.
+- **Contexto:** el watcher ya guarda Order Comments en `picking_lists.notes` (idea reciente). Falta mostrarlas con estilo destacado.
+- **❓ Bloqueantes:** (a) ¿todas las notas en rojo, o solo las de origen watcher (distinguir de notas manuales)? (b) ¿algún límite de longitud / truncado?
+- **Origen:** sesión 2026-06-09.
+
+### 72. DoubleCheckView: mostrar últimas 3 letras de la OTRA orden cuando son 2 mergeadas <!-- id: idea-139 -->
+- **Problema:** Cuando una orden es merge de exactamente **2**, mostrar las últimas 3 cifras/letras de la otra order number (ej. `…121`) en DoubleCheckView. Cuando son **más de 2**, dejar como se muestra hoy (lista completa "X / Y / Z").
+- **❓ Bloqueantes:** (a) ¿"últimas 3" siempre, o el sufijo que las diferencie? (los números suelen compartir prefijo `8800…`). (b) ¿formato exacto del badge (ej. `+…121`)?
+- **Origen:** sesión 2026-06-09.
+
+---
+
 ## P2 — Medio (conveniencia)
 
 - [x] ~~**Orders PDF preview full-width mobile**~~ ✅ 2026-05-27 — Implementado: sublocation inline a la derecha del SKU en ConsolidationCard + sticky header sub-agrupado por sublocation. PlaceSkuTab tile con chip. Commits aea31b5, 95ab3bb. <!-- id: idea-113 -->
