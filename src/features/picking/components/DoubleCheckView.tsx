@@ -232,6 +232,27 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     },
   });
 
+  // Watcher-origin note: the import daemon stores the AS400 "Order Comments"
+  // (e.g. "FREE FREIGHT") in picking_lists.notes. Manual notes live elsewhere
+  // (correction_notes / picking_list_notes), so this column is the watcher's —
+  // shown in red below the order header.
+  const { data: watcherNote = null } = useQuery({
+    queryKey: ['picking_list_watcher_note', activeListId],
+    enabled: !!activeListId,
+    staleTime: 60_000,
+    queryFn: async (): Promise<string | null> => {
+      if (!activeListId) return null;
+      const { data, error } = await supabase
+        .from('picking_lists')
+        .select('notes')
+        .eq('id', activeListId)
+        .single();
+      if (error) throw error;
+      const n = (data?.notes ?? '').trim();
+      return n || null;
+    },
+  });
+
   const { data: waitingConflicts } = useWaitingConflicts(
     cartItems,
     activeListId ?? null,
@@ -1304,6 +1325,14 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               </div>
             )}
           </div>
+          {watcherNote && (
+            <div
+              className="mt-1 max-w-[90%] text-center text-xs font-bold text-red-400"
+              title="Order note from import"
+            >
+              {watcherNote}
+            </div>
+          )}
           {/* Progress Text */}
           <div className="flex items-center gap-3 mt-1">
             <span
