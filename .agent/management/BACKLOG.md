@@ -119,10 +119,9 @@
 - **Plan:** diagnosticar el guard que muestra el pop-up "libera la orden"; cambiarlo a (a) reentrada sin fricción a la misma orden y (b) confirm (no bloqueo) para otra, preservando take-over.
 - **Origen:** sesión 2026-06-09.
 
-### 64. Búsqueda de consolidation: normalizar como la de stock <!-- id: idea-131 --> (probablemente ya resuelto en #107)
-- **Problema:** no matchea sin guion (`034664BR` no encuentra `03-4664BR`).
-- **Decisión operador:** que **busque similar a la búsqueda de stock**.
-- **Nota:** el commit `090f999` (#107) ya hizo *"dash-insensitive consolidation search"* en `main`. **Verificar en prod**; si ya funciona, marcar como ✅. Si no, reusar la normalización de stock (`strip [-\s]` + lowercase, idea-074).
+### 64. Búsqueda de consolidation <!-- id: idea-131 -->
+- **Dash-insensitive:** ✅ **YA RESUELTO** (#107, `searchCandidates.ts`). Verificado con test `searchCandidates.test.ts` ("03398 → 03-3982BL" pasa). El guion NO es el problema.
+- **Pendiente (decisión operador 2026-06-09):** "buscar en TODO el stock de bikes." El reporte "03398 no muestra 03-3982BL" es de **alcance**: consolidation solo busca su set de candidatos (RPCs por modo + only_bikes). Falta: cuando hay query y no hay candidato, también buscar en el stock de bikes completo (reusar el RPC de stock search, idea-074) y mostrar esos resultados. **Feature media — siguiente foco.**
 - **Origen:** sesión 2026-06-09.
 
 ### ~~65. Overlays/menus con blur + scroll-lock~~ <!-- id: idea-132 --> ✅ ya aplicado (#107, 2026-06-09)
