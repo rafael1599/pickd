@@ -246,6 +246,12 @@ describe('searchCandidates', () => {
       expect(searchCandidates(input, '033768').map((x) => x.sku)).toEqual(['03-3768BL']);
     });
 
+    it('matches a dash-less partial prefix (operator report: 03398 → 03-3982BL)', () => {
+      const input = [c({ sku: '03-3982BL', item_name: 'SOME BIKE' }), c({ sku: '99-0000ZZ' })];
+      expect(searchCandidates(input, '03398').map((x) => x.sku)).toEqual(['03-3982BL']);
+      expect(searchCandidates(input, '033982').map((x) => x.sku)).toEqual(['03-3982BL']);
+    });
+
     it('still matches with the dash present', () => {
       const input = [c({ sku: '03-3768BL' })];
       expect(searchCandidates(input, '03-3768BL').map((x) => x.sku)).toEqual(['03-3768BL']);
