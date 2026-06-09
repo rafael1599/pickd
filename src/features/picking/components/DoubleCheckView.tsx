@@ -18,6 +18,7 @@ import { SlideToConfirm } from '../../../components/ui/SlideToConfirm.tsx';
 import { useConfirmation } from '../../../context/ConfirmationContext.tsx';
 import { usePickingSession } from '../../../context/PickingContext.tsx';
 import { useInventory } from '../../inventory/hooks/InventoryProvider.tsx';
+import { orderHeaderLabel, splitOrderNumbers } from '../utils/orderLabel.ts';
 import {
   type DistributionItem,
   STORAGE_TYPE_LABELS,
@@ -1251,25 +1252,21 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         <div className="flex flex-col items-center">
           <div className="flex items-center gap-2 relative">
             {(() => {
-              const orderList = orderNumber
-                ? orderNumber
-                    .split(' / ')
-                    .map((s) => s.trim())
-                    .filter(Boolean)
-                : [];
-              const hasMultiple = orderList.length > 1;
-              const label = orderNumber
-                ? `#${orderList[0]}`
-                : activeListId
-                  ? `#${activeListId.slice(-6).toUpperCase()}`
-                  : 'STOCK DEDUCTION';
-              if (!hasMultiple) {
+              const fallback = activeListId
+                ? `#${activeListId.slice(-6).toUpperCase()}`
+                : 'STOCK DEDUCTION';
+              const header = orderHeaderLabel(orderNumber, fallback);
+              // single (0/1 orders) and pair (exactly 2 → "083 / 121") both render
+              // as a static chip; only 3+ get the +N badge + dropdown.
+              if (header.kind !== 'many') {
                 return (
                   <span className="text-xs font-mono font-bold text-accent/90 tracking-widest bg-accent/10 px-2 py-0.5 rounded border border-accent/20">
-                    {label}
+                    {header.label}
                   </span>
                 );
               }
+              const label = header.label;
+              const orderList = splitOrderNumbers(orderNumber);
               return (
                 <button
                   onClick={() => setOrderListOpen((v) => !v)}

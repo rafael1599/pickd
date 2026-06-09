@@ -101,6 +101,71 @@
 
 ---
 
+## Reportado 2026-06-09 — batch operador (corto plazo)
+
+> 12 ítems reportados por el operador. Refinados con sus respuestas el 2026-06-09. Repo indicado donde no sea pickd.
+
+### ~~61. Separar (un-merge) órdenes combinadas~~ <!-- id: idea-128 --> ❌ descartado 2026-06-09
+- Descartado por el operador ("olvida 128").
+
+### 62. Botón "Stock" desde DoubleCheckView no oculta la vista <!-- id: idea-129 -->
+- **Problema:** al presionar el botón de stock dentro de DoubleCheckView, la vista double-check no desaparece.
+- **Decisión operador:** debe comportarse **como si presionara la X** (cerrar double-check) **y navegara a stock**, abriendo la ubicación correspondiente si venía de otra.
+- **Origen:** sesión 2026-06-09.
+
+### 63. Verification Board → reabrir orden: misma sin fricción, distinta con confirmar <!-- id: idea-130 -->
+- **Problema:** estando en stock, abrir Verification Board y seleccionar **la misma** orden que trabajaba → pop-up "libera primero". Debería reentrar directo a DoubleCheckView. Si es **distinta**, solo advertencia + confirmar.
+- **Decisión operador:** **revisar primero el flujo actual.** Al confirmar abrir otra orden: mostrar DoubleCheckView con la **nueva** orden; la **anterior queda en Verification Board** (no se elimina). **No perder** las validaciones existentes (ej. take-over) — deben seguir funcionando.
+- **Plan:** diagnosticar el guard que muestra el pop-up "libera la orden"; cambiarlo a (a) reentrada sin fricción a la misma orden y (b) confirm (no bloqueo) para otra, preservando take-over.
+- **Origen:** sesión 2026-06-09.
+
+### 64. Búsqueda de consolidation <!-- id: idea-131 -->
+- **Dash-insensitive:** ✅ **YA RESUELTO** (#107, `searchCandidates.ts`). Verificado con test `searchCandidates.test.ts` ("03398 → 03-3982BL" pasa). El guion NO es el problema.
+- **Pendiente (decisión operador 2026-06-09):** "buscar en TODO el stock de bikes." El reporte "03398 no muestra 03-3982BL" es de **alcance**: consolidation solo busca su set de candidatos (RPCs por modo + only_bikes). Falta: cuando hay query y no hay candidato, también buscar en el stock de bikes completo (reusar el RPC de stock search, idea-074) y mostrar esos resultados. **Feature media — siguiente foco.**
+- **Origen:** sesión 2026-06-09.
+
+### ~~65. Overlays/menus con blur + scroll-lock~~ <!-- id: idea-132 --> ✅ ya aplicado (#107, 2026-06-09)
+- El operador confirma que ya se aplica ("ya la aplicamos"). Commit `090f999` añadió *blur/scroll-lock overlay menus*.
+
+### 66. Bug de dirección (imagen de Roman) <!-- id: idea-133 --> (esperando datos)
+- **Problema:** bug en la shipping address; Roman envió una imagen.
+- **Estado:** se aclarará más adelante; queda registrado. **Pendiente:** imagen de Roman + order_number para reproducir. Hipótesis: parsing Ship-to en watchdog (`parse_shipping_address_struct`) o render en pickd.
+- **Origen:** sesión 2026-06-09.
+
+### 67. Formatear Order Date de AS400 (060826 → 06/08/2026) <!-- id: idea-134 --> (repo: watchdog-pickd + pickd)
+- **Problema:** la fecha llega como `060826` (MMDDYY); mostrar `06/08/2026`.
+- **Decisión operador:** mostrarla en **Orders** y en el **picking summary** de una orden específica.
+- **Plan:** watchdog extrae `Order Date:` y la normaliza (ISO `2026-06-08`); guardarla en `picking_lists.order_date date` (columna nueva — actualizar los 4 lugares de la convención); pickd la formatea `MM/DD/YYYY` en Orders + picking summary.
+- **Origen:** sesión 2026-06-09.
+
+### 68. Al reiniciar la MacBook: Safari (UI) derecha + AS400 izquierda, 50/50 <!-- id: idea-135 --> (repo: watchdog-pickd)
+- **Decisión operador:** **una sola pantalla**, **50/50 exacto**, **siempre Safari**.
+- **Plan:** en `scripts/start_pickd.py`, tras abrir ambos, posicionar ventanas vía AppleScript: Safari mitad derecha, Mocha/AS400 mitad izquierda (usar `bounds` con el tamaño de la pantalla principal).
+- **Origen:** sesión 2026-06-09.
+
+### 69. Auto-captura/envío de órdenes — refinar <!-- id: idea-136 --> (repo: watchdog-pickd)
+- **Estado:** el auto-scanner ya captura 880112→ cada 20 min a cache local. **Decisión operador:** "es lo que ya implementamos pero falta **refinar**."
+- **Pendiente de definir el refinamiento** (bloqueante menor, pedir specs al priorizar): ¿auto-envío a PickD?, ¿retener dudosas (`total_mismatch` / `sku_not_found`)?, cadencia/horario, status inicial.
+- **Origen:** sesión 2026-06-09.
+
+### 70. Número de cantidad de distribución: grande, al costado (fuera del gráfico) <!-- id: idea-137 -->
+- **Problema:** el número de cantidad de cada distribución debe verse mucho más grande.
+- **Decisión operador:** **mantener** la representación gráfica, pero **quitar el número de adentro** del gráfico y **colocarlo al costado** (LINE/TOWER/unassigned) para aprovechar el espacio y que se vea **muchísimo más grande**, reconocible de lejos como los otros números.
+- **Plan:** en DoubleCheckView, mover el valor de `.dist .tile` fuera del tile, a un número grande adyacente a la etiqueta de ubicación.
+- **Origen:** sesión 2026-06-09.
+
+### 71. Notas del watcher en rojo (solo origen watcher) <!-- id: idea-138 -->
+- **Problema:** las notas extraídas por el watcher (ej. "FREE FREIGHT") deben verse en **rojo**, bajo el header "Order #… · fecha", en DoubleCheckView y Orders.
+- **Decisión operador:** **solo** las notas de **origen watcher**, distinguiéndolas de las manuales.
+- **Plan:** necesitamos marcar el origen. Hoy el watcher escribe Order Comments en `picking_lists.notes` (texto plano, indistinguible de notas manuales). Decidir modelo: (a) columna `watcher_notes` en `picking_lists`, o (b) `picking_list_notes` con campo `source` ('watcher'|'manual'). Definir el dato antes de la UI.
+- **Origen:** sesión 2026-06-09.
+
+### 72. DoubleCheckView: últimos 3 dígitos de cada orden mergeada, separados por "/" <!-- id: idea-139 -->
+- **Decisión operador:** cuando son **exactamente 2** mergeadas, mostrar los **últimos 3 dígitos de cada una separados por "/"** (ej. `083 / 121`). Cuando son **más de 2**, dejar como hoy (lista completa).
+- **Origen:** sesión 2026-06-09.
+
+---
+
 ## P2 — Medio (conveniencia)
 
 - [x] ~~**Orders PDF preview full-width mobile**~~ ✅ 2026-05-27 — Implementado: sublocation inline a la derecha del SKU en ConsolidationCard + sticky header sub-agrupado por sublocation. PlaceSkuTab tile con chip. Commits aea31b5, 95ab3bb. <!-- id: idea-113 -->
