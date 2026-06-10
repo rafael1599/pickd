@@ -2,12 +2,15 @@
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
 > Actualizado: 2026-05-21 (compactado — 30+ items archivados desde la última pasada).
+> **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
+> del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
 
 ---
 
 ## P1 — Alto (operación diaria)
 
-### 53. SKU normalization at intake — close idea-092 path 1 <!-- id: idea-101 -->
+### ~~53. SKU normalization at intake — close idea-092 path 1~~ <!-- id: idea-101 --> ✅ 2026-06-10 (watchdog #35 — premisa verificada como ya cubierta)
+- **Resolución 2026-06-10:** verificado con tests que `_to_cart_items` del watchdog **ya matchea normalizado desde su commit inicial** (`034664BR` ↔ `03-4664BR` resuelve al canónico en el intake; no llega UNREG). El incidente que originó la idea fue un **typo de dígito** (4664 vs 4666) — correctamente manual, la normalización no adivina dígitos. Lo único que faltaba era la nota de riesgo del propio spec: **colisiones** (dos SKUs canónicos con la misma forma normalizada) se elegían en silencio; ahora se dejan sin resolver para que el picker decida (watchdog #35, equivale al contrato LIMIT-2 de `lookup_canonical_sku`). No hace falta llamar al RPC: la lógica local es equivalente y batched.
 - **Hallazgo verificado 2026-05-01:** la flag `sku_not_found` se setea EN watchdog al ingestar el PDF (vive como campo dentro del JSONB `picking_lists.items`). Pickd la lee, nunca la escribe — confirmado en migraciones (`process_picking_list`, `reopen_completed_orders` solo leen) y en src/ (todas las refs en DoubleCheckView/CorrectionModeView son lecturas). Conclusión: **no hay un fallback client-side viable** para auto-corregir el guion. El item JSON es inmutable post-intake.
 - **Síntoma operativo:** `034664BR` desde el PDF queda como UNREG en DoubleCheckView aunque `03-4664BR` exista en `sku_metadata`. El picker tiene que hacer click en "Use 03-4666BR instead" (botón ya entregado en idea-092 path 2). 100% determinístico, no debería requerir intervención manual.
 - **Solución única:** path (1) de idea-092 — watchdog (otro repo `watchdog-pickd`) llama `lookup_canonical_sku(p_raw)` (RPC ya disponible en migración `20260430160000`) antes de armar `picking_lists.items`. Si match único, sustituye el SKU + registra la sustitución en `combine_meta` o `notes` para auditar. Si match múltiple, deja el original (ambiguous → manual).
@@ -38,8 +41,8 @@
 - **`register_new_sku`** sigue creando placeholders con qty=0/is_active=true, no se ve afectado.
 - **No se requiere botón "Reactivate"** — descartado.
 
-### 46. Auto-resolver SKU format mismatches en intake / pick-time <!-- id: idea-092 -->
-- **Estado parcial 2026-04-30:** ✅ entregado el path (2) — RPC `lookup_canonical_sku(p_raw)` en `supabase/migrations/20260430160000_lookup_canonical_sku.sql` + hook `useSkuSuggestion` + botón "Use {canonical} instead" en `CorrectionModeView` cuando el item está `sku_not_found`. Pendiente: path (1) Watchdog intake-time normalization (otro repo: `watchdog-pickd`) — `lookup_canonical_sku` ya está disponible; falta llamarla desde el parser antes de crear el `picking_lists.items`.
+### ~~46. Auto-resolver SKU format mismatches en intake / pick-time~~ <!-- id: idea-092 --> ✅ 2026-06-10 (cerrado junto con idea-101)
+- **Estado parcial 2026-04-30:** ✅ entregado el path (2) — RPC `lookup_canonical_sku(p_raw)` en `supabase/migrations/20260430160000_lookup_canonical_sku.sql` + hook `useSkuSuggestion` + botón "Use {canonical} instead" en `CorrectionModeView` cuando el item está `sku_not_found`. **Path (1) cerrado 2026-06-10:** el intake del watchdog ya normalizaba desde siempre (ver idea-101); se agregó la guarda de ambigüedad (watchdog #35).
 - **Contexto:** Las órdenes llegan con SKUs que no coinciden con `sku_metadata` solo por formato (guion/espacios faltantes). Ej: catalog tiene `09-4802BK` pero el PDF/sistema upstream pone `094802BK`. El picker hoy resuelve manualmente con un `Replaced X → Y` correction y razón "Sku def" / "Wrong name". En las últimas 2 semanas: `094802BK→09-4802BK` (2 órdenes, 2 customers el mismo día) y `033769BLD→03-3769BLD` (1 orden). Detección: la versión normalizada (lowercase + strip `[-\s]`) de ambos SKUs es idéntica → no es variant real, es ruido de formato.
 - **Problema:** trabajo manual recurrente del picker para algo que la DB puede resolver sola. Cada caso suma ~30s + un correction note que infla el dashboard cross-team.
 - **Solución propuesta — dos puntos de entrada que ya tocan la DB:**
@@ -133,6 +136,12 @@
 - **Hecho:** watchdog extrae `Order Date:` (MMDDYY → ISO) con `parser.parse_order_date` y la escribe en la columna nueva `picking_lists.source_order_date date` (migración `20260610120000`, aplicada a prod; 4 lugares actualizados). pickd la muestra formateada ("Order date: Jun 8, 2026") en el header de DoubleCheckView y en el board card; el watcher la muestra en su tarjeta local.
 - **Bonus:** el watcher ahora aplica sus migraciones de esquema solo (`migrations.py` vía `SUPABASE_DB_URL`, paso [3/6] del botón ⟳ Update) — PostgREST descarta columnas desconocidas en silencio, así que la columna queda garantizada desde el update.
 - **Origen:** sesión 2026-06-09; implementado 2026-06-10.
+
+### ~~75. Watcher: "2 pallets · 20 units" en vez de item count~~ <!-- id: idea-142 --> ✅ 2026-06-10 (watchdog #34) — input: 2026-06-10 ~14:45 NY
+- La tarjeta del watcher mostraba "10 items · 20 units"; ahora estima pallets con el port de la regla de PickD (parts-only = 1; bikes = ceil/12, parts apilan) usando el catálogo de bikes cacheado 1 h. Fail-open a "items · units" sin DB.
+
+### ~~76. Watcher: dot AS400 gris aunque todo funcione~~ <!-- id: idea-143 --> ✅ 2026-06-10 (watchdog #36) — input: 2026-06-10 ~15:05 NY
+- El círculo solo se coloreaba con Connect/Check manual. Ahora un health beacon alimentado por cada interacción real (scanner, capturas, connect) lo pone verde/rojo vía `GET /api/as400` en el poll de 8 s; señal >30 min sin actividad degrada a gris.
 
 ### ~~74. Batch de mejoras double-check + watcher (lista del operador 2026-06-10)~~ <!-- id: idea-141 --> ✅ 2026-06-10
 Implementado en pickd **#113** y watchdog-pickd **#32/#33** (todo en main):
