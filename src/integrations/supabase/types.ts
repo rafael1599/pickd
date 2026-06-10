@@ -1015,6 +1015,7 @@ export type Database = {
           reopened_by: string | null;
           shipping_type: string | null;
           source: string | null;
+          source_order_date: string | null;
           status: string | null;
           total_units: number | null;
           total_weight_lbs: number | null;
@@ -1049,6 +1050,7 @@ export type Database = {
           reopened_by?: string | null;
           shipping_type?: string | null;
           source?: string | null;
+          source_order_date?: string | null;
           status?: string | null;
           total_units?: number | null;
           total_weight_lbs?: number | null;
@@ -1083,6 +1085,7 @@ export type Database = {
           reopened_by?: string | null;
           shipping_type?: string | null;
           source?: string | null;
+          source_order_date?: string | null;
           status?: string | null;
           total_units?: number | null;
           total_weight_lbs?: number | null;
