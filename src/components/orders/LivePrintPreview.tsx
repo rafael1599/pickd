@@ -14,6 +14,8 @@ export const TRANSPORT_COLORS: Record<string, { bg: string; text: string }> = {
 
 interface LivePrintPreviewProps {
   orderNumber?: string;
+  /** Watcher-origin order note (AS400 Order Comments); shown in red, screen-only. */
+  watcherNote?: string | null;
   customerName: string;
   street: string;
   city: string;
@@ -45,6 +47,7 @@ function unitsLines(bikes: number, parts: number): string[] {
 
 export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
   orderNumber,
+  watcherNote,
   customerName,
   street,
   city,
@@ -324,6 +327,11 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
               minute: '2-digit',
               hour12: true,
             })}
+          </p>
+        )}
+        {watcherNote && watcherNote.trim() && (
+          <p className="text-red-500 text-sm font-bold mt-1 tracking-wide animate-soft-in">
+            {watcherNote.trim()}
           </p>
         )}
       </div>
