@@ -2091,13 +2091,24 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                       : 'text-emerald-400/70'
                                 }`}
                               >
-                                <div className="flex items-center gap-2 mt-0.5">
+                                <div className="flex items-center gap-3 mt-0.5">
+                                  {/* idea-137: count OUTSIDE the glyph, big and readable
+                                      from afar (like the LOC number) — the glyph shape
+                                      alone identifies LINE/TOWER/PALLET. */}
                                   {planSteps.map((step, i) => (
-                                    <DistributionGlyph
-                                      key={i}
-                                      type={step.type as DistributionItem['type']}
-                                      unitsEach={step.units_each}
-                                    />
+                                    <div key={i} className="flex items-center gap-1">
+                                      <DistributionGlyph
+                                        type={step.type as DistributionItem['type']}
+                                        unitsEach={step.units_each}
+                                        showNumber={false}
+                                      />
+                                      <span
+                                        className="text-3xl md:text-5xl font-black tabular-nums leading-none"
+                                        style={{ fontFamily: 'var(--font-heading)' }}
+                                      >
+                                        {step.units_each}
+                                      </span>
+                                    </div>
                                   ))}
                                 </div>
                               </div>
