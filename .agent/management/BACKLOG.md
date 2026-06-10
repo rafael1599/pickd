@@ -132,11 +132,23 @@
 - **Estado:** se aclarará más adelante; queda registrado. **Pendiente:** imagen de Roman + order_number para reproducir. Hipótesis: parsing Ship-to en watchdog (`parse_shipping_address_struct`) o render en pickd.
 - **Origen:** sesión 2026-06-09.
 
-### 67. Formatear Order Date de AS400 (060826 → 06/08/2026) <!-- id: idea-134 --> (repo: watchdog-pickd + pickd)
-- **Problema:** la fecha llega como `060826` (MMDDYY); mostrar `06/08/2026`.
-- **Decisión operador:** mostrarla en **Orders** y en el **picking summary** de una orden específica.
-- **Plan:** watchdog extrae `Order Date:` y la normaliza (ISO `2026-06-08`); guardarla en `picking_lists.order_date date` (columna nueva — actualizar los 4 lugares de la convención); pickd la formatea `MM/DD/YYYY` en Orders + picking summary.
-- **Origen:** sesión 2026-06-09.
+### ~~67. Formatear Order Date de AS400 (060826 → 06/08/2026)~~ <!-- id: idea-134 --> ✅ 2026-06-10 (#113 + watchdog #32)
+- **Hecho:** watchdog extrae `Order Date:` (MMDDYY → ISO) con `parser.parse_order_date` y la escribe en la columna nueva `picking_lists.source_order_date date` (migración `20260610120000`, aplicada a prod; 4 lugares actualizados). pickd la muestra formateada ("Order date: Jun 8, 2026") en el header de DoubleCheckView y en el board card; el watcher la muestra en su tarjeta local.
+- **Bonus:** el watcher ahora aplica sus migraciones de esquema solo (`migrations.py` vía `SUPABASE_DB_URL`, paso [3/6] del botón ⟳ Update) — PostgREST descarta columnas desconocidas en silencio, así que la columna queda garantizada desde el update.
+- **Origen:** sesión 2026-06-09; implementado 2026-06-10.
+
+### ~~74. Batch de mejoras double-check + watcher (lista del operador 2026-06-10)~~ <!-- id: idea-141 --> ✅ 2026-06-10
+Implementado en pickd **#113** y watchdog-pickd **#32/#33** (todo en main):
+- **Pallet X/Y** en DoubleCheckView (Y = total de pallets de la orden).
+- **Resúmenes con pallets + unidades** (sin "N items"): board card (`getOrderUnits`) y footer de PickingSummaryModal.
+- **Última nota en ROJO en la vista principal** (board card, sin abrir la orden) — batched: una query para todos los list_ids visibles (`useLatestNotesByList` + `LatestNotesProvider`; staleTime 10s, sin realtime dedicado por ahora).
+- **FedEx púrpura:** en pickd DoubleCheckView (badge FDX + tinte, `shipping_type ?? autoClassifyShippingType`); en el watcher con **ambas** fuentes (`Ship Via` AS400 autoritativo + heurística ≥5 unidades, `pipeline.classify_shipping`) — clasificación local-only, no se escribe a PickD.
+- **Watcher: nota roja** (`order_comments`) prominente en la tarjeta principal.
+- **Watcher: auto-archivado** de candidatas sin enviar >8 días (`AUTO_ARCHIVE_DAYS`, recuperables del archivo local).
+- **Watcher: toast verde** prominente al enviar a PickD.
+- **Watcher: Verification Board espejo (fase 1)** — `GET /api/verification` (TTL 30s, fail-safe), botón con contador rojo en vivo (sube al enviar, baja al completar), modal read-only agrupado por status. Posible fase 2: zonas completas estilo board.
+- **Watcher: skip de órdenes VOID/vacías (#33)** — pantalla completa (END OF ORDER) + 0 items → el cursor avanza (`scanned_store.skip`) sin crear tarjeta; la captura manual devuelve 422 claro. Antes el scanner reintentaba la misma VOID cada 20 min para siempre (reportado con la #880138).
+- **Origen:** lista del operador, sesión 2026-06-10.
 
 ### 68. Al reiniciar la MacBook: Safari (UI) derecha + AS400 izquierda, 50/50 <!-- id: idea-135 --> (repo: watchdog-pickd)
 - **Decisión operador:** **una sola pantalla**, **50/50 exacto**, **siempre Safari**.
