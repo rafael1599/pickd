@@ -100,6 +100,9 @@ const FRONT_ALT = '#F0B260'; // slightly lighter front for alternating layers
 interface GlyphProps {
   type: DistributionItem['type'];
   unitsEach: number;
+  /** Hide the small count drawn inside the glyph — for views that render the
+   *  number large NEXT to the glyph instead (idea-137, Double-Check pick plan). */
+  showNumber?: boolean;
 }
 
 /**
@@ -108,16 +111,16 @@ interface GlyphProps {
  * Exported so other views (e.g. the Double-Check pick plan) can render the same
  * graphical representation used in stock view.
  */
-export function DistributionGlyph({ type, unitsEach }: GlyphProps) {
-  if (type === 'TOWER') return <JengaTower n={unitsEach} />;
-  if (type === 'PALLET') return <JengaPallet n={unitsEach} />;
-  if (type === 'OTHER') return <JengaCrate n={unitsEach} />;
+export function DistributionGlyph({ type, unitsEach, showNumber = true }: GlyphProps) {
+  if (type === 'TOWER') return <JengaTower n={unitsEach} showNumber={showNumber} />;
+  if (type === 'PALLET') return <JengaPallet n={unitsEach} showNumber={showNumber} />;
+  if (type === 'OTHER') return <JengaCrate n={unitsEach} showNumber={showNumber} />;
   // LINE → standing stick.
-  return <JengaStick n={unitsEach} />;
+  return <JengaStick n={unitsEach} showNumber={showNumber} />;
 }
 
 /** Single standing Jenga block — isometric 3D look. */
-function JengaStick({ n }: { n: number }) {
+function JengaStick({ n, showNumber = true }: { n: number; showNumber?: boolean }) {
   return (
     <div className="relative inline-block" title={`Line · ${n}`}>
       <svg width="24" height="44" viewBox="0 0 24 44" aria-hidden>
@@ -147,18 +150,20 @@ function JengaStick({ n }: { n: number }) {
         <ellipse cx="11" cy="42" rx="9" ry="1.2" fill="black" opacity="0.22" />
       </svg>
       {/* Number overlay on the front face */}
-      <span
-        className="absolute left-[3px] top-[9px] w-[14px] h-[32px] flex items-center justify-center text-[11px] font-black tabular-nums leading-none pointer-events-none"
-        style={{ fontFamily: 'var(--font-heading)', color: '#3C1A04' }}
-      >
-        {n}
-      </span>
+      {showNumber && (
+        <span
+          className="absolute left-[3px] top-[9px] w-[14px] h-[32px] flex items-center justify-center text-[11px] font-black tabular-nums leading-none pointer-events-none"
+          style={{ fontFamily: 'var(--font-heading)', color: '#3C1A04' }}
+        >
+          {n}
+        </span>
+      )}
     </div>
   );
 }
 
 /** Jenga tower — 5 alternating crisscross layers. */
-function JengaTower({ n }: { n: number }) {
+function JengaTower({ n, showNumber = true }: { n: number; showNumber?: boolean }) {
   const layers = [0, 1, 2, 3, 4]; // bottom → top
   const layerH = 7;
   const baseY = 6;
@@ -227,23 +232,25 @@ function JengaTower({ n }: { n: number }) {
         })}
       </svg>
       {/* Number patch overlaid center of the tower */}
-      <span
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded-sm text-[10px] font-black tabular-nums leading-none pointer-events-none"
-        style={{
-          fontFamily: 'var(--font-heading)',
-          backgroundColor: '#3C1A04',
-          color: '#FCD9A0',
-        }}
-      >
-        {n}
-      </span>
+      {showNumber && (
+        <span
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded-sm text-[10px] font-black tabular-nums leading-none pointer-events-none"
+          style={{
+            fontFamily: 'var(--font-heading)',
+            backgroundColor: '#3C1A04',
+            color: '#FCD9A0',
+          }}
+        >
+          {n}
+        </span>
+      )}
     </div>
   );
 }
 
 /** Pallet — wooden base with 3 visible planks + a box stacked on top.
  *  Iconic warehouse pallet, isometric 3D look. */
-function JengaPallet({ n }: { n: number }) {
+function JengaPallet({ n, showNumber = true }: { n: number; showNumber?: boolean }) {
   return (
     <div className="relative inline-block" title={`Pallet · ${n}`}>
       <svg width="42" height="48" viewBox="0 0 42 48" aria-hidden>
@@ -343,18 +350,20 @@ function JengaPallet({ n }: { n: number }) {
         <ellipse cx="20" cy="45" rx="17" ry="1.5" fill="black" opacity="0.22" />
       </svg>
       {/* Number on the box face */}
-      <span
-        className="absolute left-[9px] top-[8px] w-[20px] h-[18px] flex items-center justify-center text-[11px] font-black tabular-nums leading-none pointer-events-none"
-        style={{ fontFamily: 'var(--font-heading)', color: '#3C1A04' }}
-      >
-        {n}
-      </span>
+      {showNumber && (
+        <span
+          className="absolute left-[9px] top-[8px] w-[20px] h-[18px] flex items-center justify-center text-[11px] font-black tabular-nums leading-none pointer-events-none"
+          style={{ fontFamily: 'var(--font-heading)', color: '#3C1A04' }}
+        >
+          {n}
+        </span>
+      )}
     </div>
   );
 }
 
 /** Generic crate — fallback for `OTHER` type. Plain isometric cube. */
-function JengaCrate({ n }: { n: number }) {
+function JengaCrate({ n, showNumber = true }: { n: number; showNumber?: boolean }) {
   return (
     <div className="relative inline-block" title={`Other · ${n}`}>
       <svg width="32" height="40" viewBox="0 0 32 40" aria-hidden>
@@ -382,12 +391,14 @@ function JengaCrate({ n }: { n: number }) {
         {/* Ground shadow */}
         <ellipse cx="15" cy="35" rx="12" ry="1.4" fill="black" opacity="0.22" />
       </svg>
-      <span
-        className="absolute left-[4px] top-[10px] w-[18px] h-[22px] flex items-center justify-center text-[11px] font-black tabular-nums leading-none pointer-events-none"
-        style={{ fontFamily: 'var(--font-heading)', color: '#3C1A04' }}
-      >
-        {n}
-      </span>
+      {showNumber && (
+        <span
+          className="absolute left-[4px] top-[10px] w-[18px] h-[22px] flex items-center justify-center text-[11px] font-black tabular-nums leading-none pointer-events-none"
+          style={{ fontFamily: 'var(--font-heading)', color: '#3C1A04' }}
+        >
+          {n}
+        </span>
+      )}
     </div>
   );
 }
