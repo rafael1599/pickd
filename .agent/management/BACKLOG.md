@@ -154,14 +154,24 @@
 - **Plan:** en DoubleCheckView, mover el valor de `.dist .tile` fuera del tile, a un número grande adyacente a la etiqueta de ubicación.
 - **Origen:** sesión 2026-06-09.
 
-### 71. Notas del watcher en rojo (solo origen watcher) <!-- id: idea-138 -->
-- **Problema:** las notas extraídas por el watcher (ej. "FREE FREIGHT") deben verse en **rojo**, bajo el header "Order #… · fecha", en DoubleCheckView y Orders.
-- **Decisión operador:** **solo** las notas de **origen watcher**, distinguiéndolas de las manuales.
-- **Plan:** necesitamos marcar el origen. Hoy el watcher escribe Order Comments en `picking_lists.notes` (texto plano, indistinguible de notas manuales). Decidir modelo: (a) columna `watcher_notes` en `picking_lists`, o (b) `picking_list_notes` con campo `source` ('watcher'|'manual'). Definir el dato antes de la UI.
+### ~~71. Notas del watcher en rojo~~ <!-- id: idea-138 --> ✅ 2026-06-09 (interino)
+- **Hecho (#110):** se muestra `picking_lists.notes` en **rojo** bajo el header en DoubleCheckView y PickingSummaryModal (Orders). Display-only, sin migración. Las notas pasadas con contenido aparecen automáticamente.
+- **Limitación aceptada por el operador:** `picking_lists.notes` está **mezclado** — además de los Order Comments del watcher (`FREE FREIGHT`, `FREIGHT $65.00`…) contiene mensajes de sistema/cancelación (`User Cancelled`, `[System: Auto-cancelled…]`, `[User Cancelled — manual fix…]`). Por ahora se muestran todos (el operador prefiere verlos a no verlos). La separación limpia queda en idea-140.
 - **Origen:** sesión 2026-06-09.
 
-### 72. DoubleCheckView: últimos 3 dígitos de cada orden mergeada, separados por "/" <!-- id: idea-139 -->
+### 73. Columna dedicada `watcher_notes` (separar notas del watcher de sistema/manual) <!-- id: idea-140 -->
+- **Problema:** `picking_lists.notes` es un cajón mezclado (watcher Order Comments + appends de sistema/cancel). La UI roja (idea-138) hoy muestra todo. Para mostrar **solo** las del watcher hace falta separar el origen.
+- **Plan:**
+  1. **Migración (aditiva):** `ALTER TABLE picking_lists ADD COLUMN watcher_notes text;` + actualizar los 4 lugares (migración, Zod, types x2, selects).
+  2. **watchdog (`supabase_client.create_order`):** escribir los Order Comments en `watcher_notes` (dejar de meterlos en `notes`, que queda para sistema/cancel). Repo `watchdog-pickd`.
+  3. **pickd:** cambiar el display rojo (DoubleCheckView + PickingSummaryModal) para leer `watcher_notes` en vez de `notes`.
+  4. **Backfill:** `UPDATE picking_lists SET watcher_notes = notes WHERE source='pdf_import' AND notes !~* 'cancelled|\[system'` (ajustar patrón) — para que las pasadas también queden limpias.
+  5. Aplicar migración a prod tras el merge (checklist de migraciones del CLAUDE.md).
+- **Origen:** sesión 2026-06-09 (follow-up de idea-138).
+
+### 72. DoubleCheckView: últimos 3 dígitos de cada orden mergeada, separados por "/" <!-- id: idea-139 --> ✅ 2026-06-09 (#109)
 - **Decisión operador:** cuando son **exactamente 2** mergeadas, mostrar los **últimos 3 dígitos de cada una separados por "/"** (ej. `083 / 121`). Cuando son **más de 2**, dejar como hoy (lista completa).
+- **Hecho:** helper puro `orderHeaderLabel` + render en DoubleCheckView. 
 - **Origen:** sesión 2026-06-09.
 
 ---
