@@ -143,6 +143,9 @@
 ### ~~76. Watcher: dot AS400 gris aunque todo funcione~~ <!-- id: idea-143 --> ✅ 2026-06-10 (watchdog #36) — input: 2026-06-10 ~15:05 NY
 - El círculo solo se coloreaba con Connect/Check manual. Ahora un health beacon alimentado por cada interacción real (scanner, capturas, connect) lo pone verde/rojo vía `GET /api/as400` en el poll de 8 s; señal >30 min sin actividad degrada a gris.
 
+### ~~77. Watcher: carriles FedEx (izq) / Truck (der) con colores de fondo~~ <!-- id: idea-144 --> ✅ 2026-06-10 (watchdog #37) — input: 2026-06-10 ~15:45 NY
+- La lista activa es ahora una grilla de dos carriles: FedEx a la izquierda (fondo púrpura) y Truck a la derecha (fondo esmeralda) — paleta FDX/TRK del Verification Board. Conteos en vivo por carril; se apilan en pantallas angostas. Already-in-PickD/Sent/Archived siguen full-width abajo.
+
 ### ~~74. Batch de mejoras double-check + watcher (lista del operador 2026-06-10)~~ <!-- id: idea-141 --> ✅ 2026-06-10
 Implementado en pickd **#113** y watchdog-pickd **#32/#33** (todo en main):
 - **Pallet X/Y** en DoubleCheckView (Y = total de pallets de la orden).
