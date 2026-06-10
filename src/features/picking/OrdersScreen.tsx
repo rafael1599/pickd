@@ -1086,6 +1086,7 @@ export const OrdersScreen = () => {
 
               <LivePrintPreview
                 orderNumber={selectedOrder.order_number ?? undefined}
+                watcherNote={selectedOrder.notes}
                 customerName={formData.customerName}
                 street={formData.street}
                 city={formData.city}

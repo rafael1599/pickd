@@ -203,9 +203,6 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
               <span className="text-muted font-semibold text-sm ml-2">{formData.customerName}</span>
             )}
           </p>
-          {selectedOrder.notes && selectedOrder.notes.trim() && (
-            <p className="text-red-500 text-xs font-bold mt-0.5">{selectedOrder.notes.trim()}</p>
-          )}
         </div>
         {collapsible && (
           <button
