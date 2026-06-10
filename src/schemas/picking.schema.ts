@@ -52,6 +52,8 @@ export const PickingListSchema = z.object({
   ]),
   items: z.array(PickingListItemSchema).nullable(),
   correction_notes: z.string().nullable(),
+  // Watcher-origin order note (AS400 Order Comments, e.g. "FREE FREIGHT").
+  notes: z.string().nullable().optional(),
   checked_by: z.string().uuid().nullable(),
   combine_meta: CombineMetaSchema,
   source: z.string().nullable().optional(),
