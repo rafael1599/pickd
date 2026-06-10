@@ -127,10 +127,7 @@
 ### ~~65. Overlays/menus con blur + scroll-lock~~ <!-- id: idea-132 --> ✅ ya aplicado (#107, 2026-06-09)
 - El operador confirma que ya se aplica ("ya la aplicamos"). Commit `090f999` añadió *blur/scroll-lock overlay menus*.
 
-### 66. Bug de dirección (imagen de Roman) <!-- id: idea-133 --> (esperando datos)
-- **Problema:** bug en la shipping address; Roman envió una imagen.
-- **Estado:** se aclarará más adelante; queda registrado. **Pendiente:** imagen de Roman + order_number para reproducir. Hipótesis: parsing Ship-to en watchdog (`parse_shipping_address_struct`) o render en pickd.
-- **Origen:** sesión 2026-06-09.
+### ~~66. Bug de dirección (imagen de Roman)~~ <!-- id: idea-133 --> ❌ retirado 2026-06-10 (operador: quitar del backlog)
 
 ### ~~67. Formatear Order Date de AS400 (060826 → 06/08/2026)~~ <!-- id: idea-134 --> ✅ 2026-06-10 (#113 + watchdog #32)
 - **Hecho:** watchdog extrae `Order Date:` (MMDDYY → ISO) con `parser.parse_order_date` y la escribe en la columna nueva `picking_lists.source_order_date date` (migración `20260610120000`, aplicada a prod; 4 lugares actualizados). pickd la muestra formateada ("Order date: Jun 8, 2026") en el header de DoubleCheckView y en el board card; el watcher la muestra en su tarjeta local.
@@ -150,17 +147,11 @@ Implementado en pickd **#113** y watchdog-pickd **#32/#33** (todo en main):
 - **Watcher: skip de órdenes VOID/vacías (#33)** — pantalla completa (END OF ORDER) + 0 items → el cursor avanza (`scanned_store.skip`) sin crear tarjeta; la captura manual devuelve 422 claro. Antes el scanner reintentaba la misma VOID cada 20 min para siempre (reportado con la #880138).
 - **Origen:** lista del operador, sesión 2026-06-10.
 
-### 68. Al reiniciar la MacBook: Safari (UI) derecha + AS400 izquierda, 50/50 <!-- id: idea-135 --> (repo: watchdog-pickd)
-- **Decisión operador:** **una sola pantalla**, **50/50 exacto**, **siempre Safari**.
-- **Plan:** en `scripts/start_pickd.py`, tras abrir ambos, posicionar ventanas vía AppleScript: Safari mitad derecha, Mocha/AS400 mitad izquierda (usar `bounds` con el tamaño de la pantalla principal).
-- **Origen:** sesión 2026-06-09.
+### ~~68. Al reiniciar la MacBook: Safari (UI) derecha + AS400 izquierda, 50/50~~ <!-- id: idea-135 --> ✅ 2026-06-10 (confirmado operador: ya está)
 
-### 69. Auto-captura/envío de órdenes — refinar <!-- id: idea-136 --> (repo: watchdog-pickd)
-- **Estado:** el auto-scanner ya captura 880112→ cada 20 min a cache local. **Decisión operador:** "es lo que ya implementamos pero falta **refinar**."
-- **Pendiente de definir el refinamiento** (bloqueante menor, pedir specs al priorizar): ¿auto-envío a PickD?, ¿retener dudosas (`total_mismatch` / `sku_not_found`)?, cadencia/horario, status inicial.
-- **Origen:** sesión 2026-06-09.
+### ~~69. Auto-captura/envío de órdenes — refinar~~ <!-- id: idea-136 --> ❌ retirado 2026-06-10 (operador: quitar del backlog)
 
-### 70. Número de cantidad de distribución: grande, al costado (fuera del gráfico) <!-- id: idea-137 -->
+### ~~70. Número de cantidad de distribución: grande, al costado (fuera del gráfico)~~ <!-- id: idea-137 --> ✅ 2026-06-10 (#115)
 - **Problema:** el número de cantidad de cada distribución debe verse mucho más grande.
 - **Decisión operador:** **mantener** la representación gráfica, pero **quitar el número de adentro** del gráfico y **colocarlo al costado** (LINE/TOWER/unassigned) para aprovechar el espacio y que se vea **muchísimo más grande**, reconocible de lejos como los otros números.
 - **Plan:** en DoubleCheckView, mover el valor de `.dist .tile` fuera del tile, a un número grande adyacente a la etiqueta de ubicación.
@@ -171,7 +162,7 @@ Implementado en pickd **#113** y watchdog-pickd **#32/#33** (todo en main):
 - **Limitación aceptada por el operador:** `picking_lists.notes` está **mezclado** — además de los Order Comments del watcher (`FREE FREIGHT`, `FREIGHT $65.00`…) contiene mensajes de sistema/cancelación (`User Cancelled`, `[System: Auto-cancelled…]`, `[User Cancelled — manual fix…]`). Por ahora se muestran todos (el operador prefiere verlos a no verlos). La separación limpia queda en idea-140.
 - **Origen:** sesión 2026-06-09.
 
-### 73. Columna dedicada `watcher_notes` (separar notas del watcher de sistema/manual) <!-- id: idea-140 -->
+### 73. Columna dedicada `watcher_notes` (separar notas del watcher de sistema/manual) <!-- id: idea-140 --> ⏸ en pausa (operador 2026-06-10: "deja las notas como están por ahora")
 - **Problema:** `picking_lists.notes` es un cajón mezclado (watcher Order Comments + appends de sistema/cancel). La UI roja (idea-138) hoy muestra todo. Para mostrar **solo** las del watcher hace falta separar el origen.
 - **Plan:**
   1. **Migración (aditiva):** `ALTER TABLE picking_lists ADD COLUMN watcher_notes text;` + actualizar los 4 lugares (migración, Zod, types x2, selects).
