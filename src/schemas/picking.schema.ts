@@ -57,6 +57,8 @@ export const PickingListSchema = z.object({
   checked_by: z.string().uuid().nullable(),
   combine_meta: CombineMetaSchema,
   source: z.string().nullable().optional(),
+  // AS400 document "Order Date" (ISO yyyy-mm-dd) written by watchdog-pickd.
+  source_order_date: z.string().nullable().optional(),
   is_addon: z.boolean().nullable().optional(),
   group_id: z.string().uuid().nullable().optional(),
   total_weight_lbs: z.number().nonnegative().nullable().optional(),

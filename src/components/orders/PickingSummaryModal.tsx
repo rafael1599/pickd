@@ -504,7 +504,7 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
             <div className="flex items-baseline gap-1.5">
               <span className="text-white text-base font-black leading-none">{totalUnits}</span>
               <span className="text-[9px] text-white/30 font-black uppercase tracking-[0.15em]">
-                items
+                unit{totalUnits !== 1 ? 's' : ''}
               </span>
             </div>
           </div>

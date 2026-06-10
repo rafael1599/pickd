@@ -44,6 +44,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useMarkWaiting, useUnmarkWaiting, useTakeOverSku } from '../hooks/useWaitingOrders';
 import { useShipOutSms } from '../hooks/useShipOutSms';
 import { withSupabaseRetry } from '../../../lib/supabaseRetry';
+import { autoClassifyShippingType } from '../../../utils/shippingClassification';
 import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingConflicts';
 import { useStockReservations, buildReservationKey } from '../hooks/useStockReservations';
 import { useStaleLocationCheck } from '../hooks/useStaleLocationCheck';
@@ -216,21 +217,43 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   // siblings of the same combined order. Without this, the picker sees false
   // "reserved by another order" / "waiting in another order" warnings for
   // items that are actually part of the same combined cart.
-  const { data: activeGroupId = null } = useQuery({
-    queryKey: ['picking_list_group_id', activeListId],
+  const { data: activeListMeta = null } = useQuery({
+    queryKey: ['picking_list_meta', activeListId],
     enabled: !!activeListId,
     staleTime: 60_000,
-    queryFn: async (): Promise<string | null> => {
+    queryFn: async (): Promise<{
+      group_id: string | null;
+      shipping_type: string | null;
+      source_order_date: string | null;
+    } | null> => {
       if (!activeListId) return null;
       const { data, error } = await supabase
         .from('picking_lists')
-        .select('group_id')
+        .select('group_id, shipping_type, source_order_date')
         .eq('id', activeListId)
         .single();
       if (error) throw error;
-      return data?.group_id ?? null;
+      return {
+        group_id: data?.group_id ?? null,
+        shipping_type: data?.shipping_type ?? null,
+        source_order_date: data?.source_order_date ?? null,
+      };
     },
   });
+  const activeGroupId = activeListMeta?.group_id ?? null;
+
+  // Effective shipping type: persisted override, else auto-classify from the
+  // cart (count-only — no weight map here, mirroring VerificationBoard). Drives
+  // the purple FedEx accent on the header + pallet badges.
+  const effectiveShippingType: 'fedex' | 'regular' =
+    activeListMeta?.shipping_type === 'fedex' || activeListMeta?.shipping_type === 'regular'
+      ? activeListMeta.shipping_type
+      : autoClassifyShippingType(
+          cartItems.map((i) => ({ sku: i.sku, pickingQty: i.pickingQty || 0 })),
+          {}
+        );
+  const isFedexOrder = effectiveShippingType === 'fedex';
+  const sourceOrderDate = activeListMeta?.source_order_date ?? null;
 
   // Watcher-origin note: the import daemon stores the AS400 "Order Comments"
   // (e.g. "FREE FREIGHT") in picking_lists.notes. Manual notes live elsewhere
@@ -1307,6 +1330,14 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 </button>
               );
             })()}
+            {isFedexOrder && (
+              <span
+                className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-purple-500 text-white border border-purple-500/40"
+                title="FedEx shipment"
+              >
+                FDX
+              </span>
+            )}
             {activeListId && <ShippingTypeToggle listId={activeListId} />}
             {orderListOpen && orderNumber && orderNumber.includes(' / ') && (
               <div className="absolute top-full left-0 mt-1 bg-card border border-subtle rounded-xl shadow-2xl overflow-hidden z-20 min-w-[140px] animate-in fade-in slide-in-from-top-2 duration-150">
@@ -1376,6 +1407,16 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               </button>
             )}
           </div>
+          {sourceOrderDate && (
+            <div className="text-[10px] text-muted/60 font-bold uppercase tracking-widest mt-0.5">
+              Order date:{' '}
+              {new Date(`${sourceOrderDate}T00:00:00`).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-1 relative">
@@ -1777,10 +1818,16 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 <div className="h-[1px] flex-1 bg-card" />
                 <div className="flex flex-col items-center">
                   <span
-                    className={`text-xs font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full border flex items-center gap-1.5 ${isLocked ? 'text-amber-400/80 border-amber-500/30 bg-amber-500/5' : 'text-muted/70 border-subtle'}`}
+                    className={`text-xs font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full border flex items-center gap-1.5 ${
+                      isLocked
+                        ? 'text-amber-400/80 border-amber-500/30 bg-amber-500/5'
+                        : isFedexOrder
+                          ? 'text-purple-300 border-purple-500/40 bg-purple-500/10'
+                          : 'text-muted/70 border-subtle'
+                    }`}
                   >
                     {isLocked && <Lock size={8} />}
-                    Pallet {pallet.id}
+                    Pallet {pallet.id}/{pallets.length}
                   </span>
                   {isEditing ? (
                     <div className="flex items-center gap-1.5 mt-1">

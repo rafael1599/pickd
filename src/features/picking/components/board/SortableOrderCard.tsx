@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { createContext, useContext } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import CheckCircle2 from 'lucide-react/dist/esm/icons/check-circle-2';
 import Clock from 'lucide-react/dist/esm/icons/clock';
@@ -14,9 +14,34 @@ interface CardProps {
   order: PickingList;
   shippingType: ShippingType;
   showShippingBadge?: boolean;
+  /** Latest order note text (already resolved upstream — see useLatestNotesByList).
+   *  Rendered in red on the card so pickers see it without opening the order. */
+  latestNote?: string | null;
   onSelect: (order: PickingList) => void;
   onDelete: (order: PickingList) => void;
   onUngroup?: (order: PickingList) => void;
+}
+
+/**
+ * Map of list_id → latest note message, provided once at the board level so
+ * every card can surface its newest note in red without each card running its
+ * own query. Defaults to an empty map when no provider is present.
+ */
+const LatestNotesContext = createContext<Record<string, string>>({});
+
+export const LatestNotesProvider = LatestNotesContext.Provider;
+
+/** Sum of pickingQty across the order's items, falling back to total_units. */
+export function getOrderUnits(order: PickingList): number {
+  const items = order.items;
+  if (Array.isArray(items) && items.length > 0) {
+    const sum = items.reduce(
+      (acc, i) => acc + (((i as Record<string, unknown>).pickingQty as number) || 0),
+      0
+    );
+    if (sum > 0) return sum;
+  }
+  return order.total_units ?? 0;
 }
 
 const SHIPPING_COLORS: Record<ShippingType, { badge: string; badgeText: string }> = {
@@ -70,6 +95,7 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
   order,
   shippingType,
   showShippingBadge = true,
+  latestNote,
   onSelect,
   onDelete,
   onUngroup,
@@ -83,6 +109,12 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
   const statusStyles = getStatusStyles(order.status);
   const { Icon } = statusStyles;
   const colors = SHIPPING_COLORS[shippingType];
+  const units = getOrderUnits(order);
+  const notesByList = useContext(LatestNotesContext);
+  const resolvedNote = latestNote ?? notesByList[order.id];
+  const trimmedNote = resolvedNote?.trim();
+  const notePreview =
+    trimmedNote && trimmedNote.length > 60 ? `${trimmedNote.slice(0, 60)}…` : trimmedNote;
 
   return (
     <div
@@ -139,7 +171,30 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
                   {order.pallets_qty} {order.pallets_qty === 1 ? 'pallet' : 'pallets'}
                 </span>
               )}
+              {units > 0 && (
+                <span className="text-muted/80">
+                  {units} {units === 1 ? 'unit' : 'units'}
+                </span>
+              )}
             </div>
+            {order.source_order_date && (
+              <div className="text-[8px] text-subtle font-bold uppercase tracking-wider mt-0.5">
+                Order date:{' '}
+                {new Date(`${order.source_order_date}T00:00:00`).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+              </div>
+            )}
+            {notePreview && (
+              <div
+                className="mt-1 text-[9px] font-semibold text-red-500 bg-red-500/10 rounded px-1.5 py-0.5 max-w-[180px] truncate"
+                title={trimmedNote ?? undefined}
+              >
+                {notePreview}
+              </div>
+            )}
           </div>
         </div>
         <ChevronDown

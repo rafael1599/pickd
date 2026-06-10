@@ -45,6 +45,8 @@ export interface PickingList {
   waiting_reason?: string | null;
   shipping_type?: string | null;
   pallets_qty?: number | null;
+  total_units?: number | null;
+  source_order_date?: string | null;
 }
 
 const PICKING_LIST_SELECT = `
@@ -65,7 +67,9 @@ const PICKING_LIST_SELECT = `
   is_waiting_inventory,
   waiting_reason,
   shipping_type,
-  pallets_qty
+  pallets_qty,
+  total_units,
+  source_order_date
 `;
 
 export const VERIFICATION_QUEUE_KEY = ['picking_lists', 'verification_queue'];
