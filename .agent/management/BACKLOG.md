@@ -131,6 +131,10 @@
 - **Clase distinta al matching de guiones (idea-101):** el parser asumía color de 2 letras y descartaba la 3ª como finish suffix ANTES del matching. Pero el catálogo es inconsistente: `03-3769BLD` existe con la D, `03-3768BL` no.
 - **Fix:** el catálogo decide — `_to_cart_items` prueba primero el raw SKU completo normalizado (con sufijo) y solo cae al truncado si no existe; con ambos en catálogo gana el específico. Comportamiento histórico (`3768 BLD`→`BL`) intacto.
 
+### ~~81. Watchdog: VOID que cae en 'ADDITIONAL MESSAGE INFORMATION'~~ <!-- id: idea-148 --> ✅ 2026-06-11 (watchdog #41) — input: 2026-06-11 ~10:55 NY
+- **Segunda variante de VOID** (la otra, pantalla completa 0 items, es #33): tras el F5 la orden caía en la pantalla de detalle de mensaje del AS400 (BAS-5065, "No matching key", prompt `Option:`); el loop seguía con ENTER, nunca END OF ORDER, y el scanner reintentaba el mismo número.
+- **Fix:** `_is_message_info_screen` detecta "ADDITIONAL MESSAGE INFORMATION"; `capture_order` presiona **F6** (vuelve a búsqueda) y lanza `OrderVoidSkip` → el scanner hace `empty_skipped` (avanza, no cachea). Captura manual → 422 claro.
+
 ### ~~64. Búsqueda de consolidation~~ <!-- id: idea-131 --> ✅ 2026-06-11
 - **Dash-insensitive:** ✅ resuelto antes (#107, `searchCandidates.ts`).
 - **Fallback a todo el stock de bikes (2026-06-11):** cuando hay query y CERO candidatos, `searchBikeStock` (`stockFallback.ts`) consulta el RPC compartido `search_inventory_with_metadata` (idea-074, bikes only, limit 15) y muestra los hits — SKU, nombre, LOC+sublocation en ámbar, qty — bajo el mensaje "No candidates match". Si tampoco hay en stock: "Not found in the bike stock either". La búsqueda nunca es un callejón sin salida.
