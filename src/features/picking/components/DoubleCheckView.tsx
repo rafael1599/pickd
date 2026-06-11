@@ -2051,14 +2051,17 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                   .join('\n');
                                 return (
                                   <span
-                                    title={`Stock: ${info.stock}\nReserved by other orders: ${info.reserved}\nAlready picked elsewhere: ${info.picked}\nAvailable for me: ${availableForMe}\n\n${orderList}`}
+                                    title={`Stock: ${info.stock}\nReserved by other orders: ${info.reserved}\nAlready picked by other orders: ${info.picked}\nAvailable for me: ${availableForMe}\n\n${orderList}`}
                                     className={`text-[10px] px-1 py-0.5 rounded font-black uppercase tracking-tighter ${
                                       conflict
                                         ? 'bg-red-500/20 text-red-400 border border-red-500/40'
                                         : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
                                     }`}
                                   >
-                                    🔒 {otherDemand} elsewhere
+                                    🔒 {otherDemand} for{' '}
+                                    {info.reservingOrders.length === 1
+                                      ? 'another order'
+                                      : `${info.reservingOrders.length} other orders`}
                                   </span>
                                 );
                               })()}
