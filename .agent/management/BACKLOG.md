@@ -136,6 +136,9 @@
 - **Fix v1 (#41):** `_is_message_info_screen` detecta "ADDITIONAL MESSAGE INFORMATION"; `capture_order` presiona **F6** y lanza `OrderVoidSkip` → scanner `empty_skipped`. Captura manual → 422 claro.
 - **Fix v2 / PREVENCIÓN (#42, input ~11:25 NY):** el operador confirmó que en esa pantalla **ninguna tecla funciona** (requiere re-login), así que la recuperación post-entrada no es confiable. Causa: presionar **F5** en una orden VOID es lo que enruta ahí. Ahora `_is_void_order` detecta el VOID en el **header** (`Account Number: VOID` / `Bill VOID VOID…`) y se salta **antes del F5** — nunca se entra a la pantalla muerta. La detección de la pantalla de mensaje queda como defensa en profundidad.
 
+### ~~82. Register Container acepta PDF (no solo XLSX)~~ <!-- id: idea-149 --> ✅ 2026-06-11 (#130) — input: 2026-06-11 ~11:55 NY
+- Las hojas de recepción llegan en PDF (ej. PO worksheet de Oyama Factory). `parseWorksheetText` (puro, testeado) + `parseShipmentPdf` (pdfjs-dist extrae texto, reensambla líneas por Y/X) producen el mismo `ParsedSheet` que el XLSX. La pantalla enruta `.pdf` → parseShipmentPdf; flujo aguas abajo (resolve/register_container, PO, audit) intacto. Validado end-to-end contra el PDF real del PO 6430N (19 SKUs, 2065 unidades). Nueva dep `pdfjs-dist` (chunk lazy). Layout soportado: worksheet tipo Oyama; otros formatos se extienden si aparecen.
+
 ### ~~64. Búsqueda de consolidation~~ <!-- id: idea-131 --> ✅ 2026-06-11
 - **Dash-insensitive:** ✅ resuelto antes (#107, `searchCandidates.ts`).
 - **Fallback a todo el stock de bikes (2026-06-11):** cuando hay query y CERO candidatos, `searchBikeStock` (`stockFallback.ts`) consulta el RPC compartido `search_inventory_with_metadata` (idea-074, bikes only, limit 15) y muestra los hits — SKU, nombre, LOC+sublocation en ámbar, qty — bajo el mensaje "No candidates match". Si tampoco hay en stock: "Not found in the bike stock either". La búsqueda nunca es un callejón sin salida.
