@@ -139,6 +139,10 @@
 ### ~~82. Register Container acepta PDF (no solo XLSX)~~ <!-- id: idea-149 --> ✅ 2026-06-11 (#130) — input: 2026-06-11 ~11:55 NY
 - Las hojas de recepción llegan en PDF (ej. PO worksheet de Oyama Factory). `parseWorksheetText` (puro, testeado) + `parseShipmentPdf` (pdfjs-dist extrae texto, reensambla líneas por Y/X) producen el mismo `ParsedSheet` que el XLSX. La pantalla enruta `.pdf` → parseShipmentPdf; flujo aguas abajo (resolve/register_container, PO, audit) intacto. Validado end-to-end contra el PDF real del PO 6430N (19 SKUs, 2065 unidades). Nueva dep `pdfjs-dist` (chunk lazy). Layout soportado: worksheet tipo Oyama; otros formatos se extienden si aparecen.
 
+### ~~83. Double-check: auto-hide del header + filtro de notas ruido~~ <!-- id: idea-150 --> ✅ 2026-06-11 (#132) — input: 2026-06-11 ~12:25 NY
+- **Auto-hide:** el contexto del header (orden #, FedEx, toggle shipping, fecha) aparece al abrir y con cualquier scroll/tap de la lista, se desvanece 5s después del último scroll. Siempre visibles: botón salir, línea de progreso "X/Y Pickd", y la nota significativa. Lista + títulos de pallet nunca se mueven. `showHeaderInfo` + `bumpHeaderInfo` (timer); re-revela en onScroll/onPointerDown (cubre órdenes cortas).
+- **Filtro de notas (`meaningfulNote`):** descarta boilerplate de flete (`FREE FREIGHT`, `FREIGHT $65.00`, PREPAID, FOB) salvo que la nota lleve una instrucción real (ship/not/wait/hold/cancel/call/before/…); desconocidas se conservan (no perder info). La nota conservada queda siempre visible. Aplica a `picking_lists.notes` (watcherNote en DCV).
+
 ### ~~64. Búsqueda de consolidation~~ <!-- id: idea-131 --> ✅ 2026-06-11
 - **Dash-insensitive:** ✅ resuelto antes (#107, `searchCandidates.ts`).
 - **Fallback a todo el stock de bikes (2026-06-11):** cuando hay query y CERO candidatos, `searchBikeStock` (`stockFallback.ts`) consulta el RPC compartido `search_inventory_with_metadata` (idea-074, bikes only, limit 15) y muestra los hits — SKU, nombre, LOC+sublocation en ámbar, qty — bajo el mensaje "No candidates match". Si tampoco hay en stock: "Not found in the bike stock either". La búsqueda nunca es un callejón sin salida.
