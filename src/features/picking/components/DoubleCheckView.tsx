@@ -1875,6 +1875,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 {pallet.items.map((item: PickingItem, itemIdx: number) => {
                   const itemKey = `${pallet.id}-${item.sku}-${item.location}`;
                   const isChecked = checkedItems.has(itemKey);
+                  // Once an item is checked, collapse its detail (name, distribution
+                  // plan, sublocation) so the remaining unchecked rows stand out and
+                  // are easier to spot. Review mode keeps everything visible.
+                  const hideDetails = isChecked && !isReviewMode;
                   const similarity = skuSimilarityMap[item.sku];
                   // Canonical-SKU fallback: if a not-found item resolves via its
                   // canonical SKU, treat it as found and show its location.
@@ -2075,13 +2079,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                               })()}
                             </div>
                             {/* Product name — item_name from DB, or description from PDF */}
-                            {(item.item_name || item.description) && (
+                            {!hideDetails && (item.item_name || item.description) && (
                               <span className="text-[13px] md:text-xl font-semibold text-muted uppercase tracking-wide leading-none">
                                 {(item.item_name || item.description || '').slice(0, 17)}
                               </span>
                             )}
                             {/* Distribution-based pick plan (canonical SKU fallback included) */}
-                            {planSteps && planSteps.length > 0 ? (
+                            {!hideDetails && planSteps && planSteps.length > 0 ? (
                               <div
                                 className={`${
                                   distributionInconsistencyMap[item.sku] === 'over'
@@ -2113,6 +2117,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                 </div>
                               </div>
                             ) : (
+                              !hideDetails &&
                               item.insufficient_stock && (
                                 <span className="text-xs font-black text-amber-500 uppercase tracking-wider leading-none">
                                   {stockMap[item.sku] !== undefined
@@ -2155,7 +2160,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                     canonResolved?.sublocation;
                                   // Sublocation reads like part of the location: same
                                   // size/color as the big number, no chip container.
-                                  return subs && subs.length > 0 ? (
+                                  // Hidden once checked — frees space for pending rows.
+                                  return !hideDetails && subs && subs.length > 0 ? (
                                     <span className="ml-2">{subs.join(',')}</span>
                                   ) : null;
                                 })()}
