@@ -2153,10 +2153,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                       `${item.sku}-${(displayLocation || '').toUpperCase()}`
                                     ] ||
                                     canonResolved?.sublocation;
+                                  // Sublocation reads like part of the location: same
+                                  // size/color as the big number, no chip container.
                                   return subs && subs.length > 0 ? (
-                                    <span className="text-xs md:text-2xl font-black bg-amber-500/15 text-amber-400 px-1 md:px-2 py-0.5 md:py-1 rounded ml-1 border border-amber-500/20 align-middle">
-                                      {subs.join(',')}
-                                    </span>
+                                    <span className="ml-2">{subs.join(',')}</span>
                                   ) : null;
                                 })()}
                               </div>
