@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Loader2, Upload, Package, ArrowLeft, Copy, CheckCircle2 } from 'lucide-react';
 import { parseShipmentXlsx } from './lib/parseShipmentXlsx';
+import { parseShipmentPdf } from './lib/parseShipmentPdf';
 import { formatTowersLines } from './lib/containerDistribution';
 import { useRegistrarContainer } from './hooks/useRegistrarContainer';
 import type { ContainerInputItem, ParsedSheet, RegisterSummary, ResolvedItem } from './lib/types';
@@ -69,7 +70,8 @@ export function RegistrarContainerScreen() {
     async (file: File) => {
       setParsing(true);
       try {
-        const parsed = await parseShipmentXlsx(file);
+        const isPdf = /\.pdf$/i.test(file.name) || file.type === 'application/pdf';
+        const parsed = isPdf ? await parseShipmentPdf(file) : await parseShipmentXlsx(file);
         const withItems = parsed.filter((s) => s.items.length > 0);
         setFileName(file.name);
         setSheets(parsed);
@@ -84,7 +86,7 @@ export function RegistrarContainerScreen() {
           await analyzeSheet(withItems[0]);
         }
       } catch (err) {
-        toast.error(`Could not read the Excel: ${(err as Error).message}`);
+        toast.error(`Could not read the file: ${(err as Error).message}`);
       } finally {
         setParsing(false);
       }
@@ -157,7 +159,7 @@ export function RegistrarContainerScreen() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".xlsx,.xls"
+              accept=".xlsx,.xls,.pdf"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -170,7 +172,9 @@ export function RegistrarContainerScreen() {
               <Upload className="w-9 h-9 mx-auto text-gray-400" />
             )}
             <p className="mt-3 text-sm text-gray-600">
-              {analyzing ? 'Analyzing…' : fileName || 'Tap to upload the shipment Excel (.xlsx)'}
+              {analyzing
+                ? 'Analyzing…'
+                : fileName || 'Tap to upload the shipment file (.xlsx or .pdf)'}
             </p>
             {!fileName && !analyzing && (
               <p className="mt-1 text-xs text-gray-400">It analyzes automatically</p>
