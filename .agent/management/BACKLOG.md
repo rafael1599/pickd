@@ -143,6 +143,11 @@
 - **Auto-hide:** el contexto del header (orden #, FedEx, toggle shipping, fecha) aparece al abrir y con cualquier scroll/tap de la lista, se desvanece 5s después del último scroll. Siempre visibles: botón salir, línea de progreso "X/Y Pickd", y la nota significativa. Lista + títulos de pallet nunca se mueven. `showHeaderInfo` + `bumpHeaderInfo` (timer); re-revela en onScroll/onPointerDown (cubre órdenes cortas).
 - **Filtro de notas (`meaningfulNote`):** descarta boilerplate de flete (`FREE FREIGHT`, `FREIGHT $65.00`, PREPAID, FOB) salvo que la nota lleve una instrucción real (ship/not/wait/hold/cancel/call/before/…); desconocidas se conservan (no perder info). La nota conservada queda siempre visible. Aplica a `picking_lists.notes` (watcherNote en DCV).
 
+### ~~84. Drag-to-group siempre con confirmación + waiting fuera del auto-combine~~ <!-- id: idea-151 --> ✅ 2026-06-11 (#134 + watchdog #43) — input: 2026-06-11 ~14:30 NY
+- **PickD (#134):** soltar una orden sobre otra agrupaba en silencio en la misma zona. Ahora TODA agrupación por drag pasa por `GroupOrderModal`: grupo existente → botón único "Add to group"; grupo nuevo → picker FedEx/General; si alguna orden está waiting → advertencia ámbar "⚠ #X is waiting for inventory".
+- **Watchdog (#43):** `find_combinable_order_by_customer` excluye `is_waiting_inventory=true` — una orden nueva del mismo customer ya no puede auto-combinarse dentro de una waiting (era posible: viven en `needs_correction`, status combinable). Unirse a una waiting = solo manual + confirmado en PickD.
+- **Bonus (#43):** el filtro de notas ruido (idea-150) portado a la tarjeta del watcher (`pipeline.meaningful_note`, display-only — el order_comments completo sigue yendo a PickD).
+
 ### ~~64. Búsqueda de consolidation~~ <!-- id: idea-131 --> ✅ 2026-06-11
 - **Dash-insensitive:** ✅ resuelto antes (#107, `searchCandidates.ts`).
 - **Fallback a todo el stock de bikes (2026-06-11):** cuando hay query y CERO candidatos, `searchBikeStock` (`stockFallback.ts`) consulta el RPC compartido `search_inventory_with_metadata` (idea-074, bikes only, limit 15) y muestra los hits — SKU, nombre, LOC+sublocation en ámbar, qty — bajo el mensaje "No candidates match". Si tampoco hay en stock: "Not found in the bike stock either". La búsqueda nunca es un callejón sin salida.
