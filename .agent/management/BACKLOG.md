@@ -111,10 +111,13 @@
 ### ~~61. Separar (un-merge) órdenes combinadas~~ <!-- id: idea-128 --> ❌ descartado 2026-06-09
 - Descartado por el operador ("olvida 128").
 
-### 62. Botón "Stock" desde DoubleCheckView no oculta la vista <!-- id: idea-129 -->
-- **Problema:** al presionar el botón de stock dentro de DoubleCheckView, la vista double-check no desaparece.
-- **Decisión operador:** debe comportarse **como si presionara la X** (cerrar double-check) **y navegara a stock**, abriendo la ubicación correspondiente si venía de otra.
-- **Origen:** sesión 2026-06-09.
+### ~~62. Botón "Stock" desde DoubleCheckView no oculta la vista~~ <!-- id: idea-129 --> ✅ 2026-06-11 (#120)
+- **Causa raíz:** el efecto de cierre del drawer saltaba deliberadamente las órdenes abiertas externamente (Verification Board) — el camino típico del double-check.
+- **Fix:** `requestStockView()` en ViewModeContext emite una señal explícita; el botón STOCK la usa y `PickingCartDrawer` ejecuta exactamente lo de la X (`handleReleaseOrder`: claim + release + cerrar), puenteando el keep-alive solo para esa petición explícita.
+- **Origen:** sesión 2026-06-09; implementado 2026-06-11.
+
+### ~~78. Sublocation igual al número de ubicación~~ <!-- id: idea-145 --> ✅ 2026-06-11 (#119) — input: 2026-06-11 ~09:00 NY
+- En DoubleCheckView la sublocation era un chip chiquito; ahora hereda el estilo exacto del número grande (mismo ámbar, mono/black, 3xl/6xl, sin contenedor) — se lee como parte de la ubicación.
 
 ### 63. Verification Board → reabrir orden: misma sin fricción, distinta con confirmar <!-- id: idea-130 -->
 - **Problema:** estando en stock, abrir Verification Board y seleccionar **la misma** orden que trabajaba → pop-up "libera primero". Debería reentrar directo a DoubleCheckView. Si es **distinta**, solo advertencia + confirmar.
