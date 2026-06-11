@@ -133,7 +133,8 @@
 
 ### ~~81. Watchdog: VOID que cae en 'ADDITIONAL MESSAGE INFORMATION'~~ <!-- id: idea-148 --> ✅ 2026-06-11 (watchdog #41) — input: 2026-06-11 ~10:55 NY
 - **Segunda variante de VOID** (la otra, pantalla completa 0 items, es #33): tras el F5 la orden caía en la pantalla de detalle de mensaje del AS400 (BAS-5065, "No matching key", prompt `Option:`); el loop seguía con ENTER, nunca END OF ORDER, y el scanner reintentaba el mismo número.
-- **Fix:** `_is_message_info_screen` detecta "ADDITIONAL MESSAGE INFORMATION"; `capture_order` presiona **F6** (vuelve a búsqueda) y lanza `OrderVoidSkip` → el scanner hace `empty_skipped` (avanza, no cachea). Captura manual → 422 claro.
+- **Fix v1 (#41):** `_is_message_info_screen` detecta "ADDITIONAL MESSAGE INFORMATION"; `capture_order` presiona **F6** y lanza `OrderVoidSkip` → scanner `empty_skipped`. Captura manual → 422 claro.
+- **Fix v2 / PREVENCIÓN (#42, input ~11:25 NY):** el operador confirmó que en esa pantalla **ninguna tecla funciona** (requiere re-login), así que la recuperación post-entrada no es confiable. Causa: presionar **F5** en una orden VOID es lo que enruta ahí. Ahora `_is_void_order` detecta el VOID en el **header** (`Account Number: VOID` / `Bill VOID VOID…`) y se salta **antes del F5** — nunca se entra a la pantalla muerta. La detección de la pantalla de mensaje queda como defensa en profundidad.
 
 ### ~~64. Búsqueda de consolidation~~ <!-- id: idea-131 --> ✅ 2026-06-11
 - **Dash-insensitive:** ✅ resuelto antes (#107, `searchCandidates.ts`).
