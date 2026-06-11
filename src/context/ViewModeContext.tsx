@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useMemo, ReactNode } from 'react';
+import { createContext, useContext, useState, useMemo, useCallback, ReactNode } from 'react';
 
 type ViewMode = 'stock' | 'picking' | 'double_checking';
 
@@ -13,6 +13,12 @@ interface ViewModeContextType {
   setIsNavHidden: (hidden: boolean) => void;
   isSearching: boolean;
   setIsSearching: (searching: boolean) => void;
+  /** Monotonic counter bumped by the bottom-nav STOCK button (idea-129).
+   *  An EXPLICIT user request to see stock must close the double-check drawer
+   *  like the X would — even when the order was opened externally (Verification
+   *  Board), where the drawer otherwise keeps itself alive across view changes. */
+  stockNavSignal: number;
+  requestStockView: () => void;
 }
 
 const ViewModeContext = createContext<ViewModeContextType | undefined>(undefined);
@@ -23,6 +29,12 @@ export const ViewModeProvider = ({ children }: { children: ReactNode }) => {
   const [externalOrderId, setExternalOrderId] = useState<string | number | null>(null);
   const [isNavHidden, setIsNavHidden] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [stockNavSignal, setStockNavSignal] = useState(0);
+
+  const requestStockView = useCallback(() => {
+    setViewMode('stock');
+    setStockNavSignal((n) => n + 1);
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -36,8 +48,18 @@ export const ViewModeProvider = ({ children }: { children: ReactNode }) => {
       setIsNavHidden,
       isSearching,
       setIsSearching,
+      stockNavSignal,
+      requestStockView,
     }),
-    [viewMode, externalDoubleCheckId, externalOrderId, isNavHidden, isSearching]
+    [
+      viewMode,
+      externalDoubleCheckId,
+      externalOrderId,
+      isNavHidden,
+      isSearching,
+      stockNavSignal,
+      requestStockView,
+    ]
   );
 
   return <ViewModeContext.Provider value={value}>{children}</ViewModeContext.Provider>;
