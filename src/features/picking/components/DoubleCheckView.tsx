@@ -19,6 +19,7 @@ import { useConfirmation } from '../../../context/ConfirmationContext.tsx';
 import { usePickingSession } from '../../../context/PickingContext.tsx';
 import { useInventory } from '../../inventory/hooks/InventoryProvider.tsx';
 import { orderHeaderLabel, splitOrderNumbers } from '../utils/orderLabel.ts';
+import { meaningfulNote } from '../utils/meaningfulNote.ts';
 import {
   type DistributionItem,
   STORAGE_TYPE_LABELS,
@@ -271,8 +272,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         .eq('id', activeListId)
         .single();
       if (error) throw error;
-      const n = (data?.notes ?? '').trim();
-      return n || null;
+      // Filter freight/billing noise (e.g. a bare "FREE FREIGHT") while keeping
+      // any note that carries a real instruction (ship/not/wait/hold/…).
+      return meaningfulNote(data?.notes);
     },
   });
 
@@ -316,6 +318,24 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const [waitingReason, setWaitingReason] = useState('');
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const [orderListOpen, setOrderListOpen] = useState(false);
+  // Auto-hiding header context (order #, FedEx, date, note): shown on open and on
+  // any scroll, then fades 5s after the last scroll so the picking list gets the
+  // space. The exit button and the progress line stay visible always.
+  const [showHeaderInfo, setShowHeaderInfo] = useState(true);
+  const headerHideTimer = useRef<number | undefined>(undefined);
+  const bumpHeaderInfo = useCallback(() => {
+    // Returning the same value skips a re-render, so scrolling while already
+    // shown only resets the timer (no churn).
+    setShowHeaderInfo((v) => (v ? v : true));
+    if (headerHideTimer.current) window.clearTimeout(headerHideTimer.current);
+    headerHideTimer.current = window.setTimeout(() => setShowHeaderInfo(false), 5000);
+  }, []);
+  useEffect(() => {
+    bumpHeaderInfo(); // show briefly on open, then auto-hide
+    return () => {
+      if (headerHideTimer.current) window.clearTimeout(headerHideTimer.current);
+    };
+  }, [bumpHeaderInfo]);
   const [scanResults, setScanResults] = useState<Map<string, Set<string>>>(new Map());
   const [isScanning, setIsScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState<string>('');
@@ -1294,68 +1314,77 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         </button>
 
         <div className="flex flex-col items-center">
-          <div className="flex items-center gap-2 relative">
-            {(() => {
-              const fallback = activeListId
-                ? `#${activeListId.slice(-6).toUpperCase()}`
-                : 'STOCK DEDUCTION';
-              const header = orderHeaderLabel(orderNumber, fallback);
-              // single (0/1 orders) and pair (exactly 2 → "083 / 121") both render
-              // as a static chip; only 3+ get the +N badge + dropdown.
-              if (header.kind !== 'many') {
+          {/* Contextual info — collapses (auto-hide) to free space for the list. */}
+          <div
+            className={`flex flex-col items-center overflow-hidden transition-all duration-300 ${
+              showHeaderInfo ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+            }`}
+          >
+            <div className="flex items-center gap-2 relative">
+              {(() => {
+                const fallback = activeListId
+                  ? `#${activeListId.slice(-6).toUpperCase()}`
+                  : 'STOCK DEDUCTION';
+                const header = orderHeaderLabel(orderNumber, fallback);
+                // single (0/1 orders) and pair (exactly 2 → "083 / 121") both render
+                // as a static chip; only 3+ get the +N badge + dropdown.
+                if (header.kind !== 'many') {
+                  return (
+                    <span className="text-xs font-mono font-bold text-accent/90 tracking-widest bg-accent/10 px-2 py-0.5 rounded border border-accent/20">
+                      {header.label}
+                    </span>
+                  );
+                }
+                const label = header.label;
+                const orderList = splitOrderNumbers(orderNumber);
                 return (
-                  <span className="text-xs font-mono font-bold text-accent/90 tracking-widest bg-accent/10 px-2 py-0.5 rounded border border-accent/20">
-                    {header.label}
-                  </span>
+                  <button
+                    onClick={() => setOrderListOpen((v) => !v)}
+                    className="text-xs font-mono font-bold text-accent/90 tracking-widest bg-accent/10 px-2 py-0.5 rounded border border-accent/20 flex items-center gap-1 hover:bg-accent/20 transition-colors"
+                    title={`${orderList.length} orders combined`}
+                    aria-haspopup="true"
+                    aria-expanded={orderListOpen}
+                  >
+                    <span>{label}</span>
+                    <span className="text-[10px] font-black bg-accent/20 text-accent px-1 rounded">
+                      +{orderList.length - 1}
+                    </span>
+                    <ChevronDown
+                      size={10}
+                      className={`transition-transform ${orderListOpen ? 'rotate-180' : ''}`}
+                    />
+                  </button>
                 );
-              }
-              const label = header.label;
-              const orderList = splitOrderNumbers(orderNumber);
-              return (
-                <button
-                  onClick={() => setOrderListOpen((v) => !v)}
-                  className="text-xs font-mono font-bold text-accent/90 tracking-widest bg-accent/10 px-2 py-0.5 rounded border border-accent/20 flex items-center gap-1 hover:bg-accent/20 transition-colors"
-                  title={`${orderList.length} orders combined`}
-                  aria-haspopup="true"
-                  aria-expanded={orderListOpen}
+              })()}
+              {isFedexOrder && (
+                <span
+                  className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-purple-500 text-white border border-purple-500/40"
+                  title="FedEx shipment"
                 >
-                  <span>{label}</span>
-                  <span className="text-[10px] font-black bg-accent/20 text-accent px-1 rounded">
-                    +{orderList.length - 1}
-                  </span>
-                  <ChevronDown
-                    size={10}
-                    className={`transition-transform ${orderListOpen ? 'rotate-180' : ''}`}
-                  />
-                </button>
-              );
-            })()}
-            {isFedexOrder && (
-              <span
-                className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-purple-500 text-white border border-purple-500/40"
-                title="FedEx shipment"
-              >
-                FDX
-              </span>
-            )}
-            {activeListId && <ShippingTypeToggle listId={activeListId} />}
-            {orderListOpen && orderNumber && orderNumber.includes(' / ') && (
-              <div className="absolute top-full left-0 mt-1 bg-card border border-subtle rounded-xl shadow-2xl overflow-hidden z-20 min-w-[140px] animate-in fade-in slide-in-from-top-2 duration-150">
-                {orderNumber
-                  .split(' / ')
-                  .map((s) => s.trim())
-                  .filter(Boolean)
-                  .map((num) => (
-                    <div
-                      key={num}
-                      className="px-3 py-2 text-xs font-mono font-bold text-content tracking-widest border-b border-subtle last:border-b-0"
-                    >
-                      #{num}
-                    </div>
-                  ))}
-              </div>
-            )}
+                  FDX
+                </span>
+              )}
+              {activeListId && <ShippingTypeToggle listId={activeListId} />}
+              {orderListOpen && orderNumber && orderNumber.includes(' / ') && (
+                <div className="absolute top-full left-0 mt-1 bg-card border border-subtle rounded-xl shadow-2xl overflow-hidden z-20 min-w-[140px] animate-in fade-in slide-in-from-top-2 duration-150">
+                  {orderNumber
+                    .split(' / ')
+                    .map((s) => s.trim())
+                    .filter(Boolean)
+                    .map((num) => (
+                      <div
+                        key={num}
+                        className="px-3 py-2 text-xs font-mono font-bold text-content tracking-widest border-b border-subtle last:border-b-0"
+                      >
+                        #{num}
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
           </div>
+          {/* Meaningful order note — ALWAYS visible (noise like a bare "FREE
+              FREIGHT" is filtered out upstream; important ones must not hide). */}
           {watcherNote && (
             <div
               className="mt-1 max-w-[90%] text-center text-xs font-bold text-red-400"
@@ -1364,7 +1393,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               {watcherNote}
             </div>
           )}
-          {/* Progress Text */}
+          {/* Progress Text — ALWAYS visible (the mini "X / Y" + Select All). */}
           <div className="flex items-center gap-3 mt-1">
             <span
               className={`text-lg font-black uppercase tracking-[0.15em] ${
@@ -1407,7 +1436,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               </button>
             )}
           </div>
-          {sourceOrderDate && (
+          {showHeaderInfo && sourceOrderDate && (
             <div className="text-[10px] text-muted/60 font-bold uppercase tracking-widest mt-0.5">
               Order date:{' '}
               {new Date(`${sourceOrderDate}T00:00:00`).toLocaleDateString('en-US', {
@@ -1631,7 +1660,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       )}
 
       {/* Clean Item List */}
-      <div className="flex-1 overflow-y-auto p-4 bg-main min-h-0 pb-32">
+      <div
+        className="flex-1 overflow-y-auto p-4 bg-main min-h-0 pb-32"
+        onScroll={bumpHeaderInfo}
+        onPointerDown={bumpHeaderInfo}
+      >
         {/* Inline 'Mark as Waiting' reason picker (only when triggered from menu) */}
         {showWaitingPicker &&
           isAdmin &&
