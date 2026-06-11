@@ -32,6 +32,11 @@ export interface PendingCrossLaneAction {
 export interface PendingMergeAction {
   source: PickingList;
   target: PickingList;
+  /** When set, confirming ADDS addOrderId to this existing group (no type pick). */
+  joinGroupId?: string;
+  addOrderId?: string;
+  /** Suggested type when both orders share a lane (modal pre-highlights it). */
+  suggestedType?: GroupType;
 }
 
 export function useBoardDnD(isAdmin: boolean, refresh: () => void) {
@@ -156,35 +161,51 @@ export function useBoardDnD(isAdmin: boolean, refresh: () => void) {
         return;
       }
 
-      // Same zone → merge into group
+      // Same zone → grouping is ALWAYS user-confirmed (idea-151): a drop must
+      // never silently merge orders — an accidental drag would join them (and a
+      // waiting order could be swept into a group) with no way to notice.
       if (targetOrder.group_id) {
-        await addToGroup(targetOrder.group_id, sourceOrder.id);
-        refresh();
+        setPendingMerge({
+          source: sourceOrder,
+          target: targetOrder,
+          joinGroupId: targetOrder.group_id,
+          addOrderId: sourceOrder.id,
+        });
       } else if (sourceOrder.group_id) {
-        await addToGroup(sourceOrder.group_id, targetOrder.id);
-        refresh();
-      } else if (sourceShippingType && sourceShippingType === targetShippingType) {
-        // Both in same lane — auto-create group with that lane's type
-        const groupType = sourceShippingType === 'fedex' ? 'fedex' : 'general';
-        await createGroup(groupType as GroupType, [sourceOrder.id, targetOrder.id]);
-        refresh();
+        setPendingMerge({
+          source: sourceOrder,
+          target: targetOrder,
+          joinGroupId: sourceOrder.group_id,
+          addOrderId: targetOrder.id,
+        });
       } else {
-        // Different lanes or unknown — ask user
-        setPendingMerge({ source: sourceOrder, target: targetOrder });
+        setPendingMerge({
+          source: sourceOrder,
+          target: targetOrder,
+          suggestedType:
+            sourceShippingType && sourceShippingType === targetShippingType
+              ? ((sourceShippingType === 'fedex' ? 'fedex' : 'general') as GroupType)
+              : undefined,
+        });
       }
     },
-    [isAdmin, addToGroup, createGroup, refresh]
+    [isAdmin, refresh]
   );
 
   // ─── Action handlers for prompt confirmations ──────────
   const confirmMerge = useCallback(
     async (type: GroupType) => {
       if (!pendingMerge) return;
-      await createGroup(type, [pendingMerge.source.id, pendingMerge.target.id]);
+      if (pendingMerge.joinGroupId && pendingMerge.addOrderId) {
+        // Joining an existing group: its type is already set, `type` is ignored.
+        await addToGroup(pendingMerge.joinGroupId, pendingMerge.addOrderId);
+      } else {
+        await createGroup(type, [pendingMerge.source.id, pendingMerge.target.id]);
+      }
       setPendingMerge(null);
       refresh();
     },
-    [pendingMerge, createGroup, refresh]
+    [pendingMerge, addToGroup, createGroup, refresh]
   );
 
   const confirmCrossLane = useCallback(async () => {
