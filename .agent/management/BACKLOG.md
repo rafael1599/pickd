@@ -119,11 +119,13 @@
 ### ~~78. Sublocation igual al número de ubicación~~ <!-- id: idea-145 --> ✅ 2026-06-11 (#119) — input: 2026-06-11 ~09:00 NY
 - En DoubleCheckView la sublocation era un chip chiquito; ahora hereda el estilo exacto del número grande (mismo ámbar, mono/black, 3xl/6xl, sin contenedor) — se lee como parte de la ubicación.
 
-### 63. Verification Board → reabrir orden: misma sin fricción, distinta con confirmar <!-- id: idea-130 -->
-- **Problema:** estando en stock, abrir Verification Board y seleccionar **la misma** orden que trabajaba → pop-up "libera primero". Debería reentrar directo a DoubleCheckView. Si es **distinta**, solo advertencia + confirmar.
-- **Decisión operador:** **revisar primero el flujo actual.** Al confirmar abrir otra orden: mostrar DoubleCheckView con la **nueva** orden; la **anterior queda en Verification Board** (no se elimina). **No perder** las validaciones existentes (ej. take-over) — deben seguir funcionando.
-- **Plan:** diagnosticar el guard que muestra el pop-up "libera la orden"; cambiarlo a (a) reentrada sin fricción a la misma orden y (b) confirm (no bloqueo) para otra, preservando take-over.
-- **Origen:** sesión 2026-06-09.
+### ~~63. Verification Board → reabrir orden: misma sin fricción, distinta con confirmar~~ <!-- id: idea-130 --> ✅ 2026-06-11
+- **Causa:** `handleOrderSelect` (VerificationBoard) bloqueaba con toast "Finish or clear your active picking session first" siempre que hubiera sesión de picking activa — incluso para la misma orden.
+- **Fix:** misma orden → reentrada directa a DoubleCheckView; orden distinta → `showConfirmation` ("Switch order") en vez de bloqueo. La anterior conserva su status y queda en el board (nada se elimina); take-over intacto (corre en el external-load path, no se tocó).
+- **Origen:** sesión 2026-06-09; implementado 2026-06-11.
+
+### ~~79. Double-check: colapsar detalle de items marcados~~ <!-- id: idea-146 --> ✅ 2026-06-11 (#122) — input: 2026-06-11 ~09:20 NY
+- Al marcar un item desaparecen nombre, distribution y sublocation — la fila se encoge y los pendientes dominan la pantalla. SKU/cantidad/ubicación se mantienen (tinte verde + check). Review mode muestra todo.
 
 ### 64. Búsqueda de consolidation <!-- id: idea-131 -->
 - **Dash-insensitive:** ✅ **YA RESUELTO** (#107, `searchCandidates.ts`). Verificado con test `searchCandidates.test.ts` ("03398 → 03-3982BL" pasa). El guion NO es el problema.

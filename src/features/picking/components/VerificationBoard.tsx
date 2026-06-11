@@ -253,15 +253,42 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   // ─── Helpers ──────────────────────────────────────────────────────
   const handleOrderSelect = useCallback(
     (order: PickingList) => {
+      const proceed = () => {
+        setExternalDoubleCheckId(order.id);
+        setViewMode('picking');
+        onClose();
+      };
+      // idea-130: an active picking session no longer hard-blocks the board.
       if (activeListId && cartItems.length > 0 && sessionMode === 'picking') {
-        toast.error('Finish or clear your active picking session first.', { icon: '🛒' });
+        // Same order the user was already working on → re-enter without friction.
+        if (String(order.id) === String(activeListId)) {
+          proceed();
+          return;
+        }
+        // Different order → warn + confirm instead of blocking. The current order
+        // is NOT deleted: it keeps its status and stays on the board, and the
+        // existing take-over validations still run on the external-load path.
+        showConfirmation(
+          'Open a different order?',
+          `You have an active session on another order. It will stay on the board (nothing is deleted) and you'll switch to #${order.order_number ?? order.id}.`,
+          proceed,
+          () => {},
+          'Switch order',
+          'Cancel'
+        );
         return;
       }
-      setExternalDoubleCheckId(order.id);
-      setViewMode('picking');
-      onClose();
+      proceed();
     },
-    [activeListId, cartItems.length, sessionMode, setExternalDoubleCheckId, setViewMode, onClose]
+    [
+      activeListId,
+      cartItems.length,
+      sessionMode,
+      setExternalDoubleCheckId,
+      setViewMode,
+      onClose,
+      showConfirmation,
+    ]
   );
 
   const handleDelete = useCallback(
