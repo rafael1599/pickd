@@ -15,6 +15,7 @@ import { useInventory } from '../inventory/hooks/InventoryProvider';
 import { ItemDetailView } from '../inventory/components/ItemDetailView';
 import { ConsolidationMoveModal } from './ConsolidationMoveModal';
 import { searchCandidates } from './searchCandidates';
+import { searchBikeStock } from './stockFallback';
 import { PlaceSkuTab } from './PlaceSkuTab';
 import { HiddenRowsPicker } from './components/HiddenRowsPicker';
 import { DestinationList } from './components/DestinationList';
@@ -393,6 +394,18 @@ export const ConsolidationScreen: React.FC = () => {
     () => searchCandidates(preSearch, debouncedSearch),
     [preSearch, debouncedSearch]
   );
+
+  // idea-131: when the operator searches and NO candidate matches, look the
+  // query up in the FULL bike stock and show where it lives — a search like
+  // "03398" must never be a silent dead end just because that SKU isn't in
+  // this mode's candidate set.
+  const stockFallbackEnabled = !isLoading && !!debouncedSearch.trim() && filtered.length === 0;
+  const { data: stockFallback = [], isLoading: isStockFallbackLoading } = useQuery({
+    queryKey: ['consolidation-stock-fallback', debouncedSearch],
+    queryFn: () => searchBikeStock(debouncedSearch),
+    enabled: stockFallbackEnabled,
+    staleTime: 60_000,
+  });
 
   // Two-level grouping: row → sublocation → cards. Each (row, subloc) pair
   // gets its own sticky header so as the operator scrolls within a row,
@@ -773,14 +786,59 @@ export const ConsolidationScreen: React.FC = () => {
               <Loader2 className="animate-spin text-accent w-6 h-6 opacity-30" />
             </div>
           ) : filtered.length === 0 ? (
-            <div className="text-center text-muted text-sm py-12">
-              {debouncedSearch
-                ? `No matches for "${debouncedSearch}".`
-                : mode === 'clear-row' && !clearRow
-                  ? 'Pick a row above to see its contents and suggested destinations.'
-                  : mode === 'clear-row'
-                    ? `${clearRow} is already empty.`
-                    : 'No candidates match the current filters.'}
+            <div className="py-12">
+              <div className="text-center text-muted text-sm">
+                {debouncedSearch
+                  ? `No candidates match "${debouncedSearch}".`
+                  : mode === 'clear-row' && !clearRow
+                    ? 'Pick a row above to see its contents and suggested destinations.'
+                    : mode === 'clear-row'
+                      ? `${clearRow} is already empty.`
+                      : 'No candidates match the current filters.'}
+              </div>
+              {/* idea-131: full-bike-stock fallback so the search is never a dead end */}
+              {stockFallbackEnabled &&
+                (isStockFallbackLoading ? (
+                  <div className="flex items-center justify-center mt-6">
+                    <Loader2 className="animate-spin text-accent w-5 h-5 opacity-30" />
+                  </div>
+                ) : stockFallback.length > 0 ? (
+                  <div className="mt-6 max-w-xl mx-auto">
+                    <div className="text-[11px] font-black uppercase tracking-widest text-muted/70 mb-2 px-1">
+                      Found in bike stock (outside these candidates)
+                    </div>
+                    <div className="space-y-2">
+                      {stockFallback.map((hit) => (
+                        <div
+                          key={hit.key}
+                          className="flex items-center justify-between gap-3 bg-card border border-subtle rounded-xl px-3 py-2"
+                        >
+                          <div className="min-w-0">
+                            <div className="font-black text-content tracking-tight">{hit.sku}</div>
+                            {hit.item_name && (
+                              <div className="text-xs text-muted uppercase tracking-wide truncate">
+                                {hit.item_name}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className="font-mono font-black text-amber-500 text-lg">
+                              {(hit.location || '—').toUpperCase()}
+                              {hit.sublocation && hit.sublocation.length > 0 && (
+                                <span className="ml-1">{hit.sublocation.join(',')}</span>
+                              )}
+                            </span>
+                            <span className="text-xs font-black text-muted">×{hit.quantity}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center text-muted/60 text-xs mt-3">
+                    Not found in the bike stock either.
+                  </div>
+                ))}
             </div>
           ) : debouncedSearch ? (
             // Active search → flat list (ranked by search relevance, not grouped).
