@@ -131,10 +131,10 @@
 - **Clase distinta al matching de guiones (idea-101):** el parser asumía color de 2 letras y descartaba la 3ª como finish suffix ANTES del matching. Pero el catálogo es inconsistente: `03-3769BLD` existe con la D, `03-3768BL` no.
 - **Fix:** el catálogo decide — `_to_cart_items` prueba primero el raw SKU completo normalizado (con sufijo) y solo cae al truncado si no existe; con ambos en catálogo gana el específico. Comportamiento histórico (`3768 BLD`→`BL`) intacto.
 
-### 64. Búsqueda de consolidation <!-- id: idea-131 -->
-- **Dash-insensitive:** ✅ **YA RESUELTO** (#107, `searchCandidates.ts`). Verificado con test `searchCandidates.test.ts` ("03398 → 03-3982BL" pasa). El guion NO es el problema.
-- **Pendiente (decisión operador 2026-06-09):** "buscar en TODO el stock de bikes." El reporte "03398 no muestra 03-3982BL" es de **alcance**: consolidation solo busca su set de candidatos (RPCs por modo + only_bikes). Falta: cuando hay query y no hay candidato, también buscar en el stock de bikes completo (reusar el RPC de stock search, idea-074) y mostrar esos resultados. **Feature media — siguiente foco.**
-- **Origen:** sesión 2026-06-09.
+### ~~64. Búsqueda de consolidation~~ <!-- id: idea-131 --> ✅ 2026-06-11
+- **Dash-insensitive:** ✅ resuelto antes (#107, `searchCandidates.ts`).
+- **Fallback a todo el stock de bikes (2026-06-11):** cuando hay query y CERO candidatos, `searchBikeStock` (`stockFallback.ts`) consulta el RPC compartido `search_inventory_with_metadata` (idea-074, bikes only, limit 15) y muestra los hits — SKU, nombre, LOC+sublocation en ámbar, qty — bajo el mensaje "No candidates match". Si tampoco hay en stock: "Not found in the bike stock either". La búsqueda nunca es un callejón sin salida.
+- **Origen:** sesión 2026-06-09; implementado 2026-06-11.
 
 ### ~~65. Overlays/menus con blur + scroll-lock~~ <!-- id: idea-132 --> ✅ ya aplicado (#107, 2026-06-09)
 - El operador confirma que ya se aplica ("ya la aplicamos"). Commit `090f999` añadió *blur/scroll-lock overlay menus*.
