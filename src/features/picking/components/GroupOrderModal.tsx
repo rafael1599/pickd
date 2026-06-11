@@ -9,6 +9,8 @@ import { useScrollLock } from '../../../hooks/useScrollLock';
 interface GroupOrderModalProps {
   sourceOrder: PickingList;
   targetOrder: PickingList;
+  /** Adding to an EXISTING group: type is fixed, show a single confirm button. */
+  joinExisting?: boolean;
   onConfirm: (type: GroupType) => void;
   onCancel: () => void;
 }
@@ -16,12 +18,15 @@ interface GroupOrderModalProps {
 export const GroupOrderModal: React.FC<GroupOrderModalProps> = ({
   sourceOrder,
   targetOrder,
+  joinExisting = false,
   onConfirm,
   onCancel,
 }) => {
   useScrollLock(true, onCancel);
   const formatOrderNumber = (order: PickingList) =>
     `#${order.order_number || order.id.slice(-6).toUpperCase()}`;
+  // Waiting orders must never be grouped by accident — call it out loudly.
+  const waitingOrders = [sourceOrder, targetOrder].filter((o) => o.is_waiting_inventory);
 
   return createPortal(
     <div
@@ -55,31 +60,54 @@ export const GroupOrderModal: React.FC<GroupOrderModalProps> = ({
             </span>
           </div>
 
-          <p className="text-[10px] text-muted font-bold uppercase tracking-widest text-center">
-            Select group type
-          </p>
+          {waitingOrders.length > 0 && (
+            <div className="text-center text-[11px] font-black uppercase tracking-wider text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+              ⚠ {waitingOrders.map(formatOrderNumber).join(' and ')}{' '}
+              {waitingOrders.length === 1 ? 'is' : 'are'} waiting for inventory
+            </div>
+          )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => onConfirm('fedex')}
-              className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 hover:border-purple-500/40 transition-all active:scale-95"
-            >
-              <Truck size={24} className="text-purple-400" />
-              <span className="text-xs font-black text-purple-400 uppercase tracking-widest">
-                FedEx
-              </span>
-            </button>
+          {joinExisting ? (
+            <>
+              <p className="text-[10px] text-muted font-bold uppercase tracking-widest text-center">
+                Add to the existing group?
+              </p>
+              <button
+                onClick={() => onConfirm('general')}
+                className="w-full p-4 rounded-xl border-2 border-accent/30 bg-accent/10 hover:bg-accent/20 transition-all active:scale-95 text-sm font-black text-accent uppercase tracking-widest"
+              >
+                Add to group
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-[10px] text-muted font-bold uppercase tracking-widest text-center">
+                Select group type
+              </p>
 
-            <button
-              onClick={() => onConfirm('general')}
-              className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-accent/20 bg-accent/5 hover:bg-accent/10 hover:border-accent/40 transition-all active:scale-95"
-            >
-              <Package size={24} className="text-accent" />
-              <span className="text-xs font-black text-accent uppercase tracking-widest">
-                General
-              </span>
-            </button>
-          </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => onConfirm('fedex')}
+                  className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 hover:border-purple-500/40 transition-all active:scale-95"
+                >
+                  <Truck size={24} className="text-purple-400" />
+                  <span className="text-xs font-black text-purple-400 uppercase tracking-widest">
+                    FedEx
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => onConfirm('general')}
+                  className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-accent/20 bg-accent/5 hover:bg-accent/10 hover:border-accent/40 transition-all active:scale-95"
+                >
+                  <Package size={24} className="text-accent" />
+                  <span className="text-xs font-black text-accent uppercase tracking-widest">
+                    General
+                  </span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>,

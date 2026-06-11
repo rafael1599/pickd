@@ -733,6 +733,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           <GroupOrderModal
             sourceOrder={dnd.pendingMerge.source}
             targetOrder={dnd.pendingMerge.target}
+            joinExisting={!!dnd.pendingMerge.joinGroupId}
             onConfirm={dnd.confirmMerge}
             onCancel={dnd.cancelPending}
           />
