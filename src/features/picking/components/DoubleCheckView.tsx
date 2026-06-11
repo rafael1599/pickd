@@ -2058,10 +2058,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                         : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
                                     }`}
                                   >
-                                    🔒 {otherDemand} for{' '}
-                                    {info.reservingOrders.length === 1
-                                      ? 'another order'
-                                      : `${info.reservingOrders.length} other orders`}
+                                    🔒 {otherDemand} for #
+                                    {info.reservingOrders[0]?.orderNumber ?? '?'}
+                                    {info.reservingOrders.length > 1 &&
+                                      ` +${info.reservingOrders.length - 1}`}
                                   </span>
                                 );
                               })()}
