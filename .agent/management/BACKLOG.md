@@ -127,6 +127,10 @@
 ### ~~79. Double-check: colapsar detalle de items marcados~~ <!-- id: idea-146 --> ✅ 2026-06-11 (#122) — input: 2026-06-11 ~09:20 NY
 - Al marcar un item desaparecen nombre, distribution y sublocation — la fila se encoge y los pendientes dominan la pantalla. SKU/cantidad/ubicación se mantienen (tinte verde + check). Review mode muestra todo.
 
+### ~~80. Watchdog: SKU con sufijo truncado (03-3769BLD → 03-3769BL)~~ <!-- id: idea-147 --> ✅ 2026-06-11 (watchdog #40) — input: 2026-06-11 ~09:45 NY
+- **Clase distinta al matching de guiones (idea-101):** el parser asumía color de 2 letras y descartaba la 3ª como finish suffix ANTES del matching. Pero el catálogo es inconsistente: `03-3769BLD` existe con la D, `03-3768BL` no.
+- **Fix:** el catálogo decide — `_to_cart_items` prueba primero el raw SKU completo normalizado (con sufijo) y solo cae al truncado si no existe; con ambos en catálogo gana el específico. Comportamiento histórico (`3768 BLD`→`BL`) intacto.
+
 ### 64. Búsqueda de consolidation <!-- id: idea-131 -->
 - **Dash-insensitive:** ✅ **YA RESUELTO** (#107, `searchCandidates.ts`). Verificado con test `searchCandidates.test.ts` ("03398 → 03-3982BL" pasa). El guion NO es el problema.
 - **Pendiente (decisión operador 2026-06-09):** "buscar en TODO el stock de bikes." El reporte "03398 no muestra 03-3982BL" es de **alcance**: consolidation solo busca su set de candidatos (RPCs por modo + only_bikes). Falta: cuando hay query y no hay candidato, también buscar en el stock de bikes completo (reusar el RPC de stock search, idea-074) y mostrar esos resultados. **Feature media — siguiente foco.**
