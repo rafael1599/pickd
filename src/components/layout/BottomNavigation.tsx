@@ -37,14 +37,16 @@ const NavItem = ({ icon: Icon, label, isActive, onClick, isCompact }: NavItemPro
 );
 
 export const BottomNavigation = () => {
-  const { viewMode, setViewMode, isNavHidden, isSearching } = useViewMode();
+  const { viewMode, setViewMode, isNavHidden, isSearching, requestStockView } = useViewMode();
   const navigate = useNavigate();
   const location = useLocation();
 
   if (isNavHidden) return null;
 
   const handleStockClick = () => {
-    setViewMode('stock');
+    // Explicit signal (idea-129): also closes an open double-check drawer like
+    // the X would, instead of leaving it floating over the stock view.
+    requestStockView();
     if (location.pathname !== '/') navigate('/');
   };
 

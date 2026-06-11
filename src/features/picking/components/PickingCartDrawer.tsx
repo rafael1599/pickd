@@ -26,7 +26,8 @@ import { useScrollLock } from '../../../hooks/useScrollLock';
 export const PickingCartDrawer: React.FC = () => {
   const { user } = useAuth();
   const { showConfirmation } = useConfirmation();
-  const { externalDoubleCheckId, setExternalDoubleCheckId, viewMode } = useViewMode();
+  const { externalDoubleCheckId, setExternalDoubleCheckId, viewMode, stockNavSignal } =
+    useViewMode();
   const { pathname } = useLocation();
   // Per-item pick/unpick mutation. Inherits the project's mutation
   // defaults (retry × 3 with exponential backoff capped at 30s,
@@ -416,6 +417,21 @@ export const PickingCartDrawer: React.FC = () => {
     }
     setIsOpen(false);
   };
+
+  // idea-129: pressing STOCK in the bottom nav must behave like pressing the X —
+  // close the drawer (releasing the check) and reveal the stock view. The generic
+  // close-on-viewMode-change effect above deliberately skips externally-opened
+  // orders (Verification Board), which is exactly the case the operator reported,
+  // so this explicit signal bypasses that exception.
+  const releaseRef = useRef(handleReleaseOrder);
+  releaseRef.current = handleReleaseOrder;
+  const prevStockSignalRef = useRef(stockNavSignal);
+  useEffect(() => {
+    if (stockNavSignal === prevStockSignalRef.current) return; // mount / unrelated render
+    prevStockSignalRef.current = stockNavSignal;
+    if (isOpen) void releaseRef.current();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stockNavSignal]);
 
   const handleCorrectItem = async (action: CorrectionAction, targetListId?: string) => {
     if (!activeListId) return;
