@@ -623,20 +623,33 @@ export const usePickingSync = ({
     }
   };
 
+  // saveToDb is recreated every render, so ITS closure (customer, loadNumber,
+  // sessionMode) is always fresh — but the debounce used to capture ONE frozen
+  // saveToDb per sessionMode change. A customer assigned or edited mid-session
+  // was then auto-saved with the PREVIOUS customer_id (or null), silently
+  // relinking the order to another customer. The ref always points at the
+  // latest closure; the debounce itself is created once. A save that fires
+  // after leaving picking mode is skipped by saveToDb's own (now fresh)
+  // sessionMode guard, which is what the old [sessionMode] recreate-and-cancel
+  // achieved.
+  const saveToDbRef = useRef(saveToDb);
+  useEffect(() => {
+    saveToDbRef.current = saveToDb;
+  });
+
   const debouncedSaveRef = useRef<DebouncedFunction<
     (items: CartItem[], userId: string, listId: string | null, orderNum: string | null) => void
   > | null>(null);
   useEffect(() => {
     debouncedSaveRef.current = debounce(
       (items: CartItem[], userId: string, listId: string | null, orderNum: string | null) =>
-        saveToDb(items, userId, listId, orderNum),
+        saveToDbRef.current(items, userId, listId, orderNum),
       SYNC_DEBOUNCE_MS
     );
     return () => {
       debouncedSaveRef.current?.cancel();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- saveToDb is intentionally excluded; it reads sessionMode via closure and recreating the debounce on every dep change would defeat debouncing
-  }, [sessionMode]);
+  }, []);
 
   useEffect(() => {
     if (!isLoaded || !user || sessionMode !== 'picking') return;
