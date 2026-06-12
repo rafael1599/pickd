@@ -8,6 +8,13 @@ type ShippingType = 'fedex' | 'regular';
 
 interface Props {
   listId: string;
+  /**
+   * Auto-classified type computed by the caller (cart-based). Shown as the
+   * selected chip when no shipping_type is persisted (column NULL = auto),
+   * so a known-FedEx/Truck order never renders with nothing selected.
+   * Tapping the auto-selected chip persists it (auto → manual).
+   */
+  autoType?: ShippingType | null;
 }
 
 /**
@@ -32,7 +39,7 @@ interface Props {
  *   - `mutationKey: ['shipping-type', listId]` dedupes concurrent
  *     taps on the toggle without an explicit lock.
  */
-export const ShippingTypeToggle: React.FC<Props> = ({ listId }) => {
+export const ShippingTypeToggle: React.FC<Props> = ({ listId, autoType = null }) => {
   const [type, setType] = useState<ShippingType | null>(null);
 
   useEffect(() => {
@@ -92,6 +99,11 @@ export const ShippingTypeToggle: React.FC<Props> = ({ listId }) => {
     mutation.mutate(next);
   };
 
+  // What the chips display: the persisted override wins; otherwise the
+  // caller's auto-classification, so the effective type is always visible.
+  const shown = type ?? autoType;
+  const isAuto = type === null && autoType !== null;
+
   const baseBtn =
     'text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full border transition-colors';
 
@@ -100,9 +112,12 @@ export const ShippingTypeToggle: React.FC<Props> = ({ listId }) => {
       <button
         onClick={() => apply('fedex')}
         disabled={mutation.isPending}
+        title={
+          shown === 'fedex' && isAuto ? 'Auto-classified — tap to save it on the order' : 'FedEx'
+        }
         className={`${baseBtn} ${
-          type === 'fedex'
-            ? 'bg-purple-500 text-white border-purple-500'
+          shown === 'fedex'
+            ? `bg-purple-500 text-white border-purple-500 ${isAuto ? 'opacity-80 border-dashed' : ''}`
             : 'bg-surface text-muted border-subtle hover:text-content'
         }`}
       >
@@ -111,9 +126,12 @@ export const ShippingTypeToggle: React.FC<Props> = ({ listId }) => {
       <button
         onClick={() => apply('regular')}
         disabled={mutation.isPending}
+        title={
+          shown === 'regular' && isAuto ? 'Auto-classified — tap to save it on the order' : 'Truck'
+        }
         className={`${baseBtn} ${
-          type === 'regular'
-            ? 'bg-emerald-500 text-white border-emerald-500'
+          shown === 'regular'
+            ? `bg-emerald-500 text-white border-emerald-500 ${isAuto ? 'opacity-80 border-dashed' : ''}`
             : 'bg-surface text-muted border-subtle hover:text-content'
         }`}
       >
