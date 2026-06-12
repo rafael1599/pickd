@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
-import { canonicalBikeSku } from '../../../utils/skuNormalize';
+import { resolveInventorySku } from '../../../utils/skuNormalize';
 import type { DistributionItem } from '../../../schemas/inventory.schema';
 
 /** Inventory resolved for an item via its canonical (de-mangled) SKU. */
@@ -27,20 +27,21 @@ interface InventoryRow {
 }
 
 /**
- * For cart items whose SKU has a spurious extra trailing letter (so the exact
- * SKU isn't in inventory — see {@link canonicalBikeSku}), resolves the canonical
- * SKU against inventory and returns, per raw SKU, the best active stock row
- * (location + aggregated distribution + total qty). Lets the Double-Check view
- * show WHERE to pick instead of "not in inventory".
+ * For cart items whose SKU doesn't match inventory as-is — a spurious extra
+ * trailing letter, or an explicit AS400 alias like 03-4070BL → 03-4070BK
+ * (see {@link resolveInventorySku}) — resolves the inventory-facing SKU and
+ * returns, per raw SKU, the best active stock row (location + aggregated
+ * distribution + total qty). Lets the Double-Check view show WHERE to pick
+ * instead of "not in inventory".
  *
- * Only items whose canonical form differs from the raw SKU are queried, so this
+ * Only items whose resolved form differs from the raw SKU are queried, so this
  * is a pure fallback that never touches SKUs that already match exactly.
  */
 export function useCanonicalSkuResolution(cartItems: ResolutionItem[]): Map<string, ResolvedPick> {
   const [resolved, setResolved] = useState<Map<string, ResolvedPick>>(new Map());
 
   const targets = [
-    ...new Set(cartItems.map((i) => i.sku).filter((s) => s && canonicalBikeSku(s) !== s)),
+    ...new Set(cartItems.map((i) => i.sku).filter((s) => s && resolveInventorySku(s) !== s)),
   ];
   const key = targets.slice().sort().join(',');
 
@@ -54,7 +55,7 @@ export function useCanonicalSkuResolution(cartItems: ResolutionItem[]): Map<stri
 
     void (async () => {
       const rawSkus = key.split(',');
-      const canonSkus = [...new Set(rawSkus.map(canonicalBikeSku))];
+      const canonSkus = [...new Set(rawSkus.map(resolveInventorySku))];
 
       const { data, error } = await supabase
         .from('inventory')
@@ -74,7 +75,7 @@ export function useCanonicalSkuResolution(cartItems: ResolutionItem[]): Map<stri
 
       const result = new Map<string, ResolvedPick>();
       for (const rawSku of rawSkus) {
-        const canon = canonicalBikeSku(rawSku);
+        const canon = resolveInventorySku(rawSku);
         const rows = byCanon.get(canon);
         if (!rows || rows.length === 0) continue;
 

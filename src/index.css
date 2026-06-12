@@ -216,21 +216,23 @@ body::before {
   animation: pickd-check 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
-@keyframes pulse-warning {
+/* Qty alert: oscillate red <-> orange (not just an opacity dim) so a
+   multi-unit qty is impossible to miss during double-check. */
+@keyframes qty-alert {
   0%,
   100% {
-    opacity: 1;
+    color: #f97316; /* orange-500 */
     transform: scale(1);
   }
 
   50% {
-    opacity: 0.7;
-    transform: scale(1.1);
+    color: #ef4444; /* red-500 */
+    transform: scale(1.08);
   }
 }
 
-.animate-pulse-warning {
-  animation: pulse-warning 1.5s ease-in-out infinite;
+.animate-qty-alert {
+  animation: qty-alert 1.2s ease-in-out infinite;
 }
 
 @keyframes pulse-highlight {
