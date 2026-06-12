@@ -147,6 +147,8 @@
 - **PickD (#134):** soltar una orden sobre otra agrupaba en silencio en la misma zona. Ahora TODA agrupación por drag pasa por `GroupOrderModal`: grupo existente → botón único "Add to group"; grupo nuevo → picker FedEx/General; si alguna orden está waiting → advertencia ámbar "⚠ #X is waiting for inventory".
 - **Watchdog (#43):** `find_combinable_order_by_customer` excluye `is_waiting_inventory=true` — una orden nueva del mismo customer ya no puede auto-combinarse dentro de una waiting (era posible: viven en `needs_correction`, status combinable). Unirse a una waiting = solo manual + confirmado en PickD.
 - **Bonus (#43):** el filtro de notas ruido (idea-150) portado a la tarjeta del watcher (`pipeline.meaningful_note`, display-only — el order_comments completo sigue yendo a PickD).
+- **Follow-up (2026-06-12, watchdog #46):** quedaba un path abierto — la re-emisión del MISMO número con SKUs nuevos auto-appendeaba dentro de una waiting (paso 3 del pipeline; `needs_correction` es appendable). Ahora retorna `waiting_locked` sin escribir: la UI responde 409 (tarjeta queda pending) y el watcher PDF manda el archivo a `errors/`.
+- **Follow-up (2026-06-12, guard en DB):** trigger `trg_waiting_write_guard` en `picking_lists` (migración `20260612150000`): mientras una orden esté waiting (`needs_correction` + flag), requests `service_role` NO pueden tocar `items`/`order_number`/`combine_meta` — protege producción aunque Bay 2 corra un build viejo. Acciones manuales (authenticated) y sesiones directas de DB siguen permitidas. ⚠ Requiere `npx supabase db push --linked` post-merge.
 
 ### ~~64. Búsqueda de consolidation~~ <!-- id: idea-131 --> ✅ 2026-06-11
 - **Dash-insensitive:** ✅ resuelto antes (#107, `searchCandidates.ts`).
