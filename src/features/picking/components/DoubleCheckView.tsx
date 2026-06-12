@@ -324,13 +324,25 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   // space. The exit button and the progress line stay visible always.
   const [showHeaderInfo, setShowHeaderInfo] = useState(true);
   const headerHideTimer = useRef<number | undefined>(undefined);
+  // Collapsing the header changes the scroll container's geometry: the browser
+  // clamps scrollTop and fires synthetic scroll events that would re-show the
+  // header in an endless show/hide loop. Scroll bumps are suppressed while the
+  // collapse animation (300ms) settles; pointer bumps are always genuine.
+  const suppressScrollBumpUntil = useRef(0);
   const bumpHeaderInfo = useCallback(() => {
     // Returning the same value skips a re-render, so scrolling while already
     // shown only resets the timer (no churn).
     setShowHeaderInfo((v) => (v ? v : true));
     if (headerHideTimer.current) window.clearTimeout(headerHideTimer.current);
-    headerHideTimer.current = window.setTimeout(() => setShowHeaderInfo(false), 5000);
+    headerHideTimer.current = window.setTimeout(() => {
+      suppressScrollBumpUntil.current = Date.now() + 600;
+      setShowHeaderInfo(false);
+    }, 5000);
   }, []);
+  const bumpHeaderInfoOnScroll = useCallback(() => {
+    if (Date.now() < suppressScrollBumpUntil.current) return;
+    bumpHeaderInfo();
+  }, [bumpHeaderInfo]);
   useEffect(() => {
     bumpHeaderInfo(); // show briefly on open, then auto-hide
     return () => {
@@ -1681,7 +1693,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       {/* Clean Item List */}
       <div
         className="flex-1 overflow-y-auto p-4 bg-main min-h-0 pb-32"
-        onScroll={bumpHeaderInfo}
+        onScroll={bumpHeaderInfoOnScroll}
         onPointerDown={bumpHeaderInfo}
       >
         {/* Inline 'Mark as Waiting' reason picker (only when triggered from menu) */}
