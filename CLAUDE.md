@@ -116,15 +116,19 @@ El edge function valida el JWT internamente con `supabase.auth.getUser(token)`. 
 
 ## Skills
 
-Este proyecto usa skills de `.claude/skills/` (symlink a `~/Documents/Projects/skills`). Para actualizar: `cd .claude/skills && git pull`
+Los skills viven en el repo central `rafael1599/skills`. Claude Code solo descubre skills en `.claude/skills/<nombre>/SKILL.md` (un nivel de profundidad), así que se conectan con un symlink **por skill** — un symlink al root del repo no expone los skills anidados.
+
+- **Local (Mac):** symlinks hacia `~/Documents/Projects/skills`. Para actualizar: `git pull` en ese repo.
+- **Claude Code web:** el hook SessionStart `.claude/hooks/link-skills.sh` crea los symlinks automáticamente al iniciar cada sesión (bash determinístico, `reloadSkills` + `suppressOutput` = sin demoras ni tokens). Requiere que el repo `skills` esté agregado al environment (queda clonado como hermano del proyecto). Para habilitar/quitar skills, editar la lista `SKILLS` de ese script.
 
 ### Skills disponibles para este proyecto
 
 - `commit-craft` — commits convencionales automáticos
-- `project-standardize` — estandarización de proyectos
-- `skills-hub` — gestión de skills entre proyectos
 - `daily-report` — reportes diarios de progreso (project-skill)
 - `supabase` — operaciones de base de datos Supabase (project-skill)
+- `ui-rules` — reglas de UI para pantallas nuevas (project-skill)
+- `catalog-images` — imágenes del catálogo JAMIS → R2 (project-skill)
+- `supabase-postgres-best-practices` — best practices de Postgres (external)
 
 ### Preferencias de conexión
 
