@@ -496,10 +496,10 @@ export const OrdersScreen = () => {
         if (!((e.ctrlKey || e.metaKey) && e.key === 'p')) return;
       }
 
-      // Print Shortcut (Ctrl+P or Cmd+P)
+      // Print Shortcut (Ctrl+P or Cmd+P) — via ref: see handlePrintRef below.
       if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
         e.preventDefault();
-        handlePrint();
+        handlePrintRef.current();
         return;
       }
 
@@ -531,7 +531,7 @@ export const OrdersScreen = () => {
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('keyup', handleKeyUp);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [filteredOrders, selectedOrder]);
 
   const handlePrint = async () => {
@@ -790,6 +790,18 @@ export const OrdersScreen = () => {
       setIsPrinting(false);
     }
   };
+
+  // The document-level Ctrl+P listener only re-binds when filteredOrders or
+  // selectedOrder change — but formData lands ONE RENDER LATER (its sync
+  // effect), so the listener's closure kept the PREVIOUS order's customer,
+  // address and load number: the printed label carried another order's name
+  // and handlePrint even persisted that stale form to the DB. The ref is
+  // re-pointed at the fresh handler on every render, so the shortcut always
+  // prints exactly what the screen shows (same handler the Print button gets).
+  const handlePrintRef = useRef(handlePrint);
+  useEffect(() => {
+    handlePrintRef.current = handlePrint;
+  });
 
   const handleNextOrder = () => {
     if (filteredOrders.length === 0 || !selectedOrder) return;
