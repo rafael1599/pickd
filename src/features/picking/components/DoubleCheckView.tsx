@@ -50,6 +50,7 @@ import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingCo
 import { useStockReservations, buildReservationKey } from '../hooks/useStockReservations';
 import { useStaleLocationCheck } from '../hooks/useStaleLocationCheck';
 import { useCanonicalSkuResolution } from '../hooks/useCanonicalSkuResolution';
+import { AS400_SKU_ALIASES } from '../../../utils/skuNormalize';
 import { DistributionGlyph } from '../../inventory/components/DistributionJengaViz';
 import { WaitingConflictModal } from './WaitingConflictModal';
 import { ReasonPicker } from './ReasonPicker';
@@ -910,9 +911,25 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     return map;
   }, [pallets, skuInventoryMap]);
 
+  // AS400-alias items (e.g. 03-4070BL stocked as 03-4070BK) whose alias SKU
+  // covers the requested qty are not real stock problems — only a warning chip.
+  const isUnresolvedProblem = useCallback(
+    (i: {
+      sku: string;
+      pickingQty?: number;
+      sku_not_found?: boolean;
+      insufficient_stock?: boolean;
+    }) => {
+      if (!i.sku_not_found && !i.insufficient_stock) return false;
+      const resolved = AS400_SKU_ALIASES[i.sku] ? canonicalResolution.get(i.sku) : undefined;
+      return !(resolved && resolved.quantity >= (i.pickingQty || 0));
+    },
+    [canonicalResolution]
+  );
+
   const problemItems = useMemo(
-    () => cartItems.filter((i) => i.sku_not_found || i.insufficient_stock),
-    [cartItems]
+    () => cartItems.filter(isUnresolvedProblem),
+    [cartItems, isUnresolvedProblem]
   );
 
   // When a sub-order is selected, filter the cart down to only its items.
@@ -928,8 +945,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   }, [cartItems, editingOrderNumber, isCombined]);
 
   const editingProblemItems = useMemo(
-    () => editingCartItems.filter((i) => i.sku_not_found || i.insufficient_stock),
-    [editingCartItems]
+    () => editingCartItems.filter(isUnresolvedProblem),
+    [editingCartItems, isUnresolvedProblem]
   );
 
   // Map source_order → picking_list id for routing corrections in group edit
@@ -1080,12 +1097,14 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     const uniqueSkus = [...new Set(insufficientSkus)];
     Promise.all(
       uniqueSkus.map(async (sku) => {
+        // AS400-alias SKUs: the physical stock lives under the alias SKU.
+        const target = AS400_SKU_ALIASES[sku] ?? sku;
         const [bikes, parts] = await Promise.all([
-          inventoryApi.fetchInventoryWithMetadata({ search: sku, showParts: false, limit: 10 }),
-          inventoryApi.fetchInventoryWithMetadata({ search: sku, showParts: true, limit: 10 }),
+          inventoryApi.fetchInventoryWithMetadata({ search: target, showParts: false, limit: 10 }),
+          inventoryApi.fetchInventoryWithMetadata({ search: target, showParts: true, limit: 10 }),
         ]);
         const total = [...bikes.data, ...parts.data]
-          .filter((inv) => inv.sku === sku)
+          .filter((inv) => inv.sku === target)
           .reduce((sum, inv) => sum + (inv.quantity || 0), 0);
         return [sku, total] as const;
       })
@@ -1917,6 +1936,15 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                   // canonical SKU, treat it as found and show its location.
                   const canonResolved = canonicalResolution.get(item.sku);
                   const skuNotFound = !!item.sku_not_found && !canonResolved;
+                  // AS400 alias (e.g. 03-4070BL stocked as 03-4070BK): when the
+                  // alias SKU covers the qty, drop the out-of-stock alarm — the
+                  // small AS400 chip next to the SKU is the only reminder.
+                  const aliasTarget = AS400_SKU_ALIASES[item.sku];
+                  const aliasCovered =
+                    !!aliasTarget &&
+                    !!canonResolved &&
+                    canonResolved.quantity >= (item.pickingQty || 0);
+                  const insufficientStock = !!item.insufficient_stock && !aliasCovered;
                   const displayLocation = item.location || canonResolved?.location || null;
                   // Pick-plan steps: exact-SKU plan, else the canonical SKU's distribution.
                   const planSteps: { type: string; units_each: number }[] | null =
@@ -1966,7 +1994,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                           isReviewMode
                             ? skuNotFound
                               ? 'bg-red-500/5 border-red-500/20'
-                              : item.insufficient_stock
+                              : insufficientStock
                                 ? 'bg-amber-500/5 border-amber-500/20'
                                 : 'bg-card border-subtle'
                             : isChecked
@@ -1982,15 +2010,15 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                           className="flex items-center gap-3 flex-1 min-w-0"
                           style={{ transform: 'scaleY(1.5)' }}
                         >
-                          {/* Qty on the far left */}
-                          <div className="flex flex-col items-center justify-center min-w-[3rem] shrink-0 border-r border-subtle pr-3">
+                          {/* Qty on the far left — the biggest number on the row */}
+                          <div className="flex flex-col items-center justify-center min-w-[4rem] shrink-0 border-r border-subtle pr-3">
                             <span className="text-[10px] font-black uppercase tracking-widest text-muted/60 mb-0.5">
                               QTY
                             </span>
                             <span
-                              className={`text-2xl font-black leading-none transition-all ${
+                              className={`text-4xl md:text-7xl font-black leading-none transition-all ${
                                 item.pickingQty !== 1
-                                  ? 'text-amber-500 animate-pulse-warning'
+                                  ? 'text-orange-500 animate-qty-alert'
                                   : isChecked
                                     ? 'text-muted'
                                     : 'text-content'
@@ -2026,7 +2054,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                             {/* SKU row */}
                             <div className="flex items-center gap-2 flex-wrap min-w-0">
                               <span
-                                className={`font-black text-2xl md:text-5xl tracking-tight leading-none whitespace-nowrap ${isReviewMode ? (skuNotFound || item.insufficient_stock ? 'text-red-500' : 'text-content') : isChecked ? (skuNotFound || item.insufficient_stock ? 'text-red-400' : 'text-green-400') : skuNotFound || item.insufficient_stock ? 'text-red-500' : 'text-content'}`}
+                                className={`font-black text-2xl md:text-5xl tracking-tight leading-none whitespace-nowrap ${isReviewMode ? (skuNotFound || insufficientStock ? 'text-red-500' : 'text-content') : isChecked ? (skuNotFound || insufficientStock ? 'text-red-400' : 'text-green-400') : skuNotFound || insufficientStock ? 'text-red-500' : 'text-content'}`}
                               >
                                 {sdSerialMap.has(item.sku) ? (
                                   // S/D: show the physical serial instead of the SKU.
@@ -2057,9 +2085,17 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                   UNREG
                                 </span>
                               )}
-                              {item.insufficient_stock && !skuNotFound && (
+                              {insufficientStock && !skuNotFound && (
                                 <span className="text-[10px] bg-amber-500 text-black px-1 py-0.5 rounded font-black uppercase tracking-tighter animate-pulse">
                                   LOW STOCK
+                                </span>
+                              )}
+                              {aliasTarget && (
+                                <span
+                                  title={`AS400 catalogs this as ${item.sku} — physical stock is ${aliasTarget}`}
+                                  className="text-[10px] bg-amber-500/15 text-amber-400 border border-amber-500/30 px-1 py-0.5 rounded font-black uppercase tracking-tighter"
+                                >
+                                  AS400 → {aliasTarget}
                                 </span>
                               )}
                               {(() => {
@@ -2154,7 +2190,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                               </div>
                             ) : (
                               !hideDetails &&
-                              item.insufficient_stock && (
+                              insufficientStock && (
                                 <span className="text-xs font-black text-amber-500 uppercase tracking-wider leading-none">
                                   {stockMap[item.sku] !== undefined
                                     ? `${stockMap[item.sku]} in stock (need ${item.pickingQty})`

@@ -18,3 +18,25 @@ export function canonicalBikeSku(sku: string | null | undefined): string {
   const m = /^(\d{2}-\d{4}[A-Za-z]{2})[A-Za-z]+$/.exec(s);
   return m ? m[1] : s;
 }
+
+/**
+ * Explicit AS400 → inventory SKU aliases. AS400 catalogs a handful of SKUs
+ * under a different color code than the one the physical inventory uses
+ * (e.g. AS400 sells 03-4070BL but the bike PickD stocks is 03-4070BK), so the
+ * mapping can't be derived from the SKU shape like the mangled-suffix case.
+ * Orders keep the AS400 SKU — the alias only tells the UI which inventory SKU
+ * actually holds the stock, and the Double-Check view shows a warning chip.
+ */
+export const AS400_SKU_ALIASES: Record<string, string> = {
+  '03-4070BL': '03-4070BK',
+};
+
+/**
+ * Inventory-facing form of an order SKU: de-mangles the spurious trailing
+ * letter, then applies the explicit AS400 alias if there is one. Same
+ * fallback contract as {@link canonicalBikeSku}: try the exact SKU first.
+ */
+export function resolveInventorySku(sku: string | null | undefined): string {
+  const canon = canonicalBikeSku(sku);
+  return AS400_SKU_ALIASES[canon] ?? canon;
+}

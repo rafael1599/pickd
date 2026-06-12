@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { canonicalBikeSku } from '../skuNormalize';
+import { canonicalBikeSku, resolveInventorySku } from '../skuNormalize';
 
 describe('canonicalBikeSku', () => {
   it('strips a spurious extra trailing letter from a bike SKU', () => {
@@ -31,5 +31,25 @@ describe('canonicalBikeSku', () => {
 
   it('trims whitespace', () => {
     expect(canonicalBikeSku('  03-3768BLD ')).toBe('03-3768BL');
+  });
+});
+
+describe('resolveInventorySku', () => {
+  it('applies the explicit AS400 alias (03-4070BL is stocked as 03-4070BK)', () => {
+    expect(resolveInventorySku('03-4070BL')).toBe('03-4070BK');
+  });
+
+  it('de-mangles the trailing letter before applying the alias', () => {
+    expect(resolveInventorySku('03-4070BLD')).toBe('03-4070BK');
+  });
+
+  it('falls back to the canonical SKU when there is no alias', () => {
+    expect(resolveInventorySku('03-3768BLD')).toBe('03-3768BL');
+    expect(resolveInventorySku('03-3768BL')).toBe('03-3768BL');
+    expect(resolveInventorySku('128353')).toBe('128353');
+  });
+
+  it('never maps the inventory-side SKU itself', () => {
+    expect(resolveInventorySku('03-4070BK')).toBe('03-4070BK');
   });
 });
