@@ -1387,15 +1387,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                   </button>
                 );
               })()}
-              {isFedexOrder && (
-                <span
-                  className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-purple-500 text-white border border-purple-500/40"
-                  title="FedEx shipment"
-                >
-                  FDX
-                </span>
+              {activeListId && (
+                <ShippingTypeToggle listId={activeListId} autoType={effectiveShippingType} />
               )}
-              {activeListId && <ShippingTypeToggle listId={activeListId} />}
               {orderListOpen && orderNumber && orderNumber.includes(' / ') && (
                 <div className="absolute top-full left-0 mt-1 bg-card border border-subtle rounded-xl shadow-2xl overflow-hidden z-20 min-w-[140px] animate-in fade-in slide-in-from-top-2 duration-150">
                   {orderNumber
