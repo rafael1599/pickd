@@ -26,7 +26,8 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  v_role := COALESCE(current_setting('request.jwt.claims', true)::jsonb ->> 'role', '');
+  -- NULLIF: an empty-string GUC (no JWT) must not break the jsonb cast.
+  v_role := COALESCE(NULLIF(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '');
 
   IF v_role = 'service_role'
      AND (NEW.items IS DISTINCT FROM OLD.items
