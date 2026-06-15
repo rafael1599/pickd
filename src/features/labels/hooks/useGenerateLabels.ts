@@ -15,6 +15,7 @@ export interface LabelEntry {
   prefix: string | null;
   extra: string | null;
   upc: string | null;
+  color: string | null;
   poNumber: string | null;
   cNumber: string | null;
   serialNumber: string | null;
@@ -108,6 +109,7 @@ export function useGenerateLabels() {
             prefix: entry?.prefix ?? null,
             layout: entry?.layout ?? 'standard',
             upc: entry?.upc ?? null,
+            color: entry?.color ?? null,
             serial_number: entry?.serialNumber ?? null,
             made_in: entry?.madeIn ?? null,
             po_number: entry?.poNumber ?? null,

@@ -771,6 +771,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       sublocation: watch('sublocation') || null,
       distribution: [],
       serial_number: watch('serial_number') || null,
+      color: watch('color') || null,
       price: watch('price') ?? null,
       condition: watch('condition') || null,
       condition_description: watch('condition_description') || null,

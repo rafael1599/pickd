@@ -25,6 +25,7 @@ export function useQuickPrintLabel() {
         prefix: null,
         extra: null,
         upc: null,
+        color: null,
         poNumber: null,
         cNumber: null,
         serialNumber: null,
