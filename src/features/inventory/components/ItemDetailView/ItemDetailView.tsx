@@ -819,7 +819,6 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   }, [mode, itemName, sku]);
 
   const isAddMode = mode === 'add';
-  const isBikeItem = initialData?.sku_metadata?.is_bike === true;
   const isScratchDentItem =
     (initialData?.sku_metadata as { is_scratch_dent?: boolean } | undefined)?.is_scratch_dent ===
     true;
@@ -911,7 +910,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         mode={mode}
         onBack={requestClose}
         onDelete={mode === 'edit' ? handleDelete : undefined}
-        onPrintLabel={mode === 'edit' && isBikeItem ? handlePrintLabel : undefined}
+        onPrintLabel={mode === 'edit' ? handlePrintLabel : undefined}
       />
 
       {/* Label qty picker — inline below toolbar */}
