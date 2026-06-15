@@ -9,6 +9,9 @@ export interface LabelItem {
   prefix?: string | null;
   layout?: 'standard' | 'vertical';
   upc?: string | null;
+  /** Explicit color (parts store it on sku_metadata.color; bikes derive it
+   *  from the item name). When set, it wins over the name-parsed color. */
+  color?: string | null;
   serial_number?: string | null;
   made_in?: string | null;
   po_number?: string | null;
@@ -39,10 +42,7 @@ export const VALID_TRANSITIONS: Record<string, string[]> = {
  * └────────────────────────────────────────┘
  */
 export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
-  const [{ default: jsPDF }, QRCode] = await Promise.all([
-    import('jspdf'),
-    import('qrcode'),
-  ]);
+  const [{ default: jsPDF }, QRCode] = await Promise.all([import('jspdf'), import('qrcode')]);
 
   const W = 6;
   const H = 4;
@@ -54,9 +54,10 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
 
   for (const item of items) {
     const parsed = parseBikeName(item.item_name);
-    const baseUrl = typeof window !== 'undefined'
-      ? (import.meta.env.VITE_APP_URL || window.location.origin)
-      : 'https://roman-app.vercel.app';
+    const baseUrl =
+      typeof window !== 'undefined'
+        ? import.meta.env.VITE_APP_URL || window.location.origin
+        : 'https://roman-app.vercel.app';
     const qrPayload = `${baseUrl}/tag/${item.short_code}/${item.public_token}?sku=${encodeURIComponent(item.sku)}`;
     const qrDataUrl = await QRCode.toDataURL(qrPayload, {
       width: 400,
@@ -68,9 +69,11 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
     const nameText = (parsed.model || parsed.raw || item.sku).trim();
 
     // Detail: "SIZE 15 · COLOR GLOSS BLACK · YEAR 2026"
+    // Color: explicit field (parts) wins; else the name-parsed color (bikes).
+    const labelColor = item.color?.trim() || parsed.color;
     const detailParts: string[] = [];
     if (parsed.size) detailParts.push(`SIZE ${parsed.size}`);
-    if (parsed.color) detailParts.push(`COLOR ${parsed.color}`);
+    if (labelColor) detailParts.push(`COLOR ${labelColor}`);
     if (parsed.year) detailParts.push(`YEAR ${parsed.year}`);
     const detailText = detailParts.join('  ·  ');
 
@@ -141,7 +144,10 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
 
       for (let copy = 0; copy < 2; copy++) {
         if (!isFirstPage) doc.addPage([VW, VH], 'portrait');
-        else { doc.deletePage(1); doc.addPage([VW, VH], 'portrait'); }
+        else {
+          doc.deletePage(1);
+          doc.addPage([VW, VH], 'portrait');
+        }
         isFirstPage = false;
 
         doc.setFillColor(255, 255, 255);
@@ -279,7 +285,14 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
         // QR (centered, fills remaining space at bottom)
         const remainingH = VH - vy - vM;
         const actualQrSize = Math.min(vQrSize, Math.max(0.8, remainingH - 0.1));
-        doc.addImage(qrDataUrl, 'PNG', cx - actualQrSize / 2, VH - vM - actualQrSize, actualQrSize, actualQrSize);
+        doc.addImage(
+          qrDataUrl,
+          'PNG',
+          cx - actualQrSize / 2,
+          VH - vM - actualQrSize,
+          actualQrSize,
+          actualQrSize
+        );
       }
       continue;
     }
@@ -361,7 +374,7 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
           groupTopY,
           skuTextW + skuBgPadX * 2 + 0.05,
           skuTextH + skuBgPadY * 2,
-          'F',
+          'F'
         );
         doc.setTextColor(255, 255, 255);
         doc.text(item.sku, M + skuBgPadX, groupTopY + skuBgPadY + skuTextH * 0.8);

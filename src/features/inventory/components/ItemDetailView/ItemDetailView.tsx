@@ -129,6 +129,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       sublocation: null,
       // idea-083: Details section defaults
       serial_number: '',
+      color: '',
       price: null,
       condition: '',
       condition_description: '',
@@ -150,10 +151,15 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   const weightLbs = watch('weight_lbs');
   // idea-083: Details fields watches (for dirty check)
   const serialNumber = watch('serial_number');
+  const colorField = watch('color');
   const priceField = watch('price');
   const conditionField = watch('condition');
   const conditionDescField = watch('condition_description');
   const pdfLinkField = watch('pdf_link');
+  // sku_metadata.color isn't returned by the inventory RPC, so we fetch it on
+  // its own when the detail opens. The baseline (last saved value) feeds the
+  // dirty-check so changing only the color still enables Save.
+  const colorBaselineRef = useRef('');
 
   // ─── Sync Initial Data ───
   useEffect(() => {
@@ -185,6 +191,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           // For S/D items this is the sale price and msrp/standard_price
           // stay on bike_variants (shown read-only via useScratchAndDentBySku).
           serial_number: initialData.sku_metadata?.serial_number || '',
+          // color isn't returned by the inventory RPC — seeded by a dedicated
+          // fetch below (see the color-load effect). Default empty for now.
+          color: '',
           price: initialData.sku_metadata?.sd_price ?? null,
           condition: initialData.sku_metadata?.condition || '',
           condition_description: initialData.sku_metadata?.condition_description || '',
@@ -267,6 +276,26 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     }
   }, [isOpen, mode, initialData, ludlowData, atsData, setValue]);
 
+  // Load sku_metadata.color (not returned by the inventory RPC) when editing.
+  useEffect(() => {
+    if (!isOpen || mode !== 'edit' || !initialData?.sku) return;
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from('sku_metadata')
+        .select('color')
+        .eq('sku', initialData.sku)
+        .maybeSingle();
+      if (cancelled) return;
+      const c = (data?.color as string | null) ?? '';
+      colorBaselineRef.current = c;
+      setValue('color', c);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, mode, initialData?.sku, setValue]);
+
   // ─── Dirty check ───
   const hasChanges = useMemo(() => {
     if (mode !== 'edit' || !initialData) return true;
@@ -294,6 +323,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     // idea-083: Details section fields
     const detailsChanged =
       n(serialNumber) !== n(meta?.serial_number) ||
+      n(colorField) !== n(colorBaselineRef.current) ||
       num(priceField) !== num(meta?.sd_price) ||
       n(conditionField) !== n(meta?.condition) ||
       n(conditionDescField) !== n(meta?.condition_description) ||
@@ -322,6 +352,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     weightLbs,
     photoPreview,
     serialNumber,
+    colorField,
     priceField,
     conditionField,
     conditionDescField,
@@ -694,11 +725,14 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         // idea-083 + idea-085: Details-section fields. `price` persists on
         // sku_metadata.sd_price (canonical selling price for any item).
         serial_number: data.serial_number || null,
+        color: data.color || null,
         sd_price: data.price ?? null,
         condition: data.condition || null,
         condition_description: data.condition_description || null,
         pdf_link: data.pdf_link || null,
       }).catch((e: unknown) => console.error('Metadata update failed:', e));
+      // Keep the dirty-check baseline in sync so a successful save settles.
+      colorBaselineRef.current = data.color || '';
 
       const payload = {
         ...data,
@@ -858,6 +892,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         .insert(inserts)
         .select('short_code, sku, public_token');
       if (error || !tags?.length) throw error || new Error('No tags returned');
+      const labelColor = (watch('color') || '').trim() || null;
       const blobUrl = await generateBikeLabels(
         tags.map((t) => ({
           sku,
@@ -865,6 +900,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           short_code: t.short_code,
           public_token: t.public_token,
           layout: getLabelLayoutPreference(),
+          color: labelColor,
         }))
       );
       window.open(blobUrl, '_blank');
@@ -876,7 +912,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     } finally {
       setIsPrintingLabels(false);
     }
-  }, [sku, itemName, user, labelQty, initialData?.location, initialData?.quantity]);
+  }, [sku, itemName, user, labelQty, initialData?.location, initialData?.quantity, watch]);
 
   if (!isOpen) return null;
 
@@ -1168,12 +1204,15 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                 <ItemDetailsCard
                   sku={initialData.sku}
                   isScratchDent={isScratchDentItem}
+                  isBike={typeIsBike}
                   serial={watch('serial_number') ?? ''}
+                  color={watch('color') ?? ''}
                   price={watch('price') ?? null}
                   condition={watch('condition') ?? ''}
                   conditionDescription={watch('condition_description') ?? ''}
                   pdfLink={watch('pdf_link') ?? ''}
                   setSerial={(v) => setValue('serial_number', v)}
+                  setColor={(v) => setValue('color', v)}
                   setPrice={(v) => setValue('price', v)}
                   setCondition={(v) => setValue('condition', v)}
                   setConditionDescription={(v) => setValue('condition_description', v)}
