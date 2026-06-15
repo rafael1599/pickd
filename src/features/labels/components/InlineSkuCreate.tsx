@@ -66,6 +66,7 @@ export function InlineSkuCreate({
       image_url: null,
       is_bike: false,
       upc: null,
+      color: null,
       weight_lbs: null,
       length_in: null,
       width_in: null,

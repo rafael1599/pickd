@@ -9,6 +9,7 @@ export interface LabelInventoryItem {
   image_url: string | null;
   is_bike: boolean;
   upc: string | null;
+  color: string | null;
   weight_lbs: number | null;
   length_in: number | null;
   width_in: number | null;
@@ -24,6 +25,7 @@ interface RawRow {
     image_url: string | null;
     is_bike: boolean;
     upc: string | null;
+    color: string | null;
     weight_lbs: number | null;
     length_in: number | null;
     width_in: number | null;
@@ -40,6 +42,7 @@ function flattenRow(row: RawRow): LabelInventoryItem {
     image_url: row.sku_metadata?.image_url ?? null,
     is_bike: row.sku_metadata?.is_bike ?? false,
     upc: row.sku_metadata?.upc ?? null,
+    color: row.sku_metadata?.color ?? null,
     weight_lbs: row.sku_metadata?.weight_lbs ?? null,
     length_in: row.sku_metadata?.length_in ?? null,
     width_in: row.sku_metadata?.width_in ?? null,
@@ -54,7 +57,7 @@ export function useLabelItems() {
       const { data, error } = await supabase
         .from('inventory')
         .select(
-          'sku, item_name, location, quantity, sku_metadata(image_url, is_bike, upc, weight_lbs, length_in, width_in, height_in)'
+          'sku, item_name, location, quantity, sku_metadata(image_url, is_bike, upc, color, weight_lbs, length_in, width_in, height_in)'
         )
         .eq('is_active', true)
         .order('quantity', { ascending: false })
