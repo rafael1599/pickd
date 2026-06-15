@@ -52,14 +52,19 @@ const normalizeHref = (link: string) =>
 interface Props {
   sku: string;
   isScratchDent: boolean;
+  // Color is an explicit attribute for parts (bikes derive it from their name),
+  // so the editable Color field only renders when this is false.
+  isBike: boolean;
   // Form values (controlled by parent)
   serial: string;
+  color: string;
   price: number | null;
   condition: string;
   conditionDescription: string;
   pdfLink: string;
   // Setters — parent owns state
   setSerial: (v: string) => void;
+  setColor: (v: string) => void;
   setPrice: (v: number | null) => void;
   setCondition: (v: string) => void;
   setConditionDescription: (v: string) => void;
@@ -82,22 +87,28 @@ interface Props {
 export function ItemDetailsCard({
   sku,
   isScratchDent,
+  isBike,
   serial,
+  color,
   price,
   condition,
   conditionDescription,
   pdfLink,
   setSerial,
+  setColor,
   setPrice,
   setCondition,
   setConditionDescription,
   setPdfLink,
 }: Props) {
   const [isEditing, setIsEditing] = useState(false);
+  // Color field shows for parts only (bikes carry color in their name).
+  const showColor = !isBike;
   // Snapshot taken when entering edit mode so Cancel can revert without
   // touching the parent dirty-check more than necessary.
   const [snapshot, setSnapshot] = useState<{
     serial: string;
+    color: string;
     price: number | null;
     condition: string;
     conditionDescription: string;
@@ -115,6 +126,7 @@ export function ItemDetailsCard({
   const startEdit = () => {
     setSnapshot({
       serial,
+      color,
       price,
       condition,
       conditionDescription,
@@ -126,6 +138,7 @@ export function ItemDetailsCard({
   const cancelEdit = () => {
     if (snapshot) {
       setSerial(snapshot.serial);
+      setColor(snapshot.color);
       setPrice(snapshot.price);
       setCondition(snapshot.condition);
       setConditionDescription(snapshot.conditionDescription);
@@ -143,7 +156,13 @@ export function ItemDetailsCard({
   };
 
   const hasAnyValue =
-    !!serial || price != null || !!condition || !!conditionDescription || !!pdfLink || !!sdUnit;
+    !!serial ||
+    (showColor && !!color) ||
+    price != null ||
+    !!condition ||
+    !!conditionDescription ||
+    !!pdfLink ||
+    !!sdUnit;
 
   if (!isEditing && !hasAnyValue) {
     return (
@@ -242,6 +261,22 @@ export function ItemDetailsCard({
             <div className="font-mono text-[10.5px] text-content">{serial || '—'}</div>
           )}
         </div>
+        {showColor && (
+          <div>
+            <div className="text-[9px] uppercase tracking-wider text-muted">Color</div>
+            {isEditing ? (
+              <input
+                type="text"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                placeholder="e.g. BLACK, RED"
+                className="card-input text-[10.5px]"
+              />
+            ) : (
+              <div className="font-medium text-content">{color || '—'}</div>
+            )}
+          </div>
+        )}
         <div>
           <div className="text-[9px] uppercase tracking-wider text-muted">Condition</div>
           {isEditing ? (
