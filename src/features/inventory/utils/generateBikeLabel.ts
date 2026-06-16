@@ -26,20 +26,39 @@ export const VALID_TRANSITIONS: Record<string, string[]> = {
   lost: [],
 };
 
+const PT_TO_IN = 1 / 72;
+// Line-height multiple used for both measuring and drawing stacked text.
+const LINE = 1.18;
+// Secondary text (detail/color, extras, extra fields) stays within 10% of the
+// primary size — the whole label is rendered inside a single 10% size band so no
+// letter is more than 10% larger/smaller than any other. Primary = `base`,
+// secondary = SECONDARY * base (exactly the 10% floor the spec allows).
+const SECONDARY = 0.9;
+
+type FitLine = {
+  text: string;
+  style: 'bold' | 'normal' | 'bolditalic';
+  /** 1 = primary size, SECONDARY = the within-10% smaller size. */
+  weight: number;
+  /** Max wrapped lines this entry may occupy before the base must shrink. */
+  maxLines: number;
+};
+
 /**
- * 4×6" landscape bike label. SKU and QR dominate.
+ * 4×6" bike/part label. Every piece of text is rendered within a single 10% size
+ * band — there is no dominant huge SKU and no tiny detail line. The label content
+ * is stacked and the base font is chosen as large as fits, so the SKU, the model
+ * name and the rest read at (near) the same size.
  *
- * Layout:
- * ┌────────────────────────────────────────┐
- * │ JAMIS  ·  FAULTLINE A1 V2             │ Header row (compact)
- * │ SIZE 15 · COLOR GLOSS BLACK · YEAR 26 │ Detail row (compact)
- * │════════════════════════════════════════│
- * │                         ┌────────────┐│
- * │     03-4614BK           │            ││ Main zone:
- * │                         │     QR     ││ SKU huge left
- * │                         │            ││ QR huge right
- * │                         └────────────┘│
- * └────────────────────────────────────────┘
+ * Standard layout (6×4" landscape):
+ * ┌──────────────────────────────────────┐
+ * │ Faultline A1                ┌───────┐ │ Name (primary)
+ * │ Frame 29" x MD/17           │       │ │ wraps to 2 lines
+ * │ Sandstorm                   │  QR   │ │ Detail/color (−10%)
+ * │ ──────────────────          │       │ │
+ * │ ▰▰▰▰▰▰▰▰                     └───────┘ │ SKU (primary, in its
+ * │ ▰ 00-0000 ▰                           │ selected-text box)
+ * └──────────────────────────────────────┘
  */
 export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
   const [{ default: jsPDF }, QRCode] = await Promise.all([import('jspdf'), import('qrcode')]);
@@ -47,10 +66,43 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
   const W = 6;
   const H = 4;
   const M = 0.2;
-  const PT_TO_IN = 1 / 72;
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: [W, H] });
   let isFirstPage = true;
+
+  // Largest "primary" font (pt) such that every line fits `boxW` (wrapping within
+  // its own maxLines) and the whole stack fits `boxH`. `fixedExtra` accounts for
+  // separators / box padding that don't scale with the font. Closes over `doc`.
+  const fitUniformBase = (
+    lines: FitLine[],
+    boxW: number,
+    boxH: number,
+    fixedExtra: number,
+    maxBase = 46,
+    minBase = 7
+  ): number => {
+    for (let base = maxBase; base >= minBase; base -= 0.5) {
+      let total = fixedExtra;
+      let ok = true;
+      for (const ln of lines) {
+        const fs = base * ln.weight;
+        doc.setFont('helvetica', ln.style);
+        doc.setFontSize(fs);
+        const wrapped = doc.splitTextToSize(ln.text, boxW) as string[];
+        if (wrapped.length > ln.maxLines) {
+          ok = false;
+          break;
+        }
+        total += wrapped.length * fs * PT_TO_IN * LINE;
+        if (total > boxH) {
+          ok = false;
+          break;
+        }
+      }
+      if (ok) return base;
+    }
+    return minBase;
+  };
 
   for (const item of items) {
     const parsed = parseBikeName(item.item_name);
@@ -65,82 +117,62 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
       errorCorrectionLevel: 'M',
     });
 
-    // Full item name (model + details combined for display)
+    // Full item name (model + details combined for display).
     const nameText = (parsed.model || parsed.raw || item.sku).trim();
 
-    // Detail: "SIZE 15 · COLOR GLOSS BLACK · YEAR 2026"
-    // Color: explicit field (parts) wins; else the name-parsed color (bikes).
+    // Detail: "SIZE 15 · Sandstorm · YEAR 2026". The literal word "COLOR" is NOT
+    // printed — the color value stands on its own. Color: explicit field (parts)
+    // wins; else the name-parsed color (bikes).
     const labelColor = item.color?.trim() || parsed.color;
     const detailParts: string[] = [];
     if (parsed.size) detailParts.push(`SIZE ${parsed.size}`);
-    if (labelColor) detailParts.push(`COLOR ${labelColor}`);
+    if (labelColor) detailParts.push(labelColor);
     if (parsed.year) detailParts.push(`YEAR ${parsed.year}`);
     const detailText = detailParts.join('  ·  ');
 
-    // Header zone: name limited to left ~55% to not overlap QR + detail line
-    const detailFontSize = 10;
-    const nameMaxW = (W - M * 2) * 0.55;
-    const headerZoneH = 0.95;
+    const prefix = item.prefix?.trim() || null;
+    const extra = item.extra?.trim() || null;
 
-    // Dynamic name font: as large as fits in left zone, max 2 lines
-    let nameFontSize = 48;
-    while (nameFontSize > 10) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(nameFontSize);
-      const wrapped = doc.splitTextToSize(nameText, nameMaxW);
-      const textH = wrapped.length * nameFontSize * PT_TO_IN * 1.1;
-      if (wrapped.length <= 2 && textH <= headerZoneH - detailFontSize * PT_TO_IN * 1.5) break;
-      nameFontSize -= 1;
-    }
+    // Extra fields (UPC, Serial, Made In, P/O) — one line each.
+    const efLines: string[] = [];
+    if (item.upc?.trim()) efLines.push(`UPC: ${item.upc.trim()}`);
+    if (item.serial_number?.trim()) efLines.push(`SERIAL: ${item.serial_number.trim()}`);
+    if (item.made_in?.trim()) efLines.push(`MADE IN: ${item.made_in.trim()}`);
+    if (item.po_number?.trim()) efLines.push(`P/O: ${item.po_number.trim()}`);
 
-    // Main zone: everything below header
-    const mainTop = M + headerZoneH;
-    const mainH = H - mainTop - M;
-    // QR: square, fills main zone height
-    const qrSize = mainH - 0.1;
-    const qrX = W - M - qrSize;
+    // Build the stack of text lines once; both layouts reuse it.
+    const buildLines = (nameMaxLines: number): FitLine[] => {
+      const lines: FitLine[] = [];
+      if (prefix) lines.push({ text: prefix, style: 'bolditalic', weight: 1, maxLines: 1 });
+      lines.push({ text: nameText, style: 'bold', weight: 1, maxLines: nameMaxLines });
+      if (detailText)
+        lines.push({ text: detailText, style: 'normal', weight: SECONDARY, maxLines: 2 });
+      if (item.sku.trim()) lines.push({ text: item.sku, style: 'bold', weight: 1, maxLines: 1 });
+      if (extra) lines.push({ text: extra, style: 'bold', weight: SECONDARY, maxLines: 1 });
+      for (const ef of efLines)
+        lines.push({ text: ef, style: 'normal', weight: SECONDARY, maxLines: 1 });
+      return lines;
+    };
 
-    // SKU: fills left side of main zone, dynamic font
-    const skuMaxW = qrX - M - 0.2;
-    let skuFontSize = 90;
-    while (skuFontSize > 16) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(skuFontSize);
-      if (doc.getTextWidth(item.sku) <= skuMaxW && skuFontSize * PT_TO_IN <= mainH * 0.6) break;
-      skuFontSize -= 1;
-    }
+    // Geometry shared by SKU box + separator (doesn't scale with the font).
+    const SKU_PAD_Y = 0.06;
+    const SKU_PAD_X = 0.1;
+    const SEP_H = 0.16;
 
-    // ── VERTICAL LAYOUT: portrait 4×6" (same content as standard, rotated) ──
+    // ── VERTICAL LAYOUT: portrait 4×6" (stacked, centered, QR at the bottom) ──
     if (item.layout === 'vertical') {
-      const VW = 4; // portrait width
-      const VH = 6; // portrait height
+      const VW = 4;
+      const VH = 6;
       const vM = 0.2;
-      const vNameMaxW = (VW - vM * 2) * 0.95;
-      const vHeaderZoneH = 1.2;
+      const vTextW = VW - vM * 2;
+      const vQrSize = Math.min(2.0, (VW - vM * 2) * 0.7);
+      const vTextH = VH - vM * 2 - vQrSize - 0.2; // leave room for QR + gap
 
-      // Dynamic name font for vertical
-      let vNameFont = 40;
-      while (vNameFont > 10) {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(vNameFont);
-        const wrapped = doc.splitTextToSize(nameText, vNameMaxW);
-        const textH = wrapped.length * vNameFont * PT_TO_IN * 1.1;
-        if (wrapped.length <= 2 && textH <= vHeaderZoneH - detailFontSize * PT_TO_IN * 1.5) break;
-        vNameFont -= 1;
-      }
-
-      // QR and SKU zone
-      const vMainTop = vM + vHeaderZoneH;
-      const vMainH = VH - vMainTop - vM;
-      const vQrSize = Math.min((VW - vM * 2) * 0.6, vMainH * 0.5);
-      const vSkuMaxW = VW - vM * 2;
-      let vSkuFont = 72;
-      while (vSkuFont > 14) {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(vSkuFont);
-        if (doc.getTextWidth(item.sku) <= vSkuMaxW && vSkuFont * PT_TO_IN <= vMainH * 0.3) break;
-        vSkuFont -= 1;
-      }
+      const vLines = buildLines(2);
+      const fixedExtra = SEP_H + SKU_PAD_Y * 2 + 0.12;
+      const vBase = fitUniformBase(vLines, vTextW, vTextH, fixedExtra);
+      const vPrimary = vBase;
+      const vSecondary = vBase * SECONDARY;
 
       for (let copy = 0; copy < 2; copy++) {
         if (!isFirstPage) doc.addPage([VW, VH], 'portrait');
@@ -154,150 +186,104 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
         doc.rect(0, 0, VW, VH, 'F');
         doc.setTextColor(0, 0, 0);
 
-        const cx = VW / 2; // center X
-        const maxContentW = VW - vM * 2;
+        const cx = VW / 2;
         let vy = vM;
 
-        // Prefix (S/D) — centered
-        if (item.prefix?.trim()) {
-          const pSize = Math.min(vNameFont * 1.25, 50);
+        // Prefix (centered)
+        if (prefix) {
           doc.setFont('helvetica', 'bolditalic');
-          doc.setFontSize(pSize);
-          doc.text(item.prefix.trim(), cx, vy + pSize * PT_TO_IN, { align: 'center' });
-          vy += pSize * PT_TO_IN * 1.15;
+          doc.setFontSize(vPrimary);
+          doc.text(prefix, cx, vy + vPrimary * PT_TO_IN, { align: 'center' });
+          vy += vPrimary * PT_TO_IN * LINE;
         }
 
-        // Name — split into highlighted (first 2 words) and rest
-        const nameWords = nameText.split(/\s+/);
-        const highlightText = nameWords.slice(0, 2).join(' ');
-        const restText = nameWords.slice(2).join(' ');
-        const smallFont = Math.round(vNameFont * 0.9);
-
-        // Dynamic sizing: shrink highlight if it overflows
+        // Name (centered, up to 2 lines)
         doc.setFont('helvetica', 'bold');
-        let hlFont = vNameFont;
-        while (hlFont > 10) {
-          doc.setFontSize(hlFont);
-          if (doc.getTextWidth(highlightText) + 0.3 <= maxContentW) break;
-          hlFont -= 1;
+        doc.setFontSize(vPrimary);
+        for (const line of (doc.splitTextToSize(nameText, vTextW) as string[]).slice(0, 2)) {
+          doc.text(line, cx, vy + vPrimary * PT_TO_IN, { align: 'center' });
+          vy += vPrimary * PT_TO_IN * LINE;
         }
 
-        // Highlighted words (black bg, white text, centered)
-        doc.setFontSize(hlFont);
-        const hlW = doc.getTextWidth(highlightText);
-        const hlH = hlFont * PT_TO_IN;
-        const hlPadX = 0.15;
-        const hlPadY = 0.06;
-        const hlBoxW = hlW + hlPadX * 2;
-        const hlBoxX = cx - hlBoxW / 2;
-        doc.setFillColor(0, 0, 0);
-        doc.rect(hlBoxX, vy, hlBoxW, hlH + hlPadY * 2, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.text(highlightText, cx, vy + hlH * 0.85 + hlPadY, { align: 'center' });
-        doc.setTextColor(0, 0, 0);
-        vy += hlH + hlPadY * 2 + 0.1;
-
-        // Rest of name (smaller, centered, wraps if needed)
-        if (restText) {
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(smallFont);
-          const restWrapped = doc.splitTextToSize(restText, maxContentW) as string[];
-          for (const line of restWrapped) {
-            doc.text(line, cx, vy + smallFont * PT_TO_IN, { align: 'center' });
-            vy += smallFont * PT_TO_IN * 1.15;
-          }
-        }
-
-        // Detail (smaller, centered)
+        // Detail / color (centered)
         if (detailText) {
-          vy += 0.05;
           doc.setFont('helvetica', 'normal');
-          const dtFont = Math.round(smallFont * 0.6);
-          doc.setFontSize(dtFont);
-          const dtWrapped = doc.splitTextToSize(detailText, maxContentW) as string[];
-          for (const line of dtWrapped) {
-            doc.text(line, cx, vy + dtFont * PT_TO_IN, { align: 'center' });
-            vy += dtFont * PT_TO_IN * 1.2;
+          doc.setFontSize(vSecondary);
+          for (const line of (doc.splitTextToSize(detailText, vTextW) as string[]).slice(0, 2)) {
+            doc.text(line, cx, vy + vSecondary * PT_TO_IN, { align: 'center' });
+            vy += vSecondary * PT_TO_IN * LINE;
           }
         }
 
         // Separator
-        vy += 0.08;
+        vy += 0.05;
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.015);
         doc.line(vM, vy, VW - vM, vy);
-        vy += 0.15;
+        vy += SEP_H;
 
-        // SKU (black bg, centered) — dynamic size
+        // SKU (centered, in its selected-text box, same primary size)
         if (item.sku.trim()) {
           doc.setFont('helvetica', 'bold');
-          let skF = vSkuFont;
-          while (skF > 14) {
-            doc.setFontSize(skF);
-            if (doc.getTextWidth(item.sku) + 0.3 <= maxContentW) break;
-            skF -= 1;
-          }
-          doc.setFontSize(skF);
-          const skuW = doc.getTextWidth(item.sku);
-          const skuH = skF * PT_TO_IN;
-          const skuBoxW = skuW + 0.3;
-          const skuBoxX = cx - skuBoxW / 2;
+          doc.setFontSize(vPrimary);
+          const w = doc.getTextWidth(item.sku);
+          const h = vPrimary * PT_TO_IN;
+          const boxW = w + SKU_PAD_X * 2;
           doc.setFillColor(0, 0, 0);
-          doc.rect(skuBoxX, vy, skuBoxW, skuH + 0.15, 'F');
+          doc.rect(cx - boxW / 2, vy, boxW, h + SKU_PAD_Y * 2, 'F');
           doc.setTextColor(255, 255, 255);
-          doc.text(item.sku, cx, vy + skuH * 0.85 + 0.05, { align: 'center' });
+          doc.text(item.sku, cx, vy + SKU_PAD_Y + h * 0.8, { align: 'center' });
           doc.setTextColor(0, 0, 0);
-          vy += skuH + 0.25;
+          vy += h + SKU_PAD_Y * 2 + 0.08;
         }
 
         // Extra (centered)
-        if (item.extra?.trim()) {
-          const exFont = Math.round(smallFont * 0.5);
+        if (extra) {
           doc.setFont('helvetica', 'bold');
-          doc.setFontSize(exFont);
-          const exWrapped = doc.splitTextToSize(item.extra.trim(), maxContentW) as string[];
-          for (const line of exWrapped) {
-            doc.text(line, cx, vy + exFont * PT_TO_IN, { align: 'center' });
-            vy += exFont * PT_TO_IN * 1.2;
+          doc.setFontSize(vSecondary);
+          doc.text(extra, cx, vy + vSecondary * PT_TO_IN, { align: 'center' });
+          vy += vSecondary * PT_TO_IN * LINE;
+        }
+
+        // Extra fields (centered)
+        if (efLines.length) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(vSecondary);
+          for (const line of efLines) {
+            doc.text(line, cx, vy + vSecondary * PT_TO_IN, { align: 'center' });
+            vy += vSecondary * PT_TO_IN * LINE;
           }
         }
 
-        // Extra fields (UPC, Serial, Made In, P/O) — centered
-        {
-          const efLines: string[] = [];
-          if (item.upc?.trim()) efLines.push(`UPC: ${item.upc.trim()}`);
-          if (item.serial_number?.trim()) efLines.push(`SERIAL: ${item.serial_number.trim()}`);
-          if (item.made_in?.trim()) efLines.push(`MADE IN: ${item.made_in.trim()}`);
-          if (item.po_number?.trim()) efLines.push(`P/O: ${item.po_number.trim()}`);
-          if (efLines.length > 0) {
-            const efFontSize = Math.round(vSkuFont * 0.4);
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(efFontSize);
-            doc.setTextColor(0, 0, 0);
-            vy += 0.05;
-            for (const line of efLines) {
-              doc.text(line, cx, vy + efFontSize * PT_TO_IN, { align: 'center' });
-              vy += efFontSize * PT_TO_IN * 1.3;
-            }
-          }
-        }
-
-        // QR (centered, fills remaining space at bottom)
-        const remainingH = VH - vy - vM;
-        const actualQrSize = Math.min(vQrSize, Math.max(0.8, remainingH - 0.1));
-        doc.addImage(
-          qrDataUrl,
-          'PNG',
-          cx - actualQrSize / 2,
-          VH - vM - actualQrSize,
-          actualQrSize,
-          actualQrSize
-        );
+        // QR (centered, fills the bottom)
+        const actualQr = Math.min(vQrSize, Math.max(0.8, VH - vy - vM - 0.05));
+        doc.addImage(qrDataUrl, 'PNG', cx - actualQr / 2, VH - vM - actualQr, actualQr, actualQr);
       }
       continue;
     }
 
-    // ── STANDARD LAYOUT: 6×4" ──
+    // ── STANDARD LAYOUT: 6×4" landscape (text stack left, QR right) ──
+    const qrSize = 1.9;
+    const qrX = W - M - qrSize;
+    const textW = qrX - M - 0.2; // left column for the stacked text
+
+    const lines = buildLines(2);
+    const fixedExtra = SEP_H + SKU_PAD_Y * 2 + 0.12;
+    const base = fitUniformBase(lines, textW, H - M * 2, fixedExtra);
+    const primary = base;
+    const secondary = base * SECONDARY;
+
+    // Total stack height, so the text column can be vertically centered.
+    let stackH = fixedExtra;
+    for (const ln of lines) {
+      const fs = base * ln.weight;
+      doc.setFont('helvetica', ln.style);
+      doc.setFontSize(fs);
+      const wrapped = (doc.splitTextToSize(ln.text, textW) as string[]).slice(0, ln.maxLines);
+      stackH += wrapped.length * fs * PT_TO_IN * LINE;
+    }
+    const startY = M + Math.max(0, (H - M * 2 - stackH) / 2);
+
     for (let copy = 0; copy < 2; copy++) {
       if (!isFirstPage) doc.addPage([W, H], 'landscape');
       isFirstPage = false;
@@ -306,111 +292,75 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
       doc.rect(0, 0, W, H, 'F');
       doc.setTextColor(0, 0, 0);
 
-      // ── Prefix (e.g. "S/D") — bold italic, 1.25× name size, top-left ──
-      let ny = M;
-      const hasPrefix = !!item.prefix?.trim();
-      if (hasPrefix) {
-        const prefixSize = Math.min(nameFontSize * 1.25, 60);
-        doc.setFont('helvetica', 'bolditalic');
-        doc.setFontSize(prefixSize);
-        doc.text(item.prefix!.trim(), M, ny + prefixSize * PT_TO_IN);
-        const prefixW = doc.getTextWidth(item.prefix!.trim()) + 0.25;
+      let y = startY;
 
-        // Name goes to the right of prefix
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(nameFontSize);
-        const nameMaxWWithPrefix = nameMaxW - prefixW;
-        const nameWrapped = doc.splitTextToSize(nameText, nameMaxWWithPrefix) as string[];
-        let nameY = ny + nameFontSize * PT_TO_IN;
-        for (let i = 0; i < Math.min(nameWrapped.length, 2); i++) {
-          doc.text(nameWrapped[i], M + prefixW, nameY);
-          nameY += nameFontSize * PT_TO_IN * 1.1;
-        }
-        ny = Math.max(ny + prefixSize * PT_TO_IN * 1.1, nameY);
-      } else {
-        // ── Name only (dynamic size, full width, up to 2 lines) ──
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(nameFontSize);
-        const nameWrapped = doc.splitTextToSize(nameText, nameMaxW) as string[];
-        ny += nameFontSize * PT_TO_IN;
-        for (let i = 0; i < Math.min(nameWrapped.length, 2); i++) {
-          doc.text(nameWrapped[i], M, ny);
-          ny += nameFontSize * PT_TO_IN * 1.1;
-        }
+      // Prefix
+      if (prefix) {
+        doc.setFont('helvetica', 'bolditalic');
+        doc.setFontSize(primary);
+        doc.text(prefix, M, y + primary * PT_TO_IN);
+        y += primary * PT_TO_IN * LINE;
       }
 
-      // ── Detail row: SIZE · COLOR · YEAR ──
+      // Name (up to 2 lines)
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(primary);
+      for (const line of (doc.splitTextToSize(nameText, textW) as string[]).slice(0, 2)) {
+        doc.text(line, M, y + primary * PT_TO_IN);
+        y += primary * PT_TO_IN * LINE;
+      }
+
+      // Detail / color
       if (detailText) {
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(detailFontSize);
-        doc.text(detailText, M, ny + 0.02);
-      }
-
-      // ── Separator ──
-      doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(0.015);
-      doc.line(M, mainTop - 0.05, W - M, mainTop - 0.05);
-
-      // ── SKU (white on black) + extra text below ──
-      const hasExtra = !!item.extra?.trim();
-      const extraFontSize = Math.round(skuFontSize * 0.4);
-      const extraH = hasExtra ? extraFontSize * PT_TO_IN * 1.3 : 0;
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(skuFontSize);
-      const skuTextH = skuFontSize * PT_TO_IN;
-      const skuBgPadX = 0.15;
-      const skuBgPadY = 0.1;
-
-      // Vertically center SKU + extra as a group
-      const groupH = skuTextH + skuBgPadY * 2 + extraH;
-      const groupTopY = mainTop + (mainH - groupH) / 2;
-
-      if (item.sku.trim()) {
-        const skuTextW = doc.getTextWidth(item.sku);
-        doc.setFillColor(0, 0, 0);
-        doc.rect(
-          M - 0.05,
-          groupTopY,
-          skuTextW + skuBgPadX * 2 + 0.05,
-          skuTextH + skuBgPadY * 2,
-          'F'
-        );
-        doc.setTextColor(255, 255, 255);
-        doc.text(item.sku, M + skuBgPadX, groupTopY + skuBgPadY + skuTextH * 0.8);
-        doc.setTextColor(0, 0, 0);
-      }
-
-      if (hasExtra) {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(extraFontSize);
-        const extraY = groupTopY + skuTextH + skuBgPadY * 2 + extraFontSize * PT_TO_IN * 0.3;
-        doc.text(item.extra!.trim(), M + skuBgPadX, extraY + extraFontSize * PT_TO_IN);
-      }
-
-      // ── Extra fields (UPC, Serial, Made In, P/O) below SKU block ──
-      {
-        const efLines: string[] = [];
-        if (item.upc?.trim()) efLines.push(`UPC: ${item.upc.trim()}`);
-        if (item.serial_number?.trim()) efLines.push(`SERIAL: ${item.serial_number.trim()}`);
-        if (item.made_in?.trim()) efLines.push(`MADE IN: ${item.made_in.trim()}`);
-        if (item.po_number?.trim()) efLines.push(`P/O: ${item.po_number.trim()}`);
-        if (efLines.length > 0) {
-          const efFontSize = Math.round(skuFontSize * 0.4);
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(efFontSize);
-          doc.setTextColor(0, 0, 0);
-          let efY = groupTopY + groupH + efFontSize * PT_TO_IN * 0.3;
-          for (const line of efLines) {
-            efY += efFontSize * PT_TO_IN;
-            doc.text(line, M + skuBgPadX, efY);
-            efY += efFontSize * PT_TO_IN * 0.3;
-          }
+        doc.setFontSize(secondary);
+        for (const line of (doc.splitTextToSize(detailText, textW) as string[]).slice(0, 2)) {
+          doc.text(line, M, y + secondary * PT_TO_IN);
+          y += secondary * PT_TO_IN * LINE;
         }
       }
 
-      // ── QR (fills right side of main zone) ──
-      const qrY = mainTop + (mainH - qrSize) / 2;
+      // Separator
+      y += 0.05;
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.015);
+      doc.line(M, y, M + textW, y);
+      y += SEP_H;
+
+      // SKU (primary size, in its selected-text box)
+      if (item.sku.trim()) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(primary);
+        const w = doc.getTextWidth(item.sku);
+        const h = primary * PT_TO_IN;
+        doc.setFillColor(0, 0, 0);
+        doc.rect(M - 0.02, y, w + SKU_PAD_X * 2 + 0.04, h + SKU_PAD_Y * 2, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.text(item.sku, M + SKU_PAD_X, y + SKU_PAD_Y + h * 0.8);
+        doc.setTextColor(0, 0, 0);
+        y += h + SKU_PAD_Y * 2 + 0.06;
+      }
+
+      // Extra
+      if (extra) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(secondary);
+        doc.text(extra, M, y + secondary * PT_TO_IN);
+        y += secondary * PT_TO_IN * LINE;
+      }
+
+      // Extra fields
+      if (efLines.length) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(secondary);
+        for (const line of efLines) {
+          doc.text(line, M, y + secondary * PT_TO_IN);
+          y += secondary * PT_TO_IN * LINE;
+        }
+      }
+
+      // QR (right side, vertically centered)
+      const qrY = (H - qrSize) / 2;
       doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
     }
   }

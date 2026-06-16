@@ -5,7 +5,8 @@ import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import Home from 'lucide-react/dist/esm/icons/home';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { LivePrintPreview, unitsLines } from '../../components/orders/LivePrintPreview.tsx';
+import { LivePrintPreview } from '../../components/orders/LivePrintPreview.tsx';
+import { generateShipLabel } from '../../components/orders/generateShipLabel';
 import { usePickingSession } from '../../context/PickingContext.tsx';
 import { useViewMode } from '../../context/ViewModeContext.tsx';
 import Search from 'lucide-react/dist/esm/icons/search';
@@ -531,7 +532,6 @@ export const OrdersScreen = () => {
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('keyup', handleKeyUp);
     };
-     
   }, [filteredOrders, selectedOrder]);
 
   const handlePrint = async () => {
@@ -657,127 +657,20 @@ export const OrdersScreen = () => {
 
       // Refresh orders list silently
       fetchOrders();
-      const { default: jsPDF } = await import('jspdf');
-
-      // 6×4" landscape — matches Zebra label printer, no scaling needed
-      const doc = new jsPDF({
-        orientation: 'landscape',
-        unit: 'in',
-        format: [6, 4],
+      const blobUrl = await generateShipLabel({
+        customerName: formData.customerName || null,
+        street: formData.street || null,
+        city: formData.city || null,
+        state: formData.state || null,
+        zip: formData.zip || null,
+        orderNumber: selectedOrder?.order_number ?? null,
+        pallets: palletsNum,
+        bikeCount,
+        partCount,
+        weightLbs: effectiveWeight,
+        loadNumber: formData.loadNumber || null,
       });
-
-      const pageWidth = 6;
-      const pageHeight = 4;
-      const PT_TO_IN = 1 / 72;
-      const LINE_HEIGHT = 1.1;
-      const customerNameName = (formData.customerName || 'GENERIC CUSTOMER').toUpperCase();
-      const street = formData.street.toUpperCase();
-      const cityStateZip = `${formData.city.toUpperCase()}, ${formData.state.toUpperCase()} ${formData.zip}`;
-      const pallets = palletsNum;
-
-      for (let i = 0; i < pallets; i++) {
-        // --- PAGE A: COMPANY INFO ---
-        if (i > 0) doc.addPage([6, 4], 'landscape');
-
-        const margin = 0.2;
-        const maxWidth = pageWidth - margin * 2;
-        const maxHeight = pageHeight - margin * 2;
-
-        // Build content lines
-        const contentLines: string[] = [];
-        contentLines.push(customerNameName);
-        if (street) contentLines.push(street);
-        if (formData.city) contentLines.push(cityStateZip);
-        contentLines.push(''); // spacer
-        contentLines.push(`ORDER #: ${selectedOrder?.order_number || 'N/A'}`);
-        contentLines.push(`PALLETS: ${pallets}`);
-        contentLines.push(...unitsLines(bikeCount, partCount));
-        contentLines.push(`LOAD: ${formData.loadNumber || 'N/A'}`);
-        contentLines.push(`WEIGHT: ${effectiveWeight > 0 ? `${effectiveWeight} LBS` : 'N/A'}`);
-        contentLines.push(''); // spacer
-        const thankYouMsg =
-          'Please count your shipment carefully that there are no damages due to shipping. Jamis Bicycles thanks you for your order.';
-
-        // Dynamic font sizing: find the largest font that fits all content
-        let fontSize = 100; // Start with a larger font to maximize space
-        const minFontSize = 12;
-        let fits = false;
-
-        doc.setFont('helvetica', 'bold');
-
-        while (fontSize >= minFontSize && !fits) {
-          doc.setFontSize(fontSize);
-          doc.setLineHeightFactor(LINE_HEIGHT);
-
-          let totalHeight = margin;
-
-          // Calculate height for all main content lines
-          for (const line of contentLines) {
-            if (line === '') {
-              totalHeight += fontSize * PT_TO_IN * 0.3; // spacer
-            } else {
-              const wrapped = doc.splitTextToSize(line, maxWidth);
-              totalHeight += wrapped.length * (fontSize * PT_TO_IN * LINE_HEIGHT);
-            }
-          }
-
-          // Add thank you message (slightly smaller)
-          const msgFontSize = fontSize * 0.7;
-          doc.setFontSize(msgFontSize);
-          const msgWrapped = doc.splitTextToSize(thankYouMsg.toUpperCase(), maxWidth);
-          totalHeight += msgWrapped.length * (msgFontSize * PT_TO_IN * LINE_HEIGHT);
-
-          // Check if it fits
-          if (totalHeight <= maxHeight) {
-            fits = true;
-          } else {
-            fontSize -= 1; // Finer precision
-          }
-        }
-
-        // Render with the calculated font size
-        let yPos = margin + fontSize * PT_TO_IN; // Start exactly at margin + CapHeight
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(fontSize);
-        doc.setLineHeightFactor(LINE_HEIGHT);
-
-        for (const line of contentLines) {
-          if (line === '') {
-            yPos += fontSize * PT_TO_IN * 0.3; // spacer
-          } else {
-            const wrapped = doc.splitTextToSize(line, maxWidth);
-            doc.text(wrapped, margin, yPos);
-            yPos += wrapped.length * (fontSize * PT_TO_IN * LINE_HEIGHT);
-          }
-        }
-
-        // Thank you message
-        const msgFontSize = fontSize * 0.7;
-        doc.setFontSize(msgFontSize);
-        const msgWrapped = doc.splitTextToSize(thankYouMsg.toUpperCase(), maxWidth);
-        doc.text(msgWrapped, margin, yPos);
-
-        // --- PAGE B: PALLET NUMBER ONLY (clean, centered) ---
-        if (pallets > 1) {
-          doc.addPage([6, 4], 'landscape');
-          doc.setFont('helvetica', 'bold');
-
-          // "PALLET" label above the numbers
-          doc.setFontSize(48);
-          const labelText = 'PALLET';
-          const labelWidth = doc.getTextWidth(labelText);
-          doc.text(labelText, (pageWidth - labelWidth) / 2, pageHeight / 2 - 0.4);
-
-          // "X of Y" numbers
-          doc.setFontSize(80);
-          const textNum = `${i + 1} of ${pallets}`;
-          const textWidth = doc.getTextWidth(textNum);
-          doc.text(textNum, (pageWidth - textWidth) / 2, pageHeight / 2 + 0.8);
-        }
-      }
-
-      const blob = doc.output('bloburl');
-      window.open(blob, '_blank');
+      window.open(blobUrl, '_blank');
     } catch (error) {
       console.error('Error generating PDF:', error);
       const err = error as { code?: string };
