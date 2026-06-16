@@ -4,10 +4,16 @@ export interface QRPayload {
 }
 
 export function parseQRPayload(raw: string): QRPayload | null {
-  // Try URL format first: .../tag/PK-X/TOKEN?sku=SKU
+  // URL formats: .../s/SKU (sku-only) or .../tag/PK-X/TOKEN?sku=SKU (legacy).
   try {
     const url = new URL(raw);
     const parts = url.pathname.split('/');
+    // SKU-only QR: all physical units of a SKU share this code, so there is no
+    // per-tag short_code (returned empty — scanning still identifies the SKU).
+    const sIdx = parts.indexOf('s');
+    if (sIdx >= 0 && parts[sIdx + 1]) {
+      return { shortCode: '', sku: decodeURIComponent(parts[sIdx + 1]) };
+    }
     const tagIdx = parts.indexOf('tag');
     if (tagIdx >= 0 && parts[tagIdx + 1]) {
       const sku = url.searchParams.get('sku');
@@ -29,7 +35,7 @@ export function parseQRPayload(raw: string): QRPayload | null {
 /** Aggregate scan results: count unique QRs per SKU */
 export function aggregateScanResults(
   payloads: QRPayload[],
-  orderSkus: string[],
+  orderSkus: string[]
 ): { matched: Map<string, Set<string>>; unmatched: QRPayload[] } {
   const matched = new Map<string, Set<string>>();
   const unmatched: QRPayload[] = [];
