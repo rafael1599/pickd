@@ -1,5 +1,6 @@
 import { parseBikeName } from './parseBikeName';
 import { encodeTagToken } from '../../../utils/tagToken';
+import { code128Pattern } from '../../../utils/code128';
 
 export interface LabelItem {
   sku: string;
@@ -16,6 +17,9 @@ export interface LabelItem {
   serial_number?: string | null;
   made_in?: string | null;
   po_number?: string | null;
+  /** When false, print a codeless label: no QR and no barcode, with the text
+   *  enlarged + spread to fill the whole label. Defaults to true (codes on). */
+  withCodes?: boolean;
 }
 
 export const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -36,6 +40,12 @@ const LINE = 1.18;
 // secondary = SECONDARY * base (exactly the 10% floor the spec allows).
 const SECONDARY = 0.9;
 
+// Code 128 barcode block (drawn under the SKU when codes are on). Fixed height —
+// it's a graphic, not text, so it's outside the 10% size band.
+const BARCODE_H = 0.4;
+const BARCODE_TOP = 0.05;
+const BARCODE_BOT = 0.08;
+
 type FitLine = {
   text: string;
   style: 'bold' | 'normal' | 'bolditalic';
@@ -47,19 +57,12 @@ type FitLine = {
 
 /**
  * 4×6" bike/part label. Every piece of text is rendered within a single 10% size
- * band — there is no dominant huge SKU and no tiny detail line. The label content
- * is stacked and the base font is chosen as large as fits, so the SKU, the model
- * name and the rest read at (near) the same size.
+ * band, stacked, with the base font chosen as large as fits.
  *
- * Standard layout (6×4" landscape):
- * ┌──────────────────────────────────────┐
- * │ Faultline A1                ┌───────┐ │ Name (primary)
- * │ Frame 29" x MD/17           │       │ │ wraps to 2 lines
- * │ Sandstorm                   │  QR   │ │ Detail/color (−10%)
- * │ ──────────────────          │       │ │
- * │ ▰▰▰▰▰▰▰▰                     └───────┘ │ SKU (primary, in its
- * │ ▰ 00-0000 ▰                           │ selected-text box)
- * └──────────────────────────────────────┘
+ * Two print modes (per item, via `withCodes`):
+ *  - codes on (default): QR (opens the tag page) on the side/bottom, plus a
+ *    Code 128 barcode of the SKU right under the SKU box.
+ *  - codes off: no QR, no barcode — the text grows and spreads to fill the label.
  */
 export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
   const [{ default: jsPDF }, QRCode] = await Promise.all([import('jspdf'), import('qrcode')]);
@@ -73,13 +76,13 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
 
   // Largest "primary" font (pt) such that every line fits `boxW` (wrapping within
   // its own maxLines) and the whole stack fits `boxH`. `fixedExtra` accounts for
-  // separators / box padding that don't scale with the font. Closes over `doc`.
+  // separators / box / barcode that don't scale with the font. Closes over `doc`.
   const fitUniformBase = (
     lines: FitLine[],
     boxW: number,
     boxH: number,
     fixedExtra: number,
-    maxBase = 46,
+    maxBase: number,
     minBase = 7
   ): number => {
     for (let base = maxBase; base >= minBase; base -= 0.5) {
@@ -105,21 +108,65 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
     return minBase;
   };
 
+  // Natural stack height (at line-height LINE) for the chosen base.
+  const stackHeight = (
+    lines: FitLine[],
+    boxW: number,
+    base: number,
+    fixedExtra: number
+  ): number => {
+    let h = fixedExtra;
+    for (const ln of lines) {
+      const fs = base * ln.weight;
+      doc.setFont('helvetica', ln.style);
+      doc.setFontSize(fs);
+      h +=
+        (doc.splitTextToSize(ln.text, boxW) as string[]).slice(0, ln.maxLines).length *
+        fs *
+        PT_TO_IN *
+        LINE;
+    }
+    return h;
+  };
+
+  // Draw a Code 128 of `data` as vector bars (crisp, no canvas). Black on white.
+  const drawBarcode = (data: string, x: number, y: number, w: number, h: number): void => {
+    const bin = code128Pattern(data);
+    const mw = w / bin.length;
+    doc.setFillColor(0, 0, 0);
+    let i = 0;
+    while (i < bin.length) {
+      if (bin[i] === '1') {
+        let j = i;
+        while (j < bin.length && bin[j] === '1') j++;
+        doc.rect(x + i * mw, y, (j - i) * mw, h, 'F');
+        i = j;
+      } else {
+        i++;
+      }
+    }
+  };
+
   for (const item of items) {
     const parsed = parseBikeName(item.item_name);
-    const baseUrl =
-      typeof window !== 'undefined'
-        ? import.meta.env.VITE_APP_URL || window.location.origin
-        : 'https://roman-app.vercel.app';
-    // QR payload: the public_token UUID is sent as a compact base64url token
-    // (22 chars vs 36) to keep the printed QR sparser/easier to scan. The /tag
-    // route + the in-app scanner still see the same short_code and ?sku.
-    const qrPayload = `${baseUrl}/tag/${item.short_code}/${encodeTagToken(item.public_token)}?sku=${encodeURIComponent(item.sku)}`;
-    const qrDataUrl = await QRCode.toDataURL(qrPayload, {
-      width: 400,
-      margin: 1,
-      errorCorrectionLevel: 'L',
-    });
+    const withCodes = item.withCodes !== false;
+    const hasSku = !!item.sku.trim();
+    const drawBC = withCodes && hasSku;
+
+    let qrDataUrl: string | null = null;
+    if (withCodes) {
+      const baseUrl =
+        typeof window !== 'undefined'
+          ? import.meta.env.VITE_APP_URL || window.location.origin
+          : 'https://roman-app.vercel.app';
+      // public_token UUID is sent as a compact base64url token to keep the QR sparse.
+      const qrPayload = `${baseUrl}/tag/${item.short_code}/${encodeTagToken(item.public_token)}?sku=${encodeURIComponent(item.sku)}`;
+      qrDataUrl = await QRCode.toDataURL(qrPayload, {
+        width: 400,
+        margin: 1,
+        errorCorrectionLevel: 'L',
+      });
+    }
 
     // Full item name (model + details combined for display).
     const nameText = (parsed.model || parsed.raw || item.sku).trim();
@@ -151,7 +198,7 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
       lines.push({ text: nameText, style: 'bold', weight: 1, maxLines: nameMaxLines });
       if (detailText)
         lines.push({ text: detailText, style: 'normal', weight: SECONDARY, maxLines: 2 });
-      if (item.sku.trim()) lines.push({ text: item.sku, style: 'bold', weight: 1, maxLines: 1 });
+      if (hasSku) lines.push({ text: item.sku, style: 'bold', weight: 1, maxLines: 1 });
       if (extra) lines.push({ text: extra, style: 'bold', weight: SECONDARY, maxLines: 1 });
       for (const ef of efLines)
         lines.push({ text: ef, style: 'normal', weight: SECONDARY, maxLines: 1 });
@@ -162,21 +209,27 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
     const SKU_PAD_Y = 0.06;
     const SKU_PAD_X = 0.1;
     const SEP_H = 0.16;
+    const bcBlock = drawBC ? BARCODE_TOP + BARCODE_H + BARCODE_BOT : 0;
+    // Codeless labels reclaim the QR/barcode space and grow much larger.
+    const MAX_BASE = withCodes ? 46 : 120;
 
-    // ── VERTICAL LAYOUT: portrait 4×6" (stacked, centered, QR at the bottom) ──
+    // ── VERTICAL LAYOUT: portrait 4×6" (stacked, centered; QR at the bottom) ──
     if (item.layout === 'vertical') {
       const VW = 4;
       const VH = 6;
       const vM = 0.2;
       const vTextW = VW - vM * 2;
-      const vQrSize = Math.min(2.0, (VW - vM * 2) * 0.7);
-      const vTextH = VH - vM * 2 - vQrSize - 0.2; // leave room for QR + gap
+      const vQrSize = withCodes ? Math.min(2.0, (VW - vM * 2) * 0.7) : 0;
+      const vTextH = withCodes ? VH - vM * 2 - vQrSize - 0.2 : VH - vM * 2;
 
       const vLines = buildLines(2);
-      const fixedExtra = SEP_H + SKU_PAD_Y * 2 + 0.12;
-      const vBase = fitUniformBase(vLines, vTextW, vTextH, fixedExtra);
+      const fixedExtra = SEP_H + SKU_PAD_Y * 2 + 0.12 + bcBlock;
+      const vBase = fitUniformBase(vLines, vTextW, vTextH, fixedExtra, MAX_BASE);
       const vPrimary = vBase;
       const vSecondary = vBase * SECONDARY;
+      const natH = stackHeight(vLines, vTextW, vBase, fixedExtra);
+      const stretch = withCodes ? 1 : Math.min(Math.max(vTextH / natH, 1), 1.7);
+      const LE = LINE * stretch;
 
       for (let copy = 0; copy < 2; copy++) {
         if (!isFirstPage) doc.addPage([VW, VH], 'portrait');
@@ -191,14 +244,14 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
         doc.setTextColor(0, 0, 0);
 
         const cx = VW / 2;
-        let vy = vM;
+        let vy = vM + Math.max(0, (vTextH - natH * stretch) / 2);
 
         // Prefix (centered)
         if (prefix) {
           doc.setFont('helvetica', 'bolditalic');
           doc.setFontSize(vPrimary);
           doc.text(prefix, cx, vy + vPrimary * PT_TO_IN, { align: 'center' });
-          vy += vPrimary * PT_TO_IN * LINE;
+          vy += vPrimary * PT_TO_IN * LE;
         }
 
         // Name (centered, up to 2 lines)
@@ -206,7 +259,7 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
         doc.setFontSize(vPrimary);
         for (const line of (doc.splitTextToSize(nameText, vTextW) as string[]).slice(0, 2)) {
           doc.text(line, cx, vy + vPrimary * PT_TO_IN, { align: 'center' });
-          vy += vPrimary * PT_TO_IN * LINE;
+          vy += vPrimary * PT_TO_IN * LE;
         }
 
         // Detail / color (centered)
@@ -215,19 +268,19 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
           doc.setFontSize(vSecondary);
           for (const line of (doc.splitTextToSize(detailText, vTextW) as string[]).slice(0, 2)) {
             doc.text(line, cx, vy + vSecondary * PT_TO_IN, { align: 'center' });
-            vy += vSecondary * PT_TO_IN * LINE;
+            vy += vSecondary * PT_TO_IN * LE;
           }
         }
 
         // Separator
-        vy += 0.05;
+        vy += 0.05 * stretch;
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.015);
         doc.line(vM, vy, VW - vM, vy);
-        vy += SEP_H;
+        vy += SEP_H * stretch;
 
         // SKU (centered, in its selected-text box, same primary size)
-        if (item.sku.trim()) {
+        if (hasSku) {
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(vPrimary);
           const w = doc.getTextWidth(item.sku);
@@ -238,7 +291,15 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
           doc.setTextColor(255, 255, 255);
           doc.text(item.sku, cx, vy + SKU_PAD_Y + h * 0.8, { align: 'center' });
           doc.setTextColor(0, 0, 0);
-          vy += h + SKU_PAD_Y * 2 + 0.08;
+          vy += h + SKU_PAD_Y * 2 + 0.08 * stretch;
+        }
+
+        // Barcode (centered, under the SKU) — codes on only
+        if (drawBC) {
+          const bcW = Math.min(vTextW, 3.2);
+          vy += BARCODE_TOP;
+          drawBarcode(item.sku, cx - bcW / 2, vy, bcW, BARCODE_H);
+          vy += BARCODE_H + BARCODE_BOT;
         }
 
         // Extra (centered)
@@ -246,7 +307,7 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(vSecondary);
           doc.text(extra, cx, vy + vSecondary * PT_TO_IN, { align: 'center' });
-          vy += vSecondary * PT_TO_IN * LINE;
+          vy += vSecondary * PT_TO_IN * LE;
         }
 
         // Extra fields (centered)
@@ -255,38 +316,33 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
           doc.setFontSize(vSecondary);
           for (const line of efLines) {
             doc.text(line, cx, vy + vSecondary * PT_TO_IN, { align: 'center' });
-            vy += vSecondary * PT_TO_IN * LINE;
+            vy += vSecondary * PT_TO_IN * LE;
           }
         }
 
-        // QR (centered, fills the bottom)
-        const actualQr = Math.min(vQrSize, Math.max(0.8, VH - vy - vM - 0.05));
-        doc.addImage(qrDataUrl, 'PNG', cx - actualQr / 2, VH - vM - actualQr, actualQr, actualQr);
+        // QR (centered, fills the bottom) — codes on only
+        if (withCodes && qrDataUrl) {
+          const actualQr = Math.min(vQrSize, Math.max(0.8, VH - vy - vM - 0.05));
+          doc.addImage(qrDataUrl, 'PNG', cx - actualQr / 2, VH - vM - actualQr, actualQr, actualQr);
+        }
       }
       continue;
     }
 
-    // ── STANDARD LAYOUT: 6×4" landscape (text stack left, QR right) ──
+    // ── STANDARD LAYOUT: 6×4" landscape (text stack left; QR right when on) ──
     const qrSize = 1.9;
     const qrX = W - M - qrSize;
-    const textW = qrX - M - 0.2; // left column for the stacked text
+    const textW = withCodes ? qrX - M - 0.2 : W - M * 2;
 
     const lines = buildLines(2);
-    const fixedExtra = SEP_H + SKU_PAD_Y * 2 + 0.12;
-    const base = fitUniformBase(lines, textW, H - M * 2, fixedExtra);
+    const fixedExtra = SEP_H + SKU_PAD_Y * 2 + 0.12 + bcBlock;
+    const base = fitUniformBase(lines, textW, H - M * 2, fixedExtra, MAX_BASE);
     const primary = base;
     const secondary = base * SECONDARY;
-
-    // Total stack height, so the text column can be vertically centered.
-    let stackH = fixedExtra;
-    for (const ln of lines) {
-      const fs = base * ln.weight;
-      doc.setFont('helvetica', ln.style);
-      doc.setFontSize(fs);
-      const wrapped = (doc.splitTextToSize(ln.text, textW) as string[]).slice(0, ln.maxLines);
-      stackH += wrapped.length * fs * PT_TO_IN * LINE;
-    }
-    const startY = M + Math.max(0, (H - M * 2 - stackH) / 2);
+    const natH = stackHeight(lines, textW, base, fixedExtra);
+    const stretch = withCodes ? 1 : Math.min(Math.max((H - M * 2) / natH, 1), 1.7);
+    const LE = LINE * stretch;
+    const startY = M + Math.max(0, (H - M * 2 - natH * stretch) / 2);
 
     for (let copy = 0; copy < 2; copy++) {
       if (!isFirstPage) doc.addPage([W, H], 'landscape');
@@ -303,7 +359,7 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
         doc.setFont('helvetica', 'bolditalic');
         doc.setFontSize(primary);
         doc.text(prefix, M, y + primary * PT_TO_IN);
-        y += primary * PT_TO_IN * LINE;
+        y += primary * PT_TO_IN * LE;
       }
 
       // Name (up to 2 lines)
@@ -311,7 +367,7 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
       doc.setFontSize(primary);
       for (const line of (doc.splitTextToSize(nameText, textW) as string[]).slice(0, 2)) {
         doc.text(line, M, y + primary * PT_TO_IN);
-        y += primary * PT_TO_IN * LINE;
+        y += primary * PT_TO_IN * LE;
       }
 
       // Detail / color
@@ -320,19 +376,19 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
         doc.setFontSize(secondary);
         for (const line of (doc.splitTextToSize(detailText, textW) as string[]).slice(0, 2)) {
           doc.text(line, M, y + secondary * PT_TO_IN);
-          y += secondary * PT_TO_IN * LINE;
+          y += secondary * PT_TO_IN * LE;
         }
       }
 
       // Separator
-      y += 0.05;
+      y += 0.05 * stretch;
       doc.setDrawColor(0, 0, 0);
       doc.setLineWidth(0.015);
       doc.line(M, y, M + textW, y);
-      y += SEP_H;
+      y += SEP_H * stretch;
 
       // SKU (primary size, in its selected-text box)
-      if (item.sku.trim()) {
+      if (hasSku) {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(primary);
         const w = doc.getTextWidth(item.sku);
@@ -342,7 +398,14 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
         doc.setTextColor(255, 255, 255);
         doc.text(item.sku, M + SKU_PAD_X, y + SKU_PAD_Y + h * 0.8);
         doc.setTextColor(0, 0, 0);
-        y += h + SKU_PAD_Y * 2 + 0.06;
+        y += h + SKU_PAD_Y * 2 + 0.06 * stretch;
+      }
+
+      // Barcode (under the SKU, full text-column width) — codes on only
+      if (drawBC) {
+        y += BARCODE_TOP;
+        drawBarcode(item.sku, M, y, textW, BARCODE_H);
+        y += BARCODE_H + BARCODE_BOT;
       }
 
       // Extra
@@ -350,7 +413,7 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(secondary);
         doc.text(extra, M, y + secondary * PT_TO_IN);
-        y += secondary * PT_TO_IN * LINE;
+        y += secondary * PT_TO_IN * LE;
       }
 
       // Extra fields
@@ -359,13 +422,15 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
         doc.setFontSize(secondary);
         for (const line of efLines) {
           doc.text(line, M, y + secondary * PT_TO_IN);
-          y += secondary * PT_TO_IN * LINE;
+          y += secondary * PT_TO_IN * LE;
         }
       }
 
-      // QR (right side, vertically centered)
-      const qrY = (H - qrSize) / 2;
-      doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+      // QR (right side, vertically centered) — codes on only
+      if (withCodes && qrDataUrl) {
+        const qrY = (H - qrSize) / 2;
+        doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+      }
     }
   }
 
