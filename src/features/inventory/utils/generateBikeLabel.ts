@@ -1,4 +1,5 @@
 import { parseBikeName } from './parseBikeName';
+import { encodeTagToken } from '../../../utils/tagToken';
 
 export interface LabelItem {
   sku: string;
@@ -110,11 +111,14 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
       typeof window !== 'undefined'
         ? import.meta.env.VITE_APP_URL || window.location.origin
         : 'https://roman-app.vercel.app';
-    const qrPayload = `${baseUrl}/tag/${item.short_code}/${item.public_token}?sku=${encodeURIComponent(item.sku)}`;
+    // QR payload: the public_token UUID is sent as a compact base64url token
+    // (22 chars vs 36) to keep the printed QR sparser/easier to scan. The /tag
+    // route + the in-app scanner still see the same short_code and ?sku.
+    const qrPayload = `${baseUrl}/tag/${item.short_code}/${encodeTagToken(item.public_token)}?sku=${encodeURIComponent(item.sku)}`;
     const qrDataUrl = await QRCode.toDataURL(qrPayload, {
       width: 400,
       margin: 1,
-      errorCorrectionLevel: 'M',
+      errorCorrectionLevel: 'L',
     });
 
     // Full item name (model + details combined for display).

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import { normalizeTagToken } from '../../utils/tagToken';
 import { createClient } from '@supabase/supabase-js';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import { parseBikeName } from '../inventory/utils/parseBikeName';
@@ -58,7 +59,8 @@ export const PublicTagView = () => {
       try {
         const { data: result, error: rpcError } = await publicSupabase.rpc(
           'get_public_tag' as never,
-          { p_short_code: shortCode, p_token: token } as never,
+          // Accept both the legacy UUID and the compact base64url QR token.
+          { p_short_code: shortCode, p_token: normalizeTagToken(token) } as never
         );
         if (rpcError || !result) {
           setError(true);
@@ -104,18 +106,16 @@ export const PublicTagView = () => {
     data.length_in && `${data.length_in}"L`,
     data.width_in && `${data.width_in}"W`,
     data.height_in && `${data.height_in}"H`,
-  ].filter(Boolean).join(' × ');
+  ]
+    .filter(Boolean)
+    .join(' × ');
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Photo */}
       {data.image_url ? (
         <div className="w-full aspect-square bg-white flex items-center justify-center overflow-hidden">
-          <img
-            src={data.image_url}
-            alt={data.sku}
-            className="w-full h-full object-contain p-6"
-          />
+          <img src={data.image_url} alt={data.sku} className="w-full h-full object-contain p-6" />
         </div>
       ) : (
         <div className="w-full aspect-[3/2] bg-gray-100 flex items-center justify-center">
@@ -127,16 +127,16 @@ export const PublicTagView = () => {
       <div className="p-5 -mt-4 relative">
         <div className="bg-white rounded-2xl shadow-lg p-5">
           {/* Name + Details */}
-          <h1 className="text-2xl font-black text-gray-900 leading-tight mb-1">
-            {nameDisplay}
-          </h1>
+          <h1 className="text-2xl font-black text-gray-900 leading-tight mb-1">{nameDisplay}</h1>
           {(parsed.size || parsed.color || parsed.year) && (
             <p className="text-sm text-gray-500 mb-4">
               {[
                 parsed.size && `Size ${parsed.size}`,
                 parsed.color && parsed.color,
                 parsed.year && parsed.year,
-              ].filter(Boolean).join(' · ')}
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             </p>
           )}
 
@@ -160,7 +160,9 @@ export const PublicTagView = () => {
           {/* Label photo */}
           {data.label_photo_url && (
             <div className="mt-4">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Label Photo</p>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                Label Photo
+              </p>
               <img
                 src={data.label_photo_url}
                 alt="Original label"
