@@ -37,6 +37,10 @@ import { supabase } from '../../../../lib/supabase';
 import { useAuth } from '../../../../context/AuthContext';
 import { generateBikeLabels } from '../../utils/generateBikeLabel';
 import { getLabelLayoutPreference } from '../../../labels/hooks/useLabelLayoutPreference';
+import {
+  getLabelCodesPreference,
+  useLabelCodesPreference,
+} from '../../../labels/hooks/useLabelCodesPreference';
 
 import { useActiveField } from './useActiveField.ts';
 import { DetailToolbar } from './DetailToolbar.tsx';
@@ -870,6 +874,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   const [showLabelQty, setShowLabelQty] = useState(false);
   const [labelQty, setLabelQty] = useState(1);
   const [isPrintingLabels, setIsPrintingLabels] = useState(false);
+  const [withCodes, setWithCodes] = useLabelCodesPreference();
 
   const handlePrintLabel = useCallback(() => {
     setLabelQty(1);
@@ -901,6 +906,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           short_code: t.short_code,
           public_token: t.public_token,
           layout: getLabelLayoutPreference(),
+          withCodes: getLabelCodesPreference(),
           color: labelColor,
         }))
       );
@@ -993,7 +999,25 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
               Cancel
             </button>
           </div>
-          {/* Row 2: actions */}
+          {/* Row 2: include QR + barcode toggle */}
+          <button
+            type="button"
+            onClick={() => setWithCodes(!withCodes)}
+            aria-pressed={withCodes}
+            className="w-full flex items-center justify-between px-1"
+          >
+            <span className="text-[10px] font-bold text-content uppercase tracking-wider">
+              QR + barcode
+            </span>
+            <span
+              className={`relative w-9 h-5 rounded-full transition-colors ${withCodes ? 'bg-accent' : 'bg-subtle'}`}
+            >
+              <span
+                className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${withCodes ? 'left-[18px]' : 'left-0.5'}`}
+              />
+            </span>
+          </button>
+          {/* Row 3: actions */}
           <div className="flex gap-2">
             <button
               onClick={() => {
