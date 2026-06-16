@@ -8,6 +8,7 @@ import MapPin from 'lucide-react/dist/esm/icons/map-pin';
 import Hash from 'lucide-react/dist/esm/icons/hash';
 import { usePickingSession } from '../../context/PickingContext';
 import toast from 'react-hot-toast';
+import { generatePalletLabels } from './generatePalletLabels';
 
 interface CustomerInfo {
   id?: string;
@@ -100,78 +101,17 @@ export const PalletLabelsPrinter = ({ onClose, order }: PalletLabelsPrinterProps
         setContextLoadNumber(loadNumber);
       }
 
-      const { default: jsPDF } = await import('jspdf');
-
-      // Create PDF in 6x4 inches landscape
-      const doc = new jsPDF({
-        orientation: 'landscape',
-        unit: 'in',
-        format: [6, 4],
+      const blobUrl = await generatePalletLabels({
+        pallets,
+        customerName: customer?.name ?? null,
+        street: street || null,
+        city: city || null,
+        state: state || null,
+        zip: zip || null,
+        orderNumber: orderNumber ?? null,
+        loadNumber,
       });
-
-      const customerName = (customer?.name || 'GENERIC CUSTOMER').toUpperCase();
-      const hasAddress = street && city;
-
-      for (let i = 0; i < pallets; i++) {
-        // --- PAGE A: COMPANY INFO ---
-        if (i > 0) doc.addPage([6, 4], 'landscape');
-
-        if (hasAddress) {
-          // PROFESSIONAL LAYOUT (Two-column style or Header style)
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(28);
-          const nameLines = doc.splitTextToSize(customerName, 5.5);
-          doc.text(nameLines, 0.5, 0.8);
-
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(18);
-          doc.text(`${street}`, 0.5, 1.4);
-          doc.text(`${city}, ${state} ${zip}`, 0.5, 1.7);
-
-          // Separator line
-          doc.setLineWidth(0.05);
-          doc.line(0.5, 2.1, 5.5, 2.1);
-
-          // PO / LOAD INFO
-          doc.setFontSize(14);
-          doc.text(`ORDER #: ${orderNumber || 'N/A'}`, 0.5, 2.5);
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(32);
-          doc.text(`LOAD: ${loadNumber}`, 0.5, 3.2);
-
-          doc.setFontSize(12);
-          doc.text(`DATE: ${new Date().toLocaleDateString()}`, 0.5, 3.7);
-        } else {
-          // SIMPLE LAYOUT (Centered large name)
-          let fontSize = 70;
-          if (customerName.length > 20) fontSize = 50;
-          if (customerName.length > 35) fontSize = 35;
-
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(fontSize);
-          const customerLines = doc.splitTextToSize(customerName, 5.5);
-          const textHeight = (customerLines.length * fontSize) / 72;
-          doc.text(customerLines, 3, 2.0 - textHeight / 2, { align: 'center' });
-
-          doc.setFontSize(24);
-          doc.text(`LOAD: ${loadNumber}`, 3, 3.5, { align: 'center' });
-        }
-
-        // --- PAGE B: NUMBERING ---
-        doc.addPage([6, 4], 'landscape');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(110);
-        const textNum = `${i + 1} OF ${pallets}`;
-        const numWidth = doc.getTextWidth(textNum);
-        doc.text(textNum, (6 - numWidth) / 2, 2.3);
-
-        // Small Load # at bottom of numbering page for reference
-        doc.setFontSize(12);
-        doc.text(`LOAD: ${loadNumber}`, 3, 3.8, { align: 'center' });
-      }
-
-      const blob = doc.output('bloburl');
-      window.open(blob, '_blank');
+      window.open(blobUrl, '_blank');
       onClose();
     } catch (error) {
       console.error('Error generating PDF:', error);
