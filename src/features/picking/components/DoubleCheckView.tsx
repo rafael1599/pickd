@@ -42,7 +42,7 @@ import { parseQRPayload, aggregateScanResults } from '../utils/parseQRPayload';
 import Camera from 'lucide-react/dist/esm/icons/camera';
 import { compressImage, base64ToBlobUrl } from '../../../services/photoUpload.service';
 import { useAuth } from '../../../context/AuthContext';
-import { useMarkWaiting, useUnmarkWaiting, useTakeOverSku } from '../hooks/useWaitingOrders';
+import { useUnmarkWaiting, useTakeOverSku } from '../hooks/useWaitingOrders';
 import { useShipOutSms } from '../hooks/useShipOutSms';
 import { withSupabaseRetry } from '../../../lib/supabaseRetry';
 import { autoClassifyShippingType } from '../../../utils/shippingClassification';
@@ -53,7 +53,7 @@ import { useCanonicalSkuResolution } from '../hooks/useCanonicalSkuResolution';
 import { AS400_SKU_ALIASES } from '../../../utils/skuNormalize';
 import { DistributionGlyph } from '../../inventory/components/DistributionJengaViz';
 import { WaitingConflictModal } from './WaitingConflictModal';
-import { ReasonPicker } from './ReasonPicker';
+import { WaitingReasonModal } from './WaitingReasonModal';
 import Hourglass from 'lucide-react/dist/esm/icons/hourglass';
 import Play from 'lucide-react/dist/esm/icons/play';
 import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
@@ -211,7 +211,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const { showConfirmation } = useConfirmation();
   const { pallets: originalPallets, deleteList, loadExternalList } = usePickingSession();
   const { isAdmin } = useAuth();
-  const markWaiting = useMarkWaiting();
   const unmarkWaiting = useUnmarkWaiting();
   const takeOverSku = useTakeOverSku();
   const { triggerForList: triggerShipOutSms } = useShipOutSms();
@@ -316,7 +315,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
   const [isDeducting, setIsDeducting] = useState(false);
   const [showWaitingPicker, setShowWaitingPicker] = useState(false);
-  const [waitingReason, setWaitingReason] = useState('');
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const [orderListOpen, setOrderListOpen] = useState(false);
   // Auto-hiding header context (order #, FedEx, date, note): shown on open and on
@@ -1690,52 +1688,21 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         onScroll={bumpHeaderInfoOnScroll}
         onPointerDown={bumpHeaderInfo}
       >
-        {/* Inline 'Mark as Waiting' reason picker (only when triggered from menu) */}
+        {/* Mark-as-Waiting reason modal — centered, blurred-backdrop overlay
+            opened from the kebab menu. Portals to <body>, so it stays centered
+            even when the item list is scrolled to the bottom (previously it
+            rendered inline at the top and appeared off-screen / like a no-op). */}
         {showWaitingPicker &&
           isAdmin &&
           status !== 'completed' &&
           status !== 'cancelled' &&
-          !isWaitingInventory && (
-            <div className="mb-4 p-3 rounded-2xl border border-amber-500/30 bg-amber-500/5 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-amber-500 uppercase tracking-wider">
-                  Why is this order waiting?
-                </span>
-                <button
-                  onClick={() => {
-                    setShowWaitingPicker(false);
-                    setWaitingReason('');
-                  }}
-                  className="p-1 text-muted hover:text-content transition-colors"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-              <ReasonPicker
-                actionType="waiting"
-                selectedReason={waitingReason}
-                onReasonChange={setWaitingReason}
-              />
-              <button
-                onClick={() => {
-                  if (!activeListId || !waitingReason.trim()) return;
-                  markWaiting.mutate(
-                    { listId: activeListId, reason: waitingReason.trim() },
-                    {
-                      onSuccess: () => {
-                        setShowWaitingPicker(false);
-                        setWaitingReason('');
-                        onSetWaitingInventory?.(true);
-                      },
-                    }
-                  );
-                }}
-                disabled={!waitingReason.trim() || markWaiting.isPending}
-                className="w-full p-3 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
-              >
-                {markWaiting.isPending ? 'Marking...' : 'Confirm — Mark as Waiting'}
-              </button>
-            </div>
+          !isWaitingInventory &&
+          activeListId && (
+            <WaitingReasonModal
+              listId={activeListId}
+              onClose={() => setShowWaitingPicker(false)}
+              onMarked={() => onSetWaitingInventory?.(true)}
+            />
           )}
 
         {/* Persistent waiting badge when the order is currently on hold */}

@@ -18,7 +18,6 @@ import X from 'lucide-react/dist/esm/icons/x';
 import { useDoubleCheckList, type PickingList } from '../hooks/useDoubleCheckList';
 import { useOrderGroups } from '../hooks/useOrderGroups';
 import { useBoardDnD } from '../hooks/useBoardDnD';
-import { useMarkWaiting } from '../hooks/useWaitingOrders';
 import { useViewMode } from '../../../context/ViewModeContext';
 import { usePickingSession } from '../../../context/PickingContext';
 import { useConfirmation } from '../../../context/ConfirmationContext';
@@ -37,6 +36,7 @@ import { InPickingZone } from './board/InPickingZone';
 import { GroupCard } from './board/GroupCard';
 import { GroupOrderModal } from './GroupOrderModal';
 import { CrossLaneConfirmModal } from './board/CrossLaneConfirmModal';
+import { WaitingReasonModal } from './WaitingReasonModal';
 import { ReasonPicker } from './ReasonPicker';
 import { supabase } from '../../../lib/supabase';
 import toast from 'react-hot-toast';
@@ -81,7 +81,6 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   const { showConfirmation } = useConfirmation();
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
-  const markWaiting = useMarkWaiting();
 
   // DnD logic — all zone reclassification, merge, prompts
   const dnd = useBoardDnD(isAdmin, refresh);
@@ -97,7 +96,6 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
 
   const [waitingCollapsed, setWaitingCollapsed] = useState(false);
   const [inPickingCollapsed, setInPickingCollapsed] = useState(false);
-  const [waitingReason, setWaitingReason] = useState('');
   const [reopenReason, setReopenReason] = useState('');
   const [readyExpanded, setReadyExpanded] = useState(false);
   const [completedCollapsed, setCompletedCollapsed] = useState(true);
@@ -752,56 +750,13 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           />
         )}
 
-        {/* Waiting reason prompt (drag to Waiting zone) */}
+        {/* Waiting reason prompt (drag to Waiting zone) — shared centered modal */}
         {dnd.pendingWaiting && (
-          <div
-            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-main/70 backdrop-blur-md animate-in fade-in duration-150"
-            onClick={dnd.cancelPending}
-          >
-            <div
-              className="bg-surface border border-amber-500/30 rounded-2xl w-full max-w-xs shadow-2xl p-5 space-y-3 animate-in zoom-in-95 duration-150"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <p className="text-xs font-black text-amber-500 uppercase tracking-tight">
-                Why is this order waiting?
-              </p>
-              <ReasonPicker
-                actionType="waiting"
-                selectedReason={waitingReason}
-                onReasonChange={setWaitingReason}
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setWaitingReason('');
-                    dnd.cancelPending();
-                  }}
-                  className="flex-1 p-2.5 rounded-xl text-xs font-black uppercase text-muted bg-card border border-subtle transition-all active:scale-[0.98]"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    if (!waitingReason.trim()) return;
-                    markWaiting.mutate(
-                      { listId: dnd.pendingWaiting!.order.id, reason: waitingReason.trim() },
-                      {
-                        onSuccess: () => {
-                          setWaitingReason('');
-                          dnd.setPendingWaiting(null);
-                          refresh();
-                        },
-                      }
-                    );
-                  }}
-                  disabled={!waitingReason.trim() || markWaiting.isPending}
-                  className="flex-1 p-2.5 rounded-xl text-xs font-black uppercase text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-40 transition-all active:scale-[0.98]"
-                >
-                  {markWaiting.isPending ? 'Marking...' : 'Confirm'}
-                </button>
-              </div>
-            </div>
-          </div>
+          <WaitingReasonModal
+            listId={dnd.pendingWaiting.order.id}
+            onClose={dnd.cancelPending}
+            onMarked={refresh}
+          />
         )}
 
         {/* Reopen reason prompt (drag from Completed to a lane) */}
