@@ -31,6 +31,7 @@ import { useViewMode } from '../../context/ViewModeContext';
 import { useModal } from '../../context/ModalContext';
 
 import type { InventoryLog, LogActionTypeValue } from '../../schemas/log.schema';
+import { generateDailyHistoryDoc } from './utils/generateDailyHistoryPdf';
 
 /** Format a yyyy-mm-dd ISO date as 'May 5' for the custom-range button. */
 const formatRangeLabel = (iso: string): string => {
@@ -879,215 +880,16 @@ export const HistoryScreen = () => {
       autoTableInstance: typeof import('jspdf-autotable').default,
       reportNote?: string | null,
       mode: 'full' | 'as400' = 'as400'
-    ) => {
-      // 6×4" landscape thermal label (matches orders/FedEx pattern so the PDF
-      // prints at 100% on the warehouse thermal printer without scaling).
-      const PAGE_W = 152.4; // 6 in
-      const PAGE_H = 101.6; // 4 in
-      const MARGIN = 3;
-      const doc = new jsPDFInstance({
-        orientation: 'landscape',
-        unit: 'mm',
-        format: [PAGE_W, PAGE_H],
-      });
-      const today = new Date().toLocaleDateString('es-ES');
-
-      // ── Title differs by mode ───────────────────────────────────────
-      // AS400 Sync = same table as Full, with two operational tweaks:
-      //   - Multi-hop MOVE chains collapse to endpoints (no 'via X -> Y')
-      //   - Rows sorted alphabetically by SKU for fast scanning
-      // Full = chronological + chain hops on a small second line.
-      let title = mode === 'as400' ? 'History — AS400 Sync' : 'History';
-      if (filter !== 'ALL') {
-        const labels: Record<string, string> = {
-          MOVE: 'Movements',
-          ADD: 'Restocks',
-          DEDUCT: 'Picks',
-          DELETE: 'Removals',
-          SYSTEM_RECONCILIATION: 'Reconciliation',
-        };
-        title = `History — ${labels[filter] || filter}`;
-      }
-
-      if (userFilter !== 'ALL') {
-        title += ` (${userFilter})`;
-      }
-
-      // Collapse MOVE rows ONLY when looking at a single day's activity.
-      // Across a multi-day range the same (sku, qty) typically represents
-      // distinct moves (e.g. bike A moved March, returned April) — collapsing
-      // them loses real audit information and dramatically under-reports
-      // history (one customer reported 640 moves displayed as 100). Today's
-      // chains stay collapsed because intermediate hops are noise.
-      const collapseChains = timeFilter === 'TODAY';
-
-      const movePathBySkuQty = new Map<string, string[]>();
-      if (collapseChains) {
-        // Iterate oldest-first so the path reads left-to-right naturally.
-        // filteredLogs is sorted DESC, so reverse a shallow copy.
-        for (const log of [...filteredLogs].reverse()) {
-          if (log.action_type !== 'MOVE') continue;
-          const qty = getDisplayQty(log);
-          const key = `${log.sku}::${qty}`;
-          const path = movePathBySkuQty.get(key) ?? [];
-          const from = log.from_location || '';
-          const to = log.to_location || '';
-          if (path.length === 0 && from) path.push(from);
-          if (to && path[path.length - 1] !== to) path.push(to);
-          movePathBySkuQty.set(key, path);
-        }
-      }
-
-      // Dedupe MOVE rows in the table: keep only the most recent log per
-      // (sku, qty). The activity column will pull the full chained path
-      // from movePathBySkuQty so no audit info is hidden. Disabled for
-      // multi-day ranges per the same reasoning above.
-      const seenMove = new Set<string>();
-      const dedupedLogs = collapseChains
-        ? filteredLogs.filter((log) => {
-            if (log.action_type !== 'MOVE') return true;
-            const key = `${log.sku}::${getDisplayQty(log)}`;
-            if (seenMove.has(key)) return false;
-            seenMove.add(key);
-            return true;
-          })
-        : filteredLogs;
-
-      const stats = {
-        total: dedupedLogs.length,
-        qty: dedupedLogs.reduce((acc, l) => acc + Number(getDisplayQty(l)), 0),
-      };
-
-      // Header: title left, date + counts stacked below on a narrow 4×6 page.
-      const contentWidth = PAGE_W - MARGIN * 2;
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.text(title, MARGIN, MARGIN + 5);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.text(
-        `${today} · ${stats.total} logs · ${stats.qty.toLocaleString()} units`,
-        MARGIN,
-        MARGIN + 9
-      );
-
-      let currentY = MARGIN + 13;
-
-      // idea-111 piece 3 — optional report-note rendered above the table.
-      if (reportNote && reportNote.trim().length > 0) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(11);
-        const wrapped = doc.splitTextToSize(reportNote.trim(), contentWidth - 2);
-        const lineHeight = 4.5;
-        const noteHeight = wrapped.length * lineHeight + 3;
-        doc.setDrawColor(0);
-        doc.setLineWidth(0.3);
-        doc.rect(MARGIN, currentY - 2, contentWidth, noteHeight);
-        doc.text(wrapped, MARGIN + 1.5, currentY + 1.5);
-        currentY += noteHeight + 2;
-      }
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.text('SKU', MARGIN, currentY);
-      doc.text('ACTIVITY', MARGIN + 30, currentY);
-      doc.text('QTY', PAGE_W - MARGIN, currentY, { align: 'right' });
-      currentY += 3;
-
-      const tableData = dedupedLogs.map((log) => {
-        const fromLoc = log.from_location || '';
-        const toLoc = log.to_location || '';
-        const qty = getDisplayQty(log);
-        const rawNote = (log as InventoryLog & { note?: string | null }).note;
-
-        let activity = '';
-        let chainHops: string | null = null;
-        switch (log.action_type) {
-          case 'MOVE': {
-            // Activity line shows endpoints only (FIRST -> LAST). Intermediate
-            // hops, when present, ride a smaller second line so a multi-hop
-            // chain doesn't wrap and break the table layout.
-            const path = movePathBySkuQty.get(`${log.sku}::${qty}`) ?? [];
-            const first = path[0] ?? fromLoc;
-            const last = path[path.length - 1] ?? toLoc;
-            activity = `Moved ${first} -> ${last}`;
-            // AS400 Sync hides intermediate hops — the encargada only needs
-            // the endpoints to reconcile the legacy system. Full mode keeps
-            // the full chain on a small second line.
-            if (mode !== 'as400' && path.length > 2) {
-              chainHops = `via ${path.slice(1, -1).join(' -> ')}`;
-            }
-            break;
-          }
-          case 'ADD':
-            activity = `Added ${qty} to ${toLoc || fromLoc || 'GEN'}`;
-            break;
-          case 'DEDUCT':
-            activity = log.order_number
-              ? `Picked from ${fromLoc || 'GEN'} in #${log.order_number}`
-              : `Picked ${qty} from ${fromLoc || 'GEN'}`;
-            break;
-          case 'DELETE':
-            activity = `Removed from ${fromLoc || 'INV'}`;
-            break;
-          case 'EDIT':
-            activity = `Edited at ${toLoc || fromLoc || 'INV'}`;
-            break;
-          case 'PHYSICAL_DISTRIBUTION':
-            activity = `Verified at ${toLoc || fromLoc || 'INV'}`;
-            break;
-          case 'SYSTEM_RECONCILIATION':
-            activity = `Reconciliation`;
-            break;
-          default:
-            activity = `${log.action_type} at ${toLoc || fromLoc || '—'}`;
-        }
-
-        if (log.is_reversed) {
-          activity = `Reversed: ${activity}`;
-        }
-
-        // idea-111: note rendered on a separate line below the activity.
-        // For FedEx Returns the prefix "FedEx Return " is dropped — the
-        // tracking number alone is enough context on the second line.
-        const noteLine = rawNote ? rawNote.replace(/^FedEx Return\s+/i, '') : null;
-        const extraLines = [chainHops, noteLine].filter(Boolean) as string[];
-        const cellText = extraLines.length > 0 ? `${activity}\n${extraLines.join('\n')}` : activity;
-
-        return [log.sku, cellText, qty.toString()];
-      });
-
-      // AS400 Sync: alphabetical scan beats chronological. Locale-compare so
-      // numeric suffixes ('03-3' < '03-30') sort intuitively.
-      const tableBody =
-        mode === 'as400'
-          ? [...tableData].sort((a, b) => String(a[0]).localeCompare(String(b[0])))
-          : tableData;
-
-      autoTableInstance(doc, {
-        startY: currentY,
-        body: tableBody,
-        theme: 'plain',
-        styles: {
-          fontSize: 11,
-          cellPadding: 1.8,
-          minCellHeight: 6.5,
-          textColor: [0, 0, 0],
-          lineColor: [0, 0, 0],
-          lineWidth: 0.3,
-          font: 'helvetica',
-          valign: 'top',
-        },
-        columnStyles: {
-          0: { cellWidth: 30, fontStyle: 'bold', fontSize: 13, halign: 'left' },
-          1: { cellWidth: 'auto', fontSize: 10.5, halign: 'left' },
-          2: { cellWidth: 13, fontSize: 13, halign: 'right', fontStyle: 'bold' },
-        },
-        margin: { top: MARGIN, right: MARGIN, bottom: MARGIN, left: MARGIN },
-      });
-
-      return doc;
-    },
+    ) =>
+      generateDailyHistoryDoc(jsPDFInstance, autoTableInstance, {
+        logs: filteredLogs,
+        filter,
+        userFilter,
+        timeFilter,
+        getDisplayQty,
+        reportNote,
+        mode,
+      }),
     [filteredLogs, filter, userFilter, timeFilter, getDisplayQty]
   );
 
