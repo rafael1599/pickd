@@ -110,8 +110,8 @@ const LINE = 1.18;
 const SECONDARY = 0.9;
 
 // Code 128 barcode block (drawn under the SKU). Fixed height — it's a graphic,
-// not text, so it's outside the 10% size band.
-const BARCODE_H = 0.4;
+// not text, so it's outside the 10% size band. Tall enough to scan easily.
+const BARCODE_H = 0.55;
 const BARCODE_TOP = 0.05;
 const BARCODE_BOT = 0.08;
 
@@ -318,8 +318,12 @@ export function computeLabelFace(
   };
 
   const bcBlock = withBarcode ? BARCODE_TOP + BARCODE_H + BARCODE_BOT : 0;
-  // With no QR the text reclaims that space and grows much larger.
-  const MAX_BASE = withQr ? 46 : 120;
+  // Largest font we'll try. With no QR the text fills the whole label; with codes
+  // on it can still grow well past the old cap and then spread to fill the height.
+  const MAX_BASE = withQr ? 60 : 120;
+  // Spread the stack to fill the label height in both modes (less when codes are
+  // on, so the QR/barcode keep their room).
+  const fillCap = withQr ? 1.4 : 1.7;
   const ops: DrawOp[] = [];
 
   // ── VERTICAL LAYOUT: portrait 4×6" (stacked, centered; QR at the bottom) ──
@@ -328,7 +332,7 @@ export function computeLabelFace(
     const VH = 6;
     const vM = 0.2;
     const vTextW = VW - vM * 2;
-    const vQrSize = withQr ? Math.min(2.0, (VW - vM * 2) * 0.7) : 0;
+    const vQrSize = withQr ? Math.min(2.6, (VW - vM * 2) * 0.9) : 0;
     const vTextH = withQr ? VH - vM * 2 - vQrSize - 0.2 : VH - vM * 2;
 
     const vLines = buildLines(2);
@@ -337,7 +341,7 @@ export function computeLabelFace(
     const vPrimary = vBase;
     const vSecondary = vBase * SECONDARY;
     const natH = stackHeight(measure, vLines, vTextW, vBase, fixedExtra);
-    const stretch = withQr ? 1 : Math.min(Math.max(vTextH / natH, 1), 1.7);
+    const stretch = Math.min(Math.max(vTextH / natH, 1), fillCap);
     const LE = LINE * stretch;
 
     ops.push({ kind: 'rect', x: 0, y: 0, w: VW, h: VH, fill: 'white' });
@@ -477,7 +481,7 @@ export function computeLabelFace(
   const W = 6;
   const H = 4;
   const M = 0.2;
-  const qrSize = 1.9;
+  const qrSize = 2.2;
   const qrX = W - M - qrSize;
   const textW = withQr ? qrX - M - 0.2 : W - M * 2;
 
@@ -487,7 +491,7 @@ export function computeLabelFace(
   const primary = base;
   const secondary = base * SECONDARY;
   const natH = stackHeight(measure, lines, textW, base, fixedExtra);
-  const stretch = withQr ? 1 : Math.min(Math.max((H - M * 2) / natH, 1), 1.7);
+  const stretch = Math.min(Math.max((H - M * 2) / natH, 1), fillCap);
   const LE = LINE * stretch;
   const startY = M + Math.max(0, (H - M * 2 - natH * stretch) / 2);
 
