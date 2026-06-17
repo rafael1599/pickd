@@ -257,6 +257,24 @@ function App() {
                   }
                 />
 
+                {/* SKU-only tag page — the printed-label QR points here (/s/<sku>). */}
+                <Route
+                  path="/s/:sku"
+                  element={
+                    <ErrorBoundary>
+                      <Suspense
+                        fallback={
+                          <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                            <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
+                          </div>
+                        }
+                      >
+                        <PublicTagView />
+                      </Suspense>
+                    </ErrorBoundary>
+                  }
+                />
+
                 <Route
                   path="/pickd-report"
                   element={

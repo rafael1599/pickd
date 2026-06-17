@@ -1,6 +1,5 @@
 import { describe, it, beforeEach, afterEach, vi, expect } from 'vitest';
 import { generateBikeLabels, type LabelItem } from '../generateBikeLabel';
-import { encodeTagToken, decodeTagToken } from '../../../../utils/tagToken';
 import { createRecorder, type PdfRecorder } from '../../../../test/pdfRecorder';
 
 vi.mock('jspdf', async (importOriginal) => {
@@ -40,22 +39,21 @@ describe('generateBikeLabels — QR payload', () => {
   });
   afterEach(() => rec.restore());
 
-  it('embeds a compact base64url token (not the raw UUID), keeps /tag + ?sku, EC level L', async () => {
+  it('QR carries only the SKU (/s/<sku>), no short_code or token, EC level L', async () => {
     await generateBikeLabels([base]);
 
     expect(qr.calls.length).toBeGreaterThan(0);
     const { payload, opts } = qr.calls[0];
 
-    expect(payload).toContain('/tag/PK-000A1/');
-    expect(payload).toContain('?sku=03-4614BK');
-    expect(payload).toContain(encodeTagToken(UUID)); // 22-char token present
-    expect(payload).not.toContain(UUID); // raw 36-char UUID absent
-    expect(decodeTagToken(encodeTagToken(UUID))).toBe(UUID); // still resolves back
+    expect(payload).toMatch(/\/s\/03-4614BK$/); // /s/<sku>, nothing after
+    expect(payload).not.toContain('/tag/'); // no token route
+    expect(payload).not.toContain('PK-000A1'); // no short_code
+    expect(payload).not.toContain(UUID); // no token
     expect(opts.errorCorrectionLevel).toBe('L');
+  });
 
-    // The tag portion is shorter than the old UUID-based form.
-    const oldForm = `/tag/PK-000A1/${UUID}?sku=03-4614BK`;
-    const newForm = payload.slice(payload.indexOf('/tag/'));
-    expect(newForm.length).toBeLessThan(oldForm.length);
+  it('URL-encodes SKUs with special characters', async () => {
+    await generateBikeLabels([{ ...base, sku: '03/46 14' }]);
+    expect(qr.calls[0].payload).toMatch(/\/s\/03%2F46%2014$/);
   });
 });

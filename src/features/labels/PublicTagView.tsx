@@ -40,16 +40,22 @@ function InfoRow({ label, value }: { label: string; value: string | null | undef
 }
 
 export const PublicTagView = () => {
-  const { shortCode, token } = useParams<{ shortCode: string; token: string }>();
+  // Two public routes share this view: /s/:sku (SKU-only, new label QR) and
+  // /tag/:shortCode/:token (token-gated, legacy already-printed labels).
+  const { shortCode, token, sku } = useParams<{
+    shortCode?: string;
+    token?: string;
+    sku?: string;
+  }>();
   const [searchParams] = useSearchParams();
-  const fallbackSku = searchParams.get('sku');
+  const fallbackSku = sku ?? searchParams.get('sku');
 
   const [data, setData] = useState<TagData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (!shortCode || !token) {
+    if (!sku && (!shortCode || !token)) {
       setError(true);
       setLoading(false);
       return;
@@ -57,11 +63,13 @@ export const PublicTagView = () => {
 
     (async () => {
       try {
-        const { data: result, error: rpcError } = await publicSupabase.rpc(
-          'get_public_tag' as never,
-          // Accept both the legacy UUID and the compact base64url QR token.
-          { p_short_code: shortCode, p_token: normalizeTagToken(token) } as never
-        );
+        const { data: result, error: rpcError } = sku
+          ? await publicSupabase.rpc('get_public_tag_by_sku' as never, { p_sku: sku } as never)
+          : await publicSupabase.rpc(
+              'get_public_tag' as never,
+              // Accept both the legacy UUID and the compact base64url QR token.
+              { p_short_code: shortCode, p_token: normalizeTagToken(token as string) } as never
+            );
         if (rpcError || !result) {
           setError(true);
         } else {
@@ -73,7 +81,7 @@ export const PublicTagView = () => {
         setLoading(false);
       }
     })();
-  }, [shortCode, token]);
+  }, [shortCode, token, sku]);
 
   if (loading) {
     return (
@@ -175,7 +183,7 @@ export const PublicTagView = () => {
         {/* Footer */}
         <div className="text-center mt-6 pb-8">
           <p className="text-xs text-gray-300 font-bold uppercase tracking-widest">
-            PickD · {data.short_code}
+            PickD · {data.short_code || data.sku}
           </p>
         </div>
       </div>

@@ -15,6 +15,17 @@ describe('parseQRPayload', () => {
     expect(result).toEqual({ shortCode: 'PK-7', sku: 'WHEEL/FRONT 26' });
   });
 
+  it('parses the SKU-only URL (/s/<sku>) with an empty short_code', () => {
+    expect(parseQRPayload('https://roman-app.vercel.app/s/03-4614BK')).toEqual({
+      shortCode: '',
+      sku: '03-4614BK',
+    });
+    expect(parseQRPayload('https://app.pickd.io/s/WHEEL%2FFRONT%2026')).toEqual({
+      shortCode: '',
+      sku: 'WHEEL/FRONT 26',
+    });
+  });
+
   it('parses legacy pipe format', () => {
     const raw = 'PK-99|SEAT-POST-27.2';
     const result = parseQRPayload(raw);
