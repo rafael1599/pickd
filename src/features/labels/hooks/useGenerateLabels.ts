@@ -49,7 +49,10 @@ export function useGenerateLabels() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const generate = useCallback(
-    async (entries: LabelEntry[]): Promise<number> => {
+    async (
+      entries: LabelEntry[],
+      codeOptions?: { withQr?: boolean; withBarcode?: boolean }
+    ): Promise<number> => {
       if (!user) {
         toast.error('You must be logged in to generate labels');
         return 0;
@@ -113,6 +116,8 @@ export function useGenerateLabels() {
             serial_number: entry?.serialNumber ?? null,
             made_in: entry?.madeIn ?? null,
             po_number: entry?.poNumber ?? null,
+            withQr: codeOptions?.withQr,
+            withBarcode: codeOptions?.withBarcode,
           };
         });
 

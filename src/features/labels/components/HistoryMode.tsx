@@ -13,7 +13,7 @@ import {
   type LabelItem,
   VALID_TRANSITIONS,
 } from '../../inventory/utils/generateBikeLabel';
-import { getLabelLayoutPreference } from '../hooks/useLabelLayoutPreference';
+import { LabelPrintOptionsModal, type LabelPrintResult } from './LabelPrintOptionsModal';
 import { useLabelItems, type LabelInventoryItem } from '../hooks/useLabelItems';
 
 interface AssetTagRow {
@@ -88,28 +88,43 @@ export const HistoryMode = () => {
     [items]
   );
 
-  const handleReprint = useCallback(
-    async (sku: string, tags: AssetTagRow[]) => {
+  // Reprint opens the shared print-options window first (orientation + codes).
+  const [pendingReprint, setPendingReprint] = useState<{
+    sku: string;
+    tags: AssetTagRow[];
+  } | null>(null);
+
+  const requestReprint = useCallback((sku: string, tags: AssetTagRow[]) => {
+    if (tags.length === 0) return;
+    setPendingReprint({ sku, tags });
+  }, []);
+
+  const runReprint = useCallback(
+    async (result: LabelPrintResult) => {
+      if (!pendingReprint) return;
+      const { sku, tags } = pendingReprint;
       setIsReprinting(true);
       try {
-        const layout = getLabelLayoutPreference();
         const labelItems: LabelItem[] = tags.map((t) => ({
           sku: t.sku,
           item_name: getItemName(t.sku),
           short_code: t.short_code,
           public_token: t.public_token,
-          layout,
+          layout: result.orientation,
+          withQr: result.withQr,
+          withBarcode: result.withBarcode,
         }));
         const blobUrl = await generateBikeLabels(labelItems);
         window.open(blobUrl, '_blank');
         toast.success(`Reprinting ${tags.length * 2} labels for ${sku || 'selection'}`);
+        setPendingReprint(null);
       } catch {
         toast.error('Failed to reprint labels');
       } finally {
         setIsReprinting(false);
       }
     },
-    [getItemName]
+    [pendingReprint, getItemName]
   );
 
   const handleReleaseTags = useCallback(
@@ -207,7 +222,7 @@ export const HistoryMode = () => {
                   {tags.length}
                 </span>
                 <button
-                  onClick={() => handleReprint(sku, tags)}
+                  onClick={() => requestReprint(sku, tags)}
                   disabled={isReprinting}
                   className="p-1.5 bg-surface border border-subtle rounded-lg text-muted hover:text-accent hover:border-accent/30 transition-colors active:scale-90 disabled:opacity-30"
                   title="Reprint all"
@@ -275,7 +290,7 @@ export const HistoryMode = () => {
             </span>
             <button
               onClick={() =>
-                handleReprint('', createdTags?.filter((t) => selectedTags.has(t.id)) ?? [])
+                requestReprint('', createdTags?.filter((t) => selectedTags.has(t.id)) ?? [])
               }
               className="px-3 py-2 bg-accent/10 border border-accent/20 rounded-xl text-[10px] font-bold text-accent active:scale-95"
             >
@@ -398,7 +413,7 @@ export const HistoryMode = () => {
                   </button>
                   <button
                     onClick={() => {
-                      handleReprint(et.sku, [et]);
+                      requestReprint(et.sku, [et]);
                       setEditingTag(null);
                     }}
                     className="h-10 px-4 bg-surface border border-subtle text-muted font-bold text-[10px] uppercase tracking-widest rounded-xl active:scale-95"
@@ -410,6 +425,17 @@ export const HistoryMode = () => {
             </div>
           );
         })()}
+
+      {pendingReprint && (
+        <LabelPrintOptionsModal
+          title={`Reprint ${pendingReprint.tags.length * 2} labels`}
+          confirmLabel="Reprint"
+          showOrientation
+          isBusy={isReprinting}
+          onClose={() => setPendingReprint(null)}
+          onConfirm={runReprint}
+        />
+      )}
     </>
   );
 };

@@ -36,11 +36,10 @@ import { useScrollLock } from '../../../../hooks/useScrollLock';
 import { supabase } from '../../../../lib/supabase';
 import { useAuth } from '../../../../context/AuthContext';
 import { generateBikeLabels } from '../../utils/generateBikeLabel';
-import { getLabelLayoutPreference } from '../../../labels/hooks/useLabelLayoutPreference';
 import {
-  getLabelCodesPreference,
-  useLabelCodesPreference,
-} from '../../../labels/hooks/useLabelCodesPreference';
+  LabelPrintOptionsModal,
+  type LabelPrintResult,
+} from '../../../labels/components/LabelPrintOptionsModal';
 
 import { useActiveField } from './useActiveField.ts';
 import { DetailToolbar } from './DetailToolbar.tsx';
@@ -870,56 +869,55 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     });
   }, [navigate, onClose, sku, itemName, initialData?.location]);
 
-  // ─── Label printing with qty picker ───
-  const [showLabelQty, setShowLabelQty] = useState(false);
-  const [labelQty, setLabelQty] = useState(1);
+  // ─── Label printing (opens the shared print-options window) ───
+  const [printOpen, setPrintOpen] = useState(false);
   const [isPrintingLabels, setIsPrintingLabels] = useState(false);
-  const [withCodes, setWithCodes] = useLabelCodesPreference();
 
-  const handlePrintLabel = useCallback(() => {
-    setLabelQty(1);
-    setShowLabelQty(true);
-  }, []);
+  const handlePrintLabel = useCallback(() => setPrintOpen(true), []);
 
-  const handleGenerateLabels = useCallback(async () => {
-    if (!sku || !user || labelQty < 1) return;
-    setIsPrintingLabels(true);
-    try {
-      const inserts = Array.from({ length: labelQty }, () => ({
-        sku,
-        warehouse: 'LUDLOW' as const,
-        location: initialData?.location ?? 'UNKNOWN',
-        created_by: user.id,
-        printed_at: new Date().toISOString(),
-        status: (initialData?.quantity ?? 0) > 0 ? 'in_stock' : 'printed',
-      }));
-      const { data: tags, error } = await supabase
-        .from('asset_tags')
-        .insert(inserts)
-        .select('short_code, sku, public_token');
-      if (error || !tags?.length) throw error || new Error('No tags returned');
-      const labelColor = (watch('color') || '').trim() || null;
-      const blobUrl = await generateBikeLabels(
-        tags.map((t) => ({
+  const handleGenerateLabels = useCallback(
+    async (opts: LabelPrintResult) => {
+      if (!sku || !user || opts.quantity < 1) return;
+      setIsPrintingLabels(true);
+      try {
+        const inserts = Array.from({ length: opts.quantity }, () => ({
           sku,
-          item_name: itemName,
-          short_code: t.short_code,
-          public_token: t.public_token,
-          layout: getLabelLayoutPreference(),
-          withCodes: getLabelCodesPreference(),
-          color: labelColor,
-        }))
-      );
-      window.open(blobUrl, '_blank');
-      toast.success(`${tags.length} label${tags.length !== 1 ? 's' : ''} created`);
-      setShowLabelQty(false);
-    } catch (err) {
-      console.error('Print labels failed:', err);
-      toast.error('Failed to print labels');
-    } finally {
-      setIsPrintingLabels(false);
-    }
-  }, [sku, itemName, user, labelQty, initialData?.location, initialData?.quantity, watch]);
+          warehouse: 'LUDLOW' as const,
+          location: initialData?.location ?? 'UNKNOWN',
+          created_by: user.id,
+          printed_at: new Date().toISOString(),
+          status: (initialData?.quantity ?? 0) > 0 ? 'in_stock' : 'printed',
+        }));
+        const { data: tags, error } = await supabase
+          .from('asset_tags')
+          .insert(inserts)
+          .select('short_code, sku, public_token');
+        if (error || !tags?.length) throw error || new Error('No tags returned');
+        const labelColor = (watch('color') || '').trim() || null;
+        const blobUrl = await generateBikeLabels(
+          tags.map((t) => ({
+            sku,
+            item_name: itemName ?? null,
+            short_code: t.short_code,
+            public_token: t.public_token,
+            layout: opts.orientation,
+            withQr: opts.withQr,
+            withBarcode: opts.withBarcode,
+            color: labelColor,
+          }))
+        );
+        window.open(blobUrl, '_blank');
+        toast.success(`${tags.length} label${tags.length !== 1 ? 's' : ''} created`);
+        setPrintOpen(false);
+      } catch (err) {
+        console.error('Print labels failed:', err);
+        toast.error('Failed to print labels');
+      } finally {
+        setIsPrintingLabels(false);
+      }
+    },
+    [sku, itemName, user, initialData?.location, initialData?.quantity, watch]
+  );
 
   if (!isOpen) return null;
 
@@ -956,87 +954,25 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         onPrintLabel={mode === 'edit' ? handlePrintLabel : undefined}
       />
 
-      {/* Label qty picker — inline below toolbar */}
-      {showLabelQty && (
-        <div className="px-3 py-2 bg-accent/5 border-b border-accent/20 space-y-2">
-          {/* Row 1: label + centered qty + cancel (equal side widths) */}
-          <div className="flex items-center">
-            <span className="w-20 text-[9px] font-black text-accent uppercase tracking-widest">
-              New Labels
-            </span>
-            <div className="flex-1 flex items-center justify-center gap-1.5">
-              <button
-                onClick={() => setLabelQty((q) => Math.max(1, q - 1))}
-                className="w-8 h-8 rounded-lg bg-surface border border-subtle flex items-center justify-center text-content font-bold text-sm active:scale-90"
-              >
-                -
-              </button>
-              <input
-                type="number"
-                value={labelQty}
-                onChange={(e) => setLabelQty(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-12 h-8 text-center text-base font-black text-content tabular-nums bg-surface border border-subtle rounded-lg focus:outline-none focus:border-accent/40 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-              />
-              <button
-                onClick={() => setLabelQty((q) => q + 1)}
-                className="w-8 h-8 rounded-lg bg-surface border border-subtle flex items-center justify-center text-content font-bold text-sm active:scale-90"
-              >
-                +
-              </button>
-              {(initialData?.quantity ?? 0) > 0 && (
-                <button
-                  onClick={() => setLabelQty(initialData?.quantity ?? 1)}
-                  className="text-[9px] font-bold text-accent px-1.5 py-0.5 bg-accent/10 border border-accent/20 rounded active:scale-95"
-                >
-                  All
-                </button>
-              )}
-            </div>
-            <button
-              onClick={() => setShowLabelQty(false)}
-              className="w-20 text-right text-[9px] font-bold text-muted uppercase active:scale-95"
-            >
-              Cancel
-            </button>
-          </div>
-          {/* Row 2: include QR + barcode toggle */}
-          <button
-            type="button"
-            onClick={() => setWithCodes(!withCodes)}
-            aria-pressed={withCodes}
-            className="w-full flex items-center justify-between px-1"
-          >
-            <span className="text-[10px] font-bold text-content uppercase tracking-wider">
-              QR + barcode
-            </span>
-            <span
-              className={`relative w-9 h-5 rounded-full transition-colors ${withCodes ? 'bg-accent' : 'bg-subtle'}`}
-            >
-              <span
-                className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${withCodes ? 'left-[18px]' : 'left-0.5'}`}
-              />
-            </span>
-          </button>
-          {/* Row 3: actions */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                setShowLabelQty(false);
-                handleEditLabel();
-              }}
-              className="flex-1 h-8 text-[10px] font-black text-accent uppercase tracking-wider bg-accent/10 border border-accent/30 rounded-lg active:scale-95"
-            >
-              Edit in Studio
-            </button>
-            <button
-              onClick={handleGenerateLabels}
-              disabled={isPrintingLabels}
-              className="flex-1 h-8 text-[10px] font-black text-white uppercase tracking-wider bg-accent rounded-lg active:scale-95 disabled:opacity-40"
-            >
-              {isPrintingLabels ? '...' : `Print ${labelQty}`}
-            </button>
-          </div>
-        </div>
+      {/* Print-options window — orientation + quantity + QR/barcode */}
+      {printOpen && (
+        <LabelPrintOptionsModal
+          title={`Print labels — ${sku}`}
+          showOrientation
+          showQuantity
+          initialQuantity={1}
+          allQuantity={initialData?.quantity ?? undefined}
+          isBusy={isPrintingLabels}
+          onClose={() => setPrintOpen(false)}
+          onConfirm={handleGenerateLabels}
+          secondaryAction={{
+            label: 'Edit in Studio',
+            onClick: () => {
+              setPrintOpen(false);
+              handleEditLabel();
+            },
+          }}
+        />
       )}
 
       {/* Photo Hero */}

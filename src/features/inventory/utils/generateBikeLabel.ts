@@ -16,8 +16,12 @@ export interface LabelItem {
   serial_number?: string | null;
   made_in?: string | null;
   po_number?: string | null;
-  /** When false, print a codeless label: no QR and no barcode, with the text
-   *  enlarged + spread to fill the whole label. Defaults to true (codes on). */
+  /** Print the QR (opens the SKU page). Defaults to true. */
+  withQr?: boolean;
+  /** Print the Code 128 barcode of the SKU under the SKU box. Defaults to true. */
+  withBarcode?: boolean;
+  /** Legacy single switch for both QR + barcode. `withQr`/`withBarcode` override
+   *  it when set. With no QR the text grows + spreads to fill the whole label. */
   withCodes?: boolean;
 }
 
@@ -58,10 +62,10 @@ type FitLine = {
  * 4×6" bike/part label. Every piece of text is rendered within a single 10% size
  * band, stacked, with the base font chosen as large as fits.
  *
- * Two print modes (per item, via `withCodes`):
- *  - codes on (default): QR (opens the tag page) on the side/bottom, plus a
- *    Code 128 barcode of the SKU right under the SKU box.
- *  - codes off: no QR, no barcode — the text grows and spreads to fill the label.
+ * QR and barcode are independent (per item): `withQr` draws the QR (opens the tag
+ * page) on the side/bottom; `withBarcode` draws a Code 128 of the SKU under the
+ * SKU box. With no QR the text reclaims that space — it grows and spreads to fill
+ * the label. `withCodes` is the legacy single switch for both.
  */
 export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
   const [{ default: jsPDF }, QRCode] = await Promise.all([import('jspdf'), import('qrcode')]);
@@ -148,12 +152,13 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
 
   for (const item of items) {
     const parsed = parseBikeName(item.item_name);
-    const withCodes = item.withCodes !== false;
     const hasSku = !!item.sku.trim();
-    const drawBC = withCodes && hasSku;
+    // QR and barcode are independent; `withCodes` is the legacy fallback for both.
+    const withQr = item.withQr ?? item.withCodes ?? true;
+    const withBarcode = (item.withBarcode ?? item.withCodes ?? true) && hasSku;
 
     let qrDataUrl: string | null = null;
-    if (withCodes) {
+    if (withQr) {
       const baseUrl =
         typeof window !== 'undefined'
           ? import.meta.env.VITE_APP_URL || window.location.origin
@@ -210,9 +215,9 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
     const SKU_PAD_Y = 0.06;
     const SKU_PAD_X = 0.1;
     const SEP_H = 0.16;
-    const bcBlock = drawBC ? BARCODE_TOP + BARCODE_H + BARCODE_BOT : 0;
-    // Codeless labels reclaim the QR/barcode space and grow much larger.
-    const MAX_BASE = withCodes ? 46 : 120;
+    const bcBlock = withBarcode ? BARCODE_TOP + BARCODE_H + BARCODE_BOT : 0;
+    // With no QR the text reclaims that space and grows much larger.
+    const MAX_BASE = withQr ? 46 : 120;
 
     // ── VERTICAL LAYOUT: portrait 4×6" (stacked, centered; QR at the bottom) ──
     if (item.layout === 'vertical') {
@@ -220,8 +225,8 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
       const VH = 6;
       const vM = 0.2;
       const vTextW = VW - vM * 2;
-      const vQrSize = withCodes ? Math.min(2.0, (VW - vM * 2) * 0.7) : 0;
-      const vTextH = withCodes ? VH - vM * 2 - vQrSize - 0.2 : VH - vM * 2;
+      const vQrSize = withQr ? Math.min(2.0, (VW - vM * 2) * 0.7) : 0;
+      const vTextH = withQr ? VH - vM * 2 - vQrSize - 0.2 : VH - vM * 2;
 
       const vLines = buildLines(2);
       const fixedExtra = SEP_H + SKU_PAD_Y * 2 + 0.12 + bcBlock;
@@ -229,7 +234,7 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
       const vPrimary = vBase;
       const vSecondary = vBase * SECONDARY;
       const natH = stackHeight(vLines, vTextW, vBase, fixedExtra);
-      const stretch = withCodes ? 1 : Math.min(Math.max(vTextH / natH, 1), 1.7);
+      const stretch = withQr ? 1 : Math.min(Math.max(vTextH / natH, 1), 1.7);
       const LE = LINE * stretch;
 
       for (let copy = 0; copy < 2; copy++) {
@@ -295,8 +300,8 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
           vy += h + SKU_PAD_Y * 2 + 0.08 * stretch;
         }
 
-        // Barcode (centered, under the SKU) — codes on only
-        if (drawBC) {
+        // Barcode (centered, under the SKU) — when enabled
+        if (withBarcode) {
           const bcW = Math.min(vTextW, 3.2);
           vy += BARCODE_TOP;
           drawBarcode(item.sku, cx - bcW / 2, vy, bcW, BARCODE_H);
@@ -321,8 +326,8 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
           }
         }
 
-        // QR (centered, fills the bottom) — codes on only
-        if (withCodes && qrDataUrl) {
+        // QR (centered, fills the bottom) — when enabled
+        if (withQr && qrDataUrl) {
           const actualQr = Math.min(vQrSize, Math.max(0.8, VH - vy - vM - 0.05));
           doc.addImage(qrDataUrl, 'PNG', cx - actualQr / 2, VH - vM - actualQr, actualQr, actualQr);
         }
@@ -333,7 +338,7 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
     // ── STANDARD LAYOUT: 6×4" landscape (text stack left; QR right when on) ──
     const qrSize = 1.9;
     const qrX = W - M - qrSize;
-    const textW = withCodes ? qrX - M - 0.2 : W - M * 2;
+    const textW = withQr ? qrX - M - 0.2 : W - M * 2;
 
     const lines = buildLines(2);
     const fixedExtra = SEP_H + SKU_PAD_Y * 2 + 0.12 + bcBlock;
@@ -341,7 +346,7 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
     const primary = base;
     const secondary = base * SECONDARY;
     const natH = stackHeight(lines, textW, base, fixedExtra);
-    const stretch = withCodes ? 1 : Math.min(Math.max((H - M * 2) / natH, 1), 1.7);
+    const stretch = withQr ? 1 : Math.min(Math.max((H - M * 2) / natH, 1), 1.7);
     const LE = LINE * stretch;
     const startY = M + Math.max(0, (H - M * 2 - natH * stretch) / 2);
 
@@ -402,8 +407,8 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
         y += h + SKU_PAD_Y * 2 + 0.06 * stretch;
       }
 
-      // Barcode (under the SKU, full text-column width) — codes on only
-      if (drawBC) {
+      // Barcode (under the SKU, full text-column width) — when enabled
+      if (withBarcode) {
         y += BARCODE_TOP;
         drawBarcode(item.sku, M, y, textW, BARCODE_H);
         y += BARCODE_H + BARCODE_BOT;
@@ -427,8 +432,8 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
         }
       }
 
-      // QR (right side, vertically centered) — codes on only
-      if (withCodes && qrDataUrl) {
+      // QR (right side, vertically centered) — when enabled
+      if (withQr && qrDataUrl) {
         const qrY = (H - qrSize) / 2;
         doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
       }
