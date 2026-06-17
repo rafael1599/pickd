@@ -31,6 +31,8 @@ export function useQuickPrintLabel() {
         serialNumber: null,
         madeIn: null,
         otherNotes: null,
+        withQr: true,
+        withBarcode: true,
       },
     ]);
   };

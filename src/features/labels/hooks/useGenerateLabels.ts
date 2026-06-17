@@ -21,6 +21,9 @@ export interface LabelEntry {
   serialNumber: string | null;
   madeIn: string | null;
   otherNotes: string | null;
+  /** Per-entry: include the QR / Code 128 barcode on this label. */
+  withQr: boolean;
+  withBarcode: boolean;
 }
 
 interface InsertRow {
@@ -49,10 +52,7 @@ export function useGenerateLabels() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const generate = useCallback(
-    async (
-      entries: LabelEntry[],
-      codeOptions?: { withQr?: boolean; withBarcode?: boolean }
-    ): Promise<number> => {
+    async (entries: LabelEntry[]): Promise<number> => {
       if (!user) {
         toast.error('You must be logged in to generate labels');
         return 0;
@@ -116,8 +116,8 @@ export function useGenerateLabels() {
             serial_number: entry?.serialNumber ?? null,
             made_in: entry?.madeIn ?? null,
             po_number: entry?.poNumber ?? null,
-            withQr: codeOptions?.withQr,
-            withBarcode: codeOptions?.withBarcode,
+            withQr: entry?.withQr ?? true,
+            withBarcode: entry?.withBarcode ?? true,
           };
         });
 

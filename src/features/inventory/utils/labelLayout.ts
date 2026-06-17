@@ -28,6 +28,24 @@ export interface LabelItem {
 export type FontStyle = 'normal' | 'bold' | 'bolditalic';
 
 /**
+ * Editable region of the label, used by the Label Studio preview to map a tap on
+ * the canvas back to the field it edits. SKU-level fields (name/detail/upc) route
+ * to Item Detail (inventory); per-tag fields (extra/serial/made_in/po) are label
+ * data. `sku` is intentionally not editable (it's the identity).
+ */
+export type LabelField = 'name' | 'detail' | 'extra' | 'upc' | 'serial' | 'made_in' | 'po';
+
+const EDITABLE_FIELDS: readonly LabelField[] = [
+  'name',
+  'detail',
+  'extra',
+  'upc',
+  'serial',
+  'made_in',
+  'po',
+];
+
+/**
  * Text measurement, abstracted so the SAME layout math drives both renderers:
  * the print path passes a measurer backed by its jsPDF doc, and the preview
  * passes one backed by an offscreen jsPDF doc — so the on-screen preview is
@@ -54,17 +72,30 @@ export type DrawOp =
       style: FontStyle;
       align: 'left' | 'center';
       color: 'black' | 'white';
+      /** Which editable field this text belongs to (preview tap-to-edit). */
+      field?: LabelField;
     }
   /** Code 128 of the SKU; `bars` is the module string ('1' = bar). */
   | { kind: 'barcode'; bars: string; x: number; y: number; w: number; h: number }
   /** Square QR placement; the renderer supplies the actual image. */
   | { kind: 'qr'; x: number; y: number; size: number };
 
+/** Tappable bounding box (inches) for an editable field on the label. */
+export interface LabelRegion {
+  field: LabelField;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface LabelFace {
   /** Page size in inches. */
   width: number;
   height: number;
   ops: DrawOp[];
+  /** Tappable regions for the preview, one per editable field present. */
+  regions: LabelRegion[];
   withQr: boolean;
   /** URL the QR should encode (null when withQr is false). */
   qrPayload: string | null;
@@ -202,6 +233,34 @@ export function createJsPdfMeasurer(doc: {
 }
 
 /**
+ * Derive tappable regions (inches) from the tagged text ops — one union bbox per
+ * editable field. Used by the preview to turn a tap on the canvas into an edit.
+ */
+function computeRegions(ops: DrawOp[], measure: LabelTextMeasurer): LabelRegion[] {
+  const byField = new Map<LabelField, LabelRegion>();
+  for (const op of ops) {
+    if (op.kind !== 'text' || !op.field || !EDITABLE_FIELDS.includes(op.field)) continue;
+    const w = measure.textWidth(op.text, op.sizePt, op.style);
+    const ascent = op.sizePt * PT_TO_IN * 0.8;
+    const descent = op.sizePt * PT_TO_IN * 0.25;
+    const left = op.align === 'center' ? op.x - w / 2 : op.x;
+    const top = op.y - ascent;
+    const h = ascent + descent;
+    const cur = byField.get(op.field);
+    if (!cur) {
+      byField.set(op.field, { field: op.field, x: left, y: top, w, h });
+    } else {
+      const x1 = Math.min(cur.x, left);
+      const y1 = Math.min(cur.y, top);
+      const x2 = Math.max(cur.x + cur.w, left + w);
+      const y2 = Math.max(cur.y + cur.h, top + h);
+      byField.set(op.field, { field: op.field, x: x1, y: y1, w: x2 - x1, h: y2 - y1 });
+    }
+  }
+  return [...byField.values()];
+}
+
+/**
  * Compute the full draw program for ONE label face (4×6" portrait or 6×4"
  * landscape). The print path renders this twice (two copies); the preview
  * renders it once. Identical math + measurer ⇒ identical geometry on both.
@@ -236,12 +295,14 @@ export function computeLabelFace(
   const prefix = item.prefix?.trim() || null;
   const extra = item.extra?.trim() || null;
 
-  // Extra fields (UPC, Serial, Made In, P/O) — one line each.
-  const efLines: string[] = [];
-  if (item.upc?.trim()) efLines.push(`UPC: ${item.upc.trim()}`);
-  if (item.serial_number?.trim()) efLines.push(`SERIAL: ${item.serial_number.trim()}`);
-  if (item.made_in?.trim()) efLines.push(`MADE IN: ${item.made_in.trim()}`);
-  if (item.po_number?.trim()) efLines.push(`P/O: ${item.po_number.trim()}`);
+  // Extra fields (UPC, Serial, Made In, P/O) — one line each, tagged by field.
+  const efLines: { text: string; field: LabelField }[] = [];
+  if (item.upc?.trim()) efLines.push({ text: `UPC: ${item.upc.trim()}`, field: 'upc' });
+  if (item.serial_number?.trim())
+    efLines.push({ text: `SERIAL: ${item.serial_number.trim()}`, field: 'serial' });
+  if (item.made_in?.trim())
+    efLines.push({ text: `MADE IN: ${item.made_in.trim()}`, field: 'made_in' });
+  if (item.po_number?.trim()) efLines.push({ text: `P/O: ${item.po_number.trim()}`, field: 'po' });
 
   const buildLines = (nameMaxLines: number): FitLine[] => {
     const lines: FitLine[] = [];
@@ -252,7 +313,7 @@ export function computeLabelFace(
     if (hasSku) lines.push({ text: item.sku, style: 'bold', weight: 1, maxLines: 1 });
     if (extra) lines.push({ text: extra, style: 'bold', weight: SECONDARY, maxLines: 1 });
     for (const ef of efLines)
-      lines.push({ text: ef, style: 'normal', weight: SECONDARY, maxLines: 1 });
+      lines.push({ text: ef.text, style: 'normal', weight: SECONDARY, maxLines: 1 });
     return lines;
   };
 
@@ -307,6 +368,7 @@ export function computeLabelFace(
         style: 'bold',
         align: 'center',
         color: 'black',
+        field: 'name',
       });
       vy += vPrimary * PT_TO_IN * LE;
     }
@@ -322,6 +384,7 @@ export function computeLabelFace(
           style: 'normal',
           align: 'center',
           color: 'black',
+          field: 'detail',
         });
         vy += vSecondary * PT_TO_IN * LE;
       }
@@ -380,6 +443,7 @@ export function computeLabelFace(
         style: 'bold',
         align: 'center',
         color: 'black',
+        field: 'extra',
       });
       vy += vSecondary * PT_TO_IN * LE;
     }
@@ -388,13 +452,14 @@ export function computeLabelFace(
       for (const line of efLines) {
         ops.push({
           kind: 'text',
-          text: line,
+          text: line.text,
           x: cx,
           y: vy + vSecondary * PT_TO_IN,
           sizePt: vSecondary,
           style: 'normal',
           align: 'center',
           color: 'black',
+          field: line.field,
         });
         vy += vSecondary * PT_TO_IN * LE;
       }
@@ -405,7 +470,7 @@ export function computeLabelFace(
       ops.push({ kind: 'qr', x: cx - actualQr / 2, y: VH - vM - actualQr, size: actualQr });
     }
 
-    return { width: VW, height: VH, ops, withQr, qrPayload };
+    return { width: VW, height: VH, ops, regions: computeRegions(ops, measure), withQr, qrPayload };
   }
 
   // ── STANDARD LAYOUT: 6×4" landscape (text stack left; QR right when on) ──
@@ -453,6 +518,7 @@ export function computeLabelFace(
       style: 'bold',
       align: 'left',
       color: 'black',
+      field: 'name',
     });
     y += primary * PT_TO_IN * LE;
   }
@@ -468,6 +534,7 @@ export function computeLabelFace(
         style: 'normal',
         align: 'left',
         color: 'black',
+        field: 'detail',
       });
       y += secondary * PT_TO_IN * LE;
     }
@@ -517,6 +584,7 @@ export function computeLabelFace(
       style: 'bold',
       align: 'left',
       color: 'black',
+      field: 'extra',
     });
     y += secondary * PT_TO_IN * LE;
   }
@@ -525,13 +593,14 @@ export function computeLabelFace(
     for (const line of efLines) {
       ops.push({
         kind: 'text',
-        text: line,
+        text: line.text,
         x: M,
         y: y + secondary * PT_TO_IN,
         sizePt: secondary,
         style: 'normal',
         align: 'left',
         color: 'black',
+        field: line.field,
       });
       y += secondary * PT_TO_IN * LE;
     }
@@ -542,5 +611,5 @@ export function computeLabelFace(
     ops.push({ kind: 'qr', x: qrX, y: qrY, size: qrSize });
   }
 
-  return { width: W, height: H, ops, withQr, qrPayload };
+  return { width: W, height: H, ops, regions: computeRegions(ops, measure), withQr, qrPayload };
 }

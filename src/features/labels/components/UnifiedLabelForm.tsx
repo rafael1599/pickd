@@ -1,10 +1,15 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import Printer from 'lucide-react/dist/esm/icons/printer';
-import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
-import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
+import Check from 'lucide-react/dist/esm/icons/check';
 import toast from 'react-hot-toast';
 
+import { supabase } from '../../../lib/supabase';
+import { useModal } from '../../../context/ModalContext';
+import { useInventoryMutations } from '../../inventory/hooks/useInventoryMutations';
+import type { InventoryItemWithMetadata } from '../../../schemas/inventory.schema';
+import type { LabelField } from '../../inventory/utils/labelLayout';
 import { useLabelItems, type LabelInventoryItem } from '../hooks/useLabelItems';
 import { useTagCounts } from '../hooks/useTagCounts';
 import { useGenerateLabels, type LabelEntry } from '../hooks/useGenerateLabels';
@@ -17,12 +22,39 @@ import { InlineSkuCreate } from './InlineSkuCreate';
 import { EntryList } from './EntryList';
 import { LayoutToggle } from './LayoutToggle';
 import { LabelPreview } from './LabelPreview';
-import { LabelPrintOptionsModal, type LabelPrintResult } from './LabelPrintOptionsModal';
+import { LabelDataModal } from './LabelDataModal';
 
 interface UnifiedLabelFormProps {
   initialSku?: string;
   initialName?: string;
   initialLocation?: string;
+}
+
+// SKU-level fields live in inventory → edited in Item Detail. The rest are
+// per-tag label data → edited in the "＋" popup.
+const SKU_LEVEL_FIELDS: ReadonlySet<LabelField> = new Set(['name', 'detail', 'upc']);
+
+function newEntry(item: Partial<LabelInventoryItem> & { sku: string }, qty: number): LabelEntry {
+  return {
+    sku: item.sku,
+    itemName: item.item_name ?? null,
+    location: item.location ?? null,
+    stock: item.quantity ?? 0,
+    tagged: 0,
+    qty,
+    layout: getLabelLayoutPreference(),
+    prefix: null,
+    extra: null,
+    upc: item.upc ?? null,
+    color: item.color ?? null,
+    poNumber: null,
+    cNumber: null,
+    serialNumber: null,
+    madeIn: null,
+    otherNotes: null,
+    withQr: true,
+    withBarcode: true,
+  };
 }
 
 export const UnifiedLabelForm = ({
@@ -34,15 +66,17 @@ export const UnifiedLabelForm = ({
   const initialApplied = useRef(false);
   const [selectedSku, setSelectedSku] = useState<string | null>(null);
   const [selectedLocation, setSelectedLocation] = useState('');
-  const [showExtraFields, setShowExtraFields] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createDefaultName, setCreateDefaultName] = useState('');
-  const [printOpen, setPrintOpen] = useState(false);
+  const [dataModalOpen, setDataModalOpen] = useState(false);
 
   const { data: items, isLoading: isLoadingItems } = useLabelItems();
   const { data: tagCounts } = useTagCounts();
   const { generate, isGenerating } = useGenerateLabels();
   const [, setDefaultLayout] = useLabelLayoutPreference();
+  const { open: openModal } = useModal();
+  const { updateItem } = useInventoryMutations();
+  const queryClient = useQueryClient();
 
   // Auto-add initial SKU from navigation (e.g., "Edit Label" from ItemDetailView)
   useEffect(() => {
@@ -50,24 +84,18 @@ export const UnifiedLabelForm = ({
     initialApplied.current = true;
     const item = items.find((i) => i.sku === initialSku);
     const tagged = tagCounts?.get(initialSku) ?? 0;
-    const entry: LabelEntry = {
-      sku: initialSku,
-      itemName: item?.item_name ?? initialName ?? null,
-      location: item?.location ?? initialLocation ?? null,
-      stock: item?.quantity ?? 0,
-      tagged,
-      qty: Math.max(1, (item?.quantity ?? 1) - tagged),
-      layout: getLabelLayoutPreference(),
-      prefix: null,
-      extra: null,
-      upc: item?.upc ?? null,
-      color: item?.color ?? null,
-      poNumber: null,
-      cNumber: null,
-      serialNumber: null,
-      madeIn: null,
-      otherNotes: null,
-    };
+    const entry = newEntry(
+      {
+        sku: initialSku,
+        item_name: item?.item_name ?? initialName ?? null,
+        location: item?.location ?? initialLocation ?? null,
+        quantity: item?.quantity ?? 0,
+        upc: item?.upc ?? null,
+        color: item?.color ?? null,
+      },
+      Math.max(1, (item?.quantity ?? 1) - tagged)
+    );
+    entry.tagged = tagged;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot init from navigation props, guarded by initialApplied ref
     setEntries([entry]);
     setSelectedSku(initialSku);
@@ -80,16 +108,13 @@ export const UnifiedLabelForm = ({
     return locs.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   }, [items]);
 
-  // Set of SKUs already in entries (for FuzzySearch excludeSkus)
   const excludeSkus = useMemo(() => new Set(entries.map((e) => e.sku)), [entries]);
 
-  // Currently selected entry
   const selectedEntry = useMemo(
     () => (selectedSku ? (entries.find((e) => e.sku === selectedSku) ?? null) : null),
     [entries, selectedSku]
   );
 
-  // Active entries (qty > 0) for footer
   const activeEntries = useMemo(() => entries.filter((e) => e.qty > 0), [entries]);
   const totalLabels = activeEntries.reduce((sum, e) => sum + e.qty * 2, 0);
   const totalUnits = activeEntries.reduce((sum, e) => sum + e.qty, 0);
@@ -99,72 +124,39 @@ export const UnifiedLabelForm = ({
   const handleAddFromSearch = useCallback(
     (item: LabelInventoryItem) => {
       if (entries.some((e) => e.sku === item.sku)) {
-        toast('Already added', { icon: '\u26A0\uFE0F' });
+        toast('Already added', { icon: '⚠️' });
         return;
       }
       const tagged = tagCounts?.get(item.sku) ?? 0;
       const qty = Math.max(0, item.quantity - tagged);
       if (qty === 0 && item.quantity > 0) {
-        toast(`${item.sku} already fully tagged (${tagged}/${item.quantity})`, {
-          icon: '\u2705',
-        });
+        toast(`${item.sku} already fully tagged (${tagged}/${item.quantity})`, { icon: '✅' });
       }
-      const entry: LabelEntry = {
-        sku: item.sku,
-        itemName: item.item_name,
-        location: item.location,
-        stock: item.quantity,
-        tagged,
-        qty,
-        layout: getLabelLayoutPreference(),
-        prefix: null,
-        extra: null,
-        upc: item.upc,
-        color: item.color ?? null,
-        poNumber: null,
-        cNumber: null,
-        serialNumber: null,
-        madeIn: null,
-        otherNotes: null,
-      };
+      const entry = newEntry(item, qty);
+      entry.tagged = tagged;
       setEntries((prev) => [...prev, entry]);
+      setSelectedSku(item.sku);
     },
     [entries, tagCounts]
   );
 
   const handleLoadLocation = useCallback(() => {
     if (!selectedLocation || !items) return;
-    const locationItems = items.filter((i) => i.location === selectedLocation);
     const existingSkus = new Set(entries.map((e) => e.sku));
     const newEntries: LabelEntry[] = [];
 
-    for (const item of locationItems) {
+    for (const item of items.filter((i) => i.location === selectedLocation)) {
       if (existingSkus.has(item.sku)) continue;
       const tagged = tagCounts?.get(item.sku) ?? 0;
       const qty = Math.max(0, item.quantity - tagged);
       if (qty === 0) continue;
-      newEntries.push({
-        sku: item.sku,
-        itemName: item.item_name,
-        location: item.location,
-        stock: item.quantity,
-        tagged,
-        qty,
-        layout: getLabelLayoutPreference(),
-        prefix: null,
-        extra: null,
-        upc: item.upc,
-        color: item.color ?? null,
-        poNumber: null,
-        cNumber: null,
-        serialNumber: null,
-        madeIn: null,
-        otherNotes: null,
-      });
+      const entry = newEntry(item, qty);
+      entry.tagged = tagged;
+      newEntries.push(entry);
     }
 
     if (newEntries.length === 0) {
-      toast('All items in this location already have labels', { icon: '\u2705' });
+      toast('All items in this location already have labels', { icon: '✅' });
       return;
     }
     setEntries((prev) => [...prev, ...newEntries]);
@@ -181,6 +173,10 @@ export const UnifiedLabelForm = ({
     );
   }, []);
 
+  const handleQtySet = useCallback((sku: string, qty: number) => {
+    setEntries((prev) => prev.map((e) => (e.sku === sku ? { ...e, qty: Math.max(0, qty) } : e)));
+  }, []);
+
   const handleRemove = useCallback(
     (sku: string) => {
       setEntries((prev) => prev.filter((e) => e.sku !== sku));
@@ -189,21 +185,69 @@ export const UnifiedLabelForm = ({
     [selectedSku]
   );
 
-  const handleQtySet = useCallback((sku: string, qty: number) => {
-    setEntries((prev) => prev.map((e) => (e.sku === sku ? { ...e, qty: Math.max(0, qty) } : e)));
-  }, []);
-
-  // Orientation stays per-entry (LayoutToggle); the window only picks QR/barcode.
-  const handleConfirmPrint = useCallback(
-    async (result: LabelPrintResult) => {
-      if (activeEntries.length === 0) return;
-      await generate(activeEntries, { withQr: result.withQr, withBarcode: result.withBarcode });
-      // Reset qty to 0 after generation
-      setEntries((prev) => prev.map((e) => ({ ...e, qty: 0 })));
-      setPrintOpen(false);
+  // Edit SKU-level data (name/color/UPC) in Item Detail — persists to inventory,
+  // then refresh the entry so the preview reflects the saved values.
+  const openItemDetail = useCallback(
+    async (sku: string) => {
+      const { data } = await supabase
+        .from('inventory')
+        .select('*, sku_metadata(*)')
+        .eq('sku', sku)
+        .order('quantity', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!data) {
+        toast.error(`${sku} is not in inventory yet`);
+        return;
+      }
+      const itemData = data as unknown as InventoryItemWithMetadata;
+      openModal({
+        type: 'item-detail',
+        item: itemData,
+        mode: 'edit',
+        screenType: itemData.warehouse,
+        onSave: async (formData) => {
+          await updateItem.mutateAsync({ originalItem: itemData, updatedFormData: formData });
+          await queryClient.invalidateQueries({ queryKey: ['label-studio-items'] });
+          const { data: fresh } = await supabase
+            .from('inventory')
+            .select('item_name, sku_metadata(color, upc)')
+            .eq('sku', sku)
+            .order('quantity', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (fresh) {
+            const f = fresh as unknown as {
+              item_name: string | null;
+              sku_metadata: { color: string | null; upc: string | null } | null;
+            };
+            handleUpdateEntry(sku, {
+              itemName: f.item_name,
+              color: f.sku_metadata?.color ?? null,
+              upc: f.sku_metadata?.upc ?? null,
+            });
+          }
+          toast.success(`Updated ${sku}`);
+        },
+      });
     },
-    [activeEntries, generate]
+    [openModal, updateItem, queryClient, handleUpdateEntry]
   );
+
+  const handleEditField = useCallback(
+    (field: LabelField) => {
+      if (!selectedEntry) return;
+      if (SKU_LEVEL_FIELDS.has(field)) openItemDetail(selectedEntry.sku);
+      else setDataModalOpen(true);
+    },
+    [selectedEntry, openItemDetail]
+  );
+
+  const handleGenerate = useCallback(async () => {
+    if (activeEntries.length === 0) return;
+    await generate(activeEntries);
+    setEntries((prev) => prev.map((e) => ({ ...e, qty: 0 })));
+  }, [activeEntries, generate]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -258,7 +302,6 @@ export const UnifiedLabelForm = ({
         )}
       </div>
 
-      {/* Inline SKU creation form */}
       {showCreateForm && (
         <div className="px-4 pb-3">
           <InlineSkuCreate
@@ -296,82 +339,17 @@ export const UnifiedLabelForm = ({
           </div>
         )}
 
-        {/* Entry list */}
-        <EntryList
-          entries={entries}
-          selectedSku={selectedSku}
-          onSelect={setSelectedSku}
-          onQtyChange={handleQtyChange}
-          onQtySet={handleQtySet}
-          onRemove={handleRemove}
-        />
-
-        {/* Detail panel */}
+        {/* Selected entry: the preview IS the editor */}
         {selectedEntry && (
-          <div className="mt-4 p-4 bg-card border border-subtle rounded-xl">
-            <h3 className="text-[10px] text-muted font-black uppercase tracking-widest mb-3">
-              Detail — {selectedEntry.sku}
-            </h3>
+          <div className="mb-4 p-4 bg-card border border-subtle rounded-xl space-y-4">
+            <LabelPreview
+              entry={selectedEntry}
+              onEditField={handleEditField}
+              onAddData={() => setDataModalOpen(true)}
+            />
 
-            {/* Item Name */}
-            <div className="mb-3">
-              <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-1 block">
-                Item Name
-              </label>
-              <input
-                type="text"
-                value={selectedEntry.itemName ?? ''}
-                onChange={(e) =>
-                  handleUpdateEntry(selectedEntry.sku, {
-                    itemName: e.target.value.toUpperCase() || null,
-                  })
-                }
-                placeholder="FAULTLINE A1 V2 15 2026 GLOSS BLACK"
-                className="w-full h-10 px-3 bg-surface border border-subtle rounded-xl text-xs text-content font-mono placeholder-muted focus:outline-none focus:border-accent/40"
-              />
-            </div>
-
-            {/* Extra */}
-            <div className="mb-3">
-              <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-1 block">
-                Extra Info (below SKU)
-              </label>
-              <input
-                type="text"
-                value={selectedEntry.extra ?? ''}
-                onChange={(e) =>
-                  handleUpdateEntry(selectedEntry.sku, {
-                    extra: e.target.value.toUpperCase() || null,
-                  })
-                }
-                placeholder="e.g. SPECIAL ORDER, DEMO UNIT..."
-                className="w-full h-10 px-3 bg-surface border border-subtle rounded-xl text-xs text-content font-mono placeholder-muted focus:outline-none focus:border-accent/40"
-              />
-            </div>
-
-            {/* Location */}
-            <div className="mb-3">
-              <label className="text-[10px] font-black text-muted uppercase tracking-widest mb-1 block">
-                Location
-              </label>
-              <input
-                type="text"
-                value={selectedEntry.location ?? ''}
-                onChange={(e) =>
-                  handleUpdateEntry(selectedEntry.sku, {
-                    location: e.target.value.toUpperCase() || null,
-                  })
-                }
-                placeholder="ROW 15, INCOMING, etc."
-                className="w-full h-10 px-3 bg-surface border border-subtle rounded-xl text-sm text-content uppercase placeholder-muted/50 focus:outline-none focus:border-accent/40"
-              />
-            </div>
-
-            {/* Layout toggle */}
-            <div className="mb-3">
-              <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-1 block">
-                Layout
-              </label>
+            {/* Options (not printed on the label) */}
+            <div className="space-y-3 pt-1">
               <LayoutToggle
                 layout={selectedEntry.layout}
                 onLayoutChange={(layout: 'standard' | 'vertical') => {
@@ -383,65 +361,72 @@ export const UnifiedLabelForm = ({
                   handleUpdateEntry(selectedEntry.sku, { prefix: sd ? 'S/D' : null })
                 }
               />
-            </div>
 
-            {/* Collapsible extra fields */}
-            <button
-              onClick={() => setShowExtraFields((v) => !v)}
-              className="flex items-center gap-1 w-full text-left text-[10px] font-black uppercase tracking-widest text-accent py-2"
-            >
-              {showExtraFields ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-              Additional Info (UPC, Serial, P/O...)
-            </button>
-
-            {showExtraFields && (
-              <div className="space-y-3 pb-3">
+              {/* Per-entry codes */}
+              <div className="flex gap-2">
                 {(
                   [
-                    ['upc', 'UPC', selectedEntry.upc, '012345678901'],
-                    ['poNumber', 'P/O No', selectedEntry.poNumber, 'Purchase order number'],
-                    ['cNumber', 'C/No', selectedEntry.cNumber, 'Container number'],
-                    ['serialNumber', 'Serial No', selectedEntry.serialNumber, 'Serial number'],
-                    ['madeIn', 'Made In', selectedEntry.madeIn, 'Country of origin'],
-                    ['otherNotes', 'Other Notes', selectedEntry.otherNotes, 'Additional notes'],
-                  ] as [string, string, string | null, string][]
-                ).map(([key, label, val, placeholder]) => (
-                  <div key={key}>
-                    <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-1 block">
+                    ['withQr', 'QR code'],
+                    ['withBarcode', 'Barcode'],
+                  ] as const
+                ).map(([key, label]) => {
+                  const checked = selectedEntry[key];
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => handleUpdateEntry(selectedEntry.sku, { [key]: !checked })}
+                      aria-pressed={checked}
+                      className={`flex-1 h-9 flex items-center justify-center gap-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-[0.98] ${
+                        checked
+                          ? 'bg-accent text-main'
+                          : 'bg-surface border border-subtle text-muted'
+                      }`}
+                    >
+                      <Check size={12} className={checked ? '' : 'opacity-0'} />
                       {label}
-                    </label>
-                    <input
-                      type="text"
-                      value={val ?? ''}
-                      onChange={(e) =>
-                        handleUpdateEntry(selectedEntry.sku, {
-                          [key]: e.target.value.toUpperCase() || null,
-                        })
-                      }
-                      placeholder={placeholder}
-                      className="w-full h-9 px-3 bg-surface border border-subtle rounded-lg text-xs text-content font-mono placeholder-muted focus:outline-none focus:border-accent/40"
-                    />
-                  </div>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
-            )}
 
-            {/* Label preview */}
-            <div className="mt-3">
-              <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-2 block">
-                Preview
-              </label>
-              <LabelPreview entry={selectedEntry} />
+              {/* Location — required for the tag, NOT printed on the label */}
+              <div>
+                <label className="text-[10px] font-black text-muted uppercase tracking-widest mb-1 block">
+                  Location <span className="text-muted/60">· not on label</span>
+                </label>
+                <input
+                  type="text"
+                  value={selectedEntry.location ?? ''}
+                  onChange={(e) =>
+                    handleUpdateEntry(selectedEntry.sku, {
+                      location: e.target.value.toUpperCase() || null,
+                    })
+                  }
+                  placeholder="ROW 15, INCOMING, etc."
+                  className="w-full h-10 px-3 bg-surface border border-subtle rounded-xl text-sm text-content uppercase placeholder-muted/50 focus:outline-none focus:border-accent/40"
+                />
+              </div>
             </div>
           </div>
         )}
+
+        {/* Entry list */}
+        <EntryList
+          entries={entries}
+          selectedSku={selectedSku}
+          onSelect={setSelectedSku}
+          onQtyChange={handleQtyChange}
+          onQtySet={handleQtySet}
+          onRemove={handleRemove}
+        />
       </div>
 
-      {/* Fixed footer */}
+      {/* Fixed footer — prints directly (codes/layout are per-entry) */}
       {activeEntries.length > 0 && (
         <div className="print:hidden fixed bottom-0 left-0 right-0 px-4 pt-4 pb-28 bg-gradient-to-t from-main via-main/90 to-transparent">
           <button
-            onClick={() => setPrintOpen(true)}
+            onClick={handleGenerate}
             disabled={isGenerating}
             className="w-full h-14 bg-accent text-main font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-accent/20 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >
@@ -451,12 +436,15 @@ export const UnifiedLabelForm = ({
         </div>
       )}
 
-      {printOpen && (
-        <LabelPrintOptionsModal
-          title={`Print ${totalLabels} labels · ${totalUnits} units`}
-          isBusy={isGenerating}
-          onClose={() => setPrintOpen(false)}
-          onConfirm={handleConfirmPrint}
+      {dataModalOpen && selectedEntry && (
+        <LabelDataModal
+          entry={selectedEntry}
+          onUpdate={(partial) => handleUpdateEntry(selectedEntry.sku, partial)}
+          onEditSku={() => {
+            setDataModalOpen(false);
+            openItemDetail(selectedEntry.sku);
+          }}
+          onClose={() => setDataModalOpen(false)}
         />
       )}
     </div>
