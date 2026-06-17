@@ -389,24 +389,6 @@ export const UnifiedLabelForm = ({
                   );
                 })}
               </div>
-
-              {/* Location — required for the tag, NOT printed on the label */}
-              <div>
-                <label className="text-[10px] font-black text-muted uppercase tracking-widest mb-1 block">
-                  Location <span className="text-muted/60">· not on label</span>
-                </label>
-                <input
-                  type="text"
-                  value={selectedEntry.location ?? ''}
-                  onChange={(e) =>
-                    handleUpdateEntry(selectedEntry.sku, {
-                      location: e.target.value.toUpperCase() || null,
-                    })
-                  }
-                  placeholder="ROW 15, INCOMING, etc."
-                  className="w-full h-10 px-3 bg-surface border border-subtle rounded-xl text-sm text-content uppercase placeholder-muted/50 focus:outline-none focus:border-accent/40"
-                />
-              </div>
             </div>
           </div>
         )}

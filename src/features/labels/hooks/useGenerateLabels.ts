@@ -64,12 +64,6 @@ export function useGenerateLabels() {
         return 0;
       }
 
-      const missingLocation = activeEntries.find((e) => !e.location || e.location.trim() === '');
-      if (missingLocation) {
-        toast.error(`Location required for ${missingLocation.sku}`);
-        return 0;
-      }
-
       setIsGenerating(true);
       try {
         const now = new Date().toISOString();
@@ -78,7 +72,10 @@ export function useGenerateLabels() {
           Array.from({ length: entry.qty }, () => ({
             sku: entry.sku,
             warehouse: 'LUDLOW',
-            location: entry.location!,
+            // Location isn't printed on the label or in the QR — it's a print-time
+            // snapshot on the tag. Auto-fill from inventory; fall back to the
+            // column's 'UNKNOWN' default rather than forcing the user to type it.
+            location: entry.location || 'UNKNOWN',
             created_by: user.id,
             printed_at: now,
             status: entry.stock > 0 ? 'in_stock' : 'printed',
