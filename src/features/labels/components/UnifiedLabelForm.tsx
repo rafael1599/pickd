@@ -17,6 +17,7 @@ import { InlineSkuCreate } from './InlineSkuCreate';
 import { EntryList } from './EntryList';
 import { LayoutToggle } from './LayoutToggle';
 import { LabelPreview } from './LabelPreview';
+import { LabelPrintOptionsModal, type LabelPrintResult } from './LabelPrintOptionsModal';
 
 interface UnifiedLabelFormProps {
   initialSku?: string;
@@ -36,6 +37,7 @@ export const UnifiedLabelForm = ({
   const [showExtraFields, setShowExtraFields] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createDefaultName, setCreateDefaultName] = useState('');
+  const [printOpen, setPrintOpen] = useState(false);
 
   const { data: items, isLoading: isLoadingItems } = useLabelItems();
   const { data: tagCounts } = useTagCounts();
@@ -187,12 +189,21 @@ export const UnifiedLabelForm = ({
     [selectedSku]
   );
 
-  const handleGenerate = useCallback(async () => {
-    if (activeEntries.length === 0) return;
-    await generate(activeEntries);
-    // Reset qty to 0 after generation
-    setEntries((prev) => prev.map((e) => ({ ...e, qty: 0 })));
-  }, [activeEntries, generate]);
+  const handleQtySet = useCallback((sku: string, qty: number) => {
+    setEntries((prev) => prev.map((e) => (e.sku === sku ? { ...e, qty: Math.max(0, qty) } : e)));
+  }, []);
+
+  // Orientation stays per-entry (LayoutToggle); the window only picks QR/barcode.
+  const handleConfirmPrint = useCallback(
+    async (result: LabelPrintResult) => {
+      if (activeEntries.length === 0) return;
+      await generate(activeEntries, { withQr: result.withQr, withBarcode: result.withBarcode });
+      // Reset qty to 0 after generation
+      setEntries((prev) => prev.map((e) => ({ ...e, qty: 0 })));
+      setPrintOpen(false);
+    },
+    [activeEntries, generate]
+  );
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -291,6 +302,7 @@ export const UnifiedLabelForm = ({
           selectedSku={selectedSku}
           onSelect={setSelectedSku}
           onQtyChange={handleQtyChange}
+          onQtySet={handleQtySet}
           onRemove={handleRemove}
         />
 
@@ -429,7 +441,7 @@ export const UnifiedLabelForm = ({
       {activeEntries.length > 0 && (
         <div className="print:hidden fixed bottom-0 left-0 right-0 px-4 pt-4 pb-28 bg-gradient-to-t from-main via-main/90 to-transparent">
           <button
-            onClick={handleGenerate}
+            onClick={() => setPrintOpen(true)}
             disabled={isGenerating}
             className="w-full h-14 bg-accent text-main font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-lg shadow-accent/20 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >
@@ -437,6 +449,15 @@ export const UnifiedLabelForm = ({
             Generate {totalLabels} Labels ({totalUnits} units)
           </button>
         </div>
+      )}
+
+      {printOpen && (
+        <LabelPrintOptionsModal
+          title={`Print ${totalLabels} labels · ${totalUnits} units`}
+          isBusy={isGenerating}
+          onClose={() => setPrintOpen(false)}
+          onConfirm={handleConfirmPrint}
+        />
       )}
     </div>
   );

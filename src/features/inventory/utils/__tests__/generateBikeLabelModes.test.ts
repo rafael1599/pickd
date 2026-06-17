@@ -101,3 +101,52 @@ describe('generateBikeLabels — print modes', () => {
     }
   });
 });
+
+describe('generateBikeLabels — independent QR / barcode flags', () => {
+  let rec: PdfRecorder;
+  beforeEach(() => {
+    rec = createRecorder();
+  });
+  afterEach(() => rec.restore());
+
+  for (const layout of ['standard', 'vertical'] as const) {
+    it(`${layout}: QR only → QR image, no barcode bars, B&W, no overlap`, async () => {
+      await generateBikeLabels([{ ...base, layout, withQr: true, withBarcode: false }]);
+      expectGrayscaleOnly(rec);
+      expectNoTextOverlap(rec);
+      expectContains(rec, ['FAULTLINE A1 V2', '03-4614BK']);
+      expect(rec.images().length).toBeGreaterThan(0); // QR
+      expect(barcodeBars(rec).length).toBe(0); // no barcode
+    });
+
+    it(`${layout}: barcode only → barcode bars, no QR image, B&W, no overlap`, async () => {
+      await generateBikeLabels([{ ...base, layout, withQr: false, withBarcode: true }]);
+      expectGrayscaleOnly(rec);
+      expectNoTextOverlap(rec);
+      expectContains(rec, ['FAULTLINE A1 V2', '03-4614BK']);
+      expect(rec.images().length).toBe(0); // no QR
+      expect(barcodeBars(rec).length).toBeGreaterThan(10); // Code 128 bars
+    });
+  }
+
+  it('barcode-only text grows vs. QR present (reclaims the QR space)', async () => {
+    const withQr = createRecorder();
+    await generateBikeLabels([{ ...base, withQr: true, withBarcode: true }]);
+    const withQrMax = maxFont(withQr);
+    withQr.restore();
+
+    const bcOnly = createRecorder();
+    await generateBikeLabels([{ ...base, withQr: false, withBarcode: true }]);
+    const bcOnlyMax = maxFont(bcOnly);
+    bcOnly.restore();
+
+    expect(bcOnlyMax).toBeGreaterThan(withQrMax);
+  });
+
+  it('granular flags override the legacy withCodes switch', async () => {
+    // withCodes:true would draw both, but an explicit withBarcode:false must win.
+    await generateBikeLabels([{ ...base, withCodes: true, withBarcode: false }]);
+    expect(rec.images().length).toBeGreaterThan(0); // QR still on (from withCodes)
+    expect(barcodeBars(rec).length).toBe(0); // barcode explicitly off
+  });
+});

@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import Plus from 'lucide-react/dist/esm/icons/plus';
 import Minus from 'lucide-react/dist/esm/icons/minus';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
@@ -9,7 +10,86 @@ interface EntryListProps {
   selectedSku: string | null;
   onSelect: (sku: string) => void;
   onQtyChange: (sku: string, delta: number) => void;
+  onQtySet: (sku: string, value: number) => void;
   onRemove: (sku: string) => void;
+}
+
+/**
+ * Quantity stepper whose number is click-to-edit — tap it to type a value
+ * directly (Enter/blur commits, Esc cancels), matching PickD's steppers
+ * everywhere else instead of forcing +/- one at a time.
+ */
+function EntryQty({
+  qty,
+  onChange,
+  onSet,
+}: {
+  qty: number;
+  onChange: (delta: number) => void;
+  onSet: (value: number) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(qty));
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const startEdit = () => {
+    setDraft(String(qty));
+    setEditing(true);
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    });
+  };
+  const commit = () => {
+    const parsed = parseInt(draft, 10);
+    if (!isNaN(parsed) && parsed >= 0) onSet(parsed);
+    setEditing(false);
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => onChange(-1)}
+        disabled={qty <= 0}
+        className="w-7 h-7 flex items-center justify-center rounded-lg bg-surface border border-subtle text-content transition-all active:scale-95 disabled:opacity-30"
+      >
+        <Minus size={14} />
+      </button>
+      {editing ? (
+        <input
+          ref={inputRef}
+          type="number"
+          min={0}
+          inputMode="numeric"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commit();
+            if (e.key === 'Escape') setEditing(false);
+          }}
+          className="w-10 h-7 text-center text-sm font-bold text-content tabular-nums bg-surface border border-accent/40 rounded-lg focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={startEdit}
+          title="Tap to type a quantity"
+          className="w-10 h-7 text-center text-sm font-bold text-content tabular-nums rounded-lg hover:bg-white/5 active:scale-95 transition-all"
+        >
+          {qty}
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => onChange(1)}
+        className="w-7 h-7 flex items-center justify-center rounded-lg bg-surface border border-subtle text-content transition-all active:scale-95"
+      >
+        <Plus size={14} />
+      </button>
+    </>
+  );
 }
 
 export function EntryList({
@@ -17,6 +97,7 @@ export function EntryList({
   selectedSku,
   onSelect,
   onQtyChange,
+  onQtySet,
   onRemove,
 }: EntryListProps) {
   if (entries.length === 0) {
@@ -77,26 +158,11 @@ export function EntryList({
                   Complete
                 </span>
               ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => onQtyChange(entry.sku, -1)}
-                    disabled={entry.qty <= 0}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg bg-surface border border-subtle text-content transition-all active:scale-95 disabled:opacity-30"
-                  >
-                    <Minus size={14} />
-                  </button>
-                  <span className="w-8 text-center text-sm font-bold text-content tabular-nums">
-                    {entry.qty}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => onQtyChange(entry.sku, 1)}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg bg-surface border border-subtle text-content transition-all active:scale-95"
-                  >
-                    <Plus size={14} />
-                  </button>
-                </>
+                <EntryQty
+                  qty={entry.qty}
+                  onChange={(delta) => onQtyChange(entry.sku, delta)}
+                  onSet={(value) => onQtySet(entry.sku, value)}
+                />
               )}
               <button
                 type="button"
