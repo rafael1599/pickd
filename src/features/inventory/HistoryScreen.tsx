@@ -31,7 +31,7 @@ import { useViewMode } from '../../context/ViewModeContext';
 import { useModal } from '../../context/ModalContext';
 
 import type { InventoryLog, LogActionTypeValue } from '../../schemas/log.schema';
-import { generateDailyHistoryDoc } from './utils/generateDailyHistoryPdf';
+import { generateDailyHistoryDoc, type StockLocation } from './utils/generateDailyHistoryPdf';
 
 /** Format a yyyy-mm-dd ISO date as 'May 5' for the custom-range button. */
 const formatRangeLabel = (iso: string): string => {
@@ -879,7 +879,8 @@ export const HistoryScreen = () => {
       jsPDFInstance: typeof import('jspdf').default,
       autoTableInstance: typeof import('jspdf-autotable').default,
       reportNote?: string | null,
-      mode: 'full' | 'as400' = 'as400'
+      mode: 'full' | 'as400' = 'as400',
+      stock?: StockLocation[]
     ) =>
       generateDailyHistoryDoc(jsPDFInstance, autoTableInstance, {
         logs: filteredLogs,
@@ -889,6 +890,7 @@ export const HistoryScreen = () => {
         getDisplayQty,
         reportNote,
         mode,
+        stock,
       }),
     [filteredLogs, filter, userFilter, timeFilter, getDisplayQty]
   );
@@ -905,7 +907,30 @@ export const HistoryScreen = () => {
         import('jspdf'),
         import('jspdf-autotable'),
       ]);
-      const doc = generateDailyPDF(jsPDF, autoTable, reportNote.trim() || null, reportMode);
+
+      // The AS400 report shows each moved SKU's CURRENT stock by location, so fetch
+      // it fresh for those SKUs — the paginated inventoryData on screen wouldn't hold
+      // every location. Best-effort: if it fails, the report still lists the SKUs and
+      // the location each move touched (qty unknown).
+      let stock: StockLocation[] | undefined;
+      if (reportMode === 'as400') {
+        const skus = Array.from(new Set(filteredLogs.map((l) => l.sku).filter(Boolean)));
+        if (skus.length > 0) {
+          const { data, error } = await supabase
+            .from('inventory')
+            .select('sku, location, quantity')
+            .in('sku', skus)
+            .gt('quantity', 0);
+          if (error) {
+            console.warn('[History] Could not load current stock for AS400 report:', error.message);
+          }
+          stock = (data ?? []) as StockLocation[];
+        } else {
+          stock = [];
+        }
+      }
+
+      const doc = generateDailyPDF(jsPDF, autoTable, reportNote.trim() || null, reportMode, stock);
       const blob = doc.output('bloburl');
       window.open(blob, '_blank');
       toast.success('History report opened in new tab');
@@ -917,7 +942,7 @@ export const HistoryScreen = () => {
     } finally {
       setManualLoading(false);
     }
-  }, [generateDailyPDF, showError, reportNote, reportMode]);
+  }, [generateDailyPDF, showError, reportNote, reportMode, filteredLogs]);
 
   return (
     <div className="pb-32 relative max-w-2xl mx-auto w-full px-4">
@@ -1351,7 +1376,7 @@ export const HistoryScreen = () => {
                     AS400 Sync
                   </div>
                   <div className="text-[10px] text-muted/80 mt-0.5">
-                    Where each SKU was vs is now
+                    Each moved SKU + its current stock by location
                   </div>
                 </button>
                 <button
