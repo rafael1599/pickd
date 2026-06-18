@@ -128,12 +128,12 @@ function renderAs400<TLog extends HistoryLog>(
     stockBySku.set(row.sku, byLoc);
   }
 
-  // FROM cell text: "ROW 29 - 28, ROW 42 - 21, FLORIDA - 8" (biggest origin first).
+  // FROM cell: one origin per line, "ROW 29 - 28 units" (biggest origin first).
   const fromText = (sku: string): string =>
     [...(fromBySku.get(sku) ?? new Map<string, number>()).entries()]
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .map(([loc, qty]) => `${loc} - ${qty}`)
-      .join(', ');
+      .map(([loc, qty]) => `${loc} - ${qty} ${qty === 1 ? 'unit' : 'units'}`)
+      .join('\n');
 
   // Classify each moved SKU by its number of current-stock (qty > 0) locations.
   type Entry = { sku: string; from: string; tos: { loc: string; qty: number }[] };
@@ -147,30 +147,7 @@ function renderAs400<TLog extends HistoryLog>(
     (tos.length >= 2 ? multis : singles).push({ sku, from: fromText(sku), tos });
   }
 
-  // Header: "AS400 Sync" + date/count, with the optional boxed note.
-  doc.setTextColor(0, 0, 0);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(15);
-  doc.text('AS400 Sync', MARGIN, MARGIN + 4.5);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(14);
-  const count = singles.length + multis.length;
-  doc.text(`${today} · ${count} ${count === 1 ? 'SKU' : 'SKUs'}`, MARGIN, MARGIN + 9.5);
-  let startY = MARGIN + 12;
-
-  const note = (params.reportNote ?? '').trim();
-  if (note) {
-    doc.setFontSize(12);
-    const wrapped = doc.splitTextToSize(note, CONTENT_W - 3) as string[];
-    const h = wrapped.length * 4.5 + 3;
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.3);
-    doc.rect(MARGIN, startY - 1, CONTENT_W, h);
-    doc.text(wrapped, MARGIN + 1.5, startY + 2.5);
-    startY += h + 2;
-  }
-
-  // Largest type that fits nine SKUs (FROM may wrap) on one 6×4 page. 14/15 ≥ 90%.
+  // Largest type that fits (FROM may wrap) on the 6×4 label. 14/15 ≥ 90%.
   const BIG = 15;
   const REG = 14;
   const headStyles: CellStyles = {
@@ -190,23 +167,38 @@ function renderAs400<TLog extends HistoryLog>(
     valign: 'middle',
   };
   const margin = { left: MARGIN, right: MARGIN, top: MARGIN, bottom: MARGIN };
-  const lastY = (): number =>
-    (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
 
-  // A bold section label (only drawn when both sections are present).
-  const section = (text: string, y: number): number => {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(REG);
+  // Per-section page header: "AS400 Sync" + subtitle, with the note on the first page.
+  const note = (params.reportNote ?? '').trim();
+  let noteDrawn = false;
+  const sectionHeader = (subtitle: string): number => {
     doc.setTextColor(0, 0, 0);
-    doc.text(text, MARGIN, y + 3.5);
-    return y + 5;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(BIG);
+    doc.text('AS400 Sync', MARGIN, MARGIN + 4.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(REG);
+    doc.text(subtitle, MARGIN, MARGIN + 9.5);
+    let y = MARGIN + 12;
+    if (note && !noteDrawn) {
+      noteDrawn = true;
+      doc.setFontSize(12);
+      const wrapped = doc.splitTextToSize(note, CONTENT_W - 3) as string[];
+      const h = wrapped.length * 4.5 + 3;
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.3);
+      doc.rect(MARGIN, y - 1, CONTENT_W, h);
+      doc.text(wrapped, MARGIN + 1.5, y + 2.5);
+      y += h + 2;
+    }
+    return y;
   };
+  const plural = (n: number): string => `${n} ${n === 1 ? 'SKU' : 'SKUs'}`;
 
   // Single location: SKU | FROM | TO | QTY (no TOTAL — one location, no redundancy).
   if (singles.length) {
-    if (multis.length) startY = section('Single location', startY);
     autoTable(doc, {
-      startY,
+      startY: sectionHeader(`${today} · Single location · ${plural(singles.length)}`),
       head: [['SKU', 'FROM', 'TO', 'QTY']],
       body: singles.map((s) => [s.sku, s.from, s.tos[0]?.loc ?? '—', String(s.tos[0]?.qty ?? 0)]),
       theme: 'grid',
@@ -220,12 +212,12 @@ function renderAs400<TLog extends HistoryLog>(
       },
       margin,
     });
-    startY = lastY() + 3;
   }
 
-  // Multiple locations: SKU | FROM | TO | QTY | TOTAL (SKU/FROM/TOTAL span the rows).
+  // Multiple locations: SKU | FROM | TO | QTY | TOTAL — ALWAYS on a fresh page so the
+  // split SKUs read as a clearly separate list. SKU/FROM/TOTAL span the location rows.
   if (multis.length) {
-    startY = section('Multiple locations', startY);
+    if (singles.length) doc.addPage();
     const body: RowInput[] = [];
     for (const s of multis) {
       const total = s.tos.reduce((sum, t) => sum + t.qty, 0);
@@ -251,7 +243,7 @@ function renderAs400<TLog extends HistoryLog>(
       });
     }
     autoTable(doc, {
-      startY,
+      startY: sectionHeader(`${today} · Multiple locations · ${plural(multis.length)}`),
       head: [['SKU', 'FROM', 'TO', 'QTY', 'TOTAL']],
       body,
       theme: 'grid',

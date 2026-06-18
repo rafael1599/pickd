@@ -87,8 +87,10 @@ describe('generateDailyHistoryDoc', () => {
     expect(all).not.toContain('Moved');
     expect(all).not.toContain('ACTIVITY');
 
-    // Title → single-location section → the split SKU under "Multiple locations".
-    expectOrderedText(rec, ['AS400 Sync', 'Single location', '03-1', 'Multiple locations', '03-2']);
+    // Page 1 is the single-location section, in order…
+    expectOrderedText(rec, ['AS400 Sync', 'Single location', '03-1', '03-3']);
+    // …and the split SKU lives on its own page 2 under "Multiple locations".
+    expectOrderedText(rec, ['AS400 Sync', 'Multiple locations', '03-2'], 2);
   });
 
   it('AS400 mode still renders every moved SKU when no stock is supplied', async () => {
