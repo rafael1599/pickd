@@ -205,9 +205,9 @@ function renderAs400<TLog extends HistoryLog>(
       styles,
       headStyles,
       columnStyles: {
-        0: { cellWidth: 38, fontStyle: 'bold', fontSize: BIG },
+        0: { cellWidth: 36, fontStyle: 'bold', fontSize: BIG },
         1: { cellWidth: 'auto' },
-        2: { cellWidth: 24 },
+        2: { cellWidth: 30 },
         3: { cellWidth: 15, halign: 'right', fontStyle: 'bold', fontSize: BIG },
       },
       margin,
@@ -250,9 +250,9 @@ function renderAs400<TLog extends HistoryLog>(
       styles,
       headStyles,
       columnStyles: {
-        0: { cellWidth: 36, fontStyle: 'bold' },
+        0: { cellWidth: 34, fontStyle: 'bold' },
         1: { cellWidth: 'auto' },
-        2: { cellWidth: 22 },
+        2: { cellWidth: 30 },
         3: { cellWidth: 13, halign: 'right' },
         4: { cellWidth: 18, halign: 'right', fontStyle: 'bold' },
       },
