@@ -67,9 +67,8 @@ describe('generateDailyHistoryDoc', () => {
       'AS400 Sync',
       'SKUs',
       'Count carefully', // the optional report note
-      'FROM',
-      'TO',
-      'QTY',
+      'MOVED FROM',
+      'CURRENT STOCK',
       'TOTAL', // present because 03-2 is split across two current locations
       '03-1',
       '03-2',
@@ -87,8 +86,8 @@ describe('generateDailyHistoryDoc', () => {
     expect(all).not.toContain('Moved');
     expect(all).not.toContain('ACTIVITY');
 
-    // Page 1 is the single-location section, in order…
-    expectOrderedText(rec, ['AS400 Sync', 'Single location', '03-1', '03-3']);
+    // Page 1 is the single-location section (no section label now), in order…
+    expectOrderedText(rec, ['AS400 Sync', '03-1', '03-3']);
     // …and the split SKU lives on its own page 2 under "Multiple locations".
     expectOrderedText(rec, ['AS400 Sync', 'Multiple locations', '03-2'], 2);
   });

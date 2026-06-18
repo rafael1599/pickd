@@ -4,9 +4,9 @@
  * Two modes:
  *  - 'full'   — the detailed SKU / ACTIVITY / QTY table (every action with notes).
  *  - 'as400'  — a stock snapshot for AS400 reconciliation: per SKU that moved, where
- *               it came FROM today (sources + qty) and where it is now (TO + qty), in
- *               large type. SKUs now split across 2+ locations get a per-SKU TOTAL
- *               column in a separate table. No move-by-move detail.
+ *               it was MOVED FROM today (sources + qty) and its CURRENT STOCK now
+ *               (location = total). SKUs now split across 2+ locations get a per-SKU
+ *               TOTAL column in a separate table. No move-by-move detail.
  *
  * Extracted from HistoryScreen so the layout is unit-testable. Black & white only.
  */
@@ -58,6 +58,7 @@ type AutoTable = typeof import('jspdf-autotable').default;
 type CellInput = import('jspdf-autotable').CellInput;
 type RowInput = import('jspdf-autotable').RowInput;
 type CellStyles = Partial<import('jspdf-autotable').Styles>;
+type CellHook = import('jspdf-autotable').CellHookData;
 
 // Shared header: title, one-line subtitle, optional boxed note. Returns the Y below it.
 function drawHeader(
@@ -88,10 +89,10 @@ function drawHeader(
   return currentY;
 }
 
-// AS400 sync view: per moved SKU, where its stock came FROM today (the move sources,
-// summed per origin) and where it is now (TO + qty). SKUs now split across 2+ current
-// locations go in a separate "Multiple locations" table with a per-SKU TOTAL column;
-// the rest stop at QTY (one location → no redundant total). No move-by-move detail.
+// AS400 sync view: per moved SKU, where it was MOVED FROM today (the move sources,
+// summed per origin) and its CURRENT STOCK now ("LOCATION = total"). SKUs now split
+// across 2+ current locations go in a separate "Multiple locations" table with a
+// per-SKU TOTAL column; single-location SKUs need no TOTAL. No move-by-move detail.
 function renderAs400<TLog extends HistoryLog>(
   doc: Doc,
   autoTable: AutoTable,
@@ -128,11 +129,11 @@ function renderAs400<TLog extends HistoryLog>(
     stockBySku.set(row.sku, byLoc);
   }
 
-  // FROM cell: one origin per line, "ROW 29 - 28 units" (biggest origin first).
+  // MOVED FROM cell: one origin per line, "ROW 29 - 28" (biggest origin first).
   const fromText = (sku: string): string =>
     [...(fromBySku.get(sku) ?? new Map<string, number>()).entries()]
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .map(([loc, qty]) => `${loc} - ${qty} ${qty === 1 ? 'unit' : 'units'}`)
+      .map(([loc, qty]) => `${loc} - ${qty}`)
       .join('\n');
 
   // Classify each moved SKU by its number of current-stock (qty > 0) locations.
@@ -195,27 +196,72 @@ function renderAs400<TLog extends HistoryLog>(
   };
   const plural = (n: number): string => `${n} ${n === 1 ? 'SKU' : 'SKUs'}`;
 
-  // Single location: SKU | FROM | TO | QTY (no TOTAL — one location, no redundancy).
+  // autoTable has no inline rich text, so the MOVED FROM ("LOC - qty") and CURRENT
+  // STOCK ("LOC = total") cells are drawn by hand with the LOCATION in bold and the
+  // separator + number in the regular weight — so each cell reads "place, then amount".
+  const PT_TO_MM = 25.4 / 72;
+  const boldCols: Record<number, string> = { 1: ' - ', 2: ' = ' };
+  const savedLines = new Map<object, string[]>();
+  const drawBoldLoc = (line: string, sep: string, x: number, y: number, fontSize: number): void => {
+    const i = line.indexOf(sep);
+    const loc = i >= 0 ? line.slice(0, i) : line;
+    const rest = i >= 0 ? line.slice(i) : '';
+    doc.setFontSize(fontSize);
+    doc.setFont('helvetica', 'bold');
+    doc.text(loc, x, y);
+    if (rest) {
+      doc.setFont('helvetica', 'normal');
+      doc.text(rest, x + doc.getTextWidth(loc), y);
+    }
+  };
+  const boldLocationHooks = {
+    willDrawCell: (data: CellHook) => {
+      if (data.section === 'body' && boldCols[data.column.index]) {
+        savedLines.set(data.cell, data.cell.text);
+        data.cell.text = [];
+      }
+    },
+    didDrawCell: (data: CellHook) => {
+      const sep = boldCols[data.column.index];
+      const lines = savedLines.get(data.cell);
+      if (data.section !== 'body' || !sep || !lines) return;
+      savedLines.delete(data.cell);
+      const c = data.cell;
+      const lineH = c.styles.fontSize * PT_TO_MM * 1.15;
+      const top = c.y + (c.height - lines.length * lineH) / 2;
+      const x = c.x + c.padding('left');
+      lines.forEach((ln, k) =>
+        drawBoldLoc(ln, sep, x, top + lineH * (k + 0.72), c.styles.fontSize)
+      );
+    },
+  };
+
+  // Single location: SKU | MOVED FROM | CURRENT STOCK. "LOC = total" is the current
+  // count (no separate qty column, no "Single location" label, no redundant total).
   if (singles.length) {
     autoTable(doc, {
-      startY: sectionHeader(`${today} · Single location · ${plural(singles.length)}`),
-      head: [['SKU', 'FROM', 'TO', 'QTY']],
-      body: singles.map((s) => [s.sku, s.from, s.tos[0]?.loc ?? '—', String(s.tos[0]?.qty ?? 0)]),
+      startY: sectionHeader(`${today} · ${plural(singles.length)}`),
+      head: [['SKU', 'MOVED FROM', 'CURRENT STOCK']],
+      body: singles.map((s) => [
+        s.sku,
+        s.from,
+        s.tos[0] ? `${s.tos[0].loc} = ${s.tos[0].qty}` : '—',
+      ]),
       theme: 'grid',
       styles,
       headStyles,
       columnStyles: {
-        0: { cellWidth: 36, fontStyle: 'bold', fontSize: BIG },
+        0: { cellWidth: 34, fontStyle: 'bold', fontSize: BIG },
         1: { cellWidth: 'auto' },
-        2: { cellWidth: 30 },
-        3: { cellWidth: 15, halign: 'right', fontStyle: 'bold', fontSize: BIG },
+        2: { cellWidth: 44 },
       },
       margin,
+      ...boldLocationHooks,
     });
   }
 
-  // Multiple locations: SKU | FROM | TO | QTY | TOTAL — ALWAYS on a fresh page so the
-  // split SKUs read as a clearly separate list. SKU/FROM/TOTAL span the location rows.
+  // Multiple locations: SKU | MOVED FROM | CURRENT STOCK | TOTAL — ALWAYS on a fresh
+  // page so the split SKUs read as a clearly separate list. SKU/FROM/TOTAL span rows.
   if (multis.length) {
     if (singles.length) doc.addPage();
     const body: RowInput[] = [];
@@ -231,7 +277,7 @@ function renderAs400<TLog extends HistoryLog>(
           });
           row.push({ content: s.from, rowSpan: s.tos.length });
         }
-        row.push(t.loc, String(t.qty));
+        row.push(`${t.loc} = ${t.qty}`);
         if (i === 0) {
           row.push({
             content: String(total),
@@ -244,19 +290,19 @@ function renderAs400<TLog extends HistoryLog>(
     }
     autoTable(doc, {
       startY: sectionHeader(`${today} · Multiple locations · ${plural(multis.length)}`),
-      head: [['SKU', 'FROM', 'TO', 'QTY', 'TOTAL']],
+      head: [['SKU', 'MOVED FROM', 'CURRENT STOCK', 'TOTAL']],
       body,
       theme: 'grid',
       styles,
       headStyles,
       columnStyles: {
-        0: { cellWidth: 34, fontStyle: 'bold' },
+        0: { cellWidth: 32, fontStyle: 'bold' },
         1: { cellWidth: 'auto' },
-        2: { cellWidth: 30 },
-        3: { cellWidth: 13, halign: 'right' },
-        4: { cellWidth: 18, halign: 'right', fontStyle: 'bold' },
+        2: { cellWidth: 44 },
+        3: { cellWidth: 18, halign: 'right', fontStyle: 'bold' },
       },
       margin,
+      ...boldLocationHooks,
     });
   }
 
