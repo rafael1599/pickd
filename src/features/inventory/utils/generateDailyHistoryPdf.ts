@@ -3,10 +3,10 @@
  *
  * Two modes:
  *  - 'full'   — the detailed SKU / ACTIVITY / QTY table (every action with notes).
- *  - 'as400'  — a flattened stock snapshot for AS400 reconciliation: per SKU that
- *               moved, the SKU in large type with the location(s) currently holding
- *               it and their quantities (the location touched today marked "•").
- *               No move-by-move detail.
+ *  - 'as400'  — a stock snapshot for AS400 reconciliation: per SKU that moved, where
+ *               it came FROM today (sources + qty) and where it is now (TO + qty), in
+ *               large type. SKUs now split across 2+ locations get a per-SKU TOTAL
+ *               column in a separate table. No move-by-move detail.
  *
  * Extracted from HistoryScreen so the layout is unit-testable. Black & white only.
  */
@@ -54,19 +54,10 @@ const MARGIN = 3;
 const CONTENT_W = PAGE_W - MARGIN * 2;
 
 type Doc = InstanceType<typeof import('jspdf').default>;
-
-// The location today's activity touched for this log — where the SKU ended up (or
-// left, for picks/removals). Drives the "•" marker in the AS400 stock view.
-function touchedLocation(log: HistoryLog): string | null {
-  switch (log.action_type) {
-    case 'DEDUCT':
-    case 'DELETE':
-      return log.from_location || null;
-    default:
-      // MOVE / ADD / EDIT / PHYSICAL_DISTRIBUTION / others: the destination.
-      return log.to_location || log.from_location || null;
-  }
-}
+type AutoTable = typeof import('jspdf-autotable').default;
+type CellInput = import('jspdf-autotable').CellInput;
+type RowInput = import('jspdf-autotable').RowInput;
+type CellStyles = Partial<import('jspdf-autotable').Styles>;
 
 // Shared header: title, one-line subtitle, optional boxed note. Returns the Y below it.
 function drawHeader(
@@ -97,29 +88,33 @@ function drawHeader(
   return currentY;
 }
 
-// Flattened AS400 stock view: one large-type block per moved SKU.
+// AS400 sync view: per moved SKU, where its stock came FROM today (the move sources,
+// summed per origin) and where it is now (TO + qty). SKUs now split across 2+ current
+// locations go in a separate "Multiple locations" table with a per-SKU TOTAL column;
+// the rest stop at QTY (one location → no redundant total). No move-by-move detail.
 function renderAs400<TLog extends HistoryLog>(
   doc: Doc,
+  autoTable: AutoTable,
   params: DailyHistoryParams<TLog>,
-  title: string,
   today: string
 ) {
-  const { logs } = params;
+  const { logs, getDisplayQty } = params;
 
-  // SKUs that moved (insertion order preserved, then alphabetised) + the locations
-  // today's activity touched, per SKU.
-  const touchedBySku = new Map<string, Set<string>>();
+  // Moved SKUs (insertion order) + their move SOURCES: from_location → qty summed.
   const skuOrder: string[] = [];
   const seenSku = new Set<string>();
+  const fromBySku = new Map<string, Map<string, number>>();
   for (const log of logs) {
     if (!seenSku.has(log.sku)) {
       seenSku.add(log.sku);
       skuOrder.push(log.sku);
     }
-    const set = touchedBySku.get(log.sku) ?? new Set<string>();
-    const loc = touchedLocation(log);
-    if (loc) set.add(loc.toUpperCase());
-    touchedBySku.set(log.sku, set);
+    if (log.action_type !== 'MOVE') continue;
+    const from = (log.from_location || '').toUpperCase();
+    if (!from) continue;
+    const sources = fromBySku.get(log.sku) ?? new Map<string, number>();
+    sources.set(from, (sources.get(from) ?? 0) + getDisplayQty(log));
+    fromBySku.set(log.sku, sources);
   }
 
   // Current stock per SKU → location → summed quantity.
@@ -133,87 +128,144 @@ function renderAs400<TLog extends HistoryLog>(
     stockBySku.set(row.sku, byLoc);
   }
 
-  const subtitle = `${today} · ${skuOrder.length} ${skuOrder.length === 1 ? 'SKU' : 'SKUs'}`;
-  let currentY = drawHeader(doc, { title, subtitle, reportNote: params.reportNote ?? null });
+  // FROM cell text: "ROW 29 - 28, ROW 42 - 21, FLORIDA - 8" (biggest origin first).
+  const fromText = (sku: string): string =>
+    [...(fromBySku.get(sku) ?? new Map<string, number>()).entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([loc, qty]) => `${loc} - ${qty}`)
+      .join(', ');
 
-  // Legend.
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
+  // Classify each moved SKU by its number of current-stock (qty > 0) locations.
+  type Entry = { sku: string; from: string; tos: { loc: string; qty: number }[] };
+  const singles: Entry[] = [];
+  const multis: Entry[] = [];
+  for (const sku of [...skuOrder].sort((a, b) => a.localeCompare(b))) {
+    const tos = [...(stockBySku.get(sku) ?? new Map<string, number>()).entries()]
+      .filter(([, qty]) => qty > 0)
+      .map(([loc, qty]) => ({ loc, qty }))
+      .sort((a, b) => b.qty - a.qty || a.loc.localeCompare(b.loc));
+    (tos.length >= 2 ? multis : singles).push({ sku, from: fromText(sku), tos });
+  }
+
+  // Header: "AS400 Sync" + date/count, with the optional boxed note.
   doc.setTextColor(0, 0, 0);
-  doc.text('•  moved today', MARGIN, currentY);
-  currentY += 4;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.text('AS400 Sync', MARGIN, MARGIN + 4.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(14);
+  const count = singles.length + multis.length;
+  doc.text(`${today} · ${count} ${count === 1 ? 'SKU' : 'SKUs'}`, MARGIN, MARGIN + 9.5);
+  let startY = MARGIN + 12;
 
-  const SKU_SIZE = 16;
-  const LOC_SIZE = 13;
-  const LOC_LINE_H = 5.2;
-
-  const skus = [...skuOrder].sort((a, b) => a.localeCompare(b));
-  for (const sku of skus) {
-    const touched = touchedBySku.get(sku) ?? new Set<string>();
-    const byLoc = stockBySku.get(sku) ?? new Map<string, number>();
-
-    // Locations to show: everywhere it currently has stock, plus any location
-    // touched today (even if it's now empty, so the count can be reconciled).
-    const locSet = new Set<string>();
-    for (const [loc, qty] of byLoc) if (qty > 0) locSet.add(loc);
-    for (const loc of touched) locSet.add(loc);
-
-    const entries = [...locSet].map((loc) => ({
-      loc,
-      qty: byLoc.get(loc) ?? 0,
-      touched: touched.has(loc),
-    }));
-    // Touched first, then by quantity desc, then location name.
-    entries.sort(
-      (a, b) =>
-        (a.touched === b.touched ? 0 : a.touched ? -1 : 1) ||
-        b.qty - a.qty ||
-        a.loc.localeCompare(b.loc)
-    );
-
-    const locText = entries.length
-      ? entries.map((e) => `${e.touched ? '• ' : ''}${e.loc}  ${e.qty}`).join('     ')
-      : '(no stock on record)';
-    const total = entries.reduce((s, e) => s + e.qty, 0);
-    const totalText = entries.length > 1 ? `total ${total}` : '';
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(LOC_SIZE);
-    const wrapped = doc.splitTextToSize(locText, CONTENT_W - 4) as string[];
-
-    const blockH = 6 + 7 + wrapped.length * LOC_LINE_H + (totalText ? LOC_LINE_H : 0) + 4.5;
-    if (currentY + blockH > PAGE_H - MARGIN) {
-      doc.addPage();
-      currentY = MARGIN;
-    }
-
-    // SKU — large and bold.
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(SKU_SIZE);
-    doc.setTextColor(0, 0, 0);
-    currentY += 6;
-    doc.text(sku, MARGIN, currentY);
-    currentY += 7;
-
-    // Locations + quantities.
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(LOC_SIZE);
-    for (const line of wrapped) {
-      doc.text(line, MARGIN + 4, currentY);
-      currentY += LOC_LINE_H;
-    }
-    if (totalText) {
-      doc.setFont('helvetica', 'bold');
-      doc.text(totalText, MARGIN + 4, currentY);
-      currentY += LOC_LINE_H;
-    }
-
-    // Divider.
-    currentY += 0.5;
+  const note = (params.reportNote ?? '').trim();
+  if (note) {
+    doc.setFontSize(12);
+    const wrapped = doc.splitTextToSize(note, CONTENT_W - 3) as string[];
+    const h = wrapped.length * 4.5 + 3;
     doc.setDrawColor(0);
-    doc.setLineWidth(0.2);
-    doc.line(MARGIN, currentY, PAGE_W - MARGIN, currentY);
-    currentY += 4;
+    doc.setLineWidth(0.3);
+    doc.rect(MARGIN, startY - 1, CONTENT_W, h);
+    doc.text(wrapped, MARGIN + 1.5, startY + 2.5);
+    startY += h + 2;
+  }
+
+  // Largest type that fits nine SKUs (FROM may wrap) on one 6×4 page. 14/15 ≥ 90%.
+  const BIG = 15;
+  const REG = 14;
+  const headStyles: CellStyles = {
+    fontStyle: 'bold',
+    fontSize: REG,
+    fillColor: [255, 255, 255],
+    textColor: [0, 0, 0],
+    lineWidth: 0.3,
+  };
+  const styles: CellStyles = {
+    font: 'helvetica',
+    fontSize: REG,
+    cellPadding: 0.6,
+    textColor: [0, 0, 0],
+    lineColor: [0, 0, 0],
+    lineWidth: 0.25,
+    valign: 'middle',
+  };
+  const margin = { left: MARGIN, right: MARGIN, top: MARGIN, bottom: MARGIN };
+  const lastY = (): number =>
+    (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
+
+  // A bold section label (only drawn when both sections are present).
+  const section = (text: string, y: number): number => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(REG);
+    doc.setTextColor(0, 0, 0);
+    doc.text(text, MARGIN, y + 3.5);
+    return y + 5;
+  };
+
+  // Single location: SKU | FROM | TO | QTY (no TOTAL — one location, no redundancy).
+  if (singles.length) {
+    if (multis.length) startY = section('Single location', startY);
+    autoTable(doc, {
+      startY,
+      head: [['SKU', 'FROM', 'TO', 'QTY']],
+      body: singles.map((s) => [s.sku, s.from, s.tos[0]?.loc ?? '—', String(s.tos[0]?.qty ?? 0)]),
+      theme: 'grid',
+      styles,
+      headStyles,
+      columnStyles: {
+        0: { cellWidth: 38, fontStyle: 'bold', fontSize: BIG },
+        1: { cellWidth: 'auto' },
+        2: { cellWidth: 24 },
+        3: { cellWidth: 15, halign: 'right', fontStyle: 'bold', fontSize: BIG },
+      },
+      margin,
+    });
+    startY = lastY() + 3;
+  }
+
+  // Multiple locations: SKU | FROM | TO | QTY | TOTAL (SKU/FROM/TOTAL span the rows).
+  if (multis.length) {
+    startY = section('Multiple locations', startY);
+    const body: RowInput[] = [];
+    for (const s of multis) {
+      const total = s.tos.reduce((sum, t) => sum + t.qty, 0);
+      s.tos.forEach((t, i) => {
+        const row: CellInput[] = [];
+        if (i === 0) {
+          row.push({
+            content: s.sku,
+            rowSpan: s.tos.length,
+            styles: { fontStyle: 'bold', fontSize: BIG },
+          });
+          row.push({ content: s.from, rowSpan: s.tos.length });
+        }
+        row.push(t.loc, String(t.qty));
+        if (i === 0) {
+          row.push({
+            content: String(total),
+            rowSpan: s.tos.length,
+            styles: { fontStyle: 'bold', fontSize: BIG, halign: 'right' },
+          });
+        }
+        body.push(row);
+      });
+    }
+    autoTable(doc, {
+      startY,
+      head: [['SKU', 'FROM', 'TO', 'QTY', 'TOTAL']],
+      body,
+      theme: 'grid',
+      styles,
+      headStyles,
+      columnStyles: {
+        0: { cellWidth: 36, fontStyle: 'bold' },
+        1: { cellWidth: 'auto' },
+        2: { cellWidth: 22 },
+        3: { cellWidth: 13, halign: 'right' },
+        4: { cellWidth: 18, halign: 'right', fontStyle: 'bold' },
+      },
+      margin,
+    });
   }
 
   return doc;
@@ -383,6 +435,6 @@ export function generateDailyHistoryDoc<TLog extends HistoryLog>(
   }
 
   return mode === 'as400'
-    ? renderAs400(doc, params, title, today)
+    ? renderAs400(doc, autoTableInstance, params, today)
     : renderFull(doc, autoTableInstance, params, title, today);
 }

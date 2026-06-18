@@ -49,7 +49,7 @@ describe('generateDailyHistoryDoc', () => {
   });
   afterEach(() => rec.restore());
 
-  it('AS400 mode: flattened stock per SKU, no detailed moves', async () => {
+  it('AS400 mode: FROM/TO stock per SKU, split SKUs get a TOTAL column', async () => {
     generateDailyHistoryDoc(jsPDF, autoTable, {
       logs,
       filter: 'ALL',
@@ -64,28 +64,31 @@ describe('generateDailyHistoryDoc', () => {
     expectGrayscaleOnly(rec);
     expectNoTextOverlap(rec);
     expectContains(rec, [
-      'History — AS400 Sync',
+      'AS400 Sync',
       'SKUs',
       'Count carefully', // the optional report note
+      'FROM',
+      'TO',
+      'QTY',
+      'TOTAL', // present because 03-2 is split across two current locations
       '03-1',
       '03-2',
       '03-3',
-      // current locations + quantities (incl. the mandatory "other" location GEN)
-      'ROW 5',
-      'GEN',
-      'ROW 1',
-      'ROW 2',
+      'ROW 1', // 03-1's current location AND 03-2's move source
+      'ROW 5', // 03-2 landed here…
+      'GEN', // …and the mandatory second location for the same SKU
       '12',
       '7',
+      '15', // 03-2's per-SKU TOTAL (12 + 3)
     ]);
 
-    // The move-by-move detail is gone in the flattened AS400 report.
+    // The move-by-move detail is gone in the AS400 report.
     const all = rec.allText();
     expect(all).not.toContain('Moved');
     expect(all).not.toContain('ACTIVITY');
 
-    // Title → subtitle → first (alphabetised) SKU.
-    expectOrderedText(rec, ['History — AS400 Sync', 'SKUs', '03-1']);
+    // Title → single-location section → the split SKU under "Multiple locations".
+    expectOrderedText(rec, ['AS400 Sync', 'Single location', '03-1', 'Multiple locations', '03-2']);
   });
 
   it('AS400 mode still renders every moved SKU when no stock is supplied', async () => {
@@ -98,7 +101,7 @@ describe('generateDailyHistoryDoc', () => {
     });
     expectGrayscaleOnly(rec);
     expectNoTextOverlap(rec);
-    expect(rec.allText()).toContain('History');
+    expect(rec.allText()).toContain('AS400 Sync');
     expectContains(rec, ['03-1', '03-2', '03-3']);
   });
 
