@@ -1,10 +1,14 @@
 /**
- * Builds the 6×4" daily-history thermal-label PDF (a SKU / ACTIVITY / QTY table)
- * and returns the jsPDF doc.
+ * Builds the 6×4" daily-history thermal-label PDF and returns the jsPDF doc.
  *
- * Extracted from HistoryScreen so the layout is unit-testable. The screen's
- * callback just bundles its current filter state + logs and delegates here; the
- * PDF output is unchanged. Black & white only.
+ * Two modes:
+ *  - 'full'   — the detailed SKU / ACTIVITY / QTY table (every action with notes).
+ *  - 'as400'  — a stock snapshot for AS400 reconciliation: per SKU that moved, where
+ *               it came FROM today (sources + qty) and where it is now (TO + qty), in
+ *               large type. SKUs now split across 2+ locations get a per-SKU TOTAL
+ *               column in a separate table. No move-by-move detail.
+ *
+ * Extracted from HistoryScreen so the layout is unit-testable. Black & white only.
  */
 
 // Minimal structural shape of a log row this PDF reads. HistoryScreen's
@@ -19,6 +23,16 @@ export interface HistoryLog {
   note?: string | null;
 }
 
+// A current inventory row for one of the report's SKUs. Quantities are summed per
+// location (across sublocations/warehouses) for the AS400 stock view.
+export interface StockLocation {
+  sku: string;
+  location?: string | null;
+  sublocation?: string | null;
+  quantity: number;
+  warehouse?: string | null;
+}
+
 export interface DailyHistoryParams<TLog extends HistoryLog> {
   /** Already-filtered logs, newest-first (as HistoryScreen holds them). */
   logs: TLog[];
@@ -28,42 +42,236 @@ export interface DailyHistoryParams<TLog extends HistoryLog> {
   getDisplayQty: (log: TLog) => number;
   reportNote?: string | null;
   mode?: 'full' | 'as400';
+  /** Current inventory for the SKUs in `logs` (all their locations). Drives the
+   *  'as400' flattened stock view; ignored by 'full' mode. */
+  stock?: StockLocation[];
 }
 
-export function generateDailyHistoryDoc<TLog extends HistoryLog>(
-  jsPDFInstance: typeof import('jspdf').default,
-  autoTableInstance: typeof import('jspdf-autotable').default,
-  params: DailyHistoryParams<TLog>
+// 6×4" landscape thermal label.
+const PAGE_W = 152.4;
+const PAGE_H = 101.6;
+const MARGIN = 3;
+const CONTENT_W = PAGE_W - MARGIN * 2;
+
+type Doc = InstanceType<typeof import('jspdf').default>;
+type AutoTable = typeof import('jspdf-autotable').default;
+type CellInput = import('jspdf-autotable').CellInput;
+type RowInput = import('jspdf-autotable').RowInput;
+type CellStyles = Partial<import('jspdf-autotable').Styles>;
+
+// Shared header: title, one-line subtitle, optional boxed note. Returns the Y below it.
+function drawHeader(
+  doc: Doc,
+  opts: { title: string; subtitle: string; reportNote: string | null }
+): number {
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text(opts.title, MARGIN, MARGIN + 5);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.text(opts.subtitle, MARGIN, MARGIN + 9);
+
+  let currentY = MARGIN + 13;
+  if (opts.reportNote && opts.reportNote.trim().length > 0) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    const wrapped = doc.splitTextToSize(opts.reportNote.trim(), CONTENT_W - 2);
+    const lineHeight = 4.5;
+    const noteHeight = wrapped.length * lineHeight + 3;
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.3);
+    doc.rect(MARGIN, currentY - 2, CONTENT_W, noteHeight);
+    doc.text(wrapped, MARGIN + 1.5, currentY + 1.5);
+    currentY += noteHeight + 2;
+  }
+  return currentY;
+}
+
+// AS400 sync view: per moved SKU, where its stock came FROM today (the move sources,
+// summed per origin) and where it is now (TO + qty). SKUs now split across 2+ current
+// locations go in a separate "Multiple locations" table with a per-SKU TOTAL column;
+// the rest stop at QTY (one location → no redundant total). No move-by-move detail.
+function renderAs400<TLog extends HistoryLog>(
+  doc: Doc,
+  autoTable: AutoTable,
+  params: DailyHistoryParams<TLog>,
+  today: string
 ) {
-  const { logs, filter, userFilter, timeFilter, getDisplayQty } = params;
-  const reportNote = params.reportNote ?? null;
-  const mode = params.mode ?? 'as400';
+  const { logs, getDisplayQty } = params;
 
-  // 6×4" landscape thermal label.
-  const PAGE_W = 152.4;
-  const PAGE_H = 101.6;
-  const MARGIN = 3;
-  const doc = new jsPDFInstance({
-    orientation: 'landscape',
-    unit: 'mm',
-    format: [PAGE_W, PAGE_H],
-  });
-  const today = new Date().toLocaleDateString('es-ES');
+  // Moved SKUs (insertion order) + their move SOURCES: from_location → qty summed.
+  const skuOrder: string[] = [];
+  const seenSku = new Set<string>();
+  const fromBySku = new Map<string, Map<string, number>>();
+  for (const log of logs) {
+    if (!seenSku.has(log.sku)) {
+      seenSku.add(log.sku);
+      skuOrder.push(log.sku);
+    }
+    if (log.action_type !== 'MOVE') continue;
+    const from = (log.from_location || '').toUpperCase();
+    if (!from) continue;
+    const sources = fromBySku.get(log.sku) ?? new Map<string, number>();
+    sources.set(from, (sources.get(from) ?? 0) + getDisplayQty(log));
+    fromBySku.set(log.sku, sources);
+  }
 
-  let title = mode === 'as400' ? 'History — AS400 Sync' : 'History';
-  if (filter !== 'ALL') {
-    const labels: Record<string, string> = {
-      MOVE: 'Movements',
-      ADD: 'Restocks',
-      DEDUCT: 'Picks',
-      DELETE: 'Removals',
-      SYSTEM_RECONCILIATION: 'Reconciliation',
-    };
-    title = `History — ${labels[filter] || filter}`;
+  // Current stock per SKU → location → summed quantity.
+  const stockBySku = new Map<string, Map<string, number>>();
+  for (const row of params.stock ?? []) {
+    if (!row.sku) continue;
+    const loc = (row.location || '').toUpperCase();
+    if (!loc) continue;
+    const byLoc = stockBySku.get(row.sku) ?? new Map<string, number>();
+    byLoc.set(loc, (byLoc.get(loc) ?? 0) + Number(row.quantity || 0));
+    stockBySku.set(row.sku, byLoc);
   }
-  if (userFilter !== 'ALL') {
-    title += ` (${userFilter})`;
+
+  // FROM cell: one origin per line, "ROW 29 - 28 units" (biggest origin first).
+  const fromText = (sku: string): string =>
+    [...(fromBySku.get(sku) ?? new Map<string, number>()).entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([loc, qty]) => `${loc} - ${qty} ${qty === 1 ? 'unit' : 'units'}`)
+      .join('\n');
+
+  // Classify each moved SKU by its number of current-stock (qty > 0) locations.
+  type Entry = { sku: string; from: string; tos: { loc: string; qty: number }[] };
+  const singles: Entry[] = [];
+  const multis: Entry[] = [];
+  for (const sku of [...skuOrder].sort((a, b) => a.localeCompare(b))) {
+    const tos = [...(stockBySku.get(sku) ?? new Map<string, number>()).entries()]
+      .filter(([, qty]) => qty > 0)
+      .map(([loc, qty]) => ({ loc, qty }))
+      .sort((a, b) => b.qty - a.qty || a.loc.localeCompare(b.loc));
+    (tos.length >= 2 ? multis : singles).push({ sku, from: fromText(sku), tos });
   }
+
+  // Largest type that fits (FROM may wrap) on the 6×4 label. 14/15 ≥ 90%.
+  const BIG = 15;
+  const REG = 14;
+  const headStyles: CellStyles = {
+    fontStyle: 'bold',
+    fontSize: REG,
+    fillColor: [255, 255, 255],
+    textColor: [0, 0, 0],
+    lineWidth: 0.3,
+  };
+  const styles: CellStyles = {
+    font: 'helvetica',
+    fontSize: REG,
+    cellPadding: 0.6,
+    textColor: [0, 0, 0],
+    lineColor: [0, 0, 0],
+    lineWidth: 0.25,
+    valign: 'middle',
+  };
+  const margin = { left: MARGIN, right: MARGIN, top: MARGIN, bottom: MARGIN };
+
+  // Per-section page header: "AS400 Sync" + subtitle, with the note on the first page.
+  const note = (params.reportNote ?? '').trim();
+  let noteDrawn = false;
+  const sectionHeader = (subtitle: string): number => {
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(BIG);
+    doc.text('AS400 Sync', MARGIN, MARGIN + 4.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(REG);
+    doc.text(subtitle, MARGIN, MARGIN + 9.5);
+    let y = MARGIN + 12;
+    if (note && !noteDrawn) {
+      noteDrawn = true;
+      doc.setFontSize(12);
+      const wrapped = doc.splitTextToSize(note, CONTENT_W - 3) as string[];
+      const h = wrapped.length * 4.5 + 3;
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.3);
+      doc.rect(MARGIN, y - 1, CONTENT_W, h);
+      doc.text(wrapped, MARGIN + 1.5, y + 2.5);
+      y += h + 2;
+    }
+    return y;
+  };
+  const plural = (n: number): string => `${n} ${n === 1 ? 'SKU' : 'SKUs'}`;
+
+  // Single location: SKU | FROM | TO | QTY (no TOTAL — one location, no redundancy).
+  if (singles.length) {
+    autoTable(doc, {
+      startY: sectionHeader(`${today} · Single location · ${plural(singles.length)}`),
+      head: [['SKU', 'FROM', 'TO', 'QTY']],
+      body: singles.map((s) => [s.sku, s.from, s.tos[0]?.loc ?? '—', String(s.tos[0]?.qty ?? 0)]),
+      theme: 'grid',
+      styles,
+      headStyles,
+      columnStyles: {
+        0: { cellWidth: 38, fontStyle: 'bold', fontSize: BIG },
+        1: { cellWidth: 'auto' },
+        2: { cellWidth: 24 },
+        3: { cellWidth: 15, halign: 'right', fontStyle: 'bold', fontSize: BIG },
+      },
+      margin,
+    });
+  }
+
+  // Multiple locations: SKU | FROM | TO | QTY | TOTAL — ALWAYS on a fresh page so the
+  // split SKUs read as a clearly separate list. SKU/FROM/TOTAL span the location rows.
+  if (multis.length) {
+    if (singles.length) doc.addPage();
+    const body: RowInput[] = [];
+    for (const s of multis) {
+      const total = s.tos.reduce((sum, t) => sum + t.qty, 0);
+      s.tos.forEach((t, i) => {
+        const row: CellInput[] = [];
+        if (i === 0) {
+          row.push({
+            content: s.sku,
+            rowSpan: s.tos.length,
+            styles: { fontStyle: 'bold', fontSize: BIG },
+          });
+          row.push({ content: s.from, rowSpan: s.tos.length });
+        }
+        row.push(t.loc, String(t.qty));
+        if (i === 0) {
+          row.push({
+            content: String(total),
+            rowSpan: s.tos.length,
+            styles: { fontStyle: 'bold', fontSize: BIG, halign: 'right' },
+          });
+        }
+        body.push(row);
+      });
+    }
+    autoTable(doc, {
+      startY: sectionHeader(`${today} · Multiple locations · ${plural(multis.length)}`),
+      head: [['SKU', 'FROM', 'TO', 'QTY', 'TOTAL']],
+      body,
+      theme: 'grid',
+      styles,
+      headStyles,
+      columnStyles: {
+        0: { cellWidth: 36, fontStyle: 'bold' },
+        1: { cellWidth: 'auto' },
+        2: { cellWidth: 22 },
+        3: { cellWidth: 13, halign: 'right' },
+        4: { cellWidth: 18, halign: 'right', fontStyle: 'bold' },
+      },
+      margin,
+    });
+  }
+
+  return doc;
+}
+
+// Detailed table: every action with its notes (unchanged).
+function renderFull<TLog extends HistoryLog>(
+  doc: Doc,
+  autoTableInstance: typeof import('jspdf-autotable').default,
+  params: DailyHistoryParams<TLog>,
+  title: string,
+  today: string
+) {
+  const { logs, timeFilter, getDisplayQty } = params;
 
   // Collapse MOVE chains only for a single day's activity (see HistoryScreen).
   const collapseChains = timeFilter === 'TODAY';
@@ -99,32 +307,8 @@ export function generateDailyHistoryDoc<TLog extends HistoryLog>(
     qty: dedupedLogs.reduce((acc, l) => acc + Number(getDisplayQty(l)), 0),
   };
 
-  const contentWidth = PAGE_W - MARGIN * 2;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
-  doc.text(title, MARGIN, MARGIN + 5);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.text(
-    `${today} · ${stats.total} logs · ${stats.qty.toLocaleString()} units`,
-    MARGIN,
-    MARGIN + 9
-  );
-
-  let currentY = MARGIN + 13;
-
-  if (reportNote && reportNote.trim().length > 0) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
-    const wrapped = doc.splitTextToSize(reportNote.trim(), contentWidth - 2);
-    const lineHeight = 4.5;
-    const noteHeight = wrapped.length * lineHeight + 3;
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.3);
-    doc.rect(MARGIN, currentY - 2, contentWidth, noteHeight);
-    doc.text(wrapped, MARGIN + 1.5, currentY + 1.5);
-    currentY += noteHeight + 2;
-  }
+  const subtitle = `${today} · ${stats.total} logs · ${stats.qty.toLocaleString()} units`;
+  let currentY = drawHeader(doc, { title, subtitle, reportNote: params.reportNote ?? null });
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
@@ -147,7 +331,7 @@ export function generateDailyHistoryDoc<TLog extends HistoryLog>(
         const first = path[0] ?? fromLoc;
         const last = path[path.length - 1] ?? toLoc;
         activity = `Moved ${first} -> ${last}`;
-        if (mode !== 'as400' && path.length > 2) {
+        if (path.length > 2) {
           chainHops = `via ${path.slice(1, -1).join(' -> ')}`;
         }
         break;
@@ -187,14 +371,9 @@ export function generateDailyHistoryDoc<TLog extends HistoryLog>(
     return [log.sku, cellText, qty.toString()];
   });
 
-  const tableBody =
-    mode === 'as400'
-      ? [...tableData].sort((a, b) => String(a[0]).localeCompare(String(b[0])))
-      : tableData;
-
   autoTableInstance(doc, {
     startY: currentY,
-    body: tableBody,
+    body: tableData,
     theme: 'plain',
     styles: {
       fontSize: 11,
@@ -215,4 +394,39 @@ export function generateDailyHistoryDoc<TLog extends HistoryLog>(
   });
 
   return doc;
+}
+
+export function generateDailyHistoryDoc<TLog extends HistoryLog>(
+  jsPDFInstance: typeof import('jspdf').default,
+  autoTableInstance: typeof import('jspdf-autotable').default,
+  params: DailyHistoryParams<TLog>
+) {
+  const { filter, userFilter } = params;
+  const mode = params.mode ?? 'as400';
+
+  const doc = new jsPDFInstance({
+    orientation: 'landscape',
+    unit: 'mm',
+    format: [PAGE_W, PAGE_H],
+  });
+  const today = new Date().toLocaleDateString('es-ES');
+
+  let title = mode === 'as400' ? 'History — AS400 Sync' : 'History';
+  if (filter !== 'ALL') {
+    const labels: Record<string, string> = {
+      MOVE: 'Movements',
+      ADD: 'Restocks',
+      DEDUCT: 'Picks',
+      DELETE: 'Removals',
+      SYSTEM_RECONCILIATION: 'Reconciliation',
+    };
+    title = `History — ${labels[filter] || filter}`;
+  }
+  if (userFilter !== 'ALL') {
+    title += ` (${userFilter})`;
+  }
+
+  return mode === 'as400'
+    ? renderAs400(doc, autoTableInstance, params, today)
+    : renderFull(doc, autoTableInstance, params, title, today);
 }
