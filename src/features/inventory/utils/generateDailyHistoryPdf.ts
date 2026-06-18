@@ -129,11 +129,13 @@ function renderAs400<TLog extends HistoryLog>(
     stockBySku.set(row.sku, byLoc);
   }
 
-  // MOVED FROM cell: one origin per line, "ROW 29 - 28" (biggest origin first).
+  // MOVED FROM cell: just the source location(s), one per line (biggest origin first).
+  // The per-source qty is intentionally omitted — it invited a misleading sum that
+  // looked like it should equal CURRENT STOCK (which also reflects picks/shipments).
   const fromText = (sku: string): string =>
     [...(fromBySku.get(sku) ?? new Map<string, number>()).entries()]
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .map(([loc, qty]) => `${loc} - ${qty}`)
+      .map(([loc]) => loc)
       .join('\n');
 
   // Classify each moved SKU by its number of current-stock (qty > 0) locations.
@@ -196,11 +198,11 @@ function renderAs400<TLog extends HistoryLog>(
   };
   const plural = (n: number): string => `${n} ${n === 1 ? 'SKU' : 'SKUs'}`;
 
-  // autoTable has no inline rich text, so the MOVED FROM ("LOC - qty") and CURRENT
-  // STOCK ("LOC = total") cells are drawn by hand with the LOCATION in bold and the
-  // separator + number in the regular weight — so each cell reads "place, then amount".
+  // autoTable has no inline rich text, so the CURRENT STOCK ("LOC = total") cell is
+  // drawn by hand with the LOCATION in bold and the "= total" in the regular weight —
+  // so it reads "place, then amount". (MOVED FROM is plain bold via columnStyles.)
   const PT_TO_MM = 25.4 / 72;
-  const boldCols: Record<number, string> = { 1: ' - ', 2: ' = ' };
+  const boldCols: Record<number, string> = { 2: ' = ' };
   const savedLines = new Map<object, string[]>();
   const drawBoldLoc = (line: string, sep: string, x: number, y: number, fontSize: number): void => {
     const i = line.indexOf(sep);
@@ -252,7 +254,7 @@ function renderAs400<TLog extends HistoryLog>(
       headStyles,
       columnStyles: {
         0: { cellWidth: 34, fontStyle: 'bold', fontSize: BIG },
-        1: { cellWidth: 'auto' },
+        1: { cellWidth: 'auto', fontStyle: 'bold' },
         2: { cellWidth: 44 },
       },
       margin,
@@ -297,7 +299,7 @@ function renderAs400<TLog extends HistoryLog>(
       headStyles,
       columnStyles: {
         0: { cellWidth: 32, fontStyle: 'bold' },
-        1: { cellWidth: 'auto' },
+        1: { cellWidth: 'auto', fontStyle: 'bold' },
         2: { cellWidth: 44 },
         3: { cellWidth: 18, halign: 'right', fontStyle: 'bold' },
       },
