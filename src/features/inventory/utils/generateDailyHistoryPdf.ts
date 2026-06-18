@@ -55,7 +55,6 @@ const CONTENT_W = PAGE_W - MARGIN * 2;
 
 type Doc = InstanceType<typeof import('jspdf').default>;
 type AutoTable = typeof import('jspdf-autotable').default;
-type CellInput = import('jspdf-autotable').CellInput;
 type RowInput = import('jspdf-autotable').RowInput;
 type CellStyles = Partial<import('jspdf-autotable').Styles>;
 type CellHook = import('jspdf-autotable').CellHookData;
@@ -101,10 +100,12 @@ function renderAs400<TLog extends HistoryLog>(
 ) {
   const { logs, getDisplayQty } = params;
 
-  // Moved SKUs (insertion order) + their move SOURCES: from_location → qty summed.
+  // Moved SKUs (insertion order) + each move's SOURCE (from_location, qty summed) and
+  // DESTINATION (to_location), used to phrase the multi-location notes by case.
   const skuOrder: string[] = [];
   const seenSku = new Set<string>();
   const fromBySku = new Map<string, Map<string, number>>();
+  const toBySku = new Map<string, Set<string>>();
   for (const log of logs) {
     if (!seenSku.has(log.sku)) {
       seenSku.add(log.sku);
@@ -112,10 +113,17 @@ function renderAs400<TLog extends HistoryLog>(
     }
     if (log.action_type !== 'MOVE') continue;
     const from = (log.from_location || '').toUpperCase();
-    if (!from) continue;
-    const sources = fromBySku.get(log.sku) ?? new Map<string, number>();
-    sources.set(from, (sources.get(from) ?? 0) + getDisplayQty(log));
-    fromBySku.set(log.sku, sources);
+    const to = (log.to_location || '').toUpperCase();
+    if (from) {
+      const sources = fromBySku.get(log.sku) ?? new Map<string, number>();
+      sources.set(from, (sources.get(from) ?? 0) + getDisplayQty(log));
+      fromBySku.set(log.sku, sources);
+    }
+    if (to) {
+      const dests = toBySku.get(log.sku) ?? new Set<string>();
+      dests.add(to);
+      toBySku.set(log.sku, dests);
+    }
   }
 
   // Current stock per SKU → location → summed quantity.
@@ -262,33 +270,49 @@ function renderAs400<TLog extends HistoryLog>(
     });
   }
 
-  // Multiple locations: SKU | MOVED FROM | CURRENT STOCK | TOTAL — ALWAYS on a fresh
-  // page so the split SKUs read as a clearly separate list. SKU/FROM/TOTAL span rows.
+  // Multiple locations: the top row is the movement — MOVED FROM (sources) → CURRENT
+  // STOCK at the destination — and a merged note row below flags the SAME SKU's other
+  // stock, phrased by case. ALWAYS on a fresh page. SKU/TOTAL span the two rows.
   if (multis.length) {
     if (singles.length) doc.addPage();
     const body: RowInput[] = [];
     for (const s of multis) {
       const total = s.tos.reduce((sum, t) => sum + t.qty, 0);
-      s.tos.forEach((t, i) => {
-        const row: CellInput[] = [];
-        if (i === 0) {
-          row.push({
-            content: s.sku,
-            rowSpan: s.tos.length,
-            styles: { fontStyle: 'bold', fontSize: BIG },
-          });
-          row.push({ content: s.from, rowSpan: s.tos.length });
-        }
-        row.push(`${t.loc} = ${t.qty}`);
-        if (i === 0) {
-          row.push({
-            content: String(total),
-            rowSpan: s.tos.length,
-            styles: { fontStyle: 'bold', fontSize: BIG, halign: 'right' },
-          });
-        }
-        body.push(row);
-      });
+      const sources = fromBySku.get(s.sku);
+      const dests = toBySku.get(s.sku);
+      // Top = where the move landed (a destination that still holds stock); fall back
+      // to the largest current location (s.tos is sorted by qty desc).
+      const dest = s.tos.find((t) => dests?.has(t.loc)) ?? s.tos[0];
+      if (!dest) continue;
+      // Note: every OTHER current location, phrased by how it relates to today's move.
+      const note = s.tos
+        .filter((t) => t !== dest)
+        .map((t) => {
+          const prefix = sources?.has(t.loc)
+            ? 'Still at ' // a move source that wasn't emptied
+            : dests?.has(t.loc)
+              ? 'Also moved to ' // a second destination of today's move
+              : 'Also in stock: '; // pre-existing stock, untouched today
+          return `${prefix}${t.loc} = ${t.qty}`;
+        })
+        .join('\n');
+      body.push([
+        { content: s.sku, rowSpan: 2, styles: { fontStyle: 'bold', fontSize: BIG } },
+        s.from,
+        `${dest.loc} = ${dest.qty}`,
+        {
+          content: String(total),
+          rowSpan: 2,
+          styles: { fontStyle: 'bold', fontSize: BIG, halign: 'right' },
+        },
+      ]);
+      body.push([
+        {
+          content: note,
+          colSpan: 2,
+          styles: { fontStyle: 'italic', fontSize: REG - 1, textColor: [70, 70, 70] },
+        },
+      ]);
     }
     autoTable(doc, {
       startY: sectionHeader(`${today} · Multiple locations · ${plural(multis.length)}`),
@@ -298,7 +322,7 @@ function renderAs400<TLog extends HistoryLog>(
       styles,
       headStyles,
       columnStyles: {
-        0: { cellWidth: 32, fontStyle: 'bold' },
+        0: { cellWidth: 30, fontStyle: 'bold' },
         1: { cellWidth: 'auto', fontStyle: 'bold' },
         2: { cellWidth: 44 },
         3: { cellWidth: 18, halign: 'right', fontStyle: 'bold' },
