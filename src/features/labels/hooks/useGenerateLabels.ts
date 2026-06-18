@@ -21,6 +21,9 @@ export interface LabelEntry {
   serialNumber: string | null;
   madeIn: string | null;
   otherNotes: string | null;
+  /** Per-entry: include the QR / Code 128 barcode on this label. */
+  withQr: boolean;
+  withBarcode: boolean;
 }
 
 interface InsertRow {
@@ -49,10 +52,7 @@ export function useGenerateLabels() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const generate = useCallback(
-    async (
-      entries: LabelEntry[],
-      codeOptions?: { withQr?: boolean; withBarcode?: boolean }
-    ): Promise<number> => {
+    async (entries: LabelEntry[]): Promise<number> => {
       if (!user) {
         toast.error('You must be logged in to generate labels');
         return 0;
@@ -64,12 +64,6 @@ export function useGenerateLabels() {
         return 0;
       }
 
-      const missingLocation = activeEntries.find((e) => !e.location || e.location.trim() === '');
-      if (missingLocation) {
-        toast.error(`Location required for ${missingLocation.sku}`);
-        return 0;
-      }
-
       setIsGenerating(true);
       try {
         const now = new Date().toISOString();
@@ -78,7 +72,10 @@ export function useGenerateLabels() {
           Array.from({ length: entry.qty }, () => ({
             sku: entry.sku,
             warehouse: 'LUDLOW',
-            location: entry.location!,
+            // Location isn't printed on the label or in the QR — it's a print-time
+            // snapshot on the tag. Auto-fill from inventory; fall back to the
+            // column's 'UNKNOWN' default rather than forcing the user to type it.
+            location: entry.location || 'UNKNOWN',
             created_by: user.id,
             printed_at: now,
             status: entry.stock > 0 ? 'in_stock' : 'printed',
@@ -116,8 +113,8 @@ export function useGenerateLabels() {
             serial_number: entry?.serialNumber ?? null,
             made_in: entry?.madeIn ?? null,
             po_number: entry?.poNumber ?? null,
-            withQr: codeOptions?.withQr,
-            withBarcode: codeOptions?.withBarcode,
+            withQr: entry?.withQr ?? true,
+            withBarcode: entry?.withBarcode ?? true,
           };
         });
 

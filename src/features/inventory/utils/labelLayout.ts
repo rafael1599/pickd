@@ -28,6 +28,24 @@ export interface LabelItem {
 export type FontStyle = 'normal' | 'bold' | 'bolditalic';
 
 /**
+ * Editable region of the label, used by the Label Studio preview to map a tap on
+ * the canvas back to the field it edits. SKU-level fields (name/detail/upc) route
+ * to Item Detail (inventory); per-tag fields (extra/serial/made_in/po) are label
+ * data. `sku` is intentionally not editable (it's the identity).
+ */
+export type LabelField = 'name' | 'detail' | 'extra' | 'upc' | 'serial' | 'made_in' | 'po';
+
+const EDITABLE_FIELDS: readonly LabelField[] = [
+  'name',
+  'detail',
+  'extra',
+  'upc',
+  'serial',
+  'made_in',
+  'po',
+];
+
+/**
  * Text measurement, abstracted so the SAME layout math drives both renderers:
  * the print path passes a measurer backed by its jsPDF doc, and the preview
  * passes one backed by an offscreen jsPDF doc — so the on-screen preview is
@@ -54,17 +72,30 @@ export type DrawOp =
       style: FontStyle;
       align: 'left' | 'center';
       color: 'black' | 'white';
+      /** Which editable field this text belongs to (preview tap-to-edit). */
+      field?: LabelField;
     }
   /** Code 128 of the SKU; `bars` is the module string ('1' = bar). */
   | { kind: 'barcode'; bars: string; x: number; y: number; w: number; h: number }
   /** Square QR placement; the renderer supplies the actual image. */
   | { kind: 'qr'; x: number; y: number; size: number };
 
+/** Tappable bounding box (inches) for an editable field on the label. */
+export interface LabelRegion {
+  field: LabelField;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface LabelFace {
   /** Page size in inches. */
   width: number;
   height: number;
   ops: DrawOp[];
+  /** Tappable regions for the preview, one per editable field present. */
+  regions: LabelRegion[];
   withQr: boolean;
   /** URL the QR should encode (null when withQr is false). */
   qrPayload: string | null;
@@ -79,8 +110,8 @@ const LINE = 1.18;
 const SECONDARY = 0.9;
 
 // Code 128 barcode block (drawn under the SKU). Fixed height — it's a graphic,
-// not text, so it's outside the 10% size band.
-const BARCODE_H = 0.4;
+// not text, so it's outside the 10% size band. Tall enough to scan easily.
+const BARCODE_H = 0.55;
 const BARCODE_TOP = 0.05;
 const BARCODE_BOT = 0.08;
 
@@ -202,6 +233,34 @@ export function createJsPdfMeasurer(doc: {
 }
 
 /**
+ * Derive tappable regions (inches) from the tagged text ops — one union bbox per
+ * editable field. Used by the preview to turn a tap on the canvas into an edit.
+ */
+function computeRegions(ops: DrawOp[], measure: LabelTextMeasurer): LabelRegion[] {
+  const byField = new Map<LabelField, LabelRegion>();
+  for (const op of ops) {
+    if (op.kind !== 'text' || !op.field || !EDITABLE_FIELDS.includes(op.field)) continue;
+    const w = measure.textWidth(op.text, op.sizePt, op.style);
+    const ascent = op.sizePt * PT_TO_IN * 0.8;
+    const descent = op.sizePt * PT_TO_IN * 0.25;
+    const left = op.align === 'center' ? op.x - w / 2 : op.x;
+    const top = op.y - ascent;
+    const h = ascent + descent;
+    const cur = byField.get(op.field);
+    if (!cur) {
+      byField.set(op.field, { field: op.field, x: left, y: top, w, h });
+    } else {
+      const x1 = Math.min(cur.x, left);
+      const y1 = Math.min(cur.y, top);
+      const x2 = Math.max(cur.x + cur.w, left + w);
+      const y2 = Math.max(cur.y + cur.h, top + h);
+      byField.set(op.field, { field: op.field, x: x1, y: y1, w: x2 - x1, h: y2 - y1 });
+    }
+  }
+  return [...byField.values()];
+}
+
+/**
  * Compute the full draw program for ONE label face (4×6" portrait or 6×4"
  * landscape). The print path renders this twice (two copies); the preview
  * renders it once. Identical math + measurer ⇒ identical geometry on both.
@@ -236,12 +295,14 @@ export function computeLabelFace(
   const prefix = item.prefix?.trim() || null;
   const extra = item.extra?.trim() || null;
 
-  // Extra fields (UPC, Serial, Made In, P/O) — one line each.
-  const efLines: string[] = [];
-  if (item.upc?.trim()) efLines.push(`UPC: ${item.upc.trim()}`);
-  if (item.serial_number?.trim()) efLines.push(`SERIAL: ${item.serial_number.trim()}`);
-  if (item.made_in?.trim()) efLines.push(`MADE IN: ${item.made_in.trim()}`);
-  if (item.po_number?.trim()) efLines.push(`P/O: ${item.po_number.trim()}`);
+  // Extra fields (UPC, Serial, Made In, P/O) — one line each, tagged by field.
+  const efLines: { text: string; field: LabelField }[] = [];
+  if (item.upc?.trim()) efLines.push({ text: `UPC: ${item.upc.trim()}`, field: 'upc' });
+  if (item.serial_number?.trim())
+    efLines.push({ text: `SERIAL: ${item.serial_number.trim()}`, field: 'serial' });
+  if (item.made_in?.trim())
+    efLines.push({ text: `MADE IN: ${item.made_in.trim()}`, field: 'made_in' });
+  if (item.po_number?.trim()) efLines.push({ text: `P/O: ${item.po_number.trim()}`, field: 'po' });
 
   const buildLines = (nameMaxLines: number): FitLine[] => {
     const lines: FitLine[] = [];
@@ -252,13 +313,17 @@ export function computeLabelFace(
     if (hasSku) lines.push({ text: item.sku, style: 'bold', weight: 1, maxLines: 1 });
     if (extra) lines.push({ text: extra, style: 'bold', weight: SECONDARY, maxLines: 1 });
     for (const ef of efLines)
-      lines.push({ text: ef, style: 'normal', weight: SECONDARY, maxLines: 1 });
+      lines.push({ text: ef.text, style: 'normal', weight: SECONDARY, maxLines: 1 });
     return lines;
   };
 
   const bcBlock = withBarcode ? BARCODE_TOP + BARCODE_H + BARCODE_BOT : 0;
-  // With no QR the text reclaims that space and grows much larger.
-  const MAX_BASE = withQr ? 46 : 120;
+  // Largest font we'll try. With no QR the text fills the whole label; with codes
+  // on it can still grow well past the old cap and then spread to fill the height.
+  const MAX_BASE = withQr ? 60 : 120;
+  // Spread the stack to fill the label height in both modes (less when codes are
+  // on, so the QR/barcode keep their room).
+  const fillCap = withQr ? 1.4 : 1.7;
   const ops: DrawOp[] = [];
 
   // ── VERTICAL LAYOUT: portrait 4×6" (stacked, centered; QR at the bottom) ──
@@ -267,7 +332,7 @@ export function computeLabelFace(
     const VH = 6;
     const vM = 0.2;
     const vTextW = VW - vM * 2;
-    const vQrSize = withQr ? Math.min(2.0, (VW - vM * 2) * 0.7) : 0;
+    const vQrSize = withQr ? Math.min(2.6, (VW - vM * 2) * 0.9) : 0;
     const vTextH = withQr ? VH - vM * 2 - vQrSize - 0.2 : VH - vM * 2;
 
     const vLines = buildLines(2);
@@ -276,7 +341,7 @@ export function computeLabelFace(
     const vPrimary = vBase;
     const vSecondary = vBase * SECONDARY;
     const natH = stackHeight(measure, vLines, vTextW, vBase, fixedExtra);
-    const stretch = withQr ? 1 : Math.min(Math.max(vTextH / natH, 1), 1.7);
+    const stretch = Math.min(Math.max(vTextH / natH, 1), fillCap);
     const LE = LINE * stretch;
 
     ops.push({ kind: 'rect', x: 0, y: 0, w: VW, h: VH, fill: 'white' });
@@ -307,6 +372,7 @@ export function computeLabelFace(
         style: 'bold',
         align: 'center',
         color: 'black',
+        field: 'name',
       });
       vy += vPrimary * PT_TO_IN * LE;
     }
@@ -322,6 +388,7 @@ export function computeLabelFace(
           style: 'normal',
           align: 'center',
           color: 'black',
+          field: 'detail',
         });
         vy += vSecondary * PT_TO_IN * LE;
       }
@@ -380,6 +447,7 @@ export function computeLabelFace(
         style: 'bold',
         align: 'center',
         color: 'black',
+        field: 'extra',
       });
       vy += vSecondary * PT_TO_IN * LE;
     }
@@ -388,13 +456,14 @@ export function computeLabelFace(
       for (const line of efLines) {
         ops.push({
           kind: 'text',
-          text: line,
+          text: line.text,
           x: cx,
           y: vy + vSecondary * PT_TO_IN,
           sizePt: vSecondary,
           style: 'normal',
           align: 'center',
           color: 'black',
+          field: line.field,
         });
         vy += vSecondary * PT_TO_IN * LE;
       }
@@ -405,14 +474,14 @@ export function computeLabelFace(
       ops.push({ kind: 'qr', x: cx - actualQr / 2, y: VH - vM - actualQr, size: actualQr });
     }
 
-    return { width: VW, height: VH, ops, withQr, qrPayload };
+    return { width: VW, height: VH, ops, regions: computeRegions(ops, measure), withQr, qrPayload };
   }
 
   // ── STANDARD LAYOUT: 6×4" landscape (text stack left; QR right when on) ──
   const W = 6;
   const H = 4;
   const M = 0.2;
-  const qrSize = 1.9;
+  const qrSize = 2.2;
   const qrX = W - M - qrSize;
   const textW = withQr ? qrX - M - 0.2 : W - M * 2;
 
@@ -422,7 +491,7 @@ export function computeLabelFace(
   const primary = base;
   const secondary = base * SECONDARY;
   const natH = stackHeight(measure, lines, textW, base, fixedExtra);
-  const stretch = withQr ? 1 : Math.min(Math.max((H - M * 2) / natH, 1), 1.7);
+  const stretch = Math.min(Math.max((H - M * 2) / natH, 1), fillCap);
   const LE = LINE * stretch;
   const startY = M + Math.max(0, (H - M * 2 - natH * stretch) / 2);
 
@@ -453,6 +522,7 @@ export function computeLabelFace(
       style: 'bold',
       align: 'left',
       color: 'black',
+      field: 'name',
     });
     y += primary * PT_TO_IN * LE;
   }
@@ -468,6 +538,7 @@ export function computeLabelFace(
         style: 'normal',
         align: 'left',
         color: 'black',
+        field: 'detail',
       });
       y += secondary * PT_TO_IN * LE;
     }
@@ -517,6 +588,7 @@ export function computeLabelFace(
       style: 'bold',
       align: 'left',
       color: 'black',
+      field: 'extra',
     });
     y += secondary * PT_TO_IN * LE;
   }
@@ -525,13 +597,14 @@ export function computeLabelFace(
     for (const line of efLines) {
       ops.push({
         kind: 'text',
-        text: line,
+        text: line.text,
         x: M,
         y: y + secondary * PT_TO_IN,
         sizePt: secondary,
         style: 'normal',
         align: 'left',
         color: 'black',
+        field: line.field,
       });
       y += secondary * PT_TO_IN * LE;
     }
@@ -542,5 +615,5 @@ export function computeLabelFace(
     ops.push({ kind: 'qr', x: qrX, y: qrY, size: qrSize });
   }
 
-  return { width: W, height: H, ops, withQr, qrPayload };
+  return { width: W, height: H, ops, regions: computeRegions(ops, measure), withQr, qrPayload };
 }
