@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import MessageSquare from 'lucide-react/dist/esm/icons/message-square';
 
-export type ReasonActionType = 'remove' | 'swap' | 'adjust_qty' | 'add' | 'reopen' | 'waiting';
+export type ReasonActionType =
+  | 'remove'
+  | 'swap'
+  | 'adjust_qty'
+  | 'add'
+  | 'reopen'
+  | 'restore'
+  | 'waiting';
 
 const REASON_PRESETS: Record<ReasonActionType, string[]> = {
   remove: ['Out of stock', 'Customer cancelled', 'Damaged/defective', 'Wrong item on order'],
@@ -20,6 +27,12 @@ const REASON_PRESETS: Record<ReasonActionType, string[]> = {
     'Wrong item shipped',
     'Customer change request',
     'Correction needed',
+  ],
+  restore: [
+    'Cancelled by mistake',
+    'Customer changed mind',
+    'Cancelled wrong order',
+    'Need to continue picking',
   ],
   waiting: ['Bike not yet received', 'Backorder from vendor', 'Awaiting customer confirmation'],
 };

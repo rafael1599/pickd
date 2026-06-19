@@ -84,6 +84,7 @@ interface PickingContextType {
   generatePickingPath: () => Promise<void>;
 
   reopenOrder: (listId: string, reason?: string) => Promise<void>;
+  restoreCancelledOrder: (listId: string, reason?: string) => Promise<void>;
   recompleteOrder: (listId: string, palletsQty: number, totalUnits: number) => Promise<void>;
   cancelReopen: (listId: string) => Promise<void>;
   completeAddonGroup: (
@@ -284,6 +285,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
     takeOverOrder,
     claimAsPicker,
     reopenOrder,
+    restoreCancelledOrder,
     recompleteOrder,
     cancelReopen,
     completeAddonGroup,
@@ -485,6 +487,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       resumeReopenedOrder,
       generatePickingPath,
       reopenOrder,
+      restoreCancelledOrder,
       recompleteOrder,
       cancelReopen,
       completeAddonGroup,
@@ -549,6 +552,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       resumeReopenedOrder,
       generatePickingPath,
       reopenOrder,
+      restoreCancelledOrder,
       recompleteOrder,
       cancelReopen,
       completeAddonGroup,

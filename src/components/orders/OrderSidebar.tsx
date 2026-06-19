@@ -64,6 +64,7 @@ interface OrderSidebarProps {
   onShowPickingSummary?: () => void;
   onSplitOrder?: () => void;
   onReopenOrder?: () => void;
+  onRestoreOrder?: () => void;
   onContinueEditing?: () => void;
   collapsible?: boolean;
   autoBikeCount?: number;
@@ -86,6 +87,7 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
   onShowPickingSummary,
   onSplitOrder,
   onReopenOrder,
+  onRestoreOrder,
   onContinueEditing,
   collapsible = false,
   autoBikeCount = 0,
@@ -555,6 +557,16 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
           >
             <RotateCcw size={14} />
             <span>Reopen Order</span>
+          </button>
+        )}
+
+        {onRestoreOrder && selectedOrder.status === 'cancelled' && (
+          <button
+            onClick={onRestoreOrder}
+            className="w-full flex items-center justify-center gap-2 h-12 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 rounded-2xl text-[10px] font-black uppercase tracking-widest text-orange-400 transition-all active:scale-95"
+          >
+            <RotateCcw size={14} />
+            <span>Restore Order</span>
           </button>
         )}
 

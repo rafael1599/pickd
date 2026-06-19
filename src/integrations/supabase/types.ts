@@ -1995,6 +1995,10 @@ export type Database = {
         Args: { p_list_id: string; p_reason?: string; p_reopened_by: string };
         Returns: boolean;
       };
+      restore_cancelled_order: {
+        Args: { p_list_id: string; p_reason?: string; p_restored_by: string };
+        Returns: boolean;
+      };
       resolve_location: {
         Args: {
           p_location_name: string;

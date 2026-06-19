@@ -998,6 +998,29 @@ export const usePickingActions = ({
     [user, setIsSaving]
   );
 
+  const restoreCancelledOrder = useCallback(
+    async (listId: string, reason?: string) => {
+      if (!user) return;
+      setIsSaving(true);
+      try {
+        const { error } = await supabase.rpc('restore_cancelled_order', {
+          p_list_id: listId,
+          p_restored_by: user.id,
+          p_reason: reason ?? undefined,
+        });
+        if (error) throw error;
+        toast.success('Order restored');
+      } catch (err) {
+        console.error('Failed to restore order:', err);
+        toast.error(err instanceof Error ? err.message : 'Failed to restore order');
+        throw err;
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [user, setIsSaving]
+  );
+
   const recompleteOrder = useCallback(
     async (listId: string, palletsQty: number, totalUnits: number) => {
       if (!user) return;
@@ -1115,6 +1138,7 @@ export const usePickingActions = ({
     takeOverOrder,
     claimAsPicker,
     reopenOrder,
+    restoreCancelledOrder,
     recompleteOrder,
     cancelReopen,
     completeAddonGroup,

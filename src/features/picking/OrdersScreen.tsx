@@ -65,13 +65,15 @@ export const OrdersScreen = () => {
   // Ship-Out SMS resend button on the FAB. The hook gives us `isEnabled`
   // so the button hides cleanly when the user hasn't configured it.
   const { isEnabled: isShipSmsEnabled, triggerForList: triggerShipOutSms } = useShipOutSms();
-  const { takeOverOrder, loadReopenedOrder, resumeReopenedOrder } = usePickingSession();
+  const { takeOverOrder, loadReopenedOrder, resumeReopenedOrder, restoreCancelledOrder } =
+    usePickingSession();
   const { externalOrderId, setExternalOrderId, setViewMode } = useViewMode();
   const [orders, setOrders] = useState<OrderWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<OrderWithRelations | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [timeFilter, setTimeFilter] = useState('ALL');
+  const [carrierTab, setCarrierTab] = useState<'regular' | 'fedex'>('regular');
   const navigate = useNavigate();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
@@ -79,6 +81,8 @@ export const OrdersScreen = () => {
   const [isMobileOrderListOpen, setIsMobileOrderListOpen] = useState(false);
   const [reopenReasonModal, setReopenReasonModal] = useState(false);
   const [reopenReason, setReopenReason] = useState('');
+  const [restoreReasonModal, setRestoreReasonModal] = useState(false);
+  const [restoreReason, setRestoreReason] = useState('');
   // Add-On reopen flow (idea-067 Phase 2): after the user picks the reason,
   const filterRef = useRef<HTMLDivElement>(null);
   const mobileDropdownRef = useRef<HTMLDivElement>(null);
@@ -420,20 +424,21 @@ export const OrdersScreen = () => {
   }, [selectedOrder]);
 
   const filteredOrders = useMemo(() => {
-    // 1. Hide FedEx-grouped orders entirely — they live in the Verification
-    //    Board, not /orders.
-    const noFedex = orders.filter(
-      (o) => (o.order_group as { group_type?: string } | null)?.group_type !== 'fedex'
-    );
+    // 1. Split by carrier tab. FedEx orders live in their own tab; Regular
+    //    tab shows everything that isn't a FedEx-grouped order.
+    const byCarrier = orders.filter((o) => {
+      const isFedex = (o.order_group as { group_type?: string } | null)?.group_type === 'fedex';
+      return carrierTab === 'fedex' ? isFedex : !isFedex;
+    });
 
     // 2. Collapse 'general' group siblings into a single virtual entry per
     //    group_id. We pick the OLDEST (first by created_at ASC) sibling as
     //    the underlying picking_list — clicks/select operate on its id, and
     //    loadExternalList merges sibling items via group_id at open time.
     //    The display order_number becomes "A / B" sorted ascending.
-    const byGroup = new Map<string, typeof noFedex>();
-    const ungrouped: typeof noFedex = [];
-    for (const o of noFedex) {
+    const byGroup = new Map<string, typeof byCarrier>();
+    const ungrouped: typeof byCarrier = [];
+    for (const o of byCarrier) {
       const isGeneralGroup =
         o.group_id && (o.order_group as { group_type?: string } | null)?.group_type === 'general';
       if (isGeneralGroup) {
@@ -486,7 +491,7 @@ export const OrdersScreen = () => {
       const bStartsWith = bNum.startsWith(query) ? 1 : 0;
       return bStartsWith - aStartsWith;
     });
-  }, [orders, searchQuery]);
+  }, [orders, searchQuery, carrierTab]);
 
   // Keyboard arrow navigation between orders (placed after filteredOrders is declared)
   useEffect(() => {
@@ -735,6 +740,23 @@ export const OrdersScreen = () => {
     }
   };
 
+  const handleRestoreOrder = () => {
+    if (!selectedOrder) return;
+    setRestoreReason('');
+    setRestoreReasonModal(true);
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!selectedOrder || !restoreReason) return;
+    setRestoreReasonModal(false);
+    try {
+      await restoreCancelledOrder(selectedOrder.id, restoreReason);
+      await fetchOrders();
+    } catch {
+      // Error already toasted in restoreCancelledOrder
+    }
+  };
+
   const handleContinueEditing = async () => {
     if (!selectedOrder) return;
     try {
@@ -789,6 +811,7 @@ export const OrdersScreen = () => {
           onShowPickingSummary={() => setIsShowingPickingSummary(true)}
           onSplitOrder={() => setIsShowingSplitModal(true)}
           onReopenOrder={handleReopenOrder}
+          onRestoreOrder={handleRestoreOrder}
           onContinueEditing={handleContinueEditing}
           autoBikeCount={autoBikeCount}
           autoPartCount={autoPartCount}
@@ -855,6 +878,25 @@ export const OrdersScreen = () => {
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Carrier tab toggle — Regular / FedEx */}
+            <div className="flex items-center gap-1 p-1 bg-surface border border-subtle rounded-full shrink-0">
+              {(['regular', 'fedex'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setCarrierTab(tab)}
+                  className={`px-3 md:px-4 py-1.5 rounded-full text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
+                    carrierTab === tab
+                      ? tab === 'fedex'
+                        ? 'bg-purple-500 text-white'
+                        : 'bg-emerald-500 text-white'
+                      : 'text-muted hover:text-content'
+                  }`}
+                >
+                  {tab === 'fedex' ? 'FedEx' : 'Regular'}
+                </button>
+              ))}
             </div>
 
             {/* Orders Selection — Mobile: Dropdown, Desktop: Horizontal Scroll */}
@@ -978,6 +1020,7 @@ export const OrdersScreen = () => {
                   }}
                   onShowPickingSummary={() => setIsShowingPickingSummary(true)}
                   onReopenOrder={handleReopenOrder}
+                  onRestoreOrder={handleRestoreOrder}
                   onContinueEditing={handleContinueEditing}
                   collapsible
                   autoBikeCount={autoBikeCount}
@@ -1167,6 +1210,37 @@ export const OrdersScreen = () => {
             fetchOrders();
           }}
         />
+      )}
+
+      {/* Restore reason modal */}
+      {restoreReasonModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-main/60 backdrop-blur-md p-4">
+          <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 w-full max-w-sm">
+            <h3 className="text-sm font-black text-orange-400 uppercase tracking-widest mb-4">
+              Why are you restoring this order?
+            </h3>
+            <ReasonPicker
+              actionType="restore"
+              selectedReason={restoreReason}
+              onReasonChange={setRestoreReason}
+            />
+            <div className="flex items-center gap-2 mt-4">
+              <button
+                onClick={() => setRestoreReasonModal(false)}
+                className="flex-1 min-h-12 rounded-xl font-black uppercase tracking-widest text-[10px] bg-surface text-muted border border-subtle transition-all hover:bg-surface/80 active:scale-[0.97]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmRestore}
+                disabled={!restoreReason}
+                className="flex-1 min-h-12 rounded-xl font-black uppercase tracking-widest text-[10px] bg-orange-500 text-white border border-orange-500 transition-all hover:opacity-80 active:scale-[0.97] disabled:opacity-50"
+              >
+                Restore
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Reopen reason modal */}
