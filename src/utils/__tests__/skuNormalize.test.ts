@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { canonicalBikeSku, resolveInventorySku, getSubstituteSku } from '../skuNormalize';
+import {
+  canonicalBikeSku,
+  resolveInventorySku,
+  getSubstituteSku,
+  normalizeSkuOnRegister,
+} from '../skuNormalize';
 
 describe('canonicalBikeSku', () => {
   it('strips a spurious extra trailing letter from a bike SKU', () => {
@@ -79,5 +84,43 @@ describe('getSubstituteSku', () => {
     expect(getSubstituteSku(null)).toBeNull();
     expect(getSubstituteSku(undefined)).toBeNull();
     expect(getSubstituteSku('   ')).toBeNull();
+  });
+});
+
+describe('normalizeSkuOnRegister', () => {
+  it('inserts the dash after the 2-digit department code (bike-style SKUs)', () => {
+    expect(normalizeSkuOnRegister('033768BLD')).toBe('03-3768BLD');
+    expect(normalizeSkuOnRegister('034099BK')).toBe('03-4099BK');
+    expect(normalizeSkuOnRegister('700106SK')).toBe('70-0106SK');
+  });
+
+  it('leaves pure-numeric codes (UPCs / part numbers) untouched', () => {
+    expect(normalizeSkuOnRegister('128353')).toBe('128353');
+    expect(normalizeSkuOnRegister('496942473266')).toBe('496942473266');
+  });
+
+  it('leaves an already-dashed SKU unchanged (idempotent)', () => {
+    expect(normalizeSkuOnRegister('03-3768BL')).toBe('03-3768BL');
+    expect(normalizeSkuOnRegister(normalizeSkuOnRegister('033768BL'))).toBe('03-3768BL');
+  });
+
+  it('trims, uppercases and strips internal spaces', () => {
+    expect(normalizeSkuOnRegister('  033768bld ')).toBe('03-3768BLD');
+    expect(normalizeSkuOnRegister('03 3768 BLD')).toBe('03-3768BLD');
+  });
+
+  it('does not touch SKUs that do not start with two digits', () => {
+    expect(normalizeSkuOnRegister('ABC123')).toBe('ABC123');
+    expect(normalizeSkuOnRegister('A1B2')).toBe('A1B2');
+  });
+
+  it('does not dash a bare 2-digit code (nothing after it)', () => {
+    expect(normalizeSkuOnRegister('03')).toBe('03');
+  });
+
+  it('handles null/empty safely', () => {
+    expect(normalizeSkuOnRegister(null)).toBe('');
+    expect(normalizeSkuOnRegister(undefined)).toBe('');
+    expect(normalizeSkuOnRegister('')).toBe('');
   });
 });

@@ -76,3 +76,20 @@ export function getSubstituteSku(sku: string | null | undefined): string | null 
   const sub = SKU_SUBSTITUTES[s] ?? SKU_SUBSTITUTES[canonicalBikeSku(s)] ?? null;
   return sub && sub !== s ? sub : null;
 }
+
+/**
+ * Registration-time SKU normalizer. Operators never have to type the dash that
+ * separates the 2-digit department code from the rest — it is inserted
+ * automatically when a new SKU is registered from the UI ("033768BLD" →
+ * "03-3768BLD"). Also trims, uppercases and strips internal whitespace.
+ *
+ * Scoped to bike-style catalog SKUs: it only acts when the SKU starts with two
+ * digits, has no dash right after them, AND contains at least one letter (the
+ * color/finish code). Pure-numeric codes — UPCs and numeric part numbers like
+ * "128353" — are left untouched, as are SKUs that already carry the dash or
+ * don't start with two digits.
+ */
+export function normalizeSkuOnRegister(raw: string | null | undefined): string {
+  const s = (raw || '').trim().toUpperCase().replace(/\s+/g, '');
+  return /^\d{2}[^-]/.test(s) && /[A-Z]/.test(s) ? `${s.slice(0, 2)}-${s.slice(2)}` : s;
+}
