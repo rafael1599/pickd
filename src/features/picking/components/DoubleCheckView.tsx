@@ -323,6 +323,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const [showWaitingPicker, setShowWaitingPicker] = useState(false);
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const [orderListOpen, setOrderListOpen] = useState(false);
+  const orderListRef = useRef<HTMLDivElement>(null);
   // Auto-hiding header context (order #, FedEx, date, note): shown on open and on
   // any scroll, then fades 5s after the last scroll so the picking list gets the
   // space. The exit button and the progress line stay visible always.
@@ -353,6 +354,19 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       if (headerHideTimer.current) window.clearTimeout(headerHideTimer.current);
     };
   }, [bumpHeaderInfo]);
+
+  // Close the combined-order list when clicking anywhere outside it.
+  useEffect(() => {
+    if (!orderListOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (orderListRef.current && !orderListRef.current.contains(e.target as Node)) {
+        setOrderListOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [orderListOpen]);
+
   const [scanResults, setScanResults] = useState<Map<string, Set<string>>>(new Map());
   const [isScanning, setIsScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState<string>('');
@@ -1351,11 +1365,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         <div className="flex flex-col items-center">
           {/* Contextual info — collapses (auto-hide) to free space for the list. */}
           <div
-            className={`flex flex-col items-center overflow-hidden transition-all duration-300 ${
-              showHeaderInfo ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-            }`}
+            className={`flex flex-col items-center transition-all duration-300 ${
+              orderListOpen ? 'overflow-visible' : 'overflow-hidden'
+            } ${showHeaderInfo ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}
           >
-            <div className="flex items-center gap-2 relative">
+            <div ref={orderListRef} className="flex items-center gap-2 relative">
               {(() => {
                 const fallback = activeListId
                   ? `#${activeListId.slice(-6).toUpperCase()}`
