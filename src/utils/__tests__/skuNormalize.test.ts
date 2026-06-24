@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { canonicalBikeSku, resolveInventorySku } from '../skuNormalize';
+import { canonicalBikeSku, resolveInventorySku, getSubstituteSku } from '../skuNormalize';
 
 describe('canonicalBikeSku', () => {
   it('strips a spurious extra trailing letter from a bike SKU', () => {
@@ -51,5 +51,33 @@ describe('resolveInventorySku', () => {
 
   it('never maps the inventory-side SKU itself', () => {
     expect(resolveInventorySku('03-4070BK')).toBe('03-4070BK');
+  });
+});
+
+describe('getSubstituteSku', () => {
+  it('returns the hardcoded substitute for an out-of-stock SKU', () => {
+    expect(getSubstituteSku('03-3768BL')).toBe('03-3768BLD');
+  });
+
+  it('returns null for a SKU with no substitute', () => {
+    expect(getSubstituteSku('03-3726RD')).toBeNull();
+    expect(getSubstituteSku('128353')).toBeNull();
+  });
+
+  it('de-mangles a spurious trailing letter before looking up the map', () => {
+    // A watcher-mangled "03-3768BLX" canonicalizes to 03-3768BL → substitute applies.
+    expect(getSubstituteSku('03-3768BLX')).toBe('03-3768BLD');
+  });
+
+  it('never returns the input SKU itself (no self-substitution)', () => {
+    // 03-3768BLD canonicalizes to 03-3768BL whose substitute IS 03-3768BLD —
+    // that must resolve to null, not a no-op swap onto itself.
+    expect(getSubstituteSku('03-3768BLD')).toBeNull();
+  });
+
+  it('handles null/empty/whitespace safely', () => {
+    expect(getSubstituteSku(null)).toBeNull();
+    expect(getSubstituteSku(undefined)).toBeNull();
+    expect(getSubstituteSku('   ')).toBeNull();
   });
 });

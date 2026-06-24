@@ -96,6 +96,12 @@ export type CorrectionAction =
       };
       /** Optional override for pickingQty on the swap; preserves original qty when omitted. */
       newQty?: number;
+      /**
+       * Post-swap problem-flag state. Omitted → both cleared (the normal "this
+       * is now fixed" case). Used by Edit Order's Undo to restore the original
+       * out-of-stock flag when reverting an auto-resolved substitution.
+       */
+      flags?: { sku_not_found?: boolean; insufficient_stock?: boolean };
       reason?: string;
     }
   | { type: 'adjust_qty'; sku: string; newQty: number; reason?: string }

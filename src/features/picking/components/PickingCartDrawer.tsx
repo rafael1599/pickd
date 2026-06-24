@@ -468,8 +468,8 @@ export const PickingCartDrawer: React.FC = () => {
                   item_name: action.replacement.item_name,
                   warehouse: action.replacement.warehouse,
                   pickingQty: action.newQty ?? item.pickingQty,
-                  sku_not_found: false,
-                  insufficient_stock: false,
+                  sku_not_found: action.flags?.sku_not_found ?? false,
+                  insufficient_stock: action.flags?.insufficient_stock ?? false,
                 }
               : item
           );
