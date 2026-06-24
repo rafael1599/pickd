@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { supabase } from '../../../lib/supabase';
+import { normalizeSkuOnRegister } from '../../../utils/skuNormalize';
 import type { LabelInventoryItem } from '../hooks/useLabelItems';
 
 interface InlineSkuCreateProps {
@@ -39,7 +40,7 @@ export function InlineSkuCreate({
     setIsCreating(true);
 
     const { data, error } = await (supabase.rpc as CallableFunction)('register_new_sku', {
-      p_sku: sku.trim(),
+      p_sku: normalizeSkuOnRegister(sku),
       p_item_name: itemName.trim(),
       p_warehouse: 'LUDLOW',
       p_location: location.trim(),
@@ -107,7 +108,7 @@ export function InlineSkuCreate({
         <input
           type="text"
           value={sku}
-          onChange={(e) => setSku(e.target.value.toUpperCase())}
+          onChange={(e) => setSku(normalizeSkuOnRegister(e.target.value))}
           placeholder="e.g. 03-4099BK"
           className="w-full h-10 px-3 bg-surface border border-subtle rounded-xl text-sm text-content placeholder:text-muted focus:outline-none focus:border-accent/40"
         />
