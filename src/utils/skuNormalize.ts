@@ -40,3 +40,39 @@ export function resolveInventorySku(sku: string | null | undefined): string {
   const canon = canonicalBikeSku(sku);
   return AS400_SKU_ALIASES[canon] ?? canon;
 }
+
+/**
+ * Out-of-stock SUBSTITUTES — hardcoded equivalences where an ordered SKU should
+ * be REPLACED by a different, genuinely distinct SKU when the ordered one runs
+ * dry. This is a different relationship from {@link AS400_SKU_ALIASES}:
+ *
+ *  - AS400 alias  → SAME physical bike under a different AS400 code. Keep the
+ *    order SKU, just point the UI at where the stock lives (warning chip).
+ *  - Substitute   → a DIFFERENT product accepted as a stand-in (e.g. the prior
+ *    model year). The order SKU is actually swapped so the paperwork/labels
+ *    reflect what physically ships.
+ *
+ * Directional: key = ordered SKU that runs dry, value = preferred replacement
+ * that holds the stock. Grow this map as equivalences are discovered in the
+ * field. Edit Order auto-applies the swap when the replacement has enough stock
+ * (see CorrectionModeView), and offers Undo.
+ *
+ * Seed: 03-3768BL (DIVIDE S/O 12X27 2026 RIPTIDE, routinely 0 stock) →
+ *       03-3768BLD (DIVIDE S/O 12X27 2025 RIPTIDE, where the units actually are).
+ */
+export const SKU_SUBSTITUTES: Record<string, string> = {
+  '03-3768BL': '03-3768BLD',
+};
+
+/**
+ * Returns the hardcoded substitute for an out-of-stock order SKU, or null when
+ * there is none. De-mangles the spurious trailing letter first (same fallback
+ * contract as {@link resolveInventorySku}) so a watcher-mangled SKU still hits
+ * the map. Never returns the input SKU itself.
+ */
+export function getSubstituteSku(sku: string | null | undefined): string | null {
+  const s = (sku || '').trim();
+  if (!s) return null;
+  const sub = SKU_SUBSTITUTES[s] ?? SKU_SUBSTITUTES[canonicalBikeSku(s)] ?? null;
+  return sub && sub !== s ? sub : null;
+}

@@ -9,6 +9,8 @@ import X from 'lucide-react/dist/esm/icons/x';
 import Plus from 'lucide-react/dist/esm/icons/plus';
 import Loader from 'lucide-react/dist/esm/icons/loader';
 import { findSimilarSkus, type SimilarSku } from '../utils/findSimilarSkus';
+import { pickBestStockRow } from '../utils/stockSubstitute';
+import { getSubstituteSku } from '../../../utils/skuNormalize';
 import { inventoryApi } from '../../inventory/api/inventoryApi';
 import type { PickingItem, CorrectionAction } from './DoubleCheckView';
 import type { InventoryItemWithMetadata } from '../../../schemas/inventory.schema';
@@ -300,6 +302,137 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
     if (!item) return [];
     return findSimilarSkus(item.sku, item.warehouse || 'LUDLOW', inventoryData, 5);
   }, [activePanel, allItems, inventoryData]);
+
+  // ── Tier 1: auto-resolve out-of-stock items with a hardcoded substitute ──
+  // On open, any insufficient_stock problem item whose SKU has a hardcoded
+  // substitute (SKU_SUBSTITUTES) is swapped automatically — but only when the
+  // substitute carries enough LIVE stock — and surfaced with an Undo. We read
+  // live stock for the substitute SKU because inventoryData is paginated.
+  const mountedRef = useRef(true);
+  const autoTriedRef = useRef<Set<string>>(new Set());
+  const [autoResolved, setAutoResolved] = useState<
+    {
+      from: string;
+      to: string;
+      original: { location: string | null; warehouse: string; item_name: string | null };
+    }[]
+  >([]);
+  const [undoingSku, setUndoingSku] = useState<string | null>(null);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const candidates = problemItems.filter(
+      (i) =>
+        i.insufficient_stock &&
+        !i.sku_not_found &&
+        getSubstituteSku(i.sku) &&
+        !autoTriedRef.current.has(i.sku)
+    );
+    if (candidates.length === 0) return;
+
+    candidates.forEach(async (item) => {
+      autoTriedRef.current.add(item.sku); // process each SKU once per mount
+      const subSku = getSubstituteSku(item.sku);
+      if (!subSku) return;
+      const warehouse = item.warehouse || 'LUDLOW';
+      try {
+        const [bikes, parts] = await Promise.all([
+          inventoryApi.fetchInventoryWithMetadata({ search: subSku, showParts: false, limit: 10 }),
+          inventoryApi.fetchInventoryWithMetadata({ search: subSku, showParts: true, limit: 10 }),
+        ]);
+        const best = pickBestStockRow([...bikes.data, ...parts.data], subSku, warehouse);
+        // Only auto-swap when the substitute fully covers the order. Partial
+        // stock is a judgment call — leave it flagged for the picker.
+        if (!best || best.quantity < item.pickingQty) return;
+        await onCorrectItem(
+          {
+            type: 'swap',
+            originalSku: item.sku,
+            replacement: {
+              sku: best.sku,
+              location: best.location,
+              warehouse: best.warehouse,
+              item_name: best.item_name ?? null,
+            },
+            reason: 'Auto-resolved: out-of-stock equivalent',
+          },
+          getTargetListId(item.sku)
+        );
+        if (mountedRef.current) {
+          setAutoResolved((prev) =>
+            prev.some((e) => e.from === item.sku && e.to === best.sku)
+              ? prev
+              : [
+                  ...prev,
+                  {
+                    from: item.sku,
+                    to: best.sku,
+                    original: {
+                      location: item.location,
+                      warehouse,
+                      item_name: item.item_name ?? null,
+                    },
+                  },
+                ]
+          );
+        }
+      } catch {
+        // Live stock lookup failed — leave the item flagged for manual handling.
+      }
+    });
+  }, [problemItems, onCorrectItem, getTargetListId]);
+
+  const handleUndoAutoResolve = async (entry: {
+    from: string;
+    to: string;
+    original: { location: string | null; warehouse: string; item_name: string | null };
+  }) => {
+    if (undoingSku) return;
+    setUndoingSku(entry.to);
+    try {
+      // Swap the substitute back to the original SKU and restore its out-of-stock
+      // flag so it reads as the problem it was. The original stays in
+      // autoTriedRef, so it is NOT auto-resolved again this session.
+      await onCorrectItem(
+        {
+          type: 'swap',
+          originalSku: entry.to,
+          replacement: {
+            sku: entry.from,
+            location: entry.original.location,
+            warehouse: entry.original.warehouse,
+            item_name: entry.original.item_name,
+          },
+          flags: { insufficient_stock: true },
+          reason: 'Undo auto-resolve',
+        },
+        getTargetListId(entry.to)
+      );
+      if (mountedRef.current) setAutoResolved((prev) => prev.filter((e) => e.to !== entry.to));
+    } finally {
+      if (mountedRef.current) setUndoingSku(null);
+    }
+  };
+
+  // ── Tier 2: proactive one-tap suggestion for out-of-stock items WITHOUT a
+  // hardcoded substitute — the best same-model sibling that has stock. One tap
+  // opens the existing confirm-replace flow (reason picker preserved).
+  const cardSuggestions = useMemo(() => {
+    const map = new Map<string, SimilarSku>();
+    for (const item of problemItems) {
+      if (!item.insufficient_stock || item.sku_not_found) continue;
+      if (getSubstituteSku(item.sku)) continue; // tier 1 owns these
+      const [best] = findSimilarSkus(item.sku, item.warehouse || 'LUDLOW', inventoryData, 1);
+      if (best) map.set(item.sku, best);
+    }
+    return map;
+  }, [problemItems, inventoryData]);
 
   // Server-side search (shared by Replace and Add Item panels)
   const [searchResults, setSearchResults] = useState<InventoryItem[]>([]);
@@ -625,6 +758,35 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
               <Trash2 size={12} className="inline mr-1 -mt-0.5" /> Remove
             </button>
           </div>
+
+          {/* Tier 2: proactive one-tap suggestion for out-of-stock items that
+              have no hardcoded substitute. Opens the confirm-replace flow so the
+              picker still confirms with a reason. */}
+          {!isActive && cardSuggestions.get(item.sku) && (
+            <button
+              onClick={() => {
+                const alt = cardSuggestions.get(item.sku)!;
+                handleSelectReplacement(item.sku, {
+                  sku: alt.sku,
+                  location: alt.location,
+                  warehouse: item.warehouse || 'LUDLOW',
+                  item_name: alt.item_name,
+                  quantity: alt.quantity,
+                } as InventoryItem);
+              }}
+              className="mt-2 w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 active:scale-[0.98] transition-all"
+            >
+              <span className="flex items-center gap-1.5 min-w-0">
+                <RefreshCw size={11} className="text-emerald-400 shrink-0" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-300 truncate">
+                  Replace with {cardSuggestions.get(item.sku)!.sku}
+                </span>
+              </span>
+              <span className="text-[10px] font-black text-emerald-400 shrink-0">
+                {cardSuggestions.get(item.sku)!.quantity} avail
+              </span>
+            </button>
+          )}
         </div>
 
         {/* ── Expandable panels ── */}
@@ -804,6 +966,33 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
           </span>
         </div>
       </div>
+
+      {/* Auto-resolved substitutions (tier 1) — out-of-stock SKU swapped for a
+          hardcoded equivalent that has stock. Undo reverts and re-flags it. */}
+      {autoResolved.length > 0 && (
+        <div className="px-4 pb-1 flex flex-col gap-2">
+          {autoResolved.map((entry) => (
+            <div
+              key={`${entry.from}->${entry.to}`}
+              className="flex items-center gap-2 rounded-xl px-4 py-2 bg-emerald-500/10 border border-emerald-500/25"
+            >
+              <Check className="text-emerald-400 flex-shrink-0" size={14} strokeWidth={3} />
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-300/90 flex-1 min-w-0 truncate">
+                Auto-resolved · <span className="text-emerald-400">{entry.from}</span>
+                {' → '}
+                <span className="text-emerald-400">{entry.to}</span>
+              </span>
+              <button
+                onClick={() => handleUndoAutoResolve(entry)}
+                disabled={undoingSku === entry.to}
+                className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 disabled:opacity-50 active:scale-95 transition-all"
+              >
+                {undoingSku === entry.to ? '…' : 'Undo'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Scrollable list */}
       <div className="flex-1 overflow-y-auto px-4 pb-32 min-h-0">
