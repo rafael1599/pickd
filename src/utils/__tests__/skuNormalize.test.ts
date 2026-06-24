@@ -4,6 +4,8 @@ import {
   resolveInventorySku,
   getSubstituteSku,
   normalizeSkuOnRegister,
+  formatSkuForDisplay,
+  rawSkuForStore,
 } from '../skuNormalize';
 
 describe('canonicalBikeSku', () => {
@@ -122,5 +124,68 @@ describe('normalizeSkuOnRegister', () => {
     expect(normalizeSkuOnRegister(null)).toBe('');
     expect(normalizeSkuOnRegister(undefined)).toBe('');
     expect(normalizeSkuOnRegister('')).toBe('');
+  });
+});
+
+describe('formatSkuForDisplay', () => {
+  it('inserts the dash for 6-digit numeric part SKUs', () => {
+    expect(formatSkuForDisplay('480520')).toBe('48-0520');
+    expect(formatSkuForDisplay('128353')).toBe('12-8353');
+    expect(formatSkuForDisplay('000464')).toBe('00-0464');
+  });
+
+  it('inserts the dash for bike-style undashed SKUs (with color code)', () => {
+    expect(formatSkuForDisplay('023680GY')).toBe('02-3680GY');
+    expect(formatSkuForDisplay('033779RDD')).toBe('03-3779RDD');
+  });
+
+  it('leaves already-dashed SKUs unchanged (idempotent)', () => {
+    expect(formatSkuForDisplay('03-3768BL')).toBe('03-3768BL');
+    expect(formatSkuForDisplay(formatSkuForDisplay('480520'))).toBe('48-0520');
+  });
+
+  it('does NOT dash UPCs / tracking numbers (more than six digits)', () => {
+    expect(formatSkuForDisplay('496942473266')).toBe('496942473266');
+    expect(formatSkuForDisplay('792212140716')).toBe('792212140716');
+  });
+
+  it('leaves text SKUs and short codes untouched', () => {
+    expect(formatSkuForDisplay('BRAKE')).toBe('BRAKE');
+    expect(formatSkuForDisplay('AVID-BB5/7')).toBe('AVID-BB5/7');
+    expect(formatSkuForDisplay('8153')).toBe('8153');
+  });
+
+  it('handles null/empty safely', () => {
+    expect(formatSkuForDisplay(null)).toBe('');
+    expect(formatSkuForDisplay(undefined)).toBe('');
+    expect(formatSkuForDisplay('')).toBe('');
+  });
+});
+
+describe('rawSkuForStore', () => {
+  it('strips the catalog dash from pure-numeric part SKUs', () => {
+    expect(rawSkuForStore('48-0520')).toBe('480520');
+    expect(rawSkuForStore('12-8353')).toBe('128353');
+  });
+
+  it('keeps the dash on bike SKUs (color-code letters → dash-canonical)', () => {
+    expect(rawSkuForStore('03-3768BL')).toBe('03-3768BL');
+  });
+
+  it('round-trips with formatSkuForDisplay for numeric parts', () => {
+    expect(rawSkuForStore(formatSkuForDisplay('480520'))).toBe('480520');
+  });
+
+  it('leaves text / undashed / UPC SKUs untouched', () => {
+    expect(rawSkuForStore('480520')).toBe('480520');
+    expect(rawSkuForStore('BRAKE')).toBe('BRAKE');
+    expect(rawSkuForStore('AVID-BB5/7')).toBe('AVID-BB5/7');
+    expect(rawSkuForStore('496942473266')).toBe('496942473266');
+  });
+
+  it('handles null/empty safely', () => {
+    expect(rawSkuForStore(null)).toBe('');
+    expect(rawSkuForStore(undefined)).toBe('');
+    expect(rawSkuForStore('')).toBe('');
   });
 });

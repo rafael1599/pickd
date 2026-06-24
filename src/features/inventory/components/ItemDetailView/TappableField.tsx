@@ -4,6 +4,13 @@ import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
 interface TappableFieldProps {
   label: string;
   value: string;
+  /**
+   * Optional read-only display string shown ONLY in display mode (not while
+   * editing). Lets the row present a formatted value (e.g. a dashed SKU) while
+   * `value` stays the raw form value used for editing/persistence. Falls back
+   * to `value` when omitted.
+   */
+  displayValue?: string;
   isActive: boolean;
   onTap: () => void;
   onBlur: () => void;
@@ -24,6 +31,7 @@ interface TappableFieldProps {
 export const TappableField: React.FC<TappableFieldProps> = ({
   label,
   value,
+  displayValue,
   isActive,
   onTap,
   onBlur,
@@ -107,7 +115,9 @@ export const TappableField: React.FC<TappableFieldProps> = ({
         {label}
       </span>
       <span className="flex-1 text-sm text-content font-medium text-right truncate ml-3">
-        {value || <span className="text-muted/40 italic">{placeholder || '—'}</span>}
+        {displayValue || value || (
+          <span className="text-muted/40 italic">{placeholder || '—'}</span>
+        )}
       </span>
       <ChevronRight size={16} className="text-muted/40 ml-2 shrink-0" />
     </button>

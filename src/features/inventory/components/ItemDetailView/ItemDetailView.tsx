@@ -44,6 +44,7 @@ import {
 import { useActiveField } from './useActiveField.ts';
 import { DetailToolbar } from './DetailToolbar.tsx';
 import { PhotoHero } from './PhotoHero.tsx';
+import { formatSkuForDisplay, rawSkuForStore } from '../../../../utils/skuNormalize';
 import { TappableField } from './TappableField.tsx';
 import { SectionRow } from './SectionRow.tsx';
 import { QuantityControl } from './QuantityControl.tsx';
@@ -996,8 +997,13 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                 </span>
                 <AutocompleteInput
                   id="detail_sku"
-                  value={sku}
-                  onChange={(v: string) => setValue('sku', v, { shouldValidate: true })}
+                  // Show the canonical dash ("480520" → "48-0520") while keeping
+                  // the form value raw via rawSkuForStore, so what we persist
+                  // still matches the (undashed) SKU the order carries.
+                  value={formatSkuForDisplay(sku)}
+                  onChange={(v: string) =>
+                    setValue('sku', rawSkuForStore(v), { shouldValidate: true })
+                  }
                   suggestions={skuSuggestions}
                   placeholder="Enter SKU..."
                   minChars={2}
@@ -1068,6 +1074,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
               <TappableField
                 label="SKU"
                 value={sku}
+                // Display the canonical dash; tapping to edit reveals the raw
+                // stored value so renames compare like-for-like.
+                displayValue={formatSkuForDisplay(sku)}
                 isActive={isActive('sku')}
                 onTap={() => setActiveField('sku')}
                 onBlur={() => handleFieldBlur()}

@@ -50,7 +50,7 @@ import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingCo
 import { useStockReservations, buildReservationKey } from '../hooks/useStockReservations';
 import { useStaleLocationCheck } from '../hooks/useStaleLocationCheck';
 import { useCanonicalSkuResolution } from '../hooks/useCanonicalSkuResolution';
-import { AS400_SKU_ALIASES } from '../../../utils/skuNormalize';
+import { AS400_SKU_ALIASES, formatSkuForDisplay } from '../../../utils/skuNormalize';
 import { DistributionGlyph } from '../../inventory/components/DistributionJengaViz';
 import { WaitingConflictModal } from './WaitingConflictModal';
 import { WaitingReasonModal } from './WaitingReasonModal';
@@ -1836,7 +1836,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                     key={`${s.sku}-${s.frozenLocation}`}
                     className="text-sm font-medium text-content"
                   >
-                    <span className="font-black">{s.sku}</span>{' '}
+                    <span className="font-black">{formatSkuForDisplay(s.sku)}</span>{' '}
                     <span className="text-amber-500/80 line-through">{s.frozenLocation}</span>{' '}
                     <span className="text-muted">→</span>{' '}
                     <span className="font-black text-emerald-400">{s.suggestedLocation}</span>{' '}
@@ -1925,6 +1925,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                   // are easier to spot. Review mode keeps everything visible.
                   const hideDetails = isChecked && !isReviewMode;
                   const similarity = skuSimilarityMap[item.sku];
+                  // Display-only canonical dash ("480520" → "48-0520"). Stored
+                  // SKU stays raw — matching/similarity above key off item.sku.
+                  const displaySku = formatSkuForDisplay(item.sku);
                   // Canonical-SKU fallback: if a not-found item resolves via its
                   // canonical SKU, treat it as found and show its location.
                   const canonResolved = canonicalResolution.get(item.sku);
@@ -2057,18 +2060,18 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                   <>
                                     {similarity?.prefix ? (
                                       <span className="animate-pulse-highlight">
-                                        {item.sku.substring(0, 2)}
+                                        {displaySku.substring(0, 2)}
                                       </span>
                                     ) : (
-                                      item.sku.substring(0, 2)
+                                      displaySku.substring(0, 2)
                                     )}
-                                    {item.sku.substring(2, item.sku.length - 2)}
+                                    {displaySku.substring(2, displaySku.length - 2)}
                                     {similarity?.suffix ? (
                                       <span className="animate-pulse-highlight">
-                                        {item.sku.substring(item.sku.length - 2)}
+                                        {displaySku.substring(displaySku.length - 2)}
                                       </span>
                                     ) : (
-                                      item.sku.substring(item.sku.length - 2)
+                                      displaySku.substring(displaySku.length - 2)
                                     )}
                                   </>
                                 )}

@@ -5,6 +5,7 @@ import ArrowRightLeft from 'lucide-react/dist/esm/icons/arrow-right-left';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import type { DistributionItem } from '../../../schemas/inventory.schema';
 import { DistributionJengaViz } from './DistributionJengaViz';
+import { formatSkuForDisplay } from '../../../utils/skuNormalize';
 
 interface InventoryCardProps {
   sku: string;
@@ -150,7 +151,7 @@ export const InventoryCard = memo(
                 FDX {fedex_tracking_number}
                 {sku !== fedex_tracking_number && (
                   <span className="text-muted/60 font-bold normal-case tracking-normal">
-                    → now {sku}
+                    → now {formatSkuForDisplay(sku)}
                   </span>
                 )}
               </a>
@@ -180,7 +181,7 @@ export const InventoryCard = memo(
                     className={`text-base font-extrabold text-content tracking-tighter leading-tight ${!is_active ? 'line-through opacity-60' : ''}`}
                     style={{ fontFamily: 'var(--font-heading)' }}
                   >
-                    {sku}
+                    {formatSkuForDisplay(sku)}
                     {sku_metadata?.is_scratch_dent && sku_metadata.serial_number && (
                       <span className="ml-1.5 text-xs font-bold text-muted tracking-tight">
                         ({sku_metadata.serial_number})

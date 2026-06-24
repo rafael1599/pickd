@@ -93,3 +93,38 @@ export function normalizeSkuOnRegister(raw: string | null | undefined): string {
   const s = (raw || '').trim().toUpperCase().replace(/\s+/g, '');
   return /^\d{2}[^-]/.test(s) && /[A-Z]/.test(s) ? `${s.slice(0, 2)}-${s.slice(2)}` : s;
 }
+
+/**
+ * Display-time SKU formatter. Inserts the canonical dash after the 2-digit
+ * department code so every catalog SKU reads consistently in the UI
+ * ("480520" → "48-0520", "033779RDD" → "03-3779RDD"), regardless of whether the
+ * value is physically stored with the dash.
+ *
+ * PRESENTATION ONLY — never feed the result back into matching, lookups, photo
+ * paths or persistence. Parts are stored UNDASHED and bikes DASHED (historical,
+ * inconsistent), and rewriting either form would break order ↔ inventory
+ * matching. This only changes how the SKU is rendered.
+ *
+ * Scoped to the catalog shape `\d{2}\d{4}` plus an optional 1–3 letter
+ * color/finish code. Left untouched: already-dashed SKUs ("03-3768BL"),
+ * pure-numeric codes that aren't exactly six digits — UPCs / tracking numbers
+ * like "496942473266" and short codes like "8153" — and text SKUs ("BRAKE").
+ */
+export function formatSkuForDisplay(sku: string | null | undefined): string {
+  const s = (sku || '').trim();
+  const m = /^(\d{2})(\d{4}[A-Za-z]{0,3})$/.exec(s);
+  return m ? `${m[1]}-${m[2]}` : s;
+}
+
+/**
+ * Inverse of {@link formatSkuForDisplay} for editable inputs that DISPLAY the
+ * dashed form (see register flow in ItemDetailView): strips the catalog dash
+ * from a pure-numeric part SKU so the persisted value matches the undashed form
+ * parts are stored under ("48-0520" → "480520"). Bikes keep their dash — the
+ * color-code letters mark them as dash-canonical — and anything that isn't
+ * "\d{2}-\d+" (text SKUs, already-undashed, UPCs) is returned unchanged.
+ */
+export function rawSkuForStore(sku: string | null | undefined): string {
+  const s = (sku || '').trim();
+  return /^\d{2}-\d+$/.test(s) ? s.replace('-', '') : s;
+}
