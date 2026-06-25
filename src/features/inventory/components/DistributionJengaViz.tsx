@@ -122,6 +122,12 @@ const LABEL_TEXT = '#9AA0A6'; // grey text hints
 const LABEL_INK = '#2B2B2B'; // barcode / QR
 const JAMIS_BLUE = '#2E78B5'; // label header band
 
+// PALLET wood palette (idea-137: warm tone harmonised with the kraft cartons).
+const PALLET_TOP = '#D8A862'; // top deck (lit)
+const PALLET_FRONT = '#C68A43'; // front deck boards
+const PALLET_BLOCK = '#B5793A'; // support blocks
+const PALLET_GAP = '#8A5E2C'; // plank seams
+
 interface GlyphProps {
   type: DistributionItem['type'];
   unitsEach: number;
@@ -132,13 +138,13 @@ interface GlyphProps {
 
 /**
  * A single distribution glyph (LINE → bike carton, TOWER → box stack,
- * PALLET → pallet, OTHER → crate) with its unit count drawn in the middle.
+ * PALLET → wood pallet, OTHER → crate) with its unit count drawn in the middle.
  * Exported so other views (e.g. the Double-Check pick plan) can render the same
  * graphical representation used in stock view.
  */
 export function DistributionGlyph({ type, unitsEach, showNumber = true }: GlyphProps) {
   if (type === 'TOWER') return <BoxTowerGlyph n={unitsEach} showNumber={showNumber} />;
-  if (type === 'PALLET') return <JengaPallet n={unitsEach} showNumber={showNumber} />;
+  if (type === 'PALLET') return <WoodPalletGlyph n={unitsEach} showNumber={showNumber} />;
   if (type === 'OTHER') return <JengaCrate n={unitsEach} showNumber={showNumber} />;
   // LINE → standing bike carton.
   return <BikeBoxGlyph n={unitsEach} showNumber={showNumber} />;
@@ -330,112 +336,88 @@ function BoxTowerGlyph({ n, showNumber = true }: { n: number; showNumber?: boole
   );
 }
 
-/** Pallet — wooden base with 3 visible planks + a box stacked on top.
- *  Iconic warehouse pallet, isometric 3D look. */
-function JengaPallet({ n, showNumber = true }: { n: number; showNumber?: boolean }) {
+/** PALLET → a wooden warehouse pallet in perspective: a slatted top deck
+ *  receding to the back, and a front face with two fork openings between three
+ *  support blocks. Wood tone, warmer than the kraft cartons. showNumber overlays
+ *  the unit count on the front face. */
+function WoodPalletGlyph({ n, showNumber = true }: { n: number; showNumber?: boolean }) {
   return (
     <div className="relative inline-block" title={`Pallet · ${n}`}>
-      <svg width="42" height="48" viewBox="0 0 42 48" aria-hidden>
-        {/* Box on top of the pallet */}
-        {/* top of box */}
-        <polygon
-          points="9,8 29,8 33,4 13,4"
-          fill={TOP}
-          stroke={STROKE}
-          strokeWidth="0.7"
-          strokeLinejoin="round"
-        />
-        {/* front of box */}
-        <rect x="9" y="8" width="20" height="18" fill={FRONT} stroke={STROKE} strokeWidth="0.7" />
-        {/* right side of box */}
-        <polygon
-          points="29,8 33,4 33,22 29,26"
-          fill={SIDE}
-          stroke={STROKE}
-          strokeWidth="0.7"
-          strokeLinejoin="round"
-        />
-        {/* Pallet base — 3 horizontal planks with gaps between */}
-        {/* top plank */}
-        <rect
-          x="4"
-          y="28"
-          width="30"
-          height="3"
-          fill={FRONT_ALT}
-          stroke={STROKE}
-          strokeWidth="0.5"
-        />
-        <polygon
-          points="34,28 37,25 7,25 4,28"
-          fill={TOP}
-          stroke={STROKE}
-          strokeWidth="0.5"
-          strokeLinejoin="round"
-        />
-        <polygon
-          points="34,28 37,25 37,28 34,31"
-          fill={SIDE}
-          stroke={STROKE}
-          strokeWidth="0.5"
-          strokeLinejoin="round"
-        />
-        {/* middle plank */}
-        <rect
-          x="4"
-          y="33"
-          width="30"
-          height="3"
-          fill={FRONT_ALT}
-          stroke={STROKE}
-          strokeWidth="0.5"
-        />
-        <polygon
-          points="34,33 37,30 7,30 4,33"
-          fill={TOP}
-          stroke={STROKE}
-          strokeWidth="0.5"
-          strokeLinejoin="round"
-        />
-        <polygon
-          points="34,33 37,30 37,33 34,36"
-          fill={SIDE}
-          stroke={STROKE}
-          strokeWidth="0.5"
-          strokeLinejoin="round"
-        />
-        {/* bottom plank */}
-        <rect
-          x="4"
-          y="38"
-          width="30"
-          height="3"
-          fill={FRONT_ALT}
-          stroke={STROKE}
-          strokeWidth="0.5"
-        />
-        <polygon
-          points="34,38 37,35 7,35 4,38"
-          fill={TOP}
-          stroke={STROKE}
-          strokeWidth="0.5"
-          strokeLinejoin="round"
-        />
-        <polygon
-          points="34,38 37,35 37,38 34,41"
-          fill={SIDE}
-          stroke={STROKE}
-          strokeWidth="0.5"
-          strokeLinejoin="round"
-        />
+      <svg width="46" height="31" viewBox="0 0 60 40" aria-hidden>
         {/* Ground shadow */}
-        <ellipse cx="20" cy="45" rx="17" ry="1.5" fill="black" opacity="0.22" />
+        <ellipse cx="30" cy="35.6" rx="25" ry="1.6" fill="black" opacity="0.16" />
+        {/* Top deck — perspective parallelogram, receding to the back */}
+        <polygon
+          points="3,18 8,8 52,8 57,18"
+          fill={PALLET_TOP}
+          stroke={STROKE}
+          strokeWidth="0.8"
+          strokeLinejoin="round"
+        />
+        {/* Plank seams across the deck */}
+        <g stroke={PALLET_GAP} strokeWidth="0.7" opacity="0.6">
+          <line x1="4" y1="16" x2="56" y2="16" />
+          <line x1="5" y1="14" x2="55" y2="14" />
+          <line x1="6" y1="12" x2="54" y2="12" />
+          <line x1="7" y1="10.2" x2="53" y2="10.2" />
+        </g>
+        {/* Front face — top + bottom deck boards */}
+        <rect
+          x="3"
+          y="18"
+          width="54"
+          height="3.6"
+          fill={PALLET_FRONT}
+          stroke={STROKE}
+          strokeWidth="0.7"
+        />
+        <rect
+          x="3"
+          y="28.4"
+          width="54"
+          height="3.6"
+          fill={PALLET_FRONT}
+          stroke={STROKE}
+          strokeWidth="0.7"
+        />
+        {/* Three support blocks — the two gaps between them are the fork openings */}
+        <rect
+          x="3"
+          y="21.6"
+          width="9"
+          height="6.8"
+          fill={PALLET_BLOCK}
+          stroke={STROKE}
+          strokeWidth="0.7"
+        />
+        <rect
+          x="25.5"
+          y="21.6"
+          width="9"
+          height="6.8"
+          fill={PALLET_BLOCK}
+          stroke={STROKE}
+          strokeWidth="0.7"
+        />
+        <rect
+          x="48"
+          y="21.6"
+          width="9"
+          height="6.8"
+          fill={PALLET_BLOCK}
+          stroke={STROKE}
+          strokeWidth="0.7"
+        />
       </svg>
-      {/* Number on the box face */}
+      {/* Number patch overlaid on the front face (views that want it inside). */}
       {showNumber && (
         <span
-          className="absolute left-[9px] top-[8px] w-[20px] h-[18px] flex items-center justify-center text-[11px] font-black tabular-nums leading-none pointer-events-none"
-          style={{ fontFamily: 'var(--font-heading)', color: '#3C1A04' }}
+          className="absolute left-1/2 top-[62%] -translate-x-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded-sm text-[10px] font-black tabular-nums leading-none pointer-events-none"
+          style={{
+            fontFamily: 'var(--font-heading)',
+            backgroundColor: '#3C1A04',
+            color: '#FCD9A0',
+          }}
         >
           {n}
         </span>
