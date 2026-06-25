@@ -24,19 +24,33 @@ export const DistributionJengaViz = memo(
 
     return (
       <div className="flex items-center gap-2 w-full bg-surface/30 border border-subtle/40 rounded-md px-2 py-2 mb-1.5">
-        <div className="flex-1 min-w-0 flex items-end justify-center gap-2.5 flex-wrap">
+        <div className="flex-1 min-w-0 flex items-center justify-center gap-3 flex-wrap">
           {isEmpty ? (
             <JengaPile />
           ) : (
-            distribution.flatMap((d, idx) =>
-              Array.from({ length: d.count }, (_, i) => (
-                <DistributionGlyph
-                  key={`${idx}-${i}-${d.type}`}
-                  type={d.type}
-                  unitsEach={d.units_each}
-                />
-              ))
-            )
+            distribution.map((d, idx) => (
+              <div key={`${idx}-${d.type}`} className="flex items-center gap-1.5">
+                {/* The graphic indicator(s) for this distribution. */}
+                <div className="flex items-end gap-1">
+                  {Array.from({ length: d.count }, (_, i) => (
+                    <DistributionGlyph
+                      key={i}
+                      type={d.type}
+                      unitsEach={d.units_each}
+                      showNumber={false}
+                    />
+                  ))}
+                </div>
+                {/* Units-per-container, shown large to the RIGHT of the indicator
+                    (idea-137 parity with the Double-Check pick plan). */}
+                <span
+                  className="text-2xl font-black tabular-nums leading-none text-content"
+                  style={{ fontFamily: 'var(--font-heading)' }}
+                >
+                  {d.units_each}
+                </span>
+              </div>
+            ))
           )}
         </div>
         <DistributionMenu isEmpty={isEmpty} onAdjust={onAdjust} />
