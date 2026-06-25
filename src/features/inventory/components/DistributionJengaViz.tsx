@@ -3,6 +3,7 @@ import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal';
 import Edit3 from 'lucide-react/dist/esm/icons/edit-3';
 import type { DistributionItem } from '../../../schemas/inventory.schema';
 import { MenuOverlay } from '../../../components/ui/MenuOverlay';
+import jamisLogo from './jamis-bikes.webp';
 
 interface DistributionJengaVizProps {
   distribution: DistributionItem[];
@@ -14,7 +15,7 @@ interface DistributionJengaVizProps {
  * (idea-126). Each glyph is drawn in SVG with isometric front/top/right faces
  * for a real wooden-block look:
  *   · LINE  → a standing bike carton (JAMIS box on its end, idea-137).
- *   · TOWER → classic Jenga tower silhouette (alternating crisscross layers).
+ *   · TOWER → a 3-tier stack of bike cartons (JAMIS box at the centre, idea-137).
  *   · empty → a scattered pile of sticks, signaling "stock on the floor but
  *             not yet categorized".
  */
@@ -130,13 +131,13 @@ interface GlyphProps {
 }
 
 /**
- * A single distribution glyph (LINE → bike carton, TOWER → jenga tower,
+ * A single distribution glyph (LINE → bike carton, TOWER → box stack,
  * PALLET → pallet, OTHER → crate) with its unit count drawn in the middle.
  * Exported so other views (e.g. the Double-Check pick plan) can render the same
  * graphical representation used in stock view.
  */
 export function DistributionGlyph({ type, unitsEach, showNumber = true }: GlyphProps) {
-  if (type === 'TOWER') return <JengaTower n={unitsEach} showNumber={showNumber} />;
+  if (type === 'TOWER') return <BoxTowerGlyph n={unitsEach} showNumber={showNumber} />;
   if (type === 'PALLET') return <JengaPallet n={unitsEach} showNumber={showNumber} />;
   if (type === 'OTHER') return <JengaCrate n={unitsEach} showNumber={showNumber} />;
   // LINE → standing bike carton.
@@ -218,76 +219,101 @@ function BikeBoxGlyph({ n, showNumber = true }: { n: number; showNumber?: boolea
   );
 }
 
-/** Jenga tower — 5 alternating crisscross layers. */
-function JengaTower({ n, showNumber = true }: { n: number; showNumber?: boolean }) {
-  const layers = [0, 1, 2, 3, 4]; // bottom → top
-  const layerH = 7;
-  const baseY = 6;
+/** TOWER → a 3-tier symmetric stack of bike cartons: three end-on cartons, a
+ *  wide carton (long, branded side facing out) and three more — echoing how the
+ *  boxes crisscross on the rack. The real JAMIS BIKES logo rides the centre
+ *  carton; views that want the number inside pass `showNumber` and it overlays
+ *  the centre. */
+function BoxTowerGlyph({ n, showNumber = true }: { n: number; showNumber?: boolean }) {
   return (
     <div className="relative inline-block" title={`Tower · ${n}`}>
-      <svg width="34" height="50" viewBox="0 0 34 50" aria-hidden>
-        {/* Ground shadow */}
-        <ellipse cx="17" cy="47" rx="13" ry="1.4" fill="black" opacity="0.22" />
-        {layers.map((idx) => {
-          const y = baseY + (layers.length - 1 - idx) * layerH; // build top-down
-          // Even layer = 3 sticks side by side (ends-on view).
-          // Odd layer = 1 wide block (long side facing front), rotated 90°.
-          const isPerp = idx % 2 === 0;
-          if (isPerp) {
-            return (
-              <g key={idx}>
-                {/* top of layer (thin lighter band) */}
-                <rect
-                  x="5"
-                  y={y}
-                  width="6"
-                  height={layerH}
-                  fill={FRONT}
-                  stroke={STROKE}
-                  strokeWidth="0.5"
-                />
-                <rect
-                  x="13"
-                  y={y}
-                  width="6"
-                  height={layerH}
-                  fill={FRONT}
-                  stroke={STROKE}
-                  strokeWidth="0.5"
-                />
-                <rect
-                  x="21"
-                  y={y}
-                  width="6"
-                  height={layerH}
-                  fill={FRONT}
-                  stroke={STROKE}
-                  strokeWidth="0.5"
-                />
-                {/* top edges */}
-                <line x1="5" y1={y + 1} x2="11" y2={y + 1} stroke={TOP} strokeWidth="1.2" />
-                <line x1="13" y1={y + 1} x2="19" y2={y + 1} stroke={TOP} strokeWidth="1.2" />
-                <line x1="21" y1={y + 1} x2="27" y2={y + 1} stroke={TOP} strokeWidth="1.2" />
-              </g>
-            );
-          }
-          return (
-            <g key={idx}>
-              <rect
-                x="5"
-                y={y}
-                width="22"
-                height={layerH}
-                fill={FRONT_ALT}
-                stroke={STROKE}
-                strokeWidth="0.5"
-              />
-              <line x1="5" y1={y + 1} x2="27" y2={y + 1} stroke={TOP} strokeWidth="1.2" />
-            </g>
-          );
-        })}
+      <svg width="38" height="47" viewBox="0 0 42 52" aria-hidden>
+        <ellipse cx="21" cy="50.5" rx="17" ry="1.4" fill="black" opacity="0.18" />
+        {/* Top tier — three cartons seen end-on */}
+        <rect
+          x="3"
+          y="2"
+          width="11"
+          height="13"
+          rx="1.3"
+          fill={KRAFT}
+          stroke={STROKE}
+          strokeWidth="1"
+        />
+        <rect
+          x="15.5"
+          y="2"
+          width="11"
+          height="13"
+          rx="1.3"
+          fill={KRAFT}
+          stroke={STROKE}
+          strokeWidth="1"
+        />
+        <rect
+          x="28"
+          y="2"
+          width="11"
+          height="13"
+          rx="1.3"
+          fill={KRAFT}
+          stroke={STROKE}
+          strokeWidth="1"
+        />
+        {/* Middle tier — the wide carton, long branded side facing out */}
+        <rect
+          x="3"
+          y="16.5"
+          width="36"
+          height="18"
+          rx="1.5"
+          fill={KRAFT}
+          stroke={STROKE}
+          strokeWidth="1.1"
+        />
+        {!showNumber && (
+          <image
+            href={jamisLogo}
+            x="6"
+            y="18.5"
+            width="30"
+            height="14"
+            preserveAspectRatio="xMidYMid meet"
+          />
+        )}
+        {/* Bottom tier — mirrors the top */}
+        <rect
+          x="3"
+          y="36"
+          width="11"
+          height="13"
+          rx="1.3"
+          fill={KRAFT}
+          stroke={STROKE}
+          strokeWidth="1"
+        />
+        <rect
+          x="15.5"
+          y="36"
+          width="11"
+          height="13"
+          rx="1.3"
+          fill={KRAFT}
+          stroke={STROKE}
+          strokeWidth="1"
+        />
+        <rect
+          x="28"
+          y="36"
+          width="11"
+          height="13"
+          rx="1.3"
+          fill={KRAFT}
+          stroke={STROKE}
+          strokeWidth="1"
+        />
       </svg>
-      {/* Number patch overlaid center of the tower */}
+      {/* Number patch overlaid on the centre carton (views that want it inside). */}
       {showNumber && (
         <span
           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded-sm text-[10px] font-black tabular-nums leading-none pointer-events-none"
