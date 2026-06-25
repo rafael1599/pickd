@@ -1,0 +1,1142 @@
+{
+  "generated_at": "2026-06-25T21:02:14.532451Z",
+  "count": 284,
+  "rows": [
+    {
+      "sku": "01-0032",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0035",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0064",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0066",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0074",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0261",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0263",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0267",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0282",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0286",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0288",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0289",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0317",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0319",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0349",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0363",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0406",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0411",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0412",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0415",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0422",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0423",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0429",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0437",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0438",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0439",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0440",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0441",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0442",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0449",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0450",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0454",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0455",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0458",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0459",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0460",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0461",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0463",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0464",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0465",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0466",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0469",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0470",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0471",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0472",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0474",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0475",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0476",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0482",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0483",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0484",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0487",
+      "old_image_url": null
+    },
+    {
+      "sku": "01-0489",
+      "old_image_url": null
+    },
+    {
+      "sku": "02-3169BR",
+      "old_image_url": null
+    },
+    {
+      "sku": "02-3645OR",
+      "old_image_url": null
+    },
+    {
+      "sku": "02-3648OR",
+      "old_image_url": null
+    },
+    {
+      "sku": "02-3651GN",
+      "old_image_url": null
+    },
+    {
+      "sku": "02-3652GN",
+      "old_image_url": null
+    },
+    {
+      "sku": "02-3669BL",
+      "old_image_url": null
+    },
+    {
+      "sku": "02-3672RD",
+      "old_image_url": null
+    },
+    {
+      "sku": "02-3673RD",
+      "old_image_url": null
+    },
+    {
+      "sku": "03-3031SL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hudson.png"
+    },
+    {
+      "sku": "03-3161GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hardline.png"
+    },
+    {
+      "sku": "03-3516BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer.png"
+    },
+    {
+      "sku": "03-3604BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hudson-e2.png"
+    },
+    {
+      "sku": "03-3606BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hudson-e2.png"
+    },
+    {
+      "sku": "03-3607GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hudson-e2.png"
+    },
+    {
+      "sku": "03-3646OR",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hardline.png"
+    },
+    {
+      "sku": "03-3647OR",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hardline.png"
+    },
+    {
+      "sku": "03-3648OR",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hardline.png"
+    },
+    {
+      "sku": "03-3653GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hardline.png"
+    },
+    {
+      "sku": "03-3654GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hardline.png"
+    },
+    {
+      "sku": "03-3655GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hardline.png"
+    },
+    {
+      "sku": "03-3656GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hardline.png"
+    },
+    {
+      "sku": "03-3674BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/portal.png"
+    },
+    {
+      "sku": "03-3676BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/portal.png"
+    },
+    {
+      "sku": "03-3677BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/portal.png"
+    },
+    {
+      "sku": "03-3680GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/portal.png"
+    },
+    {
+      "sku": "03-3681GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/portal.png"
+    },
+    {
+      "sku": "03-3682GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/portal.png"
+    },
+    {
+      "sku": "03-3688BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/faultline-mp2.png"
+    },
+    {
+      "sku": "03-3689BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/faultline-mp2.png"
+    },
+    {
+      "sku": "03-3690BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/faultline-mp2.png"
+    },
+    {
+      "sku": "03-3696BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dragon.png"
+    },
+    {
+      "sku": "03-3697BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dragon.png"
+    },
+    {
+      "sku": "03-3698BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dragon.png"
+    },
+    {
+      "sku": "03-3699BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dragon.png"
+    },
+    {
+      "sku": "03-3699GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dragon.png"
+    },
+    {
+      "sku": "03-3700BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dragon.png"
+    },
+    {
+      "sku": "03-3701BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dragon.png"
+    },
+    {
+      "sku": "03-3701GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dragon.png"
+    },
+    {
+      "sku": "03-3702BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dragon.png"
+    },
+    {
+      "sku": "03-3718GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/highpoint.png"
+    },
+    {
+      "sku": "03-3724RD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango.png"
+    },
+    {
+      "sku": "03-3726RD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango.png"
+    },
+    {
+      "sku": "03-3727BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango.png"
+    },
+    {
+      "sku": "03-3729GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango.png"
+    },
+    {
+      "sku": "03-3730BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango.png"
+    },
+    {
+      "sku": "03-3731GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango.png"
+    },
+    {
+      "sku": "03-3732BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango.png"
+    },
+    {
+      "sku": "03-3733GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango.png"
+    },
+    {
+      "sku": "03-3734BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango.png"
+    },
+    {
+      "sku": "03-3735GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango.png"
+    },
+    {
+      "sku": "03-3736BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x.png"
+    },
+    {
+      "sku": "03-3738BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x.png"
+    },
+    {
+      "sku": "03-3740BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x.png"
+    },
+    {
+      "sku": "03-3742BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x.png"
+    },
+    {
+      "sku": "03-3744BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x.png"
+    },
+    {
+      "sku": "03-3746GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x.png"
+    },
+    {
+      "sku": "03-3747BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x.png"
+    },
+    {
+      "sku": "03-3750GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x.png"
+    },
+    {
+      "sku": "03-3751BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x.png"
+    },
+    {
+      "sku": "03-3752GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x.png"
+    },
+    {
+      "sku": "03-3753BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x.png"
+    },
+    {
+      "sku": "03-3754GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x.png"
+    },
+    {
+      "sku": "03-3755BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x.png"
+    },
+    {
+      "sku": "03-3767MN",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/helix.png"
+    },
+    {
+      "sku": "03-3790RD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/ventura.png"
+    },
+    {
+      "sku": "03-3791PD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/ventura.png"
+    },
+    {
+      "sku": "03-3792RD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/ventura.png"
+    },
+    {
+      "sku": "03-3793PD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/ventura.png"
+    },
+    {
+      "sku": "03-3794RD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/ventura.png"
+    },
+    {
+      "sku": "03-3795PD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/ventura.png"
+    },
+    {
+      "sku": "03-3796RD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/ventura.png"
+    },
+    {
+      "sku": "03-3801PD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/ventura.png"
+    },
+    {
+      "sku": "03-3807GN",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade.png"
+    },
+    {
+      "sku": "03-3810GN",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade.png"
+    },
+    {
+      "sku": "03-3824GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/steel-renegade.png"
+    },
+    {
+      "sku": "03-3825GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/steel-renegade.png"
+    },
+    {
+      "sku": "03-3828GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/steel-renegade.png"
+    },
+    {
+      "sku": "03-3836BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/aluminum-renegade.png"
+    },
+    {
+      "sku": "03-3837BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/aluminum-renegade.png"
+    },
+    {
+      "sku": "03-3840BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/aluminum-renegade.png"
+    },
+    {
+      "sku": "03-3841BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/aluminum-renegade.png"
+    },
+    {
+      "sku": "03-3842BR",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/sequel.png"
+    },
+    {
+      "sku": "03-3843BR",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/sequel.png"
+    },
+    {
+      "sku": "03-3844BR",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/sequel.png"
+    },
+    {
+      "sku": "03-3845BR",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/sequel.png"
+    },
+    {
+      "sku": "03-3846BR",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/sequel.png"
+    },
+    {
+      "sku": "03-3852GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt.png"
+    },
+    {
+      "sku": "03-3853GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt.png"
+    },
+    {
+      "sku": "03-3854GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt.png"
+    },
+    {
+      "sku": "03-3855GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt.png"
+    },
+    {
+      "sku": "03-3856GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt.png"
+    },
+    {
+      "sku": "03-3857BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt.png"
+    },
+    {
+      "sku": "03-3858BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt.png"
+    },
+    {
+      "sku": "03-3859BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt.png"
+    },
+    {
+      "sku": "03-3868BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt.png"
+    },
+    {
+      "sku": "03-3869BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt.png"
+    },
+    {
+      "sku": "03-3870BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt.png"
+    },
+    {
+      "sku": "03-3871BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt.png"
+    },
+    {
+      "sku": "03-3872BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt.png"
+    },
+    {
+      "sku": "03-3873BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt.png"
+    },
+    {
+      "sku": "03-3875BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt.png"
+    },
+    {
+      "sku": "03-3882BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro.png"
+    },
+    {
+      "sku": "03-3885BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro.png"
+    },
+    {
+      "sku": "03-3886RD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro.png"
+    },
+    {
+      "sku": "03-3892RD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro.png"
+    },
+    {
+      "sku": "03-3895BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro.png"
+    },
+    {
+      "sku": "03-3897BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro.png"
+    },
+    {
+      "sku": "03-3899BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro.png"
+    },
+    {
+      "sku": "03-3901BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro.png"
+    },
+    {
+      "sku": "03-3903BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro.png"
+    },
+    {
+      "sku": "03-3905BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro.png"
+    },
+    {
+      "sku": "03-3913BR",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda.png"
+    },
+    {
+      "sku": "03-3916BR",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda.png"
+    },
+    {
+      "sku": "03-3917BR",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda.png"
+    },
+    {
+      "sku": "03-3918GN",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda.png"
+    },
+    {
+      "sku": "03-3919GN",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda.png"
+    },
+    {
+      "sku": "03-3932MN",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda.png"
+    },
+    {
+      "sku": "03-3934MN",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda.png"
+    },
+    {
+      "sku": "03-3936MN",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda.png"
+    },
+    {
+      "sku": "03-3986TL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/citizen.png"
+    },
+    {
+      "sku": "03-3990TL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/citizen.png"
+    },
+    {
+      "sku": "03-3993PD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/citizen.png"
+    },
+    {
+      "sku": "03-3995PD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/citizen.png"
+    },
+    {
+      "sku": "03-3997PD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/citizen.png"
+    },
+    {
+      "sku": "03-3999PD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/citizen.png"
+    },
+    {
+      "sku": "03-4001PD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/citizen.png"
+    },
+    {
+      "sku": "03-4010BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/citizen.png"
+    },
+    {
+      "sku": "03-4025GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hudson.png"
+    },
+    {
+      "sku": "03-4029GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hudson.png"
+    },
+    {
+      "sku": "03-4051PD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer.png"
+    },
+    {
+      "sku": "03-4052BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer.png"
+    },
+    {
+      "sku": "03-4056BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer.png"
+    },
+    {
+      "sku": "03-4058BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer.png"
+    },
+    {
+      "sku": "03-4059PD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer.png"
+    },
+    {
+      "sku": "03-4065BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer.png"
+    },
+    {
+      "sku": "03-4066BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer.png"
+    },
+    {
+      "sku": "03-4067BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer.png"
+    },
+    {
+      "sku": "03-4068BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer.png"
+    },
+    {
+      "sku": "03-4069BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer.png"
+    },
+    {
+      "sku": "03-4071BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer.png"
+    },
+    {
+      "sku": "03-4072BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer.png"
+    },
+    {
+      "sku": "03-4075BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer.png"
+    },
+    {
+      "sku": "03-4076SG",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer.png"
+    },
+    {
+      "sku": "03-4079BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-xr.png"
+    },
+    {
+      "sku": "03-4081BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-xr.png"
+    },
+    {
+      "sku": "03-4083BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-xr.png"
+    },
+    {
+      "sku": "03-4085BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-xr.png"
+    },
+    {
+      "sku": "03-4090BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-xr.png"
+    },
+    {
+      "sku": "03-4094BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-xr.png"
+    },
+    {
+      "sku": "03-4159BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/kromo.png"
+    },
+    {
+      "sku": "03-4161BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/kromo.png"
+    },
+    {
+      "sku": "03-4199GN",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade.png"
+    },
+    {
+      "sku": "03-4200GN",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade.png"
+    },
+    {
+      "sku": "03-4201GN",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade.png"
+    },
+    {
+      "sku": "03-4227BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade.png"
+    },
+    {
+      "sku": "03-4228BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade.png"
+    },
+    {
+      "sku": "03-4229BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade.png"
+    },
+    {
+      "sku": "03-4230BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade.png"
+    },
+    {
+      "sku": "03-4231BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade.png"
+    },
+    {
+      "sku": "03-4266BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/aluminum-renegade.png"
+    },
+    {
+      "sku": "03-4268BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/aluminum-renegade.png"
+    },
+    {
+      "sku": "03-4270BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/aluminum-renegade.png"
+    },
+    {
+      "sku": "03-4272BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/aluminum-renegade.png"
+    },
+    {
+      "sku": "03-4274BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/aluminum-renegade.png"
+    },
+    {
+      "sku": "03-4276BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/aluminum-renegade.png"
+    },
+    {
+      "sku": "03-4448BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade.png"
+    },
+    {
+      "sku": "03-4449BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade.png"
+    },
+    {
+      "sku": "03-4450BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade.png"
+    },
+    {
+      "sku": "03-4454BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade.png"
+    },
+    {
+      "sku": "03-4455BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade.png"
+    },
+    {
+      "sku": "03-4456BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade.png"
+    },
+    {
+      "sku": "03-4457GN",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade.png"
+    },
+    {
+      "sku": "03-4458GN",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade.png"
+    },
+    {
+      "sku": "03-4460GN",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade.png"
+    },
+    {
+      "sku": "03-4461GN",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade.png"
+    },
+    {
+      "sku": "03-4462GN",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade.png"
+    },
+    {
+      "sku": "03-4471BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/steel-renegade.png"
+    },
+    {
+      "sku": "03-4511GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt.png"
+    },
+    {
+      "sku": "03-4512GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt.png"
+    },
+    {
+      "sku": "03-4513GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt.png"
+    },
+    {
+      "sku": "03-4514GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt.png"
+    },
+    {
+      "sku": "03-4515GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt.png"
+    },
+    {
+      "sku": "03-4516BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt.png"
+    },
+    {
+      "sku": "03-4517BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt.png"
+    },
+    {
+      "sku": "03-4532BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro.png"
+    },
+    {
+      "sku": "03-4533BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro.png"
+    },
+    {
+      "sku": "03-4534BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro.png"
+    },
+    {
+      "sku": "03-4536BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro.png"
+    },
+    {
+      "sku": "03-4538BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro.png"
+    },
+    {
+      "sku": "03-4540BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro.png"
+    },
+    {
+      "sku": "03-4542BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro.png"
+    },
+    {
+      "sku": "03-4544BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro.png"
+    },
+    {
+      "sku": "03-4634RD",
+      "old_image_url": null
+    },
+    {
+      "sku": "03-4635MN",
+      "old_image_url": null
+    },
+    {
+      "sku": "03-4636RD",
+      "old_image_url": null
+    },
+    {
+      "sku": "03-4637MN",
+      "old_image_url": null
+    },
+    {
+      "sku": "03-4638RD",
+      "old_image_url": null
+    },
+    {
+      "sku": "03-4639MN",
+      "old_image_url": null
+    },
+    {
+      "sku": "03-4664BR",
+      "old_image_url": null
+    },
+    {
+      "sku": "03-4666BR",
+      "old_image_url": null
+    },
+    {
+      "sku": "03-4667BR",
+      "old_image_url": null
+    },
+    {
+      "sku": "03-4702GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/steel-renegade.png"
+    },
+    {
+      "sku": "03-4703GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/steel-renegade.png"
+    },
+    {
+      "sku": "03-4704GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/steel-renegade.png"
+    },
+    {
+      "sku": "03-4705GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/steel-renegade.png"
+    },
+    {
+      "sku": "03-4706GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/steel-renegade.png"
+    },
+    {
+      "sku": "03-4707GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/steel-renegade.png"
+    },
+    {
+      "sku": "03-4889GY",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hudson.png"
+    },
+    {
+      "sku": "06-4450BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/boss-cruiser.png"
+    },
+    {
+      "sku": "06-4453BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/boss-cruiser.png"
+    },
+    {
+      "sku": "06-4456BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/boss-cruiser.png"
+    },
+    {
+      "sku": "06-4507BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/taxi.png"
+    },
+    {
+      "sku": "06-4515BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/taxi.png"
+    },
+    {
+      "sku": "06-4519BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/taxi.png"
+    },
+    {
+      "sku": "06-4523BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/taxi.png"
+    },
+    {
+      "sku": "06-4562BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/boss-cruiser.png"
+    },
+    {
+      "sku": "06-4564BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/boss-cruiser.png"
+    },
+    {
+      "sku": "06-4565BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/boss-cruiser.png"
+    },
+    {
+      "sku": "06-4616RD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/earth-cruiser.png"
+    },
+    {
+      "sku": "06-4617RD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/earth-cruiser.png"
+    },
+    {
+      "sku": "07-3626BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/laser-20.png"
+    },
+    {
+      "sku": "07-3629RD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/laser-16.png"
+    },
+    {
+      "sku": "07-3641RD",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/xr20.png"
+    },
+    {
+      "sku": "07-3663BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/starlite.png"
+    },
+    {
+      "sku": "07-3664PK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/miss-daisy.png"
+    },
+    {
+      "sku": "07-3671SG",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/xr26.png"
+    },
+    {
+      "sku": "07-3672SG",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/xr26.png"
+    },
+    {
+      "sku": "07-3673BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/xr26.png"
+    },
+    {
+      "sku": "07-3684BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/xr24.png"
+    },
+    {
+      "sku": "07-3692BL",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/laser-16.png"
+    },
+    {
+      "sku": "07-3697BK",
+      "old_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/xr20.png"
+    }
+  ]
+}

@@ -1,0 +1,2002 @@
+{
+  "generated_at": "2026-06-25T21:01:45.077Z",
+  "dry_run": false,
+  "totals": {
+    "sku_count": 284,
+    "unique_files": 78,
+    "uploaded": 78,
+    "skipped_exists": 0,
+    "failed": 0
+  },
+  "failures": [],
+  "updates": [
+    {
+      "sku": "01-0032",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer-gloss-black.webp",
+      "slug": "explorer",
+      "color": "Gloss Black",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0035",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda-navy-pearl.webp",
+      "slug": "coda",
+      "color": "Navy Pearl",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0064",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/portal-riptide.webp",
+      "slug": "portal",
+      "color": "Riptide",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0066",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/citizen-gloss-black.webp",
+      "slug": "citizen",
+      "color": "Gloss Black",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0074",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer-gloss-black.webp",
+      "slug": "explorer",
+      "color": "Gloss Black",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0261",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer-sage.webp",
+      "slug": "explorer",
+      "color": "Sage",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0263",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/citizen-gloss-black.webp",
+      "slug": "citizen",
+      "color": "Gloss Black",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0267",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda-ink.webp",
+      "slug": "coda",
+      "color": "Ink",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0282",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hudson-rhino.webp",
+      "slug": "hudson",
+      "color": "Rhino",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0286",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hudson-sandstone.webp",
+      "slug": "hudson",
+      "color": "Sandstone",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0288",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer-teal.webp",
+      "slug": "explorer",
+      "color": "Teal",
+      "status": "family-unique"
+    },
+    {
+      "sku": "01-0289",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hudson-ink.webp",
+      "slug": "hudson",
+      "color": "Ink",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0317",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-seafoam.webp",
+      "slug": "dxt",
+      "color": "Seafoam",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0319",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer-deep-blue.webp",
+      "slug": "explorer",
+      "color": "Deep Blue",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0349",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hardline-mash.webp",
+      "slug": "hardline",
+      "color": "Mash",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0363",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hudson-sandstone.webp",
+      "slug": "hudson",
+      "color": "Sandstone",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0406",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/beatnik-smoke.webp",
+      "slug": "beatnik",
+      "color": "Smoke",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0411",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-sugar-mint.webp",
+      "slug": "allegro",
+      "color": "Sugar Mint",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0412",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-sugar-mint.webp",
+      "slug": "allegro",
+      "color": "Sugar Mint",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0415",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda-navy-pearl.webp",
+      "slug": "coda",
+      "color": "Navy Pearl",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0422",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-winter-dusk.webp",
+      "slug": "carbon-renegade",
+      "color": "Winter Dusk",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0423",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda-copper-tone.webp",
+      "slug": "coda",
+      "color": "Copper tone",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0429",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hudson-vanilla-mint.webp",
+      "slug": "hudson",
+      "color": "Vanilla Mint",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0437",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-sugar-mint.webp",
+      "slug": "allegro",
+      "color": "Sugar Mint",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0438",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-sugar-mint.webp",
+      "slug": "allegro",
+      "color": "Sugar Mint",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0439",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-sugar-mint.webp",
+      "slug": "allegro",
+      "color": "Sugar Mint",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0440",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/citizen-storm-grey.webp",
+      "slug": "citizen",
+      "color": "Storm Grey",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0441",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/citizen-storm-grey.webp",
+      "slug": "citizen",
+      "color": "Storm Grey",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0442",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/citizen-storm-grey.webp",
+      "slug": "citizen",
+      "color": "Storm Grey",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0449",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda-ink.webp",
+      "slug": "coda",
+      "color": "Ink",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0450",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda-ink.webp",
+      "slug": "coda",
+      "color": "Ink",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0454",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda-copper-tone.webp",
+      "slug": "coda",
+      "color": "Coppertone",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0455",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda-copper-tone.webp",
+      "slug": "coda",
+      "color": "Coppertone",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0458",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-xr-nickel.webp",
+      "slug": "trail-xr",
+      "color": "Nickel",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0459",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-xr-powder-blue.webp",
+      "slug": "trail-xr",
+      "color": "Powder Blue",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0460",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-ink.webp",
+      "slug": "allegro",
+      "color": "Ink",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0461",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-ink.webp",
+      "slug": "allegro",
+      "color": "Ink",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0463",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-ink.webp",
+      "slug": "allegro",
+      "color": "Ink",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0464",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-ink.webp",
+      "slug": "allegro",
+      "color": "Ink",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0465",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-ink.webp",
+      "slug": "allegro",
+      "color": "Ink",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0466",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-ink.webp",
+      "slug": "allegro",
+      "color": "Ink",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0469",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango-garnet.webp",
+      "slug": "durango",
+      "color": "Garnet",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0470",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango-garnet.webp",
+      "slug": "durango",
+      "color": "Garnet",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0471",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango-thunder-grey.webp",
+      "slug": "durango",
+      "color": "Thunder Grey",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0472",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango-thunder-grey.webp",
+      "slug": "durango",
+      "color": "Thunder Grey",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0474",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/sequel-gloss-black.webp",
+      "slug": "sequel",
+      "color": "Gloss Black",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0475",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/sequel-gloss-black.webp",
+      "slug": "sequel",
+      "color": "Gloss Black",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0476",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer-deep-blue.webp",
+      "slug": "explorer",
+      "color": "Deep Blue",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0482",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-winter-dusk.webp",
+      "slug": "carbon-renegade",
+      "color": "Winter Dusk",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0483",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-pine.webp",
+      "slug": "carbon-renegade",
+      "color": "Pine",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0484",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-galaxy-blue.webp",
+      "slug": "allegro",
+      "color": "Galaxy Blue",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0487",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-galaxy-blue.webp",
+      "slug": "allegro",
+      "color": "Galaxy Blue",
+      "status": "exact-match"
+    },
+    {
+      "sku": "01-0489",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-galaxy-blue.webp",
+      "slug": "allegro",
+      "color": "Galaxy Blue",
+      "status": "exact-match"
+    },
+    {
+      "sku": "02-3169BR",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/portal-sandstone.webp",
+      "slug": "portal",
+      "color": "Sandstone",
+      "status": "exact-match"
+    },
+    {
+      "sku": "02-3645OR",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hardline-clay.webp",
+      "slug": "hardline",
+      "color": "Clay",
+      "status": "exact-match"
+    },
+    {
+      "sku": "02-3648OR",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hardline-clay.webp",
+      "slug": "hardline",
+      "color": "Clay",
+      "status": "exact-match"
+    },
+    {
+      "sku": "02-3651GN",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hardline-mash.webp",
+      "slug": "hardline",
+      "color": "Mash",
+      "status": "exact-match"
+    },
+    {
+      "sku": "02-3652GN",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hardline-mash.webp",
+      "slug": "hardline",
+      "color": "Mash",
+      "status": "exact-match"
+    },
+    {
+      "sku": "02-3669BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/portal-winter-dusk.webp",
+      "slug": "portal",
+      "color": "Winter Dusk",
+      "status": "exact-match"
+    },
+    {
+      "sku": "02-3672RD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/portal-oxblood.webp",
+      "slug": "portal",
+      "color": "Oxblood",
+      "status": "exact-match"
+    },
+    {
+      "sku": "02-3673RD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/portal-oxblood.webp",
+      "slug": "portal",
+      "color": "Oxblood",
+      "status": "exact-match"
+    },
+    {
+      "sku": "03-3031SL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hudson-grey-mist.webp",
+      "slug": "hudson",
+      "color": "Silver",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3161GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hardline-thunder-grey.webp",
+      "slug": "hardline",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3516BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer-deep-blue.webp",
+      "slug": "explorer",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3604BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hudson-e2-deep-blue.webp",
+      "slug": "hudson-e2",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3606BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hudson-e2-deep-blue.webp",
+      "slug": "hudson-e2",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3607GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hudson-e2-thunder-grey.webp",
+      "slug": "hudson-e2",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3646OR",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hardline-clay.webp",
+      "slug": "hardline",
+      "color": "Orange",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3647OR",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hardline-clay.webp",
+      "slug": "hardline",
+      "color": "Orange",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3648OR",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hardline-clay.webp",
+      "slug": "hardline",
+      "color": "Orange",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3653GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hardline-thunder-grey.webp",
+      "slug": "hardline",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3654GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hardline-thunder-grey.webp",
+      "slug": "hardline",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3655GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hardline-thunder-grey.webp",
+      "slug": "hardline",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3656GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hardline-thunder-grey.webp",
+      "slug": "hardline",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3674BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/portal-winter-dusk.webp",
+      "slug": "portal",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3676BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/portal-winter-dusk.webp",
+      "slug": "portal",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3677BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/portal-winter-dusk.webp",
+      "slug": "portal",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3680GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/portal-storm-grey.webp",
+      "slug": "portal",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3681GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/portal-storm-grey.webp",
+      "slug": "portal",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3682GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/portal-storm-grey.webp",
+      "slug": "portal",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3688BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/faultline-mp2-winter-dusk.webp",
+      "slug": "faultline-mp2",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3689BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/faultline-mp2-winter-dusk.webp",
+      "slug": "faultline-mp2",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3690BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/faultline-mp2-winter-dusk.webp",
+      "slug": "faultline-mp2",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3696BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dragon-gloss-black.webp",
+      "slug": "dragon",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3697BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dragon-midnight-blue.webp",
+      "slug": "dragon",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3698BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dragon-gloss-black.webp",
+      "slug": "dragon",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3699BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dragon-midnight-blue.webp",
+      "slug": "dragon",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3699GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dragon-monterey-grey.webp",
+      "slug": "dragon",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3700BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dragon-gloss-black.webp",
+      "slug": "dragon",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3701BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dragon-midnight-blue.webp",
+      "slug": "dragon",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3701GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dragon-monterey-grey.webp",
+      "slug": "dragon",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3702BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dragon-gloss-black.webp",
+      "slug": "dragon",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3718GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/highpoint-graphite.webp",
+      "slug": "highpoint",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3724RD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango-garnet.webp",
+      "slug": "durango",
+      "color": "Red",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3726RD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango-garnet.webp",
+      "slug": "durango",
+      "color": "Red",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3727BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango-gloss-black.webp",
+      "slug": "durango",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3729GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango-thunder-grey.webp",
+      "slug": "durango",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3730BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango-midnight-blue.webp",
+      "slug": "durango",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3731GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango-thunder-grey.webp",
+      "slug": "durango",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3732BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango-midnight-blue.webp",
+      "slug": "durango",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3733GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango-thunder-grey.webp",
+      "slug": "durango",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3734BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango-midnight-blue.webp",
+      "slug": "durango",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3735GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/durango-thunder-grey.webp",
+      "slug": "durango",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3736BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x-gloss-black.webp",
+      "slug": "trail-x",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3738BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x-gloss-black.webp",
+      "slug": "trail-x",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3740BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x-gloss-black.webp",
+      "slug": "trail-x",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3742BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x-gloss-black.webp",
+      "slug": "trail-x",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3744BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x-gloss-black.webp",
+      "slug": "trail-x",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3746GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x-monterey-grey.webp",
+      "slug": "trail-x",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3747BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x-nile-blue.webp",
+      "slug": "trail-x",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3750GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x-monterey-grey.webp",
+      "slug": "trail-x",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3751BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x-nile-blue.webp",
+      "slug": "trail-x",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3752GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x-monterey-grey.webp",
+      "slug": "trail-x",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3753BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x-nile-blue.webp",
+      "slug": "trail-x",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3754GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x-monterey-grey.webp",
+      "slug": "trail-x",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3755BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-x-nile-blue.webp",
+      "slug": "trail-x",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3767MN",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/helix-mint.webp",
+      "slug": "helix",
+      "color": "Mint",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3790RD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/ventura-garnet.webp",
+      "slug": "ventura",
+      "color": "Red",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3791PD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/ventura-palladium.webp",
+      "slug": "ventura",
+      "color": "Palladium",
+      "status": "exact-match"
+    },
+    {
+      "sku": "03-3792RD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/ventura-garnet.webp",
+      "slug": "ventura",
+      "color": "Red",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3793PD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/ventura-palladium.webp",
+      "slug": "ventura",
+      "color": "Palladium",
+      "status": "exact-match"
+    },
+    {
+      "sku": "03-3794RD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/ventura-garnet.webp",
+      "slug": "ventura",
+      "color": "Red",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3795PD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/ventura-palladium.webp",
+      "slug": "ventura",
+      "color": "Palladium",
+      "status": "exact-match"
+    },
+    {
+      "sku": "03-3796RD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/ventura-garnet.webp",
+      "slug": "ventura",
+      "color": "Red",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3801PD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/ventura-palladium.webp",
+      "slug": "ventura",
+      "color": "Palladium",
+      "status": "exact-match"
+    },
+    {
+      "sku": "03-3807GN",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-pine.webp",
+      "slug": "carbon-renegade",
+      "color": "Green",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3810GN",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-pine.webp",
+      "slug": "carbon-renegade",
+      "color": "Green",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3824GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/steel-renegade-primer-gray.webp",
+      "slug": "steel-renegade",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3825GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/steel-renegade-primer-gray.webp",
+      "slug": "steel-renegade",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3828GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/steel-renegade-primer-gray.webp",
+      "slug": "steel-renegade",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3836BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/aluminum-renegade-black.webp",
+      "slug": "aluminum-renegade",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3837BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/aluminum-renegade-black.webp",
+      "slug": "aluminum-renegade",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3840BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/aluminum-renegade-black.webp",
+      "slug": "aluminum-renegade",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3841BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/aluminum-renegade-black.webp",
+      "slug": "aluminum-renegade",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3842BR",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/sequel-rootbeer.webp",
+      "slug": "sequel",
+      "color": "Brown",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3843BR",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/sequel-rootbeer.webp",
+      "slug": "sequel",
+      "color": "Brown",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3844BR",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/sequel-rootbeer.webp",
+      "slug": "sequel",
+      "color": "Brown",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3845BR",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/sequel-rootbeer.webp",
+      "slug": "sequel",
+      "color": "Brown",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3846BR",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/sequel-rootbeer.webp",
+      "slug": "sequel",
+      "color": "Brown",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3852GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-monterey-grey.webp",
+      "slug": "dxt",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3853GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-monterey-grey.webp",
+      "slug": "dxt",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3854GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-monterey-grey.webp",
+      "slug": "dxt",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3855GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-monterey-grey.webp",
+      "slug": "dxt",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3856GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-monterey-grey.webp",
+      "slug": "dxt",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3857BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-deep-blue.webp",
+      "slug": "dxt",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3858BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-deep-blue.webp",
+      "slug": "dxt",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3859BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-deep-blue.webp",
+      "slug": "dxt",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3868BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-deep-blue.webp",
+      "slug": "dxt",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3869BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-deep-blue.webp",
+      "slug": "dxt",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3870BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-deep-blue.webp",
+      "slug": "dxt",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3871BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-deep-blue.webp",
+      "slug": "dxt",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3872BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-deep-blue.webp",
+      "slug": "dxt",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3873BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-deep-blue.webp",
+      "slug": "dxt",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3875BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-deep-blue.webp",
+      "slug": "dxt",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3882BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-ink.webp",
+      "slug": "allegro",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3885BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-ink.webp",
+      "slug": "allegro",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3886RD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-garnet.webp",
+      "slug": "allegro",
+      "color": "Red",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3892RD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-garnet.webp",
+      "slug": "allegro",
+      "color": "Red",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3895BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-galaxy-blue.webp",
+      "slug": "allegro",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3897BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-galaxy-blue.webp",
+      "slug": "allegro",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3899BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-galaxy-blue.webp",
+      "slug": "allegro",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3901BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-galaxy-blue.webp",
+      "slug": "allegro",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3903BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-galaxy-blue.webp",
+      "slug": "allegro",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3905BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-galaxy-blue.webp",
+      "slug": "allegro",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3913BR",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda-copper-tone.webp",
+      "slug": "coda",
+      "color": "Brown",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3916BR",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda-copper-tone.webp",
+      "slug": "coda",
+      "color": "Brown",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3917BR",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda-copper-tone.webp",
+      "slug": "coda",
+      "color": "Brown",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3918GN",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda-vanilla-mint.webp",
+      "slug": "coda",
+      "color": "Green",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3919GN",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda-vanilla-mint.webp",
+      "slug": "coda",
+      "color": "Green",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3932MN",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda-vanilla-mint.webp",
+      "slug": "coda",
+      "color": "Mint",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3934MN",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda-vanilla-mint.webp",
+      "slug": "coda",
+      "color": "Mint",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3936MN",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/coda-vanilla-mint.webp",
+      "slug": "coda",
+      "color": "Mint",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3986TL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/citizen-radiant-teal.webp",
+      "slug": "citizen",
+      "color": "Teal",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3990TL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/citizen-radiant-teal.webp",
+      "slug": "citizen",
+      "color": "Teal",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-3993PD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/citizen-palladium.webp",
+      "slug": "citizen",
+      "color": "Palladium",
+      "status": "exact-match"
+    },
+    {
+      "sku": "03-3995PD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/citizen-palladium.webp",
+      "slug": "citizen",
+      "color": "Palladium",
+      "status": "exact-match"
+    },
+    {
+      "sku": "03-3997PD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/citizen-palladium.webp",
+      "slug": "citizen",
+      "color": "Palladium",
+      "status": "exact-match"
+    },
+    {
+      "sku": "03-3999PD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/citizen-palladium.webp",
+      "slug": "citizen",
+      "color": "Palladium",
+      "status": "exact-match"
+    },
+    {
+      "sku": "03-4001PD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/citizen-palladium.webp",
+      "slug": "citizen",
+      "color": "Palladium",
+      "status": "exact-match"
+    },
+    {
+      "sku": "03-4010BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/citizen-gloss-black.webp",
+      "slug": "citizen",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4025GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hudson-grey-mist.webp",
+      "slug": "hudson",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4029GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hudson-grey-mist.webp",
+      "slug": "hudson",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4051PD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer-palladium.webp",
+      "slug": "explorer",
+      "color": "Palladium",
+      "status": "exact-match"
+    },
+    {
+      "sku": "03-4052BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer-deep-blue.webp",
+      "slug": "explorer",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4056BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer-deep-blue.webp",
+      "slug": "explorer",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4058BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer-deep-blue.webp",
+      "slug": "explorer",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4059PD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer-palladium.webp",
+      "slug": "explorer",
+      "color": "Palladium",
+      "status": "exact-match"
+    },
+    {
+      "sku": "03-4065BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer-deep-blue.webp",
+      "slug": "explorer",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4066BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer-gloss-black.webp",
+      "slug": "explorer",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4067BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer-deep-blue.webp",
+      "slug": "explorer",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4068BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer-gloss-black.webp",
+      "slug": "explorer",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4069BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer-deep-blue.webp",
+      "slug": "explorer",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4071BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer-deep-blue.webp",
+      "slug": "explorer",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4072BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer-gloss-black.webp",
+      "slug": "explorer",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4075BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer-deep-blue.webp",
+      "slug": "explorer",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4076SG",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/explorer-sage.webp",
+      "slug": "explorer",
+      "color": "Sage",
+      "status": "exact-match"
+    },
+    {
+      "sku": "03-4079BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-xr-gloss-black.webp",
+      "slug": "trail-xr",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4081BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-xr-gloss-black.webp",
+      "slug": "trail-xr",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4083BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-xr-gloss-black.webp",
+      "slug": "trail-xr",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4085BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-xr-gloss-black.webp",
+      "slug": "trail-xr",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4090BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-xr-powder-blue.webp",
+      "slug": "trail-xr",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4094BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/trail-xr-powder-blue.webp",
+      "slug": "trail-xr",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4159BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/kromo-midnight-blue.webp",
+      "slug": "kromo",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4161BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/kromo-midnight-blue.webp",
+      "slug": "kromo",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4199GN",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-pine.webp",
+      "slug": "carbon-renegade",
+      "color": "Green",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4200GN",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-pine.webp",
+      "slug": "carbon-renegade",
+      "color": "Green",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4201GN",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-pine.webp",
+      "slug": "carbon-renegade",
+      "color": "Green",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4227BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-winter-dusk.webp",
+      "slug": "carbon-renegade",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4228BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-winter-dusk.webp",
+      "slug": "carbon-renegade",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4229BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-winter-dusk.webp",
+      "slug": "carbon-renegade",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4230BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-winter-dusk.webp",
+      "slug": "carbon-renegade",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4231BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-winter-dusk.webp",
+      "slug": "carbon-renegade",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4266BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/aluminum-renegade-black.webp",
+      "slug": "aluminum-renegade",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4268BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/aluminum-renegade-black.webp",
+      "slug": "aluminum-renegade",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4270BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/aluminum-renegade-black.webp",
+      "slug": "aluminum-renegade",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4272BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/aluminum-renegade-black.webp",
+      "slug": "aluminum-renegade",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4274BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/aluminum-renegade-black.webp",
+      "slug": "aluminum-renegade",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4276BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/aluminum-renegade-black.webp",
+      "slug": "aluminum-renegade",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4448BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-gloss-matte-black.webp",
+      "slug": "carbon-renegade",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4449BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-gloss-matte-black.webp",
+      "slug": "carbon-renegade",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4450BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-gloss-matte-black.webp",
+      "slug": "carbon-renegade",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4454BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-winter-dusk.webp",
+      "slug": "carbon-renegade",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4455BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-winter-dusk.webp",
+      "slug": "carbon-renegade",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4456BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-winter-dusk.webp",
+      "slug": "carbon-renegade",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4457GN",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-pine.webp",
+      "slug": "carbon-renegade",
+      "color": "Green",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4458GN",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-pine.webp",
+      "slug": "carbon-renegade",
+      "color": "Green",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4460GN",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-pine.webp",
+      "slug": "carbon-renegade",
+      "color": "Green",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4461GN",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-pine.webp",
+      "slug": "carbon-renegade",
+      "color": "Green",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4462GN",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/carbon-renegade-pine.webp",
+      "slug": "carbon-renegade",
+      "color": "Green",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4471BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/steel-renegade-matte-gloss-black.webp",
+      "slug": "steel-renegade",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4511GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-monterey-grey.webp",
+      "slug": "dxt",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4512GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-monterey-grey.webp",
+      "slug": "dxt",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4513GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-monterey-grey.webp",
+      "slug": "dxt",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4514GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-monterey-grey.webp",
+      "slug": "dxt",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4515GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-monterey-grey.webp",
+      "slug": "dxt",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4516BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-deep-blue.webp",
+      "slug": "dxt",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4517BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/dxt-deep-blue.webp",
+      "slug": "dxt",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4532BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-galaxy-blue.webp",
+      "slug": "allegro",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4533BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-galaxy-blue.webp",
+      "slug": "allegro",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4534BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-galaxy-blue.webp",
+      "slug": "allegro",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4536BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-galaxy-blue.webp",
+      "slug": "allegro",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4538BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-galaxy-blue.webp",
+      "slug": "allegro",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4540BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-galaxy-blue.webp",
+      "slug": "allegro",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4542BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-galaxy-blue.webp",
+      "slug": "allegro",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4544BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/allegro-galaxy-blue.webp",
+      "slug": "allegro",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4634RD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/helix-pomodoro.webp",
+      "slug": "helix",
+      "color": "Pomodoro",
+      "status": "exact-match"
+    },
+    {
+      "sku": "03-4635MN",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/helix-mint.webp",
+      "slug": "helix",
+      "color": "Mint",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4636RD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/helix-pomodoro.webp",
+      "slug": "helix",
+      "color": "Pomodoro",
+      "status": "exact-match"
+    },
+    {
+      "sku": "03-4637MN",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/helix-mint.webp",
+      "slug": "helix",
+      "color": "Mint",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4638RD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/helix-pomodoro.webp",
+      "slug": "helix",
+      "color": "Pomodoro",
+      "status": "exact-match"
+    },
+    {
+      "sku": "03-4639MN",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/helix-mint.webp",
+      "slug": "helix",
+      "color": "Mint",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4664BR",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/divide-milk-chocolate.webp",
+      "slug": "divide",
+      "color": "Milk Chocolate",
+      "status": "exact-match"
+    },
+    {
+      "sku": "03-4666BR",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/divide-milk-chocolate.webp",
+      "slug": "divide",
+      "color": "Milk Chocolate",
+      "status": "exact-match"
+    },
+    {
+      "sku": "03-4667BR",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/divide-milk-chocolate.webp",
+      "slug": "divide",
+      "color": "Milk Chocolate",
+      "status": "exact-match"
+    },
+    {
+      "sku": "03-4702GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/steel-renegade-primer-gray.webp",
+      "slug": "steel-renegade",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4703GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/steel-renegade-primer-gray.webp",
+      "slug": "steel-renegade",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4704GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/steel-renegade-primer-gray.webp",
+      "slug": "steel-renegade",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4705GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/steel-renegade-primer-gray.webp",
+      "slug": "steel-renegade",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4706GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/steel-renegade-primer-gray.webp",
+      "slug": "steel-renegade",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4707GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/steel-renegade-primer-gray.webp",
+      "slug": "steel-renegade",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "03-4889GY",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/hudson-grey-mist.webp",
+      "slug": "hudson",
+      "color": "Grey",
+      "status": "family-unique"
+    },
+    {
+      "sku": "06-4450BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/boss-cruiser-blue-lagoon.webp",
+      "slug": "boss-cruiser",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "06-4453BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/boss-cruiser-blue-lagoon.webp",
+      "slug": "boss-cruiser",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "06-4456BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/boss-cruiser-blue-lagoon.webp",
+      "slug": "boss-cruiser",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "06-4507BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/taxi-gloss-black.webp",
+      "slug": "taxi",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "06-4515BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/taxi-gloss-black.webp",
+      "slug": "taxi",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "06-4519BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/taxi-gloss-black.webp",
+      "slug": "taxi",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "06-4523BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/taxi-gloss-black.webp",
+      "slug": "taxi",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "06-4562BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/boss-cruiser-blue-lagoon.webp",
+      "slug": "boss-cruiser",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "06-4564BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/boss-cruiser-blue-lagoon.webp",
+      "slug": "boss-cruiser",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "06-4565BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/boss-cruiser-blue-lagoon.webp",
+      "slug": "boss-cruiser",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "06-4616RD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/earth-cruiser-blood-red.webp",
+      "slug": "earth-cruiser",
+      "color": "Red",
+      "status": "family-unique"
+    },
+    {
+      "sku": "06-4617RD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/earth-cruiser-blood-red.webp",
+      "slug": "earth-cruiser",
+      "color": "Red",
+      "status": "family-unique"
+    },
+    {
+      "sku": "07-3626BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/laser-20-cosmo-blue.webp",
+      "slug": "laser-20",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "07-3629RD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/laser-16-victory-red.webp",
+      "slug": "laser-16",
+      "color": "Red",
+      "status": "family-unique"
+    },
+    {
+      "sku": "07-3641RD",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/xr20-raspberry.webp",
+      "slug": "xr20",
+      "color": "Red",
+      "status": "family-unique"
+    },
+    {
+      "sku": "07-3663BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/starlite-blue-lagoon.webp",
+      "slug": "starlite",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "07-3664PK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/miss-daisy-hot-pink.webp",
+      "slug": "miss-daisy",
+      "color": "Pink",
+      "status": "family-unique"
+    },
+    {
+      "sku": "07-3671SG",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/xr26-sage.webp",
+      "slug": "xr26",
+      "color": "Sage",
+      "status": "exact-match"
+    },
+    {
+      "sku": "07-3672SG",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/xr26-sage.webp",
+      "slug": "xr26",
+      "color": "Sage",
+      "status": "exact-match"
+    },
+    {
+      "sku": "07-3673BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/xr26-gloss-black.webp",
+      "slug": "xr26",
+      "color": "Black",
+      "status": "family-unique"
+    },
+    {
+      "sku": "07-3684BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/xr24-sky-blue.webp",
+      "slug": "xr24",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "07-3692BL",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/laser-16-ano-deep-blue.webp",
+      "slug": "laser-16",
+      "color": "Blue",
+      "status": "family-unique"
+    },
+    {
+      "sku": "07-3697BK",
+      "new_image_url": "https://pub-1a61139939fa4f3ba21ee7909510985c.r2.dev/catalog/xr20-gloss-black.webp",
+      "slug": "xr20",
+      "color": "Black",
+      "status": "family-unique"
+    }
+  ]
+}
