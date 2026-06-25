@@ -1,0 +1,1947 @@
+[
+  {
+    "model": "All-Road - Jamis® Bikes",
+    "year": null,
+    "category": "Adventure/Gravel",
+    "price": null,
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/all-road/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "RENEGADE A1",
+    "year": 2021,
+    "category": "Adventure/Gravel",
+    "price": "$1,099.95",
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/gravel-adventure/alloy-renegade/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Mash",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25_renegadea1_mash_rendering-600px.png"
+      },
+      {
+        "color_name": "Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_renegadea1_black.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "RENEGADE A1 LTD",
+    "year": 2024,
+    "category": "Adventure/Gravel",
+    "price": "$1,099.95",
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/gravel-adventure/alloy-renegade/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Mash",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2024/01/24-renegadea1-mash.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "Renegade® Frames - Jamis® Bikes",
+    "year": null,
+    "category": "Adventure/Gravel",
+    "price": null,
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/gravel-adventure/renegade-frames/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "RENEGADE C1 RED AXS 13-speed",
+    "year": 2021,
+    "category": "Adventure/Gravel",
+    "price": "$9,299.95",
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/gravel-adventure/carbon-renegade/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Gloss Matte Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec1-gloss-matte-black-600px.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "RENEGADE C1 RED AXS 12-speed",
+    "year": 2024,
+    "category": "Adventure/Gravel",
+    "price": "$7,299.95",
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/gravel-adventure/carbon-renegade/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Prism",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2024/04/24_renegadec1_prism_thumb.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "RENEGADE C2 RIVAL AXS",
+    "year": 2024,
+    "category": "Adventure/Gravel",
+    "price": "$3,999.95",
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/gravel-adventure/carbon-renegade/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "RENEGADE C2 GRX",
+    "year": 2025,
+    "category": "Adventure/Gravel",
+    "price": "$5,599.95",
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/gravel-adventure/carbon-renegade/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Winter Dusk",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec2-winter-dusk.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "RENEGADE C3 APEX EAGLE AXS",
+    "year": 2025,
+    "category": "Adventure/Gravel",
+    "price": "$3,899.95",
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/gravel-adventure/carbon-renegade/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Pine",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec3-pine.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "RENEGADE C3 GRX",
+    "year": 2024,
+    "category": "Adventure/Gravel",
+    "price": "$4,199.95",
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/gravel-adventure/carbon-renegade/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "RENEGADE C4 APEX AXS",
+    "year": 2024,
+    "category": "Adventure/Gravel",
+    "price": "$3,399.95",
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/gravel-adventure/carbon-renegade/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "RENEGADE C4 GRX",
+    "year": 2025,
+    "category": "Adventure/Gravel",
+    "price": "$3,199.95",
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/gravel-adventure/carbon-renegade/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Sandstone",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec4-sandstone.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "NEW RENEGADE C1 FRAME KIT",
+    "year": null,
+    "category": "Adventure/Gravel",
+    "price": "$1799.95",
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/gravel-adventure/carbon-renegade/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "VENTURA A1 ALL-ROAD",
+    "year": 2021,
+    "category": "Adventure/Gravel",
+    "price": "$1599.95",
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/all-road/ventura-allroad/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Cerulean",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-ventura-a1-cerulean-600px-600x359.png"
+      },
+      {
+        "color_name": "Midnight Blue",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_venturaa1_midnight_blue-1.png"
+      },
+      {
+        "color_name": "Cerulean High",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-ventura-a1-cerulean-high.jpg"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "Hudson® E2 Tech - Jamis® Bikes",
+    "year": null,
+    "category": "Electric",
+    "price": null,
+    "url": "https://www.jamisbikes.com/bikes/e-bikes/hudsontech/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "HUDSON E2",
+    "year": 2021,
+    "category": "Electric",
+    "price": "$2199.95",
+    "url": "https://www.jamisbikes.com/bikes/e-bikes/hudsone2/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Flat Ink",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudsondisc_stepthru_flat_ink_600px.png"
+      },
+      {
+        "color_name": "Thunder Grey",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/06/21_hudsone2_stepthru_thunder_grey.png"
+      },
+      {
+        "color_name": "Deep Blue",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/06/21_hudsone2_stepthru_deep_blue.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "VENTURA A1",
+    "year": 2021,
+    "category": "Adventure/Gravel",
+    "price": "$1299.95",
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/road/ventura/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Cerulean",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-ventura-a1-cerulean-600px-600x359.png"
+      },
+      {
+        "color_name": "Midnight Blue",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_venturaa1_midnight_blue-1.png"
+      },
+      {
+        "color_name": "Kinetic Grey Midnight Blue",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2024/10/24_venturaa1_kinetic_grey_midnight_blue.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "VENTURA A1 — Designed for Women",
+    "year": 2024,
+    "category": "Adventure/Gravel",
+    "price": "$1299.95",
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/road/ventura/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Dakota Grey Ocean Mist",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2024/10/24_venturaa1dfw_dakota_grey_ocean_mist.png"
+      },
+      {
+        "color_name": "Lotus Blue",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_venturaa1dfw_lotus_blue.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "VENTURA A2",
+    "year": 2022,
+    "category": "Adventure/Gravel",
+    "price": "$1049.95",
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/road/ventura/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Garnet",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_venturaa2_garnet.png"
+      },
+      {
+        "color_name": "Palladium",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_venturaa2_palladium.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "VENTURA A2 — Designed for Women",
+    "year": 2022,
+    "category": "Adventure/Gravel",
+    "price": "$1049.95",
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/road/ventura/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Blue Vapor",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_venturaa2dfw_blue_vapor.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "RENEGADE S1",
+    "year": 2021,
+    "category": "Adventure/Gravel",
+    "price": "$3,599.95",
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/gravel-adventure/steel-renegade/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Adobe Clay",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/03/26-renegades1-adobe-clay-2000-1.jpg"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "RENEGADE S2",
+    "year": 2025,
+    "category": "Adventure/Gravel",
+    "price": "$2,599.95",
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/gravel-adventure/steel-renegade/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Matte Gloss Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegades2-matte-gloss-black-1200px-1.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "RENEGADE S3",
+    "year": 2026,
+    "category": "Adventure/Gravel",
+    "price": "$1,699.95",
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/gravel-adventure/steel-renegade/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Primer Gray",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/03/26-renegades3-primer-gray-2000-1.jpg"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "RENEGADE S4 LTD",
+    "year": 2024,
+    "category": "Adventure/Gravel",
+    "price": "$1,499.95",
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/gravel-adventure/steel-renegade/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Sandstone",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/2024_renegade_s4_ltd_sandstone.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "RENEGADE S4",
+    "year": 2022,
+    "category": "Adventure/Gravel",
+    "price": "$1,699.95",
+    "url": "https://www.jamisbikes.com/bikes/adventure-gravel/gravel-adventure/steel-renegade/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Riptide",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_renegades4_riptide.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "PORTAL A2 FRAMESET",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$1599.95",
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/3vo/portal-frames/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "HARDLINE C1 FRAMESET",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$2899.95",
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/3vo/hardline-frames/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Gloss Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec1_gloss_black_600px.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "HARDLINE C1",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$9499.95",
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/3vo/hardline/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Gloss Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec1_gloss_black_600px.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "HARDLINE C2",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$6999.95",
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/3vo/hardline/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Clay",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec2_clay.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "HARDLINE C3",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$5699.95",
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/3vo/hardline/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Mash",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec3_mash.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "HARDLINE C4",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$4799.95",
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/3vo/hardline/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Thunder Grey",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec4_thunder_grey.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "HARDLINE A2",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$3799.95",
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/3vo/hardline/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Gloss Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinea2_gloss_black.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "3VO Suspension - Jamis® Bikes",
+    "year": null,
+    "category": "Mountain",
+    "price": null,
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/3vo/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "MP2 Suspension - Jamis® Bikes",
+    "year": null,
+    "category": "Mountain",
+    "price": null,
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/mp2-suspension/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "FAULTLINE A1",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$2599.95",
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/mp2-suspension/faultline/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "MP2 SUSPENSION",
+    "year": null,
+    "category": "Mountain",
+    "price": "$1999.95",
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/mp2-suspension/faultline/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "Dakar® - Jamis® Bikes",
+    "year": null,
+    "category": "Mountain",
+    "price": null,
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/mp2-suspension/dakar/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "PORTAL C1",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$9499.95",
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/3vo/portal/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Sandstone",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_portalc1_sandstone_600px.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "PORTAL C2",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$6999.95",
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/3vo/portal/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Winter Dusk",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_portalc2_winter_dusk.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "PORTAL C3",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$5699.95",
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/3vo/portal/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Oxblood",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_portalc3_oxblood.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "PORTAL C4",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$4799.95",
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/3vo/portal/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Riptide",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_portalc4_riptide.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "PORTAL A2",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$3799.95",
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/3vo/portal/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Storm Grey",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_portala2_storm_grey.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "FAULTLINE A1 MPX",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$3699.95",
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/mpx-suspension/faultline-mpx/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "FAULTLINE A2 MPX",
+    "year": 2026,
+    "category": "Mountain",
+    "price": "$2799.95",
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/mpx-suspension/faultline-mpx/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "FAULTLINE A3 MPX",
+    "year": 2025,
+    "category": "Mountain",
+    "price": "$1999.95",
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/mpx-suspension/faultline-mpx/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Winter Dusk",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/25-faultline-a3-winter-dusk-2000px.jpg"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "Dirt Jump - Jamis® Bikes",
+    "year": null,
+    "category": "Mountain",
+    "price": null,
+    "url": "https://www.jamisbikes.com/bikes/hardtails/dirt-jump/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "DEFCON E1",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$7,499.95",
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/mpx-suspension/defcon/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Galactic",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/01/26-defcon-e1-galactic-2.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "DEFCON E2",
+    "year": 2026,
+    "category": "Mountain",
+    "price": "$5,999.95",
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/mpx-suspension/defcon/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "MPX Suspension - Jamis® Bikes",
+    "year": null,
+    "category": "Mountain",
+    "price": null,
+    "url": "https://www.jamisbikes.com/bikes/full-suspension/mpx-suspension/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "TRAIL X A1",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$829.95",
+    "url": "https://www.jamisbikes.com/bikes/hardtails/sport-hardtails/trailx/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Charcoal",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/10/21_trailxa1_charcoal_600px.png"
+      },
+      {
+        "color_name": "Mash",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxa1_mash.png"
+      },
+      {
+        "color_name": "Gloss Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxa1_gloss_black.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "TRAIL X A2",
+    "year": 2022,
+    "category": "Mountain",
+    "price": "$729.95",
+    "url": "https://www.jamisbikes.com/bikes/hardtails/sport-hardtails/trailx/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Monterey Grey",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxa2_monterey_grey.png"
+      },
+      {
+        "color_name": "Nile Blue",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxa2_nile_blue.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "HELIX",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$699.95",
+    "url": "https://www.jamisbikes.com/bikes/hardtails/sport-hardtails/helix/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Pomodoro",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/05/26-helix-pomodoro-200px.png"
+      },
+      {
+        "color_name": "Mint",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/05/26-helix-mint-2000px.jpg"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "DURANGO A1",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$829.95",
+    "url": "https://www.jamisbikes.com/bikes/hardtails/sport-hardtails/durango/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Garnet",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_durangoa1_garnet-1-600x332.png"
+      },
+      {
+        "color_name": "Gloss Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_durangoa1_gloss_black.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "DURANGO A2",
+    "year": 2022,
+    "category": "Mountain",
+    "price": "$729.95",
+    "url": "https://www.jamisbikes.com/bikes/hardtails/sport-hardtails/durango/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Midnight Blue",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_durangoa2_midnight_blue.png"
+      },
+      {
+        "color_name": "Thunder Grey",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_durangoa2_thunder_grey.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "DIVIDE LTD",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$599.95",
+    "url": "https://www.jamisbikes.com/bikes/hardtails/sport-hardtails/divide/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Milk Chocolate",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/05/26-divide-milk-chocolate-2000px.jpg"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "DIVIDE",
+    "year": 2022,
+    "category": "Mountain",
+    "price": "$599.95",
+    "url": "https://www.jamisbikes.com/bikes/hardtails/sport-hardtails/divide/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Gloss Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_divide_gloss_black.png"
+      },
+      {
+        "color_name": "Oxblood",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_divide_oxblood.png"
+      },
+      {
+        "color_name": "Riptide",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dividestepover_riptide.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "HIGHPOINT A1",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$1399.95",
+    "url": "https://www.jamisbikes.com/bikes/hardtails/trail-hartails/highpoint/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Putty",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-highpoint-a1-puttyv3.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "HIGHPOINT A2",
+    "year": 2026,
+    "category": "Mountain",
+    "price": "$1099.95",
+    "url": "https://www.jamisbikes.com/bikes/hardtails/trail-hartails/highpoint/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Commando",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/26-highpoint-a2-commando-2000px.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "KOMODO 29",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$1999.95",
+    "url": "https://www.jamisbikes.com/bikes/hardtails/trail-hartails/komodo/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Rhino",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/08/21_komodo_rhino_600px.png"
+      },
+      {
+        "color_name": "Riptide",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_komodo_riptide2.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "DRAGON 29",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$2599.95",
+    "url": "https://www.jamisbikes.com/bikes/hardtails/trail-hartails/dragon/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Midnight Blue",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_dragon_midnight_blue-1.png"
+      },
+      {
+        "color_name": "Monterey Grey",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/2024_dragon_monterey_grey.png"
+      },
+      {
+        "color_name": "Gloss Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/08/21_dragon_gloss_black.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "HIGHPOINT A1",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$1599.95",
+    "url": "https://www.jamisbikes.com/bikes/hardtails/trail-hartails/highpoint-v2/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Putty",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-highpoint-a1-puttyv3.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "HIGHPOINT A2",
+    "year": 2026,
+    "category": "Mountain",
+    "price": "$1099.95",
+    "url": "https://www.jamisbikes.com/bikes/hardtails/trail-hartails/highpoint-v2/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Graphite",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-highpoint-a2-graphite-2000px.jpg"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "Adult Tricycle Bicycle",
+    "year": 2021,
+    "category": "Recreation",
+    "price": "$675.95",
+    "url": "https://www.jamisbikes.com/bikes/recreation/cruisers/taxi-adult-tricycle/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "EARTH CRUISER 3",
+    "year": 2021,
+    "category": "Recreation",
+    "price": "$649.95",
+    "url": "https://www.jamisbikes.com/bikes/recreation/cruisers/earthcruiser/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "EARTH CRUISER 1",
+    "year": 2021,
+    "category": "Recreation",
+    "price": "$549.95",
+    "url": "https://www.jamisbikes.com/bikes/recreation/cruisers/earthcruiser/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Mash",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_earthcruiser1_mash.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "EARTH CRUISER 2",
+    "year": 2021,
+    "category": "Recreation",
+    "price": "$489.95",
+    "url": "https://www.jamisbikes.com/bikes/recreation/cruisers/earthcruiser/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Blood Red",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_earthcruiser2_blood_red.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "KROMO",
+    "year": 2021,
+    "category": "Mountain",
+    "price": "$1299.95",
+    "url": "https://www.jamisbikes.com/bikes/hardtails/trail-hartails/kromo/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Midnight Blue",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2023/12/24-kromo-midnight-blue.jpg"
+      },
+      {
+        "color_name": "Mash",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2023/12/24-kromo-mash.jpg"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "BOSS CRUISER 7",
+    "year": 2021,
+    "category": "Recreation",
+    "price": "$579.95",
+    "url": "https://www.jamisbikes.com/bikes/recreation/cruisers/bosscruiser/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Blue Lagoon",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_bosscruiser7_stepover_blue_lagoon_600px.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "BOSS CRUISER COASTER",
+    "year": 2021,
+    "category": "Recreation",
+    "price": "$549.95",
+    "url": "https://www.jamisbikes.com/bikes/recreation/cruisers/bosscruiser/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "CITIZEN 3",
+    "year": 2021,
+    "category": "Recreation",
+    "price": "$839.95",
+    "url": "https://www.jamisbikes.com/bikes/recreation/street-comfort/citizen/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Nickel",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen_nickel-1.png"
+      },
+      {
+        "color_name": "Navy Pearl",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen3stepthru_navy_pearl.png"
+      },
+      {
+        "color_name": "Vanilla Mint",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/08/21_citizen3_stepover_vanilla_mint.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "CITIZEN 2",
+    "year": 2022,
+    "category": "Recreation",
+    "price": "$659.95",
+    "url": "https://www.jamisbikes.com/bikes/recreation/street-comfort/citizen/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Storm Grey",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen2_storm_grey.png"
+      },
+      {
+        "color_name": "Monterey Blue",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/08/21_citizen2_monterey_blue.png"
+      },
+      {
+        "color_name": "Radiant Teal",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/08/21_citizen2_stepover_radiant_teal.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "CITIZEN 1",
+    "year": 2022,
+    "category": "Recreation",
+    "price": "$599.95",
+    "url": "https://www.jamisbikes.com/bikes/recreation/street-comfort/citizen/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Palladium",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen1_palladium.png"
+      },
+      {
+        "color_name": "Deep Blue",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/08/21_citizen1_deep_blue.png"
+      },
+      {
+        "color_name": "Sugar Mint",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen1stepthru_sugar_mint.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "CITIZEN",
+    "year": 2022,
+    "category": "Recreation",
+    "price": "$539.95",
+    "url": "https://www.jamisbikes.com/bikes/recreation/street-comfort/citizen/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Nickel",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen_nickel.png"
+      },
+      {
+        "color_name": "Gloss Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2019/07/20_citizen_gloss_black.jpg"
+      },
+      {
+        "color_name": "Ocean Mist",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2019/07/20_citizen_stepover_ocean_mist.jpg"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "TRAIL XR",
+    "year": 2021,
+    "category": "Recreation",
+    "price": "$509.95",
+    "url": "https://www.jamisbikes.com/bikes/recreation/sport-comfort/trailxr/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Ano Nickel",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_trailxr_ano_nickel_600px.png"
+      },
+      {
+        "color_name": "Nickel",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxr_nickel-1024x1024.png"
+      },
+      {
+        "color_name": "Gloss Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxr_gloss_black.png"
+      },
+      {
+        "color_name": "Powder Blue",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxrstepover_powder_blue.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "TAXI",
+    "year": 2021,
+    "category": "Recreation",
+    "price": "$659.95",
+    "url": "https://www.jamisbikes.com/bikes/recreation/cruisers/taxi/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Trike Yellow Cab",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_taxitrike_yellow_cab-600x352.png"
+      },
+      {
+        "color_name": "Gloss Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_gloss_black.png"
+      },
+      {
+        "color_name": "Monterey Red",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_stepover_monterey_red.png"
+      },
+      {
+        "color_name": "Cosmo Blue",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_stepover_cosmo_blue.png"
+      },
+      {
+        "color_name": "Gloss Kiwi",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_gloss_kiwi.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "TAXI 24\"",
+    "year": 2021,
+    "category": "Recreation",
+    "price": "$659.95",
+    "url": "https://www.jamisbikes.com/bikes/recreation/cruisers/taxi/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Gloss Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_gloss_black.png"
+      },
+      {
+        "color_name": "Monterey Red",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_monterey_red.png"
+      },
+      {
+        "color_name": "Cosmo Blue",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_cosmo_blue.png"
+      },
+      {
+        "color_name": "Monterey Kiwi",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_monterey_kiwi.png"
+      },
+      {
+        "color_name": "Kiwi",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi24_kiwi.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "TAXI YOUTH",
+    "year": null,
+    "category": "Recreation",
+    "price": "$429.95",
+    "url": "https://www.jamisbikes.com/bikes/recreation/cruisers/taxi/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "EXPLORER A1",
+    "year": 2021,
+    "category": "Recreation",
+    "price": "$729.95",
+    "url": "https://www.jamisbikes.com/bikes/recreation/sport-comfort/explorer/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Riptide",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/08/21_explorera1_riptide-600x410.png"
+      },
+      {
+        "color_name": "Palladium",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera1_palladium.png"
+      },
+      {
+        "color_name": "Teal",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera1stepthru_teal.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "EXPLORER A2",
+    "year": 2022,
+    "category": "Recreation",
+    "price": "$589.95",
+    "url": "https://www.jamisbikes.com/bikes/recreation/sport-comfort/explorer/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Deep Blue",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera2_deep_blue.png"
+      },
+      {
+        "color_name": "Gloss Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera2_gloss_black.png"
+      },
+      {
+        "color_name": "Sage",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera2stepthru_sage.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "ALLEGRO A1",
+    "year": 2021,
+    "category": "Urban/Fitness",
+    "price": "$999.95",
+    "url": "https://www.jamisbikes.com/bikes/urban-fitness/urban-fitness/allegro/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Storm Grey",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa1_storm_grey-1.png"
+      },
+      {
+        "color_name": "Thunder Grey",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a1_thunder_grey.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "ALLEGRO A1 — Designed for Women",
+    "year": 2025,
+    "category": "Urban/Fitness",
+    "price": "$999.95",
+    "url": "https://www.jamisbikes.com/bikes/urban-fitness/urban-fitness/allegro/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Slate",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a1dfw_slate.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "ALLEGRO A2",
+    "year": 2025,
+    "category": "Urban/Fitness",
+    "price": "$829.95",
+    "url": "https://www.jamisbikes.com/bikes/urban-fitness/urban-fitness/allegro/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Galaxy Blue",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2_galaxy_blue.png"
+      },
+      {
+        "color_name": "Flint",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2_flint.png"
+      },
+      {
+        "color_name": "Garnet",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa2_garnet.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "ALLEGRO A2 — Designed for Women",
+    "year": 2025,
+    "category": "Urban/Fitness",
+    "price": "$829.95",
+    "url": "https://www.jamisbikes.com/bikes/urban-fitness/urban-fitness/allegro/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Vanillamint",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2dfw_vanillamint.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "ALLEGRO A3",
+    "year": 2022,
+    "category": "Urban/Fitness",
+    "price": "$559.95",
+    "url": "https://www.jamisbikes.com/bikes/urban-fitness/urban-fitness/allegro/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Ink",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa3_ink.png"
+      },
+      {
+        "color_name": "Thunder Grey",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa3_thunder_grey.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "ALLEGRO A3 — Step-Over Frame",
+    "year": 2022,
+    "category": "Urban/Fitness",
+    "price": "$559.95",
+    "url": "https://www.jamisbikes.com/bikes/urban-fitness/urban-fitness/allegro/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Sugar Mint",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa3stepover_sugar_mint.png"
+      },
+      {
+        "color_name": "Thunder Grey",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa3stepover_thunder_grey.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "BEATNIK",
+    "year": 2021,
+    "category": "Urban/Fitness",
+    "price": "$629.95",
+    "url": "https://www.jamisbikes.com/bikes/urban-fitness/fixie/beatnik/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Mash",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_beatnik_mash.png"
+      },
+      {
+        "color_name": "Smoke",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_beatnik_smoke.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "DXT A1",
+    "year": 2021,
+    "category": "Urban/Fitness",
+    "price": "$1,049.95",
+    "url": "https://www.jamisbikes.com/bikes/urban-fitness/dualsport/dxt/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Monterey Grey",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1_monterey_grey-1.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "DXT A1 — Step-Over Frame",
+    "year": 2022,
+    "category": "Urban/Fitness",
+    "price": "$1,049.95",
+    "url": "https://www.jamisbikes.com/bikes/urban-fitness/dualsport/dxt/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Deep Blue",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1stepover_deep_blue.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "DXT A2",
+    "year": 2025,
+    "category": "Urban/Fitness",
+    "price": "$829.95",
+    "url": "https://www.jamisbikes.com/bikes/urban-fitness/dualsport/dxt/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Shadow",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_dxt_a2_shadow.png"
+      },
+      {
+        "color_name": "Gloss Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta2_gloss_black.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "DXT A2 — Step-Over Frame",
+    "year": 2022,
+    "category": "Urban/Fitness",
+    "price": "$829.95",
+    "url": "https://www.jamisbikes.com/bikes/urban-fitness/dualsport/dxt/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Frost",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta2stepover_frost.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "DXT A3",
+    "year": 2022,
+    "category": "Urban/Fitness",
+    "price": "$679.95",
+    "url": "https://www.jamisbikes.com/bikes/urban-fitness/dualsport/dxt/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Smoke",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta3_smoke.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "DXT A3 — Step-Over Frame",
+    "year": 2022,
+    "category": "Urban/Fitness",
+    "price": "$679.95",
+    "url": "https://www.jamisbikes.com/bikes/urban-fitness/dualsport/dxt/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Seafoam",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta3stepover_seafoam.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "HUDSON DISC",
+    "year": 2021,
+    "category": "Recreation",
+    "price": "$839.95",
+    "url": "https://www.jamisbikes.com/bikes/recreation/street-comfort/hudson/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Flat Ink",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudsondisc_stepthru_flat_ink_600px.png"
+      },
+      {
+        "color_name": "Ink",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_hudsondiscstepthru_ink.png"
+      },
+      {
+        "color_name": "Rhino",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudsondisc_rhino.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "HUDSON DISC — Step-Over Frame",
+    "year": 2021,
+    "category": "Recreation",
+    "price": "$839.95",
+    "url": "https://www.jamisbikes.com/bikes/recreation/street-comfort/hudson/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Sugar Mint",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudsondisc_stepthru_sugar_mint.png"
+      },
+      {
+        "color_name": "Ink",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_hudsondiscstepthru_ink.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "HUDSON",
+    "year": 2022,
+    "category": "Recreation",
+    "price": "$684.95",
+    "url": "https://www.jamisbikes.com/bikes/recreation/street-comfort/hudson/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Gloss Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_hudson_gloss_black.png"
+      },
+      {
+        "color_name": "Ano Midnight Sky",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudson_ano_midnight_sky.png"
+      },
+      {
+        "color_name": "Sandstone",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_hudson_sandstone.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "HUDSON — Step-Over Frame",
+    "year": 2026,
+    "category": "Recreation",
+    "price": "$684.95",
+    "url": "https://www.jamisbikes.com/bikes/recreation/street-comfort/hudson/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Sugar Blue",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/09/26-hudson-stepthru-sugar-blue-rendering.jpg"
+      },
+      {
+        "color_name": "Vanilla Mint",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudson_stepthru_vanilla_mint.png"
+      },
+      {
+        "color_name": "Grey Mist",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/09/26-hudson-stepthru-grey-mist-rendering.jpg"
+      },
+      {
+        "color_name": "Gloss Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_hudsonstepthru_gloss_black.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "CRITTER",
+    "year": 2021,
+    "category": "Kids",
+    "price": "$169.95",
+    "url": "https://www.jamisbikes.com/bikes/youth/2-3/critter/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Ninja Green",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_critter_ninja_green-1024x1024.png"
+      },
+      {
+        "color_name": "Victory Red",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_critter_victory_red.png"
+      },
+      {
+        "color_name": "Vivid Violet",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_critter_vivid_violet.png"
+      },
+      {
+        "color_name": "Raspberry",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_critter_raspberry.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "SEQUEL S2",
+    "year": 2021,
+    "category": "Urban/Fitness",
+    "price": "$1,399.95",
+    "url": "https://www.jamisbikes.com/bikes/urban-fitness/urban-fitness/sequel/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Rootbeer",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/08/25_SEQUEL_s2_rootbeer-600x346.png"
+      },
+      {
+        "color_name": "Riptide",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_sequels2_riptide.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "SEQUEL S3",
+    "year": 2022,
+    "category": "Urban/Fitness",
+    "price": "$1,049.95",
+    "url": "https://www.jamisbikes.com/bikes/urban-fitness/urban-fitness/sequel/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Gloss Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_sequels3_gloss_black.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "LASER 16",
+    "year": 2021,
+    "category": "Kids",
+    "price": "$345.95",
+    "url": "https://www.jamisbikes.com/bikes/youth/3-5/laser16/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Ano Deep Blue",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_laser16_ano_deep_blue_600px.png"
+      },
+      {
+        "color_name": "Victory Red",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_laser16_victory_red.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "CODA S1 LTD",
+    "year": 2021,
+    "category": "Urban/Fitness",
+    "price": "$1099.95",
+    "url": "https://www.jamisbikes.com/bikes/urban-fitness/urban-fitness/coda/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Palladium",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas1_palladium-1.png"
+      },
+      {
+        "color_name": "Copper Tone",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2024/09/CODA-S1-LTD-Copper-Tone.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "CODA S1 LTD — Designed for Women",
+    "year": null,
+    "category": "Urban/Fitness",
+    "price": "$1099.95",
+    "url": "https://www.jamisbikes.com/bikes/urban-fitness/urban-fitness/coda/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "CODA S2",
+    "year": 2022,
+    "category": "Urban/Fitness",
+    "price": "$769.95",
+    "url": "https://www.jamisbikes.com/bikes/urban-fitness/urban-fitness/coda/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Navy Pearl",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_navy_pearl.png"
+      },
+      {
+        "color_name": "Gloss Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_gloss_black.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "CODA S2 — Designed for Women",
+    "year": 2022,
+    "category": "Urban/Fitness",
+    "price": "$769.95",
+    "url": "https://www.jamisbikes.com/bikes/urban-fitness/urban-fitness/coda/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Vanilla Mint",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_dfw_vanilla_mint.png"
+      },
+      {
+        "color_name": "Gloss Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_dfw_gloss_black.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "CODA S3",
+    "year": 2022,
+    "category": "Urban/Fitness",
+    "price": "$569.95",
+    "url": "https://www.jamisbikes.com/bikes/urban-fitness/urban-fitness/coda/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Ink",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_codas3_ink.png"
+      },
+      {
+        "color_name": "Monterey Grey",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_codas3_monterey_grey.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "CODA S3 — Step-Over Frame",
+    "year": 2022,
+    "category": "Urban/Fitness",
+    "price": "$569.95",
+    "url": "https://www.jamisbikes.com/bikes/urban-fitness/urban-fitness/coda/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Garnet",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_codas3stepover_garnet.png"
+      },
+      {
+        "color_name": "Deep Blue",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_codas3stepover_deep_blue.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "STARLITE",
+    "year": 2021,
+    "category": "Kids",
+    "price": "$395.95",
+    "url": "https://www.jamisbikes.com/bikes/youth/4-8/starlite/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Blue Lagoon",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_starlite_blue_lagoon_600px.png"
+      },
+      {
+        "color_name": "Vivid Violet",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_starlite_vivid_violet.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "XR20",
+    "year": 2021,
+    "category": "Kids",
+    "price": "$429.95",
+    "url": "https://www.jamisbikes.com/bikes/youth/4-8/xr20/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Ano Limelight",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_xr20_ano_limelight_600px.png"
+      },
+      {
+        "color_name": "Limelight",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_xr20_limelight.png"
+      },
+      {
+        "color_name": "Gloss Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_xr20_gloss_black.png"
+      },
+      {
+        "color_name": "Raspberry",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_xr20_raspberry.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "LASER 20",
+    "year": 2021,
+    "category": "Kids",
+    "price": "$395.95",
+    "url": "https://www.jamisbikes.com/bikes/youth/4-8/laser20/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Smoke",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/20_laser20_smoke_600px.png"
+      },
+      {
+        "color_name": "Cosmo Blue",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_laser20_cosmo_blue.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "MISS DAISY",
+    "year": 2021,
+    "category": "Kids",
+    "price": "$345.95",
+    "url": "https://www.jamisbikes.com/bikes/youth/3-5/missdaisy/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Hot Pink",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_missdaisy_hot_pink_600px.png"
+      },
+      {
+        "color_name": "Grape",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_missdaisy_grape.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "XR24",
+    "year": 2021,
+    "category": "Kids",
+    "price": "$569.95",
+    "url": "https://www.jamisbikes.com/bikes/youth/9-12-years-old/xr24/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Sky Blue",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_xr24_sky_blue_600px.png"
+      },
+      {
+        "color_name": "Ninja Green",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_xr24_ninja_green.png"
+      },
+      {
+        "color_name": "Gloss Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_xr24_gloss_black.png"
+      },
+      {
+        "color_name": "Violet Powder",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_xr24_-violet_powder.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "X24 DISC",
+    "year": 2021,
+    "category": "Kids",
+    "price": "$569.95",
+    "url": "https://www.jamisbikes.com/bikes/youth/9-12-years-old/x24disc/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Ano Midnight Sky",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_x24disc_ano_midnight_sky_600px.png"
+      },
+      {
+        "color_name": "Midnight Sky",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_x24disc_midnight_sky.png"
+      },
+      {
+        "color_name": "Palladium",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_x24disc_palladium.png"
+      },
+      {
+        "color_name": "Hot Pink",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_x24disc_hot_pink.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "KOMODO 24",
+    "year": 2021,
+    "category": "Kids",
+    "price": "$549.95",
+    "url": "https://www.jamisbikes.com/bikes/youth/9-12-years-old/komodo-24/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Rhino",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/08/21_komodo_rhino_600px.png"
+      },
+      {
+        "color_name": "Ano Kinetic Grey",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_komodo24_ano_kinetic_grey.png"
+      },
+      {
+        "color_name": "Amber Wave",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_komodo24_amber_wave.png"
+      }
+    ],
+    "specs": {}
+  },
+  {
+    "model": "CAPRI",
+    "year": 2021,
+    "category": "Kids",
+    "price": "$569.95",
+    "url": "https://www.jamisbikes.com/bikes/youth/9-12-years-old/capri24/",
+    "color_code": null,
+    "colorways": [],
+    "specs": {}
+  },
+  {
+    "model": "XR26",
+    "year": 2021,
+    "category": "Kids",
+    "price": "$584.95",
+    "url": "https://www.jamisbikes.com/bikes/youth/9-12-years-old/xr26/",
+    "color_code": null,
+    "colorways": [
+      {
+        "color_name": "Smoke",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_xr26_smoke_600px.png"
+      },
+      {
+        "color_name": "Gloss Black",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_xr26_gloss_black.png"
+      },
+      {
+        "color_name": "Sage",
+        "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_xr26stepover_sage.png"
+      }
+    ],
+    "specs": {}
+  }
+]
