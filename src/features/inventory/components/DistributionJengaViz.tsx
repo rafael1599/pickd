@@ -3,6 +3,7 @@ import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal';
 import Edit3 from 'lucide-react/dist/esm/icons/edit-3';
 import type { DistributionItem } from '../../../schemas/inventory.schema';
 import { MenuOverlay } from '../../../components/ui/MenuOverlay';
+import jamisLogo from './jamis-bikes.webp';
 
 interface DistributionJengaVizProps {
   distribution: DistributionItem[];
@@ -13,8 +14,8 @@ interface DistributionJengaVizProps {
  * Jenga-style 3D visualization of an inventory item's physical distribution
  * (idea-126). Each glyph is drawn in SVG with isometric front/top/right faces
  * for a real wooden-block look:
- *   · LINE  → one standing Jenga piece (single block).
- *   · TOWER → classic Jenga tower silhouette (alternating crisscross layers).
+ *   · LINE  → a standing bike carton (JAMIS box on its end, idea-137).
+ *   · TOWER → a 3-tier stack of bike cartons (JAMIS box at the centre, idea-137).
  *   · empty → a scattered pile of sticks, signaling "stock on the floor but
  *             not yet categorized".
  */
@@ -24,19 +25,33 @@ export const DistributionJengaViz = memo(
 
     return (
       <div className="flex items-center gap-2 w-full bg-surface/30 border border-subtle/40 rounded-md px-2 py-2 mb-1.5">
-        <div className="flex-1 min-w-0 flex items-end justify-center gap-2.5 flex-wrap">
+        <div className="flex-1 min-w-0 flex items-center justify-center gap-3 flex-wrap">
           {isEmpty ? (
             <JengaPile />
           ) : (
-            distribution.flatMap((d, idx) =>
-              Array.from({ length: d.count }, (_, i) => (
-                <DistributionGlyph
-                  key={`${idx}-${i}-${d.type}`}
-                  type={d.type}
-                  unitsEach={d.units_each}
-                />
-              ))
-            )
+            distribution.map((d, idx) => (
+              <div key={`${idx}-${d.type}`} className="flex items-center gap-1.5">
+                {/* The graphic indicator(s) for this distribution. */}
+                <div className="flex items-end gap-1">
+                  {Array.from({ length: d.count }, (_, i) => (
+                    <DistributionGlyph
+                      key={i}
+                      type={d.type}
+                      unitsEach={d.units_each}
+                      showNumber={false}
+                    />
+                  ))}
+                </div>
+                {/* Units-per-container, shown large to the RIGHT of the indicator
+                    (idea-137 parity with the Double-Check pick plan). */}
+                <span
+                  className="text-2xl font-black tabular-nums leading-none text-content"
+                  style={{ fontFamily: 'var(--font-heading)' }}
+                >
+                  {d.units_each}
+                </span>
+              </div>
+            ))
           )}
         </div>
         <DistributionMenu isEmpty={isEmpty} onAdjust={onAdjust} />
@@ -97,6 +112,16 @@ const TOP = '#F5CE7B'; // lighter top
 const SIDE = '#A05A1C'; // darker right side
 const FRONT_ALT = '#F0B260'; // slightly lighter front for alternating layers
 
+// LINE bike-carton palette (idea-137: a standing JAMIS box).
+const KRAFT = '#C98A4B'; // kraft cardboard face
+const KRAFT_HOLE = '#7A5326'; // carry-handle cutout
+const KRAFT_HOLE_STROKE = '#4A2608';
+const LABEL = '#F4F1EA'; // white shipping label
+const LABEL_STROKE = '#C9B79C';
+const LABEL_TEXT = '#9AA0A6'; // grey text hints
+const LABEL_INK = '#2B2B2B'; // barcode / QR
+const JAMIS_BLUE = '#2E78B5'; // label header band
+
 interface GlyphProps {
   type: DistributionItem['type'];
   unitsEach: number;
@@ -106,53 +131,85 @@ interface GlyphProps {
 }
 
 /**
- * A single distribution glyph (LINE → standing stick, TOWER → jenga tower,
+ * A single distribution glyph (LINE → bike carton, TOWER → box stack,
  * PALLET → pallet, OTHER → crate) with its unit count drawn in the middle.
  * Exported so other views (e.g. the Double-Check pick plan) can render the same
  * graphical representation used in stock view.
  */
 export function DistributionGlyph({ type, unitsEach, showNumber = true }: GlyphProps) {
-  if (type === 'TOWER') return <JengaTower n={unitsEach} showNumber={showNumber} />;
+  if (type === 'TOWER') return <BoxTowerGlyph n={unitsEach} showNumber={showNumber} />;
   if (type === 'PALLET') return <JengaPallet n={unitsEach} showNumber={showNumber} />;
   if (type === 'OTHER') return <JengaCrate n={unitsEach} showNumber={showNumber} />;
-  // LINE → standing stick.
-  return <JengaStick n={unitsEach} showNumber={showNumber} />;
+  // LINE → standing bike carton.
+  return <BikeBoxGlyph n={unitsEach} showNumber={showNumber} />;
 }
 
-/** Single standing Jenga block — isometric 3D look. */
-function JengaStick({ n, showNumber = true }: { n: number; showNumber?: boolean }) {
+/** LINE → a standing bike carton (JAMIS box stood on its end): kraft body, an
+ *  oval carry-handle near the top and a white shipping label. The unit count is
+ *  drawn on the label when `showNumber` (stock/idle); views that print the
+ *  number large beside the glyph pass `showNumber={false}`. */
+function BikeBoxGlyph({ n, showNumber = true }: { n: number; showNumber?: boolean }) {
   return (
     <div className="relative inline-block" title={`Line · ${n}`}>
-      <svg width="24" height="44" viewBox="0 0 24 44" aria-hidden>
-        {/* Top face (parallelogram) */}
-        <polygon
-          points="3,5 17,5 21,9 7,9"
-          fill={TOP}
-          stroke={STROKE}
-          strokeWidth="0.7"
-          strokeLinejoin="round"
-        />
-        {/* Front face */}
-        <rect x="3" y="9" width="14" height="32" fill={FRONT} stroke={STROKE} strokeWidth="0.7" />
-        {/* Right side face (parallelogram) */}
-        <polygon
-          points="17,9 21,9 21,37 17,41"
-          fill={SIDE}
-          stroke={STROKE}
-          strokeWidth="0.7"
-          strokeLinejoin="round"
-        />
-        {/* Wood grain hints on front */}
-        <line x1="5" y1="14" x2="15" y2="14" stroke={STROKE} strokeWidth="0.3" opacity="0.35" />
-        <line x1="5" y1="20" x2="15" y2="20" stroke={STROKE} strokeWidth="0.3" opacity="0.35" />
-        <line x1="5" y1="32" x2="15" y2="32" stroke={STROKE} strokeWidth="0.3" opacity="0.35" />
+      <svg width="26" height="48" viewBox="0 0 28 52" aria-hidden>
         {/* Ground shadow */}
-        <ellipse cx="11" cy="42" rx="9" ry="1.2" fill="black" opacity="0.22" />
+        <ellipse cx="14" cy="50.5" rx="10" ry="1.2" fill="black" opacity="0.18" />
+        {/* Kraft carton body, standing upright */}
+        <rect
+          x="4"
+          y="2"
+          width="20"
+          height="47"
+          rx="3.5"
+          fill={KRAFT}
+          stroke={STROKE}
+          strokeWidth="1.5"
+        />
+        {/* Oval carry-handle near the top */}
+        <ellipse
+          cx="14"
+          cy="8.2"
+          rx="4.2"
+          ry="1.9"
+          fill={KRAFT_HOLE}
+          stroke={KRAFT_HOLE_STROKE}
+          strokeWidth="0.6"
+        />
+        {/* White shipping label */}
+        <rect
+          x="6.5"
+          y="15.5"
+          width="15"
+          height="22"
+          rx="1.5"
+          fill={LABEL}
+          stroke={LABEL_STROKE}
+          strokeWidth="0.8"
+        />
+        {!showNumber && (
+          <>
+            {/* Blue JAMIS header band */}
+            <rect x="8.5" y="17.5" width="11" height="3" fill={JAMIS_BLUE} />
+            {/* Text lines */}
+            <line x1="8.5" y1="23" x2="18.5" y2="23" stroke={LABEL_TEXT} strokeWidth="0.9" />
+            <line x1="8.5" y1="25.2" x2="19.5" y2="25.2" stroke={LABEL_TEXT} strokeWidth="0.9" />
+            {/* Barcode */}
+            <g stroke={LABEL_INK} strokeWidth="0.6">
+              <line x1="8.5" y1="27.6" x2="8.5" y2="31.6" />
+              <line x1="9.8" y1="27.6" x2="9.8" y2="31.6" />
+              <line x1="10.8" y1="27.6" x2="10.8" y2="31.6" />
+              <line x1="12.1" y1="27.6" x2="12.1" y2="31.6" />
+            </g>
+            {/* QR */}
+            <rect x="15" y="27.6" width="4.2" height="4.2" fill={LABEL_INK} />
+            <line x1="8.5" y1="34.5" x2="19.5" y2="34.5" stroke={LABEL_TEXT} strokeWidth="0.9" />
+          </>
+        )}
       </svg>
-      {/* Number overlay on the front face */}
+      {/* Number overlay on the label — for views that draw it inside the glyph. */}
       {showNumber && (
         <span
-          className="absolute left-[3px] top-[9px] w-[14px] h-[32px] flex items-center justify-center text-[11px] font-black tabular-nums leading-none pointer-events-none"
+          className="absolute left-[6px] top-[14px] w-[14px] h-[21px] flex items-center justify-center text-[11px] font-black tabular-nums leading-none pointer-events-none"
           style={{ fontFamily: 'var(--font-heading)', color: '#3C1A04' }}
         >
           {n}
@@ -162,76 +219,101 @@ function JengaStick({ n, showNumber = true }: { n: number; showNumber?: boolean 
   );
 }
 
-/** Jenga tower — 5 alternating crisscross layers. */
-function JengaTower({ n, showNumber = true }: { n: number; showNumber?: boolean }) {
-  const layers = [0, 1, 2, 3, 4]; // bottom → top
-  const layerH = 7;
-  const baseY = 6;
+/** TOWER → a 3-tier symmetric stack of bike cartons: three end-on cartons, a
+ *  wide carton (long, branded side facing out) and three more — echoing how the
+ *  boxes crisscross on the rack. The real JAMIS BIKES logo rides the centre
+ *  carton; views that want the number inside pass `showNumber` and it overlays
+ *  the centre. */
+function BoxTowerGlyph({ n, showNumber = true }: { n: number; showNumber?: boolean }) {
   return (
     <div className="relative inline-block" title={`Tower · ${n}`}>
-      <svg width="34" height="50" viewBox="0 0 34 50" aria-hidden>
-        {/* Ground shadow */}
-        <ellipse cx="17" cy="47" rx="13" ry="1.4" fill="black" opacity="0.22" />
-        {layers.map((idx) => {
-          const y = baseY + (layers.length - 1 - idx) * layerH; // build top-down
-          // Even layer = 3 sticks side by side (ends-on view).
-          // Odd layer = 1 wide block (long side facing front), rotated 90°.
-          const isPerp = idx % 2 === 0;
-          if (isPerp) {
-            return (
-              <g key={idx}>
-                {/* top of layer (thin lighter band) */}
-                <rect
-                  x="5"
-                  y={y}
-                  width="6"
-                  height={layerH}
-                  fill={FRONT}
-                  stroke={STROKE}
-                  strokeWidth="0.5"
-                />
-                <rect
-                  x="13"
-                  y={y}
-                  width="6"
-                  height={layerH}
-                  fill={FRONT}
-                  stroke={STROKE}
-                  strokeWidth="0.5"
-                />
-                <rect
-                  x="21"
-                  y={y}
-                  width="6"
-                  height={layerH}
-                  fill={FRONT}
-                  stroke={STROKE}
-                  strokeWidth="0.5"
-                />
-                {/* top edges */}
-                <line x1="5" y1={y + 1} x2="11" y2={y + 1} stroke={TOP} strokeWidth="1.2" />
-                <line x1="13" y1={y + 1} x2="19" y2={y + 1} stroke={TOP} strokeWidth="1.2" />
-                <line x1="21" y1={y + 1} x2="27" y2={y + 1} stroke={TOP} strokeWidth="1.2" />
-              </g>
-            );
-          }
-          return (
-            <g key={idx}>
-              <rect
-                x="5"
-                y={y}
-                width="22"
-                height={layerH}
-                fill={FRONT_ALT}
-                stroke={STROKE}
-                strokeWidth="0.5"
-              />
-              <line x1="5" y1={y + 1} x2="27" y2={y + 1} stroke={TOP} strokeWidth="1.2" />
-            </g>
-          );
-        })}
+      <svg width="38" height="47" viewBox="0 0 42 52" aria-hidden>
+        <ellipse cx="21" cy="50.5" rx="17" ry="1.4" fill="black" opacity="0.18" />
+        {/* Top tier — three cartons seen end-on */}
+        <rect
+          x="3"
+          y="2"
+          width="11"
+          height="13"
+          rx="1.3"
+          fill={KRAFT}
+          stroke={STROKE}
+          strokeWidth="1"
+        />
+        <rect
+          x="15.5"
+          y="2"
+          width="11"
+          height="13"
+          rx="1.3"
+          fill={KRAFT}
+          stroke={STROKE}
+          strokeWidth="1"
+        />
+        <rect
+          x="28"
+          y="2"
+          width="11"
+          height="13"
+          rx="1.3"
+          fill={KRAFT}
+          stroke={STROKE}
+          strokeWidth="1"
+        />
+        {/* Middle tier — the wide carton, long branded side facing out */}
+        <rect
+          x="3"
+          y="16.5"
+          width="36"
+          height="18"
+          rx="1.5"
+          fill={KRAFT}
+          stroke={STROKE}
+          strokeWidth="1.1"
+        />
+        {!showNumber && (
+          <image
+            href={jamisLogo}
+            x="6"
+            y="18.5"
+            width="30"
+            height="14"
+            preserveAspectRatio="xMidYMid meet"
+          />
+        )}
+        {/* Bottom tier — mirrors the top */}
+        <rect
+          x="3"
+          y="36"
+          width="11"
+          height="13"
+          rx="1.3"
+          fill={KRAFT}
+          stroke={STROKE}
+          strokeWidth="1"
+        />
+        <rect
+          x="15.5"
+          y="36"
+          width="11"
+          height="13"
+          rx="1.3"
+          fill={KRAFT}
+          stroke={STROKE}
+          strokeWidth="1"
+        />
+        <rect
+          x="28"
+          y="36"
+          width="11"
+          height="13"
+          rx="1.3"
+          fill={KRAFT}
+          stroke={STROKE}
+          strokeWidth="1"
+        />
       </svg>
-      {/* Number patch overlaid center of the tower */}
+      {/* Number patch overlaid on the centre carton (views that want it inside). */}
       {showNumber && (
         <span
           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded-sm text-[10px] font-black tabular-nums leading-none pointer-events-none"
