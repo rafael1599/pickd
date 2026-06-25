@@ -1,0 +1,6690 @@
+[
+  {
+    "sku": "00-0000",
+    "color": "Sandstorm",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "01-0032",
+    "color": "Gloss Black",
+    "slug": "explorer",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera2_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0035",
+    "color": "Navy Pearl",
+    "slug": "coda",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Navy Pearl",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_navy_pearl.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0064",
+    "color": "Riptide",
+    "slug": "portal",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Riptide",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_portalc4_riptide.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0066",
+    "color": "Gloss Black",
+    "slug": "citizen",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2019/07/20_citizen_gloss_black.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0074",
+    "color": "Gloss Black",
+    "slug": "explorer",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera2_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0077",
+    "color": "Gloss Black",
+    "slug": "hudson",
+    "status": "exact-multi",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_hudson_gloss_black.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "01-0082",
+    "color": "Cosmo Blue",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "01-0133",
+    "color": "Gloss Black",
+    "slug": "hudson",
+    "status": "exact-multi",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_hudson_gloss_black.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "01-0145",
+    "color": "Blue Lagoon",
+    "slug": "hudson",
+    "status": "exact-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "01-0175",
+    "color": "Gloss Black",
+    "slug": "hudson",
+    "status": "exact-multi",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_hudson_gloss_black.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "01-0261",
+    "color": "Sage",
+    "slug": "explorer",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Sage",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera2stepthru_sage.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0263",
+    "color": "Gloss Black",
+    "slug": "citizen",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2019/07/20_citizen_gloss_black.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0267",
+    "color": "Ink",
+    "slug": "coda",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Ink",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_codas3_ink.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0273",
+    "color": "Vivid Violet",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "01-0282",
+    "color": "Rhino",
+    "slug": "hudson",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Rhino",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudsondisc_rhino.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0286",
+    "color": "Sandstone",
+    "slug": "hudson",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Sandstone",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_hudson_sandstone.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0288",
+    "color": "Teal",
+    "slug": "explorer",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Teal",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera1stepthru_teal.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0289",
+    "color": "Ink",
+    "slug": "hudson",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Ink",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_hudsondiscstepthru_ink.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0293",
+    "color": "Sugar Grape",
+    "slug": "hudson",
+    "status": "exact-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "01-0296",
+    "color": "Midnight Sky",
+    "slug": "hudson",
+    "status": "exact-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "01-0300",
+    "color": "Gloss Black",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "01-0306",
+    "color": "Blue Lagoon",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "01-0311",
+    "color": "Sugar Grape",
+    "slug": "hudson",
+    "status": "exact-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "01-0314",
+    "color": "Blue Smoke",
+    "slug": "dxt",
+    "status": "exact-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "01-0317",
+    "color": "Seafoam",
+    "slug": "dxt",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Seafoam",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta3stepover_seafoam.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0319",
+    "color": "Deep Blue",
+    "slug": "explorer",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera2_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0325",
+    "color": "Blue Lagoon",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "01-0326",
+    "color": "Gloss Black",
+    "slug": "coda",
+    "status": "exact-multi",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_gloss_black.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "01-0340",
+    "color": "Sky Blue",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "01-0343",
+    "color": "Nickel",
+    "slug": "citizen",
+    "status": "exact-multi",
+    "colorway_match": {
+      "color_name": "Nickel",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen_nickel-1.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "01-0345",
+    "color": "Galaxy Blue",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "01-0349",
+    "color": "Mash",
+    "slug": "hardline",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Mash",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec3_mash.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0357",
+    "color": "Gloss Black",
+    "slug": "hudson",
+    "status": "exact-multi",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_hudson_gloss_black.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "01-0360",
+    "color": "Blue Lagoon",
+    "slug": "hudson",
+    "status": "exact-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "01-0363",
+    "color": "Sandstone",
+    "slug": "hudson",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Sandstone",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_hudson_sandstone.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0366",
+    "color": "Monterey Grey",
+    "slug": "steel-renegade",
+    "status": "exact-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "01-0368",
+    "color": "Kiwi",
+    "slug": "taxi",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Gloss Kiwi",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_gloss_kiwi.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "01-0376",
+    "color": "Raspberry",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "01-0379",
+    "color": "Pearl Black",
+    "slug": "aluminum-renegade",
+    "status": "exact-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "01-0384",
+    "color": "Thunder Grey",
+    "slug": "allegro",
+    "status": "exact-multi",
+    "colorway_match": {
+      "color_name": "Thunder Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a1_thunder_grey.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "01-0388",
+    "color": "Raspberry",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "01-0400",
+    "color": "Thunder Grey",
+    "slug": "coda",
+    "status": "exact-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "01-0406",
+    "color": "Smoke",
+    "slug": "beatnik",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Smoke",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_beatnik_smoke.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0407",
+    "color": "Thunder Grey",
+    "slug": "allegro",
+    "status": "exact-multi",
+    "colorway_match": {
+      "color_name": "Thunder Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a1_thunder_grey.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "01-0408",
+    "color": "Montery Grey",
+    "slug": "steel-renegade",
+    "status": "exact-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "01-0411",
+    "color": "Sugar Mint",
+    "slug": "allegro",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Sugar Mint",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa3stepover_sugar_mint.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0412",
+    "color": "Sugar Mint",
+    "slug": "allegro",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Sugar Mint",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa3stepover_sugar_mint.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0415",
+    "color": "Navy Pearl",
+    "slug": "coda",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Navy Pearl",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_navy_pearl.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0417",
+    "color": "Fox 34 Rhythm",
+    "slug": "portal",
+    "status": "exact-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "01-0418",
+    "color": "Fox 34 Rhythm",
+    "slug": "portal",
+    "status": "exact-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "01-0419",
+    "color": "Fox 36 Rhythm",
+    "slug": "hardline",
+    "status": "exact-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "01-0420",
+    "color": "Fox 36 Rhythm",
+    "slug": "hardline",
+    "status": "exact-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "01-0422",
+    "color": "Winter Dusk",
+    "slug": "carbon-renegade",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Winter Dusk",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec2-winter-dusk.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0423",
+    "color": "Copper tone",
+    "slug": "coda",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Copper Tone",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2024/09/CODA-S1-LTD-Copper-Tone.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0428",
+    "color": "Gloss Black",
+    "slug": "coda",
+    "status": "exact-multi",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_gloss_black.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "01-0429",
+    "color": "Vanilla Mint",
+    "slug": "hudson",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Vanilla Mint",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudson_stepthru_vanilla_mint.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0437",
+    "color": "Sugar Mint",
+    "slug": "allegro",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Sugar Mint",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa3stepover_sugar_mint.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0438",
+    "color": "Sugar Mint",
+    "slug": "allegro",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Sugar Mint",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa3stepover_sugar_mint.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0439",
+    "color": "Sugar Mint",
+    "slug": "allegro",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Sugar Mint",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa3stepover_sugar_mint.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0440",
+    "color": "Storm Grey",
+    "slug": "citizen",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen2_storm_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0441",
+    "color": "Storm Grey",
+    "slug": "citizen",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen2_storm_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0442",
+    "color": "Storm Grey",
+    "slug": "citizen",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen2_storm_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0446",
+    "color": "Thunder Grey",
+    "slug": "allegro",
+    "status": "exact-multi",
+    "colorway_match": {
+      "color_name": "Thunder Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a1_thunder_grey.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "01-0448",
+    "color": "Thunder Grey",
+    "slug": "allegro",
+    "status": "exact-multi",
+    "colorway_match": {
+      "color_name": "Thunder Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a1_thunder_grey.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "01-0449",
+    "color": "Ink",
+    "slug": "coda",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Ink",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_codas3_ink.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0450",
+    "color": "Ink",
+    "slug": "coda",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Ink",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_codas3_ink.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0451",
+    "color": "Thunder Grey",
+    "slug": "allegro",
+    "status": "exact-multi",
+    "colorway_match": {
+      "color_name": "Thunder Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a1_thunder_grey.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "01-0453",
+    "color": "Thunder Grey",
+    "slug": "allegro",
+    "status": "exact-multi",
+    "colorway_match": {
+      "color_name": "Thunder Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a1_thunder_grey.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "01-0454",
+    "color": "Coppertone",
+    "slug": "coda",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Copper Tone",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2024/09/CODA-S1-LTD-Copper-Tone.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0455",
+    "color": "Coppertone",
+    "slug": "coda",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Copper Tone",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2024/09/CODA-S1-LTD-Copper-Tone.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0456",
+    "color": "Gloss Black",
+    "slug": "coda",
+    "status": "exact-multi",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_gloss_black.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "01-0457",
+    "color": "Gloss Black",
+    "slug": "coda",
+    "status": "exact-multi",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_gloss_black.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "01-0458",
+    "color": "Nickel",
+    "slug": "trail-xr",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Nickel",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxr_nickel-1024x1024.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0459",
+    "color": "Powder Blue",
+    "slug": "trail-xr",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Powder Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxrstepover_powder_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0460",
+    "color": "Ink",
+    "slug": "allegro",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Ink",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa3_ink.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0461",
+    "color": "Ink",
+    "slug": "allegro",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Ink",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa3_ink.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0463",
+    "color": "Ink",
+    "slug": "allegro",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Ink",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa3_ink.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0464",
+    "color": "Ink",
+    "slug": "allegro",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Ink",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa3_ink.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0465",
+    "color": "Ink",
+    "slug": "allegro",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Ink",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa3_ink.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0466",
+    "color": "Ink",
+    "slug": "allegro",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Ink",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa3_ink.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0469",
+    "color": "Garnet",
+    "slug": "durango",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Garnet",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_durangoa1_garnet-1-600x332.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0470",
+    "color": "Garnet",
+    "slug": "durango",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Garnet",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_durangoa1_garnet-1-600x332.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0471",
+    "color": "Thunder Grey",
+    "slug": "durango",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Thunder Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_durangoa2_thunder_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0472",
+    "color": "Thunder Grey",
+    "slug": "durango",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Thunder Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_durangoa2_thunder_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0474",
+    "color": "Gloss Black",
+    "slug": "sequel",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_sequels3_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0475",
+    "color": "Gloss Black",
+    "slug": "sequel",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_sequels3_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0476",
+    "color": "Deep Blue",
+    "slug": "explorer",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera2_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0477",
+    "color": "Coppertone",
+    "slug": "steel-renegade",
+    "status": "exact-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "01-0479",
+    "color": "Moss",
+    "slug": "carbon-renegade",
+    "status": "exact-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "01-0482",
+    "color": "Winter Dusk",
+    "slug": "carbon-renegade",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Winter Dusk",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec2-winter-dusk.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0483",
+    "color": "Pine",
+    "slug": "carbon-renegade",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Pine",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec3-pine.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0484",
+    "color": "Galaxy Blue",
+    "slug": "allegro",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Galaxy Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2_galaxy_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0487",
+    "color": "Galaxy Blue",
+    "slug": "allegro",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Galaxy Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2_galaxy_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-0489",
+    "color": "Galaxy Blue",
+    "slug": "allegro",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Galaxy Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2_galaxy_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "01-8771SL",
+    "color": "Silver",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "01-8798BK",
+    "color": "Black",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "01-8803GN",
+    "color": "Green",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "02-2404BL",
+    "color": "Blue",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "02-2648OR",
+    "color": "Hazzard",
+    "slug": "hardline",
+    "status": "exact-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "02-2649OR",
+    "color": "Hazzard",
+    "slug": "hardline",
+    "status": "exact-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "02-3169BR",
+    "color": "Sandstone",
+    "slug": "portal",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Sandstone",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_portalc1_sandstone_600px.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "02-3642BK",
+    "color": "Gloss Black",
+    "slug": "hardline",
+    "status": "exact-multi",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec1_gloss_black_600px.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "02-3643BK",
+    "color": "Gloss Black",
+    "slug": "hardline",
+    "status": "exact-multi",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec1_gloss_black_600px.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "02-3645OR",
+    "color": "Clay",
+    "slug": "hardline",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Clay",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec2_clay.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "02-3648OR",
+    "color": "Clay",
+    "slug": "hardline",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Clay",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec2_clay.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "02-3651GN",
+    "color": "Mash",
+    "slug": "hardline",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Mash",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec3_mash.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "02-3652GN",
+    "color": "Mash",
+    "slug": "hardline",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Mash",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec3_mash.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "02-3669BL",
+    "color": "Winter Dusk",
+    "slug": "portal",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Winter Dusk",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_portalc2_winter_dusk.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "02-3672RD",
+    "color": "Oxblood",
+    "slug": "portal",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Oxblood",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_portalc3_oxblood.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "02-3673RD",
+    "color": "Oxblood",
+    "slug": "portal",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Oxblood",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_portalc3_oxblood.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "02-3909MN",
+    "color": "Mint",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "02-5352WH",
+    "color": "White",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "023680GY",
+    "color": "Grey",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "023683GN",
+    "color": "Green",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "024198GN",
+    "color": "Green",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "024447BK",
+    "color": "Black",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-1293BK",
+    "color": "Black",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-2540WH",
+    "color": "White",
+    "slug": "explorer",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3031SL",
+    "color": "Silver",
+    "slug": "hudson",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Grey Mist",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/09/26-hudson-stepthru-grey-mist-rendering.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3161GY",
+    "color": "Grey",
+    "slug": "hardline",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Thunder Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec4_thunder_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3300BL",
+    "color": "Blue",
+    "slug": "ventura",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cerulean",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-ventura-a1-cerulean-600px-600x359.png"
+    },
+    "candidates_in_slug": 5
+  },
+  {
+    "sku": "03-3313GY",
+    "color": "Grey",
+    "slug": "ventura",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Kinetic Grey Midnight Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2024/10/24_venturaa1_kinetic_grey_midnight_blue.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-3382BK",
+    "color": "Black",
+    "slug": "dxt",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Shadow",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_dxt_a2_shadow.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "03-3492BL",
+    "color": "Blue",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-3501BL",
+    "color": "Blue",
+    "slug": "hudson",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Ano Midnight Sky",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudson_ano_midnight_sky.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-3502BL",
+    "color": "Blue",
+    "slug": "hudson",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Ano Midnight Sky",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudson_ano_midnight_sky.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-3516BL",
+    "color": "Blue",
+    "slug": "explorer",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera2_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3517BL",
+    "color": "Blue",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-3604BL",
+    "color": "Blue",
+    "slug": "hudson-e2",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/06/21_hudsone2_stepthru_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3606BL",
+    "color": "Blue",
+    "slug": "hudson-e2",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/06/21_hudsone2_stepthru_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3607GY",
+    "color": "Grey",
+    "slug": "hudson-e2",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Thunder Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/06/21_hudsone2_stepthru_thunder_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3646OR",
+    "color": "Orange",
+    "slug": "hardline",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Clay",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec2_clay.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3647OR",
+    "color": "Orange",
+    "slug": "hardline",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Clay",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec2_clay.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3648OR",
+    "color": "Orange",
+    "slug": "hardline",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Clay",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec2_clay.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3651GN",
+    "color": "Green",
+    "slug": "hardline",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3652GN",
+    "color": "Green",
+    "slug": "hardline",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3653GY",
+    "color": "Grey",
+    "slug": "hardline",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Thunder Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec4_thunder_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3654GY",
+    "color": "Grey",
+    "slug": "hardline",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Thunder Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec4_thunder_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3655GY",
+    "color": "Grey",
+    "slug": "hardline",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Thunder Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec4_thunder_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3656GY",
+    "color": "Grey",
+    "slug": "hardline",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Thunder Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec4_thunder_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3659BK",
+    "color": "Black",
+    "slug": "hardline",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec1_gloss_black_600px.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "03-3660BK",
+    "color": "Black",
+    "slug": "hardline",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec1_gloss_black_600px.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "03-3661BK",
+    "color": "Black",
+    "slug": "hardline",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec1_gloss_black_600px.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "03-3666Bl",
+    "color": "Blue",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-3667BL",
+    "color": "Blue",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-3668BL",
+    "color": "Blue",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-3669BL",
+    "color": "Blue",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-3673RD",
+    "color": "Red",
+    "slug": "portal",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3674BL",
+    "color": "Blue",
+    "slug": "portal",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Winter Dusk",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_portalc2_winter_dusk.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3676BL",
+    "color": "Blue",
+    "slug": "portal",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Winter Dusk",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_portalc2_winter_dusk.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3677BL",
+    "color": "Blue",
+    "slug": "portal",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Winter Dusk",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_portalc2_winter_dusk.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3679GY",
+    "color": "Grey",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-3680GY",
+    "color": "Grey",
+    "slug": "portal",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_portala2_storm_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3681GY",
+    "color": "Grey",
+    "slug": "portal",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_portala2_storm_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3682GY",
+    "color": "Grey",
+    "slug": "portal",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_portala2_storm_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3684BR",
+    "color": "Brown",
+    "slug": "faultline-mp2",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3685BR",
+    "color": "Brown",
+    "slug": "faultline-mp2",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3688BL",
+    "color": "Blue",
+    "slug": "faultline-mp2",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Winter Dusk",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/25-faultline-a3-winter-dusk-2000px.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3689BL",
+    "color": "Blue",
+    "slug": "faultline-mp2",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Winter Dusk",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/25-faultline-a3-winter-dusk-2000px.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3690BL",
+    "color": "Blue",
+    "slug": "faultline-mp2",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Winter Dusk",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/25-faultline-a3-winter-dusk-2000px.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3696BK",
+    "color": "Black",
+    "slug": "dragon",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/08/21_dragon_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3697BL",
+    "color": "Blue",
+    "slug": "dragon",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Midnight Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_dragon_midnight_blue-1.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3698BK",
+    "color": "Black",
+    "slug": "dragon",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/08/21_dragon_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3699BL",
+    "color": "Blue",
+    "slug": "dragon",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Midnight Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_dragon_midnight_blue-1.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3699GY",
+    "color": "Grey",
+    "slug": "dragon",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Monterey Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/2024_dragon_monterey_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3700BK",
+    "color": "Black",
+    "slug": "dragon",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/08/21_dragon_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3701BL",
+    "color": "Blue",
+    "slug": "dragon",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Midnight Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_dragon_midnight_blue-1.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3701GY",
+    "color": "Grey",
+    "slug": "dragon",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Monterey Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/2024_dragon_monterey_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3702BK",
+    "color": "Black",
+    "slug": "dragon",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/08/21_dragon_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3718GY",
+    "color": "Grey",
+    "slug": "highpoint",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Graphite",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-highpoint-a2-graphite-2000px.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3719GY",
+    "color": "Grey",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-3724RD",
+    "color": "Red",
+    "slug": "durango",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Garnet",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_durangoa1_garnet-1-600x332.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3726RD",
+    "color": "Red",
+    "slug": "durango",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Garnet",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_durangoa1_garnet-1-600x332.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3727BK",
+    "color": "Black",
+    "slug": "durango",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_durangoa1_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3729GY",
+    "color": "Grey",
+    "slug": "durango",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Thunder Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_durangoa2_thunder_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3730BL",
+    "color": "Blue",
+    "slug": "durango",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Midnight Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_durangoa2_midnight_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3731GY",
+    "color": "Grey",
+    "slug": "durango",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Thunder Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_durangoa2_thunder_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3732BL",
+    "color": "Blue",
+    "slug": "durango",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Midnight Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_durangoa2_midnight_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3733GY",
+    "color": "Grey",
+    "slug": "durango",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Thunder Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_durangoa2_thunder_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3734BL",
+    "color": "Blue",
+    "slug": "durango",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Midnight Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_durangoa2_midnight_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3735GY",
+    "color": "Grey",
+    "slug": "durango",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Thunder Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_durangoa2_thunder_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3736BK",
+    "color": "Black",
+    "slug": "trail-x",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxa1_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3737GN",
+    "color": "Green",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-3738BK",
+    "color": "Black",
+    "slug": "trail-x",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxa1_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3740BK",
+    "color": "Black",
+    "slug": "trail-x",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxa1_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3741GN",
+    "color": "Green",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-3742BK",
+    "color": "Black",
+    "slug": "trail-x",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxa1_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3743GN",
+    "color": "Green",
+    "slug": "trail-x",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3744BK",
+    "color": "Black",
+    "slug": "trail-x",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxa1_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3745GN",
+    "color": "Green",
+    "slug": "trail-x",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3746GY",
+    "color": "Grey",
+    "slug": "trail-x",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Monterey Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxa2_monterey_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3747BL",
+    "color": "Blue",
+    "slug": "trail-x",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Nile Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxa2_nile_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3750GY",
+    "color": "Grey",
+    "slug": "trail-x",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Monterey Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxa2_monterey_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3751BL",
+    "color": "Blue",
+    "slug": "trail-x",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Nile Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxa2_nile_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3752GY",
+    "color": "Grey",
+    "slug": "trail-x",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Monterey Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxa2_monterey_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3753BL",
+    "color": "Blue",
+    "slug": "trail-x",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Nile Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxa2_nile_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3754GY",
+    "color": "Grey",
+    "slug": "trail-x",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Monterey Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxa2_monterey_grey.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3755BL",
+    "color": "Blue",
+    "slug": "trail-x",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Nile Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxa2_nile_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3764BK",
+    "color": "Black",
+    "slug": "helix",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3766BK",
+    "color": "Black",
+    "slug": "helix",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3767MN",
+    "color": "Mint",
+    "slug": "helix",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Mint",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/05/26-helix-mint-2000px.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3768BL",
+    "color": "Blue",
+    "slug": "divide",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3768BLD",
+    "color": "Blue",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-3769BL",
+    "color": "Blue",
+    "slug": "divide",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3769BLD",
+    "color": "Blue",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-3770BK",
+    "color": "Black",
+    "slug": "divide",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Milk Chocolate",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/05/26-divide-milk-chocolate-2000px.jpg"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-3771RD",
+    "color": "Red",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-3772BK",
+    "color": "Black",
+    "slug": "divide",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Milk Chocolate",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/05/26-divide-milk-chocolate-2000px.jpg"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-3773RD",
+    "color": "Red",
+    "slug": "divide",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3777RD",
+    "color": "Red",
+    "slug": "divide",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3778BK",
+    "color": "Black",
+    "slug": "divide",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Milk Chocolate",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/05/26-divide-milk-chocolate-2000px.jpg"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-3779RD",
+    "color": "Red",
+    "slug": "divide",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3781BL",
+    "color": "Blue",
+    "slug": "ventura",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cerulean",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-ventura-a1-cerulean-600px-600x359.png"
+    },
+    "candidates_in_slug": 5
+  },
+  {
+    "sku": "03-3787BL",
+    "color": "Blue",
+    "slug": "ventura",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cerulean",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-ventura-a1-cerulean-600px-600x359.png"
+    },
+    "candidates_in_slug": 5
+  },
+  {
+    "sku": "03-3788BL",
+    "color": "Blue",
+    "slug": "ventura",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cerulean",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-ventura-a1-cerulean-600px-600x359.png"
+    },
+    "candidates_in_slug": 5
+  },
+  {
+    "sku": "03-3789BL",
+    "color": "Blue",
+    "slug": "ventura",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cerulean",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-ventura-a1-cerulean-600px-600x359.png"
+    },
+    "candidates_in_slug": 5
+  },
+  {
+    "sku": "03-3790RD",
+    "color": "Red",
+    "slug": "ventura",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Garnet",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_venturaa2_garnet.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3791PD",
+    "color": "Palladium",
+    "slug": "ventura",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Palladium",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_venturaa2_palladium.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3792RD",
+    "color": "Red",
+    "slug": "ventura",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Garnet",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_venturaa2_garnet.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3793PD",
+    "color": "Palladium",
+    "slug": "ventura",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Palladium",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_venturaa2_palladium.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3794RD",
+    "color": "Red",
+    "slug": "ventura",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Garnet",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_venturaa2_garnet.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3795PD",
+    "color": "Palladium",
+    "slug": "ventura",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Palladium",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_venturaa2_palladium.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3796RD",
+    "color": "Red",
+    "slug": "ventura",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Garnet",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_venturaa2_garnet.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3801PD",
+    "color": "Palladium",
+    "slug": "ventura",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Palladium",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_venturaa2_palladium.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3802BL",
+    "color": "Blue",
+    "slug": "ventura",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cerulean",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-ventura-a1-cerulean-600px-600x359.png"
+    },
+    "candidates_in_slug": 5
+  },
+  {
+    "sku": "03-3803BL",
+    "color": "Blue",
+    "slug": "ventura",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cerulean",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-ventura-a1-cerulean-600px-600x359.png"
+    },
+    "candidates_in_slug": 5
+  },
+  {
+    "sku": "03-3804BL",
+    "color": "Blue",
+    "slug": "ventura",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cerulean",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-ventura-a1-cerulean-600px-600x359.png"
+    },
+    "candidates_in_slug": 5
+  },
+  {
+    "sku": "03-3805BL",
+    "color": "Blue",
+    "slug": "ventura",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cerulean",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-ventura-a1-cerulean-600px-600x359.png"
+    },
+    "candidates_in_slug": 5
+  },
+  {
+    "sku": "03-3807GN",
+    "color": "Green",
+    "slug": "carbon-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Pine",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec3-pine.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3810GN",
+    "color": "Green",
+    "slug": "carbon-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Pine",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec3-pine.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3817GY",
+    "color": "Grey",
+    "slug": "carbon-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3824GY",
+    "color": "Grey",
+    "slug": "steel-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Primer Gray",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/03/26-renegades3-primer-gray-2000-1.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3825GY",
+    "color": "Grey",
+    "slug": "steel-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Primer Gray",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/03/26-renegades3-primer-gray-2000-1.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3827BL",
+    "color": "Blue",
+    "slug": "steel-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3828GY",
+    "color": "Grey",
+    "slug": "steel-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Primer Gray",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/03/26-renegades3-primer-gray-2000-1.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3834BL",
+    "color": "Blue",
+    "slug": "steel-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3836BK",
+    "color": "Black",
+    "slug": "aluminum-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_renegadea1_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3837BK",
+    "color": "Black",
+    "slug": "aluminum-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_renegadea1_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3840BK",
+    "color": "Black",
+    "slug": "aluminum-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_renegadea1_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3841BK",
+    "color": "Black",
+    "slug": "aluminum-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_renegadea1_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3842BL",
+    "color": "Blue",
+    "slug": "sequel",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3842BR",
+    "color": "Brown",
+    "slug": "sequel",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Rootbeer",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/08/25_SEQUEL_s2_rootbeer-600x346.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3843BL",
+    "color": "Blue",
+    "slug": "sequel",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3843BR",
+    "color": "Brown",
+    "slug": "sequel",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Rootbeer",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/08/25_SEQUEL_s2_rootbeer-600x346.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3844BR",
+    "color": "Brown",
+    "slug": "sequel",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Rootbeer",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/08/25_SEQUEL_s2_rootbeer-600x346.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3845BL",
+    "color": "Blue",
+    "slug": "sequel",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3845BR",
+    "color": "Brown",
+    "slug": "sequel",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Rootbeer",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/08/25_SEQUEL_s2_rootbeer-600x346.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3846BL",
+    "color": "Blue",
+    "slug": "sequel",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3846BR",
+    "color": "Brown",
+    "slug": "sequel",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Rootbeer",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/08/25_SEQUEL_s2_rootbeer-600x346.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3847BK",
+    "color": "Black",
+    "slug": "sequel",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Rootbeer",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/08/25_SEQUEL_s2_rootbeer-600x346.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "03-3847BL",
+    "color": "Blue",
+    "slug": "sequel",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3848BK",
+    "color": "Black",
+    "slug": "sequel",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Rootbeer",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/08/25_SEQUEL_s2_rootbeer-600x346.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "03-3848BL",
+    "color": "Blue",
+    "slug": "sequel",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3849BL",
+    "color": "Blue",
+    "slug": "sequel",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3850BL",
+    "color": "Blue",
+    "slug": "sequel",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3851BL",
+    "color": "Blue",
+    "slug": "sequel",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3852GY",
+    "color": "Grey",
+    "slug": "dxt",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Monterey Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1_monterey_grey-1.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3853GY",
+    "color": "Grey",
+    "slug": "dxt",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Monterey Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1_monterey_grey-1.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3854GY",
+    "color": "Grey",
+    "slug": "dxt",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Monterey Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1_monterey_grey-1.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3855GY",
+    "color": "Grey",
+    "slug": "dxt",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Monterey Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1_monterey_grey-1.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3856GY",
+    "color": "Grey",
+    "slug": "dxt",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Monterey Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1_monterey_grey-1.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3857BL",
+    "color": "Blue",
+    "slug": "dxt",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1stepover_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3858BL",
+    "color": "Blue",
+    "slug": "dxt",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1stepover_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3859BL",
+    "color": "Blue",
+    "slug": "dxt",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1stepover_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3861BK",
+    "color": "Black",
+    "slug": "dxt",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Shadow",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_dxt_a2_shadow.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "03-3864BK",
+    "color": "Black",
+    "slug": "dxt",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Shadow",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_dxt_a2_shadow.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "03-3868BL",
+    "color": "Blue",
+    "slug": "dxt",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1stepover_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3869BL",
+    "color": "Blue",
+    "slug": "dxt",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1stepover_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3870BL",
+    "color": "Blue",
+    "slug": "dxt",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1stepover_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3871BL",
+    "color": "Blue",
+    "slug": "dxt",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1stepover_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3872BL",
+    "color": "Blue",
+    "slug": "dxt",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1stepover_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3873BL",
+    "color": "Blue",
+    "slug": "dxt",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1stepover_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3875BL",
+    "color": "Blue",
+    "slug": "dxt",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1stepover_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3877GY",
+    "color": "Grey",
+    "slug": "allegro",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa1_storm_grey-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3882BK",
+    "color": "Black",
+    "slug": "allegro",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Ink",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa3_ink.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3885BK",
+    "color": "Black",
+    "slug": "allegro",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Ink",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa3_ink.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3886RD",
+    "color": "Red",
+    "slug": "allegro",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Garnet",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa2_garnet.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3892RD",
+    "color": "Red",
+    "slug": "allegro",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Garnet",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa2_garnet.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3895BL",
+    "color": "Blue",
+    "slug": "allegro",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Galaxy Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2_galaxy_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3897BL",
+    "color": "Blue",
+    "slug": "allegro",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Galaxy Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2_galaxy_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3898GY",
+    "color": "Grey",
+    "slug": "allegro",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa1_storm_grey-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3899BL",
+    "color": "Blue",
+    "slug": "allegro",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Galaxy Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2_galaxy_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3900GY",
+    "color": "Grey",
+    "slug": "allegro",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa1_storm_grey-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3901BL",
+    "color": "Blue",
+    "slug": "allegro",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Galaxy Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2_galaxy_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3902GY",
+    "color": "Grey",
+    "slug": "allegro",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa1_storm_grey-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3903BL",
+    "color": "Blue",
+    "slug": "allegro",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Galaxy Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2_galaxy_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3904GY",
+    "color": "Grey",
+    "slug": "allegro",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa1_storm_grey-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3905BL",
+    "color": "Blue",
+    "slug": "allegro",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Galaxy Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2_galaxy_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3906GY",
+    "color": "Grey",
+    "slug": "allegro",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa1_storm_grey-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3908GY",
+    "color": "Grey",
+    "slug": "allegro",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa1_storm_grey-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3910GY",
+    "color": "Grey",
+    "slug": "allegro",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa1_storm_grey-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3911MN",
+    "color": "Mint",
+    "slug": "allegro",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Vanillamint",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2dfw_vanillamint.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "03-3912GY",
+    "color": "Grey",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-3913BR",
+    "color": "Brown",
+    "slug": "coda",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Copper Tone",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2024/09/CODA-S1-LTD-Copper-Tone.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3916BR",
+    "color": "Brown",
+    "slug": "coda",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Copper Tone",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2024/09/CODA-S1-LTD-Copper-Tone.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3917BR",
+    "color": "Brown",
+    "slug": "coda",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Copper Tone",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2024/09/CODA-S1-LTD-Copper-Tone.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3918GN",
+    "color": "Green",
+    "slug": "coda",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Vanilla Mint",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_dfw_vanilla_mint.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3919GN",
+    "color": "Green",
+    "slug": "coda",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Vanilla Mint",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_dfw_vanilla_mint.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3921BK",
+    "color": "Black",
+    "slug": "coda",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_gloss_black.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-3922BL",
+    "color": "Blue",
+    "slug": "coda",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Navy Pearl",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_navy_pearl.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-3923BK",
+    "color": "Black",
+    "slug": "coda",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_gloss_black.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-3924BL",
+    "color": "Blue",
+    "slug": "coda",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Navy Pearl",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_navy_pearl.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-3925BK",
+    "color": "Black",
+    "slug": "coda",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_gloss_black.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-3926BL",
+    "color": "Blue",
+    "slug": "coda",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Navy Pearl",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_navy_pearl.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-3927BK",
+    "color": "Black",
+    "slug": "coda",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_gloss_black.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-3928BL",
+    "color": "Blue",
+    "slug": "coda",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Navy Pearl",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_navy_pearl.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-3929BK",
+    "color": "Black",
+    "slug": "coda",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_gloss_black.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-3930BL",
+    "color": "Blue",
+    "slug": "coda",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Navy Pearl",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_navy_pearl.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-3931BK",
+    "color": "Black",
+    "slug": "coda",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_gloss_black.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-3932MN",
+    "color": "Mint",
+    "slug": "coda",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Vanilla Mint",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_dfw_vanilla_mint.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3933BK",
+    "color": "Black",
+    "slug": "coda",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_gloss_black.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-3934MN",
+    "color": "Mint",
+    "slug": "coda",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Vanilla Mint",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_dfw_vanilla_mint.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3935BK",
+    "color": "Black",
+    "slug": "coda",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_gloss_black.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-3936MN",
+    "color": "Mint",
+    "slug": "coda",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Vanilla Mint",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_dfw_vanilla_mint.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3937BL",
+    "color": "Blue",
+    "slug": "coda",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Navy Pearl",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_navy_pearl.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-3947BL",
+    "color": "Blue",
+    "slug": "coda",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Navy Pearl",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas2_navy_pearl.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-3953GN",
+    "color": "Green",
+    "slug": "beatnik",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3954GY",
+    "color": "Grey",
+    "slug": "beatnik",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3955GN",
+    "color": "Green",
+    "slug": "beatnik",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3956GY",
+    "color": "Grey",
+    "slug": "beatnik",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3957GN",
+    "color": "Green",
+    "slug": "beatnik",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3958GY",
+    "color": "Grey",
+    "slug": "beatnik",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3960GY",
+    "color": "Grey",
+    "slug": "beatnik",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3962GY",
+    "color": "Grey",
+    "slug": "beatnik",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3964GY",
+    "color": "Grey",
+    "slug": "beatnik",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-3965BL",
+    "color": "Blue",
+    "slug": "citizen",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Navy Pearl",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen3stepthru_navy_pearl.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3966BL",
+    "color": "Blue",
+    "slug": "citizen",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Navy Pearl",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen3stepthru_navy_pearl.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3969BL",
+    "color": "Blue",
+    "slug": "citizen",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Navy Pearl",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen3stepthru_navy_pearl.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3970BL",
+    "color": "Blue",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-3971MN",
+    "color": "Mint",
+    "slug": "citizen",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Vanilla Mint",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/08/21_citizen3_stepover_vanilla_mint.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "03-3976BL",
+    "color": "Blue",
+    "slug": "citizen",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Navy Pearl",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen3stepthru_navy_pearl.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3977GY",
+    "color": "Grey",
+    "slug": "citizen",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Nickel",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen_nickel-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3978BL",
+    "color": "Blue",
+    "slug": "citizen",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Navy Pearl",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen3stepthru_navy_pearl.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3979GY",
+    "color": "Grey",
+    "slug": "citizen",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Nickel",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen_nickel-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3980BL",
+    "color": "Blue",
+    "slug": "citizen",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Navy Pearl",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen3stepthru_navy_pearl.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3981GY",
+    "color": "Grey",
+    "slug": "citizen",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Nickel",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen_nickel-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3982BL",
+    "color": "Blue",
+    "slug": "citizen",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Navy Pearl",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen3stepthru_navy_pearl.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3983GY",
+    "color": "Grey",
+    "slug": "citizen",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Nickel",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen_nickel-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3984BL",
+    "color": "Blue",
+    "slug": "citizen",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Navy Pearl",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen3stepthru_navy_pearl.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3985GY",
+    "color": "Grey",
+    "slug": "citizen",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Nickel",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen_nickel-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3986TL",
+    "color": "Teal",
+    "slug": "citizen",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Radiant Teal",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/08/21_citizen2_stepover_radiant_teal.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3987GY",
+    "color": "Grey",
+    "slug": "citizen",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Nickel",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen_nickel-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3988TL",
+    "color": "Teal",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-3989GY",
+    "color": "Grey",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-3990TL",
+    "color": "Teal",
+    "slug": "citizen",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Radiant Teal",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/08/21_citizen2_stepover_radiant_teal.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3992BL",
+    "color": "Blue",
+    "slug": "citizen",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Navy Pearl",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen3stepthru_navy_pearl.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3993PD",
+    "color": "Palladium",
+    "slug": "citizen",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Palladium",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen1_palladium.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3994BL",
+    "color": "Blue",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-3995PD",
+    "color": "Palladium",
+    "slug": "citizen",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Palladium",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen1_palladium.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3996BL",
+    "color": "Blue",
+    "slug": "citizen",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Navy Pearl",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen3stepthru_navy_pearl.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3997PD",
+    "color": "Palladium",
+    "slug": "citizen",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Palladium",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen1_palladium.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-3998BL",
+    "color": "Blue",
+    "slug": "citizen",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Navy Pearl",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen3stepthru_navy_pearl.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-3999PD",
+    "color": "Palladium",
+    "slug": "citizen",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Palladium",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen1_palladium.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4001PD",
+    "color": "Palladium",
+    "slug": "citizen",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Palladium",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen1_palladium.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4002BL",
+    "color": "Blue",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4003MN",
+    "color": "Mint",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4005MN",
+    "color": "Mint",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4006BL",
+    "color": "Blue",
+    "slug": "citizen",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Navy Pearl",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen3stepthru_navy_pearl.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-4009SL",
+    "color": "Silver",
+    "slug": "citizen",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Nickel",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen_nickel-1.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-4010BK",
+    "color": "Black",
+    "slug": "citizen",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2019/07/20_citizen_gloss_black.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4011SL",
+    "color": "Silver",
+    "slug": "citizen",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Nickel",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen_nickel-1.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-4023SL",
+    "color": "Silver",
+    "slug": "citizen",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Nickel",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen_nickel-1.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-4024BL",
+    "color": "Blue",
+    "slug": "hudson",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Ano Midnight Sky",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudson_ano_midnight_sky.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-4025GY",
+    "color": "Grey",
+    "slug": "hudson",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Grey Mist",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/09/26-hudson-stepthru-grey-mist-rendering.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4026BL",
+    "color": "Blue",
+    "slug": "hudson",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Ano Midnight Sky",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudson_ano_midnight_sky.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-4028BL",
+    "color": "Blue",
+    "slug": "hudson",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Ano Midnight Sky",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudson_ano_midnight_sky.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-4029GY",
+    "color": "Grey",
+    "slug": "hudson",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Grey Mist",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/09/26-hudson-stepthru-grey-mist-rendering.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4032BL",
+    "color": "Blue",
+    "slug": "hudson",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Ano Midnight Sky",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudson_ano_midnight_sky.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-4034BK",
+    "color": "Black",
+    "slug": "hudson",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Flat Ink",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudsondisc_stepthru_flat_ink_600px.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-4035BL",
+    "color": "Blue",
+    "slug": "hudson",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Ano Midnight Sky",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudson_ano_midnight_sky.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-4036BR",
+    "color": "Brown",
+    "slug": "hudson",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4037BK",
+    "color": "Black",
+    "slug": "hudson",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Flat Ink",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudsondisc_stepthru_flat_ink_600px.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-4038BL",
+    "color": "Blue",
+    "slug": "hudson",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Ano Midnight Sky",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudson_ano_midnight_sky.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-4039BR",
+    "color": "Brown",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4040BK",
+    "color": "Black",
+    "slug": "hudson",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Flat Ink",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudsondisc_stepthru_flat_ink_600px.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-4041BL",
+    "color": "Blue",
+    "slug": "hudson",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Ano Midnight Sky",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudson_ano_midnight_sky.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-4044BK",
+    "color": "Black",
+    "slug": "hudson",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Flat Ink",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudsondisc_stepthru_flat_ink_600px.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-4046MN",
+    "color": "Mint",
+    "slug": "hudson",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Sugar Mint",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudsondisc_stepthru_sugar_mint.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "03-4051PD",
+    "color": "Palladium",
+    "slug": "explorer",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Palladium",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera1_palladium.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4052BL",
+    "color": "Blue",
+    "slug": "explorer",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera2_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4054BL",
+    "color": "Blue",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4056BL",
+    "color": "Blue",
+    "slug": "explorer",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera2_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4057PD",
+    "color": "Palladium",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4058BL",
+    "color": "Blue",
+    "slug": "explorer",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera2_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4059PD",
+    "color": "Palladium",
+    "slug": "explorer",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Palladium",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera1_palladium.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4065BL",
+    "color": "Blue",
+    "slug": "explorer",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera2_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4066BK",
+    "color": "Black",
+    "slug": "explorer",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera2_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4067BL",
+    "color": "Blue",
+    "slug": "explorer",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera2_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4068BK",
+    "color": "Black",
+    "slug": "explorer",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera2_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4069BL",
+    "color": "Blue",
+    "slug": "explorer",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera2_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4070BK",
+    "color": "Black",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4070BL",
+    "color": "Black",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4071BL",
+    "color": "Blue",
+    "slug": "explorer",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera2_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4072BK",
+    "color": "Black",
+    "slug": "explorer",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera2_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4075BL",
+    "color": "Blue",
+    "slug": "explorer",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera2_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4076SG",
+    "color": "Sage",
+    "slug": "explorer",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Sage",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_explorera2stepthru_sage.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4079BK",
+    "color": "Black",
+    "slug": "trail-xr",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxr_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4080SL",
+    "color": "Silver",
+    "slug": "trail-xr",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Ano Nickel",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_trailxr_ano_nickel_600px.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "03-4081BK",
+    "color": "Black",
+    "slug": "trail-xr",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxr_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4082SL",
+    "color": "Silver",
+    "slug": "trail-xr",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Ano Nickel",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_trailxr_ano_nickel_600px.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "03-4083BK",
+    "color": "Black",
+    "slug": "trail-xr",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxr_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4084SL",
+    "color": "Silver",
+    "slug": "trail-xr",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Ano Nickel",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_trailxr_ano_nickel_600px.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "03-4085BK",
+    "color": "Black",
+    "slug": "trail-xr",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxr_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4086SL",
+    "color": "Silver",
+    "slug": "trail-xr",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Ano Nickel",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_trailxr_ano_nickel_600px.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "03-4088SL",
+    "color": "Silver",
+    "slug": "trail-xr",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Ano Nickel",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_trailxr_ano_nickel_600px.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "03-4090BL",
+    "color": "Blue",
+    "slug": "trail-xr",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Powder Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxrstepover_powder_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4091SL",
+    "color": "Silver",
+    "slug": "trail-xr",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Ano Nickel",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_trailxr_ano_nickel_600px.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "03-4093SL",
+    "color": "Silver",
+    "slug": "trail-xr",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Ano Nickel",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_trailxr_ano_nickel_600px.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "03-4094BL",
+    "color": "Blue",
+    "slug": "trail-xr",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Powder Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_trailxrstepover_powder_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4158GN",
+    "color": "Green",
+    "slug": "kromo",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4159BL",
+    "color": "Blue",
+    "slug": "kromo",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Midnight Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2023/12/24-kromo-midnight-blue.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4160GN",
+    "color": "Green",
+    "slug": "kromo",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4161BL",
+    "color": "Blue",
+    "slug": "kromo",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Midnight Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2023/12/24-kromo-midnight-blue.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4199GN",
+    "color": "Green",
+    "slug": "carbon-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Pine",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec3-pine.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4200GN",
+    "color": "Green",
+    "slug": "carbon-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Pine",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec3-pine.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4201GN",
+    "color": "Green",
+    "slug": "carbon-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Pine",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec3-pine.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4203BR",
+    "color": "Brown",
+    "slug": "carbon-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4207BR",
+    "color": "Brown",
+    "slug": "carbon-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4208GY",
+    "color": "Grey",
+    "slug": "carbon-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4209GY",
+    "color": "Grey",
+    "slug": "carbon-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4211GY",
+    "color": "Grey",
+    "slug": "carbon-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4212GY",
+    "color": "Grey",
+    "slug": "carbon-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4213GY",
+    "color": "Grey",
+    "slug": "carbon-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4214BR",
+    "color": "Brown",
+    "slug": "steel-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4227BL",
+    "color": "Blue",
+    "slug": "carbon-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Winter Dusk",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec2-winter-dusk.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4228BL",
+    "color": "Blue",
+    "slug": "carbon-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Winter Dusk",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec2-winter-dusk.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4229BL",
+    "color": "Blue",
+    "slug": "carbon-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Winter Dusk",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec2-winter-dusk.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4230BL",
+    "color": "Blue",
+    "slug": "carbon-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Winter Dusk",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec2-winter-dusk.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4231BL",
+    "color": "Blue",
+    "slug": "carbon-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Winter Dusk",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec2-winter-dusk.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4239GY",
+    "color": "Grey",
+    "slug": "faultline-mp2",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4240GY",
+    "color": "Grey",
+    "slug": "ventura",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Kinetic Grey Midnight Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2024/10/24_venturaa1_kinetic_grey_midnight_blue.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-4241GY",
+    "color": "Grey",
+    "slug": "ventura",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Kinetic Grey Midnight Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2024/10/24_venturaa1_kinetic_grey_midnight_blue.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-4242GY",
+    "color": "Grey",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4246GY",
+    "color": "Grey",
+    "slug": "ventura",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Kinetic Grey Midnight Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2024/10/24_venturaa1_kinetic_grey_midnight_blue.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-4247GY",
+    "color": "Grey",
+    "slug": "ventura",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Kinetic Grey Midnight Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2024/10/24_venturaa1_kinetic_grey_midnight_blue.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-4248GY",
+    "color": "Grey",
+    "slug": "ventura",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Kinetic Grey Midnight Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2024/10/24_venturaa1_kinetic_grey_midnight_blue.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-4249GY",
+    "color": "Grey",
+    "slug": "ventura",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Kinetic Grey Midnight Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2024/10/24_venturaa1_kinetic_grey_midnight_blue.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-4250BK",
+    "color": "Black",
+    "slug": "ventura",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4251BK",
+    "color": "Black",
+    "slug": "ventura",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4252BK",
+    "color": "Black",
+    "slug": "ventura",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4253BK",
+    "color": "Black",
+    "slug": "ventura",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4254BK",
+    "color": "Black",
+    "slug": "ventura",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4257BL",
+    "color": "Blue",
+    "slug": "ventura",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cerulean",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-ventura-a1-cerulean-600px-600x359.png"
+    },
+    "candidates_in_slug": 5
+  },
+  {
+    "sku": "03-4258BL",
+    "color": "Blue",
+    "slug": "ventura",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cerulean",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-ventura-a1-cerulean-600px-600x359.png"
+    },
+    "candidates_in_slug": 5
+  },
+  {
+    "sku": "03-4259BL",
+    "color": "Blue",
+    "slug": "ventura",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cerulean",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-ventura-a1-cerulean-600px-600x359.png"
+    },
+    "candidates_in_slug": 5
+  },
+  {
+    "sku": "03-4260BR",
+    "color": "Brown",
+    "slug": "steel-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4261BR",
+    "color": "Brown",
+    "slug": "steel-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4263BR",
+    "color": "Brown",
+    "slug": "steel-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4264BR",
+    "color": "Brown",
+    "slug": "steel-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4265BR",
+    "color": "Brown",
+    "slug": "steel-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4266BK",
+    "color": "Black",
+    "slug": "aluminum-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_renegadea1_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4267GN",
+    "color": "Green",
+    "slug": "aluminum-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4268BK",
+    "color": "Black",
+    "slug": "aluminum-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_renegadea1_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4269GN",
+    "color": "Green",
+    "slug": "aluminum-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4270BK",
+    "color": "Black",
+    "slug": "aluminum-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_renegadea1_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4271GN",
+    "color": "Green",
+    "slug": "aluminum-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4272BK",
+    "color": "Black",
+    "slug": "aluminum-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_renegadea1_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4273GN",
+    "color": "Green",
+    "slug": "aluminum-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4274BK",
+    "color": "Black",
+    "slug": "aluminum-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_renegadea1_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4275GN",
+    "color": "Green",
+    "slug": "aluminum-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4276BK",
+    "color": "Black",
+    "slug": "aluminum-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_renegadea1_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4277GN",
+    "color": "Green",
+    "slug": "aluminum-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4369BL",
+    "color": "Blue",
+    "slug": "highpoint",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4370BL",
+    "color": "Blue",
+    "slug": "highpoint",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4371BL",
+    "color": "Blue",
+    "slug": "highpoint",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4372BL",
+    "color": "Blue",
+    "slug": "highpoint",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4374GN",
+    "color": "Green",
+    "slug": "highpoint",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4375GN",
+    "color": "Green",
+    "slug": "highpoint",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4376GN",
+    "color": "Green",
+    "slug": "highpoint",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4448BK",
+    "color": "Black",
+    "slug": "carbon-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Matte Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec1-gloss-matte-black-600px.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4449BK",
+    "color": "Black",
+    "slug": "carbon-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Matte Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec1-gloss-matte-black-600px.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4450BK",
+    "color": "Black",
+    "slug": "carbon-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Matte Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec1-gloss-matte-black-600px.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4454BL",
+    "color": "Blue",
+    "slug": "carbon-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Winter Dusk",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec2-winter-dusk.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4455BL",
+    "color": "Blue",
+    "slug": "carbon-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Winter Dusk",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec2-winter-dusk.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4456BL",
+    "color": "Blue",
+    "slug": "carbon-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Winter Dusk",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec2-winter-dusk.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4457BK",
+    "color": "Black",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4457GN",
+    "color": "Green",
+    "slug": "carbon-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Pine",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec3-pine.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4458GN",
+    "color": "Green",
+    "slug": "carbon-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Pine",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec3-pine.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4460GN",
+    "color": "Green",
+    "slug": "carbon-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Pine",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec3-pine.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4461GN",
+    "color": "Green",
+    "slug": "carbon-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Pine",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec3-pine.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4462GN",
+    "color": "Green",
+    "slug": "carbon-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Pine",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec3-pine.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4463BR",
+    "color": "Brown",
+    "slug": "carbon-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4464BR",
+    "color": "Brown",
+    "slug": "carbon-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4465BR",
+    "color": "Brown",
+    "slug": "carbon-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4466BR",
+    "color": "Brown",
+    "slug": "carbon-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4467BR",
+    "color": "Brown",
+    "slug": "carbon-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4468BR",
+    "color": "Brown",
+    "slug": "carbon-renegade",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4471BK",
+    "color": "Black",
+    "slug": "steel-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Matte Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegades2-matte-gloss-black-1200px-1.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4473BK",
+    "color": "Black",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4511GY",
+    "color": "Grey",
+    "slug": "dxt",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Monterey Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1_monterey_grey-1.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4512GY",
+    "color": "Grey",
+    "slug": "dxt",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Monterey Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1_monterey_grey-1.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4513GY",
+    "color": "Grey",
+    "slug": "dxt",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Monterey Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1_monterey_grey-1.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4514GY",
+    "color": "Grey",
+    "slug": "dxt",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Monterey Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1_monterey_grey-1.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4515GY",
+    "color": "Grey",
+    "slug": "dxt",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Monterey Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1_monterey_grey-1.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4516BL",
+    "color": "Blue",
+    "slug": "dxt",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1stepover_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4517BL",
+    "color": "Blue",
+    "slug": "dxt",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1stepover_deep_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4527GY",
+    "color": "Grey",
+    "slug": "allegro",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa1_storm_grey-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-4528GY",
+    "color": "Grey",
+    "slug": "allegro",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa1_storm_grey-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-4529GY",
+    "color": "Grey",
+    "slug": "allegro",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa1_storm_grey-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-4530GY",
+    "color": "Grey",
+    "slug": "allegro",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa1_storm_grey-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-4531GY",
+    "color": "Grey",
+    "slug": "allegro",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa1_storm_grey-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-4532BL",
+    "color": "Blue",
+    "slug": "allegro",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Galaxy Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2_galaxy_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4533BL",
+    "color": "Blue",
+    "slug": "allegro",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Galaxy Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2_galaxy_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4534BL",
+    "color": "Blue",
+    "slug": "allegro",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Galaxy Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2_galaxy_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4535GY",
+    "color": "Grey",
+    "slug": "allegro",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa1_storm_grey-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-4536BL",
+    "color": "Blue",
+    "slug": "allegro",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Galaxy Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2_galaxy_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4537GY",
+    "color": "Grey",
+    "slug": "allegro",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa1_storm_grey-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-4538BL",
+    "color": "Blue",
+    "slug": "allegro",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Galaxy Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2_galaxy_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4539GY",
+    "color": "Grey",
+    "slug": "allegro",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa1_storm_grey-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-4540BL",
+    "color": "Blue",
+    "slug": "allegro",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Galaxy Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2_galaxy_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4541GY",
+    "color": "Grey",
+    "slug": "allegro",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa1_storm_grey-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-4542BL",
+    "color": "Blue",
+    "slug": "allegro",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Galaxy Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2_galaxy_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4543GY",
+    "color": "Grey",
+    "slug": "allegro",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Storm Grey",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa1_storm_grey-1.png"
+    },
+    "candidates_in_slug": 4
+  },
+  {
+    "sku": "03-4544BL",
+    "color": "Blue",
+    "slug": "allegro",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Galaxy Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2_galaxy_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4545MN",
+    "color": "Mint",
+    "slug": "allegro",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Vanillamint",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2dfw_vanillamint.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "03-4546MN",
+    "color": "Mint",
+    "slug": "allegro",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Vanillamint",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2dfw_vanillamint.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "03-4547MN",
+    "color": "Mint",
+    "slug": "allegro",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Vanillamint",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/07/25_allegro_a2dfw_vanillamint.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "03-4605OR",
+    "color": "Orange",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4606BL",
+    "color": "Blue",
+    "slug": "defcon",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4607BL",
+    "color": "Blue",
+    "slug": "defcon",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4608BL",
+    "color": "Blue",
+    "slug": "defcon",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4609BL",
+    "color": "Blue",
+    "slug": "defcon",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4610BK",
+    "color": "Black",
+    "slug": "defcon",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4611BK",
+    "color": "Black",
+    "slug": "defcon",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4612BK",
+    "color": "Black",
+    "slug": "defcon",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4612PK",
+    "color": "Pink",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4613BK",
+    "color": "Black",
+    "slug": "defcon",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "03-4614BK",
+    "color": "Black",
+    "slug": "faultline-mpx",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4615BK",
+    "color": "Black",
+    "slug": "faultline-mpx",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4616BK",
+    "color": "Black",
+    "slug": "faultline-mpx",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4617BK",
+    "color": "Black",
+    "slug": "faultline-mpx",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4618GN",
+    "color": "Green",
+    "slug": "faultline-mpx",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4619GN",
+    "color": "Green",
+    "slug": "faultline-mpx",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4620GN",
+    "color": "Green",
+    "slug": "faultline-mpx",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4621GN",
+    "color": "Green",
+    "slug": "faultline-mpx",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4622BL",
+    "color": "Blue",
+    "slug": "faultline-mpx",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4623BL",
+    "color": "Blue",
+    "slug": "faultline-mpx",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4624BL",
+    "color": "Blue",
+    "slug": "faultline-mpx",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4625BL",
+    "color": "Blue",
+    "slug": "faultline-mpx",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4626BR",
+    "color": "Brown",
+    "slug": "highpoint-v2",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4627BR",
+    "color": "Brown",
+    "slug": "highpoint-v2",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4628BR",
+    "color": "Brown",
+    "slug": "highpoint-v2",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4629BR",
+    "color": "Brown",
+    "slug": "highpoint-v2",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4630GY",
+    "color": "Grey",
+    "slug": "highpoint-v2",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4631GY",
+    "color": "Grey",
+    "slug": "highpoint-v2",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4632GY",
+    "color": "Grey",
+    "slug": "highpoint-v2",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4633GY",
+    "color": "Grey",
+    "slug": "highpoint-v2",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4634RD",
+    "color": "Pomodoro",
+    "slug": "helix",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Pomodoro",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/05/26-helix-pomodoro-200px.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4635MN",
+    "color": "Mint",
+    "slug": "helix",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Mint",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/05/26-helix-mint-2000px.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4636RD",
+    "color": "Pomodoro",
+    "slug": "helix",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Pomodoro",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/05/26-helix-pomodoro-200px.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4637MN",
+    "color": "Mint",
+    "slug": "helix",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Mint",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/05/26-helix-mint-2000px.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4638RD",
+    "color": "Pomodoro",
+    "slug": "helix",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Pomodoro",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/05/26-helix-pomodoro-200px.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4639MN",
+    "color": "Mint",
+    "slug": "helix",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Mint",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/05/26-helix-mint-2000px.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4664BR",
+    "color": "Milk Chocolate",
+    "slug": "divide",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Milk Chocolate",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/05/26-divide-milk-chocolate-2000px.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4666BR",
+    "color": "Milk Chocolate",
+    "slug": "divide",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Milk Chocolate",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/05/26-divide-milk-chocolate-2000px.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4667BR",
+    "color": "Milk Chocolate",
+    "slug": "divide",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Milk Chocolate",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/05/26-divide-milk-chocolate-2000px.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4691GY",
+    "color": "Grey",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4692GY",
+    "color": "Grey",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4693GY",
+    "color": "Grey",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4694GY",
+    "color": "Grey",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4695GY",
+    "color": "Grey",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4702GY",
+    "color": "Grey",
+    "slug": "steel-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Primer Gray",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/03/26-renegades3-primer-gray-2000-1.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4703GY",
+    "color": "Grey",
+    "slug": "steel-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Primer Gray",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/03/26-renegades3-primer-gray-2000-1.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4704GY",
+    "color": "Grey",
+    "slug": "steel-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Primer Gray",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/03/26-renegades3-primer-gray-2000-1.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4705GY",
+    "color": "Grey",
+    "slug": "steel-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Primer Gray",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/03/26-renegades3-primer-gray-2000-1.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4706GY",
+    "color": "Grey",
+    "slug": "steel-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Primer Gray",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/03/26-renegades3-primer-gray-2000-1.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4707GY",
+    "color": "Grey",
+    "slug": "steel-renegade",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Primer Gray",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/03/26-renegades3-primer-gray-2000-1.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4889GY",
+    "color": "Grey",
+    "slug": "hudson",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Grey Mist",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2025/09/26-hudson-stepthru-grey-mist-rendering.jpg"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "03-4890BL",
+    "color": "Blue",
+    "slug": "hudson",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Ano Midnight Sky",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudson_ano_midnight_sky.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-4894BL",
+    "color": "Blue",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "03-4979BL",
+    "color": "Blue",
+    "slug": "ventura-all-road",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cerulean",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-ventura-a1-cerulean-600px-600x359.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-4980BL",
+    "color": "Blue",
+    "slug": "ventura-all-road",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cerulean",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-ventura-a1-cerulean-600px-600x359.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-4981BL",
+    "color": "Blue",
+    "slug": "ventura",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cerulean",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-ventura-a1-cerulean-600px-600x359.png"
+    },
+    "candidates_in_slug": 5
+  },
+  {
+    "sku": "03-4982BL",
+    "color": "Blue",
+    "slug": "ventura-all-road",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cerulean",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-ventura-a1-cerulean-600px-600x359.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-4983BL",
+    "color": "Blue",
+    "slug": "ventura-all-road",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cerulean",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-ventura-a1-cerulean-600px-600x359.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "03-4984BL",
+    "color": "Blue",
+    "slug": "ventura-all-road",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cerulean",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-ventura-a1-cerulean-600px-600x359.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "033779RDD",
+    "color": "Red",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "06-4284TL",
+    "color": "Teal",
+    "slug": "taxi",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4293MG",
+    "color": "Monterey Grey",
+    "slug": "taxi",
+    "status": "exact-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4296RD",
+    "color": "Red",
+    "slug": "taxi",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Monterey Red",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_stepover_monterey_red.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "06-4297RD",
+    "color": "Red",
+    "slug": "taxi",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Monterey Red",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_stepover_monterey_red.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "06-4432BK",
+    "color": "Black",
+    "slug": "boss-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4435BK",
+    "color": "Black",
+    "slug": "boss-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4438BK",
+    "color": "Black",
+    "slug": "boss-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4445WH",
+    "color": "White",
+    "slug": "boss-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4447BL",
+    "color": "Blue",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "06-4448WH",
+    "color": "White",
+    "slug": "boss-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4450BL",
+    "color": "Blue",
+    "slug": "boss-cruiser",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Blue Lagoon",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_bosscruiser7_stepover_blue_lagoon_600px.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "06-4451BK",
+    "color": "Black",
+    "slug": "boss-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4452SL",
+    "color": "Silver",
+    "slug": "boss-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4453BL",
+    "color": "Blue",
+    "slug": "boss-cruiser",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Blue Lagoon",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_bosscruiser7_stepover_blue_lagoon_600px.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "06-4454BK",
+    "color": "Black",
+    "slug": "boss-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4455SL",
+    "color": "Silver",
+    "slug": "boss-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4456BL",
+    "color": "Blue",
+    "slug": "boss-cruiser",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Blue Lagoon",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_bosscruiser7_stepover_blue_lagoon_600px.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "06-4457BK",
+    "color": "Black",
+    "slug": "boss-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4457RD",
+    "color": "Red",
+    "slug": "taxi",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Monterey Red",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_stepover_monterey_red.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "06-4458SL",
+    "color": "Silver",
+    "slug": "boss-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4461SL",
+    "color": "Silver",
+    "slug": "boss-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4464BL",
+    "color": "Blue",
+    "slug": "earth-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4470TL",
+    "color": "Teal",
+    "slug": "earth-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4473TL",
+    "color": "Teal",
+    "slug": "earth-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4475BL",
+    "color": "Blue",
+    "slug": "earth-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4482BL",
+    "color": "Blue",
+    "slug": "earth-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4485BL",
+    "color": "Blue",
+    "slug": "earth-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4507BK",
+    "color": "Black",
+    "slug": "taxi",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "06-4515BK",
+    "color": "Black",
+    "slug": "taxi",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "06-4516KW",
+    "color": "Kiwi",
+    "slug": "taxi",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Gloss Kiwi",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_gloss_kiwi.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "06-4519BK",
+    "color": "Black",
+    "slug": "taxi",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "06-4523BK",
+    "color": "Black",
+    "slug": "taxi",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "06-4524KW",
+    "color": "Kiwi",
+    "slug": "taxi",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Gloss Kiwi",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_gloss_kiwi.png"
+    },
+    "candidates_in_slug": 3
+  },
+  {
+    "sku": "06-4562BL",
+    "color": "Blue",
+    "slug": "boss-cruiser",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Blue Lagoon",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_bosscruiser7_stepover_blue_lagoon_600px.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "06-4563BL",
+    "color": "Blue",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "06-4564BL",
+    "color": "Blue",
+    "slug": "boss-cruiser",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Blue Lagoon",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_bosscruiser7_stepover_blue_lagoon_600px.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "06-4565BL",
+    "color": "Blue",
+    "slug": "boss-cruiser",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Blue Lagoon",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_bosscruiser7_stepover_blue_lagoon_600px.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "06-4566VL",
+    "color": "Violet",
+    "slug": "boss-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4568BK",
+    "color": "Black",
+    "slug": "earth-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4572GY",
+    "color": "Grey",
+    "slug": "earth-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4573GY",
+    "color": "Grey",
+    "slug": "earth-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4582BL",
+    "color": "Blue",
+    "slug": "taxi",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cosmo Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_stepover_cosmo_blue.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "06-4584BL",
+    "color": "Blue",
+    "slug": "taxi",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cosmo Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_stepover_cosmo_blue.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "06-4585RD",
+    "color": "Red",
+    "slug": "taxi",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Monterey Red",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_stepover_monterey_red.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "06-4586BL",
+    "color": "Blue",
+    "slug": "taxi",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cosmo Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_stepover_cosmo_blue.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "06-4587RD",
+    "color": "Red",
+    "slug": "taxi",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Monterey Red",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_stepover_monterey_red.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "06-4588BL",
+    "color": "Blue",
+    "slug": "taxi",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cosmo Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_stepover_cosmo_blue.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "06-4590BL",
+    "color": "Blue",
+    "slug": "taxi",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Cosmo Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_taxi_stepover_cosmo_blue.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "06-4604OR",
+    "color": "Orange",
+    "slug": "boss-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4605OR",
+    "color": "Orange",
+    "slug": "boss-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4606OR",
+    "color": "Orange",
+    "slug": "boss-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4607OR",
+    "color": "Orange",
+    "slug": "boss-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4608MN",
+    "color": "Mint",
+    "slug": "earth-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4611GN",
+    "color": "Green",
+    "slug": "earth-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4612PK",
+    "color": "Pink",
+    "slug": "earth-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4614GN",
+    "color": "Green",
+    "slug": "earth-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4615GN",
+    "color": "Green",
+    "slug": "earth-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4616RD",
+    "color": "Red",
+    "slug": "earth-cruiser",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Blood Red",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_earthcruiser2_blood_red.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "06-4617RD",
+    "color": "Red",
+    "slug": "earth-cruiser",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Blood Red",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_earthcruiser2_blood_red.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "06-4635OR",
+    "color": "Orange",
+    "slug": "earth-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4636BK",
+    "color": "Black",
+    "slug": "earth-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4637OR",
+    "color": "Orange",
+    "slug": "earth-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4638BK",
+    "color": "Black",
+    "slug": "earth-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4639GN",
+    "color": "Green",
+    "slug": "earth-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4640GN",
+    "color": "Green",
+    "slug": "earth-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4641BK",
+    "color": "Black",
+    "slug": "earth-cruiser",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "06-4652BK",
+    "color": "Black",
+    "slug": "taxi-trike",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "06-4653BL",
+    "color": "Blue",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "06-4654PU",
+    "color": "Purple",
+    "slug": "taxi-trike",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "06-4655YL",
+    "color": "Yellow",
+    "slug": "taxi-trike",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "064444BL",
+    "color": "Blue",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "07-3529BL",
+    "color": "Blue",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "07-3606GP",
+    "color": "Grape",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "07-3626BL",
+    "color": "Blue",
+    "slug": "laser-20",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Cosmo Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_laser20_cosmo_blue.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "07-3629RD",
+    "color": "Red",
+    "slug": "laser-16",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Victory Red",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/09/21_laser16_victory_red.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "07-3641RD",
+    "color": "Red",
+    "slug": "xr20",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Raspberry",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_xr20_raspberry.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "07-3642VL",
+    "color": "Violet",
+    "slug": "xr20",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "07-3663BL",
+    "color": "Blue",
+    "slug": "starlite",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Blue Lagoon",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_starlite_blue_lagoon_600px.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "07-3664PK",
+    "color": "Pink",
+    "slug": "miss-daisy",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Hot Pink",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_missdaisy_hot_pink_600px.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "07-3671SG",
+    "color": "Sage",
+    "slug": "xr26",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Sage",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_xr26stepover_sage.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "07-3672SG",
+    "color": "Sage",
+    "slug": "xr26",
+    "status": "exact-match",
+    "colorway_match": {
+      "color_name": "Sage",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_xr26stepover_sage.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "07-3673BK",
+    "color": "Black",
+    "slug": "xr26",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_xr26_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "07-3674GY",
+    "color": "Grey",
+    "slug": "xr26",
+    "status": "family-zero",
+    "colorway_match": null,
+    "candidates_in_slug": 0
+  },
+  {
+    "sku": "07-3680PD",
+    "color": "Palladium",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "07-3682BK",
+    "color": "Black",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "07-3684BL",
+    "color": "Blue",
+    "slug": "xr24",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Sky Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_xr24_sky_blue_600px.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "07-3685VL",
+    "color": "Violet",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "07-3686BK",
+    "color": "Black",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "07-3689WH",
+    "color": "White",
+    "slug": "capri-24",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "07-3690BL",
+    "color": "Blue",
+    "slug": "capri-24",
+    "status": "slug-not-in-bikesjson",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "07-3692BL",
+    "color": "Blue",
+    "slug": "laser-16",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Ano Deep Blue",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_laser16_ano_deep_blue_600px.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "07-3697BK",
+    "color": "Black",
+    "slug": "xr20",
+    "status": "family-unique",
+    "colorway_match": {
+      "color_name": "Gloss Black",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_xr20_gloss_black.png"
+    },
+    "candidates_in_slug": 1
+  },
+  {
+    "sku": "07-3698GN",
+    "color": "Green",
+    "slug": "xr20",
+    "status": "family-ambiguous",
+    "colorway_match": {
+      "color_name": "Ano Limelight",
+      "image_url": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_xr20_ano_limelight_600px.png"
+    },
+    "candidates_in_slug": 2
+  },
+  {
+    "sku": "09-4802BK",
+    "color": "Black",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "09-4841BK",
+    "color": "Black",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  },
+  {
+    "sku": "09-4847BK",
+    "color": "Black",
+    "slug": null,
+    "status": "no-slug",
+    "colorway_match": null,
+    "candidates_in_slug": null
+  }
+]

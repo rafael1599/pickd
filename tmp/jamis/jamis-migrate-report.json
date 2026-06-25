@@ -1,0 +1,17 @@
+{
+  "generated_at": "2026-06-25T21:02:15.058396Z",
+  "totals": {
+    "skus_planned": 284,
+    "skus_updated": 284,
+    "skus_idempotent_skip": 0,
+    "r2_unique_files": 78,
+    "r2_uploaded": 78,
+    "r2_skipped_existing": 0,
+    "r2_failed": 0
+  },
+  "by_status": {
+    "exact-match": 80,
+    "family-unique": 204
+  },
+  "upload_failures": []
+}
