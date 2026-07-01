@@ -358,7 +358,9 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   // ─── Render ───────────────────────────────────────────────────────
   return (
     <LatestNotesProvider value={latestNotesByList}>
-      <div className="fixed inset-0 z-[60] flex flex-col bg-main">
+      {/* z-[110]: above the bottom nav (z-100) so the board is a full takeover.
+          Internal modals (GroupOrder z-150, CrossLane/WaitingReason z-200) stay on top. */}
+      <div className="fixed inset-0 z-[110] flex flex-col bg-main">
         {/* Header */}
         <div className="px-3 py-2 md:px-5 md:py-3 border-b border-subtle bg-surface flex items-center justify-between shrink-0">
           <h2 className="text-base md:text-xl lg:text-xl font-black text-content uppercase tracking-tight">

@@ -31,6 +31,16 @@ export const WaitingZone: React.FC<WaitingZoneProps> = ({ orders, onSelect }) =>
             <div className="text-[8px] text-muted font-bold uppercase tracking-tighter truncate">
               {order.customer?.name || 'Customer'}
             </div>
+            {order.source_order_date && (
+              <div className="text-[8px] text-muted/70 font-bold uppercase tracking-tighter truncate">
+                Order date:{' '}
+                {new Date(`${order.source_order_date}T00:00:00`).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+              </div>
+            )}
           </div>
         </button>
       ))}
