@@ -11,6 +11,7 @@ import { DoubleCheckHeader } from '../../features/picking/components/DoubleCheck
 import { SyncStatusIndicator } from './SyncStatusIndicator';
 import { PickingCartDrawer } from '../../features/picking/components/PickingCartDrawer';
 import { PullToRefresh } from '../ui/PullToRefresh';
+import { usePickingOverlayOpen } from '../../lib/pickingOverlayStore';
 
 interface LayoutMainProps {
   children: ReactNode;
@@ -22,10 +23,11 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
   const isOrdersPage = location.pathname === '/orders';
   const isStockCountPage = location.pathname === '/stock-count';
   const { isAdmin } = useAuth();
-  const { isSearching, viewMode } = useViewMode();
-  // Hide the bottom nav during Double-Check to free vertical space — that screen
-  // has its own fixed action bar (Park / Complete / Slide-to-complete).
-  const isDoubleChecking = viewMode === 'double_checking';
+  const { isSearching } = useViewMode();
+  // Hide the bottom nav while the full-screen picking/Double-Check overlay is up
+  // (it has its own fixed action bar and the nav's z-100 would poke through the
+  // z-60 overlay). Keyed on the drawer's real open state via the overlay store.
+  const isPickingOverlayOpen = usePickingOverlayOpen();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isHeaderHidden, setIsHeaderHidden] = useState(false);
 
@@ -157,7 +159,7 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
           <PullToRefresh onRefresh={() => window.location.reload()}>{children}</PullToRefresh>
         </main>
 
-        {!isOrdersPage && !isStockCountPage && !isDoubleChecking && <BottomNavigation />}
+        {!isOrdersPage && !isStockCountPage && !isPickingOverlayOpen && <BottomNavigation />}
         <PickingCartDrawer />
       </div>
     </ModalProvider>
