@@ -1352,14 +1352,18 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           <ChevronLeft size={28} />
         </button>
 
-        <div className="flex flex-col items-center">
-          {/* Contextual info — collapses (auto-hide) to free space for the list. */}
+        <div className="flex flex-col items-center flex-1 min-w-0">
+          {/* Order number + shipping + pallets/units — ALWAYS visible (no auto-hide),
+              using the full header width so nothing important disappears. */}
           <div
             className={`flex flex-col items-center transition-all duration-300 ${
               orderListOpen ? 'overflow-visible' : 'overflow-hidden'
-            } ${showHeaderInfo ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}
+            }`}
           >
-            <div ref={orderListRef} className="flex items-center gap-2 relative">
+            <div
+              ref={orderListRef}
+              className="flex items-center gap-2 relative flex-wrap justify-center"
+            >
               {(() => {
                 const fallback = activeListId
                   ? `#${activeListId.slice(-6).toUpperCase()}`
@@ -1369,7 +1373,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 // as a static chip; only 3+ get the +N badge + dropdown.
                 if (header.kind !== 'many') {
                   return (
-                    <span className="text-xs font-mono font-bold text-accent/90 tracking-widest bg-accent/10 px-2 py-0.5 rounded border border-accent/20">
+                    <span className="text-base md:text-lg font-mono font-black text-accent/90 tracking-widest bg-accent/10 px-3 py-1 rounded-lg border border-accent/20">
                       {header.label}
                     </span>
                   );
@@ -1379,17 +1383,17 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 return (
                   <button
                     onClick={() => setOrderListOpen((v) => !v)}
-                    className="text-xs font-mono font-bold text-accent/90 tracking-widest bg-accent/10 px-2 py-0.5 rounded border border-accent/20 flex items-center gap-1 hover:bg-accent/20 transition-colors"
+                    className="text-base md:text-lg font-mono font-black text-accent/90 tracking-widest bg-accent/10 px-3 py-1 rounded-lg border border-accent/20 flex items-center gap-1.5 hover:bg-accent/20 transition-colors"
                     title={`${orderList.length} orders combined`}
                     aria-haspopup="true"
                     aria-expanded={orderListOpen}
                   >
                     <span>{label}</span>
-                    <span className="text-[10px] font-black bg-accent/20 text-accent px-1 rounded">
+                    <span className="text-xs font-black bg-accent/20 text-accent px-1.5 rounded">
                       +{orderList.length - 1}
                     </span>
                     <ChevronDown
-                      size={10}
+                      size={14}
                       className={`transition-transform ${orderListOpen ? 'rotate-180' : ''}`}
                     />
                   </button>
@@ -1397,6 +1401,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               })()}
               {activeListId && (
                 <ShippingTypeToggle listId={activeListId} autoType={effectiveShippingType} />
+              )}
+              {totalUnitsCount > 0 && (
+                <span className="text-sm md:text-base font-black uppercase tracking-widest text-muted/80 whitespace-nowrap">
+                  {pallets.length} {pallets.length === 1 ? 'pallet' : 'pallets'} · {totalUnitsCount}{' '}
+                  units
+                </span>
               )}
               {orderListOpen && orderNumber && orderNumber.includes(' / ') && (
                 <div className="absolute top-full left-0 mt-1 bg-card border border-subtle rounded-xl shadow-2xl overflow-hidden z-20 min-w-[140px] animate-in fade-in slide-in-from-top-2 duration-150">
@@ -1426,10 +1436,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               {watcherNote}
             </div>
           )}
-          {/* Progress Text — ALWAYS visible (the mini "X / Y" + Select All). */}
+          {/* Progress Text — ALWAYS visible. Select All moved to the bottom action bar. */}
           <div className="flex items-center gap-3 mt-1">
             <span
-              className={`text-lg font-black uppercase tracking-[0.15em] ${
+              className={`text-2xl md:text-3xl font-black uppercase tracking-[0.15em] ${
                 totalUnitsCount === 0
                   ? 'text-muted/70'
                   : verifiedUnitsCount === 0
@@ -1441,33 +1451,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             >
               {`${verifiedUnitsCount} / ${totalUnitsCount} Pickd`}
             </span>
-            {!isReviewMode && onSelectAll && totalUnitsCount > 0 && (
-              <button
-                onClick={() => {
-                  if (verifiedUnitsCount === totalUnitsCount) {
-                    onSelectAll([]);
-                  } else {
-                    const allKeys = pallets.flatMap((p) =>
-                      p.items.map((item) => `${p.id}-${item.sku}-${item.location}`)
-                    );
-                    onSelectAll(allKeys);
-                  }
-                }}
-                className="text-xs text-accent font-black uppercase tracking-widest hover:opacity-70 transition-opacity flex items-center gap-1.5 bg-accent/5 px-2 py-0.5 rounded-full border border-accent/10"
-              >
-                {verifiedUnitsCount === totalUnitsCount ? (
-                  <>
-                    <X size={10} strokeWidth={4} />
-                    Deselect All
-                  </>
-                ) : (
-                  <>
-                    <Check size={10} strokeWidth={4} />
-                    Select All
-                  </>
-                )}
-              </button>
-            )}
           </div>
           {showHeaderInfo && sourceOrderDate && (
             <div className="text-[10px] text-muted/60 font-bold uppercase tracking-widest mt-0.5">
@@ -2396,6 +2379,29 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
              - Complete Now: just Select-All everything (transitions UI to
                Estado C without changing DB status). */
           <div className="flex gap-3">
+            {onSelectAll && totalUnitsCount > 0 && (
+              <button
+                onClick={() => {
+                  if (verifiedUnitsCount === totalUnitsCount) {
+                    onSelectAll([]);
+                  } else {
+                    const allKeys = pallets.flatMap((p) =>
+                      p.items.map((item) => `${p.id}-${item.sku}-${item.location}`)
+                    );
+                    onSelectAll(allKeys);
+                  }
+                }}
+                className="py-4 px-4 bg-card border border-subtle text-content/70 font-black uppercase tracking-widest text-xs rounded-2xl active:scale-95 transition-all flex items-center justify-center gap-1.5 shrink-0"
+                title={verifiedUnitsCount === totalUnitsCount ? 'Deselect all' : 'Select all'}
+              >
+                {verifiedUnitsCount === totalUnitsCount ? (
+                  <X size={16} strokeWidth={3} />
+                ) : (
+                  <Check size={16} strokeWidth={3} />
+                )}
+                {verifiedUnitsCount === totalUnitsCount ? 'Clear' : 'All'}
+              </button>
+            )}
             <button
               onClick={() => onParkOrder?.()}
               className="flex-1 py-4 bg-card border border-subtle text-content/70 font-black uppercase tracking-widest text-xs rounded-2xl active:scale-95 transition-all"
