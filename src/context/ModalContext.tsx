@@ -14,6 +14,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import { InventorySnapshotModal } from '../features/inventory/components/InventorySnapshotModal';
 import { ItemDetailView } from '../features/inventory/components/ItemDetailView';
 import { PickingSummaryModalById } from '../components/orders/PickingSummaryModalById';
+import { NotificationHistoryModal } from '../components/ui/NotificationHistoryModal';
 import type { InventoryItemWithMetadata, InventoryItemInput } from '../schemas/inventory.schema';
 
 type ItemDetailSavePayload = InventoryItemInput & {
@@ -33,6 +34,7 @@ export type ModalState =
       onDelete?: () => Promise<void> | void;
     }
   | { type: 'picking-summary'; listId: string }
+  | { type: 'notification-history' }
   | null;
 
 interface ModalContextValue {
@@ -60,6 +62,8 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
       {modal?.type === 'picking-summary' && (
         <PickingSummaryModalById listId={modal.listId} onClose={close} />
       )}
+
+      {modal?.type === 'notification-history' && <NotificationHistoryModal onClose={close} />}
 
       {modal?.type === 'item-detail' && (
         <ItemDetailView

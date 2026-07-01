@@ -216,6 +216,30 @@ body::before {
   animation: pickd-check 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
+/* Success splash: fade in, hold, fade out — el ciclo completo va por CSS
+   para no gestionar setState en effects. Total ~1.2s. */
+@keyframes success-splash-fade {
+  0% {
+    opacity: 0;
+  }
+
+  12% {
+    opacity: 1;
+  }
+
+  80% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-success-splash {
+  animation: success-splash-fade 1.2s ease-out forwards;
+}
+
 /* Qty alert: oscillate red <-> orange (not just an opacity dim) so a
    multi-unit qty is impossible to miss during double-check. */
 @keyframes qty-alert {
