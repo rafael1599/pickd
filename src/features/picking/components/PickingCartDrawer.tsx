@@ -8,6 +8,7 @@ import { useOrderGroups } from '../hooks/useOrderGroups';
 import { useAuth } from '../../../context/AuthContext';
 import { useConfirmation } from '../../../context/ConfirmationContext';
 import { usePickingSession } from '../../../context/PickingContext';
+import { setPickingOverlayOpen } from '../../../lib/pickingOverlayStore';
 import { useViewMode } from '../../../context/ViewModeContext';
 import { useInventory } from '../../inventory/hooks/InventoryProvider';
 import {
@@ -90,6 +91,14 @@ export const PickingCartDrawer: React.FC = () => {
   useEffect(() => {
     if (!isOpen) wasExternallyOpenedRef.current = false;
   }, [isOpen]);
+
+  // Report the full-screen overlay state so LayoutMain can hide the bottom nav
+  // while Double-Check / verification is up (the nav's z-100 pokes through the
+  // z-60 overlay otherwise). Reset on unmount so the nav always comes back.
+  useEffect(() => {
+    setPickingOverlayOpen(isOpen);
+  }, [isOpen]);
+  useEffect(() => () => setPickingOverlayOpen(false), []);
 
   // idea-105 phase 1 — hydrate the verified-keys Set from DB first; if the
   // column is empty (legacy orders or freshly-parked-on-another-device-with-
