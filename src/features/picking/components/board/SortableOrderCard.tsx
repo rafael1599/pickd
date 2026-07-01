@@ -177,7 +177,7 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
                 </span>
               )}
             </div>
-            {order.source_order_date && (
+            {order.is_waiting_inventory && order.source_order_date && (
               <div className="text-[11px] text-subtle font-bold uppercase tracking-wider mt-0.5">
                 Order date:{' '}
                 {new Date(`${order.source_order_date}T00:00:00`).toLocaleDateString('en-US', {
