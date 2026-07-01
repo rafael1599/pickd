@@ -11,6 +11,7 @@ import { useInventoryLogs } from './useInventoryLogs';
 import { INVENTORY_ROOT_KEY } from './useInventoryRealtime';
 import { supabase } from '../../../lib/supabase';
 import toast from 'react-hot-toast';
+import { celebrateSuccess } from '../../../lib/successPulse';
 
 export function useInventoryMutations() {
   const queryClient = useQueryClient();
@@ -340,7 +341,9 @@ export function useInventoryMutations() {
       return data;
     },
     onSuccess: () => {
-      toast.success('Inventory balance updated and session completed');
+      // Branded PickD check splash (fast, auto-dismiss) instead of a sticky
+      // success toast. Still logged to the notification history.
+      celebrateSuccess('Order completed');
       // We don't invalidate inventory here because process_picking_list triggers triggers/realtime
       // that will update useInventoryRealtime.
     },
@@ -364,7 +367,7 @@ export function useInventoryMutations() {
       return data;
     },
     onSuccess: () => {
-      toast.success('Order re-completed — inventory delta applied');
+      celebrateSuccess('Order re-completed');
     },
     onError: (err) => {
       toast.error(`Failed to re-complete: ${err.message}`);

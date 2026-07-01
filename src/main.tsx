@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { SwipeableToaster } from './components/ui/SwipeableToaster';
+import { SuccessSplash } from './components/ui/SuccessSplash';
 import './index.css';
 import App from './App';
 import { QueryProvider } from './components/QueryProvider';
@@ -36,6 +37,7 @@ createRoot(rootElement).render(
       <QueryProvider>
         <App />
         <SwipeableToaster />
+        <SuccessSplash />
       </QueryProvider>
     </ErrorBoundary>
   </StrictMode>
