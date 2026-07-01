@@ -1,6 +1,7 @@
 import React, { useRef, useState, useCallback } from 'react';
 import { toast, Toaster, ToastBar, type Toast } from 'react-hot-toast';
 import X from 'lucide-react/dist/esm/icons/x';
+import { useToastHistoryRecorder } from '../../lib/notificationHistory';
 
 const SWIPE_THRESHOLD = 50;
 
@@ -83,48 +84,59 @@ const SwipeableToastWrapper: React.FC<SwipeableToastWrapperProps> = ({ t, childr
   );
 };
 
-export const SwipeableToaster: React.FC = () => (
-  <Toaster
-    position="top-center"
-    toastOptions={{
-      style: {
-        background: '#1a1a22',
-        color: '#fff',
-        border: '1px solid rgba(255,255,255,0.1)',
-        borderRadius: '1.25rem',
-        fontSize: '14px',
-        fontWeight: 600,
-        padding: '12px 16px',
-        boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
-        maxWidth: '420px',
-      },
-    }}
-  >
-    {(t) => (
-      <SwipeableToastWrapper t={t}>
-        <ToastBar
-          toast={t}
-          style={{ ...t.style, padding: 0, background: 'transparent', boxShadow: 'none' }}
-        >
-          {({ icon, message }) => (
-            <div className="flex items-center gap-2 w-full">
-              {icon}
-              <div className="flex-1 text-sm">{message}</div>
-              {t.type !== 'loading' && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toast.dismiss(t.id);
-                  }}
-                  className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/10 text-white/30 hover:text-white/60 transition-all active:scale-90"
-                >
-                  <X size={12} />
-                </button>
-              )}
-            </div>
-          )}
-        </ToastBar>
-      </SwipeableToastWrapper>
-    )}
-  </Toaster>
-);
+export const SwipeableToaster: React.FC = () => {
+  // Graba cada toast en el historial persistente (revisable desde Settings).
+  useToastHistoryRecorder();
+
+  return (
+    <Toaster
+      position="top-center"
+      toastOptions={{
+        // Feedback rápido y poco intrusivo. Los errores duran un poco más
+        // para alcanzar a leerlos; el historial guarda todo por si acaso.
+        duration: 1200,
+        success: { duration: 1200 },
+        error: { duration: 2500 },
+        loading: { duration: Infinity },
+        style: {
+          background: '#1a1a22',
+          color: '#fff',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: '1.25rem',
+          fontSize: '14px',
+          fontWeight: 600,
+          padding: '12px 16px',
+          boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+          maxWidth: '420px',
+        },
+      }}
+    >
+      {(t) => (
+        <SwipeableToastWrapper t={t}>
+          <ToastBar
+            toast={t}
+            style={{ ...t.style, padding: 0, background: 'transparent', boxShadow: 'none' }}
+          >
+            {({ icon, message }) => (
+              <div className="flex items-center gap-2 w-full">
+                {icon}
+                <div className="flex-1 text-sm">{message}</div>
+                {t.type !== 'loading' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toast.dismiss(t.id);
+                    }}
+                    className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/10 text-white/30 hover:text-white/60 transition-all active:scale-90"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            )}
+          </ToastBar>
+        </SwipeableToastWrapper>
+      )}
+    </Toaster>
+  );
+};

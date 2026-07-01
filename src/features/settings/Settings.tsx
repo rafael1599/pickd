@@ -1,10 +1,16 @@
 import SettingsIcon from 'lucide-react/dist/esm/icons/settings';
+import Bell from 'lucide-react/dist/esm/icons/bell';
+import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
 import { IntegratedMapManager } from '../warehouse-management/components/IntegratedMapManager';
 import { useTheme } from '../../context/ThemeContext';
 import { ShipSmsSettings } from './ShipSmsSettings';
+import { useModal } from '../../context/ModalContext';
+import { useNotifications } from '../../lib/notificationHistory';
 
 export default function Settings() {
   const { theme, toggleTheme } = useTheme();
+  const { open: openModal } = useModal();
+  const notifications = useNotifications();
   return (
     <div className="min-h-screen bg-main p-3 sm:p-6 pb-20">
       <div className="max-w-6xl mx-auto">
@@ -44,6 +50,39 @@ export default function Settings() {
             </div>
           </div>
         </div>
+
+        {/* Notification History — log discreto de toasts (errores, éxito, info) */}
+        <button
+          onClick={() => openModal({ type: 'notification-history' })}
+          className="w-full text-left bg-card border border-subtle rounded-3xl p-6 mb-8 backdrop-blur-sm group transition-colors hover:border-accent/30"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-2.5 bg-surface border border-subtle rounded-2xl text-accent">
+                <Bell size={20} />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-content uppercase tracking-tight">
+                  Notification History
+                </h2>
+                <p className="text-xs text-muted font-medium">
+                  Review recent alerts and error messages
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {notifications.length > 0 && (
+                <span className="text-[10px] font-black uppercase tracking-widest text-muted">
+                  {notifications.length}
+                </span>
+              )}
+              <ChevronRight
+                className="text-muted group-hover:translate-x-1 group-hover:text-accent transition-all"
+                size={18}
+              />
+            </div>
+          </div>
+        </button>
 
         {/* Ship-Out SMS — per-user prefilled SMS at Double-Check complete */}
         <ShipSmsSettings />
