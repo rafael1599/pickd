@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import Check from 'lucide-react/dist/esm/icons/check';
 import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
@@ -2234,60 +2235,78 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           <CorrectionNotesTimeline notes={notes} isLoading={isNotesLoading} />
         </div>
 
-        <section
-          className={`mt-4 mb-12 border rounded-2xl mx-1 transition-all duration-300 ${isNotesExpanded ? 'bg-surface border-accent/20' : 'bg-surface border-subtle'}`}
-        >
+        <section className="mt-4 mb-12 border rounded-2xl mx-1 bg-surface border-subtle">
           <button
-            onClick={() => setIsNotesExpanded(!isNotesExpanded)}
+            onClick={() => setIsNotesExpanded(true)}
             className="w-full flex items-center justify-between p-4"
           >
             <div className="flex items-center gap-2">
-              <MessageSquare size={16} className={isNotesExpanded ? 'text-accent' : 'text-muted'} />
-              <h3
-                className={`text-[13px] font-black uppercase tracking-widest ${isNotesExpanded ? 'text-accent/70' : 'text-muted'}`}
-              >
+              <MessageSquare size={16} className="text-muted" />
+              <h3 className="text-[13px] font-black uppercase tracking-widest text-muted">
                 {notes.length > 0 ? 'Add Another Note' : 'Add Verification Notes'}
               </h3>
             </div>
-            <ChevronDown
-              size={14}
-              className={`text-muted transition-transform duration-300 ${isNotesExpanded ? 'rotate-180' : ''}`}
-            />
+            <ChevronDown size={14} className="text-muted -rotate-90" />
           </button>
+        </section>
+      </div>
 
-          {isNotesExpanded && (
-            <div className="px-4 pb-4 animate-in fade-in slide-in-from-top-2 duration-300">
+      {/* Focused note editor — centered modal with dark backdrop so nothing else
+          (the action buttons below) can be tapped by mistake. Bigger typography. */}
+      {isNotesExpanded &&
+        createPortal(
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-main/70 backdrop-blur-md"
+              onClick={() => setIsNotesExpanded(false)}
+            />
+            <div className="relative w-full max-w-lg bg-surface border border-accent/20 rounded-[2rem] shadow-2xl p-6 animate-in fade-in zoom-in duration-200">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <MessageSquare size={24} className="text-accent" />
+                  <h3 className="text-xl font-black uppercase tracking-widest text-content">
+                    {notes.length > 0 ? 'Add Another Note' : 'Add Verification Notes'}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setIsNotesExpanded(false)}
+                  className="p-2 hover:bg-card rounded-full text-muted transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
               <textarea
                 value={correctionNotes}
                 onChange={(e) => setCorrectionNotes(e.target.value)}
                 placeholder="Explain what needs to be fixed..."
-                className="w-full h-24 bg-card border border-subtle rounded-xl p-3 text-sm text-content focus:outline-none focus:border-accent/30 resize-none transition-all mb-3 placeholder:text-muted/50"
+                className="w-full h-40 bg-card border border-subtle rounded-2xl p-4 text-lg text-content focus:outline-none focus:border-accent/30 resize-none mb-5 placeholder:text-muted/50"
                 autoFocus
               />
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 <button
                   onClick={() => {
                     onAddNote(correctionNotes.trim());
                     setCorrectionNotes('');
+                    setIsNotesExpanded(false);
                   }}
                   disabled={!correctionNotes.trim()}
-                  className="flex-1 py-3 bg-surface border border-subtle text-muted font-black uppercase tracking-widest text-[11px] rounded-xl active:scale-95 transition-all disabled:opacity-30"
+                  className="flex-1 py-4 bg-card border border-subtle text-content/70 font-black uppercase tracking-widest text-sm rounded-2xl active:scale-95 transition-all disabled:opacity-30"
                 >
                   Save Note Only
                 </button>
                 <button
                   onClick={handleReturnToPicker}
                   disabled={!correctionNotes.trim()}
-                  className="flex-[2] py-3 bg-accent text-main font-black uppercase tracking-widest text-[11px] rounded-xl shadow-lg shadow-accent/10 active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+                  className="flex-[2] py-4 bg-accent text-main font-black uppercase tracking-widest text-sm rounded-2xl shadow-lg shadow-accent/10 active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
                 >
-                  <Send size={14} />
+                  <Send size={18} />
                   Return to Verification List
                 </button>
               </div>
             </div>
-          )}
-        </section>
-      </div>
+          </div>,
+          document.body
+        )}
 
       <div className="fixed bottom-0 left-0 right-0 px-6 pt-6 pb-28 bg-gradient-to-t from-main via-main/90 to-transparent shrink-0 z-20">
         {status === 'reopened' ? (
