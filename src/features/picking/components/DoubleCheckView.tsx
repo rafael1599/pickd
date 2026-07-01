@@ -1973,7 +1973,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                         }`}
                       >
                         <div
-                          className="flex items-center gap-3 flex-1 min-w-0"
+                          className="flex items-center gap-3 min-w-0"
                           style={{ transform: 'scaleY(1.5)' }}
                         >
                           {/* Qty on the far left — the biggest number on the row */}
@@ -2116,60 +2116,67 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                 );
                               })()}
                             </div>
-                            {/* Product name — item_name from DB, or description from PDF */}
+                            {/* Product name — item_name from DB, or description from PDF.
+                                Smaller/quieter now that distribution moved to its own column. */}
                             {!hideDetails && (item.item_name || item.description) && (
-                              <span className="text-[13px] md:text-xl font-semibold text-muted uppercase tracking-wide leading-none">
+                              <span className="text-[11px] md:text-base font-semibold text-muted uppercase tracking-wide leading-none">
                                 {(item.item_name || item.description || '').slice(0, 17)}
                               </span>
-                            )}
-                            {/* Distribution-based pick plan (canonical SKU fallback included) */}
-                            {!hideDetails && planSteps && planSteps.length > 0 ? (
-                              <div
-                                className={`${
-                                  distributionInconsistencyMap[item.sku] === 'over'
-                                    ? 'text-red-400/90'
-                                    : distributionInconsistencyMap[item.sku] === 'under'
-                                      ? 'text-orange-400/90'
-                                      : 'text-emerald-400/70'
-                                }`}
-                              >
-                                <div className="flex items-center gap-3 mt-0.5">
-                                  {/* idea-137: count OUTSIDE the glyph, big and readable
-                                      from afar (like the LOC number) — the glyph shape
-                                      alone identifies LINE/TOWER/PALLET. */}
-                                  {planSteps.map((step, i) => (
-                                    <div key={i} className="flex items-center gap-1">
-                                      <DistributionGlyph
-                                        type={step.type as DistributionItem['type']}
-                                        unitsEach={step.units_each}
-                                        showNumber={false}
-                                      />
-                                      <span
-                                        className="text-3xl md:text-5xl font-black tabular-nums leading-none"
-                                        style={{ fontFamily: 'var(--font-heading)' }}
-                                      >
-                                        {step.units_each}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ) : (
-                              !hideDetails &&
-                              insufficientStock && (
-                                <span className="text-xs font-black text-amber-500 uppercase tracking-wider leading-none">
-                                  {stockMap[item.sku] !== undefined
-                                    ? `${stockMap[item.sku]} in stock (need ${item.pickingQty})`
-                                    : `Need ${item.pickingQty}, checking...`}
-                                </span>
-                              )
                             )}
                           </div>
                         </div>
 
+                        {/* Distribution — MIDDLE column (SKU left · distribution center · location right) */}
+                        <div
+                          className="flex-1 flex items-center justify-center px-1 min-w-0"
+                          style={{ transform: 'scaleY(1.5)' }}
+                        >
+                          {!hideDetails && planSteps && planSteps.length > 0 ? (
+                            <div
+                              className={`${
+                                distributionInconsistencyMap[item.sku] === 'over'
+                                  ? 'text-red-400/90'
+                                  : distributionInconsistencyMap[item.sku] === 'under'
+                                    ? 'text-orange-400/90'
+                                    : 'text-emerald-400/70'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                {/* idea-137: count OUTSIDE the glyph, big and readable
+                                    from afar (like the LOC number) — the glyph shape
+                                    alone identifies LINE/TOWER/PALLET. */}
+                                {planSteps.map((step, i) => (
+                                  <div key={i} className="flex items-center gap-1">
+                                    <DistributionGlyph
+                                      type={step.type as DistributionItem['type']}
+                                      unitsEach={step.units_each}
+                                      showNumber={false}
+                                    />
+                                    <span
+                                      className="text-3xl md:text-5xl font-black tabular-nums leading-none"
+                                      style={{ fontFamily: 'var(--font-heading)' }}
+                                    >
+                                      {step.units_each}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            !hideDetails &&
+                            insufficientStock && (
+                              <span className="text-xs font-black text-amber-500 uppercase tracking-wider leading-none">
+                                {stockMap[item.sku] !== undefined
+                                  ? `${stockMap[item.sku]} in stock (need ${item.pickingQty})`
+                                  : `Need ${item.pickingQty}, checking...`}
+                              </span>
+                            )
+                          )}
+                        </div>
+
                         {/* Location Info on the right - No checkbox to maximize space */}
                         <div
-                          className="flex items-center gap-3 shrink-0 ml-auto pl-2 border-l border-subtle"
+                          className="flex items-center gap-3 shrink-0 pl-2 border-l border-subtle"
                           style={{ transform: 'scaleY(1.5)' }}
                         >
                           <div className="flex flex-col items-end">
