@@ -22,7 +22,10 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
   const isOrdersPage = location.pathname === '/orders';
   const isStockCountPage = location.pathname === '/stock-count';
   const { isAdmin } = useAuth();
-  const { isSearching } = useViewMode();
+  const { isSearching, viewMode } = useViewMode();
+  // Hide the bottom nav during Double-Check to free vertical space — that screen
+  // has its own fixed action bar (Park / Complete / Slide-to-complete).
+  const isDoubleChecking = viewMode === 'double_checking';
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isHeaderHidden, setIsHeaderHidden] = useState(false);
 
@@ -154,7 +157,7 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
           <PullToRefresh onRefresh={() => window.location.reload()}>{children}</PullToRefresh>
         </main>
 
-        {!isOrdersPage && !isStockCountPage && <BottomNavigation />}
+        {!isOrdersPage && !isStockCountPage && !isDoubleChecking && <BottomNavigation />}
         <PickingCartDrawer />
       </div>
     </ModalProvider>
