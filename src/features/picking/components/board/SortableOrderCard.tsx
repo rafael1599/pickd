@@ -128,41 +128,41 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
     >
       <button
         onClick={() => onSelect(order)}
-        className={`flex-1 flex items-center justify-between py-2 px-2.5 text-left ${
+        className={`flex-1 flex items-center justify-between py-3 px-3 text-left ${
           order.status === 'double_checking' ? 'opacity-60' : ''
         }`}
       >
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           {(order.status === 'needs_correction' || order.status === 'double_checking') && (
             <div
-              className={`w-6 h-6 rounded-md flex items-center justify-center border transition-colors shrink-0 ${statusStyles.iconBg}`}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center border transition-colors shrink-0 ${statusStyles.iconBg}`}
             >
-              <Icon size={12} />
+              <Icon size={18} />
             </div>
           )}
           <div>
-            <div className="text-[11px] font-black uppercase tracking-tight text-content flex items-center gap-1 flex-wrap">
+            <div className="text-lg font-black uppercase tracking-tight text-content flex items-center gap-1.5 flex-wrap">
               {order.source === 'pdf_import' && <span title="PDF Import">📥</span>}#
               {order.order_number || order.id.toString().slice(-6).toUpperCase()}
               {showShippingBadge && (
                 <span
-                  className={`text-[7px] ${colors.badge} text-white px-1 py-0.5 rounded font-black uppercase tracking-wider`}
+                  className={`text-[10px] ${colors.badge} text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider`}
                 >
                   {colors.badgeText}
                 </span>
               )}
               {order.is_waiting_inventory && (
-                <span className="text-[7px] bg-amber-500 text-white px-1 py-0.5 rounded font-black uppercase tracking-wider">
+                <span className="text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">
                   WAIT
                 </span>
               )}
               {order.is_addon && (
-                <span className="text-[7px] bg-amber-500 text-white px-1 py-0.5 rounded font-black animate-pulse">
+                <span className="text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black animate-pulse">
                   ADD-ON
                 </span>
               )}
             </div>
-            <div className="text-[9px] text-muted font-bold uppercase tracking-wider mt-0.5 flex items-center gap-2">
+            <div className="text-sm text-muted font-bold uppercase tracking-wider mt-1 flex items-center gap-2.5">
               {order.status === 'double_checking' && (
                 <span>{`Checking: ${order.checker_profile?.full_name?.split(' ')[0] ?? '...'}`}</span>
               )}
@@ -178,7 +178,7 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
               )}
             </div>
             {order.source_order_date && (
-              <div className="text-[8px] text-subtle font-bold uppercase tracking-wider mt-0.5">
+              <div className="text-[11px] text-subtle font-bold uppercase tracking-wider mt-0.5">
                 Order date:{' '}
                 {new Date(`${order.source_order_date}T00:00:00`).toLocaleDateString('en-US', {
                   month: 'short',
@@ -189,7 +189,7 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
             )}
             {notePreview && (
               <div
-                className="mt-1 text-[9px] font-semibold text-red-500 bg-red-500/10 rounded px-1.5 py-0.5 max-w-[180px] truncate"
+                className="mt-1.5 text-xs font-semibold text-red-500 bg-red-500/10 rounded px-2 py-1 max-w-[240px] truncate"
                 title={trimmedNote ?? undefined}
               >
                 {notePreview}
@@ -198,7 +198,7 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
           </div>
         </div>
         <ChevronDown
-          size={14}
+          size={20}
           className={`-rotate-90 text-subtle ${statusStyles.chevronHover} transition-colors`}
         />
       </button>
@@ -208,10 +208,10 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
             e.stopPropagation();
             onUngroup(order);
           }}
-          className="p-1 text-muted hover:text-amber-500 transition-colors"
+          className="p-1.5 text-muted hover:text-amber-500 transition-colors"
           title="Remove from group"
         >
-          <Unlink size={12} />
+          <Unlink size={16} />
         </button>
       )}
       <button
@@ -219,10 +219,10 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
           e.stopPropagation();
           onDelete(order);
         }}
-        className="p-1 text-muted hover:text-red-500 transition-colors"
+        className="p-1.5 text-muted hover:text-red-500 transition-colors"
         title="Delete Order"
       >
-        <Trash2 size={14} />
+        <Trash2 size={16} />
       </button>
     </div>
   );

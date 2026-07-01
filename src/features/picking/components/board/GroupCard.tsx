@@ -77,32 +77,32 @@ export const GroupCard = React.memo<GroupCardProps>(
       >
         {/* Group header — aggregates needs-attention + total pallets so the
             verifier scans the worst state at a glance. */}
-        <div className="px-2 pt-1.5 pb-0.5 flex items-center justify-between gap-1">
-          <div className="flex items-center gap-1">
-            <span className={`text-[7px] font-black uppercase tracking-widest ${colors.text}`}>
+        <div className="px-2.5 pt-2 pb-1 flex items-center justify-between gap-1">
+          <div className="flex items-center gap-1.5">
+            <span className={`text-[11px] font-black uppercase tracking-widest ${colors.text}`}>
               {colors.label}
             </span>
             {hasCorrection && (
               <span
-                className="flex items-center gap-0.5 text-amber-500 text-[7px] font-black uppercase tracking-widest"
+                className="flex items-center gap-0.5 text-amber-500 text-[11px] font-black uppercase tracking-widest"
                 title="At least one order in this group needs correction"
               >
-                <AlertCircle size={9} />
+                <AlertCircle size={13} />
                 Fix
               </span>
             )}
             {!hasCorrection && hasDoubleChecking && (
               <span
-                className="flex items-center gap-0.5 text-orange-500 text-[7px] font-black uppercase tracking-widest"
+                className="flex items-center gap-0.5 text-orange-500 text-[11px] font-black uppercase tracking-widest"
                 title="Currently being checked"
               >
-                <Clock size={9} />
+                <Clock size={13} />
                 Checking
               </span>
             )}
           </div>
           {totalPallets > 0 && (
-            <span className="text-[7px] font-black uppercase tracking-widest text-sky-400/70">
+            <span className="text-[11px] font-black uppercase tracking-widest text-sky-400/70">
               {totalPallets} {totalPallets === 1 ? 'pallet' : 'pallets'}
             </span>
           )}
@@ -122,14 +122,14 @@ export const GroupCard = React.memo<GroupCardProps>(
               >
                 <button
                   onClick={() => onSelect(order)}
-                  className="flex-1 flex items-center justify-between py-1 px-1.5 text-left"
+                  className="flex-1 flex items-center justify-between py-1.5 px-2 text-left"
                 >
-                  <div className="text-[11px] font-black uppercase tracking-tight text-content flex items-center gap-1">
+                  <div className="text-base font-black uppercase tracking-tight text-content flex items-center gap-1.5">
                     {orderNeedsCorrection && (
-                      <AlertCircle size={11} className="text-amber-500 shrink-0" />
+                      <AlertCircle size={15} className="text-amber-500 shrink-0" />
                     )}
                     {orderDoubleChecking && (
-                      <Clock size={11} className="text-orange-500 shrink-0" />
+                      <Clock size={15} className="text-orange-500 shrink-0" />
                     )}
                     {order.source === 'pdf_import' && (
                       <span title="PDF Import" className="mr-0.5">
@@ -138,13 +138,13 @@ export const GroupCard = React.memo<GroupCardProps>(
                     )}
                     #{order.order_number || order.id.toString().slice(-6).toUpperCase()}
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
                     {(order.pallets_qty ?? 0) > 0 && (
-                      <span className="text-[8px] font-black text-sky-400/80 uppercase tracking-wider">
+                      <span className="text-[11px] font-black text-sky-400/80 uppercase tracking-wider">
                         {order.pallets_qty}p
                       </span>
                     )}
-                    <ChevronDown size={12} className="-rotate-90 text-subtle" />
+                    <ChevronDown size={16} className="-rotate-90 text-subtle" />
                   </div>
                 </button>
                 <button
@@ -152,20 +152,20 @@ export const GroupCard = React.memo<GroupCardProps>(
                     e.stopPropagation();
                     onUngroup(order);
                   }}
-                  className="p-0.5 text-muted hover:text-amber-500 transition-colors"
+                  className="p-1 text-muted hover:text-amber-500 transition-colors"
                   title="Remove from group"
                 >
-                  <Unlink size={10} />
+                  <Unlink size={14} />
                 </button>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     onDelete(order);
                   }}
-                  className="p-0.5 text-muted hover:text-red-500 transition-colors"
+                  className="p-1 text-muted hover:text-red-500 transition-colors"
                   title="Delete"
                 >
-                  <Trash2 size={10} />
+                  <Trash2 size={14} />
                 </button>
               </div>
             );

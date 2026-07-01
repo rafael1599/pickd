@@ -389,12 +389,10 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                 className="border-b border-subtle px-2 py-2 md:px-4 md:py-3"
               >
                 <div className="flex items-center justify-center gap-2 mb-2 md:mb-3">
-                  <span className="text-[10px] md:text-sm lg:text-sm font-black uppercase tracking-widest text-red-400">
+                  <span className="text-sm md:text-base font-black uppercase tracking-widest text-red-400">
                     Priority
                   </span>
-                  <span className="text-[10px] md:text-sm text-muted/60">
-                    ({priorityOrders.length})
-                  </span>
+                  <span className="text-sm text-muted/60">({priorityOrders.length})</span>
                 </div>
                 {priorityOrders.map((order) => (
                   <DraggableOrderCard
@@ -461,12 +459,10 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                   onClick={() => setInPickingCollapsed((v) => !v)}
                   className="w-full flex items-center justify-center gap-2 py-2 md:py-3 hover:bg-sky-500/5 transition-colors"
                 >
-                  <span className="text-[10px] md:text-sm lg:text-sm font-black uppercase tracking-widest text-sky-400">
+                  <span className="text-sm md:text-base font-black uppercase tracking-widest text-sky-400">
                     In Picking
                   </span>
-                  <span className="text-[10px] md:text-sm text-muted/60">
-                    ({inPickingOrders.length})
-                  </span>
+                  <span className="text-sm text-muted/60">({inPickingOrders.length})</span>
                   <ChevronDown
                     size={14}
                     className={`text-sky-400/60 transition-transform ${
@@ -488,13 +484,11 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               ready_to_double_check (handled in useBoardDnD). */}
             <DropZone id={ZONE_READY} className="border-b border-subtle px-2 py-2 md:px-4 md:py-3">
               <div className="flex items-center justify-center gap-2 mb-2 md:mb-3">
-                <span className="text-[10px] md:text-sm lg:text-sm font-black uppercase tracking-widest text-sky-400">
+                <span className="text-sm md:text-base font-black uppercase tracking-widest text-sky-400">
                   Ready to Double-Check
                 </span>
                 {readyOrders.length > 0 && (
-                  <span className="text-[10px] md:text-sm text-muted/60">
-                    ({readyOrders.length})
-                  </span>
+                  <span className="text-sm text-muted/60">({readyOrders.length})</span>
                 )}
               </div>
               {readyOrders.length === 0 ? (
@@ -583,13 +577,11 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                 onClick={() => setWaitingCollapsed((v) => !v)}
                 className="w-full flex items-center justify-center gap-2 py-2 md:py-3 hover:bg-amber-500/5 transition-colors"
               >
-                <span className="text-[10px] md:text-sm lg:text-sm font-black uppercase tracking-widest text-amber-400">
+                <span className="text-sm md:text-base font-black uppercase tracking-widest text-amber-400">
                   Waiting for Inventory
                 </span>
                 {waitingOrders.length > 0 && (
-                  <span className="text-[10px] md:text-sm text-muted/60">
-                    ({waitingOrders.length})
-                  </span>
+                  <span className="text-sm text-muted/60">({waitingOrders.length})</span>
                 )}
                 <ChevronDown
                   size={14}
@@ -621,10 +613,10 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                   onClick={() => setCompletedCollapsed((v) => !v)}
                   className="w-full flex items-center justify-center gap-2 py-2 md:py-3 hover:bg-content/5 transition-colors"
                 >
-                  <span className="text-[10px] md:text-sm lg:text-sm font-black uppercase tracking-widest text-content/60">
+                  <span className="text-sm md:text-base font-black uppercase tracking-widest text-content/60">
                     Completed Today
                   </span>
-                  <span className="text-[10px] md:text-sm text-muted/60">
+                  <span className="text-sm text-muted/60">
                     ({fedexCompleted.length + regularCompleted.length})
                   </span>
                   <ChevronDown
@@ -682,7 +674,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             {/* PROJECTS — read-only context, at the very bottom */}
             <div className="px-2 py-2 md:px-4 md:py-3">
               <div className="flex items-center justify-center gap-2 mb-2 md:mb-3">
-                <span className="text-[10px] md:text-sm lg:text-sm font-black uppercase tracking-widest text-indigo-400">
+                <span className="text-sm md:text-base font-black uppercase tracking-widest text-indigo-400">
                   Projects
                 </span>
               </div>
