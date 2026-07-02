@@ -2319,8 +2319,20 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           /* Estado C — all verified. Two paths:
              - Ready to DC: hand off to a second verifier (status →
                ready_to_double_check, lands in the bottom Ready section).
-             - Slide to Complete: close now (requires ≥1 pallet photo). */
+             - Slide to Complete: close now (requires ≥1 pallet photo).
+             Plus Clear: deselect-all so Select All is reversible — without it
+             the toggle vanished the moment everything got checked. */
           <div className="flex gap-3">
+            {onSelectAll && totalUnitsCount > 0 && (
+              <button
+                onClick={() => onSelectAll([])}
+                className="py-4 px-4 bg-card border border-subtle text-content/70 font-black uppercase tracking-widest text-xs rounded-2xl active:scale-95 transition-all flex items-center justify-center gap-1.5 shrink-0"
+                title="Deselect all"
+              >
+                <X size={16} strokeWidth={3} />
+                Clear
+              </button>
+            )}
             <button
               onClick={() => onSendToVerifyQueue?.()}
               className="flex-1 py-4 bg-card border border-sky-500/40 text-sky-400 font-black uppercase tracking-widest text-xs rounded-2xl active:scale-95 transition-all hover:bg-sky-500/5"
