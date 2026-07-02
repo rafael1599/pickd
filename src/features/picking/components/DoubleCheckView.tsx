@@ -1873,6 +1873,17 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                     canonResolved.quantity >= (item.pickingQty || 0);
                   const insufficientStock = !!item.insufficient_stock && !aliasCovered;
                   const displayLocation = item.location || canonResolved?.location || null;
+                  // SKU font shrinks by length so a long SKU fits its column WHOLE
+                  // (no truncation, no overflow into the distribution/location cols).
+                  const skuText = sdSerialMap.get(item.sku) ?? item.sku;
+                  const skuSizeCls =
+                    skuText.length <= 9
+                      ? 'text-2xl md:text-5xl'
+                      : skuText.length <= 12
+                        ? 'text-xl md:text-4xl'
+                        : skuText.length <= 15
+                          ? 'text-lg md:text-3xl'
+                          : 'text-base md:text-2xl';
                   // Pick-plan steps: exact-SKU plan, else the canonical SKU's distribution.
                   const planSteps: { type: string; units_each: number }[] | null =
                     pickPlanMap[item.sku] ??
@@ -1981,7 +1992,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                             {/* SKU row */}
                             <div className="flex items-center gap-2 flex-wrap min-w-0">
                               <span
-                                className={`font-black text-2xl md:text-5xl tracking-tight leading-none whitespace-nowrap ${isReviewMode ? (skuNotFound || insufficientStock ? 'text-red-500' : 'text-content') : isChecked ? (skuNotFound || insufficientStock ? 'text-red-400' : 'text-green-400') : skuNotFound || insufficientStock ? 'text-red-500' : 'text-content'}`}
+                                className={`font-black ${skuSizeCls} tracking-tight leading-none whitespace-nowrap ${isReviewMode ? (skuNotFound || insufficientStock ? 'text-red-500' : 'text-content') : isChecked ? (skuNotFound || insufficientStock ? 'text-red-400' : 'text-green-400') : skuNotFound || insufficientStock ? 'text-red-500' : 'text-content'}`}
                               >
                                 {sdSerialMap.has(item.sku) ? (
                                   // S/D: show the physical serial instead of the SKU.
@@ -2087,9 +2098,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                           </div>
                         </div>
 
-                        {/* Distribution — MIDDLE column (SKU left · distribution center · location right) */}
+                        {/* Distribution — MIDDLE column (SKU left · distribution center · location right).
+                            flex-1 centers it; min-w-0 lets it yield so it never pushes into location. */}
                         <div
-                          className="flex-1 flex items-center justify-center px-1 min-w-0"
+                          className="flex-1 flex items-center justify-center px-1 min-w-0 overflow-hidden"
                           style={{ transform: 'scaleY(1.5)' }}
                         >
                           {!hideDetails && planSteps && planSteps.length > 0 ? (
@@ -2114,7 +2126,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                       showNumber={false}
                                     />
                                     <span
-                                      className="text-3xl md:text-5xl font-black tabular-nums leading-none"
+                                      className="text-2xl md:text-4xl font-black tabular-nums leading-none"
                                       style={{ fontFamily: 'var(--font-heading)' }}
                                     >
                                       {step.units_each}
