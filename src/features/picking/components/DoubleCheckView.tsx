@@ -1945,11 +1945,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                         }`}
                       >
                         <div
-                          className="flex items-center gap-3 min-w-0"
+                          className="flex items-center gap-2 min-w-0"
                           style={{ transform: 'scaleY(1.5)' }}
                         >
-                          {/* Qty on the far left — the biggest number on the row */}
-                          <div className="flex flex-col items-center justify-center min-w-[4rem] shrink-0 border-r border-subtle pr-3">
+                          {/* Qty on the far left — the biggest number on the row.
+                              Tight width: most qtys are 1 digit, so reserve just
+                              enough and let it grow for 2–3 digit cases. */}
+                          <div className="flex flex-col items-center justify-center min-w-[1.75rem] shrink-0 border-r border-subtle pr-2">
                             <span className="text-[10px] font-black uppercase tracking-widest text-muted/60 mb-0.5">
                               QTY
                             </span>
