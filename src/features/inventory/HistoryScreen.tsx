@@ -322,9 +322,16 @@ export const HistoryScreen = () => {
         query = query.limit(300);
       }
 
-      // WEEK / MONTH ranges can also exceed the default; raise their cap
-      // so we don't silently truncate historical data.
-      if (timeFilter === 'WEEK' || timeFilter === 'MONTH') {
+      // TODAY / YESTERDAY / WEEK / MONTH must raise the cap too — a busy day can
+      // easily blow past Supabase's default 1000-row ceiling (picks, reconciliations,
+      // etc.), and since rows come newest-first that silently DROPS the day's oldest
+      // MOVE logs. That made TODAY hide SKUs that a manual (CUSTOM) date range showed.
+      if (
+        timeFilter === 'TODAY' ||
+        timeFilter === 'YESTERDAY' ||
+        timeFilter === 'WEEK' ||
+        timeFilter === 'MONTH'
+      ) {
         query = query.limit(50_000);
       }
 
@@ -920,7 +927,11 @@ export const HistoryScreen = () => {
             .from('inventory')
             .select('sku, location, quantity')
             .in('sku', skus)
-            .gt('quantity', 0);
+            .gt('quantity', 0)
+            // Raise past the default 1000-row ceiling: many SKUs × their locations can
+            // exceed it, silently dropping a SKU's second location and mis-classifying
+            // a multi-location SKU as single in the report.
+            .limit(50_000);
           if (error) {
             console.warn('[History] Could not load current stock for AS400 report:', error.message);
           }
