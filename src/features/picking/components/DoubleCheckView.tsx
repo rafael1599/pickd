@@ -2308,7 +2308,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           document.body
         )}
 
-      <div className="fixed bottom-0 left-0 right-0 px-6 pt-6 pb-28 bg-gradient-to-t from-main via-main/90 to-transparent shrink-0 z-20">
+      <div className="fixed bottom-0 left-0 right-0 px-6 pt-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-main via-main/90 to-transparent shrink-0 z-20">
         {status === 'reopened' ? (
           /* Reopened order — show Re-Complete and Cancel.
              Step B: removed all gates that block Re-Complete (was forcing the
