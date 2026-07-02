@@ -21,6 +21,8 @@ export interface HistoryLog {
   order_number?: string | null;
   is_reversed?: boolean | null;
   note?: string | null;
+  /** Drives the date separator rows in multi-day 'full' reports. */
+  created_at?: string | Date | null;
 }
 
 // A current inventory row for one of the report's SKUs. Quantities are summed per
@@ -443,9 +445,50 @@ function renderFull<TLog extends HistoryLog>(
     return [log.sku, cellText, qty.toString()];
   });
 
+  // Date separators: when the range spans 2+ days (CUSTOM/WEEK/MONTH), insert a
+  // full-width date row before each day's first log so days read as blocks instead
+  // of one continuous list. Single-day reports (TODAY) stay exactly as before.
+  const dayKey = (log: HistoryLog): string | null => {
+    if (!log.created_at) return null;
+    const d = new Date(log.created_at);
+    return isNaN(d.getTime()) ? null : d.toDateString();
+  };
+  const distinctDays = new Set(dedupedLogs.map(dayKey).filter(Boolean));
+  let body: RowInput[] = tableData;
+  if (distinctDays.size > 1) {
+    body = [];
+    let prevDay: string | null = null;
+    dedupedLogs.forEach((log, i) => {
+      const day = dayKey(log);
+      if (day && day !== prevDay) {
+        prevDay = day;
+        const label = new Date(log.created_at as string | Date).toLocaleDateString(undefined, {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        });
+        body.push([
+          {
+            content: label.toUpperCase(),
+            colSpan: 3,
+            styles: {
+              fontStyle: 'bold',
+              fontSize: 11,
+              fillColor: [225, 225, 225],
+              halign: 'left',
+              cellPadding: 1.4,
+            },
+          },
+        ]);
+      }
+      body.push(tableData[i]);
+    });
+  }
+
   autoTableInstance(doc, {
     startY: currentY,
-    body: tableData,
+    body,
     theme: 'plain',
     styles: {
       fontSize: 11,

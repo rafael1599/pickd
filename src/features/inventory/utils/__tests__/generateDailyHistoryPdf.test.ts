@@ -106,6 +106,35 @@ describe('generateDailyHistoryDoc', () => {
     expectContains(rec, ['03-1', '03-2', '03-3']);
   });
 
+  it('full mode inserts date separators when logs span multiple days', async () => {
+    const multiDayLogs: HistoryLog[] = [
+      {
+        sku: '03-9',
+        action_type: 'MOVE',
+        from_location: 'ROW 1',
+        to_location: 'ROW 2',
+        created_at: '2026-07-02T15:00:00Z',
+      },
+      {
+        sku: '03-8',
+        action_type: 'MOVE',
+        from_location: 'ROW 3',
+        to_location: 'ROW 4',
+        created_at: '2026-06-30T15:00:00Z',
+      },
+    ];
+    generateDailyHistoryDoc(jsPDF, autoTable, {
+      logs: multiDayLogs,
+      filter: 'ALL',
+      userFilter: 'ALL',
+      timeFilter: 'CUSTOM',
+      getDisplayQty: () => 1,
+      mode: 'full',
+    });
+    // One separator per distinct day, before that day's rows.
+    expectOrderedText(rec, ['JUL 2', '03-9', 'JUN 30', '03-8']);
+  });
+
   it('full mode keeps the detailed SKU / ACTIVITY / QTY table', async () => {
     generateDailyHistoryDoc(jsPDF, autoTable, {
       logs,
