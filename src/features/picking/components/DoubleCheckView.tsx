@@ -1313,13 +1313,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   return (
     <div className="flex flex-col h-full bg-main relative">
       {/* Minimalist Header */}
-      <div className="px-5 py-4 flex items-center justify-between shrink-0 bg-main/90 backdrop-blur-md sticky top-0 z-10 touch-none border-b border-subtle">
+      <div className="px-3 py-1.5 flex items-center justify-between shrink-0 bg-main/90 backdrop-blur-md sticky top-0 z-10 touch-none border-b border-subtle">
         <button
           onClick={() => onBack()}
-          className="p-2 -ml-2 hover:bg-card rounded-full text-content/70 transition-colors shrink-0"
+          className="p-1.5 -ml-1 hover:bg-card rounded-full text-content/70 transition-colors shrink-0"
           title={isReviewMode ? 'Close' : 'Release to Queue'}
         >
-          <ChevronLeft size={28} />
+          <ChevronLeft size={24} />
         </button>
 
         <div className="flex flex-col items-center flex-1 min-w-0">
@@ -1332,7 +1332,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           >
             <div
               ref={orderListRef}
-              className="flex items-center gap-2 relative flex-wrap justify-center"
+              className="flex items-center gap-1.5 relative flex-wrap justify-center"
             >
               {(() => {
                 const fallback = activeListId
@@ -1343,7 +1343,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 // as a static chip; only 3+ get the +N badge + dropdown.
                 if (header.kind !== 'many') {
                   return (
-                    <span className="text-base md:text-lg font-mono font-black text-accent/90 tracking-widest bg-accent/10 px-3 py-1 rounded-lg border border-accent/20">
+                    <span className="text-sm md:text-base font-mono font-black text-accent/90 tracking-widest bg-accent/10 px-2 py-0.5 rounded-lg border border-accent/20 whitespace-nowrap">
                       {header.label}
                     </span>
                   );
@@ -1353,7 +1353,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 return (
                   <button
                     onClick={() => setOrderListOpen((v) => !v)}
-                    className="text-base md:text-lg font-mono font-black text-accent/90 tracking-widest bg-accent/10 px-3 py-1 rounded-lg border border-accent/20 flex items-center gap-1.5 hover:bg-accent/20 transition-colors"
+                    className="text-sm md:text-base font-mono font-black text-accent/90 tracking-widest bg-accent/10 px-2 py-0.5 rounded-lg border border-accent/20 flex items-center gap-1.5 hover:bg-accent/20 transition-colors whitespace-nowrap"
                     title={`${orderList.length} orders combined`}
                     aria-haspopup="true"
                     aria-expanded={orderListOpen}
@@ -1373,15 +1373,19 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 <ShippingTypeToggle listId={activeListId} autoType={effectiveShippingType} />
               )}
               {totalUnitsCount > 0 && (
-                <span className="text-sm md:text-base font-black uppercase tracking-widest text-muted/80 whitespace-nowrap">
-                  {totalUnitsCount} units
+                <span
+                  className="text-sm md:text-base font-black tracking-widest text-muted/80 whitespace-nowrap"
+                  title={`${totalUnitsCount} units in this order`}
+                >
+                  {totalUnitsCount}u
                 </span>
               )}
-              {/* Order note (e.g. "FF N90") — inline & compact, not its own row. */}
+              {/* Order note (e.g. "FF N90") — inline & compact; truncates instead
+                  of wrapping the single-line header (full text on tap/hover). */}
               {watcherNote && (
                 <span
-                  className="text-[10px] font-black uppercase tracking-widest text-red-400 whitespace-nowrap"
-                  title="Order note from import"
+                  className="text-[10px] font-black uppercase tracking-widest text-red-400 truncate max-w-[30vw]"
+                  title={watcherNote}
                 >
                   {watcherNote}
                 </span>
@@ -1412,7 +1416,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           {!isReviewMode && status !== 'completed' && (
             <button
               onClick={() => setActionsMenuOpen((v) => !v)}
-              className={`p-2 rounded-full transition-colors ${
+              className={`p-1.5 rounded-full transition-colors ${
                 actionsMenuOpen
                   ? 'bg-card text-content'
                   : 'hover:bg-card text-muted hover:text-content'
@@ -1421,19 +1425,19 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               aria-haspopup="true"
               aria-expanded={actionsMenuOpen}
             >
-              <MoreVertical size={22} />
+              <MoreVertical size={20} />
               {problemItems.length > 0 && (
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 ring-2 ring-main" />
+                <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-main" />
               )}
             </button>
           )}
           {!correctionNotes.trim() && status !== 'completed' && (
             <button
               onClick={status === 'reopened' ? onCancelReopen : onRelease}
-              className="p-2 hover:bg-card rounded-full text-muted transition-colors"
+              className="p-1.5 hover:bg-card rounded-full text-muted transition-colors"
               title={status === 'reopened' ? 'Cancel Edit' : 'Release to Queue'}
             >
-              <X size={24} />
+              <X size={20} />
             </button>
           )}
         </div>
@@ -1446,7 +1450,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       {actionsMenuOpen && (
         <div className="fixed inset-0 z-40" onClick={() => setActionsMenuOpen(false)}>
           <div
-            className="absolute right-3 top-20 md:top-24 w-72 bg-card border border-subtle rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
+            className="absolute right-3 top-12 md:top-14 w-72 bg-card border border-subtle rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -1618,7 +1622,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       )}
 
       {/* Clean Item List */}
-      <div className="flex-1 overflow-y-auto p-4 bg-main min-h-0 pb-32">
+      <div className="flex-1 overflow-y-auto p-3 bg-main min-h-0 pb-32">
         {/* Mark-as-Waiting reason modal — centered, blurred-backdrop overlay
             opened from the kebab menu. Portals to <body>, so it stays centered
             even when the item list is scrolled to the bottom (previously it
@@ -1777,41 +1781,28 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           const isEditing = editingPalletId === pallet.id;
 
           return (
-            <section key={pallet.id} className="mb-8">
+            <section key={pallet.id} className="mb-4">
               {/* Pallet Header */}
-              <div className="flex items-center gap-3 mb-4 sticky top-0 bg-main/95 py-2 z-5 backdrop-blur-sm">
+              <div className="flex items-center gap-3 mb-2 sticky top-0 bg-main/95 py-1 z-5 backdrop-blur-sm">
                 <div className="h-[1px] flex-1 bg-card" />
-                <div className="flex flex-col items-center">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-xs font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full border flex items-center gap-1.5 ${
-                        isLocked
-                          ? 'text-amber-400/80 border-amber-500/30 bg-amber-500/5'
-                          : isFedexOrder
-                            ? 'text-purple-300 border-purple-500/40 bg-purple-500/10'
-                            : 'text-muted/70 border-subtle'
-                      }`}
-                    >
-                      {isLocked && <Lock size={8} />}
-                      Pallet {pallet.id}/{pallets.length}
-                    </span>
-                    {/* Per-pallet progress — replaces the removed global counter. */}
-                    {palletUnits > 0 && (
-                      <span
-                        className={`text-lg font-black tracking-widest tabular-nums ${
-                          palletVerified === 0
-                            ? 'text-red-400'
-                            : palletVerified >= palletUnits
-                              ? 'text-emerald-400'
-                              : 'text-amber-400'
-                        }`}
-                      >
-                        {palletVerified} / {palletUnits}
-                      </span>
-                    )}
-                  </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-xs font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full border flex items-center gap-1.5 ${
+                      isLocked
+                        ? 'text-amber-400/80 border-amber-500/30 bg-amber-500/5'
+                        : isFedexOrder
+                          ? 'text-purple-300 border-purple-500/40 bg-purple-500/10'
+                          : 'text-muted/70 border-subtle'
+                    }`}
+                  >
+                    {isLocked && <Lock size={8} />}
+                    Pallet {pallet.id}/{pallets.length}
+                  </span>
+                  {/* Per-pallet progress + edit — single line. The denominator IS the
+                      pallet's units, so the old separate "N Units" line was redundant;
+                      the pencil (pallet-units override) now sits on the counter. */}
                   {isEditing ? (
-                    <div className="flex items-center gap-1.5 mt-1">
+                    <div className="flex items-center gap-1.5">
                       <input
                         type="number"
                         min="1"
@@ -1835,15 +1826,22 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                         e.stopPropagation();
                         handlePalletEdit(pallet.id, palletUnits);
                       }}
-                      className="flex items-center gap-1 mt-1 group/edit"
+                      className="flex items-center gap-1 group/edit"
+                      title="Tap to edit this pallet's units"
                     >
                       <span
-                        className={`text-[11px] font-black uppercase tracking-widest ${isLocked ? 'text-amber-400' : 'text-blue-400'}`}
+                        className={`text-lg font-black tracking-widest tabular-nums ${
+                          palletVerified === 0
+                            ? 'text-red-400'
+                            : palletVerified >= palletUnits
+                              ? 'text-emerald-400'
+                              : 'text-amber-400'
+                        }`}
                       >
-                        {palletUnits} Units
+                        {palletVerified} / {palletUnits}
                       </span>
                       <Pencil
-                        size={8}
+                        size={10}
                         className="text-muted/40 group-hover/edit:text-muted transition-colors"
                       />
                     </button>
