@@ -107,36 +107,25 @@ export const ShippingTypeToggle: React.FC<Props> = ({ listId, autoType = null })
   const baseBtn =
     'text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full border transition-colors';
 
+  // Single chip: shows ONLY the current category; tapping switches to the other
+  // (FDX ↔ TRK). Compacts the header vs. the old two-button toggle.
+  const label = shown === 'fedex' ? 'FDX' : shown === 'regular' ? 'TRK' : 'TYPE';
+  const next: ShippingType = shown === 'fedex' ? 'regular' : 'fedex';
+  const colorCls =
+    shown === 'fedex'
+      ? 'bg-purple-500 text-white border-purple-500'
+      : shown === 'regular'
+        ? 'bg-emerald-500 text-white border-emerald-500'
+        : 'bg-surface text-muted border-subtle';
+
   return (
-    <div className="flex items-center gap-1" title="Shipping type">
-      <button
-        onClick={() => apply('fedex')}
-        disabled={mutation.isPending}
-        title={
-          shown === 'fedex' && isAuto ? 'Auto-classified — tap to save it on the order' : 'FedEx'
-        }
-        className={`${baseBtn} ${
-          shown === 'fedex'
-            ? `bg-purple-500 text-white border-purple-500 ${isAuto ? 'opacity-80 border-dashed' : ''}`
-            : 'bg-surface text-muted border-subtle hover:text-content'
-        }`}
-      >
-        FDX
-      </button>
-      <button
-        onClick={() => apply('regular')}
-        disabled={mutation.isPending}
-        title={
-          shown === 'regular' && isAuto ? 'Auto-classified — tap to save it on the order' : 'Truck'
-        }
-        className={`${baseBtn} ${
-          shown === 'regular'
-            ? `bg-emerald-500 text-white border-emerald-500 ${isAuto ? 'opacity-80 border-dashed' : ''}`
-            : 'bg-surface text-muted border-subtle hover:text-content'
-        }`}
-      >
-        TRK
-      </button>
-    </div>
+    <button
+      onClick={() => apply(next)}
+      disabled={mutation.isPending}
+      title={`Shipping type: ${label} — tap to switch${isAuto ? ' (auto-classified)' : ''}`}
+      className={`${baseBtn} ${colorCls} ${isAuto ? 'opacity-80 border-dashed' : ''} active:scale-95`}
+    >
+      {label}
+    </button>
   );
 };

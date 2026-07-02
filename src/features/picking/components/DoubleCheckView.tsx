@@ -259,7 +259,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           {}
         );
   const isFedexOrder = effectiveShippingType === 'fedex';
-  const sourceOrderDate = activeListMeta?.source_order_date ?? null;
 
   // Watcher-origin note: the import daemon stores the AS400 "Order Comments"
   // (e.g. "FREE FREIGHT") in picking_lists.notes. Manual notes live elsewhere
@@ -323,36 +322,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const [orderListOpen, setOrderListOpen] = useState(false);
   const orderListRef = useRef<HTMLDivElement>(null);
-  // Auto-hiding header context (order #, FedEx, date, note): shown on open and on
-  // any scroll, then fades 5s after the last scroll so the picking list gets the
-  // space. The exit button and the progress line stay visible always.
-  const [showHeaderInfo, setShowHeaderInfo] = useState(true);
-  const headerHideTimer = useRef<number | undefined>(undefined);
-  // Collapsing the header changes the scroll container's geometry: the browser
-  // clamps scrollTop and fires synthetic scroll events that would re-show the
-  // header in an endless show/hide loop. Scroll bumps are suppressed while the
-  // collapse animation (300ms) settles; pointer bumps are always genuine.
-  const suppressScrollBumpUntil = useRef(0);
-  const bumpHeaderInfo = useCallback(() => {
-    // Returning the same value skips a re-render, so scrolling while already
-    // shown only resets the timer (no churn).
-    setShowHeaderInfo((v) => (v ? v : true));
-    if (headerHideTimer.current) window.clearTimeout(headerHideTimer.current);
-    headerHideTimer.current = window.setTimeout(() => {
-      suppressScrollBumpUntil.current = Date.now() + 600;
-      setShowHeaderInfo(false);
-    }, 5000);
-  }, []);
-  const bumpHeaderInfoOnScroll = useCallback(() => {
-    if (Date.now() < suppressScrollBumpUntil.current) return;
-    bumpHeaderInfo();
-  }, [bumpHeaderInfo]);
-  useEffect(() => {
-    bumpHeaderInfo(); // show briefly on open, then auto-hide
-    return () => {
-      if (headerHideTimer.current) window.clearTimeout(headerHideTimer.current);
-    };
-  }, [bumpHeaderInfo]);
 
   // Close the combined-order list when clicking anywhere outside it.
   useEffect(() => {
@@ -1405,8 +1374,16 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               )}
               {totalUnitsCount > 0 && (
                 <span className="text-sm md:text-base font-black uppercase tracking-widest text-muted/80 whitespace-nowrap">
-                  {pallets.length} {pallets.length === 1 ? 'pallet' : 'pallets'} · {totalUnitsCount}{' '}
-                  units
+                  {totalUnitsCount} units
+                </span>
+              )}
+              {/* Order note (e.g. "FF N90") — inline & compact, not its own row. */}
+              {watcherNote && (
+                <span
+                  className="text-[10px] font-black uppercase tracking-widest text-red-400 whitespace-nowrap"
+                  title="Order note from import"
+                >
+                  {watcherNote}
                 </span>
               )}
               {orderListOpen && orderNumber && orderNumber.includes(' / ') && (
@@ -1427,42 +1404,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               )}
             </div>
           </div>
-          {/* Meaningful order note — ALWAYS visible (noise like a bare "FREE
-              FREIGHT" is filtered out upstream; important ones must not hide). */}
-          {watcherNote && (
-            <div
-              className="mt-1 max-w-[90%] text-center text-xs font-bold text-red-400"
-              title="Order note from import"
-            >
-              {watcherNote}
-            </div>
-          )}
-          {/* Progress Text — ALWAYS visible. Select All moved to the bottom action bar. */}
-          <div className="flex items-center gap-3 mt-1">
-            <span
-              className={`text-2xl md:text-3xl font-black uppercase tracking-[0.15em] ${
-                totalUnitsCount === 0
-                  ? 'text-muted/70'
-                  : verifiedUnitsCount === 0
-                    ? 'text-red-400'
-                    : verifiedUnitsCount === totalUnitsCount
-                      ? 'text-emerald-400'
-                      : 'text-amber-400'
-              }`}
-            >
-              {`${verifiedUnitsCount} / ${totalUnitsCount} Pickd`}
-            </span>
-          </div>
-          {showHeaderInfo && sourceOrderDate && (
-            <div className="text-[10px] text-muted/60 font-bold uppercase tracking-widest mt-0.5">
-              Order date:{' '}
-              {new Date(`${sourceOrderDate}T00:00:00`).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-              })}
-            </div>
-          )}
         </div>
 
         <div className="flex items-center gap-1 relative">
@@ -1677,11 +1618,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       )}
 
       {/* Clean Item List */}
-      <div
-        className="flex-1 overflow-y-auto p-4 bg-main min-h-0 pb-32"
-        onScroll={bumpHeaderInfoOnScroll}
-        onPointerDown={bumpHeaderInfo}
-      >
+      <div className="flex-1 overflow-y-auto p-4 bg-main min-h-0 pb-32">
         {/* Mark-as-Waiting reason modal — centered, blurred-backdrop overlay
             opened from the kebab menu. Portals to <body>, so it stays centered
             even when the item list is scrolled to the bottom (previously it
@@ -1827,6 +1764,15 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             (sum: number, i: PickingItem) => sum + (i.pickingQty || 0),
             0
           );
+          // Per-pallet verified count — replaces the old global "X / Y Pickd"
+          // header counter (idea: progress is more useful scoped to the pallet
+          // you're working, and "Pallet i/n" already conveys the pallet total).
+          const palletVerified = pallet.items.reduce(
+            (sum: number, i: PickingItem) =>
+              sum +
+              (checkedItems.has(`${pallet.id}-${i.sku}-${i.location}`) ? i.pickingQty || 0 : 0),
+            0
+          );
           const isLocked = palletOverrides.has(pallet.id);
           const isEditing = editingPalletId === pallet.id;
 
@@ -1836,18 +1782,34 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               <div className="flex items-center gap-3 mb-4 sticky top-0 bg-main/95 py-2 z-5 backdrop-blur-sm">
                 <div className="h-[1px] flex-1 bg-card" />
                 <div className="flex flex-col items-center">
-                  <span
-                    className={`text-xs font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full border flex items-center gap-1.5 ${
-                      isLocked
-                        ? 'text-amber-400/80 border-amber-500/30 bg-amber-500/5'
-                        : isFedexOrder
-                          ? 'text-purple-300 border-purple-500/40 bg-purple-500/10'
-                          : 'text-muted/70 border-subtle'
-                    }`}
-                  >
-                    {isLocked && <Lock size={8} />}
-                    Pallet {pallet.id}/{pallets.length}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-xs font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full border flex items-center gap-1.5 ${
+                        isLocked
+                          ? 'text-amber-400/80 border-amber-500/30 bg-amber-500/5'
+                          : isFedexOrder
+                            ? 'text-purple-300 border-purple-500/40 bg-purple-500/10'
+                            : 'text-muted/70 border-subtle'
+                      }`}
+                    >
+                      {isLocked && <Lock size={8} />}
+                      Pallet {pallet.id}/{pallets.length}
+                    </span>
+                    {/* Per-pallet progress — replaces the removed global counter. */}
+                    {palletUnits > 0 && (
+                      <span
+                        className={`text-lg font-black tracking-widest tabular-nums ${
+                          palletVerified === 0
+                            ? 'text-red-400'
+                            : palletVerified >= palletUnits
+                              ? 'text-emerald-400'
+                              : 'text-amber-400'
+                        }`}
+                      >
+                        {palletVerified} / {palletUnits}
+                      </span>
+                    )}
+                  </div>
                   {isEditing ? (
                     <div className="flex items-center gap-1.5 mt-1">
                       <input
