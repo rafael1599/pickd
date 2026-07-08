@@ -1,4 +1,5 @@
 import type { OrderRow } from '../hooks/useOrdersOfDay';
+import { transportLogoSrc } from '../../../components/orders/transportLogos';
 
 /** Escapes the five HTML-significant characters for safe interpolation. */
 function esc(value: string | number | null | undefined): string {
@@ -50,7 +51,21 @@ export function printOrderDetail(order: OrderRow, opts: { bikes: number; parts: 
   if (opts.bikes > 0) summaryParts.push(`Bikes: ${opts.bikes}`);
   if (opts.parts > 0) summaryParts.push(`Parts: ${opts.parts}`);
   if ((order.total_weight_lbs ?? 0) > 0) summaryParts.push(`Weight: ${order.total_weight_lbs} lbs`);
-  if (order.transport_company) summaryParts.push(`Transport: ${order.transport_company}`);
+
+  // Transport: prefer the carrier logo (absolute URL — a new window has no base
+  // URL to resolve a root-relative path). Falls back to the plain name.
+  const logoPath = transportLogoSrc(order.transport_company);
+  const transportHtml = order.transport_company
+    ? logoPath
+      ? `<img class="tlogo" src="${esc(window.location.origin + logoPath)}" alt="${esc(order.transport_company)}" />`
+      : `Transport: ${esc(order.transport_company)}`
+    : '';
+
+  const summaryPieces = summaryParts.map(esc);
+  if (transportHtml) summaryPieces.push(transportHtml);
+  const summaryHtml = summaryPieces.length
+    ? `<div class="summary">${summaryPieces.join('  •  ')}</div>`
+    : '';
 
   const photos = order.pallet_photos ?? [];
   const photosHtml = photos.length
@@ -111,6 +126,7 @@ export function printOrderDetail(order: OrderRow, opts: { bikes: number; parts: 
     .details { text-align: right; }
     .details h2 { margin-top: 0; }
     .summary { font-weight: bold; margin: 8px 0 4px; }
+    .summary .tlogo { height: 22px; vertical-align: middle; }
     .notes { border: 1px solid #000; padding: 8px 10px; white-space: pre-wrap; }
     table { width: 100%; border-collapse: collapse; margin-top: 6px; }
     th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ccc; vertical-align: top; }
@@ -143,7 +159,7 @@ export function printOrderDetail(order: OrderRow, opts: { bikes: number; parts: 
     </div>
   </div>
 
-  ${summaryParts.length ? `<div class="summary">${esc(summaryParts.join('  •  '))}</div>` : ''}
+  ${summaryHtml}
 
   ${
     order.notes

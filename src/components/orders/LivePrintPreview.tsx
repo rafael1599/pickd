@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import jsPDF from 'jspdf';
 import { PhotoLightbox } from '../ui/PhotoLightbox';
+import { TransportLogo } from './TransportLogo';
 
 export const TRANSPORT_COLORS: Record<string, { bg: string; text: string }> = {
   'R+L': { bg: '#006647', text: '#FFFFFF' },
@@ -160,10 +161,16 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
             fontSize: `${fontSizePt}pt`,
             lineHeight: '1.1',
             fontWeight: 'bold',
+            position: 'relative',
             backgroundColor: brandColors?.bg ?? '#FFFFFF',
             color: brandColors?.text ?? '#000000',
           }}
         >
+          {transportCompany && (
+            <div style={{ position: 'absolute', top: '5mm', right: '5mm' }}>
+              <TransportLogo company={transportCompany} height={72} />
+            </div>
+          )}
           <div className="font-black tracking-tighter" style={{ fontSize: 'inherit' }}>
             <p>{customerName.toUpperCase()}</p>
             {street && <p>{street.toUpperCase()}</p>}
@@ -237,6 +244,7 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
     orderNumber,
     brandColors,
     screenOnly,
+    transportCompany,
   ]);
 
   // Container ref + dynamic scale: on mobile (<768px) the preview fits the

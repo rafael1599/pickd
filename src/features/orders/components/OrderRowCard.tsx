@@ -6,6 +6,7 @@ import { PhotoLightbox } from '../../../components/ui/PhotoLightbox';
 import { computeBikesParts, isFedexOrder, type OrderRow } from '../hooks/useOrdersOfDay';
 import { printOrderDetail } from '../lib/printOrderDetail';
 import { OrderNotes } from './OrderNotes';
+import { TransportLogo } from '../../../components/orders/TransportLogo';
 
 interface OrderRowCardProps {
   order: OrderRow;
@@ -153,7 +154,13 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
               {(order.total_weight_lbs ?? 0) > 0 && (
                 <Chip>Weight: {order.total_weight_lbs} lbs</Chip>
               )}
-              {order.transport_company && <Chip>Transport: {order.transport_company}</Chip>}
+              {order.transport_company && (
+                <TransportLogo
+                  company={order.transport_company}
+                  height={16}
+                  className="border border-subtle"
+                />
+              )}
               {order.load_number && <Chip>Load #: {order.load_number}</Chip>}
             </div>
           )}

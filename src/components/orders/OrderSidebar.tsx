@@ -10,6 +10,7 @@ import Scissors from 'lucide-react/dist/esm/icons/scissors';
 import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
 import Bike from 'lucide-react/dist/esm/icons/bike';
 import Truck from 'lucide-react/dist/esm/icons/truck';
+import { TransportLogo } from './TransportLogo';
 import Wand2 from 'lucide-react/dist/esm/icons/wand-2';
 import { CustomerAutocomplete } from '../../features/picking/components/CustomerAutocomplete';
 import { usePickingSession } from '../../context/PickingContext';
@@ -421,13 +422,14 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
                       transportCompany: formData.transportCompany === company ? '' : company,
                     })
                   }
-                  className={`px-3 py-2 rounded-2xl text-xs font-bold uppercase tracking-wide border transition-all ${
+                  className={`px-2.5 py-1.5 rounded-2xl border transition-all ${
                     formData.transportCompany === company
-                      ? 'bg-accent text-black border-accent'
-                      : 'bg-main border-subtle text-muted hover:border-accent/50'
+                      ? 'bg-accent border-accent ring-2 ring-accent'
+                      : 'bg-main border-subtle hover:border-accent/50'
                   }`}
+                  title={company}
                 >
-                  {company}
+                  <TransportLogo company={company} height={20} />
                 </button>
               ))}
             </div>
