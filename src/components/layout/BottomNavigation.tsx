@@ -1,6 +1,7 @@
 import Box from 'lucide-react/dist/esm/icons/box';
 import Scan from 'lucide-react/dist/esm/icons/scan';
 import ClipboardList from 'lucide-react/dist/esm/icons/clipboard-list';
+import Printer from 'lucide-react/dist/esm/icons/printer';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useViewMode } from '../../context/ViewModeContext';
 
@@ -85,6 +86,13 @@ export const BottomNavigation = () => {
           label="ORDERS"
           isActive={location.pathname === '/orders'}
           onClick={() => navigate('/orders')}
+          isCompact={isSearching}
+        />
+        <NavItem
+          icon={Printer}
+          label="SHIP"
+          isActive={location.pathname === '/ship'}
+          onClick={() => navigate('/ship')}
           isCompact={isSearching}
         />
       </div>

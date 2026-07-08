@@ -60,7 +60,7 @@ interface OrderWithRelations {
   order_group: { group_type: string | null } | null;
 }
 
-export const OrdersScreen = () => {
+export const ShipScreen = () => {
   const { user } = useAuth();
   // Ship-Out SMS resend button on the FAB. The hook gives us `isEnabled`
   // so the button hides cleanly when the user hasn't configured it.

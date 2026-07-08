@@ -27,7 +27,7 @@ const isRecent = (iso: string | null): boolean => {
  *   🟢 11 libre   🟡 2 en espera · #879999   🔴 1 salió · #879541
  *
  * Green: free units. Always shown when free > 0.
- * Amber: per-order reserved (picked=false). Tap → navigate to /orders.
+ * Amber: per-order reserved (picked=false). Tap → navigate to /ship.
  * Red:   per-order picked within last 24h (older picks fade silently). Tap → navigate.
  *
  * Section hides entirely when nothing to show (no reserved + no recent picked).
@@ -52,7 +52,7 @@ export const StockReservationBreakdown: React.FC<Props> = ({ sku, warehouse, loc
 
   const openOrder = (orderNumber: string) => {
     if (!orderNumber) return;
-    navigate(`/orders?o=${encodeURIComponent(orderNumber)}`);
+    navigate(`/ship?o=${encodeURIComponent(orderNumber)}`);
   };
 
   return (

@@ -20,7 +20,7 @@ interface LayoutMainProps {
 export const LayoutMain = ({ children }: LayoutMainProps) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const isOrdersPage = location.pathname === '/orders';
+  const isShipPage = location.pathname === '/ship';
   const isStockCountPage = location.pathname === '/stock-count';
   const { isAdmin } = useAuth();
   const { isSearching } = useViewMode();
@@ -57,7 +57,7 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const pbClass = isOrdersPage || isStockCountPage ? 'pb-0' : isSearching ? 'pb-12' : 'pb-20';
+  const pbClass = isShipPage || isStockCountPage ? 'pb-0' : isSearching ? 'pb-12' : 'pb-20';
 
   return (
     <ModalProvider>
@@ -87,7 +87,7 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
         </div>
 
         {/* Header / Brand (Scrolls with the page) */}
-        {!isOrdersPage && !isStockCountPage && (
+        {!isShipPage && !isStockCountPage && (
           <>
             <header
               className={`
@@ -159,7 +159,7 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
           <PullToRefresh onRefresh={() => window.location.reload()}>{children}</PullToRefresh>
         </main>
 
-        {!isOrdersPage && !isStockCountPage && !isPickingOverlayOpen && <BottomNavigation />}
+        {!isShipPage && !isStockCountPage && !isPickingOverlayOpen && <BottomNavigation />}
         <PickingCartDrawer />
       </div>
     </ModalProvider>

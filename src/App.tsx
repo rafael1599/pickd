@@ -23,8 +23,11 @@ const Settings = lazyWithRetry(() => import('./features/settings/Settings.tsx'))
 const LoginScreen = lazyWithRetry(() =>
   import('./features/auth/LoginScreen.tsx').then((m) => ({ default: m.LoginScreen }))
 );
-const OrdersScreen = lazyWithRetry(() =>
-  import('./features/picking/OrdersScreen.tsx').then((m) => ({ default: m.OrdersScreen }))
+const ShipScreen = lazyWithRetry(() =>
+  import('./features/picking/ShipScreen.tsx').then((m) => ({ default: m.ShipScreen }))
+);
+const OrdersBoardScreen = lazyWithRetry(() =>
+  import('./features/orders/OrdersBoardScreen.tsx').then((m) => ({ default: m.OrdersBoardScreen }))
 );
 const SnapshotViewer = lazyWithRetry(() =>
   import('./features/inventory/SnapshotViewer.tsx').then((m) => ({ default: m.SnapshotViewer }))
@@ -101,7 +104,8 @@ const AuthenticatedContent = () => {
             <Routes>
               <Route path="/" element={<InventoryScreen />} />
               <Route path="/history" element={<HistoryScreen />} />
-              <Route path="/orders" element={<OrdersScreen />} />
+              <Route path="/orders" element={<OrdersBoardScreen />} />
+              <Route path="/ship" element={<ShipScreen />} />
               <Route
                 path="/settings"
                 element={isAdmin ? <Settings /> : <Navigate to="/" replace />}

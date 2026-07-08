@@ -642,7 +642,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                             orders={fedexCompleted}
                             onSelectOrder={(orderId) => {
                               setExternalOrderId(orderId);
-                              navigate('/orders');
+                              navigate('/ship');
                               onClose();
                             }}
                           />
@@ -661,7 +661,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                             orders={regularCompleted}
                             onSelectOrder={(orderId) => {
                               setExternalOrderId(orderId);
-                              navigate('/orders');
+                              navigate('/ship');
                               onClose();
                             }}
                           />

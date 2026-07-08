@@ -28,7 +28,7 @@ interface OrderRow {
  * by id so consumers can open the summary from anywhere via the Modal Manager
  * (see `docs/modal-pattern.md`). Used by HistoryScreen, InventoryScreen ghost
  * trail, and ActivityReport low-stock completions — all previously coupled
- * via `setExternalOrderId + navigate('/orders')`.
+ * via `setExternalOrderId + navigate('/ship')`.
  */
 export const PickingSummaryModalById: React.FC<Props> = ({ listId, onClose }) => {
   const { data, isLoading, isError } = useQuery<OrderRow | null>({
