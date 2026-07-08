@@ -106,6 +106,10 @@ export function printOrderDetail(order: OrderRow, opts: { bikes: number; parts: 
     h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #555; margin: 20px 0 6px; }
     .block { margin-bottom: 8px; }
     .block div { margin-bottom: 2px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
+    .header .block { margin-bottom: 8px; }
+    .details { text-align: right; }
+    .details h2 { margin-top: 0; }
     .summary { font-weight: bold; margin: 8px 0 4px; }
     .notes { border: 1px solid #000; padding: 8px 10px; white-space: pre-wrap; }
     table { width: 100%; border-collapse: collapse; margin-top: 6px; }
@@ -113,8 +117,8 @@ export function printOrderDetail(order: OrderRow, opts: { bikes: number; parts: 
     th { border-bottom: 2px solid #000; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; }
     .qty { text-align: right; width: 48px; font-variant-numeric: tabular-nums; }
     .mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
-    .photos { display: flex; flex-wrap: wrap; gap: 8px; }
-    .photos img { width: 180px; height: 180px; object-fit: cover; border: 1px solid #ccc; }
+    .photos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .photos img { width: 100%; height: 280px; object-fit: cover; border: 1px solid #ccc; }
     @media print {
       body { margin: 0; }
       @page { margin: 16mm; }
@@ -124,17 +128,19 @@ export function printOrderDetail(order: OrderRow, opts: { bikes: number; parts: 
 <body>
   <h1>Order #${esc(orderNumber)}</h1>
 
-  <div class="block">
-    <h2>Ship To</h2>
-    <div><strong>${esc(order.customer?.name || '—')}</strong></div>
-    ${order.customer?.street ? `<div>${esc(order.customer.street)}</div>` : ''}
-    ${cityLine ? `<div>${esc(cityLine)}</div>` : ''}
-    ${order.customer?.phone ? `<div>${esc(order.customer.phone)}</div>` : ''}
-  </div>
+  <div class="header">
+    <div class="block ship-to">
+      <h2>Ship To</h2>
+      <div><strong>${esc(order.customer?.name || '—')}</strong></div>
+      ${order.customer?.street ? `<div>${esc(order.customer.street)}</div>` : ''}
+      ${cityLine ? `<div>${esc(cityLine)}</div>` : ''}
+      ${order.customer?.phone ? `<div>${esc(order.customer.phone)}</div>` : ''}
+    </div>
 
-  <div class="block">
-    <h2>Details</h2>
-    ${metaRows.join('\n    ')}
+    <div class="block details">
+      <h2>Details</h2>
+      ${metaRows.join('\n      ')}
+    </div>
   </div>
 
   ${summaryParts.length ? `<div class="summary">${esc(summaryParts.join('  •  '))}</div>` : ''}

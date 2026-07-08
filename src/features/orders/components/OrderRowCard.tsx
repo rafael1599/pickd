@@ -139,16 +139,6 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
       {/* Expanded packing-slip detail */}
       {expanded && (
         <div className="border-t border-subtle px-3 py-4 space-y-4 bg-main/30">
-          {/* Meta line */}
-          <div className="text-xs text-muted space-y-0.5">
-            <div>
-              <span className="font-black uppercase tracking-widest text-muted/50">Updated: </span>
-              {formatDateTime(order.updated_at)}
-            </div>
-            {order.user?.full_name && <div>Picked by {order.user.full_name}</div>}
-            {order.checker?.full_name && <div>Checked by {order.checker.full_name}</div>}
-          </div>
-
           {/* Summary chips */}
           {((order.pallets_qty ?? 0) > 0 ||
             bikes > 0 ||
@@ -168,20 +158,32 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
             </div>
           )}
 
-          {/* Ship-to */}
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-muted/50 mb-1">
-              Ship To
-            </p>
-            <div className="text-sm text-content">
-              <div className="font-bold">{order.customer?.name || '—'}</div>
-              {order.customer?.street && <div>{order.customer.street}</div>}
-              <div>
-                {[order.customer?.city, order.customer?.state, order.customer?.zip_code]
-                  .filter(Boolean)
-                  .join(', ')}
+          {/* Ship-to (left) + details (right) */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted/50 mb-1">
+                Ship To
+              </p>
+              <div className="text-sm text-content">
+                <div className="font-bold">{order.customer?.name || '—'}</div>
+                {order.customer?.street && <div>{order.customer.street}</div>}
+                <div>
+                  {[order.customer?.city, order.customer?.state, order.customer?.zip_code]
+                    .filter(Boolean)
+                    .join(', ')}
+                </div>
+                {order.customer?.phone && <div className="text-muted">{order.customer.phone}</div>}
               </div>
-              {order.customer?.phone && <div className="text-muted">{order.customer.phone}</div>}
+            </div>
+            <div className="text-xs text-muted space-y-0.5 shrink-0 sm:text-right">
+              <div>
+                <span className="font-black uppercase tracking-widest text-muted/50">
+                  Updated:{' '}
+                </span>
+                {formatDateTime(order.updated_at)}
+              </div>
+              {order.user?.full_name && <div>Picked by {order.user.full_name}</div>}
+              {order.checker?.full_name && <div>Checked by {order.checker.full_name}</div>}
             </div>
           </div>
 
@@ -202,12 +204,12 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
 
           {/* Pallet photos */}
           {photos.length > 0 && (
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {photos.map((url, idx) => (
                 <button
                   key={idx}
                   onClick={() => setLightboxIndex(idx)}
-                  className="w-16 h-16 rounded-lg overflow-hidden border border-subtle bg-surface"
+                  className="aspect-square w-full rounded-lg overflow-hidden border border-subtle bg-surface"
                 >
                   <img src={url} alt="" className="w-full h-full object-cover" />
                 </button>
