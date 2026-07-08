@@ -72,8 +72,8 @@ Ver `JAMIS/SHARED-DB-CONTRACT.md` para ownership de tablas, RPCs, y reglas de mi
 
 ## Branching & Deployment
 
-- **`main`** — Producción. Despliega automáticamente a `roman-app.vercel.app`.
-- **`develop`** — Staging/preview. Despliega automáticamente a un URL de preview de Vercel. Misma DB de producción (Supabase compartida).
+- **`main`** — Producción. Despliega automáticamente a `pickd.pages.dev` (Cloudflare Pages).
+- **`develop`** — Staging/preview. Despliega automáticamente a una preview de Cloudflare Pages. Misma DB de producción (Supabase compartida).
 - **Flujo:** feature branches → PR a `develop` → testing en staging → PR a `main` → producción.
 - **Regla de migraciones:** Como staging y producción comparten la misma DB, los cambios de esquema deben ser **aditivos** (agregar columnas/funciones OK, renombrar/eliminar NO hasta que producción también se actualice).
 - **⚠️ Aplicar migraciones a prod después del merge:** `git push` NO aplica migraciones a la DB compartida. Mergear un PR con archivos en `supabase/migrations/` solo despliega el frontend — si el código llama a una RPC/columna nueva antes de aplicar la migración, prod tira `404 Not Found` o `column does not exist`. Checklist post-merge para PRs con cambios de DB:

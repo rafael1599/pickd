@@ -147,7 +147,7 @@ completed → reopened (Reopen Order — requires reason)
 - **New DB columns:** Update 4 places — migration, Zod schema, generated types, query selects
 - **Tests:** Run `pnpm vitest run` before every deploy
 - **Git:** Separate commands (no `&&` chaining) for PowerShell compatibility
-- **Branches:** `main` → prod (`roman-app.vercel.app`), `develop` → preview (shares prod DB; migrations must be additive)
+- **Branches:** `main` → prod (`pickd.pages.dev`), `develop` → preview (shares prod DB; migrations must be additive)
 
 ## Lessons Learned
 

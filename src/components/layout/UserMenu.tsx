@@ -57,7 +57,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
   };
 
   const versionLabel = import.meta.env.PROD
-    ? window.location.hostname === 'roman-app.vercel.app'
+    ? window.location.hostname === 'pickd.pages.dev'
       ? 'stable'
       : 'latest'
     : 'dev';

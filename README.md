@@ -105,10 +105,10 @@ Active skills:
 
 ## Branching & Deployment
 
-| Branch    | Environment | URL                    | Purpose                             |
-| --------- | ----------- | ---------------------- | ----------------------------------- |
-| `main`    | Production  | `roman-app.vercel.app` | Stable, user-facing                 |
-| `develop` | Staging     | Vercel preview URL     | Testing new features before release |
+| Branch    | Environment | URL                      | Purpose                             |
+| --------- | ----------- | ------------------------ | ----------------------------------- |
+| `main`    | Production  | `pickd.pages.dev`        | Stable, user-facing                 |
+| `develop` | Staging     | Cloudflare Pages preview | Testing new features before release |
 
 Both environments share the same Supabase database. Database migrations must be **additive** (add columns/functions only) — never rename or drop until both environments are updated.
 

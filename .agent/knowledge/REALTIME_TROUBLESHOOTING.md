@@ -26,5 +26,5 @@ AND tablename = 'picking_lists';
 ## 🚨 Common Issues
 
 - **Takeover not triggering**: Usually due to Realtime not being enabled for the table or RLS blocking the event.
-- **WebSocket Disconnect**: Vercel may have timeouts. Users should refresh to reconnect.
+- **WebSocket Disconnect**: The host/CDN may have timeouts. Users should refresh to reconnect.
 - **Doble Modals**: Ensure `ErrorContext` and `Takeover` logic don't overlap.
