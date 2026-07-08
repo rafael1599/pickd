@@ -7,15 +7,43 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { isFedexOrder, useOrdersOfDay, type OrderRow } from './hooks/useOrdersOfDay';
 import { OrderRowCard } from './components/OrderRowCard';
 
+const DEFAULT_LIMIT = 7;
+
+/** Local calendar-day key (YYYY-MM-DD) for grouping. */
+function dayKey(date: Date): string {
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+/** Human label for a day group: Today / Yesterday / `Jul 6` (+ year if past). */
+function dayLabel(date: Date): string {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.round((today.getTime() - target.getTime()) / 86_400_000);
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+  if (date.getFullYear() !== now.getFullYear()) opts.year = 'numeric';
+  return date.toLocaleDateString('en-US', opts);
+}
+
+interface DayGroup {
+  key: string;
+  label: string;
+  orders: OrderRow[];
+}
+
 /**
- * Read-only Orders board. Lists the day's orders as expandable packing-slip
- * cards with search + a FedEx toggle. Each card deep-links into the shipping
- * label editor at /ship.
+ * Read-only Orders board. Lists orders as expandable packing-slip cards with
+ * search + a FedEx toggle, grouped under date separators. Default view shows
+ * the 7 most-recent (FedEx-filtered) orders; searching lifts the cap and
+ * matches order # + customer name across all orders. Each card deep-links into
+ * the shipping label editor at /ship.
  */
 export const OrdersBoardScreen = () => {
   const navigate = useNavigate();
   const { setExternalOrderId } = useViewMode();
-  const { orders, loading } = useOrdersOfDay();
+  const { orders, skuIsBike, loading } = useOrdersOfDay();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showFedex, setShowFedex] = useState(false);
@@ -23,43 +51,58 @@ export const OrdersBoardScreen = () => {
 
   const debouncedQuery = useDebounce(searchQuery, 200);
 
-  const filtered = useMemo(() => {
+  const groups = useMemo<DayGroup[]>(() => {
     const query = debouncedQuery.toLowerCase().trim();
     const hasQuery = query.length > 0;
 
-    // Start-of-today (local calendar day).
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    // FedEx filter: OFF hides FedEx orders; ON shows everything. `orders`
+    // already arrives sorted by created_at DESC from the hook.
+    let result = orders.filter((o) => (showFedex || !isFedexOrder(o) ? true : false));
 
-    let result = orders.filter((o) => {
-      // FedEx filter: OFF hides FedEx orders; ON shows everything.
-      if (!showFedex && isFedexOrder(o)) return false;
-
-      // Date filter: only applied when there is NO active search query.
-      if (!hasQuery && new Date(o.created_at) < startOfToday) return false;
-
-      // Search filter (order number + customer name).
-      if (hasQuery) {
+    if (hasQuery) {
+      // Search across ALL fedex-filtered orders (no cap). Match order # +
+      // customer name; float "starts-with" order-number matches to the top.
+      result = result.filter((o) => {
         const orderNum = String(o.order_number || '').toLowerCase();
         const customer = String(o.customer?.name || '').toLowerCase();
-        if (!orderNum.includes(query) && !customer.includes(query)) return false;
-      }
-
-      return true;
-    });
-
-    // When searching, float "starts-with" order-number matches to the top.
-    if (hasQuery) {
+        return orderNum.includes(query) || customer.includes(query);
+      });
       result = [...result].sort((a, b) => {
-        const aNum = String(a.order_number || '').toLowerCase();
-        const bNum = String(b.order_number || '').toLowerCase();
-        const aStarts = aNum.startsWith(query) ? 1 : 0;
-        const bStarts = bNum.startsWith(query) ? 1 : 0;
+        const aStarts = String(a.order_number || '')
+          .toLowerCase()
+          .startsWith(query)
+          ? 1
+          : 0;
+        const bStarts = String(b.order_number || '')
+          .toLowerCase()
+          .startsWith(query)
+          ? 1
+          : 0;
         return bStarts - aStarts;
       });
+    } else {
+      // Default: the 7 most-recent orders.
+      result = result.slice(0, DEFAULT_LIMIT);
     }
 
-    return result;
+    // Group by calendar day, preserving the incoming (DESC) order both across
+    // and within groups.
+    const map = new Map<string, DayGroup>();
+    for (const o of result) {
+      const d = new Date(o.created_at);
+      const key = Number.isNaN(d.getTime()) ? 'unknown' : dayKey(d);
+      let group = map.get(key);
+      if (!group) {
+        group = {
+          key,
+          label: Number.isNaN(d.getTime()) ? 'Unknown date' : dayLabel(d),
+          orders: [],
+        };
+        map.set(key, group);
+      }
+      group.orders.push(o);
+    }
+    return Array.from(map.values());
   }, [orders, debouncedQuery, showFedex]);
 
   const handleEditLabel = (order: OrderRow) => {
@@ -68,6 +111,7 @@ export const OrdersBoardScreen = () => {
   };
 
   const hasQuery = debouncedQuery.trim().length > 0;
+  const isEmpty = groups.length === 0;
 
   return (
     <div className="flex flex-col h-screen w-full bg-main font-body">
@@ -103,20 +147,28 @@ export const OrdersBoardScreen = () => {
             <div className="flex items-center justify-center py-16">
               <Loader2 className="w-6 h-6 animate-spin text-accent opacity-40" />
             </div>
-          ) : filtered.length === 0 ? (
+          ) : isEmpty ? (
             <div className="text-center text-muted text-sm py-16">
-              {hasQuery ? `No matches for "${debouncedQuery.trim()}".` : 'No orders today.'}
+              {hasQuery ? `No matches for "${debouncedQuery.trim()}".` : 'No orders yet.'}
             </div>
           ) : (
-            <div className="space-y-3">
-              {filtered.map((order) => (
-                <OrderRowCard
-                  key={order.id}
-                  order={order}
-                  expanded={expandedId === order.id}
-                  onToggle={() => setExpandedId((cur) => (cur === order.id ? null : order.id))}
-                  onEditLabel={() => handleEditLabel(order)}
-                />
+            <div className="space-y-6">
+              {groups.map((group) => (
+                <div key={group.key} className="space-y-3">
+                  <div className="sticky top-0 z-[1] -mx-1 px-1 py-1 bg-main/80 backdrop-blur-sm text-[10px] font-black uppercase tracking-widest text-muted/60">
+                    {group.label}
+                  </div>
+                  {group.orders.map((order) => (
+                    <OrderRowCard
+                      key={order.id}
+                      order={order}
+                      skuIsBike={skuIsBike}
+                      expanded={expandedId === order.id}
+                      onToggle={() => setExpandedId((cur) => (cur === order.id ? null : order.id))}
+                      onEditLabel={() => handleEditLabel(order)}
+                    />
+                  ))}
+                </div>
               ))}
             </div>
           )}

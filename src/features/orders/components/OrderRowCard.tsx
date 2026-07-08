@@ -1,10 +1,15 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import Tag from 'lucide-react/dist/esm/icons/tag';
-import { isFedexOrder, type OrderRow } from '../hooks/useOrdersOfDay';
+import Printer from 'lucide-react/dist/esm/icons/printer';
+import { PhotoLightbox } from '../../../components/ui/PhotoLightbox';
+import { computeBikesParts, isFedexOrder, type OrderRow } from '../hooks/useOrdersOfDay';
+import { printOrderDetail } from '../lib/printOrderDetail';
+import { OrderNotes } from './OrderNotes';
 
 interface OrderRowCardProps {
   order: OrderRow;
+  skuIsBike: Record<string, boolean>;
   expanded: boolean;
   onToggle: () => void;
   onEditLabel: () => void;
@@ -43,20 +48,26 @@ function getStatusPill(status: string): { label: string; className: string } | n
   }
 }
 
-function formatPrice(value: number | null | undefined): string {
-  if (value == null || value === 0) return '—';
-  return `$${value.toFixed(2)}`;
-}
-
-function formatOrderDate(source: string | null): string {
+/** `Jul 8 · 12:48 PM` style timestamp. */
+function formatDateTime(source: string | null): string {
   if (!source) return '—';
   const d = new Date(source);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString();
+  const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `${date} · ${time}`;
 }
+
+/** A small inline summary chip. */
+const Chip: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <span className="text-[11px] font-black uppercase tracking-wider bg-surface border border-subtle rounded-full px-2.5 py-1 text-content/80">
+    {children}
+  </span>
+);
 
 export const OrderRowCard: React.FC<OrderRowCardProps> = ({
   order,
+  skuIsBike,
   expanded,
   onToggle,
   onEditLabel,
@@ -67,18 +78,10 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
   const displayNumber = order.order_number || order.id.slice(-6);
 
   const items = order.items ?? [];
-  const total = useMemo(
-    () =>
-      items.reduce((sum, i) => {
-        const price = i.unit_price ?? 0;
-        const qty = i.pickingQty ?? 0;
-        if (price > 0) return sum + price * qty;
-        return sum;
-      }, 0),
-    [items]
-  );
+  const { bikes, parts } = useMemo(() => computeBikesParts(order, skuIsBike), [order, skuIsBike]);
 
-  const shippingLabel = fedex ? 'FedEx' : 'Freight / Truck';
+  const photos = order.pallet_photos ?? [];
+  const [lightboxIndex, setLightboxIndex] = useState(-1);
 
   return (
     <div className="rounded-xl border border-subtle bg-surface overflow-hidden">
@@ -136,6 +139,33 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
       {/* Expanded packing-slip detail */}
       {expanded && (
         <div className="border-t border-subtle px-3 py-4 space-y-4 bg-main/30">
+          {/* Meta line */}
+          <div className="text-xs text-muted space-y-0.5">
+            <div>
+              <span className="font-black uppercase tracking-widest text-muted/50">Updated: </span>
+              {formatDateTime(order.updated_at)}
+            </div>
+            {order.user?.full_name && <div>Picked by {order.user.full_name}</div>}
+            {order.checker?.full_name && <div>Checked by {order.checker.full_name}</div>}
+          </div>
+
+          {/* Summary chips */}
+          {((order.pallets_qty ?? 0) > 0 ||
+            bikes > 0 ||
+            parts > 0 ||
+            (order.total_weight_lbs ?? 0) > 0 ||
+            order.transport_company) && (
+            <div className="flex flex-wrap gap-1.5">
+              {(order.pallets_qty ?? 0) > 0 && <Chip>Pallets: {order.pallets_qty}</Chip>}
+              {bikes > 0 && <Chip>Bikes: {bikes}</Chip>}
+              {parts > 0 && <Chip>Parts: {parts}</Chip>}
+              {(order.total_weight_lbs ?? 0) > 0 && (
+                <Chip>Weight: {order.total_weight_lbs} lbs</Chip>
+              )}
+              {order.transport_company && <Chip>Transport: {order.transport_company}</Chip>}
+            </div>
+          )}
+
           {/* Ship-to */}
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-muted/50 mb-1">
@@ -153,48 +183,52 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
             </div>
           </div>
 
-          {/* Meta line */}
-          <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted">
-            <span>
-              <span className="font-black uppercase tracking-widest text-muted/50">
-                Order Date:{' '}
-              </span>
-              {formatOrderDate(order.source_order_date)}
-            </span>
-            <span>
-              <span className="font-black uppercase tracking-widest text-muted/50">Shipping: </span>
-              {shippingLabel}
-            </span>
-            <span>
-              <span className="font-black uppercase tracking-widest text-muted/50">Units: </span>
-              {units}
-            </span>
-          </div>
-
-          {/* AS400 notes */}
+          {/* Order notes (AS400 own notes) */}
           {order.notes && (
-            <div className="text-xs text-content bg-surface border border-subtle rounded-lg px-3 py-2 whitespace-pre-wrap">
-              {order.notes}
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted/50 mb-1">
+                Order notes
+              </p>
+              <div className="text-xs text-content bg-surface border border-subtle rounded-lg px-3 py-2 whitespace-pre-wrap">
+                {order.notes}
+              </div>
+            </div>
+          )}
+
+          {/* Our in-app notes (mounted only while expanded) */}
+          <OrderNotes listId={order.id} />
+
+          {/* Pallet photos */}
+          {photos.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {photos.map((url, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setLightboxIndex(idx)}
+                  className="w-16 h-16 rounded-lg overflow-hidden border border-subtle bg-surface"
+                >
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
             </div>
           )}
 
           {/* Line items */}
           <div className="-mx-3 overflow-x-auto">
-            <table className="w-full min-w-[480px] text-xs">
+            <table className="w-full min-w-[520px] text-xs">
               <thead>
                 <tr className="text-[10px] font-black uppercase tracking-widest text-muted/50 border-b border-subtle">
                   <th className="text-right py-2 px-2 w-12">Qty</th>
                   <th className="text-left py-2 px-2">SKU</th>
                   <th className="text-left py-2 px-2">Description</th>
-                  <th className="text-right py-2 px-2">Price</th>
-                  <th className="text-right py-2 px-2">Extended</th>
+                  <th className="text-left py-2 px-2">Location</th>
+                  <th className="text-left py-2 px-2">Sublocation</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((item, idx) => {
                   const qty = item.pickingQty ?? 0;
-                  const price = item.unit_price ?? 0;
-                  const extended = price > 0 ? price * qty : null;
+                  const sublocation = (item.sublocation ?? []).join('') || '—';
                   return (
                     <tr key={idx} className="border-b border-subtle/50 last:border-0">
                       <td className="text-right py-2 px-2 font-mono font-bold text-content">
@@ -206,34 +240,46 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
                       <td className="text-left py-2 px-2 text-content/80">
                         {item.description || item.item_name || '—'}
                       </td>
-                      <td className="text-right py-2 px-2 font-mono text-content">
-                        {formatPrice(item.unit_price)}
+                      <td className="text-left py-2 px-2 font-mono text-content/80">
+                        {item.location || '—'}
                       </td>
-                      <td className="text-right py-2 px-2 font-mono text-content">
-                        {extended != null ? `$${extended.toFixed(2)}` : '—'}
+                      <td className="text-left py-2 px-2 font-mono text-content/80">
+                        {sublocation}
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
-              {total > 0 && (
-                <tfoot>
-                  <tr className="border-t border-subtle font-black">
-                    <td
-                      colSpan={4}
-                      className="text-right py-2 px-2 uppercase tracking-widest text-[10px] text-muted"
-                    >
-                      Total
-                    </td>
-                    <td className="text-right py-2 px-2 font-mono text-content">
-                      ${total.toFixed(2)}
-                    </td>
-                  </tr>
-                </tfoot>
-              )}
             </table>
           </div>
+
+          {/* Buttons row */}
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              onClick={() => printOrderDetail(order, { bikes, parts })}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface text-content border border-subtle hover:border-accent/40 transition-colors text-[11px] font-black uppercase tracking-wider"
+            >
+              <Printer size={14} />
+              Print
+            </button>
+            <button
+              onClick={onEditLabel}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors text-[11px] font-black uppercase tracking-wider"
+            >
+              <Tag size={14} />
+              Edit Label
+            </button>
+          </div>
         </div>
+      )}
+
+      {lightboxIndex >= 0 && (
+        <PhotoLightbox
+          photos={photos}
+          index={lightboxIndex}
+          onIndexChange={setLightboxIndex}
+          onClose={() => setLightboxIndex(-1)}
+        />
       )}
     </div>
   );
