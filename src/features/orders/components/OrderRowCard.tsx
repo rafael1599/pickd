@@ -166,47 +166,43 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
             </div>
           )}
 
-          {/* Ship-to (left) + carrier logo (center/right) + details (right) */}
-          <div className="flex flex-col gap-3">
-            {/* Top row: Ship To address */}
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted/50 mb-1">
-                  Ship To
-                </p>
-                <div className="text-sm text-content">
-                  <div className="font-bold">{order.customer?.name || '—'}</div>
-                  {order.customer?.street && <div>{order.customer.street}</div>}
-                  <div>
-                    {[order.customer?.city, order.customer?.state, order.customer?.zip_code]
-                      .filter(Boolean)
-                      .join(', ')}
-                  </div>
-                  {order.customer?.phone && (
-                    <div className="text-muted">{order.customer.phone}</div>
-                  )}
-                </div>
-              </div>
-              <div className="text-xs text-muted space-y-0.5 shrink-0 sm:text-right">
+          {/* Ship-to (left) + carrier logo (center) + details (right) */}
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            {/* Column 1: Ship To */}
+            <div className="flex-1 min-w-[180px]">
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted/50 mb-1">
+                Ship To
+              </p>
+              <div className="text-sm text-content">
+                <div className="font-bold">{order.customer?.name || '—'}</div>
+                {order.customer?.street && <div>{order.customer.street}</div>}
                 <div>
-                  <span className="font-black uppercase tracking-widest text-muted/50">
-                    Updated:{' '}
-                  </span>
-                  {formatDateTime(order.updated_at)}
+                  {[order.customer?.city, order.customer?.state, order.customer?.zip_code]
+                    .filter(Boolean)
+                    .join(', ')}
                 </div>
-                {order.user?.full_name && <div>Picked by {order.user.full_name}</div>}
-                {order.checker?.full_name && <div>Checked by {order.checker.full_name}</div>}
+                {order.customer?.phone && <div className="text-muted">{order.customer.phone}</div>}
               </div>
             </div>
 
-            {/* Carrier logo — large, ~1/3 card width */}
+            {/* Column 2: Carrier logo — transparent, no white background or borders */}
             {order.transport_company && (
-              <div className="flex justify-center sm:justify-start">
-                <div className="w-1/3 min-w-[100px] max-w-[180px] bg-white rounded-xl px-4 py-2.5 flex items-center justify-center shadow-sm">
-                  <TransportLogo company={order.transport_company} height={36} plain />
-                </div>
+              <div className="w-full sm:w-1/3 flex items-center justify-start sm:justify-center self-center shrink-0">
+                <TransportLogo company={order.transport_company} height={40} plain />
               </div>
             )}
+
+            {/* Column 3: Details */}
+            <div className="text-xs text-muted space-y-0.5 shrink-0 sm:text-right">
+              <div>
+                <span className="font-black uppercase tracking-widest text-muted/50">
+                  Updated:{' '}
+                </span>
+                {formatDateTime(order.updated_at)}
+              </div>
+              {order.user?.full_name && <div>Picked by {order.user.full_name}</div>}
+              {order.checker?.full_name && <div>Checked by {order.checker.full_name}</div>}
+            </div>
           </div>
 
           {/* Order notes (AS400 own notes) */}

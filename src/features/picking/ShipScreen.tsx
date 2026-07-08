@@ -5,6 +5,7 @@ import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import Home from 'lucide-react/dist/esm/icons/home';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import { LivePrintPreview } from '../../components/orders/LivePrintPreview.tsx';
 import { generateShipLabel } from '../../components/orders/generateShipLabel';
 import { usePickingSession } from '../../context/PickingContext.tsx';
 import { useViewMode } from '../../context/ViewModeContext.tsx';
@@ -1029,7 +1030,24 @@ export const ShipScreen = () => {
                 />
               </div>
 
-              {/* Label preview removed — will be redesigned */}
+              <LivePrintPreview
+                orderNumber={selectedOrder.order_number ?? undefined}
+                watcherNote={selectedOrder.notes}
+                customerName={formData.customerName}
+                street={formData.street}
+                city={formData.city}
+                state={formData.state}
+                zip={formData.zip}
+                pallets={formData.pallets}
+                bikeCount={bikeCount}
+                partCount={partCount}
+                loadNumber={formData.loadNumber}
+                totalWeight={effectiveWeight}
+                completedAt={selectedOrder.updated_at}
+                transportCompany={formData.transportCompany}
+                palletPhotos={selectedOrder.pallet_photos ?? undefined}
+                screenOnly
+              />
 
               {/* Parts Weight Editor (idea-028) */}
               {partsWithWeights.length > 0 && (
