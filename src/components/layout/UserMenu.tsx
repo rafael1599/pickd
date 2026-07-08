@@ -18,8 +18,10 @@ import ShoppingCart from 'lucide-react/dist/esm/icons/shopping-cart';
 import PackageOpen from 'lucide-react/dist/esm/icons/package-open';
 import Boxes from 'lucide-react/dist/esm/icons/boxes';
 import Container from 'lucide-react/dist/esm/icons/container';
+import Scan from 'lucide-react/dist/esm/icons/scan';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import { useModal } from '../../context/ModalContext';
+import { useViewMode } from '../../context/ViewModeContext';
 
 interface UserMenuProps {
   isOpen: boolean;
@@ -31,6 +33,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
   const { open: openModal } = useModal();
   const { profile, signOut, updateProfileName, isAdmin } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { setViewMode } = useViewMode();
   const [newName, setNewName] = useState(profile?.full_name || '');
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -54,6 +57,13 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
     setShowProfile(false);
     navigate(path);
     onClose();
+  };
+
+  // Picking is a view mode on the home screen, not a route: switch the mode
+  // and land on Home. (Moved here from the bottom nav.)
+  const startPicking = () => {
+    setViewMode('picking');
+    navTo('/');
   };
 
   const versionLabel = import.meta.env.PROD
@@ -199,6 +209,28 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
               <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-3 block">
                 Warehouse Activities
               </label>
+
+              <button
+                onClick={startPicking}
+                className="flex items-center justify-between w-full group text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-surface border border-subtle rounded-xl text-sky-500">
+                    <Scan size={16} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-content uppercase tracking-tight">
+                      Picking
+                    </p>
+                    <p className="text-[9px] text-muted font-bold uppercase">
+                      Pick &amp; fulfill orders
+                    </p>
+                  </div>
+                </div>
+                <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
+              </button>
+
+              <div className="h-px bg-subtle my-2" />
 
               <button
                 onClick={() => navTo('/stock-count')}

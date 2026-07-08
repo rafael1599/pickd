@@ -1,5 +1,4 @@
 import Box from 'lucide-react/dist/esm/icons/box';
-import Scan from 'lucide-react/dist/esm/icons/scan';
 import ClipboardList from 'lucide-react/dist/esm/icons/clipboard-list';
 import Printer from 'lucide-react/dist/esm/icons/printer';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -38,7 +37,7 @@ const NavItem = ({ icon: Icon, label, isActive, onClick, isCompact }: NavItemPro
 );
 
 export const BottomNavigation = () => {
-  const { viewMode, setViewMode, isNavHidden, isSearching, requestStockView } = useViewMode();
+  const { viewMode, isNavHidden, isSearching, requestStockView } = useViewMode();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -48,11 +47,6 @@ export const BottomNavigation = () => {
     // Explicit signal (idea-129): also closes an open double-check drawer like
     // the X would, instead of leaving it floating over the stock view.
     requestStockView();
-    if (location.pathname !== '/') navigate('/');
-  };
-
-  const handlePickingClick = () => {
-    setViewMode('picking');
     if (location.pathname !== '/') navigate('/');
   };
 
@@ -72,13 +66,6 @@ export const BottomNavigation = () => {
           label="STOCK"
           isActive={location.pathname === '/' && viewMode === 'stock'}
           onClick={handleStockClick}
-          isCompact={isSearching}
-        />
-        <NavItem
-          icon={Scan}
-          label="PICKING"
-          isActive={location.pathname === '/' && viewMode === 'picking'}
-          onClick={handlePickingClick}
           isCompact={isSearching}
         />
         <NavItem
