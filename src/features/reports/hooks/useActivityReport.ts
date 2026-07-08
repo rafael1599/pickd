@@ -28,6 +28,8 @@ export interface VerifiedSkusBreakdown {
   additions: number;
   on_site_checked: number;
   quantity_edited: number;
+  /** Bikes physically confirmed via order picks (DEDUCT). Added 2026-07-08. */
+  picked: number;
 }
 
 // idea-097 — today's per-SKU events for the Inventory Accuracy block.
@@ -120,21 +122,16 @@ export function useActivityReport(date: string) {
       // See src/lib/nyDate.ts and the NY tz migration.
       const { startsAt: dayStart, endsAt: dayEnd } = await getNYDayBounds(date);
 
-      const twoMonthsAgo = new Date(new Date(dayEnd).getTime() - 90 * 24 * 60 * 60 * 1000).toISOString();
-
       const [
         pickingRes,
         logsRes,
         cycleRes,
         profilesRes,
-        verifiedRes,
-        moveAddRes,
-        statsRes,
         notesRes,
         todayLogsRes,
         todayCyclesRes,
-        bikeSkusRes,
         fedexReturnsRes,
+        accuracyRes,
       ] = await Promise.all([
           supabase
             .from('picking_lists')
@@ -158,29 +155,6 @@ export function useActivityReport(date: string) {
             .from('profiles')
             .select('id, full_name')
             .eq('is_active', true),
-          supabase
-            .from('cycle_count_items')
-            .select('sku')
-            .in('status', ['counted', 'verified'])
-            .gte('counted_at', twoMonthsAgo)
-            .lte('counted_at', dayEnd),
-          // SKUs physically touched via MOVE/ADD/PHYSICAL_DISTRIBUTION/EDIT in last 90 days (coverage).
-          // EDIT rows with quantity_change = 0 are filtered post-fetch.
-          // ⚠️ Explicit limit (50_000) — PostgREST defaults to 1000 rows, and a
-          // 90-day window already crosses that on the current dataset (~2k rows
-          // as of 2026-04). Without this the live breakdown silently truncates
-          // and diverges from the snapshot RPC. Hitting this ceiling logs a
-          // warning below.
-          supabase
-            .from('inventory_logs')
-            .select('sku, action_type, quantity_change')
-            .in('action_type', ['MOVE', 'ADD', 'PHYSICAL_DISTRIBUTION', 'EDIT'])
-            .eq('is_reversed', false)
-            .gte('created_at', twoMonthsAgo)
-            .lte('created_at', dayEnd)
-            .limit(50_000),
-          // Bikes-only: matches the bikes-only numerator filter below.
-          supabase.rpc('get_inventory_stats', { p_include_parts: false }),
           supabase
             .from('picking_list_notes')
             .select('id')
@@ -206,8 +180,6 @@ export function useActivityReport(date: string) {
             .gte('counted_at', dayStart)
             .lte('counted_at', dayEnd)
             .limit(50_000),
-          // Bike SKU set used to scope the accuracy KPI numerator to bikes only.
-          supabase.from('sku_metadata').select('sku').eq('is_bike', true).limit(50_000),
           // idea-091 — today's FedEx returns. Basic info only: tracking +
           // status + item totals. No names, no timestamps.
           supabase
@@ -217,11 +189,11 @@ export function useActivityReport(date: string) {
             .lte('received_at', dayEnd)
             .order('received_at', { ascending: false })
             .limit(200),
+          // Inventory Accuracy KPI — single source of truth (honest coverage +
+          // 180d window + sticky counts + picks). Same RPC the snapshot
+          // (compute_daily_report_data) uses, so live and snapshot never drift.
+          supabase.rpc('get_inventory_accuracy', { p_as_of: date }),
         ]);
-
-      const bikeSkuSet = new Set<string>(
-        (bikeSkusRes.data ?? []).map((r) => r.sku).filter((s): s is string => !!s)
-      );
 
       const profiles = (profilesRes.data ?? []) as ProfileRow[];
       const profileMap = new Map(profiles.map((p) => [p.id, p.full_name]));
@@ -296,70 +268,26 @@ export function useActivityReport(date: string) {
         )
         .sort((a, b) => a.full_name.localeCompare(b.full_name));
 
-      // Verified SKUs (90 days) — split by source category for the KPI breakdown.
-      interface MoveAddLogRow {
-        sku: string | null;
-        action_type: string;
-        quantity_change: number | null;
-      }
-      const moveAddRows = (moveAddRes.data ?? []) as MoveAddLogRow[];
-      if (moveAddRows.length >= 50_000) {
-        // If we ever hit this it means the dataset has outgrown the live
-        // hook's single-page fetch — bullets will undercount and snapshot/
-        // live will drift. Bump the limit or page through with .range().
-        console.warn(
-          '[useActivityReport] inventory_logs window hit the 50_000-row ceiling — accuracy breakdown may be incomplete.'
-        );
-      }
-
-      // Inventory Accuracy KPI is scoped to bikes only — the denominator
-      // (get_inventory_stats(false)) counts bike SKUs, so the numerator must
-      // too. Mirrors the SQL filter in compute_daily_report_data.
-      const cycleCountedSet = new Set<string>(
-        (verifiedRes.data ?? [])
-          .map((r) => r.sku)
-          .filter((s): s is string => !!s && bikeSkuSet.has(s))
-      );
-      const movementsSet = new Set<string>();
-      const additionsSet = new Set<string>();
-      const onSiteCheckedSet = new Set<string>();
-      const quantityEditedSet = new Set<string>();
-
-      for (const r of moveAddRows) {
-        if (!r.sku || !bikeSkuSet.has(r.sku)) continue;
-        switch (r.action_type) {
-          case 'MOVE':
-            movementsSet.add(r.sku);
-            break;
-          case 'ADD':
-            additionsSet.add(r.sku);
-            break;
-          case 'PHYSICAL_DISTRIBUTION':
-            onSiteCheckedSet.add(r.sku);
-            break;
-          case 'EDIT':
-            if ((r.quantity_change ?? 0) !== 0) quantityEditedSet.add(r.sku);
-            break;
-          default:
-            break;
-        }
-      }
-
-      const verifiedSkus = new Set<string>([
-        ...cycleCountedSet,
-        ...movementsSet,
-        ...additionsSet,
-        ...onSiteCheckedSet,
-        ...quantityEditedSet,
-      ]);
+      // Inventory Accuracy KPI — read straight from get_inventory_accuracy, the
+      // single source of truth shared with the snapshot RPC
+      // (compute_daily_report_data). Honest coverage (numerator ⊆ active bikes),
+      // 180-day window, sticky cycle-counts, and picks are all computed
+      // server-side, so live (today) and snapshot (past days) never diverge.
+      const accuracy = (accuracyRes.data ?? null) as unknown as {
+        verified_skus_2m?: number;
+        total_skus?: number;
+        verified_skus_breakdown?: VerifiedSkusBreakdown;
+      } | null;
+      const verifiedSkusCount = Number(accuracy?.verified_skus_2m ?? 0);
       const verifiedSkusBreakdown: VerifiedSkusBreakdown = {
-        cycle_counted: cycleCountedSet.size,
-        movements: movementsSet.size,
-        additions: additionsSet.size,
-        on_site_checked: onSiteCheckedSet.size,
-        quantity_edited: quantityEditedSet.size,
+        cycle_counted: accuracy?.verified_skus_breakdown?.cycle_counted ?? 0,
+        movements: accuracy?.verified_skus_breakdown?.movements ?? 0,
+        additions: accuracy?.verified_skus_breakdown?.additions ?? 0,
+        on_site_checked: accuracy?.verified_skus_breakdown?.on_site_checked ?? 0,
+        quantity_edited: accuracy?.verified_skus_breakdown?.quantity_edited ?? 0,
+        picked: accuracy?.verified_skus_breakdown?.picked ?? 0,
       };
-      const totalSkus = Number(statsRes.data?.[0]?.total_skus ?? 0);
+      const totalSkus = Number(accuracy?.total_skus ?? 0);
 
       const correctionCount = (notesRes.data ?? []).length;
 
@@ -531,7 +459,7 @@ export function useActivityReport(date: string) {
         date,
         users,
         warehouse_totals: { orders_completed: totalOrders, total_items: totalItems },
-        verified_skus_2m: verifiedSkus.size,
+        verified_skus_2m: verifiedSkusCount,
         verified_skus_breakdown: verifiedSkusBreakdown,
         total_skus: totalSkus,
         correction_count: correctionCount,

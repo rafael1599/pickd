@@ -173,6 +173,7 @@ export const ActivityReportScreen = () => {
           additions: 0,
           on_site_checked: 0,
           quantity_edited: 0,
+          picked: 0,
         };
       return {
         date: selectedDate,

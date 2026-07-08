@@ -1800,6 +1800,10 @@ export type Database = {
           isSetofReturn: true;
         };
       };
+      get_inventory_accuracy: {
+        Args: { p_as_of?: string; p_window_days?: number };
+        Returns: Json;
+      };
       get_inventory_stats: {
         Args: { p_include_parts?: boolean };
         Returns: {
