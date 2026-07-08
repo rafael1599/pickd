@@ -7,6 +7,11 @@ interface TransportLogoProps {
   height?: number;
   /** Extra classes for the wrapper. */
   className?: string;
+  /**
+   * When true, renders the `<img>` directly without the white pill wrapper.
+   * Use this when the parent provides its own container / background.
+   */
+  plain?: boolean;
 }
 
 /**
@@ -15,7 +20,12 @@ interface TransportLogoProps {
  * text when no logo is mapped or the image fails to load. Renders nothing for an
  * empty company.
  */
-export const TransportLogo = ({ company, height = 20, className = '' }: TransportLogoProps) => {
+export const TransportLogo = ({
+  company,
+  height = 20,
+  className = '',
+  plain = false,
+}: TransportLogoProps) => {
   const [failed, setFailed] = useState(false);
   const label = (company ?? '').trim();
   const src = transportLogoSrc(company);
@@ -29,6 +39,18 @@ export const TransportLogo = ({ company, height = 20, className = '' }: Transpor
       >
         {label}
       </span>
+    );
+  }
+
+  if (plain) {
+    return (
+      <img
+        src={src}
+        alt={label}
+        onError={() => setFailed(true)}
+        style={{ height }}
+        className={`w-auto object-contain ${className}`}
+      />
     );
   }
 

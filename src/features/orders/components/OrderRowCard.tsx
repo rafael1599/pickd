@@ -8,6 +8,15 @@ import { printOrderDetail } from '../lib/printOrderDetail';
 import { OrderNotes } from './OrderNotes';
 import { TransportLogo } from '../../../components/orders/TransportLogo';
 
+/**
+ * Derives a thumbnail URL from a full-size gallery photo URL.
+ * Pattern: `.../photos/gallery/{id}.webp` → `.../photos/gallery/thumbs/{id}.webp`
+ * Falls back to the original URL when the pattern doesn't match.
+ */
+function toThumbUrl(url: string): string {
+  return url.replace(/(photos\/gallery\/)([^/]+\.webp)$/, '$1thumbs/$2');
+}
+
 interface OrderRowCardProps {
   order: OrderRow;
   skuIsBike: Record<string, boolean>;
@@ -140,12 +149,11 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
       {/* Expanded packing-slip detail */}
       {expanded && (
         <div className="border-t border-subtle px-3 py-4 space-y-4 bg-main/30">
-          {/* Summary chips */}
+          {/* Summary chips — transport logo intentionally excluded here; shown below */}
           {((order.pallets_qty ?? 0) > 0 ||
             bikes > 0 ||
             parts > 0 ||
             (order.total_weight_lbs ?? 0) > 0 ||
-            order.transport_company ||
             order.load_number) && (
             <div className="flex flex-wrap gap-1.5">
               {(order.pallets_qty ?? 0) > 0 && <Chip>Pallets: {order.pallets_qty}</Chip>}
@@ -154,44 +162,51 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
               {(order.total_weight_lbs ?? 0) > 0 && (
                 <Chip>Weight: {order.total_weight_lbs} lbs</Chip>
               )}
-              {order.transport_company && (
-                <TransportLogo
-                  company={order.transport_company}
-                  height={16}
-                  className="border border-subtle"
-                />
-              )}
               {order.load_number && <Chip>Load #: {order.load_number}</Chip>}
             </div>
           )}
 
-          {/* Ship-to (left) + details (right) */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted/50 mb-1">
-                Ship To
-              </p>
-              <div className="text-sm text-content">
-                <div className="font-bold">{order.customer?.name || '—'}</div>
-                {order.customer?.street && <div>{order.customer.street}</div>}
-                <div>
-                  {[order.customer?.city, order.customer?.state, order.customer?.zip_code]
-                    .filter(Boolean)
-                    .join(', ')}
-                </div>
-                {order.customer?.phone && <div className="text-muted">{order.customer.phone}</div>}
-              </div>
-            </div>
-            <div className="text-xs text-muted space-y-0.5 shrink-0 sm:text-right">
+          {/* Ship-to (left) + carrier logo (center/right) + details (right) */}
+          <div className="flex flex-col gap-3">
+            {/* Top row: Ship To address */}
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div>
-                <span className="font-black uppercase tracking-widest text-muted/50">
-                  Updated:{' '}
-                </span>
-                {formatDateTime(order.updated_at)}
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted/50 mb-1">
+                  Ship To
+                </p>
+                <div className="text-sm text-content">
+                  <div className="font-bold">{order.customer?.name || '—'}</div>
+                  {order.customer?.street && <div>{order.customer.street}</div>}
+                  <div>
+                    {[order.customer?.city, order.customer?.state, order.customer?.zip_code]
+                      .filter(Boolean)
+                      .join(', ')}
+                  </div>
+                  {order.customer?.phone && (
+                    <div className="text-muted">{order.customer.phone}</div>
+                  )}
+                </div>
               </div>
-              {order.user?.full_name && <div>Picked by {order.user.full_name}</div>}
-              {order.checker?.full_name && <div>Checked by {order.checker.full_name}</div>}
+              <div className="text-xs text-muted space-y-0.5 shrink-0 sm:text-right">
+                <div>
+                  <span className="font-black uppercase tracking-widest text-muted/50">
+                    Updated:{' '}
+                  </span>
+                  {formatDateTime(order.updated_at)}
+                </div>
+                {order.user?.full_name && <div>Picked by {order.user.full_name}</div>}
+                {order.checker?.full_name && <div>Checked by {order.checker.full_name}</div>}
+              </div>
             </div>
+
+            {/* Carrier logo — large, ~1/3 card width */}
+            {order.transport_company && (
+              <div className="flex justify-center sm:justify-start">
+                <div className="w-1/3 min-w-[100px] max-w-[180px] bg-white rounded-xl px-4 py-2.5 flex items-center justify-center shadow-sm">
+                  <TransportLogo company={order.transport_company} height={36} plain />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Order notes (AS400 own notes) */}
@@ -209,18 +224,30 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
           {/* Our in-app notes (mounted only while expanded) */}
           <OrderNotes listId={order.id} />
 
-          {/* Pallet photos */}
+          {/* Pallet photos — grid uses thumbnails for bandwidth savings */}
           {photos.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {photos.map((url, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setLightboxIndex(idx)}
-                  className="aspect-square w-full rounded-lg overflow-hidden border border-subtle bg-surface"
-                >
-                  <img src={url} alt="" className="w-full h-full object-cover" />
-                </button>
-              ))}
+              {photos.map((url, idx) => {
+                const thumb = toThumbUrl(url);
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => setLightboxIndex(idx)}
+                    className="aspect-square w-full rounded-lg overflow-hidden border border-subtle bg-surface"
+                  >
+                    <img
+                      src={thumb}
+                      alt=""
+                      loading="lazy"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // Fallback to full-res if thumb doesn't exist
+                        (e.currentTarget as HTMLImageElement).src = url;
+                      }}
+                    />
+                  </button>
+                );
+              })}
             </div>
           )}
 

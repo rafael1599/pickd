@@ -9,6 +9,12 @@
 
 ## P1 — Alto (operación diaria)
 
+### 85. Register Container v2 — sesión de receiving activa <!-- id: idea-152 --> — input: 2026-07-03 NY
+- **Problema:** el flujo actual (`upload → preview → done`) no soporta descarga física real. No hay checklist para tachar SKUs conforme se sacan del truck, no se pueden agregar SKUs que no venían en el manifest, solo muestra 1 location (`existing_locations[0]` en `RegistrarContainerScreen.tsx:28, 375, 417`), sin time-in/time-out, sin notas ni fotos, no se puede pausar y volver si se cierra el navegador.
+- **Solución:** insertar step `receiving` entre `preview` y `done` con 2 tablas nuevas (`container_receiving_sessions` + `container_receiving_items`), 5 RPCs, y `ReceivingSessionView.tsx` estilo DoubleCheckView pero más rápido. El registro de inventario ocurre solo al finalizar sobre items confirmados. Popover multi-loc reemplaza el `+N more` texto muerto tanto en receiving como en done.
+- **Documentación completa:** [`docs/register-container-receiving-session.md`](../../docs/register-container-receiving-session.md) — tablas, RPCs, hooks, layout, verification E2E.
+- **Origen:** sesión 2026-07-03.
+
 ### ~~53. SKU normalization at intake — close idea-092 path 1~~ <!-- id: idea-101 --> ✅ 2026-06-10 (watchdog #35 — premisa verificada como ya cubierta)
 - **Resolución 2026-06-10:** verificado con tests que `_to_cart_items` del watchdog **ya matchea normalizado desde su commit inicial** (`034664BR` ↔ `03-4664BR` resuelve al canónico en el intake; no llega UNREG). El incidente que originó la idea fue un **typo de dígito** (4664 vs 4666) — correctamente manual, la normalización no adivina dígitos. Lo único que faltaba era la nota de riesgo del propio spec: **colisiones** (dos SKUs canónicos con la misma forma normalizada) se elegían en silencio; ahora se dejan sin resolver para que el picker decida (watchdog #35, equivale al contrato LIMIT-2 de `lookup_canonical_sku`). No hace falta llamar al RPC: la lógica local es equivalente y batched.
 - **Hallazgo verificado 2026-05-01:** la flag `sku_not_found` se setea EN watchdog al ingestar el PDF (vive como campo dentro del JSONB `picking_lists.items`). Pickd la lee, nunca la escribe — confirmado en migraciones (`process_picking_list`, `reopen_completed_orders` solo leen) y en src/ (todas las refs en DoubleCheckView/CorrectionModeView son lecturas). Conclusión: **no hay un fallback client-side viable** para auto-corregir el guion. El item JSON es inmutable post-intake.

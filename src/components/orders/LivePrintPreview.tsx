@@ -3,6 +3,15 @@ import jsPDF from 'jspdf';
 import { PhotoLightbox } from '../ui/PhotoLightbox';
 import { TransportLogo } from './TransportLogo';
 
+/**
+ * Derives a thumbnail URL from a full-size gallery photo URL.
+ * Pattern: `.../photos/gallery/{id}.webp` → `.../photos/gallery/thumbs/{id}.webp`
+ * Falls back to the original URL when the pattern doesn't match.
+ */
+function toThumbUrl(url: string): string {
+  return url.replace(/(photos\/gallery\/)([^/]+\.webp)$/, '$1thumbs/$2');
+}
+
 export const TRANSPORT_COLORS: Record<string, { bg: string; text: string }> = {
   'R+L': { bg: '#006647', text: '#FFFFFF' },
   '2-DAY': { bg: '#003366', text: '#FFFFFF' },
@@ -302,19 +311,30 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
         }}
       />
 
-      {/* Pallet photos above the title */}
+      {/* Pallet photos above the title — grid uses thumbnails for bandwidth savings */}
       {photos.length > 0 && (
         <div className="w-full mb-4 flex flex-wrap justify-center gap-2 shrink-0 animate-soft-in">
-          {photos.map((url, i) => (
-            <button
-              key={i}
-              onClick={() => setLightboxIndex(i)}
-              className="w-20 h-20 rounded-xl overflow-hidden border border-subtle hover:border-accent transition-colors active:scale-95"
-              title={`Pallet photo ${i + 1}`}
-            >
-              <img src={url} alt="" loading="lazy" className="w-full h-full object-cover" />
-            </button>
-          ))}
+          {photos.map((url, i) => {
+            const thumb = toThumbUrl(url);
+            return (
+              <button
+                key={i}
+                onClick={() => setLightboxIndex(i)}
+                className="w-20 h-20 rounded-xl overflow-hidden border border-subtle hover:border-accent transition-colors active:scale-95"
+                title={`Pallet photo ${i + 1}`}
+              >
+                <img
+                  src={thumb}
+                  alt=""
+                  loading="lazy"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = url;
+                  }}
+                />
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -322,6 +342,14 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
         <h2 className="text-3xl md:text-5xl font-[900] text-content tracking-tighter uppercase animate-soft-in">
           Order #{orderNumber}
         </h2>
+        {/* Carrier logo — large, prominent display below order number */}
+        {transportCompany && (
+          <div className="mt-3 flex justify-center">
+            <div className="bg-white rounded-2xl px-8 py-4 shadow-sm inline-flex items-center justify-center">
+              <TransportLogo company={transportCompany} height={52} plain />
+            </div>
+          </div>
+        )}
         {completedAt && (
           <p className="text-muted text-sm font-bold mt-2 tracking-wide animate-soft-in">
             {new Date(completedAt).toLocaleDateString('en-US', {
