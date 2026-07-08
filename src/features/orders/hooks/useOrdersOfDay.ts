@@ -35,6 +35,7 @@ export interface OrderRow {
   shipping_type: string | null;
   pallets_qty: number | null;
   total_units: number | null;
+  load_number: string | null;
   created_at: string;
   updated_at: string;
   user_id: string | null;

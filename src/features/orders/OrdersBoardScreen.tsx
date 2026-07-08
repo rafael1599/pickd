@@ -1,11 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { useViewMode } from '../../context/ViewModeContext';
 import { useDebounce } from '../../hooks/useDebounce';
-import { isFedexOrder, useOrdersOfDay, type OrderRow } from './hooks/useOrdersOfDay';
+import {
+  computeBikesParts,
+  isFedexOrder,
+  useOrdersOfDay,
+  type OrderRow,
+} from './hooks/useOrdersOfDay';
 import { OrderRowCard } from './components/OrderRowCard';
+import { printOrderDetail } from './lib/printOrderDetail';
 
 const DEFAULT_LIMIT = 7;
 
@@ -109,6 +115,22 @@ export const OrdersBoardScreen = () => {
     setExternalOrderId(order.id);
     navigate('/ship');
   };
+
+  // Ctrl/Cmd+P prints the currently-open order (the itemized packing slip)
+  // instead of the browser's default page print. With no order open, the
+  // native print is left untouched.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'p') return;
+      if (!expandedId) return;
+      const order = orders.find((o) => o.id === expandedId);
+      if (!order) return;
+      e.preventDefault();
+      printOrderDetail(order, computeBikesParts(order, skuIsBike));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [expandedId, orders, skuIsBike]);
 
   const hasQuery = debouncedQuery.trim().length > 0;
   const isEmpty = groups.length === 0;

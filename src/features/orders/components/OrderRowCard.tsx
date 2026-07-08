@@ -154,7 +154,8 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
             bikes > 0 ||
             parts > 0 ||
             (order.total_weight_lbs ?? 0) > 0 ||
-            order.transport_company) && (
+            order.transport_company ||
+            order.load_number) && (
             <div className="flex flex-wrap gap-1.5">
               {(order.pallets_qty ?? 0) > 0 && <Chip>Pallets: {order.pallets_qty}</Chip>}
               {bikes > 0 && <Chip>Bikes: {bikes}</Chip>}
@@ -163,6 +164,7 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
                 <Chip>Weight: {order.total_weight_lbs} lbs</Chip>
               )}
               {order.transport_company && <Chip>Transport: {order.transport_company}</Chip>}
+              {order.load_number && <Chip>Load #: {order.load_number}</Chip>}
             </div>
           )}
 

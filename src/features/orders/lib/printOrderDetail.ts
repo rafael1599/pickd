@@ -52,6 +52,13 @@ export function printOrderDetail(order: OrderRow, opts: { bikes: number; parts: 
   if ((order.total_weight_lbs ?? 0) > 0) summaryParts.push(`Weight: ${order.total_weight_lbs} lbs`);
   if (order.transport_company) summaryParts.push(`Transport: ${order.transport_company}`);
 
+  const photos = order.pallet_photos ?? [];
+  const photosHtml = photos.length
+    ? `<div class="block"><h2>Photos</h2><div class="photos">${photos
+        .map((url) => `<img src="${esc(url)}" alt="" />`)
+        .join('')}</div></div>`
+    : '';
+
   const rows = (order.items ?? [])
     .map((item) => {
       const qty = item.pickingQty ?? 0;
@@ -73,6 +80,8 @@ export function printOrderDetail(order: OrderRow, opts: { bikes: number; parts: 
     `<div><strong>Order date:</strong> ${esc(formatDate(order.source_order_date))}</div>`,
     `<div><strong>Completed:</strong> ${esc(formatDateTime(order.updated_at))}</div>`,
   ];
+  if (order.load_number)
+    metaRows.push(`<div><strong>Load #:</strong> ${esc(order.load_number)}</div>`);
   if (order.user?.full_name)
     metaRows.push(`<div><strong>Picked by:</strong> ${esc(order.user.full_name)}</div>`);
   if (order.checker?.full_name)
@@ -104,6 +113,8 @@ export function printOrderDetail(order: OrderRow, opts: { bikes: number; parts: 
     th { border-bottom: 2px solid #000; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; }
     .qty { text-align: right; width: 48px; font-variant-numeric: tabular-nums; }
     .mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
+    .photos { display: flex; flex-wrap: wrap; gap: 8px; }
+    .photos img { width: 180px; height: 180px; object-fit: cover; border: 1px solid #ccc; }
     @media print {
       body { margin: 0; }
       @page { margin: 16mm; }
@@ -149,10 +160,26 @@ export function printOrderDetail(order: OrderRow, opts: { bikes: number; parts: 
       ${rows}
     </tbody>
   </table>
+
+  ${photosHtml}
+
+  <script>
+    (function () {
+      function go() { try { window.focus(); } catch (e) {} window.print(); }
+      var imgs = document.images;
+      if (!imgs || imgs.length === 0) { window.addEventListener('load', go); return; }
+      var remaining = imgs.length;
+      function done() { if (--remaining <= 0) go(); }
+      for (var i = 0; i < imgs.length; i++) {
+        var im = imgs[i];
+        if (im.complete) { done(); }
+        else { im.addEventListener('load', done); im.addEventListener('error', done); }
+      }
+    })();
+  </script>
 </body>
 </html>`;
 
   win.document.write(html);
   win.document.close();
-  win.print();
 }
