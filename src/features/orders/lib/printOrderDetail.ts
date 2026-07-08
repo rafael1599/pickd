@@ -55,14 +55,8 @@ export function printOrderDetail(order: OrderRow, opts: { bikes: number; parts: 
   // Transport: prefer the carrier logo (absolute URL — a new window has no base
   // URL to resolve a root-relative path). Falls back to the plain name.
   const logoPath = transportLogoSrc(order.transport_company);
-  const transportHtml = order.transport_company
-    ? logoPath
-      ? `<img class="tlogo" src="${esc(window.location.origin + logoPath)}" alt="${esc(order.transport_company)}" />`
-      : `Transport: ${esc(order.transport_company)}`
-    : '';
 
   const summaryPieces = summaryParts.map(esc);
-  if (transportHtml) summaryPieces.push(transportHtml);
   const summaryHtml = summaryPieces.length
     ? `<div class="summary">${summaryPieces.join('  •  ')}</div>`
     : '';
@@ -127,6 +121,9 @@ export function printOrderDetail(order: OrderRow, opts: { bikes: number; parts: 
     .details h2 { margin-top: 0; }
     .summary { font-weight: bold; margin: 8px 0 4px; }
     .summary .tlogo { height: 22px; vertical-align: middle; }
+    .carrier-logo { display: flex; align-items: center; justify-content: center; align-self: center; flex: 1; text-align: center; }
+    .pdf-tlogo { height: 80px; width: auto; object-fit: contain; }
+    .carrier-logo.text-fallback { font-size: 24px; font-weight: bold; text-transform: uppercase; color: #333; }
     .notes { border: 1px solid #000; padding: 8px 10px; white-space: pre-wrap; }
     table { width: 100%; border-collapse: collapse; margin-top: 6px; }
     th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ccc; vertical-align: top; }
@@ -152,6 +149,18 @@ export function printOrderDetail(order: OrderRow, opts: { bikes: number; parts: 
       ${cityLine ? `<div>${esc(cityLine)}</div>` : ''}
       ${order.customer?.phone ? `<div>${esc(order.customer.phone)}</div>` : ''}
     </div>
+
+    ${
+      order.transport_company
+        ? logoPath
+          ? `<div class="block carrier-logo">
+            <img class="pdf-tlogo" src="${esc(window.location.origin + logoPath)}" alt="${esc(order.transport_company)}" />
+           </div>`
+          : `<div class="block carrier-logo text-fallback">
+            <span>${esc(order.transport_company)}</span>
+           </div>`
+        : '<div class="block carrier-logo"></div>'
+    }
 
     <div class="block details">
       <h2>Details</h2>

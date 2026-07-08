@@ -99,10 +99,8 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
         </h2>
         {/* Carrier logo — large, prominent display below order number */}
         {transportCompany && (
-          <div className="mt-3 flex justify-center">
-            <div className="bg-white rounded-2xl px-8 py-4 shadow-sm inline-flex items-center justify-center">
-              <TransportLogo company={transportCompany} height={52} plain />
-            </div>
+          <div className="mt-4 flex justify-center">
+            <TransportLogo company={transportCompany} height={120} plain />
           </div>
         )}
         {completedAt && (

@@ -188,7 +188,7 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
             {/* Column 2: Carrier logo — transparent, no white background or borders */}
             {order.transport_company && (
               <div className="w-full sm:w-1/3 flex items-center justify-start sm:justify-center self-center shrink-0">
-                <TransportLogo company={order.transport_company} height={40} plain />
+                <TransportLogo company={order.transport_company} height={120} plain />
               </div>
             )}
 
