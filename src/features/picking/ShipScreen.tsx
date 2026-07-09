@@ -301,9 +301,16 @@ export const ShipScreen = () => {
     null
   );
 
+  // Full-screen spinner ONLY on the very first load. Refetches triggered by
+  // realtime events or the field auto-save must be silent: flipping `loading`
+  // replaces the whole screen with the spinner, which unmounts the card and
+  // kicks the user out of whatever field they were editing — with warehouse
+  // activity streaming in, that felt like the page "refreshing every second".
+  const hasLoadedOnceRef = useRef(false);
+
   const fetchOrders = useCallback(async () => {
     if (!user) return;
-    setLoading(true);
+    if (!hasLoadedOnceRef.current) setLoading(true);
     try {
       let query = supabase
         .from('picking_lists')
@@ -366,6 +373,7 @@ export const ShipScreen = () => {
       console.error('Error fetching orders:', err);
       toast.error('Failed to load orders');
     } finally {
+      hasLoadedOnceRef.current = true;
       setLoading(false);
     }
   }, [user, timeFilter, externalOrderId]); // Include externalOrderId here to ensure consistency
@@ -373,7 +381,11 @@ export const ShipScreen = () => {
   useEffect(() => {
     fetchOrders();
 
-    // Subscribe to changes in picking lists to keep the UI in sync
+    // Subscribe to changes in picking lists to keep the UI in sync.
+    // Events are coalesced with a short debounce: active picking sessions
+    // update picking_lists on every scanned item, and refetching on each
+    // event hammers the network for no visual gain.
+    let refetchTimeout: NodeJS.Timeout | null = null;
     const channel = supabase
       .channel('orders_realtime_sync')
       .on(
@@ -385,7 +397,10 @@ export const ShipScreen = () => {
         },
         (payload) => {
           console.log('🔄 [OrdersScreen] Realtime update received:', payload.eventType);
-          fetchOrders();
+          if (refetchTimeout) clearTimeout(refetchTimeout);
+          refetchTimeout = setTimeout(() => {
+            fetchOrders();
+          }, 500);
         }
       )
       .subscribe((status) => {
@@ -393,6 +408,7 @@ export const ShipScreen = () => {
       });
 
     return () => {
+      if (refetchTimeout) clearTimeout(refetchTimeout);
       supabase.removeChannel(channel);
     };
   }, [fetchOrders]);
