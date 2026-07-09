@@ -9,6 +9,7 @@ import Truck from 'lucide-react/dist/esm/icons/truck';
 import Wand2 from 'lucide-react/dist/esm/icons/wand-2';
 import Copy from 'lucide-react/dist/esm/icons/copy';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { CustomerAutocomplete } from '../../features/picking/components/CustomerAutocomplete';
 import { usePickingSession } from '../../context/PickingContext';
@@ -115,10 +116,22 @@ const StatField: React.FC<{
   editing: boolean;
   onEdit: () => void;
   onChange: (v: string) => void;
+  onBlur?: () => void;
   editRef?: React.Ref<HTMLDivElement>;
   colorClass: string;
   min?: string;
-}> = ({ label, value, placeholder, editing, onEdit, onChange, editRef, colorClass, min = '0' }) => (
+}> = ({
+  label,
+  value,
+  placeholder,
+  editing,
+  onEdit,
+  onChange,
+  onBlur,
+  editRef,
+  colorClass,
+  min = '0',
+}) => (
   <div ref={editRef} className="flex flex-col gap-1">
     {editing ? (
       <input
@@ -127,6 +140,7 @@ const StatField: React.FC<{
         min={min}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
         placeholder={placeholder}
         className={`w-20 bg-main border border-subtle rounded-2xl py-2 text-center font-heading text-2xl font-bold ${colorClass} ios-transition focus:border-current shadow-sm focus:bg-surface`}
       />
@@ -160,7 +174,6 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   takeOverOrder,
   onRefresh,
   onDelete,
-  onShowPickingSummary,
   onSplitOrder,
   onReopenOrder,
   onRestoreOrder,
@@ -174,15 +187,16 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [isUpdatingCarrier, setIsUpdatingCarrier] = useState(false);
   const editRef = useRef<HTMLDivElement>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { deleteList } = usePickingSession();
   const { showConfirmation } = useConfirmation();
+  const navigate = useNavigate();
 
   const { addresses } = useCustomerAddresses(selectedCustomerId);
 
   // Close whichever field is being edited when the selected order changes,
   // so switching orders in the list never leaves a stale field open.
   useEffect(() => {
-     
     setEditingField(null);
   }, [selectedOrder?.id]);
 
@@ -244,6 +258,42 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
     },
     [showAddressDropdown, filteredAddresses, highlightedIndex, selectAddress]
   );
+
+  // Auto-save form changes to DB with debounce
+  const handleAutoSave = useCallback(async () => {
+    try {
+      const palletsNum = parseInt(formData.pallets, 10) || 1;
+      const unitsNum = parseInt(formData.bikes, 10) + parseInt(formData.parts, 10) || 0;
+      const weightNum = formData.weight.trim() ? parseFloat(formData.weight) : null;
+
+      await supabase
+        .from('picking_lists')
+        .update({
+          pallets_qty: palletsNum,
+          total_units: unitsNum,
+          total_weight_lbs: weightNum,
+          load_number: formData.loadNumber || null,
+          transport_company: formData.transportCompany || null,
+        })
+        .eq('id', selectedOrder.id);
+    } catch (err) {
+      console.error('Auto-save failed:', err);
+    }
+  }, [formData, selectedOrder.id]);
+
+  // Debounced auto-save on blur
+  const triggerAutoSave = useCallback(() => {
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      handleAutoSave();
+    }, 500); // 500ms delay before saving
+  }, [handleAutoSave]);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, []);
 
   if (!selectedOrder) return null;
 
@@ -482,6 +532,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
               type="text"
               value={formData.city}
               onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+              onBlur={triggerAutoSave}
               placeholder="City..."
               className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 text-base text-content ios-transition font-medium focus:border-accent focus:bg-surface shadow-sm"
             />
@@ -492,6 +543,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 maxLength={2}
                 value={formData.state}
                 onChange={(e) => setFormData({ ...formData, state: e.target.value.toUpperCase() })}
+                onBlur={triggerAutoSave}
                 placeholder="CA"
                 className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 text-base text-content ios-transition font-medium text-center focus:border-accent focus:bg-surface shadow-sm"
               />
@@ -499,6 +551,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 type="text"
                 value={formData.zip}
                 onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
+                onBlur={triggerAutoSave}
                 placeholder="00000"
                 className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 text-base text-content ios-transition font-medium focus:border-accent focus:bg-surface shadow-sm"
               />
@@ -534,6 +587,10 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
               onChange={(e) =>
                 setFormData({ ...formData, loadNumber: e.target.value.toUpperCase() })
               }
+              onBlur={() => {
+                setEditingField(null);
+                triggerAutoSave();
+              }}
               placeholder="E.G. 127035968"
               className="bg-main border border-subtle rounded-2xl px-4 py-2 text-sm font-bold text-content ios-transition focus:border-accent focus:bg-surface shadow-sm w-48"
             />
@@ -587,6 +644,10 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           editing={editingField === 'pallets'}
           onEdit={() => setEditingField('pallets')}
           onChange={(v) => setFormData({ ...formData, pallets: v })}
+          onBlur={() => {
+            setEditingField(null);
+            triggerAutoSave();
+          }}
           editRef={editingField === 'pallets' ? editRef : undefined}
           colorClass="text-[#22c55e]"
           min="1"
@@ -598,6 +659,10 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           editing={editingField === 'bikes'}
           onEdit={() => setEditingField('bikes')}
           onChange={(v) => setFormData({ ...formData, bikes: v })}
+          onBlur={() => {
+            setEditingField(null);
+            triggerAutoSave();
+          }}
           editRef={editingField === 'bikes' ? editRef : undefined}
           colorClass="text-blue-400"
         />
@@ -608,6 +673,10 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           editing={editingField === 'parts'}
           onEdit={() => setEditingField('parts')}
           onChange={(v) => setFormData({ ...formData, parts: v })}
+          onBlur={() => {
+            setEditingField(null);
+            triggerAutoSave();
+          }}
           editRef={editingField === 'parts' ? editRef : undefined}
           colorClass="text-orange-400"
         />
@@ -619,6 +688,10 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
             editing={editingField === 'weight'}
             onEdit={() => setEditingField('weight')}
             onChange={(v) => setFormData({ ...formData, weight: v })}
+            onBlur={() => {
+              setEditingField(null);
+              triggerAutoSave();
+            }}
             editRef={editingField === 'weight' ? editRef : undefined}
             colorClass="text-purple-400"
           />
@@ -666,7 +739,10 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
       {/* Action buttons */}
       <div className="flex flex-col sm:flex-row flex-wrap gap-3 pt-2">
         <button
-          onClick={onShowPickingSummary}
+          onClick={() => {
+            // Navigate to Orders board and search for this order
+            navigate('/orders', { state: { searchQuery: selectedOrder.order_number } });
+          }}
           className="flex-1 min-w-[160px] flex items-center justify-center gap-2 h-12 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-2xl text-[10px] font-black uppercase tracking-widest text-blue-500 transition-all active:scale-95"
         >
           <span>Picking Summary</span>
