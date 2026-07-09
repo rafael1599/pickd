@@ -12,7 +12,6 @@ import Check from 'lucide-react/dist/esm/icons/check';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { saveCustomerAddress } from '../../lib/customerAddresses';
 import { CustomerAutocomplete } from '../../features/picking/components/CustomerAutocomplete';
 import { usePickingSession } from '../../context/PickingContext';
 import { useConfirmation } from '../../context/ConfirmationContext';
@@ -64,6 +63,15 @@ interface ShipOrderCardProps {
   takeOverOrder: (id: string) => Promise<void>;
   onRefresh: () => void;
   onDelete: () => void;
+  /** Persist the current form to the DB. Owned by ShipScreen so the auto-save
+   *  writes to the exact same places as the print flow. `overrides` patches
+   *  the form for values that were just set in the same tick (React state
+   *  hasn't flushed yet); `pickedCustomerId` links an existing customer
+   *  chosen from the autocomplete. Resolves true when the save succeeded. */
+  onAutoSave: (
+    overrides?: Partial<OrderFormData>,
+    pickedCustomerId?: string | null
+  ) => Promise<boolean>;
   onShowPickingSummary?: () => void;
   onSplitOrder?: () => void;
   onReopenOrder?: () => void;
@@ -190,6 +198,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   takeOverOrder,
   onRefresh,
   onDelete,
+  onAutoSave,
   onSplitOrder,
   onReopenOrder,
   onRestoreOrder,
@@ -204,13 +213,32 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   const [isUpdatingCarrier, setIsUpdatingCarrier] = useState(false);
   const [justSavedField, setJustSavedField] = useState<string | null>(null);
   const editRef = useRef<HTMLDivElement>(null);
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const clearSaveRef = useRef<NodeJS.Timeout | null>(null);
   const { deleteList } = usePickingSession();
   const { showConfirmation } = useConfirmation();
   const navigate = useNavigate();
 
   const { addresses } = useCustomerAddresses(selectedCustomerId);
+
+  // Persist via the parent (same code path as the print flow), then flash a
+  // green check next to the saved field for a couple of seconds.
+  const saveField = useCallback(
+    async (field: string, overrides?: Partial<OrderFormData>, pickedCustomerId?: string | null) => {
+      const ok = await onAutoSave(overrides, pickedCustomerId);
+      if (ok) {
+        setJustSavedField(field);
+        if (clearSaveRef.current) clearTimeout(clearSaveRef.current);
+        clearSaveRef.current = setTimeout(() => setJustSavedField(null), 2000);
+      }
+    },
+    [onAutoSave]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (clearSaveRef.current) clearTimeout(clearSaveRef.current);
+    };
+  }, []);
 
   // Close whichever field is being edited when the selected order changes,
   // so switching orders in the list never leaves a stale field open.
@@ -220,17 +248,24 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
 
   // Close the active field on outside click — same pattern already used
   // elsewhere in this app for dropdowns (mousedown so it fires before the
-  // click that opens a different field).
+  // click that opens a different field). The save MUST be triggered here,
+  // not only on the inputs' onBlur: closing the editor unmounts the input
+  // before the browser dispatches blur, so onBlur alone silently misses the
+  // most common gesture (click elsewhere after typing).
   useEffect(() => {
     if (!editingField) return;
+    const field = editingField;
     const handler = (e: MouseEvent) => {
       if (editRef.current && !editRef.current.contains(e.target as Node)) {
         setEditingField(null);
+        // 'customer' is the exception: a half-typed name must not rename or
+        // spawn a customer record — it only saves via autocomplete selection.
+        if (field !== 'customer') void saveField(field);
       }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [editingField]);
+  }, [editingField, saveField]);
 
   const filteredAddresses = addresses.filter((addr) => {
     if (!formData.street.trim()) return true;
@@ -244,18 +279,19 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
 
   const selectAddress = useCallback(
     (addr: CustomerAddress) => {
-      setFormData({
-        ...formData,
+      const patch = {
         street: addr.street,
         city: addr.city || '',
         state: addr.state || '',
         zip: addr.zip_code || '',
-      });
+      };
+      setFormData({ ...formData, ...patch });
       setShowAddressDropdown(false);
       setHighlightedIndex(-1);
       setEditingField(null);
+      void saveField('address', patch);
     },
-    [formData, setFormData]
+    [formData, setFormData, saveField]
   );
 
   const handleAddressKeyDown = useCallback(
@@ -276,89 +312,6 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
     },
     [showAddressDropdown, filteredAddresses, highlightedIndex, selectAddress]
   );
-
-  // Auto-save form changes to DB with debounce
-  const handleAutoSave = useCallback(
-    async (fieldName?: string) => {
-      try {
-        const palletsNum = parseInt(formData.pallets, 10) || 1;
-        const unitsNum = parseInt(formData.bikes, 10) + parseInt(formData.parts, 10) || 0;
-        const weightNum = formData.weight.trim() ? parseFloat(formData.weight) : null;
-
-        // Save picking_lists fields
-        const { error: plError } = await supabase
-          .from('picking_lists')
-          .update({
-            pallets_qty: palletsNum,
-            total_units: unitsNum,
-            total_weight_lbs: weightNum,
-            load_number: formData.loadNumber || null,
-            transport_company: formData.transportCompany || null,
-          })
-          .eq('id', selectedOrder.id);
-
-        if (plError) throw plError;
-
-        // Save customer name if changed
-        if (selectedCustomerId && formData.customerName.trim()) {
-          const { error: custError } = await supabase
-            .from('customers')
-            .update({ name: formData.customerName })
-            .eq('id', selectedCustomerId);
-
-          if (custError) console.error('Failed to update customer name:', custError);
-        }
-
-        // Save address if any address field changed and customer exists
-        if (
-          selectedCustomerId &&
-          (formData.street.trim() ||
-            formData.city.trim() ||
-            formData.state.trim() ||
-            formData.zip.trim())
-        ) {
-          await saveCustomerAddress({
-            customerId: selectedCustomerId,
-            street: formData.street,
-            city: formData.city,
-            state: formData.state,
-            zip: formData.zip,
-          });
-        }
-
-        // Show success feedback
-        if (fieldName) {
-          setJustSavedField(fieldName);
-          if (clearSaveRef.current) clearTimeout(clearSaveRef.current);
-          clearSaveRef.current = setTimeout(() => {
-            setJustSavedField(null);
-          }, 2000);
-        }
-      } catch (err) {
-        console.error('Auto-save failed:', err);
-        toast.error('Failed to save changes');
-      }
-    },
-    [formData, selectedOrder.id, selectedCustomerId]
-  );
-
-  // Debounced auto-save on blur
-  const triggerAutoSave = useCallback(
-    (fieldName?: string) => {
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-      saveTimeoutRef.current = setTimeout(() => {
-        handleAutoSave(fieldName);
-      }, 500); // 500ms delay before saving
-    },
-    [handleAutoSave]
-  );
-
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-      if (clearSaveRef.current) clearTimeout(clearSaveRef.current);
-    };
-  }, []);
 
   if (!selectedOrder) return null;
 
@@ -394,6 +347,9 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
       transportCompany: newCompany,
     });
     setEditingField(null);
+    // Persist immediately with the new value as an override — formData in
+    // this closure still holds the previous carrier.
+    void saveField('transport', { transportCompany: newCompany });
 
     // If selecting FEDEX, update order_group to fedex type
     // If deselecting FEDEX or selecting another, clear the order_group
@@ -497,18 +453,20 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
               value={formData.customerName ? ({ name: formData.customerName } as Customer) : null}
               onChange={(customer) => {
                 if (customer) {
-                  setFormData({
-                    ...formData,
+                  const patch = {
                     customerName: customer.name,
                     street: customer.street || formData.street,
                     city: customer.city || formData.city,
                     state: customer.state || formData.state,
                     zip: customer.zip_code || formData.zip,
-                  });
-                  setSelectedCustomerId(customer.id || null);
+                  };
+                  setFormData({ ...formData, ...patch });
                   if (customer.id) {
                     setEditingField(null);
-                    triggerAutoSave('customer');
+                    // Pass the patch + picked id explicitly: React state
+                    // hasn't flushed yet, and the id links the existing
+                    // customer instead of cloning it as a new one.
+                    void saveField('customer', patch, customer.id);
                   }
                 } else {
                   setFormData({ ...formData, customerName: '' });
@@ -548,7 +506,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 type="text"
                 value={formData.street}
                 onChange={(e) => handleStreetChange(e.target.value)}
-                onBlur={() => triggerAutoSave('street')}
+                onBlur={() => void saveField('street')}
                 onFocus={() => {
                   if (addresses.length > 0) {
                     setShowAddressDropdown(true);
@@ -605,7 +563,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
               type="text"
               value={formData.city}
               onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-              onBlur={() => triggerAutoSave('city')}
+              onBlur={() => void saveField('city')}
               placeholder="City..."
               className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 text-base text-content ios-transition font-medium focus:border-accent focus:bg-surface shadow-sm"
             />
@@ -616,7 +574,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 maxLength={2}
                 value={formData.state}
                 onChange={(e) => setFormData({ ...formData, state: e.target.value.toUpperCase() })}
-                onBlur={() => triggerAutoSave('state')}
+                onBlur={() => void saveField('state')}
                 placeholder="CA"
                 className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 text-base text-content ios-transition font-medium text-center focus:border-accent focus:bg-surface shadow-sm"
               />
@@ -624,7 +582,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 type="text"
                 value={formData.zip}
                 onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
-                onBlur={() => triggerAutoSave('zip')}
+                onBlur={() => void saveField('zip')}
                 placeholder="00000"
                 className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 text-base text-content ios-transition font-medium focus:border-accent focus:bg-surface shadow-sm"
               />
@@ -646,7 +604,8 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 )}
               </span>
             </button>
-            {(justSavedField === 'street' ||
+            {(justSavedField === 'address' ||
+              justSavedField === 'street' ||
               justSavedField === 'city' ||
               justSavedField === 'state' ||
               justSavedField === 'zip') && <SaveCheckmark show={true} />}
@@ -668,7 +627,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
               }
               onBlur={() => {
                 setEditingField(null);
-                triggerAutoSave('load');
+                void saveField('load');
               }}
               placeholder="E.G. 127035968"
               className="bg-main border border-subtle rounded-2xl px-4 py-2 text-sm font-bold text-content ios-transition focus:border-accent focus:bg-surface shadow-sm w-48"
@@ -731,7 +690,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           onChange={(v) => setFormData({ ...formData, pallets: v })}
           onBlur={() => {
             setEditingField(null);
-            triggerAutoSave('pallets');
+            void saveField('pallets');
           }}
           editRef={editingField === 'pallets' ? editRef : undefined}
           colorClass="text-[#22c55e]"
@@ -747,7 +706,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           onChange={(v) => setFormData({ ...formData, bikes: v })}
           onBlur={() => {
             setEditingField(null);
-            triggerAutoSave('bikes');
+            void saveField('bikes');
           }}
           editRef={editingField === 'bikes' ? editRef : undefined}
           colorClass="text-blue-400"
@@ -762,7 +721,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           onChange={(v) => setFormData({ ...formData, parts: v })}
           onBlur={() => {
             setEditingField(null);
-            triggerAutoSave('parts');
+            void saveField('parts');
           }}
           editRef={editingField === 'parts' ? editRef : undefined}
           colorClass="text-orange-400"
@@ -778,7 +737,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
             onChange={(v) => setFormData({ ...formData, weight: v })}
             onBlur={() => {
               setEditingField(null);
-              triggerAutoSave('weight');
+              void saveField('weight');
             }}
             editRef={editingField === 'weight' ? editRef : undefined}
             colorClass="text-purple-400"

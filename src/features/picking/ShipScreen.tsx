@@ -276,9 +276,6 @@ export const ShipScreen = () => {
   const bikeCount = formData.bikes !== '' ? parseInt(formData.bikes, 10) || 0 : autoBikeCount;
   const partCount = formData.parts !== '' ? parseInt(formData.parts, 10) || 0 : autoPartCount;
 
-  // Total units always derived from bikes + parts
-  const totalUnits = bikeCount + partCount;
-
   // Parts SKUs with their weights (for inline editor)
   const partsWithWeights = useMemo(() => {
     const items = selectedOrder?.items;
@@ -570,12 +567,173 @@ export const ShipScreen = () => {
     };
   }, [filteredOrders, selectedOrder]);
 
+  /**
+   * Persist the current form (with optional per-call overrides) to the DB.
+   * Shared by the print flow AND the per-field auto-save in ShipOrderCard,
+   * so both write to the same places: the `customers` row (name + address —
+   * this is what the form reads back on reload), the `customer_addresses`
+   * history, and the `picking_lists` row (pallets, units, weight, load,
+   * carrier, customer link).
+   *
+   * `pickedCustomerId` is set when the user selected an existing customer
+   * from the autocomplete — we link it as-is instead of running the
+   * changed-name/changed-address heuristics (which would otherwise clone it
+   * as a "new" customer).
+   *
+   * Returns true when everything saved, false otherwise (already toasted).
+   */
+  const persistOrderDetails = async (
+    overrides: Partial<typeof formData> = {},
+    pickedCustomerId?: string | null
+  ): Promise<boolean> => {
+    if (!selectedOrder) return false;
+    const fd = { ...formData, ...overrides };
+
+    const palletsNum = parseInt(fd.pallets, 10) || 1;
+    const bikes = fd.bikes !== '' ? parseInt(fd.bikes, 10) || 0 : autoBikeCount;
+    const parts = fd.parts !== '' ? parseInt(fd.parts, 10) || 0 : autoPartCount;
+    const unitsNum = bikes + parts;
+    const manualWeight = fd.weight.trim() === '' ? NaN : parseFloat(fd.weight);
+    const weightNum =
+      !Number.isNaN(manualWeight) && manualWeight >= 0 ? Math.round(manualWeight) : totalWeight;
+
+    try {
+      let finalCustomerId = selectedCustomerId;
+
+      if (pickedCustomerId !== undefined) {
+        // Existing customer chosen from the autocomplete — link directly,
+        // don't mutate its record with the heuristics below.
+        finalCustomerId = pickedCustomerId;
+      } else {
+        // Logic to determine if we Update Existing, Create New, or Unlink
+        if (finalCustomerId && originalCustomerParams) {
+          const nameChanged = fd.customerName.trim() !== originalCustomerParams.name.trim();
+          const addressChanged =
+            fd.street.trim() !== (originalCustomerParams.street || '').trim() ||
+            fd.city.trim() !== (originalCustomerParams.city || '').trim() ||
+            fd.state.trim() !== (originalCustomerParams.state || '').trim() ||
+            fd.zip.trim() !== (originalCustomerParams.zip_code || '').trim();
+
+          if (nameChanged && addressChanged) {
+            // Both changed -> Treat as NEW Customer
+            finalCustomerId = null; // Will trigger create below
+          }
+        }
+
+        // Create New Customer if needed
+        if (!finalCustomerId && fd.customerName.trim()) {
+          const { data: newCust, error: createError } = await supabase
+            .from('customers')
+            .insert({
+              name: fd.customerName,
+              street: fd.street,
+              city: fd.city,
+              state: fd.state,
+              zip_code: fd.zip,
+            })
+            .select()
+            .single();
+
+          if (createError) throw createError;
+          finalCustomerId = newCust.id;
+        } else if (finalCustomerId) {
+          // Update existing customer record (Reflecting "Moved" or "Renamed")
+          const { error: updateError } = await supabase
+            .from('customers')
+            .update({
+              name: fd.customerName,
+              street: fd.street,
+              city: fd.city,
+              state: fd.state,
+              zip_code: fd.zip,
+            })
+            .eq('id', finalCustomerId);
+
+          if (updateError) console.error('Failed to update customer record:', updateError);
+        }
+      }
+
+      // Auto-save address to customer_addresses (idea-012)
+      if (finalCustomerId && fd.street.trim()) {
+        saveCustomerAddress({
+          customerId: finalCustomerId,
+          street: fd.street,
+          city: fd.city,
+          state: fd.state,
+          zip: fd.zip,
+        }).catch(() => {}); // Silent — non-blocking
+      }
+
+      // Update Picking List
+      const { error: orderError } = await supabase
+        .from('picking_lists')
+        .update({
+          pallets_qty: palletsNum,
+          total_units: unitsNum,
+          total_weight_lbs: weightNum || null,
+          load_number: fd.loadNumber || null,
+          transport_company: fd.transportCompany || null,
+          customer_id: finalCustomerId, // Link to the customer (new or existing)
+        })
+        .eq('id', selectedOrder.id);
+
+      if (orderError) {
+        // Handle Unique Constraint Violation for Load Number
+        if (orderError.code === '23505' && orderError.message.includes('load_number')) {
+          toast.error(`Load Number "${fd.loadNumber}" matches another order! Must be unique.`, {
+            duration: 5000,
+          });
+          return false;
+        }
+        throw orderError;
+      }
+
+      // Re-baseline so subsequent per-field saves compare against what's now
+      // in the DB — without this, editing name then address across two saves
+      // would spawn a duplicate customer on every save.
+      setSelectedCustomerId(finalCustomerId);
+      setOriginalCustomerParams({
+        id: finalCustomerId || '',
+        name: fd.customerName,
+        street: fd.street,
+        city: fd.city,
+        state: fd.state,
+        zip_code: fd.zip,
+      });
+
+      // Refresh orders list silently
+      fetchOrders();
+      return true;
+    } catch (error) {
+      console.error('Error saving order details:', error);
+      const err = error as { code?: string };
+      if (err?.code === '23505') {
+        toast.error(`Load Number "${fd.loadNumber}" already exists!`, { duration: 5000 });
+      } else {
+        toast.error('Failed to save changes');
+      }
+      return false;
+    }
+  };
+
+  // Always-fresh ref so the auto-save closures inside ShipOrderCard (and any
+  // debounced/async callers) never persist a stale snapshot of the form.
+  const persistOrderDetailsRef = useRef(persistOrderDetails);
+  useEffect(() => {
+    persistOrderDetailsRef.current = persistOrderDetails;
+  });
+
+  const handleAutoSave = useCallback(
+    (overrides?: Partial<typeof formData>, pickedCustomerId?: string | null) =>
+      persistOrderDetailsRef.current(overrides, pickedCustomerId),
+    []
+  );
+
   const handlePrint = async () => {
     if (!selectedOrder) return;
 
     // Build warnings for missing data
     const palletsNum = parseInt(String(formData.pallets)) || 0;
-    const unitsNum = totalUnits;
 
     if (palletsNum < 1) {
       toast.error('Must have at least 1 Pallet');
@@ -602,97 +760,12 @@ export const ShipScreen = () => {
 
     setIsPrinting(true);
     try {
-      let finalCustomerId = selectedCustomerId;
-
-      // Logic to determine if we Update Existing, Create New, or Unlink
-      if (finalCustomerId && originalCustomerParams) {
-        const nameChanged = formData.customerName.trim() !== originalCustomerParams.name.trim();
-        const addressChanged =
-          formData.street.trim() !== (originalCustomerParams.street || '').trim() ||
-          formData.city.trim() !== (originalCustomerParams.city || '').trim() ||
-          formData.state.trim() !== (originalCustomerParams.state || '').trim() ||
-          formData.zip.trim() !== (originalCustomerParams.zip_code || '').trim();
-
-        if (nameChanged && addressChanged) {
-          // Both changed -> Treat as NEW Customer
-          finalCustomerId = null; // Will trigger create below
-        } else if (nameChanged || addressChanged) {
-          // Only one changed -> Update Existing Customer
-          // Standard update logic will handle this below
-        }
+      const saved = await persistOrderDetails();
+      if (!saved) {
+        setIsPrinting(false);
+        return;
       }
 
-      // Create New Customer if needed
-      if (!finalCustomerId && formData.customerName.trim()) {
-        const { data: newCust, error: createError } = await supabase
-          .from('customers')
-          .insert({
-            name: formData.customerName,
-            street: formData.street,
-            city: formData.city,
-            state: formData.state,
-            zip_code: formData.zip,
-          })
-          .select()
-          .single();
-
-        if (createError) throw createError;
-        finalCustomerId = newCust.id;
-      } else if (finalCustomerId) {
-        // Update existing customer record (Reflecting "Moved" or "Renamed")
-        const { error: updateError } = await supabase
-          .from('customers')
-          .update({
-            name: formData.customerName,
-            street: formData.street,
-            city: formData.city,
-            state: formData.state,
-            zip_code: formData.zip,
-          })
-          .eq('id', finalCustomerId);
-
-        if (updateError) console.error('Failed to update customer record:', updateError);
-      }
-
-      // Auto-save address to customer_addresses (idea-012)
-      if (finalCustomerId && formData.street.trim()) {
-        saveCustomerAddress({
-          customerId: finalCustomerId,
-          street: formData.street,
-          city: formData.city,
-          state: formData.state,
-          zip: formData.zip,
-        }).catch(() => {}); // Silent — non-blocking
-      }
-
-      // Update Picking List
-      const { error: orderError } = await supabase
-        .from('picking_lists')
-        .update({
-          pallets_qty: palletsNum,
-          total_units: unitsNum,
-          total_weight_lbs: effectiveWeight || null,
-          load_number: formData.loadNumber || null,
-          transport_company: formData.transportCompany || null,
-          customer_id: finalCustomerId, // Link to the customer (new or existing)
-        })
-        .eq('id', selectedOrder.id);
-
-      if (orderError) {
-        // Handle Unique Constraint Violation for Load Number
-        if (orderError.code === '23505' && orderError.message.includes('load_number')) {
-          toast.error(
-            `Load Number "${formData.loadNumber}" matches another order! Must be unique.`,
-            { duration: 5000 }
-          );
-          setIsPrinting(false);
-          return; // Stop execution
-        }
-        throw orderError;
-      }
-
-      // Refresh orders list silently
-      fetchOrders();
       const blobUrl = await generateShipLabel({
         customerName: formData.customerName || null,
         street: formData.street || null,
@@ -924,6 +997,7 @@ export const ShipScreen = () => {
                   user={user}
                   takeOverOrder={takeOverOrder}
                   onRefresh={fetchOrders}
+                  onAutoSave={handleAutoSave}
                   onDelete={() => {
                     if (filteredOrders.length <= 1) {
                       setSelectedOrder(null);
