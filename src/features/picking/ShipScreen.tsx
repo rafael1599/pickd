@@ -23,6 +23,28 @@ import type { PickingListItem, CombineMeta } from '../../schemas/picking.schema'
 import { saveCustomerAddress } from '../../lib/customerAddresses';
 import { ReasonPicker } from './components/ReasonPicker';
 
+function dayKey(date: Date): string {
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+function dayLabel(date: Date): string {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.round((today.getTime() - target.getTime()) / 86_400_000);
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+  if (date.getFullYear() !== now.getFullYear()) opts.year = 'numeric';
+  return date.toLocaleDateString('en-US', opts);
+}
+
+interface DayGroup {
+  key: string;
+  label: string;
+  orders: OrderWithRelations[];
+}
+
 interface CustomerDetails {
   id: string;
   name: string;
@@ -254,9 +276,6 @@ export const ShipScreen = () => {
   const bikeCount = formData.bikes !== '' ? parseInt(formData.bikes, 10) || 0 : autoBikeCount;
   const partCount = formData.parts !== '' ? parseInt(formData.parts, 10) || 0 : autoPartCount;
 
-  // Total units always derived from bikes + parts
-  const totalUnits = bikeCount + partCount;
-
   // Parts SKUs with their weights (for inline editor)
   const partsWithWeights = useMemo(() => {
     const items = selectedOrder?.items;
@@ -282,9 +301,16 @@ export const ShipScreen = () => {
     null
   );
 
+  // Full-screen spinner ONLY on the very first load. Refetches triggered by
+  // realtime events or the field auto-save must be silent: flipping `loading`
+  // replaces the whole screen with the spinner, which unmounts the card and
+  // kicks the user out of whatever field they were editing — with warehouse
+  // activity streaming in, that felt like the page "refreshing every second".
+  const hasLoadedOnceRef = useRef(false);
+
   const fetchOrders = useCallback(async () => {
     if (!user) return;
-    setLoading(true);
+    if (!hasLoadedOnceRef.current) setLoading(true);
     try {
       let query = supabase
         .from('picking_lists')
@@ -347,6 +373,7 @@ export const ShipScreen = () => {
       console.error('Error fetching orders:', err);
       toast.error('Failed to load orders');
     } finally {
+      hasLoadedOnceRef.current = true;
       setLoading(false);
     }
   }, [user, timeFilter, externalOrderId]); // Include externalOrderId here to ensure consistency
@@ -354,7 +381,11 @@ export const ShipScreen = () => {
   useEffect(() => {
     fetchOrders();
 
-    // Subscribe to changes in picking lists to keep the UI in sync
+    // Subscribe to changes in picking lists to keep the UI in sync.
+    // Events are coalesced with a short debounce: active picking sessions
+    // update picking_lists on every scanned item, and refetching on each
+    // event hammers the network for no visual gain.
+    let refetchTimeout: NodeJS.Timeout | null = null;
     const channel = supabase
       .channel('orders_realtime_sync')
       .on(
@@ -366,7 +397,10 @@ export const ShipScreen = () => {
         },
         (payload) => {
           console.log('🔄 [OrdersScreen] Realtime update received:', payload.eventType);
-          fetchOrders();
+          if (refetchTimeout) clearTimeout(refetchTimeout);
+          refetchTimeout = setTimeout(() => {
+            fetchOrders();
+          }, 500);
         }
       )
       .subscribe((status) => {
@@ -374,6 +408,7 @@ export const ShipScreen = () => {
       });
 
     return () => {
+      if (refetchTimeout) clearTimeout(refetchTimeout);
       supabase.removeChannel(channel);
     };
   }, [fetchOrders]);
@@ -483,6 +518,25 @@ export const ShipScreen = () => {
     });
   }, [orders, searchQuery, showFedex]);
 
+  const ordersGroupedByDate = useMemo<DayGroup[]>(() => {
+    const map = new Map<string, DayGroup>();
+    for (const o of filteredOrders) {
+      const d = new Date(o.created_at);
+      const key = Number.isNaN(d.getTime()) ? 'unknown' : dayKey(d);
+      let group = map.get(key);
+      if (!group) {
+        group = {
+          key,
+          label: Number.isNaN(d.getTime()) ? 'Unknown date' : dayLabel(d),
+          orders: [],
+        };
+        map.set(key, group);
+      }
+      group.orders.push(o);
+    }
+    return Array.from(map.values());
+  }, [filteredOrders]);
+
   // Keyboard arrow navigation between orders (placed after filteredOrders is declared)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -529,12 +583,173 @@ export const ShipScreen = () => {
     };
   }, [filteredOrders, selectedOrder]);
 
+  /**
+   * Persist the current form (with optional per-call overrides) to the DB.
+   * Shared by the print flow AND the per-field auto-save in ShipOrderCard,
+   * so both write to the same places: the `customers` row (name + address —
+   * this is what the form reads back on reload), the `customer_addresses`
+   * history, and the `picking_lists` row (pallets, units, weight, load,
+   * carrier, customer link).
+   *
+   * `pickedCustomerId` is set when the user selected an existing customer
+   * from the autocomplete — we link it as-is instead of running the
+   * changed-name/changed-address heuristics (which would otherwise clone it
+   * as a "new" customer).
+   *
+   * Returns true when everything saved, false otherwise (already toasted).
+   */
+  const persistOrderDetails = async (
+    overrides: Partial<typeof formData> = {},
+    pickedCustomerId?: string | null
+  ): Promise<boolean> => {
+    if (!selectedOrder) return false;
+    const fd = { ...formData, ...overrides };
+
+    const palletsNum = parseInt(fd.pallets, 10) || 1;
+    const bikes = fd.bikes !== '' ? parseInt(fd.bikes, 10) || 0 : autoBikeCount;
+    const parts = fd.parts !== '' ? parseInt(fd.parts, 10) || 0 : autoPartCount;
+    const unitsNum = bikes + parts;
+    const manualWeight = fd.weight.trim() === '' ? NaN : parseFloat(fd.weight);
+    const weightNum =
+      !Number.isNaN(manualWeight) && manualWeight >= 0 ? Math.round(manualWeight) : totalWeight;
+
+    try {
+      let finalCustomerId = selectedCustomerId;
+
+      if (pickedCustomerId !== undefined) {
+        // Existing customer chosen from the autocomplete — link directly,
+        // don't mutate its record with the heuristics below.
+        finalCustomerId = pickedCustomerId;
+      } else {
+        // Logic to determine if we Update Existing, Create New, or Unlink
+        if (finalCustomerId && originalCustomerParams) {
+          const nameChanged = fd.customerName.trim() !== originalCustomerParams.name.trim();
+          const addressChanged =
+            fd.street.trim() !== (originalCustomerParams.street || '').trim() ||
+            fd.city.trim() !== (originalCustomerParams.city || '').trim() ||
+            fd.state.trim() !== (originalCustomerParams.state || '').trim() ||
+            fd.zip.trim() !== (originalCustomerParams.zip_code || '').trim();
+
+          if (nameChanged && addressChanged) {
+            // Both changed -> Treat as NEW Customer
+            finalCustomerId = null; // Will trigger create below
+          }
+        }
+
+        // Create New Customer if needed
+        if (!finalCustomerId && fd.customerName.trim()) {
+          const { data: newCust, error: createError } = await supabase
+            .from('customers')
+            .insert({
+              name: fd.customerName,
+              street: fd.street,
+              city: fd.city,
+              state: fd.state,
+              zip_code: fd.zip,
+            })
+            .select()
+            .single();
+
+          if (createError) throw createError;
+          finalCustomerId = newCust.id;
+        } else if (finalCustomerId) {
+          // Update existing customer record (Reflecting "Moved" or "Renamed")
+          const { error: updateError } = await supabase
+            .from('customers')
+            .update({
+              name: fd.customerName,
+              street: fd.street,
+              city: fd.city,
+              state: fd.state,
+              zip_code: fd.zip,
+            })
+            .eq('id', finalCustomerId);
+
+          if (updateError) console.error('Failed to update customer record:', updateError);
+        }
+      }
+
+      // Auto-save address to customer_addresses (idea-012)
+      if (finalCustomerId && fd.street.trim()) {
+        saveCustomerAddress({
+          customerId: finalCustomerId,
+          street: fd.street,
+          city: fd.city,
+          state: fd.state,
+          zip: fd.zip,
+        }).catch(() => {}); // Silent — non-blocking
+      }
+
+      // Update Picking List
+      const { error: orderError } = await supabase
+        .from('picking_lists')
+        .update({
+          pallets_qty: palletsNum,
+          total_units: unitsNum,
+          total_weight_lbs: weightNum || null,
+          load_number: fd.loadNumber || null,
+          transport_company: fd.transportCompany || null,
+          customer_id: finalCustomerId, // Link to the customer (new or existing)
+        })
+        .eq('id', selectedOrder.id);
+
+      if (orderError) {
+        // Handle Unique Constraint Violation for Load Number
+        if (orderError.code === '23505' && orderError.message.includes('load_number')) {
+          toast.error(`Load Number "${fd.loadNumber}" matches another order! Must be unique.`, {
+            duration: 5000,
+          });
+          return false;
+        }
+        throw orderError;
+      }
+
+      // Re-baseline so subsequent per-field saves compare against what's now
+      // in the DB — without this, editing name then address across two saves
+      // would spawn a duplicate customer on every save.
+      setSelectedCustomerId(finalCustomerId);
+      setOriginalCustomerParams({
+        id: finalCustomerId || '',
+        name: fd.customerName,
+        street: fd.street,
+        city: fd.city,
+        state: fd.state,
+        zip_code: fd.zip,
+      });
+
+      // Refresh orders list silently
+      fetchOrders();
+      return true;
+    } catch (error) {
+      console.error('Error saving order details:', error);
+      const err = error as { code?: string };
+      if (err?.code === '23505') {
+        toast.error(`Load Number "${fd.loadNumber}" already exists!`, { duration: 5000 });
+      } else {
+        toast.error('Failed to save changes');
+      }
+      return false;
+    }
+  };
+
+  // Always-fresh ref so the auto-save closures inside ShipOrderCard (and any
+  // debounced/async callers) never persist a stale snapshot of the form.
+  const persistOrderDetailsRef = useRef(persistOrderDetails);
+  useEffect(() => {
+    persistOrderDetailsRef.current = persistOrderDetails;
+  });
+
+  const handleAutoSave = useCallback(
+    (overrides?: Partial<typeof formData>, pickedCustomerId?: string | null) =>
+      persistOrderDetailsRef.current(overrides, pickedCustomerId),
+    []
+  );
+
   const handlePrint = async () => {
     if (!selectedOrder) return;
 
     // Build warnings for missing data
     const palletsNum = parseInt(String(formData.pallets)) || 0;
-    const unitsNum = totalUnits;
 
     if (palletsNum < 1) {
       toast.error('Must have at least 1 Pallet');
@@ -561,97 +776,12 @@ export const ShipScreen = () => {
 
     setIsPrinting(true);
     try {
-      let finalCustomerId = selectedCustomerId;
-
-      // Logic to determine if we Update Existing, Create New, or Unlink
-      if (finalCustomerId && originalCustomerParams) {
-        const nameChanged = formData.customerName.trim() !== originalCustomerParams.name.trim();
-        const addressChanged =
-          formData.street.trim() !== (originalCustomerParams.street || '').trim() ||
-          formData.city.trim() !== (originalCustomerParams.city || '').trim() ||
-          formData.state.trim() !== (originalCustomerParams.state || '').trim() ||
-          formData.zip.trim() !== (originalCustomerParams.zip_code || '').trim();
-
-        if (nameChanged && addressChanged) {
-          // Both changed -> Treat as NEW Customer
-          finalCustomerId = null; // Will trigger create below
-        } else if (nameChanged || addressChanged) {
-          // Only one changed -> Update Existing Customer
-          // Standard update logic will handle this below
-        }
+      const saved = await persistOrderDetails();
+      if (!saved) {
+        setIsPrinting(false);
+        return;
       }
 
-      // Create New Customer if needed
-      if (!finalCustomerId && formData.customerName.trim()) {
-        const { data: newCust, error: createError } = await supabase
-          .from('customers')
-          .insert({
-            name: formData.customerName,
-            street: formData.street,
-            city: formData.city,
-            state: formData.state,
-            zip_code: formData.zip,
-          })
-          .select()
-          .single();
-
-        if (createError) throw createError;
-        finalCustomerId = newCust.id;
-      } else if (finalCustomerId) {
-        // Update existing customer record (Reflecting "Moved" or "Renamed")
-        const { error: updateError } = await supabase
-          .from('customers')
-          .update({
-            name: formData.customerName,
-            street: formData.street,
-            city: formData.city,
-            state: formData.state,
-            zip_code: formData.zip,
-          })
-          .eq('id', finalCustomerId);
-
-        if (updateError) console.error('Failed to update customer record:', updateError);
-      }
-
-      // Auto-save address to customer_addresses (idea-012)
-      if (finalCustomerId && formData.street.trim()) {
-        saveCustomerAddress({
-          customerId: finalCustomerId,
-          street: formData.street,
-          city: formData.city,
-          state: formData.state,
-          zip: formData.zip,
-        }).catch(() => {}); // Silent — non-blocking
-      }
-
-      // Update Picking List
-      const { error: orderError } = await supabase
-        .from('picking_lists')
-        .update({
-          pallets_qty: palletsNum,
-          total_units: unitsNum,
-          total_weight_lbs: effectiveWeight || null,
-          load_number: formData.loadNumber || null,
-          transport_company: formData.transportCompany || null,
-          customer_id: finalCustomerId, // Link to the customer (new or existing)
-        })
-        .eq('id', selectedOrder.id);
-
-      if (orderError) {
-        // Handle Unique Constraint Violation for Load Number
-        if (orderError.code === '23505' && orderError.message.includes('load_number')) {
-          toast.error(
-            `Load Number "${formData.loadNumber}" matches another order! Must be unique.`,
-            { duration: 5000 }
-          );
-          setIsPrinting(false);
-          return; // Stop execution
-        }
-        throw orderError;
-      }
-
-      // Refresh orders list silently
-      fetchOrders();
       const blobUrl = await generateShipLabel({
         customerName: formData.customerName || null,
         street: formData.street || null,
@@ -805,7 +935,7 @@ export const ShipScreen = () => {
         className="flex-1 overflow-y-auto no-scrollbar relative bg-bg-main px-4 md:px-8 pb-32"
       >
         <div className="max-w-6xl mx-auto w-full flex flex-col md:flex-row gap-4 md:gap-6 pt-4 items-start">
-          {/* Vertical order list */}
+          {/* Vertical order list — grouped by date */}
           <div className="w-full md:w-72 shrink-0 md:sticky md:top-0">
             <div className="bg-card border border-subtle rounded-3xl p-3 flex flex-col gap-2">
               <div className="flex items-center justify-between px-2 pb-1">
@@ -815,43 +945,54 @@ export const ShipScreen = () => {
                 <span className="text-[10px] text-muted/40 font-bold">{filteredOrders.length}</span>
               </div>
               <div className="flex flex-col gap-2 max-h-72 md:max-h-[calc(100vh-13rem)] overflow-y-auto no-scrollbar">
-                {filteredOrders.map((order) => {
-                  const isSelected = selectedOrder?.id === order.id;
-                  const isFedex =
-                    (order.order_group as { group_type?: string } | null)?.group_type === 'fedex';
-                  return (
-                    <button
-                      key={order.id}
-                      onClick={() => setSelectedOrder(order)}
-                      className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl text-left transition-all ${
-                        isSelected
-                          ? 'bg-accent/10 border border-accent/30'
-                          : 'bg-surface border border-transparent hover:border-subtle'
-                      }`}
-                    >
-                      <div className="min-w-0 flex flex-col">
-                        <span className="font-mono text-sm font-black text-content flex items-center gap-1 truncate">
-                          {order.combine_meta?.is_combined && (
-                            <span title="Combined order">🔗</span>
-                          )}
-                          #{order.order_number}
-                        </span>
-                        <span className="text-[11px] text-muted truncate max-w-[160px]">
-                          {order.customer?.name || '—'}
-                        </span>
+                {ordersGroupedByDate.length > 0 ? (
+                  <div className="space-y-3">
+                    {ordersGroupedByDate.map((group) => (
+                      <div key={group.key} className="space-y-1.5">
+                        <div className="sticky top-0 z-[1] px-2 py-1 text-[9px] font-black uppercase tracking-widest text-muted/60 bg-card/80 backdrop-blur-sm">
+                          {group.label}
+                        </div>
+                        {group.orders.map((order) => {
+                          const isSelected = selectedOrder?.id === order.id;
+                          const isFedex =
+                            (order.order_group as { group_type?: string } | null)?.group_type ===
+                            'fedex';
+                          return (
+                            <button
+                              key={order.id}
+                              onClick={() => setSelectedOrder(order)}
+                              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl text-left transition-all ${
+                                isSelected
+                                  ? 'bg-accent/10 border border-accent/30'
+                                  : 'bg-surface border border-transparent hover:border-subtle'
+                              }`}
+                            >
+                              <div className="min-w-0 flex flex-col">
+                                <span className="font-mono text-sm font-black text-content flex items-center gap-1 truncate">
+                                  {order.combine_meta?.is_combined && (
+                                    <span title="Combined order">🔗</span>
+                                  )}
+                                  #{order.order_number}
+                                </span>
+                                <span className="text-[11px] text-muted truncate max-w-[160px]">
+                                  {order.customer?.name || '—'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {isFedex && (
+                                  <span className="text-[8px] font-black uppercase tracking-widest text-purple-400 bg-purple-500/10 border border-purple-500/20 rounded-full px-1.5 py-0.5">
+                                    FDX
+                                  </span>
+                                )}
+                                <OrderStatusPill status={order.status} />
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {isFedex && (
-                          <span className="text-[8px] font-black uppercase tracking-widest text-purple-400 bg-purple-500/10 border border-purple-500/20 rounded-full px-1.5 py-0.5">
-                            FDX
-                          </span>
-                        )}
-                        <OrderStatusPill status={order.status} />
-                      </div>
-                    </button>
-                  );
-                })}
-                {filteredOrders.length === 0 && (
+                    ))}
+                  </div>
+                ) : (
                   <p className="text-center text-xs text-muted py-6">No orders found.</p>
                 )}
               </div>
@@ -872,6 +1013,7 @@ export const ShipScreen = () => {
                   user={user}
                   takeOverOrder={takeOverOrder}
                   onRefresh={fetchOrders}
+                  onAutoSave={handleAutoSave}
                   onDelete={() => {
                     if (filteredOrders.length <= 1) {
                       setSelectedOrder(null);
