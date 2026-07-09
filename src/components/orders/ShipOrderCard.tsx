@@ -112,21 +112,25 @@ const CopyButton: React.FC<{ value: string; label: string }> = ({ value, label }
       onClick={handleCopy}
       title={`Copy ${label}`}
       aria-label={`Copy ${label}`}
-      className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-accent hover:bg-accent/10 transition-all active:scale-90"
+      className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-accent hover:bg-accent/10 transition-colors duration-150 active:scale-90"
     >
       <Copy size={13} />
     </button>
   );
 };
 
-const SaveCheckmark: React.FC<{ show: boolean }> = ({ show }) => {
-  if (!show) return null;
-  return (
-    <div className="animate-in fade-in duration-200">
-      <Check size={16} className="text-green-500" />
-    </div>
-  );
-};
+// Fixed-size wrapper always in the layout (opacity toggle, not mount/unmount)
+// so appearing after a save never shifts the neighboring copy button or text.
+const SaveCheckmark: React.FC<{ show: boolean }> = ({ show }) => (
+  <div
+    className={`shrink-0 w-4 h-4 flex items-center justify-center transition-opacity duration-200 ${
+      show ? 'opacity-100' : 'opacity-0'
+    }`}
+    aria-hidden={!show}
+  >
+    <Check size={16} className="text-green-500" />
+  </div>
+);
 
 const StatField: React.FC<{
   label: string;
@@ -163,7 +167,7 @@ const StatField: React.FC<{
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
         placeholder={placeholder}
-        className={`w-20 bg-main border border-subtle rounded-2xl py-2 text-center font-heading text-2xl font-bold ${colorClass} ios-transition focus:border-current shadow-sm focus:bg-surface`}
+        className={`w-20 bg-main border border-subtle rounded-2xl py-2 text-center font-heading text-2xl font-bold ${colorClass} transition-colors duration-150 focus:border-current shadow-sm focus:bg-surface`}
       />
     ) : (
       <div className="flex items-center gap-2">
@@ -515,13 +519,13 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 }}
                 onKeyDown={handleAddressKeyDown}
                 placeholder="Paste full address to auto-fill..."
-                className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 pr-11 text-base text-content ios-transition font-medium focus:border-accent focus:bg-surface shadow-sm"
+                className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 pr-11 text-base text-content transition-colors duration-150 font-medium focus:border-accent focus:bg-surface shadow-sm"
               />
               <button
                 type="button"
                 onClick={() => handleStreetChange(formData.street)}
                 title="Parse address"
-                className="absolute right-2 w-7 h-7 flex items-center justify-center rounded-full text-muted hover:text-accent hover:bg-accent/10 transition-all active:scale-90"
+                className="absolute right-2 w-7 h-7 flex items-center justify-center rounded-full text-muted hover:text-accent hover:bg-accent/10 transition-colors duration-150 active:scale-90"
               >
                 <Wand2 size={14} />
               </button>
@@ -565,7 +569,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
               onChange={(e) => setFormData({ ...formData, city: e.target.value })}
               onBlur={() => void saveField('city')}
               placeholder="City..."
-              className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 text-base text-content ios-transition font-medium focus:border-accent focus:bg-surface shadow-sm"
+              className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 text-base text-content transition-colors duration-150 font-medium focus:border-accent focus:bg-surface shadow-sm"
             />
 
             <div className="grid grid-cols-2 gap-3">
@@ -576,7 +580,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 onChange={(e) => setFormData({ ...formData, state: e.target.value.toUpperCase() })}
                 onBlur={() => void saveField('state')}
                 placeholder="CA"
-                className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 text-base text-content ios-transition font-medium text-center focus:border-accent focus:bg-surface shadow-sm"
+                className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 text-base text-content transition-colors duration-150 font-medium text-center focus:border-accent focus:bg-surface shadow-sm"
               />
               <input
                 type="text"
@@ -584,7 +588,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
                 onBlur={() => void saveField('zip')}
                 placeholder="00000"
-                className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 text-base text-content ios-transition font-medium focus:border-accent focus:bg-surface shadow-sm"
+                className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 text-base text-content transition-colors duration-150 font-medium focus:border-accent focus:bg-surface shadow-sm"
               />
             </div>
           </div>
@@ -604,11 +608,15 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 )}
               </span>
             </button>
-            {(justSavedField === 'address' ||
-              justSavedField === 'street' ||
-              justSavedField === 'city' ||
-              justSavedField === 'state' ||
-              justSavedField === 'zip') && <SaveCheckmark show={true} />}
+            <SaveCheckmark
+              show={
+                justSavedField === 'address' ||
+                justSavedField === 'street' ||
+                justSavedField === 'city' ||
+                justSavedField === 'state' ||
+                justSavedField === 'zip'
+              }
+            />
           </div>
         )}
         <CopyButton value={joinedAddress} label="Address" />
@@ -630,14 +638,14 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 void saveField('load');
               }}
               placeholder="E.G. 127035968"
-              className="bg-main border border-subtle rounded-2xl px-4 py-2 text-sm font-bold text-content ios-transition focus:border-accent focus:bg-surface shadow-sm w-48"
+              className="bg-main border border-subtle rounded-2xl px-4 py-2 text-sm font-bold text-content transition-colors duration-150 focus:border-accent focus:bg-surface shadow-sm w-48"
             />
           ) : (
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setEditingField('load')}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-main border border-subtle text-xs font-black uppercase tracking-widest text-muted hover:text-accent hover:border-accent/40 transition-all"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-main border border-subtle text-xs font-black uppercase tracking-widest text-muted hover:text-accent hover:border-accent/40 transition-colors duration-150"
               >
                 <Hash size={11} /> {formData.loadNumber || 'Load #'}
               </button>
@@ -655,7 +663,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                   type="button"
                   disabled={isUpdatingCarrier}
                   onClick={() => handleCarrierChange(company)}
-                  className={`px-3 py-1.5 rounded-2xl border text-xs font-black uppercase tracking-widest transition-all ${
+                  className={`px-3 py-1.5 rounded-2xl border text-xs font-black uppercase tracking-widest transition-colors duration-150 ${
                     formData.transportCompany === company
                       ? 'bg-accent text-main border-accent ring-2 ring-accent'
                       : 'bg-main text-muted border-subtle hover:border-accent/50 hover:text-content'
@@ -670,7 +678,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
               <button
                 type="button"
                 onClick={() => setEditingField('transport')}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-main border border-subtle text-xs font-black uppercase tracking-widest text-muted hover:text-accent hover:border-accent/40 transition-all"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-main border border-subtle text-xs font-black uppercase tracking-widest text-muted hover:text-accent hover:border-accent/40 transition-colors duration-150"
               >
                 <Truck size={11} /> {formData.transportCompany || 'Carrier'}
               </button>
