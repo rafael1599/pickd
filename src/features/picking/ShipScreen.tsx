@@ -11,9 +11,8 @@ import { usePickingSession } from '../../context/PickingContext.tsx';
 import { useViewMode } from '../../context/ViewModeContext.tsx';
 import Search from 'lucide-react/dist/esm/icons/search';
 import Filter from 'lucide-react/dist/esm/icons/filter';
-import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
-import { OrderChip } from '../../components/orders/OrderChip.tsx';
-import { OrderSidebar } from '../../components/orders/OrderSidebar.tsx';
+import { ShipOrderCard } from '../../components/orders/ShipOrderCard.tsx';
+import { OrderStatusPill } from '../../components/orders/OrderStatusPill.tsx';
 import { FloatingActionButtons } from '../../components/orders/FloatingActionButtons.tsx';
 import { useShipOutSms } from './hooks/useShipOutSms';
 import { withSupabaseRetry } from '../../lib/supabaseRetry';
@@ -73,19 +72,16 @@ export const ShipScreen = () => {
   const [selectedOrder, setSelectedOrder] = useState<OrderWithRelations | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [timeFilter, setTimeFilter] = useState('ALL');
-  const [carrierTab, setCarrierTab] = useState<'regular' | 'fedex'>('regular');
+  const [showFedex, setShowFedex] = useState(false);
   const navigate = useNavigate();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [isMobileOrderListOpen, setIsMobileOrderListOpen] = useState(false);
   const [reopenReasonModal, setReopenReasonModal] = useState(false);
   const [reopenReason, setReopenReason] = useState('');
   const [restoreReasonModal, setRestoreReasonModal] = useState(false);
   const [restoreReason, setRestoreReason] = useState('');
   // Add-On reopen flow (idea-067 Phase 2): after the user picks the reason,
   const filterRef = useRef<HTMLDivElement>(null);
-  const mobileDropdownRef = useRef<HTMLDivElement>(null);
   const searchQueryRef = useRef(searchQuery);
 
   useEffect(() => {
@@ -96,9 +92,6 @@ export const ShipScreen = () => {
     const handleClickOutside = (event: MouseEvent) => {
       if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
         setIsFilterOpen(false);
-      }
-      if (mobileDropdownRef.current && !mobileDropdownRef.current.contains(event.target as Node)) {
-        setIsMobileOrderListOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -118,12 +111,6 @@ export const ShipScreen = () => {
     }
   }, [searchQuery]);
 
-  // Auto-open mobile dropdown when search has a query
-  useEffect(() => {
-    if (searchQuery.trim()) {
-      setIsMobileOrderListOpen(true);
-    }
-  }, [searchQuery]);
   const [isPrinting, setIsPrinting] = useState(false);
   const [pressedKey, setPressedKey] = useState<'left' | 'right' | null>(null);
   const [isShowingPickingSummary, setIsShowingPickingSummary] = useState(false);
@@ -349,9 +336,12 @@ export const ShipScreen = () => {
 
       setOrders(mappedData);
 
-      // Auto-select first order if none selected AND no external jump pending
+      // Auto-select the most recently completed order if none selected AND
+      // no external jump pending — that's the one a picker most likely just
+      // finished and wants to print/verify, not just the latest created row.
       if (mappedData.length > 0 && !selectedOrderRef.current && !externalOrderId) {
-        setSelectedOrder(mappedData[0]);
+        const lastCompleted = mappedData.find((o) => o.status === 'completed');
+        setSelectedOrder(lastCompleted || mappedData[0]);
       }
     } catch (err) {
       console.error('Error fetching orders:', err);
@@ -424,11 +414,11 @@ export const ShipScreen = () => {
   }, [selectedOrder]);
 
   const filteredOrders = useMemo(() => {
-    // 1. Split by carrier tab. FedEx orders live in their own tab; Regular
-    //    tab shows everything that isn't a FedEx-grouped order.
+    // 1. Split by the FedEx checkbox. Checked shows FedEx-grouped orders;
+    //    unchecked shows everything that isn't FedEx.
     const byCarrier = orders.filter((o) => {
       const isFedex = (o.order_group as { group_type?: string } | null)?.group_type === 'fedex';
-      return carrierTab === 'fedex' ? isFedex : !isFedex;
+      return showFedex ? isFedex : !isFedex;
     });
 
     // 2. Collapse 'general' group siblings into a single virtual entry per
@@ -463,7 +453,7 @@ export const ShipScreen = () => {
       collapsed.push({
         ...anchor,
         order_number: combinedOrderNumber || anchor.order_number,
-        // Mark as combined so OrderChip styles it like the watchdog combines.
+        // Mark as combined so the order list badges it like the watchdog combines.
         combine_meta: {
           ...(anchor.combine_meta ?? {}),
           is_combined: true,
@@ -491,7 +481,7 @@ export const ShipScreen = () => {
       const bStartsWith = bNum.startsWith(query) ? 1 : 0;
       return bStartsWith - aStartsWith;
     });
-  }, [orders, searchQuery, carrierTab]);
+  }, [orders, searchQuery, showFedex]);
 
   // Keyboard arrow navigation between orders (placed after filteredOrders is declared)
   useEffect(() => {
@@ -783,222 +773,100 @@ export const ShipScreen = () => {
   }
 
   return (
-    <div className="relative flex flex-col md:flex-row h-screen w-full overflow-hidden bg-bg-main font-body">
-      {/* Left Sidebar - Order Details Form (Desktop) */}
-      <div className="hidden md:block">
-        <OrderSidebar
-          formData={formData}
-          setFormData={setFormData}
-          selectedOrder={
-            selectedOrder as React.ComponentProps<typeof OrderSidebar>['selectedOrder']
-          }
-          selectedCustomerId={selectedCustomerId}
-          user={user}
-          takeOverOrder={takeOverOrder}
-          onRefresh={fetchOrders}
-          onDelete={() => {
-            if (filteredOrders.length <= 1) {
-              setSelectedOrder(null);
-              return;
-            }
-            const currentIndex = filteredOrders.findIndex((o) => o.id === selectedOrder?.id);
-            if (currentIndex < filteredOrders.length - 1) {
-              setSelectedOrder(filteredOrders[currentIndex + 1]);
-            } else {
-              setSelectedOrder(filteredOrders[currentIndex - 1]);
-            }
-          }}
-          onShowPickingSummary={() => setIsShowingPickingSummary(true)}
-          onSplitOrder={() => setIsShowingSplitModal(true)}
-          onReopenOrder={handleReopenOrder}
-          onRestoreOrder={handleRestoreOrder}
-          onContinueEditing={handleContinueEditing}
-          autoBikeCount={autoBikeCount}
-          autoPartCount={autoPartCount}
-          totalUnits={totalUnits}
-          autoWeight={totalWeight}
-        />
-      </div>
-
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col relative overflow-hidden h-full">
-        {/* Top Navigation Bar */}
-        <header className="h-24 ios-glass !border-none !shadow-none shrink-0 flex items-center px-4 md:px-8 z-[100]">
-          <div className="flex items-center w-full gap-3 md:gap-6 min-w-0 h-full">
-            {/* Search Section */}
-            <div
-              className={`relative transition-all duration-500 ease-in-out shrink-0 ${isSearchExpanded ? 'flex-1 md:flex-none md:w-80' : 'w-12'}`}
-            >
-              <SearchInput
-                variant="inline"
-                isExpandable
-                isExpanded={isSearchExpanded}
-                onExpandChange={(expanded) => {
-                  setIsSearchExpanded(expanded);
-                  if (!expanded) setIsMobileOrderListOpen(false);
-                }}
-                value={searchQuery}
-                onChange={setSearchQuery}
-                placeholder="Search orders..."
-                preferenceId="orders"
-                className="w-full h-full"
+    <div className="relative flex flex-col h-screen w-full overflow-hidden bg-bg-main font-body">
+      {/* Header — title + FedEx checkbox, then full-width search, like Orders */}
+      <header className="shrink-0 ios-glass !border-none !shadow-none px-4 md:px-8 py-4 z-[100]">
+        <div className="max-w-6xl mx-auto w-full flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="text-2xl font-black uppercase tracking-tight text-content">Ship</h1>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={showFedex}
+                onChange={(e) => setShowFedex(e.target.checked)}
+                className="w-4 h-4 accent-purple-500"
               />
-              {/* Mobile: Search results dropdown */}
-              {isSearchExpanded && isMobileOrderListOpen && searchQuery.trim() && (
-                <div className="md:hidden absolute top-14 left-0 w-[calc(100vw-2rem)] max-h-[60vh] overflow-y-auto bg-surface border border-subtle rounded-[2rem] shadow-2xl p-4 z-[110] animate-soft-in no-scrollbar">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-muted/30 px-4 mb-2">
-                    Results ({filteredOrders.length})
-                  </p>
-                  {filteredOrders.map((order) => (
+              <span className="text-xs font-black uppercase tracking-widest text-muted">FedEx</span>
+            </label>
+          </div>
+          <SearchInput
+            variant="inline"
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search orders or customer..."
+            preferenceId="ship"
+          />
+        </div>
+      </header>
+
+      {/* Main scroll area */}
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto no-scrollbar relative bg-bg-main px-4 md:px-8 pb-32"
+      >
+        <div className="max-w-6xl mx-auto w-full flex flex-col md:flex-row gap-4 md:gap-6 pt-4 items-start">
+          {/* Vertical order list */}
+          <div className="w-full md:w-72 shrink-0 md:sticky md:top-0">
+            <div className="bg-card border border-subtle rounded-3xl p-3 flex flex-col gap-2">
+              <div className="flex items-center justify-between px-2 pb-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-muted/50">
+                  Orders
+                </span>
+                <span className="text-[10px] text-muted/40 font-bold">{filteredOrders.length}</span>
+              </div>
+              <div className="flex flex-col gap-2 max-h-72 md:max-h-[calc(100vh-13rem)] overflow-y-auto no-scrollbar">
+                {filteredOrders.map((order) => {
+                  const isSelected = selectedOrder?.id === order.id;
+                  const isFedex =
+                    (order.order_group as { group_type?: string } | null)?.group_type === 'fedex';
+                  return (
                     <button
                       key={order.id}
-                      onClick={() => {
-                        setSelectedOrder(order);
-                        setIsMobileOrderListOpen(false);
-                        setSearchQuery('');
-                        setIsSearchExpanded(false);
-                      }}
-                      className={`w-full text-left px-4 py-3 rounded-2xl text-sm font-black uppercase tracking-widest transition-all flex items-center justify-between ${
-                        selectedOrder?.id === order.id
-                          ? 'bg-accent text-white border border-accent/20'
-                          : 'hover:bg-main text-muted'
+                      onClick={() => setSelectedOrder(order)}
+                      className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl text-left transition-all ${
+                        isSelected
+                          ? 'bg-accent/10 border border-accent/30'
+                          : 'bg-surface border border-transparent hover:border-subtle'
                       }`}
                     >
-                      <span className="truncate">
-                        #{order.order_number}
-                        {order.customer?.name && (
-                          <span
-                            className={`ml-1 font-bold normal-case tracking-normal ${selectedOrder?.id === order.id ? 'text-white/60' : 'text-muted/40'}`}
-                          >
-                            : {order.customer.name}
+                      <div className="min-w-0 flex flex-col">
+                        <span className="font-mono text-sm font-black text-content flex items-center gap-1 truncate">
+                          {order.combine_meta?.is_combined && (
+                            <span title="Combined order">🔗</span>
+                          )}
+                          #{order.order_number}
+                        </span>
+                        <span className="text-[11px] text-muted truncate max-w-[160px]">
+                          {order.customer?.name || '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isFedex && (
+                          <span className="text-[8px] font-black uppercase tracking-widest text-purple-400 bg-purple-500/10 border border-purple-500/20 rounded-full px-1.5 py-0.5">
+                            FDX
                           </span>
                         )}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Carrier tab toggle — Regular / FedEx */}
-            <div className="flex items-center gap-1 p-1 bg-surface border border-subtle rounded-full shrink-0">
-              {(['regular', 'fedex'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setCarrierTab(tab)}
-                  className={`px-3 md:px-4 py-1.5 rounded-full text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
-                    carrierTab === tab
-                      ? tab === 'fedex'
-                        ? 'bg-purple-500 text-white'
-                        : 'bg-emerald-500 text-white'
-                      : 'text-muted hover:text-content'
-                  }`}
-                >
-                  {tab === 'fedex' ? 'FedEx' : 'Regular'}
-                </button>
-              ))}
-            </div>
-
-            {/* Orders Selection — Mobile: Dropdown, Desktop: Horizontal Scroll */}
-            <div
-              className={`flex-1 flex items-center gap-3 md:gap-6 min-w-0 h-full transition-all duration-500 ${isSearchExpanded ? 'hidden md:flex' : 'flex'}`}
-            >
-              {/* Mobile: Selected order with dropdown */}
-              <div className="md:hidden relative shrink-0" ref={mobileDropdownRef}>
-                <button
-                  onClick={() => setIsMobileOrderListOpen(!isMobileOrderListOpen)}
-                  className="flex items-center gap-2 h-12 px-5 bg-surface border border-subtle rounded-full transition-all active:scale-95 shadow-sm"
-                >
-                  <span className="text-content font-black text-lg tracking-tight truncate max-w-[120px]">
-                    {selectedOrder ? `#${selectedOrder.order_number}` : 'Select'}
-                  </span>
-                  <ChevronDown
-                    size={16}
-                    className={`text-muted transition-transform duration-300 ${isMobileOrderListOpen ? 'rotate-180' : ''}`}
-                  />
-                </button>
-                {isMobileOrderListOpen && (
-                  <div className="absolute top-16 left-0 w-[calc(100vw-2rem)] md:w-80 max-h-[70vh] overflow-y-auto bg-surface border border-subtle rounded-[2rem] shadow-2xl p-4 z-[110] animate-soft-in no-scrollbar">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-muted/30 px-4 mb-2">
-                      Orders ({filteredOrders.length})
-                    </p>
-                    {filteredOrders.map((order) => (
-                      <button
-                        key={order.id}
-                        onClick={() => {
-                          setSelectedOrder(order);
-                          setIsMobileOrderListOpen(false);
-                        }}
-                        className={`w-full text-left px-4 py-3 rounded-2xl text-sm font-black uppercase tracking-widest transition-all flex items-center justify-between ${
-                          selectedOrder?.id === order.id
-                            ? 'bg-accent text-white border border-accent/20'
-                            : 'hover:bg-main text-muted'
-                        }`}
-                      >
-                        <span className="truncate">
-                          #{order.order_number}
-                          {order.customer?.name && (
-                            <span
-                              className={`ml-1 font-bold normal-case tracking-normal ${selectedOrder?.id === order.id ? 'text-white/60' : 'text-muted/40'}`}
-                            >
-                              : {order.customer.name}
-                            </span>
-                          )}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Desktop: Horizontal Scroll Window */}
-              <div className="hidden md:flex flex-1 h-20 bg-main/40 border border-subtle rounded-[2.5rem] items-center px-4 overflow-hidden">
-                <div className="flex flex-1 h-full items-center gap-4 overflow-x-auto no-scrollbar py-2 min-w-0">
-                  {filteredOrders.map((order) => {
-                    const isSelected = selectedOrder?.id === order.id;
-                    return (
-                      <div
-                        key={order.id}
-                        ref={(el) => {
-                          if (isSelected && el) {
-                            el.scrollIntoView({
-                              behavior: 'smooth',
-                              block: 'nearest',
-                              inline: 'center',
-                            });
-                          }
-                        }}
-                        className="shrink-0"
-                      >
-                        <OrderChip
-                          orderNumber={order.order_number || ''}
-                          status={order.status}
-                          isSelected={isSelected}
-                          isCombined={!!order.combine_meta?.is_combined}
-                          isFedex={
-                            (order.order_group as { group_type?: string } | null)?.group_type ===
-                            'fedex'
-                          }
-                          onClick={() => setSelectedOrder(order)}
-                        />
+                        <OrderStatusPill status={order.status} />
                       </div>
-                    );
-                  })}
-                </div>
+                    </button>
+                  );
+                })}
+                {filteredOrders.length === 0 && (
+                  <p className="text-center text-xs text-muted py-6">No orders found.</p>
+                )}
               </div>
             </div>
           </div>
-        </header>
-        <div className="flex-1 overflow-y-auto no-scrollbar relative bg-bg-main p-2 md:p-12 pb-32">
-          {selectedOrder ? (
-            <div className="max-w-4xl mx-auto w-full">
-              {/* Mobile View Toggle/Details (only visible on mobile) */}
-              <div className="md:hidden mb-8">
-                <OrderSidebar
+
+          {/* Selected order — card + preview */}
+          <div className="flex-1 min-w-0 flex flex-col gap-6 pb-8">
+            {selectedOrder ? (
+              <>
+                <ShipOrderCard
                   formData={formData}
                   setFormData={setFormData}
                   selectedOrder={
-                    selectedOrder as React.ComponentProps<typeof OrderSidebar>['selectedOrder']
+                    selectedOrder as React.ComponentProps<typeof ShipOrderCard>['selectedOrder']
                   }
                   selectedCustomerId={selectedCustomerId}
                   user={user}
@@ -1019,103 +887,105 @@ export const ShipScreen = () => {
                     }
                   }}
                   onShowPickingSummary={() => setIsShowingPickingSummary(true)}
+                  onSplitOrder={() => setIsShowingSplitModal(true)}
                   onReopenOrder={handleReopenOrder}
                   onRestoreOrder={handleRestoreOrder}
                   onContinueEditing={handleContinueEditing}
-                  collapsible
                   autoBikeCount={autoBikeCount}
                   autoPartCount={autoPartCount}
-                  totalUnits={totalUnits}
                   autoWeight={totalWeight}
                 />
-              </div>
 
-              <LivePrintPreview
-                orderNumber={selectedOrder.order_number ?? undefined}
-                watcherNote={selectedOrder.notes}
-                customerName={formData.customerName}
-                street={formData.street}
-                city={formData.city}
-                state={formData.state}
-                zip={formData.zip}
-                pallets={formData.pallets}
-                bikeCount={bikeCount}
-                partCount={partCount}
-                loadNumber={formData.loadNumber}
-                totalWeight={effectiveWeight}
-                completedAt={selectedOrder.updated_at}
-                transportCompany={formData.transportCompany}
-                palletPhotos={selectedOrder.pallet_photos ?? undefined}
-                screenOnly
-              />
+                <LivePrintPreview
+                  orderNumber={selectedOrder.order_number ?? undefined}
+                  watcherNote={selectedOrder.notes}
+                  customerName={formData.customerName}
+                  street={formData.street}
+                  city={formData.city}
+                  state={formData.state}
+                  zip={formData.zip}
+                  pallets={formData.pallets}
+                  bikeCount={bikeCount}
+                  partCount={partCount}
+                  loadNumber={formData.loadNumber}
+                  totalWeight={effectiveWeight}
+                  completedAt={selectedOrder.updated_at}
+                  transportCompany={formData.transportCompany}
+                  palletPhotos={selectedOrder.pallet_photos ?? undefined}
+                  screenOnly
+                />
 
-              {/* Parts Weight Editor (idea-028) */}
-              {partsWithWeights.length > 0 && (
-                <div className="w-full max-w-md mx-auto mt-8 mb-8 bg-surface rounded-2xl border border-subtle overflow-hidden">
-                  <div className="px-4 py-3 border-b border-subtle">
-                    <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">
-                      Parts Weight
-                    </h3>
-                  </div>
-                  <div className="divide-y divide-subtle">
-                    {partsWithWeights.map((part) => (
-                      <div
-                        key={part.sku}
-                        className="flex items-center justify-between px-4 py-3 gap-3"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <span className="font-mono font-bold text-xs text-content truncate">
-                            {part.sku}
-                          </span>
-                          <span className="text-[10px] text-muted font-bold shrink-0">
-                            ×{part.qty}
-                          </span>
+                {/* Parts Weight Editor (idea-028) */}
+                {partsWithWeights.length > 0 && (
+                  <div className="w-full max-w-md bg-surface rounded-2xl border border-subtle overflow-hidden">
+                    <div className="px-4 py-3 border-b border-subtle">
+                      <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">
+                        Parts Weight
+                      </h3>
+                    </div>
+                    <div className="divide-y divide-subtle">
+                      {partsWithWeights.map((part) => (
+                        <div
+                          key={part.sku}
+                          className="flex items-center justify-between px-4 py-3 gap-3"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="font-mono font-bold text-xs text-content truncate">
+                              {part.sku}
+                            </span>
+                            <span className="text-[10px] text-muted font-bold shrink-0">
+                              ×{part.qty}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <input
+                              type="number"
+                              value={part.weight || ''}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                if (isNaN(val) || val < 0) return;
+                                setSkuMeta((prev) => ({
+                                  ...prev,
+                                  [part.sku]: { ...prev[part.sku], weight_lbs: val },
+                                }));
+                                supabase
+                                  .from('sku_metadata')
+                                  .upsert(
+                                    { sku: part.sku, weight_lbs: val },
+                                    { onConflict: 'sku' }
+                                  );
+                              }}
+                              step="0.1"
+                              min="0"
+                              className="w-16 text-right bg-main border border-subtle rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-content focus:outline-none focus:border-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                            <span className="text-[10px] text-muted font-bold">lbs</span>
+                            <span className="text-[10px] text-muted/40 font-bold">
+                              ={((part.weight || 0) * part.qty).toFixed(1)}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <input
-                            type="number"
-                            value={part.weight || ''}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value);
-                              if (isNaN(val) || val < 0) return;
-                              setSkuMeta((prev) => ({
-                                ...prev,
-                                [part.sku]: { ...prev[part.sku], weight_lbs: val },
-                              }));
-                              supabase
-                                .from('sku_metadata')
-                                .upsert({ sku: part.sku, weight_lbs: val }, { onConflict: 'sku' });
-                            }}
-                            step="0.1"
-                            min="0"
-                            className="w-16 text-right bg-main border border-subtle rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-content focus:outline-none focus:border-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          />
-                          <span className="text-[10px] text-muted font-bold">lbs</span>
-                          <span className="text-[10px] text-muted/40 font-bold">
-                            ={((part.weight || 0) * part.qty).toFixed(1)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
+                )}
+              </>
+            ) : (
+              <div className="h-full min-h-[50vh] flex flex-col items-center justify-center text-text-muted space-y-4">
+                <div className="w-16 h-16 rounded-full bg-surface border border-subtle flex items-center justify-center shadow-sm">
+                  <Search size={32} className="opacity-20" />
                 </div>
-              )}
-            </div>
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center text-text-muted space-y-4">
-              <div className="w-16 h-16 rounded-full bg-surface border border-subtle flex items-center justify-center shadow-sm">
-                <Search size={32} className="opacity-20" />
+                <p className="font-heading text-xl font-bold opacity-30">
+                  Select an order to preview
+                </p>
               </div>
-              <p className="font-heading text-xl font-bold opacity-30">
-                Select an order to preview
-              </p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </main>
+      </div>
 
-      {/* Island — centered on the preview area (right of the sidebar) */}
-      <div className="hidden md:flex absolute bottom-10 left-0 md:left-80 2xl:left-[400px] right-0 justify-center z-[100] pointer-events-none">
+      {/* Island — centered under the full-width content */}
+      <div className="hidden md:flex absolute bottom-10 left-0 right-0 justify-center z-[100] pointer-events-none">
         <div className="pointer-events-auto animate-soft-in">
           <FloatingActionButtons
             onPrint={handlePrint}
