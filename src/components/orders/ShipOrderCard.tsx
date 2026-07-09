@@ -8,9 +8,11 @@ import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
 import Truck from 'lucide-react/dist/esm/icons/truck';
 import Wand2 from 'lucide-react/dist/esm/icons/wand-2';
 import Copy from 'lucide-react/dist/esm/icons/copy';
+import Check from 'lucide-react/dist/esm/icons/check';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { saveCustomerAddress } from '../../lib/customerAddresses';
 import { CustomerAutocomplete } from '../../features/picking/components/CustomerAutocomplete';
 import { usePickingSession } from '../../context/PickingContext';
 import { useConfirmation } from '../../context/ConfirmationContext';
@@ -109,6 +111,15 @@ const CopyButton: React.FC<{ value: string; label: string }> = ({ value, label }
   );
 };
 
+const SaveCheckmark: React.FC<{ show: boolean }> = ({ show }) => {
+  if (!show) return null;
+  return (
+    <div className="animate-in fade-in duration-200">
+      <Check size={16} className="text-green-500" />
+    </div>
+  );
+};
+
 const StatField: React.FC<{
   label: string;
   value: string;
@@ -120,6 +131,7 @@ const StatField: React.FC<{
   editRef?: React.Ref<HTMLDivElement>;
   colorClass: string;
   min?: string;
+  showSaveCheckmark?: boolean;
 }> = ({
   label,
   value,
@@ -131,6 +143,7 @@ const StatField: React.FC<{
   editRef,
   colorClass,
   min = '0',
+  showSaveCheckmark = false,
 }) => (
   <div ref={editRef} className="flex flex-col gap-1">
     {editing ? (
@@ -145,15 +158,18 @@ const StatField: React.FC<{
         className={`w-20 bg-main border border-subtle rounded-2xl py-2 text-center font-heading text-2xl font-bold ${colorClass} ios-transition focus:border-current shadow-sm focus:bg-surface`}
       />
     ) : (
-      <button
-        type="button"
-        onClick={onEdit}
-        className="text-left hover:opacity-80 transition-opacity"
-      >
-        <span className={`font-heading text-2xl font-bold ${colorClass}`}>
-          {value || placeholder || 0}
-        </span>
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onEdit}
+          className="text-left hover:opacity-80 transition-opacity"
+        >
+          <span className={`font-heading text-2xl font-bold ${colorClass}`}>
+            {value || placeholder || 0}
+          </span>
+        </button>
+        <SaveCheckmark show={showSaveCheckmark} />
+      </div>
     )}
     <span className="text-[10px] font-black uppercase tracking-widest text-muted">{label}</span>
   </div>
@@ -186,8 +202,10 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [isUpdatingCarrier, setIsUpdatingCarrier] = useState(false);
+  const [justSavedField, setJustSavedField] = useState<string | null>(null);
   const editRef = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const clearSaveRef = useRef<NodeJS.Timeout | null>(null);
   const { deleteList } = usePickingSession();
   const { showConfirmation } = useConfirmation();
   const navigate = useNavigate();
@@ -260,38 +278,85 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   );
 
   // Auto-save form changes to DB with debounce
-  const handleAutoSave = useCallback(async () => {
-    try {
-      const palletsNum = parseInt(formData.pallets, 10) || 1;
-      const unitsNum = parseInt(formData.bikes, 10) + parseInt(formData.parts, 10) || 0;
-      const weightNum = formData.weight.trim() ? parseFloat(formData.weight) : null;
+  const handleAutoSave = useCallback(
+    async (fieldName?: string) => {
+      try {
+        const palletsNum = parseInt(formData.pallets, 10) || 1;
+        const unitsNum = parseInt(formData.bikes, 10) + parseInt(formData.parts, 10) || 0;
+        const weightNum = formData.weight.trim() ? parseFloat(formData.weight) : null;
 
-      await supabase
-        .from('picking_lists')
-        .update({
-          pallets_qty: palletsNum,
-          total_units: unitsNum,
-          total_weight_lbs: weightNum,
-          load_number: formData.loadNumber || null,
-          transport_company: formData.transportCompany || null,
-        })
-        .eq('id', selectedOrder.id);
-    } catch (err) {
-      console.error('Auto-save failed:', err);
-    }
-  }, [formData, selectedOrder.id]);
+        // Save picking_lists fields
+        const { error: plError } = await supabase
+          .from('picking_lists')
+          .update({
+            pallets_qty: palletsNum,
+            total_units: unitsNum,
+            total_weight_lbs: weightNum,
+            load_number: formData.loadNumber || null,
+            transport_company: formData.transportCompany || null,
+          })
+          .eq('id', selectedOrder.id);
+
+        if (plError) throw plError;
+
+        // Save customer name if changed
+        if (selectedCustomerId && formData.customerName.trim()) {
+          const { error: custError } = await supabase
+            .from('customers')
+            .update({ name: formData.customerName })
+            .eq('id', selectedCustomerId);
+
+          if (custError) console.error('Failed to update customer name:', custError);
+        }
+
+        // Save address if any address field changed and customer exists
+        if (
+          selectedCustomerId &&
+          (formData.street.trim() ||
+            formData.city.trim() ||
+            formData.state.trim() ||
+            formData.zip.trim())
+        ) {
+          await saveCustomerAddress({
+            customerId: selectedCustomerId,
+            street: formData.street,
+            city: formData.city,
+            state: formData.state,
+            zip: formData.zip,
+          });
+        }
+
+        // Show success feedback
+        if (fieldName) {
+          setJustSavedField(fieldName);
+          if (clearSaveRef.current) clearTimeout(clearSaveRef.current);
+          clearSaveRef.current = setTimeout(() => {
+            setJustSavedField(null);
+          }, 2000);
+        }
+      } catch (err) {
+        console.error('Auto-save failed:', err);
+        toast.error('Failed to save changes');
+      }
+    },
+    [formData, selectedOrder.id, selectedCustomerId]
+  );
 
   // Debounced auto-save on blur
-  const triggerAutoSave = useCallback(() => {
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(() => {
-      handleAutoSave();
-    }, 500); // 500ms delay before saving
-  }, [handleAutoSave]);
+  const triggerAutoSave = useCallback(
+    (fieldName?: string) => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(() => {
+        handleAutoSave(fieldName);
+      }, 500); // 500ms delay before saving
+    },
+    [handleAutoSave]
+  );
 
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      if (clearSaveRef.current) clearTimeout(clearSaveRef.current);
     };
   }, []);
 
@@ -440,7 +505,11 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                     state: customer.state || formData.state,
                     zip: customer.zip_code || formData.zip,
                   });
-                  if (customer.id) setEditingField(null);
+                  setSelectedCustomerId(customer.id || null);
+                  if (customer.id) {
+                    setEditingField(null);
+                    triggerAutoSave('customer');
+                  }
                 } else {
                   setFormData({ ...formData, customerName: '' });
                 }
@@ -448,17 +517,20 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
             />
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => setEditingField('customer')}
-            className="text-left flex-1 min-w-0"
-          >
-            <span className="text-xl font-black text-content hover:text-accent transition-colors truncate block">
-              {formData.customerName || (
-                <span className="text-muted/50 italic font-semibold">Add customer…</span>
-              )}
-            </span>
-          </button>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <button
+              type="button"
+              onClick={() => setEditingField('customer')}
+              className="text-left flex-1 min-w-0"
+            >
+              <span className="text-xl font-black text-content hover:text-accent transition-colors truncate block">
+                {formData.customerName || (
+                  <span className="text-muted/50 italic font-semibold">Add customer…</span>
+                )}
+              </span>
+            </button>
+            <SaveCheckmark show={justSavedField === 'customer'} />
+          </div>
         )}
         <CopyButton value={formData.customerName} label="Customer name" />
       </div>
@@ -476,6 +548,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 type="text"
                 value={formData.street}
                 onChange={(e) => handleStreetChange(e.target.value)}
+                onBlur={() => triggerAutoSave('street')}
                 onFocus={() => {
                   if (addresses.length > 0) {
                     setShowAddressDropdown(true);
@@ -532,7 +605,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
               type="text"
               value={formData.city}
               onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-              onBlur={triggerAutoSave}
+              onBlur={() => triggerAutoSave('city')}
               placeholder="City..."
               className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 text-base text-content ios-transition font-medium focus:border-accent focus:bg-surface shadow-sm"
             />
@@ -543,7 +616,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 maxLength={2}
                 value={formData.state}
                 onChange={(e) => setFormData({ ...formData, state: e.target.value.toUpperCase() })}
-                onBlur={triggerAutoSave}
+                onBlur={() => triggerAutoSave('state')}
                 placeholder="CA"
                 className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 text-base text-content ios-transition font-medium text-center focus:border-accent focus:bg-surface shadow-sm"
               />
@@ -551,27 +624,33 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 type="text"
                 value={formData.zip}
                 onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
-                onBlur={triggerAutoSave}
+                onBlur={() => triggerAutoSave('zip')}
                 placeholder="00000"
                 className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 text-base text-content ios-transition font-medium focus:border-accent focus:bg-surface shadow-sm"
               />
             </div>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => setEditingField('address')}
-            className="text-left flex-1 min-w-0 flex items-start gap-2 hover:text-accent transition-colors"
-          >
-            <MapPin size={15} className="mt-0.5 shrink-0 text-muted" />
-            <span className="text-sm text-content font-medium">
-              {formData.street || formData.city ? (
-                joinedAddress
-              ) : (
-                <span className="text-muted/50 italic">Add shipping address…</span>
-              )}
-            </span>
-          </button>
+          <div className="flex items-start gap-2 flex-1 min-w-0">
+            <button
+              type="button"
+              onClick={() => setEditingField('address')}
+              className="text-left flex-1 min-w-0 flex items-start gap-2 hover:text-accent transition-colors"
+            >
+              <MapPin size={15} className="mt-0.5 shrink-0 text-muted" />
+              <span className="text-sm text-content font-medium">
+                {formData.street || formData.city ? (
+                  joinedAddress
+                ) : (
+                  <span className="text-muted/50 italic">Add shipping address…</span>
+                )}
+              </span>
+            </button>
+            {(justSavedField === 'street' ||
+              justSavedField === 'city' ||
+              justSavedField === 'state' ||
+              justSavedField === 'zip') && <SaveCheckmark show={true} />}
+          </div>
         )}
         <CopyButton value={joinedAddress} label="Address" />
       </div>
@@ -589,19 +668,22 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
               }
               onBlur={() => {
                 setEditingField(null);
-                triggerAutoSave();
+                triggerAutoSave('load');
               }}
               placeholder="E.G. 127035968"
               className="bg-main border border-subtle rounded-2xl px-4 py-2 text-sm font-bold text-content ios-transition focus:border-accent focus:bg-surface shadow-sm w-48"
             />
           ) : (
-            <button
-              type="button"
-              onClick={() => setEditingField('load')}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-main border border-subtle text-xs font-black uppercase tracking-widest text-muted hover:text-accent hover:border-accent/40 transition-all"
-            >
-              <Hash size={11} /> {formData.loadNumber || 'Load #'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingField('load')}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-main border border-subtle text-xs font-black uppercase tracking-widest text-muted hover:text-accent hover:border-accent/40 transition-all"
+              >
+                <Hash size={11} /> {formData.loadNumber || 'Load #'}
+              </button>
+              <SaveCheckmark show={justSavedField === 'load'} />
+            </div>
           )}
         </div>
 
@@ -625,13 +707,16 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
               ))}
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={() => setEditingField('transport')}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-main border border-subtle text-xs font-black uppercase tracking-widest text-muted hover:text-accent hover:border-accent/40 transition-all"
-            >
-              <Truck size={11} /> {formData.transportCompany || 'Carrier'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingField('transport')}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-main border border-subtle text-xs font-black uppercase tracking-widest text-muted hover:text-accent hover:border-accent/40 transition-all"
+              >
+                <Truck size={11} /> {formData.transportCompany || 'Carrier'}
+              </button>
+              <SaveCheckmark show={justSavedField === 'transport'} />
+            </div>
           )}
         </div>
       </div>
@@ -646,11 +731,12 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           onChange={(v) => setFormData({ ...formData, pallets: v })}
           onBlur={() => {
             setEditingField(null);
-            triggerAutoSave();
+            triggerAutoSave('pallets');
           }}
           editRef={editingField === 'pallets' ? editRef : undefined}
           colorClass="text-[#22c55e]"
           min="1"
+          showSaveCheckmark={justSavedField === 'pallets'}
         />
         <StatField
           label="Bikes"
@@ -661,10 +747,11 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           onChange={(v) => setFormData({ ...formData, bikes: v })}
           onBlur={() => {
             setEditingField(null);
-            triggerAutoSave();
+            triggerAutoSave('bikes');
           }}
           editRef={editingField === 'bikes' ? editRef : undefined}
           colorClass="text-blue-400"
+          showSaveCheckmark={justSavedField === 'bikes'}
         />
         <StatField
           label="Parts"
@@ -675,10 +762,11 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           onChange={(v) => setFormData({ ...formData, parts: v })}
           onBlur={() => {
             setEditingField(null);
-            triggerAutoSave();
+            triggerAutoSave('parts');
           }}
           editRef={editingField === 'parts' ? editRef : undefined}
           colorClass="text-orange-400"
+          showSaveCheckmark={justSavedField === 'parts'}
         />
         <div className="flex items-end gap-2">
           <StatField
@@ -690,10 +778,11 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
             onChange={(v) => setFormData({ ...formData, weight: v })}
             onBlur={() => {
               setEditingField(null);
-              triggerAutoSave();
+              triggerAutoSave('weight');
             }}
             editRef={editingField === 'weight' ? editRef : undefined}
             colorClass="text-purple-400"
+            showSaveCheckmark={justSavedField === 'weight'}
           />
           <CopyButton
             value={String(formData.weight || (autoWeight > 0 ? autoWeight : 0))}
