@@ -23,6 +23,28 @@ import type { PickingListItem, CombineMeta } from '../../schemas/picking.schema'
 import { saveCustomerAddress } from '../../lib/customerAddresses';
 import { ReasonPicker } from './components/ReasonPicker';
 
+function dayKey(date: Date): string {
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+function dayLabel(date: Date): string {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.round((today.getTime() - target.getTime()) / 86_400_000);
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+  if (date.getFullYear() !== now.getFullYear()) opts.year = 'numeric';
+  return date.toLocaleDateString('en-US', opts);
+}
+
+interface DayGroup {
+  key: string;
+  label: string;
+  orders: OrderWithRelations[];
+}
+
 interface CustomerDetails {
   id: string;
   name: string;
@@ -483,6 +505,25 @@ export const ShipScreen = () => {
     });
   }, [orders, searchQuery, showFedex]);
 
+  const ordersGroupedByDate = useMemo<DayGroup[]>(() => {
+    const map = new Map<string, DayGroup>();
+    for (const o of filteredOrders) {
+      const d = new Date(o.created_at);
+      const key = Number.isNaN(d.getTime()) ? 'unknown' : dayKey(d);
+      let group = map.get(key);
+      if (!group) {
+        group = {
+          key,
+          label: Number.isNaN(d.getTime()) ? 'Unknown date' : dayLabel(d),
+          orders: [],
+        };
+        map.set(key, group);
+      }
+      group.orders.push(o);
+    }
+    return Array.from(map.values());
+  }, [filteredOrders]);
+
   // Keyboard arrow navigation between orders (placed after filteredOrders is declared)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -805,7 +846,7 @@ export const ShipScreen = () => {
         className="flex-1 overflow-y-auto no-scrollbar relative bg-bg-main px-4 md:px-8 pb-32"
       >
         <div className="max-w-6xl mx-auto w-full flex flex-col md:flex-row gap-4 md:gap-6 pt-4 items-start">
-          {/* Vertical order list */}
+          {/* Vertical order list — grouped by date */}
           <div className="w-full md:w-72 shrink-0 md:sticky md:top-0">
             <div className="bg-card border border-subtle rounded-3xl p-3 flex flex-col gap-2">
               <div className="flex items-center justify-between px-2 pb-1">
@@ -815,43 +856,54 @@ export const ShipScreen = () => {
                 <span className="text-[10px] text-muted/40 font-bold">{filteredOrders.length}</span>
               </div>
               <div className="flex flex-col gap-2 max-h-72 md:max-h-[calc(100vh-13rem)] overflow-y-auto no-scrollbar">
-                {filteredOrders.map((order) => {
-                  const isSelected = selectedOrder?.id === order.id;
-                  const isFedex =
-                    (order.order_group as { group_type?: string } | null)?.group_type === 'fedex';
-                  return (
-                    <button
-                      key={order.id}
-                      onClick={() => setSelectedOrder(order)}
-                      className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl text-left transition-all ${
-                        isSelected
-                          ? 'bg-accent/10 border border-accent/30'
-                          : 'bg-surface border border-transparent hover:border-subtle'
-                      }`}
-                    >
-                      <div className="min-w-0 flex flex-col">
-                        <span className="font-mono text-sm font-black text-content flex items-center gap-1 truncate">
-                          {order.combine_meta?.is_combined && (
-                            <span title="Combined order">🔗</span>
-                          )}
-                          #{order.order_number}
-                        </span>
-                        <span className="text-[11px] text-muted truncate max-w-[160px]">
-                          {order.customer?.name || '—'}
-                        </span>
+                {ordersGroupedByDate.length > 0 ? (
+                  <div className="space-y-3">
+                    {ordersGroupedByDate.map((group) => (
+                      <div key={group.key} className="space-y-1.5">
+                        <div className="sticky top-0 z-[1] px-2 py-1 text-[9px] font-black uppercase tracking-widest text-muted/60 bg-card/80 backdrop-blur-sm">
+                          {group.label}
+                        </div>
+                        {group.orders.map((order) => {
+                          const isSelected = selectedOrder?.id === order.id;
+                          const isFedex =
+                            (order.order_group as { group_type?: string } | null)?.group_type ===
+                            'fedex';
+                          return (
+                            <button
+                              key={order.id}
+                              onClick={() => setSelectedOrder(order)}
+                              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl text-left transition-all ${
+                                isSelected
+                                  ? 'bg-accent/10 border border-accent/30'
+                                  : 'bg-surface border border-transparent hover:border-subtle'
+                              }`}
+                            >
+                              <div className="min-w-0 flex flex-col">
+                                <span className="font-mono text-sm font-black text-content flex items-center gap-1 truncate">
+                                  {order.combine_meta?.is_combined && (
+                                    <span title="Combined order">🔗</span>
+                                  )}
+                                  #{order.order_number}
+                                </span>
+                                <span className="text-[11px] text-muted truncate max-w-[160px]">
+                                  {order.customer?.name || '—'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {isFedex && (
+                                  <span className="text-[8px] font-black uppercase tracking-widest text-purple-400 bg-purple-500/10 border border-purple-500/20 rounded-full px-1.5 py-0.5">
+                                    FDX
+                                  </span>
+                                )}
+                                <OrderStatusPill status={order.status} />
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {isFedex && (
-                          <span className="text-[8px] font-black uppercase tracking-widest text-purple-400 bg-purple-500/10 border border-purple-500/20 rounded-full px-1.5 py-0.5">
-                            FDX
-                          </span>
-                        )}
-                        <OrderStatusPill status={order.status} />
-                      </div>
-                    </button>
-                  );
-                })}
-                {filteredOrders.length === 0 && (
+                    ))}
+                  </div>
+                ) : (
                   <p className="text-center text-xs text-muted py-6">No orders found.</p>
                 )}
               </div>
