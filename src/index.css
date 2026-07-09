@@ -78,6 +78,19 @@ body {
   margin: 0 auto;
 }
 
+/* Kill the default WebKit/Chromium tap-highlight rectangle (shows as a
+   gray/black box over any button/link on touch hover or tap) app-wide —
+   every custom :hover/:active state below is our own, so the UA default
+   is always redundant noise, never a needed affordance. */
+button,
+a,
+[role='button'],
+input,
+textarea,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* iOS 26 Premium Utility Classes */
 /* IOS-Style Glassmorphism */
 .ios-glass {
