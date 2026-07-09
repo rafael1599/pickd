@@ -9,6 +9,7 @@ import Truck from 'lucide-react/dist/esm/icons/truck';
 import Wand2 from 'lucide-react/dist/esm/icons/wand-2';
 import Copy from 'lucide-react/dist/esm/icons/copy';
 import toast from 'react-hot-toast';
+import { supabase } from '../../lib/supabase';
 import { CustomerAutocomplete } from '../../features/picking/components/CustomerAutocomplete';
 import { usePickingSession } from '../../context/PickingContext';
 import { useConfirmation } from '../../context/ConfirmationContext';
@@ -43,6 +44,7 @@ const TRANSPORT_COMPANIES = [
   'DAYLIGHT',
   'PAV EXPRESS',
   'ESTES',
+  'FEDEX',
 ] as const;
 
 interface SelectedOrder extends PickingList {
@@ -170,6 +172,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   const [editingField, setEditingField] = useState<EditableField>(null);
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [isUpdatingCarrier, setIsUpdatingCarrier] = useState(false);
   const editRef = useRef<HTMLDivElement>(null);
   const { deleteList } = usePickingSession();
   const { showConfirmation } = useConfirmation();
@@ -179,7 +182,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   // Close whichever field is being edited when the selected order changes,
   // so switching orders in the list never leaves a stale field open.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting derived UI state when the selected order prop changes
+     
     setEditingField(null);
   }, [selectedOrder?.id]);
 
@@ -267,6 +270,64 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
       'Delete',
       'Cancel'
     );
+  };
+
+  const handleCarrierChange = async (company: string) => {
+    const newCompany = formData.transportCompany === company ? '' : company;
+    setFormData({
+      ...formData,
+      transportCompany: newCompany,
+    });
+    setEditingField(null);
+
+    // If selecting FEDEX, update order_group to fedex type
+    // If deselecting FEDEX or selecting another, clear the order_group
+    if (newCompany === 'FEDEX') {
+      setIsUpdatingCarrier(true);
+      try {
+        // Create or update order_group with type 'fedex'
+        const { data: group, error: groupError } = await supabase
+          .from('order_groups')
+          .insert({ group_type: 'fedex' })
+          .select()
+          .single();
+
+        if (groupError) throw groupError;
+
+        // Link the order to this fedex group
+        const { error: updateError } = await supabase
+          .from('picking_lists')
+          .update({ group_id: group.id })
+          .eq('id', selectedOrder.id);
+
+        if (updateError) throw updateError;
+        onRefresh();
+        toast.success('Order set to FedEx');
+      } catch (err) {
+        console.error('Failed to update carrier:', err);
+        toast.error('Failed to update carrier');
+      } finally {
+        setIsUpdatingCarrier(false);
+      }
+    } else if (formData.transportCompany === 'FEDEX' && newCompany !== 'FEDEX') {
+      // Deselecting FEDEX or switching to another carrier — remove from fedex group
+      setIsUpdatingCarrier(true);
+      try {
+        const { error } = await supabase
+          .from('picking_lists')
+          .update({ group_id: null })
+          .eq('id', selectedOrder.id);
+
+        if (error) throw error;
+        onRefresh();
+        toast.success('Order set to Regular');
+      } catch (err) {
+        console.error('Failed to update carrier:', err);
+        toast.error('Failed to update carrier');
+      } finally {
+        setIsUpdatingCarrier(false);
+      }
+    }
   };
 
   const joinedAddress = [
@@ -494,18 +555,13 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 <button
                   key={company}
                   type="button"
-                  onClick={() => {
-                    setFormData({
-                      ...formData,
-                      transportCompany: formData.transportCompany === company ? '' : company,
-                    });
-                    setEditingField(null);
-                  }}
+                  disabled={isUpdatingCarrier}
+                  onClick={() => handleCarrierChange(company)}
                   className={`px-3 py-1.5 rounded-2xl border text-xs font-black uppercase tracking-widest transition-all ${
                     formData.transportCompany === company
                       ? 'bg-accent text-main border-accent ring-2 ring-accent'
                       : 'bg-main text-muted border-subtle hover:border-accent/50 hover:text-content'
-                  }`}
+                  } ${isUpdatingCarrier ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {company}
                 </button>
