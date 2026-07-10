@@ -150,13 +150,21 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
       ref={setNodeRef}
       style={style}
       className={`relative flex flex-col rounded-2xl overflow-hidden bg-card transition-all duration-200 group border ${
-        isOver ? 'border-2 border-purple-500 bg-purple-500/10 scale-[1.02]' : statusStyles.border
+        isOver ? 'border-2 border-accent bg-accent/5 scale-[1.02]' : statusStyles.border
       } ${statusStyles.hoverBg} ${isDragging ? 'opacity-30 scale-95 z-50' : ''} ${
         order.status === 'completed' && showDate ? 'sm:col-span-2' : ''
       }`}
       {...(attributes as React.HTMLAttributes<HTMLDivElement>)}
       {...(listeners as React.HTMLAttributes<HTMLDivElement>)}
     >
+      {isOver && (
+        <div className="absolute inset-0 bg-accent/10 backdrop-blur-[1px] border-2 border-dashed border-accent flex flex-col items-center justify-center gap-1 z-20 animate-in fade-in duration-200">
+          <span className="text-sm font-black uppercase text-accent select-none">Unir Órdenes</span>
+          <span className="text-[9px] text-accent/80 font-black uppercase tracking-widest select-none">
+            Drop to merge
+          </span>
+        </div>
+      )}
       {showShippingBadge && <div className={`h-1.5 shrink-0 ${colors.stripe}`} />}
 
       {/* Floating Action Buttons Overlay (Absolute Top-Right) */}

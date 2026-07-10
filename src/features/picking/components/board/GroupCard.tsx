@@ -70,12 +70,22 @@ export const GroupCard = React.memo<GroupCardProps>(
             : undefined,
           touchAction: 'none',
         }}
-        className={`rounded-xl border-2 border-dashed ${colors.border} ${colors.bg} transition-all duration-200 ${
-          droppable.isOver ? 'scale-[1.02] shadow-lg' : ''
+        className={`relative rounded-xl border-2 border-dashed ${colors.border} ${colors.bg} transition-all duration-200 ${
+          droppable.isOver ? 'scale-[1.02] shadow-lg border-accent/80' : ''
         } ${draggable.isDragging ? 'opacity-30 scale-95' : ''}`}
         {...draggable.attributes}
         {...draggable.listeners}
       >
+        {droppable.isOver && (
+          <div className="absolute inset-0 bg-accent/10 backdrop-blur-[1px] border-2 border-dashed border-accent flex flex-col items-center justify-center gap-1 z-20 rounded-xl animate-in fade-in duration-200">
+            <span className="text-sm font-black uppercase text-accent select-none">
+              Unir al Grupo
+            </span>
+            <span className="text-[9px] text-accent/80 font-black uppercase tracking-widest select-none">
+              Drop to join group
+            </span>
+          </div>
+        )}
         {/* Group header — aggregates needs-attention + total pallets so the
             verifier scans the worst state at a glance. */}
         <div className="px-2.5 pt-2 pb-1 flex items-center justify-between gap-1">

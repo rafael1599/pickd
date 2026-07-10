@@ -10,6 +10,7 @@ import {
   pointerWithin,
   rectIntersection,
   type CollisionDetection,
+  useDndContext,
 } from '@dnd-kit/core';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 // SortableContext removed — lanes use useDraggable+useDroppable, not sorting
@@ -63,11 +64,54 @@ const DropZone: React.FC<{
   children: React.ReactNode;
 }> = ({ id, className = '', children }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
+  const { active } = useDndContext();
+  const isDragging = !!active;
+
+  let activeStyle = '';
+  if (isDragging) {
+    if (id === ZONE_FEDEX) {
+      activeStyle = isOver
+        ? 'ring-4 ring-purple-500 ring-inset bg-purple-500/10'
+        : 'ring-2 ring-purple-500/20 ring-inset ring-dashed';
+    } else if (id === ZONE_REGULAR) {
+      activeStyle = isOver
+        ? 'ring-4 ring-emerald-500 ring-inset bg-emerald-500/10'
+        : 'ring-2 ring-emerald-500/20 ring-inset ring-dashed';
+    } else if (id === ZONE_PRIORITY) {
+      activeStyle = isOver
+        ? 'ring-4 ring-red-500 ring-inset bg-red-500/10'
+        : 'ring-2 ring-red-500/20 ring-inset ring-dashed';
+    } else if (id === ZONE_WAITING) {
+      activeStyle = isOver
+        ? 'ring-4 ring-amber-500 ring-inset bg-amber-500/10'
+        : 'ring-2 ring-amber-500/20 ring-inset ring-dashed';
+    } else if (id === ZONE_READY) {
+      activeStyle = isOver
+        ? 'ring-4 ring-sky-500 ring-inset bg-sky-500/10'
+        : 'ring-2 ring-sky-500/20 ring-inset ring-dashed';
+    }
+  }
+
   return (
     <div
       ref={setNodeRef}
-      className={`${className} ${isOver ? 'bg-accent/5' : ''} transition-colors`}
+      className={`relative transition-all duration-300 ${className} ${activeStyle}`}
     >
+      {isDragging && isOver && (
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-20 bg-black/5 animate-in fade-in duration-200">
+          <span className="px-4 py-2 bg-surface border border-subtle rounded-xl text-xs font-black uppercase tracking-wider text-content shadow-lg shadow-black/20 animate-in zoom-in-95 duration-200">
+            {id === ZONE_FEDEX
+              ? 'Move to FedEx'
+              : id === ZONE_REGULAR
+                ? 'Move to Regular'
+                : id === ZONE_PRIORITY
+                  ? 'Move to Priority'
+                  : id === ZONE_WAITING
+                    ? 'Move to Waiting'
+                    : 'Move to Pulling'}
+          </span>
+        </div>
+      )}
       {children}
     </div>
   );
@@ -209,11 +253,13 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   const hasCompleted = completedFedex.length > 0 || completedRegular.length > 0;
 
   // ─── DnD sensors ──────────────────────────────────────────────────
+  // Configure long-press activation constraint (2.5 seconds hold) to start dragging,
+  // preventing accidental drags.
   const pointerSensor = useSensor(PointerSensor, {
-    activationConstraint: { distance: 10 },
+    activationConstraint: { delay: 2500, tolerance: 15 },
   });
   const touchSensor = useSensor(TouchSensor, {
-    activationConstraint: { delay: 150, tolerance: 20 },
+    activationConstraint: { delay: 2500, tolerance: 15 },
   });
   const sensors = useSensors(pointerSensor, touchSensor);
 

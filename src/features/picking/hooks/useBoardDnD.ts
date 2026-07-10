@@ -119,12 +119,6 @@ export function useBoardDnD(isAdmin: boolean, refresh: () => void) {
 
         // Cross-lane validation: if original type differs, confirm
         if (sourceShippingType && sourceShippingType !== targetType) {
-          // If it's just Priority reclassification, skip confirmation (primary use case)
-          if (overId === ZONE_PRIORITY) {
-            await reclassifyOrder(sourceOrder.id, targetType);
-            refresh();
-            return;
-          }
           setPendingCrossLane({
             order: sourceOrder,
             fromType: sourceShippingType,
