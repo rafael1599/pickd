@@ -145,6 +145,18 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
     return { bikesCount: bikes, partsCount: parts };
   }, [order.items]);
 
+  // Split order number: last 3 digits will be rendered 50% larger and in yellow
+  const { firstPart, lastThree } = React.useMemo(() => {
+    const fullNum = String(order.order_number || order.id.toString().slice(-6).toUpperCase());
+    if (fullNum.length <= 3) {
+      return { firstPart: '', lastThree: fullNum };
+    }
+    return {
+      firstPart: fullNum.slice(0, -3),
+      lastThree: fullNum.slice(-3),
+    };
+  }, [order.order_number, order.id]);
+
   return (
     <div
       ref={setNodeRef}
@@ -267,7 +279,10 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
               />
             )}
             <span className="text-[clamp(1.6rem,3vw,4rem)] leading-none font-black uppercase tracking-tight text-content truncate">
-              #{order.order_number || order.id.toString().slice(-6).toUpperCase()}
+              #{firstPart}
+              <span className="text-yellow-400 text-[1.15em] font-black tracking-tight leading-none inline-block align-baseline">
+                {lastThree}
+              </span>
             </span>
             {order.is_addon && (
               <span className="shrink-0 text-[clamp(0.6rem,1vw,1rem)] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black animate-pulse">
@@ -288,20 +303,22 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
           </div>
         </button>
 
-        {/* Right Panel: Carrier Logo Panel (Full Height) */}
-        <div className="relative flex items-center justify-center shrink-0 self-stretch min-w-[76px] md:min-w-[84px] select-none overflow-hidden">
-          {shippingType === 'fedex' || order.transport_company ? (
-            <TransportLogo
-              company={shippingType === 'fedex' ? 'FEDEX' : order.transport_company}
-              className="absolute inset-0 h-full w-full object-contain"
-              plain
-            />
-          ) : (
-            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded whitespace-nowrap">
-              Regular
-            </span>
-          )}
-        </div>
+        {/* Right Panel: Carrier Logo Panel (Full Height) - Only shown on completed orders */}
+        {order.status === 'completed' && (
+          <div className="relative flex items-center justify-center shrink-0 self-stretch min-w-[76px] md:min-w-[84px] select-none overflow-hidden">
+            {shippingType === 'fedex' || order.transport_company ? (
+              <TransportLogo
+                company={shippingType === 'fedex' ? 'FEDEX' : order.transport_company}
+                className="absolute inset-0 h-full w-full object-contain"
+                plain
+              />
+            ) : (
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded whitespace-nowrap">
+                Regular
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
