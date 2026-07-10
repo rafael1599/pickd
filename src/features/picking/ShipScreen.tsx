@@ -6,6 +6,7 @@ import Home from 'lucide-react/dist/esm/icons/home';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { LivePrintPreview } from '../../components/orders/LivePrintPreview.tsx';
+import { PalletPhotosBlock } from '../../components/orders/PalletPhotosBlock.tsx';
 import { generateShipLabel } from '../../components/orders/generateShipLabel';
 import { usePickingSession } from '../../context/PickingContext.tsx';
 import { useViewMode } from '../../context/ViewModeContext.tsx';
@@ -957,7 +958,6 @@ export const ShipScreen = () => {
                   totalWeight={effectiveWeight}
                   completedAt={selectedOrder.updated_at}
                   transportCompany={formData.transportCompany}
-                  palletPhotos={selectedOrder.pallet_photos ?? undefined}
                   screenOnly
                 />
 
@@ -994,6 +994,11 @@ export const ShipScreen = () => {
                   autoBikeCount={autoBikeCount}
                   autoPartCount={autoPartCount}
                   autoWeight={totalWeight}
+                />
+
+                <PalletPhotosBlock
+                  photos={selectedOrder.pallet_photos ?? []}
+                  orderNumber={selectedOrder.order_number ?? undefined}
                 />
 
                 {/* Parts Weight Editor (idea-028) */}
