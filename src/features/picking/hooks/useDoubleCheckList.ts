@@ -47,6 +47,7 @@ export interface PickingList {
   pallets_qty?: number | null;
   total_units?: number | null;
   source_order_date?: string | null;
+  transport_company?: string | null;
 }
 
 const PICKING_LIST_SELECT = `
@@ -69,7 +70,8 @@ const PICKING_LIST_SELECT = `
   shipping_type,
   pallets_qty,
   total_units,
-  source_order_date
+  source_order_date,
+  transport_company
 `;
 
 export const VERIFICATION_QUEUE_KEY = ['picking_lists', 'verification_queue'];

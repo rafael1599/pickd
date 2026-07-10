@@ -7,6 +7,8 @@ import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import Unlink from 'lucide-react/dist/esm/icons/unlink';
 import type { PickingList } from '../../hooks/useDoubleCheckList';
 
+import { TransportLogo } from '../../../../components/orders/TransportLogo';
+
 type ShippingType = 'fedex' | 'regular';
 
 interface CardProps {
@@ -110,6 +112,23 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
   const worker = getWorkerLabel(order);
   const showStatusIcon = order.status === 'needs_correction' || order.status === 'double_checking';
 
+  // Calculate bikes and parts counts from order items using the 03- prefix heuristic
+  const { bikesCount, partsCount } = React.useMemo(() => {
+    let bikes = 0;
+    let parts = 0;
+    if (Array.isArray(order.items)) {
+      for (const item of order.items) {
+        const qty = (item.pickingQty as number) || (item.qty as number) || 0;
+        if (item.sku && item.sku.startsWith('03-')) {
+          bikes += qty;
+        } else {
+          parts += qty;
+        }
+      }
+    }
+    return { bikesCount: bikes, partsCount: parts };
+  }, [order.items]);
+
   return (
     <div
       ref={setNodeRef}
@@ -121,12 +140,75 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
       {...(listeners as React.HTMLAttributes<HTMLDivElement>)}
     >
       {showShippingBadge && <div className={`h-1.5 shrink-0 ${colors.stripe}`} />}
-      {/* Actions live in normal flow (right column), never absolutely
-          positioned — on narrow tiles an overlay was covering the text. */}
-      <div className="flex-1 flex items-start min-w-0">
+
+      <div className="flex-1 flex items-stretch min-w-0">
+        {/* Left Panel: Carrier logo and quantities (for Regular only) */}
+        <div className="flex flex-col items-center justify-center border-r border-subtle bg-content/[0.02] py-2 px-2.5 shrink-0 self-stretch min-w-[76px] md:min-w-[84px] gap-2 select-none">
+          {/* Carrier Logo */}
+          <div className="flex items-center justify-center min-h-[24px]">
+            {shippingType === 'fedex' ? (
+              <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded">
+                FedEx
+              </span>
+            ) : order.transport_company ? (
+              <TransportLogo
+                company={order.transport_company}
+                height={16}
+                className="max-w-[64px]"
+              />
+            ) : (
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                Regular
+              </span>
+            )}
+          </div>
+
+          {/* Quantities (Regular only) */}
+          {shippingType === 'regular' && (
+            <div className="flex flex-col gap-1.5 w-full text-center">
+              {/* Pallets Row */}
+              {typeof order.pallets_qty === 'number' && order.pallets_qty > 0 && (
+                <div className="flex flex-col leading-none">
+                  <span className="text-base md:text-lg font-black text-sky-400">
+                    {order.pallets_qty}
+                  </span>
+                  <span className="text-[8px] md:text-[9px] font-bold text-muted uppercase tracking-wider mt-0.5">
+                    {order.pallets_qty === 1 ? 'Pallet' : 'Pallets'}
+                  </span>
+                </div>
+              )}
+
+              {/* Bikes Row */}
+              {bikesCount > 0 && (
+                <div className="flex flex-col leading-none">
+                  <span className="text-base md:text-lg font-black text-amber-500">
+                    {bikesCount}
+                  </span>
+                  <span className="text-[8px] md:text-[9px] font-bold text-muted uppercase tracking-wider mt-0.5">
+                    {bikesCount === 1 ? 'Bike' : 'Bikes'}
+                  </span>
+                </div>
+              )}
+
+              {/* Parts Row */}
+              {partsCount > 0 && (
+                <div className="flex flex-col leading-none">
+                  <span className="text-base md:text-lg font-black text-emerald-500">
+                    {partsCount}
+                  </span>
+                  <span className="text-[8px] md:text-[9px] font-bold text-muted uppercase tracking-wider mt-0.5">
+                    {partsCount === 1 ? 'Part' : 'Parts'}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Right Panel */}
         <button
           onClick={() => onSelect(order)}
-          className={`flex-1 text-left px-3 py-2.5 md:px-4 md:py-3 flex flex-col gap-1 min-w-0 ${
+          className={`flex-1 text-left px-3 py-2.5 md:px-4 md:py-3 flex flex-col justify-center gap-1 min-w-0 ${
             order.status === 'double_checking' ? 'opacity-70' : ''
           }`}
         >
@@ -149,17 +231,6 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
             )}
           </div>
           <div className="flex items-baseline gap-3 min-w-0">
-            <span
-              className={`text-[clamp(1.15rem,2vw,2.5rem)] leading-tight font-black uppercase ${
-                typeof order.pallets_qty === 'number' && order.pallets_qty > 0
-                  ? 'text-sky-400'
-                  : 'text-muted/40'
-              }`}
-            >
-              {typeof order.pallets_qty === 'number' && order.pallets_qty > 0
-                ? `${order.pallets_qty} PLT`
-                : '— PLT'}
-            </span>
             {worker && (
               <span className="text-[clamp(1.05rem,1.8vw,2.25rem)] leading-tight font-bold uppercase tracking-wide text-muted truncate">
                 {worker}
@@ -167,7 +238,8 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
             )}
           </div>
         </button>
-        <div className="flex items-center shrink-0 pt-1.5 pr-1">
+
+        <div className="flex items-center shrink-0 pt-1.5 pr-1 self-start">
           {order.group_id && onUngroup && (
             <button
               onClick={(e) => {

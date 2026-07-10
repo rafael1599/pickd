@@ -46,9 +46,8 @@ const ZONE_READY = 'zone-ready';
 // Completed Today auto-expands when the board is this quiet or quieter;
 // with more active orders on screen it starts collapsed.
 const COMPLETED_AUTO_OPEN_MAX = 6;
-// How many past completed orders (with date labels) to show when the board
-// has nothing active at all.
-const RECENT_COMPLETED_LIMIT = 10;
+// How many completed orders of each type to show in the completed section.
+const COMPLETED_SIDE_LIMIT = 6;
 
 // Responsive tile grids — capped at 4 columns across the device so tiles
 // grow with the resolution instead of multiplying (7 skinny columns on a
@@ -104,8 +103,9 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     waitingOrders,
     pullingOrders,
     pullingShippingTypes,
-    todayCompleted,
-    recentCompleted,
+    completedFedex,
+    completedRegular,
+    completedShowsDates,
     priorityShippingTypes,
   } = useMemo(() => {
     const priorityShipTypes = new Map<string, string>();
@@ -153,11 +153,39 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       (a, b) => new Date(a.updated_at ?? 0).getTime() - new Date(b.updated_at ?? 0).getTime()
     );
 
-    // Completed: today's list for the normal section; latest N (any day, with
-    // date labels) as the empty-board fallback.
+    // Classify completed orders
+    const allCompletedFedex: PickingList[] = [];
+    const allCompletedRegular: PickingList[] = [];
+    for (const order of completedOrders ?? []) {
+      const shippingType =
+        order.shipping_type ??
+        autoClassifyShippingType(
+          order.items?.map((i) => ({
+            sku: i.sku,
+            pickingQty: (i as Record<string, unknown>).pickingQty as number,
+          })) ?? [],
+          {}
+        );
+      if (shippingType === 'fedex') {
+        allCompletedFedex.push(order);
+      } else {
+        allCompletedRegular.push(order);
+      }
+    }
+
     const today = new Date().toISOString().slice(0, 10);
-    const todayDone = (completedOrders ?? []).filter((o) => o.updated_at?.slice(0, 10) === today);
-    const recentDone = (completedOrders ?? []).slice(0, RECENT_COMPLETED_LIMIT);
+    const todayFedex = allCompletedFedex.filter((o) => o.updated_at?.slice(0, 10) === today);
+    const todayRegular = allCompletedRegular.filter((o) => o.updated_at?.slice(0, 10) === today);
+
+    const hasAnyToday = todayFedex.length > 0 || todayRegular.length > 0;
+    const showsDates = !hasAnyToday;
+
+    const fedexDone = hasAnyToday
+      ? todayFedex.slice(0, COMPLETED_SIDE_LIMIT)
+      : allCompletedFedex.slice(0, COMPLETED_SIDE_LIMIT);
+    const regularDone = hasAnyToday
+      ? todayRegular.slice(0, COMPLETED_SIDE_LIMIT)
+      : allCompletedRegular.slice(0, COMPLETED_SIDE_LIMIT);
 
     return {
       priorityOrders: priority,
@@ -166,8 +194,9 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       waitingOrders: waiting,
       pullingOrders: pulling,
       pullingShippingTypes: pullingShipTypes,
-      todayCompleted: todayDone,
-      recentCompleted: recentDone,
+      completedFedex: fedexDone,
+      completedRegular: regularDone,
+      completedShowsDates: showsDates,
       priorityShippingTypes: priorityShipTypes,
     };
   }, [orders, completedOrders]);
@@ -181,8 +210,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   const completedExpanded = boardIsEmpty
     ? true
     : (completedOverride ?? activeTotal <= COMPLETED_AUTO_OPEN_MAX);
-  const completedList = todayCompleted.length > 0 ? todayCompleted : recentCompleted;
-  const completedShowsDates = todayCompleted.length === 0;
+  const hasCompleted = completedFedex.length > 0 || completedRegular.length > 0;
 
   // ─── DnD sensors ──────────────────────────────────────────────────
   const pointerSensor = useSensor(PointerSensor, {
@@ -330,8 +358,6 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     );
   };
 
-  const showFedexLane = fedexOrders.length > 0 || isDraggingSomething;
-  const showRegularLane = regularOrders.length > 0 || isDraggingSomething;
   const showPulling = pullingOrders.length > 0 || isDraggingSomething;
   const showWaiting = waitingOrders.length > 0 || isDraggingSomething;
 
@@ -342,13 +368,13 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           Internal modals (GroupOrder z-150, CrossLane/WaitingReason z-200) stay on top. */}
       <div className="fixed inset-0 z-[110] flex flex-col bg-main">
         {/* Header */}
-        <div className="px-3 py-2 md:px-5 md:py-3 border-b border-subtle bg-surface flex items-center justify-between shrink-0">
-          <h2 className="text-base md:text-xl lg:text-xl font-black text-content uppercase tracking-tight">
+        <div className="px-3 py-2 md:px-5 md:py-3 border-b border-subtle bg-surface flex items-center justify-center relative shrink-0">
+          <h2 className="text-base md:text-xl lg:text-xl font-black text-content uppercase tracking-tight text-center">
             Verification Board
           </h2>
           <button
             onClick={onClose}
-            className="p-2 -mr-2 text-muted hover:text-content transition-colors"
+            className="absolute right-3 md:right-5 p-2 text-muted hover:text-content transition-colors"
           >
             <X className="w-6 h-6" />
           </button>
@@ -394,42 +420,34 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             {/* FEDEX | REGULAR lanes (needs_correction / double_checking).
               Empty lanes are hidden — unless a drag is in progress, when both
               drop targets must be reachable. A lone lane takes the full width. */}
-            {(showFedexLane || showRegularLane) && (
-              <div
-                className={`grid ${
-                  showFedexLane && showRegularLane ? 'grid-cols-2 divide-x divide-subtle' : ''
-                } border-b border-subtle`}
-              >
-                {showFedexLane && (
-                  <DropZone id={ZONE_FEDEX} className="bg-purple-500/[0.08] min-h-[44px]">
-                    <div className="h-[5px] md:h-[6px] bg-purple-500/70" />
-                    <div className="px-2 py-2 md:px-4 md:py-3">
-                      {fedexOrders.length > 0 ? (
-                        renderOrderCards(fedexOrders, 'fedex')
-                      ) : (
-                        <div className="text-center text-xs text-purple-400/40 italic py-2">
-                          Drop here → FedEx
-                        </div>
-                      )}
+            {/* FEDEX | REGULAR lanes (needs_correction / double_checking).
+              Both lanes are always shown side-by-side. */}
+            <div className="grid grid-cols-2 divide-x divide-subtle border-b border-subtle">
+              <DropZone id={ZONE_FEDEX} className="bg-purple-500/[0.08] min-h-[44px]">
+                <div className="h-[5px] md:h-[6px] bg-purple-500/70" />
+                <div className="px-2 py-2 md:px-4 md:py-3">
+                  {fedexOrders.length > 0 ? (
+                    renderOrderCards(fedexOrders, 'fedex')
+                  ) : (
+                    <div className="text-center text-xs text-purple-400/40 italic py-2">
+                      Drop here → FedEx
                     </div>
-                  </DropZone>
-                )}
-                {showRegularLane && (
-                  <DropZone id={ZONE_REGULAR} className="bg-emerald-500/[0.08] min-h-[44px]">
-                    <div className="h-[5px] md:h-[6px] bg-emerald-500/70" />
-                    <div className="px-2 py-2 md:px-4 md:py-3">
-                      {regularOrders.length > 0 ? (
-                        renderOrderCards(regularOrders, 'regular')
-                      ) : (
-                        <div className="text-center text-xs text-emerald-400/40 italic py-2">
-                          Drop here → Regular
-                        </div>
-                      )}
+                  )}
+                </div>
+              </DropZone>
+              <DropZone id={ZONE_REGULAR} className="bg-emerald-500/[0.08] min-h-[44px]">
+                <div className="h-[5px] md:h-[6px] bg-emerald-500/70" />
+                <div className="px-2 py-2 md:px-4 md:py-3">
+                  {regularOrders.length > 0 ? (
+                    renderOrderCards(regularOrders, 'regular')
+                  ) : (
+                    <div className="text-center text-xs text-emerald-400/40 italic py-2">
+                      Drop here → Regular
                     </div>
-                  </DropZone>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
+              </DropZone>
+            </div>
 
             {/* PULLING — every order of the day still being worked (actively
               picked + finished picking, awaiting verification). Full-width
@@ -486,7 +504,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             {/* COMPLETED — today's orders with completion time. Auto-expands
               when the board is quiet (or completely empty, where it falls
               back to the latest completed orders with date labels). */}
-            {completedList.length > 0 && (
+            {hasCompleted && (
               <div className="border-b border-subtle">
                 <button
                   onClick={() => setCompletedOverride(completedExpanded ? false : true)}
@@ -495,7 +513,9 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                   <span className="text-sm md:text-base font-black uppercase tracking-widest text-content/60">
                     {completedShowsDates ? 'Recently Completed' : 'Completed Today'}
                   </span>
-                  <span className="text-sm text-muted/60">({completedList.length})</span>
+                  <span className="text-sm text-muted/60">
+                    ({completedFedex.length + completedRegular.length})
+                  </span>
                   <ChevronDown
                     size={14}
                     className={`text-content/40 transition-transform ${
@@ -506,7 +526,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                 {completedExpanded && (
                   <div className="px-2 pb-3 md:px-4">
                     <CompletedZone
-                      orders={completedList}
+                      fedexOrders={completedFedex}
+                      regularOrders={completedRegular}
                       showDate={completedShowsDates}
                       onSelectOrder={(orderId) => {
                         setExternalOrderId(orderId);

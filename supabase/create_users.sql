@@ -122,10 +122,15 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- profiles (después de auth.users por FK)
+-- Desactivar temporalmente el trigger de auto-escalación ya que el script corre sin sesión activa (is_admin() es falso)
+ALTER TABLE public.profiles DISABLE TRIGGER profiles_prevent_role_escalation;
+
 INSERT INTO public.profiles (id, email, full_name, role, is_active) VALUES
 ('00000000-0000-0000-0000-000000000001', 'admin@test.com', 'Test Admin', 'admin', true),
 ('00000000-0000-0000-0000-000000000002', 'staff@test.com', 'Test Staff', 'staff', true)
 ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, is_active = EXCLUDED.is_active;
+
+ALTER TABLE public.profiles ENABLE TRIGGER profiles_prevent_role_escalation;
 
 -- 5. Reload PostgREST schema cache
 NOTIFY pgrst, 'reload schema';
