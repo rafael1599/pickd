@@ -948,14 +948,9 @@ export const ShipScreen = () => {
           {/* Vertical order list — grouped by date */}
           <div className="w-full md:w-72 shrink-0 md:sticky md:top-0">
             <div className="bg-card border border-subtle rounded-3xl p-3 flex flex-col gap-2">
-              <div className="flex items-center justify-between px-2 pb-1">
+              <div className="px-2 pb-1">
                 <span className="text-[10px] font-black uppercase tracking-widest text-muted/50">
                   Orders
-                </span>
-                <span className="text-[10px] text-muted/40 font-bold">
-                  {filteredOrders.length > VISIBLE_ORDER_LIMIT
-                    ? `${VISIBLE_ORDER_LIMIT} of ${filteredOrders.length}`
-                    : filteredOrders.length}
                 </span>
               </div>
               <div className="flex flex-col gap-2 max-h-72 md:max-h-[calc(100vh-13rem)] overflow-y-auto no-scrollbar">
