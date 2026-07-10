@@ -148,7 +148,9 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
       style={style}
       className={`relative flex flex-col rounded-2xl overflow-hidden bg-card transition-all duration-200 group border ${
         isOver ? 'border-2 border-purple-500 bg-purple-500/10 scale-[1.02]' : statusStyles.border
-      } ${statusStyles.hoverBg} ${isDragging ? 'opacity-30 scale-95 z-50' : ''}`}
+      } ${statusStyles.hoverBg} ${isDragging ? 'opacity-30 scale-95 z-50' : ''} ${
+        order.status === 'completed' && showDate ? 'sm:col-span-2' : ''
+      }`}
       {...(attributes as React.HTMLAttributes<HTMLDivElement>)}
       {...(listeners as React.HTMLAttributes<HTMLDivElement>)}
     >
