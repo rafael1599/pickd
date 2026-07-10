@@ -6,14 +6,14 @@ import Home from 'lucide-react/dist/esm/icons/home';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { LivePrintPreview } from '../../components/orders/LivePrintPreview.tsx';
+import { PalletPhotosBlock } from '../../components/orders/PalletPhotosBlock.tsx';
 import { generateShipLabel } from '../../components/orders/generateShipLabel';
 import { usePickingSession } from '../../context/PickingContext.tsx';
 import { useViewMode } from '../../context/ViewModeContext.tsx';
 import Search from 'lucide-react/dist/esm/icons/search';
-import Filter from 'lucide-react/dist/esm/icons/filter';
+import MessageSquare from 'lucide-react/dist/esm/icons/message-square';
 import { ShipOrderCard } from '../../components/orders/ShipOrderCard.tsx';
 import { OrderStatusPill } from '../../components/orders/OrderStatusPill.tsx';
-import { FloatingActionButtons } from '../../components/orders/FloatingActionButtons.tsx';
 import { useShipOutSms } from './hooks/useShipOutSms';
 import { withSupabaseRetry } from '../../lib/supabaseRetry';
 import { PickingSummaryModal } from '../../components/orders/PickingSummaryModal.tsx';
@@ -93,32 +93,19 @@ export const ShipScreen = () => {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<OrderWithRelations | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [timeFilter, setTimeFilter] = useState('ALL');
   const [showFedex, setShowFedex] = useState(false);
   const navigate = useNavigate();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [reopenReasonModal, setReopenReasonModal] = useState(false);
   const [reopenReason, setReopenReason] = useState('');
   const [restoreReasonModal, setRestoreReasonModal] = useState(false);
   const [restoreReason, setRestoreReason] = useState('');
   // Add-On reopen flow (idea-067 Phase 2): after the user picks the reason,
-  const filterRef = useRef<HTMLDivElement>(null);
   const searchQueryRef = useRef(searchQuery);
 
   useEffect(() => {
     searchQueryRef.current = searchQuery;
   }, [searchQuery]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
-        setIsFilterOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   // Ref to track selectedOrder without triggering re-renders in callbacks
   const selectedOrderRef = useRef(selectedOrder);
@@ -134,7 +121,6 @@ export const ShipScreen = () => {
   }, [searchQuery]);
 
   const [isPrinting, setIsPrinting] = useState(false);
-  const [pressedKey, setPressedKey] = useState<'left' | 'right' | null>(null);
   const [isShowingPickingSummary, setIsShowingPickingSummary] = useState(false);
   const [isShowingSplitModal, setIsShowingSplitModal] = useState(false);
 
@@ -312,7 +298,7 @@ export const ShipScreen = () => {
     if (!user) return;
     if (!hasLoadedOnceRef.current) setLoading(true);
     try {
-      let query = supabase
+      const query = supabase
         .from('picking_lists')
         .select(
           `
@@ -325,25 +311,6 @@ export const ShipScreen = () => {
                 `
         )
         .order('created_at', { ascending: false });
-
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
-
-      if (timeFilter === 'TODAY') {
-        query = query.gte('created_at', startOfToday.toISOString());
-      } else if (timeFilter === 'YESTERDAY') {
-        const startOfYesterday = new Date(startOfToday);
-        startOfYesterday.setDate(startOfYesterday.getDate() - 1);
-        const endOfYesterday = new Date(startOfToday);
-        endOfYesterday.setMilliseconds(-1);
-        query = query
-          .gte('created_at', startOfYesterday.toISOString())
-          .lte('created_at', endOfYesterday.toISOString());
-      } else if (timeFilter === 'WEEK') {
-        const lastWeek = new Date(startOfToday);
-        lastWeek.setDate(lastWeek.getDate() - 7);
-        query = query.gte('created_at', lastWeek.toISOString());
-      }
 
       // Wrap the supabase call so transient network/5xx errors get
       // retried with exponential backoff. Without this, a single
@@ -376,7 +343,7 @@ export const ShipScreen = () => {
       hasLoadedOnceRef.current = true;
       setLoading(false);
     }
-  }, [user, timeFilter, externalOrderId]); // Include externalOrderId here to ensure consistency
+  }, [user, externalOrderId]); // Include externalOrderId here to ensure consistency
 
   useEffect(() => {
     fetchOrders();
@@ -547,51 +514,17 @@ export const ShipScreen = () => {
     return Array.from(map.values());
   }, [visibleOrders]);
 
-  // Keyboard arrow navigation between orders (placed after filteredOrders is declared)
+  // Print shortcut only — Ctrl+P / Cmd+P is the sole way to print now that
+  // the Print Labels button is gone.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
-        // For inputs, only allow the print shortcut to pass through
-        if (!((e.ctrlKey || e.metaKey) && e.key === 'p')) return;
-      }
-
-      // Print Shortcut (Ctrl+P or Cmd+P) — via ref: see handlePrintRef below.
-      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
-        e.preventDefault();
-        handlePrintRef.current();
-        return;
-      }
-
-      if (e.key === 'ArrowRight') setPressedKey('right');
-      if (e.key === 'ArrowLeft') setPressedKey('left');
-      if (filteredOrders.length === 0 || !selectedOrder) return;
-      const currentIndex = filteredOrders.findIndex((o) => o.id === selectedOrder?.id);
-      if (e.key === 'ArrowRight') {
-        if (currentIndex >= filteredOrders.length - 1) {
-          toast('No more orders', { icon: '➡️', duration: 1500 });
-        } else {
-          setSelectedOrder(filteredOrders[currentIndex + 1]);
-        }
-      }
-      if (e.key === 'ArrowLeft') {
-        if (currentIndex <= 0) {
-          toast('Already at the latest order', { icon: '⬅️', duration: 1500 });
-        } else {
-          setSelectedOrder(filteredOrders[currentIndex - 1]);
-        }
-      }
-    };
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') setPressedKey(null);
+      if (!((e.ctrlKey || e.metaKey) && e.key === 'p')) return;
+      e.preventDefault();
+      handlePrintRef.current();
     };
     document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('keyup', handleKeyUp);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('keyup', handleKeyUp);
-    };
-  }, [filteredOrders, selectedOrder]);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   /**
    * Persist the current form (with optional per-call overrides) to the DB.
@@ -756,7 +689,7 @@ export const ShipScreen = () => {
   );
 
   const handlePrint = async () => {
-    if (!selectedOrder) return;
+    if (!selectedOrder || isPrinting) return;
 
     // Build warnings for missing data
     const palletsNum = parseInt(String(formData.pallets)) || 0;
@@ -805,7 +738,25 @@ export const ShipScreen = () => {
         weightLbs: effectiveWeight,
         loadNumber: formData.loadNumber || null,
       });
-      window.open(blobUrl, '_blank');
+      // Open the label in a new tab AND trigger the print dialog immediately
+      // — previously the operator had to press Ctrl+P a second time inside
+      // the new tab's PDF viewer. `load` fires once Chrome's built-in
+      // viewer has rendered the blob; the timeout is a safety net for
+      // browsers where that event doesn't fire reliably for PDF documents.
+      const printWindow = window.open(blobUrl, '_blank');
+      if (printWindow) {
+        const triggerPrint = () => {
+          try {
+            printWindow.focus();
+            printWindow.print();
+          } catch {
+            // Some browsers refuse programmatic print on a PDF viewer tab —
+            // the operator still has the tab open to print manually.
+          }
+        };
+        printWindow.addEventListener('load', triggerPrint);
+        setTimeout(triggerPrint, 800);
+      }
     } catch (error) {
       console.error('Error generating PDF:', error);
       const err = error as { code?: string };
@@ -819,37 +770,17 @@ export const ShipScreen = () => {
     }
   };
 
-  // The document-level Ctrl+P listener only re-binds when filteredOrders or
-  // selectedOrder change — but formData lands ONE RENDER LATER (its sync
-  // effect), so the listener's closure kept the PREVIOUS order's customer,
-  // address and load number: the printed label carried another order's name
-  // and handlePrint even persisted that stale form to the DB. The ref is
+  // The document-level Ctrl+P listener is bound once (see the effect below)
+  // — but formData lands ONE RENDER LATER (its sync effect), so a closure
+  // captured at bind time would keep the PREVIOUS order's customer, address
+  // and load number: the printed label would carry another order's name and
+  // handlePrint would even persist that stale form to the DB. The ref is
   // re-pointed at the fresh handler on every render, so the shortcut always
-  // prints exactly what the screen shows (same handler the Print button gets).
+  // prints exactly what the screen shows.
   const handlePrintRef = useRef(handlePrint);
   useEffect(() => {
     handlePrintRef.current = handlePrint;
   });
-
-  const handleNextOrder = () => {
-    if (filteredOrders.length === 0 || !selectedOrder) return;
-    const currentIndex = filteredOrders.findIndex((o) => o.id === selectedOrder?.id);
-    if (currentIndex >= filteredOrders.length - 1) {
-      toast('No more orders', { icon: '➡️', duration: 1500 });
-    } else {
-      setSelectedOrder(filteredOrders[currentIndex + 1]);
-    }
-  };
-
-  const handlePreviousOrder = () => {
-    if (filteredOrders.length === 0 || !selectedOrder) return;
-    const currentIndex = filteredOrders.findIndex((o) => o.id === selectedOrder?.id);
-    if (currentIndex <= 0) {
-      toast('Already at the latest order', { icon: '⬅️', duration: 1500 });
-    } else {
-      setSelectedOrder(filteredOrders[currentIndex - 1]);
-    }
-  };
 
   const handleReopenOrder = () => {
     if (!selectedOrder) return;
@@ -1012,6 +943,24 @@ export const ShipScreen = () => {
           <div className="flex-1 min-w-0 flex flex-col gap-6 pb-8">
             {selectedOrder ? (
               <>
+                <LivePrintPreview
+                  orderNumber={selectedOrder.order_number ?? undefined}
+                  watcherNote={selectedOrder.notes}
+                  customerName={formData.customerName}
+                  street={formData.street}
+                  city={formData.city}
+                  state={formData.state}
+                  zip={formData.zip}
+                  pallets={formData.pallets}
+                  bikeCount={bikeCount}
+                  partCount={partCount}
+                  loadNumber={formData.loadNumber}
+                  totalWeight={effectiveWeight}
+                  completedAt={selectedOrder.updated_at}
+                  transportCompany={formData.transportCompany}
+                  screenOnly
+                />
+
                 <ShipOrderCard
                   formData={formData}
                   setFormData={setFormData}
@@ -1047,23 +996,9 @@ export const ShipScreen = () => {
                   autoWeight={totalWeight}
                 />
 
-                <LivePrintPreview
+                <PalletPhotosBlock
+                  photos={selectedOrder.pallet_photos ?? []}
                   orderNumber={selectedOrder.order_number ?? undefined}
-                  watcherNote={selectedOrder.notes}
-                  customerName={formData.customerName}
-                  street={formData.street}
-                  city={formData.city}
-                  state={formData.state}
-                  zip={formData.zip}
-                  pallets={formData.pallets}
-                  bikeCount={bikeCount}
-                  partCount={partCount}
-                  loadNumber={formData.loadNumber}
-                  totalWeight={effectiveWeight}
-                  completedAt={selectedOrder.updated_at}
-                  transportCompany={formData.transportCompany}
-                  palletPhotos={selectedOrder.pallet_photos ?? undefined}
-                  screenOnly
                 />
 
                 {/* Parts Weight Editor (idea-028) */}
@@ -1135,59 +1070,19 @@ export const ShipScreen = () => {
         </div>
       </div>
 
-      {/* Island — centered under the full-width content */}
-      <div className="hidden md:flex absolute bottom-10 left-0 right-0 justify-center z-[100] pointer-events-none">
-        <div className="pointer-events-auto animate-soft-in">
-          <FloatingActionButtons
-            onPrint={handlePrint}
-            onNext={handleNextOrder}
-            onPrevious={handlePreviousOrder}
-            isPrinting={isPrinting}
-            hasOrders={!!selectedOrder}
-            pressedKey={pressedKey}
-            isShipSmsEnabled={isShipSmsEnabled}
-            onSendSms={
-              selectedOrder
-                ? () => {
-                    void triggerShipOutSms(selectedOrder.id);
-                  }
-                : undefined
-            }
-          />
-        </div>
-      </div>
-
       {/* Global Actions — Floating at bottom right */}
       <div className="absolute bottom-10 right-6 md:right-10 flex flex-col gap-3 z-[110]">
-        {/* Filter Dropdown */}
-        <div className="relative" ref={filterRef}>
-          {isFilterOpen && (
-            <div className="absolute bottom-16 right-0 w-56 bg-surface border border-subtle rounded-[2rem] shadow-2xl p-3 z-[60] animate-soft-in">
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted/30 px-4 mb-2">
-                Filter by Time
-              </p>
-              {['TODAY', 'YESTERDAY', 'WEEK', 'ALL'].map((filter) => (
-                <button
-                  key={filter}
-                  onClick={() => {
-                    setTimeFilter(filter);
-                    setIsFilterOpen(false);
-                  }}
-                  className={`w-full text-left px-4 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${timeFilter === filter ? 'bg-accent text-white' : 'hover:bg-main text-muted'}`}
-                >
-                  {filter}
-                </button>
-              ))}
-            </div>
-          )}
+        {/* Resend Ship-Out SMS — only renders when the feature is enabled in Settings */}
+        {isShipSmsEnabled && selectedOrder && (
           <button
-            onClick={() => setIsFilterOpen(!isFilterOpen)}
-            className={`w-14 h-14 flex items-center justify-center rounded-full bg-surface border-2 transition-all duration-300 shadow-xl active:scale-95 ${isFilterOpen ? 'border-accent text-accent' : 'border-subtle text-muted hover:text-accent'}`}
-            title="Filter Orders"
+            onClick={() => void triggerShipOutSms(selectedOrder.id)}
+            title="Resend Ship-Out SMS"
+            aria-label="Resend Ship-Out SMS"
+            className="w-14 h-14 flex items-center justify-center rounded-full bg-surface border-2 border-subtle text-emerald-400 hover:text-emerald-300 transition-all duration-300 shadow-xl active:scale-95"
           >
-            <Filter size={24} />
+            <MessageSquare size={24} />
           </button>
-        </div>
+        )}
 
         {/* Home Button */}
         <button
