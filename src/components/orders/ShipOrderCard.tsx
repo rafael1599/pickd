@@ -440,11 +440,9 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           </div>
         )}
 
-      {/* Order # + status */}
+      {/* Status — order number now lives in the LivePrintPreview block above,
+          no need to repeat it here. */}
       <div className="flex items-center gap-3 flex-wrap">
-        <span className="font-mono text-2xl font-black text-content tracking-tight">
-          #{selectedOrder.order_number}
-        </span>
         <OrderStatusPill status={selectedOrder.status} />
       </div>
 

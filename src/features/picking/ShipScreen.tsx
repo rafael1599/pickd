@@ -805,7 +805,25 @@ export const ShipScreen = () => {
         weightLbs: effectiveWeight,
         loadNumber: formData.loadNumber || null,
       });
-      window.open(blobUrl, '_blank');
+      // Open the label in a new tab AND trigger the print dialog immediately
+      // — previously the operator had to press Ctrl+P a second time inside
+      // the new tab's PDF viewer. `load` fires once Chrome's built-in
+      // viewer has rendered the blob; the timeout is a safety net for
+      // browsers where that event doesn't fire reliably for PDF documents.
+      const printWindow = window.open(blobUrl, '_blank');
+      if (printWindow) {
+        const triggerPrint = () => {
+          try {
+            printWindow.focus();
+            printWindow.print();
+          } catch {
+            // Some browsers refuse programmatic print on a PDF viewer tab —
+            // the operator still has the tab open to print manually.
+          }
+        };
+        printWindow.addEventListener('load', triggerPrint);
+        setTimeout(triggerPrint, 800);
+      }
     } catch (error) {
       console.error('Error generating PDF:', error);
       const err = error as { code?: string };
@@ -1012,6 +1030,25 @@ export const ShipScreen = () => {
           <div className="flex-1 min-w-0 flex flex-col gap-6 pb-8">
             {selectedOrder ? (
               <>
+                <LivePrintPreview
+                  orderNumber={selectedOrder.order_number ?? undefined}
+                  watcherNote={selectedOrder.notes}
+                  customerName={formData.customerName}
+                  street={formData.street}
+                  city={formData.city}
+                  state={formData.state}
+                  zip={formData.zip}
+                  pallets={formData.pallets}
+                  bikeCount={bikeCount}
+                  partCount={partCount}
+                  loadNumber={formData.loadNumber}
+                  totalWeight={effectiveWeight}
+                  completedAt={selectedOrder.updated_at}
+                  transportCompany={formData.transportCompany}
+                  palletPhotos={selectedOrder.pallet_photos ?? undefined}
+                  screenOnly
+                />
+
                 <ShipOrderCard
                   formData={formData}
                   setFormData={setFormData}
@@ -1045,25 +1082,6 @@ export const ShipScreen = () => {
                   autoBikeCount={autoBikeCount}
                   autoPartCount={autoPartCount}
                   autoWeight={totalWeight}
-                />
-
-                <LivePrintPreview
-                  orderNumber={selectedOrder.order_number ?? undefined}
-                  watcherNote={selectedOrder.notes}
-                  customerName={formData.customerName}
-                  street={formData.street}
-                  city={formData.city}
-                  state={formData.state}
-                  zip={formData.zip}
-                  pallets={formData.pallets}
-                  bikeCount={bikeCount}
-                  partCount={partCount}
-                  loadNumber={formData.loadNumber}
-                  totalWeight={effectiveWeight}
-                  completedAt={selectedOrder.updated_at}
-                  transportCompany={formData.transportCompany}
-                  palletPhotos={selectedOrder.pallet_photos ?? undefined}
-                  screenOnly
                 />
 
                 {/* Parts Weight Editor (idea-028) */}
