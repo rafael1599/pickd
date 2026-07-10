@@ -73,6 +73,9 @@ export function getWorkerLabel(order: PickingList): string | null {
     order.status === 'double_checking'
       ? order.checker_profile?.full_name
       : order.profiles?.full_name;
+  if (name === 'Warehouse Team') {
+    return 'Ready to Pull';
+  }
   const first = name?.trim().split(' ')[0];
   if (!first) return null;
   return order.status === 'double_checking' ? `✓ ${first}` : first;

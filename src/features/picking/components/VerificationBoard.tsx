@@ -133,6 +133,13 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           {} // No weight data available here — falls back to count-only rule
         );
 
+      // If the owner is "Warehouse Team", put it in priority (first section at the top)
+      if (order.profiles?.full_name === 'Warehouse Team') {
+        priority.push(order);
+        priorityShipTypes.set(order.id, shippingType === 'fedex' ? 'fedex' : 'regular');
+        continue;
+      }
+
       // "Pulling" — every order of the day still being worked: actively
       // picked (status 'active') and finished-picking-awaiting-verification
       // (status 'ready_to_double_check'). One unified zone.
