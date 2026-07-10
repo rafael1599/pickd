@@ -106,7 +106,10 @@ export const useDoubleCheckList = () => {
         .select(PICKING_LIST_SELECT)
         .eq('status', 'completed')
         .order('updated_at', { ascending: false })
-        .limit(6);
+        // Wide enough to cover a full day's completions; the board splits
+        // "today" vs "recent" client-side (recent shows with date labels
+        // when the board has no active orders).
+        .limit(30);
 
       if (error) throw error;
       return (data as PickingList[]) || [];

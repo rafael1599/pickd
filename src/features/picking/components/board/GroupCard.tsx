@@ -6,6 +6,7 @@ import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import Clock from 'lucide-react/dist/esm/icons/clock';
 import type { PickingList } from '../../hooks/useDoubleCheckList';
+import { getWorkerLabel } from './SortableOrderCard';
 
 interface GroupCardProps {
   orders: PickingList[];
@@ -115,6 +116,7 @@ export const GroupCard = React.memo<GroupCardProps>(
           {orders.map((order) => {
             const orderNeedsCorrection = order.status === 'needs_correction';
             const orderDoubleChecking = order.status === 'double_checking';
+            const worker = getWorkerLabel(order);
             return (
               <div
                 key={order.id}
@@ -122,14 +124,14 @@ export const GroupCard = React.memo<GroupCardProps>(
               >
                 <button
                   onClick={() => onSelect(order)}
-                  className="flex-1 flex items-center justify-between py-1.5 px-2 text-left"
+                  className="flex-1 flex items-center justify-between py-1.5 px-2 text-left min-w-0"
                 >
-                  <div className="text-base font-black uppercase tracking-tight text-content flex items-center gap-1.5">
+                  <div className="text-[clamp(1.1rem,1.8vw,2rem)] leading-tight font-black uppercase tracking-tight text-content flex items-center gap-1.5 min-w-0">
                     {orderNeedsCorrection && (
-                      <AlertCircle size={15} className="text-amber-500 shrink-0" />
+                      <AlertCircle size={18} className="text-amber-500 shrink-0" />
                     )}
                     {orderDoubleChecking && (
-                      <Clock size={15} className="text-orange-500 shrink-0" />
+                      <Clock size={18} className="text-orange-500 shrink-0" />
                     )}
                     {order.source === 'pdf_import' && (
                       <span title="PDF Import" className="mr-0.5">
@@ -138,10 +140,15 @@ export const GroupCard = React.memo<GroupCardProps>(
                     )}
                     #{order.order_number || order.id.toString().slice(-6).toUpperCase()}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     {(order.pallets_qty ?? 0) > 0 && (
-                      <span className="text-[11px] font-black text-sky-400/80 uppercase tracking-wider">
-                        {order.pallets_qty}p
+                      <span className="text-[clamp(0.85rem,1.2vw,1.4rem)] font-black text-sky-400/80 uppercase tracking-wider">
+                        {order.pallets_qty} PLT
+                      </span>
+                    )}
+                    {worker && (
+                      <span className="text-[clamp(0.8rem,1.1vw,1.3rem)] font-bold text-muted uppercase tracking-wide">
+                        {worker}
                       </span>
                     )}
                     <ChevronDown size={16} className="-rotate-90 text-subtle" />

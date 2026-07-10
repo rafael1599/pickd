@@ -1,11 +1,10 @@
-import React, { createContext, useContext } from 'react';
+import React from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import CheckCircle2 from 'lucide-react/dist/esm/icons/check-circle-2';
 import Clock from 'lucide-react/dist/esm/icons/clock';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import Unlink from 'lucide-react/dist/esm/icons/unlink';
-import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import type { PickingList } from '../../hooks/useDoubleCheckList';
 
 type ShippingType = 'fedex' | 'regular';
@@ -14,22 +13,10 @@ interface CardProps {
   order: PickingList;
   shippingType: ShippingType;
   showShippingBadge?: boolean;
-  /** Latest order note text (already resolved upstream — see useLatestNotesByList).
-   *  Rendered in red on the card so pickers see it without opening the order. */
-  latestNote?: string | null;
   onSelect: (order: PickingList) => void;
   onDelete: (order: PickingList) => void;
   onUngroup?: (order: PickingList) => void;
 }
-
-/**
- * Map of list_id → latest note message, provided once at the board level so
- * every card can surface its newest note in red without each card running its
- * own query. Defaults to an empty map when no provider is present.
- */
-const LatestNotesContext = createContext<Record<string, string>>({});
-
-export const LatestNotesProvider = LatestNotesContext.Provider;
 
 /** Sum of pickingQty across the order's items, falling back to total_units. */
 export function getOrderUnits(order: PickingList): number {
@@ -44,41 +31,53 @@ export function getOrderUnits(order: PickingList): number {
   return order.total_units ?? 0;
 }
 
-const SHIPPING_COLORS: Record<ShippingType, { badge: string; badgeText: string }> = {
-  fedex: { badge: 'bg-purple-500', badgeText: 'FDX' },
-  regular: { badge: 'bg-emerald-500', badgeText: 'TRK' },
-};
+const SHIPPING_COLORS: Record<ShippingType, { stripe: string; badge: string; badgeText: string }> =
+  {
+    fedex: { stripe: 'bg-purple-500/70', badge: 'bg-purple-500', badgeText: 'FDX' },
+    regular: { stripe: 'bg-emerald-500/70', badge: 'bg-emerald-500', badgeText: 'TRK' },
+  };
 
 function getStatusStyles(status: string) {
   switch (status) {
     case 'needs_correction':
       return {
-        border: 'border-amber-500/20',
-        iconBg: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+        border: 'border-amber-500/30',
+        icon: 'text-amber-500',
         hoverBg: 'hover:bg-amber-500/5',
-        chevronHover: 'group-hover:text-amber-500',
         Icon: AlertCircle,
       };
     case 'double_checking':
       return {
-        border: 'border-orange-500/20',
-        iconBg: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
+        border: 'border-orange-500/30',
+        icon: 'text-orange-500',
         hoverBg: 'hover:bg-orange-500/5',
-        chevronHover: 'group-hover:text-orange-500',
         Icon: Clock,
       };
     default:
       return {
-        border: 'border-accent/20',
-        iconBg: 'bg-accent/10 text-accent border-accent/20',
+        border: 'border-subtle',
+        icon: 'text-accent',
         hoverBg: 'hover:bg-accent/5',
-        chevronHover: 'group-hover:text-accent',
         Icon: CheckCircle2,
       };
   }
 }
 
+/** First name of whoever is on the order right now: the checker while the
+ *  order is being double-checked, otherwise the picker who pulled it. */
+export function getWorkerLabel(order: PickingList): string | null {
+  const name =
+    order.status === 'double_checking'
+      ? order.checker_profile?.full_name
+      : order.profiles?.full_name;
+  const first = name?.trim().split(' ')[0];
+  if (!first) return null;
+  return order.status === 'double_checking' ? `✓ ${first}` : first;
+}
+
 // ─── Shared visual content (no DnD hooks) ────────────────────────────────────
+// Big-board tile: readable from across the warehouse floor. Exactly three
+// data points — order #, pallets, worker — sized fluidly with the viewport.
 
 interface OrderCardShellProps extends CardProps {
   setNodeRef: (el: HTMLElement | null) => void;
@@ -95,7 +94,6 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
   order,
   shippingType,
   showShippingBadge = true,
-  latestNote,
   onSelect,
   onDelete,
   onUngroup,
@@ -109,121 +107,87 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
   const statusStyles = getStatusStyles(order.status);
   const { Icon } = statusStyles;
   const colors = SHIPPING_COLORS[shippingType];
-  const units = getOrderUnits(order);
-  const notesByList = useContext(LatestNotesContext);
-  const resolvedNote = latestNote ?? notesByList[order.id];
-  const trimmedNote = resolvedNote?.trim();
-  const notePreview =
-    trimmedNote && trimmedNote.length > 60 ? `${trimmedNote.slice(0, 60)}…` : trimmedNote;
+  const worker = getWorkerLabel(order);
+  const showStatusIcon = order.status === 'needs_correction' || order.status === 'double_checking';
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-0.5 pr-1 rounded-xl transition-all duration-200 group border ${
+      className={`relative flex flex-col rounded-2xl overflow-hidden bg-card transition-all duration-200 group border ${
         isOver ? 'border-2 border-purple-500 bg-purple-500/10 scale-[1.02]' : statusStyles.border
       } ${statusStyles.hoverBg} ${isDragging ? 'opacity-30 scale-95 z-50' : ''}`}
       {...(attributes as React.HTMLAttributes<HTMLDivElement>)}
       {...(listeners as React.HTMLAttributes<HTMLDivElement>)}
     >
+      {showShippingBadge && <div className={`h-1.5 shrink-0 ${colors.stripe}`} />}
       <button
         onClick={() => onSelect(order)}
-        className={`flex-1 flex items-center justify-between py-3 px-3 text-left ${
-          order.status === 'double_checking' ? 'opacity-60' : ''
+        className={`flex-1 text-left px-3 py-2.5 md:px-4 md:py-3 flex flex-col gap-0.5 min-w-0 ${
+          order.status === 'double_checking' ? 'opacity-70' : ''
         }`}
       >
-        <div className="flex items-center gap-2">
-          {(order.status === 'needs_correction' || order.status === 'double_checking') && (
-            <div
-              className={`w-9 h-9 rounded-lg flex items-center justify-center border transition-colors shrink-0 ${statusStyles.iconBg}`}
-            >
-              <Icon size={18} />
-            </div>
+        <div className="flex items-center gap-2 min-w-0">
+          {showStatusIcon && (
+            <Icon
+              size={22}
+              className={`shrink-0 ${statusStyles.icon} md:w-7 md:h-7`}
+              aria-label={order.status}
+            />
           )}
-          <div>
-            <div className="text-lg font-black uppercase tracking-tight text-content flex items-center gap-1.5 flex-wrap">
-              {order.source === 'pdf_import' && <span title="PDF Import">📥</span>}#
-              {order.order_number || order.id.toString().slice(-6).toUpperCase()}
-              {showShippingBadge && (
-                <span
-                  className={`text-[10px] ${colors.badge} text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider`}
-                >
-                  {colors.badgeText}
-                </span>
-              )}
-              {order.is_waiting_inventory && (
-                <span className="text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider">
-                  WAIT
-                </span>
-              )}
-              {order.is_addon && (
-                <span className="text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black animate-pulse">
-                  ADD-ON
-                </span>
-              )}
-            </div>
-            <div className="text-sm text-muted font-bold uppercase tracking-wider mt-1 flex items-center gap-2.5">
-              {order.status === 'double_checking' && (
-                <span>{`Checking: ${order.checker_profile?.full_name?.split(' ')[0] ?? '...'}`}</span>
-              )}
-              {typeof order.pallets_qty === 'number' && order.pallets_qty > 0 && (
-                <span className="text-sky-400/80">
-                  {order.pallets_qty} {order.pallets_qty === 1 ? 'pallet' : 'pallets'}
-                </span>
-              )}
-              {units > 0 && (
-                <span className="text-muted/80">
-                  {units} {units === 1 ? 'unit' : 'units'}
-                </span>
-              )}
-            </div>
-            {order.is_waiting_inventory && order.source_order_date && (
-              <div className="text-[11px] text-subtle font-bold uppercase tracking-wider mt-0.5">
-                Order date:{' '}
-                {new Date(`${order.source_order_date}T00:00:00`).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
-              </div>
-            )}
-            {notePreview && (
-              <div
-                className="mt-1.5 text-xs font-semibold text-red-500 bg-red-500/10 rounded px-2 py-1 max-w-[240px] truncate"
-                title={trimmedNote ?? undefined}
-              >
-                {notePreview}
-              </div>
-            )}
-          </div>
+          <span className="text-[clamp(1.5rem,2.2vw,2.5rem)] leading-none font-black uppercase tracking-tight text-content truncate">
+            {order.source === 'pdf_import' && <span title="PDF Import">📥</span>}#
+            {order.order_number || order.id.toString().slice(-6).toUpperCase()}
+          </span>
+          {order.is_addon && (
+            <span className="shrink-0 text-[clamp(0.6rem,0.9vw,0.85rem)] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black animate-pulse">
+              ADD-ON
+            </span>
+          )}
         </div>
-        <ChevronDown
-          size={20}
-          className={`-rotate-90 text-subtle ${statusStyles.chevronHover} transition-colors`}
-        />
+        <div className="flex items-baseline gap-3 min-w-0">
+          <span
+            className={`text-[clamp(1.1rem,1.5vw,1.75rem)] leading-tight font-black uppercase ${
+              typeof order.pallets_qty === 'number' && order.pallets_qty > 0
+                ? 'text-sky-400'
+                : 'text-muted/40'
+            }`}
+          >
+            {typeof order.pallets_qty === 'number' && order.pallets_qty > 0
+              ? `${order.pallets_qty} PLT`
+              : '— PLT'}
+          </span>
+          {worker && (
+            <span className="text-[clamp(0.95rem,1.3vw,1.5rem)] leading-tight font-bold uppercase tracking-wide text-muted truncate">
+              {worker}
+            </span>
+          )}
+        </div>
       </button>
-      {order.group_id && onUngroup && (
+      <div className="absolute top-1.5 right-1 flex items-center">
+        {order.group_id && onUngroup && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onUngroup(order);
+            }}
+            className="p-2 text-muted/60 hover:text-amber-500 transition-colors"
+            title="Remove from group"
+          >
+            <Unlink size={16} />
+          </button>
+        )}
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onUngroup(order);
+            onDelete(order);
           }}
-          className="p-1.5 text-muted hover:text-amber-500 transition-colors"
-          title="Remove from group"
+          className="p-2 text-muted/60 hover:text-red-500 transition-colors"
+          title="Delete Order"
         >
-          <Unlink size={16} />
+          <Trash2 size={16} />
         </button>
-      )}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete(order);
-        }}
-        className="p-1.5 text-muted hover:text-red-500 transition-colors"
-        title="Delete Order"
-      >
-        <Trash2 size={16} />
-      </button>
+      </div>
     </div>
   );
 };
@@ -288,3 +252,20 @@ export const DraggableOrderCard = React.memo<CardProps>((props) => {
   );
 });
 DraggableOrderCard.displayName = 'DraggableOrderCard';
+
+// ─── StaticOrderCard (for actively-picked orders in Pulling — no DnD) ────────
+// Orders with status 'active' are still being pulled; moving them around the
+// board makes no sense, so the tile is click-only.
+
+export const StaticOrderCard = React.memo<CardProps>((props) => (
+  <OrderCardShell
+    {...props}
+    setNodeRef={() => {}}
+    style={{}}
+    isDragging={false}
+    isOver={false}
+    attributes={{}}
+    listeners={{}}
+  />
+));
+StaticOrderCard.displayName = 'StaticOrderCard';
