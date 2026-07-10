@@ -173,19 +173,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       }
     }
 
-    const today = new Date().toISOString().slice(0, 10);
-    const todayFedex = allCompletedFedex.filter((o) => o.updated_at?.slice(0, 10) === today);
-    const todayRegular = allCompletedRegular.filter((o) => o.updated_at?.slice(0, 10) === today);
-
-    const hasAnyToday = todayFedex.length > 0 || todayRegular.length > 0;
-    const showsDates = !hasAnyToday;
-
-    const fedexDone = hasAnyToday
-      ? todayFedex.slice(0, COMPLETED_SIDE_LIMIT)
-      : allCompletedFedex.slice(0, COMPLETED_SIDE_LIMIT);
-    const regularDone = hasAnyToday
-      ? todayRegular.slice(0, COMPLETED_SIDE_LIMIT)
-      : allCompletedRegular.slice(0, COMPLETED_SIDE_LIMIT);
+    const fedexDone = allCompletedFedex.slice(0, COMPLETED_SIDE_LIMIT);
+    const regularDone = allCompletedRegular.slice(0, COMPLETED_SIDE_LIMIT);
 
     return {
       priorityOrders: priority,
@@ -196,7 +185,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       pullingShippingTypes: pullingShipTypes,
       completedFedex: fedexDone,
       completedRegular: regularDone,
-      completedShowsDates: showsDates,
+      completedShowsDates: true,
       priorityShippingTypes: priorityShipTypes,
     };
   }, [orders, completedOrders]);
@@ -511,7 +500,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                   className="w-full flex items-center justify-center gap-2 py-2 md:py-3 hover:bg-content/5 transition-colors"
                 >
                   <span className="text-sm md:text-base font-black uppercase tracking-widest text-content/60">
-                    {completedShowsDates ? 'Recently Completed' : 'Completed Today'}
+                    Completed
                   </span>
                   <span className="text-sm text-muted/60">
                     ({completedFedex.length + completedRegular.length})

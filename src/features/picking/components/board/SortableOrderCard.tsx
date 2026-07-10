@@ -224,8 +224,7 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
               />
             )}
             <span className="text-[clamp(1.6rem,3vw,4rem)] leading-none font-black uppercase tracking-tight text-content truncate">
-              {order.source === 'pdf_import' && <span title="PDF Import">📥</span>}#
-              {order.order_number || order.id.toString().slice(-6).toUpperCase()}
+              #{order.order_number || order.id.toString().slice(-6).toUpperCase()}
             </span>
             {order.is_addon && (
               <span className="shrink-0 text-[clamp(0.6rem,1vw,1rem)] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black animate-pulse">

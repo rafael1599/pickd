@@ -133,11 +133,6 @@ export const GroupCard = React.memo<GroupCardProps>(
                     {orderDoubleChecking && (
                       <Clock size={18} className="text-orange-500 shrink-0" />
                     )}
-                    {order.source === 'pdf_import' && (
-                      <span title="PDF Import" className="mr-0.5">
-                        📥
-                      </span>
-                    )}
                     #{order.order_number || order.id.toString().slice(-6).toUpperCase()}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
