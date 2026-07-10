@@ -16,6 +16,7 @@ export const TRANSPORT_LOGOS: Record<string, string> = {
   DAYLIGHT: '/logos/transport/daylight.webp',
   'PAV EXPRESS': '/logos/transport/pav.png',
   ESTES: '/logos/transport/estes.png',
+  FEDEX: '/logos/transport/fedex.png',
 };
 
 /** Normalizes a stored company value to its canonical map key. */

@@ -392,7 +392,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               >
                 <div className="flex items-center justify-center gap-2 mb-2 md:mb-3">
                   <span className="text-sm md:text-base font-black uppercase tracking-widest text-red-400">
-                    Priority
+                    Available
                   </span>
                   <span className="text-sm text-muted/60">({priorityOrders.length})</span>
                 </div>

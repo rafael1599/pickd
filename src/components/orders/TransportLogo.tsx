@@ -22,7 +22,7 @@ interface TransportLogoProps {
  */
 export const TransportLogo = ({
   company,
-  height = 20,
+  height,
   className = '',
   plain = false,
 }: TransportLogoProps) => {
@@ -32,10 +32,14 @@ export const TransportLogo = ({
 
   if (!label) return null;
 
+  const hasHeightClass = className.split(' ').some((c) => c.startsWith('h-'));
+  const finalHeight = height ?? (hasHeightClass ? undefined : 20);
+  const styleObj = finalHeight !== undefined ? { height: finalHeight } : {};
+
   if (!src || failed) {
     return (
       <span
-        className={`text-[11px] font-black uppercase tracking-wider text-content/80 ${className}`}
+        className={`text-[11px] font-black uppercase tracking-wider text-content/80 inline-flex items-center justify-center text-center ${className}`}
       >
         {label}
       </span>
@@ -48,7 +52,7 @@ export const TransportLogo = ({
         src={src}
         alt={label}
         onError={() => setFailed(true)}
-        style={{ height }}
+        style={styleObj}
         className={`w-auto object-contain ${className}`}
       />
     );
@@ -63,7 +67,7 @@ export const TransportLogo = ({
         src={src}
         alt={label}
         onError={() => setFailed(true)}
-        style={{ height }}
+        style={styleObj}
         className="w-auto object-contain"
       />
     </span>

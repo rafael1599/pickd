@@ -159,6 +159,36 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
     >
       {showShippingBadge && <div className={`h-1.5 shrink-0 ${colors.stripe}`} />}
 
+      {/* Floating Action Buttons Overlay (Absolute Top-Right) */}
+      {((order.group_id && onUngroup) || onDelete) && (
+        <div className="absolute top-2 right-2 flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity bg-card/90 backdrop-blur-sm rounded-xl p-1 lg:p-0.5 shadow-md border border-subtle z-10">
+          {order.group_id && onUngroup && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onUngroup(order);
+              }}
+              className="p-2 lg:p-1 text-muted hover:text-amber-500 transition-colors rounded-lg hover:bg-content/[0.05]"
+              title="Remove from group"
+            >
+              <Unlink className="w-5 h-5 lg:w-3.5 lg:h-3.5" />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(order);
+              }}
+              className="p-2 lg:p-1 text-muted hover:text-red-500 transition-colors rounded-lg hover:bg-content/[0.05]"
+              title="Delete Order"
+            >
+              <Trash2 className="w-5 h-5 lg:w-3.5 lg:h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="flex-1 flex items-stretch min-w-0">
         {/* Left Panel: Quantities */}
         <div className="flex flex-col items-center justify-center border-r border-subtle bg-content/[0.02] py-2 px-2.5 shrink-0 self-stretch min-w-[76px] md:min-w-[84px] gap-2 select-none">
@@ -250,55 +280,18 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
           </div>
         </button>
 
-        {/* Rightmost actions and carrier logo */}
-        <div className="flex items-center shrink-0 pr-3 gap-2 self-center">
-          {/* Carrier Logo on the Right */}
-          <div className="flex items-center justify-center">
-            {shippingType === 'fedex' ? (
-              <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded whitespace-nowrap">
-                FedEx
-              </span>
-            ) : order.transport_company ? (
-              <TransportLogo
-                company={order.transport_company}
-                height={16}
-                className="max-w-[64px]"
-              />
-            ) : (
-              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded whitespace-nowrap">
-                Regular
-              </span>
-            )}
-          </div>
-
-          {/* Action Buttons */}
-          {((order.group_id && onUngroup) || onDelete) && (
-            <div className="flex items-center gap-1 pl-1.5 border-l border-subtle">
-              {order.group_id && onUngroup && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onUngroup(order);
-                  }}
-                  className="p-1.5 text-muted/60 hover:text-amber-500 transition-colors"
-                  title="Remove from group"
-                >
-                  <Unlink size={14} />
-                </button>
-              )}
-              {onDelete && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(order);
-                  }}
-                  className="p-1.5 text-muted/60 hover:text-red-500 transition-colors"
-                  title="Delete Order"
-                >
-                  <Trash2 size={14} />
-                </button>
-              )}
-            </div>
+        {/* Right Panel: Carrier Logo Panel (Full Height) */}
+        <div className="relative flex items-center justify-center border-l border-subtle shrink-0 self-stretch min-w-[76px] md:min-w-[84px] select-none overflow-hidden">
+          {shippingType === 'fedex' || order.transport_company ? (
+            <TransportLogo
+              company={shippingType === 'fedex' ? 'FEDEX' : order.transport_company}
+              className="absolute inset-0 h-full w-full object-contain"
+              plain
+            />
+          ) : (
+            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded whitespace-nowrap">
+              Regular
+            </span>
           )}
         </div>
       </div>
