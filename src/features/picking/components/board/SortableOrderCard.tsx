@@ -121,72 +121,76 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
       {...(listeners as React.HTMLAttributes<HTMLDivElement>)}
     >
       {showShippingBadge && <div className={`h-1.5 shrink-0 ${colors.stripe}`} />}
-      <button
-        onClick={() => onSelect(order)}
-        className={`flex-1 text-left px-3 py-2.5 md:px-4 md:py-3 flex flex-col gap-0.5 min-w-0 ${
-          order.status === 'double_checking' ? 'opacity-70' : ''
-        }`}
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          {showStatusIcon && (
-            <Icon
-              size={22}
-              className={`shrink-0 ${statusStyles.icon} md:w-7 md:h-7`}
-              aria-label={order.status}
-            />
-          )}
-          <span className="text-[clamp(1.5rem,2.2vw,2.5rem)] leading-none font-black uppercase tracking-tight text-content truncate">
-            {order.source === 'pdf_import' && <span title="PDF Import">📥</span>}#
-            {order.order_number || order.id.toString().slice(-6).toUpperCase()}
-          </span>
-          {order.is_addon && (
-            <span className="shrink-0 text-[clamp(0.6rem,0.9vw,0.85rem)] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black animate-pulse">
-              ADD-ON
+      {/* Actions live in normal flow (right column), never absolutely
+          positioned — on narrow tiles an overlay was covering the text. */}
+      <div className="flex-1 flex items-start min-w-0">
+        <button
+          onClick={() => onSelect(order)}
+          className={`flex-1 text-left px-3 py-2.5 md:px-4 md:py-3 flex flex-col gap-1 min-w-0 ${
+            order.status === 'double_checking' ? 'opacity-70' : ''
+          }`}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            {showStatusIcon && (
+              <Icon
+                size={22}
+                className={`shrink-0 ${statusStyles.icon} md:w-7 md:h-7`}
+                aria-label={order.status}
+              />
+            )}
+            <span className="text-[clamp(1.6rem,3vw,4rem)] leading-none font-black uppercase tracking-tight text-content truncate">
+              {order.source === 'pdf_import' && <span title="PDF Import">📥</span>}#
+              {order.order_number || order.id.toString().slice(-6).toUpperCase()}
             </span>
-          )}
-        </div>
-        <div className="flex items-baseline gap-3 min-w-0">
-          <span
-            className={`text-[clamp(1.1rem,1.5vw,1.75rem)] leading-tight font-black uppercase ${
-              typeof order.pallets_qty === 'number' && order.pallets_qty > 0
-                ? 'text-sky-400'
-                : 'text-muted/40'
-            }`}
-          >
-            {typeof order.pallets_qty === 'number' && order.pallets_qty > 0
-              ? `${order.pallets_qty} PLT`
-              : '— PLT'}
-          </span>
-          {worker && (
-            <span className="text-[clamp(0.95rem,1.3vw,1.5rem)] leading-tight font-bold uppercase tracking-wide text-muted truncate">
-              {worker}
+            {order.is_addon && (
+              <span className="shrink-0 text-[clamp(0.6rem,1vw,1rem)] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black animate-pulse">
+                ADD-ON
+              </span>
+            )}
+          </div>
+          <div className="flex items-baseline gap-3 min-w-0">
+            <span
+              className={`text-[clamp(1.15rem,2vw,2.5rem)] leading-tight font-black uppercase ${
+                typeof order.pallets_qty === 'number' && order.pallets_qty > 0
+                  ? 'text-sky-400'
+                  : 'text-muted/40'
+              }`}
+            >
+              {typeof order.pallets_qty === 'number' && order.pallets_qty > 0
+                ? `${order.pallets_qty} PLT`
+                : '— PLT'}
             </span>
+            {worker && (
+              <span className="text-[clamp(1.05rem,1.8vw,2.25rem)] leading-tight font-bold uppercase tracking-wide text-muted truncate">
+                {worker}
+              </span>
+            )}
+          </div>
+        </button>
+        <div className="flex items-center shrink-0 pt-1.5 pr-1">
+          {order.group_id && onUngroup && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onUngroup(order);
+              }}
+              className="p-2 text-muted/60 hover:text-amber-500 transition-colors"
+              title="Remove from group"
+            >
+              <Unlink size={16} />
+            </button>
           )}
-        </div>
-      </button>
-      <div className="absolute top-1.5 right-1 flex items-center">
-        {order.group_id && onUngroup && (
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onUngroup(order);
+              onDelete(order);
             }}
-            className="p-2 text-muted/60 hover:text-amber-500 transition-colors"
-            title="Remove from group"
+            className="p-2 text-muted/60 hover:text-red-500 transition-colors"
+            title="Delete Order"
           >
-            <Unlink size={16} />
+            <Trash2 size={16} />
           </button>
-        )}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(order);
-          }}
-          className="p-2 text-muted/60 hover:text-red-500 transition-colors"
-          title="Delete Order"
-        >
-          <Trash2 size={16} />
-        </button>
+        </div>
       </div>
     </div>
   );

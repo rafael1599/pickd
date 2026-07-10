@@ -50,9 +50,11 @@ const COMPLETED_AUTO_OPEN_MAX = 6;
 // has nothing active at all.
 const RECENT_COMPLETED_LIMIT = 10;
 
-// Responsive tile grid — cards fill the full device width and stay as large
-// as the space allows.
-const CARD_GRID = 'grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-2';
+// Responsive tile grids — capped at 4 columns across the device so tiles
+// grow with the resolution instead of multiplying (7 skinny columns on a
+// big screen was unreadable). Half-width lanes cap at 2 each (4 total).
+const CARD_GRID = 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2';
+const LANE_GRID = 'grid grid-cols-1 xl:grid-cols-2 gap-2';
 
 // Lightweight drop target wrapper. Transparent drop region — line-based
 // separators handle the visual structure.
@@ -302,7 +304,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     }
 
     return (
-      <div className={CARD_GRID}>
+      <div className={LANE_GRID}>
         {Array.from(grouped.entries()).map(([groupId, groupOrders]) => (
           <GroupCard
             key={groupId}

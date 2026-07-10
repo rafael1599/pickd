@@ -11,7 +11,7 @@ export const WaitingZone: React.FC<WaitingZoneProps> = ({ orders, onSelect }) =>
   if (orders.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2">
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
       {orders.map((order) => (
         <button
           key={order.id}
@@ -20,14 +20,14 @@ export const WaitingZone: React.FC<WaitingZoneProps> = ({ orders, onSelect }) =>
         >
           <Hourglass size={20} className="text-amber-500 shrink-0" />
           <div className="min-w-0 flex-1">
-            <div className="text-[clamp(1.1rem,1.4vw,1.6rem)] leading-none font-black text-content uppercase tracking-tight truncate">
+            <div className="text-[clamp(1.2rem,1.8vw,2.25rem)] leading-none font-black text-content uppercase tracking-tight truncate">
               #{order.order_number || order.id.toString().slice(-6).toUpperCase()}
             </div>
-            <div className="text-[clamp(0.75rem,1vw,1.1rem)] text-amber-500/80 font-bold truncate mt-0.5">
+            <div className="text-[clamp(0.85rem,1.2vw,1.4rem)] text-amber-500/80 font-bold truncate mt-0.5">
               {order.waiting_reason || 'Waiting for inventory'}
             </div>
             {order.source_order_date && (
-              <div className="text-[clamp(0.7rem,0.9vw,1rem)] text-muted/70 font-bold uppercase tracking-tight truncate">
+              <div className="text-[clamp(0.8rem,1.1vw,1.25rem)] text-muted/70 font-bold uppercase tracking-tight truncate">
                 {new Date(`${order.source_order_date}T00:00:00`).toLocaleDateString('en-US', {
                   month: 'short',
                   day: 'numeric',
