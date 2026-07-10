@@ -112,7 +112,7 @@ const CopyButton: React.FC<{ value: string; label: string }> = ({ value, label }
       onClick={handleCopy}
       title={`Copy ${label}`}
       aria-label={`Copy ${label}`}
-      className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-accent hover:bg-accent/10 transition-colors duration-150 active:scale-90"
+      className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-accent transition-colors duration-150 active:scale-90"
     >
       <Copy size={13} />
     </button>
@@ -171,12 +171,14 @@ const StatField: React.FC<{
       />
     ) : (
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onEdit}
-          className="text-left hover:opacity-80 transition-opacity"
-        >
-          <span className={`font-heading text-2xl font-bold ${colorClass}`}>
+        <button type="button" onClick={onEdit} className="group text-left">
+          {/* Hover recolors the text only (like the address field) — no
+              opacity/filter hovers anywhere on these read views, they
+              promote the element to its own GPU layer and glitched as a
+              black box over the field on some devices. */}
+          <span
+            className={`font-heading text-2xl font-bold ${colorClass} group-hover:text-accent transition-colors duration-150`}
+          >
             {value || placeholder || 0}
           </span>
         </button>
@@ -451,6 +453,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
         ref={editingField === 'customer' ? editRef : undefined}
         className="flex items-center gap-2"
       >
+        <CopyButton value={formData.customerName} label="Customer name" />
         {editingField === 'customer' ? (
           <div className="flex-1 min-w-0">
             <CustomerAutocomplete
@@ -494,7 +497,6 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
             <SaveCheckmark show={justSavedField === 'customer'} />
           </div>
         )}
-        <CopyButton value={formData.customerName} label="Customer name" />
       </div>
 
       {/* Address — click to edit, joined when reading */}
@@ -502,6 +504,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
         ref={editingField === 'address' ? editRef : undefined}
         className="flex items-start gap-2 pb-4 border-b border-dashed border-subtle"
       >
+        <CopyButton value={formData.street} label="Street" />
         {editingField === 'address' ? (
           <div className="flex-1 flex flex-col gap-3">
             <div className="relative flex items-center">
@@ -525,7 +528,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 type="button"
                 onClick={() => handleStreetChange(formData.street)}
                 title="Parse address"
-                className="absolute right-2 w-7 h-7 flex items-center justify-center rounded-full text-muted hover:text-accent hover:bg-accent/10 transition-colors duration-150 active:scale-90"
+                className="absolute right-2 w-7 h-7 flex items-center justify-center rounded-full text-muted hover:text-accent transition-colors duration-150 active:scale-90"
               >
                 <Wand2 size={14} />
               </button>
@@ -619,7 +622,6 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
             />
           </div>
         )}
-        <CopyButton value={joinedAddress} label="Address" />
       </div>
 
       {/* Load number + Transport — click to edit */}
@@ -645,9 +647,12 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
               <button
                 type="button"
                 onClick={() => setEditingField('load')}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-main border border-subtle text-xs font-black uppercase tracking-widest text-muted hover:text-accent hover:border-accent/40 transition-colors duration-150"
+                className="flex items-center gap-1.5 text-sm font-bold text-content hover:text-accent transition-colors duration-150"
               >
-                <Hash size={11} /> {formData.loadNumber || 'Load #'}
+                <Hash size={13} className="shrink-0 text-muted" />
+                {formData.loadNumber || (
+                  <span className="text-muted/50 italic font-semibold">Add load #…</span>
+                )}
               </button>
               <SaveCheckmark show={justSavedField === 'load'} />
             </div>
@@ -666,7 +671,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                   className={`px-3 py-1.5 rounded-2xl border text-xs font-black uppercase tracking-widest transition-colors duration-150 ${
                     formData.transportCompany === company
                       ? 'bg-accent text-main border-accent ring-2 ring-accent'
-                      : 'bg-main text-muted border-subtle hover:border-accent/50 hover:text-content'
+                      : 'bg-main text-muted border-subtle hover:border-accent hover:text-content'
                   } ${isUpdatingCarrier ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {company}
@@ -678,9 +683,12 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
               <button
                 type="button"
                 onClick={() => setEditingField('transport')}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-main border border-subtle text-xs font-black uppercase tracking-widest text-muted hover:text-accent hover:border-accent/40 transition-colors duration-150"
+                className="flex items-center gap-1.5 text-sm font-bold text-content hover:text-accent transition-colors duration-150"
               >
-                <Truck size={11} /> {formData.transportCompany || 'Carrier'}
+                <Truck size={13} className="shrink-0 text-muted" />
+                {formData.transportCompany || (
+                  <span className="text-muted/50 italic font-semibold">Add carrier…</span>
+                )}
               </button>
               <SaveCheckmark show={justSavedField === 'transport'} />
             </div>
@@ -736,6 +744,10 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           showSaveCheckmark={justSavedField === 'parts'}
         />
         <div className="flex items-end gap-2">
+          <CopyButton
+            value={String(formData.weight || (autoWeight > 0 ? autoWeight : 0))}
+            label="Weight"
+          />
           <StatField
             label="Weight (lbs)"
             value={formData.weight}
@@ -750,10 +762,6 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
             editRef={editingField === 'weight' ? editRef : undefined}
             colorClass="text-purple-400"
             showSaveCheckmark={justSavedField === 'weight'}
-          />
-          <CopyButton
-            value={String(formData.weight || (autoWeight > 0 ? autoWeight : 0))}
-            label="Weight"
           />
         </div>
       </div>
