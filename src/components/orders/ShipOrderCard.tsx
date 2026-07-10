@@ -167,7 +167,7 @@ const StatField: React.FC<{
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
         placeholder={placeholder}
-        className={`w-20 bg-main border border-subtle rounded-2xl py-2 text-center font-heading text-2xl font-bold ${colorClass} transition-colors duration-150 focus:border-current shadow-sm focus:bg-surface [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+        className={`w-32 bg-main border border-subtle rounded-2xl py-2 text-center font-heading text-7xl font-bold ${colorClass} transition-colors duration-150 focus:border-current shadow-sm focus:bg-surface [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
       />
     ) : (
       <div className="flex items-center gap-2">
@@ -177,7 +177,7 @@ const StatField: React.FC<{
               promote the element to its own GPU layer and glitched as a
               black box over the field on some devices. */}
           <span
-            className={`font-heading text-2xl font-bold ${colorClass} group-hover:text-accent transition-colors duration-150`}
+            className={`font-heading text-7xl font-bold ${colorClass} group-hover:text-accent transition-colors duration-150`}
           >
             {value || placeholder || 0}
           </span>
