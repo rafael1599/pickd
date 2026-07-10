@@ -532,39 +532,42 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
               >
                 <Wand2 size={14} />
               </button>
-
-              {showAddressDropdown && filteredAddresses.length > 0 && (
-                <div className="absolute z-50 w-full top-full mt-1 bg-surface border border-subtle rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
-                  <div className="max-h-48 overflow-y-auto">
-                    {filteredAddresses.map((addr, idx) => (
-                      <button
-                        key={addr.id}
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => selectAddress(addr)}
-                        className={`w-full text-left px-4 py-3 transition-colors ${
-                          idx === highlightedIndex
-                            ? 'bg-accent/10 text-accent'
-                            : 'text-content hover:bg-white/5'
-                        } ${idx > 0 ? 'border-t border-subtle/50' : ''}`}
-                      >
-                        <p className="text-sm font-bold truncate">{addr.street}</p>
-                        {(addr.city || addr.state || addr.zip_code) && (
-                          <p className="text-[10px] text-muted font-bold mt-0.5 truncate">
-                            {[addr.city, addr.state, addr.zip_code].filter(Boolean).join(', ')}
-                          </p>
-                        )}
-                        {addr.is_default && (
-                          <span className="text-[8px] font-black text-accent/60 uppercase tracking-widest">
-                            Default
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
+
+            {/* In normal flow (not absolutely positioned) so it pushes
+                city/state/zip down instead of floating over them and
+                hiding the fields the user is trying to edit. */}
+            {showAddressDropdown && filteredAddresses.length > 0 && (
+              <div className="bg-surface border border-subtle rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                <div className="max-h-48 overflow-y-auto">
+                  {filteredAddresses.map((addr, idx) => (
+                    <button
+                      key={addr.id}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => selectAddress(addr)}
+                      className={`w-full text-left px-4 py-3 transition-colors ${
+                        idx === highlightedIndex
+                          ? 'bg-accent/10 text-accent'
+                          : 'text-content hover:bg-white/5'
+                      } ${idx > 0 ? 'border-t border-subtle/50' : ''}`}
+                    >
+                      <p className="text-sm font-bold truncate">{addr.street}</p>
+                      {(addr.city || addr.state || addr.zip_code) && (
+                        <p className="text-[10px] text-muted font-bold mt-0.5 truncate">
+                          {[addr.city, addr.state, addr.zip_code].filter(Boolean).join(', ')}
+                        </p>
+                      )}
+                      {addr.is_default && (
+                        <span className="text-[8px] font-black text-accent/60 uppercase tracking-widest">
+                          Default
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <input
               type="text"
