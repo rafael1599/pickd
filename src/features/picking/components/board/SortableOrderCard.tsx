@@ -280,7 +280,7 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
             )}
             <span className="text-[clamp(1.6rem,3vw,4rem)] leading-none font-black uppercase tracking-tight text-content truncate">
               #{firstPart}
-              <span className="text-yellow-400 text-[1.15em] font-black tracking-tight leading-none inline-block align-baseline">
+              <span className="text-yellow-100 text-[1.15em] font-black tracking-tight leading-none inline-block align-baseline">
                 {lastThree}
               </span>
             </span>
