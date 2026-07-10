@@ -16,8 +16,9 @@ interface CardProps {
   shippingType: ShippingType;
   showShippingBadge?: boolean;
   onSelect: (order: PickingList) => void;
-  onDelete: (order: PickingList) => void;
+  onDelete?: (order: PickingList) => void;
   onUngroup?: (order: PickingList) => void;
+  showDate?: boolean;
 }
 
 /** Sum of pickingQty across the order's items, falling back to total_units. */
@@ -77,6 +78,16 @@ export function getWorkerLabel(order: PickingList): string | null {
   return order.status === 'double_checking' ? `✓ ${first}` : first;
 }
 
+function completedAtLabel(iso: string | undefined, showDate: boolean): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  if (!showDate) return time;
+  const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `${date} · ${time}`;
+}
+
 // ─── Shared visual content (no DnD hooks) ────────────────────────────────────
 // Big-board tile: readable from across the warehouse floor. Exactly three
 // data points — order #, pallets, worker — sized fluidly with the viewport.
@@ -99,6 +110,7 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
   onSelect,
   onDelete,
   onUngroup,
+  showDate = false,
   setNodeRef,
   style,
   isDragging,
@@ -111,6 +123,7 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
   const colors = SHIPPING_COLORS[shippingType];
   const worker = getWorkerLabel(order);
   const showStatusIcon = order.status === 'needs_correction' || order.status === 'double_checking';
+  const when = order.status === 'completed' ? completedAtLabel(order.updated_at, showDate) : null;
 
   // Calculate bikes and parts counts from order items using the 03- prefix heuristic
   const { bikesCount, partsCount } = React.useMemo(() => {
@@ -142,32 +155,13 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
       {showShippingBadge && <div className={`h-1.5 shrink-0 ${colors.stripe}`} />}
 
       <div className="flex-1 flex items-stretch min-w-0">
-        {/* Left Panel: Carrier logo and quantities (for Regular only) */}
+        {/* Left Panel: Quantities */}
         <div className="flex flex-col items-center justify-center border-r border-subtle bg-content/[0.02] py-2 px-2.5 shrink-0 self-stretch min-w-[76px] md:min-w-[84px] gap-2 select-none">
-          {/* Carrier Logo */}
-          <div className="flex items-center justify-center min-h-[24px]">
-            {shippingType === 'fedex' ? (
-              <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded">
-                FedEx
-              </span>
-            ) : order.transport_company ? (
-              <TransportLogo
-                company={order.transport_company}
-                height={16}
-                className="max-w-[64px]"
-              />
-            ) : (
-              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                Regular
-              </span>
-            )}
-          </div>
-
-          {/* Quantities (Regular only) */}
-          {shippingType === 'regular' && (
-            <div className="flex flex-col gap-1.5 w-full text-center">
-              {/* Pallets Row */}
-              {typeof order.pallets_qty === 'number' && order.pallets_qty > 0 && (
+          <div className="flex flex-col gap-1.5 w-full text-center">
+            {/* Pallets Row (Regular only) */}
+            {shippingType === 'regular' &&
+              typeof order.pallets_qty === 'number' &&
+              order.pallets_qty > 0 && (
                 <div className="flex flex-col leading-none">
                   <span className="text-base md:text-lg font-black text-sky-400">
                     {order.pallets_qty}
@@ -178,31 +172,40 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
                 </div>
               )}
 
-              {/* Bikes Row */}
-              {bikesCount > 0 && (
-                <div className="flex flex-col leading-none">
-                  <span className="text-base md:text-lg font-black text-amber-500">
-                    {bikesCount}
-                  </span>
-                  <span className="text-[8px] md:text-[9px] font-bold text-muted uppercase tracking-wider mt-0.5">
-                    {bikesCount === 1 ? 'Bike' : 'Bikes'}
-                  </span>
-                </div>
-              )}
+            {/* Bikes Row */}
+            {bikesCount > 0 && (
+              <div className="flex flex-col leading-none">
+                <span className="text-base md:text-lg font-black text-amber-500">{bikesCount}</span>
+                <span className="text-[8px] md:text-[9px] font-bold text-muted uppercase tracking-wider mt-0.5">
+                  {bikesCount === 1 ? 'Bike' : 'Bikes'}
+                </span>
+              </div>
+            )}
 
-              {/* Parts Row */}
-              {partsCount > 0 && (
+            {/* Parts Row */}
+            {partsCount > 0 && (
+              <div className="flex flex-col leading-none">
+                <span className="text-base md:text-lg font-black text-emerald-500">
+                  {partsCount}
+                </span>
+                <span className="text-[8px] md:text-[9px] font-bold text-muted uppercase tracking-wider mt-0.5">
+                  {partsCount === 1 ? 'Part' : 'Parts'}
+                </span>
+              </div>
+            )}
+
+            {/* Placeholder if empty */}
+            {!(shippingType === 'regular' && order.pallets_qty && order.pallets_qty > 0) &&
+              bikesCount === 0 &&
+              partsCount === 0 && (
                 <div className="flex flex-col leading-none">
-                  <span className="text-base md:text-lg font-black text-emerald-500">
-                    {partsCount}
-                  </span>
+                  <span className="text-base md:text-lg font-black text-muted/40">—</span>
                   <span className="text-[8px] md:text-[9px] font-bold text-muted uppercase tracking-wider mt-0.5">
-                    {partsCount === 1 ? 'Part' : 'Parts'}
+                    Items
                   </span>
                 </div>
               )}
-            </div>
-          )}
+          </div>
         </div>
 
         {/* Right Panel */}
@@ -231,37 +234,68 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
             )}
           </div>
           <div className="flex items-baseline gap-3 min-w-0">
-            {worker && (
+            {when ? (
+              <span className="text-[clamp(0.85rem,1.2vw,1.4rem)] text-muted font-bold uppercase tracking-wide truncate">
+                {when}
+              </span>
+            ) : worker ? (
               <span className="text-[clamp(1.05rem,1.8vw,2.25rem)] leading-tight font-bold uppercase tracking-wide text-muted truncate">
                 {worker}
               </span>
-            )}
+            ) : null}
           </div>
         </button>
 
-        <div className="flex items-center shrink-0 pt-1.5 pr-1 self-start">
-          {order.group_id && onUngroup && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onUngroup(order);
-              }}
-              className="p-2 text-muted/60 hover:text-amber-500 transition-colors"
-              title="Remove from group"
-            >
-              <Unlink size={16} />
-            </button>
+        {/* Rightmost actions and carrier logo */}
+        <div className="flex items-center shrink-0 pr-3 gap-2 self-center">
+          {/* Carrier Logo on the Right */}
+          <div className="flex items-center justify-center">
+            {shippingType === 'fedex' ? (
+              <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded whitespace-nowrap">
+                FedEx
+              </span>
+            ) : order.transport_company ? (
+              <TransportLogo
+                company={order.transport_company}
+                height={16}
+                className="max-w-[64px]"
+              />
+            ) : (
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded whitespace-nowrap">
+                Regular
+              </span>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          {((order.group_id && onUngroup) || onDelete) && (
+            <div className="flex items-center gap-1 pl-1.5 border-l border-subtle">
+              {order.group_id && onUngroup && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onUngroup(order);
+                  }}
+                  className="p-1.5 text-muted/60 hover:text-amber-500 transition-colors"
+                  title="Remove from group"
+                >
+                  <Unlink size={14} />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(order);
+                  }}
+                  className="p-1.5 text-muted/60 hover:text-red-500 transition-colors"
+                  title="Delete Order"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
           )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(order);
-            }}
-            className="p-2 text-muted/60 hover:text-red-500 transition-colors"
-            title="Delete Order"
-          >
-            <Trash2 size={16} />
-          </button>
         </div>
       </div>
     </div>
