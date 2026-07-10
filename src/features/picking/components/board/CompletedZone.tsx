@@ -28,7 +28,7 @@ export const CompletedZone: React.FC<CompletedZoneProps> = ({
   if (orders.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2">
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
       {orders.map((order) => {
         const when = completedAtLabel(order.updated_at, showDate);
         return (
@@ -39,11 +39,11 @@ export const CompletedZone: React.FC<CompletedZoneProps> = ({
           >
             <CheckCircle2 size={20} className="text-accent shrink-0 md:w-6 md:h-6" />
             <div className="min-w-0 flex-1">
-              <div className="text-[clamp(1.1rem,1.4vw,1.6rem)] leading-none font-black text-content uppercase tracking-tight truncate">
+              <div className="text-[clamp(1.2rem,1.8vw,2.25rem)] leading-none font-black text-content uppercase tracking-tight truncate">
                 #{order.order_number || order.id.toString().slice(-6).toUpperCase()}
               </div>
               {when && (
-                <div className="text-[clamp(0.75rem,1vw,1.1rem)] text-muted font-bold uppercase tracking-wide mt-0.5">
+                <div className="text-[clamp(0.85rem,1.2vw,1.4rem)] text-muted font-bold uppercase tracking-wide mt-0.5">
                   {when}
                 </div>
               )}
