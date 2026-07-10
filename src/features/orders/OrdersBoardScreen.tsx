@@ -54,12 +54,13 @@ export const OrdersBoardScreen = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showFedex, setShowFedex] = useState(false);
+  const [selectedCarrier, setSelectedCarrier] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const debouncedQuery = useDebounce(searchQuery, 200);
 
-  // 1. Compute visible orders (filtering by search query and FedEx checkbox)
-  const visibleOrders = useMemo(() => {
+  // 1. Compute filtered orders based on search query and FedEx checkbox (before carrier filter is applied)
+  const filteredOrders = useMemo(() => {
     const query = debouncedQuery.toLowerCase().trim();
     const hasQuery = query.length > 0;
 
@@ -84,28 +85,52 @@ export const OrdersBoardScreen = () => {
           : 0;
         return bStarts - aStarts;
       });
-    } else {
-      result = result.slice(0, DEFAULT_LIMIT);
     }
     return result;
   }, [orders, debouncedQuery, showFedex]);
 
-  // 2. Compute order counts per carrier based ONLY on currently visible orders
+  // Get the base set of orders shown on screen (without carrier filter applied)
+  const baseVisibleOrders = useMemo(() => {
+    const query = debouncedQuery.toLowerCase().trim();
+    const hasQuery = query.length > 0;
+    if (!hasQuery) {
+      return filteredOrders.slice(0, DEFAULT_LIMIT);
+    }
+    return filteredOrders;
+  }, [filteredOrders, debouncedQuery]);
+
+  // 2. Compute order counts per carrier based on only the orders shown on screen (baseVisibleOrders)
   const carrierSummaries = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const o of visibleOrders) {
+    for (const o of baseVisibleOrders) {
       const isFedex = isFedexOrder(o);
       const carrier = isFedex ? 'FEDEX' : o.transport_company?.trim().toUpperCase();
       if (carrier) {
         counts.set(carrier, (counts.get(carrier) || 0) + 1);
       }
     }
+    // Ensure the currently selected carrier is always in the list so the user can deselect it
+    if (selectedCarrier && !counts.has(selectedCarrier)) {
+      counts.set(selectedCarrier, 0);
+    }
     return Array.from(counts.entries())
       .map(([company, count]) => ({ company, count }))
       .sort((a, b) => b.count - a.count);
-  }, [visibleOrders]);
+  }, [baseVisibleOrders, selectedCarrier]);
 
-  // 3. Group visible orders by day
+  // 3. Compute final visible orders (applying selected carrier filter to baseVisibleOrders)
+  const visibleOrders = useMemo(() => {
+    if (selectedCarrier) {
+      return baseVisibleOrders.filter((o) => {
+        const isFedex = isFedexOrder(o);
+        const carrier = isFedex ? 'FEDEX' : o.transport_company?.trim().toUpperCase();
+        return carrier === selectedCarrier;
+      });
+    }
+    return baseVisibleOrders;
+  }, [baseVisibleOrders, selectedCarrier]);
+
+  // 4. Group visible orders by day
   const groups = useMemo<DayGroup[]>(() => {
     const map = new Map<string, DayGroup>();
     for (const o of visibleOrders) {
@@ -160,18 +185,28 @@ export const OrdersBoardScreen = () => {
               {/* Carrier summaries (active volumes of the day) */}
               {carrierSummaries.length > 0 && (
                 <div className="flex items-center gap-1.5 select-none">
-                  {carrierSummaries.map(({ company, count }) => (
-                    <div
-                      key={company}
-                      className="flex flex-col items-center gap-0.5 px-2 py-1 bg-content/[0.02] border border-subtle/50 rounded-md min-w-[44px] shrink-0"
-                      title={`${company}: ${count} orders today`}
-                    >
-                      <TransportLogo company={company} height={12} plain />
-                      <span className="text-[9px] font-black leading-none text-muted/80 mt-0.5">
-                        {count}
-                      </span>
-                    </div>
-                  ))}
+                  {carrierSummaries.map(({ company, count }) => {
+                    const isSelected = selectedCarrier === company;
+                    return (
+                      <button
+                        key={company}
+                        onClick={() => setSelectedCarrier(isSelected ? null : company)}
+                        className={`flex flex-col items-center gap-0.5 px-2 py-1 border rounded-md min-w-[44px] shrink-0 transition-all ${
+                          isSelected
+                            ? 'bg-accent/10 border-accent ring-1 ring-accent/30 text-accent font-black'
+                            : 'bg-content/[0.02] border-subtle/50 hover:bg-content/[0.05] text-muted/80'
+                        }`}
+                        title={`${company}: ${count} orders. Click to ${isSelected ? 'clear' : 'filter'}.`}
+                      >
+                        <TransportLogo company={company} height={12} plain />
+                        <span
+                          className={`text-[9px] font-black leading-none mt-0.5 ${isSelected ? 'text-accent' : 'text-muted/80'}`}
+                        >
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
