@@ -58,32 +58,14 @@ export const OrdersBoardScreen = () => {
 
   const debouncedQuery = useDebounce(searchQuery, 200);
 
-  // Compute daily order counts per carrier (excluding REGULAR, focusing on actual shipping carriers)
-  const carrierSummaries = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const o of orders) {
-      const isFedex = isFedexOrder(o);
-      const carrier = isFedex ? 'FEDEX' : o.transport_company?.trim().toUpperCase();
-      if (carrier) {
-        counts.set(carrier, (counts.get(carrier) || 0) + 1);
-      }
-    }
-    return Array.from(counts.entries())
-      .map(([company, count]) => ({ company, count }))
-      .sort((a, b) => b.count - a.count);
-  }, [orders]);
-
-  const groups = useMemo<DayGroup[]>(() => {
+  // 1. Compute visible orders (filtering by search query and FedEx checkbox)
+  const visibleOrders = useMemo(() => {
     const query = debouncedQuery.toLowerCase().trim();
     const hasQuery = query.length > 0;
 
-    // FedEx filter: OFF hides FedEx orders; ON shows everything. `orders`
-    // already arrives sorted by created_at DESC from the hook.
     let result = orders.filter((o) => (showFedex || !isFedexOrder(o) ? true : false));
 
     if (hasQuery) {
-      // Search across ALL fedex-filtered orders (no cap). Match order # +
-      // customer name; float "starts-with" order-number matches to the top.
       result = result.filter((o) => {
         const orderNum = String(o.order_number || '').toLowerCase();
         const customer = String(o.customer?.name || '').toLowerCase();
@@ -103,14 +85,30 @@ export const OrdersBoardScreen = () => {
         return bStarts - aStarts;
       });
     } else {
-      // Default: the 7 most-recent orders.
       result = result.slice(0, DEFAULT_LIMIT);
     }
+    return result;
+  }, [orders, debouncedQuery, showFedex]);
 
-    // Group by calendar day, preserving the incoming (DESC) order both across
-    // and within groups.
+  // 2. Compute order counts per carrier based ONLY on currently visible orders
+  const carrierSummaries = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const o of visibleOrders) {
+      const isFedex = isFedexOrder(o);
+      const carrier = isFedex ? 'FEDEX' : o.transport_company?.trim().toUpperCase();
+      if (carrier) {
+        counts.set(carrier, (counts.get(carrier) || 0) + 1);
+      }
+    }
+    return Array.from(counts.entries())
+      .map(([company, count]) => ({ company, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [visibleOrders]);
+
+  // 3. Group visible orders by day
+  const groups = useMemo<DayGroup[]>(() => {
     const map = new Map<string, DayGroup>();
-    for (const o of result) {
+    for (const o of visibleOrders) {
       const d = new Date(o.created_at);
       const key = Number.isNaN(d.getTime()) ? 'unknown' : dayKey(d);
       let group = map.get(key);
@@ -125,7 +123,7 @@ export const OrdersBoardScreen = () => {
       group.orders.push(o);
     }
     return Array.from(map.values());
-  }, [orders, debouncedQuery, showFedex]);
+  }, [visibleOrders]);
 
   const handleEditLabel = (order: OrderRow) => {
     setExternalOrderId(order.id);
