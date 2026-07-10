@@ -99,9 +99,10 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
       <div className="flex items-stretch">
         <button
           onClick={onToggle}
-          className="flex-1 flex items-center justify-between gap-3 py-3 px-3 text-left group"
+          className="flex-1 flex items-center justify-between gap-3 py-3 px-3 text-left group min-w-0"
         >
-          <div className="min-w-0">
+          {/* Left Block: Order Info */}
+          <div className="min-w-0 flex-1">
             <div className="text-lg font-black uppercase tracking-tight text-content flex items-center gap-1.5 flex-wrap">
               #{displayNumber}
               <span
@@ -117,10 +118,18 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
                 </span>
               )}
             </div>
-            <div className="text-sm text-muted font-bold uppercase tracking-wider mt-1 flex items-center gap-2.5 min-w-0">
-              <span className="truncate max-w-[200px] normal-case tracking-normal text-content/80">
+            <div className="text-sm text-muted font-bold uppercase tracking-wider mt-1 flex items-center gap-2 flex-wrap min-w-0">
+              <span className="truncate max-w-[200px] normal-case tracking-normal text-content/80 mr-1.5">
                 {order.customer?.name || 'No customer'}
               </span>
+              {(order.pallets_qty ?? 0) > 0 && (
+                <span className="text-muted/80 shrink-0">
+                  {order.pallets_qty} {order.pallets_qty === 1 ? 'pallet' : 'pallets'}
+                </span>
+              )}
+              {(order.pallets_qty ?? 0) > 0 && units > 0 && (
+                <span className="text-muted/40 shrink-0 select-none">•</span>
+              )}
               {units > 0 && (
                 <span className="text-muted/80 shrink-0">
                   {units} {units === 1 ? 'unit' : 'units'}
@@ -128,10 +137,26 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
               )}
             </div>
           </div>
-          <ChevronDown
-            size={20}
-            className={`text-subtle group-hover:text-accent transition-transform shrink-0 ${expanded ? 'rotate-180' : ''}`}
-          />
+
+          {/* Center Block: Carrier Logo */}
+          <div className="flex items-center justify-center shrink-0 w-20 sm:w-28 mx-1">
+            {order.transport_company && (
+              <TransportLogo company={order.transport_company} height={20} plain />
+            )}
+          </div>
+
+          {/* Right Block: Load Number & Chevron */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {order.load_number && (
+              <span className="text-[10px] font-black uppercase tracking-widest bg-content/5 text-muted px-2 py-0.5 rounded border border-subtle">
+                LD: {order.load_number}
+              </span>
+            )}
+            <ChevronDown
+              size={20}
+              className={`text-subtle group-hover:text-accent transition-transform shrink-0 ${expanded ? 'rotate-180' : ''}`}
+            />
+          </div>
         </button>
         <button
           onClick={(e) => {
@@ -166,7 +191,7 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
             </div>
           )}
 
-          {/* Ship-to (left) + carrier logo (center) + details (right) */}
+          {/* Ship-to (left) + photo thumbnails (center) + details (right) */}
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             {/* Column 1: Ship To */}
             <div className="flex-1 min-w-[180px]">
@@ -185,15 +210,44 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
               </div>
             </div>
 
-            {/* Column 2: Carrier logo — transparent, no white background or borders */}
-            {order.transport_company && (
-              <div className="w-full sm:w-1/3 flex items-center justify-start sm:justify-center self-center shrink-0">
-                <TransportLogo company={order.transport_company} height={120} plain />
-              </div>
-            )}
+            {/* Column 2: Photo thumbnails (replacing the carrier logo, 5 times smaller) */}
+            <div className="w-full sm:w-1/3 flex items-center justify-start sm:justify-center shrink-0">
+              {photos.length > 0 ? (
+                <div className="flex flex-wrap justify-start sm:justify-center gap-1.5 max-w-[180px]">
+                  {photos.map((url, idx) => {
+                    const thumb = toThumbUrl(url);
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => setLightboxIndex(idx)}
+                        className="w-10 h-10 rounded-md overflow-hidden border border-subtle bg-surface hover:border-accent/40 transition-colors"
+                      >
+                        <img
+                          src={thumb}
+                          alt=""
+                          loading="lazy"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            // Fallback to full-res if thumb doesn't exist
+                            (e.currentTarget as HTMLImageElement).src = url;
+                          }}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-muted/40 text-xs italic">No photos</div>
+              )}
+            </div>
 
             {/* Column 3: Details */}
-            <div className="text-xs text-muted space-y-0.5 shrink-0 sm:text-right">
+            <div className="text-xs text-muted space-y-0.5 shrink-0 sm:text-right flex flex-col sm:items-end">
+              {order.transport_company && (
+                <div className="mb-2 shrink-0">
+                  <TransportLogo company={order.transport_company} height={14} plain />
+                </div>
+              )}
               <div>
                 <span className="font-black uppercase tracking-widest text-muted/50">
                   Updated:{' '}
@@ -219,33 +273,6 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
 
           {/* Our in-app notes (mounted only while expanded) */}
           <OrderNotes listId={order.id} />
-
-          {/* Pallet photos — grid uses thumbnails for bandwidth savings */}
-          {photos.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {photos.map((url, idx) => {
-                const thumb = toThumbUrl(url);
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => setLightboxIndex(idx)}
-                    className="aspect-square w-full rounded-lg overflow-hidden border border-subtle bg-surface"
-                  >
-                    <img
-                      src={thumb}
-                      alt=""
-                      loading="lazy"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        // Fallback to full-res if thumb doesn't exist
-                        (e.currentTarget as HTMLImageElement).src = url;
-                      }}
-                    />
-                  </button>
-                );
-              })}
-            </div>
-          )}
 
           {/* Line items */}
           <div className="-mx-3 overflow-x-auto">

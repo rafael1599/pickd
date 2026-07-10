@@ -4,6 +4,7 @@ import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { useViewMode } from '../../context/ViewModeContext';
 import { useDebounce } from '../../hooks/useDebounce';
+import { TransportLogo } from '../../components/orders/TransportLogo';
 import {
   computeBikesParts,
   isFedexOrder,
@@ -56,6 +57,21 @@ export const OrdersBoardScreen = () => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const debouncedQuery = useDebounce(searchQuery, 200);
+
+  // Compute daily order counts per carrier (excluding REGULAR, focusing on actual shipping carriers)
+  const carrierSummaries = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const o of orders) {
+      const isFedex = isFedexOrder(o);
+      const carrier = isFedex ? 'FEDEX' : o.transport_company?.trim().toUpperCase();
+      if (carrier) {
+        counts.set(carrier, (counts.get(carrier) || 0) + 1);
+      }
+    }
+    return Array.from(counts.entries())
+      .map(([company, count]) => ({ company, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [orders]);
 
   const groups = useMemo<DayGroup[]>(() => {
     const query = debouncedQuery.toLowerCase().trim();
@@ -140,17 +156,41 @@ export const OrdersBoardScreen = () => {
       {/* Sticky header: title + search + FedEx toggle */}
       <div className="sticky top-0 z-10 bg-surface border-b border-subtle px-4 py-3">
         <div className="max-w-3xl mx-auto flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-4">
             <h1 className="text-2xl font-black uppercase tracking-tight text-content">Orders</h1>
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={showFedex}
-                onChange={(e) => setShowFedex(e.target.checked)}
-                className="w-4 h-4 accent-purple-500"
-              />
-              <span className="text-xs font-black uppercase tracking-widest text-muted">FedEx</span>
-            </label>
+            <div className="flex items-center gap-3">
+              {/* Carrier summaries (active volumes of the day) */}
+              {carrierSummaries.length > 0 && (
+                <div className="flex items-center gap-1.5 select-none">
+                  {carrierSummaries.map(({ company, count }) => (
+                    <div
+                      key={company}
+                      className="flex flex-col items-center gap-0.5 px-2 py-1 bg-content/[0.02] border border-subtle/50 rounded-md min-w-[44px] shrink-0"
+                      title={`${company}: ${count} orders today`}
+                    >
+                      <TransportLogo company={company} height={12} plain />
+                      <span className="text-[9px] font-black leading-none text-muted/80 mt-0.5">
+                        {count}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {carrierSummaries.length > 0 && <div className="h-6 w-px bg-subtle shrink-0" />}
+
+              <label className="flex items-center gap-2 cursor-pointer select-none shrink-0">
+                <input
+                  type="checkbox"
+                  checked={showFedex}
+                  onChange={(e) => setShowFedex(e.target.checked)}
+                  className="w-4 h-4 accent-purple-500"
+                />
+                <span className="text-xs font-black uppercase tracking-widest text-muted">
+                  FedEx
+                </span>
+              </label>
+            </div>
           </div>
           <SearchInput
             value={searchQuery}

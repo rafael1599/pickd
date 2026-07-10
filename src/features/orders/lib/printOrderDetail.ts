@@ -111,7 +111,11 @@ export function printOrderDetail(order: OrderRow, opts: { bikes: number; parts: 
       font-size: 13px;
       line-height: 1.4;
     }
-    h1 { font-size: 22px; margin: 0 0 16px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .top-row h1 { font-size: 22px; margin: 0; text-transform: uppercase; letter-spacing: 0.5px; }
+    .print-carrier-logo { display: flex; align-items: center; justify-content: flex-end; }
+    .print-pdf-tlogo { height: 32px; width: auto; object-fit: contain; }
+    .print-carrier-logo.text-fallback { font-size: 14px; font-weight: bold; text-transform: uppercase; color: #555; }
     h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #555; margin: 20px 0 6px; }
     .block { margin-bottom: 8px; }
     .block div { margin-bottom: 2px; }
@@ -121,25 +125,38 @@ export function printOrderDetail(order: OrderRow, opts: { bikes: number; parts: 
     .details h2 { margin-top: 0; }
     .summary { font-weight: bold; margin: 8px 0 4px; }
     .summary .tlogo { height: 22px; vertical-align: middle; }
-    .carrier-logo { display: flex; align-items: center; justify-content: center; align-self: center; flex: 1; text-align: center; }
-    .pdf-tlogo { height: 80px; width: auto; object-fit: contain; }
-    .carrier-logo.text-fallback { font-size: 24px; font-weight: bold; text-transform: uppercase; color: #333; }
     .notes { border: 1px solid #000; padding: 8px 10px; white-space: pre-wrap; }
     table { width: 100%; border-collapse: collapse; margin-top: 6px; }
     th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ccc; vertical-align: top; }
     th { border-bottom: 2px solid #000; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; }
     .qty { text-align: right; width: 48px; font-variant-numeric: tabular-nums; }
     .mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
-    .photos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .photos img { width: 100%; height: 280px; object-fit: cover; border: 1px solid #ccc; }
+    .photos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+    .photos img { height: 90px; width: auto; object-fit: contain; border: 1px solid #ccc; border-radius: 4px; }
     @media print {
-      body { margin: 0; }
-      @page { margin: 16mm; }
+      body { margin: 0; padding: 0; font-size: 11px; }
+      @page { margin: 8mm; }
+      .top-row h1 { font-size: 18px; }
+      h2 { margin-top: 10px; }
+      .photos img { height: 70px; }
     }
   </style>
 </head>
 <body>
-  <h1>Order #${esc(orderNumber)}</h1>
+  <div class="top-row">
+    <h1>Order #${esc(orderNumber)}</h1>
+    ${
+      order.transport_company
+        ? logoPath
+          ? `<div class="print-carrier-logo">
+              <img class="print-pdf-tlogo" src="${esc(window.location.origin + logoPath)}" alt="${esc(order.transport_company)}" />
+             </div>`
+          : `<div class="print-carrier-logo text-fallback">
+              <span>${esc(order.transport_company)}</span>
+             </div>`
+        : ''
+    }
+  </div>
 
   <div class="header">
     <div class="block ship-to">
@@ -149,18 +166,6 @@ export function printOrderDetail(order: OrderRow, opts: { bikes: number; parts: 
       ${cityLine ? `<div>${esc(cityLine)}</div>` : ''}
       ${order.customer?.phone ? `<div>${esc(order.customer.phone)}</div>` : ''}
     </div>
-
-    ${
-      order.transport_company
-        ? logoPath
-          ? `<div class="block carrier-logo">
-            <img class="pdf-tlogo" src="${esc(window.location.origin + logoPath)}" alt="${esc(order.transport_company)}" />
-           </div>`
-          : `<div class="block carrier-logo text-fallback">
-            <span>${esc(order.transport_company)}</span>
-           </div>`
-        : '<div class="block carrier-logo"></div>'
-    }
 
     <div class="block details">
       <h2>Details</h2>
