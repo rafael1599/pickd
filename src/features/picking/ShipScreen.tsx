@@ -518,9 +518,19 @@ export const ShipScreen = () => {
     });
   }, [orders, searchQuery, showFedex]);
 
+  // Cap the sidebar list to the 10 most recent matches — with no time
+  // filter applied this list is every order ever created, which made the
+  // sidebar unusably long. Keyboard arrow navigation and search still
+  // operate over the full `filteredOrders` set.
+  const VISIBLE_ORDER_LIMIT = 10;
+  const visibleOrders = useMemo(
+    () => filteredOrders.slice(0, VISIBLE_ORDER_LIMIT),
+    [filteredOrders]
+  );
+
   const ordersGroupedByDate = useMemo<DayGroup[]>(() => {
     const map = new Map<string, DayGroup>();
-    for (const o of filteredOrders) {
+    for (const o of visibleOrders) {
       const d = new Date(o.created_at);
       const key = Number.isNaN(d.getTime()) ? 'unknown' : dayKey(d);
       let group = map.get(key);
@@ -535,7 +545,7 @@ export const ShipScreen = () => {
       group.orders.push(o);
     }
     return Array.from(map.values());
-  }, [filteredOrders]);
+  }, [visibleOrders]);
 
   // Keyboard arrow navigation between orders (placed after filteredOrders is declared)
   useEffect(() => {
@@ -938,11 +948,10 @@ export const ShipScreen = () => {
           {/* Vertical order list — grouped by date */}
           <div className="w-full md:w-72 shrink-0 md:sticky md:top-0">
             <div className="bg-card border border-subtle rounded-3xl p-3 flex flex-col gap-2">
-              <div className="flex items-center justify-between px-2 pb-1">
+              <div className="px-2 pb-1">
                 <span className="text-[10px] font-black uppercase tracking-widest text-muted/50">
                   Orders
                 </span>
-                <span className="text-[10px] text-muted/40 font-bold">{filteredOrders.length}</span>
               </div>
               <div className="flex flex-col gap-2 max-h-72 md:max-h-[calc(100vh-13rem)] overflow-y-auto no-scrollbar">
                 {ordersGroupedByDate.length > 0 ? (
