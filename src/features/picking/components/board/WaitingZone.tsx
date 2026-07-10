@@ -11,29 +11,23 @@ export const WaitingZone: React.FC<WaitingZoneProps> = ({ orders, onSelect }) =>
   if (orders.length === 0) return null;
 
   return (
-    <div className="space-y-1">
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2">
       {orders.map((order) => (
         <button
           key={order.id}
           onClick={() => onSelect(order)}
-          className="w-full flex items-center gap-3 p-3 rounded-xl bg-card border border-amber-500/10 hover:border-amber-500/30 transition-all text-left active:scale-[0.98]"
+          className="w-full flex items-center gap-3 p-3 rounded-2xl bg-card border border-amber-500/10 hover:border-amber-500/30 transition-all text-left active:scale-[0.98]"
         >
-          <div className="w-8 h-8 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0">
-            <Hourglass size={16} />
-          </div>
+          <Hourglass size={20} className="text-amber-500 shrink-0" />
           <div className="min-w-0 flex-1">
-            <div className="text-xs font-black text-content uppercase tracking-tight truncate">
+            <div className="text-[clamp(1.1rem,1.4vw,1.6rem)] leading-none font-black text-content uppercase tracking-tight truncate">
               #{order.order_number || order.id.toString().slice(-6).toUpperCase()}
             </div>
-            <div className="text-[9px] text-amber-500/70 font-bold truncate mt-0.5">
+            <div className="text-[clamp(0.75rem,1vw,1.1rem)] text-amber-500/80 font-bold truncate mt-0.5">
               {order.waiting_reason || 'Waiting for inventory'}
             </div>
-            <div className="text-[8px] text-muted font-bold uppercase tracking-tighter truncate">
-              {order.customer?.name || 'Customer'}
-            </div>
             {order.source_order_date && (
-              <div className="text-[8px] text-muted/70 font-bold uppercase tracking-tighter truncate">
-                Order date:{' '}
+              <div className="text-[clamp(0.7rem,0.9vw,1rem)] text-muted/70 font-bold uppercase tracking-tight truncate">
                 {new Date(`${order.source_order_date}T00:00:00`).toLocaleDateString('en-US', {
                   month: 'short',
                   day: 'numeric',

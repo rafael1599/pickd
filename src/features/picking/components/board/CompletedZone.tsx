@@ -5,41 +5,60 @@ import type { PickingList } from '../../hooks/useDoubleCheckList';
 interface CompletedZoneProps {
   orders: PickingList[];
   onSelectOrder: (orderId: string) => void;
+  /** Prefix the time with the date ("Jul 9 · 3:51 PM") — used when the list
+   *  spans previous days (empty-board fallback). */
+  showDate?: boolean;
 }
 
-export const CompletedZone: React.FC<CompletedZoneProps> = ({ orders, onSelectOrder }) => {
+function completedAtLabel(iso: string | undefined, showDate: boolean): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  if (!showDate) return time;
+  const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `${date} · ${time}`;
+}
+
+export const CompletedZone: React.FC<CompletedZoneProps> = ({
+  orders,
+  onSelectOrder,
+  showDate = false,
+}) => {
   if (orders.length === 0) return null;
 
   return (
-    <div className="space-y-1">
-      {orders.map((order) => (
-        <button
-          key={order.id}
-          onClick={() => onSelectOrder(order.id)}
-          className="w-full flex items-center gap-2.5 p-2.5 rounded-xl bg-card border border-subtle hover:border-accent/20 transition-all text-left active:scale-[0.98]"
-        >
-          <div className="w-7 h-7 rounded-lg bg-main flex items-center justify-center text-muted shrink-0">
-            <CheckCircle2 size={13} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-black text-content uppercase tracking-tight truncate">
-              #{order.order_number || order.id.toString().slice(-6).toUpperCase()}
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2">
+      {orders.map((order) => {
+        const when = completedAtLabel(order.updated_at, showDate);
+        return (
+          <button
+            key={order.id}
+            onClick={() => onSelectOrder(order.id)}
+            className="w-full flex items-center gap-3 p-3 rounded-2xl bg-card border border-subtle hover:border-accent/30 transition-all text-left active:scale-[0.98]"
+          >
+            <CheckCircle2 size={20} className="text-accent shrink-0 md:w-6 md:h-6" />
+            <div className="min-w-0 flex-1">
+              <div className="text-[clamp(1.1rem,1.4vw,1.6rem)] leading-none font-black text-content uppercase tracking-tight truncate">
+                #{order.order_number || order.id.toString().slice(-6).toUpperCase()}
+              </div>
+              {when && (
+                <div className="text-[clamp(0.75rem,1vw,1.1rem)] text-muted font-bold uppercase tracking-wide mt-0.5">
+                  {when}
+                </div>
+              )}
             </div>
-            <div className="text-[8px] text-muted font-bold uppercase tracking-tighter truncate">
-              {order.customer?.name || 'Customer'}
-            </div>
-          </div>
-          {/* Shipping type indicator dot */}
-          {order.shipping_type && (
-            <div
-              className={`w-2 h-2 rounded-full shrink-0 ${
-                order.shipping_type === 'fedex' ? 'bg-purple-500' : 'bg-emerald-500'
-              }`}
-              title={order.shipping_type === 'fedex' ? 'FedEx' : 'Regular'}
-            />
-          )}
-        </button>
-      ))}
+            {order.shipping_type && (
+              <div
+                className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                  order.shipping_type === 'fedex' ? 'bg-purple-500' : 'bg-emerald-500'
+                }`}
+                title={order.shipping_type === 'fedex' ? 'FedEx' : 'Regular'}
+              />
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 };
