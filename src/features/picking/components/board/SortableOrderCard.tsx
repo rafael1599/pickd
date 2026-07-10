@@ -281,7 +281,7 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
         </button>
 
         {/* Right Panel: Carrier Logo Panel (Full Height) */}
-        <div className="relative flex items-center justify-center border-l border-subtle shrink-0 self-stretch min-w-[76px] md:min-w-[84px] select-none overflow-hidden">
+        <div className="relative flex items-center justify-center shrink-0 self-stretch min-w-[76px] md:min-w-[84px] select-none overflow-hidden">
           {shippingType === 'fedex' || order.transport_company ? (
             <TransportLogo
               company={shippingType === 'fedex' ? 'FEDEX' : order.transport_company}
