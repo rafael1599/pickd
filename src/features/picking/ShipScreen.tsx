@@ -435,7 +435,7 @@ export const ShipScreen = () => {
     //    unchecked shows everything that isn't FedEx.
     const byCarrier = orders.filter((o) => {
       if (o.status === 'cancelled') return false;
-      const matchTab = shipTab === 'shipped' ? !!o.is_shipped : !o.is_shipped;
+      const matchTab = searchQuery ? true : shipTab === 'shipped' ? !!o.is_shipped : !o.is_shipped;
       if (!matchTab) return false;
       const isFedex = (o.order_group as { group_type?: string } | null)?.group_type === 'fedex';
       return showFedex ? isFedex : !isFedex;
@@ -1192,25 +1192,28 @@ export const ShipScreen = () => {
                                   : 'bg-surface border-transparent hover:border-subtle'
                               }`}
                             >
-                              {!order.is_waiting_inventory && (
-                                <input
-                                  type="checkbox"
-                                  checked={selectedBulkOrderIds.has(order.id)}
-                                  onChange={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedBulkOrderIds((prev) => {
-                                      const next = new Set(prev);
-                                      if (next.has(order.id)) {
-                                        next.delete(order.id);
-                                      } else {
-                                        next.add(order.id);
-                                      }
-                                      return next;
-                                    });
-                                  }}
-                                  className="w-3.5 h-3.5 rounded border-subtle text-accent focus:ring-accent bg-bg-main cursor-pointer shrink-0"
-                                />
-                              )}
+                              {!order.is_waiting_inventory &&
+                                (shipTab === 'shipped'
+                                  ? !!order.is_shipped
+                                  : !order.is_shipped) && (
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedBulkOrderIds.has(order.id)}
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedBulkOrderIds((prev) => {
+                                        const next = new Set(prev);
+                                        if (next.has(order.id)) {
+                                          next.delete(order.id);
+                                        } else {
+                                          next.add(order.id);
+                                        }
+                                        return next;
+                                      });
+                                    }}
+                                    className="w-3.5 h-3.5 rounded border-subtle text-accent focus:ring-accent bg-bg-main cursor-pointer shrink-0"
+                                  />
+                                )}
                               <div
                                 className="min-w-0 flex-1 flex flex-col cursor-pointer"
                                 onClick={() => setSelectedOrder(order)}
