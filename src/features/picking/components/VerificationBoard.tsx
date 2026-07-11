@@ -178,8 +178,10 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           {} // No weight data available here — falls back to count-only rule
         );
 
-      // If the owner is "Warehouse Team", put it in priority (first section at the top)
-      if (order.profiles?.full_name === 'Warehouse Team') {
+      // If the owner is "Warehouse Team" and no items have been checked/verified yet,
+      // put it in priority (first section at the top)
+      const hasProgress = order.verified_item_keys && order.verified_item_keys.length > 0;
+      if (order.profiles?.full_name === 'Warehouse Team' && !hasProgress) {
         priority.push(order);
         priorityShipTypes.set(order.id, shippingType === 'fedex' ? 'fedex' : 'regular');
         continue;
