@@ -115,6 +115,14 @@ export const ShipScreen = () => {
   useEffect(() => {
     setSelectedBulkOrderIds(new Set());
   }, [shipTab]);
+
+  useEffect(() => {
+    if (loading || orders.length === 0) return;
+    const hasUnshipped = orders.some((o) => o.status !== 'cancelled' && !o.is_shipped);
+    if (!hasUnshipped && shipTab === 'to_ship') {
+      setShipTab('shipped');
+    }
+  }, [orders, loading, shipTab]);
   // Add-On reopen flow (idea-067 Phase 2): after the user picks the reason,
   const searchQueryRef = useRef(searchQuery);
 
