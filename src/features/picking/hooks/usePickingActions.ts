@@ -341,24 +341,38 @@ export const usePickingActions = ({
 
       if (releaseError) console.error('Error releasing previous locks:', releaseError);
 
+      // Query order metadata to check group and owner
+      const { data: order } = await supabase
+        .from('picking_lists')
+        .select(
+          `
+          group_id,
+          user_id,
+          profiles!user_id (full_name)
+        `
+        )
+        .eq('id', listId)
+        .maybeSingle();
+
+      const shouldClaim = (order as any)?.profiles?.full_name === 'Warehouse Team';
+
       // Lock the main order
+      const updateFields: any = {
+        status: 'double_checking',
+        checked_by: user.id,
+      };
+      if (shouldClaim) {
+        updateFields.user_id = user.id;
+      }
+
       const { error } = await supabase
         .from('picking_lists')
-        .update({
-          status: 'double_checking',
-          checked_by: user.id,
-        })
+        .update(updateFields)
         .eq('id', listId)
         .neq('status', 'completed');
       if (error) throw error;
 
       // If order belongs to a group, also lock all siblings
-      const { data: order } = await supabase
-        .from('picking_lists')
-        .select('group_id')
-        .eq('id', listId)
-        .single();
-
       if (order?.group_id) {
         await supabase
           .from('picking_lists')
@@ -368,6 +382,15 @@ export const usePickingActions = ({
           })
           .eq('group_id', order.group_id)
           .neq('id', listId)
+          .neq('status', 'completed')
+          .neq('status', 'cancelled');
+
+        // Claim any group sibling still owned by Warehouse Team (Warehouse Team Profile ID: 38f493d0-1385-4d12-940c-56dffe10de7e)
+        await supabase
+          .from('picking_lists')
+          .update({ user_id: user.id })
+          .eq('group_id', order.group_id)
+          .eq('user_id', '38f493d0-1385-4d12-940c-56dffe10de7e')
           .neq('status', 'completed')
           .neq('status', 'cancelled');
       }
