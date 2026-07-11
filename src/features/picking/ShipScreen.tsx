@@ -1298,7 +1298,11 @@ export const ShipScreen = () => {
                                   </button>
                                 ) : (
                                   <>
-                                    <OrderStatusPill status={order.status} />
+                                    <OrderStatusPill
+                                      status={order.status}
+                                      is_waiting_inventory={order.is_waiting_inventory}
+                                      is_shipped={order.is_shipped}
+                                    />
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();

@@ -7,6 +7,7 @@ import { computeBikesParts, isFedexOrder, type OrderRow } from '../hooks/useOrde
 import { printOrderDetail } from '../lib/printOrderDetail';
 import { OrderNotes } from './OrderNotes';
 import { TransportLogo } from '../../../components/orders/TransportLogo';
+import { OrderStatusPill } from '../../../components/orders/OrderStatusPill';
 
 /**
  * Derives a thumbnail URL from a full-size gallery photo URL.
@@ -35,29 +36,6 @@ function getOrderUnits(order: OrderRow): number {
   return order.total_units ?? 0;
 }
 
-/** Small color language for the status pill (mirrors SortableOrderCard). */
-function getStatusPill(status: string): { label: string; className: string } | null {
-  switch (status) {
-    case 'needs_correction':
-      return {
-        label: 'Needs Correction',
-        className: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
-      };
-    case 'double_checking':
-      return {
-        label: 'Checking',
-        className: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
-      };
-    case 'completed':
-      return {
-        label: 'Completed',
-        className: 'bg-accent/10 text-accent border-accent/20',
-      };
-    default:
-      return null;
-  }
-}
-
 /** `Jul 8 · 12:48 PM` style timestamp. */
 function formatDateTime(source: string | null): string {
   if (!source) return '—';
@@ -84,7 +62,6 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
 }) => {
   const units = getOrderUnits(order);
   const fedex = isFedexOrder(order);
-  const statusPill = getStatusPill(order.status);
   const displayNumber = order.order_number || order.id.slice(-6);
 
   const items = order.items ?? [];
@@ -110,13 +87,11 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
               >
                 {fedex ? 'FDX' : 'TRK'}
               </span>
-              {statusPill && (
-                <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded border font-black uppercase tracking-wider ${statusPill.className}`}
-                >
-                  {statusPill.label}
-                </span>
-              )}
+              <OrderStatusPill
+                status={order.status}
+                is_waiting_inventory={order.is_waiting_inventory}
+                is_shipped={order.is_shipped}
+              />
             </div>
             <div className="text-sm text-muted font-bold uppercase tracking-wider mt-1 flex items-center gap-2 flex-wrap min-w-0">
               <span className="truncate max-w-[200px] normal-case tracking-normal text-content/80 mr-1.5">

@@ -52,6 +52,8 @@ const TRANSPORT_COMPANIES = [
 interface SelectedOrder extends PickingList {
   user?: { full_name?: string } | null;
   combine_meta?: CombineMeta;
+  is_waiting_inventory?: boolean | null;
+  is_shipped?: boolean | null;
 }
 
 interface ShipOrderCardProps {
@@ -443,7 +445,11 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
       {/* Status — order number now lives in the LivePrintPreview block above,
           no need to repeat it here. */}
       <div className="flex items-center gap-3 flex-wrap">
-        <OrderStatusPill status={selectedOrder.status} />
+        <OrderStatusPill
+          status={selectedOrder.status}
+          is_waiting_inventory={selectedOrder.is_waiting_inventory}
+          is_shipped={selectedOrder.is_shipped}
+        />
       </div>
 
       {/* Customer name — click to edit */}

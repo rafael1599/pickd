@@ -44,6 +44,7 @@ export interface OrderRow {
   total_weight_lbs: number | null;
   pallet_photos: string[] | null;
   is_waiting_inventory: boolean | null;
+  is_shipped?: boolean | null;
   customer: {
     id: string;
     name: string;
