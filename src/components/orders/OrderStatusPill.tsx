@@ -2,7 +2,7 @@ import React from 'react';
 
 const LABELS: Record<string, string> = {
   ready_to_double_check: 'Ready',
-  active: 'Picking',
+  active: 'Pulling',
   reopened: 'Editing',
   completed: 'Completed',
   cancelled: 'Cancelled',
