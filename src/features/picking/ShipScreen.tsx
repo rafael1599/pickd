@@ -1149,7 +1149,15 @@ export const ShipScreen = () => {
               {/* Tab Switcher */}
               <div className="grid grid-cols-2 p-0.5 bg-bg-main rounded-xl border border-subtle text-[10px] select-none">
                 <button
-                  onClick={() => setShipTab('to_ship')}
+                  onClick={() => {
+                    setShipTab('to_ship');
+                    if (selectedOrder?.is_shipped) {
+                      const firstUnshipped = orders.find(
+                        (o) => o.status !== 'cancelled' && !o.is_shipped
+                      );
+                      setSelectedOrder(firstUnshipped || null);
+                    }
+                  }}
                   className={`py-1 rounded-lg font-black uppercase tracking-wider text-center transition-all ${
                     shipTab === 'to_ship'
                       ? 'bg-card text-accent border border-subtle shadow-sm'
@@ -1159,7 +1167,15 @@ export const ShipScreen = () => {
                   To Ship
                 </button>
                 <button
-                  onClick={() => setShipTab('shipped')}
+                  onClick={() => {
+                    setShipTab('shipped');
+                    if (!selectedOrder?.is_shipped) {
+                      const firstShipped = orders.find(
+                        (o) => o.status !== 'cancelled' && o.is_shipped
+                      );
+                      setSelectedOrder(firstShipped || null);
+                    }
+                  }}
                   className={`py-1 rounded-lg font-black uppercase tracking-wider text-center transition-all ${
                     shipTab === 'shipped'
                       ? 'bg-card text-emerald-400 border border-subtle shadow-sm'
@@ -1216,7 +1232,10 @@ export const ShipScreen = () => {
                                 )}
                               <div
                                 className="min-w-0 flex-1 flex flex-col cursor-pointer"
-                                onClick={() => setSelectedOrder(order)}
+                                onClick={() => {
+                                  setSelectedOrder(order);
+                                  setShipTab(order.is_shipped ? 'shipped' : 'to_ship');
+                                }}
                               >
                                 <span className="font-mono text-sm font-black text-content flex items-center gap-1 truncate">
                                   {order.combine_meta?.is_combined && (
