@@ -159,11 +159,14 @@ export const useDoubleCheckList = () => {
 
   const { readyCount, correctionCount, checkingCount, waitingCount } = useMemo(
     () => ({
-      readyCount: orders.filter((o) => o.status === 'ready_to_double_check').length,
+      readyCount: orders.filter(
+        (o) => o.status === 'ready_to_double_check' && !o.is_waiting_inventory
+      ).length,
       correctionCount: orders.filter(
         (o) => o.status === 'needs_correction' && !o.is_waiting_inventory
       ).length,
-      checkingCount: orders.filter((o) => o.status === 'double_checking').length,
+      checkingCount: orders.filter((o) => o.status === 'double_checking' && !o.is_waiting_inventory)
+        .length,
       waitingCount: orders.filter((o) => o.is_waiting_inventory).length,
     }),
     [orders]
