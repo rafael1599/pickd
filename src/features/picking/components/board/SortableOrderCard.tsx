@@ -331,7 +331,7 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
                 aria-label={order.status}
               />
             )}
-            <span className="text-[clamp(1.6rem,3vw,4rem)] leading-none font-black uppercase tracking-tight text-content truncate">
+            <span className="text-[clamp(1.2rem,2.5vw,3.5rem)] leading-none font-black uppercase tracking-tight text-content whitespace-nowrap">
               <span className="text-content/35 mr-1 select-none">#{firstPart}</span>
               <span
                 style={{
