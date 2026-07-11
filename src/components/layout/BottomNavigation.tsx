@@ -52,7 +52,7 @@ export const BottomNavigation = () => {
 
   return (
     <div
-      className={`fixed bottom-0 left-0 right-0 lg:bottom-auto lg:top-1/2 lg:left-auto lg:right-6 lg:-translate-y-1/2 pointer-events-none flex justify-center lg:flex-col lg:w-auto lg:h-auto z-[100] p-4 transition-all duration-300 ${isSearching ? 'h-16 lg:h-auto' : 'h-24 lg:h-auto'}`}
+      className={`fixed bottom-0 left-0 right-0 lg:top-auto lg:bottom-6 lg:left-auto lg:right-6 lg:translate-y-0 pointer-events-none flex justify-center lg:flex-col lg:w-auto lg:h-auto z-[100] p-4 transition-all duration-300 ${isSearching ? 'h-16 lg:h-auto' : 'h-24 lg:h-auto'}`}
     >
       <div
         className={`
