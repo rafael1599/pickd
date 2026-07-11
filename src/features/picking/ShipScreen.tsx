@@ -1080,8 +1080,8 @@ export const ShipScreen = () => {
   return (
     <div className="relative flex flex-col h-screen w-full overflow-hidden bg-bg-main font-body">
       {/* Header — title + FedEx checkbox, then full-width search, like Orders */}
-      <header className="shrink-0 ios-glass !border-none !shadow-none px-4 md:px-8 py-4 z-[100]">
-        <div className="max-w-6xl mx-auto w-full flex flex-col gap-3">
+      <header className="shrink-0 ios-glass !border-none !shadow-none px-4 md:px-6 py-4 z-[100]">
+        <div className="w-full flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
             <h1 className="text-2xl font-black uppercase tracking-tight text-content">Ship</h1>
             <div className="flex items-center gap-3">
@@ -1112,11 +1112,11 @@ export const ShipScreen = () => {
       {/* Main scroll area */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto no-scrollbar relative bg-bg-main px-4 md:px-8 pb-32"
+        className="flex-1 overflow-y-auto no-scrollbar relative bg-bg-main px-4 md:px-6 pb-32"
       >
-        <div className="max-w-6xl mx-auto w-full flex flex-col md:flex-row gap-4 md:gap-6 pt-4 items-start">
+        <div className="w-full flex flex-col md:flex-row gap-4 md:gap-6 pt-4 items-start">
           {/* Vertical order list — grouped by date */}
-          <div className="w-full md:w-72 shrink-0 md:sticky md:top-0">
+          <div className="w-full md:w-80 shrink-0 md:sticky md:top-0">
             <div className="bg-card border border-subtle rounded-3xl p-3 flex flex-col gap-2">
               <div className="px-2 pb-1 flex items-center justify-between min-h-[24px]">
                 <span className="text-[10px] font-black uppercase tracking-widest text-muted/50">
