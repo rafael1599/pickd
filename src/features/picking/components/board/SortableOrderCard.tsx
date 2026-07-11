@@ -8,6 +8,10 @@ import Unlink from 'lucide-react/dist/esm/icons/unlink';
 import type { PickingList } from '../../hooks/useDoubleCheckList';
 
 import { TransportLogo } from '../../../../components/orders/TransportLogo';
+import {
+  calculatePalletsWithBikeAwareness,
+  type PickingItem,
+} from '../../../../utils/pickingLogic';
 
 type ShippingType = 'fedex' | 'regular';
 
@@ -171,6 +175,40 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
       lastThree: fullNum.slice(-3),
     };
   }, [order.order_number, order.id]);
+
+  const progressPercent = React.useMemo(() => {
+    if (order.status === 'completed' || order.is_shipped) return 100;
+    if (!Array.isArray(order.items) || order.items.length === 0) return 0;
+
+    const verifiedKeys = new Set(order.verified_item_keys ?? []);
+    if (verifiedKeys.size === 0) return 0;
+
+    const bikeSkuSet = new Set<string>();
+    for (const item of order.items) {
+      if (item.sku && item.sku.startsWith('03-')) {
+        bikeSkuSet.add(item.sku);
+      }
+    }
+    const allItems = (order.items ?? []) as unknown as PickingItem[];
+    const pallets = calculatePalletsWithBikeAwareness(allItems, bikeSkuSet);
+
+    let totalUnits = 0;
+    let verifiedUnits = 0;
+
+    for (const pallet of pallets) {
+      for (const item of pallet.items) {
+        const qty = item.pickingQty || 0;
+        totalUnits += qty;
+        const key = `${pallet.id}-${item.sku}-${item.location}`;
+        if (verifiedKeys.has(key)) {
+          verifiedUnits += qty;
+        }
+      }
+    }
+
+    if (totalUnits === 0) return 0;
+    return Math.min(100, Math.round((verifiedUnits / totalUnits) * 100));
+  }, [order.status, order.is_shipped, order.items, order.verified_item_keys]);
 
   return (
     <div
@@ -341,6 +379,22 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
           </div>
         )}
       </div>
+
+      {/* Progress Bar (Proposal A) */}
+      {progressPercent > 0 && (
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-subtle/20 overflow-hidden">
+          <div
+            className={`h-full transition-all duration-500 ${
+              progressPercent === 100
+                ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
+                : order.status === 'needs_correction'
+                  ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'
+                  : 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]'
+            }`}
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+      )}
     </div>
   );
 };
