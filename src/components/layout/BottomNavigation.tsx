@@ -16,7 +16,7 @@ const NavItem = ({ icon: Icon, label, isActive, onClick, isCompact }: NavItemPro
   <button
     onClick={onClick}
     aria-label={label}
-    className={`flex flex-col items-center justify-center flex-1 h-full transition-all duration-300 active:scale-90 ${
+    className={`flex flex-col items-center justify-center flex-1 lg:flex-none lg:w-full h-full lg:h-auto transition-all duration-300 active:scale-90 ${
       isActive ? 'text-accent' : 'text-muted'
     } ${isCompact ? 'px-1' : ''}`}
   >
@@ -52,13 +52,13 @@ export const BottomNavigation = () => {
 
   return (
     <div
-      className={`fixed bottom-0 left-0 right-0 pointer-events-none flex justify-center z-[100] p-4 transition-all duration-300 ${isSearching ? 'h-16' : 'h-24'}`}
+      className={`fixed bottom-0 left-0 right-0 lg:bottom-auto lg:top-1/2 lg:left-auto lg:right-6 lg:-translate-y-1/2 pointer-events-none flex justify-center lg:flex-col lg:w-auto lg:h-auto z-[100] p-4 transition-all duration-300 ${isSearching ? 'h-16 lg:h-auto' : 'h-24 lg:h-auto'}`}
     >
       <div
         className={`
-        w-full max-w-sm pointer-events-auto ios-glass frost-grain rounded-[2rem] flex items-center justify-around h-full
+        w-full max-w-sm lg:w-16 lg:h-auto lg:py-6 pointer-events-auto ios-glass frost-grain rounded-[2rem] flex items-center lg:flex-col lg:gap-6 justify-around h-full
         transition-all duration-500 ease-in-out
-        ${isSearching ? 'px-2' : 'px-4'}
+        ${isSearching ? 'px-2 lg:px-0 lg:py-4' : 'px-4 lg:px-0 lg:py-6'}
       `}
       >
         <NavItem
