@@ -360,6 +360,18 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
               </span>
             ) : null}
           </div>
+          {progressPercent > 0 && order.status !== 'completed' && (
+            <div className="mt-2 h-2 w-full bg-surface rounded-full overflow-hidden border border-subtle">
+              <div
+                className="h-full transition-all duration-500 ease-out"
+                style={{
+                  width: `${progressPercent}%`,
+                  background:
+                    'linear-gradient(to right, rgb(59, 130, 246), rgb(6, 182, 212), rgb(16, 185, 129)) 0% 0% / 162.242% 100%',
+                }}
+              />
+            </div>
+          )}
         </button>
 
         {/* Right Panel: Carrier Logo Panel (Full Height) - Only shown on completed orders */}
@@ -379,22 +391,6 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
           </div>
         )}
       </div>
-
-      {/* Progress Bar (Proposal A) */}
-      {progressPercent > 0 && (
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-subtle/20 overflow-hidden">
-          <div
-            className={`h-full transition-all duration-500 ${
-              progressPercent === 100
-                ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
-                : order.status === 'needs_correction'
-                  ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'
-                  : 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]'
-            }`}
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
-      )}
     </div>
   );
 };
