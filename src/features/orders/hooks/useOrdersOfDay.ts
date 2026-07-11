@@ -43,6 +43,7 @@ export interface OrderRow {
   transport_company: string | null;
   total_weight_lbs: number | null;
   pallet_photos: string[] | null;
+  is_waiting_inventory: boolean | null;
   customer: {
     id: string;
     name: string;

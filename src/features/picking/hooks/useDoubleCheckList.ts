@@ -48,6 +48,7 @@ export interface PickingList {
   total_units?: number | null;
   source_order_date?: string | null;
   transport_company?: string | null;
+  is_shipped?: boolean;
 }
 
 const PICKING_LIST_SELECT = `
@@ -71,7 +72,8 @@ const PICKING_LIST_SELECT = `
   pallets_qty,
   total_units,
   source_order_date,
-  transport_company
+  transport_company,
+  is_shipped
 `;
 
 export const VERIFICATION_QUEUE_KEY = ['picking_lists', 'verification_queue'];
@@ -83,10 +85,11 @@ export const useDoubleCheckList = () => {
   const { data: rawOrders, isLoading: ordersLoading } = useQuery<PickingList[]>({
     queryKey: VERIFICATION_QUEUE_KEY,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('picking_lists')
-        .select(PICKING_LIST_SELECT)
+      const { data, error } = await (
+        supabase.from('picking_lists').select(PICKING_LIST_SELECT) as any
+      )
         .in('status', ['active', 'ready_to_double_check', 'double_checking', 'needs_correction'])
+        .or('is_shipped.is.null,is_shipped.eq.false')
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
@@ -103,10 +106,11 @@ export const useDoubleCheckList = () => {
   const { data: completedOrders, isLoading: completedLoading } = useQuery<PickingList[]>({
     queryKey: COMPLETED_ORDERS_KEY,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('picking_lists')
-        .select(PICKING_LIST_SELECT)
+      const { data, error } = await (
+        supabase.from('picking_lists').select(PICKING_LIST_SELECT) as any
+      )
         .eq('status', 'completed')
+        .or('is_shipped.is.null,is_shipped.eq.false')
         .order('updated_at', { ascending: false })
         // Wide enough to cover a full day's completions; the board splits
         // "today" vs "recent" client-side (recent shows with date labels

@@ -12,8 +12,10 @@ import { usePickingSession } from '../../context/PickingContext.tsx';
 import { useViewMode } from '../../context/ViewModeContext.tsx';
 import Search from 'lucide-react/dist/esm/icons/search';
 import MessageSquare from 'lucide-react/dist/esm/icons/message-square';
+import Truck from 'lucide-react/dist/esm/icons/truck';
 import { ShipOrderCard } from '../../components/orders/ShipOrderCard.tsx';
 import { OrderStatusPill } from '../../components/orders/OrderStatusPill.tsx';
+import { TransportLogo } from '../../components/orders/TransportLogo.tsx';
 import { useShipOutSms } from './hooks/useShipOutSms';
 import { withSupabaseRetry } from '../../lib/supabaseRetry';
 import { PickingSummaryModal } from '../../components/orders/PickingSummaryModal.tsx';
@@ -22,6 +24,8 @@ import { SearchInput } from '../../components/ui/SearchInput.tsx';
 import type { PickingListItem, CombineMeta } from '../../schemas/picking.schema';
 import { saveCustomerAddress } from '../../lib/customerAddresses';
 import { ReasonPicker } from './components/ReasonPicker';
+import { DoubleCheckHeader } from './components/DoubleCheckHeader';
+import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.service';
 
 function dayKey(date: Date): string {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
@@ -79,6 +83,7 @@ interface OrderWithRelations {
   pallet_photos: string[] | null;
   group_id: string | null;
   order_group: { group_type: string | null } | null;
+  is_waiting_inventory?: boolean | null;
 }
 
 export const ShipScreen = () => {
@@ -100,6 +105,9 @@ export const ShipScreen = () => {
   const [reopenReason, setReopenReason] = useState('');
   const [restoreReasonModal, setRestoreReasonModal] = useState(false);
   const [restoreReason, setRestoreReason] = useState('');
+  const [pendingShipmentOrder, setPendingShipmentOrder] = useState<OrderWithRelations | null>(null);
+  const shipCameraInputRef = useRef<HTMLInputElement>(null);
+  const [selectedBulkOrderIds, setSelectedBulkOrderIds] = useState<Set<string>>(new Set());
   // Add-On reopen flow (idea-067 Phase 2): after the user picks the reason,
   const searchQueryRef = useRef(searchQuery);
 
@@ -419,6 +427,7 @@ export const ShipScreen = () => {
     // 1. Split by the FedEx checkbox. Checked shows FedEx-grouped orders;
     //    unchecked shows everything that isn't FedEx.
     const byCarrier = orders.filter((o) => {
+      if (o.status === 'cancelled') return false;
       const isFedex = (o.order_group as { group_type?: string } | null)?.group_type === 'fedex';
       return showFedex ? isFedex : !isFedex;
     });
@@ -485,15 +494,27 @@ export const ShipScreen = () => {
     });
   }, [orders, searchQuery, showFedex]);
 
-  // Cap the sidebar list to the 10 most recent matches — with no time
-  // filter applied this list is every order ever created, which made the
-  // sidebar unusably long. Keyboard arrow navigation and search still
-  // operate over the full `filteredOrders` set.
-  const VISIBLE_ORDER_LIMIT = 10;
-  const visibleOrders = useMemo(
-    () => filteredOrders.slice(0, VISIBLE_ORDER_LIMIT),
-    [filteredOrders]
-  );
+  const visibleOrders = useMemo(() => {
+    const todayStr = dayKey(new Date());
+
+    const todayOrders = filteredOrders.filter((order) => {
+      const orderDate = new Date(order.created_at);
+      return !Number.isNaN(orderDate.getTime()) && dayKey(orderDate) === todayStr;
+    });
+
+    const olderOrders = filteredOrders.filter((order) => {
+      const orderDate = new Date(order.created_at);
+      return Number.isNaN(orderDate.getTime()) || dayKey(orderDate) !== todayStr;
+    });
+
+    if (todayOrders.length < 10) {
+      const needed = 10 - todayOrders.length;
+      const extra = olderOrders.slice(0, needed);
+      return [...todayOrders, ...extra];
+    } else {
+      return todayOrders;
+    }
+  }, [filteredOrders]);
 
   const ordersGroupedByDate = useMemo<DayGroup[]>(() => {
     const map = new Map<string, DayGroup>();
@@ -513,6 +534,59 @@ export const ShipScreen = () => {
     }
     return Array.from(map.values());
   }, [visibleOrders]);
+
+  const shippableOrders = useMemo(() => {
+    return visibleOrders.filter((o) => !o.is_waiting_inventory);
+  }, [visibleOrders]);
+
+  const isAllSelected = useMemo(() => {
+    if (shippableOrders.length === 0) return false;
+    return shippableOrders.every((o) => selectedBulkOrderIds.has(o.id));
+  }, [shippableOrders, selectedBulkOrderIds]);
+
+  const toggleSelectAll = () => {
+    setSelectedBulkOrderIds((prev) => {
+      const next = new Set(prev);
+      const allShippableIds = shippableOrders.map((o) => o.id);
+      const areAllCurrentlySelected = allShippableIds.every((id) => next.has(id));
+
+      if (areAllCurrentlySelected) {
+        allShippableIds.forEach((id) => next.delete(id));
+      } else {
+        allShippableIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const handleBulkShip = async () => {
+    const idsToShip = Array.from(selectedBulkOrderIds);
+    if (idsToShip.length === 0) return;
+
+    const confirmBulk = window.confirm(
+      `Are you sure you want to mark ${idsToShip.length} selected orders as Shipped?`
+    );
+    if (confirmBulk) {
+      const toastId = toast.loading(`Shipping ${idsToShip.length} orders...`);
+      try {
+        const { error } = await supabase
+          .from('picking_lists')
+          .update({ status: 'completed', is_shipped: true })
+          .in('id', idsToShip);
+
+        if (error) throw error;
+
+        toast.success(`Successfully marked ${idsToShip.length} orders as Shipped!`, {
+          id: toastId,
+        });
+        setSelectedBulkOrderIds(new Set());
+        fetchOrders();
+      } catch (err) {
+        console.error('Error bulk shipping orders:', err);
+        toast.error('Failed to ship orders', { id: toastId });
+      }
+    }
+  };
 
   // Print shortcut only — Ctrl+P / Cmd+P is the sole way to print now that
   // the Print Labels button is gone.
@@ -818,6 +892,107 @@ export const ShipScreen = () => {
     }
   };
 
+  const handleShipOrderClick = async (order: OrderWithRelations) => {
+    if (order.is_waiting_inventory) {
+      const confirmWaiting = window.confirm(
+        `⚠️ WARNING: Order #${order.order_number} is "Waiting for Inventory".\n\nDo you want to take it out of waiting, take a proof photo, and mark it as Shipped?`
+      );
+      if (confirmWaiting) {
+        setPendingShipmentOrder(order);
+        setTimeout(() => {
+          shipCameraInputRef.current?.click();
+        }, 100);
+      }
+    } else {
+      const confirmShip = window.confirm(
+        `Mark order #${order.order_number} as Shipped? This completes the order and removes it from the Verification Board.`
+      );
+      if (confirmShip) {
+        try {
+          const { error } = await supabase
+            .from('picking_lists')
+            .update({ status: 'completed', is_shipped: true })
+            .eq('id', order.id);
+          if (error) throw error;
+          toast.success(`Order #${order.order_number} marked as Shipped!`);
+          fetchOrders();
+        } catch (err) {
+          console.error('Error completing order:', err);
+          toast.error('Failed to complete order');
+        }
+      }
+    }
+  };
+
+  const handleShipCameraChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !pendingShipmentOrder) return;
+    e.target.value = ''; // reset
+
+    const toastId = toast.loading('Compressing and uploading photo...');
+    try {
+      const { image, thumbnail } = await compressImage(file);
+      const photoId = crypto.randomUUID();
+      const isLocal = window.location.hostname === 'localhost';
+
+      let photoUrl: string | null = null;
+      try {
+        const { data: uploadResult, error: uploadErr } = await supabase.functions.invoke(
+          'upload-photo',
+          {
+            body: { gallery: true, photoId, image, thumbnail },
+          }
+        );
+        if (uploadErr) throw uploadErr;
+        photoUrl = (uploadResult as { url?: string } | null)?.url ?? null;
+      } catch (err) {
+        if (!isLocal) throw err;
+        console.warn('R2 upload failed in local — using blob URL fallback');
+      }
+
+      if (!photoUrl && isLocal) {
+        photoUrl = base64ToBlobUrl(image);
+      }
+
+      if (!photoUrl) throw new Error('Failed to generate photo URL');
+
+      // Get existing photos from order, append the new photo
+      const { data: current } = await supabase
+        .from('picking_lists')
+        .select('pallet_photos')
+        .eq('id', pendingShipmentOrder.id)
+        .single();
+
+      const existing = Array.isArray(current?.pallet_photos)
+        ? (current.pallet_photos as string[])
+        : [];
+      const updatedPhotos = [...existing, photoUrl];
+
+      // Update Database
+      const { error } = await supabase
+        .from('picking_lists')
+        .update({
+          status: 'completed',
+          is_shipped: true,
+          is_waiting_inventory: false,
+          pallet_photos: updatedPhotos,
+        })
+        .eq('id', pendingShipmentOrder.id);
+
+      if (error) throw error;
+
+      toast.success(`Order #${pendingShipmentOrder.order_number} marked as Shipped!`, {
+        id: toastId,
+      });
+      fetchOrders();
+    } catch (err) {
+      console.error('Failed to ship order with photo:', err);
+      toast.error('Failed to upload photo & ship order', { id: toastId });
+    } finally {
+      setPendingShipmentOrder(null);
+    }
+  };
+
   const handleContinueEditing = async () => {
     if (!selectedOrder) return;
     try {
@@ -850,15 +1025,20 @@ export const ShipScreen = () => {
         <div className="max-w-6xl mx-auto w-full flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
             <h1 className="text-2xl font-black uppercase tracking-tight text-content">Ship</h1>
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={showFedex}
-                onChange={(e) => setShowFedex(e.target.checked)}
-                className="w-4 h-4 accent-purple-500"
-              />
-              <span className="text-xs font-black uppercase tracking-widest text-muted">FedEx</span>
-            </label>
+            <div className="flex items-center gap-3">
+              <DoubleCheckHeader />
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={showFedex}
+                  onChange={(e) => setShowFedex(e.target.checked)}
+                  className="w-4 h-4 accent-purple-500"
+                />
+                <span className="text-xs font-black uppercase tracking-widest text-muted">
+                  FedEx
+                </span>
+              </label>
+            </div>
           </div>
           <SearchInput
             variant="inline"
@@ -879,10 +1059,28 @@ export const ShipScreen = () => {
           {/* Vertical order list — grouped by date */}
           <div className="w-full md:w-72 shrink-0 md:sticky md:top-0">
             <div className="bg-card border border-subtle rounded-3xl p-3 flex flex-col gap-2">
-              <div className="px-2 pb-1">
+              <div className="px-2 pb-1 flex items-center justify-between min-h-[24px]">
                 <span className="text-[10px] font-black uppercase tracking-widest text-muted/50">
                   Orders
                 </span>
+                {shippableOrders.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={toggleSelectAll}
+                      className="text-[9px] font-black uppercase tracking-wider text-accent hover:underline select-none"
+                    >
+                      {isAllSelected ? 'None' : 'All'}
+                    </button>
+                    {selectedBulkOrderIds.size > 0 && (
+                      <button
+                        onClick={handleBulkShip}
+                        className="text-[9px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded hover:bg-emerald-500 hover:text-white transition-all select-none"
+                      >
+                        Ship ({selectedBulkOrderIds.size})
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="flex flex-col gap-2 max-h-72 md:max-h-[calc(100vh-13rem)] overflow-y-auto no-scrollbar">
                 {ordersGroupedByDate.length > 0 ? (
@@ -898,35 +1096,66 @@ export const ShipScreen = () => {
                             (order.order_group as { group_type?: string } | null)?.group_type ===
                             'fedex';
                           return (
-                            <button
+                            <div
                               key={order.id}
-                              onClick={() => setSelectedOrder(order)}
-                              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl text-left transition-all ${
+                              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl border transition-all ${
                                 isSelected
-                                  ? 'bg-accent/10 border border-accent/30'
-                                  : 'bg-surface border border-transparent hover:border-subtle'
+                                  ? 'bg-accent/10 border-accent/30'
+                                  : 'bg-surface border-transparent hover:border-subtle'
                               }`}
                             >
-                              <div className="min-w-0 flex flex-col">
+                              {!order.is_waiting_inventory && (
+                                <input
+                                  type="checkbox"
+                                  checked={selectedBulkOrderIds.has(order.id)}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedBulkOrderIds((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(order.id)) {
+                                        next.delete(order.id);
+                                      } else {
+                                        next.add(order.id);
+                                      }
+                                      return next;
+                                    });
+                                  }}
+                                  className="w-3.5 h-3.5 rounded border-subtle text-accent focus:ring-accent bg-bg-main cursor-pointer shrink-0"
+                                />
+                              )}
+                              <div
+                                className="min-w-0 flex-1 flex flex-col cursor-pointer"
+                                onClick={() => setSelectedOrder(order)}
+                              >
                                 <span className="font-mono text-sm font-black text-content flex items-center gap-1 truncate">
                                   {order.combine_meta?.is_combined && (
                                     <span title="Combined order">🔗</span>
                                   )}
                                   #{order.order_number}
                                 </span>
-                                <span className="text-[11px] text-muted truncate max-w-[160px]">
+                                <span className="text-[11px] text-muted truncate max-w-[120px]">
                                   {order.customer?.name || '—'}
                                 </span>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
-                                {isFedex && (
-                                  <span className="text-[8px] font-black uppercase tracking-widest text-purple-400 bg-purple-500/10 border border-purple-500/20 rounded-full px-1.5 py-0.5">
-                                    FDX
-                                  </span>
-                                )}
+                                <TransportLogo
+                                  company={order.transport_company || (isFedex ? 'FEDEX' : null)}
+                                  height={14}
+                                  className="select-none shrink-0"
+                                />
                                 <OrderStatusPill status={order.status} />
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleShipOrderClick(order);
+                                  }}
+                                  className="p-1 rounded bg-accent/15 border border-accent/30 text-accent hover:bg-accent hover:text-white transition-all active:scale-95 flex items-center justify-center"
+                                  title="Mark as Shipped"
+                                >
+                                  <Truck size={14} />
+                                </button>
                               </div>
-                            </button>
+                            </div>
                           );
                         })}
                       </div>
@@ -1187,6 +1416,15 @@ export const ShipScreen = () => {
           </div>
         </div>
       )}
+
+      <input
+        ref={shipCameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleShipCameraChange}
+        className="hidden"
+      />
     </div>
   );
 };

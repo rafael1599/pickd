@@ -87,8 +87,23 @@ function completedAtLabel(iso: string | undefined, showDate: boolean): string | 
   if (Number.isNaN(d.getTime())) return null;
   const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
   if (!showDate) return time;
-  const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  return `${date} · ${time}`;
+
+  const now = new Date();
+  const dDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const oneDayMs = 24 * 60 * 60 * 1000;
+  const diffMs = today.getTime() - dDay.getTime();
+
+  let dateStr = '';
+  if (diffMs === 0) {
+    dateStr = 'Today';
+  } else if (diffMs === oneDayMs) {
+    dateStr = 'Yesterday';
+  } else {
+    dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  return `${dateStr} · ${time}`;
 }
 
 // ─── Shared visual content (no DnD hooks) ────────────────────────────────────
@@ -279,8 +294,14 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
               />
             )}
             <span className="text-[clamp(1.6rem,3vw,4rem)] leading-none font-black uppercase tracking-tight text-content truncate">
-              #{firstPart}
-              <span className="text-yellow-100 text-[1.15em] font-black tracking-tight leading-none inline-block align-baseline">
+              <span className="text-content/35 mr-1 select-none">#{firstPart}</span>
+              <span
+                style={{
+                  textShadow:
+                    '-1px 1px 0px #d97706, -2px 2px 0px #b45309, -3px 3px 0px #78350f, -4px 4px 5px rgba(0,0,0,0.8)',
+                }}
+                className="text-yellow-100 text-[1.27em] font-black tracking-tight leading-none inline-block align-baseline relative z-10"
+              >
                 {lastThree}
               </span>
             </span>

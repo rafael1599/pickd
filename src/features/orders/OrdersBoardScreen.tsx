@@ -56,7 +56,6 @@ export const OrdersBoardScreen = () => {
   const [showFedex, setShowFedex] = useState(false);
   const [selectedCarrier, setSelectedCarrier] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-
   const debouncedQuery = useDebounce(searchQuery, 200);
 
   // 1. Compute filtered orders based on search query and FedEx checkbox (before carrier filter is applied)

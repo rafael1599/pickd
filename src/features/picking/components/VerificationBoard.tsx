@@ -134,6 +134,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   const dnd = useBoardDnD(isAdmin, refresh);
 
   const [waitingCollapsed, setWaitingCollapsed] = useState(false);
+  const [showWaitingOnTop, setShowWaitingOnTop] = useState(false);
   const [reopenReason, setReopenReason] = useState('');
   // Manual toggle for Completed Today. null = follow the auto rule
   // (open when the board is quiet, collapsed when it's busy).
@@ -402,6 +403,40 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
 
   const showPulling = pullingOrders.length > 0 || isDraggingSomething;
   const showWaiting = waitingOrders.length > 0 || isDraggingSomething;
+  const completedCount = completedFedex.length + completedRegular.length;
+
+  const waitingZoneElement = showWaiting && (
+    <DropZone id={ZONE_WAITING} className="border-b border-subtle bg-amber-500/[0.02]">
+      <button
+        onClick={() => setWaitingCollapsed((v) => !v)}
+        className="w-full flex items-center justify-center gap-2 py-2 md:py-3 hover:bg-amber-500/5 transition-colors"
+      >
+        <span className="text-sm md:text-base font-black uppercase tracking-widest text-amber-400">
+          Waiting for Inventory
+        </span>
+        {waitingOrders.length > 0 && (
+          <span className="text-sm text-muted/60">({waitingOrders.length})</span>
+        )}
+        <ChevronDown
+          size={14}
+          className={`text-amber-400/60 transition-transform ${
+            waitingCollapsed ? '' : 'rotate-180'
+          }`}
+        />
+      </button>
+      {!waitingCollapsed && (
+        <div className="px-2 pb-2 md:px-4 md:pb-3">
+          {waitingOrders.length > 0 ? (
+            <WaitingZone orders={waitingOrders} onSelect={handleOrderSelect} />
+          ) : (
+            <div className="text-center text-xs text-muted/40 italic py-1">
+              Drop here → waiting for inventory
+            </div>
+          )}
+        </div>
+      )}
+    </DropZone>
+  );
 
   // ─── Render ───────────────────────────────────────────────────────
   return (
@@ -410,13 +445,52 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           Internal modals (GroupOrder z-150, CrossLane/WaitingReason z-200) stay on top. */}
       <div className="fixed inset-0 z-[110] flex flex-col bg-main">
         {/* Header */}
-        <div className="px-3 py-2 md:px-5 md:py-3 border-b border-subtle bg-surface flex items-center justify-center relative shrink-0">
+        <div className="px-3 py-2 md:px-5 md:py-3 border-b border-subtle bg-surface flex flex-col items-center justify-center relative shrink-0 gap-1.5">
           <h2 className="text-base md:text-xl lg:text-xl font-black text-content uppercase tracking-tight text-center">
             Verification Board
           </h2>
+          {(priorityOrders.length > 0 ||
+            pullingOrders.length > 0 ||
+            completedCount > 0 ||
+            waitingOrders.length > 0) && (
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs md:text-sm font-bold">
+              {priorityOrders.length > 0 && (
+                <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-500/10 text-red-500">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  <span>Available: {priorityOrders.length}</span>
+                </div>
+              )}
+              {pullingOrders.length > 0 && (
+                <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-500">
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                  <span>Pulling: {pullingOrders.length}</span>
+                </div>
+              )}
+              {completedCount > 0 && (
+                <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span>Completed: {completedCount}</span>
+                </div>
+              )}
+              {waitingOrders.length > 0 && (
+                <label className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 cursor-pointer hover:bg-amber-500/20 transition-all select-none">
+                  <input
+                    type="checkbox"
+                    checked={showWaitingOnTop}
+                    onChange={(e) => setShowWaitingOnTop(e.target.checked)}
+                    className="w-3.5 h-3.5 accent-red-500 rounded cursor-pointer"
+                  />
+                  <span>Waiting for Inventory</span>
+                  <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-black leading-none ml-0.5 animate-pulse">
+                    {waitingOrders.length}
+                  </span>
+                </label>
+              )}
+            </div>
+          )}
           <button
             onClick={onClose}
-            className="absolute right-3 md:right-5 p-2 text-muted hover:text-content transition-colors"
+            className="absolute right-3 md:right-5 top-1/2 -translate-y-1/2 p-2 text-muted hover:text-content transition-colors"
           >
             <X className="w-6 h-6" />
           </button>
@@ -430,6 +504,9 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         >
           {/* Full device width — no max-w cap; tiles scale with the viewport. */}
           <div className="flex-1 overflow-y-auto min-h-0 pb-20 w-full">
+            {/* Show Waiting Zone on top if toggled */}
+            {showWaitingOnTop && waitingZoneElement}
+
             {/* Priority — auto-populated, top of the board (rare). */}
             {priorityOrders.length > 0 && (
               <DropZone
@@ -582,40 +659,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               </div>
             )}
 
-            {/* WAITING FOR INVENTORY — parked orders, bottom of the board.
-              Hidden when empty (except mid-drag, so the drop target exists). */}
-            {showWaiting && (
-              <DropZone id={ZONE_WAITING} className="border-b border-subtle">
-                <button
-                  onClick={() => setWaitingCollapsed((v) => !v)}
-                  className="w-full flex items-center justify-center gap-2 py-2 md:py-3 hover:bg-amber-500/5 transition-colors"
-                >
-                  <span className="text-sm md:text-base font-black uppercase tracking-widest text-amber-400">
-                    Waiting for Inventory
-                  </span>
-                  {waitingOrders.length > 0 && (
-                    <span className="text-sm text-muted/60">({waitingOrders.length})</span>
-                  )}
-                  <ChevronDown
-                    size={14}
-                    className={`text-amber-400/60 transition-transform ${
-                      waitingCollapsed ? '' : 'rotate-180'
-                    }`}
-                  />
-                </button>
-                {!waitingCollapsed && (
-                  <div className="px-2 pb-2 md:px-4 md:pb-3">
-                    {waitingOrders.length > 0 ? (
-                      <WaitingZone orders={waitingOrders} onSelect={handleOrderSelect} />
-                    ) : (
-                      <div className="text-center text-xs text-muted/40 italic py-1">
-                        Drop here → waiting for inventory
-                      </div>
-                    )}
-                  </div>
-                )}
-              </DropZone>
-            )}
+            {/* Show Waiting Zone at the bottom if NOT toggled to top */}
+            {!showWaitingOnTop && waitingZoneElement}
           </div>
 
           <DragOverlay dropAnimation={null}>
