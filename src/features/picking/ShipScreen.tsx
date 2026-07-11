@@ -952,7 +952,7 @@ export const ShipScreen = () => {
       }
     } else {
       const confirmShip = window.confirm(
-        `Mark order #${order.order_number} as Shipped? This completes the order and removes it from the Verification Board.`
+        `Mark order #${order.order_number} as Shipped? This completes the order and removes it from the Live Board.`
       );
       if (confirmShip) {
         try {
@@ -973,7 +973,7 @@ export const ShipScreen = () => {
 
   const handleUndoShipOrder = async (order: OrderWithRelations) => {
     const confirmUndo = window.confirm(
-      `Undo Shipped status for order #${order.order_number}? This returns it to the Verification Board.`
+      `Undo Shipped status for order #${order.order_number}? This returns it to the Live Board.`
     );
     if (confirmUndo) {
       try {

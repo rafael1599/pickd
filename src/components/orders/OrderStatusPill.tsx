@@ -1,13 +1,13 @@
 import React from 'react';
 
 const LABELS: Record<string, string> = {
-  ready_to_double_check: 'Ready',
+  ready_to_double_check: 'To Verify',
   active: 'Pulling',
   reopened: 'Editing',
-  completed: 'Completed',
+  completed: 'Verified',
   cancelled: 'Cancelled',
   needs_correction: 'Needs Correction',
-  double_checking: 'Checking',
+  double_checking: 'Verifying',
 };
 
 const COLORS: Record<string, string> = {

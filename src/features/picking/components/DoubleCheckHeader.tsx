@@ -22,6 +22,7 @@ export const DoubleCheckHeader = () => {
   // but change viewMode — pathname alone doesn't catch that)
   const { pathname } = useLocation();
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (isOpen) setIsOpen(false);
   }, [pathname, viewMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -49,9 +50,7 @@ export const DoubleCheckHeader = () => {
             </span>
           )}
         </div>
-        <span className="text-xs font-black uppercase tracking-widest hidden sm:block">
-          Verification
-        </span>
+        <span className="text-xs font-black uppercase tracking-widest hidden sm:block">Verify</span>
         <ChevronDown
           size={14}
           className={`transition-transform duration-300 hidden sm:block ${isOpen ? 'rotate-180' : ''}`}
@@ -59,10 +58,7 @@ export const DoubleCheckHeader = () => {
       </button>
 
       {isOpen &&
-        createPortal(
-          <VerificationBoard onClose={() => setIsOpen(false)} />,
-          document.body
-        )}
+        createPortal(<VerificationBoard onClose={() => setIsOpen(false)} />, document.body)}
     </div>
   );
 };

@@ -447,7 +447,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         {/* Header */}
         <div className="px-3 py-2 md:px-5 md:py-3 border-b border-subtle bg-surface flex flex-col items-center justify-center relative shrink-0 gap-1.5">
           <h2 className="text-base md:text-xl lg:text-xl font-black text-content uppercase tracking-tight text-center">
-            Verification Board
+            Live Board
           </h2>
           {(priorityOrders.length > 0 ||
             pullingOrders.length > 0 ||

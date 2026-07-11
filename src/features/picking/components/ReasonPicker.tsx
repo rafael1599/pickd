@@ -86,7 +86,7 @@ export const ReasonPicker: React.FC<ReasonPickerProps> = ({
       {isWaiting && (
         <div className="mb-3 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[10px] text-amber-300 leading-relaxed">
           This order will be moved to the <strong>Waiting for Inventory</strong> list at the bottom
-          of the Verification Board. It stays out of the active queue until you bring it back.
+          of the Live Board. It stays out of the active queue until you bring it back.
         </div>
       )}
 
