@@ -13,7 +13,7 @@ import { VerificationBoard } from './VerificationBoard';
 // All board logic (DnD, zones, layout) lives in VerificationBoard.tsx.
 
 export const DoubleCheckHeader = () => {
-  const { readyCount, correctionCount, refresh } = useDoubleCheckList();
+  const { readyCount, correctionCount, waitingCount, refresh } = useDoubleCheckList();
   const { viewMode } = useViewMode();
   const [isOpen, setIsOpen] = useState(false);
   useScrollLock(isOpen, () => setIsOpen(false));
@@ -26,7 +26,7 @@ export const DoubleCheckHeader = () => {
     if (isOpen) setIsOpen(false);
   }, [pathname, viewMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const totalActions = readyCount + correctionCount;
+  const totalActions = readyCount + correctionCount + waitingCount;
 
   return (
     <div className="relative">
