@@ -556,7 +556,7 @@ export const ShipScreen = () => {
     if (shipTab === 'shipped') {
       return visibleOrders;
     }
-    return visibleOrders.filter((o) => !o.is_waiting_inventory);
+    return visibleOrders.filter((o) => !o.is_waiting_inventory && o.status === 'completed');
   }, [visibleOrders, shipTab]);
 
   const isAllSelected = useMemo(() => {
@@ -940,6 +940,13 @@ export const ShipScreen = () => {
   };
 
   const handleShipOrderClick = async (order: OrderWithRelations) => {
+    if (order.status !== 'completed' && !order.is_waiting_inventory) {
+      toast.error(
+        `Order #${order.order_number} must be verified on the Live Board before shipping.`
+      );
+      return;
+    }
+
     if (order.is_waiting_inventory) {
       const confirmWaiting = window.confirm(
         `⚠️ WARNING: Order #${order.order_number} is "Waiting for Inventory".\n\nDo you want to take it out of waiting, take a proof photo, and mark it as Shipped?`
@@ -1219,7 +1226,7 @@ export const ShipScreen = () => {
                               {!order.is_waiting_inventory &&
                                 (shipTab === 'shipped'
                                   ? !!order.is_shipped
-                                  : !order.is_shipped) && (
+                                  : !order.is_shipped && order.status === 'completed') && (
                                   <input
                                     type="checkbox"
                                     checked={selectedBulkOrderIds.has(order.id)}
@@ -1303,16 +1310,26 @@ export const ShipScreen = () => {
                                       is_waiting_inventory={order.is_waiting_inventory}
                                       is_shipped={order.is_shipped}
                                     />
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleShipOrderClick(order);
-                                      }}
-                                      className="p-1 rounded bg-accent/15 border border-accent/30 text-accent hover:bg-accent hover:text-white transition-all active:scale-95 flex items-center justify-center"
-                                      title="Mark as Shipped"
-                                    >
-                                      <Truck size={14} />
-                                    </button>
+                                    {order.status === 'completed' ? (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleShipOrderClick(order);
+                                        }}
+                                        className="p-1 rounded bg-accent/15 border border-accent/30 text-accent hover:bg-accent hover:text-white transition-all active:scale-95 flex items-center justify-center"
+                                        title="Mark as Shipped"
+                                      >
+                                        <Truck size={14} />
+                                      </button>
+                                    ) : (
+                                      <button
+                                        disabled
+                                        className="p-1 rounded bg-muted/10 border border-muted/20 text-muted/40 cursor-not-allowed flex items-center justify-center"
+                                        title="Order must be verified on Live Board before shipping"
+                                      >
+                                        <Truck size={14} />
+                                      </button>
+                                    )}
                                   </>
                                 )}
                               </div>
