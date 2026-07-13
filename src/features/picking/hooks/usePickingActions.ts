@@ -98,9 +98,11 @@ export const usePickingActions = ({
           checked_by: string;
           pallets_qty?: number;
           total_units?: number;
+          is_waiting_inventory?: boolean;
         } = {
           status: 'completed',
           checked_by: user.id, // Record who verified it
+          is_waiting_inventory: false,
         };
 
         if (metrics) {

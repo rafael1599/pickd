@@ -591,7 +591,7 @@ export const ShipScreen = () => {
       try {
         const { error } = await supabase
           .from('picking_lists')
-          .update({ status: 'completed', is_shipped: true } as any)
+          .update({ status: 'completed', is_shipped: true, is_waiting_inventory: false } as any)
           .in('id', idsToShip);
 
         if (error) throw error;
@@ -965,7 +965,7 @@ export const ShipScreen = () => {
         try {
           const { error } = await supabase
             .from('picking_lists')
-            .update({ status: 'completed', is_shipped: true } as any)
+            .update({ status: 'completed', is_shipped: true, is_waiting_inventory: false } as any)
             .eq('id', order.id);
           if (error) throw error;
           toast.success(`Order #${order.order_number} marked as Shipped!`);
