@@ -471,50 +471,58 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           Internal modals (GroupOrder z-150, CrossLane/WaitingReason z-200) stay on top. */}
       <div className="fixed inset-0 z-[110] flex flex-col bg-main">
         {/* Header */}
-        <div className="px-3 py-2 md:px-5 md:py-3 border-b border-subtle bg-surface flex flex-col items-center justify-center relative shrink-0 gap-1.5">
-          <h2 className="text-base md:text-xl lg:text-xl font-black text-content uppercase tracking-tight text-center">
-            Live Board
-          </h2>
-          {(priorityOrders.length > 0 ||
-            pullingOrders.length > 0 ||
-            completedCount > 0 ||
-            waitingOrders.length > 0) && (
-            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs md:text-sm font-bold">
-              {priorityOrders.length > 0 && (
-                <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-500/10 text-red-500">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                  <span>Available: {priorityOrders.length}</span>
-                </div>
-              )}
-              {pullingOrders.length > 0 && (
-                <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-500">
-                  <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
-                  <span>Pulling: {pullingOrders.length}</span>
-                </div>
-              )}
-              {completedCount > 0 && (
-                <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  <span>Completed: {completedCount}</span>
-                </div>
-              )}
-              {waitingOrders.length > 0 && (
-                <label className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 cursor-pointer hover:bg-amber-500/20 transition-all select-none">
-                  <input
-                    type="checkbox"
-                    checked={showWaitingOnTop}
-                    onChange={(e) => setShowWaitingOnTop(e.target.checked)}
-                    className="w-3.5 h-3.5 accent-red-500 rounded cursor-pointer"
-                  />
-                  <span>Waiting for Inventory</span>
-                  <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-black leading-none ml-0.5 animate-pulse">
-                    {waitingOrders.length}
-                  </span>
-                </label>
-              )}
-            </div>
-          )}
-          <div className="absolute left-10 md:left-14 top-1/2 -translate-y-1/2 flex items-center gap-2">
+        <div className="flex items-start justify-between px-3 py-2 md:px-5 md:py-3 border-b border-subtle bg-surface">
+          {/* Left Spacer (matches right controls width to keep title perfectly centered) */}
+          <div className="w-20 md:w-24 shrink-0" />
+
+          {/* Center Content */}
+          <div className="flex flex-col items-center justify-center gap-2 flex-1 min-w-0">
+            <h2 className="text-base md:text-xl lg:text-xl font-black text-content uppercase tracking-tight text-center leading-none mt-1">
+              Live Board
+            </h2>
+            {(priorityOrders.length > 0 ||
+              pullingOrders.length > 0 ||
+              completedCount > 0 ||
+              waitingOrders.length > 0) && (
+              <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-[10px] md:text-xs">
+                {priorityOrders.length > 0 && (
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 font-bold whitespace-nowrap">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                    <span>Available: {priorityOrders.length}</span>
+                  </div>
+                )}
+                {pullingOrders.length > 0 && (
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-500 font-bold whitespace-nowrap">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                    <span>Pulling: {pullingOrders.length}</span>
+                  </div>
+                )}
+                {completedCount > 0 && (
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 font-bold whitespace-nowrap">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <span>Completed: {completedCount}</span>
+                  </div>
+                )}
+                {waitingOrders.length > 0 && (
+                  <label className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 cursor-pointer hover:bg-amber-500/20 transition-all select-none font-bold whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      checked={showWaitingOnTop}
+                      onChange={(e) => setShowWaitingOnTop(e.target.checked)}
+                      className="w-3.5 h-3.5 accent-red-500 rounded cursor-pointer"
+                    />
+                    <span>Waiting for Inventory</span>
+                    <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-black leading-none ml-0.5 animate-pulse">
+                      {waitingOrders.length}
+                    </span>
+                  </label>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Right Controls */}
+          <div className="w-20 md:w-24 shrink-0 flex items-start justify-end gap-1">
             <button
               onClick={() => {
                 setIsSearchOpen(!isSearchOpen);
@@ -524,13 +532,13 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             >
               <Search className="w-5 h-5 md:w-6 md:h-6" />
             </button>
+            <button
+              onClick={onClose}
+              className="p-2 text-muted hover:text-content transition-colors rounded-full hover:bg-content/5"
+            >
+              <X className="w-6 h-6 md:w-7 md:h-7" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-2 text-muted hover:text-content transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
         </div>
 
         {/* Search Bar */}
