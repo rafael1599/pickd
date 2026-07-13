@@ -300,7 +300,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       completedShowsDates: true,
       priorityShippingTypes: priorityShipTypes,
     };
-  }, [orders, completedOrders]);
+  }, [orders, completedOrders, searchQuery]);
 
   const activeTotal =
     priorityOrders.length + fedexOrders.length + regularOrders.length + pullingOrders.length;
@@ -514,7 +514,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               )}
             </div>
           )}
-          <div className="absolute right-12 md:right-16 top-1/2 -translate-y-1/2 flex items-center gap-2">
+          <div className="absolute left-10 md:left-14 top-1/2 -translate-y-1/2 flex items-center gap-2">
             <button
               onClick={() => {
                 setIsSearchOpen(!isSearchOpen);
@@ -527,7 +527,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           </div>
           <button
             onClick={onClose}
-            className="absolute right-3 md:right-5 top-1/2 -translate-y-1/2 p-2 text-muted hover:text-content transition-colors"
+            className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-2 text-muted hover:text-content transition-colors"
           >
             <X className="w-6 h-6" />
           </button>
