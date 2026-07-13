@@ -627,10 +627,18 @@ export const ShipScreen = () => {
     if (confirmBulkUndo) {
       const toastId = toast.loading(`Undoing shipping for ${idsToUndo.length} orders...`);
       try {
+        const groupIds = idsToUndo
+          .map((id) => orders.find((o) => o.id === id)?.group_id)
+          .filter((gid): gid is string => !!gid);
+        const siblingIds = orders
+          .filter((o) => o.group_id && groupIds.includes(o.group_id))
+          .map((o) => o.id);
+        const allIds = [...new Set([...idsToUndo, ...siblingIds])];
+
         const { error } = await supabase
           .from('picking_lists')
           .update({ is_shipped: false } as any)
-          .in('id', idsToUndo);
+          .in('id', allIds);
 
         if (error) throw error;
 
@@ -998,10 +1006,14 @@ export const ShipScreen = () => {
     );
     if (confirmUndo) {
       try {
+        const idsToUpdate = order.group_id
+          ? orders.filter((o) => o.group_id === order.group_id).map((o) => o.id)
+          : [order.id];
+
         const { error } = await supabase
           .from('picking_lists')
           .update({ is_shipped: false } as any)
-          .eq('id', order.id);
+          .in('id', idsToUpdate);
         if (error) throw error;
         toast.success(`Order #${order.order_number} marked as not shipped!`);
         fetchOrders();
