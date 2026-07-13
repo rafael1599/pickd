@@ -236,7 +236,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         continue;
       }
 
-      if (status === 'active' || status === 'ready_to_double_check') {
+      if (status === 'active' || status === 'ready_to_double_check' || status === 'pending') {
         pulling.push({ ...order, status });
         pullingShipTypes.set(order.id, shippingType);
         continue;
@@ -456,7 +456,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             />
           ) : (
             <div className="text-center text-xs text-muted/40 italic py-1">
-              Drop here → waiting for inventory
+              No orders waiting for inventory
             </div>
           )}
         </div>
@@ -601,8 +601,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               Empty lanes are hidden — unless a drag is in progress, when both
               drop targets must be reachable. A lone lane takes the full width. */}
           {/* FEDEX | REGULAR lanes (needs_correction / double_checking).
-              Both lanes are always shown side-by-side. */}
-          <div className="grid grid-cols-2 divide-x divide-subtle border-b border-subtle">
+              Both lanes stack on mobile to use full width, side-by-side on desktop. */}
+          <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-subtle border-b border-subtle">
             <div className="bg-purple-500/[0.08] min-h-[44px] w-full">
               <div className="h-[5px] md:h-[6px] bg-purple-500/70" />
               <div className="px-2 py-2 md:px-4 md:py-3">
@@ -610,7 +610,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                   renderOrderCards(fedexOrders, 'fedex')
                 ) : (
                   <div className="text-center text-xs text-purple-400/40 italic py-2">
-                    Drop here → FedEx
+                    No orders → FedEx
                   </div>
                 )}
               </div>
@@ -622,7 +622,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                   renderOrderCards(regularOrders, 'regular')
                 ) : (
                   <div className="text-center text-xs text-emerald-400/40 italic py-2">
-                    Drop here → Regular
+                    No orders → Regular
                   </div>
                 )}
               </div>
@@ -645,7 +645,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               </div>
               {pullingOrders.length === 0 ? (
                 <div className="text-center text-xs text-muted/40 italic py-2">
-                  Drop here → mark as pulled, ready to verify
+                  No orders pulling
                 </div>
               ) : (
                 (() => {
