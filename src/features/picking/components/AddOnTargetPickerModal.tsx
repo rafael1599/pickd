@@ -170,7 +170,7 @@ export const AddOnTargetPickerModal: React.FC<AddOnTargetPickerModalProps> = ({
   const otherSectionLabel = 'Other orders';
 
   return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-main/60 backdrop-blur-md p-4">
+    <div className="fixed inset-0 z-[250] flex items-center justify-center bg-main/60 backdrop-blur-md p-4">
       <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-5 w-full max-w-md max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between mb-4 shrink-0">
           <div>
