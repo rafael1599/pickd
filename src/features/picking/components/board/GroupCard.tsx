@@ -1,5 +1,4 @@
 import React from 'react';
-import { useDraggable, useDroppable } from '@dnd-kit/core';
 import Unlink from 'lucide-react/dist/esm/icons/unlink';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
@@ -39,7 +38,6 @@ export const GroupCard = React.memo<GroupCardProps>(
   ({ orders, groupType, onSelect, onDelete, onUngroup, onMerge }) => {
     const firstOrder = orders[0] ?? null;
     const colors = GROUP_COLORS[groupType] ?? GROUP_COLORS.general;
-    const groupId = firstOrder?.group_id ?? 'empty';
 
     // Aggregate state for the group header — surface "needs attention" at the
     // group level so the verifier sees the warning without expanding.
@@ -47,45 +45,12 @@ export const GroupCard = React.memo<GroupCardProps>(
     const hasDoubleChecking = orders.some((o) => o.status === 'double_checking');
     const totalPallets = orders.reduce((sum, o) => sum + (o.pallets_qty ?? 0), 0);
 
-    const draggable = useDraggable({
-      id: `drag-group-${groupId}`,
-      data: { order: firstOrder, shippingType: firstOrder?.shipping_type ?? 'regular' },
-      disabled: !firstOrder,
-    });
-    const droppable = useDroppable({
-      id: `group-${groupId}`,
-      data: { order: firstOrder, shippingType: firstOrder?.shipping_type ?? 'regular' },
-      disabled: !firstOrder,
-    });
-
     if (!firstOrder) return null;
 
     return (
       <div
-        ref={(node) => {
-          draggable.setNodeRef(node);
-          droppable.setNodeRef(node);
-        }}
-        style={{
-          transform: draggable.transform
-            ? `translate(${draggable.transform.x}px, ${draggable.transform.y}px)`
-            : undefined,
-          touchAction: 'none',
-        }}
-        className={`relative rounded-xl border-2 border-dashed ${colors.border} ${colors.bg} transition-all duration-200 ${
-          droppable.isOver ? 'scale-[1.02] shadow-lg border-accent/80' : ''
-        } ${draggable.isDragging ? 'opacity-30 scale-95' : ''}`}
-        {...draggable.attributes}
-        {...draggable.listeners}
+        className={`relative rounded-xl border-2 border-dashed ${colors.border} ${colors.bg} transition-all duration-200 w-full`}
       >
-        {droppable.isOver && (
-          <div className="absolute inset-0 bg-accent/10 backdrop-blur-[1px] border-2 border-dashed border-accent flex flex-col items-center justify-center gap-1 z-20 rounded-xl animate-in fade-in duration-200">
-            <span className="text-sm font-black uppercase text-accent select-none">Join Group</span>
-            <span className="text-[9px] text-accent/80 font-black uppercase tracking-widest select-none">
-              Drop to join group
-            </span>
-          </div>
-        )}
         {/* Group header — aggregates needs-attention + total pallets so the
             verifier scans the worst state at a glance. */}
         <div className="px-2.5 pt-2 pb-1 flex items-center justify-between gap-1">
@@ -130,7 +95,7 @@ export const GroupCard = React.memo<GroupCardProps>(
             return (
               <div
                 key={order.id}
-                className="flex items-center gap-1 rounded-lg hover:bg-white/5 transition-colors"
+                className="flex items-center gap-1 rounded-lg hover:bg-white/5 transition-colors w-full"
               >
                 <button
                   onClick={() => onSelect(order)}
@@ -165,7 +130,7 @@ export const GroupCard = React.memo<GroupCardProps>(
                       e.stopPropagation();
                       onMerge(order);
                     }}
-                    className="p-1 text-muted hover:text-sky-400 transition-colors"
+                    className="p-1 text-muted hover:text-sky-400 transition-colors shrink-0"
                     title="Merge/Combine Order"
                   >
                     <MoreVertical size={14} />
@@ -176,7 +141,7 @@ export const GroupCard = React.memo<GroupCardProps>(
                     e.stopPropagation();
                     onUngroup(order);
                   }}
-                  className="p-1 text-muted hover:text-amber-500 transition-colors"
+                  className="p-1 text-muted hover:text-amber-500 transition-colors shrink-0"
                   title="Remove from group"
                 >
                   <Unlink size={14} />
@@ -186,7 +151,7 @@ export const GroupCard = React.memo<GroupCardProps>(
                     e.stopPropagation();
                     onDelete(order);
                   }}
-                  className="p-1 text-muted hover:text-red-500 transition-colors"
+                  className="p-1 text-muted hover:text-red-500 transition-colors shrink-0"
                   title="Delete"
                 >
                   <Trash2 size={14} />

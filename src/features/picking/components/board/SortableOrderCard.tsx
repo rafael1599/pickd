@@ -1,5 +1,4 @@
 import React from 'react';
-import { useDraggable, useDroppable } from '@dnd-kit/core';
 import CheckCircle2 from 'lucide-react/dist/esm/icons/check-circle-2';
 import Clock from 'lucide-react/dist/esm/icons/clock';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
@@ -16,7 +15,7 @@ import {
 
 type ShippingType = 'fedex' | 'regular';
 
-interface CardProps {
+export interface CardProps {
   order: PickingList;
   shippingType: ShippingType;
   showShippingBadge?: boolean;
@@ -113,21 +112,8 @@ function completedAtLabel(iso: string | undefined, showDate: boolean): string | 
 }
 
 // ─── Shared visual content (no DnD hooks) ────────────────────────────────────
-// Big-board tile: readable from across the warehouse floor. Exactly three
-// data points — order #, pallets, worker — sized fluidly with the viewport.
 
-interface OrderCardShellProps extends CardProps {
-  setNodeRef: (el: HTMLElement | null) => void;
-  style: React.CSSProperties;
-  isDragging: boolean;
-  isOver: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  attributes: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  listeners: any;
-}
-
-const OrderCardShell: React.FC<OrderCardShellProps> = ({
+const OrderCardShell: React.FC<CardProps> = ({
   order,
   shippingType,
   showShippingBadge = true,
@@ -136,12 +122,6 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
   onUngroup,
   onMerge,
   showDate = false,
-  setNodeRef,
-  style,
-  isDragging,
-  isOver,
-  attributes,
-  listeners,
 }) => {
   const statusStyles = getStatusStyles(order.status);
   const { Icon } = statusStyles;
@@ -215,25 +195,11 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
 
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      className={`relative flex flex-col rounded-2xl overflow-hidden bg-card transition-all duration-200 group border ${
-        isOver ? 'border-2 border-accent bg-accent/5 scale-[1.02]' : statusStyles.border
-      } ${statusStyles.hoverBg} ${isDragging ? 'opacity-30 scale-95 z-50' : ''} ${
+      className={`relative flex flex-col rounded-2xl overflow-hidden bg-card transition-all duration-200 group border w-full ${statusStyles.border} ${statusStyles.hoverBg} ${
         order.status === 'completed' && showDate ? 'sm:col-span-2' : ''
       }`}
-      {...(attributes as React.HTMLAttributes<HTMLDivElement>)}
-      {...(listeners as React.HTMLAttributes<HTMLDivElement>)}
     >
-      {isOver && (
-        <div className="absolute inset-0 bg-accent/10 backdrop-blur-[1px] border-2 border-dashed border-accent flex flex-col items-center justify-center gap-1 z-20 animate-in fade-in duration-200">
-          <span className="text-sm font-black uppercase text-accent select-none">Merge Orders</span>
-          <span className="text-[9px] text-accent/80 font-black uppercase tracking-widest select-none">
-            Drop to merge
-          </span>
-        </div>
-      )}
-      {showShippingBadge && <div className={`h-1.5 shrink-0 ${colors.stripe}`} />}
+      {showShippingBadge && <div className={`h-1.5 shrink-0 w-full ${colors.stripe}`} />}
 
       {/* Floating Action Buttons Overlay (Absolute Top-Right) */}
       {(onMerge || (order.group_id && onUngroup) || onDelete) && (
@@ -277,7 +243,7 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
         </div>
       )}
 
-      <div className="flex-1 flex items-stretch min-w-0">
+      <div className="flex-1 flex items-stretch min-w-0 w-full">
         {/* Left Panel: Quantities */}
         <div className="flex flex-col items-center justify-center border-r border-subtle bg-content/[0.02] py-2 px-2.5 shrink-0 self-stretch min-w-[76px] md:min-w-[84px] gap-2 select-none">
           <div className="flex flex-col gap-1.5 w-full text-center">
@@ -334,7 +300,7 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
         {/* Right Panel */}
         <button
           onClick={() => onSelect(order)}
-          className={`flex-1 text-left px-3 py-2.5 md:px-4 md:py-3 flex flex-col justify-center gap-1 min-w-0 ${
+          className={`flex-1 text-left px-3 py-2.5 md:px-4 md:py-3 flex flex-col justify-center gap-1 min-w-0 w-full ${
             order.status === 'double_checking' ? 'opacity-70' : ''
           }`}
         >
@@ -410,80 +376,6 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
   );
 };
 
-// ─── SortableOrderCard (for lane items — drag + drop target, NO sorting) ─────
-// Uses useDraggable + useDroppable separately to enable drag-out and drop-on
-// without the sorting/reorder behavior that confuses users.
-
-export const SortableOrderCard = React.memo<CardProps>((props) => {
-  const draggable = useDraggable({
-    id: `drag-${props.order.id}`,
-    data: { order: props.order, shippingType: props.shippingType },
-  });
-  const droppable = useDroppable({
-    id: props.order.id,
-    data: { order: props.order, shippingType: props.shippingType },
-  });
-
-  return (
-    <OrderCardShell
-      {...props}
-      setNodeRef={(node) => {
-        draggable.setNodeRef(node);
-        droppable.setNodeRef(node);
-      }}
-      style={{
-        transform: draggable.transform
-          ? `translate(${draggable.transform.x}px, ${draggable.transform.y}px)`
-          : undefined,
-        touchAction: 'none',
-      }}
-      isDragging={draggable.isDragging}
-      isOver={droppable.isOver}
-      attributes={draggable.attributes}
-      listeners={draggable.listeners}
-    />
-  );
-});
-SortableOrderCard.displayName = 'SortableOrderCard';
-
-// ─── DraggableOrderCard (for Priority — drag only, no drop target) ───────────
-
-export const DraggableOrderCard = React.memo<CardProps>((props) => {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: props.order.id,
-    data: { order: props.order, shippingType: props.shippingType },
-  });
-
-  return (
-    <OrderCardShell
-      {...props}
-      setNodeRef={setNodeRef}
-      style={{
-        transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
-        touchAction: 'none',
-      }}
-      isDragging={isDragging}
-      isOver={false}
-      attributes={attributes}
-      listeners={listeners}
-    />
-  );
-});
-DraggableOrderCard.displayName = 'DraggableOrderCard';
-
-// ─── StaticOrderCard (for actively-picked orders in Pulling — no DnD) ────────
-// Orders with status 'active' are still being pulled; moving them around the
-// board makes no sense, so the tile is click-only.
-
-export const StaticOrderCard = React.memo<CardProps>((props) => (
-  <OrderCardShell
-    {...props}
-    setNodeRef={() => {}}
-    style={{}}
-    isDragging={false}
-    isOver={false}
-    attributes={{}}
-    listeners={{}}
-  />
-));
-StaticOrderCard.displayName = 'StaticOrderCard';
+export const SortableOrderCard = React.memo<CardProps>(OrderCardShell);
+export const DraggableOrderCard = React.memo<CardProps>(OrderCardShell);
+export const StaticOrderCard = React.memo<CardProps>(OrderCardShell);

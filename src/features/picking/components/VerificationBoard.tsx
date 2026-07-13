@@ -1,56 +1,38 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  useDroppable,
-  pointerWithin,
-  rectIntersection,
-  type CollisionDetection,
-  useDndContext,
-} from '@dnd-kit/core';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
+import Search from 'lucide-react/dist/esm/icons/search';
 // SortableContext removed — lanes use useDraggable+useDroppable, not sorting
 import { useNavigate } from 'react-router-dom';
 import X from 'lucide-react/dist/esm/icons/x';
 import { useDoubleCheckList, type PickingList } from '../hooks/useDoubleCheckList';
 import { useOrderGroups } from '../hooks/useOrderGroups';
-import { useBoardDnD } from '../hooks/useBoardDnD';
 import { useViewMode } from '../../../context/ViewModeContext';
 import { usePickingSession } from '../../../context/PickingContext';
 import { useConfirmation } from '../../../context/ConfirmationContext';
 import { useAuth } from '../../../context/AuthContext';
 import { autoClassifyShippingType } from '../../../utils/shippingClassification';
-import { SortableOrderCard, DraggableOrderCard, StaticOrderCard } from './board/SortableOrderCard';
+import { SortableOrderCard, StaticOrderCard } from './board/SortableOrderCard';
 import { CompletedZone } from './board/CompletedZone';
 import { WaitingZone } from './board/WaitingZone';
 import { GroupCard } from './board/GroupCard';
-import { GroupOrderModal } from './GroupOrderModal';
-import { CrossLaneConfirmModal } from './board/CrossLaneConfirmModal';
 import { WaitingReasonModal } from './WaitingReasonModal';
 import { ReasonPicker } from './ReasonPicker';
 import { supabase } from '../../../lib/supabase';
 import { BoardMergeModal, type MergeTargetCandidate } from './board/BoardMergeModal';
+import { ShippingTypeToggle } from './ShippingTypeToggle';
 import toast from 'react-hot-toast';
 import { createPortal } from 'react-dom';
 import Pencil from 'lucide-react/dist/esm/icons/pencil';
 import Camera from 'lucide-react/dist/esm/icons/camera';
+import Clock from 'lucide-react/dist/esm/icons/clock';
 import Hourglass from 'lucide-react/dist/esm/icons/hourglass';
 import Play from 'lucide-react/dist/esm/icons/play';
 import GitMerge from 'lucide-react/dist/esm/icons/git-merge';
 import { useUnmarkWaiting } from '../hooks/useWaitingOrders';
 
 // Zone IDs (must stay in sync with useBoardDnD)
-const ZONE_PRIORITY = 'zone-priority';
-const ZONE_FEDEX = 'zone-fedex';
-const ZONE_REGULAR = 'zone-regular';
-const ZONE_WAITING = 'zone-waiting';
 // The "Pulling" queue (DB status ready_to_double_check) — the zone id keeps
 // its historical name so useBoardDnD stays untouched.
-const ZONE_READY = 'zone-ready';
 
 // Completed Today auto-expands when the board is this quiet or quieter;
 // with more active orders on screen it starts collapsed.
@@ -66,64 +48,6 @@ const LANE_GRID = 'grid grid-cols-1 xl:grid-cols-2 gap-2';
 
 // Lightweight drop target wrapper. Transparent drop region — line-based
 // separators handle the visual structure.
-const DropZone: React.FC<{
-  id: string;
-  className?: string;
-  children: React.ReactNode;
-}> = ({ id, className = '', children }) => {
-  const { setNodeRef, isOver } = useDroppable({ id });
-  const { active } = useDndContext();
-  const isDragging = !!active;
-
-  let activeStyle = '';
-  if (isDragging) {
-    if (id === ZONE_FEDEX) {
-      activeStyle = isOver
-        ? 'ring-4 ring-purple-500 ring-inset bg-purple-500/10'
-        : 'ring-2 ring-purple-500/20 ring-inset ring-dashed';
-    } else if (id === ZONE_REGULAR) {
-      activeStyle = isOver
-        ? 'ring-4 ring-emerald-500 ring-inset bg-emerald-500/10'
-        : 'ring-2 ring-emerald-500/20 ring-inset ring-dashed';
-    } else if (id === ZONE_PRIORITY) {
-      activeStyle = isOver
-        ? 'ring-4 ring-red-500 ring-inset bg-red-500/10'
-        : 'ring-2 ring-red-500/20 ring-inset ring-dashed';
-    } else if (id === ZONE_WAITING) {
-      activeStyle = isOver
-        ? 'ring-4 ring-amber-500 ring-inset bg-amber-500/10'
-        : 'ring-2 ring-amber-500/20 ring-inset ring-dashed';
-    } else if (id === ZONE_READY) {
-      activeStyle = isOver
-        ? 'ring-4 ring-sky-500 ring-inset bg-sky-500/10'
-        : 'ring-2 ring-sky-500/20 ring-inset ring-dashed';
-    }
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={`relative transition-all duration-300 ${className} ${activeStyle}`}
-    >
-      {isDragging && isOver && (
-        <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-20 bg-black/5 animate-in fade-in duration-200">
-          <span className="px-4 py-2 bg-surface border border-subtle rounded-xl text-xs font-black uppercase tracking-wider text-content shadow-lg shadow-black/20 animate-in zoom-in-95 duration-200">
-            {id === ZONE_FEDEX
-              ? 'Move to FedEx'
-              : id === ZONE_REGULAR
-                ? 'Move to Regular'
-                : id === ZONE_PRIORITY
-                  ? 'Move to Priority'
-                  : id === ZONE_WAITING
-                    ? 'Move to Waiting'
-                    : 'Move to Pulling'}
-          </span>
-        </div>
-      )}
-      {children}
-    </div>
-  );
-};
 
 interface VerificationBoardProps {
   onClose: () => void;
@@ -137,19 +61,23 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   const unmarkWaiting = useUnmarkWaiting();
   const { cartItems, sessionMode, deleteList, reopenOrder, activeListId } = usePickingSession();
   const { showConfirmation } = useConfirmation();
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   // DnD logic — all zone reclassification, merge, prompts
-  const dnd = useBoardDnD(isAdmin, refresh);
 
   const [waitingCollapsed, setWaitingCollapsed] = useState(false);
   const [showWaitingOnTop, setShowWaitingOnTop] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
   const [reopenReason, setReopenReason] = useState('');
   // Manual toggle for Completed Today. null = follow the auto rule
   // (open when the board is quiet, collapsed when it's busy).
   const [completedOverride, setCompletedOverride] = useState<boolean | null>(null);
   const [orderToMerge, setOrderToMerge] = useState<PickingList | null>(null);
+  const [pendingWaitingOrder, setPendingWaitingOrder] = useState<PickingList | null>(null);
+  const [pendingReopenOrder, setPendingReopenOrder] = useState<PickingList | null>(null);
   const [selectedMenuOrder, setSelectedMenuOrder] = useState<PickingList | null>(null);
 
   const handleMergeSelect = async (target: MergeTargetCandidate) => {
@@ -173,12 +101,23 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       }
 
       // 2. Perform the group binding
+      let newGroupId = target.group_id;
       if (orderToMerge.group_id) {
         await addToGroup(orderToMerge.group_id, target.id);
+        newGroupId = orderToMerge.group_id;
       } else if (target.group_id) {
         await addToGroup(target.group_id, orderToMerge.id);
+        newGroupId = target.group_id;
       } else {
-        await createGroup('general', [orderToMerge.id, target.id]);
+        newGroupId = await createGroup('general', [orderToMerge.id, target.id]);
+      }
+
+      // 3. Take ownership of all combined orders
+      if (newGroupId && user?.id) {
+        await supabase
+          .from('picking_lists')
+          .update({ user_id: user.id })
+          .eq('group_id', newGroupId);
       }
 
       // 3. Refresh Board
@@ -211,9 +150,21 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     const waiting: PickingList[] = [];
     const pulling: PickingList[] = [];
 
+    const filteredOrders = orders.filter((o) => {
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      const matchNum = String(o.order_number || o.id)
+        .toLowerCase()
+        .includes(q);
+      const matchCust = String(o.profiles?.full_name || o.customer?.name || '')
+        .toLowerCase()
+        .includes(q);
+      return matchNum || matchCust;
+    });
+
     // Pre-calculate shipping types for all active orders
     const orderShippingTypes = new Map<string, 'fedex' | 'regular'>();
-    for (const order of orders) {
+    for (const order of filteredOrders) {
       const st =
         order.shipping_type ??
         autoClassifyShippingType(
@@ -232,7 +183,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     const groupStatus = new Map<string, string>();
     const groupIsPriority = new Map<string, boolean>();
 
-    for (const order of orders) {
+    for (const order of filteredOrders) {
       if (order.group_id) {
         if (order.is_waiting_inventory) {
           groupWaiting.set(order.group_id, true);
@@ -256,7 +207,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     }
 
     // Classify orders
-    for (const order of orders) {
+    for (const order of filteredOrders) {
       const isWaiting = order.group_id
         ? (groupWaiting.get(order.group_id) ?? order.is_waiting_inventory)
         : order.is_waiting_inventory;
@@ -306,7 +257,18 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     // Classify completed orders
     const allCompletedFedex: PickingList[] = [];
     const allCompletedRegular: PickingList[] = [];
-    for (const order of completedOrders ?? []) {
+    const filteredCompleted = (completedOrders ?? []).filter((o) => {
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      const matchNum = String(o.order_number || o.id)
+        .toLowerCase()
+        .includes(q);
+      const matchCust = String(o.profiles?.full_name || o.customer?.name || '')
+        .toLowerCase()
+        .includes(q);
+      return matchNum || matchCust;
+    });
+    for (const order of filteredCompleted) {
       const shippingType =
         order.shipping_type ??
         autoClassifyShippingType(
@@ -345,53 +307,13 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   const boardIsEmpty = activeTotal === 0;
   // While a drag is in progress every drop target must exist, even if the
   // zone is otherwise hidden for being empty.
-  const isDraggingSomething = !!dnd.activeOrder;
+  const isDraggingSomething = false;
   const completedExpanded = boardIsEmpty
     ? true
     : (completedOverride ?? activeTotal <= COMPLETED_AUTO_OPEN_MAX);
   const hasCompleted = completedFedex.length > 0 || completedRegular.length > 0;
 
-  // ─── DnD sensors ──────────────────────────────────────────────────
-  // Configure long-press activation constraint (2.5 seconds hold) to start dragging,
-  // preventing accidental drags.
-  const pointerSensor = useSensor(PointerSensor, {
-    activationConstraint: { delay: 2500, tolerance: 15 },
-  });
-  const touchSensor = useSensor(TouchSensor, {
-    activationConstraint: { delay: 2500, tolerance: 15 },
-  });
-  const sensors = useSensors(pointerSensor, touchSensor);
-
-  // Custom collision: pointerWithin for both zones and items.
-  // When pointer is over an ORDER CARD, return the card (for merge).
-  // When pointer is over a ZONE but not a card, return the zone (for reclassify).
-  // This enables: drag to empty zone = reclassify, drag onto order = merge.
-  const collisionDetection: CollisionDetection = useCallback((args) => {
-    // pointerWithin: detects all droppables the pointer is inside of
-    const pw = pointerWithin(args);
-    // rectIntersection: detects all droppables the drag overlay intersects with
-    const ri = rectIntersection(args);
-    // Merge both sets, dedupe by id
-    const seen = new Set<string | number>();
-    const all = [...pw, ...ri].filter((c) => {
-      if (seen.has(c.id)) return false;
-      seen.add(c.id);
-      return true;
-    });
-    if (all.length === 0) return [];
-    // Prefer card-level droppable (for merge) over zone-level (for reclassify)
-    const cardHit = all.find(
-      (c) => !(c.id as string).startsWith('zone-') && !(c.id as string).startsWith('drag-')
-    );
-    if (cardHit) return [cardHit];
-    // Fall back to zone
-    const zoneHit = all.find((c) => (c.id as string).startsWith('zone-'));
-    if (zoneHit) return [zoneHit];
-    return [all[0]];
-  }, []);
-
-  // DnD handlers come from useBoardDnD hook
-
+  // ─── Render ────────────────────────────────────────────────────────
   // ─── Helpers ──────────────────────────────────────────────────────
   const handleOrderSelect = useCallback(
     (order: PickingList) => {
@@ -506,7 +428,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   const completedCount = completedFedex.length + completedRegular.length;
 
   const waitingZoneElement = showWaiting && (
-    <DropZone id={ZONE_WAITING} className="border-b border-subtle bg-amber-500/[0.02]">
+    <div className="border-b border-subtle bg-amber-500/[0.02] w-full">
       <button
         onClick={() => setWaitingCollapsed((v) => !v)}
         className="w-full flex items-center justify-center gap-2 py-2 md:py-3 hover:bg-amber-500/5 transition-colors"
@@ -539,7 +461,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           )}
         </div>
       )}
-    </DropZone>
+    </div>
   );
 
   // ─── Render ───────────────────────────────────────────────────────
@@ -592,6 +514,17 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               )}
             </div>
           )}
+          <div className="absolute right-12 md:right-16 top-1/2 -translate-y-1/2 flex items-center gap-2">
+            <button
+              onClick={() => {
+                setIsSearchOpen(!isSearchOpen);
+                if (isSearchOpen) setSearchQuery('');
+              }}
+              className={`p-2 transition-colors rounded-full ${isSearchOpen || searchQuery ? 'text-sky-400 bg-sky-400/10' : 'text-muted hover:text-content hover:bg-content/5'}`}
+            >
+              <Search className="w-5 h-5 md:w-6 md:h-6" />
+            </button>
+          </div>
           <button
             onClick={onClose}
             className="absolute right-3 md:right-5 top-1/2 -translate-y-1/2 p-2 text-muted hover:text-content transition-colors"
@@ -600,263 +533,221 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           </button>
         </div>
 
-        <DndContext
-          sensors={sensors}
-          collisionDetection={collisionDetection}
-          onDragStart={dnd.handleDragStart}
-          onDragEnd={dnd.handleDragEnd}
-        >
-          {/* Full device width — no max-w cap; tiles scale with the viewport. */}
-          <div className="flex-1 overflow-y-auto min-h-0 pb-20 w-full">
-            {/* Show Waiting Zone on top if toggled */}
-            {showWaitingOnTop && waitingZoneElement}
+        {/* Search Bar */}
+        {(isSearchOpen || searchQuery) && (
+          <div className="px-3 md:px-5 py-2 border-b border-subtle bg-surface/50 animate-in slide-in-from-top-2 duration-200">
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+              <input
+                type="text"
+                autoFocus
+                placeholder="Search by order # or customer..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl pl-9 pr-8 py-2.5 text-sm text-content placeholder-muted focus:outline-none focus:border-sky-500/50 focus:ring-1 focus:ring-sky-500/50 transition-all"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-white"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
-            {/* Priority — auto-populated, top of the board (rare). */}
-            {priorityOrders.length > 0 && (
-              <DropZone
-                id={ZONE_PRIORITY}
-                className="border-b border-subtle px-2 py-2 md:px-4 md:py-3"
-              >
-                <div className="flex items-center justify-center gap-2 mb-2 md:mb-3">
-                  <span className="text-sm md:text-base font-black uppercase tracking-widest text-red-400">
-                    Available
-                  </span>
-                  <span className="text-sm text-muted/60">({priorityOrders.length})</span>
-                </div>
-                <div className={CARD_GRID}>
-                  {priorityOrders.map((order) => (
-                    <DraggableOrderCard
-                      key={order.id}
-                      order={order}
-                      shippingType={
-                        (priorityShippingTypes.get(order.id) as 'fedex' | 'regular') ?? 'regular'
-                      }
-                      onSelect={handleOrderSelect}
-                      onDelete={handleDelete}
-                      onUngroup={handleUngroup}
-                    />
-                  ))}
-                </div>
-              </DropZone>
-            )}
+        {/* Full device width — no max-w cap; tiles scale with the viewport. */}
+        <div className="flex-1 overflow-y-auto min-h-0 pb-20 w-full">
+          {/* Show Waiting Zone on top if toggled */}
+          {showWaitingOnTop && waitingZoneElement}
 
-            {/* FEDEX | REGULAR lanes (needs_correction / double_checking).
+          {/* Priority — auto-populated, top of the board (rare). */}
+          {priorityOrders.length > 0 && (
+            <div className="border-b border-subtle px-2 py-2 md:px-4 md:py-3 w-full">
+              <div className="flex items-center justify-center gap-2 mb-2 md:mb-3">
+                <span className="text-sm md:text-base font-black uppercase tracking-widest text-red-400">
+                  Available
+                </span>
+                <span className="text-sm text-muted/60">({priorityOrders.length})</span>
+              </div>
+              <div className={CARD_GRID}>
+                {priorityOrders.map((order) => (
+                  <SortableOrderCard
+                    key={order.id}
+                    order={order}
+                    shippingType={
+                      (priorityShippingTypes.get(order.id) as 'fedex' | 'regular') ?? 'regular'
+                    }
+                    onSelect={handleOrderSelect}
+                    onDelete={handleDelete}
+                    onUngroup={handleUngroup}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* FEDEX | REGULAR lanes (needs_correction / double_checking).
               Empty lanes are hidden — unless a drag is in progress, when both
               drop targets must be reachable. A lone lane takes the full width. */}
-            {/* FEDEX | REGULAR lanes (needs_correction / double_checking).
+          {/* FEDEX | REGULAR lanes (needs_correction / double_checking).
               Both lanes are always shown side-by-side. */}
-            <div className="grid grid-cols-2 divide-x divide-subtle border-b border-subtle">
-              <DropZone id={ZONE_FEDEX} className="bg-purple-500/[0.08] min-h-[44px]">
-                <div className="h-[5px] md:h-[6px] bg-purple-500/70" />
-                <div className="px-2 py-2 md:px-4 md:py-3">
-                  {fedexOrders.length > 0 ? (
-                    renderOrderCards(fedexOrders, 'fedex')
-                  ) : (
-                    <div className="text-center text-xs text-purple-400/40 italic py-2">
-                      Drop here → FedEx
-                    </div>
-                  )}
-                </div>
-              </DropZone>
-              <DropZone id={ZONE_REGULAR} className="bg-emerald-500/[0.08] min-h-[44px]">
-                <div className="h-[5px] md:h-[6px] bg-emerald-500/70" />
-                <div className="px-2 py-2 md:px-4 md:py-3">
-                  {regularOrders.length > 0 ? (
-                    renderOrderCards(regularOrders, 'regular')
-                  ) : (
-                    <div className="text-center text-xs text-emerald-400/40 italic py-2">
-                      Drop here → Regular
-                    </div>
-                  )}
-                </div>
-              </DropZone>
+          <div className="grid grid-cols-2 divide-x divide-subtle border-b border-subtle">
+            <div className="bg-purple-500/[0.08] min-h-[44px] w-full">
+              <div className="h-[5px] md:h-[6px] bg-purple-500/70" />
+              <div className="px-2 py-2 md:px-4 md:py-3">
+                {fedexOrders.length > 0 ? (
+                  renderOrderCards(fedexOrders, 'fedex')
+                ) : (
+                  <div className="text-center text-xs text-purple-400/40 italic py-2">
+                    Drop here → FedEx
+                  </div>
+                )}
+              </div>
             </div>
+            <div className="bg-emerald-500/[0.08] min-h-[44px] w-full">
+              <div className="h-[5px] md:h-[6px] bg-emerald-500/70" />
+              <div className="px-2 py-2 md:px-4 md:py-3">
+                {regularOrders.length > 0 ? (
+                  renderOrderCards(regularOrders, 'regular')
+                ) : (
+                  <div className="text-center text-xs text-emerald-400/40 italic py-2">
+                    Drop here → Regular
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
 
-            {/* PULLING — every order of the day still being worked (actively
+          {/* PULLING — every order of the day still being worked (actively
               picked + finished picking, awaiting verification). Full-width
               responsive grid, no truncation: the board should look full.
               Dropping here keeps the historical semantics (mark as ready). */}
-            {showPulling && (
-              <DropZone
-                id={ZONE_READY}
-                className="border-b border-subtle px-2 py-2 md:px-4 md:py-3"
-              >
-                <div className="flex items-center justify-center gap-2 mb-2 md:mb-3">
-                  <span className="text-sm md:text-base font-black uppercase tracking-widest text-sky-400">
-                    Pulling
-                  </span>
-                  {pullingOrders.length > 0 && (
-                    <span className="text-sm text-muted/60">({pullingOrders.length})</span>
-                  )}
+          {showPulling && (
+            <div className="border-b border-subtle px-2 py-2 md:px-4 md:py-3 w-full">
+              <div className="flex items-center justify-center gap-2 mb-2 md:mb-3">
+                <span className="text-sm md:text-base font-black uppercase tracking-widest text-sky-400">
+                  Pulling
+                </span>
+                {pullingOrders.length > 0 && (
+                  <span className="text-sm text-muted/60">({pullingOrders.length})</span>
+                )}
+              </div>
+              {pullingOrders.length === 0 ? (
+                <div className="text-center text-xs text-muted/40 italic py-2">
+                  Drop here → mark as pulled, ready to verify
                 </div>
-                {pullingOrders.length === 0 ? (
-                  <div className="text-center text-xs text-muted/40 italic py-2">
-                    Drop here → mark as pulled, ready to verify
-                  </div>
-                ) : (
-                  (() => {
-                    const grouped = new Map<string, PickingList[]>();
-                    const ungrouped: PickingList[] = [];
+              ) : (
+                (() => {
+                  const grouped = new Map<string, PickingList[]>();
+                  const ungrouped: PickingList[] = [];
 
-                    for (const order of pullingOrders) {
-                      if (order.group_id) {
-                        const arr = grouped.get(order.group_id) || [];
-                        arr.push(order);
-                        grouped.set(order.group_id, arr);
-                      } else {
-                        ungrouped.push(order);
-                      }
+                  for (const order of pullingOrders) {
+                    if (order.group_id) {
+                      const arr = grouped.get(order.group_id) || [];
+                      arr.push(order);
+                      grouped.set(order.group_id, arr);
+                    } else {
+                      ungrouped.push(order);
                     }
+                  }
 
-                    return (
-                      <div className={CARD_GRID}>
-                        {Array.from(grouped.entries()).map(([groupId, groupOrders]) => (
-                          <GroupCard
-                            key={groupId}
-                            orders={groupOrders}
-                            groupType={groupOrders[0]?.shipping_type ?? 'regular'}
+                  return (
+                    <div className={CARD_GRID}>
+                      {Array.from(grouped.entries()).map(([groupId, groupOrders]) => (
+                        <GroupCard
+                          key={groupId}
+                          orders={groupOrders}
+                          groupType={groupOrders[0]?.shipping_type ?? 'regular'}
+                          onSelect={handleOrderSelect}
+                          onDelete={handleDelete}
+                          onUngroup={handleUngroup}
+                          onMerge={setSelectedMenuOrder}
+                        />
+                      ))}
+                      {ungrouped.map((order) => {
+                        const st = pullingShippingTypes.get(order.id) ?? 'regular';
+                        // Actively-picked orders are click-only; ready orders
+                        // keep their drag behavior (reclass / merge / waiting).
+                        return order.status === 'active' ? (
+                          <StaticOrderCard
+                            key={order.id}
+                            order={order}
+                            shippingType={st}
                             onSelect={handleOrderSelect}
                             onDelete={handleDelete}
                             onUngroup={handleUngroup}
                             onMerge={setSelectedMenuOrder}
                           />
-                        ))}
-                        {ungrouped.map((order) => {
-                          const st = pullingShippingTypes.get(order.id) ?? 'regular';
-                          // Actively-picked orders are click-only; ready orders
-                          // keep their drag behavior (reclass / merge / waiting).
-                          return order.status === 'active' ? (
-                            <StaticOrderCard
-                              key={order.id}
-                              order={order}
-                              shippingType={st}
-                              onSelect={handleOrderSelect}
-                              onDelete={handleDelete}
-                              onUngroup={handleUngroup}
-                              onMerge={setSelectedMenuOrder}
-                            />
-                          ) : (
-                            <SortableOrderCard
-                              key={order.id}
-                              order={order}
-                              shippingType={st}
-                              onSelect={handleOrderSelect}
-                              onDelete={handleDelete}
-                              onUngroup={handleUngroup}
-                              onMerge={setSelectedMenuOrder}
-                            />
-                          );
-                        })}
-                      </div>
-                    );
-                  })()
-                )}
-              </DropZone>
-            )}
+                        ) : (
+                          <SortableOrderCard
+                            key={order.id}
+                            order={order}
+                            shippingType={st}
+                            onSelect={handleOrderSelect}
+                            onDelete={handleDelete}
+                            onUngroup={handleUngroup}
+                            onMerge={setSelectedMenuOrder}
+                          />
+                        );
+                      })}
+                    </div>
+                  );
+                })()
+              )}
+            </div>
+          )}
 
-            {/* COMPLETED — today's orders with completion time. Auto-expands
+          {/* COMPLETED — today's orders with completion time. Auto-expands
               when the board is quiet (or completely empty, where it falls
               back to the latest completed orders with date labels). */}
-            {hasCompleted && (
-              <div className="border-b border-subtle">
-                <button
-                  onClick={() => setCompletedOverride(completedExpanded ? false : true)}
-                  className="w-full flex items-center justify-center gap-2 py-2 md:py-3 hover:bg-content/5 transition-colors"
-                >
-                  <span className="text-sm md:text-base font-black uppercase tracking-widest text-content/60">
-                    Completed
-                  </span>
-                  <span className="text-sm text-muted/60">
-                    ({completedFedex.length + completedRegular.length})
-                  </span>
-                  <ChevronDown
-                    size={14}
-                    className={`text-content/40 transition-transform ${
-                      completedExpanded ? 'rotate-180' : ''
-                    }`}
+          {hasCompleted && (
+            <div className="border-b border-subtle">
+              <button
+                onClick={() => setCompletedOverride(completedExpanded ? false : true)}
+                className="w-full flex items-center justify-center gap-2 py-2 md:py-3 hover:bg-content/5 transition-colors"
+              >
+                <span className="text-sm md:text-base font-black uppercase tracking-widest text-content/60">
+                  Completed
+                </span>
+                <span className="text-sm text-muted/60">
+                  ({completedFedex.length + completedRegular.length})
+                </span>
+                <ChevronDown
+                  size={14}
+                  className={`text-content/40 transition-transform ${
+                    completedExpanded ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+              {completedExpanded && (
+                <div className="px-2 pb-3 md:px-4">
+                  <CompletedZone
+                    fedexOrders={completedFedex}
+                    regularOrders={completedRegular}
+                    showDate={completedShowsDates}
+                    onSelectOrder={(orderId) => {
+                      setExternalOrderId(orderId);
+                      navigate('/ship');
+                      onClose();
+                    }}
                   />
-                </button>
-                {completedExpanded && (
-                  <div className="px-2 pb-3 md:px-4">
-                    <CompletedZone
-                      fedexOrders={completedFedex}
-                      regularOrders={completedRegular}
-                      showDate={completedShowsDates}
-                      onSelectOrder={(orderId) => {
-                        setExternalOrderId(orderId);
-                        navigate('/ship');
-                        onClose();
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
+          )}
 
-            {/* Show Waiting Zone at the bottom if NOT toggled to top */}
-            {!showWaitingOnTop && waitingZoneElement}
-          </div>
-
-          <DragOverlay dropAnimation={null}>
-            {dnd.activeOrder &&
-              (() => {
-                const st =
-                  priorityShippingTypes.get(dnd.activeOrder.id) ??
-                  dnd.activeOrder.shipping_type ??
-                  'regular';
-                return (
-                  <div className="flex items-center gap-3 p-3 rounded-2xl bg-surface border-2 border-purple-500 shadow-2xl shadow-purple-500/20 opacity-95 max-w-xs">
-                    <div
-                      className={`w-8 h-8 rounded-xl flex items-center justify-center text-white text-[10px] font-black ${
-                        st === 'fedex' ? 'bg-purple-500' : 'bg-emerald-500'
-                      }`}
-                    >
-                      {st === 'fedex' ? 'FDX' : 'TRK'}
-                    </div>
-                    <div>
-                      <div className="text-xs font-black uppercase tracking-tight text-content">
-                        #
-                        {dnd.activeOrder.order_number || dnd.activeOrder.id.slice(-6).toUpperCase()}
-                      </div>
-                      <div className="text-[9px] text-muted font-bold uppercase tracking-wider">
-                        Drag to reclassify or merge
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-          </DragOverlay>
-        </DndContext>
-
-        {/* Group merge modal */}
-        {dnd.pendingMerge && (
-          <GroupOrderModal
-            sourceOrder={dnd.pendingMerge.source}
-            targetOrder={dnd.pendingMerge.target}
-            joinExisting={!!dnd.pendingMerge.joinGroupId}
-            onConfirm={dnd.confirmMerge}
-            onCancel={dnd.cancelPending}
-          />
-        )}
-
-        {/* Cross-lane confirmation modal */}
-        {dnd.pendingCrossLane && (
-          <CrossLaneConfirmModal
-            orderNumber={
-              dnd.pendingCrossLane.order.order_number || dnd.pendingCrossLane.order.id.slice(-6)
-            }
-            fromType={dnd.pendingCrossLane.fromType}
-            toType={dnd.pendingCrossLane.toType}
-            onConfirm={dnd.confirmCrossLane}
-            onCancel={dnd.cancelPending}
-          />
-        )}
+          {/* Show Waiting Zone at the bottom if NOT toggled to top */}
+          {!showWaitingOnTop && waitingZoneElement}
+        </div>
 
         {/* Waiting reason prompt (drag to Waiting zone) — shared centered modal */}
-        {dnd.pendingWaiting && (
+        {pendingWaitingOrder && (
           <WaitingReasonModal
-            listId={dnd.pendingWaiting.order.id}
-            onClose={dnd.cancelPending}
+            listId={pendingWaitingOrder.id}
+            onClose={() => setPendingWaitingOrder(null)}
             onMarked={refresh}
           />
         )}
@@ -870,21 +761,22 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         )}
 
         {/* Reopen reason prompt (drag from Completed to a lane) */}
-        {dnd.pendingReopen && (
+        {pendingReopenOrder && (
           <div
             className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-main/70 backdrop-blur-md animate-in fade-in duration-150"
-            onClick={dnd.cancelPending}
+            onClick={() => setPendingWaitingOrder(null)}
           >
             <div
               className="bg-surface border border-subtle rounded-2xl w-full max-w-xs shadow-2xl p-5 space-y-3 animate-in zoom-in-95 duration-150"
               onClick={(e) => e.stopPropagation()}
             >
               <p className="text-xs font-black text-content uppercase tracking-tight">
-                Reopen Order #{dnd.pendingReopen.order.order_number || '...'}?
+                Reopen Order #{pendingReopenOrder.order_number || '...'}?
               </p>
               <p className="text-[10px] text-muted">
                 This will reopen the completed order and move it to the{' '}
-                {dnd.pendingReopen.targetZone === 'fedex' ? 'FedEx' : 'Regular'} lane.
+                {(pendingReopenOrder.shipping_type || 'regular') === 'fedex' ? 'FedEx' : 'Regular'}{' '}
+                lane.
               </p>
               <ReasonPicker
                 actionType="reopen"
@@ -895,7 +787,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                 <button
                   onClick={() => {
                     setReopenReason('');
-                    dnd.cancelPending();
+                    setPendingReopenOrder(null);
                   }}
                   className="flex-1 p-2.5 rounded-xl text-xs font-black uppercase text-muted bg-card border border-subtle transition-all active:scale-[0.98]"
                 >
@@ -903,16 +795,16 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                 </button>
                 <button
                   onClick={async () => {
-                    if (!reopenReason.trim() || !dnd.pendingReopen) return;
+                    if (!reopenReason.trim() || !pendingReopenOrder) return;
                     try {
-                      await reopenOrder(dnd.pendingReopen.order.id, reopenReason.trim());
+                      await reopenOrder(pendingReopenOrder.id, reopenReason.trim());
                       await supabase
                         .from('picking_lists')
-                        .update({ shipping_type: dnd.pendingReopen.targetZone })
-                        .eq('id', dnd.pendingReopen.order.id);
+                        .update({ shipping_type: pendingReopenOrder.shipping_type })
+                        .eq('id', pendingReopenOrder.id);
                       toast.success('Order reopened');
                       setReopenReason('');
-                      dnd.setPendingReopen(null);
+                      setPendingReopenOrder(null);
                       refresh();
                     } catch {
                       toast.error('Failed to reopen order');
@@ -950,7 +842,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             onMarkWaiting={() => {
               const order = selectedMenuOrder;
               setSelectedMenuOrder(null);
-              dnd.setPendingWaiting({ order });
+              setPendingWaitingOrder(order);
             }}
             onResumeOrder={async () => {
               const orderId = selectedMenuOrder.id;
@@ -960,6 +852,10 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             }}
             onMergeOrder={() => {
               setOrderToMerge(selectedMenuOrder);
+              setSelectedMenuOrder(null);
+            }}
+            onReopenOrder={() => {
+              setPendingReopenOrder(selectedMenuOrder);
               setSelectedMenuOrder(null);
             }}
           />
@@ -977,6 +873,7 @@ interface OrderActionsMenuModalProps {
   onMarkWaiting: () => void;
   onResumeOrder: () => void;
   onMergeOrder: () => void;
+  onReopenOrder: () => void;
 }
 
 const OrderActionsMenuModal: React.FC<OrderActionsMenuModalProps> = ({
@@ -987,6 +884,7 @@ const OrderActionsMenuModal: React.FC<OrderActionsMenuModalProps> = ({
   onMarkWaiting,
   onResumeOrder,
   onMergeOrder,
+  onReopenOrder,
 }) => {
   const isWaiting = order.is_waiting_inventory;
   const isPastOrder = order.status === 'completed' || order.status === 'cancelled';
@@ -1003,8 +901,16 @@ const OrderActionsMenuModal: React.FC<OrderActionsMenuModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between mb-4 shrink-0 pb-3 border-b border-white/5">
           <div>
-            <h3 className="text-sm font-black text-content uppercase tracking-widest">
+            <h3 className="text-sm font-black text-content uppercase tracking-widest flex items-center gap-2">
               Order Options
+              {!isPastOrder && (
+                <div className="ml-2 scale-90 origin-left">
+                  <ShippingTypeToggle
+                    listId={order.id}
+                    autoType={order.shipping_type as 'fedex' | 'regular' | null}
+                  />
+                </div>
+              )}
             </h3>
             <p className="text-[10px] text-muted/70 mt-1">
               Order #{order.order_number || order.id.toString().slice(-6).toUpperCase()}
@@ -1095,6 +1001,21 @@ const OrderActionsMenuModal: React.FC<OrderActionsMenuModalProps> = ({
               <div className="text-[9px] text-muted/70">Merge this order with another one</div>
             </div>
           </button>
+
+          {isPastOrder && (
+            <button
+              onClick={onReopenOrder}
+              className="w-full flex items-center gap-3 px-4 py-3 bg-surface border border-subtle hover:bg-surface/80 transition-colors text-left rounded-xl"
+            >
+              <Clock size={16} className="text-sky-400" />
+              <div>
+                <div className="text-xs font-black uppercase tracking-wider text-content">
+                  Reopen Order
+                </div>
+                <div className="text-[9px] text-muted/70">Restore order to an active lane</div>
+              </div>
+            </button>
+          )}
         </div>
 
         {/* Footer */}
