@@ -409,13 +409,6 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
     }
   };
 
-  const joinedAddress = [
-    formData.street,
-    [formData.city, formData.state, formData.zip].filter(Boolean).join(', '),
-  ]
-    .filter(Boolean)
-    .join(', ');
-
   return (
     <div className="w-full bg-card border border-subtle rounded-3xl p-5 md:p-7 flex flex-col gap-5 relative overflow-hidden">
       <div className="absolute -top-24 -right-24 w-48 h-48 bg-accent/5 blur-[100px] pointer-events-none" />
@@ -603,30 +596,47 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
             </div>
           </div>
         ) : (
-          <div className="flex items-start gap-2 flex-1 min-w-0">
-            <button
-              type="button"
-              onClick={() => setEditingField('address')}
-              className="text-left flex-1 min-w-0 flex items-start gap-2 hover:text-accent transition-colors"
-            >
-              <MapPin size={15} className="mt-0.5 shrink-0 text-muted" />
-              <span className="text-sm text-content font-medium">
-                {formData.street || formData.city ? (
-                  joinedAddress
-                ) : (
-                  <span className="text-muted/50 italic">Add shipping address…</span>
-                )}
-              </span>
-            </button>
-            <SaveCheckmark
-              show={
-                justSavedField === 'address' ||
-                justSavedField === 'street' ||
-                justSavedField === 'city' ||
-                justSavedField === 'state' ||
-                justSavedField === 'zip'
-              }
-            />
+          <div className="flex flex-col gap-1 flex-1 min-w-0">
+            <div className="flex items-start gap-2">
+              <CopyButton value={formData.street} label="Street" />
+              <button
+                type="button"
+                onClick={() => setEditingField('address')}
+                className="text-left flex-1 min-w-0 flex items-start gap-2 hover:text-accent transition-colors"
+              >
+                <MapPin size={15} className="mt-0.5 shrink-0 text-muted" />
+                <span className="text-sm text-content font-medium">
+                  {formData.street || formData.city ? (
+                    [formData.street, [formData.city, formData.state].filter(Boolean).join(', ')]
+                      .filter(Boolean)
+                      .join(', ')
+                  ) : (
+                    <span className="text-muted/50 italic">Add shipping address…</span>
+                  )}
+                </span>
+              </button>
+              <SaveCheckmark
+                show={
+                  justSavedField === 'address' ||
+                  justSavedField === 'street' ||
+                  justSavedField === 'city' ||
+                  justSavedField === 'state' ||
+                  justSavedField === 'zip'
+                }
+              />
+            </div>
+            {formData.zip && (
+              <div className="flex items-center gap-2 pl-1">
+                <CopyButton value={formData.zip} label="Zip Code" />
+                <button
+                  type="button"
+                  onClick={() => setEditingField('address')}
+                  className="text-xs text-muted/70 font-mono hover:text-accent transition-colors"
+                >
+                  ZIP {formData.zip}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -666,8 +676,19 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           )}
         </div>
 
-        <div ref={editingField === 'transport' ? editRef : undefined}>
-          {editingField === 'transport' ? (
+        <div>
+          {/* Carrier selector — always visible, no expand/collapse needed */}
+          <div className="flex flex-col gap-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-1.5">
+              <Truck size={11} className="text-muted" />
+              Carrier
+              {isUpdatingCarrier && (
+                <span className="text-[9px] text-muted/50 font-semibold normal-case tracking-normal">
+                  saving…
+                </span>
+              )}
+              <SaveCheckmark show={justSavedField === 'transport'} />
+            </span>
             <div className="flex flex-wrap gap-2">
               {TRANSPORT_COMPANIES.map((company) => (
                 <button
@@ -685,21 +706,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 </button>
               ))}
             </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setEditingField('transport')}
-                className="flex items-center gap-1.5 text-sm font-bold text-content hover:text-accent transition-colors duration-150"
-              >
-                <Truck size={13} className="shrink-0 text-muted" />
-                {formData.transportCompany || (
-                  <span className="text-muted/50 italic font-semibold">Add carrier…</span>
-                )}
-              </button>
-              <SaveCheckmark show={justSavedField === 'transport'} />
-            </div>
-          )}
+          </div>
         </div>
       </div>
 

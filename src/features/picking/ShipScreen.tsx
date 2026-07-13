@@ -589,10 +589,19 @@ export const ShipScreen = () => {
     if (confirmBulk) {
       const toastId = toast.loading(`Shipping ${idsToShip.length} orders...`);
       try {
+        // Also include all group siblings for any grouped orders
+        const groupIds = idsToShip
+          .map((id) => orders.find((o) => o.id === id)?.group_id)
+          .filter((gid): gid is string => !!gid);
+        const siblingIds = orders
+          .filter((o) => o.group_id && groupIds.includes(o.group_id))
+          .map((o) => o.id);
+        const allIds = [...new Set([...idsToShip, ...siblingIds])];
+
         const { error } = await supabase
           .from('picking_lists')
           .update({ status: 'completed', is_shipped: true, is_waiting_inventory: false } as any)
-          .in('id', idsToShip);
+          .in('id', allIds);
 
         if (error) throw error;
 
@@ -963,10 +972,15 @@ export const ShipScreen = () => {
       );
       if (confirmShip) {
         try {
+          // Collect all IDs to update: this order + all siblings in the same group
+          const idsToUpdate = order.group_id
+            ? orders.filter((o) => o.group_id === order.group_id).map((o) => o.id)
+            : [order.id];
+
           const { error } = await supabase
             .from('picking_lists')
             .update({ status: 'completed', is_shipped: true, is_waiting_inventory: false } as any)
-            .eq('id', order.id);
+            .in('id', idsToUpdate);
           if (error) throw error;
           toast.success(`Order #${order.order_number} marked as Shipped!`);
           fetchOrders();
@@ -1130,224 +1144,8 @@ export const ShipScreen = () => {
         className="flex-1 overflow-y-auto no-scrollbar relative bg-bg-main px-4 md:px-6 pb-32"
       >
         <div className="w-full flex flex-col md:flex-row gap-4 md:gap-6 pt-4 items-start">
-          {/* Vertical order list — grouped by date */}
-          <div className="w-full md:w-80 shrink-0 md:sticky md:top-0">
-            <div className="bg-card border border-subtle rounded-3xl p-3 flex flex-col gap-2">
-              <div className="px-2 pb-1 flex items-center justify-between min-h-[24px]">
-                <span className="text-[10px] font-black uppercase tracking-widest text-muted/50">
-                  Orders
-                </span>
-                {shippableOrders.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={toggleSelectAll}
-                      className="text-[9px] font-black uppercase tracking-wider text-accent hover:underline select-none"
-                    >
-                      {isAllSelected ? 'None' : 'All'}
-                    </button>
-                    {selectedBulkOrderIds.size > 0 && (
-                      <button
-                        onClick={shipTab === 'shipped' ? handleBulkUndoShip : handleBulkShip}
-                        className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border transition-all select-none ${
-                          shipTab === 'shipped'
-                            ? 'text-amber-400 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500 hover:text-white'
-                            : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500 hover:text-white'
-                        }`}
-                      >
-                        {shipTab === 'shipped' ? 'Undo' : 'Ship'} ({selectedBulkOrderIds.size})
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Tab Switcher */}
-              <div className="grid grid-cols-2 p-0.5 bg-bg-main rounded-xl border border-subtle text-[10px] select-none">
-                <button
-                  onClick={() => {
-                    setShipTab('to_ship');
-                    if (selectedOrder?.is_shipped) {
-                      const firstUnshipped = orders.find(
-                        (o) => o.status !== 'cancelled' && !o.is_shipped
-                      );
-                      setSelectedOrder(firstUnshipped || null);
-                    }
-                  }}
-                  className={`py-1 rounded-lg font-black uppercase tracking-wider text-center transition-all ${
-                    shipTab === 'to_ship'
-                      ? 'bg-card text-accent border border-subtle shadow-sm'
-                      : 'text-muted hover:text-content'
-                  }`}
-                >
-                  To Ship
-                </button>
-                <button
-                  onClick={() => {
-                    setShipTab('shipped');
-                    if (!selectedOrder?.is_shipped) {
-                      const firstShipped = orders.find(
-                        (o) => o.status !== 'cancelled' && o.is_shipped
-                      );
-                      setSelectedOrder(firstShipped || null);
-                    }
-                  }}
-                  className={`py-1 rounded-lg font-black uppercase tracking-wider text-center transition-all ${
-                    shipTab === 'shipped'
-                      ? 'bg-card text-emerald-400 border border-subtle shadow-sm'
-                      : 'text-muted hover:text-content'
-                  }`}
-                >
-                  Shipped
-                </button>
-              </div>
-
-              <div className="flex flex-col gap-2 max-h-72 md:max-h-[calc(100vh-16rem)] overflow-y-auto no-scrollbar">
-                {ordersGroupedByDate.length > 0 ? (
-                  <div className="space-y-3">
-                    {ordersGroupedByDate.map((group) => (
-                      <div key={group.key} className="space-y-1.5">
-                        <div className="sticky top-0 z-[1] px-2 py-1 text-[9px] font-black uppercase tracking-widest text-muted/60 bg-card/80 backdrop-blur-sm">
-                          {group.label}
-                        </div>
-                        {group.orders.map((order) => {
-                          const isSelected = selectedOrder?.id === order.id;
-                          const isFedex =
-                            (order.order_group as { group_type?: string } | null)?.group_type ===
-                            'fedex';
-                          return (
-                            <div
-                              key={order.id}
-                              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl border transition-all ${
-                                isSelected
-                                  ? 'bg-accent/10 border-accent/30'
-                                  : 'bg-surface border-transparent hover:border-subtle'
-                              }`}
-                            >
-                              {!order.is_waiting_inventory &&
-                                (shipTab === 'shipped'
-                                  ? !!order.is_shipped
-                                  : !order.is_shipped && order.status === 'completed') && (
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedBulkOrderIds.has(order.id)}
-                                    onChange={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedBulkOrderIds((prev) => {
-                                        const next = new Set(prev);
-                                        if (next.has(order.id)) {
-                                          next.delete(order.id);
-                                        } else {
-                                          next.add(order.id);
-                                        }
-                                        return next;
-                                      });
-                                    }}
-                                    className="w-3.5 h-3.5 rounded border-subtle text-accent focus:ring-accent bg-bg-main cursor-pointer shrink-0"
-                                  />
-                                )}
-                              <div
-                                className="min-w-0 flex-1 flex flex-col cursor-pointer"
-                                onClick={() => {
-                                  setSelectedOrder(order);
-                                  setShipTab(order.is_shipped ? 'shipped' : 'to_ship');
-                                }}
-                              >
-                                <span className="font-mono text-sm font-black text-content flex items-center gap-1 truncate">
-                                  {order.combine_meta?.is_combined && (
-                                    <span title="Combined order">🔗</span>
-                                  )}
-                                  #{order.order_number}
-                                </span>
-                                <span className="text-[11px] text-muted truncate max-w-[120px]">
-                                  {order.customer?.name || '—'}
-                                </span>
-                                <div className="flex flex-col gap-0.5 mt-1 text-[9px] text-muted">
-                                  <span>
-                                    Created:{' '}
-                                    {new Date(order.created_at).toLocaleDateString('en-US', {
-                                      month: 'short',
-                                      day: 'numeric',
-                                    })}
-                                  </span>
-                                  {order.is_shipped && (
-                                    <span className="text-emerald-400 font-bold">
-                                      Shipped:{' '}
-                                      {new Date(order.updated_at).toLocaleDateString('en-US', {
-                                        month: 'short',
-                                        day: 'numeric',
-                                      })}{' '}
-                                      ·{' '}
-                                      {new Date(order.updated_at).toLocaleTimeString('en-US', {
-                                        hour: 'numeric',
-                                        minute: '2-digit',
-                                        hour12: true,
-                                      })}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <TransportLogo
-                                  company={order.transport_company || (isFedex ? 'FEDEX' : null)}
-                                  height={14}
-                                  className="select-none shrink-0"
-                                />
-                                {shipTab === 'shipped' ? (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleUndoShipOrder(order);
-                                    }}
-                                    className="p-1 rounded bg-amber-500/15 border border-amber-500/30 text-amber-500 hover:bg-amber-500 hover:text-white transition-all active:scale-95 flex items-center justify-center"
-                                    title="Undo Shipped"
-                                  >
-                                    <RotateCcw size={14} />
-                                  </button>
-                                ) : (
-                                  <>
-                                    <OrderStatusPill
-                                      status={order.status}
-                                      is_waiting_inventory={order.is_waiting_inventory}
-                                      is_shipped={order.is_shipped}
-                                    />
-                                    {order.status === 'completed' ? (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleShipOrderClick(order);
-                                        }}
-                                        className="p-1 rounded bg-accent/15 border border-accent/30 text-accent hover:bg-accent hover:text-white transition-all active:scale-95 flex items-center justify-center"
-                                        title="Mark as Shipped"
-                                      >
-                                        <Truck size={14} />
-                                      </button>
-                                    ) : (
-                                      <button
-                                        disabled
-                                        className="p-1 rounded bg-muted/10 border border-muted/20 text-muted/40 cursor-not-allowed flex items-center justify-center"
-                                        title="Order must be verified on Live Board before shipping"
-                                      >
-                                        <Truck size={14} />
-                                      </button>
-                                    )}
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-center text-xs text-muted py-6">No orders found.</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Selected order — card + preview */}
-          <div className="flex-1 min-w-0 flex flex-col gap-6 pb-8">
+          {/* Selected order — card + preview (left / top on mobile) */}
+          <div className="flex-1 min-w-0 flex flex-col gap-6 pb-8 order-first">
             {selectedOrder ? (
               <>
                 <LivePrintPreview
@@ -1473,6 +1271,242 @@ export const ShipScreen = () => {
                 </p>
               </div>
             )}
+          </div>
+
+          {/* Vertical order list — grouped by date (right / bottom on mobile) */}
+          <div className="w-full md:w-80 shrink-0 md:sticky md:top-0 order-last">
+            <div className="bg-card border border-subtle rounded-3xl p-3 flex flex-col gap-2">
+              <div className="px-2 pb-1 flex items-center justify-between min-h-[24px]">
+                <span className="text-[10px] font-black uppercase tracking-widest text-muted/50">
+                  Orders
+                </span>
+                {shippableOrders.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={toggleSelectAll}
+                      className="text-[9px] font-black uppercase tracking-wider text-accent hover:underline select-none"
+                    >
+                      {isAllSelected ? 'None' : 'All'}
+                    </button>
+                    {selectedBulkOrderIds.size > 0 && (
+                      <button
+                        onClick={shipTab === 'shipped' ? handleBulkUndoShip : handleBulkShip}
+                        className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border transition-all select-none ${
+                          shipTab === 'shipped'
+                            ? 'text-amber-400 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500 hover:text-white'
+                            : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500 hover:text-white'
+                        }`}
+                      >
+                        {shipTab === 'shipped' ? 'Undo' : 'Ship'} ({selectedBulkOrderIds.size})
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Tab Switcher */}
+              <div className="grid grid-cols-2 p-0.5 bg-bg-main rounded-xl border border-subtle text-[10px] select-none">
+                <button
+                  onClick={() => {
+                    setShipTab('to_ship');
+                    if (selectedOrder?.is_shipped) {
+                      const firstUnshipped = orders.find(
+                        (o) => o.status !== 'cancelled' && !o.is_shipped
+                      );
+                      setSelectedOrder(firstUnshipped || null);
+                    }
+                  }}
+                  className={`py-1 rounded-lg font-black uppercase tracking-wider text-center transition-all ${
+                    shipTab === 'to_ship'
+                      ? 'bg-card text-accent border border-subtle shadow-sm'
+                      : 'text-muted hover:text-content'
+                  }`}
+                >
+                  To Ship
+                </button>
+                <button
+                  onClick={() => {
+                    setShipTab('shipped');
+                    if (!selectedOrder?.is_shipped) {
+                      const firstShipped = orders.find(
+                        (o) => o.status !== 'cancelled' && o.is_shipped
+                      );
+                      setSelectedOrder(firstShipped || null);
+                    }
+                  }}
+                  className={`py-1 rounded-lg font-black uppercase tracking-wider text-center transition-all ${
+                    shipTab === 'shipped'
+                      ? 'bg-card text-emerald-400 border border-subtle shadow-sm'
+                      : 'text-muted hover:text-content'
+                  }`}
+                >
+                  Shipped
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-2 max-h-[40vh] md:max-h-[calc(100vh-16rem)] overflow-y-auto no-scrollbar">
+                {ordersGroupedByDate.length > 0 ? (
+                  <div className="space-y-3">
+                    {ordersGroupedByDate.map((group) => (
+                      <div key={group.key} className="space-y-1.5">
+                        <div className="sticky top-0 z-[1] px-2 py-1 text-[9px] font-black uppercase tracking-widest text-muted/60 bg-card/80 backdrop-blur-sm">
+                          {group.label}
+                        </div>
+                        {group.orders.map((order) => {
+                          const isSelected = selectedOrder?.id === order.id;
+                          const isFedex =
+                            (order.order_group as { group_type?: string } | null)?.group_type ===
+                            'fedex';
+                          // For combined orders, extract individual sub-order numbers
+                          const subOrderNumbers = order.combine_meta?.is_combined
+                            ? String(order.order_number || '')
+                                .split('/')
+                                .map((n) => n.trim())
+                                .filter(Boolean)
+                            : [];
+                          return (
+                            <div
+                              key={order.id}
+                              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl border transition-all ${
+                                isSelected
+                                  ? 'bg-accent/10 border-accent/30'
+                                  : 'bg-surface border-transparent hover:border-subtle'
+                              }`}
+                            >
+                              {!order.is_waiting_inventory &&
+                                (shipTab === 'shipped'
+                                  ? !!order.is_shipped
+                                  : !order.is_shipped && order.status === 'completed') && (
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedBulkOrderIds.has(order.id)}
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedBulkOrderIds((prev) => {
+                                        const next = new Set(prev);
+                                        if (next.has(order.id)) {
+                                          next.delete(order.id);
+                                        } else {
+                                          next.add(order.id);
+                                        }
+                                        return next;
+                                      });
+                                    }}
+                                    className="w-3.5 h-3.5 rounded border-subtle text-accent focus:ring-accent bg-bg-main cursor-pointer shrink-0"
+                                  />
+                                )}
+                              <div
+                                className="min-w-0 flex-1 flex flex-col cursor-pointer"
+                                onClick={() => {
+                                  setSelectedOrder(order);
+                                  setShipTab(order.is_shipped ? 'shipped' : 'to_ship');
+                                }}
+                              >
+                                <span className="font-mono text-sm font-black text-content flex items-center gap-1 flex-wrap">
+                                  {order.combine_meta?.is_combined && (
+                                    <span title="Combined order">🔗</span>
+                                  )}
+                                  #{order.order_number}
+                                </span>
+                                {/* Sub-orders list for combined orders */}
+                                {subOrderNumbers.length > 1 && (
+                                  <div className="flex flex-wrap gap-1 mt-0.5">
+                                    {subOrderNumbers.map((num) => (
+                                      <span
+                                        key={num}
+                                        className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                                      >
+                                        #{num}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                <span className="text-[11px] text-muted truncate max-w-[120px]">
+                                  {order.customer?.name || '—'}
+                                </span>
+                                <div className="flex flex-col gap-0.5 mt-1 text-[9px] text-muted">
+                                  <span>
+                                    Created:{' '}
+                                    {new Date(order.created_at).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                    })}
+                                  </span>
+                                  {order.is_shipped && (
+                                    <span className="text-emerald-400 font-bold">
+                                      Shipped:{' '}
+                                      {new Date(order.updated_at).toLocaleDateString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                      })}{' '}
+                                      ·{' '}
+                                      {new Date(order.updated_at).toLocaleTimeString('en-US', {
+                                        hour: 'numeric',
+                                        minute: '2-digit',
+                                        hour12: true,
+                                      })}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <TransportLogo
+                                  company={order.transport_company || (isFedex ? 'FEDEX' : null)}
+                                  height={14}
+                                  className="select-none shrink-0"
+                                />
+                                {shipTab === 'shipped' ? (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleUndoShipOrder(order);
+                                    }}
+                                    className="p-1 rounded bg-amber-500/15 border border-amber-500/30 text-amber-500 hover:bg-amber-500 hover:text-white transition-all active:scale-95 flex items-center justify-center"
+                                    title="Undo Shipped"
+                                  >
+                                    <RotateCcw size={14} />
+                                  </button>
+                                ) : (
+                                  <>
+                                    <OrderStatusPill
+                                      status={order.status}
+                                      is_waiting_inventory={order.is_waiting_inventory}
+                                      is_shipped={order.is_shipped}
+                                    />
+                                    {order.status === 'completed' ? (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleShipOrderClick(order);
+                                        }}
+                                        className="p-1 rounded bg-accent/15 border border-accent/30 text-accent hover:bg-accent hover:text-white transition-all active:scale-95 flex items-center justify-center"
+                                        title="Mark as Shipped"
+                                      >
+                                        <Truck size={14} />
+                                      </button>
+                                    ) : (
+                                      <button
+                                        disabled
+                                        className="p-1 rounded bg-muted/10 border border-muted/20 text-muted/40 cursor-not-allowed flex items-center justify-center"
+                                        title="Order must be verified on Live Board before shipping"
+                                      >
+                                        <Truck size={14} />
+                                      </button>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-xs text-muted py-6">No orders found.</p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
