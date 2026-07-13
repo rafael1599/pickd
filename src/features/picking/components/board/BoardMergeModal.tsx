@@ -224,10 +224,10 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
         <div className="flex items-center justify-between mb-4 shrink-0">
           <div>
             <h3 className="text-sm font-black text-sky-400 uppercase tracking-widest flex items-center gap-1.5">
-              <span>Unir con otra orden</span>
+              <span>Merge with another order</span>
             </h3>
             <p className="text-[10px] text-muted/70 mt-1">
-              Las órdenes seleccionadas se fusionarán en un solo grupo combinado.
+              Selected orders will be merged into a single combined group.
             </p>
           </div>
           <button
@@ -245,7 +245,7 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
           <input
             type="text"
-            placeholder="Buscar por # orden o cliente..."
+            placeholder="Search by order # or customer..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             disabled={isMerging}
@@ -258,21 +258,21 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
           {loading ? (
             <div className="flex items-center justify-center py-16 text-muted text-xs">
               <div className="w-4 h-4 border-2 border-sky-400 border-t-transparent rounded-full animate-spin mr-2" />
-              Buscando órdenes…
+              Searching orders…
             </div>
           ) : isMerging ? (
             <div className="flex flex-col items-center justify-center py-16 text-muted text-xs gap-3">
               <div className="w-6 h-6 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" />
-              <span>Fusionando y reabriendo si es necesario…</span>
+              <span>Merging and reopening if necessary…</span>
             </div>
           ) : candidates.length === 0 ? (
             <div className="text-center py-12 border border-dashed border-white/5 rounded-xl bg-content/[0.01]">
               <Package className="mx-auto mb-3 opacity-20 text-muted" size={32} />
               <p className="text-[11px] font-bold text-muted/80 uppercase tracking-widest">
-                No se encontraron órdenes
+                No orders found
               </p>
               <p className="text-[10px] text-muted/50 mt-1">
-                Prueba buscando por número de orden exacto o con otro cliente.
+                Try searching by exact order number or another customer.
               </p>
             </div>
           ) : (
@@ -283,7 +283,7 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
                   <div className="flex items-center gap-1.5 mb-2 px-1">
                     <Star size={10} className="text-emerald-400 fill-emerald-400" />
                     <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">
-                      Mismo Cliente{sourceCustomerName ? ` — ${sourceCustomerName}` : ''}
+                      Same Customer{sourceCustomerName ? ` — ${sourceCustomerName}` : ''}
                     </span>
                   </div>
                   <ul className="space-y-1.5">
@@ -301,7 +301,7 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
                 <section>
                   <div className="flex items-center gap-1.5 mb-2 px-1 mt-1">
                     <span className="text-[9px] font-black text-muted/60 uppercase tracking-widest">
-                      Otras Órdenes Activas
+                      Other Active Orders
                     </span>
                   </div>
                   <ul className="space-y-1.5">
@@ -325,7 +325,7 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
             type="button"
             disabled={isMerging}
           >
-            Cancelar
+            Cancel
           </button>
         </div>
       </div>
@@ -377,7 +377,7 @@ const CandidateRow: React.FC<{
         </div>
         {isPastOrder && (
           <div className="text-[8px] font-bold text-amber-500 uppercase tracking-wider mt-0.5">
-            Reabrir al unir
+            Reopen on merge
           </div>
         )}
       </div>

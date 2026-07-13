@@ -80,9 +80,7 @@ export const GroupCard = React.memo<GroupCardProps>(
       >
         {droppable.isOver && (
           <div className="absolute inset-0 bg-accent/10 backdrop-blur-[1px] border-2 border-dashed border-accent flex flex-col items-center justify-center gap-1 z-20 rounded-xl animate-in fade-in duration-200">
-            <span className="text-sm font-black uppercase text-accent select-none">
-              Unir al Grupo
-            </span>
+            <span className="text-sm font-black uppercase text-accent select-none">Join Group</span>
             <span className="text-[9px] text-accent/80 font-black uppercase tracking-widest select-none">
               Drop to join group
             </span>

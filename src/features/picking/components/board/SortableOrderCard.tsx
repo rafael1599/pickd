@@ -227,7 +227,7 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
     >
       {isOver && (
         <div className="absolute inset-0 bg-accent/10 backdrop-blur-[1px] border-2 border-dashed border-accent flex flex-col items-center justify-center gap-1 z-20 animate-in fade-in duration-200">
-          <span className="text-sm font-black uppercase text-accent select-none">Unir Órdenes</span>
+          <span className="text-sm font-black uppercase text-accent select-none">Merge Orders</span>
           <span className="text-[9px] text-accent/80 font-black uppercase tracking-widest select-none">
             Drop to merge
           </span>
