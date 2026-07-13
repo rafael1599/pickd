@@ -143,6 +143,8 @@ interface DoubleCheckViewProps {
   onSetWaitingInventory?: (val: boolean) => void;
   onMarkAsReady?: () => void;
   onSendToVerifyQueue?: () => void;
+  initialAction?: 'edit' | 'photo' | null;
+  onClearInitialAction?: () => void;
   onParkOrder?: () => void;
   onRecomplete?: (items: PickingItem[]) => Promise<void>;
   onCancelReopen?: () => void;
@@ -182,6 +184,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   onCancelReopen,
   onCombineWith,
   correctionNotes: correctionNotesProp,
+  initialAction,
+  onClearInitialAction,
 }) => {
   const {
     ludlowData,
@@ -1083,6 +1087,21 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       openEditFlow();
     }
   }, [status, activeListId, cartItems.length, openEditFlow]);
+
+  // Handle external actions triggered from Verification Board (Edit Order, Take Photo)
+  useEffect(() => {
+    if (!activeListId || !initialAction || cartItems.length === 0) return;
+
+    if (initialAction === 'edit') {
+      openEditFlow();
+    } else if (initialAction === 'photo') {
+      // Trigger hidden camera file input click
+      setTimeout(() => {
+        scanInputRef.current?.click();
+      }, 500);
+    }
+    onClearInitialAction?.();
+  }, [activeListId, initialAction, openEditFlow, onClearInitialAction, cartItems.length]);
 
   // Fetch real stock for insufficient_stock items (client-side inventoryData is paginated)
   const [stockMap, setStockMap] = useState<Record<string, number>>({});

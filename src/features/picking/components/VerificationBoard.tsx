@@ -35,6 +35,13 @@ import { ReasonPicker } from './ReasonPicker';
 import { supabase } from '../../../lib/supabase';
 import { BoardMergeModal, type MergeTargetCandidate } from './board/BoardMergeModal';
 import toast from 'react-hot-toast';
+import { createPortal } from 'react-dom';
+import Pencil from 'lucide-react/dist/esm/icons/pencil';
+import Camera from 'lucide-react/dist/esm/icons/camera';
+import Hourglass from 'lucide-react/dist/esm/icons/hourglass';
+import Play from 'lucide-react/dist/esm/icons/play';
+import GitMerge from 'lucide-react/dist/esm/icons/git-merge';
+import { useUnmarkWaiting } from '../hooks/useWaitingOrders';
 
 // Zone IDs (must stay in sync with useBoardDnD)
 const ZONE_PRIORITY = 'zone-priority';
@@ -125,7 +132,9 @@ interface VerificationBoardProps {
 export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose }) => {
   const { orders, completedOrders, refresh } = useDoubleCheckList();
   const { createGroup, addToGroup, removeFromGroup } = useOrderGroups();
-  const { setExternalDoubleCheckId, setExternalOrderId, setViewMode } = useViewMode();
+  const { setExternalDoubleCheckId, setExternalOrderId, setViewMode, setExternalActionTrigger } =
+    useViewMode();
+  const unmarkWaiting = useUnmarkWaiting();
   const { cartItems, sessionMode, deleteList, reopenOrder, activeListId } = usePickingSession();
   const { showConfirmation } = useConfirmation();
   const { user, isAdmin } = useAuth();
@@ -141,6 +150,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   // (open when the board is quiet, collapsed when it's busy).
   const [completedOverride, setCompletedOverride] = useState<boolean | null>(null);
   const [orderToMerge, setOrderToMerge] = useState<PickingList | null>(null);
+  const [selectedMenuOrder, setSelectedMenuOrder] = useState<PickingList | null>(null);
 
   const handleMergeSelect = async (target: MergeTargetCandidate) => {
     if (!orderToMerge || !user?.id) return;
@@ -426,7 +436,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             onSelect={handleOrderSelect}
             onDelete={handleDelete}
             onUngroup={handleUngroup}
-            onMerge={setOrderToMerge}
+            onMerge={setSelectedMenuOrder}
           />
         ))}
         {ungrouped.map((order) => (
@@ -438,7 +448,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             onSelect={handleOrderSelect}
             onDelete={handleDelete}
             onUngroup={handleUngroup}
-            onMerge={setOrderToMerge}
+            onMerge={setSelectedMenuOrder}
           />
         ))}
       </div>
@@ -474,7 +484,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             <WaitingZone
               orders={waitingOrders}
               onSelect={handleOrderSelect}
-              onMerge={setOrderToMerge}
+              onMerge={setSelectedMenuOrder}
             />
           ) : (
             <div className="text-center text-xs text-muted/40 italic py-1">
@@ -662,7 +672,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                             onSelect={handleOrderSelect}
                             onDelete={handleDelete}
                             onUngroup={handleUngroup}
-                            onMerge={setOrderToMerge}
+                            onMerge={setSelectedMenuOrder}
                           />
                         ))}
                         {ungrouped.map((order) => {
@@ -677,7 +687,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                               onSelect={handleOrderSelect}
                               onDelete={handleDelete}
                               onUngroup={handleUngroup}
-                              onMerge={setOrderToMerge}
+                              onMerge={setSelectedMenuOrder}
                             />
                           ) : (
                             <SortableOrderCard
@@ -687,7 +697,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                               onSelect={handleOrderSelect}
                               onDelete={handleDelete}
                               onUngroup={handleUngroup}
-                              onMerge={setOrderToMerge}
+                              onMerge={setSelectedMenuOrder}
                             />
                           );
                         })}
@@ -871,7 +881,188 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             </div>
           </div>
         )}
+        {selectedMenuOrder && (
+          <OrderActionsMenuModal
+            order={selectedMenuOrder}
+            onClose={() => setSelectedMenuOrder(null)}
+            onEditOrder={() => {
+              const orderId = selectedMenuOrder.id;
+              setSelectedMenuOrder(null);
+              setExternalActionTrigger('edit');
+              setExternalDoubleCheckId(orderId);
+              setViewMode('picking');
+              onClose();
+            }}
+            onTakePhoto={() => {
+              const orderId = selectedMenuOrder.id;
+              setSelectedMenuOrder(null);
+              setExternalActionTrigger('photo');
+              setExternalDoubleCheckId(orderId);
+              setViewMode('picking');
+              onClose();
+            }}
+            onMarkWaiting={() => {
+              const order = selectedMenuOrder;
+              setSelectedMenuOrder(null);
+              dnd.setPendingWaiting({ order });
+            }}
+            onResumeOrder={async () => {
+              const orderId = selectedMenuOrder.id;
+              setSelectedMenuOrder(null);
+              await unmarkWaiting.mutateAsync({ listId: orderId, action: 'resume' });
+              refresh();
+            }}
+            onMergeOrder={() => {
+              setOrderToMerge(selectedMenuOrder);
+              setSelectedMenuOrder(null);
+            }}
+          />
+        )}
       </div>
     </>
+  );
+};
+
+interface OrderActionsMenuModalProps {
+  order: PickingList;
+  onClose: () => void;
+  onEditOrder: () => void;
+  onTakePhoto: () => void;
+  onMarkWaiting: () => void;
+  onResumeOrder: () => void;
+  onMergeOrder: () => void;
+}
+
+const OrderActionsMenuModal: React.FC<OrderActionsMenuModalProps> = ({
+  order,
+  onClose,
+  onEditOrder,
+  onTakePhoto,
+  onMarkWaiting,
+  onResumeOrder,
+  onMergeOrder,
+}) => {
+  const isWaiting = order.is_waiting_inventory;
+  const isPastOrder = order.status === 'completed' || order.status === 'cancelled';
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[260] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-5 w-full max-w-sm flex flex-col shadow-2xl animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4 shrink-0 pb-3 border-b border-white/5">
+          <div>
+            <h3 className="text-sm font-black text-content uppercase tracking-widest">
+              Order Options
+            </h3>
+            <p className="text-[10px] text-muted/70 mt-1">
+              Order #{order.order_number || order.id.toString().slice(-6).toUpperCase()}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 text-muted hover:text-content transition-colors rounded-lg hover:bg-content/[0.05]"
+            type="button"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Options List */}
+        <div className="space-y-1.5">
+          {!isPastOrder && (
+            <>
+              <button
+                onClick={onEditOrder}
+                className="w-full flex items-center gap-3 px-4 py-3 bg-surface border border-subtle hover:bg-surface/80 transition-colors text-left rounded-xl"
+              >
+                <Pencil size={16} className="text-sky-400" />
+                <div>
+                  <div className="text-xs font-black uppercase tracking-wider text-content">
+                    Edit Order
+                  </div>
+                  <div className="text-[9px] text-muted/70">
+                    Adjust items or resolve stock conflicts
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={onTakePhoto}
+                className="w-full flex items-center gap-3 px-4 py-3 bg-surface border border-subtle hover:bg-surface/80 transition-colors text-left rounded-xl"
+              >
+                <Camera size={16} className="text-accent" />
+                <div>
+                  <div className="text-xs font-black uppercase tracking-wider text-content">
+                    Take Photo
+                  </div>
+                  <div className="text-[9px] text-muted/70">Capture and upload pallet photos</div>
+                </div>
+              </button>
+
+              {isWaiting ? (
+                <button
+                  onClick={onResumeOrder}
+                  className="w-full flex items-center gap-3 px-4 py-3 bg-surface border border-subtle hover:bg-surface/80 transition-colors text-left rounded-xl"
+                >
+                  <Play size={16} className="text-emerald-400 animate-pulse" />
+                  <div>
+                    <div className="text-xs font-black uppercase tracking-wider text-content">
+                      Resume Order
+                    </div>
+                    <div className="text-[9px] text-muted/70">Resume double check flow</div>
+                  </div>
+                </button>
+              ) : (
+                <button
+                  onClick={onMarkWaiting}
+                  className="w-full flex items-center gap-3 px-4 py-3 bg-surface border border-subtle hover:bg-surface/80 transition-colors text-left rounded-xl"
+                >
+                  <Hourglass size={16} className="text-amber-400" />
+                  <div>
+                    <div className="text-xs font-black uppercase tracking-wider text-content">
+                      Mark as Waiting
+                    </div>
+                    <div className="text-[9px] text-muted/70">
+                      Hold order for inventory/stock issues
+                    </div>
+                  </div>
+                </button>
+              )}
+            </>
+          )}
+
+          <button
+            onClick={onMergeOrder}
+            className="w-full flex items-center gap-3 px-4 py-3 bg-surface border border-subtle hover:bg-surface/80 transition-colors text-left rounded-xl"
+          >
+            <GitMerge size={16} className="text-purple-400" />
+            <div>
+              <div className="text-xs font-black uppercase tracking-wider text-content">
+                Merge / Combine
+              </div>
+              <div className="text-[9px] text-muted/70">Merge this order with another one</div>
+            </div>
+          </button>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-4 shrink-0 flex gap-2">
+          <button
+            onClick={onClose}
+            className="flex-1 min-h-10 rounded-xl font-black uppercase tracking-widest text-[10px] bg-surface text-muted border border-subtle transition-all hover:bg-surface/80 active:scale-[0.97]"
+            type="button"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 };

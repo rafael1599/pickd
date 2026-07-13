@@ -27,8 +27,14 @@ import { useScrollLock } from '../../../hooks/useScrollLock';
 export const PickingCartDrawer: React.FC = () => {
   const { user } = useAuth();
   const { showConfirmation } = useConfirmation();
-  const { externalDoubleCheckId, setExternalDoubleCheckId, viewMode, stockNavSignal } =
-    useViewMode();
+  const {
+    externalDoubleCheckId,
+    setExternalDoubleCheckId,
+    viewMode,
+    stockNavSignal,
+    externalActionTrigger,
+    setExternalActionTrigger,
+  } = useViewMode();
   const { pathname } = useLocation();
   // Per-item pick/unpick mutation. Inherits the project's mutation
   // defaults (retry × 3 with exponential backoff capped at 30s,
@@ -755,6 +761,8 @@ export const PickingCartDrawer: React.FC = () => {
               cartItems={cartItems}
               orderNumber={orderNumber ?? null}
               activeListId={activeListId ?? null}
+              initialAction={externalActionTrigger}
+              onClearInitialAction={() => setExternalActionTrigger(null)}
               checkedItems={checkedItems}
               onToggleCheck={toggleCheck}
               onDeduct={handleDeduct}
