@@ -638,34 +638,62 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                     Drop here → mark as pulled, ready to verify
                   </div>
                 ) : (
-                  <div className={CARD_GRID}>
-                    {pullingOrders.map((order) => {
-                      const st = pullingShippingTypes.get(order.id) ?? 'regular';
-                      // Actively-picked orders are click-only; ready orders
-                      // keep their drag behavior (reclass / merge / waiting).
-                      return order.status === 'active' ? (
-                        <StaticOrderCard
-                          key={order.id}
-                          order={order}
-                          shippingType={st}
-                          onSelect={handleOrderSelect}
-                          onDelete={handleDelete}
-                          onUngroup={handleUngroup}
-                          onMerge={setOrderToMerge}
-                        />
-                      ) : (
-                        <SortableOrderCard
-                          key={order.id}
-                          order={order}
-                          shippingType={st}
-                          onSelect={handleOrderSelect}
-                          onDelete={handleDelete}
-                          onUngroup={handleUngroup}
-                          onMerge={setOrderToMerge}
-                        />
-                      );
-                    })}
-                  </div>
+                  (() => {
+                    const grouped = new Map<string, PickingList[]>();
+                    const ungrouped: PickingList[] = [];
+
+                    for (const order of pullingOrders) {
+                      if (order.group_id) {
+                        const arr = grouped.get(order.group_id) || [];
+                        arr.push(order);
+                        grouped.set(order.group_id, arr);
+                      } else {
+                        ungrouped.push(order);
+                      }
+                    }
+
+                    return (
+                      <div className={CARD_GRID}>
+                        {Array.from(grouped.entries()).map(([groupId, groupOrders]) => (
+                          <GroupCard
+                            key={groupId}
+                            orders={groupOrders}
+                            groupType={groupOrders[0]?.shipping_type ?? 'regular'}
+                            onSelect={handleOrderSelect}
+                            onDelete={handleDelete}
+                            onUngroup={handleUngroup}
+                            onMerge={setOrderToMerge}
+                          />
+                        ))}
+                        {ungrouped.map((order) => {
+                          const st = pullingShippingTypes.get(order.id) ?? 'regular';
+                          // Actively-picked orders are click-only; ready orders
+                          // keep their drag behavior (reclass / merge / waiting).
+                          return order.status === 'active' ? (
+                            <StaticOrderCard
+                              key={order.id}
+                              order={order}
+                              shippingType={st}
+                              onSelect={handleOrderSelect}
+                              onDelete={handleDelete}
+                              onUngroup={handleUngroup}
+                              onMerge={setOrderToMerge}
+                            />
+                          ) : (
+                            <SortableOrderCard
+                              key={order.id}
+                              order={order}
+                              shippingType={st}
+                              onSelect={handleOrderSelect}
+                              onDelete={handleDelete}
+                              onUngroup={handleUngroup}
+                              onMerge={setOrderToMerge}
+                            />
+                          );
+                        })}
+                      </div>
+                    );
+                  })()
                 )}
               </DropZone>
             )}
