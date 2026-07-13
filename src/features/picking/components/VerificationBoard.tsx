@@ -211,45 +211,91 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     const waiting: PickingList[] = [];
     const pulling: PickingList[] = [];
 
+    // Pre-calculate shipping types for all active orders
+    const orderShippingTypes = new Map<string, 'fedex' | 'regular'>();
     for (const order of orders) {
-      if (order.is_waiting_inventory) {
-        waiting.push(order);
-        continue;
-      }
-
-      // Determine shipping type: persisted or auto-classified
-      const shippingType =
+      const st =
         order.shipping_type ??
         autoClassifyShippingType(
           order.items?.map((i) => ({
             sku: i.sku,
             pickingQty: (i as Record<string, unknown>).pickingQty as number,
           })) ?? [],
-          {} // No weight data available here — falls back to count-only rule
+          {}
         );
+      orderShippingTypes.set(order.id, st === 'fedex' ? 'fedex' : 'regular');
+    }
 
-      // If the owner is "Warehouse Team" and no items have been checked/verified yet,
-      // put it in priority (first section at the top)
+    // Unify group-level states for combined orders
+    const groupWaiting = new Map<string, boolean>();
+    const groupShippingType = new Map<string, 'fedex' | 'regular'>();
+    const groupStatus = new Map<string, string>();
+    const groupIsPriority = new Map<string, boolean>();
+
+    for (const order of orders) {
+      if (order.group_id) {
+        if (order.is_waiting_inventory) {
+          groupWaiting.set(order.group_id, true);
+        }
+        if (orderShippingTypes.get(order.id) === 'fedex') {
+          groupShippingType.set(order.group_id, 'fedex');
+        }
+        const currentStatus = groupStatus.get(order.group_id);
+        if (order.status === 'active') {
+          groupStatus.set(order.group_id, 'active');
+        } else if (order.status === 'ready_to_double_check' && currentStatus !== 'active') {
+          groupStatus.set(order.group_id, 'ready_to_double_check');
+        } else if (!currentStatus) {
+          groupStatus.set(order.group_id, order.status);
+        }
+        const hasProgress = order.verified_item_keys && order.verified_item_keys.length > 0;
+        if (order.profiles?.full_name === 'Warehouse Team' && !hasProgress) {
+          groupIsPriority.set(order.group_id, true);
+        }
+      }
+    }
+
+    // Classify orders
+    for (const order of orders) {
+      const isWaiting = order.group_id
+        ? (groupWaiting.get(order.group_id) ?? order.is_waiting_inventory)
+        : order.is_waiting_inventory;
+
+      const shippingType = order.group_id
+        ? (groupShippingType.get(order.group_id) ?? orderShippingTypes.get(order.id)!)
+        : orderShippingTypes.get(order.id)!;
+
+      const status = (
+        order.group_id ? (groupStatus.get(order.group_id) ?? order.status) : order.status
+      ) as PickingList['status'];
+
+      const isPriority = order.group_id ? (groupIsPriority.get(order.group_id) ?? false) : false;
+
       const hasProgress = order.verified_item_keys && order.verified_item_keys.length > 0;
-      if (order.profiles?.full_name === 'Warehouse Team' && !hasProgress) {
-        priority.push(order);
-        priorityShipTypes.set(order.id, shippingType === 'fedex' ? 'fedex' : 'regular');
+      const isWarehousePriority = order.profiles?.full_name === 'Warehouse Team' && !hasProgress;
+
+      if (isWaiting) {
+        waiting.push({ ...order, is_waiting_inventory: true });
         continue;
       }
 
-      // "Pulling" — every order of the day still being worked: actively
-      // picked (status 'active') and finished-picking-awaiting-verification
-      // (status 'ready_to_double_check'). One unified zone.
-      if (order.status === 'active' || order.status === 'ready_to_double_check') {
-        pulling.push(order);
-        pullingShipTypes.set(order.id, shippingType === 'fedex' ? 'fedex' : 'regular');
+      if (isWarehousePriority || isPriority) {
+        priority.push({ ...order, status });
+        priorityShipTypes.set(order.id, shippingType);
         continue;
       }
 
-      // Remaining statuses (needs_correction / double_checking) go to their
-      // lane. needs_correction shows the ⚠️ icon in-card.
-      if (shippingType === 'fedex') fedex.push(order);
-      else regular.push(order);
+      if (status === 'active' || status === 'ready_to_double_check') {
+        pulling.push({ ...order, status });
+        pullingShipTypes.set(order.id, shippingType);
+        continue;
+      }
+
+      if (shippingType === 'fedex') {
+        fedex.push({ ...order, status });
+      } else {
+        regular.push({ ...order, status });
+      }
     }
 
     // Oldest first (pick up what's been waiting longest).
