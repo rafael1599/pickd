@@ -5,6 +5,7 @@ import Clock from 'lucide-react/dist/esm/icons/clock';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import Unlink from 'lucide-react/dist/esm/icons/unlink';
+import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
 import type { PickingList } from '../../hooks/useDoubleCheckList';
 
 import { TransportLogo } from '../../../../components/orders/TransportLogo';
@@ -22,6 +23,7 @@ interface CardProps {
   onSelect: (order: PickingList) => void;
   onDelete?: (order: PickingList) => void;
   onUngroup?: (order: PickingList) => void;
+  onMerge?: (order: PickingList) => void;
   showDate?: boolean;
 }
 
@@ -233,8 +235,20 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
       {showShippingBadge && <div className={`h-1.5 shrink-0 ${colors.stripe}`} />}
 
       {/* Floating Action Buttons Overlay (Absolute Top-Right) */}
-      {((order.group_id && onUngroup) || onDelete) && (
+      {(onMerge || (order.group_id && onUngroup) || onDelete) && (
         <div className="absolute top-2 right-2 flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity bg-card/90 backdrop-blur-sm rounded-xl p-1 lg:p-0.5 shadow-md border border-subtle z-10">
+          {onMerge && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMerge(order);
+              }}
+              className="p-2 lg:p-1 text-muted hover:text-sky-400 transition-colors rounded-lg hover:bg-content/[0.05]"
+              title="Merge/Combine Order"
+            >
+              <MoreVertical className="w-5 h-5 lg:w-3.5 lg:h-3.5" />
+            </button>
+          )}
           {order.group_id && onUngroup && (
             <button
               onClick={(e) => {

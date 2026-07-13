@@ -5,6 +5,7 @@ import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import Clock from 'lucide-react/dist/esm/icons/clock';
+import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
 import type { PickingList } from '../../hooks/useDoubleCheckList';
 import { getWorkerLabel } from './SortableOrderCard';
 
@@ -14,6 +15,7 @@ interface GroupCardProps {
   onSelect: (order: PickingList) => void;
   onDelete: (order: PickingList) => void;
   onUngroup: (order: PickingList) => void;
+  onMerge?: (order: PickingList) => void;
 }
 
 // Group label drops the carrier prefix — FedEx groups already live on the
@@ -34,7 +36,7 @@ const GROUP_COLORS: Record<string, { border: string; bg: string; label: string; 
 };
 
 export const GroupCard = React.memo<GroupCardProps>(
-  ({ orders, groupType, onSelect, onDelete, onUngroup }) => {
+  ({ orders, groupType, onSelect, onDelete, onUngroup, onMerge }) => {
     const firstOrder = orders[0] ?? null;
     const colors = GROUP_COLORS[groupType] ?? GROUP_COLORS.general;
     const groupId = firstOrder?.group_id ?? 'empty';
@@ -159,6 +161,18 @@ export const GroupCard = React.memo<GroupCardProps>(
                     <ChevronDown size={16} className="-rotate-90 text-subtle" />
                   </div>
                 </button>
+                {onMerge && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onMerge(order);
+                    }}
+                    className="p-1 text-muted hover:text-sky-400 transition-colors"
+                    title="Merge/Combine Order"
+                  >
+                    <MoreVertical size={14} />
+                  </button>
+                )}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

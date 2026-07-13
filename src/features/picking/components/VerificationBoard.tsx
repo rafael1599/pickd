@@ -33,6 +33,7 @@ import { CrossLaneConfirmModal } from './board/CrossLaneConfirmModal';
 import { WaitingReasonModal } from './WaitingReasonModal';
 import { ReasonPicker } from './ReasonPicker';
 import { supabase } from '../../../lib/supabase';
+import { BoardMergeModal, type MergeTargetCandidate } from './board/BoardMergeModal';
 import toast from 'react-hot-toast';
 
 // Zone IDs (must stay in sync with useBoardDnD)
@@ -123,11 +124,11 @@ interface VerificationBoardProps {
 
 export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose }) => {
   const { orders, completedOrders, refresh } = useDoubleCheckList();
-  const { removeFromGroup } = useOrderGroups();
+  const { createGroup, addToGroup, removeFromGroup } = useOrderGroups();
   const { setExternalDoubleCheckId, setExternalOrderId, setViewMode } = useViewMode();
   const { cartItems, sessionMode, deleteList, reopenOrder, activeListId } = usePickingSession();
   const { showConfirmation } = useConfirmation();
-  const { isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   // DnD logic — all zone reclassification, merge, prompts
@@ -139,6 +140,45 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   // Manual toggle for Completed Today. null = follow the auto rule
   // (open when the board is quiet, collapsed when it's busy).
   const [completedOverride, setCompletedOverride] = useState<boolean | null>(null);
+  const [orderToMerge, setOrderToMerge] = useState<PickingList | null>(null);
+
+  const handleMergeSelect = async (target: MergeTargetCandidate) => {
+    if (!orderToMerge) return;
+    try {
+      // 1. Reopen or restore the target order if completed or cancelled
+      if (target.status === 'completed') {
+        const { error } = await supabase.rpc('reopen_picking_list', {
+          p_list_id: target.id,
+          p_reopened_by: user?.id,
+          p_reason: `Merged with #${orderToMerge.order_number || 'unknown'}`,
+        });
+        if (error) throw error;
+      } else if (target.status === 'cancelled') {
+        const { error } = await supabase.rpc('restore_cancelled_order', {
+          p_list_id: target.id,
+          p_restored_by: user?.id,
+          p_reason: `Merged with #${orderToMerge.order_number || 'unknown'}`,
+        });
+        if (error) throw error;
+      }
+
+      // 2. Perform the group binding
+      if (orderToMerge.group_id) {
+        await addToGroup(orderToMerge.group_id, target.id);
+      } else if (target.group_id) {
+        await addToGroup(target.group_id, orderToMerge.id);
+      } else {
+        await createGroup('general', [orderToMerge.id, target.id]);
+      }
+
+      // 3. Refresh Board
+      refresh();
+      toast.success(`Successfully merged with #${target.order_number}`);
+    } catch (err) {
+      console.error('Merge action failed:', err);
+      toast.error('Failed to merge orders. Please try again.');
+    }
+  };
 
   // ─── Classify orders into zones ────────────────────────────────────
   const {
@@ -386,6 +426,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             onSelect={handleOrderSelect}
             onDelete={handleDelete}
             onUngroup={handleUngroup}
+            onMerge={setOrderToMerge}
           />
         ))}
         {ungrouped.map((order) => (
@@ -397,6 +438,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             onSelect={handleOrderSelect}
             onDelete={handleDelete}
             onUngroup={handleUngroup}
+            onMerge={setOrderToMerge}
           />
         ))}
       </div>
@@ -429,7 +471,11 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       {!waitingCollapsed && (
         <div className="px-2 pb-2 md:px-4 md:pb-3">
           {waitingOrders.length > 0 ? (
-            <WaitingZone orders={waitingOrders} onSelect={handleOrderSelect} />
+            <WaitingZone
+              orders={waitingOrders}
+              onSelect={handleOrderSelect}
+              onMerge={setOrderToMerge}
+            />
           ) : (
             <div className="text-center text-xs text-muted/40 italic py-1">
               Drop here → waiting for inventory
@@ -605,6 +651,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                           onSelect={handleOrderSelect}
                           onDelete={handleDelete}
                           onUngroup={handleUngroup}
+                          onMerge={setOrderToMerge}
                         />
                       ) : (
                         <SortableOrderCard
@@ -614,6 +661,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                           onSelect={handleOrderSelect}
                           onDelete={handleDelete}
                           onUngroup={handleUngroup}
+                          onMerge={setOrderToMerge}
                         />
                       );
                     })}
@@ -726,6 +774,14 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             listId={dnd.pendingWaiting.order.id}
             onClose={dnd.cancelPending}
             onMarked={refresh}
+          />
+        )}
+
+        {orderToMerge && (
+          <BoardMergeModal
+            sourceOrder={orderToMerge}
+            onClose={() => setOrderToMerge(null)}
+            onMerge={handleMergeSelect}
           />
         )}
 
