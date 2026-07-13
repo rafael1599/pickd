@@ -134,6 +134,7 @@ const OrderCardShell: React.FC<OrderCardShellProps> = ({
   onSelect,
   onDelete,
   onUngroup,
+  onMerge,
   showDate = false,
   setNodeRef,
   style,

@@ -143,7 +143,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   const [orderToMerge, setOrderToMerge] = useState<PickingList | null>(null);
 
   const handleMergeSelect = async (target: MergeTargetCandidate) => {
-    if (!orderToMerge) return;
+    if (!orderToMerge || !user?.id) return;
     try {
       // 1. Reopen or restore the target order if completed or cancelled
       if (target.status === 'completed') {

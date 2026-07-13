@@ -4,7 +4,6 @@ import X from 'lucide-react/dist/esm/icons/x';
 import Star from 'lucide-react/dist/esm/icons/star';
 import Search from 'lucide-react/dist/esm/icons/search';
 import Package from 'lucide-react/dist/esm/icons/package';
-import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 
 import { supabase } from '../../../../lib/supabase';
 import type { PickingList } from '../../hooks/useDoubleCheckList';
@@ -48,8 +47,10 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
   const [isMerging, setIsMerging] = useState(false);
 
   const sourceOrderId = sourceOrder.id;
-  const sourceCustomerId = sourceOrder.customer_id;
-  const sourceCustomerName = sourceOrder.customer?.name ?? null;
+  const [sourceCustomerId, setSourceCustomerId] = useState<string | null>(null);
+  const [sourceCustomerName, setSourceCustomerName] = useState<string | null>(
+    sourceOrder.customer?.name ?? null
+  );
 
   // Search/fetch candidates from Supabase
   useEffect(() => {
@@ -57,6 +58,25 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
     const fetchCandidates = async () => {
       setLoading(true);
       try {
+        let currentCustomerId = sourceCustomerId;
+        let currentCustomerName = sourceCustomerName;
+
+        if (currentCustomerId === null) {
+          const { data: sourceData } = await supabase
+            .from('picking_lists')
+            .select('customer_id, customer:customers(name)')
+            .eq('id', sourceOrderId)
+            .single();
+          if (sourceData) {
+            currentCustomerId = (sourceData as any).customer_id;
+            currentCustomerName = (sourceData as any).customer?.name ?? null;
+            if (!cancelled) {
+              setSourceCustomerId(currentCustomerId);
+              setSourceCustomerName(currentCustomerName);
+            }
+          }
+        }
+
         const SELECT_COLS =
           'id, order_number, status, customer_id, group_id, items, updated_at, customer:customers(name)';
 
@@ -116,11 +136,11 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
             .limit(50);
 
           let sameCustomerP = Promise.resolve({ data: [] as RawRow[] });
-          if (sourceCustomerId) {
+          if (currentCustomerId) {
             sameCustomerP = supabase
               .from('picking_lists')
               .select(SELECT_COLS)
-              .eq('customer_id', sourceCustomerId)
+              .eq('customer_id', currentCustomerId)
               .in('status', ['completed', 'cancelled'])
               .neq('id', sourceOrderId)
               .order('updated_at', { ascending: false })
