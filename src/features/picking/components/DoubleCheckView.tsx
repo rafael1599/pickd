@@ -1711,6 +1711,21 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 </button>
               </div>
             ))}
+
+            <button
+              type="button"
+              onClick={() => scanInputRef.current?.click()}
+              disabled={isScanning}
+              className="w-16 h-16 rounded-xl border border-dashed border-subtle bg-surface flex items-center justify-center text-content/60 hover:text-accent hover:border-accent transition-colors disabled:opacity-50"
+              title="Take another photo"
+              aria-label="Take another photo"
+            >
+              {isScanning ? (
+                <Loader2 size={16} className="animate-spin text-accent" />
+              ) : (
+                <span className="text-2xl font-light leading-none">+</span>
+              )}
+            </button>
           </div>
         )}
 

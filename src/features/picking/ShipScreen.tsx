@@ -7,7 +7,7 @@ import Info from 'lucide-react/dist/esm/icons/info';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { LivePrintPreview } from '../../components/orders/LivePrintPreview.tsx';
-import { PalletPhotosBlock } from '../../components/orders/PalletPhotosBlock.tsx';
+
 import { generateShipLabel } from '../../components/orders/generateShipLabel';
 import { usePickingSession } from '../../context/PickingContext.tsx';
 import { useViewMode } from '../../context/ViewModeContext.tsx';
@@ -28,6 +28,7 @@ import { ReasonPicker } from './components/ReasonPicker';
 import { DoubleCheckHeader } from './components/DoubleCheckHeader';
 import { ShippingFlowPreviewModal } from './components/ShippingFlowPreviewModal';
 import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.service';
+import { useUnmarkWaiting } from './hooks/useWaitingOrders';
 
 function dayKey(date: Date): string {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
@@ -104,7 +105,14 @@ export const ShipScreen = () => {
   const { isEnabled: isShipSmsEnabled, triggerForList: triggerShipOutSms } = useShipOutSms();
   const { takeOverOrder, loadReopenedOrder, resumeReopenedOrder, restoreCancelledOrder } =
     usePickingSession();
-  const { externalOrderId, setExternalOrderId, setViewMode } = useViewMode();
+  const {
+    externalOrderId,
+    setExternalOrderId,
+    setExternalDoubleCheckId,
+    setExternalActionTrigger,
+    setViewMode,
+  } = useViewMode();
+  const unmarkWaiting = useUnmarkWaiting();
   const [orders, setOrders] = useState<OrderWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<OrderWithRelations | null>(null);
@@ -118,14 +126,10 @@ export const ShipScreen = () => {
   const [restoreReason, setRestoreReason] = useState('');
   const [pendingShipmentOrder, setPendingShipmentOrder] = useState<OrderWithRelations | null>(null);
   const shipCameraInputRef = useRef<HTMLInputElement>(null);
-  const [selectedBulkOrderIds, setSelectedBulkOrderIds] = useState<Set<string>>(new Set());
   const [shipTab, setShipTab] = useState<'to_ship' | 'shipped'>('to_ship');
   const [hoveredTabInfo, setHoveredTabInfo] = useState<'to_ship' | 'shipped' | null>(null);
   const [showShippingPreview, setShowShippingPreview] = useState(false);
-
-  useEffect(() => {
-    setSelectedBulkOrderIds(new Set());
-  }, [shipTab]);
+  const [isShippingBatch, setIsShippingBatch] = useState(false);
 
   useEffect(() => {
     if (loading || orders.length === 0) return;
@@ -546,13 +550,6 @@ export const ShipScreen = () => {
     return Array.from(map.values());
   }, [visibleOrders]);
 
-  const shippableOrders = useMemo(() => {
-    if (shipTab === 'shipped') {
-      return visibleOrders;
-    }
-    return visibleOrders.filter((o) => !o.is_waiting_inventory && o.status === 'completed');
-  }, [visibleOrders, shipTab]);
-
   const toShipCount = useMemo(() => {
     if (shipTab === 'to_ship') return filteredOrders.length;
 
@@ -650,96 +647,37 @@ export const ShipScreen = () => {
     return parts.join(' · ');
   }, [showFedex, searchQuery, visibleOrders.length]);
 
-  const isAllSelected = useMemo(() => {
-    if (shippableOrders.length === 0) return false;
-    return shippableOrders.every((o) => selectedBulkOrderIds.has(o.id));
-  }, [shippableOrders, selectedBulkOrderIds]);
-
-  const toggleSelectAll = () => {
-    setSelectedBulkOrderIds((prev) => {
-      const next = new Set(prev);
-      const allShippableIds = shippableOrders.map((o) => o.id);
-      const areAllCurrentlySelected = allShippableIds.every((id) => next.has(id));
-
-      if (areAllCurrentlySelected) {
-        allShippableIds.forEach((id) => next.delete(id));
-      } else {
-        allShippableIds.forEach((id) => next.add(id));
-      }
-      return next;
-    });
-  };
-
-  const handleBulkShip = async () => {
-    const idsToShip = Array.from(selectedBulkOrderIds);
+  const handleBatchShip = async (idsToShip: string[]) => {
     if (idsToShip.length === 0) return;
 
-    const confirmBulk = window.confirm(
-      `Are you sure you want to mark ${idsToShip.length} selected orders as Shipped?`
-    );
-    if (confirmBulk) {
-      const toastId = toast.loading(`Shipping ${idsToShip.length} orders...`);
-      try {
-        // Also include all group siblings for any grouped orders
-        const groupIds = idsToShip
-          .map((id) => orders.find((o) => o.id === id)?.group_id)
-          .filter((gid): gid is string => !!gid);
-        const siblingIds = orders
-          .filter((o) => o.group_id && groupIds.includes(o.group_id))
-          .map((o) => o.id);
-        const allIds = [...new Set([...idsToShip, ...siblingIds])];
+    setIsShippingBatch(true);
+    const toastId = toast.loading(`Shipping ${idsToShip.length} orders...`);
+    try {
+      const groupIds = idsToShip
+        .map((id) => orders.find((o) => o.id === id)?.group_id)
+        .filter((gid): gid is string => !!gid);
+      const siblingIds = orders
+        .filter((o) => o.group_id && groupIds.includes(o.group_id))
+        .map((o) => o.id);
+      const allIds = [...new Set([...idsToShip, ...siblingIds])];
 
-        const { error } = await supabase
-          .from('picking_lists')
-          .update({ status: 'completed', is_shipped: true, is_waiting_inventory: false } as any)
-          .in('id', allIds);
+      const { error } = await supabase
+        .from('picking_lists')
+        .update({ status: 'completed', is_shipped: true, is_waiting_inventory: false } as any)
+        .in('id', allIds);
 
-        if (error) throw error;
+      if (error) throw error;
 
-        toast.success(`Successfully marked ${idsToShip.length} orders as Shipped!`, {
-          id: toastId,
-        });
-        setSelectedBulkOrderIds(new Set());
-        fetchOrders();
-      } catch (err) {
-        console.error('Error bulk shipping orders:', err);
-        toast.error('Failed to ship orders', { id: toastId });
-      }
-    }
-  };
-
-  const handleBulkUndoShip = async () => {
-    const idsToUndo = Array.from(selectedBulkOrderIds);
-    if (idsToUndo.length === 0) return;
-
-    const confirmBulkUndo = window.confirm(
-      `Are you sure you want to undo Shipped status for ${idsToUndo.length} selected orders?`
-    );
-    if (confirmBulkUndo) {
-      const toastId = toast.loading(`Undoing shipping for ${idsToUndo.length} orders...`);
-      try {
-        const groupIds = idsToUndo
-          .map((id) => orders.find((o) => o.id === id)?.group_id)
-          .filter((gid): gid is string => !!gid);
-        const siblingIds = orders
-          .filter((o) => o.group_id && groupIds.includes(o.group_id))
-          .map((o) => o.id);
-        const allIds = [...new Set([...idsToUndo, ...siblingIds])];
-
-        const { error } = await supabase
-          .from('picking_lists')
-          .update({ is_shipped: false } as any)
-          .in('id', allIds);
-
-        if (error) throw error;
-
-        toast.success(`Successfully restored ${idsToUndo.length} orders!`, { id: toastId });
-        setSelectedBulkOrderIds(new Set());
-        fetchOrders();
-      } catch (err) {
-        console.error('Error bulk undoing shipping:', err);
-        toast.error('Failed to restore orders', { id: toastId });
-      }
+      toast.success(`Successfully marked ${idsToShip.length} orders as Shipped!`, {
+        id: toastId,
+      });
+      setShowShippingPreview(false);
+      await fetchOrders();
+    } catch (err) {
+      console.error('Error bulk shipping orders:', err);
+      toast.error('Failed to ship orders', { id: toastId });
+    } finally {
+      setIsShippingBatch(false);
     }
   };
 
@@ -1047,6 +985,24 @@ export const ShipScreen = () => {
     }
   };
 
+  const openOrderInDoubleCheck = useCallback(
+    (order: OrderWithRelations, initialAction: 'edit' | 'photo' | null = null) => {
+      setExternalActionTrigger(initialAction);
+      setExternalDoubleCheckId(order.id);
+      setViewMode('picking');
+      navigate('/');
+    },
+    [navigate, setExternalActionTrigger, setExternalDoubleCheckId, setViewMode]
+  );
+
+  const handleResumeWaitingOrder = useCallback(
+    async (order: OrderWithRelations) => {
+      await unmarkWaiting.mutateAsync({ listId: order.id, action: 'resume' });
+      openOrderInDoubleCheck(order);
+    },
+    [openOrderInDoubleCheck, unmarkWaiting]
+  );
+
   const handleShipOrderClick = async (order: OrderWithRelations) => {
     if (order.status !== 'completed' && !order.is_waiting_inventory) {
       toast.error(
@@ -1218,6 +1174,7 @@ export const ShipScreen = () => {
             <h1 className="text-2xl font-black uppercase tracking-tight text-content">Ship</h1>
             <div className="flex items-center gap-3">
               <DoubleCheckHeader />
+
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
                   type="checkbox"
@@ -1309,14 +1266,11 @@ export const ShipScreen = () => {
                   onReopenOrder={handleReopenOrder}
                   onRestoreOrder={handleRestoreOrder}
                   onContinueEditing={handleContinueEditing}
+                  onAddPhoto={() => shipCameraInputRef.current?.click()}
+                  isAddingPhoto={false}
                   autoBikeCount={autoBikeCount}
                   autoPartCount={autoPartCount}
                   autoWeight={totalWeight}
-                />
-
-                <PalletPhotosBlock
-                  photos={selectedOrder.pallet_photos ?? []}
-                  orderNumber={selectedOrder.order_number ?? undefined}
                 />
 
                 {/* Parts Weight Editor (idea-028) */}
@@ -1395,34 +1349,14 @@ export const ShipScreen = () => {
                     Orders
                   </span>
                 </div>
-                {shippableOrders.length > 0 && (
+                {shipTab === 'to_ship' && eligibleShippingOrders.length > 0 && (
                   <div className="flex items-center gap-2">
-                    {shipTab === 'to_ship' && eligibleShippingOrders.length > 0 && (
-                      <button
-                        onClick={() => setShowShippingPreview(true)}
-                        className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border border-accent/30 bg-accent/10 text-accent hover:bg-accent hover:text-white transition-all select-none"
-                      >
-                        Start Shipping ({eligibleShippingOrders.length})
-                      </button>
-                    )}
                     <button
-                      onClick={toggleSelectAll}
-                      className="text-[9px] font-black uppercase tracking-wider text-accent hover:underline select-none"
+                      onClick={() => setShowShippingPreview(true)}
+                      className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border border-accent/30 bg-accent/10 text-accent hover:bg-accent hover:text-white transition-all select-none"
                     >
-                      {isAllSelected ? 'None' : 'All'}
+                      Start Shipping ({eligibleShippingOrders.length})
                     </button>
-                    {selectedBulkOrderIds.size > 0 && (
-                      <button
-                        onClick={shipTab === 'shipped' ? handleBulkUndoShip : handleBulkShip}
-                        className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border transition-all select-none ${
-                          shipTab === 'shipped'
-                            ? 'text-amber-400 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500 hover:text-white'
-                            : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500 hover:text-white'
-                        }`}
-                      >
-                        {shipTab === 'shipped' ? 'Undo' : 'Ship'} ({selectedBulkOrderIds.size})
-                      </button>
-                    )}
                   </div>
                 )}
               </div>
@@ -1446,8 +1380,9 @@ export const ShipScreen = () => {
                   <span className="inline-flex items-center gap-1">
                     To Ship ({toShipCount})
                     <span className="relative inline-flex items-center">
-                      <button
-                        type="button"
+                      <span
+                        role="button"
+                        tabIndex={0}
                         aria-label="How To Ship is calculated"
                         onClick={(e) => e.stopPropagation()}
                         onMouseEnter={(e) => {
@@ -1462,10 +1397,17 @@ export const ShipScreen = () => {
                         onBlur={() =>
                           setHoveredTabInfo((current) => (current === 'to_ship' ? null : current))
                         }
-                        className="inline-flex items-center justify-center rounded-full border border-subtle bg-bg-main px-1.5 py-0.5 text-[10px] font-black text-content/80 hover:border-accent/40 hover:text-accent"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setHoveredTabInfo('to_ship');
+                          }
+                        }}
+                        className="inline-flex items-center justify-center rounded-full border border-subtle bg-bg-main px-1.5 py-0.5 text-[10px] font-black text-content/80 hover:border-accent/40 hover:text-accent cursor-help"
                       >
                         <Info size={10} className="text-current" />
-                      </button>
+                      </span>
                     </span>
                   </span>
                 </button>
@@ -1493,8 +1435,9 @@ export const ShipScreen = () => {
                   <span className="inline-flex items-center gap-1">
                     Shipped ({shippedCount})
                     <span className="relative inline-flex items-center">
-                      <button
-                        type="button"
+                      <span
+                        role="button"
+                        tabIndex={0}
                         aria-label="How Shipped is calculated"
                         onClick={(e) => e.stopPropagation()}
                         onMouseEnter={(e) => {
@@ -1509,10 +1452,17 @@ export const ShipScreen = () => {
                         onBlur={() =>
                           setHoveredTabInfo((current) => (current === 'shipped' ? null : current))
                         }
-                        className="inline-flex items-center justify-center rounded-full border border-subtle bg-bg-main px-1.5 py-0.5 text-[10px] font-black text-content/80 hover:border-accent/40 hover:text-accent"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setHoveredTabInfo('shipped');
+                          }
+                        }}
+                        className="inline-flex items-center justify-center rounded-full border border-subtle bg-bg-main px-1.5 py-0.5 text-[10px] font-black text-content/80 hover:border-accent/40 hover:text-accent cursor-help"
                       >
                         <Info size={10} className="text-current" />
-                      </button>
+                      </span>
                     </span>
                   </span>
                 </button>
@@ -1562,28 +1512,6 @@ export const ShipScreen = () => {
                                   : 'bg-surface border-transparent hover:border-subtle'
                               }`}
                             >
-                              {!order.is_waiting_inventory &&
-                                (shipTab === 'shipped'
-                                  ? !!order.is_shipped
-                                  : !order.is_shipped && order.status === 'completed') && (
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedBulkOrderIds.has(order.id)}
-                                    onChange={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedBulkOrderIds((prev) => {
-                                        const next = new Set(prev);
-                                        if (next.has(order.id)) {
-                                          next.delete(order.id);
-                                        } else {
-                                          next.add(order.id);
-                                        }
-                                        return next;
-                                      });
-                                    }}
-                                    className="w-3.5 h-3.5 rounded border-subtle text-accent focus:ring-accent bg-bg-main cursor-pointer shrink-0"
-                                  />
-                                )}
                               <div
                                 className="min-w-0 flex-1 flex flex-col cursor-pointer"
                                 onClick={() => {
@@ -1638,18 +1566,78 @@ export const ShipScreen = () => {
                                           e.stopPropagation();
                                           handleShipOrderClick(order);
                                         }}
-                                        className="p-1 rounded bg-accent/15 border border-accent/30 text-accent hover:bg-accent hover:text-white transition-all active:scale-95 flex items-center justify-center"
+                                        className="px-2 py-1 rounded-lg bg-accent/15 border border-accent/30 text-accent hover:bg-accent hover:text-white transition-all active:scale-95 flex items-center justify-center text-[9px] font-black uppercase tracking-wider"
                                         title="Mark as Shipped"
                                       >
                                         <Truck size={14} />
                                       </button>
+                                    ) : order.status === 'reopened' ? (
+                                      <button
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          if (order.id !== selectedOrder?.id) {
+                                            setSelectedOrder(order);
+                                          }
+                                          try {
+                                            if (order.user_id !== user?.id) {
+                                              await takeOverOrder(order.id);
+                                            }
+                                            await resumeReopenedOrder(order.id);
+                                            setViewMode('picking');
+                                            navigate('/');
+                                          } catch {
+                                            // Errors are handled by the shared actions.
+                                          }
+                                        }}
+                                        className="px-2 py-1 rounded-lg bg-orange-500/10 border border-orange-500/30 text-orange-400 hover:bg-orange-500 hover:text-white transition-all active:scale-95 flex items-center justify-center text-[9px] font-black uppercase tracking-wider"
+                                        title={
+                                          order.user_id !== user?.id
+                                            ? 'Take Over Order'
+                                            : 'Continue Editing'
+                                        }
+                                      >
+                                        {order.user_id !== user?.id
+                                          ? 'Take Over Order'
+                                          : 'Continue Editing'}
+                                      </button>
+                                    ) : order.is_waiting_inventory ? (
+                                      <button
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          try {
+                                            await handleResumeWaitingOrder(order);
+                                          } catch {
+                                            // Error toast comes from the waiting mutation.
+                                          }
+                                        }}
+                                        className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all active:scale-95 flex items-center justify-center text-[9px] font-black uppercase tracking-wider"
+                                        title="Resume Order"
+                                      >
+                                        Resume Order
+                                      </button>
+                                    ) : ['ready_to_double_check', 'double_checking'].includes(
+                                        order.status
+                                      ) ? (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          openOrderInDoubleCheck(order);
+                                        }}
+                                        className="px-2 py-1 rounded-lg bg-sky-500/10 border border-sky-500/30 text-sky-400 hover:bg-sky-500 hover:text-white transition-all active:scale-95 flex items-center justify-center text-[9px] font-black uppercase tracking-wider"
+                                        title="Double Check"
+                                      >
+                                        Double Check
+                                      </button>
                                     ) : (
                                       <button
-                                        disabled
-                                        className="p-1 rounded bg-muted/10 border border-muted/20 text-muted/40 cursor-not-allowed flex items-center justify-center"
-                                        title="Order must be verified on Live Board before shipping"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          openOrderInDoubleCheck(order, 'edit');
+                                        }}
+                                        className="px-2 py-1 rounded-lg bg-sky-500/10 border border-sky-500/30 text-sky-400 hover:bg-sky-500 hover:text-white transition-all active:scale-95 flex items-center justify-center text-[9px] font-black uppercase tracking-wider"
+                                        title="Edit Order"
                                       >
-                                        <Truck size={14} />
+                                        Edit Order
                                       </button>
                                     )}
                                   </>
@@ -1811,6 +1799,8 @@ export const ShipScreen = () => {
         <ShippingFlowPreviewModal
           orders={shippingPreviewOrders}
           onClose={() => setShowShippingPreview(false)}
+          onConfirm={handleBatchShip}
+          isSubmitting={isShippingBatch}
         />
       )}
     </div>

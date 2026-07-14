@@ -1,8 +1,7 @@
 import React, { useMemo, useState } from 'react';
+import Search from 'lucide-react/dist/esm/icons/search';
 import X from 'lucide-react/dist/esm/icons/x';
 import Check from 'lucide-react/dist/esm/icons/check';
-import Layers3 from 'lucide-react/dist/esm/icons/layers-3';
-import Columns2 from 'lucide-react/dist/esm/icons/columns-2';
 import Truck from 'lucide-react/dist/esm/icons/truck';
 import Clock3 from 'lucide-react/dist/esm/icons/clock-3';
 import { TransportLogo } from '../../../components/orders/TransportLogo';
@@ -21,9 +20,9 @@ export interface ShippingPreviewOrder {
 interface ShippingFlowPreviewModalProps {
   orders: ShippingPreviewOrder[];
   onClose: () => void;
+  onConfirm: (ids: string[]) => Promise<void> | void;
+  isSubmitting?: boolean;
 }
-
-type PreviewVariant = 'queue' | 'split';
 
 function orderMeta(order: ShippingPreviewOrder) {
   const pallets = order.palletsQty ?? 0;
@@ -39,9 +38,11 @@ function byDay(order: ShippingPreviewOrder) {
 export const ShippingFlowPreviewModal: React.FC<ShippingFlowPreviewModalProps> = ({
   orders,
   onClose,
+  onConfirm,
+  isSubmitting = false,
 }) => {
-  const [variant, setVariant] = useState<PreviewVariant>('queue');
   const [activeIds, setActiveIds] = useState<Set<string>>(new Set(orders.map((o) => o.id)));
+  const [searchQuery, setSearchQuery] = useState('');
 
   const todayOrders = useMemo(() => orders.filter((o) => byDay(o) === 'today'), [orders]);
   const delayedOrders = useMemo(() => orders.filter((o) => byDay(o) === 'delayed'), [orders]);
@@ -129,6 +130,16 @@ export const ShippingFlowPreviewModal: React.FC<ShippingFlowPreviewModalProps> =
     );
   };
 
+  const filteredOrders = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return orders;
+    return orders.filter((order) => {
+      const orderNum = String(order.orderNumber || '').toLowerCase();
+      const customer = String(order.customerName || '').toLowerCase();
+      return orderNum.includes(q) || customer.includes(q);
+    });
+  }, [orders, searchQuery]);
+
   const selectedCount = activeIds.size;
   const selectedToday = todayOrders.filter((o) => activeIds.has(o.id)).length;
   const selectedDelayed = delayedOrders.filter((o) => activeIds.has(o.id)).length;
@@ -150,30 +161,6 @@ export const ShippingFlowPreviewModal: React.FC<ShippingFlowPreviewModalProps> =
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setVariant('queue')}
-              className={`inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-widest border transition-all ${
-                variant === 'queue'
-                  ? 'bg-accent text-main border-accent'
-                  : 'bg-card text-content border-subtle'
-              }`}
-            >
-              <Layers3 size={14} />
-              View A
-            </button>
-            <button
-              type="button"
-              onClick={() => setVariant('split')}
-              className={`inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-black uppercase tracking-widest border transition-all ${
-                variant === 'split'
-                  ? 'bg-accent text-main border-accent'
-                  : 'bg-card text-content border-subtle'
-              }`}
-            >
-              <Columns2 size={14} />
-              View B
-            </button>
-            <button
-              type="button"
               onClick={onClose}
               className="w-11 h-11 rounded-2xl border border-subtle bg-card text-content flex items-center justify-center"
             >
@@ -183,62 +170,30 @@ export const ShippingFlowPreviewModal: React.FC<ShippingFlowPreviewModalProps> =
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6">
-          {variant === 'queue' ? (
-            <div className="max-w-5xl mx-auto space-y-4">
-              <div className="mb-2">
-                <h3 className="text-sm font-black uppercase tracking-widest text-muted">
-                  View A · Shipping Queue
-                </h3>
+          <div className="max-w-5xl mx-auto space-y-4">
+            <div className="mb-2 space-y-3">
+              <h3 className="text-sm font-black uppercase tracking-widest text-muted">
+                Shipping Queue
+              </h3>
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Find an order in Start Shipping..."
+                  className="w-full rounded-2xl border border-subtle bg-card pl-9 pr-3 py-3 text-sm font-semibold text-content focus:outline-none focus:border-accent"
+                />
               </div>
-              {orders.map(renderCard)}
             </div>
-          ) : (
-            <div className="max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-2 gap-6">
-              <section className="rounded-3xl border border-subtle bg-card p-4 md:p-5">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-sm font-black uppercase tracking-widest text-content">
-                      Today
-                    </h3>
-                    <p className="text-xs font-bold text-muted mt-1">Orders shipping today</p>
-                  </div>
-                  <span className="text-xs font-black uppercase tracking-widest text-accent">
-                    {todayOrders.length}
-                  </span>
-                </div>
-                <div className="space-y-3">
-                  {todayOrders.length > 0 ? (
-                    todayOrders.map(renderCard)
-                  ) : (
-                    <p className="text-sm text-muted">No today orders.</p>
-                  )}
-                </div>
-              </section>
-
-              <section className="rounded-3xl border border-amber-500/20 bg-amber-500/5 p-4 md:p-5">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-sm font-black uppercase tracking-widest text-amber-300">
-                      Delayed
-                    </h3>
-                    <p className="text-xs font-bold text-muted mt-1">
-                      Orders from previous days still pending shipment
-                    </p>
-                  </div>
-                  <span className="text-xs font-black uppercase tracking-widest text-amber-400">
-                    {delayedOrders.length}
-                  </span>
-                </div>
-                <div className="space-y-3">
-                  {delayedOrders.length > 0 ? (
-                    delayedOrders.map(renderCard)
-                  ) : (
-                    <p className="text-sm text-muted">No delayed orders.</p>
-                  )}
-                </div>
-              </section>
-            </div>
-          )}
+            {filteredOrders.length > 0 ? (
+              filteredOrders.map(renderCard)
+            ) : (
+              <div className="rounded-3xl border border-subtle bg-card px-4 py-10 text-center text-sm font-bold text-muted">
+                No orders match that search.
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="px-4 md:px-8 py-4 border-t border-subtle bg-main/95 backdrop-blur-xl flex items-center justify-between gap-4">
@@ -266,10 +221,12 @@ export const ShippingFlowPreviewModal: React.FC<ShippingFlowPreviewModalProps> =
             </button>
             <button
               type="button"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-accent text-main text-xs font-black uppercase tracking-widest shadow-lg shadow-accent/20"
+              disabled={selectedCount === 0 || isSubmitting}
+              onClick={() => void onConfirm(Array.from(activeIds))}
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-accent text-main text-xs font-black uppercase tracking-widest shadow-lg shadow-accent/20 disabled:opacity-50"
             >
               <Truck size={14} />
-              Ship selected ({selectedCount})
+              {isSubmitting ? 'Shipping…' : `Ship selected (${selectedCount})`}
             </button>
           </div>
         </div>

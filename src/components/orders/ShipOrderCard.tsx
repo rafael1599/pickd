@@ -20,6 +20,7 @@ import { useCustomerAddresses } from '../../hooks/useCustomerAddresses';
 import { OrderStatusPill } from './OrderStatusPill';
 import type { CustomerAddress } from '../../lib/customerAddresses';
 import type { CombineMeta, PickingList, PickingListItem } from '../../schemas/picking.schema';
+import { PalletPhotosBlock } from './PalletPhotosBlock';
 import type { Customer } from '../../types/schema';
 import type { User } from '@supabase/supabase-js';
 
@@ -79,6 +80,8 @@ interface ShipOrderCardProps {
   onReopenOrder?: () => void;
   onRestoreOrder?: () => void;
   onContinueEditing?: () => void;
+  onAddPhoto?: () => void;
+  isAddingPhoto?: boolean;
   autoBikeCount?: number;
   autoPartCount?: number;
   /** Auto-calculated weight (sum of sku_metadata.weight_lbs × qty + pallets).
@@ -211,6 +214,8 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   onReopenOrder,
   onRestoreOrder,
   onContinueEditing,
+  onAddPhoto,
+  isAddingPhoto = false,
   autoBikeCount = 0,
   autoPartCount = 0,
   autoWeight = 0,
@@ -435,348 +440,374 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           </div>
         )}
 
-      {/* Status — order number now lives in the LivePrintPreview block above,
-          no need to repeat it here. */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <OrderStatusPill
-          status={selectedOrder.status}
-          is_waiting_inventory={selectedOrder.is_waiting_inventory}
-          is_shipped={selectedOrder.is_shipped}
-        />
-      </div>
-
-      {/* Customer name — click to edit */}
-      <div
-        ref={editingField === 'customer' ? editRef : undefined}
-        className="flex items-center gap-2"
-      >
-        <CopyButton value={formData.customerName} label="Customer name" />
-        {editingField === 'customer' ? (
-          <div className="flex-1 min-w-0">
-            <CustomerAutocomplete
-              value={formData.customerName ? ({ name: formData.customerName } as Customer) : null}
-              onChange={(customer) => {
-                if (customer) {
-                  const patch = {
-                    customerName: customer.name,
-                    street: customer.street || formData.street,
-                    city: customer.city || formData.city,
-                    state: customer.state || formData.state,
-                    zip: customer.zip_code || formData.zip,
-                  };
-                  setFormData({ ...formData, ...patch });
-                  if (customer.id) {
-                    setEditingField(null);
-                    // Pass the patch + picked id explicitly: React state
-                    // hasn't flushed yet, and the id links the existing
-                    // customer instead of cloning it as a new one.
-                    void saveField('customer', patch, customer.id);
-                  }
-                } else {
-                  setFormData({ ...formData, customerName: '' });
-                }
-              }}
-            />
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <button
-              type="button"
-              onClick={() => setEditingField('customer')}
-              className="text-left flex-1 min-w-0"
-            >
-              <span className="text-xl font-black text-content hover:text-accent transition-colors truncate block">
-                {formData.customerName || (
-                  <span className="text-muted/50 italic font-semibold">Add customer…</span>
-                )}
-              </span>
-            </button>
-            <SaveCheckmark show={justSavedField === 'customer'} />
-          </div>
-        )}
-      </div>
-
-      {/* Address — click to edit, joined when reading */}
-      <div
-        ref={editingField === 'address' ? editRef : undefined}
-        className="flex items-start gap-2 pb-4 border-b border-dashed border-subtle"
-      >
-        {editingField === 'address' ? (
-          <div className="flex-1 flex flex-col gap-3">
-            <div className="relative flex items-center">
-              <input
-                autoFocus
-                type="text"
-                value={formData.street}
-                onChange={(e) => handleStreetChange(e.target.value)}
-                onBlur={() => void saveField('street')}
-                onFocus={() => {
-                  if (addresses.length > 0) {
-                    setShowAddressDropdown(true);
-                    setHighlightedIndex(-1);
-                  }
-                }}
-                onKeyDown={handleAddressKeyDown}
-                placeholder="Paste full address to auto-fill..."
-                className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 pr-11 text-base text-content transition-colors duration-150 font-medium focus:border-accent focus:bg-surface shadow-sm"
+      <div className="flex flex-col lg:flex-row gap-5 lg:gap-6 items-start">
+        <div className="w-full lg:basis-[66.666%] lg:max-w-[66.666%] min-w-0 flex flex-col gap-5">
+          {/* Status — order number now lives in the LivePrintPreview block above,
+              no need to repeat it here. */}
+          <div className="flex items-start gap-4">
+            <div className="flex items-center gap-3 flex-wrap min-w-0 flex-1">
+              <OrderStatusPill
+                status={selectedOrder.status}
+                is_waiting_inventory={selectedOrder.is_waiting_inventory}
+                is_shipped={selectedOrder.is_shipped}
               />
-              <button
-                type="button"
-                onClick={() => handleStreetChange(formData.street)}
-                title="Parse address"
-                className="absolute right-2 w-7 h-7 flex items-center justify-center rounded-full text-muted hover:text-accent transition-colors duration-150 active:scale-90"
-              >
-                <Wand2 size={14} />
-              </button>
             </div>
+          </div>
 
-            {/* In normal flow (not absolutely positioned) so it pushes
+          {/* Customer name — click to edit */}
+          <div
+            ref={editingField === 'customer' ? editRef : undefined}
+            className="flex items-center gap-2"
+          >
+            <CopyButton value={formData.customerName} label="Customer name" />
+            {editingField === 'customer' ? (
+              <div className="flex-1 min-w-0">
+                <CustomerAutocomplete
+                  value={
+                    formData.customerName ? ({ name: formData.customerName } as Customer) : null
+                  }
+                  onChange={(customer) => {
+                    if (customer) {
+                      const patch = {
+                        customerName: customer.name,
+                        street: customer.street || formData.street,
+                        city: customer.city || formData.city,
+                        state: customer.state || formData.state,
+                        zip: customer.zip_code || formData.zip,
+                      };
+                      setFormData({ ...formData, ...patch });
+                      if (customer.id) {
+                        setEditingField(null);
+                        // Pass the patch + picked id explicitly: React state
+                        // hasn't flushed yet, and the id links the existing
+                        // customer instead of cloning it as a new one.
+                        void saveField('customer', patch, customer.id);
+                      }
+                    } else {
+                      setFormData({ ...formData, customerName: '' });
+                    }
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setEditingField('customer')}
+                  className="text-left flex-1 min-w-0"
+                >
+                  <span className="text-xl font-black text-content hover:text-accent transition-colors truncate block">
+                    {formData.customerName || (
+                      <span className="text-muted/50 italic font-semibold">Add customer…</span>
+                    )}
+                  </span>
+                </button>
+                <SaveCheckmark show={justSavedField === 'customer'} />
+              </div>
+            )}
+          </div>
+
+          {/* Address — click to edit, joined when reading */}
+          <div
+            ref={editingField === 'address' ? editRef : undefined}
+            className="flex items-start gap-2 pb-4 border-b border-dashed border-subtle"
+          >
+            {editingField === 'address' ? (
+              <div className="flex-1 flex flex-col gap-3">
+                <div className="relative flex items-center">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={formData.street}
+                    onChange={(e) => handleStreetChange(e.target.value)}
+                    onBlur={() => void saveField('street')}
+                    onFocus={() => {
+                      if (addresses.length > 0) {
+                        setShowAddressDropdown(true);
+                        setHighlightedIndex(-1);
+                      }
+                    }}
+                    onKeyDown={handleAddressKeyDown}
+                    placeholder="Paste full address to auto-fill..."
+                    className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 pr-11 text-base text-content transition-colors duration-150 font-medium focus:border-accent focus:bg-surface shadow-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleStreetChange(formData.street)}
+                    title="Parse address"
+                    className="absolute right-2 w-7 h-7 flex items-center justify-center rounded-full text-muted hover:text-accent transition-colors duration-150 active:scale-90"
+                  >
+                    <Wand2 size={14} />
+                  </button>
+                </div>
+
+                {/* In normal flow (not absolutely positioned) so it pushes
                 city/state/zip down instead of floating over them and
                 hiding the fields the user is trying to edit. */}
-            {showAddressDropdown && filteredAddresses.length > 0 && (
-              <div className="bg-surface border border-subtle rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
-                <div className="max-h-48 overflow-y-auto">
-                  {filteredAddresses.map((addr, idx) => (
+                {showAddressDropdown && filteredAddresses.length > 0 && (
+                  <div className="bg-surface border border-subtle rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                    <div className="max-h-48 overflow-y-auto">
+                      {filteredAddresses.map((addr, idx) => (
+                        <button
+                          key={addr.id}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => selectAddress(addr)}
+                          className={`w-full text-left px-4 py-3 transition-colors ${
+                            idx === highlightedIndex
+                              ? 'bg-accent/10 text-accent'
+                              : 'text-content hover:bg-white/5'
+                          } ${idx > 0 ? 'border-t border-subtle/50' : ''}`}
+                        >
+                          <p className="text-sm font-bold truncate">{addr.street}</p>
+                          {(addr.city || addr.state || addr.zip_code) && (
+                            <p className="text-[10px] text-muted font-bold mt-0.5 truncate">
+                              {[addr.city, addr.state, addr.zip_code].filter(Boolean).join(', ')}
+                            </p>
+                          )}
+                          {addr.is_default && (
+                            <span className="text-[8px] font-black text-accent/60 uppercase tracking-widest">
+                              Default
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <input
+                  type="text"
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  onBlur={() => void saveField('city')}
+                  placeholder="City..."
+                  className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 text-base text-content transition-colors duration-150 font-medium focus:border-accent focus:bg-surface shadow-sm"
+                />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    maxLength={2}
+                    value={formData.state}
+                    onChange={(e) =>
+                      setFormData({ ...formData, state: e.target.value.toUpperCase() })
+                    }
+                    onBlur={() => void saveField('state')}
+                    placeholder="CA"
+                    className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 text-base text-content transition-colors duration-150 font-medium text-center focus:border-accent focus:bg-surface shadow-sm"
+                  />
+                  <input
+                    type="text"
+                    value={formData.zip}
+                    onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
+                    onBlur={() => void saveField('zip')}
+                    placeholder="00000"
+                    className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 text-base text-content transition-colors duration-150 font-medium focus:border-accent focus:bg-surface shadow-sm"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1 flex-1 min-w-0">
+                <div className="flex items-start gap-2">
+                  <CopyButton value={formData.street} label="Street" />
+                  <button
+                    type="button"
+                    onClick={() => setEditingField('address')}
+                    className="text-left flex-1 min-w-0 flex items-start gap-2 hover:text-accent transition-colors"
+                  >
+                    <MapPin size={15} className="mt-0.5 shrink-0 text-muted" />
+                    <span className="text-sm text-content font-medium">
+                      {formData.street || formData.city ? (
+                        [
+                          formData.street,
+                          [formData.city, formData.state].filter(Boolean).join(', '),
+                        ]
+                          .filter(Boolean)
+                          .join(', ')
+                      ) : (
+                        <span className="text-muted/50 italic">Add shipping address…</span>
+                      )}
+                    </span>
+                  </button>
+                  <SaveCheckmark
+                    show={
+                      justSavedField === 'address' ||
+                      justSavedField === 'street' ||
+                      justSavedField === 'city' ||
+                      justSavedField === 'state' ||
+                      justSavedField === 'zip'
+                    }
+                  />
+                </div>
+                {formData.zip && (
+                  <div className="flex items-center gap-2 pl-1">
+                    <CopyButton value={formData.zip} label="Zip Code" />
                     <button
-                      key={addr.id}
                       type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => selectAddress(addr)}
-                      className={`w-full text-left px-4 py-3 transition-colors ${
-                        idx === highlightedIndex
-                          ? 'bg-accent/10 text-accent'
-                          : 'text-content hover:bg-white/5'
-                      } ${idx > 0 ? 'border-t border-subtle/50' : ''}`}
+                      onClick={() => setEditingField('address')}
+                      className="text-xs text-muted/70 font-mono hover:text-accent transition-colors"
                     >
-                      <p className="text-sm font-bold truncate">{addr.street}</p>
-                      {(addr.city || addr.state || addr.zip_code) && (
-                        <p className="text-[10px] text-muted font-bold mt-0.5 truncate">
-                          {[addr.city, addr.state, addr.zip_code].filter(Boolean).join(', ')}
-                        </p>
-                      )}
-                      {addr.is_default && (
-                        <span className="text-[8px] font-black text-accent/60 uppercase tracking-widest">
-                          Default
-                        </span>
-                      )}
+                      ZIP {formData.zip}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Load number + Transport — click to edit */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div ref={editingField === 'load' ? editRef : undefined}>
+              {editingField === 'load' ? (
+                <input
+                  autoFocus
+                  type="text"
+                  value={formData.loadNumber}
+                  onChange={(e) =>
+                    setFormData({ ...formData, loadNumber: e.target.value.toUpperCase() })
+                  }
+                  onBlur={() => {
+                    setEditingField(null);
+                    void saveField('load');
+                  }}
+                  placeholder="E.G. 127035968"
+                  className="bg-main border border-subtle rounded-2xl px-4 py-2 text-sm font-bold text-content transition-colors duration-150 focus:border-accent focus:bg-surface shadow-sm w-48"
+                />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingField('load')}
+                    className="flex items-center gap-1.5 text-sm font-bold text-content hover:text-accent transition-colors duration-150"
+                  >
+                    <Hash size={13} className="shrink-0 text-muted" />
+                    {formData.loadNumber || (
+                      <span className="text-muted/50 italic font-semibold">Add load #…</span>
+                    )}
+                  </button>
+                  <SaveCheckmark show={justSavedField === 'load'} />
+                </div>
+              )}
+            </div>
+
+            <div>
+              {/* Carrier selector — always visible, no expand/collapse needed */}
+              <div className="flex flex-col gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-1.5">
+                  <Truck size={11} className="text-muted" />
+                  Carrier
+                  {isUpdatingCarrier && (
+                    <span className="text-[9px] text-muted/50 font-semibold normal-case tracking-normal">
+                      saving…
+                    </span>
+                  )}
+                  <SaveCheckmark show={justSavedField === 'transport'} />
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {TRANSPORT_COMPANIES.map((company) => (
+                    <button
+                      key={company}
+                      type="button"
+                      disabled={isUpdatingCarrier}
+                      onClick={() => handleCarrierChange(company)}
+                      className={`px-3 py-1.5 rounded-2xl border text-xs font-black uppercase tracking-widest transition-colors duration-150 ${
+                        formData.transportCompany === company
+                          ? 'bg-accent text-main border-accent ring-2 ring-accent'
+                          : 'bg-main text-muted border-subtle hover:border-accent hover:text-content'
+                      } ${isUpdatingCarrier ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {company}
                     </button>
                   ))}
                 </div>
               </div>
-            )}
-
-            <input
-              type="text"
-              value={formData.city}
-              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-              onBlur={() => void saveField('city')}
-              placeholder="City..."
-              className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 text-base text-content transition-colors duration-150 font-medium focus:border-accent focus:bg-surface shadow-sm"
-            />
-
-            <div className="grid grid-cols-2 gap-3">
-              <input
-                type="text"
-                maxLength={2}
-                value={formData.state}
-                onChange={(e) => setFormData({ ...formData, state: e.target.value.toUpperCase() })}
-                onBlur={() => void saveField('state')}
-                placeholder="CA"
-                className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 text-base text-content transition-colors duration-150 font-medium text-center focus:border-accent focus:bg-surface shadow-sm"
-              />
-              <input
-                type="text"
-                value={formData.zip}
-                onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
-                onBlur={() => void saveField('zip')}
-                placeholder="00000"
-                className="w-full bg-main border border-subtle rounded-2xl px-4 py-3 text-base text-content transition-colors duration-150 font-medium focus:border-accent focus:bg-surface shadow-sm"
-              />
             </div>
           </div>
-        ) : (
-          <div className="flex flex-col gap-1 flex-1 min-w-0">
-            <div className="flex items-start gap-2">
-              <CopyButton value={formData.street} label="Street" />
-              <button
-                type="button"
-                onClick={() => setEditingField('address')}
-                className="text-left flex-1 min-w-0 flex items-start gap-2 hover:text-accent transition-colors"
-              >
-                <MapPin size={15} className="mt-0.5 shrink-0 text-muted" />
-                <span className="text-sm text-content font-medium">
-                  {formData.street || formData.city ? (
-                    [formData.street, [formData.city, formData.state].filter(Boolean).join(', ')]
-                      .filter(Boolean)
-                      .join(', ')
-                  ) : (
-                    <span className="text-muted/50 italic">Add shipping address…</span>
-                  )}
-                </span>
-              </button>
-              <SaveCheckmark
-                show={
-                  justSavedField === 'address' ||
-                  justSavedField === 'street' ||
-                  justSavedField === 'city' ||
-                  justSavedField === 'state' ||
-                  justSavedField === 'zip'
-                }
-              />
-            </div>
-            {formData.zip && (
-              <div className="flex items-center gap-2 pl-1">
-                <CopyButton value={formData.zip} label="Zip Code" />
-                <button
-                  type="button"
-                  onClick={() => setEditingField('address')}
-                  className="text-xs text-muted/70 font-mono hover:text-accent transition-colors"
-                >
-                  ZIP {formData.zip}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
 
-      {/* Load number + Transport — click to edit */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div ref={editingField === 'load' ? editRef : undefined}>
-          {editingField === 'load' ? (
-            <input
-              autoFocus
-              type="text"
-              value={formData.loadNumber}
-              onChange={(e) =>
-                setFormData({ ...formData, loadNumber: e.target.value.toUpperCase() })
-              }
+          {/* Stats — click any figure to edit */}
+          <div className="flex flex-wrap gap-6 pt-4 border-t border-dashed border-subtle">
+            <StatField
+              label="Pallets"
+              value={formData.pallets}
+              editing={editingField === 'pallets'}
+              onEdit={() => setEditingField('pallets')}
+              onChange={(v) => setFormData({ ...formData, pallets: v })}
               onBlur={() => {
                 setEditingField(null);
-                void saveField('load');
+                void saveField('pallets');
               }}
-              placeholder="E.G. 127035968"
-              className="bg-main border border-subtle rounded-2xl px-4 py-2 text-sm font-bold text-content transition-colors duration-150 focus:border-accent focus:bg-surface shadow-sm w-48"
+              editRef={editingField === 'pallets' ? editRef : undefined}
+              colorClass="text-[#22c55e]"
+              min="1"
+              showSaveCheckmark={justSavedField === 'pallets'}
             />
-          ) : (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setEditingField('load')}
-                className="flex items-center gap-1.5 text-sm font-bold text-content hover:text-accent transition-colors duration-150"
-              >
-                <Hash size={13} className="shrink-0 text-muted" />
-                {formData.loadNumber || (
-                  <span className="text-muted/50 italic font-semibold">Add load #…</span>
-                )}
-              </button>
-              <SaveCheckmark show={justSavedField === 'load'} />
-            </div>
-          )}
-        </div>
-
-        <div>
-          {/* Carrier selector — always visible, no expand/collapse needed */}
-          <div className="flex flex-col gap-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-1.5">
-              <Truck size={11} className="text-muted" />
-              Carrier
-              {isUpdatingCarrier && (
-                <span className="text-[9px] text-muted/50 font-semibold normal-case tracking-normal">
-                  saving…
-                </span>
-              )}
-              <SaveCheckmark show={justSavedField === 'transport'} />
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {TRANSPORT_COMPANIES.map((company) => (
-                <button
-                  key={company}
-                  type="button"
-                  disabled={isUpdatingCarrier}
-                  onClick={() => handleCarrierChange(company)}
-                  className={`px-3 py-1.5 rounded-2xl border text-xs font-black uppercase tracking-widest transition-colors duration-150 ${
-                    formData.transportCompany === company
-                      ? 'bg-accent text-main border-accent ring-2 ring-accent'
-                      : 'bg-main text-muted border-subtle hover:border-accent hover:text-content'
-                  } ${isUpdatingCarrier ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  {company}
-                </button>
-              ))}
+            <StatField
+              label="Bikes"
+              value={formData.bikes}
+              placeholder={String(autoBikeCount)}
+              editing={editingField === 'bikes'}
+              onEdit={() => setEditingField('bikes')}
+              onChange={(v) => setFormData({ ...formData, bikes: v })}
+              onBlur={() => {
+                setEditingField(null);
+                void saveField('bikes');
+              }}
+              editRef={editingField === 'bikes' ? editRef : undefined}
+              colorClass="text-blue-400"
+              showSaveCheckmark={justSavedField === 'bikes'}
+            />
+            <StatField
+              label="Parts"
+              value={formData.parts}
+              placeholder={String(autoPartCount)}
+              editing={editingField === 'parts'}
+              onEdit={() => setEditingField('parts')}
+              onChange={(v) => setFormData({ ...formData, parts: v })}
+              onBlur={() => {
+                setEditingField(null);
+                void saveField('parts');
+              }}
+              editRef={editingField === 'parts' ? editRef : undefined}
+              colorClass="text-orange-400"
+              showSaveCheckmark={justSavedField === 'parts'}
+            />
+            <div className="flex items-end gap-2">
+              <CopyButton
+                value={String(formData.weight || (autoWeight > 0 ? autoWeight : 0))}
+                label="Weight"
+              />
+              <StatField
+                label="Weight (lbs)"
+                value={formData.weight}
+                placeholder={autoWeight > 0 ? String(autoWeight) : '0'}
+                editing={editingField === 'weight'}
+                onEdit={() => setEditingField('weight')}
+                onChange={(v) => setFormData({ ...formData, weight: v })}
+                onBlur={() => {
+                  setEditingField(null);
+                  void saveField('weight');
+                }}
+                editRef={editingField === 'weight' ? editRef : undefined}
+                colorClass="text-purple-400"
+                showSaveCheckmark={justSavedField === 'weight'}
+              />
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Stats — click any figure to edit */}
-      <div className="flex flex-wrap gap-6 pt-4 border-t border-dashed border-subtle">
-        <StatField
-          label="Pallets"
-          value={formData.pallets}
-          editing={editingField === 'pallets'}
-          onEdit={() => setEditingField('pallets')}
-          onChange={(v) => setFormData({ ...formData, pallets: v })}
-          onBlur={() => {
-            setEditingField(null);
-            void saveField('pallets');
-          }}
-          editRef={editingField === 'pallets' ? editRef : undefined}
-          colorClass="text-[#22c55e]"
-          min="1"
-          showSaveCheckmark={justSavedField === 'pallets'}
-        />
-        <StatField
-          label="Bikes"
-          value={formData.bikes}
-          placeholder={String(autoBikeCount)}
-          editing={editingField === 'bikes'}
-          onEdit={() => setEditingField('bikes')}
-          onChange={(v) => setFormData({ ...formData, bikes: v })}
-          onBlur={() => {
-            setEditingField(null);
-            void saveField('bikes');
-          }}
-          editRef={editingField === 'bikes' ? editRef : undefined}
-          colorClass="text-blue-400"
-          showSaveCheckmark={justSavedField === 'bikes'}
-        />
-        <StatField
-          label="Parts"
-          value={formData.parts}
-          placeholder={String(autoPartCount)}
-          editing={editingField === 'parts'}
-          onEdit={() => setEditingField('parts')}
-          onChange={(v) => setFormData({ ...formData, parts: v })}
-          onBlur={() => {
-            setEditingField(null);
-            void saveField('parts');
-          }}
-          editRef={editingField === 'parts' ? editRef : undefined}
-          colorClass="text-orange-400"
-          showSaveCheckmark={justSavedField === 'parts'}
-        />
-        <div className="flex items-end gap-2">
-          <CopyButton
-            value={String(formData.weight || (autoWeight > 0 ? autoWeight : 0))}
-            label="Weight"
-          />
-          <StatField
-            label="Weight (lbs)"
-            value={formData.weight}
-            placeholder={autoWeight > 0 ? String(autoWeight) : '0'}
-            editing={editingField === 'weight'}
-            onEdit={() => setEditingField('weight')}
-            onChange={(v) => setFormData({ ...formData, weight: v })}
-            onBlur={() => {
-              setEditingField(null);
-              void saveField('weight');
-            }}
-            editRef={editingField === 'weight' ? editRef : undefined}
-            colorClass="text-purple-400"
-            showSaveCheckmark={justSavedField === 'weight'}
-          />
-        </div>
+        {(selectedOrder.pallet_photos ?? []).length > 0 && (
+          <div className="w-full lg:basis-1/3 lg:max-w-[33.333%] shrink-0 self-stretch flex items-start justify-end">
+            <PalletPhotosBlock
+              photos={selectedOrder.pallet_photos ?? []}
+              orderNumber={selectedOrder.order_number ?? undefined}
+              compact
+              className="w-auto"
+              onAddPhoto={onAddPhoto}
+              isAddingPhoto={isAddingPhoto}
+            />
+          </div>
+        )}
       </div>
 
       {/* Combined Order Info */}
