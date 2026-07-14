@@ -7,6 +7,7 @@ export interface CartItem extends InventoryItemWithMetadata {
   pickingQty: number;
   source_order?: string;
   source_list_id?: string;
+  sku_not_found?: boolean;
 }
 
 const LOCAL_STORAGE_KEY = 'picking_cart_items';

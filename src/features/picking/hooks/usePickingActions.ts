@@ -234,10 +234,18 @@ export const usePickingActions = ({
 
         // D. Validate my cart
         for (const myItem of finalItems) {
+          // Unregistered / unresolved items must not block parking or finishing.
+          // They have no reliable inventory row to reserve against, so skip the
+          // availability gate here and let the correction/completion flow handle
+          // them operationally.
+          if (myItem.sku_not_found || !myItem.warehouse || !myItem.location) {
+            continue;
+          }
+
           const key = `${myItem.sku}-${myItem.warehouse}-${(myItem.location || '').toUpperCase()}`;
           const entry = stockMap.get(key);
 
-          // If item not found in stock (deleted?), fail
+          // If a previously registered inventory-backed item disappeared, fail.
           if (!entry) {
             toast.error(`Item ${myItem.sku} no longer exists in inventory.`);
             return null;
