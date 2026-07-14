@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase.ts';
 import { useAuth } from '../../context/AuthContext.tsx';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import Home from 'lucide-react/dist/esm/icons/home';
+import Info from 'lucide-react/dist/esm/icons/info';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { LivePrintPreview } from '../../components/orders/LivePrintPreview.tsx';
@@ -15,7 +16,6 @@ import MessageSquare from 'lucide-react/dist/esm/icons/message-square';
 import Truck from 'lucide-react/dist/esm/icons/truck';
 import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
 import { ShipOrderCard } from '../../components/orders/ShipOrderCard.tsx';
-import { OrderStatusPill } from '../../components/orders/OrderStatusPill.tsx';
 import { TransportLogo } from '../../components/orders/TransportLogo.tsx';
 import { useShipOutSms } from './hooks/useShipOutSms';
 import { withSupabaseRetry } from '../../lib/supabaseRetry';
@@ -26,6 +26,7 @@ import type { PickingListItem, CombineMeta } from '../../schemas/picking.schema'
 import { saveCustomerAddress } from '../../lib/customerAddresses';
 import { ReasonPicker } from './components/ReasonPicker';
 import { DoubleCheckHeader } from './components/DoubleCheckHeader';
+import { ShippingFlowPreviewModal } from './components/ShippingFlowPreviewModal';
 import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.service';
 
 function dayKey(date: Date): string {
@@ -42,6 +43,14 @@ function dayLabel(date: Date): string {
   const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
   if (date.getFullYear() !== now.getFullYear()) opts.year = 'numeric';
   return date.toLocaleDateString('en-US', opts);
+}
+
+function isFedexLane(order: OrderWithRelations): boolean {
+  const groupType = (order.order_group as { group_type?: string } | null)?.group_type;
+  const transport = String(order.transport_company || '')
+    .trim()
+    .toUpperCase();
+  return groupType === 'fedex' || transport === 'FEDEX';
 }
 
 interface DayGroup {
@@ -111,6 +120,8 @@ export const ShipScreen = () => {
   const shipCameraInputRef = useRef<HTMLInputElement>(null);
   const [selectedBulkOrderIds, setSelectedBulkOrderIds] = useState<Set<string>>(new Set());
   const [shipTab, setShipTab] = useState<'to_ship' | 'shipped'>('to_ship');
+  const [hoveredTabInfo, setHoveredTabInfo] = useState<'to_ship' | 'shipped' | null>(null);
+  const [showShippingPreview, setShowShippingPreview] = useState(false);
 
   useEffect(() => {
     setSelectedBulkOrderIds(new Set());
@@ -439,13 +450,16 @@ export const ShipScreen = () => {
   }, [selectedOrder]);
 
   const filteredOrders = useMemo(() => {
+    const todayStr = dayKey(new Date());
+
     // 1. Split by the FedEx checkbox. Checked shows FedEx-grouped orders;
     //    unchecked shows everything that isn't FedEx.
     const byCarrier = orders.filter((o) => {
       if (o.status === 'cancelled') return false;
-      const matchTab = searchQuery ? true : shipTab === 'shipped' ? !!o.is_shipped : !o.is_shipped;
+      const shippedToday = !!o.is_shipped && dayKey(new Date(o.updated_at)) === todayStr;
+      const matchTab = shipTab === 'shipped' ? shippedToday : !o.is_shipped;
       if (!matchTab) return false;
-      const isFedex = (o.order_group as { group_type?: string } | null)?.group_type === 'fedex';
+      const isFedex = isFedexLane(o);
       return showFedex ? isFedex : !isFedex;
     });
 
@@ -511,27 +525,7 @@ export const ShipScreen = () => {
     });
   }, [orders, searchQuery, showFedex, shipTab]);
 
-  const visibleOrders = useMemo(() => {
-    const todayStr = dayKey(new Date());
-
-    const todayOrders = filteredOrders.filter((order) => {
-      const orderDate = new Date(order.created_at);
-      return !Number.isNaN(orderDate.getTime()) && dayKey(orderDate) === todayStr;
-    });
-
-    const olderOrders = filteredOrders.filter((order) => {
-      const orderDate = new Date(order.created_at);
-      return Number.isNaN(orderDate.getTime()) || dayKey(orderDate) !== todayStr;
-    });
-
-    if (todayOrders.length < 10) {
-      const needed = 10 - todayOrders.length;
-      const extra = olderOrders.slice(0, needed);
-      return [...todayOrders, ...extra];
-    } else {
-      return todayOrders;
-    }
-  }, [filteredOrders]);
+  const visibleOrders = useMemo(() => filteredOrders, [filteredOrders]);
 
   const ordersGroupedByDate = useMemo<DayGroup[]>(() => {
     const map = new Map<string, DayGroup>();
@@ -558,6 +552,103 @@ export const ShipScreen = () => {
     }
     return visibleOrders.filter((o) => !o.is_waiting_inventory && o.status === 'completed');
   }, [visibleOrders, shipTab]);
+
+  const toShipCount = useMemo(() => {
+    if (shipTab === 'to_ship') return filteredOrders.length;
+
+    const toShipOrders = orders.filter((o) => {
+      if (o.status === 'cancelled' || o.is_shipped) return false;
+      const isFedex = isFedexLane(o);
+      return showFedex ? isFedex : !isFedex;
+    });
+
+    const byGroup = new Map<string, OrderWithRelations[]>();
+    const ungrouped: OrderWithRelations[] = [];
+    for (const o of toShipOrders) {
+      const isGeneralGroup =
+        o.group_id && (o.order_group as { group_type?: string } | null)?.group_type === 'general';
+      if (isGeneralGroup) {
+        const arr = byGroup.get(o.group_id!) ?? [];
+        arr.push(o);
+        byGroup.set(o.group_id!, arr);
+      } else {
+        ungrouped.push(o);
+      }
+    }
+
+    return ungrouped.length + byGroup.size;
+  }, [shipTab, filteredOrders.length, orders, showFedex]);
+
+  const shippedCount = useMemo(() => {
+    if (shipTab === 'shipped') return filteredOrders.length;
+
+    const todayStr = dayKey(new Date());
+    const shippedTodayOrders = orders.filter((o) => {
+      if (o.status === 'cancelled' || !o.is_shipped) return false;
+      if (dayKey(new Date(o.updated_at)) !== todayStr) return false;
+      const isFedex = isFedexLane(o);
+      return showFedex ? isFedex : !isFedex;
+    });
+
+    const byGroup = new Map<string, OrderWithRelations[]>();
+    const ungrouped: OrderWithRelations[] = [];
+    for (const o of shippedTodayOrders) {
+      const isGeneralGroup =
+        o.group_id && (o.order_group as { group_type?: string } | null)?.group_type === 'general';
+      if (isGeneralGroup) {
+        const arr = byGroup.get(o.group_id!) ?? [];
+        arr.push(o);
+        byGroup.set(o.group_id!, arr);
+      } else {
+        ungrouped.push(o);
+      }
+    }
+
+    return ungrouped.length + byGroup.size;
+  }, [shipTab, filteredOrders.length, orders, showFedex]);
+
+  const readyToShipVisibleCount = useMemo(
+    () => visibleOrders.filter((o) => !o.is_waiting_inventory && o.status === 'completed').length,
+    [visibleOrders]
+  );
+
+  const eligibleShippingOrders = useMemo(
+    () => visibleOrders.filter((o) => !o.is_waiting_inventory && o.status === 'completed'),
+    [visibleOrders]
+  );
+
+  const shippingPreviewOrders = useMemo(
+    () =>
+      eligibleShippingOrders.map((order) => {
+        const created = new Date(order.created_at);
+        const today = new Date();
+        const createdDay = new Date(created.getFullYear(), created.getMonth(), created.getDate());
+        const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const delayedDays = Math.max(
+          0,
+          Math.round((todayDay.getTime() - createdDay.getTime()) / 86_400_000)
+        );
+
+        return {
+          id: order.id,
+          orderNumber: order.order_number,
+          customerName: order.customer?.name ?? null,
+          transportCompany: order.transport_company ?? (isFedexLane(order) ? 'FEDEX' : null),
+          palletsQty: order.pallets_qty,
+          totalUnits: order.total_units,
+          createdAt: order.created_at,
+          delayedDays,
+        };
+      }),
+    [eligibleShippingOrders]
+  );
+
+  const filterSummary = useMemo(() => {
+    const parts = [showFedex ? 'FedEx' : 'General'];
+    if (searchQuery.trim()) parts.push(`search: "${searchQuery.trim()}"`);
+    parts.push(`${visibleOrders.length} visible`);
+    return parts.join(' · ');
+  }, [showFedex, searchQuery, visibleOrders.length]);
 
   const isAllSelected = useMemo(() => {
     if (shippableOrders.length === 0) return false;
@@ -1156,8 +1247,8 @@ export const ShipScreen = () => {
         className="flex-1 overflow-y-auto no-scrollbar relative bg-bg-main px-4 md:px-6 pb-32"
       >
         <div className="w-full flex flex-col md:flex-row gap-4 md:gap-6 pt-4 items-start">
-          {/* Selected order — card + preview (left / top on mobile) */}
-          <div className="flex-1 min-w-0 flex flex-col gap-6 pb-8 order-first">
+          {/* Selected order — desktop 60% / mobile full width */}
+          <div className="w-full md:basis-[60%] md:max-w-[60%] min-w-0 flex flex-col gap-6 pb-8 order-first">
             {selectedOrder ? (
               <>
                 <LivePrintPreview
@@ -1177,6 +1268,16 @@ export const ShipScreen = () => {
                   transportCompany={formData.transportCompany}
                   screenOnly
                 />
+
+                <div className="-mt-2 px-1">
+                  <div className="inline-flex flex-wrap items-center gap-2 rounded-full border border-subtle bg-card px-3 py-1 text-[10px] font-black uppercase tracking-wider text-muted">
+                    <span className="text-content">{selectedOrder.status}</span>
+                    <span>·</span>
+                    <span>{formData.pallets || '0'} pallets</span>
+                    <span>·</span>
+                    <span>{formData.units || '0'} units</span>
+                  </div>
+                </div>
 
                 <ShipOrderCard
                   formData={formData}
@@ -1285,15 +1386,25 @@ export const ShipScreen = () => {
             )}
           </div>
 
-          {/* Vertical order list — grouped by date (right / bottom on mobile) */}
-          <div className="w-full md:w-80 shrink-0 md:sticky md:top-0 order-last">
+          {/* Vertical order list — desktop 40% / mobile full width */}
+          <div className="w-full md:basis-[40%] md:max-w-[40%] md:min-w-[22rem] shrink-0 md:sticky md:top-0 order-last">
             <div className="bg-card border border-subtle rounded-3xl p-3 flex flex-col gap-2">
-              <div className="px-2 pb-1 flex items-center justify-between min-h-[24px]">
-                <span className="text-[10px] font-black uppercase tracking-widest text-muted/50">
-                  Orders
-                </span>
+              <div className="px-2 pb-1 flex items-center justify-between min-h-[24px] gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted/50">
+                    Orders
+                  </span>
+                </div>
                 {shippableOrders.length > 0 && (
                   <div className="flex items-center gap-2">
+                    {shipTab === 'to_ship' && eligibleShippingOrders.length > 0 && (
+                      <button
+                        onClick={() => setShowShippingPreview(true)}
+                        className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border border-accent/30 bg-accent/10 text-accent hover:bg-accent hover:text-white transition-all select-none"
+                      >
+                        Start Shipping ({eligibleShippingOrders.length})
+                      </button>
+                    )}
                     <button
                       onClick={toggleSelectAll}
                       className="text-[9px] font-black uppercase tracking-wider text-accent hover:underline select-none"
@@ -1317,14 +1428,12 @@ export const ShipScreen = () => {
               </div>
 
               {/* Tab Switcher */}
-              <div className="grid grid-cols-2 p-0.5 bg-bg-main rounded-xl border border-subtle text-[10px] select-none">
+              <div className="relative grid grid-cols-2 p-0.5 bg-bg-main rounded-xl border border-subtle text-[10px] select-none overflow-visible">
                 <button
                   onClick={() => {
                     setShipTab('to_ship');
                     if (selectedOrder?.is_shipped) {
-                      const firstUnshipped = orders.find(
-                        (o) => o.status !== 'cancelled' && !o.is_shipped
-                      );
+                      const firstUnshipped = filteredOrders.find((o) => !o.is_shipped);
                       setSelectedOrder(firstUnshipped || null);
                     }
                   }}
@@ -1334,14 +1443,43 @@ export const ShipScreen = () => {
                       : 'text-muted hover:text-content'
                   }`}
                 >
-                  To Ship
+                  <span className="inline-flex items-center gap-1">
+                    To Ship ({toShipCount})
+                    <span className="relative inline-flex items-center">
+                      <button
+                        type="button"
+                        aria-label="How To Ship is calculated"
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseEnter={(e) => {
+                          e.stopPropagation();
+                          setHoveredTabInfo('to_ship');
+                        }}
+                        onMouseLeave={(e) => {
+                          e.stopPropagation();
+                          setHoveredTabInfo((current) => (current === 'to_ship' ? null : current));
+                        }}
+                        onFocus={() => setHoveredTabInfo('to_ship')}
+                        onBlur={() =>
+                          setHoveredTabInfo((current) => (current === 'to_ship' ? null : current))
+                        }
+                        className="inline-flex items-center justify-center rounded-full border border-subtle bg-bg-main px-1.5 py-0.5 text-[10px] font-black text-content/80 hover:border-accent/40 hover:text-accent"
+                      >
+                        <Info size={10} className="text-current" />
+                      </button>
+                    </span>
+                  </span>
                 </button>
                 <button
                   onClick={() => {
                     setShipTab('shipped');
                     if (!selectedOrder?.is_shipped) {
+                      const todayStr = dayKey(new Date());
                       const firstShipped = orders.find(
-                        (o) => o.status !== 'cancelled' && o.is_shipped
+                        (o) =>
+                          o.status !== 'cancelled' &&
+                          !!o.is_shipped &&
+                          dayKey(new Date(o.updated_at)) === todayStr &&
+                          (showFedex ? isFedexLane(o) : !isFedexLane(o))
                       );
                       setSelectedOrder(firstShipped || null);
                     }
@@ -1352,8 +1490,56 @@ export const ShipScreen = () => {
                       : 'text-muted hover:text-content'
                   }`}
                 >
-                  Shipped
+                  <span className="inline-flex items-center gap-1">
+                    Shipped ({shippedCount})
+                    <span className="relative inline-flex items-center">
+                      <button
+                        type="button"
+                        aria-label="How Shipped is calculated"
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseEnter={(e) => {
+                          e.stopPropagation();
+                          setHoveredTabInfo('shipped');
+                        }}
+                        onMouseLeave={(e) => {
+                          e.stopPropagation();
+                          setHoveredTabInfo((current) => (current === 'shipped' ? null : current));
+                        }}
+                        onFocus={() => setHoveredTabInfo('shipped')}
+                        onBlur={() =>
+                          setHoveredTabInfo((current) => (current === 'shipped' ? null : current))
+                        }
+                        className="inline-flex items-center justify-center rounded-full border border-subtle bg-bg-main px-1.5 py-0.5 text-[10px] font-black text-content/80 hover:border-accent/40 hover:text-accent"
+                      >
+                        <Info size={10} className="text-current" />
+                      </button>
+                    </span>
+                  </span>
                 </button>
+              </div>
+
+              {hoveredTabInfo && (
+                <div className="px-2 pb-1">
+                  <div className="rounded-2xl border border-subtle bg-surface px-3 py-2 text-[10px] font-bold leading-relaxed text-content shadow-lg">
+                    {hoveredTabInfo === 'to_ship'
+                      ? `To Ship shows every order in this carrier lane that has not been marked as shipped yet${searchQuery.trim() ? ` and matches "${searchQuery.trim()}"` : ''}.`
+                      : `Shipped shows only orders marked as shipped today in this carrier lane${searchQuery.trim() ? ` that also match "${searchQuery.trim()}"` : ''}.`}
+                  </div>
+                </div>
+              )}
+
+              <div className="px-2 -mt-0.5 mb-1 space-y-1">
+                {shipTab === 'to_ship' ? (
+                  <p className="text-[10px] font-bold text-muted">
+                    {readyToShipVisibleCount} ready to ship
+                  </p>
+                ) : (
+                  <p className="text-[10px] font-bold text-muted">Today only</p>
+                )}
+                <p className="text-[10px] font-bold text-muted/80 truncate" title={filterSummary}>
+                  {showFedex ? 'FedEx' : 'General'}
+                  {searchQuery.trim() ? ` · search: "${searchQuery.trim()}"` : ''}
+                </p>
               </div>
 
               <div className="flex flex-col gap-2 max-h-[40vh] md:max-h-[calc(100vh-16rem)] overflow-y-auto no-scrollbar">
@@ -1366,16 +1552,7 @@ export const ShipScreen = () => {
                         </div>
                         {group.orders.map((order) => {
                           const isSelected = selectedOrder?.id === order.id;
-                          const isFedex =
-                            (order.order_group as { group_type?: string } | null)?.group_type ===
-                            'fedex';
-                          // For combined orders, extract individual sub-order numbers
-                          const subOrderNumbers = order.combine_meta?.is_combined
-                            ? String(order.order_number || '')
-                                .split('/')
-                                .map((n) => n.trim())
-                                .filter(Boolean)
-                            : [];
+                          const isFedex = isFedexLane(order);
                           return (
                             <div
                               key={order.id}
@@ -1420,42 +1597,17 @@ export const ShipScreen = () => {
                                   )}
                                   #{order.order_number}
                                 </span>
-                                {/* Sub-orders list for combined orders */}
-                                {subOrderNumbers.length > 1 && (
-                                  <div className="flex flex-wrap gap-1 mt-0.5">
-                                    {subOrderNumbers.map((num) => (
-                                      <span
-                                        key={num}
-                                        className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20"
-                                      >
-                                        #{num}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
+
                                 <span className="text-[11px] text-muted truncate max-w-[120px]">
                                   {order.customer?.name || '—'}
                                 </span>
                                 <div className="flex flex-col gap-0.5 mt-1 text-[9px] text-muted">
-                                  <span>
-                                    Created:{' '}
-                                    {new Date(order.created_at).toLocaleDateString('en-US', {
-                                      month: 'short',
-                                      day: 'numeric',
-                                    })}
-                                  </span>
-                                  {order.is_shipped && (
-                                    <span className="text-emerald-400 font-bold">
-                                      Shipped:{' '}
-                                      {new Date(order.updated_at).toLocaleDateString('en-US', {
+                                  {!order.is_shipped && (
+                                    <span>
+                                      Created:{' '}
+                                      {new Date(order.created_at).toLocaleDateString('en-US', {
                                         month: 'short',
                                         day: 'numeric',
-                                      })}{' '}
-                                      ·{' '}
-                                      {new Date(order.updated_at).toLocaleTimeString('en-US', {
-                                        hour: 'numeric',
-                                        minute: '2-digit',
-                                        hour12: true,
                                       })}
                                     </span>
                                   )}
@@ -1480,11 +1632,6 @@ export const ShipScreen = () => {
                                   </button>
                                 ) : (
                                   <>
-                                    <OrderStatusPill
-                                      status={order.status}
-                                      is_waiting_inventory={order.is_waiting_inventory}
-                                      is_shipped={order.is_shipped}
-                                    />
                                     {order.status === 'completed' ? (
                                       <button
                                         onClick={(e) => {
@@ -1513,6 +1660,16 @@ export const ShipScreen = () => {
                         })}
                       </div>
                     ))}
+                  </div>
+                ) : shipTab === 'shipped' ? (
+                  <div className="flex flex-col items-center justify-center text-center py-6 px-3 gap-3">
+                    <p className="text-xs text-muted">No orders were marked as shipped today.</p>
+                    <button
+                      onClick={() => navigate('/orders')}
+                      className="px-3 py-2 rounded-xl border border-subtle bg-surface text-content text-[10px] font-black uppercase tracking-widest hover:border-accent/40 hover:text-accent transition-all active:scale-95"
+                    >
+                      View all orders
+                    </button>
                   </div>
                 ) : (
                   <p className="text-center text-xs text-muted py-6">No orders found.</p>
@@ -1649,6 +1806,13 @@ export const ShipScreen = () => {
         onChange={handleShipCameraChange}
         className="hidden"
       />
+
+      {showShippingPreview && (
+        <ShippingFlowPreviewModal
+          orders={shippingPreviewOrders}
+          onClose={() => setShowShippingPreview(false)}
+        />
+      )}
     </div>
   );
 };

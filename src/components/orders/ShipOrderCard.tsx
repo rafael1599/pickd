@@ -501,7 +501,6 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
         ref={editingField === 'address' ? editRef : undefined}
         className="flex items-start gap-2 pb-4 border-b border-dashed border-subtle"
       >
-        <CopyButton value={formData.street} label="Street" />
         {editingField === 'address' ? (
           <div className="flex-1 flex flex-col gap-3">
             <div className="relative flex items-center">
