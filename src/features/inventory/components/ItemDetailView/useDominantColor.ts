@@ -30,8 +30,12 @@ export function useDominantColor(imageUrl: string | null) {
 
     fac
       .getColorAsync(fetchUrl, { algorithm: 'dominant', crossOrigin: 'anonymous' })
-      .then((result) => { if (!cancelled) setColor(result.rgb); })
-      .catch(() => { /* CORS or canvas error — use fallback silently */ });
+      .then((result) => {
+        if (!cancelled) setColor(result.rgb);
+      })
+      .catch(() => {
+        /* CORS or canvas error — use fallback silently */
+      });
 
     return () => {
       cancelled = true;

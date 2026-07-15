@@ -591,6 +591,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     if (newKeys.length > 0) {
       onSelectAll?.(newKeys);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pallets, palletOverrides.size]);
 
   const handlePalletEdit = (palletId: number, currentUnits: number) => {
@@ -1253,7 +1254,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         setIsScanning(false);
       }
     },
-    [cartItems, palletPhotosCount, pallets.length, activeListId, orderNumber]
+    [cartItems, palletPhotosCount, pallets.length, activeListId]
   );
 
   // Auto-check items where scan count >= pickingQty

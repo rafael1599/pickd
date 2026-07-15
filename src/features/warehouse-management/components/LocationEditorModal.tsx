@@ -109,7 +109,7 @@ export default function LocationEditorModal({
         () => {},
         'Save Anyway',
         'Cancel',
-        'warning',
+        'warning'
       );
       return;
     }

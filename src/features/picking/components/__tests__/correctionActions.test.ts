@@ -5,7 +5,10 @@ import type { PickingItem, CorrectionAction } from '../DoubleCheckView';
  * Pure logic extracted from handleCorrectItem in PickingCartDrawer.
  * Tests the item transformation for each correction action type.
  */
-function applyCorrection(cartItems: PickingItem[], action: CorrectionAction): { items: PickingItem[]; log: string } {
+function applyCorrection(
+  cartItems: PickingItem[],
+  action: CorrectionAction
+): { items: PickingItem[]; log: string } {
   let newItems: PickingItem[];
   let logMessage: string;
 
@@ -22,14 +25,16 @@ function applyCorrection(cartItems: PickingItem[], action: CorrectionAction): { 
               sku_not_found: false,
               insufficient_stock: false,
             }
-          : item,
+          : item
       );
       logMessage = `Swapped SKU ${action.originalSku} → ${action.replacement.sku}`;
       break;
     }
     case 'adjust_qty': {
       newItems = cartItems.map((item) =>
-        item.sku === action.sku ? { ...item, pickingQty: action.newQty, insufficient_stock: false } : item,
+        item.sku === action.sku
+          ? { ...item, pickingQty: action.newQty, insufficient_stock: false }
+          : item
       );
       logMessage = `Adjusted qty for ${action.sku} to ${action.newQty}`;
       break;
@@ -45,7 +50,7 @@ function applyCorrection(cartItems: PickingItem[], action: CorrectionAction): { 
         newItems = cartItems.map((item) =>
           item.sku === action.item.sku
             ? { ...item, pickingQty: item.pickingQty + action.item.pickingQty }
-            : item,
+            : item
         );
         logMessage = `Extra item: ${action.item.sku}, qty ${action.item.pickingQty} (total ${existing.pickingQty + action.item.pickingQty})`;
       } else {
@@ -87,8 +92,20 @@ function makeItem(overrides: Partial<PickingItem> = {}): PickingItem {
 
 const BASE_CART: PickingItem[] = [
   makeItem({ sku: '03-4614BK', pickingQty: 2, location: 'ROW 43' }),
-  makeItem({ sku: '03-4614ZZ', pickingQty: 1, location: null, sku_not_found: true, item_name: 'PHANTOM PURPLE' }),
-  makeItem({ sku: '03-3764BK', pickingQty: 50, location: 'ROW 9', insufficient_stock: true, item_name: 'HELIX A2' }),
+  makeItem({
+    sku: '03-4614ZZ',
+    pickingQty: 1,
+    location: null,
+    sku_not_found: true,
+    item_name: 'PHANTOM PURPLE',
+  }),
+  makeItem({
+    sku: '03-3764BK',
+    pickingQty: 50,
+    location: 'ROW 9',
+    insufficient_stock: true,
+    item_name: 'HELIX A2',
+  }),
 ];
 
 // ── Tests ──
@@ -99,7 +116,12 @@ describe('Correction Actions', () => {
       const { items } = applyCorrection(BASE_CART, {
         type: 'swap',
         originalSku: '03-4614ZZ',
-        replacement: { sku: '03-4614RD', location: 'ROW 10', warehouse: 'LUDLOW', item_name: 'GARNET' },
+        replacement: {
+          sku: '03-4614RD',
+          location: 'ROW 10',
+          warehouse: 'LUDLOW',
+          item_name: 'GARNET',
+        },
       });
 
       const swapped = items.find((i) => i.sku === '03-4614RD');
@@ -118,7 +140,12 @@ describe('Correction Actions', () => {
       const { items } = applyCorrection(cart, {
         type: 'swap',
         originalSku: '03-9999XX',
-        replacement: { sku: '03-4614BK', location: 'ROW 43', warehouse: 'LUDLOW', item_name: 'BLACK' },
+        replacement: {
+          sku: '03-4614BK',
+          location: 'ROW 43',
+          warehouse: 'LUDLOW',
+          item_name: 'BLACK',
+        },
       });
 
       expect(items[0].pickingQty).toBe(5);
@@ -128,7 +155,12 @@ describe('Correction Actions', () => {
       const { items } = applyCorrection(BASE_CART, {
         type: 'swap',
         originalSku: '03-4614ZZ',
-        replacement: { sku: '03-4614RD', location: 'ROW 10', warehouse: 'LUDLOW', item_name: 'GARNET' },
+        replacement: {
+          sku: '03-4614RD',
+          location: 'ROW 10',
+          warehouse: 'LUDLOW',
+          item_name: 'GARNET',
+        },
       });
 
       expect(items).toHaveLength(3);
@@ -140,7 +172,12 @@ describe('Correction Actions', () => {
       const { log } = applyCorrection(BASE_CART, {
         type: 'swap',
         originalSku: '03-4614ZZ',
-        replacement: { sku: '03-4614RD', location: 'ROW 10', warehouse: 'LUDLOW', item_name: 'GARNET' },
+        replacement: {
+          sku: '03-4614RD',
+          location: 'ROW 10',
+          warehouse: 'LUDLOW',
+          item_name: 'GARNET',
+        },
       });
 
       expect(log).toBe('Swapped SKU 03-4614ZZ → 03-4614RD');
@@ -232,7 +269,13 @@ describe('Correction Actions', () => {
     it('adds a new item to the cart with clean flags', () => {
       const { items } = applyCorrection(BASE_CART, {
         type: 'add',
-        item: { sku: '06-4572GY', location: 'ROW 2', warehouse: 'LUDLOW', item_name: 'EC1 18', pickingQty: 3 },
+        item: {
+          sku: '06-4572GY',
+          location: 'ROW 2',
+          warehouse: 'LUDLOW',
+          item_name: 'EC1 18',
+          pickingQty: 3,
+        },
       });
 
       expect(items).toHaveLength(4);
@@ -247,7 +290,13 @@ describe('Correction Actions', () => {
     it('merges quantity when SKU already exists in cart', () => {
       const { items, log } = applyCorrection(BASE_CART, {
         type: 'add',
-        item: { sku: '03-4614BK', location: 'ROW 43', warehouse: 'LUDLOW', item_name: 'BLACK', pickingQty: 3 },
+        item: {
+          sku: '03-4614BK',
+          location: 'ROW 43',
+          warehouse: 'LUDLOW',
+          item_name: 'BLACK',
+          pickingQty: 3,
+        },
       });
 
       // Should NOT add a new entry
@@ -260,7 +309,13 @@ describe('Correction Actions', () => {
     it('generates "Extra item" log for new SKU', () => {
       const { log } = applyCorrection(BASE_CART, {
         type: 'add',
-        item: { sku: '06-4572GY', location: 'ROW 2', warehouse: 'LUDLOW', item_name: 'EC1', pickingQty: 2 },
+        item: {
+          sku: '06-4572GY',
+          location: 'ROW 2',
+          warehouse: 'LUDLOW',
+          item_name: 'EC1',
+          pickingQty: 2,
+        },
       });
 
       expect(log).toBe('Extra item: 06-4572GY, qty 2');
@@ -269,7 +324,13 @@ describe('Correction Actions', () => {
     it('generates "Extra item" log with total for existing SKU', () => {
       const { log } = applyCorrection(BASE_CART, {
         type: 'add',
-        item: { sku: '03-4614BK', location: 'ROW 43', warehouse: 'LUDLOW', item_name: 'BLACK', pickingQty: 1 },
+        item: {
+          sku: '03-4614BK',
+          location: 'ROW 43',
+          warehouse: 'LUDLOW',
+          item_name: 'BLACK',
+          pickingQty: 1,
+        },
       });
 
       expect(log).toBe('Extra item: 03-4614BK, qty 1 (total 3)');
@@ -290,7 +351,12 @@ describe('Correction Actions', () => {
       applyCorrection(BASE_CART, {
         type: 'swap',
         originalSku: '03-4614ZZ',
-        replacement: { sku: '03-4614RD', location: 'ROW 10', warehouse: 'LUDLOW', item_name: 'GARNET' },
+        replacement: {
+          sku: '03-4614RD',
+          location: 'ROW 10',
+          warehouse: 'LUDLOW',
+          item_name: 'GARNET',
+        },
       });
 
       expect(BASE_CART[1]).toEqual(originalItem);
@@ -302,7 +368,12 @@ describe('Correction Actions', () => {
       const { items } = applyCorrection(BASE_CART, {
         type: 'swap',
         originalSku: 'NONEXISTENT',
-        replacement: { sku: '03-4614RD', location: 'ROW 10', warehouse: 'LUDLOW', item_name: 'GARNET' },
+        replacement: {
+          sku: '03-4614RD',
+          location: 'ROW 10',
+          warehouse: 'LUDLOW',
+          item_name: 'GARNET',
+        },
       });
 
       expect(items).toHaveLength(3);

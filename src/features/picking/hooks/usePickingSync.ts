@@ -768,6 +768,7 @@ export const usePickingSync = ({
         setIsSaving(false);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [user, showError]
   );
 

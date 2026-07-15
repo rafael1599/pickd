@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -65,7 +66,7 @@ export const getActionInfo = (type: LogActionTypeValue, log: InventoryLog) => {
     case 'PHYSICAL_DISTRIBUTION': {
       const snap = log.snapshot_before as DistributionSnapshot | null | undefined;
       const distLabel = snap?.type
-        ? `${snap.change === 'removed' ? '- ' : '+ '}${snap.count} ${snap.type} \u00d7 ${snap.units_each}u`
+        ? `${snap.change === 'removed' ? '- ' : '+ '}${snap.count} ${snap.type} × ${snap.units_each}u`
         : 'Distribution';
       return {
         icon: <Package size={12} />,

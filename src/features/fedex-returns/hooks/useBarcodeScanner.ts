@@ -17,6 +17,7 @@ export async function scanImageForBarcodes(file: File): Promise<string[]> {
   // Try native BarcodeDetector first
   if ('BarcodeDetector' in window) {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const detector = new (window as any).BarcodeDetector({
         formats: ['code_128', 'code_39', 'ean_13', 'upc_a', 'qr_code'],
       });

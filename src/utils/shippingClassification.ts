@@ -10,7 +10,7 @@ export function autoClassifyShippingType(
   skuWeights: Record<string, number> // sku → weight_lbs
 ): 'fedex' | 'regular' {
   // Rule 1: any item > 50 lbs
-  const hasHeavyItem = items.some(item => (skuWeights[item.sku] ?? 0) > 50);
+  const hasHeavyItem = items.some((item) => (skuWeights[item.sku] ?? 0) > 50);
   if (hasHeavyItem) return 'regular';
 
   // Rule 2: >= 5 total items

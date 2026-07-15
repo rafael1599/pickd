@@ -85,8 +85,14 @@ export const SplitOrderModal: React.FC<SplitOrderModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-main/60 backdrop-blur-md p-4" onClick={onClose}>
-      <div className="bg-card border border-subtle rounded-3xl w-full max-w-lg max-h-[80vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-[150] flex items-center justify-center bg-main/60 backdrop-blur-md p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card border border-subtle rounded-3xl w-full max-w-lg max-h-[80vh] overflow-y-auto shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-subtle">
           <div className="flex items-center gap-2">

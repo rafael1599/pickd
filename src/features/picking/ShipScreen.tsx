@@ -302,7 +302,7 @@ export const ShipScreen = () => {
         return updated;
       });
     });
-  }, [weightsReady, itemsMissingWeight]);
+  }, [weightsReady, itemsMissingWeight, skuMeta]);
 
   // FedEx orders don't use pallets — skip pallet weight
   const isFedexOrder =
@@ -913,6 +913,7 @@ export const ShipScreen = () => {
 
       const { error } = await supabase
         .from('picking_lists')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .update({ status: 'completed', is_shipped: true, is_waiting_inventory: false } as any)
         .in('id', allIds);
 
@@ -1387,6 +1388,7 @@ export const ShipScreen = () => {
 
           const { error } = await supabase
             .from('picking_lists')
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .update({ status: 'completed', is_shipped: true, is_waiting_inventory: false } as any)
             .in('id', idsToUpdate);
           if (error) throw error;
@@ -1425,6 +1427,7 @@ export const ShipScreen = () => {
 
         const { error } = await supabase
           .from('picking_lists')
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .update({ is_shipped: false } as any)
           .in('id', idsToUpdate);
         if (error) throw error;
@@ -1522,6 +1525,7 @@ export const ShipScreen = () => {
           is_shipped: true,
           is_waiting_inventory: false,
           pallet_photos: updatedPhotos,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any)
         .eq('id', pendingShipmentOrder.id);
 

@@ -4,5 +4,5 @@ import './mocks/supabase';
 
 // Cleanup mocks after each test
 afterEach(() => {
-    vi.clearAllMocks();
+  vi.clearAllMocks();
 });

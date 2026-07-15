@@ -17,6 +17,10 @@ export default tseslint.config(
       '*.config.js',
       'postcss.config.js',
       'tailwind.config.js',
+      'playwright-report/**',
+      'test-results/**',
+      '.agent/**',
+      '.temp/**'
     ],
   },
   // 2. Base Configurations

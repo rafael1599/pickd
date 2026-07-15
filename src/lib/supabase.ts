@@ -5,7 +5,7 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Supabase URL and Anon Key must be provided in environment variables');
+  throw new Error('Supabase URL and Anon Key must be provided in environment variables');
 }
 
 /**
@@ -13,14 +13,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
  * Includes optimized realtime and auth persistence settings to prevent instance duplication.
  */
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-    realtime: {
-        params: {
-            eventsPerSecond: 20, // Increased slightly for warehouse operations
-        },
+  realtime: {
+    params: {
+      eventsPerSecond: 20, // Increased slightly for warehouse operations
     },
-    auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-    },
+  },
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
 });

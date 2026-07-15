@@ -39,9 +39,7 @@ function simulateAddToCart(
   // Add item (or increment)
   const existing = state.cartItems.find((c) => c.sku === item.sku);
   const newItems = existing
-    ? state.cartItems.map((c) =>
-        c.sku === item.sku ? { ...c, pickingQty: c.pickingQty + 1 } : c
-      )
+    ? state.cartItems.map((c) => (c.sku === item.sku ? { ...c, pickingQty: c.pickingQty + 1 } : c))
     : [...state.cartItems, { sku: item.sku, pickingQty: 1 }];
 
   return { ...state, sessionMode: newMode, cartItems: newItems };
@@ -80,7 +78,7 @@ interface VerifyQueueResult {
   drawerOpen: boolean;
 }
 
-function simulateSendToVerifyQueue(_activeListId: string): VerifyQueueResult {
+function simulateSendToVerifyQueue(): VerifyQueueResult {
   // markAsReady validates stock + sets double_checking
   // releaseCheck then sets ready_to_double_check + checked_by = null
   return {
@@ -191,15 +189,16 @@ describe('Picking Workflow (idea-032)', () => {
 
   describe('Send to Verify Queue', () => {
     it('sets status to ready_to_double_check with no checker assigned', () => {
-      const result = simulateSendToVerifyQueue('list-1');
+      const result = simulateSendToVerifyQueue();
 
       expect(result.status).toBe('ready_to_double_check');
       expect(result.checked_by).toBeNull();
     });
 
     it('closes the drawer after sending', () => {
-      const result = simulateSendToVerifyQueue('list-1');
+      const result = simulateSendToVerifyQueue();
 
+      // Drawer is managed by sendToVerifyQueue / markAsReady
       expect(result.drawerOpen).toBe(false);
     });
   });
@@ -225,11 +224,7 @@ describe('Picking Workflow (idea-032)', () => {
         p.items.map((item) => `${p.id}-${item.sku}-${item.location}`)
       );
 
-      expect(allKeys).toEqual([
-        '1-SKU-001-ROW 1',
-        '1-SKU-002-ROW 2',
-        '2-SKU-003-ROW 3',
-      ]);
+      expect(allKeys).toEqual(['1-SKU-001-ROW 1', '1-SKU-002-ROW 2', '2-SKU-003-ROW 3']);
       expect(allKeys).toHaveLength(3);
 
       // After setting all keys, footer switches to slide_to_complete

@@ -9,6 +9,7 @@ export const OrderAutoSaveIndicator: React.FC<OrderAutoSaveIndicatorProps> = ({ 
 
   useEffect(() => {
     if (status === 'saved') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowSaved(true);
       const timer = setTimeout(() => setShowSaved(false), 2000);
       return () => clearTimeout(timer);

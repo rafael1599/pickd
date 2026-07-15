@@ -157,7 +157,9 @@ describe('computeTaskStatusBuckets', () => {
   });
 
   it('a task marked done then moved back to in_progress on the same day shows as in_progress (not done)', () => {
-    const tasks = [task({ id: '1', status: 'in_progress', created_at: '2026-04-08T08:00:00.000Z' })];
+    const tasks = [
+      task({ id: '1', status: 'in_progress', created_at: '2026-04-08T08:00:00.000Z' }),
+    ];
     const changes = [
       change('1', 'in_progress', 'done', '2026-04-10T10:00:00.000Z'),
       change('1', 'done', 'in_progress', '2026-04-10T15:00:00.000Z'),
@@ -179,7 +181,9 @@ describe('computeTaskStatusBuckets', () => {
   });
 
   it('a task created today in in_progress appears in inProgress for today', () => {
-    const tasks = [task({ id: '1', status: 'in_progress', created_at: '2026-04-10T08:00:00.000Z' })];
+    const tasks = [
+      task({ id: '1', status: 'in_progress', created_at: '2026-04-10T08:00:00.000Z' }),
+    ];
     const buckets = computeTaskStatusBuckets(DAY_START, DAY_END, tasks, []);
     expect(buckets.inProgress.map((t) => t.task_id)).toEqual(['1']);
   });
@@ -228,9 +232,7 @@ describe('computeTaskStatusBuckets', () => {
     const NY_DAY_START = '2026-04-10T04:00:00.000Z'; // Apr 10 00:00 NY (EDT)
     const NY_DAY_END = '2026-04-11T03:59:59.999Z'; // Apr 10 23:59:59.999 NY (EDT)
 
-    const tasks = [
-      task({ id: '1', status: 'done', created_at: '2026-04-08T08:00:00.000Z' }),
-    ];
+    const tasks = [task({ id: '1', status: 'done', created_at: '2026-04-08T08:00:00.000Z' })];
     const changes = [
       // 11:30 PM NY EDT on Apr 10 = 03:30 UTC on Apr 11
       change('1', 'in_progress', 'done', '2026-04-11T03:30:00.000Z'),
@@ -246,9 +248,7 @@ describe('computeTaskStatusBuckets', () => {
     const NY_DAY_START = '2026-04-10T04:00:00.000Z';
     const NY_DAY_END = '2026-04-11T03:59:59.999Z';
 
-    const tasks = [
-      task({ id: '1', status: 'done', created_at: '2026-04-08T08:00:00.000Z' }),
-    ];
+    const tasks = [task({ id: '1', status: 'done', created_at: '2026-04-08T08:00:00.000Z' })];
     const changes = [change('1', 'in_progress', 'done', '2026-04-11T05:00:00.000Z')];
 
     const buckets = computeTaskStatusBuckets(NY_DAY_START, NY_DAY_END, tasks, changes);

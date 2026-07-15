@@ -6,6 +6,7 @@ import { lazy } from 'react';
  * chunk), retries once. If the retry also fails, reloads the page so the browser
  * fetches fresh chunk references from the new index.html.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function lazyWithRetry<T extends { default: React.ComponentType<any> }>(
   factory: () => Promise<T>
 ): React.LazyExoticComponent<T['default']> {

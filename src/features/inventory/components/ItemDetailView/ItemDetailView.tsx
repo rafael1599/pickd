@@ -261,7 +261,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     setValue('width_in', defaults.width_in);
     setValue('height_in', defaults.height_in);
     setValue('weight_lbs', defaults.weight_lbs);
-  }, [isOpen, mode, sku, setValue]);
+  }, [isOpen, mode, sku, setValue, initialData?.sku_metadata?.is_bike]);
 
   // Sync sku_metadata from realtime
   useEffect(() => {

@@ -3,6 +3,7 @@
  * Useful for optimizing real-time subscriptions and user input handlers
  */
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type DebouncedFunction<T extends (...args: any[]) => any> = ((
   ...args: Parameters<T>
 ) => void) & { cancel: () => void };

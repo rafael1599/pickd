@@ -87,9 +87,8 @@ export const useDoubleCheckList = () => {
   const { data: rawOrders, isLoading: ordersLoading } = useQuery<PickingList[]>({
     queryKey: VERIFICATION_QUEUE_KEY,
     queryFn: async () => {
-      const { data, error } = await (
-        supabase.from('picking_lists').select(PICKING_LIST_SELECT) as any
-      )
+      const { data, error } = await // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('picking_lists').select(PICKING_LIST_SELECT) as any)
         .in('status', ['active', 'ready_to_double_check', 'double_checking', 'needs_correction'])
         .or('is_shipped.is.null,is_shipped.eq.false')
         .order('updated_at', { ascending: false });
@@ -108,9 +107,8 @@ export const useDoubleCheckList = () => {
   const { data: completedOrders, isLoading: completedLoading } = useQuery<PickingList[]>({
     queryKey: COMPLETED_ORDERS_KEY,
     queryFn: async () => {
-      const { data, error } = await (
-        supabase.from('picking_lists').select(PICKING_LIST_SELECT) as any
-      )
+      const { data, error } = await // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from('picking_lists').select(PICKING_LIST_SELECT) as any)
         .eq('status', 'completed')
         .or('is_shipped.is.null,is_shipped.eq.false')
         .order('updated_at', { ascending: false })
@@ -157,7 +155,7 @@ export const useDoubleCheckList = () => {
     };
   }, [queryClient]);
 
-  const orders = rawOrders ?? [];
+  const orders = useMemo(() => rawOrders ?? [], [rawOrders]);
 
   const { readyCount, correctionCount, checkingCount, waitingCount } = useMemo(
     () => ({

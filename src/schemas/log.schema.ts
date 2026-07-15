@@ -3,7 +3,15 @@ import { z } from 'zod';
 /**
  * Enum for log action types - prevents typos like 'DEDIT' instead of 'DEDUCT'
  */
-export const LogActionType = z.enum(['MOVE', 'ADD', 'EDIT', 'DEDUCT', 'DELETE', 'SYSTEM_RECONCILIATION', 'PHYSICAL_DISTRIBUTION']);
+export const LogActionType = z.enum([
+  'MOVE',
+  'ADD',
+  'EDIT',
+  'DEDUCT',
+  'DELETE',
+  'SYSTEM_RECONCILIATION',
+  'PHYSICAL_DISTRIBUTION',
+]);
 
 /**
  * Schema for inventory logs from the database

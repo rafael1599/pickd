@@ -13,9 +13,7 @@ type TabType = 'locations' | 'reports' | 'users';
 
 export const IntegratedMapManager = () => {
   const { isAdmin } = useAuth();
-  const {
-    loading: zonesLoading,
-  } = useWarehouseZones();
+  const { loading: zonesLoading } = useWarehouseZones();
   const { latestReport, generateReport } = useOptimizationReports();
 
   const [activeTab, setActiveTab] = useState<TabType>('locations');

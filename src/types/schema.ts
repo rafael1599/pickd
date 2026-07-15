@@ -4,19 +4,19 @@ import type { Database } from '../integrations/supabase/types';
  * Convenience helper to extract the type of a specific table row from the public schema.
  */
 export type Tables<T extends keyof Database['public']['Tables']> =
-    Database['public']['Tables'][T]['Row'];
+  Database['public']['Tables'][T]['Row'];
 
 /**
  * Convenience helper to extract the insert type for a specific table.
  */
 export type TablesInsert<T extends keyof Database['public']['Tables']> =
-    Database['public']['Tables'][T]['Insert'];
+  Database['public']['Tables'][T]['Insert'];
 
 /**
  * Convenience helper to extract the update type for a specific table.
  */
 export type TablesUpdate<T extends keyof Database['public']['Tables']> =
-    Database['public']['Tables'][T]['Update'];
+  Database['public']['Tables'][T]['Update'];
 
 /**
  * Convenience helper for public enums.

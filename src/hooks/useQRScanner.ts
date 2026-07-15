@@ -12,10 +12,7 @@ export async function scanImageForQRCodes(file: File): Promise<string[]> {
   // 1. Resize image to max 1280px (performance on old phones)
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, 1280 / Math.max(bitmap.width, bitmap.height));
-  const canvas = new OffscreenCanvas(
-    bitmap.width * scale,
-    bitmap.height * scale,
-  );
+  const canvas = new OffscreenCanvas(bitmap.width * scale, bitmap.height * scale);
   const ctx = canvas.getContext('2d')!;
   ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
@@ -23,6 +20,7 @@ export async function scanImageForQRCodes(file: File): Promise<string[]> {
   // 2. Try native BarcodeDetector first
   if ('BarcodeDetector' in window) {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const detector = new (window as any).BarcodeDetector({
         formats: ['qr_code'],
       });

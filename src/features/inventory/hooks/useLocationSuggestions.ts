@@ -85,7 +85,7 @@ export const useLocationSuggestions = (
     const targetInv = targetWarehouse === 'ATS' ? atsData : ludlowData;
     // Ensure targetWarehouse is strictly typed as 'LUDLOW' | 'ATS'
     // If it's effectively one of them, types should work with a cast or check
-     
+
     const shippingArea = SLOTTING_CONFIG.SHIPPING_AREAS[targetWarehouse as 'LUDLOW' | 'ATS'];
 
     const locationMap = new Map<string, LocationSuggestion>();

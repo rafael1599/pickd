@@ -20,7 +20,9 @@ interface DeltaEntry {
   delta: number;
 }
 
-function buildMap(items: Item[]): Map<string, { sku: string; warehouse: string; location: string; qty: number }> {
+function buildMap(
+  items: Item[]
+): Map<string, { sku: string; warehouse: string; location: string; qty: number }> {
   const map = new Map<string, { sku: string; warehouse: string; location: string; qty: number }>();
   for (const item of items) {
     if (item.sku_not_found) continue;
@@ -30,7 +32,12 @@ function buildMap(items: Item[]): Map<string, { sku: string; warehouse: string; 
     if (existing) {
       existing.qty += item.pickingQty;
     } else {
-      map.set(key, { sku: item.sku, warehouse: item.warehouse, location: item.location || '', qty: item.pickingQty });
+      map.set(key, {
+        sku: item.sku,
+        warehouse: item.warehouse,
+        location: item.location || '',
+        qty: item.pickingQty,
+      });
     }
   }
   return map;
@@ -60,7 +67,12 @@ export function calculateReopenDelta(snapshot: Item[], current: Item[]): DeltaEn
   // Items in current but NOT in snapshot: newly added, deduct
   for (const [key, curr] of currMap) {
     if (!snapMap.has(key) && curr.qty > 0) {
-      deltas.push({ sku: curr.sku, warehouse: curr.warehouse, location: curr.location, delta: -curr.qty });
+      deltas.push({
+        sku: curr.sku,
+        warehouse: curr.warehouse,
+        location: curr.location,
+        delta: -curr.qty,
+      });
     }
   }
 
@@ -69,7 +81,10 @@ export function calculateReopenDelta(snapshot: Item[], current: Item[]): DeltaEn
 
 describe('calculateReopenDelta', () => {
   const makeItem = (sku: string, qty: number, location = 'ROW A'): Item => ({
-    sku, warehouse: 'LUDLOW', location, pickingQty: qty,
+    sku,
+    warehouse: 'LUDLOW',
+    location,
+    pickingQty: qty,
   });
 
   it('returns empty array when no changes', () => {
@@ -81,36 +96,28 @@ describe('calculateReopenDelta', () => {
     const snapshot = [makeItem('SKU-A', 5), makeItem('SKU-B', 3)];
     const current = [makeItem('SKU-A', 5)]; // B removed
     const deltas = calculateReopenDelta(snapshot, current);
-    expect(deltas).toEqual([
-      { sku: 'SKU-B', warehouse: 'LUDLOW', location: 'ROW A', delta: 3 },
-    ]);
+    expect(deltas).toEqual([{ sku: 'SKU-B', warehouse: 'LUDLOW', location: 'ROW A', delta: 3 }]);
   });
 
   it('returns negative delta when item is added (deduct from inventory)', () => {
     const snapshot = [makeItem('SKU-A', 5)];
     const current = [makeItem('SKU-A', 5), makeItem('SKU-C', 4)]; // C added
     const deltas = calculateReopenDelta(snapshot, current);
-    expect(deltas).toEqual([
-      { sku: 'SKU-C', warehouse: 'LUDLOW', location: 'ROW A', delta: -4 },
-    ]);
+    expect(deltas).toEqual([{ sku: 'SKU-C', warehouse: 'LUDLOW', location: 'ROW A', delta: -4 }]);
   });
 
   it('returns positive delta when quantity decreased (return difference)', () => {
     const snapshot = [makeItem('SKU-A', 5)];
     const current = [makeItem('SKU-A', 3)]; // decreased by 2
     const deltas = calculateReopenDelta(snapshot, current);
-    expect(deltas).toEqual([
-      { sku: 'SKU-A', warehouse: 'LUDLOW', location: 'ROW A', delta: 2 },
-    ]);
+    expect(deltas).toEqual([{ sku: 'SKU-A', warehouse: 'LUDLOW', location: 'ROW A', delta: 2 }]);
   });
 
   it('returns negative delta when quantity increased (deduct difference)', () => {
     const snapshot = [makeItem('SKU-A', 3)];
     const current = [makeItem('SKU-A', 5)]; // increased by 2
     const deltas = calculateReopenDelta(snapshot, current);
-    expect(deltas).toEqual([
-      { sku: 'SKU-A', warehouse: 'LUDLOW', location: 'ROW A', delta: -2 },
-    ]);
+    expect(deltas).toEqual([{ sku: 'SKU-A', warehouse: 'LUDLOW', location: 'ROW A', delta: -2 }]);
   });
 
   it('handles swap (remove old + add new)', () => {
@@ -118,27 +125,48 @@ describe('calculateReopenDelta', () => {
     const current = [makeItem('SKU-A', 5), makeItem('SKU-C', 3)]; // B swapped for C
     const deltas = calculateReopenDelta(snapshot, current);
     expect(deltas).toHaveLength(2);
-    expect(deltas).toContainEqual({ sku: 'SKU-B', warehouse: 'LUDLOW', location: 'ROW A', delta: 3 }); // return B
-    expect(deltas).toContainEqual({ sku: 'SKU-C', warehouse: 'LUDLOW', location: 'ROW A', delta: -3 }); // deduct C
+    expect(deltas).toContainEqual({
+      sku: 'SKU-B',
+      warehouse: 'LUDLOW',
+      location: 'ROW A',
+      delta: 3,
+    }); // return B
+    expect(deltas).toContainEqual({
+      sku: 'SKU-C',
+      warehouse: 'LUDLOW',
+      location: 'ROW A',
+      delta: -3,
+    }); // deduct C
   });
 
   it('handles multiple simultaneous changes', () => {
-    const snapshot = [
-      makeItem('SKU-A', 5),
-      makeItem('SKU-B', 3),
-      makeItem('SKU-C', 2),
-    ];
+    const snapshot = [makeItem('SKU-A', 5), makeItem('SKU-B', 3), makeItem('SKU-C', 2)];
     const current = [
-      makeItem('SKU-A', 3),  // decreased by 2
+      makeItem('SKU-A', 3), // decreased by 2
       // SKU-B removed
-      makeItem('SKU-C', 2),  // unchanged
-      makeItem('SKU-D', 4),  // new
+      makeItem('SKU-C', 2), // unchanged
+      makeItem('SKU-D', 4), // new
     ];
     const deltas = calculateReopenDelta(snapshot, current);
     expect(deltas).toHaveLength(3);
-    expect(deltas).toContainEqual({ sku: 'SKU-A', warehouse: 'LUDLOW', location: 'ROW A', delta: 2 });
-    expect(deltas).toContainEqual({ sku: 'SKU-B', warehouse: 'LUDLOW', location: 'ROW A', delta: 3 });
-    expect(deltas).toContainEqual({ sku: 'SKU-D', warehouse: 'LUDLOW', location: 'ROW A', delta: -4 });
+    expect(deltas).toContainEqual({
+      sku: 'SKU-A',
+      warehouse: 'LUDLOW',
+      location: 'ROW A',
+      delta: 2,
+    });
+    expect(deltas).toContainEqual({
+      sku: 'SKU-B',
+      warehouse: 'LUDLOW',
+      location: 'ROW A',
+      delta: 3,
+    });
+    expect(deltas).toContainEqual({
+      sku: 'SKU-D',
+      warehouse: 'LUDLOW',
+      location: 'ROW A',
+      delta: -4,
+    });
   });
 
   it('skips items with sku_not_found flag', () => {
@@ -152,18 +180,14 @@ describe('calculateReopenDelta', () => {
     const snapshot = [makeItem('SKU-A', 5, 'ROW A'), makeItem('SKU-A', 3, 'ROW B')];
     const current = [makeItem('SKU-A', 5, 'ROW A')]; // ROW B removed
     const deltas = calculateReopenDelta(snapshot, current);
-    expect(deltas).toEqual([
-      { sku: 'SKU-A', warehouse: 'LUDLOW', location: 'ROW B', delta: 3 },
-    ]);
+    expect(deltas).toEqual([{ sku: 'SKU-A', warehouse: 'LUDLOW', location: 'ROW B', delta: 3 }]);
   });
 
   it('handles empty snapshot (all items are new)', () => {
     const snapshot: Item[] = [];
     const current = [makeItem('SKU-A', 5)];
     const deltas = calculateReopenDelta(snapshot, current);
-    expect(deltas).toEqual([
-      { sku: 'SKU-A', warehouse: 'LUDLOW', location: 'ROW A', delta: -5 },
-    ]);
+    expect(deltas).toEqual([{ sku: 'SKU-A', warehouse: 'LUDLOW', location: 'ROW A', delta: -5 }]);
   });
 
   it('handles empty current (all items removed)', () => {
@@ -171,7 +195,17 @@ describe('calculateReopenDelta', () => {
     const current: Item[] = [];
     const deltas = calculateReopenDelta(snapshot, current);
     expect(deltas).toHaveLength(2);
-    expect(deltas).toContainEqual({ sku: 'SKU-A', warehouse: 'LUDLOW', location: 'ROW A', delta: 5 });
-    expect(deltas).toContainEqual({ sku: 'SKU-B', warehouse: 'LUDLOW', location: 'ROW A', delta: 3 });
+    expect(deltas).toContainEqual({
+      sku: 'SKU-A',
+      warehouse: 'LUDLOW',
+      location: 'ROW A',
+      delta: 5,
+    });
+    expect(deltas).toContainEqual({
+      sku: 'SKU-B',
+      warehouse: 'LUDLOW',
+      location: 'ROW A',
+      delta: 3,
+    });
   });
 });

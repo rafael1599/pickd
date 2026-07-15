@@ -68,8 +68,9 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
             .eq('id', sourceOrderId)
             .single();
           if (sourceData) {
-            currentCustomerId = (sourceData as any).customer_id;
-            currentCustomerName = (sourceData as any).customer?.name ?? null;
+            const typedData = sourceData as { customer_id?: string; customer?: { name?: string } };
+            currentCustomerId = typedData.customer_id ?? null;
+            currentCustomerName = typedData.customer?.name ?? null;
             if (!cancelled) {
               setSourceCustomerId(currentCustomerId);
               setSourceCustomerName(currentCustomerName);
@@ -111,6 +112,7 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
               .in('customer_id', customerIds)
               .neq('id', sourceOrderId)
               .order('updated_at', { ascending: false })
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               .limit(50) as any;
           }
 
@@ -144,6 +146,7 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
               .in('status', ['completed', 'cancelled'])
               .neq('id', sourceOrderId)
               .order('updated_at', { ascending: false })
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               .limit(30) as any;
           }
 
@@ -191,7 +194,7 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
         cancelled = true;
       };
     }
-  }, [sourceOrderId, searchQuery, sourceCustomerId]);
+  }, [sourceOrderId, searchQuery, sourceCustomerId, sourceCustomerName]);
 
   // Separate same customer suggestions from others
   const { sameCustomer, others } = useMemo(() => {

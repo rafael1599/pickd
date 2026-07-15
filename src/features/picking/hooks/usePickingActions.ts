@@ -364,10 +364,11 @@ export const usePickingActions = ({
         .eq('id', listId)
         .maybeSingle();
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const shouldClaim = (order as any)?.profiles?.full_name === 'Warehouse Team';
 
       // Lock the main order
-      const updateFields: any = {
+      const updateFields: Record<string, unknown> = {
         status: 'double_checking',
         checked_by: user.id,
       };

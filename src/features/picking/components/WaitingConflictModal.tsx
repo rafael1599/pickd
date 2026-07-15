@@ -50,7 +50,8 @@ export const WaitingConflictModal: React.FC<WaitingConflictModalProps> = ({
               SKU Conflict
             </h3>
             <p className="text-[10px] text-amber-500/70 font-bold">
-              {conflicts.length === 1 ? '1 item' : `${conflicts.length} items`} reserved by waiting {conflicts.length === 1 ? 'order' : 'orders'}
+              {conflicts.length === 1 ? '1 item' : `${conflicts.length} items`} reserved by waiting{' '}
+              {conflicts.length === 1 ? 'order' : 'orders'}
             </p>
           </div>
           <button

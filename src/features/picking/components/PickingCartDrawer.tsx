@@ -273,6 +273,7 @@ export const PickingCartDrawer: React.FC = () => {
     lockForCheck,
     setExternalDoubleCheckId,
     showConfirmation,
+    hydrateVerifiedItems,
   ]);
 
   // 3. Persist double-check progress.
