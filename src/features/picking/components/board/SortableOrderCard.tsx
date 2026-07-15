@@ -212,7 +212,7 @@ const OrderCardShell: React.FC<CardProps> = ({
                 onMerge(order);
               }}
               className="p-2 lg:p-1 text-muted hover:text-sky-400 transition-colors rounded-lg hover:bg-content/[0.05]"
-              title="Merge/Combine Order"
+              title="Combine"
             >
               <MoreVertical className="w-5 h-5 lg:w-3.5 lg:h-3.5" />
             </button>
@@ -224,7 +224,7 @@ const OrderCardShell: React.FC<CardProps> = ({
                 onUngroup(order);
               }}
               className="p-2 lg:p-1 text-muted hover:text-amber-500 transition-colors rounded-lg hover:bg-content/[0.05]"
-              title="Remove from group"
+              title="Ungroup"
             >
               <Unlink className="w-5 h-5 lg:w-3.5 lg:h-3.5" />
             </button>

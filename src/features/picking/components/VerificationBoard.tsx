@@ -82,14 +82,14 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         const { error } = await supabase.rpc('reopen_picking_list', {
           p_list_id: target.id,
           p_reopened_by: user?.id,
-          p_reason: `Merged with #${orderToMerge.order_number || 'unknown'}`,
+          p_reason: `Combined with #${orderToMerge.order_number || 'unknown'}`,
         });
         if (error) throw error;
       } else if (target.status === 'cancelled') {
         const { error } = await supabase.rpc('restore_cancelled_order', {
           p_list_id: target.id,
           p_restored_by: user?.id,
-          p_reason: `Merged with #${orderToMerge.order_number || 'unknown'}`,
+          p_reason: `Combined with #${orderToMerge.order_number || 'unknown'}`,
         });
         if (error) throw error;
       }
@@ -116,10 +116,10 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
 
       // 3. Refresh Board
       refresh();
-      toast.success(`Successfully merged with #${target.order_number}`);
+      toast.success(`Combined with #${target.order_number}`);
     } catch (err) {
-      console.error('Merge action failed:', err);
-      toast.error('Failed to merge orders. Please try again.');
+      console.error('Combine action failed:', err);
+      toast.error('Failed to combine orders. Please try again.');
     }
   };
 

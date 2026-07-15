@@ -227,10 +227,10 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
         <div className="flex items-center justify-between mb-4 shrink-0">
           <div>
             <h3 className="text-sm font-black text-sky-400 uppercase tracking-widest flex items-center gap-1.5">
-              <span>Merge with another order</span>
+              <span>Combine</span>
             </h3>
             <p className="text-[10px] text-muted/70 mt-1">
-              Selected orders will be merged into a single combined group.
+              Selected orders will be combined into a single group.
             </p>
           </div>
           <button

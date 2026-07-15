@@ -210,9 +210,9 @@ export const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
               <GitMerge size={16} className="text-purple-400" />
               <div>
                 <div className="text-xs font-black uppercase tracking-wider text-content">
-                  Merge / Combine
+                  Combine
                 </div>
-                <div className="text-[9px] text-muted/70">Merge this order with another one</div>
+                <div className="text-[9px] text-muted/70">Combine this order with another one</div>
               </div>
             </button>
           )}

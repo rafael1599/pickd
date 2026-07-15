@@ -69,7 +69,7 @@ export const WaitingZone: React.FC<WaitingZoneProps> = ({ orders, onSelect, onMe
                     onMerge(firstOrder);
                   }}
                   className="p-1 text-muted hover:text-sky-400 transition-colors rounded-lg hover:bg-content/[0.05]"
-                  title="Merge/Combine Order"
+                  title="Combine"
                 >
                   <MoreVertical className="w-4.5 h-4.5" />
                 </button>
@@ -117,7 +117,7 @@ export const WaitingZone: React.FC<WaitingZoneProps> = ({ orders, onSelect, onMe
                   onMerge(order);
                 }}
                 className="p-1 text-muted hover:text-sky-400 transition-colors rounded-lg hover:bg-content/[0.05]"
-                title="Merge/Combine Order"
+                title="Combine"
               >
                 <MoreVertical className="w-4.5 h-4.5" />
               </button>
