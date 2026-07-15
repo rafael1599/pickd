@@ -143,7 +143,6 @@ interface DoubleCheckViewProps {
   onSendToVerifyQueue?: () => void;
   initialAction?: 'edit' | 'photo' | 'cancel' | null;
   onClearInitialAction?: () => void;
-  onParkOrder?: () => void;
   onRecomplete?: (items: PickingItem[]) => Promise<void>;
   onCancelReopen?: () => void;
   /** idea-067 Phase 2 / Option A: opens the AddOn target picker in
@@ -180,7 +179,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   inventoryData: inventoryDataProp,
   onMarkAsReady,
   onSendToVerifyQueue,
-  onParkOrder,
   onRecomplete,
   onCancelReopen,
   onCombineWith,
@@ -1484,7 +1482,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             <button
               onClick={status === 'reopened' ? onCancelReopen : onRelease}
               className="p-1.5 hover:bg-card rounded-full text-muted transition-colors"
-              title={status === 'reopened' ? 'Cancel Edit' : 'Release to Queue'}
+              title={status === 'reopened' ? 'Cancel Edit' : 'Park & Close'}
             >
               <X size={20} />
             </button>
@@ -2337,11 +2335,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             </div>
           </div>
         ) : (
-          /* Estado B — partial verification. Two paths:
-             - Park Order: release lock, status untouched. Order returns to
-               its FedEx/Regular lane in the top section so anyone can take it.
-             - Complete Now: just Select-All everything (transitions UI to
-               Estado C without changing DB status). */
+          /* Estado B — partial verification. Parking now lives on the header X
+             (close = park: release lock, status untouched, session ends), so
+             the footer only offers Complete Now (Select-All → Estado C without
+             changing DB status). */
           <div className="flex gap-3">
             {onSelectAll && totalUnitsCount > 0 && (
               <button
@@ -2366,12 +2363,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 {verifiedUnitsCount === totalUnitsCount ? 'Clear' : 'All'}
               </button>
             )}
-            <button
-              onClick={() => onParkOrder?.()}
-              className="flex-1 py-4 bg-card border border-subtle text-content/70 font-black uppercase tracking-widest text-xs rounded-2xl active:scale-95 transition-all"
-            >
-              Park Order
-            </button>
             <button
               onClick={() => {
                 const allKeys = pallets.flatMap((p) =>

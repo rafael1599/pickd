@@ -322,15 +322,6 @@ export const PickingCartDrawer: React.FC = () => {
     }
   };
 
-  // Park: half-checked order back to FedEx/Regular lane (status untouched).
-  // Distinct from "Send to Verify" which transitions to ready_to_double_check.
-  const handleParkOrder = async () => {
-    if (!activeListId) return;
-    await parkOrder(activeListId);
-    setIsOpen(false);
-    toast.success('Order parked — back in lane for anyone to pick up');
-  };
-
   const toggleCheck = (item: PickingItem, palletId: number | string) => {
     const key = `${palletId}-${item.sku}-${item.location}`;
     const isChecking = !checkedItems.has(key);
@@ -426,11 +417,22 @@ export const PickingCartDrawer: React.FC = () => {
     setCheckedItems(newChecked);
   };
 
+  // X = park & close: unlock the order (checked_by = null, status untouched)
+  // so it returns to its FedEx/Regular lane for anyone to take, and fully end
+  // the local session so switching orders from the Live Board never prompts
+  // the "active session" confirmation. Replaces the old Park Order button.
   const handleReleaseOrder = async () => {
-    if (sessionMode === 'double_checking' && activeListId) {
-      await claimAsPicker(activeListId);
-      await releaseCheck(activeListId);
+    if (activeListId) {
+      try {
+        await parkOrder(activeListId);
+        if (sessionMode === 'double_checking') {
+          toast.success('Order parked — back in lane for anyone to pick up');
+        }
+      } catch (err) {
+        console.error('Park on close failed:', err);
+      }
     }
+    resetSession();
     setIsOpen(false);
   };
 
@@ -786,7 +788,6 @@ export const PickingCartDrawer: React.FC = () => {
               inventoryData={inventoryData}
               onMarkAsReady={() => orderNumber && handleMarkAsReady(orderNumber)}
               onSendToVerifyQueue={handleSendToVerifyQueue}
-              onParkOrder={handleParkOrder}
               onRecomplete={async (items) => {
                 if (!activeListId) return;
                 isRecompletingRef.current = true;
