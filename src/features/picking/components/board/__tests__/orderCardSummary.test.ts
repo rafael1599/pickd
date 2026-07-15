@@ -74,9 +74,14 @@ describe('effectiveShippingType (purple FedEx accent)', () => {
     expect(effectiveShippingType(null, items)).toBe('fedex');
   });
 
-  it('auto-classifies a 5+ unit order as regular when no override', () => {
-    const items = [{ sku: 'A', pickingQty: 5 }];
+  it('auto-classifies a 5+ bike order as regular when no override', () => {
+    const items = [{ sku: '03-1000BL', pickingQty: 5 }];
     expect(effectiveShippingType(null, items)).toBe('regular');
+  });
+
+  it('auto-classifies a large parts-only order as fedex (parts never force regular)', () => {
+    const items = [{ sku: '98-6860', pickingQty: 50 }];
+    expect(effectiveShippingType(null, items)).toBe('fedex');
   });
 });
 

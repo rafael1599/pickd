@@ -2,38 +2,73 @@ import { describe, it, expect } from 'vitest';
 import { autoClassifyShippingType } from '../shippingClassification';
 
 describe('autoClassifyShippingType', () => {
-  it('returns fedex for 1 light item', () => {
-    const items = [{ sku: 'SKU-A', pickingQty: 1 }];
-    const weights = { 'SKU-A': 10 };
+  it('returns fedex for 1 light bike', () => {
+    const items = [{ sku: '03-1000BL', pickingQty: 1 }];
+    const weights = { '03-1000BL': 10 };
     expect(autoClassifyShippingType(items, weights)).toBe('fedex');
   });
 
-  it('returns fedex for 4 light items (boundary)', () => {
-    const items = [{ sku: 'SKU-A', pickingQty: 4 }];
-    const weights = { 'SKU-A': 5 };
+  it('returns fedex for 4 light bikes (boundary)', () => {
+    const items = [{ sku: '03-1000BL', pickingQty: 4 }];
+    const weights = { '03-1000BL': 5 };
     expect(autoClassifyShippingType(items, weights)).toBe('fedex');
   });
 
-  it('returns regular for 5 light items (boundary)', () => {
-    const items = [{ sku: 'SKU-A', pickingQty: 5 }];
-    const weights = { 'SKU-A': 5 };
+  it('returns regular for 5 light bikes (boundary)', () => {
+    const items = [{ sku: '03-1000BL', pickingQty: 5 }];
+    const weights = { '03-1000BL': 5 };
     expect(autoClassifyShippingType(items, weights)).toBe('regular');
   });
 
-  it('returns regular for 1 heavy item (60 lbs) regardless of count', () => {
+  it('returns fedex for a 50-part order — parts never force regular', () => {
+    const items = [{ sku: '98-6860', pickingQty: 50 }];
+    const weights = { '98-6860': 2 };
+    expect(autoClassifyShippingType(items, weights)).toBe('fedex');
+  });
+
+  it('returns fedex for 4 bikes + many parts (parts do not count)', () => {
+    const items = [
+      { sku: '03-1000BL', pickingQty: 4 },
+      { sku: '98-6860', pickingQty: 30 },
+      { sku: '32-0557', pickingQty: 12 },
+    ];
+    const weights = { '03-1000BL': 30, '98-6860': 2, '32-0557': 1 };
+    expect(autoClassifyShippingType(items, weights)).toBe('fedex');
+  });
+
+  it('returns regular for bikes summing to 5 across SKUs', () => {
+    const items = [
+      { sku: '03-1000BL', pickingQty: 2 },
+      { sku: '03-2000GY', pickingQty: 3 },
+    ];
+    const weights = { '03-1000BL': 30, '03-2000GY': 30 };
+    expect(autoClassifyShippingType(items, weights)).toBe('regular');
+  });
+
+  it('returns regular for 1 heavy item (60 lbs) regardless of count or type', () => {
     const items = [{ sku: 'SKU-HEAVY', pickingQty: 1 }];
     const weights = { 'SKU-HEAVY': 60 };
     expect(autoClassifyShippingType(items, weights)).toBe('regular');
   });
 
-  it('returns regular for mixed items when heavy rule wins (3 light + 1 heavy)', () => {
+  it('returns regular when a heavy part rides along with light items', () => {
     const items = [
-      { sku: 'SKU-A', pickingQty: 2 },
-      { sku: 'SKU-B', pickingQty: 1 },
+      { sku: '03-1000BL', pickingQty: 2 },
+      { sku: '98-6860', pickingQty: 1 },
       { sku: 'SKU-HEAVY', pickingQty: 1 },
     ];
-    const weights = { 'SKU-A': 3, 'SKU-B': 5, 'SKU-HEAVY': 55 };
+    const weights = { '03-1000BL': 3, '98-6860': 5, 'SKU-HEAVY': 55 };
     expect(autoClassifyShippingType(items, weights)).toBe('regular');
+  });
+
+  it('is_bike=true wins over a non-bike prefix (counts toward threshold)', () => {
+    const items = [{ sku: 'CUSTOM-BIKE', pickingQty: 5, sku_metadata: { is_bike: true } }];
+    expect(autoClassifyShippingType(items, {})).toBe('regular');
+  });
+
+  it('is_bike=false wins over the 03- prefix (does not count)', () => {
+    const items = [{ sku: '03-9999XX', pickingQty: 50, sku_metadata: { is_bike: false } }];
+    expect(autoClassifyShippingType(items, {})).toBe('fedex');
   });
 
   it('returns fedex for empty items array', () => {
@@ -42,19 +77,10 @@ describe('autoClassifyShippingType', () => {
 
   it('returns fedex for items with 0 pickingQty', () => {
     const items = [
-      { sku: 'SKU-A', pickingQty: 0 },
-      { sku: 'SKU-B', pickingQty: 0 },
+      { sku: '03-1000BL', pickingQty: 0 },
+      { sku: '98-6860', pickingQty: 0 },
     ];
-    const weights = { 'SKU-A': 10, 'SKU-B': 10 };
+    const weights = { '03-1000BL': 10, '98-6860': 10 };
     expect(autoClassifyShippingType(items, weights)).toBe('fedex');
-  });
-
-  it('returns regular for multiple items summing to exactly 5', () => {
-    const items = [
-      { sku: 'SKU-A', pickingQty: 2 },
-      { sku: 'SKU-B', pickingQty: 3 },
-    ];
-    const weights = { 'SKU-A': 5, 'SKU-B': 5 };
-    expect(autoClassifyShippingType(items, weights)).toBe('regular');
   });
 });
