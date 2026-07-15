@@ -14,7 +14,8 @@ import { autoClassifyShippingType } from '../../../utils/shippingClassification'
 import { SortableOrderCard, StaticOrderCard } from './board/SortableOrderCard';
 import { CompletedZone } from './board/CompletedZone';
 import { WaitingZone } from './board/WaitingZone';
-import { GroupCard } from './board/GroupCard';
+import { mergeGroupOrders } from './board/mergeGroupOrders';
+import { FedexGroupCard } from './board/FedexGroupCard';
 import { WaitingReasonModal } from './WaitingReasonModal';
 import { ReasonPicker } from './ReasonPicker';
 import { supabase } from '../../../lib/supabase';
@@ -390,15 +391,27 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
 
     return (
       <div className={LANE_GRID}>
-        {Array.from(grouped.entries()).map(([groupId, groupOrders]) => (
-          <GroupCard
-            key={groupId}
-            orders={groupOrders}
-            groupType={groupOrders[0]?.order_group?.group_type ?? 'general'}
-            onSelect={handleOrderSelect}
-            onMerge={setSelectedMenuOrder}
-          />
-        ))}
+        {Array.from(grouped.entries()).map(([groupId, groupOrders]) =>
+          (groupOrders[0]?.order_group?.group_type ?? 'general') === 'fedex' ? (
+            <FedexGroupCard
+              key={groupId}
+              orders={groupOrders}
+              onSelect={handleOrderSelect}
+              onDelete={handleDelete}
+              onUngroup={handleUngroup}
+              onMerge={setSelectedMenuOrder}
+            />
+          ) : (
+            <SortableOrderCard
+              key={groupId}
+              order={mergeGroupOrders(groupOrders)}
+              shippingType={shippingType}
+              showShippingBadge={false}
+              onSelect={handleOrderSelect}
+              onMerge={setSelectedMenuOrder}
+            />
+          )
+        )}
         {ungrouped.map((order) => (
           <SortableOrderCard
             key={order.id}
@@ -656,15 +669,30 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
 
                   return (
                     <div className={CARD_GRID}>
-                      {Array.from(grouped.entries()).map(([groupId, groupOrders]) => (
-                        <GroupCard
-                          key={groupId}
-                          orders={groupOrders}
-                          groupType={groupOrders[0]?.shipping_type ?? 'regular'}
-                          onSelect={handleOrderSelect}
-                          onMerge={setSelectedMenuOrder}
-                        />
-                      ))}
+                      {Array.from(grouped.entries()).map(([groupId, groupOrders]) =>
+                        (groupOrders[0]?.order_group?.group_type ??
+                          (groupOrders[0]?.shipping_type === 'fedex' ? 'fedex' : 'general')) ===
+                        'fedex' ? (
+                          <FedexGroupCard
+                            key={groupId}
+                            orders={groupOrders}
+                            onSelect={handleOrderSelect}
+                            onDelete={handleDelete}
+                            onUngroup={handleUngroup}
+                            onMerge={setSelectedMenuOrder}
+                          />
+                        ) : (
+                          <SortableOrderCard
+                            key={groupId}
+                            order={mergeGroupOrders(groupOrders)}
+                            shippingType={
+                              (groupOrders[0]?.shipping_type as 'fedex' | 'regular') ?? 'regular'
+                            }
+                            onSelect={handleOrderSelect}
+                            onMerge={setSelectedMenuOrder}
+                          />
+                        )
+                      )}
                       {ungrouped.map((order) => {
                         const st = pullingShippingTypes.get(order.id) ?? 'regular';
                         // Actively-picked orders are click-only; ready orders

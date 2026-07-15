@@ -46,6 +46,10 @@ const SHIPPING_COLORS: Record<ShippingType, { stripe: string; badge: string; bad
     regular: { stripe: 'bg-emerald-500/70', badge: 'bg-emerald-500', badgeText: 'TRK' },
   };
 
+/** The 3D-embossed yellow used for the emphasised order digits. */
+export const YELLOW_3D_SHADOW =
+  '-1px 1px 0px #d97706, -2px 2px 0px #b45309, -3px 3px 0px #78350f, -4px 4px 5px rgba(0,0,0,0.8)';
+
 function getStatusStyles(status: string) {
   switch (status) {
     case 'needs_correction':
@@ -72,19 +76,24 @@ function getStatusStyles(status: string) {
   }
 }
 
+/** A parked order keeps status double_checking but has no checker — treat it
+ *  like a plain ready order everywhere (no orange "Checking" state), so the
+ *  mental model stays simple: closed with X → normal card → tap to re-take. */
+export function isActivelyChecking(order: PickingList): boolean {
+  return order.status === 'double_checking' && !!order.checked_by;
+}
+
 /** First name of whoever is on the order right now: the checker while the
  *  order is being double-checked, otherwise the picker who pulled it. */
 export function getWorkerLabel(order: PickingList): string | null {
-  const name =
-    order.status === 'double_checking'
-      ? order.checker_profile?.full_name
-      : order.profiles?.full_name;
+  const checking = isActivelyChecking(order);
+  const name = checking ? order.checker_profile?.full_name : order.profiles?.full_name;
   if (name === 'Warehouse Team') {
     return 'Ready to Pull';
   }
   const first = name?.trim().split(' ')[0];
   if (!first) return null;
-  return order.status === 'double_checking' ? `✓ ${first}` : first;
+  return checking ? `✓ ${first}` : first;
 }
 
 function completedAtLabel(iso: string | undefined, showDate: boolean): string | null {
@@ -124,11 +133,17 @@ const OrderCardShell: React.FC<CardProps> = ({
   onMerge,
   showDate = false,
 }) => {
-  const statusStyles = getStatusStyles(order.status);
+  // Parked orders (double_checking without a checker) render as plain cards.
+  const effectiveStatus =
+    order.status === 'double_checking' && !order.checked_by
+      ? 'ready_to_double_check'
+      : order.status;
+  const statusStyles = getStatusStyles(effectiveStatus);
   const { Icon } = statusStyles;
   const colors = SHIPPING_COLORS[shippingType];
   const worker = getWorkerLabel(order);
-  const showStatusIcon = order.status === 'needs_correction' || order.status === 'double_checking';
+  const showStatusIcon =
+    effectiveStatus === 'needs_correction' || effectiveStatus === 'double_checking';
   const when = order.status === 'completed' ? completedAtLabel(order.updated_at, showDate) : null;
 
   // Calculate bikes and parts counts from order items using the 03- prefix heuristic
@@ -148,9 +163,14 @@ const OrderCardShell: React.FC<CardProps> = ({
     return { bikesCount: bikes, partsCount: parts };
   }, [order.items]);
 
-  // Split order number: last 3 digits will be rendered 50% larger and in yellow
-  const { firstPart, lastThree } = React.useMemo(() => {
+  // Split order number. Single orders render muted prefix + yellow 3D last-3.
+  // Combined numbers ("880696 / 880669") render ONLY the last 3 of each order,
+  // every segment in 3D yellow: "#696 / 669".
+  const numberParts = React.useMemo(() => {
     const fullNum = String(order.order_number || order.id.toString().slice(-6).toUpperCase());
+    if (fullNum.includes(' / ')) {
+      return { segments: fullNum.split(' / ').map((s) => s.trim().slice(-3)) };
+    }
     if (fullNum.length <= 3) {
       return { firstPart: '', lastThree: fullNum };
     }
@@ -302,7 +322,7 @@ const OrderCardShell: React.FC<CardProps> = ({
         <button
           onClick={() => onSelect(order)}
           className={`flex-1 text-left px-3 py-2.5 md:px-4 md:py-3 flex flex-col justify-center gap-1 min-w-0 w-full ${
-            order.status === 'double_checking' ? 'opacity-70' : ''
+            effectiveStatus === 'double_checking' ? 'opacity-70' : ''
           }`}
         >
           <div className="flex items-center gap-2 min-w-0">
@@ -314,16 +334,32 @@ const OrderCardShell: React.FC<CardProps> = ({
               />
             )}
             <span className="text-[clamp(1.2rem,2.5vw,3.5rem)] leading-none font-black uppercase tracking-tight text-content whitespace-nowrap">
-              <span className="text-content/35 mr-1 select-none">#{firstPart}</span>
-              <span
-                style={{
-                  textShadow:
-                    '-1px 1px 0px #d97706, -2px 2px 0px #b45309, -3px 3px 0px #78350f, -4px 4px 5px rgba(0,0,0,0.8)',
-                }}
-                className="text-yellow-100 text-[1.27em] font-black tracking-tight leading-none inline-block align-baseline relative z-10"
-              >
-                {lastThree}
-              </span>
+              {numberParts.segments ? (
+                <>
+                  <span className="text-content/35 mr-1 select-none">#</span>
+                  {numberParts.segments.map((seg, i) => (
+                    <React.Fragment key={i}>
+                      {i > 0 && <span className="text-content/35 mx-1.5 select-none">/</span>}
+                      <span
+                        style={{ textShadow: YELLOW_3D_SHADOW }}
+                        className="text-yellow-100 text-[1.27em] font-black tracking-tight leading-none inline-block align-baseline relative z-10"
+                      >
+                        {seg}
+                      </span>
+                    </React.Fragment>
+                  ))}
+                </>
+              ) : (
+                <>
+                  <span className="text-content/35 mr-1 select-none">#{numberParts.firstPart}</span>
+                  <span
+                    style={{ textShadow: YELLOW_3D_SHADOW }}
+                    className="text-yellow-100 text-[1.27em] font-black tracking-tight leading-none inline-block align-baseline relative z-10"
+                  >
+                    {numberParts.lastThree}
+                  </span>
+                </>
+              )}
             </span>
             {order.is_addon && (
               <span className="shrink-0 text-[clamp(0.6rem,1vw,1rem)] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black animate-pulse">
