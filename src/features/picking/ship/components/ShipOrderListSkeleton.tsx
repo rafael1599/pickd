@@ -19,10 +19,10 @@ export const ShipOrderListSkeleton: React.FC = () => {
               <div className="h-5 w-24 rounded bg-subtle/30 animate-pulse" />
               {/* Customer name */}
               <div className="h-3 w-32 rounded bg-subtle/30 animate-pulse" />
-              {/* Created date / extra info */}
-              <div className="h-2.5 w-20 rounded bg-subtle/30 animate-pulse mt-1" />
-              {/* Progress bar placeholder */}
-              <div className="h-1.5 w-full max-w-[120px] rounded-full bg-subtle/30 animate-pulse mt-1" />
+              {/* Name skeleton */}
+              <div className="h-3 w-3/4 max-w-[200px] rounded bg-subtle/30 animate-pulse mt-1" />
+              {/* Progress bar skeleton */}
+              <div className="h-1.5 w-full rounded-full bg-subtle/30 animate-pulse mt-2" />
             </div>
 
             {/* Carrier logo placeholder */}

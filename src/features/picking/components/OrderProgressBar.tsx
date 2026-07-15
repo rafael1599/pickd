@@ -23,7 +23,6 @@ export const OrderProgressBar: React.FC<OrderProgressBarProps> = ({
     if (status === 'completed' || isShipped) return 100;
 
     const vKeys = new Set(verifiedKeys ?? []);
-    if (vKeys.size === 0) return 0;
 
     // Lightweight approximation when items are not fetched to save bandwidth
     if (!Array.isArray(items) || items.length === 0) {
@@ -45,23 +44,43 @@ export const OrderProgressBar: React.FC<OrderProgressBarProps> = ({
 
     let calcTotalUnits = 0;
     let verifiedUnits = 0;
+    let pickedUnits = 0;
 
     for (const pallet of pallets) {
       for (const item of pallet.items) {
         const qty = item.pickingQty || 0;
         calcTotalUnits += qty;
+
+        // Verification progress
         const key = `${pallet.id}-${item.sku}-${item.location}`;
         if (vKeys.has(key)) {
           verifiedUnits += qty;
+        }
+
+        // Picking progress
+        if (item.checked) {
+          pickedUnits += qty;
         }
       }
     }
 
     if (calcTotalUnits === 0) return 0;
-    return Math.min(100, Math.round((verifiedUnits / calcTotalUnits) * 100));
-  }, [status, isShipped, items, verifiedKeys, totalUnits]);
 
-  if (progressPercent === 0) return null;
+    // We show the highest progress achieved.
+    // In picking phase, verified is 0, so it shows picked.
+    // In double-check phase, picked is usually 100%, but we want to show
+    // verified progress. Wait, if picked is 100% during double-check,
+    // max() would always return 100%!
+    // We need to differentiate the phases.
+
+    if (['ready_to_double_check', 'double_checking'].includes(status)) {
+      // During double check, only verified units count towards progress
+      return Math.min(95, Math.round((verifiedUnits / calcTotalUnits) * 100));
+    }
+
+    // During active picking (or waiting for inventory)
+    return Math.min(95, Math.round((pickedUnits / calcTotalUnits) * 100));
+  }, [status, isShipped, items, verifiedKeys, totalUnits]);
 
   return (
     <div

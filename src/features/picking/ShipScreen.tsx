@@ -411,6 +411,7 @@ export const ShipScreen = () => {
                     total_units,
                     combine_meta,
                     verified_item_keys,
+                    items,
                     customer:customers(id, name, street, city, state, zip_code),
                     user:profiles!user_id(full_name),
                     checker:profiles!checked_by(full_name),
@@ -514,6 +515,8 @@ export const ShipScreen = () => {
           pallets_qty,
           total_units,
           combine_meta,
+          verified_item_keys,
+          items,
           customer:customers(id, name, street, city, state, zip_code),
           user:profiles!user_id(full_name),
           checker:profiles!checked_by(full_name),
@@ -1923,7 +1926,7 @@ export const ShipScreen = () => {
                                   #{order.order_number}
                                 </span>
 
-                                <span className="text-[11px] text-muted truncate max-w-[120px]">
+                                <span className="text-[11px] text-muted truncate">
                                   {order.customer?.name || '—'}
                                 </span>
                                 <div className="flex flex-col gap-0.5 mt-1 text-[9px] text-muted">
@@ -1943,7 +1946,7 @@ export const ShipScreen = () => {
                                   items={order.items}
                                   verifiedKeys={order.verified_item_keys ?? null}
                                   totalUnits={order.total_units || 0}
-                                  className="mt-2 w-full max-w-[120px]"
+                                  className="mt-2 w-full"
                                 />
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
