@@ -239,6 +239,14 @@ export const InventoryScreen = () => {
               existing.sku_metadata = item.sku_metadata;
             }
 
+            // Union sublocations so the consolidated row carries every letter
+            // this SKU occupies within the location (drives badge + sorting).
+            if (item.sublocation?.length) {
+              existing.sublocation = [
+                ...new Set([...(existing.sublocation ?? []), ...item.sublocation]),
+              ].sort();
+            }
+
             // Preservation of flags
             if (item._lastUpdateSource === 'local') {
               existing._lastUpdateSource = 'local';
@@ -251,6 +259,18 @@ export const InventoryScreen = () => {
         });
 
         const consolidatedItems = Object.values(consolidated);
+
+        // Order items within the row by sublocation A→Z (an item's earliest
+        // letter wins); items without a sublocation sink to the end. Ties
+        // fall back to natural SKU order.
+        const subKey = (it: InventoryItemWithMetadata) =>
+          it.sublocation && it.sublocation.length > 0 ? [...it.sublocation].sort()[0] : '~';
+        consolidatedItems.sort((a, b) => {
+          const ka = subKey(a);
+          const kb = subKey(b);
+          if (ka !== kb) return ka < kb ? -1 : 1;
+          return naturalSort(a.sku, b.sku);
+        });
 
         groups[wh][loc].items = consolidatedItems;
       });
