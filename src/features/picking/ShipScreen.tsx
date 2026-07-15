@@ -31,7 +31,48 @@ import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.servi
 import { useUnmarkWaiting } from './hooks/useWaitingOrders';
 
 function dayKey(date: Date): string {
-  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const parts = formatter.formatToParts(date);
+  const year = parts.find((p) => p.type === 'year')?.value;
+  const month = parts.find((p) => p.type === 'month')?.value;
+  const day = parts.find((p) => p.type === 'day')?.value;
+  return `${year}-${month}-${day}`;
+}
+
+function getNYMidnightISO(): string {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZoneName: 'longOffset',
+  });
+  const parts = formatter.formatToParts(now);
+  const year = parts.find((p) => p.type === 'year')?.value;
+  const month = parts.find((p) => p.type === 'month')?.value;
+  const day = parts.find((p) => p.type === 'day')?.value;
+  const offsetPart = parts.find((p) => p.type === 'timeZoneName')?.value;
+
+  let offset = '-04:00';
+  if (offsetPart) {
+    const match = offsetPart.match(/([+-]\d{2}):?(\d{2})?/);
+    if (match) {
+      offset = match[1] + (match[2] || '00');
+    } else {
+      const gmtMatch = offsetPart.match(/GMT([+-]\d+)/);
+      if (gmtMatch) {
+        const hours = parseInt(gmtMatch[1], 10);
+        offset = `${hours < 0 ? '-' : '+'}${String(Math.abs(hours)).padStart(2, '0')}:00`;
+      }
+    }
+  }
+  return `${year}-${month}-${day}T00:00:00${offset}`;
 }
 
 function dayLabel(date: Date): string {
@@ -332,21 +373,43 @@ export const ShipScreen = () => {
   // activity streaming in, that felt like the page "refreshing every second".
   const hasLoadedOnceRef = useRef(false);
 
+  const lastFetchedDetailIdRef = useRef<string | null>(null);
+
   const fetchOrders = useCallback(async () => {
     if (!user) return;
     if (!hasLoadedOnceRef.current) setLoading(true);
     try {
+      const nyMidnight = getNYMidnightISO();
       const query = supabase
         .from('picking_lists')
         .select(
           `
-                    *,
+                    id,
+                    order_number,
+                    customer_id,
+                    user_id,
+                    checked_by,
+                    status,
+                    is_shipped,
+                    is_waiting_inventory,
+                    created_at,
+                    updated_at,
+                    transport_company,
+                    shipping_type,
+                    group_id,
+                    pallets_qty,
+                    total_units,
+                    combine_meta,
                     customer:customers(id, name, street, city, state, zip_code),
                     user:profiles!user_id(full_name),
                     checker:profiles!checked_by(full_name),
                     presence:user_presence!user_id(last_seen_at),
                     order_group:order_groups(group_type)
                 `
+        )
+        .neq('status', 'cancelled')
+        .or(
+          `is_shipped.is.null,is_shipped.eq.false,and(is_shipped.eq.true,updated_at.gte.${nyMidnight})`
         )
         .order('created_at', { ascending: false });
 
@@ -383,14 +446,117 @@ export const ShipScreen = () => {
     }
   }, [user, externalOrderId]); // Include externalOrderId here to ensure consistency
 
+  const fetchOrderDetails = useCallback(async (id: string) => {
+    try {
+      const query = supabase
+        .from('picking_lists')
+        .select(
+          `
+          *,
+          customer:customers(id, name, street, city, state, zip_code),
+          user:profiles!user_id(full_name),
+          checker:profiles!checked_by(full_name),
+          presence:user_presence!user_id(last_seen_at),
+          order_group:order_groups(group_type)
+        `
+        )
+        .eq('id', id)
+        .single();
+
+      const { data, error } = await withSupabaseRetry(() => query, {
+        label: 'OrdersScreen.fetchOrderDetails',
+      });
+
+      if (error) throw error;
+      if (data) {
+        return {
+          ...data,
+          customer_details: data.customer || {},
+        } as unknown as OrderWithRelations;
+      }
+    } catch (err) {
+      console.error('Error fetching order details:', err);
+      toast.error('Failed to load order details');
+    }
+    return null;
+  }, []);
+
+  const fetchSingleLightweightOrder = useCallback(async (id: string) => {
+    try {
+      const query = supabase
+        .from('picking_lists')
+        .select(
+          `
+          id,
+          order_number,
+          customer_id,
+          user_id,
+          checked_by,
+          status,
+          is_shipped,
+          is_waiting_inventory,
+          created_at,
+          updated_at,
+          transport_company,
+          shipping_type,
+          group_id,
+          pallets_qty,
+          total_units,
+          combine_meta,
+          customer:customers(id, name, street, city, state, zip_code),
+          user:profiles!user_id(full_name),
+          checker:profiles!checked_by(full_name),
+          presence:user_presence!user_id(last_seen_at),
+          order_group:order_groups(group_type)
+        `
+        )
+        .eq('id', id)
+        .single();
+
+      const { data, error } = await withSupabaseRetry(() => query, {
+        label: 'OrdersScreen.fetchSingleLightweightOrder',
+      });
+      if (error) throw error;
+      if (data) {
+        return {
+          ...data,
+          customer_details: data.customer || {},
+        } as unknown as OrderWithRelations;
+      }
+    } catch (err) {
+      console.error('Error fetching single lightweight order:', err);
+    }
+    return null;
+  }, []);
+
+  useEffect(() => {
+    if (!selectedOrder?.id) {
+      lastFetchedDetailIdRef.current = null;
+      return;
+    }
+
+    if (selectedOrder.id === lastFetchedDetailIdRef.current) {
+      return;
+    }
+
+    let active = true;
+    const loadDetails = async () => {
+      const details = await fetchOrderDetails(selectedOrder.id);
+      if (details && active) {
+        lastFetchedDetailIdRef.current = details.id;
+        setSelectedOrder(details);
+      }
+    };
+    loadDetails();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedOrder?.id, fetchOrderDetails]);
+
   useEffect(() => {
     fetchOrders();
 
-    // Subscribe to changes in picking lists to keep the UI in sync.
-    // Events are coalesced with a short debounce: active picking sessions
-    // update picking_lists on every scanned item, and refetching on each
-    // event hammers the network for no visual gain.
-    let refetchTimeout: NodeJS.Timeout | null = null;
     const channel = supabase
       .channel('orders_realtime_sync')
       .on(
@@ -400,12 +566,64 @@ export const ShipScreen = () => {
           schema: 'public',
           table: 'picking_lists',
         },
-        (payload) => {
+        async (payload) => {
           console.log('🔄 [OrdersScreen] Realtime update received:', payload.eventType);
-          if (refetchTimeout) clearTimeout(refetchTimeout);
-          refetchTimeout = setTimeout(() => {
-            fetchOrders();
-          }, 500);
+
+          if (payload.eventType === 'DELETE') {
+            const deletedId = payload.old.id;
+            setOrders((prev) => prev.filter((o) => o.id !== deletedId));
+            if (selectedOrderRef.current?.id === deletedId) {
+              setSelectedOrder(null);
+            }
+          } else if (payload.eventType === 'INSERT') {
+            const inserted = await fetchSingleLightweightOrder(payload.new.id);
+            if (inserted) {
+              const nyMidnight = getNYMidnightISO();
+              const isOperational =
+                inserted.status !== 'cancelled' &&
+                (!inserted.is_shipped ||
+                  (inserted.is_shipped && inserted.updated_at >= nyMidnight));
+              if (isOperational) {
+                setOrders((prev) => {
+                  const filtered = prev.filter((o) => o.id !== inserted.id);
+                  const next = [...filtered, inserted];
+                  next.sort((a, b) => b.created_at.localeCompare(a.created_at));
+                  return next;
+                });
+              }
+            }
+          } else if (payload.eventType === 'UPDATE') {
+            const updated = await fetchSingleLightweightOrder(payload.new.id);
+            if (updated) {
+              const nyMidnight = getNYMidnightISO();
+              const isOperational =
+                updated.status !== 'cancelled' &&
+                (!updated.is_shipped || (updated.is_shipped && updated.updated_at >= nyMidnight));
+
+              setOrders((prev) => {
+                const filtered = prev.filter((o) => o.id !== updated.id);
+                if (isOperational) {
+                  const next = [...filtered, updated];
+                  next.sort((a, b) => b.created_at.localeCompare(a.created_at));
+                  return next;
+                }
+                return filtered;
+              });
+
+              // If this is the currently selected order, fetch and update its full details.
+              if (selectedOrderRef.current?.id === updated.id) {
+                if (isOperational) {
+                  const details = await fetchOrderDetails(updated.id);
+                  if (details && selectedOrderRef.current?.id === updated.id) {
+                    lastFetchedDetailIdRef.current = details.id;
+                    setSelectedOrder(details);
+                  }
+                } else {
+                  setSelectedOrder(null);
+                }
+              }
+            }
+          }
         }
       )
       .subscribe((status) => {
@@ -413,10 +631,9 @@ export const ShipScreen = () => {
       });
 
     return () => {
-      if (refetchTimeout) clearTimeout(refetchTimeout);
       supabase.removeChannel(channel);
     };
-  }, [fetchOrders]);
+  }, [fetchOrders, fetchSingleLightweightOrder, fetchOrderDetails]);
 
   // Handle external selections (e.g. from DoubleCheckHeader or VerificationBoard)
   useEffect(() => {
@@ -652,6 +869,9 @@ export const ShipScreen = () => {
 
     setIsShippingBatch(true);
     const toastId = toast.loading(`Shipping ${idsToShip.length} orders...`);
+    const previousOrders = [...orders];
+    const previousSelectedOrder = selectedOrder;
+
     try {
       const groupIds = idsToShip
         .map((id) => orders.find((o) => o.id === id)?.group_id)
@@ -660,6 +880,22 @@ export const ShipScreen = () => {
         .filter((o) => o.group_id && groupIds.includes(o.group_id))
         .map((o) => o.id);
       const allIds = [...new Set([...idsToShip, ...siblingIds])];
+
+      // Optimistic update
+      setOrders((prev) =>
+        prev.map((o) =>
+          allIds.includes(o.id)
+            ? { ...o, status: 'completed', is_shipped: true, is_waiting_inventory: false }
+            : o
+        )
+      );
+      if (selectedOrder && allIds.includes(selectedOrder.id)) {
+        setSelectedOrder((prev) =>
+          prev
+            ? { ...prev, status: 'completed', is_shipped: true, is_waiting_inventory: false }
+            : null
+        );
+      }
 
       const { error } = await supabase
         .from('picking_lists')
@@ -672,10 +908,12 @@ export const ShipScreen = () => {
         id: toastId,
       });
       setShowShippingPreview(false);
-      await fetchOrders();
     } catch (err) {
       console.error('Error bulk shipping orders:', err);
       toast.error('Failed to ship orders', { id: toastId });
+      // Rollback
+      setOrders(previousOrders);
+      setSelectedOrder(previousSelectedOrder);
     } finally {
       setIsShippingBatch(false);
     }
@@ -722,6 +960,11 @@ export const ShipScreen = () => {
     const manualWeight = fd.weight.trim() === '' ? NaN : parseFloat(fd.weight);
     const weightNum =
       !Number.isNaN(manualWeight) && manualWeight >= 0 ? Math.round(manualWeight) : totalWeight;
+
+    const previousOrders = [...orders];
+    const previousSelectedOrder = selectedOrder;
+    const previousCustomerId = selectedCustomerId;
+    const previousCustomerParams = originalCustomerParams;
 
     try {
       let finalCustomerId = selectedCustomerId;
@@ -790,6 +1033,71 @@ export const ShipScreen = () => {
         }).catch(() => {}); // Silent — non-blocking
       }
 
+      // Optimistic update of local orders list & selectedOrder
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === selectedOrder.id
+            ? {
+                ...o,
+                pallets_qty: palletsNum,
+                total_units: unitsNum,
+                total_weight_lbs: weightNum || null,
+                load_number: fd.loadNumber || null,
+                transport_company: fd.transportCompany || null,
+                customer_id: finalCustomerId,
+                customer: {
+                  id: finalCustomerId || '',
+                  name: fd.customerName,
+                  street: fd.street,
+                  city: fd.city,
+                  state: fd.state,
+                  zip_code: fd.zip,
+                },
+                customer_details: {
+                  id: finalCustomerId || '',
+                  name: fd.customerName,
+                  street: fd.street,
+                  city: fd.city,
+                  state: fd.state,
+                  zip_code: fd.zip,
+                },
+              }
+            : o
+        )
+      );
+
+      if (selectedOrder) {
+        setSelectedOrder((prev) =>
+          prev
+            ? {
+                ...prev,
+                pallets_qty: palletsNum,
+                total_units: unitsNum,
+                total_weight_lbs: weightNum || null,
+                load_number: fd.loadNumber || null,
+                transport_company: fd.transportCompany || null,
+                customer_id: finalCustomerId,
+                customer: {
+                  id: finalCustomerId || '',
+                  name: fd.customerName,
+                  street: fd.street,
+                  city: fd.city,
+                  state: fd.state,
+                  zip_code: fd.zip,
+                },
+                customer_details: {
+                  id: finalCustomerId || '',
+                  name: fd.customerName,
+                  street: fd.street,
+                  city: fd.city,
+                  state: fd.state,
+                  zip_code: fd.zip,
+                },
+              }
+            : null
+        );
+      }
+
       // Update Picking List
       const { error: orderError } = await supabase
         .from('picking_lists')
@@ -827,11 +1135,15 @@ export const ShipScreen = () => {
         zip_code: fd.zip,
       });
 
-      // Refresh orders list silently
-      fetchOrders();
       return true;
     } catch (error) {
       console.error('Error saving order details:', error);
+      // Rollback
+      setOrders(previousOrders);
+      setSelectedOrder(previousSelectedOrder);
+      setSelectedCustomerId(previousCustomerId);
+      setOriginalCustomerParams(previousCustomerParams);
+
       const err = error as { code?: string };
       if (err?.code === '23505') {
         toast.error(`Load Number "${fd.loadNumber}" already exists!`, { duration: 5000 });
@@ -979,7 +1291,6 @@ export const ShipScreen = () => {
     setRestoreReasonModal(false);
     try {
       await restoreCancelledOrder(selectedOrder.id, restoreReason);
-      await fetchOrders();
     } catch {
       // Error already toasted in restoreCancelledOrder
     }
@@ -1026,11 +1337,30 @@ export const ShipScreen = () => {
         `Mark order #${order.order_number} as Shipped? This completes the order and removes it from the Live Board.`
       );
       if (confirmShip) {
+        const previousOrders = [...orders];
+        const previousSelectedOrder = selectedOrder;
+
         try {
           // Collect all IDs to update: this order + all siblings in the same group
           const idsToUpdate = order.group_id
             ? orders.filter((o) => o.group_id === order.group_id).map((o) => o.id)
             : [order.id];
+
+          // Optimistic update
+          setOrders((prev) =>
+            prev.map((o) =>
+              idsToUpdate.includes(o.id)
+                ? { ...o, status: 'completed', is_shipped: true, is_waiting_inventory: false }
+                : o
+            )
+          );
+          if (selectedOrder && idsToUpdate.includes(selectedOrder.id)) {
+            setSelectedOrder((prev) =>
+              prev
+                ? { ...prev, status: 'completed', is_shipped: true, is_waiting_inventory: false }
+                : null
+            );
+          }
 
           const { error } = await supabase
             .from('picking_lists')
@@ -1038,10 +1368,12 @@ export const ShipScreen = () => {
             .in('id', idsToUpdate);
           if (error) throw error;
           toast.success(`Order #${order.order_number} marked as Shipped!`);
-          fetchOrders();
         } catch (err) {
           console.error('Error completing order:', err);
           toast.error('Failed to complete order');
+          // Rollback
+          setOrders(previousOrders);
+          setSelectedOrder(previousSelectedOrder);
         }
       }
     }
@@ -1052,10 +1384,21 @@ export const ShipScreen = () => {
       `Undo Shipped status for order #${order.order_number}? This returns it to the Live Board.`
     );
     if (confirmUndo) {
+      const previousOrders = [...orders];
+      const previousSelectedOrder = selectedOrder;
+
       try {
         const idsToUpdate = order.group_id
           ? orders.filter((o) => o.group_id === order.group_id).map((o) => o.id)
           : [order.id];
+
+        // Optimistic update
+        setOrders((prev) =>
+          prev.map((o) => (idsToUpdate.includes(o.id) ? { ...o, is_shipped: false } : o))
+        );
+        if (selectedOrder && idsToUpdate.includes(selectedOrder.id)) {
+          setSelectedOrder((prev) => (prev ? { ...prev, is_shipped: false } : null));
+        }
 
         const { error } = await supabase
           .from('picking_lists')
@@ -1063,10 +1406,12 @@ export const ShipScreen = () => {
           .in('id', idsToUpdate);
         if (error) throw error;
         toast.success(`Order #${order.order_number} marked as not shipped!`);
-        fetchOrders();
       } catch (err) {
         console.error('Error undoing shipping:', err);
         toast.error('Failed to undo shipping');
+        // Rollback
+        setOrders(previousOrders);
+        setSelectedOrder(previousSelectedOrder);
       }
     }
   };
@@ -1077,6 +1422,9 @@ export const ShipScreen = () => {
     e.target.value = ''; // reset
 
     const toastId = toast.loading('Compressing and uploading photo...');
+    const previousOrders = [...orders];
+    const previousSelectedOrder = selectedOrder;
+
     try {
       const { image, thumbnail } = await compressImage(file);
       const photoId = crypto.randomUUID();
@@ -1115,6 +1463,34 @@ export const ShipScreen = () => {
         : [];
       const updatedPhotos = [...existing, photoUrl];
 
+      // Optimistic update
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === pendingShipmentOrder.id
+            ? {
+                ...o,
+                status: 'completed',
+                is_shipped: true,
+                is_waiting_inventory: false,
+                pallet_photos: updatedPhotos,
+              }
+            : o
+        )
+      );
+      if (selectedOrder && selectedOrder.id === pendingShipmentOrder.id) {
+        setSelectedOrder((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: 'completed',
+                is_shipped: true,
+                is_waiting_inventory: false,
+                pallet_photos: updatedPhotos,
+              }
+            : null
+        );
+      }
+
       // Update Database
       const { error } = await supabase
         .from('picking_lists')
@@ -1131,10 +1507,12 @@ export const ShipScreen = () => {
       toast.success(`Order #${pendingShipmentOrder.order_number} marked as Shipped!`, {
         id: toastId,
       });
-      fetchOrders();
     } catch (err) {
       console.error('Failed to ship order with photo:', err);
       toast.error('Failed to upload photo & ship order', { id: toastId });
+      // Rollback
+      setOrders(previousOrders);
+      setSelectedOrder(previousSelectedOrder);
     } finally {
       setPendingShipmentOrder(null);
     }

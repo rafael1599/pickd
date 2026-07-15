@@ -57,3 +57,7 @@ supabase/seed.sql
 supabase/snippets/
 pickd.db
 public/reports/daily/
+
+# Performance reports
+reports/performance/*.txt
+

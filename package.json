@@ -15,7 +15,8 @@
     "test": "vitest run",
     "update:ludlow:capacity": "node scripts/update-ludlow-capacity.js",
     "prepare": "husky",
-    "dashboard": "node dashboard.js"
+    "dashboard": "node dashboard.js",
+    "perf:ship:baseline": "sh scripts/perf-phase0-ship.sh"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -1001,6 +1001,7 @@ export type Database = {
           group_id: string | null;
           id: string;
           is_addon: boolean | null;
+          is_shipped: boolean | null;
           is_waiting_inventory: boolean;
           items: Json | null;
           last_activity_at: string | null;
@@ -1036,6 +1037,7 @@ export type Database = {
           group_id?: string | null;
           id?: string;
           is_addon?: boolean | null;
+          is_shipped?: boolean | null;
           is_waiting_inventory?: boolean;
           items?: Json | null;
           last_activity_at?: string | null;
@@ -1071,6 +1073,7 @@ export type Database = {
           group_id?: string | null;
           id?: string;
           is_addon?: boolean | null;
+          is_shipped?: boolean | null;
           is_waiting_inventory?: boolean;
           items?: Json | null;
           last_activity_at?: string | null;
