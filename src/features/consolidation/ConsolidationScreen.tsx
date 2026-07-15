@@ -5,6 +5,7 @@ import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import RefreshCw from 'lucide-react/dist/esm/icons/refresh-cw';
 import Boxes from 'lucide-react/dist/esm/icons/boxes';
+import Archive from 'lucide-react/dist/esm/icons/archive';
 import MoveRight from 'lucide-react/dist/esm/icons/move-right';
 import Check from 'lucide-react/dist/esm/icons/check';
 import toast from 'react-hot-toast';
@@ -14,6 +15,7 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { useInventory } from '../inventory/hooks/InventoryProvider';
 import { ItemDetailView } from '../inventory/components/ItemDetailView';
 import { ConsolidationMoveModal } from './ConsolidationMoveModal';
+import { OverstockReportModal } from './components/OverstockReportModal';
 import { searchCandidates } from './searchCandidates';
 import { searchBikeStock } from './stockFallback';
 import { PlaceSkuTab } from './PlaceSkuTab';
@@ -148,6 +150,7 @@ export const ConsolidationScreen: React.FC = () => {
   // Read once at mount — lazy initializers below hydrate from this snapshot.
   const persisted = useMemo(loadPersisted, []);
   const [mode, setMode] = useState<ScreenMode>(persisted.mode ?? 'consolidate');
+  const [overstockOpen, setOverstockOpen] = useState(false);
   const [maxOrders, setMaxOrders] = useState(persisted.maxOrders ?? 0);
   const [minOrders, setMinOrders] = useState(persisted.minOrders ?? 2);
   // idea-115: "Bikes only" is now a hardcoded invariant — operations never
@@ -496,6 +499,7 @@ export const ConsolidationScreen: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-surface">
+      {overstockOpen && <OverstockReportModal onClose={() => setOverstockOpen(false)} />}
       {/* Header — scrolls away with the page so only the row label stays pinned. */}
       <div className="bg-surface border-b border-subtle px-4 py-3">
         <div className="flex items-center gap-2 mb-3">
@@ -510,6 +514,13 @@ export const ConsolidationScreen: React.FC = () => {
           <h1 className="text-sm font-bold text-content uppercase tracking-tight flex-1">
             Consolidation
           </h1>
+          <button
+            onClick={() => setOverstockOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider text-amber-400 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 transition-colors"
+            title="Bikes with high stock and few orders (downloadable)"
+          >
+            <Archive size={13} /> Overstock
+          </button>
           <button
             onClick={() => refetch()}
             disabled={isFetching}

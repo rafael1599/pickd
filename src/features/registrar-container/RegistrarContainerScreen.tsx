@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { Loader2, Upload, Package, ArrowLeft, Copy, CheckCircle2 } from 'lucide-react';
 import { parseShipmentXlsx } from './lib/parseShipmentXlsx';
 import { parseShipmentPdf } from './lib/parseShipmentPdf';
-import { formatTowersLines } from './lib/containerDistribution';
+import { formatTowersLines } from '../../utils/containerDistribution';
 import { useRegistrarContainer } from './hooks/useRegistrarContainer';
 import type { ContainerInputItem, ParsedSheet, RegisterSummary, ResolvedItem } from './lib/types';
 
