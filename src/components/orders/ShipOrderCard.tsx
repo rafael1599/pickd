@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { orderColorFor } from '../../utils/orderColors';
 import MapPin from 'lucide-react/dist/esm/icons/map-pin';
 import Hash from 'lucide-react/dist/esm/icons/hash';
 import HandMetal from 'lucide-react/dist/esm/icons/hand-metal';
@@ -818,6 +819,8 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           </p>
           <div className="flex flex-col gap-1">
             {selectedOrder.combine_meta?.source_orders?.map((src, i) => {
+              const allNumbers =
+                selectedOrder.combine_meta?.source_orders?.map((s) => s.order_number) ?? [];
               const unitCount = (selectedOrder.items || [])
                 .filter(
                   (item) =>
@@ -826,8 +829,14 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 )
                 .reduce((sum, item) => sum + (item.pickingQty || 0), 0);
               return (
-                <span key={i} className="text-xs text-blue-300/70 font-mono">
-                  #{src.order_number} — {unitCount || src.item_count || '?'} units
+                <span key={i} className="text-xs font-mono">
+                  <span style={{ color: orderColorFor(src.order_number, allNumbers).hex }}>
+                    #{src.order_number}
+                  </span>
+                  <span className="text-blue-300/70">
+                    {' '}
+                    — {unitCount || src.item_count || '?'} units
+                  </span>
                 </span>
               );
             })}

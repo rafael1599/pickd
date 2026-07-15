@@ -71,6 +71,22 @@ describe('autoClassifyShippingType', () => {
     expect(autoClassifyShippingType(items, {})).toBe('fedex');
   });
 
+  it('a combined order of FedEx orders stays FedEx (3+3 bikes across sources)', () => {
+    const items = [
+      { sku: '03-1000BL', pickingQty: 3, source_order: '880696' },
+      { sku: '03-2000GY', pickingQty: 3, source_order: '880669' },
+    ];
+    expect(autoClassifyShippingType(items, {})).toBe('fedex');
+  });
+
+  it('a combined order goes regular if one constituent is regular on its own', () => {
+    const items = [
+      { sku: '03-1000BL', pickingQty: 5, source_order: '880696' },
+      { sku: '03-2000GY', pickingQty: 1, source_order: '880669' },
+    ];
+    expect(autoClassifyShippingType(items, {})).toBe('regular');
+  });
+
   it('returns fedex for empty items array', () => {
     expect(autoClassifyShippingType([], {})).toBe('fedex');
   });

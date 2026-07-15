@@ -1,4 +1,5 @@
 import { ModalOverlay } from '../../../components/ui/ModalOverlay';
+import { orderColorFor } from '../../../utils/orderColors';
 import X from 'lucide-react/dist/esm/icons/x';
 import Pencil from 'lucide-react/dist/esm/icons/pencil';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
@@ -92,6 +93,12 @@ export const SelectSubOrderModal: React.FC<SelectSubOrderModalProps> = ({
             <div className="flex flex-col gap-1 min-w-0 flex-1">
               <span
                 className={`text-xs font-mono font-black tracking-widest px-2 py-0.5 rounded border self-start ${v.badgeClass}`}
+                style={{
+                  color: orderColorFor(
+                    sub.order_number || sub.id.slice(-6).toUpperCase(),
+                    subOrders.map((s) => s.order_number || s.id.slice(-6).toUpperCase())
+                  ).hex,
+                }}
               >
                 #{sub.order_number || sub.id.slice(-6).toUpperCase()}
               </span>

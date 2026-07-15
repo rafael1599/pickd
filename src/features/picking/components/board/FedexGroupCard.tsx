@@ -6,7 +6,7 @@ import Unlink from 'lucide-react/dist/esm/icons/unlink';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import type { PickingList } from '../../hooks/useDoubleCheckList';
 import { getWorkerLabel, isActivelyChecking } from './SortableOrderCard';
-import { orderColorFor } from '../../utils/orderColors';
+import { orderColorFor } from '../../../../utils/orderColors';
 
 interface FedexGroupCardProps {
   orders: PickingList[];

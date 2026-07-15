@@ -13,7 +13,7 @@ import {
   calculatePalletsWithBikeAwareness,
   type PickingItem,
 } from '../../../../utils/pickingLogic';
-import { orderColorFor, SINGLE_ORDER_COLOR } from '../../utils/orderColors';
+import { orderColorFor, SINGLE_ORDER_COLOR } from '../../../../utils/orderColors';
 
 type ShippingType = 'fedex' | 'regular';
 

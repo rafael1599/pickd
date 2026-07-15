@@ -166,6 +166,11 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           order.items?.map((i) => ({
             sku: i.sku,
             pickingQty: (i as Record<string, unknown>).pickingQty as number,
+            source_order: (i as Record<string, unknown>).source_order as string | undefined,
+            sku_metadata: (i as Record<string, unknown>).sku_metadata as
+              | { is_bike?: boolean | null }
+              | null
+              | undefined,
           })) ?? [],
           {}
         );
@@ -270,6 +275,11 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           order.items?.map((i) => ({
             sku: i.sku,
             pickingQty: (i as Record<string, unknown>).pickingQty as number,
+            source_order: (i as Record<string, unknown>).source_order as string | undefined,
+            sku_metadata: (i as Record<string, unknown>).sku_metadata as
+              | { is_bike?: boolean | null }
+              | null
+              | undefined,
           })) ?? [],
           {}
         );

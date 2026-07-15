@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from 'react';
 import { supabase } from '../../lib/supabase.ts';
+import { orderColorFor } from '../../utils/orderColors';
 import { useAuth } from '../../context/AuthContext.tsx';
 
 import Home from 'lucide-react/dist/esm/icons/home';
@@ -1919,11 +1920,34 @@ export const ShipScreen = () => {
                                   setShipTab(order.is_shipped ? 'shipped' : 'to_ship');
                                 }}
                               >
-                                <span className="font-mono text-sm font-black text-content flex items-center gap-1 flex-wrap">
-                                  {order.combine_meta?.is_combined && (
-                                    <span title="Combined order">🔗</span>
+                                <span
+                                  className="font-mono text-sm font-black text-content flex items-center gap-1 flex-wrap"
+                                  title={
+                                    order.order_number?.includes(' / ')
+                                      ? order.order_number
+                                          .split(' / ')
+                                          .map((n) => `#${n.trim()}`)
+                                          .join(', ')
+                                      : undefined
+                                  }
+                                >
+                                  {order.order_number?.includes(' / ') ? (
+                                    <span>
+                                      <span className="text-muted/60">#</span>
+                                      {order.order_number.split(' / ').map((num, i, arr) => (
+                                        <Fragment key={`${num}-${i}`}>
+                                          {i > 0 && <span className="text-muted/50"> / </span>}
+                                          <span
+                                            style={{ color: orderColorFor(num.trim(), arr).hex }}
+                                          >
+                                            {num.trim().slice(-3)}
+                                          </span>
+                                        </Fragment>
+                                      ))}
+                                    </span>
+                                  ) : (
+                                    <>#{order.order_number}</>
                                   )}
-                                  #{order.order_number}
                                 </span>
 
                                 <span className="text-[11px] text-muted truncate">

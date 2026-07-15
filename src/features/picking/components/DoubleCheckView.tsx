@@ -20,7 +20,7 @@ import { useConfirmation } from '../../../context/ConfirmationContext.tsx';
 import { usePickingSession } from '../../../context/PickingContext.tsx';
 import { useInventory } from '../../inventory/hooks/InventoryProvider.tsx';
 import { orderHeaderLabel, splitOrderNumbers } from '../utils/orderLabel.ts';
-import { orderColorFor } from '../utils/orderColors';
+import { orderColorFor } from '../../../utils/orderColors';
 import { OrderActionsMenu } from './OrderActionsMenu';
 import { meaningfulNote } from '../utils/meaningfulNote.ts';
 import {
@@ -80,6 +80,7 @@ export interface PickingItem {
     length_in?: number | null;
     width_in?: number | null;
     height_in?: number | null;
+    is_bike?: boolean | null;
   } | null;
 }
 
@@ -278,7 +279,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     activeListMeta?.shipping_type === 'fedex' || activeListMeta?.shipping_type === 'regular'
       ? activeListMeta.shipping_type
       : autoClassifyShippingType(
-          cartItems.map((i) => ({ sku: i.sku, pickingQty: i.pickingQty || 0 })),
+          cartItems.map((i) => ({
+            sku: i.sku,
+            pickingQty: i.pickingQty || 0,
+            source_order: i.source_order,
+            sku_metadata: i.sku_metadata,
+          })),
           {}
         );
   const isFedexOrder = effectiveShippingType === 'fedex';
@@ -461,6 +467,33 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   // Full order numbers of the combined set — drives the per-order color coding
   // (header numbers + item-row stripes), matching the Live Board cards.
   const combinedNumbers = useMemo(() => splitOrderNumbers(orderNumber), [orderNumber]);
+
+  // Per-source qty shares for each SKU in a combined cart. The pallet calc
+  // merges same-SKU rows from different orders into ONE display row, so the
+  // stripe must show EVERY owner's color, sized by each order's quantity —
+  // a single color would read as "the other order is missing items".
+  const skuSourceShares = useMemo(() => {
+    if (!isCombined) return null;
+    const byKey = new Map<string, { order: string; qty: number }[]>();
+    const bySku = new Map<string, { order: string; qty: number }[]>();
+    const add = (
+      map: Map<string, { order: string; qty: number }[]>,
+      key: string,
+      ci: PickingItem
+    ) => {
+      const arr = map.get(key) ?? [];
+      const entry = arr.find((e) => e.order === ci.source_order);
+      if (entry) entry.qty += ci.pickingQty || 0;
+      else arr.push({ order: ci.source_order!, qty: ci.pickingQty || 0 });
+      map.set(key, arr);
+    };
+    for (const ci of cartItems) {
+      if (!ci.source_order) continue;
+      add(byKey, `${ci.sku}|${ci.location ?? ''}`, ci);
+      add(bySku, ci.sku, ci);
+    }
+    return { byKey, bySku };
+  }, [isCombined, cartItems]);
 
   // Pallet override state: palletId → desired total units
   const [palletOverrides, setPalletOverrides] = useState<Map<number, number>>(new Map());
@@ -1816,12 +1849,14 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                   const prevItem = itemIdx > 0 ? pallet.items[itemIdx - 1] : null;
                   const showPartsDivider =
                     !!item.isStackedPart && (!prevItem || !prevItem.isStackedPart);
-                  // Combined orders: left stripe in the owning order's color —
-                  // same palette as the header numbers and the board cards.
-                  const orderStripe =
-                    isCombined && item.source_order
-                      ? orderColorFor(item.source_order, combinedNumbers).hex
-                      : null;
+                  // Combined orders: left stripe with EVERY owning order's
+                  // color, segments sized by each order's qty share — same
+                  // palette as the header numbers and the board cards.
+                  const stripeShares = isCombined
+                    ? (skuSourceShares?.byKey.get(`${item.sku}|${item.location ?? ''}`) ??
+                      skuSourceShares?.bySku.get(item.sku) ??
+                      (item.source_order ? [{ order: item.source_order, qty: 1 }] : null))
+                    : null;
 
                   return (
                     <React.Fragment key={itemKey}>
@@ -1841,16 +1876,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                         onPointerDown={() => handlePointerDown(item)}
                         onPointerUp={handlePointerUp}
                         onPointerCancel={handlePointerUp}
-                        style={
-                          orderStripe ? { boxShadow: `inset 5px 0 0 0 ${orderStripe}` } : undefined
-                        }
                         onClick={() => {
                           if (isReviewMode) return;
                           if (longPressTriggered.current) return;
                           if (navigator.vibrate) navigator.vibrate(50);
                           onToggleCheck(item, pallet.id);
                         }}
-                        className={`transition-all duration-200 rounded-2xl flex items-center justify-between gap-3 ${isReviewMode ? '' : 'active:scale-[0.98] cursor-pointer'} border ${
+                        className={`relative overflow-hidden transition-all duration-200 rounded-2xl flex items-center justify-between gap-3 ${isReviewMode ? '' : 'active:scale-[0.98] cursor-pointer'} border ${
                           isChecked && !isReviewMode
                             ? 'px-2 py-4 opacity-70 scale-[0.97]'
                             : 'px-4 py-9'
@@ -1870,6 +1902,22 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                 : 'bg-card border-subtle hover:border-subtle'
                         }`}
                       >
+                        {stripeShares && stripeShares.length > 0 && (
+                          <div
+                            className="absolute left-0 top-0 bottom-0 w-[5px] flex flex-col"
+                            title={stripeShares.map((s) => `#${s.order}: ${s.qty}`).join('  ·  ')}
+                          >
+                            {stripeShares.map((s) => (
+                              <div
+                                key={s.order}
+                                style={{
+                                  flexGrow: Math.max(s.qty, 1),
+                                  backgroundColor: orderColorFor(s.order, combinedNumbers).hex,
+                                }}
+                              />
+                            ))}
+                          </div>
+                        )}
                         <div
                           className="flex items-center gap-2 min-w-0"
                           style={{ transform: 'scaleY(1.5)' }}

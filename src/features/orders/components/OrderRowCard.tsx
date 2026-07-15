@@ -8,6 +8,7 @@ import { printOrderDetail } from '../lib/printOrderDetail';
 import { OrderNotes } from './OrderNotes';
 import { TransportLogo } from '../../../components/orders/TransportLogo';
 import { OrderStatusPill } from '../../../components/orders/OrderStatusPill';
+import { orderColorFor } from '../../../utils/orderColors';
 
 /**
  * Derives a thumbnail URL from a full-size gallery photo URL.
@@ -81,7 +82,26 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
           {/* Left Block: Order Info */}
           <div className="min-w-0 flex-1">
             <div className="text-lg font-black uppercase tracking-tight text-content flex items-center gap-1.5 flex-wrap">
-              #{displayNumber}
+              {displayNumber.includes(' / ') ? (
+                <span
+                  title={displayNumber
+                    .split(' / ')
+                    .map((n) => `#${n.trim()}`)
+                    .join(', ')}
+                >
+                  <span className="text-content/50">#</span>
+                  {displayNumber.split(' / ').map((num, i, arr) => (
+                    <React.Fragment key={`${num}-${i}`}>
+                      {i > 0 && <span className="text-content/40"> / </span>}
+                      <span style={{ color: orderColorFor(num.trim(), arr).hex }}>
+                        {num.trim().slice(-3)}
+                      </span>
+                    </React.Fragment>
+                  ))}
+                </span>
+              ) : (
+                <>#{displayNumber}</>
+              )}
               <span
                 className={`text-[10px] ${fedex ? 'bg-purple-500' : 'bg-emerald-500'} text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider`}
               >
