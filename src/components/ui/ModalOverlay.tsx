@@ -28,6 +28,8 @@ export interface ModalOverlayProps {
   closeOnBackdrop?: boolean;
   /** Backdrop blur strength. Default 'md'. */
   blur?: 'sm' | 'md';
+  /** Backdrop tint class. Default 'bg-main/60'. */
+  backdrop?: string;
   /** Card background token. Default 'bg-card'. */
   cardBg?: string;
   /** Card border class. Default 'border-subtle'. */
@@ -53,6 +55,7 @@ export const ModalOverlay: React.FC<ModalOverlayProps> = ({
   zIndex = 200,
   closeOnBackdrop = true,
   blur = 'md',
+  backdrop = 'bg-main/60',
   cardBg = 'bg-card',
   border = 'border-subtle',
   rounded = 'rounded-2xl',
@@ -63,7 +66,7 @@ export const ModalOverlay: React.FC<ModalOverlayProps> = ({
 
   return createPortal(
     <div
-      className={`fixed inset-0 flex items-center justify-center p-4 bg-main/60 ${
+      className={`fixed inset-0 flex items-center justify-center p-4 ${backdrop} ${
         blur === 'sm' ? 'backdrop-blur-sm' : 'backdrop-blur-md'
       } animate-in fade-in duration-200`}
       style={{ zIndex }}

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { ModalOverlay } from '../../../../components/ui/ModalOverlay';
 import X from 'lucide-react/dist/esm/icons/x';
 import Star from 'lucide-react/dist/esm/icons/star';
 import Search from 'lucide-react/dist/esm/icons/search';
@@ -220,120 +220,125 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
     }
   };
 
-  return createPortal(
-    <div className="fixed inset-0 z-[250] flex items-center justify-center bg-main/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
-      <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-5 w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4 shrink-0">
-          <div>
-            <h3 className="text-sm font-black text-sky-400 uppercase tracking-widest flex items-center gap-1.5">
-              <span>Combine</span>
-            </h3>
-            <p className="text-[10px] text-muted/70 mt-1">
-              Selected orders will be combined into a single group.
+  return (
+    <ModalOverlay
+      onClose={onClose}
+      maxWidth="lg"
+      zIndex={250}
+      closeOnBackdrop={false}
+      cardBg="bg-[#1a1a1a]"
+      border="border-white/10"
+      className="p-5 max-h-[85vh] flex flex-col"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4 shrink-0">
+        <div>
+          <h3 className="text-sm font-black text-sky-400 uppercase tracking-widest flex items-center gap-1.5">
+            <span>Combine</span>
+          </h3>
+          <p className="text-[10px] text-muted/70 mt-1">
+            Selected orders will be combined into a single group.
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="p-1.5 text-muted hover:text-content transition-colors rounded-lg hover:bg-content/[0.05]"
+          type="button"
+          disabled={isMerging}
+        >
+          <X size={18} />
+        </button>
+      </div>
+
+      {/* Search Bar */}
+      <div className="relative shrink-0 mb-4">
+        <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
+        <input
+          type="text"
+          placeholder="Search by order # or customer..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          disabled={isMerging}
+          className="w-full min-h-10 pl-10 pr-4 bg-surface border border-subtle rounded-xl text-xs placeholder:text-muted/60 text-content focus:outline-none focus:border-sky-500/50 focus:ring-1 focus:ring-sky-500/30 transition-all"
+        />
+      </div>
+
+      {/* Candidate List */}
+      <div className="overflow-y-auto flex-1 space-y-4 pr-1">
+        {loading ? (
+          <div className="flex items-center justify-center py-16 text-muted text-xs">
+            <div className="w-4 h-4 border-2 border-sky-400 border-t-transparent rounded-full animate-spin mr-2" />
+            Searching orders…
+          </div>
+        ) : isMerging ? (
+          <div className="flex flex-col items-center justify-center py-16 text-muted text-xs gap-3">
+            <div className="w-6 h-6 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" />
+            <span>Merging and reopening if necessary…</span>
+          </div>
+        ) : candidates.length === 0 ? (
+          <div className="text-center py-12 border border-dashed border-white/5 rounded-xl bg-content/[0.01]">
+            <Package className="mx-auto mb-3 opacity-20 text-muted" size={32} />
+            <p className="text-[11px] font-bold text-muted/80 uppercase tracking-widest">
+              No orders found
+            </p>
+            <p className="text-[10px] text-muted/50 mt-1">
+              Try searching by exact order number or another customer.
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-muted hover:text-content transition-colors rounded-lg hover:bg-content/[0.05]"
-            type="button"
-            disabled={isMerging}
-          >
-            <X size={18} />
-          </button>
-        </div>
+        ) : (
+          <>
+            {/* Same Customer Suggestions */}
+            {sameCustomer.length > 0 && (
+              <section>
+                <div className="flex items-center gap-1.5 mb-2 px-1">
+                  <Star size={10} className="text-emerald-400 fill-emerald-400" />
+                  <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">
+                    Same Customer{sourceCustomerName ? ` — ${sourceCustomerName}` : ''}
+                  </span>
+                </div>
+                <ul className="space-y-1.5">
+                  {sameCustomer.map((c) => (
+                    <li key={c.id}>
+                      <CandidateRow candidate={c} highlight onPick={handlePick} />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
 
-        {/* Search Bar */}
-        <div className="relative shrink-0 mb-4">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
-          <input
-            type="text"
-            placeholder="Search by order # or customer..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            disabled={isMerging}
-            className="w-full min-h-10 pl-10 pr-4 bg-surface border border-subtle rounded-xl text-xs placeholder:text-muted/60 text-content focus:outline-none focus:border-sky-500/50 focus:ring-1 focus:ring-sky-500/30 transition-all"
-          />
-        </div>
-
-        {/* Candidate List */}
-        <div className="overflow-y-auto flex-1 space-y-4 pr-1">
-          {loading ? (
-            <div className="flex items-center justify-center py-16 text-muted text-xs">
-              <div className="w-4 h-4 border-2 border-sky-400 border-t-transparent rounded-full animate-spin mr-2" />
-              Searching orders…
-            </div>
-          ) : isMerging ? (
-            <div className="flex flex-col items-center justify-center py-16 text-muted text-xs gap-3">
-              <div className="w-6 h-6 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" />
-              <span>Merging and reopening if necessary…</span>
-            </div>
-          ) : candidates.length === 0 ? (
-            <div className="text-center py-12 border border-dashed border-white/5 rounded-xl bg-content/[0.01]">
-              <Package className="mx-auto mb-3 opacity-20 text-muted" size={32} />
-              <p className="text-[11px] font-bold text-muted/80 uppercase tracking-widest">
-                No orders found
-              </p>
-              <p className="text-[10px] text-muted/50 mt-1">
-                Try searching by exact order number or another customer.
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* Same Customer Suggestions */}
-              {sameCustomer.length > 0 && (
-                <section>
-                  <div className="flex items-center gap-1.5 mb-2 px-1">
-                    <Star size={10} className="text-emerald-400 fill-emerald-400" />
-                    <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">
-                      Same Customer{sourceCustomerName ? ` — ${sourceCustomerName}` : ''}
-                    </span>
-                  </div>
-                  <ul className="space-y-1.5">
-                    {sameCustomer.map((c) => (
-                      <li key={c.id}>
-                        <CandidateRow candidate={c} highlight onPick={handlePick} />
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              )}
-
-              {/* Other Candidate Lists */}
-              {others.length > 0 && (
-                <section>
-                  <div className="flex items-center gap-1.5 mb-2 px-1 mt-1">
-                    <span className="text-[9px] font-black text-muted/60 uppercase tracking-widest">
-                      Other Active Orders
-                    </span>
-                  </div>
-                  <ul className="space-y-1.5">
-                    {others.map((c) => (
-                      <li key={c.id}>
-                        <CandidateRow candidate={c} highlight={false} onPick={handlePick} />
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="mt-4 shrink-0 flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 min-h-10 rounded-xl font-black uppercase tracking-widest text-[10px] bg-surface text-muted border border-subtle transition-all hover:bg-surface/80 active:scale-[0.97]"
-            type="button"
-            disabled={isMerging}
-          >
-            Cancel
-          </button>
-        </div>
+            {/* Other Candidate Lists */}
+            {others.length > 0 && (
+              <section>
+                <div className="flex items-center gap-1.5 mb-2 px-1 mt-1">
+                  <span className="text-[9px] font-black text-muted/60 uppercase tracking-widest">
+                    Other Active Orders
+                  </span>
+                </div>
+                <ul className="space-y-1.5">
+                  {others.map((c) => (
+                    <li key={c.id}>
+                      <CandidateRow candidate={c} highlight={false} onPick={handlePick} />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </>
+        )}
       </div>
-    </div>,
-    document.body
+
+      {/* Footer */}
+      <div className="mt-4 shrink-0 flex gap-2">
+        <button
+          onClick={onClose}
+          className="flex-1 min-h-10 rounded-xl font-black uppercase tracking-widest text-[10px] bg-surface text-muted border border-subtle transition-all hover:bg-surface/80 active:scale-[0.97]"
+          type="button"
+          disabled={isMerging}
+        >
+          Cancel
+        </button>
+      </div>
+    </ModalOverlay>
   );
 };
 
