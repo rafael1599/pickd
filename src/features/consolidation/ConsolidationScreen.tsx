@@ -624,17 +624,15 @@ export const ConsolidationScreen: React.FC = () => {
             {/* idea-117: hide-rows picker. Replaces the prior binary
                 "Exclude ROW 20-34" toggle with fine-grained multi-select.
                 Available in every mode that lists candidates. */}
-            {mode !== 'place-sku' && (
-              <HiddenRowsPicker
-                availableRows={hideablePresentRows}
-                api={hiddenRowsApi}
-                presets={
-                  mode === 'consolidate'
-                    ? [{ label: 'Deep slow 20-34', rows: Array.from(DEEP_SLOW_ROWS) }]
-                    : []
-                }
-              />
-            )}
+            <HiddenRowsPicker
+              availableRows={hideablePresentRows}
+              api={hiddenRowsApi}
+              presets={
+                mode === 'consolidate'
+                  ? [{ label: 'Deep slow 20-34', rows: Array.from(DEEP_SLOW_ROWS) }]
+                  : []
+              }
+            />
 
             <div className="ml-auto text-muted font-bold uppercase tracking-wider">
               {totals.skus} SKUs · {totals.units}u · {totals.rows} rows

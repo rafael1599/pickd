@@ -57,8 +57,10 @@ export const OrderProgressBar: React.FC<OrderProgressBarProps> = ({
           verifiedUnits += qty;
         }
 
-        // Picking progress
-        if (item.checked) {
+        // Picking progress. `checked` is carried through from the source
+        // PickingListItem (via spread); the util's PickingItem type drops it,
+        // so read it through a narrow cast instead of widening the util type.
+        if ((item as { checked?: boolean }).checked) {
           pickedUnits += qty;
         }
       }

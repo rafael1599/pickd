@@ -1,13 +1,7 @@
-// jsbarcode ships no type declarations for its internal encoder modules, so we
-// describe just the slice we use. Importing the encoder (not the DOM renderer)
-// keeps this headless — no canvas/DOM needed, works in the browser and in tests.
-declare module 'jsbarcode/bin/barcodes/CODE128/index.js' {
-  export class CODE128 {
-    constructor(data: string, options: { ean128?: boolean });
-    encode(): { data: string; text: string };
-  }
-}
-
+// Types for this deep submodule live in src/types/jsbarcode-code128.d.ts (an
+// ambient module declaration — jsbarcode ships no types for its encoders).
+// Importing the encoder (not the DOM renderer) keeps this headless — no
+// canvas/DOM needed, works in the browser and in tests.
 import { CODE128 } from 'jsbarcode/bin/barcodes/CODE128/index.js';
 
 /**

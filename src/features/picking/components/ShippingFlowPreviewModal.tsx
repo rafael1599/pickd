@@ -147,9 +147,9 @@ export const ShippingFlowPreviewModal: React.FC<ShippingFlowPreviewModalProps> =
     'idle' | 'searching' | 'found' | 'not_found'
   >('idle');
   const [dbSearchResult, setDbSearchResult] = useState<{
-    order_number: string;
-    status: string;
-    is_shipped: boolean;
+    order_number: string | null;
+    status: string | null;
+    is_shipped: boolean | null;
   } | null>(null);
 
   useEffect(() => {
@@ -157,15 +157,14 @@ export const ShippingFlowPreviewModal: React.FC<ShippingFlowPreviewModalProps> =
     if (!q || filteredOrders.length > 0) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setDbSearchStatus('idle');
-       
+
       setDbSearchResult(null);
       return;
     }
 
     if (q.length < 3) {
-       
       setDbSearchStatus('idle');
-       
+
       setDbSearchResult(null);
       return;
     }
@@ -263,12 +262,12 @@ export const ShippingFlowPreviewModal: React.FC<ShippingFlowPreviewModalProps> =
                     </div>
                     <div className="space-y-1.5">
                       <p className="text-base font-black text-content">
-                        Order #{dbSearchResult.order_number} found in database
+                        Order #{dbSearchResult.order_number ?? '—'} found in database
                       </p>
                       <p className="text-sm font-bold text-muted">
                         Status:{' '}
                         <span className="uppercase tracking-widest px-2 py-0.5 rounded-full bg-muted/10 border border-subtle">
-                          {dbSearchResult.status.replace(/_/g, ' ')}
+                          {(dbSearchResult.status ?? 'unknown').replace(/_/g, ' ')}
                         </span>
                       </p>
                       {dbSearchResult.is_shipped && (

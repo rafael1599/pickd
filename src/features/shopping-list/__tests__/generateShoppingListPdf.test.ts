@@ -42,12 +42,12 @@ describe('generateShoppingListPdf', () => {
   const items = [
     item({
       item_name: 'Brake Pads',
-      quantity: 4,
+      quantity: '4',
       urgent: true,
       created_at: '2026-06-02T00:00:00Z',
     }),
-    item({ item_name: 'Chain Lube', quantity: 2, created_at: '2026-06-03T00:00:00Z' }),
-    item({ item_name: 'Done item', status: 'received' }),
+    item({ item_name: 'Chain Lube', quantity: '2', created_at: '2026-06-03T00:00:00Z' }),
+    item({ item_name: 'Done item', status: 'done' }),
   ];
 
   it('is black & white, ordered, nothing overlapping, and complete', async () => {
@@ -63,7 +63,7 @@ describe('generateShoppingListPdf', () => {
   });
 
   it('renders an empty PDF for no pending items (no draws)', async () => {
-    await generateShoppingListPdf([item({ status: 'received' })]);
+    await generateShoppingListPdf([item({ status: 'done' })]);
     expect(rec.texts()).toHaveLength(0);
   });
 });
