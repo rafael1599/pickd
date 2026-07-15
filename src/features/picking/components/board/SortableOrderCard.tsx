@@ -13,6 +13,7 @@ import {
   calculatePalletsWithBikeAwareness,
   type PickingItem,
 } from '../../../../utils/pickingLogic';
+import { orderColorFor, SINGLE_ORDER_COLOR } from '../../utils/orderColors';
 
 type ShippingType = 'fedex' | 'regular';
 
@@ -45,10 +46,6 @@ const SHIPPING_COLORS: Record<ShippingType, { stripe: string; badge: string; bad
     fedex: { stripe: 'bg-purple-500/70', badge: 'bg-purple-500', badgeText: 'FDX' },
     regular: { stripe: 'bg-emerald-500/70', badge: 'bg-emerald-500', badgeText: 'TRK' },
   };
-
-/** The 3D-embossed yellow used for the emphasised order digits. */
-export const YELLOW_3D_SHADOW =
-  '-1px 1px 0px #d97706, -2px 2px 0px #b45309, -3px 3px 0px #78350f, -4px 4px 5px rgba(0,0,0,0.8)';
 
 function getStatusStyles(status: string) {
   switch (status) {
@@ -165,11 +162,12 @@ const OrderCardShell: React.FC<CardProps> = ({
 
   // Split order number. Single orders render muted prefix + yellow 3D last-3.
   // Combined numbers ("880696 / 880669") render ONLY the last 3 of each order,
-  // every segment in 3D yellow: "#696 / 669".
+  // each segment 3D-tinted with its per-order color (see orderColors.ts) so
+  // the board matches the DoubleCheck header and item stripes.
   const numberParts = React.useMemo(() => {
     const fullNum = String(order.order_number || order.id.toString().slice(-6).toUpperCase());
     if (fullNum.includes(' / ')) {
-      return { segments: fullNum.split(' / ').map((s) => s.trim().slice(-3)) };
+      return { segments: fullNum.split(' / ').map((s) => s.trim()) };
     }
     if (fullNum.length <= 3) {
       return { firstPart: '', lastThree: fullNum };
@@ -337,24 +335,27 @@ const OrderCardShell: React.FC<CardProps> = ({
               {numberParts.segments ? (
                 <>
                   <span className="text-content/35 mr-1 select-none">#</span>
-                  {numberParts.segments.map((seg, i) => (
-                    <React.Fragment key={i}>
-                      {i > 0 && <span className="text-content/35 mx-1.5 select-none">/</span>}
-                      <span
-                        style={{ textShadow: YELLOW_3D_SHADOW }}
-                        className="text-yellow-100 text-[1.27em] font-black tracking-tight leading-none inline-block align-baseline relative z-10"
-                      >
-                        {seg}
-                      </span>
-                    </React.Fragment>
-                  ))}
+                  {numberParts.segments.map((seg, i) => {
+                    const c = orderColorFor(seg, numberParts.segments!);
+                    return (
+                      <React.Fragment key={i}>
+                        {i > 0 && <span className="text-content/35 mx-1.5 select-none">/</span>}
+                        <span
+                          style={{ textShadow: c.shadow }}
+                          className={`${c.face} text-[1.27em] font-black tracking-tight leading-none inline-block align-baseline relative z-10`}
+                        >
+                          {seg.slice(-3)}
+                        </span>
+                      </React.Fragment>
+                    );
+                  })}
                 </>
               ) : (
                 <>
                   <span className="text-content/35 mr-1 select-none">#{numberParts.firstPart}</span>
                   <span
-                    style={{ textShadow: YELLOW_3D_SHADOW }}
-                    className="text-yellow-100 text-[1.27em] font-black tracking-tight leading-none inline-block align-baseline relative z-10"
+                    style={{ textShadow: SINGLE_ORDER_COLOR.shadow }}
+                    className={`${SINGLE_ORDER_COLOR.face} text-[1.27em] font-black tracking-tight leading-none inline-block align-baseline relative z-10`}
                   >
                     {numberParts.lastThree}
                   </span>

@@ -20,6 +20,7 @@ import { useConfirmation } from '../../../context/ConfirmationContext.tsx';
 import { usePickingSession } from '../../../context/PickingContext.tsx';
 import { useInventory } from '../../inventory/hooks/InventoryProvider.tsx';
 import { orderHeaderLabel, splitOrderNumbers } from '../utils/orderLabel.ts';
+import { orderColorFor } from '../utils/orderColors';
 import { OrderActionsMenu } from './OrderActionsMenu';
 import { meaningfulNote } from '../utils/meaningfulNote.ts';
 import {
@@ -342,21 +343,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const [isDeducting, setIsDeducting] = useState(false);
   const [showWaitingPicker, setShowWaitingPicker] = useState(false);
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
-  const [orderListOpen, setOrderListOpen] = useState(false);
-  const orderListRef = useRef<HTMLDivElement>(null);
-
-  // Close the combined-order list when clicking anywhere outside it.
-  useEffect(() => {
-    if (!orderListOpen) return;
-    const onPointerDown = (e: MouseEvent) => {
-      if (orderListRef.current && !orderListRef.current.contains(e.target as Node)) {
-        setOrderListOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onPointerDown);
-    return () => document.removeEventListener('mousedown', onPointerDown);
-  }, [orderListOpen]);
-
   const [scanResults, setScanResults] = useState<Map<string, Set<string>>>(new Map());
   const [isScanning, setIsScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState<string>('');
@@ -472,6 +458,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
   // A merged FedEx cart tags every item with source_order (see usePickingSync.loadExternalList).
   const isCombined = useMemo(() => cartItems.some((i) => i.source_order), [cartItems]);
+  // Full order numbers of the combined set — drives the per-order color coding
+  // (header numbers + item-row stripes), matching the Live Board cards.
+  const combinedNumbers = useMemo(() => splitOrderNumbers(orderNumber), [orderNumber]);
 
   // Pallet override state: palletId → desired total units
   const [palletOverrides, setPalletOverrides] = useState<Map<number, number>>(new Map());
@@ -1372,48 +1361,42 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         <div className="flex flex-col items-center flex-1 min-w-0">
           {/* Order number + shipping + pallets/units — ALWAYS visible (no auto-hide),
               using the full header width so nothing important disappears. */}
-          <div
-            className={`flex flex-col items-center transition-all duration-300 ${
-              orderListOpen ? 'overflow-visible' : 'overflow-hidden'
-            }`}
-          >
-            <div
-              ref={orderListRef}
-              className="flex items-center gap-1.5 relative flex-wrap justify-center"
-            >
+          <div className="flex flex-col items-center transition-all duration-300 overflow-hidden">
+            <div className="flex items-center gap-1.5 relative flex-wrap justify-center">
               {(() => {
                 const fallback = activeListId
                   ? `#${activeListId.slice(-6).toUpperCase()}`
                   : 'STOCK DEDUCTION';
-                const header = orderHeaderLabel(orderNumber, fallback);
-                // single (0/1 orders) and pair (exactly 2 → "083 / 121") both render
-                // as a static chip; only 3+ get the +N badge + dropdown.
-                if (header.kind !== 'many') {
+                // Single (0/1 orders) keeps the plain accent chip. Combined
+                // orders render each number in its per-order color (flat, no
+                // 3D here) — the same colors used on the board and on the
+                // item-row stripes below.
+                if (combinedNumbers.length <= 1) {
+                  const header = orderHeaderLabel(orderNumber, fallback);
                   return (
                     <span className="text-sm md:text-base font-mono font-black text-accent/90 tracking-widest bg-accent/10 px-2 py-0.5 rounded-lg border border-accent/20 whitespace-nowrap">
                       {header.label}
                     </span>
                   );
                 }
-                const label = header.label;
-                const orderList = splitOrderNumbers(orderNumber);
+                // Combined (2+): every order visible at a glance — last 3 of
+                // each in its per-order color. No +N badge, no dropdown.
                 return (
-                  <button
-                    onClick={() => setOrderListOpen((v) => !v)}
-                    className="text-sm md:text-base font-mono font-black text-accent/90 tracking-widest bg-accent/10 px-2 py-0.5 rounded-lg border border-accent/20 flex items-center gap-1.5 hover:bg-accent/20 transition-colors whitespace-nowrap"
-                    title={`${orderList.length} orders combined`}
-                    aria-haspopup="true"
-                    aria-expanded={orderListOpen}
+                  <span
+                    className="text-sm md:text-base font-mono font-black tracking-widest bg-accent/10 px-2 py-0.5 rounded-lg border border-accent/20"
+                    title={`${combinedNumbers.length} orders combined: ${combinedNumbers
+                      .map((n) => `#${n}`)
+                      .join(', ')}`}
                   >
-                    <span>{label}</span>
-                    <span className="text-xs font-black bg-accent/20 text-accent px-1.5 rounded">
-                      +{orderList.length - 1}
-                    </span>
-                    <ChevronDown
-                      size={14}
-                      className={`transition-transform ${orderListOpen ? 'rotate-180' : ''}`}
-                    />
-                  </button>
+                    {combinedNumbers.map((num, i) => (
+                      <React.Fragment key={num}>
+                        {i > 0 && <span className="text-accent/50"> / </span>}
+                        <span style={{ color: orderColorFor(num, combinedNumbers).hex }}>
+                          {num.slice(-3)}
+                        </span>
+                      </React.Fragment>
+                    ))}
+                  </span>
                 );
               })()}
               {activeListId && (
@@ -1436,22 +1419,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 >
                   {watcherNote}
                 </span>
-              )}
-              {orderListOpen && orderNumber && orderNumber.includes(' / ') && (
-                <div className="absolute top-full left-0 mt-1 bg-card border border-subtle rounded-xl shadow-2xl overflow-hidden z-20 min-w-[140px] animate-in fade-in slide-in-from-top-2 duration-150">
-                  {orderNumber
-                    .split(' / ')
-                    .map((s) => s.trim())
-                    .filter(Boolean)
-                    .map((num) => (
-                      <div
-                        key={num}
-                        className="px-3 py-2 text-xs font-mono font-bold text-content tracking-widest border-b border-subtle last:border-b-0"
-                      >
-                        #{num}
-                      </div>
-                    ))}
-                </div>
               )}
             </div>
           </div>
@@ -1849,6 +1816,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                   const prevItem = itemIdx > 0 ? pallet.items[itemIdx - 1] : null;
                   const showPartsDivider =
                     !!item.isStackedPart && (!prevItem || !prevItem.isStackedPart);
+                  // Combined orders: left stripe in the owning order's color —
+                  // same palette as the header numbers and the board cards.
+                  const orderStripe =
+                    isCombined && item.source_order
+                      ? orderColorFor(item.source_order, combinedNumbers).hex
+                      : null;
 
                   return (
                     <React.Fragment key={itemKey}>
@@ -1868,6 +1841,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                         onPointerDown={() => handlePointerDown(item)}
                         onPointerUp={handlePointerUp}
                         onPointerCancel={handlePointerUp}
+                        style={
+                          orderStripe ? { boxShadow: `inset 5px 0 0 0 ${orderStripe}` } : undefined
+                        }
                         onClick={() => {
                           if (isReviewMode) return;
                           if (longPressTriggered.current) return;

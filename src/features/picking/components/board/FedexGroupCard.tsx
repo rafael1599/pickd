@@ -5,7 +5,8 @@ import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
 import Unlink from 'lucide-react/dist/esm/icons/unlink';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import type { PickingList } from '../../hooks/useDoubleCheckList';
-import { getWorkerLabel, isActivelyChecking, YELLOW_3D_SHADOW } from './SortableOrderCard';
+import { getWorkerLabel, isActivelyChecking } from './SortableOrderCard';
+import { orderColorFor } from '../../utils/orderColors';
 
 interface FedexGroupCardProps {
   orders: PickingList[];
@@ -67,9 +68,13 @@ export const FedexGroupCard = React.memo<FedexGroupCardProps>(
         {/* One row per order — tap opens the combined double-check view. */}
         <div className="px-1 pb-1 space-y-0.5">
           {orders.map((order) => {
+            const allNumbers = orders.map((o) =>
+              String(o.order_number || o.id.toString().slice(-6).toUpperCase())
+            );
             const fullNum = String(
               order.order_number || order.id.toString().slice(-6).toUpperCase()
             );
+            const c = orderColorFor(fullNum, allNumbers);
             const firstPart = fullNum.length > 3 ? fullNum.slice(0, -3) : '';
             const lastThree = fullNum.slice(-3);
             const worker = getWorkerLabel(order);
@@ -92,8 +97,8 @@ export const FedexGroupCard = React.memo<FedexGroupCardProps>(
                     <span className="whitespace-nowrap">
                       <span className="text-content/35 mr-0.5 select-none">#{firstPart}</span>
                       <span
-                        style={{ textShadow: YELLOW_3D_SHADOW }}
-                        className="text-yellow-100 text-[1.15em] font-black tracking-tight leading-none inline-block align-baseline relative z-10"
+                        style={{ textShadow: c.shadow }}
+                        className={`${c.face} text-[1.15em] font-black tracking-tight leading-none inline-block align-baseline relative z-10`}
                       >
                         {lastThree}
                       </span>

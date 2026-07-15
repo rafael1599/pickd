@@ -392,7 +392,11 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     return (
       <div className={LANE_GRID}>
         {Array.from(grouped.entries()).map(([groupId, groupOrders]) =>
-          (groupOrders[0]?.order_group?.group_type ?? 'general') === 'fedex' ? (
+          // The lane decides the group presentation: any group in the FedEx
+          // lane shows as the stacked, always-ungroupable list — regardless of
+          // whether it was auto-grouped ('fedex') or manually combined
+          // ('general'). Regular-lane groups collapse into one standard card.
+          shippingType === 'fedex' ? (
             <FedexGroupCard
               key={groupId}
               orders={groupOrders}
@@ -670,9 +674,11 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                   return (
                     <div className={CARD_GRID}>
                       {Array.from(grouped.entries()).map(([groupId, groupOrders]) =>
-                        (groupOrders[0]?.order_group?.group_type ??
-                          (groupOrders[0]?.shipping_type === 'fedex' ? 'fedex' : 'general')) ===
-                        'fedex' ? (
+                        // Same rule as the lanes: the group's shipping type
+                        // decides — FedEx groups always show the stacked,
+                        // ungroupable list.
+                        (pullingShippingTypes.get(groupOrders[0]?.id ?? '') ??
+                          groupOrders[0]?.shipping_type) === 'fedex' ? (
                           <FedexGroupCard
                             key={groupId}
                             orders={groupOrders}
