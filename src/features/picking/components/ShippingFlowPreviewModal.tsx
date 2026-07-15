@@ -1,10 +1,13 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import Search from 'lucide-react/dist/esm/icons/search';
 import X from 'lucide-react/dist/esm/icons/x';
 import Check from 'lucide-react/dist/esm/icons/check';
 import Truck from 'lucide-react/dist/esm/icons/truck';
 import Clock3 from 'lucide-react/dist/esm/icons/clock-3';
+import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
+import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import { TransportLogo } from '../../../components/orders/TransportLogo';
+import { supabase } from '../../../lib/supabase';
 
 export interface ShippingPreviewOrder {
   id: string;
@@ -140,6 +143,62 @@ export const ShippingFlowPreviewModal: React.FC<ShippingFlowPreviewModalProps> =
     });
   }, [orders, searchQuery]);
 
+  const [dbSearchStatus, setDbSearchStatus] = useState<
+    'idle' | 'searching' | 'found' | 'not_found'
+  >('idle');
+  const [dbSearchResult, setDbSearchResult] = useState<{
+    order_number: string;
+    status: string;
+    is_shipped: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q || filteredOrders.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDbSearchStatus('idle');
+       
+      setDbSearchResult(null);
+      return;
+    }
+
+    if (q.length < 3) {
+       
+      setDbSearchStatus('idle');
+       
+      setDbSearchResult(null);
+      return;
+    }
+
+    let isMounted = true;
+    setDbSearchStatus('searching');
+
+    const searchDb = async () => {
+      const { data, error } = await supabase
+        .from('picking_lists')
+        .select('order_number, status, is_shipped')
+        .ilike('order_number', `%${q}%`)
+        .limit(1)
+        .maybeSingle();
+
+      if (!isMounted) return;
+
+      if (error || !data) {
+        setDbSearchStatus('not_found');
+        setDbSearchResult(null);
+      } else {
+        setDbSearchStatus('found');
+        setDbSearchResult(data);
+      }
+    };
+
+    const timer = setTimeout(searchDb, 500);
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [searchQuery, filteredOrders.length]);
+
   const selectedCount = activeIds.size;
   const selectedToday = todayOrders.filter((o) => activeIds.has(o.id)).length;
   const selectedDelayed = delayedOrders.filter((o) => activeIds.has(o.id)).length;
@@ -189,8 +248,46 @@ export const ShippingFlowPreviewModal: React.FC<ShippingFlowPreviewModalProps> =
             {filteredOrders.length > 0 ? (
               filteredOrders.map(renderCard)
             ) : (
-              <div className="rounded-3xl border border-subtle bg-card px-4 py-10 text-center text-sm font-bold text-muted">
-                No orders match that search.
+              <div className="rounded-3xl border border-subtle bg-card px-4 py-10 text-center flex flex-col items-center justify-center gap-4">
+                {dbSearchStatus === 'searching' ? (
+                  <>
+                    <Loader2 size={24} className="text-accent animate-spin" />
+                    <p className="text-sm font-bold text-muted">
+                      Searching database for "{searchQuery}"...
+                    </p>
+                  </>
+                ) : dbSearchStatus === 'found' && dbSearchResult ? (
+                  <>
+                    <div className="w-12 h-12 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center">
+                      <AlertCircle size={24} className="text-accent" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <p className="text-base font-black text-content">
+                        Order #{dbSearchResult.order_number} found in database
+                      </p>
+                      <p className="text-sm font-bold text-muted">
+                        Status:{' '}
+                        <span className="uppercase tracking-widest px-2 py-0.5 rounded-full bg-muted/10 border border-subtle">
+                          {dbSearchResult.status.replace(/_/g, ' ')}
+                        </span>
+                      </p>
+                      {dbSearchResult.is_shipped && (
+                        <p className="text-sm font-black text-emerald-400 mt-2">
+                          ✓ This order has already been shipped.
+                        </p>
+                      )}
+                      {!dbSearchResult.is_shipped && dbSearchResult.status !== 'ready_to_ship' && (
+                        <p className="text-sm font-bold text-amber-400 mt-2">
+                          This order is not ready to ship yet.
+                        </p>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm font-bold text-muted">
+                    No orders match that search locally or in the database.
+                  </p>
+                )}
               </div>
             )}
           </div>
