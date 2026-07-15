@@ -27,23 +27,24 @@ export const PickdReportViewer = () => {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
-    setNotFound(false);
-    setHtmlContent(null);
+    const fetchReport = async () => {
+      setLoading(true);
+      setNotFound(false);
+      setHtmlContent(null);
 
-    fetch(`/reports/daily/${selectedDate}.html`)
-      .then((res) => {
+      try {
+        const res = await fetch(`/reports/daily/${selectedDate}.html`);
         if (!res.ok) throw new Error('Not found');
-        return res.text();
-      })
-      .then((html) => {
+        const html = await res.text();
         setHtmlContent(html);
-        setLoading(false);
-      })
-      .catch(() => {
+      } catch {
         setNotFound(true);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+    
+    void fetchReport();
   }, [selectedDate]);
 
   return (

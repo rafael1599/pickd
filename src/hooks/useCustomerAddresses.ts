@@ -18,7 +18,10 @@ export function useCustomerAddresses(customerId: string | null) {
   }, [customerId]);
 
   useEffect(() => {
-    refresh();
+    const doRefresh = async () => {
+      refresh();
+    };
+    void doRefresh();
   }, [refresh]);
 
   return { addresses, loading, refresh };
