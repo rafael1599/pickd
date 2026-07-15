@@ -32,7 +32,7 @@ export const SuccessSplash = () => {
   return createPortal(
     <div
       key={pulse.id}
-      className="animate-success-splash pointer-events-none fixed inset-0 z-[200] flex flex-col items-center justify-center"
+      className="animate-success-splash pointer-events-none fixed inset-0 z-[999] flex flex-col items-center justify-center"
       aria-live="polite"
       role="status"
     >

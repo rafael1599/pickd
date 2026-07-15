@@ -153,7 +153,7 @@ export const ItemHistorySheet: React.FC<ItemHistorySheetProps> = ({ isOpen, onCl
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[75] flex flex-col justify-end">
+    <div className="fixed inset-0 z-[190] flex flex-col justify-end">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-main/60 animate-in fade-in duration-200"
@@ -197,7 +197,7 @@ export const ItemHistorySheet: React.FC<ItemHistorySheetProps> = ({ isOpen, onCl
             <div className="space-y-4">
               {Object.entries(groupedLogs).map(([date, items]) => (
                 <div key={date}>
-                  <div className="flex items-center gap-2 mb-3 sticky top-0 bg-surface/90 backdrop-blur-sm py-2 -mx-1 px-1 z-10">
+                  <div className="flex items-center gap-2 mb-3 sticky top-0 bg-surface/90 backdrop-blur-sm py-2 -mx-1 px-1 z-20">
                     <Calendar size={10} className="text-accent" />
                     <span className="text-[9px] font-black uppercase tracking-widest text-muted">
                       {date}
