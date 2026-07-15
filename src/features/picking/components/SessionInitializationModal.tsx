@@ -7,7 +7,7 @@ import type { Customer } from '../../../types/schema';
 import { useAuth } from '../../../context/AuthContext';
 import { supabase } from '../../../lib/supabase';
 import toast from 'react-hot-toast';
-import { useScrollLock } from '../../../hooks/useScrollLock';
+import { ModalOverlay } from '../../../components/ui/ModalOverlay';
 
 // SessionInitializationModal - handles manual session start
 export const SessionInitializationModal = () => {
@@ -18,8 +18,6 @@ export const SessionInitializationModal = () => {
   const [manualOrder, setManualOrder] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isChecking, setIsChecking] = useState(false);
-
-  useScrollLock(isInitializing, cancelInitialization);
 
   // Reset state when modal opens
   useEffect(() => {
@@ -78,8 +76,16 @@ export const SessionInitializationModal = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-main/60 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-surface border border-subtle rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl scale-100 animate-in zoom-in-95 duration-200">
+    <ModalOverlay
+      onClose={cancelInitialization}
+      maxWidth="sm"
+      zIndex={50}
+      closeOnBackdrop={false}
+      cardBg="bg-surface"
+      rounded="rounded-3xl"
+      className="overflow-hidden"
+    >
+      <>
         {/* Header */}
         <div className="px-6 py-4 border-b border-subtle bg-main/50 flex items-center justify-between">
           <div>
@@ -143,7 +149,7 @@ export const SessionInitializationModal = () => {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </>
+    </ModalOverlay>
   );
 };

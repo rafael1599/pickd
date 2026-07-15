@@ -25,7 +25,11 @@ export interface ModalOverlayProps {
   blur?: 'sm' | 'md';
   /** Card background token. Default 'bg-card'. */
   cardBg?: string;
-  /** Extra classes appended to the card (e.g. padding overrides). */
+  /** Card border class. Default 'border-subtle'. */
+  border?: string;
+  /** Card corner radius class. Default 'rounded-2xl'. */
+  rounded?: string;
+  /** Extra classes appended to the card (e.g. padding, overflow overrides). */
   className?: string;
   /** Lock body scroll while open. Default true. */
   lockScroll?: boolean;
@@ -45,6 +49,8 @@ export const ModalOverlay: React.FC<ModalOverlayProps> = ({
   closeOnBackdrop = true,
   blur = 'md',
   cardBg = 'bg-card',
+  border = 'border-subtle',
+  rounded = 'rounded-2xl',
   className = '',
   lockScroll = true,
 }) => {
@@ -59,7 +65,7 @@ export const ModalOverlay: React.FC<ModalOverlayProps> = ({
       onClick={closeOnBackdrop ? onClose : undefined}
     >
       <div
-        className={`${cardBg} border border-subtle rounded-2xl w-full ${MAX_WIDTH[maxWidth]} shadow-2xl animate-in zoom-in-95 duration-200 ${className}`}
+        className={`${cardBg} border ${border} ${rounded} w-full ${MAX_WIDTH[maxWidth]} shadow-2xl animate-in zoom-in-95 duration-200 ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
