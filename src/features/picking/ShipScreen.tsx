@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '../../lib/supabase.ts';
 import { useAuth } from '../../context/AuthContext.tsx';
-import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
+
 import Home from 'lucide-react/dist/esm/icons/home';
 import Info from 'lucide-react/dist/esm/icons/info';
 import toast from 'react-hot-toast';
@@ -11,11 +11,18 @@ import { LivePrintPreview } from '../../components/orders/LivePrintPreview.tsx';
 import { generateShipLabel } from '../../components/orders/generateShipLabel';
 import { usePickingSession } from '../../context/PickingContext.tsx';
 import { useViewMode } from '../../context/ViewModeContext.tsx';
-import Search from 'lucide-react/dist/esm/icons/search';
+
+import {
+  OrderDetailsContainer,
+  OrderAutoSaveIndicator,
+  ShipOrderListSkeleton,
+} from './ship/components';
+import type { AutoSaveStatus } from './ship/types';
 import MessageSquare from 'lucide-react/dist/esm/icons/message-square';
 import Truck from 'lucide-react/dist/esm/icons/truck';
 import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
 import { ShipOrderCard } from '../../components/orders/ShipOrderCard.tsx';
+import { OrderProgressBar } from './components/OrderProgressBar.tsx';
 import { TransportLogo } from '../../components/orders/TransportLogo.tsx';
 import { useShipOutSms } from './hooks/useShipOutSms';
 import { withSupabaseRetry } from '../../lib/supabaseRetry';
@@ -137,6 +144,7 @@ interface OrderWithRelations {
   order_group: { group_type: string | null } | null;
   is_waiting_inventory?: boolean | null;
   is_shipped?: boolean | null;
+  verified_item_keys?: string[] | null;
 }
 
 export const ShipScreen = () => {
@@ -156,6 +164,8 @@ export const ShipScreen = () => {
   const unmarkWaiting = useUnmarkWaiting();
   const [orders, setOrders] = useState<OrderWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<AutoSaveStatus>('idle');
   const [selectedOrder, setSelectedOrder] = useState<OrderWithRelations | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFedex, setShowFedex] = useState(false);
@@ -400,6 +410,7 @@ export const ShipScreen = () => {
                     pallets_qty,
                     total_units,
                     combine_meta,
+                    verified_item_keys,
                     customer:customers(id, name, street, city, state, zip_code),
                     user:profiles!user_id(full_name),
                     checker:profiles!checked_by(full_name),
@@ -532,6 +543,7 @@ export const ShipScreen = () => {
   useEffect(() => {
     if (!selectedOrder?.id) {
       lastFetchedDetailIdRef.current = null;
+      setIsLoadingDetails(false);
       return;
     }
 
@@ -539,6 +551,7 @@ export const ShipScreen = () => {
       return;
     }
 
+    setIsLoadingDetails(true);
     let active = true;
     const loadDetails = async () => {
       const details = await fetchOrderDetails(selectedOrder.id);
@@ -546,6 +559,7 @@ export const ShipScreen = () => {
         lastFetchedDetailIdRef.current = details.id;
         setSelectedOrder(details);
       }
+      if (active) setIsLoadingDetails(false);
     };
     loadDetails();
 
@@ -1162,8 +1176,17 @@ export const ShipScreen = () => {
   });
 
   const handleAutoSave = useCallback(
-    (overrides?: Partial<typeof formData>, pickedCustomerId?: string | null) =>
-      persistOrderDetailsRef.current(overrides, pickedCustomerId),
+    async (overrides?: Partial<typeof formData>, pickedCustomerId?: string | null) => {
+      setAutoSaveStatus('saving');
+      try {
+        const result = await persistOrderDetailsRef.current(overrides, pickedCustomerId);
+        setAutoSaveStatus(result ? 'saved' : 'error');
+        return result;
+      } catch {
+        setAutoSaveStatus('error');
+        return false;
+      }
+    },
     []
   );
 
@@ -1535,14 +1558,6 @@ export const ShipScreen = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-bg-main">
-        <Loader2 className="w-8 h-8 animate-spin text-accent-primary" />
-      </div>
-    );
-  }
-
   return (
     <div className="relative flex flex-col h-screen w-full overflow-hidden bg-bg-main font-body">
       {/* Header — title + FedEx checkbox, then full-width search, like Orders */}
@@ -1584,138 +1599,136 @@ export const ShipScreen = () => {
         <div className="w-full flex flex-col md:flex-row gap-4 md:gap-6 pt-4 items-start">
           {/* Selected order — desktop 60% / mobile full width */}
           <div className="w-full md:basis-[60%] md:max-w-[60%] min-w-0 flex flex-col gap-6 pb-8 order-first">
-            {selectedOrder ? (
-              <>
-                <LivePrintPreview
-                  orderNumber={selectedOrder.order_number ?? undefined}
-                  watcherNote={selectedOrder.notes}
-                  customerName={formData.customerName}
-                  street={formData.street}
-                  city={formData.city}
-                  state={formData.state}
-                  zip={formData.zip}
-                  pallets={formData.pallets}
-                  bikeCount={bikeCount}
-                  partCount={partCount}
-                  loadNumber={formData.loadNumber}
-                  totalWeight={effectiveWeight}
-                  completedAt={selectedOrder.updated_at}
-                  transportCompany={formData.transportCompany}
-                  screenOnly
-                />
+            <OrderDetailsContainer
+              selectedOrderId={selectedOrder?.id ?? null}
+              isLoadingDetails={isLoadingDetails || loading}
+            >
+              {selectedOrder && (
+                <>
+                  <LivePrintPreview
+                    orderNumber={selectedOrder.order_number ?? undefined}
+                    watcherNote={selectedOrder.notes}
+                    customerName={formData.customerName}
+                    street={formData.street}
+                    city={formData.city}
+                    state={formData.state}
+                    zip={formData.zip}
+                    pallets={formData.pallets}
+                    bikeCount={bikeCount}
+                    partCount={partCount}
+                    loadNumber={formData.loadNumber}
+                    totalWeight={effectiveWeight}
+                    completedAt={selectedOrder.updated_at}
+                    transportCompany={formData.transportCompany}
+                    screenOnly
+                  />
 
-                <div className="-mt-2 px-1">
-                  <div className="inline-flex flex-wrap items-center gap-2 rounded-full border border-subtle bg-card px-3 py-1 text-[10px] font-black uppercase tracking-wider text-muted">
-                    <span className="text-content">{selectedOrder.status}</span>
-                    <span>·</span>
-                    <span>{formData.pallets || '0'} pallets</span>
-                    <span>·</span>
-                    <span>{formData.units || '0'} units</span>
-                  </div>
-                </div>
-
-                <ShipOrderCard
-                  formData={formData}
-                  setFormData={setFormData}
-                  selectedOrder={
-                    selectedOrder as React.ComponentProps<typeof ShipOrderCard>['selectedOrder']
-                  }
-                  selectedCustomerId={selectedCustomerId}
-                  user={user}
-                  takeOverOrder={takeOverOrder}
-                  onRefresh={fetchOrders}
-                  onAutoSave={handleAutoSave}
-                  onDelete={() => {
-                    if (filteredOrders.length <= 1) {
-                      setSelectedOrder(null);
-                      return;
-                    }
-                    const currentIndex = filteredOrders.findIndex(
-                      (o) => o.id === selectedOrder?.id
-                    );
-                    if (currentIndex < filteredOrders.length - 1) {
-                      setSelectedOrder(filteredOrders[currentIndex + 1]);
-                    } else {
-                      setSelectedOrder(filteredOrders[currentIndex - 1]);
-                    }
-                  }}
-                  onShowPickingSummary={() => setIsShowingPickingSummary(true)}
-                  onSplitOrder={() => setIsShowingSplitModal(true)}
-                  onReopenOrder={handleReopenOrder}
-                  onRestoreOrder={handleRestoreOrder}
-                  onContinueEditing={handleContinueEditing}
-                  onAddPhoto={() => shipCameraInputRef.current?.click()}
-                  isAddingPhoto={false}
-                  autoBikeCount={autoBikeCount}
-                  autoPartCount={autoPartCount}
-                  autoWeight={totalWeight}
-                />
-
-                {/* Parts Weight Editor (idea-028) */}
-                {partsWithWeights.length > 0 && (
-                  <div className="w-full max-w-md bg-surface rounded-2xl border border-subtle overflow-hidden">
-                    <div className="px-4 py-3 border-b border-subtle">
-                      <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">
-                        Parts Weight
-                      </h3>
-                    </div>
-                    <div className="divide-y divide-subtle">
-                      {partsWithWeights.map((part) => (
-                        <div
-                          key={part.sku}
-                          className="flex items-center justify-between px-4 py-3 gap-3"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <span className="font-mono font-bold text-xs text-content truncate">
-                              {part.sku}
-                            </span>
-                            <span className="text-[10px] text-muted font-bold shrink-0">
-                              ×{part.qty}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <input
-                              type="number"
-                              value={part.weight || ''}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value);
-                                if (isNaN(val) || val < 0) return;
-                                setSkuMeta((prev) => ({
-                                  ...prev,
-                                  [part.sku]: { ...prev[part.sku], weight_lbs: val },
-                                }));
-                                supabase
-                                  .from('sku_metadata')
-                                  .upsert(
-                                    { sku: part.sku, weight_lbs: val },
-                                    { onConflict: 'sku' }
-                                  );
-                              }}
-                              step="0.1"
-                              min="0"
-                              className="w-16 text-right bg-main border border-subtle rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-content focus:outline-none focus:border-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            />
-                            <span className="text-[10px] text-muted font-bold">lbs</span>
-                            <span className="text-[10px] text-muted/40 font-bold">
-                              ={((part.weight || 0) * part.qty).toFixed(1)}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
+                  <div className="-mt-2 px-1">
+                    <div className="inline-flex flex-wrap items-center gap-2 rounded-full border border-subtle bg-card px-3 py-1 text-[10px] font-black uppercase tracking-wider text-muted">
+                      <span className="text-content">{selectedOrder.status}</span>
+                      <span>·</span>
+                      <span>{formData.pallets || '0'} pallets</span>
+                      <span>·</span>
+                      <span>{formData.units || '0'} units</span>
+                      <span>·</span>
+                      <OrderAutoSaveIndicator status={autoSaveStatus} />
                     </div>
                   </div>
-                )}
-              </>
-            ) : (
-              <div className="h-full min-h-[50vh] flex flex-col items-center justify-center text-text-muted space-y-4">
-                <div className="w-16 h-16 rounded-full bg-surface border border-subtle flex items-center justify-center shadow-sm">
-                  <Search size={32} className="opacity-20" />
-                </div>
-                <p className="font-heading text-xl font-bold opacity-30">
-                  Select an order to preview
-                </p>
-              </div>
-            )}
+
+                  <ShipOrderCard
+                    formData={formData}
+                    setFormData={setFormData}
+                    selectedOrder={
+                      selectedOrder as React.ComponentProps<typeof ShipOrderCard>['selectedOrder']
+                    }
+                    selectedCustomerId={selectedCustomerId}
+                    user={user}
+                    takeOverOrder={takeOverOrder}
+                    onRefresh={fetchOrders}
+                    onAutoSave={handleAutoSave}
+                    onDelete={() => {
+                      if (filteredOrders.length <= 1) {
+                        setSelectedOrder(null);
+                        return;
+                      }
+                      const currentIndex = filteredOrders.findIndex(
+                        (o) => o.id === selectedOrder?.id
+                      );
+                      if (currentIndex < filteredOrders.length - 1) {
+                        setSelectedOrder(filteredOrders[currentIndex + 1]);
+                      } else {
+                        setSelectedOrder(filteredOrders[currentIndex - 1]);
+                      }
+                    }}
+                    onShowPickingSummary={() => setIsShowingPickingSummary(true)}
+                    onSplitOrder={() => setIsShowingSplitModal(true)}
+                    onReopenOrder={handleReopenOrder}
+                    onRestoreOrder={handleRestoreOrder}
+                    onContinueEditing={handleContinueEditing}
+                    onAddPhoto={() => shipCameraInputRef.current?.click()}
+                    isAddingPhoto={false}
+                    autoBikeCount={autoBikeCount}
+                    autoPartCount={autoPartCount}
+                    autoWeight={totalWeight}
+                  />
+
+                  {/* Parts Weight Editor (idea-028) */}
+                  {partsWithWeights.length > 0 && (
+                    <div className="w-full max-w-md bg-surface rounded-2xl border border-subtle overflow-hidden">
+                      <div className="px-4 py-3 border-b border-subtle">
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">
+                          Parts Weight
+                        </h3>
+                      </div>
+                      <div className="divide-y divide-subtle">
+                        {partsWithWeights.map((part) => (
+                          <div
+                            key={part.sku}
+                            className="flex items-center justify-between px-4 py-3 gap-3"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="font-mono font-bold text-xs text-content truncate">
+                                {part.sku}
+                              </span>
+                              <span className="text-[10px] text-muted font-bold shrink-0">
+                                ×{part.qty}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <input
+                                type="number"
+                                value={part.weight || ''}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value);
+                                  if (isNaN(val) || val < 0) return;
+                                  setSkuMeta((prev) => ({
+                                    ...prev,
+                                    [part.sku]: { ...prev[part.sku], weight_lbs: val },
+                                  }));
+                                  supabase
+                                    .from('sku_metadata')
+                                    .upsert(
+                                      { sku: part.sku, weight_lbs: val },
+                                      { onConflict: 'sku' }
+                                    );
+                                }}
+                                step="0.1"
+                                min="0"
+                                className="w-16 text-right bg-main border border-subtle rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-content focus:outline-none focus:border-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              />
+                              <span className="text-[10px] text-muted font-bold">lbs</span>
+                              <span className="text-[10px] text-muted/40 font-bold">
+                                ={((part.weight || 0) * part.qty).toFixed(1)}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </OrderDetailsContainer>
           </div>
 
           {/* Vertical order list — desktop 40% / mobile full width */}
@@ -1871,7 +1884,9 @@ export const ShipScreen = () => {
               </div>
 
               <div className="flex flex-col gap-2 max-h-[40vh] md:max-h-[calc(100vh-16rem)] overflow-y-auto no-scrollbar">
-                {ordersGroupedByDate.length > 0 ? (
+                {loading ? (
+                  <ShipOrderListSkeleton />
+                ) : ordersGroupedByDate.length > 0 ? (
                   <div className="space-y-3">
                     {ordersGroupedByDate.map((group) => (
                       <div key={group.key} className="space-y-1.5">
@@ -1918,6 +1933,14 @@ export const ShipScreen = () => {
                                     </span>
                                   )}
                                 </div>
+                                <OrderProgressBar
+                                  status={order.status}
+                                  isShipped={order.is_shipped ?? false}
+                                  items={order.items}
+                                  verifiedKeys={order.verified_item_keys ?? null}
+                                  totalUnits={order.total_units || 0}
+                                  className="mt-2 w-full max-w-[120px]"
+                                />
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
                                 <TransportLogo
@@ -2038,7 +2061,9 @@ export const ShipScreen = () => {
                     </button>
                   </div>
                 ) : (
-                  <p className="text-center text-xs text-muted py-6">No orders found.</p>
+                  <div className="h-full flex flex-col items-center justify-center text-text-muted space-y-4 py-8">
+                    <p className="font-heading text-xl font-bold opacity-30">No orders found</p>
+                  </div>
                 )}
               </div>
             </div>

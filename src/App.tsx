@@ -1,5 +1,6 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { ShipScreenFallback } from './components/layout/ShipScreenFallback.tsx';
 import { InventoryProvider } from './features/inventory/hooks/InventoryProvider.tsx';
 import { LayoutMain } from './components/layout/LayoutMain.tsx';
 import { ErrorProvider, useError } from './context/ErrorContext.tsx'; // Import ErrorProvider and useError
@@ -89,6 +90,8 @@ import { StagingBanner } from './components/layout/StagingBanner.tsx';
 // Content accessible only after login
 const AuthenticatedContent = () => {
   const { isAdmin } = useAuth();
+  const location = useLocation();
+  const isShipRoute = location.pathname.startsWith('/ship');
 
   return (
     <ViewModeProvider>
@@ -96,9 +99,13 @@ const AuthenticatedContent = () => {
         <ErrorBoundary>
           <Suspense
             fallback={
-              <div className="min-h-[50vh] flex items-center justify-center">
-                <Loader2 className="animate-spin text-accent w-8 h-8 opacity-20" />
-              </div>
+              isShipRoute ? (
+                <ShipScreenFallback />
+              ) : (
+                <div className="min-h-[50vh] flex items-center justify-center">
+                  <Loader2 className="animate-spin text-accent w-8 h-8 opacity-20" />
+                </div>
+              )
             }
           >
             <Routes>
@@ -150,13 +157,18 @@ import { usePresence } from './hooks/usePresence.ts';
 
 const AuthGuard = () => {
   const { user, loading } = useAuth();
-  const { error, clearError } = useError(); // Use the error context
-  const { confirmationState } = useConfirmation(); // Use the confirmation context state
+  const { error, clearError } = useError();
+  const { confirmationState } = useConfirmation();
+  const location = useLocation();
+  const isShipRoute = location.pathname.startsWith('/ship');
 
   // Initialize presence tracking
   usePresence();
 
   if (loading) {
+    if (isShipRoute) {
+      return <ShipScreenFallback />;
+    }
     return (
       <div className="min-h-screen bg-main flex items-center justify-center">
         <Loader2 className="animate-spin text-accent w-10 h-10" />
@@ -169,9 +181,13 @@ const AuthGuard = () => {
       <ErrorBoundary>
         <Suspense
           fallback={
-            <div className="min-h-screen bg-main flex items-center justify-center">
-              <Loader2 className="animate-spin text-accent w-10 h-10 opa-20" />
-            </div>
+            isShipRoute ? (
+              <ShipScreenFallback />
+            ) : (
+              <div className="min-h-screen bg-main flex items-center justify-center">
+                <Loader2 className="animate-spin text-accent w-10 h-10 opacity-20" />
+              </div>
+            )
           }
         >
           <LoginScreen />

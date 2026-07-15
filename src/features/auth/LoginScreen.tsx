@@ -76,6 +76,7 @@ export const LoginScreen = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-card border border-subtle text-content pl-11 pr-4 py-4 rounded-xl focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-all placeholder:text-muted/50 font-medium"
                 placeholder="Email"
+                autoComplete="email"
                 required
               />
             </div>
@@ -93,6 +94,7 @@ export const LoginScreen = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-card border border-subtle text-content pl-11 pr-4 py-4 rounded-xl focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-all placeholder:text-muted/50 font-medium"
                 placeholder="Password"
+                autoComplete="current-password"
                 required
               />
             </div>
