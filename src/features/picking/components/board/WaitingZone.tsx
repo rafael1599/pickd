@@ -27,7 +27,7 @@ export const WaitingZone: React.FC<WaitingZoneProps> = ({ orders, onSelect, onMe
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
       {/* Render Grouped Orders */}
       {Array.from(grouped.entries()).map(([groupId, groupOrders]) => {
         const orderNumbers = groupOrders.map((o) => o.order_number).join(' / ');

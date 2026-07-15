@@ -72,7 +72,7 @@ export const PickingCartDrawer: React.FC = () => {
     completeAddonGroup,
     reopenOrder,
   } = usePickingSession();
-  const { createGroup } = useOrderGroups();
+  const { createGroup, removeFromGroup } = useOrderGroups();
 
   const { inventoryData, processPickingList, recompletePickingList } = useInventory();
   const cartBikeSkuSet = useBikeSkuSet(cartItems.map((i) => i.sku));
@@ -897,6 +897,14 @@ export const PickingCartDrawer: React.FC = () => {
                 setIsOpen(false);
               }}
               onCombineWith={() => setCombineModalOpen(true)}
+              onUngroup={async (orderId, groupId) => {
+                const ok = await removeFromGroup(orderId, groupId);
+                if (!ok) return;
+                // Reload the merged cart so the combined view drops the
+                // unbound order (or shows standalone if the group dissolved).
+                if (activeListId) await loadExternalList(activeListId);
+                toast.success('Order removed from group');
+              }}
               correctionNotes={correctionNotes}
             />
 

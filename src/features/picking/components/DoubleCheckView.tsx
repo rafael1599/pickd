@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Check from 'lucide-react/dist/esm/icons/check';
 import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
 import MessageSquare from 'lucide-react/dist/esm/icons/message-square';
@@ -20,6 +20,7 @@ import { useConfirmation } from '../../../context/ConfirmationContext.tsx';
 import { usePickingSession } from '../../../context/PickingContext.tsx';
 import { useInventory } from '../../inventory/hooks/InventoryProvider.tsx';
 import { orderHeaderLabel, splitOrderNumbers } from '../utils/orderLabel.ts';
+import { OrderActionsMenu } from './OrderActionsMenu';
 import { meaningfulNote } from '../utils/meaningfulNote.ts';
 import {
   type DistributionItem,
@@ -33,8 +34,6 @@ import {
 } from '../../../utils/pickingLogic.ts';
 import { useModal } from '../../../context/ModalContext';
 import Pencil from 'lucide-react/dist/esm/icons/pencil';
-import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
-import GitMerge from 'lucide-react/dist/esm/icons/git-merge';
 import Lock from 'lucide-react/dist/esm/icons/lock';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import toast from 'react-hot-toast';
@@ -55,7 +54,6 @@ import { DistributionGlyph } from '../../inventory/components/DistributionJengaV
 import { WaitingConflictModal } from './WaitingConflictModal';
 import { WaitingReasonModal } from './WaitingReasonModal';
 import Hourglass from 'lucide-react/dist/esm/icons/hourglass';
-import Play from 'lucide-react/dist/esm/icons/play';
 import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
 
 /** Priority: lower number = pick first. Pallets are overstock we want gone ASAP. */
@@ -143,7 +141,7 @@ interface DoubleCheckViewProps {
   onSetWaitingInventory?: (val: boolean) => void;
   onMarkAsReady?: () => void;
   onSendToVerifyQueue?: () => void;
-  initialAction?: 'edit' | 'photo' | null;
+  initialAction?: 'edit' | 'photo' | 'cancel' | null;
   onClearInitialAction?: () => void;
   onParkOrder?: () => void;
   onRecomplete?: (items: PickingItem[]) => Promise<void>;
@@ -152,6 +150,9 @@ interface DoubleCheckViewProps {
    *  "combine-any" mode (any order, completed or open). Parent handles the
    *  actual group/reopen wiring. */
   onCombineWith?: () => void;
+  /** Removes one order from the current combined group. Parent unbinds the
+   *  group_id and reloads the merged cart so the combined view updates. */
+  onUngroup?: (orderId: string, groupId: string) => Promise<void> | void;
   correctionNotes?: string | null;
 }
 
@@ -183,6 +184,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   onRecomplete,
   onCancelReopen,
   onCombineWith,
+  onUngroup,
   correctionNotes: correctionNotesProp,
   initialAction,
   onClearInitialAction,
@@ -251,6 +253,24 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     },
   });
   const activeGroupId = activeListMeta?.group_id ?? null;
+
+  // Members of the current combined group — drives the Ungroup picker in the
+  // actions menu (id needed to unbind a specific order from the group).
+  const queryClient = useQueryClient();
+  const { data: groupMembers = [] } = useQuery({
+    queryKey: ['group_members', activeGroupId],
+    enabled: !!activeGroupId,
+    staleTime: 30_000,
+    queryFn: async (): Promise<Array<{ id: string; order_number: string | null }>> => {
+      if (!activeGroupId) return [];
+      const { data, error } = await supabase
+        .from('picking_lists')
+        .select('id, order_number')
+        .eq('group_id', activeGroupId);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   // Effective shipping type: persisted override, else auto-classify from the
   // cart (count-only — no weight map here, mirroring VerificationBoard). Drives
@@ -1089,7 +1109,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     }
   }, [status, activeListId, cartItems.length, openEditFlow]);
 
-  // Handle external actions triggered from Verification Board (Edit Order, Take Photo)
+  // Handle external actions triggered from Verification Board (Edit / Photo / Cancel)
   useEffect(() => {
     if (!activeListId || !initialAction || cartItems.length === 0) return;
 
@@ -1100,9 +1120,18 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       setTimeout(() => {
         scanInputRef.current?.click();
       }, 500);
+    } else if (initialAction === 'cancel') {
+      openCancelFlow();
     }
     onClearInitialAction?.();
-  }, [activeListId, initialAction, openEditFlow, onClearInitialAction, cartItems.length]);
+  }, [
+    activeListId,
+    initialAction,
+    openEditFlow,
+    openCancelFlow,
+    onClearInitialAction,
+    cartItems.length,
+  ]);
 
   // Fetch real stock for insufficient_stock items (client-side inventoryData is paginated)
   const [stockMap, setStockMap] = useState<Record<string, number>>({});
@@ -1463,182 +1492,70 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         </div>
       </div>
 
-      {/* Actions menu — kebab dropdown (Edit Order / Combine / Mark Waiting /
-          Cancel Order). Backdrop catches outside-clicks; menu is anchored
-          relative to the viewport top-right since the header itself is
-          sticky. */}
+      {/* Shared order actions menu — same component + item set as the Live
+          Board's card menu, rendered as a centered modal. */}
       {actionsMenuOpen && (
-        <div className="fixed inset-0 z-40" onClick={() => setActionsMenuOpen(false)}>
-          <div
-            className="absolute right-3 top-12 md:top-14 w-72 bg-card border border-subtle rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => {
-                setActionsMenuOpen(false);
-                openEditFlow();
-              }}
-              className={`w-full flex items-center gap-3 px-4 py-3 transition-colors text-left ${
-                problemItems.length > 0 ? 'bg-red-500/10 hover:bg-red-500/15' : 'hover:bg-main/40'
-              }`}
-            >
-              <Pencil
-                size={16}
-                className={problemItems.length > 0 ? 'text-red-400' : 'text-muted'}
-              />
-              <div className="flex-1">
-                <div
-                  className={`text-sm font-bold ${problemItems.length > 0 ? 'text-red-400' : 'text-content'}`}
-                >
-                  Edit Order
-                </div>
-                <div className="text-[11px] text-muted/70">Add, remove, or adjust items</div>
-              </div>
-              {problemItems.length > 0 && (
-                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 uppercase tracking-wider">
-                  {problemItems.length} issue{problemItems.length > 1 ? 's' : ''}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => {
-                setActionsMenuOpen(false);
-                scanInputRef.current?.click();
-              }}
-              disabled={isScanning}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-main/40 transition-colors text-left border-t border-subtle disabled:opacity-50"
-            >
-              {isScanning ? (
-                <Loader2 size={16} className="text-accent animate-spin" />
-              ) : (
-                <Camera
-                  size={16}
-                  className={
-                    pallets.length > 0 && palletPhotosCount >= pallets.length
-                      ? 'text-emerald-400'
-                      : palletPhotosCount > 0
-                        ? 'text-amber-400'
-                        : 'text-accent'
-                  }
-                />
-              )}
-              <div className="flex-1">
-                <div className="text-sm font-bold text-content">
-                  {isScanning
-                    ? 'Processing…'
-                    : pallets.length > 0 &&
-                        palletPhotosCount > 0 &&
-                        palletPhotosCount < pallets.length
-                      ? `Take Photo ${palletPhotosCount + 1} of ${pallets.length}`
-                      : 'Take Photo'}
-                </div>
-                <div className="text-[11px] text-muted/70">
-                  {pallets.length > 0
-                    ? `${palletPhotosCount} of ${pallets.length} pallet${pallets.length > 1 ? 's' : ''} captured`
-                    : 'Capture pallet photos'}
-                </div>
-              </div>
-              {pallets.length > 0 && (
-                <span
-                  className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                    palletPhotosCount >= pallets.length
-                      ? 'bg-emerald-500/20 text-emerald-400'
-                      : palletPhotosCount > 0
-                        ? 'bg-amber-500/20 text-amber-400'
-                        : 'bg-red-500/20 text-red-400'
-                  }`}
-                >
-                  {palletPhotosCount}/{pallets.length}
-                </span>
-              )}
-            </button>
-
-            {onCombineWith &&
-              !isCombined &&
-              (status === 'active' ||
-                status === 'ready_to_double_check' ||
-                status === 'double_checking' ||
-                status === 'needs_correction') && (
-                <button
-                  onClick={() => {
-                    setActionsMenuOpen(false);
-                    onCombineWith();
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-main/40 transition-colors text-left border-t border-subtle"
-                >
-                  <GitMerge size={16} className="text-emerald-400" />
-                  <div className="flex-1">
-                    <div className="text-sm font-bold text-content">Combine</div>
-                    <div className="text-[11px] text-muted/70">Merge with another order</div>
-                  </div>
-                </button>
-              )}
-
-            {isAdmin && status !== 'cancelled' && (
-              <>
-                {isWaitingInventory ? (
-                  <>
-                    <button
-                      onClick={() => {
-                        setActionsMenuOpen(false);
-                        if (!activeListId) return;
-                        unmarkWaiting.mutate(
-                          { listId: activeListId, action: 'resume' },
-                          { onSuccess: () => onSetWaitingInventory?.(false) }
-                        );
-                      }}
-                      disabled={unmarkWaiting.isPending}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-main/40 transition-colors text-left border-t border-subtle disabled:opacity-50"
-                    >
-                      <Play size={16} className="text-accent" />
-                      <div className="flex-1">
-                        <div className="text-sm font-bold text-content">Resume Order</div>
-                        <div className="text-[11px] text-muted/70">
-                          Currently waiting for inventory
-                        </div>
-                      </div>
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setActionsMenuOpen(false);
-                      setShowWaitingPicker(true);
-                    }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-amber-500/10 transition-colors text-left border-t border-subtle ${
-                      problemItems.length > 0 ? 'bg-amber-500/5' : ''
-                    }`}
-                  >
-                    <Hourglass size={16} className="text-amber-400" />
-                    <div className="flex-1">
-                      <div className="text-sm font-bold text-content">Mark as Waiting</div>
-                      <div className="text-[11px] text-muted/70">
-                        {problemItems.length > 0
-                          ? `${problemItems.length} stock issue${problemItems.length > 1 ? 's' : ''} — consider this`
-                          : 'Hold for inventory'}
-                      </div>
-                    </div>
-                  </button>
-                )}
-              </>
-            )}
-
-            <button
-              onClick={() => {
-                setActionsMenuOpen(false);
-                openCancelFlow();
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 transition-colors text-left border-t border-subtle"
-            >
-              <Trash2 size={16} className="text-red-500" />
-              <div className="flex-1">
-                <div className="text-sm font-bold text-red-400">Cancel Order</div>
-                <div className="text-[11px] text-muted/70">Release items back to stock</div>
-              </div>
-            </button>
-          </div>
-        </div>
+        <OrderActionsMenu
+          orderNumber={orderNumber ?? null}
+          fallbackId={activeListId ? String(activeListId).slice(-6).toUpperCase() : undefined}
+          status={status ?? ''}
+          isWaiting={isWaitingInventory}
+          groupId={activeGroupId}
+          groupMembers={groupMembers}
+          problemCount={problemItems.length}
+          photo={{ count: palletPhotosCount, total: pallets.length, isScanning }}
+          canWait={isAdmin && status !== 'cancelled'}
+          canMerge={
+            !isCombined &&
+            (status === 'active' ||
+              status === 'ready_to_double_check' ||
+              status === 'double_checking' ||
+              status === 'needs_correction')
+          }
+          onClose={() => setActionsMenuOpen(false)}
+          onEdit={() => {
+            setActionsMenuOpen(false);
+            openEditFlow();
+          }}
+          onTakePhoto={() => {
+            setActionsMenuOpen(false);
+            scanInputRef.current?.click();
+          }}
+          onMarkWaiting={() => {
+            setActionsMenuOpen(false);
+            setShowWaitingPicker(true);
+          }}
+          onResume={() => {
+            setActionsMenuOpen(false);
+            if (!activeListId) return;
+            unmarkWaiting.mutate(
+              { listId: activeListId, action: 'resume' },
+              { onSuccess: () => onSetWaitingInventory?.(false) }
+            );
+          }}
+          onMerge={
+            onCombineWith
+              ? () => {
+                  setActionsMenuOpen(false);
+                  onCombineWith();
+                }
+              : undefined
+          }
+          onUngroup={
+            onUngroup
+              ? async (orderId, groupId) => {
+                  setActionsMenuOpen(false);
+                  await onUngroup(orderId, groupId);
+                  queryClient.invalidateQueries({ queryKey: ['picking_list_meta'] });
+                  queryClient.invalidateQueries({ queryKey: ['group_members'] });
+                }
+              : undefined
+          }
+          onCancel={() => {
+            setActionsMenuOpen(false);
+            openCancelFlow();
+          }}
+        />
       )}
 
       {/* Clean Item List */}

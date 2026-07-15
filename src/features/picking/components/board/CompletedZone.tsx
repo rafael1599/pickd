@@ -45,9 +45,7 @@ export const CompletedZone: React.FC<CompletedZoneProps> = ({
             No completed FedEx orders
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {fedexOrders.map(renderOrderButton)}
-          </div>
+          <div className="grid grid-cols-1 gap-2">{fedexOrders.map(renderOrderButton)}</div>
         )}
       </div>
 
@@ -62,9 +60,7 @@ export const CompletedZone: React.FC<CompletedZoneProps> = ({
             No completed Regular orders
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {regularOrders.map(renderOrderButton)}
-          </div>
+          <div className="grid grid-cols-1 gap-2">{regularOrders.map(renderOrderButton)}</div>
         )}
       </div>
     </div>

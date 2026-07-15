@@ -21,13 +21,7 @@ import { supabase } from '../../../lib/supabase';
 import { BoardMergeModal, type MergeTargetCandidate } from './board/BoardMergeModal';
 import { ShippingTypeToggle } from './ShippingTypeToggle';
 import toast from 'react-hot-toast';
-import { createPortal } from 'react-dom';
-import Pencil from 'lucide-react/dist/esm/icons/pencil';
-import Camera from 'lucide-react/dist/esm/icons/camera';
-import Clock from 'lucide-react/dist/esm/icons/clock';
-import Hourglass from 'lucide-react/dist/esm/icons/hourglass';
-import Play from 'lucide-react/dist/esm/icons/play';
-import GitMerge from 'lucide-react/dist/esm/icons/git-merge';
+import { OrderActionsMenu } from './OrderActionsMenu';
 import { useUnmarkWaiting } from '../hooks/useWaitingOrders';
 
 // Zone IDs (must stay in sync with useBoardDnD)
@@ -40,11 +34,11 @@ const COMPLETED_AUTO_OPEN_MAX = 6;
 // How many completed orders of each type to show in the completed section.
 const COMPLETED_SIDE_LIMIT = 6;
 
-// Responsive tile grids — capped at 4 columns across the device so tiles
-// grow with the resolution instead of multiplying (7 skinny columns on a
-// big screen was unreadable). Half-width lanes cap at 2 each (4 total).
-const CARD_GRID = 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2';
-const LANE_GRID = 'grid grid-cols-1 xl:grid-cols-2 gap-2';
+// Responsive tile grids — hard cap of 2 order cards per row at every screen
+// size (1 on mobile, 2 from tablet up). The FedEx/Regular lanes sit side by
+// side, so each lane shows a single card per row → 2 across the board total.
+const CARD_GRID = 'grid grid-cols-1 sm:grid-cols-2 gap-2';
+const LANE_GRID = 'grid grid-cols-1 gap-2';
 
 // Lightweight drop target wrapper. Transparent drop region — line-based
 // separators handle the visual structure.
@@ -236,7 +230,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         continue;
       }
 
-      if (status === 'active' || status === 'ready_to_double_check' || status === 'pending') {
+      if (status === 'active' || status === 'ready_to_double_check') {
         pulling.push({ ...order, status });
         pullingShipTypes.set(order.id, shippingType);
         continue;
@@ -402,8 +396,6 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             orders={groupOrders}
             groupType={groupOrders[0]?.order_group?.group_type ?? 'general'}
             onSelect={handleOrderSelect}
-            onDelete={handleDelete}
-            onUngroup={handleUngroup}
             onMerge={setSelectedMenuOrder}
           />
         ))}
@@ -670,8 +662,6 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                           orders={groupOrders}
                           groupType={groupOrders[0]?.shipping_type ?? 'regular'}
                           onSelect={handleOrderSelect}
-                          onDelete={handleDelete}
-                          onUngroup={handleUngroup}
                           onMerge={setSelectedMenuOrder}
                         />
                       ))}
@@ -828,10 +818,27 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           </div>
         )}
         {selectedMenuOrder && (
-          <OrderActionsMenuModal
-            order={selectedMenuOrder}
+          <OrderActionsMenu
+            orderNumber={selectedMenuOrder.order_number}
+            fallbackId={selectedMenuOrder.id.toString().slice(-6).toUpperCase()}
+            status={selectedMenuOrder.status}
+            isWaiting={selectedMenuOrder.is_waiting_inventory ?? false}
+            groupId={selectedMenuOrder.group_id}
+            groupMembers={
+              selectedMenuOrder.group_id
+                ? [...orders, ...completedOrders]
+                    .filter((o) => o.group_id === selectedMenuOrder.group_id)
+                    .map((o) => ({ id: o.id, order_number: o.order_number }))
+                : []
+            }
+            headerToggle={
+              <ShippingTypeToggle
+                listId={selectedMenuOrder.id}
+                autoType={selectedMenuOrder.shipping_type as 'fedex' | 'regular' | null}
+              />
+            }
             onClose={() => setSelectedMenuOrder(null)}
-            onEditOrder={() => {
+            onEdit={() => {
               const orderId = selectedMenuOrder.id;
               setSelectedMenuOrder(null);
               setExternalActionTrigger('edit');
@@ -852,192 +859,36 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               setSelectedMenuOrder(null);
               setPendingWaitingOrder(order);
             }}
-            onResumeOrder={async () => {
+            onResume={async () => {
               const orderId = selectedMenuOrder.id;
               setSelectedMenuOrder(null);
               await unmarkWaiting.mutateAsync({ listId: orderId, action: 'resume' });
               refresh();
             }}
-            onMergeOrder={() => {
+            onMerge={() => {
               setOrderToMerge(selectedMenuOrder);
               setSelectedMenuOrder(null);
             }}
-            onReopenOrder={() => {
+            onUngroup={async (orderId, groupId) => {
+              setSelectedMenuOrder(null);
+              await removeFromGroup(orderId, groupId);
+              refresh();
+            }}
+            onReopen={() => {
               setPendingReopenOrder(selectedMenuOrder);
               setSelectedMenuOrder(null);
+            }}
+            onCancel={() => {
+              const orderId = selectedMenuOrder.id;
+              setSelectedMenuOrder(null);
+              setExternalActionTrigger('cancel');
+              setExternalDoubleCheckId(orderId);
+              setViewMode('picking');
+              onClose();
             }}
           />
         )}
       </div>
     </>
-  );
-};
-
-interface OrderActionsMenuModalProps {
-  order: PickingList;
-  onClose: () => void;
-  onEditOrder: () => void;
-  onTakePhoto: () => void;
-  onMarkWaiting: () => void;
-  onResumeOrder: () => void;
-  onMergeOrder: () => void;
-  onReopenOrder: () => void;
-}
-
-const OrderActionsMenuModal: React.FC<OrderActionsMenuModalProps> = ({
-  order,
-  onClose,
-  onEditOrder,
-  onTakePhoto,
-  onMarkWaiting,
-  onResumeOrder,
-  onMergeOrder,
-  onReopenOrder,
-}) => {
-  const isWaiting = order.is_waiting_inventory;
-  const isPastOrder = order.status === 'completed' || order.status === 'cancelled';
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[260] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
-      onClick={onClose}
-    >
-      <div
-        className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-5 w-full max-w-sm flex flex-col shadow-2xl animate-in zoom-in-95 duration-200"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4 shrink-0 pb-3 border-b border-white/5">
-          <div>
-            <h3 className="text-sm font-black text-content uppercase tracking-widest flex items-center gap-2">
-              Order Options
-              {!isPastOrder && (
-                <div className="ml-2 scale-90 origin-left">
-                  <ShippingTypeToggle
-                    listId={order.id}
-                    autoType={order.shipping_type as 'fedex' | 'regular' | null}
-                  />
-                </div>
-              )}
-            </h3>
-            <p className="text-[10px] text-muted/70 mt-1">
-              Order #{order.order_number || order.id.toString().slice(-6).toUpperCase()}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-muted hover:text-content transition-colors rounded-lg hover:bg-content/[0.05]"
-            type="button"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Options List */}
-        <div className="space-y-1.5">
-          {!isPastOrder && (
-            <>
-              <button
-                onClick={onEditOrder}
-                className="w-full flex items-center gap-3 px-4 py-3 bg-surface border border-subtle hover:bg-surface/80 transition-colors text-left rounded-xl"
-              >
-                <Pencil size={16} className="text-sky-400" />
-                <div>
-                  <div className="text-xs font-black uppercase tracking-wider text-content">
-                    Edit Order
-                  </div>
-                  <div className="text-[9px] text-muted/70">
-                    Adjust items or resolve stock conflicts
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={onTakePhoto}
-                className="w-full flex items-center gap-3 px-4 py-3 bg-surface border border-subtle hover:bg-surface/80 transition-colors text-left rounded-xl"
-              >
-                <Camera size={16} className="text-accent" />
-                <div>
-                  <div className="text-xs font-black uppercase tracking-wider text-content">
-                    Take Photo
-                  </div>
-                  <div className="text-[9px] text-muted/70">Capture and upload pallet photos</div>
-                </div>
-              </button>
-
-              {isWaiting ? (
-                <button
-                  onClick={onResumeOrder}
-                  className="w-full flex items-center gap-3 px-4 py-3 bg-surface border border-subtle hover:bg-surface/80 transition-colors text-left rounded-xl"
-                >
-                  <Play size={16} className="text-emerald-400 animate-pulse" />
-                  <div>
-                    <div className="text-xs font-black uppercase tracking-wider text-content">
-                      Resume Order
-                    </div>
-                    <div className="text-[9px] text-muted/70">Resume double check flow</div>
-                  </div>
-                </button>
-              ) : (
-                <button
-                  onClick={onMarkWaiting}
-                  className="w-full flex items-center gap-3 px-4 py-3 bg-surface border border-subtle hover:bg-surface/80 transition-colors text-left rounded-xl"
-                >
-                  <Hourglass size={16} className="text-amber-400" />
-                  <div>
-                    <div className="text-xs font-black uppercase tracking-wider text-content">
-                      Mark as Waiting
-                    </div>
-                    <div className="text-[9px] text-muted/70">
-                      Hold order for inventory/stock issues
-                    </div>
-                  </div>
-                </button>
-              )}
-            </>
-          )}
-
-          <button
-            onClick={onMergeOrder}
-            className="w-full flex items-center gap-3 px-4 py-3 bg-surface border border-subtle hover:bg-surface/80 transition-colors text-left rounded-xl"
-          >
-            <GitMerge size={16} className="text-purple-400" />
-            <div>
-              <div className="text-xs font-black uppercase tracking-wider text-content">
-                Merge / Combine
-              </div>
-              <div className="text-[9px] text-muted/70">Merge this order with another one</div>
-            </div>
-          </button>
-
-          {isPastOrder && (
-            <button
-              onClick={onReopenOrder}
-              className="w-full flex items-center gap-3 px-4 py-3 bg-surface border border-subtle hover:bg-surface/80 transition-colors text-left rounded-xl"
-            >
-              <Clock size={16} className="text-sky-400" />
-              <div>
-                <div className="text-xs font-black uppercase tracking-wider text-content">
-                  Reopen Order
-                </div>
-                <div className="text-[9px] text-muted/70">Restore order to an active lane</div>
-              </div>
-            </button>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="mt-4 shrink-0 flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 min-h-10 rounded-xl font-black uppercase tracking-widest text-[10px] bg-surface text-muted border border-subtle transition-all hover:bg-surface/80 active:scale-[0.97]"
-            type="button"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body
   );
 };

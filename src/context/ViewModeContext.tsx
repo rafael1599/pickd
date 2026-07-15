@@ -20,8 +20,8 @@ interface ViewModeContextType {
    *  Board), where the drawer otherwise keeps itself alive across view changes. */
   stockNavSignal: number;
   requestStockView: () => void;
-  externalActionTrigger: 'edit' | 'photo' | null;
-  setExternalActionTrigger: (trigger: 'edit' | 'photo' | null) => void;
+  externalActionTrigger: 'edit' | 'photo' | 'cancel' | null;
+  setExternalActionTrigger: (trigger: 'edit' | 'photo' | 'cancel' | null) => void;
 }
 
 const ViewModeContext = createContext<ViewModeContextType | undefined>(undefined);
@@ -33,7 +33,9 @@ export const ViewModeProvider = ({ children }: { children: ReactNode }) => {
   const [isNavHidden, setIsNavHidden] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [stockNavSignal, setStockNavSignal] = useState(0);
-  const [externalActionTrigger, setExternalActionTrigger] = useState<'edit' | 'photo' | null>(null);
+  const [externalActionTrigger, setExternalActionTrigger] = useState<
+    'edit' | 'photo' | 'cancel' | null
+  >(null);
 
   const requestStockView = useCallback(() => {
     setViewMode('stock');

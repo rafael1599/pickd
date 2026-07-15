@@ -1,20 +1,14 @@
 import React from 'react';
-import Unlink from 'lucide-react/dist/esm/icons/unlink';
-import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
-import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import Clock from 'lucide-react/dist/esm/icons/clock';
 import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
 import type { PickingList } from '../../hooks/useDoubleCheckList';
-import { getWorkerLabel } from './SortableOrderCard';
 
 interface GroupCardProps {
   orders: PickingList[];
   groupType: string;
   onSelect: (order: PickingList) => void;
-  onDelete: (order: PickingList) => void;
-  onUngroup: (order: PickingList) => void;
-  onMerge?: (order: PickingList) => void;
+  onMerge: (order: PickingList) => void;
 }
 
 // Group label drops the carrier prefix — FedEx groups already live on the
@@ -34,27 +28,43 @@ const GROUP_COLORS: Record<string, { border: string; bg: string; label: string; 
   },
 };
 
-export const GroupCard = React.memo<GroupCardProps>(
-  ({ orders, groupType, onSelect, onDelete, onUngroup, onMerge }) => {
-    const firstOrder = orders[0] ?? null;
-    const colors = GROUP_COLORS[groupType] ?? GROUP_COLORS.general;
+export const GroupCard = React.memo<GroupCardProps>(({ orders, groupType, onSelect, onMerge }) => {
+  const firstOrder = orders[0] ?? null;
+  const colors = GROUP_COLORS[groupType] ?? GROUP_COLORS.general;
 
-    // Aggregate state for the group header — surface "needs attention" at the
-    // group level so the verifier sees the warning without expanding.
-    const hasCorrection = orders.some((o) => o.status === 'needs_correction');
-    const hasDoubleChecking = orders.some((o) => o.status === 'double_checking');
-    const totalPallets = orders.reduce((sum, o) => sum + (o.pallets_qty ?? 0), 0);
+  // Aggregate state for the group — surface "needs attention" at the group
+  // level so the verifier sees the worst status without opening the order.
+  const hasCorrection = orders.some((o) => o.status === 'needs_correction');
+  const hasDoubleChecking = orders.some((o) => o.status === 'double_checking');
+  const totalPallets = orders.reduce((sum, o) => sum + (o.pallets_qty ?? 0), 0);
 
-    if (!firstOrder) return null;
+  // Combined order numbers on a single line, e.g. "#083 / 121 / 140". Tapping
+  // anywhere on the card opens the combined double-check view (all together).
+  const orderNumbers = orders
+    .map((o) => o.order_number || o.id.toString().slice(-6).toUpperCase())
+    .join(' / ');
 
-    return (
-      <div
-        className={`relative rounded-xl border-2 border-dashed ${colors.border} ${colors.bg} transition-all duration-200 w-full`}
+  if (!firstOrder) return null;
+
+  return (
+    <div className="relative group w-full">
+      <button
+        onClick={() => onSelect(firstOrder)}
+        className={`w-full flex items-center gap-3 p-3 rounded-2xl bg-card border-2 border-dashed ${colors.border} ${colors.bg} hover:brightness-110 transition-all text-left active:scale-[0.98]`}
       >
-        {/* Group header — aggregates needs-attention + total pallets so the
-            verifier scans the worst state at a glance. */}
-        <div className="px-2.5 pt-2 pb-1 flex items-center justify-between gap-1">
-          <div className="flex items-center gap-1.5">
+        {/* GRP badge with member count */}
+        <div
+          className={`flex flex-col items-center justify-center shrink-0 w-9 h-9 rounded-xl border ${colors.border} ${colors.bg}`}
+        >
+          <span className={`text-[10px] font-black ${colors.text}`}>GRP</span>
+          <span className={`text-[8px] font-bold ${colors.text} opacity-80 leading-none`}>
+            {orders.length}
+          </span>
+        </div>
+
+        <div className="min-w-0 flex-1 pr-6">
+          {/* Aggregate status row — worst state + total pallets at a glance */}
+          <div className="flex items-center gap-1.5 mb-0.5">
             <span className={`text-[11px] font-black uppercase tracking-widest ${colors.text}`}>
               {colors.label}
             </span>
@@ -63,7 +73,7 @@ export const GroupCard = React.memo<GroupCardProps>(
                 className="flex items-center gap-0.5 text-amber-500 text-[11px] font-black uppercase tracking-widest"
                 title="At least one order in this group needs correction"
               >
-                <AlertCircle size={13} />
+                <AlertCircle size={12} />
                 Fix
               </span>
             )}
@@ -72,97 +82,39 @@ export const GroupCard = React.memo<GroupCardProps>(
                 className="flex items-center gap-0.5 text-orange-500 text-[11px] font-black uppercase tracking-widest"
                 title="Currently being checked"
               >
-                <Clock size={13} />
+                <Clock size={12} />
                 Checking
               </span>
             )}
+            {totalPallets > 0 && (
+              <span className="ml-auto text-[11px] font-black uppercase tracking-widest text-sky-400/70">
+                {totalPallets} {totalPallets === 1 ? 'pallet' : 'pallets'}
+              </span>
+            )}
           </div>
-          {totalPallets > 0 && (
-            <span className="text-[11px] font-black uppercase tracking-widest text-sky-400/70">
-              {totalPallets} {totalPallets === 1 ? 'pallet' : 'pallets'}
-            </span>
-          )}
-        </div>
 
-        {/* Stacked order numbers — each row carries its own status indicator
-            and pallet count so the verifier knows which specific order in
-            the group needs attention. */}
-        <div className="px-1 pb-1 space-y-0.5">
-          {orders.map((order) => {
-            const orderNeedsCorrection = order.status === 'needs_correction';
-            const orderDoubleChecking = order.status === 'double_checking';
-            const worker = getWorkerLabel(order);
-            return (
-              <div
-                key={order.id}
-                className="flex items-center gap-1 rounded-lg hover:bg-white/5 transition-colors w-full"
-              >
-                <button
-                  onClick={() => onSelect(order)}
-                  className="flex-1 flex items-center justify-between py-1.5 px-2 text-left min-w-0"
-                >
-                  <div className="text-[clamp(1.1rem,1.8vw,2rem)] leading-tight font-black uppercase tracking-tight text-content flex items-center gap-1.5 min-w-0">
-                    {orderNeedsCorrection && (
-                      <AlertCircle size={18} className="text-amber-500 shrink-0" />
-                    )}
-                    {orderDoubleChecking && (
-                      <Clock size={18} className="text-orange-500 shrink-0" />
-                    )}
-                    #{order.order_number || order.id.toString().slice(-6).toUpperCase()}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {(order.pallets_qty ?? 0) > 0 && (
-                      <span className="text-[clamp(0.85rem,1.2vw,1.4rem)] font-black text-sky-400/80 uppercase tracking-wider">
-                        {order.pallets_qty} PLT
-                      </span>
-                    )}
-                    {worker && (
-                      <span className="text-[clamp(0.8rem,1.1vw,1.3rem)] font-bold text-muted uppercase tracking-wide">
-                        {worker}
-                      </span>
-                    )}
-                    <ChevronDown size={16} className="-rotate-90 text-subtle" />
-                  </div>
-                </button>
-                {onMerge && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onMerge(order);
-                    }}
-                    className="p-1 text-muted hover:text-sky-400 transition-colors shrink-0"
-                    title="Merge/Combine Order"
-                  >
-                    <MoreVertical size={14} />
-                  </button>
-                )}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onUngroup(order);
-                  }}
-                  className="p-1 text-muted hover:text-amber-500 transition-colors shrink-0"
-                  title="Remove from group"
-                >
-                  <Unlink size={14} />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(order);
-                  }}
-                  className="p-1 text-muted hover:text-red-500 transition-colors shrink-0"
-                  title="Delete"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            );
-          })}
+          {/* Combined order numbers on one line */}
+          <div className="text-[clamp(1.1rem,1.7vw,2.15rem)] leading-none font-black text-content uppercase tracking-tight truncate">
+            #{orderNumbers}
+          </div>
         </div>
+      </button>
+
+      {/* Single 3-dot menu — opens Order Options (merge / ungroup / …) */}
+      <div className="absolute top-2 right-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity bg-card/90 backdrop-blur-sm rounded-xl p-1 shadow-md border border-subtle z-10">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onMerge(firstOrder);
+          }}
+          className="p-1 text-muted hover:text-content transition-colors rounded-lg hover:bg-content/[0.05]"
+          title="Order options"
+        >
+          <MoreVertical className="w-4.5 h-4.5" />
+        </button>
       </div>
-    );
-  }
-);
+    </div>
+  );
+});
 
 GroupCard.displayName = 'GroupCard';
