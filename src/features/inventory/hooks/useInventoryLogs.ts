@@ -6,7 +6,7 @@ import {
   type InventoryLogInput,
   InventoryLogSchema,
 } from '../../../schemas/log.schema';
-import { validateData } from '../../../utils/validate';
+import { safeValidateData } from '../../../utils/validate';
 import { useAuth } from '../../../context/AuthContext';
 
 interface UserInfo {
@@ -262,7 +262,17 @@ export const useInventoryLogs = () => {
         return [];
       }
 
-      return (data || []).map((log) => validateData(InventoryLogSchema, log));
+      // Row-tolerant: skip rows that fail validation instead of letting one
+      // malformed row (e.g. written by the watchdog daemon) void all 100.
+      const valid: InventoryLog[] = [];
+      let skipped = 0;
+      for (const log of data || []) {
+        const result = safeValidateData(InventoryLogSchema, log);
+        if (result.success) valid.push(result.data);
+        else skipped++;
+      }
+      if (skipped > 0) console.warn(`fetchLogs: skipped ${skipped} invalid log row(s)`);
+      return valid;
     } catch (err) {
       console.error('Fetch logs failed:', err);
       return [];

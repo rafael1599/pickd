@@ -32,12 +32,16 @@ export const InventoryLogSchema = z.object({
   created_at: z.coerce.date(),
   previous_sku: z.string().optional().nullable(),
   item_id: z.union([z.string(), z.number()]).optional().nullable(),
-  location_id: z.string().uuid().optional().nullable(),
-  to_location_id: z.string().uuid().optional().nullable(),
+  // UUID-ish columns are written by external actors too (watchdog daemon via
+  // service_role) that don't honor this contract — coerce invalid values to
+  // null instead of rejecting the whole row (one bad row was killing the
+  // entire 100-row logs fetch and with it the velocity suggestions).
+  location_id: z.string().uuid().optional().nullable().catch(null),
+  to_location_id: z.string().uuid().optional().nullable().catch(null),
   snapshot_before: z.any().optional().nullable(), // For offline resilience snapshots
-  list_id: z.string().uuid().optional().nullable(),
+  list_id: z.string().uuid().optional().nullable().catch(null),
   order_number: z.string().optional().nullable(),
-  user_id: z.string().uuid().optional().nullable(),
+  user_id: z.string().uuid().optional().nullable().catch(null),
 });
 
 /**

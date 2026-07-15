@@ -1106,10 +1106,20 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                     onClick={async () => {
                       setTypeIsBike(true);
                       if (mode === 'edit' && initialData?.sku) {
-                        await supabase
+                        // sku_metadata is not in the realtime publication, so the
+                        // cache never hears about this update — invalidate manually
+                        // or the old value reappears on reopen.
+                        const { error } = await supabase
                           .from('sku_metadata')
                           .update({ is_bike: true })
                           .eq('sku', initialData.sku);
+                        if (error) {
+                          setTypeIsBike(initialData?.sku_metadata?.is_bike !== false);
+                          toast.error('Failed to mark as bike');
+                          return;
+                        }
+                        queryClient.invalidateQueries({ queryKey: INVENTORY_ROOT_KEY });
+                        queryClient.invalidateQueries({ queryKey: PARTS_BINS_KEY });
                         toast.success('Marked as bike');
                       }
                     }}
@@ -1125,10 +1135,17 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                     onClick={async () => {
                       setTypeIsBike(false);
                       if (mode === 'edit' && initialData?.sku) {
-                        await supabase
+                        const { error } = await supabase
                           .from('sku_metadata')
                           .update({ is_bike: false })
                           .eq('sku', initialData.sku);
+                        if (error) {
+                          setTypeIsBike(initialData?.sku_metadata?.is_bike !== false);
+                          toast.error('Failed to mark as part');
+                          return;
+                        }
+                        queryClient.invalidateQueries({ queryKey: INVENTORY_ROOT_KEY });
+                        queryClient.invalidateQueries({ queryKey: PARTS_BINS_KEY });
                         toast.success('Marked as part');
                       }
                     }}
