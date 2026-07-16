@@ -201,13 +201,18 @@ export const PickingCartDrawer: React.FC = () => {
           console.log('📋 [PickingCartDrawer] List loaded:', list?.id, 'User:', user?.id);
 
           if (list && user) {
-            // Check for takeover — also check group siblings
             const listData = list as {
               id?: string;
               checked_by?: string | null;
               group_id?: string | null;
+              user_id?: string | null;
             };
-            let needsTakeover = !!(listData.checked_by && listData.checked_by !== user.id);
+
+            // Read-only if another user is verifying it OR another user is picking it
+            let needsTakeover = !!(
+              (listData.checked_by && listData.checked_by !== user.id) ||
+              (!listData.checked_by && listData.user_id && listData.user_id !== user.id)
+            );
 
             if (!needsTakeover && listData.group_id) {
               const { data: groupSiblings } = await supabase

@@ -1479,7 +1479,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         <div className="flex items-center gap-1 relative">
           {/* Actions kebab — opens dropdown with Edit Order / Combine /
               Mark Waiting / Cancel. Hidden in review mode, read-only mode, and when complete. */}
-          {!isReadOnly && !isReviewMode && status !== 'completed' && (
+          {!isReviewMode && status !== 'completed' && (
             <button
               onClick={() => setActionsMenuOpen((v) => !v)}
               className={`p-1.5 rounded-full transition-colors ${
@@ -1530,28 +1530,40 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               status === 'needs_correction')
           }
           onClose={() => setActionsMenuOpen(false)}
-          onEdit={() => {
-            setActionsMenuOpen(false);
-            openEditFlow();
-          }}
+          onEdit={
+            !isReadOnly
+              ? () => {
+                  setActionsMenuOpen(false);
+                  openEditFlow();
+                }
+              : undefined
+          }
           onTakePhoto={() => {
             setActionsMenuOpen(false);
             scanInputRef.current?.click();
           }}
-          onMarkWaiting={() => {
-            setActionsMenuOpen(false);
-            setShowWaitingPicker(true);
-          }}
-          onResume={() => {
-            setActionsMenuOpen(false);
-            if (!activeListId) return;
-            unmarkWaiting.mutate(
-              { listId: activeListId, action: 'resume' },
-              { onSuccess: () => onSetWaitingInventory?.(false) }
-            );
-          }}
+          onMarkWaiting={
+            !isReadOnly
+              ? () => {
+                  setActionsMenuOpen(false);
+                  setShowWaitingPicker(true);
+                }
+              : undefined
+          }
+          onResume={
+            !isReadOnly
+              ? () => {
+                  setActionsMenuOpen(false);
+                  if (!activeListId) return;
+                  unmarkWaiting.mutate(
+                    { listId: activeListId, action: 'resume' },
+                    { onSuccess: () => onSetWaitingInventory?.(false) }
+                  );
+                }
+              : undefined
+          }
           onMerge={
-            onCombineWith
+            !isReadOnly && onCombineWith
               ? () => {
                   setActionsMenuOpen(false);
                   onCombineWith();
@@ -1559,7 +1571,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               : undefined
           }
           onUngroup={
-            onUngroup
+            !isReadOnly && onUngroup
               ? async (orderId, groupId) => {
                   setActionsMenuOpen(false);
                   await onUngroup(orderId, groupId);
@@ -1568,10 +1580,14 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 }
               : undefined
           }
-          onCancel={() => {
-            setActionsMenuOpen(false);
-            openCancelFlow();
-          }}
+          onCancel={
+            !isReadOnly
+              ? () => {
+                  setActionsMenuOpen(false);
+                  openCancelFlow();
+                }
+              : undefined
+          }
         />
       )}
 
