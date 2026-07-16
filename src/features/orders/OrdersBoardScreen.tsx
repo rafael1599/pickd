@@ -49,7 +49,7 @@ interface DayGroup {
  */
 export const OrdersBoardScreen = () => {
   const navigate = useNavigate();
-  const { setExternalOrderId } = useViewMode();
+  const { externalOrderId, setExternalOrderId } = useViewMode();
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedQuery = useDebounce(searchQuery, 200);
 
@@ -61,6 +61,19 @@ export const OrdersBoardScreen = () => {
   const [showFedex, setShowFedex] = useState(false);
   const [selectedCarrier, setSelectedCarrier] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (externalOrderId && orders.length > 0) {
+      const targetId = externalOrderId;
+      setExternalOrderId(null);
+      const exists = orders.some((o) => o.id === targetId);
+      if (exists) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setExpandedId(targetId as string);
+        // We could also scroll into view if needed, but expanding is the main requirement.
+      }
+    }
+  }, [externalOrderId, orders, setExternalOrderId]);
 
   // 1. Compute filtered orders based on search query and FedEx checkbox (before carrier filter is applied)
   const filteredOrders = useMemo(() => {

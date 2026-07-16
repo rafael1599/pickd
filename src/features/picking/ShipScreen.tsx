@@ -655,14 +655,28 @@ export const ShipScreen = () => {
 
   // Handle external selections (e.g. from DoubleCheckHeader or VerificationBoard)
   useEffect(() => {
-    if (externalOrderId && orders.length > 0) {
-      const order = orders.find((o) => o.id === externalOrderId);
-      if (order) {
-        setSelectedOrder(order);
-        setExternalOrderId(null);
-      }
+    if (!externalOrderId) return;
+    if (!hasLoadedOnceRef.current) return;
+
+    const targetId = externalOrderId;
+    // Clear it immediately to avoid re-triggering
+    setExternalOrderId(null);
+
+    const order = orders.find((o) => o.id === targetId);
+    if (order) {
+      setSelectedOrder(order);
+    } else {
+      fetchOrderDetails(targetId as string).then((fetched) => {
+        if (fetched) {
+          setOrders((prev) => {
+            if (prev.some((o) => o.id === fetched.id)) return prev;
+            return [fetched, ...prev];
+          });
+          setSelectedOrder(fetched);
+        }
+      });
     }
-  }, [externalOrderId, orders, setExternalOrderId]);
+  }, [externalOrderId, orders, setExternalOrderId, fetchOrderDetails]);
 
   // Sync form data when selectedOrder changes
   useEffect(() => {
@@ -1670,7 +1684,11 @@ export const ShipScreen = () => {
                         setSelectedOrder(filteredOrders[currentIndex - 1]);
                       }
                     }}
-                    onShowPickingSummary={() => setIsShowingPickingSummary(true)}
+                    onShowPickingSummary={() => {
+                      setExternalOrderId(selectedOrder?.id ?? null);
+                      setViewMode('orders');
+                      navigate('/orders');
+                    }}
                     onSplitOrder={() => setIsShowingSplitModal(true)}
                     onReopenOrder={handleReopenOrder}
                     onRestoreOrder={handleRestoreOrder}
