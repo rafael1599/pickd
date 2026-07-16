@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import { SearchInput } from '../../components/ui/SearchInput';
@@ -61,9 +61,14 @@ export const OrdersBoardScreen = () => {
   const [showFedex, setShowFedex] = useState(false);
   const [selectedCarrier, setSelectedCarrier] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const ignoreNextExternalRef = useRef(false);
 
   useEffect(() => {
     if (externalOrderId && orders.length > 0) {
+      if (ignoreNextExternalRef.current) {
+        ignoreNextExternalRef.current = false;
+        return;
+      }
       const targetId = externalOrderId;
       setExternalOrderId(null);
       const exists = orders.some((o) => o.id === targetId);
@@ -170,6 +175,7 @@ export const OrdersBoardScreen = () => {
   }, [visibleOrders]);
 
   const handleEditLabel = (order: OrderRow) => {
+    ignoreNextExternalRef.current = true;
     setExternalOrderId(order.id);
     navigate('/ship');
   };
