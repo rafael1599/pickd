@@ -83,19 +83,23 @@ export const PickingCartDrawer: React.FC = () => {
   // idea-067 Phase 2 / Option A: COMBINE flow from open orders.
   const [combineModalOpen, setCombineModalOpen] = useState(false);
   const isOwner = user?.id === ownerId;
-  const isConfirmingRef = React.useRef(false);
+
   const isRecompletingRef = React.useRef(false);
   const wasExternallyOpenedRef = React.useRef(false);
   const [isProcessingDeduction, setIsProcessingDeduction] = useState(false);
+  const [isReadOnly, setIsReadOnly] = useState(false);
   const overriddenPalletCountRef = React.useRef<number | null>(null);
   useScrollLock(isOpen, () => setIsOpen(false));
 
   const totalItems = cartItems.length;
   const totalQty = cartItems.reduce((acc, item) => acc + (item.pickingQty || 0), 0);
 
-  // Clear external-open flag when drawer closes
+  // Clear external-open flag and read-only flag when drawer closes
   useEffect(() => {
-    if (!isOpen) wasExternallyOpenedRef.current = false;
+    if (!isOpen) {
+      wasExternallyOpenedRef.current = false;
+      setIsReadOnly(false);
+    }
   }, [isOpen]);
 
   // Report the full-screen overlay state so LayoutMain can hide the bottom nav
@@ -217,30 +221,13 @@ export const PickingCartDrawer: React.FC = () => {
             }
 
             if (needsTakeover) {
-              console.log('⚠️ [PickingCartDrawer] Takeover required for list:', listData.id);
-              isConfirmingRef.current = true;
-              showConfirmation(
-                'Takeover Order',
-                listData.group_id
-                  ? 'This order group is currently being checked by another user. Do you want to take over the entire group?'
-                  : 'This order is currently being checked by another user. Do you want to take over?',
-                async () => {
-                  console.log('⚔️ [PickingCartDrawer] confirmed takeover');
-                  await lockForCheck(String(externalDoubleCheckId));
-                  await hydrateVerifiedItems(String(externalDoubleCheckId));
-                  wasExternallyOpenedRef.current = true;
-                  setIsOpen(true);
-                  setExternalDoubleCheckId(null);
-                  isConfirmingRef.current = false;
-                },
-                () => {
-                  console.log('🛑 [PickingCartDrawer] takeover cancelled');
-                  setExternalDoubleCheckId(null);
-                  isConfirmingRef.current = false;
-                },
-                'Takeover',
-                'Cancel'
-              );
+              console.log('⚠️ [PickingCartDrawer] Read-only mode for list:', listData.id);
+              setIsReadOnly(true);
+              wasExternallyOpenedRef.current = true;
+              setIsOpen(true);
+              setExternalDoubleCheckId(null);
+              // We load verified items so they can see progress, but they can't change it.
+              await hydrateVerifiedItems(String(externalDoubleCheckId));
               return;
             }
 
@@ -786,6 +773,13 @@ export const PickingCartDrawer: React.FC = () => {
               onClose={handleReleaseOrder}
               onCorrectItem={handleCorrectItem}
               inventoryData={inventoryData}
+              isReadOnly={isReadOnly}
+              onTakeover={async () => {
+                if (!activeListId) return;
+                await lockForCheck(activeListId);
+                setIsReadOnly(false);
+                toast.success('You have taken over this order.');
+              }}
               onMarkAsReady={() => orderNumber && handleMarkAsReady(orderNumber)}
               onSendToVerifyQueue={handleSendToVerifyQueue}
               onRecomplete={async (items) => {

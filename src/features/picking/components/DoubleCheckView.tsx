@@ -155,6 +155,8 @@ interface DoubleCheckViewProps {
    *  group_id and reloads the merged cart so the combined view updates. */
   onUngroup?: (orderId: string, groupId: string) => Promise<void> | void;
   correctionNotes?: string | null;
+  isReadOnly?: boolean;
+  onTakeover?: () => Promise<void> | void;
 }
 
 export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
@@ -188,6 +190,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   correctionNotes: correctionNotesProp,
   initialAction,
   onClearInitialAction,
+  isReadOnly = false,
+  onTakeover,
 }) => {
   const {
     ludlowData,
@@ -198,6 +202,14 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     addItem,
   } = useInventory();
   const inventoryData = inventoryDataProp ?? inventoryDataCtx;
+
+  const handleToggleCheck = (item: PickingItem, palletId: number | string) => {
+    if (isReadOnly) {
+      toast('You are in view-only mode. Takeover the order to make changes.', { icon: '👁️' });
+      return;
+    }
+    onToggleCheck(item, palletId);
+  };
 
   // Direct sublocation data fetched alongside distributions (covers all cart SKUs)
   const [directSublocationMap, setDirectSublocationMap] = useState<Record<string, string[]>>({});
@@ -1182,6 +1194,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
   const handleScanPallet = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (isReadOnly) {
+        toast('You are in view-only mode. Takeover the order to use the scanner.', { icon: '👁️' });
+        return;
+      }
       const file = e.target.files?.[0];
       if (!file) return;
       e.target.value = ''; // reset for re-scan
@@ -1319,7 +1335,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               if (pItem.sku === sku) {
                 const key = `${pallet.id}-${pItem.sku}-${pItem.location}`;
                 if (!checkedItems.has(key)) {
-                  onToggleCheck(pItem, pallet.id);
+                  handleToggleCheck(pItem, pallet.id);
                 }
               }
             }
@@ -1327,7 +1343,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         }
       }
     }
-  }, [scanResults, cartItems, pallets, checkedItems, onToggleCheck]);
+  }, [scanResults, cartItems, pallets, checkedItems, handleToggleCheck]);
 
   const handleConfirm = async () => {
     const isFullyVerified = verifiedUnitsCount === totalUnitsCount;
@@ -1459,8 +1475,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
         <div className="flex items-center gap-1 relative">
           {/* Actions kebab — opens dropdown with Edit Order / Combine /
-              Mark Waiting / Cancel. Hidden in review mode and when complete. */}
-          {!isReviewMode && status !== 'completed' && (
+              Mark Waiting / Cancel. Hidden in review mode, read-only mode, and when complete. */}
+          {!isReadOnly && !isReviewMode && status !== 'completed' && (
             <button
               onClick={() => setActionsMenuOpen((v) => !v)}
               className={`p-1.5 rounded-full transition-colors ${
@@ -1880,7 +1896,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                           if (isReviewMode) return;
                           if (longPressTriggered.current) return;
                           if (navigator.vibrate) navigator.vibrate(50);
-                          onToggleCheck(item, pallet.id);
+                          handleToggleCheck(item, pallet.id);
                         }}
                         className={`relative overflow-hidden transition-all duration-200 rounded-2xl flex items-center justify-between gap-3 ${isReviewMode ? '' : 'active:scale-[0.98] cursor-pointer'} border ${
                           isChecked && !isReviewMode
@@ -2257,7 +2273,14 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         )}
 
       <div className="fixed bottom-0 left-0 right-0 px-6 pt-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-main via-main/90 to-transparent shrink-0 z-20">
-        {status === 'reopened' ? (
+        {isReadOnly ? (
+          <button
+            onClick={onTakeover}
+            className="w-full h-full min-h-[56px] py-4 rounded-2xl font-black tracking-widest uppercase text-sm bg-orange-500 text-white shadow-xl hover:bg-orange-600 transition-colors flex items-center justify-center gap-2"
+          >
+            Takeover Order
+          </button>
+        ) : status === 'reopened' ? (
           /* Reopened order — show Re-Complete and Cancel.
              Step B: removed all gates that block Re-Complete (was forcing the
              user to add a new SKU just to enable the button when items hadn't
