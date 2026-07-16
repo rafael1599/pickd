@@ -203,13 +203,16 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   } = useInventory();
   const inventoryData = inventoryDataProp ?? inventoryDataCtx;
 
-  const handleToggleCheck = (item: PickingItem, palletId: number | string) => {
-    if (isReadOnly) {
-      toast('You are in view-only mode. Takeover the order to make changes.', { icon: '👁️' });
-      return;
-    }
-    onToggleCheck(item, palletId);
-  };
+  const handleToggleCheck = useCallback(
+    (item: PickingItem, palletId: number | string) => {
+      if (isReadOnly) {
+        toast('You are in view-only mode. Takeover the order to make changes.', { icon: '👁️' });
+        return;
+      }
+      onToggleCheck(item, palletId);
+    },
+    [isReadOnly, onToggleCheck]
+  );
 
   // Direct sublocation data fetched alongside distributions (covers all cart SKUs)
   const [directSublocationMap, setDirectSublocationMap] = useState<Record<string, string[]>>({});
@@ -1319,7 +1322,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         setIsScanning(false);
       }
     },
-    [cartItems, palletPhotosCount, pallets.length, activeListId]
+    [cartItems, palletPhotosCount, pallets.length, activeListId, isReadOnly]
   );
 
   // Auto-check items where scan count >= pickingQty

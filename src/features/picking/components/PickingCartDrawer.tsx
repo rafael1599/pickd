@@ -635,6 +635,7 @@ export const PickingCartDrawer: React.FC = () => {
           // (delta vs snapshot), not processPickingList (which rejects
           // 'reopened' per migration 20260422120100).
           const COMPLETABLE_STATUSES = [
+            'active',
             'ready_to_double_check',
             'double_checking',
             'needs_correction',
