@@ -730,7 +730,9 @@ export const ShipScreen = () => {
         .map((s) => s.order_number)
         .filter((n): n is string => !!n)
         .sort((a, b) => a.localeCompare(b));
-      const combinedOrderNumber = allOrderNumbers.join(' / ');
+      const combinedOrderNumber = allOrderNumbers
+        .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
+        .join(' / ');
       collapsed.push({
         ...anchor,
         order_number: combinedOrderNumber || anchor.order_number,
@@ -1926,7 +1928,11 @@ export const ShipScreen = () => {
                                     order.order_number?.includes(' / ')
                                       ? order.order_number
                                           .split(' / ')
-                                          .map((n) => `#${n.trim()}`)
+                                          .map((n) => n.trim())
+                                          .sort((a, b) =>
+                                            b.localeCompare(a, undefined, { numeric: true })
+                                          )
+                                          .map((n) => `#${n}`)
                                           .join(', ')
                                       : undefined
                                   }
@@ -1934,16 +1940,22 @@ export const ShipScreen = () => {
                                   {order.order_number?.includes(' / ') ? (
                                     <span>
                                       <span className="text-muted/60">#</span>
-                                      {order.order_number.split(' / ').map((num, i, arr) => (
-                                        <Fragment key={`${num}-${i}`}>
-                                          {i > 0 && <span className="text-muted/50"> / </span>}
-                                          <span
-                                            style={{ color: orderColorFor(num.trim(), arr).hex }}
-                                          >
-                                            {num.trim().slice(-3)}
-                                          </span>
-                                        </Fragment>
-                                      ))}
+                                      {order.order_number
+                                        .split(' / ')
+                                        .map((n) => n.trim())
+                                        .sort((a, b) =>
+                                          b.localeCompare(a, undefined, { numeric: true })
+                                        )
+                                        .map((num, i, arr) => (
+                                          <Fragment key={`${num}-${i}`}>
+                                            {i > 0 && <span className="text-muted/50"> / </span>}
+                                            <span
+                                              style={{ color: orderColorFor(num.trim(), arr).hex }}
+                                            >
+                                              {num.trim().slice(-3)}
+                                            </span>
+                                          </Fragment>
+                                        ))}
                                     </span>
                                   ) : (
                                     <>#{order.order_number}</>

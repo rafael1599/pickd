@@ -167,7 +167,12 @@ const OrderCardShell: React.FC<CardProps> = ({
   const numberParts = React.useMemo(() => {
     const fullNum = String(order.order_number || order.id.toString().slice(-6).toUpperCase());
     if (fullNum.includes(' / ')) {
-      return { segments: fullNum.split(' / ').map((s) => s.trim()) };
+      return {
+        segments: fullNum
+          .split(' / ')
+          .map((s) => s.trim())
+          .sort((a, b) => b.localeCompare(a, undefined, { numeric: true })),
+      };
     }
     if (fullNum.length <= 3) {
       return { firstPart: '', lastThree: fullNum };

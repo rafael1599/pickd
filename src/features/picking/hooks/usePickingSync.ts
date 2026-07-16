@@ -734,7 +734,10 @@ export const usePickingSync = ({
                 allItems = [...allItems, ...taggedItems];
                 if (sibling.order_number) orderNumbers.push(sibling.order_number);
               }
-              combinedOrderNumber = orderNumbers.filter(Boolean).join(' / ');
+              combinedOrderNumber = orderNumbers
+                .filter(Boolean)
+                .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
+                .join(' / ');
             }
           }
 

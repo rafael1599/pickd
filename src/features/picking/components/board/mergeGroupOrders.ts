@@ -30,6 +30,7 @@ export function mergeGroupOrders(groupOrders: PickingList[]): PickingList {
     ...first,
     order_number: groupOrders
       .map((o) => o.order_number || o.id.toString().slice(-6).toUpperCase())
+      .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
       .join(' / '),
     items: groupOrders.flatMap((o) => (Array.isArray(o.items) ? o.items : [])),
     verified_item_keys: groupOrders.flatMap((o) => o.verified_item_keys ?? []),

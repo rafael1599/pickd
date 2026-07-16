@@ -32,7 +32,8 @@ export function splitOrderNumbers(orderNumber: string | null | undefined): strin
   return (orderNumber ?? '')
     .split(' / ')
     .map((s) => s.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
 }
 
 export function orderHeaderLabel(
