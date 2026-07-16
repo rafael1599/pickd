@@ -271,19 +271,17 @@ const OrderCardShell: React.FC<CardProps> = ({
         {/* Left Panel: Quantities */}
         <div className="flex flex-col items-center justify-center border-r border-subtle bg-content/[0.02] py-2 px-2.5 shrink-0 self-stretch min-w-[76px] md:min-w-[84px] gap-2 select-none">
           <div className="flex flex-col gap-1.5 w-full text-center">
-            {/* Pallets Row (Regular only) */}
-            {shippingType === 'regular' &&
-              typeof order.pallets_qty === 'number' &&
-              order.pallets_qty > 0 && (
-                <div className="flex flex-col leading-none">
-                  <span className="text-base md:text-lg font-black text-sky-400">
-                    {order.pallets_qty}
-                  </span>
-                  <span className="text-[8px] md:text-[9px] font-bold text-muted uppercase tracking-wider mt-0.5">
-                    {order.pallets_qty === 1 ? 'Pallet' : 'Pallets'}
-                  </span>
-                </div>
-              )}
+            {/* Pallets Row */}
+            {typeof order.pallets_qty === 'number' && order.pallets_qty > 0 && (
+              <div className="flex flex-col leading-none">
+                <span className="text-base md:text-lg font-black text-sky-400">
+                  {order.pallets_qty}
+                </span>
+                <span className="text-[8px] md:text-[9px] font-bold text-muted uppercase tracking-wider mt-0.5">
+                  {order.pallets_qty === 1 ? 'Pallet' : 'Pallets'}
+                </span>
+              </div>
+            )}
 
             {/* Bikes Row */}
             {bikesCount > 0 && (
@@ -308,7 +306,7 @@ const OrderCardShell: React.FC<CardProps> = ({
             )}
 
             {/* Placeholder if empty */}
-            {!(shippingType === 'regular' && order.pallets_qty && order.pallets_qty > 0) &&
+            {!(order.pallets_qty && order.pallets_qty > 0) &&
               bikesCount === 0 &&
               partsCount === 0 && (
                 <div className="flex flex-col leading-none">

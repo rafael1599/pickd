@@ -584,20 +584,14 @@ export const PickingCartDrawer: React.FC = () => {
         .eq('id', activeListId!)
         .single();
 
-      const isFedexGroup =
-        (mainOrder?.order_group as { group_type: string } | null)?.group_type === 'fedex';
-
       // Calculate metrics from the MAIN ORDER's DB items only (not the merged cart)
       const mainDbItems = Array.isArray(mainOrder?.items)
         ? (mainOrder.items as Array<{ pickingQty?: number }>)
         : [];
       const mainUnits = mainDbItems.reduce((acc, item) => acc + (Number(item.pickingQty) || 0), 0);
 
-      // FedEx orders don't use pallets — set to 0
       let pallets_qty: number;
-      if (isFedexGroup) {
-        pallets_qty = 0;
-      } else if (overriddenPalletCountRef.current !== null && !mainOrder?.group_id) {
+      if (overriddenPalletCountRef.current !== null && !mainOrder?.group_id) {
         pallets_qty = overriddenPalletCountRef.current;
       } else {
         const mainCartItems = mainOrder?.group_id
@@ -676,26 +670,25 @@ export const PickingCartDrawer: React.FC = () => {
                 0
               );
 
-              // FedEx = 0 pallets, otherwise calculate per-order
-              let sibPalletsQty = 0;
-              if (!isFedexGroup) {
-                const siblingCartItems = siblingItems as unknown as PickingItem[];
-                const sibLocations: Location[] = inventoryData.map((i) => ({
-                  id: i.location_id || '',
-                  location: i.location || '',
-                  warehouse: i.warehouse as Location['warehouse'],
-                  zone: null,
-                  max_capacity: null,
-                  picking_order: null,
-                  is_active: true,
-                  created_at: '',
-                  length_ft: null,
-                  bike_line: null,
-                }));
-                const sibPath = getOptimizedPickingPath(siblingCartItems, sibLocations);
-                const sibBikeSkuSet = await resolveBikeSkuSet(sibPath.map((i) => i.sku));
-                sibPalletsQty = calculatePalletsWithBikeAwareness(sibPath, sibBikeSkuSet).length;
-              }
+              const siblingCartItems = siblingItems as unknown as PickingItem[];
+              const sibLocations: Location[] = inventoryData.map((i) => ({
+                id: i.location_id || '',
+                location: i.location || '',
+                warehouse: i.warehouse as Location['warehouse'],
+                zone: null,
+                max_capacity: null,
+                picking_order: null,
+                is_active: true,
+                created_at: '',
+                length_ft: null,
+                bike_line: null,
+              }));
+              const sibPath = getOptimizedPickingPath(siblingCartItems, sibLocations);
+              const sibBikeSkuSet = await resolveBikeSkuSet(sibPath.map((i) => i.sku));
+              const sibPalletsQty = calculatePalletsWithBikeAwareness(
+                sibPath,
+                sibBikeSkuSet
+              ).length;
 
               if (sibling.status === 'reopened') {
                 // Reopened sibling — apply inventory delta vs completed_snapshot.

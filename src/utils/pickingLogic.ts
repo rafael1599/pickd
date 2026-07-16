@@ -347,8 +347,8 @@ export const calculatePalletsWithBikeAwareness = (
   const bikes = items.filter((i) => bikeSkuSet.has(i.sku));
   const parts = items.filter((i) => !bikeSkuSet.has(i.sku));
 
-  // Parts-only order: all parts in a single pallet, regardless of quantity.
-  if (bikes.length === 0) return consolidateIntoSinglePallet(parts);
+  // If no bikes are detected (or if order is purely parts), paginate normally.
+  if (bikes.length === 0) return calculatePallets(items);
 
   const bikePallets = calculatePallets(bikes);
   if (parts.length === 0) return bikePallets;
