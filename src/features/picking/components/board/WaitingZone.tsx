@@ -117,9 +117,13 @@ export const WaitingZone: React.FC<WaitingZoneProps> = ({ orders, onSelect, onMe
               >
                 {order.waiting_reason || 'Waiting for inventory'}
               </div>
-              {order.source_order_date && (
+              {(order.source_order_date || order.created_at) && (
                 <div className="text-[clamp(0.8rem,1.1vw,1.25rem)] text-muted/70 font-bold uppercase tracking-tight truncate">
-                  {new Date(`${order.source_order_date}T00:00:00`).toLocaleDateString('en-US', {
+                  {new Date(
+                    order.source_order_date
+                      ? `${order.source_order_date}T00:00:00`
+                      : order.created_at
+                  ).toLocaleDateString('en-US', {
                     month: 'short',
                     day: 'numeric',
                     year: 'numeric',

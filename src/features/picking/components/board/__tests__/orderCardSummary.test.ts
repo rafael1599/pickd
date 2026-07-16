@@ -86,9 +86,9 @@ describe('effectiveShippingType (purple FedEx accent)', () => {
 });
 
 /** Mirrors the source_order_date formatting used in the views. */
-function formatSourceOrderDate(iso: string | null): string | null {
-  if (!iso) return null;
-  return new Date(`${iso}T00:00:00`).toLocaleDateString('en-US', {
+function formatSourceOrderDate(iso: string | null, createdAt?: string): string | null {
+  if (!iso && !createdAt) return null;
+  return new Date(iso ? `${iso}T00:00:00` : createdAt!).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -100,7 +100,11 @@ describe('source_order_date display', () => {
     expect(formatSourceOrderDate('2026-03-09')).toBe('Mar 9, 2026');
   });
 
-  it('renders nothing when null', () => {
+  it('falls back to created_at when null', () => {
+    expect(formatSourceOrderDate(null, '2026-03-10T12:00:00Z')).toBe('Mar 10, 2026');
+  });
+
+  it('renders nothing when both are null', () => {
     expect(formatSourceOrderDate(null)).toBeNull();
   });
 });

@@ -86,7 +86,7 @@ export function printOrderDetail(order: OrderRow, opts: { bikes: number; parts: 
     .join('');
 
   const metaRows: string[] = [
-    `<div><strong>Order date:</strong> ${esc(formatDate(order.source_order_date))}</div>`,
+    `<div><strong>Order date:</strong> ${esc(formatDate(order.source_order_date || order.created_at))}</div>`,
     `<div><strong>Completed:</strong> ${esc(formatDateTime(order.updated_at))}</div>`,
   ];
   if (order.load_number)
