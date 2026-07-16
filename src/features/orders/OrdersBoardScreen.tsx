@@ -67,11 +67,15 @@ export const OrdersBoardScreen = () => {
     const query = debouncedQuery.toLowerCase().trim();
     const hasQuery = query.length > 0;
 
-    let result = orders.filter((o) => (showFedex || !isFedexOrder(o) ? true : false));
+    const isExactSearch = /^\d{6,}$/.test(query);
+
+    let result = orders.filter((o) =>
+      isExactSearch || showFedex || !isFedexOrder(o) ? true : false
+    );
 
     if (hasQuery) {
       result = result.filter((o) => {
-        const orderNum = String(o.order_number || '').toLowerCase();
+        const orderNum = String(o.order_number || o.id.toString().slice(-6)).toLowerCase();
         const customer = String(o.customer?.name || '').toLowerCase();
         return orderNum.includes(query) || customer.includes(query);
       });
@@ -123,7 +127,10 @@ export const OrdersBoardScreen = () => {
 
   // 3. Compute final visible orders (applying selected carrier filter to baseVisibleOrders)
   const visibleOrders = useMemo(() => {
-    if (selectedCarrier) {
+    const query = debouncedQuery.toLowerCase().trim();
+    const isExactSearch = /^\d{6,}$/.test(query);
+
+    if (selectedCarrier && !isExactSearch) {
       return baseVisibleOrders.filter((o) => {
         const isFedex = isFedexOrder(o);
         const carrier = isFedex ? 'FEDEX' : o.transport_company?.trim().toUpperCase();
@@ -131,7 +138,7 @@ export const OrdersBoardScreen = () => {
       });
     }
     return baseVisibleOrders;
-  }, [baseVisibleOrders, selectedCarrier]);
+  }, [baseVisibleOrders, selectedCarrier, debouncedQuery]);
 
   // 4. Group visible orders by day
   const groups = useMemo<DayGroup[]>(() => {
