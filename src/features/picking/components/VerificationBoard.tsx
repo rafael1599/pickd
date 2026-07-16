@@ -20,6 +20,7 @@ import { WaitingReasonModal } from './WaitingReasonModal';
 import { ReasonPicker } from './ReasonPicker';
 import { supabase } from '../../../lib/supabase';
 import { BoardMergeModal, type MergeTargetCandidate } from './board/BoardMergeModal';
+import { ShippingResolutionModal } from './board/ShippingResolutionModal';
 import { ShippingTypeToggle } from './ShippingTypeToggle';
 import toast from 'react-hot-toast';
 import { OrderActionsMenu } from './OrderActionsMenu';
@@ -74,6 +75,9 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   const [pendingWaitingOrder, setPendingWaitingOrder] = useState<PickingList | null>(null);
   const [pendingReopenOrder, setPendingReopenOrder] = useState<PickingList | null>(null);
   const [selectedMenuOrder, setSelectedMenuOrder] = useState<PickingList | null>(null);
+  const [pendingShippingResolutionGroupId, setPendingShippingResolutionGroupId] = useState<
+    string | null
+  >(null);
 
   const handleMergeSelect = async (target: MergeTargetCandidate) => {
     if (!orderToMerge || !user?.id) return;
@@ -115,9 +119,39 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           .eq('group_id', newGroupId);
       }
 
-      // 3. Refresh Board
+      // 4. Refresh Board
       refresh();
       toast.success(`Combined with #${target.order_number}`);
+
+      // 5. Evaluate mixed shipping types logic
+      if (newGroupId) {
+        const { data: groupOrders } = await supabase
+          .from('picking_lists')
+          .select('id, customer_id, shipping_type')
+          .eq('group_id', newGroupId);
+
+        if (groupOrders && groupOrders.length > 1) {
+          const hasFedex = groupOrders.some((o) => o.shipping_type?.toLowerCase() === 'fedex');
+          const hasRegular = groupOrders.some(
+            (o) => !o.shipping_type || o.shipping_type.toLowerCase() !== 'fedex'
+          );
+          const uniqueCustomers = new Set(groupOrders.map((o) => o.customer_id).filter(Boolean));
+
+          if (hasFedex && hasRegular) {
+            if (uniqueCustomers.size <= 1) {
+              // Same customer -> auto convert to regular
+              await supabase
+                .from('picking_lists')
+                .update({ shipping_type: 'regular' })
+                .eq('group_id', newGroupId);
+              refresh();
+            } else {
+              // Different customers -> prompt
+              setPendingShippingResolutionGroupId(newGroupId);
+            }
+          }
+        }
+      }
     } catch (err) {
       console.error('Combine action failed:', err);
       toast.error('Failed to combine orders. Please try again.');
@@ -479,6 +513,18 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             </div>
           )}
         </div>
+      )}
+
+      {/* Shipping Type Resolution Modal */}
+      {pendingShippingResolutionGroupId && (
+        <ShippingResolutionModal
+          groupId={pendingShippingResolutionGroupId}
+          onClose={() => setPendingShippingResolutionGroupId(null)}
+          onResolved={() => {
+            setPendingShippingResolutionGroupId(null);
+            refresh();
+          }}
+        />
       )}
     </div>
   );
