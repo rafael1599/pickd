@@ -50,13 +50,17 @@ interface DayGroup {
 export const OrdersBoardScreen = () => {
   const navigate = useNavigate();
   const { setExternalOrderId } = useViewMode();
-  const { orders, skuIsBike, loading } = useOrdersOfDay();
-
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedQuery = useDebounce(searchQuery, 200);
+
+  // Only hit the DB for older orders if a full order number is typed (6+ digits)
+  const serverQuery = /^\d{6,}$/.test(debouncedQuery.trim()) ? debouncedQuery.trim() : '';
+
+  const { orders, skuIsBike, loading } = useOrdersOfDay(serverQuery);
+
   const [showFedex, setShowFedex] = useState(false);
   const [selectedCarrier, setSelectedCarrier] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const debouncedQuery = useDebounce(searchQuery, 200);
 
   // 1. Compute filtered orders based on search query and FedEx checkbox (before carrier filter is applied)
   const filteredOrders = useMemo(() => {

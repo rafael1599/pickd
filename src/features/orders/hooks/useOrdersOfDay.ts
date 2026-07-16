@@ -109,14 +109,14 @@ interface UseOrdersOfDayResult {
  * list live via a `picking_lists` realtime subscription. Also batch-fetches
  * `sku_metadata` to expose an `is_bike` lookup for bikes/parts summaries.
  */
-export function useOrdersOfDay(): UseOrdersOfDayResult {
+export function useOrdersOfDay(searchQuery: string = ''): UseOrdersOfDayResult {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [skuIsBike, setSkuIsBike] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
 
   const refetch = useCallback(async () => {
     try {
-      const query = supabase
+      let query = supabase
         .from('picking_lists')
         .select(
           `
@@ -128,6 +128,17 @@ export function useOrdersOfDay(): UseOrdersOfDayResult {
         `
         )
         .order('created_at', { ascending: false });
+
+      const sq = searchQuery.trim();
+      if (sq) {
+        if (/^\d+$/.test(sq)) {
+          query = query.ilike('order_number', `%${sq}%`);
+        } else {
+          query = query.limit(3000);
+        }
+      } else {
+        query = query.limit(1000);
+      }
 
       const { data, error } = await withSupabaseRetry(() => query, {
         label: 'useOrdersOfDay',
@@ -169,7 +180,7 @@ export function useOrdersOfDay(): UseOrdersOfDayResult {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [searchQuery]);
 
   useEffect(() => {
     refetch();
