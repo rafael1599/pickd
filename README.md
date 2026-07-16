@@ -101,7 +101,6 @@ Active skills:
 
 - **frontend-design**: UX/UI standards and modern component patterns.
 - **supabase-postgres-best-practices**: Hardened database schema and RPC patterns.
-- **vercel-react-best-practices**: Optimization for performance and React 19 standards.
 
 ## Branching & Deployment
 

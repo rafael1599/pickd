@@ -83,7 +83,7 @@ export async function generateBikeLabels(items: LabelItem[]): Promise<string> {
   const baseUrl =
     typeof window !== 'undefined'
       ? import.meta.env.VITE_APP_URL || window.location.origin
-      : 'https://roman-app.vercel.app';
+      : 'https://app.pickd.cloud';
 
   let isFirstPage = true;
 

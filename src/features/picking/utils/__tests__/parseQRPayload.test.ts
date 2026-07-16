@@ -16,7 +16,7 @@ describe('parseQRPayload', () => {
   });
 
   it('parses the SKU-only URL (/s/<sku>) with an empty short_code', () => {
-    expect(parseQRPayload('https://roman-app.vercel.app/s/03-4614BK')).toEqual({
+    expect(parseQRPayload('https://app.pickd.cloud/s/03-4614BK')).toEqual({
       shortCode: '',
       sku: '03-4614BK',
     });
