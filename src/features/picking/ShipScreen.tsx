@@ -1670,6 +1670,7 @@ export const ShipScreen = () => {
                     takeOverOrder={takeOverOrder}
                     onRefresh={fetchOrders}
                     onAutoSave={handleAutoSave}
+                    onViewOrder={() => openOrderInDoubleCheck(selectedOrder)}
                     onDelete={() => {
                       if (filteredOrders.length <= 1) {
                         setSelectedOrder(null);

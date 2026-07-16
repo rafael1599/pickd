@@ -906,12 +906,6 @@ export const PickingCartDrawer: React.FC = () => {
                 onPick={async (target: AddOnTargetCandidate) => {
                   setCombineModalOpen(false);
                   if (!activeListId) return;
-                  if (target.status === 'double_checking') {
-                    toast.error(
-                      `#${target.order_number} is being verified by another user. Cancel that session first.`
-                    );
-                    return;
-                  }
                   try {
                     // If the target had a stale singleton group_id (orphan
                     // from a prior canceled flow), free it up first so

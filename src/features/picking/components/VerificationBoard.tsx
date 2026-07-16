@@ -456,6 +456,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               shippingType={shippingType}
               showShippingBadge={false}
               onSelect={handleOrderSelect}
+              onUngroup={handleUngroup}
               onMerge={setSelectedMenuOrder}
             />
           )
@@ -656,6 +657,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                     onSelect={handleOrderSelect}
                     onDelete={handleDelete}
                     onUngroup={handleUngroup}
+                    onMerge={setSelectedMenuOrder}
                   />
                 ))}
               </div>

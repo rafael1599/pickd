@@ -10,6 +10,8 @@ import Truck from 'lucide-react/dist/esm/icons/truck';
 import Wand2 from 'lucide-react/dist/esm/icons/wand-2';
 import Copy from 'lucide-react/dist/esm/icons/copy';
 import Check from 'lucide-react/dist/esm/icons/check';
+import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
+import Eye from 'lucide-react/dist/esm/icons/eye';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
@@ -19,6 +21,7 @@ import { useConfirmation } from '../../context/ConfirmationContext';
 import { parseUSAddress } from '../../utils/parseUSAddress';
 import { useCustomerAddresses } from '../../hooks/useCustomerAddresses';
 import { OrderStatusPill } from './OrderStatusPill';
+import { OrderProgressBar } from '../../features/picking/components/OrderProgressBar';
 import type { CustomerAddress } from '../../lib/customerAddresses';
 import type { CombineMeta, PickingList, PickingListItem } from '../../schemas/picking.schema';
 import { PalletPhotosBlock } from './PalletPhotosBlock';
@@ -64,7 +67,6 @@ interface ShipOrderCardProps {
   selectedOrder: SelectedOrder;
   selectedCustomerId: string | null;
   user: User | null;
-  takeOverOrder: (id: string) => Promise<void>;
   onRefresh: () => void;
   onDelete: () => void;
   /** Persist the current form to the DB. Owned by ShipScreen so the auto-save
@@ -76,8 +78,8 @@ interface ShipOrderCardProps {
     overrides?: Partial<OrderFormData>,
     pickedCustomerId?: string | null
   ) => Promise<boolean>;
-  onShowPickingSummary?: () => void;
   onSplitOrder?: () => void;
+  onViewOrder?: () => void;
   onReopenOrder?: () => void;
   onRestoreOrder?: () => void;
   onContinueEditing?: () => void;
@@ -207,11 +209,11 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   selectedOrder,
   selectedCustomerId,
   user,
-  takeOverOrder,
   onRefresh,
   onDelete,
   onAutoSave,
   onSplitOrder,
+  onViewOrder,
   onReopenOrder,
   onRestoreOrder,
   onContinueEditing,
@@ -421,22 +423,30 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
 
       {selectedOrder.user_id !== user?.id &&
         ['active', 'ready_to_double_check', 'double_checking'].includes(selectedOrder.status) && (
-          <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-3">
+          <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-4">
             <div className="flex items-center gap-2 text-amber-600">
               <HandMetal size={16} />
               <p className="text-xs font-black uppercase tracking-tight">
-                Owned by {selectedOrder.user?.full_name || 'Another User'}
+                By {selectedOrder.user?.full_name || 'Another User'}
               </p>
             </div>
+
+            <OrderProgressBar
+              status={selectedOrder.status}
+              isShipped={selectedOrder.is_shipped ?? false}
+              items={selectedOrder.items}
+              verifiedKeys={selectedOrder.verified_item_keys ?? null}
+              totalUnits={selectedOrder.total_units || 0}
+              className="w-full"
+            />
+
             <button
               type="button"
-              onClick={async () => {
-                await takeOverOrder(selectedOrder.id);
-                onRefresh();
-              }}
-              className="w-full py-3 bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-sm active:scale-95 transition-all"
+              onClick={onViewOrder}
+              className="w-full py-3 bg-amber-500/15 text-amber-600 border border-amber-500/30 text-[10px] font-black uppercase tracking-widest rounded-lg shadow-sm hover:bg-amber-500 hover:text-white active:scale-95 transition-all flex items-center justify-center gap-2"
             >
-              Take Over Order
+              <Eye size={14} />
+              View Order
             </button>
           </div>
         )}
