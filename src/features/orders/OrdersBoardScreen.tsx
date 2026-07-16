@@ -67,11 +67,7 @@ export const OrdersBoardScreen = () => {
     const query = debouncedQuery.toLowerCase().trim();
     const hasQuery = query.length > 0;
 
-    const isExactSearch = /^\d{6,}$/.test(query);
-
-    let result = orders.filter((o) =>
-      isExactSearch || showFedex || !isFedexOrder(o) ? true : false
-    );
+    let result = orders.filter((o) => (hasQuery || showFedex || !isFedexOrder(o) ? true : false));
 
     if (hasQuery) {
       result = result.filter((o) => {
@@ -128,9 +124,9 @@ export const OrdersBoardScreen = () => {
   // 3. Compute final visible orders (applying selected carrier filter to baseVisibleOrders)
   const visibleOrders = useMemo(() => {
     const query = debouncedQuery.toLowerCase().trim();
-    const isExactSearch = /^\d{6,}$/.test(query);
+    const hasQuery = query.length > 0;
 
-    if (selectedCarrier && !isExactSearch) {
+    if (selectedCarrier && !hasQuery) {
       return baseVisibleOrders.filter((o) => {
         const isFedex = isFedexOrder(o);
         const carrier = isFedex ? 'FEDEX' : o.transport_company?.trim().toUpperCase();
