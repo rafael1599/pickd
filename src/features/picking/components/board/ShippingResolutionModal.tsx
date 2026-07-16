@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '../../../../integrations/supabase/client';
+import { supabase } from '../../../../lib/supabase';
 import { X, Truck, Package, GitMerge } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
