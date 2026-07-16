@@ -63,7 +63,14 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
 }) => {
   const units = getOrderUnits(order);
   const fedex = isFedexOrder(order);
-  const displayNumber = order.order_number || order.id.slice(-6);
+  let displayNumber = order.order_number || order.id.slice(-6);
+  if (displayNumber.includes(' / ')) {
+    displayNumber = displayNumber
+      .split(' / ')
+      .map((n) => n.trim())
+      .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
+      .join(' / ');
+  }
 
   const items = order.items ?? [];
   const { bikes, parts } = useMemo(() => computeBikesParts(order, skuIsBike), [order, skuIsBike]);
