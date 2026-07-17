@@ -364,6 +364,15 @@ const OrderCardShell: React.FC<CardProps> = ({
     >
       {showShippingBadge && <div className={`h-1.5 shrink-0 w-full ${colors.stripe}`} />}
 
+      {/* PICK UP badge (bottom-right) */}
+      {order.transport_company === 'PICK UP' && (
+        <div className="absolute bottom-2 right-2 z-5">
+          <span className="text-[9px] bg-red-500 text-white px-2 py-1 rounded-full font-black uppercase tracking-wider">
+            PICK UP
+          </span>
+        </div>
+      )}
+
       {/* Floating Action Buttons Overlay (Absolute Top-Right) */}
       {!order.is_shipped && (onMerge || (order.group_id && onUngroup) || onDelete) && (
         <div className="absolute top-2 right-2 flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity bg-card/90 backdrop-blur-sm rounded-xl p-1 lg:p-0.5 shadow-md border border-subtle z-10">
