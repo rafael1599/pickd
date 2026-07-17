@@ -55,16 +55,17 @@ export const CarrierFilter: React.FC<CarrierFilterProps> = ({
         </button>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1">
         {/* Unassigned option - only show if there are unassigned orders */}
         {hasUnassignedOrders && (
           <button
             onClick={() => onUnassignedToggle(!includeUnassigned)}
-            className={`flex flex-col items-center gap-2 p-2 rounded-lg border-2 transition-all ${
+            className={`flex items-center justify-center p-2 rounded-lg border-2 transition-all ${
               includeUnassigned
                 ? 'border-accent bg-accent/10'
                 : 'border-subtle hover:border-accent/50'
             }`}
+            title="Unassigned"
           >
             <div
               className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${
@@ -73,9 +74,6 @@ export const CarrierFilter: React.FC<CarrierFilterProps> = ({
             >
               {includeUnassigned && <div className="w-2 h-2 bg-white rounded-sm" />}
             </div>
-            <span className="text-[9px] font-bold text-muted text-center leading-tight">
-              Unassigned
-            </span>
           </button>
         )}
 
@@ -84,30 +82,32 @@ export const CarrierFilter: React.FC<CarrierFilterProps> = ({
           <button
             key={carrier}
             onClick={() => onCarrierToggle(carrier)}
-            className={`flex flex-col items-center gap-2 p-2 rounded-lg border-2 transition-all ${
+            className={`flex items-center justify-center p-2 rounded-lg border-2 transition-all ${
               selectedCarriers.has(carrier)
                 ? 'border-accent bg-accent/10'
                 : 'border-subtle hover:border-accent/50'
             }`}
+            title={carrier}
           >
-            <div
-              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${
-                selectedCarriers.has(carrier) ? 'border-accent bg-accent' : 'border-subtle'
-              }`}
-            >
-              {selectedCarriers.has(carrier) && <div className="w-2 h-2 bg-white rounded-sm" />}
+            <div className="flex items-center gap-2">
+              <div
+                className={`w-4 h-4 rounded border-2 flex items-center justify-center transition shrink-0 ${
+                  selectedCarriers.has(carrier) ? 'border-accent bg-accent' : 'border-subtle'
+                }`}
+              >
+                {selectedCarriers.has(carrier) && (
+                  <div className="w-1.5 h-1.5 bg-white rounded-sm" />
+                )}
+              </div>
+              <div className="w-6 h-5 flex items-center justify-center">
+                <TransportLogo
+                  company={carrier}
+                  plain
+                  textColor={getCarrierTextColor(carrier)}
+                  className="w-full h-full object-contain"
+                />
+              </div>
             </div>
-            <div className="w-8 h-6 flex items-center justify-center">
-              <TransportLogo
-                company={carrier}
-                plain
-                textColor={getCarrierTextColor(carrier)}
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <span className="text-[8px] font-bold text-muted text-center leading-tight">
-              {carrier.length > 5 ? carrier.slice(0, 5) : carrier}
-            </span>
           </button>
         ))}
       </div>
