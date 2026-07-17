@@ -504,75 +504,74 @@ const OrderCardShell: React.FC<CardProps> = ({
           <OrderNotesSection order={order} />
         </button>
 
-        {/* Right Panel: Logo + Action Buttons (Only shown on completed orders) */}
+        {/* Right Panel: Carrier Logo Panel (Full Height) - Only shown on completed orders */}
         {order.status === 'completed' && (
-          <div className="flex items-stretch shrink-0 self-stretch gap-1 p-1">
-            {/* Logo */}
-            <div className="relative flex items-center justify-center min-w-[60px] overflow-hidden">
-              {shippingType === 'fedex' || order.transport_company ? (
-                <TransportLogo
-                  company={shippingType === 'fedex' ? 'FEDEX' : order.transport_company}
-                  className="h-full w-full object-contain select-none"
-                  plain
-                  textColor={getCarrierTextColor(order.transport_company)}
-                />
-              ) : (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsCarrierOpen(true);
-                  }}
-                  className="flex items-center justify-center px-1 text-[9px] font-black uppercase tracking-widest text-accent hover:bg-accent/10 rounded-lg transition-colors"
-                  title="Select Carrier (Regular)"
-                >
-                  <span>Set</span>
-                </button>
-              )}
-            </div>
-
-            {/* Action Buttons (Stacked Vertically) */}
-            {!order.is_shipped && (onMerge || (order.group_id && onUngroup) || onDelete) && (
-              <div className="flex flex-col gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                {onMerge && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onMerge(order);
-                    }}
-                    className="p-1.5 text-muted hover:text-sky-400 transition-colors rounded-lg hover:bg-content/[0.05]"
-                    title="Combine"
-                  >
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
-                )}
-                {order.group_id && onUngroup && shippingType !== 'fedex' && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onUngroup(order);
-                    }}
-                    className="p-1.5 text-muted hover:text-amber-500 transition-colors rounded-lg hover:bg-content/[0.05]"
-                    title="Ungroup"
-                  >
-                    <Unlink className="w-4 h-4" />
-                  </button>
-                )}
-                {onDelete && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete(order);
-                    }}
-                    className="p-1.5 text-muted hover:text-red-500 transition-colors rounded-lg hover:bg-content/[0.05]"
-                    title="Delete Order"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
+          <div className="relative flex items-center justify-center shrink-0 self-stretch min-w-[76px] md:min-w-[84px] overflow-hidden">
+            {shippingType === 'fedex' || order.transport_company ? (
+              <TransportLogo
+                company={shippingType === 'fedex' ? 'FEDEX' : order.transport_company}
+                className="absolute inset-0 h-full w-full object-contain select-none"
+                plain
+                textColor={getCarrierTextColor(order.transport_company)}
+              />
+            ) : (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsCarrierOpen(true);
+                }}
+                className="flex items-center justify-center gap-1 px-2 py-1.5 text-[9px] font-black uppercase tracking-widest text-accent hover:bg-accent/10 rounded-lg transition-colors"
+                title="Select Carrier (Regular)"
+              >
+                <span>Set Carrier</span>
+              </button>
             )}
           </div>
         )}
+
+        {/* Action Buttons (Stacked Vertically on Top-Right) - Only for completed orders */}
+        {order.status === 'completed' &&
+          !order.is_shipped &&
+          (onMerge || (order.group_id && onUngroup) || onDelete) && (
+            <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity z-10">
+              {onMerge && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMerge(order);
+                  }}
+                  className="p-1.5 text-muted hover:text-sky-400 transition-colors rounded-lg hover:bg-card hover:bg-content/[0.05]"
+                  title="Combine"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+              )}
+              {order.group_id && onUngroup && shippingType !== 'fedex' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onUngroup(order);
+                  }}
+                  className="p-1.5 text-muted hover:text-amber-500 transition-colors rounded-lg hover:bg-card hover:bg-content/[0.05]"
+                  title="Ungroup"
+                >
+                  <Unlink className="w-4 h-4" />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(order);
+                  }}
+                  className="p-1.5 text-muted hover:text-red-500 transition-colors rounded-lg hover:bg-card hover:bg-content/[0.05]"
+                  title="Delete Order"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          )}
       </div>
 
       {/* Carrier Selector Modal */}
