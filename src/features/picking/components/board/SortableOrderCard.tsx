@@ -498,7 +498,8 @@ const OrderCardShell: React.FC<CardProps> = ({
         {/* Right Panel: Carrier Logo Panel (Full Height) - Only shown on completed orders */}
         {order.status === 'completed' && (
           <div className="relative flex items-center justify-center shrink-0 self-stretch min-w-[76px] md:min-w-[84px] overflow-hidden">
-            {shippingType === 'fedex' || order.transport_company ? (
+            {shippingType === 'fedex' ||
+            (order.transport_company && order.transport_company !== 'PICK UP') ? (
               <TransportLogo
                 company={shippingType === 'fedex' ? 'FEDEX' : order.transport_company}
                 className="absolute inset-0 h-full w-full object-contain select-none"
