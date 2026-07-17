@@ -57,6 +57,8 @@ import { WaitingReasonModal } from './WaitingReasonModal';
 import Hourglass from 'lucide-react/dist/esm/icons/hourglass';
 import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
 import MapPin from 'lucide-react/dist/esm/icons/map-pin';
+import { useParkedLocations } from '../hooks/useParkedLocations';
+import { supabase as supabaseClient } from '../../../lib/supabase';
 
 /** Priority: lower number = pick first. Pallets are overstock we want gone ASAP. */
 const DISTRIBUTION_PRIORITY: Record<string, number> = { PALLET: 0, LINE: 1, TOWER: 2, OTHER: 3 };
@@ -686,9 +688,45 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   };
   const [correctionNotes, setCorrectionNotes] = useState('');
   const [isNotesExpanded, setIsNotesExpanded] = useState(false);
-  const [isParkedLocationOpen, setIsParkedLocationOpen] = useState(false);
-  const [parkedLocation, setParkedLocation] = useState('');
+  const [isAssignPickupOpen, setIsAssignPickupOpen] = useState(false);
+  const [pickupLocation, setPickupLocation] = useState('');
+  const [isSavingPickup, setIsSavingPickup] = useState(false);
+  const { locations: suggestedLocations } = useParkedLocations();
   const { open: openModal } = useModal();
+
+  const handleAssignPickup = async () => {
+    if (!pickupLocation.trim() || !user) return;
+    setIsSavingPickup(true);
+    try {
+      // 1. Update carrier to PICK UP
+      const { error: updateError } = await supabaseClient
+        .from('picking_lists')
+        .update({ transport_company: 'PICK UP' })
+        .eq('id', activeListId);
+
+      if (updateError) throw updateError;
+
+      // 2. Add parked location note
+      const { error: noteError } = await supabaseClient.from('picking_list_notes').insert({
+        list_id: activeListId,
+        user_id: user.id,
+        message: `[Parked]: ${pickupLocation.trim()}`,
+      });
+
+      if (noteError) throw noteError;
+
+      toast.success(`Assigned as PICK UP at ${pickupLocation}`);
+      setIsAssignPickupOpen(false);
+      setPickupLocation('');
+      refresh?.();
+    } catch (err) {
+      console.error('Failed to assign pickup:', err);
+      toast.error('Failed to assign pickup');
+    } finally {
+      setIsSavingPickup(false);
+    }
+  };
+
   // Ref keeps modal callbacks fresh without re-binding handlePointerDown.
   // Modal lives at root via ModalProvider — must call latest hook callbacks
   // even if this component unmounts after the modal opens.
@@ -2241,13 +2279,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           <div className="border-t border-subtle" />
 
           <button
-            onClick={() => setIsParkedLocationOpen(true)}
+            onClick={() => setIsAssignPickupOpen(true)}
             className="w-full flex items-center justify-between p-4"
           >
             <div className="flex items-center gap-2">
               <MapPin size={16} className="text-muted" />
               <h3 className="text-[13px] font-black uppercase tracking-widest text-muted">
-                Select Parked Location
+                Assign as Pickup
               </h3>
             </div>
             <ChevronDown size={14} className="text-muted -rotate-90" />
@@ -2312,39 +2350,44 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           document.body
         )}
 
-      {/* Parked Location Selector Modal */}
-      {isParkedLocationOpen &&
+      {/* Assign as Pickup Modal */}
+      {isAssignPickupOpen &&
         createPortal(
           <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
             <div
               className="absolute inset-0 bg-main/70 backdrop-blur-md"
-              onClick={() => setIsParkedLocationOpen(false)}
+              onClick={() => setIsAssignPickupOpen(false)}
             />
-            <div className="relative w-full max-w-lg bg-surface border border-accent/20 rounded-[2rem] shadow-2xl p-6 animate-in fade-in zoom-in duration-200">
-              <div className="flex items-center justify-between mb-5">
+            <div className="relative w-full max-w-md bg-surface border border-red-500/20 rounded-[2rem] shadow-2xl p-6 animate-in fade-in zoom-in duration-200">
+              <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <MapPin size={24} className="text-accent" />
+                  <MapPin size={24} className="text-red-500" />
                   <h3 className="text-xl font-black uppercase tracking-widest text-content">
-                    Parked Location
+                    Assign as Pickup
                   </h3>
                 </div>
                 <button
-                  onClick={() => setIsParkedLocationOpen(false)}
+                  onClick={() => setIsAssignPickupOpen(false)}
                   className="p-2 hover:bg-card rounded-full text-muted transition-colors"
                 >
                   <X size={24} />
                 </button>
               </div>
 
+              <p className="text-xs text-muted/70 mb-4">
+                Sets carrier to <span className="font-bold text-red-500">PICK UP</span> and records
+                parking location
+              </p>
+
               <div className="mb-5">
                 <label className="block text-xs font-bold text-muted uppercase tracking-widest mb-2">
-                  Enter Location
+                  Where is it parked?
                 </label>
                 <input
                   type="text"
-                  value={parkedLocation}
-                  onChange={(e) => setParkedLocation(e.target.value.toUpperCase())}
-                  placeholder="E.g., ROW A, BIKE ZONE, SHIPPING PREP..."
+                  value={pickupLocation}
+                  onChange={(e) => setPickupLocation(e.target.value.toUpperCase())}
+                  placeholder="E.g., BAY 1, ROW 42..."
                   className="w-full bg-card border border-subtle rounded-2xl p-4 text-lg text-content focus:outline-none focus:border-accent/30 placeholder:text-muted/50"
                   autoFocus
                 />
@@ -2352,46 +2395,38 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
               <div className="mb-5">
                 <p className="text-xs font-bold text-muted uppercase tracking-widest mb-2">
-                  Quick Select
+                  Most Used ({suggestedLocations.length})
                 </p>
                 <div className="grid grid-cols-2 gap-2">
-                  {['ROW A', 'ROW B', 'ROW C', 'BIKE ZONE', 'SHIPPING PREP', 'QUALITY CHECK'].map(
-                    (loc) => (
-                      <button
-                        key={loc}
-                        onClick={() => setParkedLocation(loc)}
-                        className={`py-2 px-3 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${
-                          parkedLocation === loc
-                            ? 'bg-accent text-main'
-                            : 'bg-card border border-subtle text-muted hover:bg-surface'
-                        }`}
-                      >
-                        {loc}
-                      </button>
-                    )
-                  )}
+                  {suggestedLocations.map((loc) => (
+                    <button
+                      key={loc}
+                      onClick={() => setPickupLocation(loc)}
+                      className={`py-2 px-3 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${
+                        pickupLocation === loc
+                          ? 'bg-red-600 text-white'
+                          : 'bg-card border border-subtle text-muted hover:bg-surface'
+                      }`}
+                    >
+                      {loc}
+                    </button>
+                  ))}
                 </div>
               </div>
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => setIsParkedLocationOpen(false)}
+                  onClick={() => setIsAssignPickupOpen(false)}
                   className="flex-1 py-4 bg-card border border-subtle text-content/70 font-black uppercase tracking-widest text-sm rounded-2xl active:scale-95 transition-all"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={() => {
-                    if (parkedLocation.trim()) {
-                      onAddNote(`[Parked]: ${parkedLocation.trim()}`);
-                      setParkedLocation('');
-                      setIsParkedLocationOpen(false);
-                    }
-                  }}
-                  disabled={!parkedLocation.trim()}
-                  className="flex-1 py-4 bg-accent text-main font-black uppercase tracking-widest text-sm rounded-2xl shadow-lg shadow-accent/10 active:scale-95 transition-all disabled:opacity-30"
+                  onClick={handleAssignPickup}
+                  disabled={!pickupLocation.trim() || isSavingPickup}
+                  className="flex-1 py-4 bg-red-600 text-white font-black uppercase tracking-widest text-sm rounded-2xl shadow-lg shadow-red-600/20 active:scale-95 transition-all disabled:opacity-30"
                 >
-                  Save Location
+                  {isSavingPickup ? 'Saving...' : 'Assign Pickup'}
                 </button>
               </div>
             </div>
