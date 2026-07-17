@@ -530,48 +530,46 @@ const OrderCardShell: React.FC<CardProps> = ({
         )}
 
         {/* Action Buttons (Stacked Vertically on Top-Right) - Only for completed orders */}
-        {order.status === 'completed' &&
-          !order.is_shipped &&
-          (onMerge || (order.group_id && onUngroup) || onDelete) && (
-            <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity z-10">
-              {onMerge && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onMerge(order);
-                  }}
-                  className="p-1.5 text-muted hover:text-sky-400 transition-colors rounded-lg hover:bg-card hover:bg-content/[0.05]"
-                  title="Combine"
-                >
-                  <MoreVertical className="w-4 h-4" />
-                </button>
-              )}
-              {order.group_id && onUngroup && shippingType !== 'fedex' && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onUngroup(order);
-                  }}
-                  className="p-1.5 text-muted hover:text-amber-500 transition-colors rounded-lg hover:bg-card hover:bg-content/[0.05]"
-                  title="Ungroup"
-                >
-                  <Unlink className="w-4 h-4" />
-                </button>
-              )}
-              {onDelete && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(order);
-                  }}
-                  className="p-1.5 text-muted hover:text-red-500 transition-colors rounded-lg hover:bg-card hover:bg-content/[0.05]"
-                  title="Delete Order"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          )}
+        {!order.is_shipped && (onMerge || (order.group_id && onUngroup) || onDelete) && (
+          <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity z-10">
+            {onMerge && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMerge(order);
+                }}
+                className="p-1.5 text-muted hover:text-sky-400 transition-colors rounded-lg hover:bg-card hover:bg-content/[0.05]"
+                title="Combine"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+            )}
+            {order.group_id && onUngroup && shippingType !== 'fedex' && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUngroup(order);
+                }}
+                className="p-1.5 text-muted hover:text-amber-500 transition-colors rounded-lg hover:bg-card hover:bg-content/[0.05]"
+                title="Ungroup"
+              >
+                <Unlink className="w-4 h-4" />
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(order);
+                }}
+                className="p-1.5 text-muted hover:text-red-500 transition-colors rounded-lg hover:bg-card hover:bg-content/[0.05]"
+                title="Delete Order"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Carrier Selector Modal */}
