@@ -7,6 +7,8 @@ interface CarrierFilterProps {
   includeUnassigned: boolean;
   hasUnassignedOrders: boolean;
   availableCarriers: string[];
+  carrierCounts: Map<string, number>;
+  unassignedCount: number;
   onCarrierToggle: (carrier: string) => void;
   onUnassignedToggle: (include: boolean) => void;
 }
@@ -16,6 +18,8 @@ export const CarrierFilter: React.FC<CarrierFilterProps> = ({
   includeUnassigned,
   hasUnassignedOrders,
   availableCarriers,
+  carrierCounts,
+  unassignedCount,
   onCarrierToggle,
   onUnassignedToggle,
 }) => {
@@ -75,9 +79,12 @@ export const CarrierFilter: React.FC<CarrierFilterProps> = ({
               >
                 {includeUnassigned && <div className="w-1.5 h-1.5 bg-white rounded-sm" />}
               </div>
-              <span className="text-[10px] font-bold text-muted uppercase tracking-wider">
-                Unassigned
-              </span>
+              <div className="flex flex-col items-start">
+                <span className="text-[10px] font-bold text-muted uppercase tracking-wider">
+                  Unassigned
+                </span>
+                <span className="text-[9px] text-muted/60">{unassignedCount}</span>
+              </div>
             </div>
           </button>
         )}
@@ -104,13 +111,16 @@ export const CarrierFilter: React.FC<CarrierFilterProps> = ({
                   <div className="w-1.5 h-1.5 bg-white rounded-sm" />
                 )}
               </div>
-              <div className="w-6 h-5 flex items-center justify-center">
-                <TransportLogo
-                  company={carrier}
-                  plain
-                  textColor={getCarrierTextColor(carrier)}
-                  className="w-full h-full object-contain"
-                />
+              <div className="flex flex-col items-start">
+                <div className="w-6 h-5 flex items-center justify-center">
+                  <TransportLogo
+                    company={carrier}
+                    plain
+                    textColor={getCarrierTextColor(carrier)}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <span className="text-[9px] text-muted/60">{carrierCounts.get(carrier) ?? 0}</span>
               </div>
             </div>
           </button>

@@ -106,22 +106,41 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     setIncludeUnassigned(include);
   }, []);
 
+  // Normalize transport_company: treat empty/null as unassigned
+  const getNormalizedCarrier = (company: string | null | undefined): string | null => {
+    const trimmed = (company ?? '').trim();
+    return trimmed || null;
+  };
+
   // Check if there are unassigned orders and get available carriers
-  const hasUnassignedOrders = completedOrders.some((o) => !o.transport_company);
+  const hasUnassignedOrders = completedOrders.some(
+    (o) => !getNormalizedCarrier(o.transport_company)
+  );
   const availableCarriers = Array.from(
     new Set(
       completedOrders
-        .filter((o) => o.transport_company)
-        .map((o) => o.transport_company)
+        .map((o) => getNormalizedCarrier(o.transport_company))
         .filter((c): c is string => !!c)
     )
   ).sort();
 
+  // Count orders by carrier type
+  const carrierCounts = new Map<string, number>();
+  let unassignedCount = 0;
+  completedOrders.forEach((order) => {
+    const carrier = getNormalizedCarrier(order.transport_company);
+    if (carrier) {
+      carrierCounts.set(carrier, (carrierCounts.get(carrier) ?? 0) + 1);
+    } else {
+      unassignedCount++;
+    }
+  });
+
   // Filter completed orders by carrier
   const filteredCompletedOrders = completedOrders.filter((order) => {
-    const isUnassigned = !order.transport_company;
-    const isSelectedCarrier =
-      order.transport_company && selectedCarriers.has(order.transport_company);
+    const normalizedCarrier = getNormalizedCarrier(order.transport_company);
+    const isUnassigned = normalizedCarrier === null;
+    const isSelectedCarrier = normalizedCarrier && selectedCarriers.has(normalizedCarrier);
 
     // If no filters active (all deselected), show all
     if (selectedCarriers.size === 0 && !includeUnassigned) {
@@ -905,6 +924,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                     includeUnassigned={includeUnassigned}
                     hasUnassignedOrders={hasUnassignedOrders}
                     availableCarriers={availableCarriers}
+                    carrierCounts={carrierCounts}
+                    unassignedCount={unassignedCount}
                     onCarrierToggle={handleCarrierToggle}
                     onUnassignedToggle={handleUnassignedToggle}
                   />
