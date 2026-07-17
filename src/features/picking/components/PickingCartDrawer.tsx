@@ -51,6 +51,7 @@ export const PickingCartDrawer: React.FC = () => {
     orderNumber,
     customer,
     sessionMode,
+    setSessionMode,
     checkedBy: _checkedBy,
     correctionNotes,
     loadExternalList,
