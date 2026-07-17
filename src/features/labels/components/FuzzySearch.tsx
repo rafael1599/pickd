@@ -1,8 +1,7 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import Search from 'lucide-react/dist/esm/icons/search';
 import Package from 'lucide-react/dist/esm/icons/package';
-import { useFuzzySearch } from '../hooks/useFuzzySearch';
-import type { LabelInventoryItem } from '../hooks/useLabelItems';
+import { useLabelSearch, type LabelInventoryItem } from '../hooks/useLabelItems';
 
 interface FuzzySearchProps {
   onSelect: (item: LabelInventoryItem) => void;
@@ -15,9 +14,12 @@ export function FuzzySearch({ onSelect, excludeSkus, tagCounts, onCreateNew }: F
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const blurTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { search, isReady } = useFuzzySearch(excludeSkus);
+  const { results: searchResults, isSearching } = useLabelSearch(query);
 
-  const results = query.length >= 2 ? search(query) : [];
+  const results = useMemo(
+    () => searchResults.filter((item) => !excludeSkus.has(item.sku)).slice(0, 8),
+    [searchResults, excludeSkus]
+  );
 
   const handleSelect = useCallback(
     (item: LabelInventoryItem) => {
@@ -53,8 +55,7 @@ export function FuzzySearch({ onSelect, excludeSkus, tagCounts, onCreateNew }: F
           onChange={(e) => setQuery(e.target.value)}
           onFocus={handleFocus}
           onBlur={handleBlur}
-          placeholder={isReady ? 'Search SKU or product name...' : 'Loading inventory...'}
-          disabled={!isReady}
+          placeholder="Search SKU or product name..."
           className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-surface border border-subtle text-content text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50"
         />
       </div>
@@ -109,7 +110,7 @@ export function FuzzySearch({ onSelect, excludeSkus, tagCounts, onCreateNew }: F
         </div>
       )}
 
-      {isOpen && results.length === 0 && query.length >= 2 && onCreateNew && (
+      {isOpen && results.length === 0 && !isSearching && query.length >= 2 && onCreateNew && (
         <div className="absolute z-50 left-0 right-0 mt-1 bg-card border border-subtle rounded-xl shadow-lg p-3">
           <p className="text-[10px] text-muted font-bold uppercase tracking-widest mb-2">
             No matches for &quot;{query}&quot;

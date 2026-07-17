@@ -10,7 +10,12 @@ import { useModal } from '../../../context/ModalContext';
 import { useInventoryMutations } from '../../inventory/hooks/useInventoryMutations';
 import type { InventoryItemWithMetadata } from '../../../schemas/inventory.schema';
 import type { LabelField } from '../../inventory/utils/labelLayout';
-import { useLabelItems, type LabelInventoryItem } from '../hooks/useLabelItems';
+import {
+  useLabelLocations,
+  fetchLabelItem,
+  fetchLabelItemsByLocation,
+  type LabelInventoryItem,
+} from '../hooks/useLabelItems';
 import { useTagCounts } from '../hooks/useTagCounts';
 import { useGenerateLabels, type LabelEntry } from '../hooks/useGenerateLabels';
 import {
@@ -72,7 +77,7 @@ export const UnifiedLabelForm = ({
   const [createDefaultName, setCreateDefaultName] = useState('');
   const [dataModalOpen, setDataModalOpen] = useState(false);
 
-  const { data: items, isLoading: isLoadingItems } = useLabelItems();
+  const { data: locations = [] } = useLabelLocations();
   const { data: tagCounts } = useTagCounts();
   const { generate, isGenerating } = useGenerateLabels();
   const [, setDefaultLayout] = useLabelLayoutPreference();
@@ -80,38 +85,38 @@ export const UnifiedLabelForm = ({
   const { updateItem } = useInventoryMutations();
   const queryClient = useQueryClient();
 
-  // Auto-add initial SKU from navigation (e.g., "Edit Label" from ItemDetailView)
+  // Auto-add initial SKU from navigation (e.g., "Edit Label" from ItemDetailView).
+  // Fetch just that one SKU server-side instead of scanning a full inventory list.
   useEffect(() => {
-    if (initialApplied.current || !initialSku || !items) return;
+    if (initialApplied.current || !initialSku || !tagCounts) return;
     initialApplied.current = true;
-    const item = items.find((i) => i.sku === initialSku);
-    const tagged = tagCounts?.get(initialSku) ?? 0;
-    const entry = newEntry(
-      {
-        sku: initialSku,
-        item_name: item?.item_name ?? initialName ?? null,
-        location: item?.location ?? initialLocation ?? null,
-        quantity: item?.quantity ?? 0,
-        upc: item?.upc ?? null,
-        color: item?.color ?? null,
-        model: item?.model ?? null,
-        size: item?.size ?? null,
-        serial_number: item?.serial_number ?? null,
-      },
-      Math.max(1, (item?.quantity ?? 1) - tagged)
-    );
-    entry.tagged = tagged;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot init from navigation props, guarded by initialApplied ref
-    setEntries([entry]);
-    setSelectedSku(initialSku);
-  }, [initialSku, initialName, initialLocation, items, tagCounts]);
-
-  // Unique locations sorted naturally
-  const locations = useMemo(() => {
-    if (!items) return [];
-    const locs = [...new Set(items.map((i) => i.location).filter(Boolean))] as string[];
-    return locs.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  }, [items]);
+    let cancelled = false;
+    void (async () => {
+      const item = await fetchLabelItem(initialSku).catch(() => null);
+      if (cancelled) return;
+      const tagged = tagCounts.get(initialSku) ?? 0;
+      const entry = newEntry(
+        {
+          sku: initialSku,
+          item_name: item?.item_name ?? initialName ?? null,
+          location: item?.location ?? initialLocation ?? null,
+          quantity: item?.quantity ?? 0,
+          upc: item?.upc ?? null,
+          color: item?.color ?? null,
+          model: item?.model ?? null,
+          size: item?.size ?? null,
+          serial_number: item?.serial_number ?? null,
+        },
+        Math.max(1, (item?.quantity ?? 1) - tagged)
+      );
+      entry.tagged = tagged;
+      setEntries([entry]);
+      setSelectedSku(initialSku);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialSku, initialName, initialLocation, tagCounts]);
 
   const excludeSkus = useMemo(() => new Set(entries.map((e) => e.sku)), [entries]);
 
@@ -145,12 +150,16 @@ export const UnifiedLabelForm = ({
     [entries, tagCounts]
   );
 
-  const handleLoadLocation = useCallback(() => {
-    if (!selectedLocation || !items) return;
+  const handleLoadLocation = useCallback(async () => {
+    if (!selectedLocation) return;
+    const items = await fetchLabelItemsByLocation(selectedLocation).catch(() => {
+      toast.error('Failed to load location');
+      return [] as LabelInventoryItem[];
+    });
     const existingSkus = new Set(entries.map((e) => e.sku));
     const newEntries: LabelEntry[] = [];
 
-    for (const item of items.filter((i) => i.location === selectedLocation)) {
+    for (const item of items) {
       if (existingSkus.has(item.sku)) continue;
       const tagged = tagCounts?.get(item.sku) ?? 0;
       const qty = Math.max(0, item.quantity - tagged);
@@ -166,7 +175,7 @@ export const UnifiedLabelForm = ({
     }
     setEntries((prev) => [...prev, ...newEntries]);
     toast.success(`Loaded ${newEntries.length} items from ${selectedLocation}`);
-  }, [selectedLocation, items, entries, tagCounts]);
+  }, [selectedLocation, entries, tagCounts]);
 
   const handleUpdateEntry = useCallback((sku: string, partial: Partial<LabelEntry>) => {
     setEntries((prev) => prev.map((e) => (e.sku === sku ? { ...e, ...partial } : e)));
@@ -213,7 +222,7 @@ export const UnifiedLabelForm = ({
         screenType: itemData.warehouse,
         onSave: async (formData) => {
           await updateItem.mutateAsync({ originalItem: itemData, updatedFormData: formData });
-          await queryClient.invalidateQueries({ queryKey: ['label-studio-items'] });
+          await queryClient.invalidateQueries({ queryKey: ['label-search'] });
           const { data: fresh } = await supabase
             .from('inventory')
             .select('item_name, sku_metadata(color, upc)')
@@ -323,13 +332,7 @@ export const UnifiedLabelForm = ({
 
       {/* Scrollable content area */}
       <div className="flex-1 overflow-y-auto px-4 pb-32">
-        {isLoadingItems && (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="animate-spin text-accent w-8 h-8 opacity-30" />
-          </div>
-        )}
-
-        {entries.length === 0 && !isLoadingItems && !showCreateForm && (
+        {entries.length === 0 && !showCreateForm && (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <p className="text-muted text-sm">Search for a SKU or create a new one</p>
             <button

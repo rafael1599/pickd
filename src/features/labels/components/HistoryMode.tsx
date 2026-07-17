@@ -14,7 +14,7 @@ import {
   VALID_TRANSITIONS,
 } from '../../inventory/utils/generateBikeLabel';
 import { LabelPrintOptionsModal, type LabelPrintResult } from './LabelPrintOptionsModal';
-import { useLabelItems, type LabelInventoryItem } from '../hooks/useLabelItems';
+import { fetchItemNames } from '../hooks/useLabelItems';
 
 interface AssetTagRow {
   id: string;
@@ -42,7 +42,6 @@ export const HistoryMode = () => {
   const [isReprinting, setIsReprinting] = useState(false);
 
   const queryClient = useQueryClient();
-  const { data: items } = useLabelItems();
 
   // Fetch asset_tags history
   const { data: createdTags, isLoading: isLoadingTags } = useQuery({
@@ -59,6 +58,19 @@ export const HistoryMode = () => {
       return (data ?? []) as AssetTagRow[];
     },
     staleTime: 30_000,
+  });
+
+  // Resolve item_name only for the SKUs present in the history (server-side,
+  // scoped — never download the whole inventory to look up a handful of names).
+  const historySkus = useMemo(
+    () => [...new Set((createdTags ?? []).map((t) => t.sku))],
+    [createdTags]
+  );
+  const { data: itemNames } = useQuery({
+    queryKey: ['label-history-names', historySkus],
+    enabled: historySkus.length > 0,
+    staleTime: 60_000,
+    queryFn: () => fetchItemNames(historySkus),
   });
 
   // Group tags by SKU with filter
@@ -82,11 +94,8 @@ export const HistoryMode = () => {
     return map;
   }, [createdTags, historyFilter]);
 
-  // Resolve item_name from inventory data
-  const getItemName = useCallback(
-    (sku: string) => items?.find((i: LabelInventoryItem) => i.sku === sku)?.item_name ?? null,
-    [items]
-  );
+  // Resolve item_name from the scoped history-names map.
+  const getItemName = useCallback((sku: string) => itemNames?.get(sku) ?? null, [itemNames]);
 
   // Reprint opens the shared print-options window first (orientation + codes).
   const [pendingReprint, setPendingReprint] = useState<{
@@ -113,6 +122,9 @@ export const HistoryMode = () => {
           layout: result.orientation,
           withQr: result.withQr,
           withBarcode: result.withBarcode,
+          // Serial/UPC are snapshotted on the tag itself — reprint them verbatim.
+          serial_number: t.serial_number ?? undefined,
+          upc: t.upc ?? undefined,
           model: undefined,
         }));
         const blobUrl = await generateBikeLabels(labelItems);

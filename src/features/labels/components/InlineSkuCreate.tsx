@@ -75,7 +75,8 @@ export function InlineSkuCreate({
     };
 
     onCreated(item);
-    queryClient.invalidateQueries({ queryKey: ['label-studio-items'] });
+    queryClient.invalidateQueries({ queryKey: ['label-search'] });
+    queryClient.invalidateQueries({ queryKey: ['label-locations'] });
     toast.success('SKU created');
     setIsCreating(false);
   }, [canCreate, isCreating, sku, itemName, location, onCreated, queryClient]);
