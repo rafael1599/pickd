@@ -367,6 +367,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const [isDeducting, setIsDeducting] = useState(false);
   const [showWaitingPicker, setShowWaitingPicker] = useState(false);
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
+  const [activeOrderFilter, setActiveOrderFilter] = useState<string | null>(null);
   const [scanResults, setScanResults] = useState<Map<string, Set<string>>>(new Map());
   const [isScanning, setIsScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState<string>('');
@@ -583,10 +584,22 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     // calculatePalletsWithBikeAwareness handles the no-bikes case (parts-only → 1 pallet).
     const allItems = originalPallets.flatMap((p) => p.items);
     const bikeAware = calculatePalletsWithBikeAwareness(allItems, bikeSkuSet);
-    return palletOverrides.size === 0
-      ? bikeAware
-      : redistributeWithOverrides(bikeAware, palletOverrides);
-  }, [originalPallets, palletOverrides, bikeSkuSet]);
+    const redistributed =
+      palletOverrides.size === 0
+        ? bikeAware
+        : redistributeWithOverrides(bikeAware, palletOverrides);
+
+    if (!activeOrderFilter) return redistributed;
+
+    // Filter items inside the computed pallets so pallet IDs stay consistent
+    // with what they would be if unfiltered, preserving checkmarks.
+    return redistributed
+      .map((p) => ({
+        ...p,
+        items: p.items.filter((item) => item.source_order === activeOrderFilter),
+      }))
+      .filter((p) => p.items.length > 0);
+  }, [originalPallets, palletOverrides, bikeSkuSet, activeOrderFilter]);
 
   const physicalPalletCount = useMemo(() => pallets.filter((p) => !p.isParts).length, [pallets]);
 
@@ -1485,9 +1498,19 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                     {combinedNumbers.map((num, i) => (
                       <React.Fragment key={num}>
                         {i > 0 && <span className="text-accent/50"> / </span>}
-                        <span style={{ color: orderColorFor(num, combinedNumbers).hex }}>
+                        <button
+                          onClick={() =>
+                            setActiveOrderFilter(activeOrderFilter === num ? null : num)
+                          }
+                          style={{ color: orderColorFor(num, combinedNumbers).hex }}
+                          className={`transition-opacity ${
+                            activeOrderFilter && activeOrderFilter !== num
+                              ? 'opacity-30'
+                              : 'hover:opacity-80'
+                          }`}
+                        >
                           {num.slice(-3)}
-                        </span>
+                        </button>
                       </React.Fragment>
                     ))}
                   </span>
@@ -2662,6 +2685,18 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           }}
           onDismiss={() => setConflictDismissed(true)}
         />
+      )}
+
+      {activeOrderFilter && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[100]">
+          <button
+            onClick={() => setActiveOrderFilter(null)}
+            className="bg-card/95 backdrop-blur border border-subtle text-content px-4 py-2.5 rounded-full shadow-lg shadow-black/50 text-sm font-bold flex items-center gap-2 hover:bg-surface transition-all whitespace-nowrap animate-in fade-in slide-in-from-bottom-4"
+          >
+            <X size={16} className="text-muted" />
+            Showing #{activeOrderFilter} Only
+          </button>
+        </div>
       )}
     </div>
   );
