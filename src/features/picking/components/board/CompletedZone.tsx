@@ -42,20 +42,24 @@ export const CompletedZone: React.FC<CompletedZoneProps> = ({
   };
 
   return (
-    <div className="flex flex-col gap-2">
-      {/* Regular Completed Orders */}
-      {regularOrders.length > 0 && (
-        <div className="space-y-2">
-          {regularOrders.map((order) => renderOrderButton(order, 'regular'))}
-        </div>
-      )}
+    <div className="space-y-4">
+      {/* Regular Completed Orders Row */}
+      <div className="space-y-2">
+        {regularOrders.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {regularOrders.map((order) => renderOrderButton(order, 'regular'))}
+          </div>
+        ) : null}
+      </div>
 
-      {/* FedEx Completed Orders */}
-      {fedexOrders.length > 0 && (
-        <div className="space-y-2">
-          {fedexOrders.map((order) => renderOrderButton(order, 'fedex'))}
-        </div>
-      )}
+      {/* FedEx Completed Orders Row */}
+      <div className="space-y-2">
+        {fedexOrders.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {fedexOrders.map((order) => renderOrderButton(order, 'fedex'))}
+          </div>
+        ) : null}
+      </div>
 
       {/* Empty state */}
       {regularOrders.length === 0 && fedexOrders.length === 0 && (
