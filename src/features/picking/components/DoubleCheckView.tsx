@@ -2253,6 +2253,21 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                     </React.Fragment>
                   );
                 })}
+
+                {/* Take Photo button for this pallet */}
+                <button
+                  onClick={() => scanInputRef.current?.click()}
+                  disabled={isScanning}
+                  className="mt-4 w-full py-2.5 px-3 rounded-xl bg-card hover:bg-surface border border-amber-500/30 text-amber-500 font-bold uppercase text-xs tracking-wider active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  title="Take photo of this pallet"
+                >
+                  {isScanning ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Camera size={14} strokeWidth={3} />
+                  )}
+                  {isScanning ? 'Scanning...' : 'Take Photo'}
+                </button>
               </div>
             </section>
           );
