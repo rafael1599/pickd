@@ -861,6 +861,9 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                       navigate('/ship');
                       onClose();
                     }}
+                    onMerge={handleOrderMenuSelect}
+                    onUngroup={handleUngroup}
+                    onDelete={handleDelete}
                   />
                 </div>
               )}

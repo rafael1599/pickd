@@ -6,6 +6,9 @@ interface CompletedZoneProps {
   fedexOrders: PickingList[];
   regularOrders: PickingList[];
   onSelectOrder: (orderId: string) => void;
+  onMerge?: (order: PickingList) => void;
+  onUngroup?: (order: PickingList) => void;
+  onDelete?: (order: PickingList) => void;
   /** Prefix the time with the date ("Jul 9 · 3:51 PM") — used when the list
    *  spans previous days (empty-board fallback). */
   showDate?: boolean;
@@ -15,6 +18,9 @@ export const CompletedZone: React.FC<CompletedZoneProps> = ({
   fedexOrders,
   regularOrders,
   onSelectOrder,
+  onMerge,
+  onUngroup,
+  onDelete,
   showDate = false,
 }) => {
   if (fedexOrders.length === 0 && regularOrders.length === 0) return null;
@@ -28,6 +34,9 @@ export const CompletedZone: React.FC<CompletedZoneProps> = ({
         showShippingBadge={false}
         showDate={showDate}
         onSelect={() => onSelectOrder(order.id)}
+        onMerge={onMerge}
+        onUngroup={onUngroup}
+        onDelete={onDelete}
       />
     );
   };

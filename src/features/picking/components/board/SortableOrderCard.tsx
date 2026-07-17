@@ -365,7 +365,7 @@ const OrderCardShell: React.FC<CardProps> = ({
       {showShippingBadge && <div className={`h-1.5 shrink-0 w-full ${colors.stripe}`} />}
 
       {/* Floating Action Buttons Overlay (Absolute Top-Right) */}
-      {order.status !== 'shipped' && (onMerge || (order.group_id && onUngroup) || onDelete) && (
+      {!order.is_shipped && (onMerge || (order.group_id && onUngroup) || onDelete) && (
         <div className="absolute top-2 right-2 flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity bg-card/90 backdrop-blur-sm rounded-xl p-1 lg:p-0.5 shadow-md border border-subtle z-10">
           {onMerge && (
             <button
