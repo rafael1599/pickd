@@ -56,6 +56,7 @@ import { WaitingConflictModal } from './WaitingConflictModal';
 import { WaitingReasonModal } from './WaitingReasonModal';
 import Hourglass from 'lucide-react/dist/esm/icons/hourglass';
 import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
+import MapPin from 'lucide-react/dist/esm/icons/map-pin';
 
 /** Priority: lower number = pick first. Pallets are overstock we want gone ASAP. */
 const DISTRIBUTION_PRIORITY: Record<string, number> = { PALLET: 0, LINE: 1, TOWER: 2, OTHER: 3 };
@@ -685,6 +686,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   };
   const [correctionNotes, setCorrectionNotes] = useState('');
   const [isNotesExpanded, setIsNotesExpanded] = useState(false);
+  const [isParkedLocationOpen, setIsParkedLocationOpen] = useState(false);
+  const [parkedLocation, setParkedLocation] = useState('');
   const { open: openModal } = useModal();
   // Ref keeps modal callbacks fresh without re-binding handlePointerDown.
   // Modal lives at root via ModalProvider — must call latest hook callbacks
@@ -2221,7 +2224,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           <CorrectionNotesTimeline notes={notes} isLoading={isNotesLoading} />
         </div>
 
-        <section className="mt-4 mb-12 border rounded-2xl mx-1 bg-surface border-subtle">
+        <section className="mt-4 mb-12 border rounded-2xl mx-1 bg-surface border-subtle space-y-1">
           <button
             onClick={() => setIsNotesExpanded(true)}
             className="w-full flex items-center justify-between p-4"
@@ -2230,6 +2233,21 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               <MessageSquare size={16} className="text-muted" />
               <h3 className="text-[13px] font-black uppercase tracking-widest text-muted">
                 {notes.length > 0 ? 'Add Another Note' : 'Add Verification Notes'}
+              </h3>
+            </div>
+            <ChevronDown size={14} className="text-muted -rotate-90" />
+          </button>
+
+          <div className="border-t border-subtle" />
+
+          <button
+            onClick={() => setIsParkedLocationOpen(true)}
+            className="w-full flex items-center justify-between p-4"
+          >
+            <div className="flex items-center gap-2">
+              <MapPin size={16} className="text-muted" />
+              <h3 className="text-[13px] font-black uppercase tracking-widest text-muted">
+                Select Parked Location
               </h3>
             </div>
             <ChevronDown size={14} className="text-muted -rotate-90" />
@@ -2287,6 +2305,93 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 >
                   <Send size={18} />
                   Return to Verification List
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Parked Location Selector Modal */}
+      {isParkedLocationOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-main/70 backdrop-blur-md"
+              onClick={() => setIsParkedLocationOpen(false)}
+            />
+            <div className="relative w-full max-w-lg bg-surface border border-accent/20 rounded-[2rem] shadow-2xl p-6 animate-in fade-in zoom-in duration-200">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <MapPin size={24} className="text-accent" />
+                  <h3 className="text-xl font-black uppercase tracking-widest text-content">
+                    Parked Location
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setIsParkedLocationOpen(false)}
+                  className="p-2 hover:bg-card rounded-full text-muted transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="mb-5">
+                <label className="block text-xs font-bold text-muted uppercase tracking-widest mb-2">
+                  Enter Location
+                </label>
+                <input
+                  type="text"
+                  value={parkedLocation}
+                  onChange={(e) => setParkedLocation(e.target.value.toUpperCase())}
+                  placeholder="E.g., ROW A, BIKE ZONE, SHIPPING PREP..."
+                  className="w-full bg-card border border-subtle rounded-2xl p-4 text-lg text-content focus:outline-none focus:border-accent/30 placeholder:text-muted/50"
+                  autoFocus
+                />
+              </div>
+
+              <div className="mb-5">
+                <p className="text-xs font-bold text-muted uppercase tracking-widest mb-2">
+                  Quick Select
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {['ROW A', 'ROW B', 'ROW C', 'BIKE ZONE', 'SHIPPING PREP', 'QUALITY CHECK'].map(
+                    (loc) => (
+                      <button
+                        key={loc}
+                        onClick={() => setParkedLocation(loc)}
+                        className={`py-2 px-3 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${
+                          parkedLocation === loc
+                            ? 'bg-accent text-main'
+                            : 'bg-card border border-subtle text-muted hover:bg-surface'
+                        }`}
+                      >
+                        {loc}
+                      </button>
+                    )
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setIsParkedLocationOpen(false)}
+                  className="flex-1 py-4 bg-card border border-subtle text-content/70 font-black uppercase tracking-widest text-sm rounded-2xl active:scale-95 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (parkedLocation.trim()) {
+                      onAddNote(`[Parked]: ${parkedLocation.trim()}`);
+                      setParkedLocation('');
+                      setIsParkedLocationOpen(false);
+                    }
+                  }}
+                  disabled={!parkedLocation.trim()}
+                  className="flex-1 py-4 bg-accent text-main font-black uppercase tracking-widest text-sm rounded-2xl shadow-lg shadow-accent/10 active:scale-95 transition-all disabled:opacity-30"
+                >
+                  Save Location
                 </button>
               </div>
             </div>
