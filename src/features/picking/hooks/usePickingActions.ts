@@ -277,7 +277,7 @@ export const usePickingActions = ({
         );
         const bikeSkuSet = await resolveBikeSkuSet(optimizedItems.map((i) => i.sku));
         const pallets = calculatePalletsWithBikeAwareness(optimizedItems, bikeSkuSet);
-        const palletsQty = pallets.length;
+        const palletsQty = pallets.filter((p) => !p.isParts).length;
 
         // Transition to double_checking immediately
         // Guard: never write merged group data back — merged order_numbers contain ' / '

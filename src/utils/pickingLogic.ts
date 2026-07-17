@@ -22,6 +22,7 @@ export interface Pallet {
   totalUnits: number;
   footprint_in2: number;
   limitPerPallet: number; // Added for UI display
+  isParts?: boolean; // True if this container represents loose parts, not a physical pallet
 }
 
 /**
@@ -347,15 +348,28 @@ export const calculatePalletsWithBikeAwareness = (
   const bikes = items.filter((i) => bikeSkuSet.has(i.sku));
   const parts = items.filter((i) => !bikeSkuSet.has(i.sku));
 
-  // If no bikes are detected (or if order is purely parts), paginate normally.
-  if (bikes.length === 0) return calculatePallets(items);
+  // If no bikes are detected (or if order is purely parts), return just the parts container.
+  if (bikes.length === 0) {
+    const totalUnits = parts.reduce((sum, i) => sum + (i.pickingQty || 0), 0);
+    return [
+      { id: 1, items: parts, totalUnits, footprint_in2: 0, limitPerPallet: 0, isParts: true },
+    ];
+  }
 
   const bikePallets = calculatePallets(bikes);
   if (parts.length === 0) return bikePallets;
 
-  // Bikes present: stack all parts onto the last bike pallet (one parts location).
-  return stackPartsOnBikes(
-    [...bikePallets, { id: 0, items: parts, totalUnits: 0, footprint_in2: 0, limitPerPallet: 0 }],
-    bikeSkuSet
-  );
+  // Bikes present: parts get their own "Parts" container, independent of pallets.
+  const totalUnits = parts.reduce((sum, i) => sum + (i.pickingQty || 0), 0);
+  return [
+    ...bikePallets,
+    {
+      id: bikePallets.length + 1,
+      items: parts,
+      totalUnits,
+      footprint_in2: 0,
+      limitPerPallet: 0,
+      isParts: true,
+    },
+  ];
 };

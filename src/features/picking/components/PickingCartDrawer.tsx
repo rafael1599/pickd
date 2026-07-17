@@ -619,7 +619,7 @@ export const PickingCartDrawer: React.FC = () => {
         const optimizedPath = getOptimizedPickingPath(mainCartItems, allLocations);
         const mainBikeSkuSet = await resolveBikeSkuSet(optimizedPath.map((i) => i.sku));
         const calculatedPallets = calculatePalletsWithBikeAwareness(optimizedPath, mainBikeSkuSet);
-        pallets_qty = calculatedPallets.length;
+        pallets_qty = calculatedPallets.filter((p) => !p.isParts).length;
       }
 
       // Complete main order with its own metrics
@@ -693,7 +693,7 @@ export const PickingCartDrawer: React.FC = () => {
               const sibPalletsQty = calculatePalletsWithBikeAwareness(
                 sibPath,
                 sibBikeSkuSet
-              ).length;
+              ).filter((p) => !p.isParts).length;
 
               if (sibling.status === 'reopened') {
                 // Reopened sibling — apply inventory delta vs completed_snapshot.
@@ -801,7 +801,9 @@ export const PickingCartDrawer: React.FC = () => {
                     const totalUnits = its.reduce((acc, i) => acc + (i.pickingQty || 0), 0);
                     const path = getOptimizedPickingPath(its, allLocations);
                     const bikeSkuSet = await resolveBikeSkuSet(path.map((i) => i.sku));
-                    const palletsQty = calculatePalletsWithBikeAwareness(path, bikeSkuSet).length;
+                    const palletsQty = calculatePalletsWithBikeAwareness(path, bikeSkuSet).filter(
+                      (p) => !p.isParts
+                    ).length;
                     return { totalUnits, palletsQty };
                   };
 

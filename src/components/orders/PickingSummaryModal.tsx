@@ -354,7 +354,7 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
                 {/* Pallet header — centered */}
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <span className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap">
-                    Pallet {pallet.id}
+                    {pallet.isParts ? 'Parts' : `Pallet ${pallet.id}`}
                   </span>
                   <span className="text-white/20 text-[10px] font-black">·</span>
                   <span className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em] whitespace-nowrap">
@@ -496,9 +496,11 @@ export const PickingSummaryModal: React.FC<PickingSummaryModalProps> = ({
         <div className="px-6 py-4 bg-white/[0.03] border-t border-white/10 flex items-center justify-between shrink-0">
           <div className="flex gap-6">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-white text-base font-black leading-none">{pallets.length}</span>
+              <span className="text-white text-base font-black leading-none">
+                {pallets.filter((p) => !p.isParts).length}
+              </span>
               <span className="text-[9px] text-white/30 font-black uppercase tracking-[0.15em]">
-                pallet{pallets.length !== 1 ? 's' : ''}
+                pallet{pallets.filter((p) => !p.isParts).length !== 1 ? 's' : ''}
               </span>
             </div>
             <div className="flex items-baseline gap-1.5">

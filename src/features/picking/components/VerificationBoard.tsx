@@ -194,20 +194,32 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     // Pre-calculate shipping types for all active orders
     const orderShippingTypes = new Map<string, 'fedex' | 'regular'>();
     for (const order of filteredOrders) {
-      const st =
-        order.shipping_type ??
-        autoClassifyShippingType(
-          order.items?.map((i) => ({
-            sku: i.sku,
-            pickingQty: (i as Record<string, unknown>).pickingQty as number,
-            source_order: (i as Record<string, unknown>).source_order as string | undefined,
-            sku_metadata: (i as Record<string, unknown>).sku_metadata as
-              | { is_bike?: boolean | null }
-              | null
-              | undefined,
-          })) ?? [],
-          {}
-        );
+      const isFedexTransport =
+        String(order.transport_company || '')
+          .trim()
+          .toUpperCase() === 'FEDEX';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const isFedexGroup = (order as any).order_group?.group_type === 'fedex';
+
+      let st: string = 'regular';
+      if (order.shipping_type === 'fedex' || isFedexTransport || isFedexGroup) {
+        st = 'fedex';
+      } else {
+        st =
+          order.shipping_type ??
+          autoClassifyShippingType(
+            order.items?.map((i) => ({
+              sku: i.sku,
+              pickingQty: (i as Record<string, unknown>).pickingQty as number,
+              source_order: (i as Record<string, unknown>).source_order as string | undefined,
+              sku_metadata: (i as Record<string, unknown>).sku_metadata as
+                | { is_bike?: boolean | null }
+                | null
+                | undefined,
+            })) ?? [],
+            {}
+          );
+      }
       orderShippingTypes.set(order.id, st === 'fedex' ? 'fedex' : 'regular');
     }
 

@@ -585,10 +585,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       : redistributeWithOverrides(bikeAware, palletOverrides);
   }, [originalPallets, palletOverrides, bikeSkuSet]);
 
+  const physicalPalletCount = useMemo(() => pallets.filter((p) => !p.isParts).length, [pallets]);
+
   // Notify parent of pallet count changes
   useEffect(() => {
-    onPalletCountChange?.(pallets.length);
-  }, [pallets.length, onPalletCountChange]);
+    onPalletCountChange?.(physicalPalletCount);
+  }, [physicalPalletCount, onPalletCountChange]);
 
   // Fetch initial pallet photos count for the active order
   useEffect(() => {
@@ -1214,7 +1216,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       // Burst mode: if we still need more photos to match pallet count,
       // auto-reopen the camera. Browsers preserve user activation briefly
       // after onChange, so this works on most devices.
-      if (newCount < pallets.length) {
+      if (newCount < physicalPalletCount) {
         setTimeout(() => {
           scanInputRef.current?.click();
         }, 250);
@@ -1222,8 +1224,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
       setIsScanning(true);
       setScanStatus(
-        newCount < pallets.length
-          ? `Photo ${newCount} of ${pallets.length} — opening camera for next…`
+        newCount < physicalPalletCount
+          ? `Photo ${newCount} of ${physicalPalletCount} — opening camera for next…`
           : 'Processing image...'
       );
 
@@ -1322,7 +1324,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         setIsScanning(false);
       }
     },
-    [cartItems, palletPhotosCount, pallets.length, activeListId, isReadOnly]
+    [cartItems, palletPhotosCount, physicalPalletCount, activeListId, isReadOnly]
   );
 
   // Auto-check items where scan count >= pickingQty
@@ -1520,7 +1522,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           groupId={activeGroupId}
           groupMembers={groupMembers}
           problemCount={problemItems.length}
-          photo={{ count: palletPhotosCount, total: pallets.length, isScanning }}
+          photo={{ count: palletPhotosCount, total: physicalPalletCount, isScanning }}
           canWait={isAdmin && status !== 'cancelled'}
           canMerge={
             !isCombined &&
@@ -1690,7 +1692,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           />
         )}
 
-        {pallets.length === 0 && cartItems.length > 0 && (
+        {physicalPalletCount === 0 && pallets.length === 0 && cartItems.length > 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <AlertCircle className="text-amber-500 mb-4 opacity-30" size={48} />
             <p className="text-sm font-black text-muted uppercase tracking-widest">
@@ -1781,7 +1783,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                     }`}
                   >
                     {isLocked && <Lock size={8} />}
-                    Pallet {pallet.id}/{pallets.length}
+                    {pallet.isParts ? 'Parts' : `Pallet ${pallet.id}/${physicalPalletCount}`}
                   </span>
                   {/* Per-pallet progress + edit — single line. The denominator IS the
                       pallet's units, so the old separate "N Units" line was redundant;
