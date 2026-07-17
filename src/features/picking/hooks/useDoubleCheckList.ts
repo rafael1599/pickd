@@ -50,6 +50,7 @@ export interface PickingList {
   transport_company?: string | null;
   is_shipped?: boolean;
   verified_item_keys?: string[] | null;
+  notes?: string | null;
 }
 
 const PICKING_LIST_SELECT = `
@@ -75,7 +76,8 @@ const PICKING_LIST_SELECT = `
   source_order_date,
   transport_company,
   is_shipped,
-  verified_item_keys
+  verified_item_keys,
+  notes
 `;
 
 export const VERIFICATION_QUEUE_KEY = ['picking_lists', 'verification_queue'];

@@ -6,6 +6,7 @@ import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import Unlink from 'lucide-react/dist/esm/icons/unlink';
 import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
+import MessageSquare from 'lucide-react/dist/esm/icons/message-square';
 import type { PickingList } from '../../hooks/useDoubleCheckList';
 
 import { TransportLogo } from '../../../../components/orders/TransportLogo';
@@ -14,6 +15,7 @@ import {
   type PickingItem,
 } from '../../../../utils/pickingLogic';
 import { orderColorFor, SINGLE_ORDER_COLOR } from '../../../../utils/orderColors';
+import { usePickingNotes } from '../../hooks/usePickingNotes';
 
 type ShippingType = 'fedex' | 'regular';
 
@@ -117,6 +119,69 @@ function completedAtLabel(iso: string | undefined, showDate: boolean): string | 
 
   return `${dateStr} · ${time}`;
 }
+
+// ─── Notes Section Component ────────────────────────────────────────────────
+
+interface OrderNotesProps {
+  order: PickingList;
+}
+
+const OrderNotesSection: React.FC<OrderNotesProps> = ({ order }) => {
+  const { notes: userNotes } = usePickingNotes(order.is_shipped ? order.id : null);
+  const isCompleted = order.is_shipped === true;
+
+  // Active orders: show only the original note from AS400
+  if (!isCompleted) {
+    if (!order.notes) return null;
+
+    return (
+      <div className="mt-3 pt-3 border-t border-subtle/20 px-3 md:px-4">
+        <div className="text-[8px] font-bold text-muted uppercase tracking-wider mb-1.5">
+          Original Note
+        </div>
+        <p className="text-[9px] text-content/80 line-clamp-2">{order.notes}</p>
+        {userNotes.length > 0 && (
+          <div className="mt-2 flex items-center gap-1 px-2 py-1 bg-amber-500/10 border border-amber-500/30 rounded-lg w-fit">
+            <MessageSquare size={10} className="text-amber-500" />
+            <span className="text-[9px] font-bold text-amber-500">
+              {userNotes.length} note{userNotes.length > 1 ? 's' : ''}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Completed orders: show all notes (original + user notes)
+  return (
+    <div className="mt-3 pt-3 border-t border-subtle/20 px-3 md:px-4 space-y-2">
+      {order.notes && (
+        <div>
+          <div className="text-[8px] font-bold text-muted uppercase tracking-wider mb-1">
+            Original Note
+          </div>
+          <p className="text-[9px] text-content/80">{order.notes}</p>
+        </div>
+      )}
+
+      {userNotes.length > 0 && (
+        <div>
+          <div className="text-[8px] font-bold text-muted uppercase tracking-wider mb-1">
+            History ({userNotes.length})
+          </div>
+          <div className="space-y-1">
+            {userNotes.map((note) => (
+              <div key={note.id} className="text-[9px] text-content/80">
+                <span className="font-semibold text-amber-500">{note.user_display_name}:</span>
+                <span className="ml-1">{note.message}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // ─── Shared visual content (no DnD hooks) ────────────────────────────────────
 
@@ -394,6 +459,8 @@ const OrderCardShell: React.FC<CardProps> = ({
               />
             </div>
           )}
+
+          <OrderNotesSection order={order} />
         </button>
 
         {/* Right Panel: Carrier Logo Panel (Full Height) - Only shown on completed orders */}
