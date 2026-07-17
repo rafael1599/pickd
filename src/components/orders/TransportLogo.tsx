@@ -12,6 +12,8 @@ interface TransportLogoProps {
    * Use this when the parent provides its own container / background.
    */
   plain?: boolean;
+  /** Optional color for text fallback (e.g., 'text-red-500' for PICK UP). */
+  textColor?: string;
 }
 
 /**
@@ -25,6 +27,7 @@ export const TransportLogo = ({
   height,
   className = '',
   plain = false,
+  textColor = 'text-content/80',
 }: TransportLogoProps) => {
   const [failed, setFailed] = useState(false);
   const label = (company ?? '').trim();
@@ -39,7 +42,7 @@ export const TransportLogo = ({
   if (!src || failed) {
     return (
       <span
-        className={`text-[11px] font-black uppercase tracking-wider text-content/80 inline-flex items-center justify-center text-center ${className}`}
+        className={`text-[11px] font-black uppercase tracking-wider ${textColor} inline-flex items-center justify-center text-center ${className}`}
       >
         {label}
       </span>

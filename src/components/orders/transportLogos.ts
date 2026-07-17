@@ -28,3 +28,12 @@ export function normalizeCompany(company: string | null | undefined): string {
 export function transportLogoSrc(company: string | null | undefined): string | null {
   return TRANSPORT_LOGOS[normalizeCompany(company)] ?? null;
 }
+
+/** Get text color for carrier display (e.g., red for PICK UP). */
+export function getCarrierTextColor(company: string | null | undefined): string {
+  const normalized = normalizeCompany(company);
+  if (normalized === 'PICK UP') {
+    return 'text-red-500';
+  }
+  return 'text-content/80';
+}

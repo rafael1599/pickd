@@ -1,5 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
-import React from 'react';
+import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
+import X from 'lucide-react/dist/esm/icons/x';
 import CheckCircle2 from 'lucide-react/dist/esm/icons/check-circle-2';
 import Clock from 'lucide-react/dist/esm/icons/clock';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
@@ -16,6 +18,10 @@ import {
 } from '../../../../utils/pickingLogic';
 import { orderColorFor, SINGLE_ORDER_COLOR } from '../../../../utils/orderColors';
 import { usePickingNotes } from '../../hooks/usePickingNotes';
+import { getCarrierTextColor, TRANSPORT_LOGOS } from '../../../../components/orders/transportLogos';
+import { useAuth } from '../../../../context/AuthContext';
+import { supabase } from '../../../../lib/supabase';
+import toast from 'react-hot-toast';
 
 type ShippingType = 'fedex' | 'regular';
 
@@ -192,6 +198,32 @@ const OrderCardShell: React.FC<CardProps> = ({
   onMerge,
   showDate = false,
 }) => {
+  const { user } = useAuth();
+  const [isCarrierOpen, setIsCarrierOpen] = useState(false);
+  const [selectedCarrier, setSelectedCarrier] = useState('');
+  const [isSavingCarrier, setIsSavingCarrier] = useState(false);
+
+  const handleSaveCarrier = async () => {
+    if (!selectedCarrier.trim() || !user) return;
+    setIsSavingCarrier(true);
+    try {
+      const { error } = await supabase
+        .from('picking_lists')
+        .update({ transport_company: selectedCarrier.trim() })
+        .eq('id', order.id);
+
+      if (error) throw error;
+      toast.success(`Carrier set to ${selectedCarrier}`);
+      setIsCarrierOpen(false);
+      setSelectedCarrier('');
+    } catch (err) {
+      console.error('Failed to update carrier:', err);
+      toast.error('Failed to save carrier');
+    } finally {
+      setIsSavingCarrier(false);
+    }
+  };
+
   // Parked orders (double_checking without a checker) render as plain cards.
   const effectiveStatus =
     order.status === 'double_checking' && !order.checked_by
@@ -462,21 +494,106 @@ const OrderCardShell: React.FC<CardProps> = ({
 
         {/* Right Panel: Carrier Logo Panel (Full Height) - Only shown on completed orders */}
         {order.status === 'completed' && (
-          <div className="relative flex items-center justify-center shrink-0 self-stretch min-w-[76px] md:min-w-[84px] select-none overflow-hidden">
+          <div className="relative flex items-center justify-center shrink-0 self-stretch min-w-[76px] md:min-w-[84px] overflow-hidden">
             {shippingType === 'fedex' || order.transport_company ? (
               <TransportLogo
                 company={shippingType === 'fedex' ? 'FEDEX' : order.transport_company}
-                className="absolute inset-0 h-full w-full object-contain"
+                className="absolute inset-0 h-full w-full object-contain select-none"
                 plain
+                textColor={getCarrierTextColor(order.transport_company)}
               />
             ) : (
-              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded whitespace-nowrap">
-                Regular
-              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsCarrierOpen(true);
+                }}
+                className="flex items-center justify-center gap-1 px-2 py-1.5 text-[9px] font-black uppercase tracking-widest text-accent hover:bg-accent/10 rounded-lg transition-colors"
+                title="Select Carrier"
+              >
+                <span>Set Carrier</span>
+              </button>
             )}
           </div>
         )}
       </div>
+
+      {/* Carrier Selector Modal */}
+      {isCarrierOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-main/70 backdrop-blur-md"
+              onClick={() => setIsCarrierOpen(false)}
+            />
+            <div className="relative w-full max-w-md bg-surface border border-accent/20 rounded-[2rem] shadow-2xl p-6 animate-in fade-in zoom-in duration-200">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-xl font-black uppercase tracking-widest text-content">
+                    Select Carrier
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setIsCarrierOpen(false)}
+                  className="p-2 hover:bg-card rounded-full text-muted transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="space-y-2 max-h-96 overflow-y-auto mb-5">
+                {[
+                  'PICK UP',
+                  'FEDEX',
+                  'R+L',
+                  '2-DAY',
+                  'RIST',
+                  'TFORCE',
+                  'DAYLIGHT',
+                  'PAV EXPRESS',
+                  'ESTES',
+                ].map((carrier) => (
+                  <button
+                    key={carrier}
+                    onClick={() => setSelectedCarrier(carrier)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all ${
+                      selectedCarrier === carrier
+                        ? 'border-accent bg-accent/10'
+                        : 'border-subtle bg-card hover:border-accent/50'
+                    }`}
+                  >
+                    <div className="flex-1 text-left">
+                      <TransportLogo
+                        company={carrier}
+                        height={24}
+                        plain
+                        textColor={getCarrierTextColor(carrier)}
+                      />
+                    </div>
+                    <span className="text-xs font-bold text-muted">{carrier}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setIsCarrierOpen(false)}
+                  className="flex-1 py-3 bg-card border border-subtle text-content/70 font-black uppercase tracking-widest text-sm rounded-2xl active:scale-95 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveCarrier}
+                  disabled={!selectedCarrier.trim() || isSavingCarrier}
+                  className="flex-1 py-3 bg-accent text-main font-black uppercase tracking-widest text-sm rounded-2xl shadow-lg shadow-accent/10 active:scale-95 transition-all disabled:opacity-30"
+                >
+                  {isSavingCarrier ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
