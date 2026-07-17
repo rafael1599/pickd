@@ -93,6 +93,7 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
             .ilike('order_number', `%${query}%`)
             .neq('id', sourceOrderId)
             .neq('status', 'shipped')
+            .eq('is_shipped', false)
             .order('updated_at', { ascending: false })
             .limit(50);
 
@@ -113,6 +114,7 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
               .in('customer_id', customerIds)
               .neq('id', sourceOrderId)
               .neq('status', 'shipped')
+              .eq('is_shipped', false)
               .order('updated_at', { ascending: false })
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               .limit(50) as any;
@@ -136,6 +138,7 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
               'needs_correction',
             ])
             .neq('id', sourceOrderId)
+            .eq('is_shipped', false)
             .order('created_at', { ascending: false })
             .limit(50);
 
@@ -147,6 +150,7 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
               .eq('customer_id', currentCustomerId)
               .in('status', ['completed', 'cancelled'])
               .neq('id', sourceOrderId)
+              .eq('is_shipped', false)
               .order('updated_at', { ascending: false })
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               .limit(30) as any;
