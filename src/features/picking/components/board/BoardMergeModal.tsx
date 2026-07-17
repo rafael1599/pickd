@@ -463,9 +463,7 @@ const CandidateRow: React.FC<{
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
-          <span
-            className={`text-xs font-black tracking-tight ${highlight ? 'text-emerald-300' : 'text-content/85'}`}
-          >
+          <span className={`text-xs font-black tracking-tight ${c.text}`}>
             #{candidate.order_number ?? '—'}
           </span>
           <StatusChip status={candidate.status} />
