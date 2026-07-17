@@ -1,4 +1,5 @@
 import toast from 'react-hot-toast';
+import { supabase } from '../../../lib/supabase';
 import { useGenerateLabels } from './useGenerateLabels';
 
 /**
@@ -13,6 +14,15 @@ export function useQuickPrintLabel() {
       toast.error('Location required for label');
       return;
     }
+
+    // Pull label metadata (color/model/size/serial/upc) so quick-printed labels
+    // carry the same content as Label Studio ones.
+    const { data: meta } = await supabase
+      .from('sku_metadata')
+      .select('upc, color, model, size, serial_number')
+      .eq('sku', sku)
+      .maybeSingle();
+
     await generate([
       {
         sku,
@@ -24,11 +34,13 @@ export function useQuickPrintLabel() {
         layout: 'standard',
         prefix: null,
         extra: null,
-        upc: null,
-        color: null,
+        upc: meta?.upc ?? null,
+        color: meta?.color ?? null,
+        model: meta?.model ?? null,
+        size: meta?.size ?? null,
         poNumber: null,
         cNumber: null,
-        serialNumber: null,
+        serialNumber: meta?.serial_number ?? null,
         madeIn: null,
         otherNotes: null,
         withQr: true,

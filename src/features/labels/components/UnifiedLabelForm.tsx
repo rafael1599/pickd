@@ -94,6 +94,9 @@ export const UnifiedLabelForm = ({
         quantity: item?.quantity ?? 0,
         upc: item?.upc ?? null,
         color: item?.color ?? null,
+        model: item?.model ?? null,
+        size: item?.size ?? null,
+        serial_number: item?.serial_number ?? null,
       },
       Math.max(1, (item?.quantity ?? 1) - tagged)
     );
