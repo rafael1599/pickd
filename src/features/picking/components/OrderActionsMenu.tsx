@@ -75,7 +75,7 @@ export const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
   onCancel,
 }) => {
   const [ungroupOpen, setUngroupOpen] = useState(false);
-  const isPastOrder = status === 'completed' || status === 'cancelled';
+  const isPastOrder = status === 'completed' || status === 'cancelled' || status === 'shipped';
   const isGrouped = !!groupId && groupMembers.length > 1;
   const headerLabel = orderNumber || fallbackId || '—';
 
@@ -253,7 +253,7 @@ export const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
           </>
         )}
 
-        {onReopen && isPastOrder && (
+        {onReopen && isPastOrder && status !== 'shipped' && (
           <button onClick={onReopen} className={ROW}>
             <Clock size={16} className="text-sky-400" />
             <div>

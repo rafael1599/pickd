@@ -34,6 +34,7 @@ export const PickingCartDrawer: React.FC = () => {
     stockNavSignal,
     externalActionTrigger,
     setExternalActionTrigger,
+    setViewMode,
   } = useViewMode();
   const { pathname } = useLocation();
   // Per-item pick/unpick mutation. Inherits the project's mutation
@@ -65,6 +66,7 @@ export const PickingCartDrawer: React.FC = () => {
     deleteList: _deleteList,
     resetSession,
     listStatus,
+    setListStatus,
     isWaitingInventory,
     setIsWaitingInventory,
     claimAsPicker,
@@ -461,6 +463,7 @@ export const PickingCartDrawer: React.FC = () => {
       }
     }
     resetSession();
+    setViewMode('stock');
     setIsOpen(false);
   };
 

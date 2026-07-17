@@ -1,0 +1,44 @@
+--- src/features/orders/hooks/useOrdersOfDay.ts
++++ src/features/orders/hooks/useOrdersOfDay.ts
+@@ -116,6 +116,21 @@
+ 
+   const refetch = useCallback(async () => {
+     try {
++      const sq = searchQuery.trim();
++      let customerIds: string[] = [];
++      
++      // If searching text (not purely numbers) and longer than 1 char, find matching customers first
++      if (sq && sq.length >= 2 && !/^\d+$/.test(sq)) {
++        const { data } = await withSupabaseRetry(
++          () => supabase.from('customers').select('id').ilike('name', `%${sq}%`).limit(20),
++          { label: 'useOrdersOfDay.customerSearch' }
++        );
++        if (data) {
++          customerIds = data.map((c: any) => c.id);
++        }
++      }
++
+       let query = supabase
+         .from('picking_lists')
+         .select(
+@@ -129,14 +144,14 @@
+         )
+         .order('created_at', { ascending: false });
+ 
+-      const sq = searchQuery.trim();
+       if (sq) {
+-        if (/^\d+$/.test(sq)) {
+-          query = query.ilike('order_number', `%${sq}%`);
++        if (customerIds.length > 0) {
++          query = query.or(`order_number.ilike.%${sq}%,customer_id.in.(${customerIds.join(',')})`);
+         } else {
+-          query = query.limit(3000);
++          query = query.ilike('order_number', `%${sq}%`);
+         }
++        query = query.limit(100);
+       } else {
+-        query = query.limit(1000);
++        query = query.limit(300);
+       }
+ 
+       const { data, error } = await withSupabaseRetry(() => query, {

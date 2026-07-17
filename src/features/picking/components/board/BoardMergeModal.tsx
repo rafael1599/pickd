@@ -92,6 +92,7 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
             .select(SELECT_COLS)
             .ilike('order_number', `%${query}%`)
             .neq('id', sourceOrderId)
+            .neq('status', 'shipped')
             .order('updated_at', { ascending: false })
             .limit(50);
 
@@ -111,6 +112,7 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
               .select(SELECT_COLS)
               .in('customer_id', customerIds)
               .neq('id', sourceOrderId)
+              .neq('status', 'shipped')
               .order('updated_at', { ascending: false })
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               .limit(50) as any;
