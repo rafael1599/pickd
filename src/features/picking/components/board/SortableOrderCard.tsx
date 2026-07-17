@@ -358,9 +358,7 @@ const OrderCardShell: React.FC<CardProps> = ({
 
   return (
     <div
-      className={`relative flex flex-col rounded-2xl overflow-hidden bg-card transition-all duration-200 group border w-full ${statusStyles.border} ${statusStyles.hoverBg} ${
-        order.status === 'completed' && showDate ? 'sm:col-span-2' : ''
-      }`}
+      className={`relative flex flex-col rounded-2xl overflow-hidden bg-card transition-all duration-200 group border w-full ${statusStyles.border} ${statusStyles.hoverBg}`}
     >
       {showShippingBadge && <div className={`h-1.5 shrink-0 w-full ${colors.stripe}`} />}
 
