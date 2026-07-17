@@ -2687,27 +2687,39 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         />
       )}
 
-      {activeOrderFilter && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[100]">
-          <button
-            onClick={() => setActiveOrderFilter(null)}
-            className="bg-yellow-500/15 backdrop-blur border border-yellow-500/30 text-yellow-500 px-4 py-2.5 rounded-full shadow-lg shadow-yellow-500/10 text-sm font-bold flex items-center gap-2 hover:bg-yellow-500/25 transition-all whitespace-nowrap animate-in fade-in slide-in-from-bottom-4"
-          >
-            <X size={16} />
-            <span className="flex">
-              {`Showing #${activeOrderFilter} Only`.split('').map((char, index) => (
-                <span
-                  key={index}
-                  className="animate-color-wave"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
-                  {char === ' ' ? '\u00A0' : char}
+      {activeOrderFilter &&
+        (() => {
+          const orderColorHex = orderColorFor(activeOrderFilter, combinedNumbers).hex;
+          return (
+            <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[100]">
+              <button
+                onClick={() => setActiveOrderFilter(null)}
+                className="backdrop-blur border px-4 py-2.5 rounded-full shadow-lg text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap animate-in fade-in slide-in-from-bottom-4"
+                style={{
+                  backgroundColor: `${orderColorHex}26`,
+                  borderColor: `${orderColorHex}4D`,
+                  color: orderColorHex,
+                  boxShadow: `0 10px 15px -3px ${orderColorHex}1a`,
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = `${orderColorHex}40`)}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = `${orderColorHex}26`)}
+              >
+                <X size={16} />
+                <span className="flex">
+                  {`Showing #${activeOrderFilter} Only`.split('').map((char, index) => (
+                    <span
+                      key={index}
+                      className="animate-color-wave"
+                      style={{ animationDelay: `${index * 0.05}s` }}
+                    >
+                      {char === ' ' ? '\u00A0' : char}
+                    </span>
+                  ))}
                 </span>
-              ))}
-            </span>
-          </button>
-        </div>
-      )}
+              </button>
+            </div>
+          );
+        })()}
     </div>
   );
 };
