@@ -399,7 +399,8 @@ export function computeLabelFace(
     vy += SEP_H * stretch;
 
     if (hasSku) {
-      const w = measure.textWidth(item.sku, vPrimary, 'bold');
+      const boxText = item.serial_number || item.sku;
+      const w = measure.textWidth(boxText, vPrimary, 'bold');
       const h = vPrimary * PT_TO_IN;
       const boxW = w + SKU_PAD_X * 2;
       ops.push({
@@ -412,7 +413,7 @@ export function computeLabelFace(
       });
       ops.push({
         kind: 'text',
-        text: item.sku,
+        text: boxText,
         x: cx,
         y: vy + SKU_PAD_Y + h * 0.8,
         sizePt: vPrimary,
@@ -549,7 +550,8 @@ export function computeLabelFace(
   y += SEP_H * stretch;
 
   if (hasSku) {
-    const w = measure.textWidth(item.sku, primary, 'bold');
+    const boxText = item.serial_number || item.sku;
+    const w = measure.textWidth(boxText, primary, 'bold');
     const h = primary * PT_TO_IN;
     ops.push({
       kind: 'rect',
@@ -561,7 +563,7 @@ export function computeLabelFace(
     });
     ops.push({
       kind: 'text',
-      text: item.sku,
+      text: boxText,
       x: M + SKU_PAD_X,
       y: y + SKU_PAD_Y + h * 0.8,
       sizePt: primary,
