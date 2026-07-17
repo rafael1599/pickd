@@ -119,16 +119,22 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
 
   // Filter completed orders by carrier
   const filteredCompletedOrders = completedOrders.filter((order) => {
+    const isUnassigned = !order.transport_company;
+    const isSelectedCarrier =
+      order.transport_company && selectedCarriers.has(order.transport_company);
+
+    // If no filters active (all deselected), show all
     if (selectedCarriers.size === 0 && !includeUnassigned) {
-      return true; // No filter active, show all
+      return true;
     }
 
-    if (!order.transport_company && includeUnassigned) {
-      return true; // Unassigned filter is on
+    // If filters active, show matching orders
+    if (includeUnassigned && isUnassigned) {
+      return true;
     }
 
-    if (order.transport_company && selectedCarriers.has(order.transport_company)) {
-      return true; // Carrier filter is on and matches
+    if (isSelectedCarrier) {
+      return true;
     }
 
     return false;
