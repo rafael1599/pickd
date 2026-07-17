@@ -17,6 +17,7 @@ const CARRIERS = [
 interface CarrierFilterProps {
   selectedCarriers: Set<string>;
   includeUnassigned: boolean;
+  hasUnassignedOrders: boolean;
   onCarrierToggle: (carrier: string) => void;
   onUnassignedToggle: (include: boolean) => void;
 }
@@ -24,16 +25,20 @@ interface CarrierFilterProps {
 export const CarrierFilter: React.FC<CarrierFilterProps> = ({
   selectedCarriers,
   includeUnassigned,
+  hasUnassignedOrders,
   onCarrierToggle,
   onUnassignedToggle,
 }) => {
-  const allSelected = selectedCarriers.size === CARRIERS.length && includeUnassigned;
+  const allSelected =
+    selectedCarriers.size === CARRIERS.length && (includeUnassigned || !hasUnassignedOrders);
 
   const handleSelectAll = () => {
     if (allSelected) {
       // Deselect all
       selectedCarriers.forEach((c) => onCarrierToggle(c));
-      onUnassignedToggle(false);
+      if (hasUnassignedOrders) {
+        onUnassignedToggle(false);
+      }
     } else {
       // Select all
       CARRIERS.forEach((c) => {
@@ -41,7 +46,7 @@ export const CarrierFilter: React.FC<CarrierFilterProps> = ({
           onCarrierToggle(c);
         }
       });
-      if (!includeUnassigned) {
+      if (hasUnassignedOrders && !includeUnassigned) {
         onUnassignedToggle(true);
       }
     }
@@ -60,26 +65,28 @@ export const CarrierFilter: React.FC<CarrierFilterProps> = ({
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-        {/* Unassigned option */}
-        <button
-          onClick={() => onUnassignedToggle(!includeUnassigned)}
-          className={`flex flex-col items-center gap-2 p-2 rounded-lg border-2 transition-all ${
-            includeUnassigned
-              ? 'border-accent bg-accent/10'
-              : 'border-subtle hover:border-accent/50'
-          }`}
-        >
-          <div
-            className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${
-              includeUnassigned ? 'border-accent bg-accent' : 'border-subtle'
+        {/* Unassigned option - only show if there are unassigned orders */}
+        {hasUnassignedOrders && (
+          <button
+            onClick={() => onUnassignedToggle(!includeUnassigned)}
+            className={`flex flex-col items-center gap-2 p-2 rounded-lg border-2 transition-all ${
+              includeUnassigned
+                ? 'border-accent bg-accent/10'
+                : 'border-subtle hover:border-accent/50'
             }`}
           >
-            {includeUnassigned && <div className="w-2 h-2 bg-white rounded-sm" />}
-          </div>
-          <span className="text-[9px] font-bold text-muted text-center leading-tight">
-            Unassigned
-          </span>
-        </button>
+            <div
+              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${
+                includeUnassigned ? 'border-accent bg-accent' : 'border-subtle'
+              }`}
+            >
+              {includeUnassigned && <div className="w-2 h-2 bg-white rounded-sm" />}
+            </div>
+            <span className="text-[9px] font-bold text-muted text-center leading-tight">
+              Unassigned
+            </span>
+          </button>
+        )}
 
         {/* Carrier options */}
         {CARRIERS.map((carrier) => (
