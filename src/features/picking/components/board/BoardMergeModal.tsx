@@ -4,6 +4,7 @@ import X from 'lucide-react/dist/esm/icons/x';
 import Star from 'lucide-react/dist/esm/icons/star';
 import Search from 'lucide-react/dist/esm/icons/search';
 import Package from 'lucide-react/dist/esm/icons/package';
+import Hourglass from 'lucide-react/dist/esm/icons/hourglass';
 
 import { supabase } from '../../../../lib/supabase';
 import type { PickingList } from '../../hooks/useDoubleCheckList';
@@ -17,6 +18,7 @@ export interface MergeTargetCandidate {
   item_count: number;
   updated_at: string | null;
   group_id: string | null;
+  is_waiting_inventory: boolean;
 }
 
 interface BoardMergeModalProps {
@@ -33,6 +35,7 @@ interface RawRow {
   group_id: string | null;
   items: unknown;
   updated_at: string | null;
+  is_waiting_inventory: boolean;
   customer: { name: string | null } | null;
 }
 
@@ -79,7 +82,7 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
         }
 
         const SELECT_COLS =
-          'id, order_number, status, customer_id, group_id, items, updated_at, customer:customers(name)';
+          'id, order_number, status, customer_id, group_id, items, updated_at, is_waiting_inventory, customer:customers(name)';
 
         let rows: RawRow[] = [];
 
@@ -177,6 +180,7 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
             item_count: Array.isArray(r.items) ? r.items.length : 0,
             updated_at: r.updated_at,
             group_id: r.group_id ?? null,
+            is_waiting_inventory: r.is_waiting_inventory ?? false,
           });
         }
         setCandidates(mapped);
@@ -202,17 +206,30 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
     }
   }, [sourceOrderId, searchQuery, sourceCustomerId, sourceCustomerName]);
 
-  // Separate same customer suggestions from others
-  const { sameCustomer, others } = useMemo(() => {
-    if (!sourceCustomerId) return { sameCustomer: [], others: candidates };
-    const same: MergeTargetCandidate[] = [];
-    const rest: MergeTargetCandidate[] = [];
+  // Group by customer, then by state (waiting first, then status)
+  const groupedCandidates = useMemo(() => {
+    const waiting: MergeTargetCandidate[] = [];
+    const active: MergeTargetCandidate[] = [];
+    const needsCorrection: MergeTargetCandidate[] = [];
+    const completed: MergeTargetCandidate[] = [];
+    const cancelled: MergeTargetCandidate[] = [];
+
     for (const c of candidates) {
-      if (c.customer_id && c.customer_id === sourceCustomerId) same.push(c);
-      else rest.push(c);
+      if (c.is_waiting_inventory) {
+        waiting.push(c);
+      } else if (['active', 'ready_to_double_check', 'double_checking'].includes(c.status)) {
+        active.push(c);
+      } else if (c.status === 'needs_correction') {
+        needsCorrection.push(c);
+      } else if (c.status === 'completed') {
+        completed.push(c);
+      } else if (c.status === 'cancelled') {
+        cancelled.push(c);
+      }
     }
-    return { sameCustomer: same, others: rest };
-  }, [candidates, sourceCustomerId]);
+
+    return { waiting, active, needsCorrection, completed, cancelled };
+  }, [candidates]);
 
   const handlePick = async (target: MergeTargetCandidate) => {
     setIsMerging(true);
@@ -293,37 +310,91 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
           </div>
         ) : (
           <>
-            {/* Same Customer Suggestions */}
-            {sameCustomer.length > 0 && (
-              <section>
-                <div className="flex items-center gap-1.5 mb-2 px-1">
-                  <Star size={10} className="text-emerald-400 fill-emerald-400" />
-                  <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">
-                    Same Customer{sourceCustomerName ? ` — ${sourceCustomerName}` : ''}
+            {/* Waiting Orders */}
+            {groupedCandidates.waiting.length > 0 && (
+              <section className="space-y-2">
+                <div className="flex items-center gap-1.5 px-1">
+                  <Hourglass size={12} className="text-amber-500" />
+                  <span className="text-[9px] font-black text-amber-500 uppercase tracking-widest">
+                    Waiting ({groupedCandidates.waiting.length})
                   </span>
                 </div>
                 <ul className="space-y-1.5">
-                  {sameCustomer.map((c) => (
+                  {groupedCandidates.waiting.map((c) => (
                     <li key={c.id}>
-                      <CandidateRow candidate={c} highlight onPick={handlePick} />
+                      <CandidateRow candidate={c} stateColor="amber" onPick={handlePick} />
                     </li>
                   ))}
                 </ul>
               </section>
             )}
 
-            {/* Other Candidate Lists */}
-            {others.length > 0 && (
-              <section>
-                <div className="flex items-center gap-1.5 mb-2 px-1 mt-1">
-                  <span className="text-[9px] font-black text-muted/60 uppercase tracking-widest">
-                    Other Active Orders
+            {/* Active Orders */}
+            {groupedCandidates.active.length > 0 && (
+              <section className="space-y-2">
+                <div className="flex items-center gap-1.5 px-1">
+                  <span className="text-[9px] font-black text-sky-400 uppercase tracking-widest">
+                    Active & Ready ({groupedCandidates.active.length})
                   </span>
                 </div>
                 <ul className="space-y-1.5">
-                  {others.map((c) => (
+                  {groupedCandidates.active.map((c) => (
                     <li key={c.id}>
-                      <CandidateRow candidate={c} highlight={false} onPick={handlePick} />
+                      <CandidateRow candidate={c} stateColor="sky" onPick={handlePick} />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {/* Needs Correction */}
+            {groupedCandidates.needsCorrection.length > 0 && (
+              <section className="space-y-2">
+                <div className="flex items-center gap-1.5 px-1">
+                  <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest">
+                    Needs Correction ({groupedCandidates.needsCorrection.length})
+                  </span>
+                </div>
+                <ul className="space-y-1.5">
+                  {groupedCandidates.needsCorrection.map((c) => (
+                    <li key={c.id}>
+                      <CandidateRow candidate={c} stateColor="amber" onPick={handlePick} />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {/* Completed */}
+            {groupedCandidates.completed.length > 0 && (
+              <section className="space-y-2">
+                <div className="flex items-center gap-1.5 px-1">
+                  <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">
+                    Completed ({groupedCandidates.completed.length})
+                  </span>
+                </div>
+                <ul className="space-y-1.5">
+                  {groupedCandidates.completed.map((c) => (
+                    <li key={c.id}>
+                      <CandidateRow candidate={c} stateColor="emerald" onPick={handlePick} />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {/* Cancelled */}
+            {groupedCandidates.cancelled.length > 0 && (
+              <section className="space-y-2">
+                <div className="flex items-center gap-1.5 px-1">
+                  <span className="text-[9px] font-black text-red-500 uppercase tracking-widest">
+                    Cancelled ({groupedCandidates.cancelled.length})
+                  </span>
+                </div>
+                <ul className="space-y-1.5">
+                  {groupedCandidates.cancelled.map((c) => (
+                    <li key={c.id}>
+                      <CandidateRow candidate={c} stateColor="red" onPick={handlePick} />
                     </li>
                   ))}
                 </ul>
@@ -350,21 +421,45 @@ export const BoardMergeModal: React.FC<BoardMergeModalProps> = ({
 
 const CandidateRow: React.FC<{
   candidate: MergeTargetCandidate;
-  highlight: boolean;
+  stateColor?: 'amber' | 'sky' | 'emerald' | 'red';
   onPick: (c: MergeTargetCandidate) => void;
-}> = ({ candidate, highlight, onPick }) => {
+}> = ({ candidate, stateColor = 'sky', onPick }) => {
   const ago = relativeAgo(candidate.updated_at);
   const isPastOrder = candidate.status === 'completed' || candidate.status === 'cancelled';
+
+  const colorMap = {
+    amber: {
+      border: 'border-amber-500/20',
+      bg: 'bg-amber-500/5',
+      hover: 'hover:bg-amber-500/10',
+      text: 'text-amber-500',
+    },
+    sky: {
+      border: 'border-sky-500/20',
+      bg: 'bg-sky-500/5',
+      hover: 'hover:bg-sky-500/10',
+      text: 'text-sky-500',
+    },
+    emerald: {
+      border: 'border-emerald-500/20',
+      bg: 'bg-emerald-500/5',
+      hover: 'hover:bg-emerald-500/10',
+      text: 'text-emerald-500',
+    },
+    red: {
+      border: 'border-red-500/20',
+      bg: 'bg-red-500/5',
+      hover: 'hover:bg-red-500/10',
+      text: 'text-red-500',
+    },
+  };
+  const c = colorMap[stateColor];
 
   return (
     <button
       type="button"
       onClick={() => onPick(candidate)}
-      className={`w-full text-left rounded-xl px-3 py-2.5 transition-all active:scale-[0.99] border flex items-center justify-between gap-3 ${
-        highlight
-          ? 'bg-emerald-500/5 border-emerald-500/20 hover:bg-emerald-500/10'
-          : 'bg-surface border-subtle hover:bg-surface/80'
-      }`}
+      className={`w-full text-left rounded-xl px-3 py-2.5 transition-all active:scale-[0.99] border flex items-center justify-between gap-3 ${c.bg} ${c.border} ${c.hover}`}
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
