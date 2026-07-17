@@ -22,6 +22,7 @@ import { getCarrierTextColor, TRANSPORT_LOGOS } from '../../../../components/ord
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../lib/supabase';
 import toast from 'react-hot-toast';
+import { useParkedLocations } from '../../hooks/useParkedLocations';
 
 type ShippingType = 'fedex' | 'regular';
 
@@ -202,9 +203,21 @@ const OrderCardShell: React.FC<CardProps> = ({
   const [isCarrierOpen, setIsCarrierOpen] = useState(false);
   const [selectedCarrier, setSelectedCarrier] = useState('');
   const [isSavingCarrier, setIsSavingCarrier] = useState(false);
+  const [isPickupLocationOpen, setIsPickupLocationOpen] = useState(false);
+  const [pickupLocation, setPickupLocation] = useState('');
+  const { locations: suggestedLocations } = useParkedLocations();
 
   const handleSaveCarrier = async () => {
     if (!selectedCarrier.trim() || !user) return;
+
+    // If PICK UP is selected, ask for location instead
+    if (selectedCarrier === 'PICK UP') {
+      setIsCarrierOpen(false);
+      setIsPickupLocationOpen(true);
+      return;
+    }
+
+    // Regular carrier save
     setIsSavingCarrier(true);
     try {
       const { error } = await supabase
@@ -219,6 +232,39 @@ const OrderCardShell: React.FC<CardProps> = ({
     } catch (err) {
       console.error('Failed to update carrier:', err);
       toast.error('Failed to save carrier');
+    } finally {
+      setIsSavingCarrier(false);
+    }
+  };
+
+  const handleSavePickup = async () => {
+    if (!pickupLocation.trim() || !user) return;
+    setIsSavingCarrier(true);
+    try {
+      // Update carrier to PICK UP
+      const { error: updateError } = await supabase
+        .from('picking_lists')
+        .update({ transport_company: 'PICK UP' })
+        .eq('id', order.id);
+
+      if (updateError) throw updateError;
+
+      // Add parked location note
+      const { error: noteError } = await supabase.from('picking_list_notes').insert({
+        list_id: order.id,
+        user_id: user.id,
+        message: `[Parked]: ${pickupLocation.trim()}`,
+      });
+
+      if (noteError) throw noteError;
+
+      toast.success(`Assigned as PICK UP at ${pickupLocation}`);
+      setIsPickupLocationOpen(false);
+      setPickupLocation('');
+      setSelectedCarrier('');
+    } catch (err) {
+      console.error('Failed to assign pickup:', err);
+      toast.error('Failed to assign pickup');
     } finally {
       setIsSavingCarrier(false);
     }
@@ -588,6 +634,81 @@ const OrderCardShell: React.FC<CardProps> = ({
                   className="flex-1 py-3 bg-accent text-main font-black uppercase tracking-widest text-sm rounded-2xl shadow-lg shadow-accent/10 active:scale-95 transition-all disabled:opacity-30"
                 >
                   {isSavingCarrier ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Pickup Location Modal */}
+      {isPickupLocationOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-main/70 backdrop-blur-md"
+              onClick={() => setIsPickupLocationOpen(false)}
+            />
+            <div className="relative w-full max-w-md bg-surface border border-red-500/20 rounded-[2rem] shadow-2xl p-6 animate-in fade-in zoom-in duration-200">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-xl font-black uppercase tracking-widest text-content">
+                    Where is it parked?
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setIsPickupLocationOpen(false)}
+                  className="p-2 hover:bg-card rounded-full text-muted transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="mb-5">
+                <input
+                  type="text"
+                  value={pickupLocation}
+                  onChange={(e) => setPickupLocation(e.target.value.toUpperCase())}
+                  placeholder="E.g., BAY 1, ROW 42..."
+                  className="w-full bg-card border border-subtle rounded-2xl p-4 text-lg text-content focus:outline-none focus:border-accent/30 placeholder:text-muted/50"
+                  autoFocus
+                />
+              </div>
+
+              <div className="mb-5">
+                <p className="text-xs font-bold text-muted uppercase tracking-widest mb-2">
+                  Most Used ({suggestedLocations.length})
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {suggestedLocations.map((loc) => (
+                    <button
+                      key={loc}
+                      onClick={() => setPickupLocation(loc)}
+                      className={`py-2 px-3 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${
+                        pickupLocation === loc
+                          ? 'bg-red-600 text-white'
+                          : 'bg-card border border-subtle text-muted hover:bg-surface'
+                      }`}
+                    >
+                      {loc}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setIsPickupLocationOpen(false)}
+                  className="flex-1 py-3 bg-card border border-subtle text-content/70 font-black uppercase tracking-widest text-sm rounded-2xl active:scale-95 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSavePickup}
+                  disabled={!pickupLocation.trim() || isSavingCarrier}
+                  className="flex-1 py-3 bg-red-600 text-white font-black uppercase tracking-widest text-sm rounded-2xl shadow-lg shadow-red-600/20 active:scale-95 transition-all disabled:opacity-30"
+                >
+                  {isSavingCarrier ? 'Saving...' : 'Confirm'}
                 </button>
               </div>
             </div>
