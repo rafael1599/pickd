@@ -112,6 +112,8 @@ export const InventoryFormSchema = InventoryItemInputSchema.extend({
   // idea-083: "Details" section — universal extra info per SKU.
   // All stored on sku_metadata (columns already exist for S/D). Accepted for
   // any item regardless of is_bike / is_scratch_dent.
+  model: z.string().optional().nullable(),
+  size: z.string().optional().nullable(),
   serial_number: z.string().optional().nullable(),
   color: z.string().optional().nullable(),
   price: z.coerce.number().nonnegative().optional().nullable(),

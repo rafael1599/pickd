@@ -131,6 +131,8 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       internal_note: '',
       sublocation: null,
       // idea-083: Details section defaults
+      model: '',
+      size: '',
       serial_number: '',
       color: '',
       price: null,
@@ -153,6 +155,8 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   const heightIn = watch('height_in');
   const weightLbs = watch('weight_lbs');
   // idea-083: Details fields watches (for dirty check)
+  const modelField = watch('model');
+  const sizeField = watch('size');
   const serialNumber = watch('serial_number');
   const colorField = watch('color');
   const priceField = watch('price');
@@ -163,6 +167,10 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   // its own when the detail opens. The baseline (last saved value) feeds the
   // dirty-check so changing only the color still enables Save.
   const colorBaselineRef = useRef('');
+  // Model/size, like color, are fetched async on open — baseline the fetched
+  // value so the dirty-check doesn't flag a false change before first edit.
+  const modelBaselineRef = useRef('');
+  const sizeBaselineRef = useRef('');
 
   // ─── Sync Initial Data ───
   useEffect(() => {
@@ -193,6 +201,8 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           // `price` maps to sku_metadata.sd_price (the canonical selling price).
           // For S/D items this is the sale price and msrp/standard_price
           // stay on bike_variants (shown read-only via useScratchAndDentBySku).
+          model: initialData.sku_metadata?.model || '',
+          size: initialData.sku_metadata?.size || '',
           serial_number: initialData.sku_metadata?.serial_number || '',
           // color isn't returned by the inventory RPC — seeded by a dedicated
           // fetch below (see the color-load effect). Default empty for now.
@@ -219,6 +229,10 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           ...dimensionDefaults(null),
           internal_note: '',
           sublocation: null,
+          model: initialData?.sku_metadata?.model || '',
+          size: initialData?.sku_metadata?.size || '',
+          serial_number: initialData?.sku_metadata?.serial_number || '',
+          color: '',
         });
         setDistribution([]);
         setUserEditedDistribution(false);
@@ -279,20 +293,27 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     }
   }, [isOpen, mode, initialData, ludlowData, atsData, setValue]);
 
-  // Load sku_metadata.color (not returned by the inventory RPC) when editing.
+  // Load sku_metadata.model/size/color (not returned by the inventory RPC) when
+  // editing, so the Details card shows the current structured values.
   useEffect(() => {
     if (!isOpen || mode !== 'edit' || !initialData?.sku) return;
     let cancelled = false;
     void (async () => {
       const { data } = await supabase
         .from('sku_metadata')
-        .select('color')
+        .select('model, size, color')
         .eq('sku', initialData.sku)
         .maybeSingle();
       if (cancelled) return;
       const c = (data?.color as string | null) ?? '';
+      const m = (data?.model as string | null) ?? '';
+      const s = (data?.size as string | null) ?? '';
       colorBaselineRef.current = c;
+      modelBaselineRef.current = m;
+      sizeBaselineRef.current = s;
       setValue('color', c);
+      setValue('model', m);
+      setValue('size', s);
     })();
     return () => {
       cancelled = true;
@@ -325,6 +346,8 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     if (metaChanged) return true;
     // idea-083: Details section fields
     const detailsChanged =
+      n(modelField) !== n(modelBaselineRef.current) ||
+      n(sizeField) !== n(sizeBaselineRef.current) ||
       n(serialNumber) !== n(meta?.serial_number) ||
       n(colorField) !== n(colorBaselineRef.current) ||
       num(priceField) !== num(meta?.sd_price) ||
@@ -354,6 +377,8 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     heightIn,
     weightLbs,
     photoPreview,
+    modelField,
+    sizeField,
     serialNumber,
     colorField,
     priceField,
@@ -717,6 +742,16 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   // ─── Save logic ───
   const executeSave = useCallback(
     async (data: InventoryFormValues) => {
+      // Name is derived from Model/Size/Color (the fields the New Item form now
+      // collects). concat_ws-style join, skipping blanks. If nothing to derive
+      // from, keep whatever name the form/caller already had.
+      const derivedName =
+        [data.model, data.size, data.color]
+          .map((v) => (v ?? '').trim())
+          .filter(Boolean)
+          .join(' ') || null;
+      const finalName = derivedName || data.item_name || null;
+
       updateSKUMetadata({
         sku: data.sku,
         // idea-068: persist the Bike/Part classification chosen in the form.
@@ -727,6 +762,8 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         weight_lbs: data.weight_lbs,
         // idea-083 + idea-085: Details-section fields. `price` persists on
         // sku_metadata.sd_price (canonical selling price for any item).
+        model: data.model || null,
+        size: data.size || null,
         serial_number: data.serial_number || null,
         color: data.color || null,
         sd_price: data.price ?? null,
@@ -734,11 +771,14 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         condition_description: data.condition_description || null,
         pdf_link: data.pdf_link || null,
       }).catch((e: unknown) => console.error('Metadata update failed:', e));
-      // Keep the dirty-check baseline in sync so a successful save settles.
+      // Keep the dirty-check baselines in sync so a successful save settles.
       colorBaselineRef.current = data.color || '';
+      modelBaselineRef.current = data.model || '';
+      sizeBaselineRef.current = data.size || '';
 
       const payload = {
         ...data,
+        item_name: finalName,
         internal_note: data.internal_note || null,
         distribution: distribution.filter((d) => d.count > 0 && d.units_each > 0),
       };
@@ -773,6 +813,8 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       internal_note: watch('internal_note'),
       sublocation: watch('sublocation') || null,
       distribution: [],
+      model: watch('model') || null,
+      size: watch('size') || null,
       serial_number: watch('serial_number') || null,
       color: watch('color') || null,
       price: watch('price') ?? null,
@@ -1015,6 +1057,10 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                       setValue('location', match.location || '', { shouldValidate: true });
                       setValue('item_name', match.item_name || '', { shouldValidate: true });
                       if (match.sku_metadata) {
+                        setValue('model', match.sku_metadata.model ?? '');
+                        setValue('size', match.sku_metadata.size ?? '');
+                        setValue('serial_number', match.sku_metadata.serial_number ?? '');
+                        setValue('color', match.sku_metadata.color ?? '');
                         setValue('length_in', match.sku_metadata.length_in ?? 54);
                         setValue('width_in', match.sku_metadata.width_in ?? 8);
                         setValue('height_in', match.sku_metadata.height_in ?? 30);
@@ -1025,14 +1071,47 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                   }}
                 />
               </div>
+              {/* New Item: collect Model / Size / Color / Serial. The display
+                  name is derived from Model+Size+Color on save — no free-text
+                  Name field (idea: structured SKU registration). */}
               <TappableField
-                label="Name"
-                value={itemName || ''}
+                label="Model"
+                value={modelField || ''}
                 isActive={false}
                 onTap={() => {}}
                 onBlur={() => {}}
-                onChange={(v) => setValue('item_name', v, { shouldValidate: true })}
-                placeholder="e.g. Desk Frame, Monitor Stand..."
+                onChange={(v) => setValue('model', v, { shouldValidate: true })}
+                placeholder="e.g. Explorer A2 / SRAM Derailleur"
+                forceEdit
+              />
+              <TappableField
+                label="Size"
+                value={sizeField || ''}
+                isActive={false}
+                onTap={() => {}}
+                onBlur={() => {}}
+                onChange={(v) => setValue('size', v, { shouldValidate: true })}
+                placeholder={'e.g. 19"'}
+                forceEdit
+              />
+              <TappableField
+                label="Color"
+                value={colorField || ''}
+                isActive={false}
+                onTap={() => {}}
+                onBlur={() => {}}
+                onChange={(v) => setValue('color', v, { shouldValidate: true })}
+                placeholder="e.g. Gloss Black"
+                forceEdit
+              />
+              <TappableField
+                label="Serial Number"
+                value={serialNumber || ''}
+                isActive={false}
+                onTap={() => {}}
+                onBlur={() => {}}
+                onChange={(v) => setValue('serial_number', v, { shouldValidate: true })}
+                placeholder="e.g. Y21K016255"
                 forceEdit
               />
               {/* idea-068: Bike/Part classification at registration time.
@@ -1088,15 +1167,6 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                     initialKeyboardMode="numeric"
                   />
                 )}
-              />
-              <TappableField
-                label="Name"
-                value={itemName || ''}
-                isActive={isActive('item_name')}
-                onTap={() => setActiveField('item_name')}
-                onBlur={() => handleFieldBlur()}
-                onChange={(v) => setValue('item_name', v, { shouldValidate: true })}
-                placeholder="e.g. Desk Frame..."
               />
               {/* Bike/Part toggle — manual classification. Shown in both add &
                   edit (idea-068). In edit it also updates the DB immediately;
@@ -1188,12 +1258,16 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                   sku={initialData.sku}
                   isScratchDent={isScratchDentItem}
                   isBike={typeIsBike}
+                  model={watch('model') ?? ''}
+                  size={watch('size') ?? ''}
                   serial={watch('serial_number') ?? ''}
                   color={watch('color') ?? ''}
                   price={watch('price') ?? null}
                   condition={watch('condition') ?? ''}
                   conditionDescription={watch('condition_description') ?? ''}
                   pdfLink={watch('pdf_link') ?? ''}
+                  setModel={(v) => setValue('model', v)}
+                  setSize={(v) => setValue('size', v)}
                   setSerial={(v) => setValue('serial_number', v)}
                   setColor={(v) => setValue('color', v)}
                   setPrice={(v) => setValue('price', v)}

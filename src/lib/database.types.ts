@@ -1988,8 +1988,12 @@ export type Database = {
       };
       register_new_sku: {
         Args: {
-          p_item_name: string;
+          p_color?: string;
+          p_item_name?: string;
           p_location?: string;
+          p_model?: string;
+          p_serial_number?: string;
+          p_size?: string;
           p_sku: string;
           p_warehouse?: string;
         };

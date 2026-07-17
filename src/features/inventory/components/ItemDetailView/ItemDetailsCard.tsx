@@ -52,10 +52,10 @@ const normalizeHref = (link: string) =>
 interface Props {
   sku: string;
   isScratchDent: boolean;
-  // Color is an explicit attribute for parts (bikes derive it from their name),
-  // so the editable Color field only renders when this is false.
   isBike: boolean;
   // Form values (controlled by parent)
+  model: string;
+  size: string;
   serial: string;
   color: string;
   price: number | null;
@@ -63,6 +63,8 @@ interface Props {
   conditionDescription: string;
   pdfLink: string;
   // Setters — parent owns state
+  setModel: (v: string) => void;
+  setSize: (v: string) => void;
   setSerial: (v: string) => void;
   setColor: (v: string) => void;
   setPrice: (v: number | null) => void;
@@ -87,13 +89,17 @@ interface Props {
 export function ItemDetailsCard({
   sku,
   isScratchDent,
-  isBike,
+  isBike: _isBike,
+  model,
+  size,
   serial,
   color,
   price,
   condition,
   conditionDescription,
   pdfLink,
+  setModel,
+  setSize,
   setSerial,
   setColor,
   setPrice,
@@ -102,11 +108,14 @@ export function ItemDetailsCard({
   setPdfLink,
 }: Props) {
   const [isEditing, setIsEditing] = useState(false);
-  // Color field shows for parts only (bikes carry color in their name).
-  const showColor = !isBike;
+  // Model / Size / Color / Serial are universal sku_metadata fields now, so the
+  // Color field always renders (it used to be parts-only).
+  void _isBike;
   // Snapshot taken when entering edit mode so Cancel can revert without
   // touching the parent dirty-check more than necessary.
   const [snapshot, setSnapshot] = useState<{
+    model: string;
+    size: string;
     serial: string;
     color: string;
     price: number | null;
@@ -125,6 +134,8 @@ export function ItemDetailsCard({
 
   const startEdit = () => {
     setSnapshot({
+      model,
+      size,
       serial,
       color,
       price,
@@ -137,6 +148,8 @@ export function ItemDetailsCard({
 
   const cancelEdit = () => {
     if (snapshot) {
+      setModel(snapshot.model);
+      setSize(snapshot.size);
       setSerial(snapshot.serial);
       setColor(snapshot.color);
       setPrice(snapshot.price);
@@ -156,8 +169,10 @@ export function ItemDetailsCard({
   };
 
   const hasAnyValue =
+    !!model ||
+    !!size ||
     !!serial ||
-    (showColor && !!color) ||
+    !!color ||
     price != null ||
     !!condition ||
     !!conditionDescription ||
@@ -245,8 +260,50 @@ export function ItemDetailsCard({
         </div>
       )}
 
-      {/* Universal fields — serial + condition (editable) */}
+      {/* Universal fields — Model / Size / Color / Serial + condition (editable) */}
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+        <div>
+          <div className="text-[9px] uppercase tracking-wider text-muted">Model</div>
+          {isEditing ? (
+            <input
+              type="text"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              placeholder="e.g. Explorer A2 / SRAM Derailleur"
+              className="card-input text-[10.5px]"
+            />
+          ) : (
+            <div className="font-medium text-content">{model || '—'}</div>
+          )}
+        </div>
+        <div>
+          <div className="text-[9px] uppercase tracking-wider text-muted">Size</div>
+          {isEditing ? (
+            <input
+              type="text"
+              value={size}
+              onChange={(e) => setSize(e.target.value)}
+              placeholder={'e.g. 19"'}
+              className="card-input text-[10.5px]"
+            />
+          ) : (
+            <div className="font-medium text-content">{size || '—'}</div>
+          )}
+        </div>
+        <div>
+          <div className="text-[9px] uppercase tracking-wider text-muted">Color</div>
+          {isEditing ? (
+            <input
+              type="text"
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+              placeholder="e.g. Gloss Black"
+              className="card-input text-[10.5px]"
+            />
+          ) : (
+            <div className="font-medium text-content">{color || '—'}</div>
+          )}
+        </div>
         <div>
           <div className="text-[9px] uppercase tracking-wider text-muted">Serial</div>
           {isEditing ? (
@@ -261,22 +318,6 @@ export function ItemDetailsCard({
             <div className="font-mono text-[10.5px] text-content">{serial || '—'}</div>
           )}
         </div>
-        {showColor && (
-          <div>
-            <div className="text-[9px] uppercase tracking-wider text-muted">Color</div>
-            {isEditing ? (
-              <input
-                type="text"
-                value={color}
-                onChange={(e) => setColor(e.target.value)}
-                placeholder="e.g. BLACK, RED"
-                className="card-input text-[10.5px]"
-              />
-            ) : (
-              <div className="font-medium text-content">{color || '—'}</div>
-            )}
-          </div>
-        )}
         <div>
           <div className="text-[9px] uppercase tracking-wider text-muted">Condition</div>
           {isEditing ? (

@@ -72,7 +72,10 @@ export const ReturnToStockSheet: React.FC<ReturnToStockSheetProps> = ({
   const [targetLocation, setTargetLocation] = useState('');
   const [creatingNew, setCreatingNew] = useState(false);
   const [newSku, setNewSku] = useState('');
-  const [newName, setNewName] = useState('');
+  const [newModel, setNewModel] = useState('');
+  const [newSize, setNewSize] = useState('');
+  const [newColor, setNewColor] = useState('');
+  const [newSerial, setNewSerial] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
 
   const debouncedQuery = useDebounce(query, 250);
@@ -101,7 +104,10 @@ export const ReturnToStockSheet: React.FC<ReturnToStockSheetProps> = ({
     setTargetLocation('');
     setCreatingNew(false);
     setNewSku('');
-    setNewName('');
+    setNewModel('');
+    setNewSize('');
+    setNewColor('');
+    setNewSerial('');
   };
 
   useEffect(() => {
@@ -187,21 +193,39 @@ export const ReturnToStockSheet: React.FC<ReturnToStockSheetProps> = ({
 
   const handleRegister = async () => {
     const sku = newSku.trim().toUpperCase();
-    const name = newName.trim() || sku;
     if (!sku) {
       toast.error('SKU is required');
       return;
     }
+    if (!newModel.trim()) {
+      toast.error('Model is required');
+      return;
+    }
+
+    const generatedName = [newModel.trim(), newSize.trim(), newColor.trim()]
+      .filter(Boolean)
+      .join(' ');
+
     setIsRegistering(true);
     try {
       const { data, error } = await (supabase.rpc as CallableFunction)('register_new_sku', {
         p_sku: sku,
-        p_item_name: name,
+        p_item_name: generatedName,
         p_warehouse: 'LUDLOW',
         p_location: 'FDX RETURNS',
       });
       if (error) throw error;
-      setSelected({ sku, item_name: name, quantity: 0, location: 'FDX RETURNS' });
+
+      // Update metadata
+      await inventoryApi.upsertMetadata({
+        sku,
+        model: newModel.trim(),
+        size: newSize.trim() || null,
+        color: newColor.trim() || null,
+        serial_number: newSerial.trim() || null,
+      });
+
+      setSelected({ sku, item_name: generatedName, quantity: 0, location: 'FDX RETURNS' });
       setCreatingNew(false);
       toast.success(data ? 'SKU registered' : 'SKU already existed, using it');
     } catch (err) {
@@ -360,14 +384,46 @@ export const ReturnToStockSheet: React.FC<ReturnToStockSheetProps> = ({
             </div>
             <div>
               <label className="text-xs text-muted uppercase tracking-widest">
-                Name (optional)
+                Model <span className="text-accent">*</span>
               </label>
               <input
                 type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder={newSku.trim() || 'Item name'}
-                className="w-full mt-1 bg-surface border border-subtle rounded-xl px-3 py-2 text-sm text-content placeholder:text-muted/50 focus:outline-none focus:ring-1 focus:ring-accent"
+                value={newModel}
+                onChange={(e) => setNewModel(e.target.value)}
+                placeholder="e.g. Explorer A2"
+                className="w-full mt-1 bg-surface border border-subtle rounded-xl px-3 py-2 text-sm text-content focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted uppercase tracking-widest">Size</label>
+                <input
+                  type="text"
+                  value={newSize}
+                  onChange={(e) => setNewSize(e.target.value)}
+                  placeholder='e.g. 19"'
+                  className="w-full mt-1 bg-surface border border-subtle rounded-xl px-3 py-2 text-sm text-content focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted uppercase tracking-widest">Color</label>
+                <input
+                  type="text"
+                  value={newColor}
+                  onChange={(e) => setNewColor(e.target.value)}
+                  placeholder="e.g. Gloss Black"
+                  className="w-full mt-1 bg-surface border border-subtle rounded-xl px-3 py-2 text-sm text-content focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-muted uppercase tracking-widest">Serial Number</label>
+              <input
+                type="text"
+                value={newSerial}
+                onChange={(e) => setNewSerial(e.target.value)}
+                placeholder="Optional"
+                className="w-full mt-1 bg-surface border border-subtle rounded-xl px-3 py-2 text-sm text-content focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </div>
             <div className="flex gap-2">

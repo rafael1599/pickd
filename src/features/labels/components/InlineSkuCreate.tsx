@@ -6,6 +6,7 @@ import { normalizeSkuOnRegister } from '../../../utils/skuNormalize';
 import type { LabelInventoryItem } from '../hooks/useLabelItems';
 
 interface InlineSkuCreateProps {
+  /** Prefills the Model field (the search query the user typed). */
   defaultName: string;
   locations: string[];
   onCreated: (item: LabelInventoryItem) => void;
@@ -20,7 +21,10 @@ export function InlineSkuCreate({
 }: InlineSkuCreateProps) {
   const queryClient = useQueryClient();
   const [sku, setSku] = useState('');
-  const [itemName, setItemName] = useState(defaultName);
+  const [model, setModel] = useState(defaultName);
+  const [size, setSize] = useState('');
+  const [color, setColor] = useState('');
+  const [serialNumber, setSerialNumber] = useState('');
   const [location, setLocation] = useState('INCOMING');
   const [locationSearch, setLocationSearch] = useState('');
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
@@ -33,7 +37,8 @@ export function InlineSkuCreate({
         .slice(0, 6)
     : locations.slice(0, 6);
 
-  const canCreate = sku.trim() !== '' && itemName.trim() !== '' && location.trim() !== '';
+  // Name is derived server-side from Model/Size/Color, so a Model is the minimum.
+  const canCreate = sku.trim() !== '' && model.trim() !== '' && location.trim() !== '';
 
   const handleCreate = useCallback(async () => {
     if (!canCreate || isCreating) return;
@@ -41,9 +46,12 @@ export function InlineSkuCreate({
 
     const { data, error } = await (supabase.rpc as CallableFunction)('register_new_sku', {
       p_sku: normalizeSkuOnRegister(sku),
-      p_item_name: itemName.trim(),
       p_warehouse: 'LUDLOW',
       p_location: location.trim(),
+      p_model: model.trim() || null,
+      p_size: size.trim() || null,
+      p_color: color.trim() || null,
+      p_serial_number: serialNumber.trim() || null,
     });
 
     if (error) {
@@ -55,6 +63,10 @@ export function InlineSkuCreate({
     const result = data as {
       sku: string;
       item_name: string;
+      model: string | null;
+      size: string | null;
+      color: string | null;
+      serial_number: string | null;
       location: string;
       location_id: string;
     };
@@ -67,7 +79,10 @@ export function InlineSkuCreate({
       image_url: null,
       is_bike: false,
       upc: null,
-      color: null,
+      color: result.color,
+      model: result.model,
+      size: result.size,
+      serial_number: result.serial_number,
       weight_lbs: null,
       length_in: null,
       width_in: null,
@@ -79,7 +94,18 @@ export function InlineSkuCreate({
     queryClient.invalidateQueries({ queryKey: ['label-locations'] });
     toast.success('SKU created');
     setIsCreating(false);
-  }, [canCreate, isCreating, sku, itemName, location, onCreated, queryClient]);
+  }, [
+    canCreate,
+    isCreating,
+    sku,
+    model,
+    size,
+    color,
+    serialNumber,
+    location,
+    onCreated,
+    queryClient,
+  ]);
 
   const handleLocationFocus = useCallback(() => {
     if (blurTimeout.current) {
@@ -114,15 +140,49 @@ export function InlineSkuCreate({
           className="w-full h-10 px-3 bg-surface border border-subtle rounded-xl text-sm text-content placeholder:text-muted focus:outline-none focus:border-accent/40"
         />
       </div>
-      <div className="space-y-1">
-        <label className="text-[10px] font-bold text-muted uppercase tracking-wider">Name</label>
-        <input
-          type="text"
-          value={itemName}
-          onChange={(e) => setItemName(e.target.value)}
-          placeholder="Product name"
-          className="w-full h-10 px-3 bg-surface border border-subtle rounded-xl text-sm text-content placeholder:text-muted focus:outline-none focus:border-accent/40"
-        />
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <label className="text-[10px] font-bold text-muted uppercase tracking-wider">Model</label>
+          <input
+            type="text"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            placeholder="e.g. Explorer A2"
+            className="w-full h-10 px-3 bg-surface border border-subtle rounded-xl text-sm text-content placeholder:text-muted focus:outline-none focus:border-accent/40"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[10px] font-bold text-muted uppercase tracking-wider">Size</label>
+          <input
+            type="text"
+            value={size}
+            onChange={(e) => setSize(e.target.value)}
+            placeholder={'e.g. 19"'}
+            className="w-full h-10 px-3 bg-surface border border-subtle rounded-xl text-sm text-content placeholder:text-muted focus:outline-none focus:border-accent/40"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[10px] font-bold text-muted uppercase tracking-wider">Color</label>
+          <input
+            type="text"
+            value={color}
+            onChange={(e) => setColor(e.target.value)}
+            placeholder="e.g. Gloss Black"
+            className="w-full h-10 px-3 bg-surface border border-subtle rounded-xl text-sm text-content placeholder:text-muted focus:outline-none focus:border-accent/40"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[10px] font-bold text-muted uppercase tracking-wider">
+            Serial Number
+          </label>
+          <input
+            type="text"
+            value={serialNumber}
+            onChange={(e) => setSerialNumber(e.target.value)}
+            placeholder="e.g. Y21K016255"
+            className="w-full h-10 px-3 bg-surface border border-subtle rounded-xl text-sm text-content placeholder:text-muted focus:outline-none focus:border-accent/40"
+          />
+        </div>
       </div>
       <div className="relative space-y-1">
         <label className="text-[10px] font-bold text-muted uppercase tracking-wider">
