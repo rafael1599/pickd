@@ -320,7 +320,7 @@ export function computeLabelFace(
   const bcBlock = withBarcode ? BARCODE_TOP + BARCODE_H + BARCODE_BOT : 0;
   // Largest font we'll try. With no QR the text fills the whole label; with codes
   // on it can still grow well past the old cap and then spread to fill the height.
-  const MAX_BASE = withQr ? 60 : 120;
+  const MAX_BASE = withQr ? 80 : 150;
   // Spread the stack to fill the label height in both modes (less when codes are
   // on, so the QR/barcode keep their room).
   const fillCap = withQr ? 1.4 : 1.7;
@@ -550,8 +550,7 @@ export function computeLabelFace(
   y += SEP_H * stretch;
 
   if (hasSku) {
-    const boxText = item.serial_number || item.sku;
-    const w = measure.textWidth(boxText, primary, 'bold');
+    const w = measure.textWidth(item.sku, primary, 'bold');
     const h = primary * PT_TO_IN;
     ops.push({
       kind: 'rect',
@@ -563,7 +562,7 @@ export function computeLabelFace(
     });
     ops.push({
       kind: 'text',
-      text: boxText,
+      text: item.sku,
       x: M + SKU_PAD_X,
       y: y + SKU_PAD_Y + h * 0.8,
       sizePt: primary,
