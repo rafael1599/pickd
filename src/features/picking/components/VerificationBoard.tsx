@@ -26,6 +26,7 @@ import toast from 'react-hot-toast';
 import { OrderActionsMenu } from './OrderActionsMenu';
 import { useUnmarkWaiting } from '../hooks/useWaitingOrders';
 import { QuickGroupModal } from './board/QuickGroupModal';
+import { CarrierFilter } from './board/CarrierFilter';
 
 // Zone IDs (must stay in sync with useBoardDnD)
 // The "Pulling" queue (DB status ready_to_double_check) — the zone id keeps
@@ -81,11 +82,46 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   const [pendingShippingResolutionGroupId, setPendingShippingResolutionGroupId] = useState<
     string | null
   >(null);
+  const [selectedCarriers, setSelectedCarriers] = useState<Set<string>>(new Set());
+  const [includeUnassigned, setIncludeUnassigned] = useState(false);
 
   // Handler that routes merge requests: quick group for completed PICK UP, regular menu for others
   const handleOrderMenuSelect = useCallback((order: PickingList) => {
     setSelectedMenuOrder(order);
   }, []);
+
+  const handleCarrierToggle = useCallback((carrier: string) => {
+    setSelectedCarriers((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(carrier)) {
+        newSet.delete(carrier);
+      } else {
+        newSet.add(carrier);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const handleUnassignedToggle = useCallback((include: boolean) => {
+    setIncludeUnassigned(include);
+  }, []);
+
+  // Filter completed orders by carrier
+  const filteredCompletedOrders = completedOrders.filter((order) => {
+    if (selectedCarriers.size === 0 && !includeUnassigned) {
+      return true; // No filter active, show all
+    }
+
+    if (!order.transport_company && includeUnassigned) {
+      return true; // Unassigned filter is on
+    }
+
+    if (order.transport_company && selectedCarriers.has(order.transport_company)) {
+      return true; // Carrier filter is on and matches
+    }
+
+    return false;
+  });
 
   const handleMergeSelect = async (target: MergeTargetCandidate) => {
     if (!orderToMerge || !user?.id) return;
@@ -315,10 +351,10 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       (a, b) => new Date(a.updated_at ?? 0).getTime() - new Date(b.updated_at ?? 0).getTime()
     );
 
-    // Classify completed orders
+    // Classify completed orders (apply both carrier filter and search filter)
     const allCompletedFedex: PickingList[] = [];
     const allCompletedRegular: PickingList[] = [];
-    const filteredCompleted = (completedOrders ?? []).filter((o) => {
+    const filteredCompleted = (filteredCompletedOrders ?? []).filter((o) => {
       if (!searchQuery) return true;
       const q = searchQuery.toLowerCase();
       const matchNum = String(o.order_number || o.id)
@@ -366,7 +402,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       completedShowsDates: true,
       priorityShippingTypes: priorityShipTypes,
     };
-  }, [orders, completedOrders, searchQuery]);
+  }, [orders, filteredCompletedOrders, searchQuery]);
 
   const activeTotal =
     priorityOrders.length + fedexOrders.length + regularOrders.length + pullingOrders.length;
@@ -846,7 +882,13 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                 />
               </button>
               {completedExpanded && (
-                <div className="px-2 pb-3 md:px-4">
+                <div className="px-2 pb-3 md:px-4 space-y-3">
+                  <CarrierFilter
+                    selectedCarriers={selectedCarriers}
+                    includeUnassigned={includeUnassigned}
+                    onCarrierToggle={handleCarrierToggle}
+                    onUnassignedToggle={handleUnassignedToggle}
+                  />
                   <CompletedZone
                     fedexOrders={completedFedex}
                     regularOrders={completedRegular}
