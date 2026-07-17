@@ -509,7 +509,7 @@ const OrderCardShell: React.FC<CardProps> = ({
                   setIsCarrierOpen(true);
                 }}
                 className="flex items-center justify-center gap-1 px-2 py-1.5 text-[9px] font-black uppercase tracking-widest text-accent hover:bg-accent/10 rounded-lg transition-colors"
-                title="Select Carrier"
+                title="Select Carrier (Regular)"
               >
                 <span>Set Carrier</span>
               </button>
