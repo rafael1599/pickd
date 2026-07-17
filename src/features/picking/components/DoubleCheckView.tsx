@@ -2189,11 +2189,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                       `${item.sku}-${(displayLocation || '').toUpperCase()}`
                                     ] ||
                                     canonResolved?.sublocation;
-                                  // Sublocation reads like part of the location: same
-                                  // size/color as the big number, no chip container.
+                                  // Show only first sublocation alphabetically (A before B, C, etc)
                                   // Hidden once checked — frees space for pending rows.
-                                  return !hideDetails && subs && subs.length > 0 ? (
-                                    <span className="ml-2">{subs.join(',')}</span>
+                                  const firstSub =
+                                    subs && subs.length > 0 ? [...subs].sort()[0] : null;
+                                  return !hideDetails && firstSub ? (
+                                    <span className="ml-2">{firstSub}</span>
                                   ) : null;
                                 })()}
                               </div>
