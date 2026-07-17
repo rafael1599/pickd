@@ -2,22 +2,11 @@ import React from 'react';
 import { TransportLogo } from '../../../../components/orders/TransportLogo';
 import { getCarrierTextColor } from '../../../../components/orders/transportLogos';
 
-const CARRIERS = [
-  'FEDEX',
-  'PICK UP',
-  'R+L',
-  '2-DAY',
-  'RIST',
-  'TFORCE',
-  'DAYLIGHT',
-  'PAV EXPRESS',
-  'ESTES',
-];
-
 interface CarrierFilterProps {
   selectedCarriers: Set<string>;
   includeUnassigned: boolean;
   hasUnassignedOrders: boolean;
+  availableCarriers: string[];
   onCarrierToggle: (carrier: string) => void;
   onUnassignedToggle: (include: boolean) => void;
 }
@@ -26,11 +15,13 @@ export const CarrierFilter: React.FC<CarrierFilterProps> = ({
   selectedCarriers,
   includeUnassigned,
   hasUnassignedOrders,
+  availableCarriers,
   onCarrierToggle,
   onUnassignedToggle,
 }) => {
   const allSelected =
-    selectedCarriers.size === CARRIERS.length && (includeUnassigned || !hasUnassignedOrders);
+    selectedCarriers.size === availableCarriers.length &&
+    (includeUnassigned || !hasUnassignedOrders);
 
   const handleSelectAll = () => {
     if (allSelected) {
@@ -41,7 +32,7 @@ export const CarrierFilter: React.FC<CarrierFilterProps> = ({
       }
     } else {
       // Select all
-      CARRIERS.forEach((c) => {
+      availableCarriers.forEach((c) => {
         if (!selectedCarriers.has(c)) {
           onCarrierToggle(c);
         }
@@ -88,8 +79,8 @@ export const CarrierFilter: React.FC<CarrierFilterProps> = ({
           </button>
         )}
 
-        {/* Carrier options */}
-        {CARRIERS.map((carrier) => (
+        {/* Carrier options - only show available carriers */}
+        {availableCarriers.map((carrier) => (
           <button
             key={carrier}
             onClick={() => onCarrierToggle(carrier)}

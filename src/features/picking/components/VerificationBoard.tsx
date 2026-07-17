@@ -106,8 +106,16 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     setIncludeUnassigned(include);
   }, []);
 
-  // Check if there are unassigned orders
+  // Check if there are unassigned orders and get available carriers
   const hasUnassignedOrders = completedOrders.some((o) => !o.transport_company);
+  const availableCarriers = Array.from(
+    new Set(
+      completedOrders
+        .filter((o) => o.transport_company)
+        .map((o) => o.transport_company)
+        .filter((c): c is string => !!c)
+    )
+  ).sort();
 
   // Filter completed orders by carrier
   const filteredCompletedOrders = completedOrders.filter((order) => {
@@ -890,6 +898,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                     selectedCarriers={selectedCarriers}
                     includeUnassigned={includeUnassigned}
                     hasUnassignedOrders={hasUnassignedOrders}
+                    availableCarriers={availableCarriers}
                     onCarrierToggle={handleCarrierToggle}
                     onUnassignedToggle={handleUnassignedToggle}
                   />
