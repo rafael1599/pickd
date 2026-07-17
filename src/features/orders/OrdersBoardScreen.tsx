@@ -53,10 +53,7 @@ export const OrdersBoardScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedQuery = useDebounce(searchQuery, 200);
 
-  // Only hit the DB for older orders if a full order number is typed (6+ digits)
-  const serverQuery = /^\d{6,}$/.test(debouncedQuery.trim()) ? debouncedQuery.trim() : '';
-
-  const { orders, skuIsBike, loading } = useOrdersOfDay(serverQuery);
+  const { orders, skuIsBike, loading } = useOrdersOfDay(debouncedQuery);
 
   const [showFedex, setShowFedex] = useState(false);
   const [selectedCarrier, setSelectedCarrier] = useState<string | null>(null);
