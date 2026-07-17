@@ -25,6 +25,7 @@ import { ShippingTypeToggle } from './ShippingTypeToggle';
 import toast from 'react-hot-toast';
 import { OrderActionsMenu } from './OrderActionsMenu';
 import { useUnmarkWaiting } from '../hooks/useWaitingOrders';
+import { QuickGroupModal } from './board/QuickGroupModal';
 
 // Zone IDs (must stay in sync with useBoardDnD)
 // The "Pulling" queue (DB status ready_to_double_check) — the zone id keeps
@@ -76,9 +77,20 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   const [pendingWaitingOrder, setPendingWaitingOrder] = useState<PickingList | null>(null);
   const [pendingReopenOrder, setPendingReopenOrder] = useState<PickingList | null>(null);
   const [selectedMenuOrder, setSelectedMenuOrder] = useState<PickingList | null>(null);
+  const [selectedQuickGroupOrder, setSelectedQuickGroupOrder] = useState<PickingList | null>(null);
   const [pendingShippingResolutionGroupId, setPendingShippingResolutionGroupId] = useState<
     string | null
   >(null);
+
+  // Handler that routes merge requests: quick group for completed PICK UP, regular menu for others
+  const handleOrderMenuSelect = useCallback((order: PickingList) => {
+    const isCompletedPickup = order.status === 'completed' && order.transport_company === 'PICK UP';
+    if (isCompletedPickup) {
+      setSelectedQuickGroupOrder(order);
+    } else {
+      setSelectedMenuOrder(order);
+    }
+  }, []);
 
   const handleMergeSelect = async (target: MergeTargetCandidate) => {
     if (!orderToMerge || !user?.id) return;
@@ -470,7 +482,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               onSelect={handleOrderSelect}
               onDelete={handleDelete}
               onUngroup={handleUngroup}
-              onMerge={setSelectedMenuOrder}
+              onMerge={handleOrderMenuSelect}
             />
           ) : (
             <SortableOrderCard
@@ -480,7 +492,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               showShippingBadge={false}
               onSelect={handleOrderSelect}
               onUngroup={handleUngroup}
-              onMerge={setSelectedMenuOrder}
+              onMerge={handleOrderMenuSelect}
             />
           )
         )}
@@ -529,7 +541,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             <WaitingZone
               orders={waitingOrders}
               onSelect={handleOrderSelect}
-              onMerge={setSelectedMenuOrder}
+              onMerge={handleOrderMenuSelect}
             />
           ) : (
             <div className="text-center text-xs text-muted/40 italic py-1">
@@ -680,7 +692,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                     onSelect={handleOrderSelect}
                     onDelete={handleDelete}
                     onUngroup={handleUngroup}
-                    onMerge={setSelectedMenuOrder}
+                    onMerge={handleOrderMenuSelect}
                   />
                 ))}
               </div>
@@ -769,7 +781,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                             onSelect={handleOrderSelect}
                             onDelete={handleDelete}
                             onUngroup={handleUngroup}
-                            onMerge={setSelectedMenuOrder}
+                            onMerge={handleOrderMenuSelect}
                           />
                         ) : (
                           <SortableOrderCard
@@ -779,7 +791,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                               (groupOrders[0]?.shipping_type as 'fedex' | 'regular') ?? 'regular'
                             }
                             onSelect={handleOrderSelect}
-                            onMerge={setSelectedMenuOrder}
+                            onMerge={handleOrderMenuSelect}
                           />
                         )
                       )}
@@ -795,7 +807,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                             onSelect={handleOrderSelect}
                             onDelete={handleDelete}
                             onUngroup={handleUngroup}
-                            onMerge={setSelectedMenuOrder}
+                            onMerge={handleOrderMenuSelect}
                           />
                         ) : (
                           <SortableOrderCard
@@ -805,7 +817,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                             onSelect={handleOrderSelect}
                             onDelete={handleDelete}
                             onUngroup={handleUngroup}
-                            onMerge={setSelectedMenuOrder}
+                            onMerge={handleOrderMenuSelect}
                           />
                         );
                       })}
@@ -1003,6 +1015,19 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               setExternalDoubleCheckId(orderId);
               setViewMode('picking');
               onClose();
+            }}
+          />
+        )}
+
+        {/* Quick Group Modal for completed PICK UP orders */}
+        {selectedQuickGroupOrder && (
+          <QuickGroupModal
+            sourceOrder={selectedQuickGroupOrder}
+            allCompletedOrders={completedOrders}
+            onClose={() => setSelectedQuickGroupOrder(null)}
+            onSuccess={() => {
+              refresh();
+              setSelectedQuickGroupOrder(null);
             }}
           />
         )}
