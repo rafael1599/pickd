@@ -1245,8 +1245,8 @@ export const ShipScreen = () => {
     // Build warnings for missing data
     const palletsNum = parseInt(String(formData.pallets)) || 0;
 
-    if (palletsNum < 1) {
-      toast.error('Must have at least 1 Pallet');
+    if (palletsNum < 0) {
+      toast.error('Pallets cannot be negative');
       return;
     }
 

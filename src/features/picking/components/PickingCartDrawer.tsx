@@ -225,25 +225,65 @@ export const PickingCartDrawer: React.FC = () => {
               needsTakeover = groupSiblings?.some((s) => s.checked_by !== user.id) || false;
             }
 
-            if (needsTakeover) {
-              console.log('⚠️ [PickingCartDrawer] Read-only mode for list:', listData.id);
-              setIsReadOnly(true);
+            const processOpen = async (readOnly: boolean, resumeWaiting: boolean) => {
+              if (readOnly) {
+                console.log('⚠️ [PickingCartDrawer] Read-only mode for list:', listData.id);
+                setIsReadOnly(true);
+                wasExternallyOpenedRef.current = true;
+                setIsOpen(true);
+                setExternalDoubleCheckId(null);
+                await hydrateVerifiedItems(String(externalDoubleCheckId));
+                return;
+              }
+
+              console.log('🔒 [PickingCartDrawer] Locking list for user...');
+              await lockForCheck(String(externalDoubleCheckId));
+              if (resumeWaiting && listData.is_waiting_inventory) {
+                await supabase
+                  .from('picking_lists')
+                  .update({ is_waiting_inventory: false, status: 'active' })
+                  .eq('id', String(listData.id));
+                setIsWaitingInventory(false);
+                setListStatus('active');
+                setSessionMode('picking');
+              }
+              await hydrateVerifiedItems(String(externalDoubleCheckId));
               wasExternallyOpenedRef.current = true;
+              setIsReadOnly(false);
               setIsOpen(true);
               setExternalDoubleCheckId(null);
-              // We load verified items so they can see progress, but they can't change it.
-              await hydrateVerifiedItems(String(externalDoubleCheckId));
+            };
+
+            const checkWaiting = (readOnly: boolean) => {
+              if (listData.is_waiting_inventory && !readOnly) {
+                showConfirmation(
+                  'Resume Waiting Order?',
+                  'This order is currently waiting for inventory. Do you want to resume picking or just view it?',
+                  () => processOpen(false, true), // Confirm: Resume
+                  () => processOpen(true, false), // Cancel: View Only
+                  'Resume',
+                  'View Only',
+                  'warning'
+                );
+              } else {
+                processOpen(readOnly, false);
+              }
+            };
+
+            if (needsTakeover) {
+              showConfirmation(
+                'Order Locked',
+                'This order is currently locked by another user. Do you want to take over their session or just view it?',
+                () => checkWaiting(false), // Confirm: Take Over -> proceed to check waiting
+                () => checkWaiting(true), // Cancel: View Only
+                'Take Over',
+                'View Only',
+                'danger'
+              );
               return;
             }
 
-            console.log('🔒 [PickingCartDrawer] Locking list for user...');
-            await lockForCheck(String(externalDoubleCheckId));
-            await hydrateVerifiedItems(String(externalDoubleCheckId));
-
-            console.log('🔓 [PickingCartDrawer] Opening drawer for double check');
-            wasExternallyOpenedRef.current = true;
-            setIsOpen(true);
-            setExternalDoubleCheckId(null);
+            checkWaiting(false);
           } else {
             console.error(
               '❌ [PickingCartDrawer] List or User missing. List:',
@@ -266,6 +306,9 @@ export const PickingCartDrawer: React.FC = () => {
     setExternalDoubleCheckId,
     showConfirmation,
     hydrateVerifiedItems,
+    setIsWaitingInventory,
+    setListStatus,
+    setSessionMode,
   ]);
 
   // 3. Persist double-check progress.

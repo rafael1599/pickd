@@ -55,7 +55,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   const { setExternalDoubleCheckId, setExternalOrderId, setViewMode, setExternalActionTrigger } =
     useViewMode();
   const unmarkWaiting = useUnmarkWaiting();
-  const { cartItems, sessionMode, deleteList, reopenOrder, activeListId } = usePickingSession();
+  const { cartItems, sessionMode, deleteList, reopenOrder, activeListId, releaseCheck } =
+    usePickingSession();
   const { showConfirmation } = useConfirmation();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -110,6 +111,13 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       } else {
         newGroupId = await createGroup('general', [orderToMerge.id, target.id]);
       }
+
+      // Automatically remove waiting status for both combined orders
+      await supabase
+        .from('picking_lists')
+        .update({ is_waiting_inventory: false })
+        .in('id', [target.id, orderToMerge.id])
+        .eq('is_waiting_inventory', true);
 
       // 3. Take ownership of all combined orders
       if (newGroupId && user?.id) {
@@ -424,10 +432,13 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     async (order: PickingList) => {
       if (order.group_id) {
         await removeFromGroup(order.id, order.group_id);
+        if (order.checked_by === user?.id) {
+          await releaseCheck(order.id);
+        }
         refresh();
       }
     },
-    [removeFromGroup, refresh]
+    [removeFromGroup, releaseCheck, user?.id, refresh]
   );
 
   // Helper to render order cards for a lane, grouping by group_id

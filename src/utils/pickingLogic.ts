@@ -3,6 +3,7 @@ import { type Location } from '../schemas/location.schema';
 export interface PickingItem {
   sku: string;
   location: string | null;
+  sublocation?: string[] | null;
   warehouse?: string;
   pickingQty: number;
   quantity?: string | number;
@@ -45,6 +46,16 @@ export const getOptimizedPickingPath = (items: PickingItem[], locations: Locatio
     const orderB = orderMap.get(keyB) ?? 9999;
 
     if (orderA !== orderB) return orderA - orderB;
+
+    // Compare sublocation if picking order is the same
+    const subA = Array.isArray(a.sublocation) && a.sublocation.length > 0 ? a.sublocation[0] : '';
+    const subB = Array.isArray(b.sublocation) && b.sublocation.length > 0 ? b.sublocation[0] : '';
+
+    if (subA !== subB) {
+      if (!subA) return 1; // Items with no sublocation go last (or adjust as needed)
+      if (!subB) return -1;
+      return subA.localeCompare(subB);
+    }
 
     // Fallback to alphanumeric - ensure null safety
     return (a.location || '').localeCompare(b.location || '', undefined, {
