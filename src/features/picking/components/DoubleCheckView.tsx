@@ -706,14 +706,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
       if (updateError) throw updateError;
 
-      // 2. Add parked location note
-      const { error: noteError } = await supabaseClient.from('picking_list_notes').insert({
-        list_id: activeListId,
-        user_id: user.id,
-        message: `[Parked]: ${pickupLocation.trim()}`,
+      // 2. Add parked location note via RPC (safer with RLS)
+      const { error: rpcError } = await supabaseClient.rpc('add_parked_location_note', {
+        p_list_id: activeListId,
+        p_location: pickupLocation.trim(),
       });
 
-      if (noteError) throw noteError;
+      if (rpcError) throw rpcError;
 
       toast.success(`Assigned as PICK UP at ${pickupLocation}`);
       setIsAssignPickupOpen(false);

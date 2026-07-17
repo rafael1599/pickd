@@ -249,14 +249,13 @@ const OrderCardShell: React.FC<CardProps> = ({
 
       if (updateError) throw updateError;
 
-      // Add parked location note
-      const { error: noteError } = await supabase.from('picking_list_notes').insert({
-        list_id: order.id,
-        user_id: user.id,
-        message: `[Parked]: ${pickupLocation.trim()}`,
+      // Add parked location note via RPC (safer with RLS)
+      const { error: rpcError } = await supabase.rpc('add_parked_location_note', {
+        p_list_id: order.id,
+        p_location: pickupLocation.trim(),
       });
 
-      if (noteError) throw noteError;
+      if (rpcError) throw rpcError;
 
       toast.success(`Assigned as PICK UP at ${pickupLocation}`);
       setIsPickupLocationOpen(false);
