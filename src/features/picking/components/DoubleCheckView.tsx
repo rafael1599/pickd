@@ -1509,30 +1509,25 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                     {combinedNumbers.map((num, i) => (
                       <React.Fragment key={num}>
                         {i > 0 && <span className="text-accent/50 mx-1.5 self-center"> / </span>}
-                        <div
-                          className="flex flex-col items-center justify-center"
-                          style={{ lineHeight: '1.1' }}
+                        <button
+                          onClick={() =>
+                            setActiveOrderFilter(activeOrderFilter === num ? null : num)
+                          }
+                          style={{
+                            color: orderColorFor(num, combinedNumbers).hex,
+                            lineHeight: '1.1',
+                          }}
+                          className={`flex flex-col items-center justify-center transition-opacity ${
+                            activeOrderFilter && activeOrderFilter !== num
+                              ? 'opacity-30'
+                              : 'hover:opacity-80'
+                          }`}
                         >
-                          <button
-                            onClick={() =>
-                              setActiveOrderFilter(activeOrderFilter === num ? null : num)
-                            }
-                            style={{ color: orderColorFor(num, combinedNumbers).hex }}
-                            className={`transition-opacity leading-none ${
-                              activeOrderFilter && activeOrderFilter !== num
-                                ? 'opacity-30'
-                                : 'hover:opacity-80'
-                            }`}
-                          >
-                            {num.slice(-3)}
-                          </button>
-                          <span
-                            className="text-[9px] font-bold tracking-tight opacity-70 leading-none"
-                            style={{ color: orderColorFor(num, combinedNumbers).hex }}
-                          >
+                          <span className="leading-none">{num.slice(-3)}</span>
+                          <span className="leading-none opacity-80">
                             {orderQuantities[num] || 0}u
                           </span>
-                        </div>
+                        </button>
                       </React.Fragment>
                     ))}
                   </span>
