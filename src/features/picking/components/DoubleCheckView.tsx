@@ -487,6 +487,17 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   // (header numbers + item-row stripes), matching the Live Board cards.
   const combinedNumbers = useMemo(() => splitOrderNumbers(orderNumber), [orderNumber]);
 
+  const orderQuantities = useMemo(() => {
+    const counts: Record<string, number> = {};
+    if (!isCombined) return counts;
+    for (const item of cartItems) {
+      if (item.source_order) {
+        counts[item.source_order] = (counts[item.source_order] || 0) + (item.pickingQty || 0);
+      }
+    }
+    return counts;
+  }, [cartItems, isCombined]);
+
   // Per-source qty shares for each SKU in a combined cart. The pallet calc
   // merges same-SKU rows from different orders into ONE display row, so the
   // stripe must show EVERY owner's color, sized by each order's quantity —
@@ -1490,27 +1501,38 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 // each in its per-order color. No +N badge, no dropdown.
                 return (
                   <span
-                    className="text-sm md:text-base font-mono font-black tracking-widest bg-accent/10 px-2 py-0.5 rounded-lg border border-accent/20"
+                    className="flex items-center text-sm md:text-base font-mono font-black tracking-widest bg-accent/10 px-2 py-1 rounded-lg border border-accent/20"
                     title={`${combinedNumbers.length} orders combined: ${combinedNumbers
                       .map((n) => `#${n}`)
                       .join(', ')}`}
                   >
                     {combinedNumbers.map((num, i) => (
                       <React.Fragment key={num}>
-                        {i > 0 && <span className="text-accent/50"> / </span>}
-                        <button
-                          onClick={() =>
-                            setActiveOrderFilter(activeOrderFilter === num ? null : num)
-                          }
-                          style={{ color: orderColorFor(num, combinedNumbers).hex }}
-                          className={`transition-opacity ${
-                            activeOrderFilter && activeOrderFilter !== num
-                              ? 'opacity-30'
-                              : 'hover:opacity-80'
-                          }`}
+                        {i > 0 && <span className="text-accent/50 mx-1.5 self-center"> / </span>}
+                        <div
+                          className="flex flex-col items-center justify-center"
+                          style={{ lineHeight: '1.1' }}
                         >
-                          {num.slice(-3)}
-                        </button>
+                          <button
+                            onClick={() =>
+                              setActiveOrderFilter(activeOrderFilter === num ? null : num)
+                            }
+                            style={{ color: orderColorFor(num, combinedNumbers).hex }}
+                            className={`transition-opacity leading-none ${
+                              activeOrderFilter && activeOrderFilter !== num
+                                ? 'opacity-30'
+                                : 'hover:opacity-80'
+                            }`}
+                          >
+                            {num.slice(-3)}
+                          </button>
+                          <span
+                            className="text-[9px] font-bold tracking-tight opacity-70 leading-none"
+                            style={{ color: orderColorFor(num, combinedNumbers).hex }}
+                          >
+                            {orderQuantities[num] || 0}u
+                          </span>
+                        </div>
                       </React.Fragment>
                     ))}
                   </span>
