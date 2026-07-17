@@ -67,12 +67,17 @@ export const CarrierFilter: React.FC<CarrierFilterProps> = ({
             }`}
             title="Unassigned"
           >
-            <div
-              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${
-                includeUnassigned ? 'border-accent bg-accent' : 'border-subtle'
-              }`}
-            >
-              {includeUnassigned && <div className="w-2 h-2 bg-white rounded-sm" />}
+            <div className="flex items-center gap-2">
+              <div
+                className={`w-4 h-4 rounded border-2 flex items-center justify-center transition shrink-0 ${
+                  includeUnassigned ? 'border-accent bg-accent' : 'border-subtle'
+                }`}
+              >
+                {includeUnassigned && <div className="w-1.5 h-1.5 bg-white rounded-sm" />}
+              </div>
+              <span className="text-[10px] font-bold text-muted uppercase tracking-wider">
+                Unassigned
+              </span>
             </div>
           </button>
         )}
