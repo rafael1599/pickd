@@ -113,6 +113,7 @@ export const HistoryMode = () => {
           layout: result.orientation,
           withQr: result.withQr,
           withBarcode: result.withBarcode,
+          model: undefined,
         }));
         const blobUrl = await generateBikeLabels(labelItems);
         window.open(blobUrl, '_blank');

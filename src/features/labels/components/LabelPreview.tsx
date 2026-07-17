@@ -72,6 +72,7 @@ export function LabelPreview({ entry, onEditField, onAddData }: LabelPreviewProp
       layout,
       upc: entry.upc ?? null,
       color: entry.color ?? null,
+      model: entry.model ?? null,
       serial_number: entry.serialNumber ?? null,
       made_in: entry.madeIn ?? null,
       po_number: entry.poNumber ?? null,

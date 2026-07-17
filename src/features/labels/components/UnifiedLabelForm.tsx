@@ -47,6 +47,7 @@ function newEntry(item: Partial<LabelInventoryItem> & { sku: string }, qty: numb
     extra: null,
     upc: item.upc ?? null,
     color: item.color ?? null,
+    model: item.model ?? null,
     poNumber: null,
     cNumber: null,
     serialNumber: null,

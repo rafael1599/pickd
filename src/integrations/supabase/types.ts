@@ -1,6 +1,11 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: '14.1';
+  };
   graphql_public: {
     Tables: {
       [_ in never]: never;
@@ -1625,6 +1630,13 @@ export type Database = {
       };
     };
     Functions: {
+      _container_base_sku: { Args: { p_sku: string }; Returns: string };
+      _container_color2: { Args: { p_sku: string }; Returns: string };
+      _container_digits: { Args: { p_sku: string }; Returns: string };
+      add_parked_location_note: {
+        Args: { p_list_id: string; p_location: string };
+        Returns: Json;
+      };
       adjust_distribution: {
         Args: { p_item_id: number; p_qty_to_deduct: number };
         Returns: Json;
@@ -1659,7 +1671,7 @@ export type Database = {
         Returns: Json;
       };
       cancel_completed_order: {
-        Args: { p_list_id: string; p_user_id: string | null };
+        Args: { p_list_id: string; p_user_id: string };
         Returns: Json;
       };
       cancel_reopen: {
@@ -1769,6 +1781,11 @@ export type Database = {
           warehouse: string;
         }[];
       };
+      get_daily_activity_report: { Args: { p_date: string }; Returns: Json };
+      get_inventory_accuracy: {
+        Args: { p_as_of?: string; p_window_days?: number };
+        Returns: Json;
+      };
       get_inventory_logs_for_sku: {
         Args: { p_limit?: number; p_sku: string };
         Returns: {
@@ -1803,10 +1820,6 @@ export type Database = {
           isSetofReturn: true;
         };
       };
-      get_inventory_accuracy: {
-        Args: { p_as_of?: string; p_window_days?: number };
-        Returns: Json;
-      };
       get_inventory_stats: {
         Args: { p_include_parts?: boolean };
         Returns: {
@@ -1820,7 +1833,6 @@ export type Database = {
           p_min_orders?: number;
           p_only_bikes?: boolean;
           p_since?: string;
-          p_source_rows?: string[];
         };
         Returns: {
           alias_chain: string[];
@@ -1840,6 +1852,7 @@ export type Database = {
         Args: { p_short_code: string; p_token: string };
         Returns: Json;
       };
+      get_public_tag_by_sku: { Args: { p_sku: string }; Returns: Json };
       get_sku_movement_stats: {
         Args: { p_since?: string; p_sku: string };
         Returns: {
@@ -1978,6 +1991,10 @@ export type Database = {
         };
         Returns: boolean;
       };
+      quick_group_completed_orders: {
+        Args: { p_list_ids: string[]; p_location: string };
+        Returns: Json;
+      };
       recomplete_picking_list: {
         Args: {
           p_list_id: string;
@@ -1988,6 +2005,17 @@ export type Database = {
           p_user_role?: string;
         };
         Returns: boolean;
+      };
+      register_container: {
+        Args: {
+          p_items: Json;
+          p_location: string;
+          p_order_number?: string;
+          p_performed_by: string;
+          p_user_id: string;
+          p_warehouse?: string;
+        };
+        Returns: Json;
       };
       register_new_sku: {
         Args: {
@@ -2002,9 +2030,18 @@ export type Database = {
         Args: { p_list_id: string; p_reason?: string; p_reopened_by: string };
         Returns: boolean;
       };
-      restore_cancelled_order: {
-        Args: { p_list_id: string; p_reason?: string; p_restored_by: string };
-        Returns: boolean;
+      resolve_container_skus: {
+        Args: { p_items: Json; p_warehouse?: string };
+        Returns: {
+          canonical_sku: string;
+          existing_locations: Json;
+          existing_qty: number;
+          is_bike: boolean;
+          is_new: boolean;
+          item_name: string;
+          merged_from: string[];
+          qty: number;
+        }[];
       };
       resolve_location: {
         Args: {
@@ -2018,6 +2055,14 @@ export type Database = {
       resolve_tag_location: {
         Args: { p_location: string; p_tag_id: string };
         Returns: undefined;
+      };
+      restore_cancelled_order: {
+        Args: { p_list_id: string; p_reason?: string; p_restored_by: string };
+        Returns: boolean;
+      };
+      revert_inventory_logs_for_list: {
+        Args: { p_list_id: string; p_reason: string; p_since: string };
+        Returns: number;
       };
       save_daily_report_manual: {
         Args: { p_manual: Json; p_report_date: string };
@@ -2070,6 +2115,27 @@ export type Database = {
       };
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { '': string }; Returns: string[] };
+      suggest_locations_for_sku: {
+        Args: { p_sku: string; p_top_n?: number };
+        Returns: {
+          capacity_pts: number;
+          consolidation_pts: number;
+          current_units: number;
+          free_units: number;
+          has_same_sku: boolean;
+          location: string;
+          max_capacity: number;
+          picking_order: number;
+          position_pts: number;
+          reasons: string[];
+          same_sku_qty: number;
+          score: number;
+          sku_last_order_at: string;
+          sku_orders_30d: number;
+          sku_orders_90d: number;
+          sku_total_qty: number;
+        }[];
+      };
       take_over_sku_from_waiting: {
         Args: {
           p_qty: number;

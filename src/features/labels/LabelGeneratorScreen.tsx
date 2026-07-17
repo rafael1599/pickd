@@ -179,6 +179,7 @@ export const LabelGeneratorScreen = () => {
           short_code: t.short_code,
           public_token: t.public_token,
           layout,
+          model: undefined,
         }));
         const blobUrl = await generateBikeLabels(labelItems);
         window.open(blobUrl, '_blank');
@@ -345,6 +346,7 @@ export const LabelGeneratorScreen = () => {
         short_code: t.short_code,
         public_token: t.public_token,
         layout,
+        model: undefined,
       }));
 
       const blobUrl = await generateBikeLabels(labelItems);
@@ -935,6 +937,7 @@ export const LabelGeneratorScreen = () => {
                 extra: customExtra.trim() || null,
                 prefix: customLabelType === 'sd' ? 'S/D' : null,
                 layout: customLabelType === 'vertical' ? 'vertical' : 'standard',
+                model: undefined,
               }));
               const blobUrl = await generateBikeLabels(labelItems);
               window.open(blobUrl, '_blank');

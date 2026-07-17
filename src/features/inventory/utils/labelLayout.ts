@@ -13,6 +13,8 @@ export interface LabelItem {
   /** Explicit color (parts store it on sku_metadata.color; bikes derive it
    *  from the item name). When set, it wins over the name-parsed color. */
   color?: string | null;
+  /** Model name (S/D bikes). Used when item_name is null. */
+  model?: string | null;
   serial_number?: string | null;
   made_in?: string | null;
   po_number?: string | null;
