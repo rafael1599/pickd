@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from 'rea
 import { supabase } from '../../lib/supabase.ts';
 import { orderColorFor } from '../../utils/orderColors';
 import { useAuth } from '../../context/AuthContext.tsx';
+import { useDebounce } from '../../hooks/useDebounce';
 
 import Home from 'lucide-react/dist/esm/icons/home';
 import Info from 'lucide-react/dist/esm/icons/info';
