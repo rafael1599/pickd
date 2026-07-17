@@ -181,52 +181,58 @@ export const useInventory = () => {
     items: InventoryItemWithMetadata[];
     total: number;
   }>({
-    queryKey: ['inventory', 'search', searchQuery, showScratchDent, showFedexReturns, showParts],
+    queryKey: ['inventory', 'search', searchQuery],
     queryFn: async () => {
-      // If showing S/D or FedEx Returns, use dedicated queries
-      if (showScratchDent) {
-        const { data, count } = await inventoryApi.fetchInventoryWithMetadata({
+      // Search always returns ALL items (bikes + parts + S/D + FedEx Returns)
+      // Ignore all checkboxes when searching — show everything
+      const [bikesRes, partsRes, sdRes, fdxRes] = await Promise.all([
+        inventoryApi.fetchInventoryWithMetadata({
+          includeInactive: true,
+          showParts: false,
+          onlyScratchDent: false,
+          onlyFedexReturns: false,
+          search: searchQuery,
+          warehouse: 'LUDLOW',
+          limit: SEARCH_LIMIT,
+        }),
+        inventoryApi.fetchInventoryWithMetadata({
+          includeInactive: true,
+          showParts: true,
+          onlyScratchDent: false,
+          onlyFedexReturns: false,
+          search: searchQuery,
+          warehouse: 'LUDLOW',
+          limit: SEARCH_LIMIT,
+        }),
+        inventoryApi.fetchInventoryWithMetadata({
           includeInactive: true,
           onlyScratchDent: true,
           search: searchQuery,
           warehouse: 'LUDLOW',
           limit: SEARCH_LIMIT,
-        });
-        return { items: data.map(mapItem), total: count ?? 0 };
-      }
-
-      if (showFedexReturns) {
-        const { data, count } = await inventoryApi.fetchInventoryWithMetadata({
+        }),
+        inventoryApi.fetchInventoryWithMetadata({
           includeInactive: true,
           onlyFedexReturns: true,
           search: searchQuery,
           warehouse: 'LUDLOW',
           limit: SEARCH_LIMIT,
-        });
-        return { items: data.map(mapItem), total: count ?? 0 };
-      }
+        }),
+      ]);
 
-      // Default search: bikes + parts (respecting showParts flag)
-      if (showParts) {
-        const { data, count } = await inventoryApi.fetchInventoryWithMetadata({
-          includeInactive: true,
-          showParts: true,
-          search: searchQuery,
-          warehouse: 'LUDLOW',
-          limit: SEARCH_LIMIT,
-        });
-        return { items: data.map(mapItem), total: count ?? 0 };
-      }
-
-      // Default: search bikes only
-      const { data, count } = await inventoryApi.fetchInventoryWithMetadata({
-        includeInactive: true,
-        showParts: false,
-        search: searchQuery,
-        warehouse: 'LUDLOW',
-        limit: SEARCH_LIMIT,
-      });
-      return { items: data.map(mapItem), total: count ?? 0 };
+      const total =
+        (bikesRes.count ?? 0) + (partsRes.count ?? 0) + (sdRes.count ?? 0) + (fdxRes.count ?? 0);
+      const combined = [...bikesRes.data, ...partsRes.data, ...sdRes.data, ...fdxRes.data];
+      const seen = new Set<number>();
+      const items = combined
+        .filter((item) => {
+          const id = item.id as number;
+          if (seen.has(id)) return false;
+          seen.add(id);
+          return true;
+        })
+        .map(mapItem);
+      return { items, total };
     },
     staleTime: 1000 * 60 * 2,
     enabled: searchQuery.length > 0,
