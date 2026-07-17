@@ -11,7 +11,7 @@ import { LivePrintPreview } from '../../components/orders/LivePrintPreview.tsx';
 
 import { generateShipLabel } from '../../components/orders/generateShipLabel';
 import { usePickingSession } from '../../context/PickingContext.tsx';
-import { useViewMode } from '../../context/ViewModeContext.tsx';
+import { useViewMode as useViewModeCtx } from '../../context/ViewModeContext.tsx';
 
 import {
   OrderDetailsContainer,
@@ -150,8 +150,6 @@ interface OrderWithRelations {
 
 export const ShipScreen = () => {
   const { user } = useAuth();
-  // Ship-Out SMS resend button on the FAB. The hook gives us `isEnabled`
-  // so the button hides cleanly when the user hasn't configured it.
   const { isEnabled: isShipSmsEnabled, triggerForList: triggerShipOutSms } = useShipOutSms();
   const { takeOverOrder, loadReopenedOrder, resumeReopenedOrder, restoreCancelledOrder } =
     usePickingSession();
@@ -161,7 +159,7 @@ export const ShipScreen = () => {
     setExternalDoubleCheckId,
     setExternalActionTrigger,
     setViewMode,
-  } = useViewMode();
+  } = useViewModeCtx();
   const unmarkWaiting = useUnmarkWaiting();
   const [orders, setOrders] = useState<OrderWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
@@ -169,6 +167,7 @@ export const ShipScreen = () => {
   const [autoSaveStatus, setAutoSaveStatus] = useState<AutoSaveStatus>('idle');
   const [selectedOrder, setSelectedOrder] = useState<OrderWithRelations | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 200);
   const [showFedex, setShowFedex] = useState(false);
   const navigate = useNavigate();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -391,7 +390,22 @@ export const ShipScreen = () => {
     if (!hasLoadedOnceRef.current) setLoading(true);
     try {
       const nyMidnight = getNYMidnightISO();
-      const query = supabase
+      const sq = debouncedSearchQuery.trim();
+      let customerIds: string[] = [];
+
+      if (sq && sq.length >= 2 && !/^\d+$/.test(sq)) {
+        const { data } = await supabase
+          .from('customers')
+          .select('id')
+          .ilike('name', `%${sq}%`)
+          .limit(20);
+        if (data) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          customerIds = data.map((c: any) => c.id);
+        }
+      }
+
+      let query = supabase
         .from('picking_lists')
         .select(
           `
@@ -421,10 +435,20 @@ export const ShipScreen = () => {
                 `
         )
         .neq('status', 'cancelled')
-        .or(
-          `is_shipped.is.null,is_shipped.eq.false,and(is_shipped.eq.true,updated_at.gte.${nyMidnight})`
-        )
         .order('created_at', { ascending: false });
+
+      if (sq) {
+        if (customerIds.length > 0) {
+          query = query.or(`order_number.ilike.%${sq}%,customer_id.in.(${customerIds.join(',')})`);
+        } else {
+          query = query.ilike('order_number', `%${sq}%`);
+        }
+        query = query.limit(100);
+      } else {
+        query = query.or(
+          `is_shipped.is.null,is_shipped.eq.false,and(is_shipped.eq.true,updated_at.gte.${nyMidnight})`
+        );
+      }
 
       // Wrap the supabase call so transient network/5xx errors get
       // retried with exponential backoff. Without this, a single
@@ -457,7 +481,7 @@ export const ShipScreen = () => {
       hasLoadedOnceRef.current = true;
       setLoading(false);
     }
-  }, [user, externalOrderId]); // Include externalOrderId here to ensure consistency
+  }, [user, externalOrderId, debouncedSearchQuery]); // Include externalOrderId here to ensure consistency
 
   const fetchOrderDetails = useCallback(async (id: string) => {
     try {
@@ -704,16 +728,21 @@ export const ShipScreen = () => {
 
   const filteredOrders = useMemo(() => {
     const todayStr = dayKey(new Date());
+    const query = debouncedSearchQuery.toLowerCase().trim();
 
     // 1. Split by the FedEx checkbox. Checked shows FedEx-grouped orders;
     //    unchecked shows everything that isn't FedEx.
     const byCarrier = orders.filter((o) => {
       if (o.status === 'cancelled') return false;
+      const isFedex = isFedexLane(o);
+      if (showFedex ? !isFedex : isFedex) return false;
+      if (query) return true; // If searching, ignore tab boundaries
+
       const shippedToday = !!o.is_shipped && dayKey(new Date(o.updated_at)) === todayStr;
       const matchTab = shipTab === 'shipped' ? shippedToday : !o.is_shipped;
       if (!matchTab) return false;
-      const isFedex = isFedexLane(o);
-      return showFedex ? isFedex : !isFedex;
+
+      return true;
     });
 
     // 2. Collapse 'general' group siblings into a single virtual entry per
@@ -761,7 +790,6 @@ export const ShipScreen = () => {
     // Re-sort by created_at desc to preserve the original list ordering.
     collapsed.sort((a, b) => b.created_at.localeCompare(a.created_at));
 
-    const query = searchQuery.toLowerCase().trim();
     const results = collapsed.filter((order) => {
       const orderNum = String(order.order_number || '').toLowerCase();
       const customer = String(order.customer?.name || '').toLowerCase();
@@ -778,7 +806,7 @@ export const ShipScreen = () => {
       const bStartsWith = bNum.startsWith(query) ? 1 : 0;
       return bStartsWith - aStartsWith;
     });
-  }, [orders, searchQuery, showFedex, shipTab]);
+  }, [orders, debouncedSearchQuery, showFedex, shipTab]);
 
   const visibleOrders = useMemo(() => filteredOrders, [filteredOrders]);
 
