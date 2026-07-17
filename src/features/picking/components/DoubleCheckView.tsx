@@ -2691,10 +2691,20 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[100]">
           <button
             onClick={() => setActiveOrderFilter(null)}
-            className="bg-yellow-500/15 backdrop-blur border border-yellow-500/30 text-yellow-500 px-4 py-2.5 rounded-full shadow-lg shadow-yellow-500/10 text-sm font-bold flex items-center gap-2 hover:bg-yellow-500/25 transition-all whitespace-nowrap animate-pulse animate-in fade-in slide-in-from-bottom-4"
+            className="bg-yellow-500/15 backdrop-blur border border-yellow-500/30 text-yellow-500 px-4 py-2.5 rounded-full shadow-lg shadow-yellow-500/10 text-sm font-bold flex items-center gap-2 hover:bg-yellow-500/25 transition-all whitespace-nowrap animate-in fade-in slide-in-from-bottom-4"
           >
             <X size={16} />
-            Showing #{activeOrderFilter} Only
+            <span className="flex">
+              {`Showing #${activeOrderFilter} Only`.split('').map((char, index) => (
+                <span
+                  key={index}
+                  className="animate-color-wave"
+                  style={{ animationDelay: `${index * 0.05}s` }}
+                >
+                  {char === ' ' ? '\u00A0' : char}
+                </span>
+              ))}
+            </span>
           </button>
         </div>
       )}

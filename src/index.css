@@ -314,3 +314,19 @@ body::before {
     transform: translateY(0);
   }
 }
+
+@keyframes color-wave {
+  0%,
+  100% {
+    color: inherit;
+  }
+  50% {
+    color: #ef4444;
+    text-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+  }
+}
+
+.animate-color-wave {
+  animation: color-wave 2s ease-in-out infinite;
+  display: inline-block;
+}
