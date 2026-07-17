@@ -280,8 +280,8 @@ export function computeLabelFace(
   // code stays sparse and easy to scan.
   const qrPayload = withQr ? `${baseUrl}/s/${encodeURIComponent(item.sku)}` : null;
 
-  // Full item name (model + details combined for display).
-  const nameText = (parsed.model || parsed.raw || item.sku).trim();
+  // Full item name: item_name (parts) → model (S/D bikes) → parsed → SKU fallback
+  const nameText = (item.item_name || item.model || parsed.model || parsed.raw || item.sku).trim();
 
   // Detail: "SIZE 15 · Sandstorm · YEAR 2026". The literal word "COLOR" is NOT
   // printed. Color: explicit field (parts) wins; else the name-parsed color.
@@ -321,8 +321,8 @@ export function computeLabelFace(
   // Largest font we'll try. With no QR the text fills the whole label; with codes
   // on it can still grow well past the old cap and then spread to fill the height.
   // If serial_number is present, reduce MAX_BASE to reserve space for it.
-  const hasSerial = item.serial_number?.trim();
-  const MAX_BASE = withQr ? (hasSerial ? 70 : 80) : hasSerial ? 130 : 150;
+  // Largest font we'll try. Sized to fit all content: name, color, SKU box, serial, codes.
+  const MAX_BASE = withQr ? 50 : 60;
   // Spread the stack to fill the label height in both modes (less when codes are
   // on, so the QR/barcode keep their room).
   const fillCap = withQr ? 1.4 : 1.7;
