@@ -84,12 +84,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
 
   // Handler that routes merge requests: quick group for completed PICK UP, regular menu for others
   const handleOrderMenuSelect = useCallback((order: PickingList) => {
-    const isCompletedPickup = order.status === 'completed' && order.transport_company === 'PICK UP';
-    if (isCompletedPickup) {
-      setSelectedQuickGroupOrder(order);
-    } else {
-      setSelectedMenuOrder(order);
-    }
+    setSelectedMenuOrder(order);
   }, []);
 
   const handleMergeSelect = async (target: MergeTargetCandidate) => {
@@ -999,7 +994,14 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               refresh();
             }}
             onMerge={() => {
-              setOrderToMerge(selectedMenuOrder);
+              const isCompletedPickup =
+                selectedMenuOrder.status === 'completed' &&
+                selectedMenuOrder.transport_company === 'PICK UP';
+              if (isCompletedPickup) {
+                setSelectedQuickGroupOrder(selectedMenuOrder);
+              } else {
+                setOrderToMerge(selectedMenuOrder);
+              }
               setSelectedMenuOrder(null);
             }}
             onUngroup={async (orderId, groupId) => {
