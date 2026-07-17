@@ -372,7 +372,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
   {
     "color": "0,0,0",
     "fs": 16.2,
-    "s": "SERIAL: SN-99",
+    "s": "SN-99",
     "t": "text",
     "x": 0.2,
     "y": 3.166875,
@@ -770,7 +770,7 @@ exports[`generateBikeLabels — printed geometry (refactor guard) > standard · 
   {
     "color": "0,0,0",
     "fs": 16.2,
-    "s": "SERIAL: SN-99",
+    "s": "SN-99",
     "t": "text",
     "x": 0.2,
     "y": 3.166875,

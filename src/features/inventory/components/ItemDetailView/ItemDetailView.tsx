@@ -894,6 +894,8 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           .select('short_code, sku, public_token');
         if (error || !tags?.length) throw error || new Error('No tags returned');
         const labelColor = (watch('color') || '').trim() || null;
+        const labelSerial = (watch('serial_number') || '').trim() || null;
+        const meta = initialData?.sku_metadata;
         const blobUrl = await generateBikeLabels(
           tags.map((t) => ({
             sku,
@@ -904,6 +906,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
             withQr: opts.withQr,
             withBarcode: opts.withBarcode,
             color: labelColor,
+            model: meta?.model ?? null,
+            size: meta?.size ?? null,
+            serial_number: labelSerial ?? meta?.serial_number ?? null,
           }))
         );
         window.open(blobUrl, '_blank');

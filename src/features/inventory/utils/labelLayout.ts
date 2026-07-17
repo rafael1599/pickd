@@ -308,8 +308,9 @@ export function computeLabelFace(
   // Extra fields (UPC, Serial, Made In, P/O) — one line each, tagged by field.
   const efLines: { text: string; field: LabelField }[] = [];
   if (item.upc?.trim()) efLines.push({ text: `UPC: ${item.upc.trim()}`, field: 'upc' });
+  // Serial prints bare (no "SERIAL:" prefix) — the number is recognizable on its own.
   if (item.serial_number?.trim())
-    efLines.push({ text: `SERIAL: ${item.serial_number.trim()}`, field: 'serial' });
+    efLines.push({ text: item.serial_number.trim(), field: 'serial' });
   if (item.made_in?.trim())
     efLines.push({ text: `MADE IN: ${item.made_in.trim()}`, field: 'made_in' });
   if (item.po_number?.trim()) efLines.push({ text: `P/O: ${item.po_number.trim()}`, field: 'po' });

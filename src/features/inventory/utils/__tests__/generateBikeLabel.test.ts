@@ -104,7 +104,9 @@ describe('generateBikeLabels PDF', () => {
 
     expectGrayscaleOnly(rec);
     expectNoTextOverlap(rec);
-    expectContains(rec, ['Explorer A2', 'SIZE 19"', 'Gloss Black', '01-513', 'SERIAL: Y21K016255']);
+    expectContains(rec, ['Explorer A2', 'SIZE 19"', 'Gloss Black', '01-513', 'Y21K016255']);
+    // Serial prints bare — no "SERIAL:" prefix.
+    expect(rec.allText()).not.toMatch(/SERIAL:/);
     // The SKU prints once per copy (black box only) — the PDF has two copies,
     // so exactly 2 occurrences. More would mean it doubled as the name.
     const skuTexts = rec.texts().filter((t) => t.text.trim() === '01-513');
@@ -126,6 +128,13 @@ describe('generateBikeLabels PDF', () => {
 
     expectGrayscaleOnly(rec);
     expectNoTextOverlap(rec);
-    expectContains(rec, ['S/D', 'Renegade Exploit', 'Matte Olive', '12-3456OL', 'UPC:', 'SERIAL:']);
+    expectContains(rec, [
+      'S/D',
+      'Renegade Exploit',
+      'Matte Olive',
+      '12-3456OL',
+      'UPC:',
+      'SN-99887766',
+    ]);
   });
 });

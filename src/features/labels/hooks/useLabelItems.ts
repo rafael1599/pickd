@@ -59,24 +59,36 @@ function flattenRow(row: RawRow): LabelInventoryItem {
   };
 }
 
+// PostgREST caps responses at 1000 rows; active inventory exceeds that, and the
+// old single fetch (ordered by quantity desc) silently dropped every low-qty SKU
+// — S/D bikes (qty 1) never reached the search index. Page through instead.
+const PAGE = 1000;
+
 export function useLabelItems() {
   return useQuery({
-    // v2: added model/size/serial_number — bumped so the IDB-persisted cache
-    // (which lacks those fields) doesn't hydrate stale rows.
-    queryKey: ['label-studio-items', 'v2'],
+    // v3: paginated full fetch + model/size/serial_number fields. Bumped so the
+    // IDB-persisted cache doesn't hydrate the old truncated/field-poor rows.
+    queryKey: ['label-studio-items', 'v3'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('inventory')
-        .select(
-          'sku, item_name, location, quantity, sku_metadata(image_url, is_bike, upc, color, model, size, serial_number, weight_lbs, length_in, width_in, height_in)'
-        )
-        .eq('is_active', true)
-        .order('quantity', { ascending: false })
-        .order('location')
-        .order('sku');
+      const all: RawRow[] = [];
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('inventory')
+          .select(
+            'sku, item_name, location, quantity, sku_metadata(image_url, is_bike, upc, color, model, size, serial_number, weight_lbs, length_in, width_in, height_in)'
+          )
+          .eq('is_active', true)
+          .order('quantity', { ascending: false })
+          .order('location')
+          .order('sku')
+          .range(from, from + PAGE - 1);
 
-      if (error) throw error;
-      return ((data ?? []) as unknown as RawRow[]).map(flattenRow);
+        if (error) throw error;
+        const rows = (data ?? []) as unknown as RawRow[];
+        all.push(...rows);
+        if (rows.length < PAGE) break;
+      }
+      return all.map(flattenRow);
     },
     staleTime: 5 * 60_000,
   });
