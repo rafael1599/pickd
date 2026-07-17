@@ -364,15 +364,6 @@ const OrderCardShell: React.FC<CardProps> = ({
     >
       {showShippingBadge && <div className={`h-1.5 shrink-0 w-full ${colors.stripe}`} />}
 
-      {/* PICK UP badge (bottom-center) */}
-      {order.transport_company === 'PICK UP' && (
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-5">
-          <span className="text-[9px] bg-red-500 text-white px-2 py-1 rounded-full font-black uppercase tracking-wider">
-            PICK UP
-          </span>
-        </div>
-      )}
-
       <div className="flex-1 flex items-stretch min-w-0 w-full">
         {/* Left Panel: Quantities */}
         <div className="flex flex-col items-center justify-center border-r border-subtle bg-content/[0.02] py-2 px-2.5 shrink-0 self-stretch min-w-[76px] md:min-w-[84px] gap-2 select-none">
