@@ -388,7 +388,7 @@ const OrderCardShell: React.FC<CardProps> = ({
               <MoreVertical className="w-5 h-5 lg:w-3.5 lg:h-3.5" />
             </button>
           )}
-          {order.group_id && onUngroup && (
+          {order.group_id && onUngroup && shippingType !== 'fedex' && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
