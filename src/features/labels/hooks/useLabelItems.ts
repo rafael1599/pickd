@@ -11,6 +11,8 @@ export interface LabelInventoryItem {
   upc: string | null;
   color: string | null;
   model?: string | null;
+  size?: string | null;
+  serial_number?: string | null;
   weight_lbs: number | null;
   length_in: number | null;
   width_in: number | null;
@@ -28,6 +30,8 @@ interface RawRow {
     upc: string | null;
     color: string | null;
     model: string | null;
+    size: string | null;
+    serial_number: string | null;
     weight_lbs: number | null;
     length_in: number | null;
     width_in: number | null;
@@ -46,6 +50,8 @@ function flattenRow(row: RawRow): LabelInventoryItem {
     upc: row.sku_metadata?.upc ?? null,
     color: row.sku_metadata?.color ?? null,
     model: row.sku_metadata?.model ?? null,
+    size: row.sku_metadata?.size ?? null,
+    serial_number: row.sku_metadata?.serial_number ?? null,
     weight_lbs: row.sku_metadata?.weight_lbs ?? null,
     length_in: row.sku_metadata?.length_in ?? null,
     width_in: row.sku_metadata?.width_in ?? null,
@@ -55,12 +61,14 @@ function flattenRow(row: RawRow): LabelInventoryItem {
 
 export function useLabelItems() {
   return useQuery({
-    queryKey: ['label-studio-items'],
+    // v2: added model/size/serial_number — bumped so the IDB-persisted cache
+    // (which lacks those fields) doesn't hydrate stale rows.
+    queryKey: ['label-studio-items', 'v2'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('inventory')
         .select(
-          'sku, item_name, location, quantity, sku_metadata(image_url, is_bike, upc, color, model, weight_lbs, length_in, width_in, height_in)'
+          'sku, item_name, location, quantity, sku_metadata(image_url, is_bike, upc, color, model, size, serial_number, weight_lbs, length_in, width_in, height_in)'
         )
         .eq('is_active', true)
         .order('quantity', { ascending: false })

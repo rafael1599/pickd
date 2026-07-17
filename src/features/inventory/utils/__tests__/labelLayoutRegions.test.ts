@@ -12,11 +12,14 @@ const fakeMeasure: LabelTextMeasurer = {
   splitText: (t) => [t],
 };
 
+// Explicit color NOT contained in the name — values already visible in the
+// name are deduped out of the detail line, and these tests need a detail region.
 const base: LabelItem = {
   sku: '03-4614BK',
   item_name: 'FAULTLINE A1 V2 15 2026 GLOSS BLACK',
   short_code: '',
   public_token: '',
+  color: 'Sandstorm',
 };
 
 const EDITABLE: LabelField[] = ['name', 'detail', 'extra', 'upc', 'serial', 'made_in', 'po'];

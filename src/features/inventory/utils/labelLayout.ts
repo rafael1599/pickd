@@ -15,6 +15,8 @@ export interface LabelItem {
   color?: string | null;
   /** Model name (S/D bikes). Used when item_name is null. */
   model?: string | null;
+  /** Explicit size (sku_metadata.size). When set, it wins over the name-parsed size. */
+  size?: string | null;
   serial_number?: string | null;
   made_in?: string | null;
   po_number?: string | null;
@@ -282,16 +284,22 @@ export function computeLabelFace(
   // code stays sparse and easy to scan.
   const qrPayload = withQr ? `${baseUrl}/s/${encodeURIComponent(item.sku)}` : null;
 
-  // Full item name: item_name (parts) → model (S/D bikes) → parsed → SKU fallback
-  const nameText = (item.item_name || item.model || parsed.model || parsed.raw || item.sku).trim();
+  // Full item name: item_name (parts) → model (S/D bikes) → parsed. No SKU
+  // fallback here — the SKU already prints in the black box, so repeating it as
+  // the name would duplicate it on the label.
+  const nameText = (item.item_name || item.model || parsed.model || parsed.raw || '').trim();
+  const nameLower = nameText.toLowerCase();
 
   // Detail: "SIZE 15 · Sandstorm · YEAR 2026". The literal word "COLOR" is NOT
-  // printed. Color: explicit field (parts) wins; else the name-parsed color.
+  // printed. Explicit fields (sku_metadata) win over name-parsed values, and
+  // anything already visible inside the name is NOT repeated below it.
   const labelColor = item.color?.trim() || parsed.color;
+  const labelSize = item.size?.trim() || parsed.size;
   const detailParts: string[] = [];
-  if (parsed.size) detailParts.push(`SIZE ${parsed.size}`);
-  if (labelColor) detailParts.push(labelColor);
-  if (parsed.year) detailParts.push(`YEAR ${parsed.year}`);
+  if (labelSize && !nameLower.includes(labelSize.toLowerCase()))
+    detailParts.push(`SIZE ${labelSize}`);
+  if (labelColor && !nameLower.includes(labelColor.toLowerCase())) detailParts.push(labelColor);
+  if (parsed.year && !nameLower.includes(parsed.year)) detailParts.push(`YEAR ${parsed.year}`);
   const detailText = detailParts.join('  ·  ');
 
   const prefix = item.prefix?.trim() || null;
@@ -309,7 +317,7 @@ export function computeLabelFace(
   const buildLines = (nameMaxLines: number): FitLine[] => {
     const lines: FitLine[] = [];
     if (prefix) lines.push({ text: prefix, style: 'bolditalic', weight: 1, maxLines: 1 });
-    lines.push({ text: nameText, style: 'bold', weight: 1, maxLines: nameMaxLines });
+    if (nameText) lines.push({ text: nameText, style: 'bold', weight: 1, maxLines: nameMaxLines });
     if (detailText)
       lines.push({ text: detailText, style: 'normal', weight: SECONDARY, maxLines: 2 });
     if (hasSku) lines.push({ text: item.sku, style: 'bold', weight: 1, maxLines: 1 });
@@ -366,19 +374,21 @@ export function computeLabelFace(
       vy += vPrimary * PT_TO_IN * LE;
     }
 
-    for (const line of measure.splitText(nameText, vTextW, vPrimary, 'bold').slice(0, 2)) {
-      ops.push({
-        kind: 'text',
-        text: line,
-        x: cx,
-        y: vy + vPrimary * PT_TO_IN,
-        sizePt: vPrimary,
-        style: 'bold',
-        align: 'center',
-        color: 'black',
-        field: 'name',
-      });
-      vy += vPrimary * PT_TO_IN * LE;
+    if (nameText) {
+      for (const line of measure.splitText(nameText, vTextW, vPrimary, 'bold').slice(0, 2)) {
+        ops.push({
+          kind: 'text',
+          text: line,
+          x: cx,
+          y: vy + vPrimary * PT_TO_IN,
+          sizePt: vPrimary,
+          style: 'bold',
+          align: 'center',
+          color: 'black',
+          field: 'name',
+        });
+        vy += vPrimary * PT_TO_IN * LE;
+      }
     }
 
     if (detailText) {
@@ -403,7 +413,7 @@ export function computeLabelFace(
     vy += SEP_H * stretch;
 
     if (hasSku) {
-      const boxText = item.serial_number || item.sku;
+      const boxText = item.sku;
       const w = measure.textWidth(boxText, vPrimary, 'bold');
       const h = vPrimary * PT_TO_IN;
       const boxW = w + SKU_PAD_X * 2;
@@ -517,19 +527,21 @@ export function computeLabelFace(
     y += primary * PT_TO_IN * LE;
   }
 
-  for (const line of measure.splitText(nameText, textW, primary, 'bold').slice(0, 2)) {
-    ops.push({
-      kind: 'text',
-      text: line,
-      x: M,
-      y: y + primary * PT_TO_IN,
-      sizePt: primary,
-      style: 'bold',
-      align: 'left',
-      color: 'black',
-      field: 'name',
-    });
-    y += primary * PT_TO_IN * LE;
+  if (nameText) {
+    for (const line of measure.splitText(nameText, textW, primary, 'bold').slice(0, 2)) {
+      ops.push({
+        kind: 'text',
+        text: line,
+        x: M,
+        y: y + primary * PT_TO_IN,
+        sizePt: primary,
+        style: 'bold',
+        align: 'left',
+        color: 'black',
+        field: 'name',
+      });
+      y += primary * PT_TO_IN * LE;
+    }
   }
 
   if (detailText) {

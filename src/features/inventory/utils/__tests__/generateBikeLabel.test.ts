@@ -70,7 +70,7 @@ describe('generateBikeLabels PDF', () => {
     expectOrderedText(rec, ['Faultline', 'Sandstorm', '00-0000']);
   });
 
-  it('parsed bike: SIZE/YEAR kept, color value present, no "COLOR" label', async () => {
+  it('parsed bike: values already in the name are NOT repeated below it', async () => {
     await generateBikeLabels([
       {
         ...base,
@@ -82,8 +82,33 @@ describe('generateBikeLabels PDF', () => {
 
     expectGrayscaleOnly(rec);
     expectNoTextOverlap(rec);
-    expectContains(rec, ['FAULTLINE A1 V2', 'SIZE 15', 'GLOSS BLACK', 'YEAR 2026', '03-4614BK']);
+    expectContains(rec, ['FAULTLINE A1 V2', '03-4614BK']);
+    // Size/color/year all appear inside the printed name — the detail line
+    // must not duplicate them.
+    expect(rec.allText()).not.toMatch(/SIZE 15|YEAR 2026/);
     expect(rec.allText()).not.toMatch(/COLOR/);
+  });
+
+  it('S/D bike with no item_name: model + color + serial, SKU only in the box', async () => {
+    await generateBikeLabels([
+      {
+        ...base,
+        item_name: null,
+        model: 'Explorer A2',
+        color: 'Gloss Black',
+        size: '19"',
+        serial_number: 'Y21K016255',
+        sku: '01-513',
+      },
+    ]);
+
+    expectGrayscaleOnly(rec);
+    expectNoTextOverlap(rec);
+    expectContains(rec, ['Explorer A2', 'SIZE 19"', 'Gloss Black', '01-513', 'SERIAL: Y21K016255']);
+    // The SKU prints once per copy (black box only) — the PDF has two copies,
+    // so exactly 2 occurrences. More would mean it doubled as the name.
+    const skuTexts = rec.texts().filter((t) => t.text.trim() === '01-513');
+    expect(skuTexts).toHaveLength(2);
   });
 
   it('long name + S/D prefix + extra fields still fit without overlap', async () => {
