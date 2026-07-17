@@ -320,7 +320,9 @@ export function computeLabelFace(
   const bcBlock = withBarcode ? BARCODE_TOP + BARCODE_H + BARCODE_BOT : 0;
   // Largest font we'll try. With no QR the text fills the whole label; with codes
   // on it can still grow well past the old cap and then spread to fill the height.
-  const MAX_BASE = withQr ? 80 : 150;
+  // If serial_number is present, reduce MAX_BASE to reserve space for it.
+  const hasSerial = item.serial_number?.trim();
+  const MAX_BASE = withQr ? (hasSerial ? 70 : 80) : hasSerial ? 130 : 150;
   // Spread the stack to fill the label height in both modes (less when codes are
   // on, so the QR/barcode keep their room).
   const fillCap = withQr ? 1.4 : 1.7;
