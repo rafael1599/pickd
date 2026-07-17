@@ -34,7 +34,12 @@ const REASON_PRESETS: Record<ReasonActionType, string[]> = {
     'Cancelled wrong order',
     'Need to continue picking',
   ],
-  waiting: ['Bike not yet received', 'Backorder from vendor', 'Awaiting customer confirmation'],
+  waiting: [
+    'Bike not yet received',
+    'Waiting for james',
+    'Waiting for add ons',
+    'Awaiting customer confirmation',
+  ],
 };
 
 interface ReasonPickerProps {
@@ -51,6 +56,7 @@ export const ReasonPicker: React.FC<ReasonPickerProps> = ({
   onReasonChange,
 }) => {
   const [showOther, setShowOther] = useState(false);
+  const [additionalDetails, setAdditionalDetails] = useState('');
   const presets = REASON_PRESETS[actionType];
 
   useEffect(() => {
@@ -60,11 +66,28 @@ export const ReasonPicker: React.FC<ReasonPickerProps> = ({
   }, [preselect, selectedReason, onReasonChange]);
 
   const handleChipClick = (reason: string) => {
-    if (selectedReason === reason) {
+    // Extract base preset (before " — " separator if present)
+    const basePreset = selectedReason?.split(' — ')[0];
+    if (basePreset === reason) {
+      // Deselecting
       onReasonChange('');
+      setAdditionalDetails('');
     } else {
+      // Selecting new preset
       onReasonChange(reason);
+      setAdditionalDetails('');
       setShowOther(false);
+    }
+  };
+
+  const handleDetailsChange = (details: string) => {
+    setAdditionalDetails(details);
+    // Combine preset + details
+    const basePreset = selectedReason?.split(' — ')[0] || presets[0];
+    if (details.trim()) {
+      onReasonChange(`${basePreset} — ${details.trim()}`);
+    } else {
+      onReasonChange(basePreset);
     }
   };
 
@@ -74,6 +97,8 @@ export const ReasonPicker: React.FC<ReasonPickerProps> = ({
   };
 
   const isWaiting = actionType === 'waiting';
+  const basePreset = selectedReason?.split(' — ')[0];
+  const isPresetSelected = presets.includes(basePreset || selectedReason);
 
   return (
     <div className="mb-3">
@@ -92,7 +117,7 @@ export const ReasonPicker: React.FC<ReasonPickerProps> = ({
 
       <div className="grid grid-cols-2 gap-1.5">
         {presets.map((reason) => {
-          const isSelected = selectedReason === reason;
+          const isSelected = basePreset === reason;
           return (
             <button
               key={reason}
@@ -108,7 +133,7 @@ export const ReasonPicker: React.FC<ReasonPickerProps> = ({
             </button>
           );
         })}
-        {!showOther && (
+        {!showOther && !isPresetSelected && (
           <button
             type="button"
             onClick={handleOtherToggle}
@@ -119,10 +144,25 @@ export const ReasonPicker: React.FC<ReasonPickerProps> = ({
         )}
       </div>
 
-      {showOther && (
+      {isPresetSelected && (
+        <div className="mt-3 space-y-2">
+          <input
+            type="text"
+            value={additionalDetails}
+            onChange={(e) => handleDetailsChange(e.target.value)}
+            placeholder="Add details or context (optional)..."
+            className="w-full px-3 py-2.5 bg-surface border border-subtle rounded-xl text-content text-xs placeholder-muted/50 focus:outline-none focus:border-accent/40"
+          />
+          <div className="text-[9px] text-muted/60">
+            Saved as: <span className="text-accent font-semibold">{selectedReason}</span>
+          </div>
+        </div>
+      )}
+
+      {showOther && !isPresetSelected && (
         <input
           type="text"
-          value={presets.includes(selectedReason) ? '' : selectedReason}
+          value={selectedReason}
           onChange={(e) => onReasonChange(e.target.value)}
           placeholder="Type reason..."
           autoFocus
