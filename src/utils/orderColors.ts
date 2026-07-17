@@ -56,6 +56,42 @@ const PALETTE: OrderColor[] = [
       '-1px 1px 0px #7c3aed, -2px 2px 0px #6d28d9, -3px 3px 0px #4c1d95, -4px 4px 5px rgba(0,0,0,0.8)',
     hex: '#a78bfa', // violet-400
   },
+  {
+    face: 'text-rose-100',
+    shadow:
+      '-1px 1px 0px #e11d48, -2px 2px 0px #be185d, -3px 3px 0px #831843, -4px 4px 5px rgba(0,0,0,0.8)',
+    hex: '#f43f5e', // rose-400
+  },
+  {
+    face: 'text-cyan-100',
+    shadow:
+      '-1px 1px 0px #0891b2, -2px 2px 0px #0369a1, -3px 3px 0px #164e63, -4px 4px 5px rgba(0,0,0,0.8)',
+    hex: '#22d3ee', // cyan-400
+  },
+  {
+    face: 'text-lime-100',
+    shadow:
+      '-1px 1px 0px #65a30d, -2px 2px 0px #4d7c0f, -3px 3px 0px #365314, -4px 4px 5px rgba(0,0,0,0.8)',
+    hex: '#84cc16', // lime-400
+  },
+  {
+    face: 'text-indigo-100',
+    shadow:
+      '-1px 1px 0px #4f46e5, -2px 2px 0px #4338ca, -3px 3px 0px #312e81, -4px 4px 5px rgba(0,0,0,0.8)',
+    hex: '#818cf8', // indigo-400
+  },
+  {
+    face: 'text-teal-100',
+    shadow:
+      '-1px 1px 0px #0d9488, -2px 2px 0px #0f766e, -3px 3px 0px #134e4a, -4px 4px 5px rgba(0,0,0,0.8)',
+    hex: '#2dd4bf', // teal-400
+  },
+  {
+    face: 'text-red-100',
+    shadow:
+      '-1px 1px 0px #dc2626, -2px 2px 0px #b91c1c, -3px 3px 0px #7f1d1d, -4px 4px 5px rgba(0,0,0,0.8)',
+    hex: '#f87171', // red-400
+  },
 ];
 
 /** Classic single-order yellow — index 0 of the palette. */
