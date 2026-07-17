@@ -271,15 +271,8 @@ export const PickingCartDrawer: React.FC = () => {
             };
 
             if (needsTakeover) {
-              showConfirmation(
-                'Order Locked',
-                'This order is currently locked by another user. Do you want to take over their session or just view it?',
-                () => checkWaiting(false), // Confirm: Take Over -> proceed to check waiting
-                () => checkWaiting(true), // Cancel: View Only
-                'Take Over',
-                'View Only',
-                'danger'
-              );
+              // User preference: Open in View Only by default. The DoubleCheckView has a "Take Over" button inside.
+              checkWaiting(true);
               return;
             }
 
