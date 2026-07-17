@@ -135,13 +135,10 @@ const OrderNotesSection: React.FC<OrderNotesProps> = ({ order }) => {
     if (!order.notes) return null;
 
     return (
-      <div className="mt-3 pt-3 border-t border-subtle/20 px-3 md:px-4">
-        <div className="text-[8px] font-bold text-muted uppercase tracking-wider mb-1.5">
-          Original Note
-        </div>
+      <div className="mt-2 pt-2 border-t border-subtle/20 px-3 md:px-4">
         <p className="text-[9px] text-content/80 line-clamp-2">{order.notes}</p>
         {userNotes.length > 0 && (
-          <div className="mt-2 flex items-center gap-1 px-2 py-1 bg-amber-500/10 border border-amber-500/30 rounded-lg w-fit">
+          <div className="mt-1.5 flex items-center gap-1 px-2 py-1 bg-amber-500/10 border border-amber-500/30 rounded-lg w-fit">
             <MessageSquare size={10} className="text-amber-500" />
             <span className="text-[9px] font-bold text-amber-500">
               {userNotes.length} note{userNotes.length > 1 ? 's' : ''}
