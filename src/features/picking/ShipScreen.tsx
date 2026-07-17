@@ -23,6 +23,7 @@ import type { AutoSaveStatus } from './ship/types';
 import MessageSquare from 'lucide-react/dist/esm/icons/message-square';
 import Truck from 'lucide-react/dist/esm/icons/truck';
 import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
+import ShoppingCart from 'lucide-react/dist/esm/icons/shopping-cart';
 import { ShipOrderCard } from '../../components/orders/ShipOrderCard.tsx';
 import { OrderProgressBar } from './components/OrderProgressBar.tsx';
 import { TransportLogo } from '../../components/orders/TransportLogo.tsx';
@@ -735,9 +736,10 @@ export const ShipScreen = () => {
     //    unchecked shows everything that isn't FedEx.
     const byCarrier = orders.filter((o) => {
       if (o.status === 'cancelled') return false;
+      if (query) return true; // If searching, ignore tab and carrier boundaries
+
       const isFedex = isFedexLane(o);
       if (showFedex ? !isFedex : isFedex) return false;
-      if (query) return true; // If searching, ignore tab boundaries
 
       const shippedToday = !!o.is_shipped && dayKey(new Date(o.updated_at)) === todayStr;
       const matchTab = shipTab === 'shipped' ? shippedToday : !o.is_shipped;
@@ -792,7 +794,7 @@ export const ShipScreen = () => {
     collapsed.sort((a, b) => b.created_at.localeCompare(a.created_at));
 
     const results = collapsed.filter((order) => {
-      const orderNum = String(order.order_number || '').toLowerCase();
+      const orderNum = String(order.order_number || order.id.toString().slice(-6)).toLowerCase();
       const customer = String(order.customer?.name || '').toLowerCase();
       return !query || orderNum.includes(query) || customer.includes(query);
     });
@@ -810,6 +812,17 @@ export const ShipScreen = () => {
   }, [orders, debouncedSearchQuery, showFedex, shipTab]);
 
   const visibleOrders = useMemo(() => filteredOrders, [filteredOrders]);
+
+  // Auto-select the first result's tab and order when a search query is active
+  useEffect(() => {
+    if (debouncedSearchQuery && filteredOrders.length > 0) {
+      const firstResult = filteredOrders[0];
+      if (firstResult) {
+        setShipTab(firstResult.is_shipped ? 'shipped' : 'to_ship');
+        setSelectedOrder(firstResult);
+      }
+    }
+  }, [debouncedSearchQuery, filteredOrders]);
 
   const ordersGroupedByDate = useMemo<DayGroup[]>(() => {
     const map = new Map<string, DayGroup>();
@@ -1676,7 +1689,7 @@ export const ShipScreen = () => {
                     screenOnly
                   />
 
-                  <div className="-mt-2 px-1">
+                  <div className="-mt-2 px-1 flex justify-between items-start">
                     <div className="inline-flex flex-wrap items-center gap-2 rounded-full border border-subtle bg-card px-3 py-1 text-[10px] font-black uppercase tracking-wider text-muted">
                       <span className="text-content">{selectedOrder.status}</span>
                       <span>·</span>
@@ -1686,6 +1699,20 @@ export const ShipScreen = () => {
                       <span>·</span>
                       <OrderAutoSaveIndicator status={autoSaveStatus} />
                     </div>
+                    {!selectedOrder.is_shipped && (
+                      <button
+                        onClick={() => setExternalDoubleCheckId(selectedOrder.id)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/10 text-accent hover:bg-accent hover:text-white border border-accent/30 transition-all active:scale-95 group shadow-sm shrink-0"
+                      >
+                        <ShoppingCart
+                          size={14}
+                          className="group-hover:scale-110 transition-transform"
+                        />
+                        <span className="text-[10px] font-black uppercase tracking-widest mt-0.5">
+                          Cart
+                        </span>
+                      </button>
+                    )}
                   </div>
 
                   <ShipOrderCard
@@ -1716,8 +1743,12 @@ export const ShipScreen = () => {
                     }}
                     onShowPickingSummary={() => {
                       setExternalOrderId(selectedOrder?.id ?? null);
-                      setViewMode('orders');
-                      navigate('/orders');
+                      navigate('/orders', {
+                        state: {
+                          searchOrderNumber: selectedOrder?.order_number,
+                          targetId: selectedOrder?.id,
+                        },
+                      });
                     }}
                     onSplitOrder={() => setIsShowingSplitModal(true)}
                     onReopenOrder={handleReopenOrder}

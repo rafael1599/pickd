@@ -36,6 +36,9 @@ const SnapshotViewer = lazyWithRetry(() =>
 const PickdReportViewer = lazyWithRetry(() =>
   import('./features/reports/PickdReportViewer.tsx').then((m) => ({ default: m.PickdReportViewer }))
 );
+const DemoJul17 = lazyWithRetry(() =>
+  import('./features/reports/DemoJul17.tsx').then((m) => ({ default: m.DemoJul17 }))
+);
 const PublicTagView = lazyWithRetry(() =>
   import('./features/labels/PublicTagView.tsx').then((m) => ({ default: m.PublicTagView }))
 );
@@ -307,6 +310,22 @@ function App() {
                         }
                       >
                         <PickdReportViewer />
+                      </Suspense>
+                    </ErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/demo/jul17"
+                  element={
+                    <ErrorBoundary>
+                      <Suspense
+                        fallback={
+                          <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center">
+                            <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
+                          </div>
+                        }
+                      >
+                        <DemoJul17 />
                       </Suspense>
                     </ErrorBoundary>
                   }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { useViewMode } from '../../context/ViewModeContext';
@@ -49,8 +49,27 @@ interface DayGroup {
  */
 export const OrdersBoardScreen = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { externalOrderId, setExternalOrderId } = useViewMode();
-  const [searchQuery, setSearchQuery] = useState('');
+
+  const [searchQuery, setSearchQuery] = useState(
+    () => (location.state as { searchOrderNumber?: string })?.searchOrderNumber || ''
+  );
+
+  // Update searchQuery and expandedId if navigation happens with location state
+  useEffect(() => {
+    const passedOrderNumber = (location.state as any)?.searchOrderNumber;
+    const passedTargetId = (location.state as any)?.targetId;
+
+    if (passedOrderNumber && passedOrderNumber !== searchQuery) {
+      setSearchQuery(passedOrderNumber);
+    }
+
+    if (passedTargetId) {
+      setExpandedId(passedTargetId);
+    }
+  }, [location.state]);
+
   const debouncedQuery = useDebounce(searchQuery, 200);
 
   const { orders, skuIsBike, loading } = useOrdersOfDay(debouncedQuery);
@@ -61,21 +80,18 @@ export const OrdersBoardScreen = () => {
   const ignoreNextExternalRef = useRef(false);
 
   useEffect(() => {
-    if (externalOrderId && orders.length > 0) {
+    if (externalOrderId) {
       if (ignoreNextExternalRef.current) {
         ignoreNextExternalRef.current = false;
         return;
       }
       const targetId = externalOrderId;
       setExternalOrderId(null);
-      const exists = orders.some((o) => o.id === targetId);
-      if (exists) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setExpandedId(targetId as string);
-        // We could also scroll into view if needed, but expanding is the main requirement.
-      }
+
+      // Expand the card
+      setExpandedId(targetId as string);
     }
-  }, [externalOrderId, orders, setExternalOrderId]);
+  }, [externalOrderId, setExternalOrderId]);
 
   // 1. Compute filtered orders based on search query and FedEx checkbox (before carrier filter is applied)
   const filteredOrders = useMemo(() => {
@@ -111,11 +127,29 @@ export const OrdersBoardScreen = () => {
   const baseVisibleOrders = useMemo(() => {
     const query = debouncedQuery.toLowerCase().trim();
     const hasQuery = query.length > 0;
+
     if (!hasQuery) {
-      return filteredOrders.slice(0, DEFAULT_LIMIT);
+      const top7 = filteredOrders.slice(0, DEFAULT_LIMIT);
+      // Guarantee that if we have an expanded order, it's visible on the board
+      if (expandedId && !top7.some((o) => o.id === expandedId)) {
+        const expandedOrder = filteredOrders.find((o) => o.id === expandedId);
+        if (expandedOrder) {
+          return [expandedOrder, ...top7];
+        }
+      }
+      return top7;
     }
-    return filteredOrders;
-  }, [filteredOrders, debouncedQuery]);
+
+    // Even when searching, guarantee it's visible if we fetched it
+    const result = [...filteredOrders];
+    if (expandedId && !result.some((o) => o.id === expandedId)) {
+      const expandedOrder = orders.find((o) => o.id === expandedId);
+      if (expandedOrder) {
+        result.unshift(expandedOrder);
+      }
+    }
+    return result;
+  }, [filteredOrders, debouncedQuery, expandedId, orders]);
 
   // 2. Compute order counts per carrier based on only the orders shown on screen (baseVisibleOrders)
   const carrierSummaries = useMemo(() => {

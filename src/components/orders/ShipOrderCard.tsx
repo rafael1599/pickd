@@ -80,6 +80,7 @@ interface ShipOrderCardProps {
   ) => Promise<boolean>;
   onSplitOrder?: () => void;
   onViewOrder?: () => void;
+  onShowPickingSummary?: () => void;
   onReopenOrder?: () => void;
   onRestoreOrder?: () => void;
   onContinueEditing?: () => void;
@@ -214,6 +215,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   onAutoSave,
   onSplitOrder,
   onViewOrder,
+  onShowPickingSummary,
   onReopenOrder,
   onRestoreOrder,
   onContinueEditing,
@@ -867,8 +869,17 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
       <div className="flex flex-col sm:flex-row flex-wrap gap-3 pt-2">
         <button
           onClick={() => {
-            // Navigate to Orders board and search for this order
-            navigate('/orders', { state: { searchQuery: selectedOrder.order_number } });
+            if (onShowPickingSummary) {
+              onShowPickingSummary();
+            } else {
+              // Fallback if not provided
+              navigate('/orders', {
+                state: {
+                  searchOrderNumber: selectedOrder.order_number,
+                  targetId: selectedOrder.id,
+                },
+              });
+            }
           }}
           className="flex-1 min-w-[160px] flex items-center justify-center gap-2 h-12 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-2xl text-[10px] font-black uppercase tracking-widest text-blue-500 transition-all active:scale-95"
         >
