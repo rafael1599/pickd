@@ -330,3 +330,103 @@ body::before {
   animation: color-wave 2s ease-in-out infinite;
   display: inline-block;
 }
+
+/* ── Shipped-truck arrival (Ship screen) ─────────────────────────────
+   When a shipped order is selected, the little truck badge drives in from
+   the left edge of the screen, brakes with a small recoil, rumbles like an
+   idling engine, and leaves a short trail of exhaust smoke behind it.
+   Pure CSS; replays via a React `key` on the order id. */
+.truck-arrival {
+  position: relative;
+  z-index: 30;
+  will-change: transform;
+  animation: truck-drive-in 1.15s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes truck-drive-in {
+  0% {
+    transform: translateX(-100vw) rotate(-2deg);
+    opacity: 0;
+  }
+  6% {
+    opacity: 1;
+  }
+  62% {
+    transform: translateX(0) rotate(1deg);
+  }
+  74% {
+    transform: translateX(-6%) rotate(-2deg);
+  }
+  86% {
+    transform: translateX(2%) rotate(1deg);
+  }
+  100% {
+    transform: translateX(0) rotate(0);
+  }
+}
+
+/* engine rumble on the truck itself — a short burst, then it settles */
+.truck-rig {
+  animation: truck-rumble 0.1s linear 13 both;
+}
+
+@keyframes truck-rumble {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+  25% {
+    transform: translateY(-0.6px) rotate(-0.5deg);
+  }
+  50% {
+    transform: translateY(0.4px) rotate(0.4deg);
+  }
+  75% {
+    transform: translateY(-0.5px) rotate(-0.3deg);
+  }
+}
+
+/* exhaust puffs trailing from the rear (left) of the truck */
+.truck-smoke {
+  position: absolute;
+  left: -3px;
+  bottom: 8px;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(200, 200, 206, 0.85), rgba(200, 200, 206, 0) 68%);
+  filter: blur(1.5px);
+  opacity: 0;
+  pointer-events: none;
+  animation: smoke-puff 0.8s ease-out 3 both;
+}
+.truck-smoke:nth-of-type(2) {
+  animation-delay: 0.24s;
+}
+.truck-smoke:nth-of-type(3) {
+  animation-delay: 0.48s;
+}
+
+@keyframes smoke-puff {
+  0% {
+    transform: translate(0, 0) scale(0.3);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.75;
+  }
+  100% {
+    transform: translate(-22px, -15px) scale(2);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .truck-arrival,
+  .truck-rig {
+    animation: none !important;
+  }
+  .truck-smoke {
+    display: none;
+  }
+}
