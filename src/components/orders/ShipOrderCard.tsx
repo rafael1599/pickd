@@ -455,18 +455,20 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
 
       <div className="flex flex-col lg:flex-row gap-5 lg:gap-6 items-start">
         <div className="w-full lg:basis-[66.666%] lg:max-w-[66.666%] min-w-0 flex flex-col gap-5">
-          {/* Status — order number now lives in the LivePrintPreview block above,
-              no need to repeat it here. */}
-          <div className="flex items-start gap-4">
-            <div className="flex items-center gap-3 flex-wrap min-w-0 flex-1">
-              <OrderStatusPill
-                status={selectedOrder.status}
-                is_waiting_inventory={selectedOrder.is_waiting_inventory}
-                is_shipped={selectedOrder.is_shipped}
-                is_fedex={formData.transportCompany.trim().toUpperCase() === 'FEDEX'}
-              />
+          {/* Status — order number now lives in the LivePrintPreview block above.
+              When shipped, the shipped logo shows in the header row above (right
+              side), so we skip it here to avoid duplicating it. */}
+          {!selectedOrder.is_shipped && (
+            <div className="flex items-start gap-4">
+              <div className="flex items-center gap-3 flex-wrap min-w-0 flex-1">
+                <OrderStatusPill
+                  status={selectedOrder.status}
+                  is_waiting_inventory={selectedOrder.is_waiting_inventory}
+                  is_shipped={selectedOrder.is_shipped}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Customer name — click to edit */}
           <div

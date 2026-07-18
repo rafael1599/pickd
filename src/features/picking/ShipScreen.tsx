@@ -25,6 +25,7 @@ import Truck from 'lucide-react/dist/esm/icons/truck';
 import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
 import ShoppingCart from 'lucide-react/dist/esm/icons/shopping-cart';
 import { ShipOrderCard } from '../../components/orders/ShipOrderCard.tsx';
+import { OrderStatusPill } from '../../components/orders/OrderStatusPill.tsx';
 import { OrderProgressBar } from './components/OrderProgressBar.tsx';
 import { TransportLogo } from '../../components/orders/TransportLogo.tsx';
 import { useShipOutSms } from './hooks/useShipOutSms';
@@ -1699,7 +1700,14 @@ export const ShipScreen = () => {
                       <span>·</span>
                       <OrderAutoSaveIndicator status={autoSaveStatus} />
                     </div>
-                    {!selectedOrder.is_shipped && (
+                    {selectedOrder.is_shipped ? (
+                      <OrderStatusPill
+                        status={selectedOrder.status}
+                        is_shipped
+                        is_fedex={formData.transportCompany.trim().toUpperCase() === 'FEDEX'}
+                        className="shrink-0"
+                      />
+                    ) : (
                       <button
                         onClick={() => setExternalDoubleCheckId(selectedOrder.id)}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/10 text-accent hover:bg-accent hover:text-white border border-accent/30 transition-all active:scale-95 group shadow-sm shrink-0"
