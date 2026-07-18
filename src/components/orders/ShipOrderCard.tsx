@@ -463,6 +463,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 status={selectedOrder.status}
                 is_waiting_inventory={selectedOrder.is_waiting_inventory}
                 is_shipped={selectedOrder.is_shipped}
+                is_fedex={formData.transportCompany.trim().toUpperCase() === 'FEDEX'}
               />
             </div>
           </div>

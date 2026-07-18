@@ -1,5 +1,6 @@
 import React from 'react';
 import shippedImg from '../../assets/shipped.png';
+import shippedFedexImg from '../../assets/shipped-fedex.png';
 
 const LABELS: Record<string, string> = {
   ready_to_double_check: 'To Verify',
@@ -25,6 +26,7 @@ interface OrderStatusPillProps {
   status: string;
   is_waiting_inventory?: boolean | null;
   is_shipped?: boolean | null;
+  is_fedex?: boolean | null;
   className?: string;
 }
 
@@ -32,13 +34,14 @@ export const OrderStatusPill: React.FC<OrderStatusPillProps> = ({
   status,
   is_waiting_inventory,
   is_shipped,
+  is_fedex,
   className = '',
 }) => {
   if (is_shipped) {
     return (
       <img
-        src={shippedImg}
-        alt="Shipped"
+        src={is_fedex ? shippedFedexImg : shippedImg}
+        alt={is_fedex ? 'Shipped via FedEx' : 'Shipped'}
         className={`h-6 w-auto object-contain shrink-0 ${className}`}
       />
     );

@@ -118,6 +118,7 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
                 status={order.status}
                 is_waiting_inventory={order.is_waiting_inventory}
                 is_shipped={order.is_shipped}
+                is_fedex={fedex}
               />
             </div>
             <div className="text-sm text-muted font-bold uppercase tracking-wider mt-1 flex items-center gap-2 flex-wrap min-w-0">
