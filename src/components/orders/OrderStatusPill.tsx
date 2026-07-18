@@ -1,4 +1,5 @@
 import React from 'react';
+import shippedImg from '../../assets/shipped.png';
 
 const LABELS: Record<string, string> = {
   ready_to_double_check: 'To Verify',
@@ -33,15 +34,22 @@ export const OrderStatusPill: React.FC<OrderStatusPillProps> = ({
   is_shipped,
   className = '',
 }) => {
+  if (is_shipped) {
+    return (
+      <img
+        src={shippedImg}
+        alt="Shipped"
+        className={`h-6 w-auto object-contain shrink-0 ${className}`}
+      />
+    );
+  }
+
   let label = LABELS[status] || status.toUpperCase();
   let colorClass = COLORS[status] || 'bg-subtle text-muted border border-subtle';
 
   if (is_waiting_inventory) {
     label = 'Waiting';
     colorClass = 'bg-amber-500/15 text-amber-500 border border-amber-500/10';
-  } else if (is_shipped) {
-    label = 'Shipped';
-    colorClass = 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/10';
   }
 
   return (
