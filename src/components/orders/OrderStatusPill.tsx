@@ -42,7 +42,7 @@ export const OrderStatusPill: React.FC<OrderStatusPillProps> = ({
       <img
         src={is_fedex ? shippedFedexImg : shippedImg}
         alt={is_fedex ? 'Shipped via FedEx' : 'Shipped'}
-        className={`h-6 w-auto object-contain shrink-0 ${className}`}
+        className={`h-12 w-auto object-contain shrink-0 ${className}`}
       />
     );
   }
