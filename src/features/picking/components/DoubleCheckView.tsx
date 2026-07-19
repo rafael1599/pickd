@@ -240,7 +240,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
   const { showConfirmation } = useConfirmation();
   const { pallets: originalPallets, deleteList, loadExternalList } = usePickingSession();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const unmarkWaiting = useUnmarkWaiting();
   const takeOverSku = useTakeOverSku();
   // idea-119: fetch the active list's group_id so cross-order hooks can skip
@@ -719,7 +719,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const { open: openModal } = useModal();
 
   const handleAssignPickup = async () => {
-    if (!pickupLocation.trim() || !user) return;
+    if (!pickupLocation.trim() || !user || !activeListId) return;
     setIsSavingPickup(true);
     try {
       // 1. Update carrier to PICK UP
@@ -741,7 +741,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       toast.success(`Assigned as PICK UP at ${pickupLocation}`);
       setIsAssignPickupOpen(false);
       setPickupLocation('');
-      refresh?.();
     } catch (err) {
       console.error('Failed to assign pickup:', err);
       toast.error('Failed to assign pickup');

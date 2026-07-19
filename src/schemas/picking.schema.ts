@@ -67,6 +67,8 @@ export const PickingListSchema = z.object({
   reopened_at: z.string().nullable().optional(),
   reopen_count: z.number().int().nonnegative().optional(),
   pallet_photos: z.array(z.string()).nullable().optional(),
+  total_units: z.number().int().nonnegative().nullable().optional(),
+  verified_item_keys: z.array(z.string()).nullable().optional(),
   created_at: z.string(),
   updated_at: z.string(),
 });

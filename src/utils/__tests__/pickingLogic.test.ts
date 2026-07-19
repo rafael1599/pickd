@@ -331,31 +331,37 @@ describe('calculatePalletsWithBikeAwareness', () => {
     expect(result[0].items).toHaveLength(3);
   });
 
-  it('sizes pallets by bike units only — 15 bikes + 300 parts fits in 2 pallets', () => {
+  it('sizes bike pallets by bike units only, parts get their own trailing container — 15 bikes + 300 parts', () => {
     // Without bike-awareness: 315 units → ceil(315/12)=27 pallets at limit 12
-    // With bike-awareness: 15 bike units → 2 pallets at limit 8, parts stack on pallet 2
+    // With bike-awareness: 15 bike units → 2 pallets at limit 8; parts form a
+    // separate, non-physical "Parts" container (excluded from pallets_qty).
     const items: PickingItem[] = [
       { sku: 'BIKE-1', location: 'R1', pickingQty: 15 },
       { sku: 'PART-A', location: 'R2', pickingQty: 300 },
     ];
     const result = calculatePalletsWithBikeAwareness(items, new Set(['BIKE-1']));
-    expect(result).toHaveLength(2);
-    // Pallet 1 is bike-only (8 bikes)
+    expect(result).toHaveLength(3);
+    // Pallet 1 & 2 are bike-only (8 + 7 bikes)
     expect(result[0].items.every((i) => i.sku === 'BIKE-1')).toBe(true);
     expect(result[0].totalUnits).toBe(8);
-    // Pallet 2 has remaining bikes + all parts
-    expect(result[1].totalUnits).toBe(307);
-    expect(result[1].items.find((i) => i.sku === 'PART-A')?.isStackedPart).toBe(true);
+    expect(result[1].items.every((i) => i.sku === 'BIKE-1')).toBe(true);
+    expect(result[1].totalUnits).toBe(7);
+    // Pallet 3 is the separate parts container
+    expect(result[2].isParts).toBe(true);
+    expect(result[2].totalUnits).toBe(300);
+    expect(result[2].items.find((i) => i.sku === 'PART-A')).toBeTruthy();
   });
 
-  it('single bike pallet absorbs all parts regardless of qty', () => {
+  it('bike pallet and parts container stay separate regardless of part qty', () => {
     const items: PickingItem[] = [
       { sku: 'BIKE-1', location: 'R1', pickingQty: 3 },
       { sku: 'PART-A', location: 'R2', pickingQty: 5000 },
     ];
     const result = calculatePalletsWithBikeAwareness(items, new Set(['BIKE-1']));
-    expect(result).toHaveLength(1);
-    expect(result[0].totalUnits).toBe(5003);
+    expect(result).toHaveLength(2);
+    expect(result[0].totalUnits).toBe(3);
+    expect(result[1].isParts).toBe(true);
+    expect(result[1].totalUnits).toBe(5000);
   });
 
   it('parts-only order whose bikeSkuSet has no matching items → single pallet', () => {

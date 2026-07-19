@@ -18,7 +18,7 @@ import {
 } from '../../../../utils/pickingLogic';
 import { orderColorFor, SINGLE_ORDER_COLOR } from '../../../../utils/orderColors';
 import { usePickingNotes } from '../../hooks/usePickingNotes';
-import { getCarrierTextColor, TRANSPORT_LOGOS } from '../../../../components/orders/transportLogos';
+import { getCarrierTextColor } from '../../../../components/orders/transportLogos';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../lib/supabase';
 import toast from 'react-hot-toast';

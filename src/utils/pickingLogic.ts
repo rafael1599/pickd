@@ -15,6 +15,9 @@ export interface PickingItem {
   description?: string | null;
   /** True when stackPartsOnBikes placed this item on top of a bike pallet */
   isStackedPart?: boolean;
+  /** Order number/list id this item came from, tagged when merging combined-group carts. */
+  source_order?: string;
+  source_list_id?: string;
 }
 
 export interface Pallet {
@@ -340,10 +343,13 @@ export const consolidateIntoSinglePallet = (items: PickingItem[]): Pallet[] => {
 
 /**
  * Builds pallets from an item pool. Only BIKES paginate by capacity (8/10/12);
- * PARTS always consolidate into a single pallet regardless of quantity.
+ * PARTS always consolidate (merging duplicate sku+location entries) into a
+ * single, separate "Parts" container (`isParts: true`) — excluded from
+ * physical pallet counts (e.g. `pallets_qty`) regardless of quantity.
  *
- * - No bikes (parts-only): all parts in ONE pallet (`consolidateIntoSinglePallet`).
- * - Bikes present: `calculatePallets(bikes)` → all parts stacked on the last pallet.
+ * - No bikes (parts-only): all parts in ONE parts container.
+ * - Bikes present: `calculatePallets(bikes)` → parts get their own trailing
+ *   container, independent of the bike pallets (not stacked onto them).
  *
  * Contract: `bikeSkuSet` must reflect real detection for these items. An empty
  * set means "this order has no bikes" → everything is treated as parts → one
@@ -359,28 +365,26 @@ export const calculatePalletsWithBikeAwareness = (
   const bikes = items.filter((i) => bikeSkuSet.has(i.sku));
   const parts = items.filter((i) => !bikeSkuSet.has(i.sku));
 
+  const buildPartsContainer = (id: number): Pallet => {
+    const merged = consolidateIntoSinglePallet(parts)[0];
+    return {
+      id,
+      items: merged?.items ?? [],
+      totalUnits: merged?.totalUnits ?? 0,
+      footprint_in2: 0,
+      limitPerPallet: 0,
+      isParts: true,
+    };
+  };
+
   // If no bikes are detected (or if order is purely parts), return just the parts container.
   if (bikes.length === 0) {
-    const totalUnits = parts.reduce((sum, i) => sum + (i.pickingQty || 0), 0);
-    return [
-      { id: 1, items: parts, totalUnits, footprint_in2: 0, limitPerPallet: 0, isParts: true },
-    ];
+    return [buildPartsContainer(1)];
   }
 
   const bikePallets = calculatePallets(bikes);
   if (parts.length === 0) return bikePallets;
 
   // Bikes present: parts get their own "Parts" container, independent of pallets.
-  const totalUnits = parts.reduce((sum, i) => sum + (i.pickingQty || 0), 0);
-  return [
-    ...bikePallets,
-    {
-      id: bikePallets.length + 1,
-      items: parts,
-      totalUnits,
-      footprint_in2: 0,
-      limitPerPallet: 0,
-      isParts: true,
-    },
-  ];
+  return [...bikePallets, buildPartsContainer(bikePallets.length + 1)];
 };

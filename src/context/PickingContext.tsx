@@ -37,6 +37,7 @@ interface PickingContextType {
   loadNumber: string | null;
   setLoadNumber: (num: string | null) => void;
   listStatus: string;
+  setListStatus: (status: string) => void;
   shippingType: string | null;
   isWaitingInventory: boolean;
   setIsWaitingInventory: (val: boolean) => void;
@@ -457,6 +458,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       loadNumber,
       setLoadNumber,
       listStatus,
+      setListStatus,
       shippingType,
       isWaitingInventory,
       setIsWaitingInventory,
@@ -520,6 +522,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       loadNumber,
       setLoadNumber,
       listStatus,
+      setListStatus,
       shippingType,
       isWaitingInventory,
       setIsWaitingInventory,

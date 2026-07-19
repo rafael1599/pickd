@@ -209,6 +209,7 @@ export const PickingCartDrawer: React.FC = () => {
               checked_by?: string | null;
               group_id?: string | null;
               user_id?: string | null;
+              is_waiting_inventory?: boolean | null;
             };
 
             // Read-only if another user is verifying it OR another user is picking it

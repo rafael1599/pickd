@@ -586,9 +586,13 @@ export const usePickingActions = ({
         // Completed/reopened: restore inventory + mark cancelled via RPC.
         // The RPC is idempotent and handles the reopen-revert + group cleanup.
         if (currentList?.status === 'completed' || currentList?.status === 'reopened') {
+          if (!user) {
+            toast.error('You must be signed in to cancel this order');
+            return;
+          }
           const { data, error: rpcError } = await supabase.rpc('cancel_completed_order', {
             p_list_id: listId,
-            p_user_id: user?.id ?? null,
+            p_user_id: user.id,
           });
 
           if (rpcError) {

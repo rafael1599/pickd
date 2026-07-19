@@ -1,12 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-// react-hook-form 7.71.1's published dist/*.d.ts files import from
-// `../src/types`, a path missing from the npm tarball — runtime is fine,
-// only tsc trips. @ts-ignore localized; drop when the package ships a
-// release with corrected type paths.
-// @ts-expect-error -- broken types in react-hook-form 7.71.1
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -117,9 +112,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     reset,
     formState: { errors },
   } = useForm<InventoryFormValues>({
-    resolver: zodResolver(InventoryFormSchema) as unknown as Parameters<
-      typeof useForm<InventoryFormValues>
-    >[0]['resolver'],
+    resolver: zodResolver(InventoryFormSchema) as unknown as Resolver<InventoryFormValues>,
     mode: 'onChange',
     defaultValues: {
       sku: '',

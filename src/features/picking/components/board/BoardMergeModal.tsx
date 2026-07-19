@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ModalOverlay } from '../../../../components/ui/ModalOverlay';
 import X from 'lucide-react/dist/esm/icons/x';
-import Star from 'lucide-react/dist/esm/icons/star';
 import Search from 'lucide-react/dist/esm/icons/search';
 import Package from 'lucide-react/dist/esm/icons/package';
 import Hourglass from 'lucide-react/dist/esm/icons/hourglass';

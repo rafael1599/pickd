@@ -1767,7 +1767,6 @@ export const ShipScreen = () => {
                     }
                     selectedCustomerId={selectedCustomerId}
                     user={user}
-                    takeOverOrder={takeOverOrder}
                     onRefresh={fetchOrders}
                     onAutoSave={handleAutoSave}
                     onViewOrder={() => openOrderInDoubleCheck(selectedOrder)}

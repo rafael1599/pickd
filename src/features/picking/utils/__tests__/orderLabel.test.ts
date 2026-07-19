@@ -17,8 +17,8 @@ describe('lastThree', () => {
 });
 
 describe('splitOrderNumbers', () => {
-  it('splits on " / " and trims', () => {
-    expect(splitOrderNumbers('880083 / 880121')).toEqual(['880083', '880121']);
+  it('splits on " / ", trims, and sorts numerically descending', () => {
+    expect(splitOrderNumbers('880083 / 880121')).toEqual(['880121', '880083']);
   });
   it('handles null/empty', () => {
     expect(splitOrderNumbers(null)).toEqual([]);
@@ -43,18 +43,18 @@ describe('orderHeaderLabel', () => {
     });
   });
 
-  it('shows exactly 2 merged as last-3 of each separated by " / "', () => {
+  it('shows exactly 2 merged as last-3 of each separated by " / ", descending', () => {
     expect(orderHeaderLabel('880083 / 880121', 'fb')).toEqual({
       kind: 'pair',
-      label: '083 / 121',
+      label: '121 / 083',
       count: 2,
     });
   });
 
-  it('keeps 3+ merged as first + count (dropdown handled by caller)', () => {
+  it('keeps 3+ merged as first (highest) + count (dropdown handled by caller)', () => {
     expect(orderHeaderLabel('880083 / 880121 / 880456', 'fb')).toEqual({
       kind: 'many',
-      label: '#880083',
+      label: '#880456',
       count: 3,
     });
   });

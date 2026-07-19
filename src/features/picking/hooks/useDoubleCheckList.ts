@@ -31,6 +31,7 @@ export interface PickingList {
     | 'completed'
     | 'cancelled';
   items: PickingItem[];
+  created_at: string;
   updated_at: string;
   user_id: string;
   checked_by: string | null;
@@ -58,6 +59,7 @@ const PICKING_LIST_SELECT = `
   order_number,
   status,
   items,
+  created_at,
   updated_at,
   user_id,
   checked_by,

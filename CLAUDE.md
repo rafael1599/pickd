@@ -110,10 +110,6 @@ El edge function valida el JWT internamente con `supabase.auth.getUser(token)`. 
 
 `useUploadGalleryPhoto` tiene fallback a blob URLs **solo en localhost**. En producción/staging, si el edge function falla, lanza el error al usuario en vez de guardar URLs inservibles. Ver `src/features/projects/hooks/useGalleryPhotos.ts`.
 
-## Known Issues
-
-- **`react-hook-form@7.71.1` TS error:** `tsc --noEmit` reports `Module '"react-hook-form"' has no exported member 'useForm'`. This is an upstream packaging bug — the `.d.ts` re-exports from `../src/useForm` but the `src/` directory isn't included in the npm package. **Vite builds fine, do not attempt to fix.**
-
 ## Skills
 
 Los skills viven en el repo central `rafael1599/skills`. Claude Code solo descubre skills en `.claude/skills/<nombre>/SKILL.md` (un nivel de profundidad), así que se conectan con un symlink **por skill** — un symlink al root del repo no expone los skills anidados.

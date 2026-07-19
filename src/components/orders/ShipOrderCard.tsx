@@ -10,7 +10,6 @@ import Truck from 'lucide-react/dist/esm/icons/truck';
 import Wand2 from 'lucide-react/dist/esm/icons/wand-2';
 import Copy from 'lucide-react/dist/esm/icons/copy';
 import Check from 'lucide-react/dist/esm/icons/check';
-import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import Eye from 'lucide-react/dist/esm/icons/eye';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';

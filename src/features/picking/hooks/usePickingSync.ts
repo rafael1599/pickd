@@ -735,7 +735,7 @@ export const usePickingSync = ({
                 if (sibling.order_number) orderNumbers.push(sibling.order_number);
               }
               combinedOrderNumber = orderNumbers
-                .filter(Boolean)
+                .filter((n): n is string => Boolean(n))
                 .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
                 .join(' / ');
             }

@@ -1,11 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 
-interface ParkedLocationStats {
-  location: string;
-  count: number;
-}
-
 const DEFAULT_LOCATIONS = ['BAY 1', 'BAY 2', 'SHIPPING AREA', 'ROW 43', 'ROW 42'];
 
 /**
