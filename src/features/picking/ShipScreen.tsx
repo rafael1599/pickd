@@ -40,6 +40,7 @@ import { DoubleCheckHeader } from './components/DoubleCheckHeader';
 import { ShippingFlowPreviewModal } from './components/ShippingFlowPreviewModal';
 import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.service';
 import { useUnmarkWaiting } from './hooks/useWaitingOrders';
+import { CarrierFilter } from './components/board/CarrierFilter';
 
 function dayKey(date: Date): string {
   const formatter = new Intl.DateTimeFormat('en-US', {
@@ -104,6 +105,12 @@ function isFedexLane(order: OrderWithRelations): boolean {
     .trim()
     .toUpperCase();
   return groupType === 'fedex' || transport === 'FEDEX';
+}
+
+/** FedEx orders count as the 'FEDEX' carrier; everything else uses its transport_company. */
+function getCarrierLabel(order: OrderWithRelations): string | null {
+  if (isFedexLane(order)) return 'FEDEX';
+  return order.transport_company?.trim().toUpperCase() || null;
 }
 
 interface DayGroup {
@@ -171,7 +178,27 @@ export const ShipScreen = () => {
   const [selectedOrder, setSelectedOrder] = useState<OrderWithRelations | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 200);
-  const [showFedex, setShowFedex] = useState(false);
+  const [selectedCarriers, setSelectedCarriers] = useState<Set<string>>(new Set());
+  const [includeUnassigned, setIncludeUnassigned] = useState(false);
+  const handleCarrierToggle = useCallback((carrier: string) => {
+    setSelectedCarriers((prev) => {
+      const next = new Set(prev);
+      if (next.has(carrier)) {
+        next.delete(carrier);
+      } else {
+        next.add(carrier);
+      }
+      return next;
+    });
+  }, []);
+  const matchesCarrierFilter = useCallback(
+    (o: OrderWithRelations) => {
+      if (selectedCarriers.size === 0 && !includeUnassigned) return true;
+      const carrier = getCarrierLabel(o);
+      return carrier ? selectedCarriers.has(carrier) : includeUnassigned;
+    },
+    [selectedCarriers, includeUnassigned]
+  );
   const navigate = useNavigate();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [reopenReasonModal, setReopenReasonModal] = useState(false);
@@ -729,24 +756,40 @@ export const ShipScreen = () => {
     }
   }, [selectedOrder]);
 
+  const { availableCarriers, carrierCounts, hasUnassignedOrders, unassignedCount } = useMemo(() => {
+    const counts = new Map<string, number>();
+    let unassigned = 0;
+    for (const o of orders) {
+      if (o.status === 'cancelled') continue;
+      const carrier = getCarrierLabel(o);
+      if (carrier) {
+        counts.set(carrier, (counts.get(carrier) || 0) + 1);
+      } else {
+        unassigned++;
+      }
+    }
+    return {
+      availableCarriers: Array.from(counts.keys()).sort(),
+      carrierCounts: counts,
+      hasUnassignedOrders: unassigned > 0,
+      unassignedCount: unassigned,
+    };
+  }, [orders]);
+
   const filteredOrders = useMemo(() => {
     const todayStr = dayKey(new Date());
     const query = debouncedSearchQuery.toLowerCase().trim();
 
-    // 1. Split by the FedEx checkbox. Checked shows FedEx-grouped orders;
-    //    unchecked shows everything that isn't FedEx.
+    // 1. Filter by status/tab and the carrier filter panel.
     const byCarrier = orders.filter((o) => {
       if (o.status === 'cancelled') return false;
-      if (query) return true; // If searching, ignore tab and carrier boundaries
-
-      const isFedex = isFedexLane(o);
-      if (showFedex ? !isFedex : isFedex) return false;
+      if (query) return true; // If searching, ignore tab/carrier boundaries
 
       const shippedToday = !!o.is_shipped && dayKey(new Date(o.updated_at)) === todayStr;
       const matchTab = shipTab === 'shipped' ? shippedToday : !o.is_shipped;
       if (!matchTab) return false;
 
-      return true;
+      return matchesCarrierFilter(o);
     });
 
     // 2. Collapse 'general' group siblings into a single virtual entry per
@@ -810,7 +853,7 @@ export const ShipScreen = () => {
       const bStartsWith = bNum.startsWith(query) ? 1 : 0;
       return bStartsWith - aStartsWith;
     });
-  }, [orders, debouncedSearchQuery, showFedex, shipTab]);
+  }, [orders, debouncedSearchQuery, shipTab, matchesCarrierFilter]);
 
   const visibleOrders = useMemo(() => filteredOrders, [filteredOrders]);
 
@@ -847,11 +890,9 @@ export const ShipScreen = () => {
   const toShipCount = useMemo(() => {
     if (shipTab === 'to_ship') return filteredOrders.length;
 
-    const toShipOrders = orders.filter((o) => {
-      if (o.status === 'cancelled' || o.is_shipped) return false;
-      const isFedex = isFedexLane(o);
-      return showFedex ? isFedex : !isFedex;
-    });
+    const toShipOrders = orders.filter(
+      (o) => o.status !== 'cancelled' && !o.is_shipped && matchesCarrierFilter(o)
+    );
 
     const byGroup = new Map<string, OrderWithRelations[]>();
     const ungrouped: OrderWithRelations[] = [];
@@ -868,7 +909,7 @@ export const ShipScreen = () => {
     }
 
     return ungrouped.length + byGroup.size;
-  }, [shipTab, filteredOrders.length, orders, showFedex]);
+  }, [shipTab, filteredOrders.length, orders, matchesCarrierFilter]);
 
   const shippedCount = useMemo(() => {
     if (shipTab === 'shipped') return filteredOrders.length;
@@ -877,8 +918,7 @@ export const ShipScreen = () => {
     const shippedTodayOrders = orders.filter((o) => {
       if (o.status === 'cancelled' || !o.is_shipped) return false;
       if (dayKey(new Date(o.updated_at)) !== todayStr) return false;
-      const isFedex = isFedexLane(o);
-      return showFedex ? isFedex : !isFedex;
+      return matchesCarrierFilter(o);
     });
 
     const byGroup = new Map<string, OrderWithRelations[]>();
@@ -896,7 +936,7 @@ export const ShipScreen = () => {
     }
 
     return ungrouped.length + byGroup.size;
-  }, [shipTab, filteredOrders.length, orders, showFedex]);
+  }, [shipTab, filteredOrders.length, orders, matchesCarrierFilter]);
 
   const readyToShipVisibleCount = useMemo(
     () => visibleOrders.filter((o) => !o.is_waiting_inventory && o.status === 'completed').length,
@@ -935,11 +975,11 @@ export const ShipScreen = () => {
   );
 
   const filterSummary = useMemo(() => {
-    const parts = [showFedex ? 'FedEx' : 'General'];
+    const parts: string[] = [];
     if (searchQuery.trim()) parts.push(`search: "${searchQuery.trim()}"`);
     parts.push(`${visibleOrders.length} visible`);
     return parts.join(' · ');
-  }, [showFedex, searchQuery, visibleOrders.length]);
+  }, [searchQuery, visibleOrders.length]);
 
   const handleBatchShip = async (idsToShip: string[]) => {
     if (idsToShip.length === 0) return;
@@ -1627,26 +1667,12 @@ export const ShipScreen = () => {
 
   return (
     <div className="relative flex flex-col h-screen w-full overflow-hidden bg-bg-main font-body">
-      {/* Header — title + FedEx checkbox, then full-width search, like Orders */}
+      {/* Header — title, carrier filter, then full-width search, like Orders */}
       <header className="shrink-0 ios-glass !border-none !shadow-none px-4 md:px-6 py-4 z-[100]">
         <div className="w-full flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
             <h1 className="text-2xl font-black uppercase tracking-tight text-content">Ship</h1>
-            <div className="flex items-center gap-3">
-              <DoubleCheckHeader />
-
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={showFedex}
-                  onChange={(e) => setShowFedex(e.target.checked)}
-                  className="w-4 h-4 accent-purple-500"
-                />
-                <span className="text-xs font-black uppercase tracking-widest text-muted">
-                  FedEx
-                </span>
-              </label>
-            </div>
+            <DoubleCheckHeader />
           </div>
           <SearchInput
             variant="inline"
@@ -1655,6 +1681,18 @@ export const ShipScreen = () => {
             placeholder="Search orders or customer..."
             preferenceId="ship"
           />
+          {availableCarriers.length > 0 && (
+            <CarrierFilter
+              selectedCarriers={selectedCarriers}
+              includeUnassigned={includeUnassigned}
+              hasUnassignedOrders={hasUnassignedOrders}
+              availableCarriers={availableCarriers}
+              carrierCounts={carrierCounts}
+              unassignedCount={unassignedCount}
+              onCarrierToggle={handleCarrierToggle}
+              onUnassignedToggle={setIncludeUnassigned}
+            />
+          )}
         </div>
       </header>
 
@@ -1906,8 +1944,7 @@ export const ShipScreen = () => {
                         (o) =>
                           o.status !== 'cancelled' &&
                           !!o.is_shipped &&
-                          dayKey(new Date(o.updated_at)) === todayStr &&
-                          (showFedex ? isFedexLane(o) : !isFedexLane(o))
+                          dayKey(new Date(o.updated_at)) === todayStr
                       );
                       setSelectedOrder(firstShipped || null);
                     }
@@ -1958,8 +1995,8 @@ export const ShipScreen = () => {
                 <div className="px-2 pb-1">
                   <div className="rounded-2xl border border-subtle bg-surface px-3 py-2 text-[10px] font-bold leading-relaxed text-content shadow-lg">
                     {hoveredTabInfo === 'to_ship'
-                      ? `To Ship shows every order in this carrier lane that has not been marked as shipped yet${searchQuery.trim() ? ` and matches "${searchQuery.trim()}"` : ''}.`
-                      : `Shipped shows only orders marked as shipped today in this carrier lane${searchQuery.trim() ? ` that also match "${searchQuery.trim()}"` : ''}.`}
+                      ? `To Ship shows every order that has not been marked as shipped yet${searchQuery.trim() ? ` and matches "${searchQuery.trim()}"` : ''}.`
+                      : `Shipped shows only orders marked as shipped today${searchQuery.trim() ? ` that also match "${searchQuery.trim()}"` : ''}.`}
                   </div>
                 </div>
               )}
@@ -1972,10 +2009,11 @@ export const ShipScreen = () => {
                 ) : (
                   <p className="text-[10px] font-bold text-muted">Today only</p>
                 )}
-                <p className="text-[10px] font-bold text-muted/80 truncate" title={filterSummary}>
-                  {showFedex ? 'FedEx' : 'General'}
-                  {searchQuery.trim() ? ` · search: "${searchQuery.trim()}"` : ''}
-                </p>
+                {searchQuery.trim() && (
+                  <p className="text-[10px] font-bold text-muted/80 truncate" title={filterSummary}>
+                    search: "{searchQuery.trim()}"
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-col gap-2 max-h-[40vh] md:max-h-[calc(100vh-16rem)] overflow-y-auto no-scrollbar">

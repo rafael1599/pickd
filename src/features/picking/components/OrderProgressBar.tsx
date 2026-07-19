@@ -1,11 +1,20 @@
 import React from 'react';
-import type { PickingListItem } from '../../../schemas/picking.schema';
 import { calculatePalletsWithBikeAwareness } from '../../../utils/pickingLogic';
+
+/** Minimal item shape the progress calculation actually reads — looser than
+ * `PickingListItem` so lightweight projections (e.g. the Orders board) can
+ * pass their items without widening to the full inventory-item schema. */
+interface ProgressItem {
+  sku?: string;
+  location?: string | null;
+  pickingQty?: number;
+  checked?: boolean;
+}
 
 interface OrderProgressBarProps {
   status: string;
   isShipped?: boolean;
-  items?: PickingListItem[] | null;
+  items?: ProgressItem[] | null;
   verifiedKeys?: string[] | null;
   totalUnits?: number;
   className?: string;
@@ -40,7 +49,16 @@ export const OrderProgressBar: React.FC<OrderProgressBarProps> = ({
       }
     }
 
-    const pallets = calculatePalletsWithBikeAwareness(items, bikeSkuSet);
+    // Normalize to the util's required shape — lightweight projections may
+    // carry optional sku/pickingQty; default them so missing data just
+    // contributes 0 instead of failing to type-check or compute.
+    const normalized = items.map((i) => ({
+      ...i,
+      sku: i.sku ?? '',
+      pickingQty: i.pickingQty ?? 0,
+      location: i.location ?? null,
+    }));
+    const pallets = calculatePalletsWithBikeAwareness(normalized, bikeSkuSet);
 
     let calcTotalUnits = 0;
     let verifiedUnits = 0;

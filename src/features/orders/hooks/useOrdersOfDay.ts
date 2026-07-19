@@ -17,6 +17,7 @@ export interface OrderItem {
   unit_price?: number;
   location?: string | null;
   sublocation?: string[] | null;
+  checked?: boolean;
 }
 
 /**
@@ -45,6 +46,7 @@ export interface OrderRow {
   pallet_photos: string[] | null;
   is_waiting_inventory: boolean | null;
   is_shipped?: boolean | null;
+  verified_item_keys?: string[] | null;
   customer: {
     id: string;
     name: string;

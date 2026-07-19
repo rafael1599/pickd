@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { useViewMode } from '../../context/ViewModeContext';
 import { useDebounce } from '../../hooks/useDebounce';
-import { TransportLogo } from '../../components/orders/TransportLogo';
+import { CarrierFilter } from '../picking/components/board/CarrierFilter';
 import {
   computeBikesParts,
   isFedexOrder,
@@ -13,6 +13,12 @@ import {
 } from './hooks/useOrdersOfDay';
 import { OrderRowCard } from './components/OrderRowCard';
 import { printOrderDetail } from './lib/printOrderDetail';
+
+/** FedEx orders count as the 'FEDEX' carrier; everything else uses its transport_company. */
+function getCarrierLabel(order: OrderRow): string | null {
+  if (isFedexOrder(order)) return 'FEDEX';
+  return order.transport_company?.trim().toUpperCase() || null;
+}
 
 const DEFAULT_LIMIT = 7;
 
@@ -56,12 +62,22 @@ export const OrdersBoardScreen = () => {
     () => (location.state as { searchOrderNumber?: string })?.searchOrderNumber || ''
   );
 
+  const debouncedQuery = useDebounce(searchQuery, 200);
+
+  const { orders, skuIsBike, loading } = useOrdersOfDay(debouncedQuery);
+
+  const [selectedCarriers, setSelectedCarriers] = useState<Set<string>>(new Set());
+  const [includeUnassigned, setIncludeUnassigned] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const ignoreNextExternalRef = useRef(false);
+
   // Update searchQuery and expandedId if navigation happens with location state
   useEffect(() => {
     const passedOrderNumber = (location.state as any)?.searchOrderNumber;
     const passedTargetId = (location.state as any)?.targetId;
 
     if (passedOrderNumber && passedOrderNumber !== searchQuery) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing from router location.state
       setSearchQuery(passedOrderNumber);
     }
 
@@ -70,14 +86,17 @@ export const OrdersBoardScreen = () => {
     }
   }, [location.state]);
 
-  const debouncedQuery = useDebounce(searchQuery, 200);
-
-  const { orders, skuIsBike, loading } = useOrdersOfDay(debouncedQuery);
-
-  const [showFedex, setShowFedex] = useState(false);
-  const [selectedCarrier, setSelectedCarrier] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const ignoreNextExternalRef = useRef(false);
+  const handleCarrierToggle = useCallback((carrier: string) => {
+    setSelectedCarriers((prev) => {
+      const next = new Set(prev);
+      if (next.has(carrier)) {
+        next.delete(carrier);
+      } else {
+        next.add(carrier);
+      }
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (externalOrderId) {
@@ -89,16 +108,17 @@ export const OrdersBoardScreen = () => {
       setExternalOrderId(null);
 
       // Expand the card
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing from external view-mode context
       setExpandedId(targetId as string);
     }
   }, [externalOrderId, setExternalOrderId]);
 
-  // 1. Compute filtered orders based on search query and FedEx checkbox (before carrier filter is applied)
+  // 1. Compute filtered orders based on search query (before carrier filter is applied)
   const filteredOrders = useMemo(() => {
     const query = debouncedQuery.toLowerCase().trim();
     const hasQuery = query.length > 0;
 
-    let result = orders.filter((o) => (hasQuery || showFedex || !isFedexOrder(o) ? true : false));
+    let result = orders;
 
     if (hasQuery) {
       result = result.filter((o) => {
@@ -121,7 +141,7 @@ export const OrdersBoardScreen = () => {
       });
     }
     return result;
-  }, [orders, debouncedQuery, showFedex]);
+  }, [orders, debouncedQuery]);
 
   // Get the base set of orders shown on screen (without carrier filter applied)
   const baseVisibleOrders = useMemo(() => {
@@ -151,39 +171,38 @@ export const OrdersBoardScreen = () => {
     return result;
   }, [filteredOrders, debouncedQuery, expandedId, orders]);
 
-  // 2. Compute order counts per carrier based on only the orders shown on screen (baseVisibleOrders)
-  const carrierSummaries = useMemo(() => {
+  // 2. Compute carrier options (incl. FedEx) based on only the orders shown on screen
+  const { availableCarriers, carrierCounts, hasUnassignedOrders, unassignedCount } = useMemo(() => {
     const counts = new Map<string, number>();
+    let unassigned = 0;
     for (const o of baseVisibleOrders) {
-      const isFedex = isFedexOrder(o);
-      const carrier = isFedex ? 'FEDEX' : o.transport_company?.trim().toUpperCase();
+      const carrier = getCarrierLabel(o);
       if (carrier) {
         counts.set(carrier, (counts.get(carrier) || 0) + 1);
+      } else {
+        unassigned++;
       }
     }
-    // Ensure the currently selected carrier is always in the list so the user can deselect it
-    if (selectedCarrier && !counts.has(selectedCarrier)) {
-      counts.set(selectedCarrier, 0);
-    }
-    return Array.from(counts.entries())
-      .map(([company, count]) => ({ company, count }))
-      .sort((a, b) => b.count - a.count);
-  }, [baseVisibleOrders, selectedCarrier]);
+    return {
+      availableCarriers: Array.from(counts.keys()).sort(),
+      carrierCounts: counts,
+      hasUnassignedOrders: unassigned > 0,
+      unassignedCount: unassigned,
+    };
+  }, [baseVisibleOrders]);
 
-  // 3. Compute final visible orders (applying selected carrier filter to baseVisibleOrders)
+  // 3. Compute final visible orders (applying the carrier filter to baseVisibleOrders)
   const visibleOrders = useMemo(() => {
-    const query = debouncedQuery.toLowerCase().trim();
-    const hasQuery = query.length > 0;
+    const hasQuery = debouncedQuery.trim().length > 0;
+    if (hasQuery) return baseVisibleOrders;
+    if (selectedCarriers.size === 0 && !includeUnassigned) return baseVisibleOrders;
 
-    if (selectedCarrier && !hasQuery) {
-      return baseVisibleOrders.filter((o) => {
-        const isFedex = isFedexOrder(o);
-        const carrier = isFedex ? 'FEDEX' : o.transport_company?.trim().toUpperCase();
-        return carrier === selectedCarrier;
-      });
-    }
-    return baseVisibleOrders;
-  }, [baseVisibleOrders, selectedCarrier, debouncedQuery]);
+    return baseVisibleOrders.filter((o) => {
+      const carrier = getCarrierLabel(o);
+      if (!carrier) return includeUnassigned;
+      return selectedCarriers.has(carrier);
+    });
+  }, [baseVisibleOrders, selectedCarriers, includeUnassigned, debouncedQuery]);
 
   // 4. Group visible orders by day
   const groups = useMemo<DayGroup[]>(() => {
@@ -232,55 +251,10 @@ export const OrdersBoardScreen = () => {
 
   return (
     <div className="flex flex-col h-screen w-full bg-main font-body">
-      {/* Sticky header: title + search + FedEx toggle */}
+      {/* Sticky header: title + search + carrier filter */}
       <div className="sticky top-0 z-10 bg-surface border-b border-subtle px-4 py-3">
         <div className="max-w-3xl mx-auto flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-4">
-            <h1 className="text-2xl font-black uppercase tracking-tight text-content">Orders</h1>
-            <div className="flex items-center gap-3">
-              {/* Carrier summaries (active volumes of the day) */}
-              {carrierSummaries.length > 0 && (
-                <div className="flex items-center gap-1.5 select-none">
-                  {carrierSummaries.map(({ company, count }) => {
-                    const isSelected = selectedCarrier === company;
-                    return (
-                      <button
-                        key={company}
-                        onClick={() => setSelectedCarrier(isSelected ? null : company)}
-                        className={`flex flex-col items-center gap-0.5 px-2 py-1 border rounded-md min-w-[44px] shrink-0 transition-all ${
-                          isSelected
-                            ? 'bg-accent/10 border-accent ring-1 ring-accent/30 text-accent font-black'
-                            : 'bg-content/[0.02] border-subtle/50 hover:bg-content/[0.05] text-muted/80'
-                        }`}
-                        title={`${company}: ${count} orders. Click to ${isSelected ? 'clear' : 'filter'}.`}
-                      >
-                        <TransportLogo company={company} height={12} plain />
-                        <span
-                          className={`text-[9px] font-black leading-none mt-0.5 ${isSelected ? 'text-accent' : 'text-muted/80'}`}
-                        >
-                          {count}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {carrierSummaries.length > 0 && <div className="h-6 w-px bg-subtle shrink-0" />}
-
-              <label className="flex items-center gap-2 cursor-pointer select-none shrink-0">
-                <input
-                  type="checkbox"
-                  checked={showFedex}
-                  onChange={(e) => setShowFedex(e.target.checked)}
-                  className="w-4 h-4 accent-purple-500"
-                />
-                <span className="text-xs font-black uppercase tracking-widest text-muted">
-                  FedEx
-                </span>
-              </label>
-            </div>
-          </div>
+          <h1 className="text-2xl font-black uppercase tracking-tight text-content">Orders</h1>
           <SearchInput
             value={searchQuery}
             onChange={setSearchQuery}
@@ -288,6 +262,18 @@ export const OrdersBoardScreen = () => {
             variant="inline"
             preferenceId="orders-board-search"
           />
+          {availableCarriers.length > 0 && (
+            <CarrierFilter
+              selectedCarriers={selectedCarriers}
+              includeUnassigned={includeUnassigned}
+              hasUnassignedOrders={hasUnassignedOrders}
+              availableCarriers={availableCarriers}
+              carrierCounts={carrierCounts}
+              unassignedCount={unassignedCount}
+              onCarrierToggle={handleCarrierToggle}
+              onUnassignedToggle={setIncludeUnassigned}
+            />
+          )}
         </div>
       </div>
 

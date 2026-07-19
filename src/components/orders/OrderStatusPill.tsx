@@ -2,7 +2,7 @@ import React from 'react';
 import shippedImg from '../../assets/shipped.png';
 import shippedFedexImg from '../../assets/shipped-fedex.png';
 
-const LABELS: Record<string, string> = {
+export const LABELS: Record<string, string> = {
   ready_to_double_check: 'To Verify',
   active: 'Pulling',
   reopened: 'Editing',

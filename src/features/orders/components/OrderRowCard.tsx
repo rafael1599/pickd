@@ -7,8 +7,43 @@ import { computeBikesParts, isFedexOrder, type OrderRow } from '../hooks/useOrde
 import { printOrderDetail } from '../lib/printOrderDetail';
 import { OrderNotes } from './OrderNotes';
 import { TransportLogo } from '../../../components/orders/TransportLogo';
-import { OrderStatusPill } from '../../../components/orders/OrderStatusPill';
+import {
+  OrderStatusPill,
+  LABELS as STATUS_LABELS,
+} from '../../../components/orders/OrderStatusPill';
+import { OrderProgressBar } from '../../picking/components/OrderProgressBar';
 import { orderColorFor } from '../../../utils/orderColors';
+
+const STATUS_TEXT: Record<string, string> = {
+  ready_to_double_check: 'text-sky-400',
+  active: 'text-orange-400',
+  reopened: 'text-purple-400',
+  completed: 'text-emerald-400',
+  cancelled: 'text-red-400',
+  needs_correction: 'text-red-400',
+  double_checking: 'text-sky-400',
+};
+
+/** Minimal status visual (text color + label) for the compact mobile header. */
+function getStatusVisual(order: OrderRow) {
+  if (order.is_shipped) {
+    return { label: 'Shipped', text: 'text-emerald-400' };
+  }
+  if (order.is_waiting_inventory) {
+    return { label: 'Waiting', text: 'text-amber-500' };
+  }
+  return {
+    label: STATUS_LABELS[order.status] || order.status.toUpperCase(),
+    text: STATUS_TEXT[order.status] || 'text-muted',
+  };
+}
+
+/** `Jul 16` style date-only string, matching ShipScreen's order card. */
+function formatDateOnly(source: string): string {
+  const d = new Date(source);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 /**
  * Derives a thumbnail URL from a full-size gallery photo URL.
@@ -63,6 +98,8 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
 }) => {
   const units = getOrderUnits(order);
   const fedex = isFedexOrder(order);
+  const statusVisual = getStatusVisual(order);
+  const pallets = order.pallets_qty ?? 0;
   let displayNumber = order.order_number || order.id.slice(-6);
   if (displayNumber.includes(' / ')) {
     displayNumber = displayNumber
@@ -78,10 +115,42 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
   const photos = order.pallet_photos ?? [];
   const [lightboxIndex, setLightboxIndex] = useState(-1);
 
+  const numberNode = displayNumber.includes(' / ') ? (
+    <span
+      title={displayNumber
+        .split(' / ')
+        .map((n) => `#${n.trim()}`)
+        .join(', ')}
+    >
+      <span className="text-content/50">#</span>
+      {displayNumber.split(' / ').map((num, i, arr) => (
+        <React.Fragment key={`${num}-${i}`}>
+          {i > 0 && <span className="text-content/40"> / </span>}
+          <span style={{ color: orderColorFor(num.trim(), arr).hex }}>{num.trim().slice(-3)}</span>
+        </React.Fragment>
+      ))}
+    </span>
+  ) : (
+    <>#{displayNumber}</>
+  );
+
+  const metaLine = (
+    <>
+      {pallets > 0 && `${pallets} plt`}
+      {pallets > 0 && units > 0 && ' · '}
+      {units > 0 && `${units} un`}
+    </>
+  );
+
   return (
     <div className="rounded-xl border border-subtle bg-surface overflow-hidden">
-      {/* Collapsed header — whole thing toggles */}
-      <div className="flex items-stretch">
+      {/* Shipping-type stripe — same standard as the picking board (SortableOrderCard). */}
+      <div
+        className={`h-1.5 w-full shrink-0 ${fedex ? 'bg-purple-500/70' : 'bg-emerald-500/70'}`}
+      />
+
+      {/* Collapsed header — whole thing toggles. Classic layout stays for tablet/desktop. */}
+      <div className="hidden sm:flex items-stretch">
         <button
           onClick={onToggle}
           className="flex-1 flex items-center justify-between gap-3 py-3 px-3 text-left group min-w-0"
@@ -89,55 +158,17 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
           {/* Left Block: Order Info */}
           <div className="min-w-0 flex-1">
             <div className="text-lg font-black uppercase tracking-tight text-content flex items-center gap-1.5 flex-wrap">
-              {displayNumber.includes(' / ') ? (
-                <span
-                  title={displayNumber
-                    .split(' / ')
-                    .map((n) => `#${n.trim()}`)
-                    .join(', ')}
-                >
-                  <span className="text-content/50">#</span>
-                  {displayNumber.split(' / ').map((num, i, arr) => (
-                    <React.Fragment key={`${num}-${i}`}>
-                      {i > 0 && <span className="text-content/40"> / </span>}
-                      <span style={{ color: orderColorFor(num.trim(), arr).hex }}>
-                        {num.trim().slice(-3)}
-                      </span>
-                    </React.Fragment>
-                  ))}
+              {numberNode}
+              {(pallets > 0 || units > 0) && (
+                <span className="text-xs font-bold normal-case tracking-normal text-muted/70 whitespace-nowrap">
+                  {metaLine}
                 </span>
-              ) : (
-                <>#{displayNumber}</>
               )}
-              <span
-                className={`text-[10px] ${fedex ? 'bg-purple-500' : 'bg-emerald-500'} text-white px-1.5 py-0.5 rounded font-black uppercase tracking-wider`}
-              >
-                {fedex ? 'FDX' : 'TRK'}
-              </span>
-              <OrderStatusPill
-                status={order.status}
-                is_waiting_inventory={order.is_waiting_inventory}
-                is_shipped={order.is_shipped}
-                is_fedex={fedex}
-              />
             </div>
             <div className="text-sm text-muted font-bold uppercase tracking-wider mt-1 flex items-center gap-2 flex-wrap min-w-0">
-              <span className="truncate max-w-[200px] normal-case tracking-normal text-content/80 mr-1.5">
+              <span className="truncate max-w-[200px] normal-case tracking-normal text-content/80">
                 {order.customer?.name || 'No customer'}
               </span>
-              {(order.pallets_qty ?? 0) > 0 && (
-                <span className="text-muted/80 shrink-0">
-                  {order.pallets_qty} {order.pallets_qty === 1 ? 'pallet' : 'pallets'}
-                </span>
-              )}
-              {(order.pallets_qty ?? 0) > 0 && units > 0 && (
-                <span className="text-muted/40 shrink-0 select-none">•</span>
-              )}
-              {units > 0 && (
-                <span className="text-muted/80 shrink-0">
-                  {units} {units === 1 ? 'unit' : 'units'}
-                </span>
-              )}
             </div>
           </div>
 
@@ -161,17 +192,74 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
             />
           </div>
         </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onEditLabel();
-          }}
-          className="flex items-center gap-1.5 px-3 my-2 mr-2 rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors text-[11px] font-black uppercase tracking-wider shrink-0"
-          title="Edit shipping label"
-        >
-          <Tag size={14} />
-          <span className="hidden sm:inline">Edit Label</span>
+        <div className="flex flex-col items-end justify-center gap-1.5 my-2 mr-2 shrink-0">
+          <OrderStatusPill
+            status={order.status}
+            is_waiting_inventory={order.is_waiting_inventory}
+            is_shipped={order.is_shipped}
+            is_fedex={fedex}
+          />
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEditLabel();
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors text-[11px] font-black uppercase tracking-wider shrink-0"
+            title="Edit shipping label"
+          >
+            <Tag size={14} />
+            <span className="hidden sm:inline">Edit Label</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile-only header — quiet two-line card with progress bar */}
+      <div className="flex sm:hidden items-start gap-2 py-4 px-4">
+        <button onClick={onToggle} className="flex-1 min-w-0 flex flex-col gap-1.5 text-left group">
+          <span className="text-base font-bold text-content flex items-center gap-1.5 min-w-0 flex-wrap">
+            {numberNode}
+            {(pallets > 0 || units > 0) && (
+              <span className="text-xs font-normal text-muted/70 whitespace-nowrap">
+                {metaLine}
+              </span>
+            )}
+          </span>
+          <span className="truncate text-content/70">{order.customer?.name || 'No customer'}</span>
+          {!order.is_shipped && (
+            <span className="text-[11px] text-muted">
+              Created: {formatDateOnly(order.created_at)}
+            </span>
+          )}
+          <OrderProgressBar
+            status={order.status}
+            isShipped={order.is_shipped ?? false}
+            items={order.items}
+            verifiedKeys={order.verified_item_keys ?? null}
+            totalUnits={order.total_units || 0}
+            className="mt-1 w-full"
+          />
         </button>
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <button onClick={onToggle} className="flex items-center gap-2 group">
+            <span className={`text-[11px] font-semibold ${statusVisual.text}`}>
+              {statusVisual.label}
+            </span>
+            <ChevronDown
+              size={16}
+              className={`text-subtle group-hover:text-accent transition-transform shrink-0 ${expanded ? 'rotate-180' : ''}`}
+            />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEditLabel();
+            }}
+            className="flex items-center justify-center w-7 h-7 rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
+            title="Edit shipping label"
+          >
+            <Tag size={13} />
+          </button>
+        </div>
       </div>
 
       {/* Expanded packing-slip detail */}
