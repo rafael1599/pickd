@@ -159,7 +159,7 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
           <PullToRefresh onRefresh={() => window.location.reload()}>{children}</PullToRefresh>
         </main>
 
-        {!isShipPage && !isStockCountPage && !isPickingOverlayOpen && <BottomNavigation />}
+        {!isStockCountPage && !isPickingOverlayOpen && <BottomNavigation />}
         <PickingCartDrawer />
       </div>
     </ModalProvider>

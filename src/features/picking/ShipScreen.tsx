@@ -4,7 +4,6 @@ import { orderColorFor } from '../../utils/orderColors';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { useDebounce } from '../../hooks/useDebounce';
 
-import Home from 'lucide-react/dist/esm/icons/home';
 import Info from 'lucide-react/dist/esm/icons/info';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -2249,18 +2248,6 @@ export const ShipScreen = () => {
             <MessageSquare size={24} />
           </button>
         )}
-
-        {/* Home Button */}
-        <button
-          onClick={() => {
-            setViewMode('stock');
-            navigate('/');
-          }}
-          className="w-14 h-14 flex items-center justify-center rounded-full bg-surface border-2 border-subtle text-muted hover:text-accent transition-all duration-300 shadow-xl active:scale-95"
-          title="Go to Home"
-        >
-          <Home size={24} />
-        </button>
       </div>
 
       {/* Picking Summary Modal */}

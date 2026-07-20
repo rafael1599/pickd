@@ -20,7 +20,7 @@ function getCarrierLabel(order: OrderRow): string | null {
   return order.transport_company?.trim().toUpperCase() || null;
 }
 
-const DEFAULT_LIMIT = 7;
+const DEFAULT_LIMIT = 20;
 
 /** Local calendar-day key (YYYY-MM-DD) for grouping. */
 function dayKey(date: Date): string {
@@ -48,10 +48,10 @@ interface DayGroup {
 
 /**
  * Read-only Orders board. Lists orders as expandable packing-slip cards with
- * search + a FedEx toggle, grouped under date separators. Default view shows
- * the 7 most-recent (FedEx-filtered) orders; searching lifts the cap and
- * matches order # + customer name across all orders. Each card deep-links into
- * the shipping label editor at /ship.
+ * search + a carrier filter, grouped under date separators. Default view shows
+ * the 20 most-recent orders; searching lifts the cap and matches order # +
+ * customer name across all orders. Each card deep-links into the shipping
+ * label editor at /ship.
  */
 export const OrdersBoardScreen = () => {
   const navigate = useNavigate();
@@ -149,15 +149,15 @@ export const OrdersBoardScreen = () => {
     const hasQuery = query.length > 0;
 
     if (!hasQuery) {
-      const top7 = filteredOrders.slice(0, DEFAULT_LIMIT);
+      const topN = filteredOrders.slice(0, DEFAULT_LIMIT);
       // Guarantee that if we have an expanded order, it's visible on the board
-      if (expandedId && !top7.some((o) => o.id === expandedId)) {
+      if (expandedId && !topN.some((o) => o.id === expandedId)) {
         const expandedOrder = filteredOrders.find((o) => o.id === expandedId);
         if (expandedOrder) {
-          return [expandedOrder, ...top7];
+          return [expandedOrder, ...topN];
         }
       }
-      return top7;
+      return topN;
     }
 
     // Even when searching, guarantee it's visible if we fetched it
