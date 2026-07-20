@@ -1797,21 +1797,28 @@ export const ShipScreen = () => {
         : [];
       const updatedPhotos = [...existing, photoUrl];
 
+      // Combined orders ship as one unit — every sibling in the group needs
+      // to flip to shipped, not just the anchor the photo was attached to.
+      const idsToUpdate = pendingShipmentOrder.group_id
+        ? orders.filter((o) => o.group_id === pendingShipmentOrder.group_id).map((o) => o.id)
+        : [pendingShipmentOrder.id];
+      const siblingIds = idsToUpdate.filter((id) => id !== pendingShipmentOrder.id);
+
       // Optimistic update
       setOrders((prev) =>
         prev.map((o) =>
-          o.id === pendingShipmentOrder.id
+          idsToUpdate.includes(o.id)
             ? {
                 ...o,
                 status: 'completed',
                 is_shipped: true,
                 is_waiting_inventory: false,
-                pallet_photos: updatedPhotos,
+                ...(o.id === pendingShipmentOrder.id ? { pallet_photos: updatedPhotos } : {}),
               }
             : o
         )
       );
-      if (selectedOrder && selectedOrder.id === pendingShipmentOrder.id) {
+      if (selectedOrder && idsToUpdate.includes(selectedOrder.id)) {
         setSelectedOrder((prev) =>
           prev
             ? {
@@ -1825,7 +1832,7 @@ export const ShipScreen = () => {
         );
       }
 
-      // Update Database
+      // Update Database — anchor gets the photo, siblings just flip status.
       const { error } = await supabase
         .from('picking_lists')
         .update({
@@ -1838,6 +1845,19 @@ export const ShipScreen = () => {
         .eq('id', pendingShipmentOrder.id);
 
       if (error) throw error;
+
+      if (siblingIds.length > 0) {
+        const { error: siblingError } = await supabase
+          .from('picking_lists')
+          .update({
+            status: 'completed',
+            is_shipped: true,
+            is_waiting_inventory: false,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          } as any)
+          .in('id', siblingIds);
+        if (siblingError) throw siblingError;
+      }
 
       toast.success(`Order #${pendingShipmentOrder.order_number} marked as Shipped!`, {
         id: toastId,
