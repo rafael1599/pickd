@@ -496,14 +496,6 @@ export const ShipScreen = () => {
       }));
 
       setOrders(mappedData);
-
-      // Auto-select the most recently completed order if none selected AND
-      // no external jump pending — that's the one a picker most likely just
-      // finished and wants to print/verify, not just the latest created row.
-      if (mappedData.length > 0 && !selectedOrderRef.current && !externalOrderId) {
-        const lastCompleted = mappedData.find((o) => o.status === 'completed');
-        setSelectedOrder(lastCompleted || mappedData[0]);
-      }
     } catch (err) {
       console.error('Error fetching orders:', err);
       toast.error('Failed to load orders');
@@ -861,6 +853,17 @@ export const ShipScreen = () => {
       return bStartsWith - aStartsWith;
     });
   }, [orders, debouncedSearchQuery, shipTab, matchesCarrierFilter]);
+
+  // Auto-select the most recently completed order if none selected AND no
+  // external jump pending — that's the one a picker most likely just
+  // finished and wants to print/verify, not just the latest created row.
+  // Sourced from filteredOrders (not raw `orders`) so a combined "general"
+  // group auto-selects as the merged pseudo-order, not a lone sibling.
+  useEffect(() => {
+    if (filteredOrders.length === 0 || selectedOrderRef.current || externalOrderId) return;
+    const lastCompleted = filteredOrders.find((o) => o.status === 'completed');
+    setSelectedOrder(lastCompleted || filteredOrders[0]);
+  }, [filteredOrders, externalOrderId]);
 
   // Handle external selections (e.g. from DoubleCheckHeader or VerificationBoard)
   useEffect(() => {
