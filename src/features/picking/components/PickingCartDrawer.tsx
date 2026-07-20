@@ -580,9 +580,14 @@ export const PickingCartDrawer: React.FC = () => {
         }
       }
 
+      // Keep total_units in sync with the corrected items — leaving it stale
+      // here is exactly what caused combined-order pallet/unit counts to
+      // drift from reality after a swap/adjust/remove/add correction.
+      const newTotalUnits = newItems.reduce((sum, item) => sum + (item.pickingQty || 0), 0);
+
       await supabase
         .from('picking_lists')
-        .update({ items: newItems as unknown as Json })
+        .update({ items: newItems as unknown as Json, total_units: newTotalUnits })
         .eq('id', writeListId);
 
       await supabase.from('picking_list_notes').insert({

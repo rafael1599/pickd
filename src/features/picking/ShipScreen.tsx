@@ -813,7 +813,8 @@ export const ShipScreen = () => {
 
     const collapsed = [...ungrouped];
     for (const siblings of byGroup.values()) {
-      // Sort siblings by created_at asc — oldest is the "anchor" row.
+      // Sort siblings by created_at asc — oldest is the "anchor" row (its id
+      // is what clicks/select/loadExternalList operate on).
       siblings.sort((a, b) => a.created_at.localeCompare(b.created_at));
       const anchor = siblings[0];
       const allOrderNumbers = siblings
@@ -823,9 +824,40 @@ export const ShipScreen = () => {
       const combinedOrderNumber = allOrderNumbers
         .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
         .join(' / ');
+      // Display/sort dates use the NEWEST sibling, not the anchor's — an old
+      // order combined with one that just completed should surface with the
+      // new one, not stay buried under the old order's original date.
+      const newestCreatedAt = siblings.reduce(
+        (max, s) => (s.created_at > max ? s.created_at : max),
+        anchor.created_at
+      );
+      const newestUpdatedAt = siblings.reduce(
+        (max, s) => (s.updated_at > max ? s.updated_at : max),
+        anchor.updated_at
+      );
+      // The anchor is only ONE sibling's own order — pallets/units/items must
+      // be aggregated across the whole group, or a combined order displays as
+      // if it were just the anchor alone (undercounting pallets & units).
+      const combinedPalletsQty = siblings.reduce((sum, s) => sum + (s.pallets_qty ?? 0), 0);
+      const combinedItems = siblings.flatMap((s) => (Array.isArray(s.items) ? s.items : []));
+      // Prefer summing pickingQty straight off the merged items — same
+      // fallback order as Orders board's getOrderUnits. Per-sibling
+      // total_units columns can drift stale after corrections, so trust the
+      // live items when they're present.
+      const combinedTotalUnits =
+        combinedItems.length > 0
+          ? combinedItems.reduce((sum, i) => sum + (i.pickingQty || 0), 0)
+          : siblings.reduce((sum, s) => sum + (s.total_units ?? 0), 0);
+      const combinedVerifiedKeys = siblings.flatMap((s) => s.verified_item_keys ?? []);
       collapsed.push({
         ...anchor,
         order_number: combinedOrderNumber || anchor.order_number,
+        created_at: newestCreatedAt,
+        updated_at: newestUpdatedAt,
+        pallets_qty: combinedPalletsQty,
+        total_units: combinedTotalUnits,
+        items: combinedItems,
+        verified_item_keys: combinedVerifiedKeys,
         // Mark as combined so the order list badges it like the watchdog combines.
         combine_meta: {
           ...(anchor.combine_meta ?? {}),
