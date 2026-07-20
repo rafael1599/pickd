@@ -904,6 +904,32 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     });
   }, [navigate, onClose, sku, itemName, initialData?.location]);
 
+  // Excel row paste (New Item only): the warehouse spreadsheet's columns are
+  // SKU No / S-D SKU / PDF Status / Sold Status / S-D Price / Model / Size /
+  // Color / Serial Number / Description / NOTES / MSRP / Tier 1 / Tier 2 /
+  // Tier 3 — pasting a copied row fills only the fields we track and skips
+  // Qty/Location so those stay whatever the user already set.
+  const handleRowPaste = useCallback(
+    (e: React.ClipboardEvent<HTMLDivElement>) => {
+      if (!isAddMode) return;
+      const cols = e.clipboardData.getData('text').split('\t');
+      if (cols.length < 9) return; // not a full-row paste — let it fill the field normally
+
+      e.preventDefault();
+      const clean = (v: string | undefined) => (v ?? '').trim();
+      const notes = [clean(cols[9]), clean(cols[10])].filter(Boolean).join(' - ');
+
+      setValue('sku', clean(cols[0]), { shouldValidate: true });
+      setValue('model', clean(cols[5]), { shouldValidate: true });
+      setValue('size', clean(cols[6]), { shouldValidate: true });
+      setValue('color', clean(cols[7]), { shouldValidate: true });
+      setValue('serial_number', clean(cols[8]), { shouldValidate: true });
+      if (notes) setValue('internal_note', notes);
+      toast.success('Row pasted');
+    },
+    [isAddMode, setValue]
+  );
+
   // ─── Label printing (opens the shared print-options window) ───
   const [printOpen, setPrintOpen] = useState(false);
   const [isPrintingLabels, setIsPrintingLabels] = useState(false);
@@ -1027,7 +1053,10 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       {/* Content */}
       <div className="pb-safe">
         {/* Section: Item */}
-        <div className="bg-card border-b border-subtle mt-4 mx-4 rounded-2xl overflow-hidden">
+        <div
+          className="bg-card border-b border-subtle mt-4 mx-4 rounded-2xl overflow-hidden"
+          onPaste={handleRowPaste}
+        >
           {isAddMode ? (
             <>
               <div className="px-4 py-2">
