@@ -699,7 +699,12 @@ export const ShipScreen = () => {
     };
   }, [fetchOrders, fetchSingleLightweightOrder, fetchOrderDetails]);
 
-  // Sync form data when selectedOrder changes
+  // Sync form data when the SELECTED ORDER CHANGES (i.e. the user picks a
+  // different order) — deliberately keyed on id, not the object reference.
+  // selectedOrder gets reassigned to a new object on every realtime echo,
+  // self-heal resync, and post-save refresh even when it's still the same
+  // order; resetting the form on every one of those wiped out whatever the
+  // user had just typed before they could hit save.
   useEffect(() => {
     if (selectedOrder) {
       setFormData({
@@ -721,7 +726,9 @@ export const ShipScreen = () => {
       setSelectedCustomerId(selectedOrder.customer_id || null);
       setOriginalCustomerParams(selectedOrder.customer || null);
     }
-  }, [selectedOrder]);
+     
+    // keyed on id only, see comment above
+  }, [selectedOrder?.id]);
 
   const { availableCarriers, carrierCounts, hasUnassignedOrders, unassignedCount } = useMemo(() => {
     const counts = new Map<string, number>();
@@ -864,6 +871,23 @@ export const ShipScreen = () => {
     const lastCompleted = filteredOrders.find((o) => o.status === 'completed');
     setSelectedOrder(lastCompleted || filteredOrders[0]);
   }, [filteredOrders, externalOrderId]);
+
+  // Self-heal: the realtime UPDATE handler (and any future/edge-case path)
+  // re-fetches a single row via fetchOrderDetails/fetchSingleLightweightOrder
+  // and sets it as selectedOrder directly — bypassing group-collapsing. Any
+  // save on a combined order triggers exactly this via its own realtime echo,
+  // which is why edits to pallets/units/weight appeared to "revert" to a lone
+  // sibling's numbers. combine_meta.is_combined is only ever true on our own
+  // merged pseudo-order (real DB rows always have combine_meta null here), so
+  // its absence is a reliable signal to re-resolve from filteredOrders.
+  useEffect(() => {
+    if (!selectedOrder?.group_id || selectedOrder.combine_meta?.is_combined) return;
+    const isGeneralGroup =
+      (selectedOrder.order_group as { group_type?: string } | null)?.group_type === 'general';
+    if (!isGeneralGroup) return;
+    const combined = filteredOrders.find((o) => o.group_id === selectedOrder.group_id);
+    if (combined) setSelectedOrder(combined);
+  }, [selectedOrder, filteredOrders]);
 
   // Handle external selections (e.g. from DoubleCheckHeader or VerificationBoard)
   useEffect(() => {
