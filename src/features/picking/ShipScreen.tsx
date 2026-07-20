@@ -99,12 +99,78 @@ function dayLabel(date: Date): string {
   return date.toLocaleDateString('en-US', opts);
 }
 
+/**
+ * Bike vs part classification for an item. sku_metadata.is_bike is the
+ * definitive answer once loaded; while it's still loading for a freshly
+ * merged/combined item set (skuMeta[sku] entirely undefined, not just
+ * false), fall back to the "03-" SKU prefix — the same convention used
+ * elsewhere in the app (usePickingSync, classify_picking_list_fedex) — so
+ * items don't get misclassified as parts during that race.
+ */
+function isLikelyBike(sku: string, meta?: { is_bike: boolean }): boolean {
+  if (meta) return meta.is_bike;
+  return sku.startsWith('03-');
+}
+
 function isFedexLane(order: OrderWithRelations): boolean {
   const groupType = (order.order_group as { group_type?: string } | null)?.group_type;
   const transport = String(order.transport_company || '')
     .trim()
     .toUpperCase();
   return groupType === 'fedex' || transport === 'FEDEX';
+}
+
+/**
+ * Merges the members of a "general" combined group into one pseudo-order —
+ * the anchor (oldest sibling, whose id everything else routes through) plus
+ * pallets/units/items/dates aggregated across the WHOLE group. Used both by
+ * the list-building memo and directly by the realtime handler, so a
+ * deep-link, auto-select, or realtime echo can resolve the exact same
+ * combined view without waiting a render cycle for filteredOrders to catch
+ * up (that gap is what let editing one field on a combined order flash back
+ * to a lone sibling's numbers).
+ */
+function combineGeneralGroupSiblings(siblings: OrderWithRelations[]): OrderWithRelations {
+  const sorted = [...siblings].sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const anchor = sorted[0];
+
+  const allOrderNumbers = sorted
+    .map((s) => s.order_number)
+    .filter((n): n is string => !!n)
+    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+  const combinedOrderNumber = allOrderNumbers.join(' / ');
+
+  const newestCreatedAt = sorted.reduce(
+    (max, s) => (s.created_at > max ? s.created_at : max),
+    anchor.created_at
+  );
+  const newestUpdatedAt = sorted.reduce(
+    (max, s) => (s.updated_at > max ? s.updated_at : max),
+    anchor.updated_at
+  );
+
+  const combinedPalletsQty = sorted.reduce((sum, s) => sum + (s.pallets_qty ?? 0), 0);
+  const combinedItems = sorted.flatMap((s) => (Array.isArray(s.items) ? s.items : []));
+  // Prefer summing pickingQty straight off the merged items — per-sibling
+  // total_units columns can drift stale after corrections, so trust the
+  // live items when they're present (matches Orders board's getOrderUnits).
+  const combinedTotalUnits =
+    combinedItems.length > 0
+      ? combinedItems.reduce((sum, i) => sum + (i.pickingQty || 0), 0)
+      : sorted.reduce((sum, s) => sum + (s.total_units ?? 0), 0);
+  const combinedVerifiedKeys = sorted.flatMap((s) => s.verified_item_keys ?? []);
+
+  return {
+    ...anchor,
+    order_number: combinedOrderNumber || anchor.order_number,
+    created_at: newestCreatedAt,
+    updated_at: newestUpdatedAt,
+    pallets_qty: combinedPalletsQty,
+    total_units: combinedTotalUnits,
+    items: combinedItems,
+    verified_item_keys: combinedVerifiedKeys,
+    combine_meta: { ...(anchor.combine_meta ?? {}), is_combined: true } as CombineMeta,
+  };
 }
 
 /** FedEx orders count as the 'FEDEX' carrier; everything else uses its transport_company. */
@@ -338,19 +404,55 @@ export const ShipScreen = () => {
   const isFedexOrder =
     (selectedOrder?.order_group as { group_type?: string } | null)?.group_type === 'fedex';
 
-  // Calculate total weight from sku_metadata weights + pallet weight (40 lbs each, except FedEx)
+  // Calculate total weight live from the Pallets/Bikes/Parts fields shown in
+  // this view — not just the raw item list — so overriding Bikes or Parts
+  // actually moves the weight instead of silently ignoring the edit. Average
+  // weight-per-unit comes from the real items + sku_metadata (bikes and
+  // parts weigh very differently), then gets multiplied by whatever count is
+  // currently shown (edited or auto), same fallback order as autoBikeCount/
+  // autoPartCount and the same 45/0.1 lbs defaults used to backfill missing
+  // sku_metadata weights.
   const totalWeight = useMemo(() => {
     const items = selectedOrder?.items;
-    if (!Array.isArray(items)) return 0;
-    const productWeight = items.reduce((sum: number, item: PickingListItem) => {
-      const weight = skuMeta[item.sku]?.weight_lbs ?? 0;
-      const qty = item.pickingQty ?? 0;
-      return sum + weight * qty;
-    }, 0);
     const palletCount = parseInt(formData.pallets, 10) || 0;
     const palletWeight = isFedexOrder ? 0 : palletCount * 40;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return Math.round(palletWeight);
+    }
+
+    let bikeUnits = 0;
+    let bikeWeightTotal = 0;
+    let partUnits = 0;
+    let partWeightTotal = 0;
+    items.forEach((item: PickingListItem) => {
+      const qty = item.pickingQty || 0;
+      const weight = skuMeta[item.sku]?.weight_lbs ?? 0;
+      if (isLikelyBike(item.sku, skuMeta[item.sku])) {
+        bikeUnits += qty;
+        bikeWeightTotal += weight * qty;
+      } else {
+        partUnits += qty;
+        partWeightTotal += weight * qty;
+      }
+    });
+
+    const avgBikeWeight = bikeUnits > 0 ? bikeWeightTotal / bikeUnits : 45;
+    const avgPartWeight = partUnits > 0 ? partWeightTotal / partUnits : 0.1;
+
+    const bikesCount = formData.bikes !== '' ? parseInt(formData.bikes, 10) || 0 : bikeUnits;
+    const partsCount = formData.parts !== '' ? parseInt(formData.parts, 10) || 0 : partUnits;
+    const productWeight = bikesCount * avgBikeWeight + partsCount * avgPartWeight;
+
     return Math.round(productWeight + palletWeight);
-  }, [selectedOrder?.items, skuMeta, formData.pallets, isFedexOrder]);
+  }, [
+    selectedOrder?.items,
+    skuMeta,
+    formData.pallets,
+    formData.bikes,
+    formData.parts,
+    isFedexOrder,
+  ]);
 
   // Manual override: if the user typed a value in the Weight field, use it.
   // Otherwise fall back to the auto-calculated total. Used by preview, PDF,
@@ -371,7 +473,7 @@ export const ShipScreen = () => {
       parts = 0;
     items.forEach((item: PickingListItem) => {
       const qty = item.pickingQty || 0;
-      if (skuMeta[item.sku]?.is_bike) bikes += qty;
+      if (isLikelyBike(item.sku, skuMeta[item.sku])) bikes += qty;
       else parts += qty;
     });
     return { autoBikeCount: bikes, autoPartCount: parts };
@@ -388,7 +490,7 @@ export const ShipScreen = () => {
     const seen = new Set<string>();
     return items
       .filter((item: PickingListItem) => {
-        if (skuMeta[item.sku]?.is_bike || seen.has(item.sku)) return false;
+        if (isLikelyBike(item.sku, skuMeta[item.sku]) || seen.has(item.sku)) return false;
         seen.add(item.sku);
         return true;
       })
@@ -540,6 +642,41 @@ export const ShipScreen = () => {
     return null;
   }, []);
 
+  // Fetches every sibling of a "general" combined group fresh from the DB —
+  // used so the realtime handler can resolve straight to the properly
+  // combined pseudo-order instead of setting selectedOrder to a lone raw
+  // sibling and waiting a render cycle for the self-heal effect to catch it.
+  const fetchGroupSiblings = useCallback(async (groupId: string) => {
+    try {
+      const { data, error } = await withSupabaseRetry(
+        () =>
+          supabase
+            .from('picking_lists')
+            .select(
+              `
+          *,
+          customer:customers(id, name, street, city, state, zip_code),
+          user:profiles!user_id(full_name),
+          checker:profiles!checked_by(full_name),
+          presence:user_presence!user_id(last_seen_at),
+          order_group:order_groups(group_type)
+        `
+            )
+            .eq('group_id', groupId),
+        { label: 'OrdersScreen.fetchGroupSiblings' }
+      );
+
+      if (error) throw error;
+      return (data ?? []).map((d) => ({
+        ...d,
+        customer_details: d.customer || {},
+      })) as unknown as OrderWithRelations[];
+    } catch (err) {
+      console.error('Error fetching group siblings:', err);
+      return [];
+    }
+  }, []);
+
   const fetchSingleLightweightOrder = useCallback(async (id: string) => {
     try {
       const query = supabase
@@ -680,7 +817,24 @@ export const ShipScreen = () => {
                   const details = await fetchOrderDetails(updated.id);
                   if (details && selectedOrderRef.current?.id === updated.id) {
                     lastFetchedDetailIdRef.current = details.id;
-                    setSelectedOrder(details);
+                    const isGeneralGroup =
+                      details.group_id &&
+                      (details.order_group as { group_type?: string } | null)?.group_type ===
+                        'general';
+                    if (isGeneralGroup) {
+                      // Resolve straight to the combined pseudo-order — don't
+                      // set the raw lone sibling even momentarily, that's
+                      // exactly what let one field's save flash the others
+                      // back to a single sibling's numbers.
+                      const siblings = await fetchGroupSiblings(details.group_id as string);
+                      if (selectedOrderRef.current?.id === updated.id) {
+                        setSelectedOrder(
+                          siblings.length > 0 ? combineGeneralGroupSiblings(siblings) : details
+                        );
+                      }
+                    } else {
+                      setSelectedOrder(details);
+                    }
                   }
                 } else {
                   setSelectedOrder(null);
@@ -697,7 +851,7 @@ export const ShipScreen = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchOrders, fetchSingleLightweightOrder, fetchOrderDetails]);
+  }, [fetchOrders, fetchSingleLightweightOrder, fetchOrderDetails, fetchGroupSiblings]);
 
   // Sync form data when the SELECTED ORDER CHANGES (i.e. the user picks a
   // different order) — deliberately keyed on id, not the object reference.
@@ -726,7 +880,7 @@ export const ShipScreen = () => {
       setSelectedCustomerId(selectedOrder.customer_id || null);
       setOriginalCustomerParams(selectedOrder.customer || null);
     }
-     
+
     // keyed on id only, see comment above
   }, [selectedOrder?.id]);
 
@@ -787,57 +941,7 @@ export const ShipScreen = () => {
 
     const collapsed = [...ungrouped];
     for (const siblings of byGroup.values()) {
-      // Sort siblings by created_at asc — oldest is the "anchor" row (its id
-      // is what clicks/select/loadExternalList operate on).
-      siblings.sort((a, b) => a.created_at.localeCompare(b.created_at));
-      const anchor = siblings[0];
-      const allOrderNumbers = siblings
-        .map((s) => s.order_number)
-        .filter((n): n is string => !!n)
-        .sort((a, b) => a.localeCompare(b));
-      const combinedOrderNumber = allOrderNumbers
-        .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
-        .join(' / ');
-      // Display/sort dates use the NEWEST sibling, not the anchor's — an old
-      // order combined with one that just completed should surface with the
-      // new one, not stay buried under the old order's original date.
-      const newestCreatedAt = siblings.reduce(
-        (max, s) => (s.created_at > max ? s.created_at : max),
-        anchor.created_at
-      );
-      const newestUpdatedAt = siblings.reduce(
-        (max, s) => (s.updated_at > max ? s.updated_at : max),
-        anchor.updated_at
-      );
-      // The anchor is only ONE sibling's own order — pallets/units/items must
-      // be aggregated across the whole group, or a combined order displays as
-      // if it were just the anchor alone (undercounting pallets & units).
-      const combinedPalletsQty = siblings.reduce((sum, s) => sum + (s.pallets_qty ?? 0), 0);
-      const combinedItems = siblings.flatMap((s) => (Array.isArray(s.items) ? s.items : []));
-      // Prefer summing pickingQty straight off the merged items — same
-      // fallback order as Orders board's getOrderUnits. Per-sibling
-      // total_units columns can drift stale after corrections, so trust the
-      // live items when they're present.
-      const combinedTotalUnits =
-        combinedItems.length > 0
-          ? combinedItems.reduce((sum, i) => sum + (i.pickingQty || 0), 0)
-          : siblings.reduce((sum, s) => sum + (s.total_units ?? 0), 0);
-      const combinedVerifiedKeys = siblings.flatMap((s) => s.verified_item_keys ?? []);
-      collapsed.push({
-        ...anchor,
-        order_number: combinedOrderNumber || anchor.order_number,
-        created_at: newestCreatedAt,
-        updated_at: newestUpdatedAt,
-        pallets_qty: combinedPalletsQty,
-        total_units: combinedTotalUnits,
-        items: combinedItems,
-        verified_item_keys: combinedVerifiedKeys,
-        // Mark as combined so the order list badges it like the watchdog combines.
-        combine_meta: {
-          ...(anchor.combine_meta ?? {}),
-          is_combined: true,
-        } as typeof anchor.combine_meta,
-      });
+      collapsed.push(combineGeneralGroupSiblings(siblings));
     }
 
     // Re-sort by created_at desc to preserve the original list ordering.
@@ -1309,6 +1413,25 @@ export const ShipScreen = () => {
           return false;
         }
         throw orderError;
+      }
+
+      // pallets_qty is the one field combining always SUMS across the whole
+      // group (bikes/parts/weight are local overrides, not resummed). Left
+      // alone, saving palletsNum only on the anchor means the next combine
+      // adds it back to the OTHER siblings' untouched pallets_qty — e.g. type
+      // "1" for a group where the other order still has 9, and it reads back
+      // as "10". Zeroing the other siblings' pallets_qty keeps the sum equal
+      // to exactly what was just typed.
+      const groupId = selectedOrder.group_id;
+      const isGeneralGroup =
+        (selectedOrder.order_group as { group_type?: string } | null)?.group_type === 'general';
+      if (groupId && isGeneralGroup) {
+        const { error: siblingError } = await supabase
+          .from('picking_lists')
+          .update({ pallets_qty: 0 })
+          .eq('group_id', groupId)
+          .neq('id', selectedOrder.id);
+        if (siblingError) console.error('Failed to zero sibling pallets_qty:', siblingError);
       }
 
       // Re-baseline so subsequent per-field saves compare against what's now
