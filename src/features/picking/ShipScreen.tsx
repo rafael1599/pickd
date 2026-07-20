@@ -40,6 +40,7 @@ import { ShippingFlowPreviewModal } from './components/ShippingFlowPreviewModal'
 import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.service';
 import { useUnmarkWaiting } from './hooks/useWaitingOrders';
 import { CarrierFilter } from './components/board/CarrierFilter';
+import { OrderNotesCard } from './components/OrderNotesCard';
 
 function dayKey(date: Date): string {
   const formatter = new Intl.DateTimeFormat('en-US', {
@@ -1802,6 +1803,8 @@ export const ShipScreen = () => {
                     autoPartCount={autoPartCount}
                     autoWeight={totalWeight}
                   />
+
+                  <OrderNotesCard listId={selectedOrder.id} />
 
                   {/* Parts Weight Editor (idea-028) */}
                   {partsWithWeights.length > 0 && (
