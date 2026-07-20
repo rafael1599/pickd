@@ -707,31 +707,6 @@ export const ShipScreen = () => {
     };
   }, [fetchOrders, fetchSingleLightweightOrder, fetchOrderDetails]);
 
-  // Handle external selections (e.g. from DoubleCheckHeader or VerificationBoard)
-  useEffect(() => {
-    if (!externalOrderId) return;
-    if (!hasLoadedOnceRef.current) return;
-
-    const targetId = externalOrderId;
-    // Clear it immediately to avoid re-triggering
-    setExternalOrderId(null);
-
-    const order = orders.find((o) => o.id === targetId);
-    if (order) {
-      setSelectedOrder(order);
-    } else {
-      fetchOrderDetails(targetId as string).then((fetched) => {
-        if (fetched) {
-          setOrders((prev) => {
-            if (prev.some((o) => o.id === fetched.id)) return prev;
-            return [fetched, ...prev];
-          });
-          setSelectedOrder(fetched);
-        }
-      });
-    }
-  }, [externalOrderId, orders, setExternalOrderId, fetchOrderDetails]);
-
   // Sync form data when selectedOrder changes
   useEffect(() => {
     if (selectedOrder) {
@@ -886,6 +861,43 @@ export const ShipScreen = () => {
       return bStartsWith - aStartsWith;
     });
   }, [orders, debouncedSearchQuery, shipTab, matchesCarrierFilter]);
+
+  // Handle external selections (e.g. from DoubleCheckHeader or VerificationBoard)
+  useEffect(() => {
+    if (!externalOrderId) return;
+    if (!hasLoadedOnceRef.current) return;
+
+    const targetId = externalOrderId;
+    // Clear it immediately to avoid re-triggering
+    setExternalOrderId(null);
+
+    const rawOrder = orders.find((o) => o.id === targetId);
+    // Deep-links (Edit Label, DoubleCheckHeader, VerificationBoard) pass a
+    // single sibling's raw id. For "general" combined groups that must
+    // resolve to the SAME merged pseudo-order filteredOrders already built —
+    // matching by group_id (shared across every sibling), not by the raw id,
+    // so it works regardless of which sibling was clicked. FedEx groups stay
+    // ungrouped by design, so they're excluded here.
+    const isGeneralGroup =
+      rawOrder?.group_id &&
+      (rawOrder.order_group as { group_type?: string } | null)?.group_type === 'general';
+    const order = isGeneralGroup
+      ? (filteredOrders.find((o) => o.group_id === rawOrder.group_id) ?? rawOrder)
+      : rawOrder;
+    if (order) {
+      setSelectedOrder(order);
+    } else {
+      fetchOrderDetails(targetId as string).then((fetched) => {
+        if (fetched) {
+          setOrders((prev) => {
+            if (prev.some((o) => o.id === fetched.id)) return prev;
+            return [fetched, ...prev];
+          });
+          setSelectedOrder(fetched);
+        }
+      });
+    }
+  }, [externalOrderId, orders, filteredOrders, setExternalOrderId, fetchOrderDetails]);
 
   const visibleOrders = useMemo(() => filteredOrders, [filteredOrders]);
 
