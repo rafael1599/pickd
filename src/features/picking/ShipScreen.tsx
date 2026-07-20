@@ -173,6 +173,37 @@ function combineGeneralGroupSiblings(siblings: OrderWithRelations[]): OrderWithR
   };
 }
 
+// Single source of truth for the orders-list column set — used by fetchOrders,
+// fetchSingleLightweightOrder, and the group-sibling top-up query. Previously
+// duplicated by hand in two places and `load_number` silently went missing
+// from both; extracting this is what makes that class of bug impossible.
+const ORDER_LIST_SELECT = `
+  id,
+  order_number,
+  customer_id,
+  user_id,
+  checked_by,
+  status,
+  is_shipped,
+  is_waiting_inventory,
+  created_at,
+  updated_at,
+  transport_company,
+  shipping_type,
+  load_number,
+  group_id,
+  pallets_qty,
+  total_units,
+  combine_meta,
+  verified_item_keys,
+  items,
+  customer:customers(id, name, street, city, state, zip_code),
+  user:profiles!user_id(full_name),
+  checker:profiles!checked_by(full_name),
+  presence:user_presence!user_id(last_seen_at),
+  order_group:order_groups(group_type)
+`;
+
 /** FedEx orders count as the 'FEDEX' carrier; everything else uses its transport_company. */
 function getCarrierLabel(order: OrderWithRelations): string | null {
   if (isFedexLane(order)) return 'FEDEX';
@@ -539,34 +570,7 @@ export const ShipScreen = () => {
 
       let query = supabase
         .from('picking_lists')
-        .select(
-          `
-                    id,
-                    order_number,
-                    customer_id,
-                    user_id,
-                    checked_by,
-                    status,
-                    is_shipped,
-                    is_waiting_inventory,
-                    created_at,
-                    updated_at,
-                    transport_company,
-                    shipping_type,
-                    load_number,
-                    group_id,
-                    pallets_qty,
-                    total_units,
-                    combine_meta,
-                    verified_item_keys,
-                    items,
-                    customer:customers(id, name, street, city, state, zip_code),
-                    user:profiles!user_id(full_name),
-                    checker:profiles!checked_by(full_name),
-                    presence:user_presence!user_id(last_seen_at),
-                    order_group:order_groups(group_type)
-                `
-        )
+        .select(ORDER_LIST_SELECT)
         .neq('status', 'cancelled')
         .order('created_at', { ascending: false });
 
@@ -593,10 +597,41 @@ export const ShipScreen = () => {
 
       if (error) throw error;
 
-      const mappedData = ((data || []) as unknown as OrderWithRelations[]).map((order) => ({
+      let mappedData = ((data || []) as unknown as OrderWithRelations[]).map((order) => ({
         ...order,
         customer_details: order.customer || {},
       }));
+
+      // Top up any "general" combined group whose siblings didn't ALL match
+      // this fetch's own filters (most commonly: search text only matches
+      // one sibling's own order_number, e.g. searching "787" never fetches
+      // "880848" at all). Combining needs every sibling present — without
+      // this, a search or a narrow status/tab filter silently shows the
+      // group as if it were just the one matching sibling.
+      const groupIds = Array.from(
+        new Set(
+          mappedData
+            .filter(
+              (o) =>
+                o.group_id &&
+                (o.order_group as { group_type?: string } | null)?.group_type === 'general'
+            )
+            .map((o) => o.group_id as string)
+        )
+      );
+      if (groupIds.length > 0) {
+        const { data: siblingRows } = await withSupabaseRetry(
+          () => supabase.from('picking_lists').select(ORDER_LIST_SELECT).in('group_id', groupIds),
+          { label: 'OrdersScreen.fetchOrders.topUpSiblings' }
+        );
+        if (siblingRows) {
+          const existingIds = new Set(mappedData.map((o) => o.id));
+          const extra = (siblingRows as unknown as OrderWithRelations[])
+            .filter((o) => !existingIds.has(o.id))
+            .map((o) => ({ ...o, customer_details: o.customer || {} }));
+          if (extra.length > 0) mappedData = [...mappedData, ...extra];
+        }
+      }
 
       setOrders(mappedData);
     } catch (err) {
@@ -680,38 +715,7 @@ export const ShipScreen = () => {
 
   const fetchSingleLightweightOrder = useCallback(async (id: string) => {
     try {
-      const query = supabase
-        .from('picking_lists')
-        .select(
-          `
-          id,
-          order_number,
-          customer_id,
-          user_id,
-          checked_by,
-          status,
-          is_shipped,
-          is_waiting_inventory,
-          created_at,
-          updated_at,
-          transport_company,
-          shipping_type,
-          load_number,
-          group_id,
-          pallets_qty,
-          total_units,
-          combine_meta,
-          verified_item_keys,
-          items,
-          customer:customers(id, name, street, city, state, zip_code),
-          user:profiles!user_id(full_name),
-          checker:profiles!checked_by(full_name),
-          presence:user_presence!user_id(last_seen_at),
-          order_group:order_groups(group_type)
-        `
-        )
-        .eq('id', id)
-        .single();
+      const query = supabase.from('picking_lists').select(ORDER_LIST_SELECT).eq('id', id).single();
 
       const { data, error } = await withSupabaseRetry(() => query, {
         label: 'OrdersScreen.fetchSingleLightweightOrder',
