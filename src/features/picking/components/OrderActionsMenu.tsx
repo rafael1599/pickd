@@ -11,6 +11,8 @@ import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import X from 'lucide-react/dist/esm/icons/x';
+import PackageCheck from 'lucide-react/dist/esm/icons/package-check';
+import MessageSquare from 'lucide-react/dist/esm/icons/message-square';
 
 export interface OrderActionsMenuProps {
   /** Header label — a single order number or a combined "a / b / c" string. */
@@ -41,6 +43,10 @@ export interface OrderActionsMenuProps {
   onUngroup?: (orderId: string, groupId: string) => void | Promise<void>;
   onReopen?: () => void;
   onCancel?: () => void;
+  /** Sets the order's carrier to PICK UP — for orders picked up in person. */
+  onMarkPickup?: () => void;
+  /** Opens the note composer for this order. */
+  onAddNote?: () => void;
 }
 
 const ROW =
@@ -73,6 +79,8 @@ export const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
   onUngroup,
   onReopen,
   onCancel,
+  onMarkPickup,
+  onAddNote,
 }) => {
   const [ungroupOpen, setUngroupOpen] = useState(false);
   const isPastOrder = status === 'completed' || status === 'cancelled' || status === 'shipped';
@@ -251,6 +259,30 @@ export const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
               </div>
             )}
           </>
+        )}
+
+        {onMarkPickup && (
+          <button onClick={onMarkPickup} className={ROW}>
+            <PackageCheck size={16} className="text-orange-400" />
+            <div>
+              <div className="text-xs font-black uppercase tracking-wider text-content">
+                Mark as Pickup
+              </div>
+              <div className="text-[9px] text-muted/70">Set carrier to PICK UP</div>
+            </div>
+          </button>
+        )}
+
+        {onAddNote && (
+          <button onClick={onAddNote} className={ROW}>
+            <MessageSquare size={16} className="text-sky-400" />
+            <div>
+              <div className="text-xs font-black uppercase tracking-wider text-content">
+                Add Note
+              </div>
+              <div className="text-[9px] text-muted/70">Leave a note on this order</div>
+            </div>
+          </button>
         )}
 
         {onReopen && isPastOrder && status !== 'shipped' && (

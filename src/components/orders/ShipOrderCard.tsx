@@ -11,16 +11,19 @@ import Wand2 from 'lucide-react/dist/esm/icons/wand-2';
 import Copy from 'lucide-react/dist/esm/icons/copy';
 import Check from 'lucide-react/dist/esm/icons/check';
 import Eye from 'lucide-react/dist/esm/icons/eye';
+import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { CustomerAutocomplete } from '../../features/picking/components/CustomerAutocomplete';
 import { usePickingSession } from '../../context/PickingContext';
 import { useConfirmation } from '../../context/ConfirmationContext';
+import { useModal } from '../../context/ModalContext';
 import { parseUSAddress } from '../../utils/parseUSAddress';
 import { useCustomerAddresses } from '../../hooks/useCustomerAddresses';
 import { OrderStatusPill } from './OrderStatusPill';
 import { OrderProgressBar } from '../../features/picking/components/OrderProgressBar';
+import { OrderActionsMenu } from '../../features/picking/components/OrderActionsMenu';
 import type { CustomerAddress } from '../../lib/customerAddresses';
 import type { CombineMeta, PickingList, PickingListItem } from '../../schemas/picking.schema';
 import { PalletPhotosBlock } from './PalletPhotosBlock';
@@ -51,6 +54,7 @@ const TRANSPORT_COMPANIES = [
   'PAV EXPRESS',
   'ESTES',
   'FEDEX',
+  'PICK UP',
 ] as const;
 
 interface SelectedOrder extends PickingList {
@@ -229,10 +233,12 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [isUpdatingCarrier, setIsUpdatingCarrier] = useState(false);
   const [justSavedField, setJustSavedField] = useState<string | null>(null);
+  const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
   const editRef = useRef<HTMLDivElement>(null);
   const clearSaveRef = useRef<NodeJS.Timeout | null>(null);
   const { deleteList } = usePickingSession();
   const { showConfirmation } = useConfirmation();
+  const { open: openModal } = useModal();
   const navigate = useNavigate();
 
   const { addresses } = useCustomerAddresses(selectedCustomerId);
@@ -458,7 +464,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
               When shipped, the shipped logo shows in the header row above (right
               side), so we skip it here to avoid duplicating it. */}
           {!selectedOrder.is_shipped && (
-            <div className="flex items-start gap-4">
+            <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3 flex-wrap min-w-0 flex-1">
                 <OrderStatusPill
                   status={selectedOrder.status}
@@ -466,6 +472,16 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                   is_shipped={selectedOrder.is_shipped}
                 />
               </div>
+              <button
+                type="button"
+                onClick={() => setIsActionsMenuOpen(true)}
+                className="p-1.5 rounded-full text-muted hover:text-content hover:bg-main transition-colors shrink-0"
+                title="More actions"
+                aria-haspopup="true"
+                aria-expanded={isActionsMenuOpen}
+              >
+                <MoreVertical size={18} />
+              </button>
             </div>
           )}
 
@@ -928,6 +944,23 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           <span>Delete Order</span>
         </button>
       </div>
+
+      {isActionsMenuOpen && (
+        <OrderActionsMenu
+          orderNumber={selectedOrder.order_number}
+          fallbackId={selectedOrder.id.slice(-6).toUpperCase()}
+          status={selectedOrder.status}
+          onClose={() => setIsActionsMenuOpen(false)}
+          onMarkPickup={() => {
+            setIsActionsMenuOpen(false);
+            void handleCarrierChange('PICK UP');
+          }}
+          onAddNote={() => {
+            setIsActionsMenuOpen(false);
+            openModal({ type: 'order-notes', listId: selectedOrder.id, autoFocusComposer: true });
+          }}
+        />
+      )}
     </div>
   );
 };
