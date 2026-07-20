@@ -162,6 +162,10 @@ function combineGeneralGroupSiblings(siblings: OrderWithRelations[]): OrderWithR
       ? combinedItems.reduce((sum, i) => sum + (i.pickingQty || 0), 0)
       : sorted.reduce((sum, s) => sum + (s.total_units ?? 0), 0);
   const combinedVerifiedKeys = sorted.flatMap((s) => s.verified_item_keys ?? []);
+  // The group only counts as shipped once every sibling is — one sibling
+  // shipped ahead of the rest (legacy data, or shipped before being combined)
+  // shouldn't make the whole group disappear from the "to ship" tab.
+  const allShipped = sorted.every((s) => !!s.is_shipped);
 
   return {
     ...anchor,
@@ -172,6 +176,7 @@ function combineGeneralGroupSiblings(siblings: OrderWithRelations[]): OrderWithR
     total_units: combinedTotalUnits,
     items: combinedItems,
     verified_item_keys: combinedVerifiedKeys,
+    is_shipped: allShipped,
     combine_meta: { ...(anchor.combine_meta ?? {}), is_combined: true } as CombineMeta,
   };
 }
@@ -207,10 +212,16 @@ const ORDER_LIST_SELECT = `
   order_group:order_groups(group_type)
 `;
 
-/** FedEx orders count as the 'FEDEX' carrier; everything else uses its transport_company. */
+/**
+ * FedEx orders count as the 'FEDEX' carrier; everything else uses its
+ * transport_company. PICK UP is checked first so it never gets swallowed by
+ * a 'fedex' lane classification (mirrors the same guard in OrdersBoardScreen).
+ */
 function getCarrierLabel(order: OrderWithRelations): string | null {
+  const explicit = order.transport_company?.trim().toUpperCase() || null;
+  if (explicit === 'PICK UP') return explicit;
   if (isFedexLane(order)) return 'FEDEX';
-  return order.transport_company?.trim().toUpperCase() || null;
+  return explicit;
 }
 
 interface DayGroup {
@@ -919,26 +930,23 @@ export const ShipScreen = () => {
     const todayStr = dayKey(new Date());
     const query = debouncedSearchQuery.toLowerCase().trim();
 
-    // 1. Filter by status/tab and the carrier filter panel.
-    const byCarrier = orders.filter((o) => {
-      if (o.status === 'cancelled') return false;
-      if (query) return true; // If searching, ignore tab/carrier boundaries
-
-      const shippedToday = !!o.is_shipped && dayKey(new Date(o.updated_at)) === todayStr;
-      const matchTab = shipTab === 'shipped' ? shippedToday : !o.is_shipped;
-      if (!matchTab) return false;
-
-      return matchesCarrierFilter(o);
-    });
+    // 1. Drop cancelled orders only. Grouping has to run BEFORE the tab/
+    //    carrier filter — deciding "to ship" vs "shipped" per raw sibling
+    //    (instead of per combined group) let one already-shipped sibling
+    //    filter itself out while its still-pending twin stayed visible,
+    //    which is what made a combined order look "solita" outside of
+    //    search (search skipped this filter entirely via the `if (query)`
+    //    early-return below, which is why it only ever looked right there).
+    const notCancelled = orders.filter((o) => o.status !== 'cancelled');
 
     // 2. Collapse 'general' group siblings into a single virtual entry per
     //    group_id. We pick the OLDEST (first by created_at ASC) sibling as
     //    the underlying picking_list — clicks/select operate on its id, and
     //    loadExternalList merges sibling items via group_id at open time.
     //    The display order_number becomes "A / B" sorted ascending.
-    const byGroup = new Map<string, typeof byCarrier>();
-    const ungrouped: typeof byCarrier = [];
-    for (const o of byCarrier) {
+    const byGroup = new Map<string, typeof notCancelled>();
+    const ungrouped: typeof notCancelled = [];
+    for (const o of notCancelled) {
       const isGeneralGroup =
         o.group_id && (o.order_group as { group_type?: string } | null)?.group_type === 'general';
       if (isGeneralGroup) {
@@ -955,10 +963,23 @@ export const ShipScreen = () => {
       collapsed.push(combineGeneralGroupSiblings(siblings));
     }
 
-    // Re-sort by created_at desc to preserve the original list ordering.
-    collapsed.sort((a, b) => b.created_at.localeCompare(a.created_at));
+    // 3. Filter by status/tab and the carrier filter panel — now operating on
+    //    the already-combined groups, so a group's shipped state is judged
+    //    as a whole (all siblings shipped) rather than per raw row.
+    const byCarrier = collapsed.filter((o) => {
+      if (query) return true; // If searching, ignore tab/carrier boundaries
 
-    const results = collapsed.filter((order) => {
+      const shippedToday = !!o.is_shipped && dayKey(new Date(o.updated_at)) === todayStr;
+      const matchTab = shipTab === 'shipped' ? shippedToday : !o.is_shipped;
+      if (!matchTab) return false;
+
+      return matchesCarrierFilter(o);
+    });
+
+    // Re-sort by created_at desc to preserve the original list ordering.
+    byCarrier.sort((a, b) => b.created_at.localeCompare(a.created_at));
+
+    const results = byCarrier.filter((order) => {
       const orderNum = String(order.order_number || order.id.toString().slice(-6)).toLowerCase();
       const customer = String(order.customer?.name || '').toLowerCase();
       return !query || orderNum.includes(query) || customer.includes(query);
