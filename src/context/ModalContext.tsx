@@ -16,6 +16,7 @@ import { InventorySnapshotModal } from '../features/inventory/components/Invento
 import { ItemDetailView } from '../features/inventory/components/ItemDetailView';
 import { PickingSummaryModalById } from '../components/orders/PickingSummaryModalById';
 import { NotificationHistoryModal } from '../components/ui/NotificationHistoryModal';
+import { OrderNotesModal } from '../features/picking/components/OrderNotesModal';
 import type { InventoryItemWithMetadata, InventoryItemInput } from '../schemas/inventory.schema';
 
 type ItemDetailSavePayload = InventoryItemInput & {
@@ -36,6 +37,7 @@ export type ModalState =
     }
   | { type: 'picking-summary'; listId: string }
   | { type: 'notification-history' }
+  | { type: 'order-notes'; listId: string; autoFocusComposer?: boolean }
   | null;
 
 interface ModalContextValue {
@@ -65,6 +67,14 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
       )}
 
       {modal?.type === 'notification-history' && <NotificationHistoryModal onClose={close} />}
+
+      {modal?.type === 'order-notes' && (
+        <OrderNotesModal
+          listId={modal.listId}
+          autoFocusComposer={modal.autoFocusComposer}
+          onClose={close}
+        />
+      )}
 
       {modal?.type === 'item-detail' && (
         <ItemDetailView

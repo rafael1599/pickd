@@ -33,6 +33,9 @@ interface LivePrintPreviewProps {
    *  OrdersScreen — operationally there's no value seeing the same label
    *  repeated N times. The PDF print path keeps the full multi-page output. */
   screenOnly?: boolean;
+  /** Screen-only slot rendered next to the watcher note (e.g. in-app notes
+   *  preview). Caller-composed so this component stays print/PDF-agnostic. */
+  notesSlot?: React.ReactNode;
 }
 
 /** Build the BIKES/PARTS lines for labels */
@@ -49,6 +52,7 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
   watcherNote,
   completedAt,
   transportCompany,
+  notesSlot,
 }) => {
   return (
     <div className="w-full px-1 md:px-4 bg-transparent">
@@ -67,7 +71,7 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
             </div>
           )}
         </div>
-        {(completedAt || (watcherNote && watcherNote.trim())) && (
+        {(completedAt || (watcherNote && watcherNote.trim()) || notesSlot) && (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             {completedAt && (
               <p className="text-muted text-xs font-bold tracking-wide whitespace-nowrap animate-soft-in">
@@ -89,6 +93,7 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
                 {watcherNote.trim()}
               </p>
             )}
+            {notesSlot}
           </div>
         )}
       </div>
