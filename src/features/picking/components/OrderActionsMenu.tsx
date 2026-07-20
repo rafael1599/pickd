@@ -13,6 +13,7 @@ import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import X from 'lucide-react/dist/esm/icons/x';
 import PackageCheck from 'lucide-react/dist/esm/icons/package-check';
 import MessageSquare from 'lucide-react/dist/esm/icons/message-square';
+import MessageSquarePlus from 'lucide-react/dist/esm/icons/message-square-plus';
 
 export interface OrderActionsMenuProps {
   /** Header label — a single order number or a combined "a / b / c" string. */
@@ -45,8 +46,10 @@ export interface OrderActionsMenuProps {
   onCancel?: () => void;
   /** Sets the order's carrier to PICK UP — for orders picked up in person. */
   onMarkPickup?: () => void;
-  /** Opens the note composer for this order. */
+  /** Opens the note composer for this order, focused and ready to type. */
   onAddNote?: () => void;
+  /** Opens the full note history drill-down for this order. */
+  onViewNotes?: () => void;
 }
 
 const ROW =
@@ -81,6 +84,7 @@ export const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
   onCancel,
   onMarkPickup,
   onAddNote,
+  onViewNotes,
 }) => {
   const [ungroupOpen, setUngroupOpen] = useState(false);
   const isPastOrder = status === 'completed' || status === 'cancelled' || status === 'shipped';
@@ -273,9 +277,21 @@ export const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
           </button>
         )}
 
+        {onViewNotes && (
+          <button onClick={onViewNotes} className={ROW}>
+            <MessageSquare size={16} className="text-sky-400" />
+            <div>
+              <div className="text-xs font-black uppercase tracking-wider text-content">
+                View All Notes
+              </div>
+              <div className="text-[9px] text-muted/70">See the full note history</div>
+            </div>
+          </button>
+        )}
+
         {onAddNote && (
           <button onClick={onAddNote} className={ROW}>
-            <MessageSquare size={16} className="text-sky-400" />
+            <MessageSquarePlus size={16} className="text-sky-400" />
             <div>
               <div className="text-xs font-black uppercase tracking-wider text-content">
                 Add Note

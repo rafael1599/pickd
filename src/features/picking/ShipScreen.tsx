@@ -20,6 +20,7 @@ import {
 } from './ship/components';
 import type { AutoSaveStatus } from './ship/types';
 import MessageSquare from 'lucide-react/dist/esm/icons/message-square';
+import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
 import Truck from 'lucide-react/dist/esm/icons/truck';
 import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
 import ShoppingCart from 'lucide-react/dist/esm/icons/shopping-cart';
@@ -41,6 +42,8 @@ import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.servi
 import { useUnmarkWaiting } from './hooks/useWaitingOrders';
 import { CarrierFilter } from './components/board/CarrierFilter';
 import { OrderNotesInline } from './components/OrderNotesInline';
+import { OrderActionsMenu } from './components/OrderActionsMenu';
+import { useModal } from '../../context/ModalContext';
 
 function dayKey(date: Date): string {
   const formatter = new Intl.DateTimeFormat('en-US', {
@@ -257,6 +260,8 @@ interface OrderWithRelations {
 
 export const ShipScreen = () => {
   const { user } = useAuth();
+  const { open: openModal } = useModal();
+  const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
   const { isEnabled: isShipSmsEnabled, triggerForList: triggerShipOutSms } = useShipOutSms();
   const { takeOverOrder, loadReopenedOrder, resumeReopenedOrder, restoreCancelledOrder } =
     usePickingSession();
@@ -1910,53 +1915,92 @@ export const ShipScreen = () => {
             >
               {selectedOrder && (
                 <>
-                  <LivePrintPreview
-                    orderNumber={selectedOrder.order_number ?? undefined}
-                    watcherNote={selectedOrder.notes}
-                    customerName={formData.customerName}
-                    street={formData.street}
-                    city={formData.city}
-                    state={formData.state}
-                    zip={formData.zip}
-                    pallets={formData.pallets}
-                    bikeCount={bikeCount}
-                    partCount={partCount}
-                    loadNumber={formData.loadNumber}
-                    totalWeight={effectiveWeight}
-                    completedAt={selectedOrder.updated_at}
-                    transportCompany={formData.transportCompany}
-                    notesSlot={<OrderNotesInline listId={selectedOrder.id} />}
-                    screenOnly
-                  />
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsActionsMenuOpen(true)}
+                      className="absolute top-0 right-0 p-1.5 rounded-full text-muted hover:text-content hover:bg-card transition-colors z-10"
+                      title="More actions"
+                      aria-haspopup="true"
+                      aria-expanded={isActionsMenuOpen}
+                    >
+                      <MoreVertical size={18} />
+                    </button>
 
-                  <div className="-mt-2 px-1 flex justify-between items-start">
-                    <div className="inline-flex flex-wrap items-center gap-2 rounded-full border border-subtle bg-card px-3 py-1 text-[10px] font-black uppercase tracking-wider text-muted">
-                      <span className="text-content">{selectedOrder.status}</span>
-                      <span>·</span>
-                      <span>{formData.pallets || '0'} pallets</span>
-                      <span>·</span>
-                      <span>{formData.units || '0'} units</span>
-                      <span>·</span>
-                      <OrderAutoSaveIndicator status={autoSaveStatus} />
-                    </div>
-                    {selectedOrder.is_shipped ? (
-                      <ShippedTruckBadge
-                        key={selectedOrder.id}
-                        isFedex={formData.transportCompany.trim().toUpperCase() === 'FEDEX'}
-                      />
-                    ) : (
-                      <button
-                        onClick={() => setExternalDoubleCheckId(selectedOrder.id)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/10 text-accent hover:bg-accent hover:text-white border border-accent/30 transition-all active:scale-95 group shadow-sm shrink-0"
-                      >
-                        <ShoppingCart
-                          size={14}
-                          className="group-hover:scale-110 transition-transform"
+                    <LivePrintPreview
+                      orderNumber={selectedOrder.order_number ?? undefined}
+                      watcherNote={selectedOrder.notes}
+                      customerName={formData.customerName}
+                      street={formData.street}
+                      city={formData.city}
+                      state={formData.state}
+                      zip={formData.zip}
+                      pallets={formData.pallets}
+                      bikeCount={bikeCount}
+                      partCount={partCount}
+                      loadNumber={formData.loadNumber}
+                      totalWeight={effectiveWeight}
+                      completedAt={selectedOrder.updated_at}
+                      transportCompany={formData.transportCompany}
+                      notesSlot={<OrderNotesInline listId={selectedOrder.id} />}
+                      screenOnly
+                    />
+
+                    <div className="-mt-2 px-1 pr-8 flex justify-between items-start">
+                      <div className="inline-flex flex-wrap items-center gap-2 rounded-full border border-subtle bg-card px-3 py-1 text-[10px] font-black uppercase tracking-wider text-muted">
+                        <span className="text-content">{selectedOrder.status}</span>
+                        <span>·</span>
+                        <span>{formData.pallets || '0'} pallets</span>
+                        <span>·</span>
+                        <span>{formData.units || '0'} units</span>
+                        <span>·</span>
+                        <OrderAutoSaveIndicator status={autoSaveStatus} />
+                      </div>
+                      {selectedOrder.is_shipped ? (
+                        <ShippedTruckBadge
+                          key={selectedOrder.id}
+                          isFedex={formData.transportCompany.trim().toUpperCase() === 'FEDEX'}
                         />
-                        <span className="text-[10px] font-black uppercase tracking-widest mt-0.5">
-                          Cart
-                        </span>
-                      </button>
+                      ) : (
+                        <button
+                          onClick={() => setExternalDoubleCheckId(selectedOrder.id)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/10 text-accent hover:bg-accent hover:text-white border border-accent/30 transition-all active:scale-95 group shadow-sm shrink-0"
+                        >
+                          <ShoppingCart
+                            size={14}
+                            className="group-hover:scale-110 transition-transform"
+                          />
+                          <span className="text-[10px] font-black uppercase tracking-widest mt-0.5">
+                            Cart
+                          </span>
+                        </button>
+                      )}
+                    </div>
+
+                    {isActionsMenuOpen && (
+                      <OrderActionsMenu
+                        orderNumber={selectedOrder.order_number}
+                        fallbackId={selectedOrder.id.slice(-6).toUpperCase()}
+                        status={selectedOrder.status}
+                        onClose={() => setIsActionsMenuOpen(false)}
+                        onMarkPickup={() => {
+                          setIsActionsMenuOpen(false);
+                          setFormData({ ...formData, transportCompany: 'PICK UP' });
+                          void handleAutoSave({ transportCompany: 'PICK UP' });
+                        }}
+                        onAddNote={() => {
+                          setIsActionsMenuOpen(false);
+                          openModal({
+                            type: 'order-notes',
+                            listId: selectedOrder.id,
+                            autoFocusComposer: true,
+                          });
+                        }}
+                        onViewNotes={() => {
+                          setIsActionsMenuOpen(false);
+                          openModal({ type: 'order-notes', listId: selectedOrder.id });
+                        }}
+                      />
                     )}
                   </div>
 
