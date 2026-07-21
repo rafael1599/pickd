@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import ChevronUp from 'lucide-react/dist/esm/icons/chevron-up';
 import { DoubleCheckView, PickingItem, type CorrectionAction } from './DoubleCheckView';
 import { AddOnTargetPickerModal, type AddOnTargetCandidate } from './AddOnTargetPickerModal';
+import { ShippingResolutionModal } from './board/ShippingResolutionModal';
 import { useOrderGroups } from '../hooks/useOrderGroups';
 import { useAuth } from '../../../context/AuthContext';
 import { useConfirmation } from '../../../context/ConfirmationContext';
@@ -75,7 +76,7 @@ export const PickingCartDrawer: React.FC = () => {
     completeAddonGroup,
     reopenOrder,
   } = usePickingSession();
-  const { createGroup, removeFromGroup } = useOrderGroups();
+  const { createGroup, removeFromGroup, resolveMixedShippingType } = useOrderGroups();
 
   const { inventoryData, processPickingList, recompletePickingList } = useInventory();
   const cartBikeSkuSet = useBikeSkuSet(cartItems.map((i) => i.sku));
@@ -85,6 +86,9 @@ export const PickingCartDrawer: React.FC = () => {
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
   // idea-067 Phase 2 / Option A: COMBINE flow from open orders.
   const [combineModalOpen, setCombineModalOpen] = useState(false);
+  const [pendingShippingResolutionGroupId, setPendingShippingResolutionGroupId] = useState<
+    string | null
+  >(null);
   const isOwner = user?.id === ownerId;
 
   const isRecompletingRef = React.useRef(false);
@@ -1006,10 +1010,30 @@ export const PickingCartDrawer: React.FC = () => {
                         ? `Combined with #${target.order_number} — completed order reopened`
                         : `Combined with #${target.order_number}`
                     );
+
+                    // A FedEx+Regular mix must always be resolved explicitly
+                    // (same rule as the board's Combine action) — otherwise
+                    // this group silently carries mismatched shipping_type
+                    // values into verification.
+                    const resolution = await resolveMixedShippingType(groupId);
+                    if (resolution === 'needs-prompt') {
+                      setPendingShippingResolutionGroupId(groupId);
+                    }
                   } catch (err) {
                     console.error('Combine failed:', err);
                     toast.error('Combine failed. Please try again.');
                   }
+                }}
+              />
+            )}
+
+            {pendingShippingResolutionGroupId && (
+              <ShippingResolutionModal
+                groupId={pendingShippingResolutionGroupId}
+                onClose={() => setPendingShippingResolutionGroupId(null)}
+                onResolved={async () => {
+                  setPendingShippingResolutionGroupId(null);
+                  if (activeListId) await loadExternalList(activeListId);
                 }}
               />
             )}

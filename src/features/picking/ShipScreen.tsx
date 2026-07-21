@@ -24,6 +24,7 @@ import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
 import Truck from 'lucide-react/dist/esm/icons/truck';
 import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
 import ShoppingCart from 'lucide-react/dist/esm/icons/shopping-cart';
+import X from 'lucide-react/dist/esm/icons/x';
 import { ShipOrderCard } from '../../components/orders/ShipOrderCard.tsx';
 import { ShippedTruckBadge } from '../../components/orders/ShippedTruckBadge.tsx';
 import { OrderProgressBar } from './components/OrderProgressBar.tsx';
@@ -44,7 +45,12 @@ import { CarrierFilter } from './components/board/CarrierFilter';
 import { OrderNotesInline } from './components/OrderNotesInline';
 import { OrderActionsMenu } from './components/OrderActionsMenu';
 import { useModal } from '../../context/ModalContext';
-import { isFedexOrder as isFedexOrderShared } from '../../utils/shippingClassification';
+import {
+  isFedexOrder as isFedexOrderShared,
+  isDeliberateCombineGroupType,
+} from '../../utils/shippingClassification';
+import { useOrderGroups } from './hooks/useOrderGroups';
+import { ShippingResolutionModal } from './components/board/ShippingResolutionModal';
 
 function dayKey(date: Date): string {
   const formatter = new Intl.DateTimeFormat('en-US', {
@@ -181,6 +187,7 @@ function combineGeneralGroupSiblings(siblings: OrderWithRelations[]): OrderWithR
     items: combinedItems,
     verified_item_keys: combinedVerifiedKeys,
     is_shipped: allShipped,
+    combined_member_ids: sorted.map((s) => s.id),
     combine_meta: { ...(anchor.combine_meta ?? {}), is_combined: true } as CombineMeta,
   };
 }
@@ -272,12 +279,24 @@ interface OrderWithRelations {
   is_waiting_inventory?: boolean | null;
   is_shipped?: boolean | null;
   verified_item_keys?: string[] | null;
+  /** Set only on a client-merged pseudo-order (general group or same-customer
+   *  FedEx cluster) — every raw member id, used to expand ship actions and
+   *  to re-resolve the merged view on realtime updates. */
+  combined_member_ids?: string[];
 }
 
 export const ShipScreen = () => {
   const { user } = useAuth();
   const { open: openModal } = useModal();
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
+  const { createGroup, addToGroup, removeFromGroup, resolveMixedShippingType } = useOrderGroups();
+  const [pendingShippingResolutionGroupId, setPendingShippingResolutionGroupId] = useState<
+    string | null
+  >(null);
+  const [dismissedCombineSuggestionIds, setDismissedCombineSuggestionIds] = useState<Set<string>>(
+    new Set()
+  );
+  const [isAcceptingCombineSuggestion, setIsAcceptingCombineSuggestion] = useState(false);
   const { isEnabled: isShipSmsEnabled, triggerForList: triggerShipOutSms } = useShipOutSms();
   const { takeOverOrder, loadReopenedOrder, resumeReopenedOrder, restoreCancelledOrder } =
     usePickingSession();
@@ -633,11 +652,7 @@ export const ShipScreen = () => {
       const groupIds = Array.from(
         new Set(
           mappedData
-            .filter(
-              (o) =>
-                o.group_id &&
-                (o.order_group as { group_type?: string } | null)?.group_type === 'general'
-            )
+            .filter((o) => o.group_id && isDeliberateCombineGroupType(o.order_group?.group_type))
             .map((o) => o.group_id as string)
         )
       );
@@ -847,8 +862,7 @@ export const ShipScreen = () => {
                     lastFetchedDetailIdRef.current = details.id;
                     const isGeneralGroup =
                       details.group_id &&
-                      (details.order_group as { group_type?: string } | null)?.group_type ===
-                        'general';
+                      isDeliberateCombineGroupType(details.order_group?.group_type);
                     if (isGeneralGroup) {
                       // Resolve straight to the combined pseudo-order — don't
                       // set the raw lone sibling even momentarily, that's
@@ -953,8 +967,7 @@ export const ShipScreen = () => {
     const byGroup = new Map<string, typeof notCancelled>();
     const ungrouped: typeof notCancelled = [];
     for (const o of notCancelled) {
-      const isGeneralGroup =
-        o.group_id && (o.order_group as { group_type?: string } | null)?.group_type === 'general';
+      const isGeneralGroup = o.group_id && isDeliberateCombineGroupType(o.order_group?.group_type);
       if (isGeneralGroup) {
         const arr = byGroup.get(o.group_id!) ?? [];
         arr.push(o);
@@ -1024,12 +1037,92 @@ export const ShipScreen = () => {
   // its absence is a reliable signal to re-resolve from filteredOrders.
   useEffect(() => {
     if (!selectedOrder?.group_id || selectedOrder.combine_meta?.is_combined) return;
-    const isGeneralGroup =
-      (selectedOrder.order_group as { group_type?: string } | null)?.group_type === 'general';
-    if (!isGeneralGroup) return;
+    if (!isDeliberateCombineGroupType(selectedOrder.order_group?.group_type)) return;
     const combined = filteredOrders.find((o) => o.group_id === selectedOrder.group_id);
     if (combined) setSelectedOrder(combined);
   }, [selectedOrder, filteredOrders]);
+
+  // Combining is manual/suggested, never automatic: when the open order's
+  // customer has another completed, unshipped order that isn't already in
+  // the same group, offer to combine them instead of silently merging
+  // anything — same-customer FedEx orders included (previously those were
+  // auto-merged for display only; now every combine goes through the real
+  // group flow so it stays user-reversible via Ungroup).
+  const combineSuggestionCandidate = useMemo(() => {
+    if (!selectedOrder || selectedOrder.is_shipped || !selectedOrder.customer_id) return null;
+    if (dismissedCombineSuggestionIds.has(selectedOrder.id)) return null;
+    return (
+      orders.find(
+        (o) =>
+          o.customer_id === selectedOrder.customer_id &&
+          o.id !== selectedOrder.id &&
+          !o.is_shipped &&
+          !(selectedOrder.group_id && o.group_id === selectedOrder.group_id)
+      ) ?? null
+    );
+  }, [selectedOrder, orders, dismissedCombineSuggestionIds]);
+
+  const handleAcceptCombineSuggestion = useCallback(async () => {
+    if (!selectedOrder || !combineSuggestionCandidate) return;
+    setIsAcceptingCombineSuggestion(true);
+    try {
+      // Only join an EXISTING group if it's already a deliberate combine
+      // (general/pickup) — a 'fedex' group_id is a shared operational bucket
+      // (often holding unrelated customers' orders), so joining it here
+      // would pull in whoever else is in that bucket and
+      // resolveMixedShippingType would then rewrite THEIR shipping_type too.
+      // Always start a fresh, isolated group for exactly this pair otherwise.
+      let groupId: string | null;
+      if (
+        selectedOrder.group_id &&
+        isDeliberateCombineGroupType(selectedOrder.order_group?.group_type)
+      ) {
+        await addToGroup(selectedOrder.group_id, combineSuggestionCandidate.id);
+        groupId = selectedOrder.group_id;
+      } else if (
+        combineSuggestionCandidate.group_id &&
+        isDeliberateCombineGroupType(combineSuggestionCandidate.order_group?.group_type)
+      ) {
+        await addToGroup(combineSuggestionCandidate.group_id, selectedOrder.id);
+        groupId = combineSuggestionCandidate.group_id;
+      } else {
+        groupId = await createGroup('general', [selectedOrder.id, combineSuggestionCandidate.id]);
+      }
+      if (groupId) {
+        const resolution = await resolveMixedShippingType(groupId);
+        if (resolution === 'needs-prompt') setPendingShippingResolutionGroupId(groupId);
+        toast.success(`Combined with #${combineSuggestionCandidate.order_number}`);
+        fetchOrders();
+      }
+    } finally {
+      setIsAcceptingCombineSuggestion(false);
+    }
+  }, [
+    selectedOrder,
+    combineSuggestionCandidate,
+    addToGroup,
+    createGroup,
+    resolveMixedShippingType,
+    fetchOrders,
+  ]);
+
+  // Members of the selected order's group, for the kebab menu's Ungroup
+  // picker — combining is always reversible manually, whether it was
+  // created via a suggestion or the older merge flows.
+  const selectedOrderGroupMembers = useMemo(() => {
+    if (!selectedOrder?.group_id) return [];
+    return orders
+      .filter((o) => o.group_id === selectedOrder.group_id)
+      .map((o) => ({ id: o.id, order_number: o.order_number }));
+  }, [selectedOrder, orders]);
+
+  const handleUngroupOrder = useCallback(
+    async (orderId: string, groupId: string) => {
+      const ok = await removeFromGroup(orderId, groupId);
+      if (ok) fetchOrders();
+    },
+    [removeFromGroup, fetchOrders]
+  );
 
   // Handle external selections (e.g. from DoubleCheckHeader or VerificationBoard)
   useEffect(() => {
@@ -1042,17 +1135,13 @@ export const ShipScreen = () => {
 
     const rawOrder = orders.find((o) => o.id === targetId);
     // Deep-links (Edit Label, DoubleCheckHeader, VerificationBoard) pass a
-    // single sibling's raw id. For "general" combined groups that must
-    // resolve to the SAME merged pseudo-order filteredOrders already built —
-    // matching by group_id (shared across every sibling), not by the raw id,
-    // so it works regardless of which sibling was clicked. FedEx groups stay
-    // ungrouped by design, so they're excluded here.
-    const isGeneralGroup =
-      rawOrder?.group_id &&
-      (rawOrder.order_group as { group_type?: string } | null)?.group_type === 'general';
-    const order = isGeneralGroup
-      ? (filteredOrders.find((o) => o.group_id === rawOrder.group_id) ?? rawOrder)
-      : rawOrder;
+    // single sibling's raw id — resolve to whichever merged card in
+    // filteredOrders lists it as a member (general combine OR same-customer
+    // FedEx cluster), so it works regardless of which sibling was clicked.
+    const order =
+      filteredOrders.find(
+        (o) => o.id === targetId || o.combined_member_ids?.includes(targetId as string)
+      ) ?? rawOrder;
     if (order) {
       setSelectedOrder(order);
     } else {
@@ -1110,8 +1199,7 @@ export const ShipScreen = () => {
     const byGroup = new Map<string, OrderWithRelations[]>();
     const ungrouped: OrderWithRelations[] = [];
     for (const o of toShipOrders) {
-      const isGeneralGroup =
-        o.group_id && (o.order_group as { group_type?: string } | null)?.group_type === 'general';
+      const isGeneralGroup = o.group_id && isDeliberateCombineGroupType(o.order_group?.group_type);
       if (isGeneralGroup) {
         const arr = byGroup.get(o.group_id!) ?? [];
         arr.push(o);
@@ -1137,8 +1225,7 @@ export const ShipScreen = () => {
     const byGroup = new Map<string, OrderWithRelations[]>();
     const ungrouped: OrderWithRelations[] = [];
     for (const o of shippedTodayOrders) {
-      const isGeneralGroup =
-        o.group_id && (o.order_group as { group_type?: string } | null)?.group_type === 'general';
+      const isGeneralGroup = o.group_id && isDeliberateCombineGroupType(o.order_group?.group_type);
       if (isGeneralGroup) {
         const arr = byGroup.get(o.group_id!) ?? [];
         arr.push(o);
@@ -1461,8 +1548,7 @@ export const ShipScreen = () => {
       // as "10". Zeroing the other siblings' pallets_qty keeps the sum equal
       // to exactly what was just typed.
       const groupId = selectedOrder.group_id;
-      const isGeneralGroup =
-        (selectedOrder.order_group as { group_type?: string } | null)?.group_type === 'general';
+      const isGeneralGroup = isDeliberateCombineGroupType(selectedOrder.order_group?.group_type);
       if (groupId && isGeneralGroup) {
         const { error: siblingError } = await supabase
           .from('picking_lists')
@@ -1700,10 +1786,15 @@ export const ShipScreen = () => {
         const previousSelectedOrder = selectedOrder;
 
         try {
-          // Collect all IDs to update: this order + all siblings in the same group
-          const idsToUpdate = order.group_id
-            ? orders.filter((o) => o.group_id === order.group_id).map((o) => o.id)
-            : [order.id];
+          // Collect all IDs to update: every raw member behind this card —
+          // group siblings (general combine) or same-customer FedEx cluster
+          // members — falling back to group_id for safety, then the order
+          // itself if it was never merged.
+          const idsToUpdate =
+            order.combined_member_ids ??
+            (order.group_id
+              ? orders.filter((o) => o.group_id === order.group_id).map((o) => o.id)
+              : [order.id]);
 
           // Optimistic update
           setOrders((prev) =>
@@ -1748,9 +1839,11 @@ export const ShipScreen = () => {
       const previousSelectedOrder = selectedOrder;
 
       try {
-        const idsToUpdate = order.group_id
-          ? orders.filter((o) => o.group_id === order.group_id).map((o) => o.id)
-          : [order.id];
+        const idsToUpdate =
+          order.combined_member_ids ??
+          (order.group_id
+            ? orders.filter((o) => o.group_id === order.group_id).map((o) => o.id)
+            : [order.id]);
 
         // Optimistic update
         setOrders((prev) =>
@@ -1824,11 +1917,14 @@ export const ShipScreen = () => {
         : [];
       const updatedPhotos = [...existing, photoUrl];
 
-      // Combined orders ship as one unit — every sibling in the group needs
-      // to flip to shipped, not just the anchor the photo was attached to.
-      const idsToUpdate = pendingShipmentOrder.group_id
-        ? orders.filter((o) => o.group_id === pendingShipmentOrder.group_id).map((o) => o.id)
-        : [pendingShipmentOrder.id];
+      // Combined orders ship as one unit — every member behind this card
+      // (group siblings or same-customer FedEx cluster) needs to flip to
+      // shipped, not just the anchor the photo was attached to.
+      const idsToUpdate =
+        pendingShipmentOrder.combined_member_ids ??
+        (pendingShipmentOrder.group_id
+          ? orders.filter((o) => o.group_id === pendingShipmentOrder.group_id).map((o) => o.id)
+          : [pendingShipmentOrder.id]);
       const siblingIds = idsToUpdate.filter((id) => id !== pendingShipmentOrder.id);
 
       // Optimistic update
@@ -2024,11 +2120,49 @@ export const ShipScreen = () => {
                       )}
                     </div>
 
+                    {combineSuggestionCandidate && (
+                      <div className="mx-1 mt-2 flex items-center justify-between gap-2 rounded-xl border border-accent/30 bg-accent/10 px-3 py-2">
+                        <p className="text-[11px] font-bold text-content/80 leading-tight">
+                          This customer also has order{' '}
+                          <span className="font-black">
+                            #{combineSuggestionCandidate.order_number}
+                          </span>{' '}
+                          pending — combine them?
+                        </p>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={handleAcceptCombineSuggestion}
+                            disabled={isAcceptingCombineSuggestion}
+                            className="px-2.5 py-1 rounded-lg bg-accent text-white text-[10px] font-black uppercase tracking-wider disabled:opacity-50"
+                          >
+                            {isAcceptingCombineSuggestion ? 'Combining…' : 'Combine'}
+                          </button>
+                          <button
+                            onClick={() =>
+                              setDismissedCombineSuggestionIds((prev) =>
+                                new Set(prev).add(selectedOrder.id)
+                              )
+                            }
+                            className="p-1 text-muted hover:text-content transition-colors"
+                            title="Dismiss"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     {isActionsMenuOpen && (
                       <OrderActionsMenu
                         orderNumber={selectedOrder.order_number}
                         fallbackId={selectedOrder.id.slice(-6).toUpperCase()}
                         status={selectedOrder.status}
+                        groupId={selectedOrder.group_id}
+                        groupMembers={selectedOrderGroupMembers}
+                        onUngroup={async (orderId, groupId) => {
+                          setIsActionsMenuOpen(false);
+                          await handleUngroupOrder(orderId, groupId);
+                        }}
                         onClose={() => setIsActionsMenuOpen(false)}
                         onMarkPickup={() => {
                           setIsActionsMenuOpen(false);
@@ -2649,6 +2783,17 @@ export const ShipScreen = () => {
           onClose={() => setShowShippingPreview(false)}
           onConfirm={handleBatchShip}
           isSubmitting={isShippingBatch}
+        />
+      )}
+
+      {pendingShippingResolutionGroupId && (
+        <ShippingResolutionModal
+          groupId={pendingShippingResolutionGroupId}
+          onClose={() => setPendingShippingResolutionGroupId(null)}
+          onResolved={() => {
+            setPendingShippingResolutionGroupId(null);
+            fetchOrders();
+          }}
         />
       )}
     </div>

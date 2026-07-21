@@ -37,6 +37,7 @@ export interface PickingList {
   checked_by: string | null;
   profiles?: Profile | null; // Joined profile
   checker_profile?: Profile | null; // Joined checker profile
+  customer_id?: string | null;
   customer?: { name: string } | null;
   source?: string;
   is_addon?: boolean;
@@ -65,6 +66,7 @@ const PICKING_LIST_SELECT = `
   checked_by,
   profiles!user_id (full_name),
   checker_profile:profiles!checked_by (full_name),
+  customer_id,
   customer:customers(name),
   source,
   is_addon,

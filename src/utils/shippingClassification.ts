@@ -67,6 +67,18 @@ export function autoClassifyShippingType(
   return classifySingleOrder(items, skuWeights);
 }
 
+/**
+ * A "deliberate" combine — the group represents one real, user-intended unit
+ * (same-customer general combine, or a parked PICK UP group) — as opposed to
+ * 'fedex', the auto-grouping trigger's operational bucket for whatever small
+ * parcels happen to be active right now (any customer, decouples the moment
+ * each member completes). Deliberate combines merge into one card and stay
+ * merged after every member completes; the 'fedex' bucket never does.
+ */
+export function isDeliberateCombineGroupType(groupType: string | null | undefined): boolean {
+  return groupType === 'general' || groupType === 'pickup';
+}
+
 /** The subset of an order's fields needed to decide whether it's FedEx. */
 export interface FedexClassifiableOrder {
   shipping_type?: string | null;

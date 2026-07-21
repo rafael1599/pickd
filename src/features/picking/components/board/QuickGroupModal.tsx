@@ -7,12 +7,16 @@ import Check from 'lucide-react/dist/esm/icons/check';
 import type { PickingList } from '../../hooks/useDoubleCheckList';
 import { useParkedLocations } from '../../hooks/useParkedLocations';
 import { useQuickGroup } from '../../hooks/useQuickGroup';
+import { useOrderGroups } from '../../hooks/useOrderGroups';
 
 interface QuickGroupModalProps {
   sourceOrder: PickingList;
   allCompletedOrders: PickingList[];
   onClose: () => void;
-  onSuccess: () => void;
+  /** needsShippingPrompt is true when the new group mixes FedEx + Regular
+   *  orders from different customers — the caller should open
+   *  ShippingResolutionModal for groupId. */
+  onSuccess: (groupId: string, needsShippingPrompt: boolean) => void;
 }
 
 export const QuickGroupModal: React.FC<QuickGroupModalProps> = ({
@@ -30,6 +34,7 @@ export const QuickGroupModal: React.FC<QuickGroupModalProps> = ({
 
   const { locations } = useParkedLocations();
   const { quickGroupCompletedOrders } = useQuickGroup();
+  const { resolveMixedShippingType } = useOrderGroups();
 
   const candidates = allCompletedOrders.filter(
     (o) =>
@@ -74,7 +79,11 @@ export const QuickGroupModal: React.FC<QuickGroupModalProps> = ({
       const groupId = await quickGroupCompletedOrders(orderIds, finalLocation);
 
       if (groupId) {
-        onSuccess();
+        // This RPC always creates a 'general' group and never touches
+        // shipping_type — a FedEx+Regular mix (different customers) must
+        // still be resolved explicitly, same as every other combine path.
+        const resolution = await resolveMixedShippingType(groupId);
+        onSuccess(groupId, resolution === 'needs-prompt');
         onClose();
       }
     } finally {

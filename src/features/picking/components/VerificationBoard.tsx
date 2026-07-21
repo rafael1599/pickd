@@ -11,8 +11,8 @@ import { usePickingSession } from '../../../context/PickingContext';
 import { useConfirmation } from '../../../context/ConfirmationContext';
 import { useAuth } from '../../../context/AuthContext';
 import {
-  autoClassifyShippingType,
   isFedexOrder as isFedexOrderShared,
+  isDeliberateCombineGroupType,
 } from '../../../utils/shippingClassification';
 import { SortableOrderCard, StaticOrderCard } from './board/SortableOrderCard';
 import { CompletedZone } from './board/CompletedZone';
@@ -56,7 +56,7 @@ interface VerificationBoardProps {
 
 export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose }) => {
   const { orders, completedOrders, refresh } = useDoubleCheckList();
-  const { createGroup, addToGroup, removeFromGroup } = useOrderGroups();
+  const { createGroup, addToGroup, removeFromGroup, resolveMixedShippingType } = useOrderGroups();
   const { setExternalDoubleCheckId, setExternalOrderId, setViewMode, setExternalActionTrigger } =
     useViewMode();
   const unmarkWaiting = useUnmarkWaiting();
@@ -215,31 +215,11 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
 
       // 5. Evaluate mixed shipping types logic
       if (newGroupId) {
-        const { data: groupOrders } = await supabase
-          .from('picking_lists')
-          .select('id, customer_id, shipping_type')
-          .eq('group_id', newGroupId);
-
-        if (groupOrders && groupOrders.length > 1) {
-          const hasFedex = groupOrders.some((o) => o.shipping_type?.toLowerCase() === 'fedex');
-          const hasRegular = groupOrders.some(
-            (o) => !o.shipping_type || o.shipping_type.toLowerCase() !== 'fedex'
-          );
-          const uniqueCustomers = new Set(groupOrders.map((o) => o.customer_id).filter(Boolean));
-
-          if (hasFedex && hasRegular) {
-            if (uniqueCustomers.size <= 1) {
-              // Same customer -> auto convert to regular
-              await supabase
-                .from('picking_lists')
-                .update({ shipping_type: 'regular' })
-                .eq('group_id', newGroupId);
-              refresh();
-            } else {
-              // Different customers -> prompt
-              setPendingShippingResolutionGroupId(newGroupId);
-            }
-          }
+        const resolution = await resolveMixedShippingType(newGroupId);
+        if (resolution === 'auto-converted') {
+          refresh();
+        } else if (resolution === 'needs-prompt') {
+          setPendingShippingResolutionGroupId(newGroupId);
         }
       }
     } catch (err) {
@@ -269,7 +249,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     const waiting: PickingList[] = [];
     const pulling: PickingList[] = [];
 
-    const filteredOrders = orders.filter((o) => {
+    const searchPredicate = (o: PickingList) => {
       if (!searchQuery) return true;
       const q = searchQuery.toLowerCase();
       const matchNum = String(o.order_number || o.id)
@@ -279,13 +259,21 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         .toLowerCase()
         .includes(q);
       return matchNum || matchCust;
-    });
+    };
 
-    // Pre-calculate shipping types for all active orders — via the same
-    // canonical classifier Orders and Ship use, so a FedEx order here can't
-    // read as Regular/unassigned once it lands on either of those screens.
+    const filteredOrders = orders.filter(searchPredicate);
+    // Completed siblings of a still-active group need to be visible to the
+    // grouping below (not just the standalone "Completed" zone) — otherwise
+    // combining an order with one that's already completed splits the group
+    // across two unrelated-looking cards instead of showing it as one.
+    const filteredCompleted = (filteredCompletedOrders ?? []).filter(searchPredicate);
+    const allForGrouping = [...filteredOrders, ...filteredCompleted];
+
+    // Pre-calculate shipping types for every active AND completed order — via
+    // the same canonical classifier Orders and Ship use, so a FedEx order
+    // here can't read as Regular/unassigned once it lands on either screen.
     const orderShippingTypes = new Map<string, 'fedex' | 'regular'>();
-    for (const order of filteredOrders) {
+    for (const order of allForGrouping) {
       const items = (order.items ?? []).map((i) => ({
         sku: String((i as Record<string, unknown>).sku ?? ''),
         pickingQty: Number((i as Record<string, unknown>).pickingQty ?? 0),
@@ -304,14 +292,33 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       orderShippingTypes.set(order.id, fedex ? 'fedex' : 'regular');
     }
 
-    // Unify group-level states for combined orders
+    // FedEx auto-groups decouple the moment an individual member completes —
+    // it becomes its own solo card in Completed, sharing only underlying
+    // data (not a merged view) with siblings still being picked. Manually
+    // combined ('general') groups are real single shipments (same customer),
+    // so they keep merging across the active/completed boundary until every
+    // member is done. This decides, per order, whether it should contribute
+    // to / read from the group aggregates below.
+    const joinsGroupAggregate = (order: PickingList): boolean => {
+      if (!order.group_id) return false;
+      if (order.status !== 'completed') return true;
+      return isDeliberateCombineGroupType(order.order_group?.group_type);
+    };
+
+    // Unify group-level states for combined orders. Iterating filteredOrders
+    // BEFORE filteredCompleted matters: it's what makes "worst status wins"
+    // correct for a mixed general group — an active/ready/checking/correction
+    // member always sets (or overrides) the group's status before any
+    // completed sibling is seen, so a group with at least one unfinished
+    // member never reads as 'completed' just because a completed order
+    // happened to be combined into it.
     const groupWaiting = new Map<string, boolean>();
     const groupShippingType = new Map<string, 'fedex' | 'regular'>();
     const groupStatus = new Map<string, string>();
     const groupIsPriority = new Map<string, boolean>();
 
-    for (const order of filteredOrders) {
-      if (order.group_id) {
+    for (const order of allForGrouping) {
+      if (order.group_id && joinsGroupAggregate(order)) {
         if (order.is_waiting_inventory) {
           groupWaiting.set(order.group_id, true);
         }
@@ -333,21 +340,32 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       }
     }
 
-    // Classify orders
-    for (const order of filteredOrders) {
-      const isWaiting = order.group_id
-        ? (groupWaiting.get(order.group_id) ?? order.is_waiting_inventory)
+    // Classify every order (active + completed) in one pass — a group's
+    // AGGREGATE status decides its bucket, so a group only reaches the
+    // Completed zone once every one of its members is actually completed;
+    // otherwise its completed sibling(s) ride along into the active bucket
+    // (Priority/Pulling/FedEx/Regular) alongside the still-open member(s).
+    // Completed orders are collected raw here — general-group merging and
+    // fedex/regular bucketing both happen AFTER, once every completed order
+    // is in hand (see below).
+    const completedRaw: PickingList[] = [];
+
+    for (const order of allForGrouping) {
+      const inAggregate = joinsGroupAggregate(order);
+
+      const isWaiting = inAggregate
+        ? (groupWaiting.get(order.group_id!) ?? order.is_waiting_inventory)
         : order.is_waiting_inventory;
 
-      const shippingType = order.group_id
-        ? (groupShippingType.get(order.group_id) ?? orderShippingTypes.get(order.id)!)
+      const shippingType = inAggregate
+        ? (groupShippingType.get(order.group_id!) ?? orderShippingTypes.get(order.id)!)
         : orderShippingTypes.get(order.id)!;
 
       const status = (
-        order.group_id ? (groupStatus.get(order.group_id) ?? order.status) : order.status
+        inAggregate ? (groupStatus.get(order.group_id!) ?? order.status) : order.status
       ) as PickingList['status'];
 
-      const isPriority = order.group_id ? (groupIsPriority.get(order.group_id) ?? false) : false;
+      const isPriority = inAggregate ? (groupIsPriority.get(order.group_id!) ?? false) : false;
 
       const hasProgress = order.verified_item_keys && order.verified_item_keys.length > 0;
       const isWarehousePriority = order.profiles?.full_name === 'Warehouse Team' && !hasProgress;
@@ -369,6 +387,11 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
         continue;
       }
 
+      if (status === 'completed') {
+        completedRaw.push(order);
+        continue;
+      }
+
       if (shippingType === 'fedex') {
         fedex.push({ ...order, status });
       } else {
@@ -381,44 +404,50 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       (a, b) => new Date(a.updated_at ?? 0).getTime() - new Date(b.updated_at ?? 0).getTime()
     );
 
-    // Classify completed orders (apply both carrier filter and search filter)
-    const allCompletedFedex: PickingList[] = [];
-    const allCompletedRegular: PickingList[] = [];
-    const filteredCompleted = (filteredCompletedOrders ?? []).filter((o) => {
-      if (!searchQuery) return true;
-      const q = searchQuery.toLowerCase();
-      const matchNum = String(o.order_number || o.id)
-        .toLowerCase()
-        .includes(q);
-      const matchCust = String(o.profiles?.full_name || o.customer?.name || '')
-        .toLowerCase()
-        .includes(q);
-      return matchNum || matchCust;
-    });
-    for (const order of filteredCompleted) {
-      const shippingType =
-        order.shipping_type ??
-        autoClassifyShippingType(
-          order.items?.map((i) => ({
-            sku: i.sku,
-            pickingQty: (i as Record<string, unknown>).pickingQty as number,
-            source_order: (i as Record<string, unknown>).source_order as string | undefined,
-            sku_metadata: (i as Record<string, unknown>).sku_metadata as
-              | { is_bike?: boolean | null }
-              | null
-              | undefined,
-          })) ?? [],
-          {}
-        );
-      if (shippingType === 'fedex') {
-        allCompletedFedex.push(order);
+    // Merge deliberate-combine (general/pickup) completed groups into ONE
+    // unit FIRST, before deciding fedex/regular — a same-customer combine
+    // whose members individually auto-classify fedex (e.g. each under 5
+    // bikes) must still land as one card, not split across the FedEx row by
+    // member.
+    const completedByGeneralGroup = new Map<string, PickingList[]>();
+    const completedNotGeneral: PickingList[] = [];
+    for (const order of completedRaw) {
+      const isGeneral =
+        order.group_id && isDeliberateCombineGroupType(order.order_group?.group_type);
+      if (isGeneral) {
+        const arr = completedByGeneralGroup.get(order.group_id!) ?? [];
+        arr.push(order);
+        completedByGeneralGroup.set(order.group_id!, arr);
       } else {
-        allCompletedRegular.push(order);
+        completedNotGeneral.push(order);
       }
     }
+    const completedGeneralUnits = Array.from(completedByGeneralGroup.values()).map((g) =>
+      mergeGroupOrders(g)
+    );
 
-    const fedexDone = allCompletedFedex.slice(0, COMPLETED_SIDE_LIMIT);
-    const regularDone = allCompletedRegular.slice(0, COMPLETED_SIDE_LIMIT);
+    // Bucket every resulting unit (general-merged or untouched standalone)
+    // into fedex/regular using its OWN classification. FedEx orders decouple
+    // from their auto-group on completion (see above) and, for now, from
+    // each other too — same-customer FedEx orders are surfaced as a Combine
+    // suggestion instead of auto-merging silently.
+    const completedFedexArr: PickingList[] = [];
+    const completedRegularArr: PickingList[] = [];
+    for (const unit of [...completedGeneralUnits, ...completedNotGeneral]) {
+      const unitShippingType = unit.group_id
+        ? (groupShippingType.get(unit.group_id) ?? orderShippingTypes.get(unit.id))
+        : orderShippingTypes.get(unit.id);
+      if (unitShippingType === 'fedex') {
+        completedFedexArr.push(unit);
+      } else {
+        completedRegularArr.push(unit);
+      }
+    }
+    completedFedexArr.sort((a, b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? ''));
+    completedRegularArr.sort((a, b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? ''));
+
+    const fedexDone = completedFedexArr.slice(0, COMPLETED_SIDE_LIMIT);
+    const regularDone = completedRegularArr.slice(0, COMPLETED_SIDE_LIMIT);
 
     return {
       priorityOrders: priority,
@@ -444,6 +473,57 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     ? true
     : (completedOverride ?? activeTotal <= COMPLETED_AUTO_OPEN_MAX);
   const hasCompleted = completedFedex.length > 0 || completedRegular.length > 0;
+
+  // Combining is manual/suggested, never automatic: for each completed,
+  // unshipped, ungrouped-with-each-other order, offer the first same-customer
+  // sibling as a suggestion. Computed off the raw completedOrders (not the
+  // sliced/limited display arrays) so a suggestion still surfaces even if
+  // the candidate itself isn't currently visible.
+  const combineSuggestions = useMemo(() => {
+    const map = new Map<string, PickingList>();
+    const eligible = completedOrders.filter((o) => !o.is_shipped && o.customer_id);
+    for (const order of eligible) {
+      const candidate = eligible.find(
+        (o) =>
+          o.id !== order.id &&
+          o.customer_id === order.customer_id &&
+          !(order.group_id && o.group_id === order.group_id)
+      );
+      if (candidate) map.set(order.id, candidate);
+    }
+    return map;
+  }, [completedOrders]);
+
+  const handleAcceptCombineSuggestion = useCallback(
+    async (order: PickingList, candidate: PickingList) => {
+      // Only join an EXISTING group if it's already a deliberate combine
+      // (general/pickup) — a 'fedex' group_id is a shared operational bucket
+      // (often holding unrelated customers' orders), so joining it here
+      // would pull in whoever else is in that bucket and
+      // resolveMixedShippingType would then rewrite THEIR shipping_type too.
+      // Always start a fresh, isolated group for exactly this pair otherwise.
+      let groupId: string | null;
+      if (order.group_id && isDeliberateCombineGroupType(order.order_group?.group_type)) {
+        await addToGroup(order.group_id, candidate.id);
+        groupId = order.group_id;
+      } else if (
+        candidate.group_id &&
+        isDeliberateCombineGroupType(candidate.order_group?.group_type)
+      ) {
+        await addToGroup(candidate.group_id, order.id);
+        groupId = candidate.group_id;
+      } else {
+        groupId = await createGroup('general', [order.id, candidate.id]);
+      }
+      if (groupId) {
+        const resolution = await resolveMixedShippingType(groupId);
+        if (resolution === 'needs-prompt') setPendingShippingResolutionGroupId(groupId);
+        toast.success(`Combined with #${candidate.order_number}`);
+        refresh();
+      }
+    },
+    [addToGroup, createGroup, resolveMixedShippingType, refresh]
+  );
 
   // ─── Render ────────────────────────────────────────────────────────
   // ─── Helpers ──────────────────────────────────────────────────────
@@ -532,26 +612,27 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     return (
       <div className={LANE_GRID}>
         {Array.from(grouped.entries()).map(([groupId, groupOrders]) =>
-          // The lane decides the group presentation: any group in the FedEx
-          // lane shows as the stacked, always-ungroupable list — regardless of
-          // whether it was auto-grouped ('fedex') or manually combined
-          // ('general'). Regular-lane groups collapse into one standard card.
-          shippingType === 'fedex' ? (
-            <FedexGroupCard
-              key={groupId}
-              orders={groupOrders}
-              onSelect={handleOrderSelect}
-              onDelete={handleDelete}
-              onUngroup={handleUngroup}
-              onMerge={handleOrderMenuSelect}
-            />
-          ) : (
+          // The GROUP decides its own presentation, not the lane it lands in:
+          // a deliberate combine (general/pickup) always collapses into one
+          // standard card, even if its content happens to auto-classify
+          // FedEx. Only the 'fedex' auto-group (an operational bucket, not a
+          // deliberate combine) gets the stacked, always-ungroupable list.
+          isDeliberateCombineGroupType(groupOrders[0]?.order_group?.group_type) ? (
             <SortableOrderCard
               key={groupId}
               order={mergeGroupOrders(groupOrders)}
               shippingType={shippingType}
               showShippingBadge={false}
               onSelect={handleOrderSelect}
+              onUngroup={handleUngroup}
+              onMerge={handleOrderMenuSelect}
+            />
+          ) : (
+            <FedexGroupCard
+              key={groupId}
+              orders={groupOrders}
+              onSelect={handleOrderSelect}
+              onDelete={handleDelete}
               onUngroup={handleUngroup}
               onMerge={handleOrderMenuSelect}
             />
@@ -831,27 +912,28 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                   return (
                     <div className={CARD_GRID}>
                       {Array.from(grouped.entries()).map(([groupId, groupOrders]) =>
-                        // Same rule as the lanes: the group's shipping type
-                        // decides — FedEx groups always show the stacked,
-                        // ungroupable list.
-                        (pullingShippingTypes.get(groupOrders[0]?.id ?? '') ??
-                          groupOrders[0]?.shipping_type) === 'fedex' ? (
+                        // Same rule as the lanes: the GROUP's own type
+                        // decides, not its shipping type — a deliberate
+                        // combine always shows as one card.
+                        isDeliberateCombineGroupType(groupOrders[0]?.order_group?.group_type) ? (
+                          <SortableOrderCard
+                            key={groupId}
+                            order={mergeGroupOrders(groupOrders)}
+                            shippingType={
+                              (pullingShippingTypes.get(groupOrders[0]?.id ?? '') as
+                                | 'fedex'
+                                | 'regular') ?? 'regular'
+                            }
+                            onSelect={handleOrderSelect}
+                            onMerge={handleOrderMenuSelect}
+                          />
+                        ) : (
                           <FedexGroupCard
                             key={groupId}
                             orders={groupOrders}
                             onSelect={handleOrderSelect}
                             onDelete={handleDelete}
                             onUngroup={handleUngroup}
-                            onMerge={handleOrderMenuSelect}
-                          />
-                        ) : (
-                          <SortableOrderCard
-                            key={groupId}
-                            order={mergeGroupOrders(groupOrders)}
-                            shippingType={
-                              (groupOrders[0]?.shipping_type as 'fedex' | 'regular') ?? 'regular'
-                            }
-                            onSelect={handleOrderSelect}
                             onMerge={handleOrderMenuSelect}
                           />
                         )
@@ -932,6 +1014,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                       navigate('/ship');
                       onClose();
                     }}
+                    findCombineSuggestion={(order) => combineSuggestions.get(order.id) ?? null}
+                    onCombineSuggestionAccept={handleAcceptCombineSuggestion}
                     onMerge={handleOrderMenuSelect}
                     onUngroup={handleUngroup}
                     onDelete={handleDelete}
@@ -1106,9 +1190,10 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             sourceOrder={selectedQuickGroupOrder}
             allCompletedOrders={completedOrders}
             onClose={() => setSelectedQuickGroupOrder(null)}
-            onSuccess={() => {
+            onSuccess={(groupId, needsShippingPrompt) => {
               refresh();
               setSelectedQuickGroupOrder(null);
+              if (needsShippingPrompt) setPendingShippingResolutionGroupId(groupId);
             }}
           />
         )}
