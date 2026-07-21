@@ -220,6 +220,33 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   // Direct sublocation data fetched alongside distributions (covers all cart SKUs)
   const [directSublocationMap, setDirectSublocationMap] = useState<Record<string, string[]>>({});
 
+  // Fetch real stock for insufficient_stock items (client-side inventoryData is paginated)
+  const [stockMap, setStockMap] = useState<Record<string, number>>({});
+  useEffect(() => {
+    const insufficientSkus = cartItems
+      .filter((i) => i.insufficient_stock && !i.sku_not_found)
+      .map((i) => i.sku);
+    if (insufficientSkus.length === 0) return;
+
+    const uniqueSkus = [...new Set(insufficientSkus)];
+    Promise.all(
+      uniqueSkus.map(async (sku) => {
+        // AS400-alias SKUs: the physical stock lives under the alias SKU.
+        const target = AS400_SKU_ALIASES[sku] ?? sku;
+        const [bikes, parts] = await Promise.all([
+          inventoryApi.fetchInventoryWithMetadata({ search: target, showParts: false, limit: 10 }),
+          inventoryApi.fetchInventoryWithMetadata({ search: target, showParts: true, limit: 10 }),
+        ]);
+        const total = [...bikes.data, ...parts.data]
+          .filter((inv) => inv.sku === target)
+          .reduce((sum, inv) => sum + (inv.quantity || 0), 0);
+        return [sku, total] as const;
+      })
+    ).then((entries) => {
+      setStockMap(Object.fromEntries(entries));
+    });
+  }, [cartItems]);
+
   // Build sublocation lookup — prefer direct DB fetch (covers all cart SKUs),
   // fall back to paginated inventoryData for any extras
   const sublocationMap = useMemo(() => {
@@ -1041,12 +1068,25 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       pickingQty?: number;
       sku_not_found?: boolean;
       insufficient_stock?: boolean;
+      warehouse?: string;
     }) => {
-      if (!i.sku_not_found && !i.insufficient_stock) return false;
+      if (i.sku_not_found) return true;
+      if (!i.insufficient_stock) return false;
+
       const resolved = AS400_SKU_ALIASES[i.sku] ? canonicalResolution.get(i.sku) : undefined;
-      return !(resolved && resolved.quantity >= (i.pickingQty || 0));
+      if (resolved && resolved.quantity >= (i.pickingQty || 0)) return false;
+
+      const totalStock = stockMap[i.sku];
+      if (totalStock !== undefined) {
+        const totalReservedElsewhere = Array.from(reservationsMap?.entries() || [])
+          .filter(([key]) => key.startsWith(`${i.sku}::${i.warehouse || 'LUDLOW'}::`))
+          .reduce((sum, [, info]) => sum + info.reserved, 0);
+        return totalStock - totalReservedElsewhere < (i.pickingQty || 0);
+      }
+
+      return !!i.insufficient_stock;
     },
-    [canonicalResolution]
+    [canonicalResolution, stockMap, reservationsMap]
   );
 
   const problemItems = useMemo(
@@ -1231,33 +1271,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     onClearInitialAction,
     cartItems.length,
   ]);
-
-  // Fetch real stock for insufficient_stock items (client-side inventoryData is paginated)
-  const [stockMap, setStockMap] = useState<Record<string, number>>({});
-  useEffect(() => {
-    const insufficientSkus = cartItems
-      .filter((i) => i.insufficient_stock && !i.sku_not_found)
-      .map((i) => i.sku);
-    if (insufficientSkus.length === 0) return;
-
-    const uniqueSkus = [...new Set(insufficientSkus)];
-    Promise.all(
-      uniqueSkus.map(async (sku) => {
-        // AS400-alias SKUs: the physical stock lives under the alias SKU.
-        const target = AS400_SKU_ALIASES[sku] ?? sku;
-        const [bikes, parts] = await Promise.all([
-          inventoryApi.fetchInventoryWithMetadata({ search: target, showParts: false, limit: 10 }),
-          inventoryApi.fetchInventoryWithMetadata({ search: target, showParts: true, limit: 10 }),
-        ]);
-        const total = [...bikes.data, ...parts.data]
-          .filter((inv) => inv.sku === target)
-          .reduce((sum, inv) => sum + (inv.quantity || 0), 0);
-        return [sku, total] as const;
-      })
-    ).then((entries) => {
-      setStockMap(Object.fromEntries(entries));
-    });
-  }, [cartItems]);
 
   const handleScanPallet = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1936,7 +1949,17 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                     !!aliasTarget &&
                     !!canonResolved &&
                     canonResolved.quantity >= (item.pickingQty || 0);
-                  const insufficientStock = !!item.insufficient_stock && !aliasCovered;
+                  const totalStock = stockMap[item.sku];
+                  const totalReservedElsewhere = Array.from(reservationsMap?.entries() || [])
+                    .filter(([key]) =>
+                      key.startsWith(`${item.sku}::${item.warehouse || 'LUDLOW'}::`)
+                    )
+                    .reduce((sum, [, info]) => sum + info.reserved, 0);
+                  const liveInsufficient =
+                    totalStock !== undefined
+                      ? totalStock - totalReservedElsewhere < (item.pickingQty || 0)
+                      : !!item.insufficient_stock;
+                  const insufficientStock = liveInsufficient && !aliasCovered;
                   const displayLocation = item.location || canonResolved?.location || null;
                   // SKU font shrinks by length so a long SKU fits its column WHOLE
                   // (no truncation, no overflow into the distribution/location cols).
