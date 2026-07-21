@@ -1084,14 +1084,28 @@ export const ShipScreen = () => {
   const combineSuggestionCandidate = useMemo(() => {
     if (!selectedOrder || selectedOrder.is_shipped || !selectedOrder.customer_id) return null;
     if (dismissedCombineSuggestionIds.has(selectedOrder.id)) return null;
+
+    const normalizeAddr = (addr?: string | null) =>
+      (addr || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+    const selStreet = normalizeAddr(selectedOrder.customer?.street);
+
     return (
-      orders.find(
-        (o) =>
-          o.customer_id === selectedOrder.customer_id &&
-          o.id !== selectedOrder.id &&
-          !o.is_shipped &&
-          !(selectedOrder.group_id && o.group_id === selectedOrder.group_id)
-      ) ?? null
+      orders.find((o) => {
+        if (o.customer_id !== selectedOrder.customer_id) return false;
+        if (o.id === selectedOrder.id) return false;
+        if (o.is_shipped) return false;
+        if (selectedOrder.group_id && o.group_id === selectedOrder.group_id) return false;
+
+        // Do not suggest combining if they have different street addresses
+        const oStreet = normalizeAddr(o.customer?.street);
+        if (selStreet && oStreet && selStreet !== oStreet) {
+          return false;
+        }
+        return true;
+      }) ?? null
     );
   }, [selectedOrder, orders, dismissedCombineSuggestionIds]);
 
@@ -1334,7 +1348,7 @@ export const ShipScreen = () => {
         // updated_at is set explicitly — no DB trigger stamps it on UPDATE
         // (update_activity_timestamp only touches last_activity_at), and the
         // Shipped column's "shipped today" filter depends entirely on it.
-         
+
         .update({
           status: 'completed',
           is_shipped: true,
@@ -1417,45 +1431,56 @@ export const ShipScreen = () => {
       } else {
         // Logic to determine if we Update Existing, Create New, or Unlink
         if (finalCustomerId && originalCustomerParams) {
-          const nameChanged = fd.customerName.trim() !== originalCustomerParams.name.trim();
           const addressChanged =
             fd.street.trim() !== (originalCustomerParams.street || '').trim() ||
             fd.city.trim() !== (originalCustomerParams.city || '').trim() ||
             fd.state.trim() !== (originalCustomerParams.state || '').trim() ||
             fd.zip.trim() !== (originalCustomerParams.zip_code || '').trim();
 
-          if (nameChanged && addressChanged) {
-            // Both changed -> Treat as NEW Customer
-            finalCustomerId = null; // Will trigger create below
+          if (addressChanged) {
+            // Address changed -> Treat as NEW/OTHER Customer to avoid overwriting
+            // the shared customer record's address for other orders.
+            finalCustomerId = null; // Will trigger lookup or create below
           }
         }
 
-        // Create New Customer if needed
+        // Create or Link Customer if needed
         if (!finalCustomerId && fd.customerName.trim()) {
-          const { data: newCust, error: createError } = await supabase
+          // Look up if a customer with the same name and address already exists
+          const { data: existingCust, error: findError } = await supabase
             .from('customers')
-            .insert({
-              name: fd.customerName,
-              street: fd.street,
-              city: fd.city,
-              state: fd.state,
-              zip_code: fd.zip,
-            })
-            .select()
-            .single();
+            .select('id')
+            .eq('name', fd.customerName.trim())
+            .eq('street', fd.street.trim())
+            .eq('city', fd.city.trim())
+            .eq('state', fd.state.trim())
+            .eq('zip_code', fd.zip.trim())
+            .limit(1);
 
-          if (createError) throw createError;
-          finalCustomerId = newCust.id;
+          if (!findError && existingCust && existingCust.length > 0) {
+            finalCustomerId = existingCust[0].id;
+          } else {
+            const { data: newCust, error: createError } = await supabase
+              .from('customers')
+              .insert({
+                name: fd.customerName.trim(),
+                street: fd.street.trim(),
+                city: fd.city.trim(),
+                state: fd.state.trim(),
+                zip_code: fd.zip.trim(),
+              })
+              .select()
+              .single();
+
+            if (createError) throw createError;
+            finalCustomerId = newCust.id;
+          }
         } else if (finalCustomerId) {
-          // Update existing customer record (Reflecting "Moved" or "Renamed")
+          // Only update the customer record if the address didn't change (e.g. name update)
           const { error: updateError } = await supabase
             .from('customers')
             .update({
-              name: fd.customerName,
-              street: fd.street,
-              city: fd.city,
-              state: fd.state,
-              zip_code: fd.zip,
+              name: fd.customerName.trim(),
             })
             .eq('id', finalCustomerId);
 
@@ -1852,7 +1877,7 @@ export const ShipScreen = () => {
           const { error } = await supabase
             .from('picking_lists')
             // updated_at is set explicitly — see handleBatchShip for why.
-             
+
             .update({
               status: 'completed',
               is_shipped: true,

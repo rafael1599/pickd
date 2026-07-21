@@ -36,9 +36,6 @@ const SnapshotViewer = lazyWithRetry(() =>
 const PickdReportViewer = lazyWithRetry(() =>
   import('./features/reports/PickdReportViewer.tsx').then((m) => ({ default: m.PickdReportViewer }))
 );
-const DemoJul17 = lazyWithRetry(() =>
-  import('./features/reports/DemoJul17.tsx').then((m) => ({ default: m.DemoJul17 }))
-);
 const PublicTagView = lazyWithRetry(() =>
   import('./features/labels/PublicTagView.tsx').then((m) => ({ default: m.PublicTagView }))
 );
@@ -79,6 +76,12 @@ const FedExReturnDetailScreen = lazyWithRetry(() =>
 const ConsolidationScreen = lazyWithRetry(() =>
   import('./features/consolidation/ConsolidationScreen.tsx').then((m) => ({
     default: m.ConsolidationScreen,
+  }))
+);
+
+const WarehouseMapScreen = lazyWithRetry(() =>
+  import('./features/warehouse-management/WarehouseMapScreen.tsx').then((m) => ({
+    default: m.WarehouseMapScreen,
   }))
 );
 
@@ -145,6 +148,7 @@ const AuthenticatedContent = () => {
                 path="/registrar-container"
                 element={isAdmin ? <RegistrarContainerScreen /> : <Navigate to="/" replace />}
               />
+              <Route path="/warehouse-map" element={<WarehouseMapScreen />} />
               {/* Catch-all for unknown routes */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
@@ -310,22 +314,6 @@ function App() {
                         }
                       >
                         <PickdReportViewer />
-                      </Suspense>
-                    </ErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/demo/jul17"
-                  element={
-                    <ErrorBoundary>
-                      <Suspense
-                        fallback={
-                          <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center">
-                            <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
-                          </div>
-                        }
-                      >
-                        <DemoJul17 />
                       </Suspense>
                     </ErrorBoundary>
                   }
