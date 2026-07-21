@@ -1297,26 +1297,50 @@ export const ShipScreen = () => {
         .map((o) => o.id);
       const allIds = [...new Set([...idsToShip, ...siblingIds])];
 
-      // Optimistic update
+      // Optimistic update — updated_at must move to "now" locally too, not
+      // just is_shipped: the Shipped column keys off `shipped today` via
+      // updated_at, so a stale timestamp here makes the order vanish from
+      // both columns until the realtime echo catches up.
+      const shippedAt = new Date().toISOString();
       setOrders((prev) =>
         prev.map((o) =>
           allIds.includes(o.id)
-            ? { ...o, status: 'completed', is_shipped: true, is_waiting_inventory: false }
+            ? {
+                ...o,
+                status: 'completed',
+                is_shipped: true,
+                is_waiting_inventory: false,
+                updated_at: shippedAt,
+              }
             : o
         )
       );
       if (selectedOrder && allIds.includes(selectedOrder.id)) {
         setSelectedOrder((prev) =>
           prev
-            ? { ...prev, status: 'completed', is_shipped: true, is_waiting_inventory: false }
+            ? {
+                ...prev,
+                status: 'completed',
+                is_shipped: true,
+                is_waiting_inventory: false,
+                updated_at: shippedAt,
+              }
             : null
         );
       }
 
       const { error } = await supabase
         .from('picking_lists')
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .update({ status: 'completed', is_shipped: true, is_waiting_inventory: false } as any)
+        // updated_at is set explicitly — no DB trigger stamps it on UPDATE
+        // (update_activity_timestamp only touches last_activity_at), and the
+        // Shipped column's "shipped today" filter depends entirely on it.
+         
+        .update({
+          status: 'completed',
+          is_shipped: true,
+          is_waiting_inventory: false,
+          updated_at: shippedAt,
+        } as any)
         .in('id', allIds);
 
       if (error) throw error;
@@ -1795,26 +1819,46 @@ export const ShipScreen = () => {
               ? orders.filter((o) => o.group_id === order.group_id).map((o) => o.id)
               : [order.id]);
 
-          // Optimistic update
+          // Optimistic update — see handleBatchShip for why updated_at is
+          // bumped locally alongside is_shipped.
+          const shippedAt = new Date().toISOString();
           setOrders((prev) =>
             prev.map((o) =>
               idsToUpdate.includes(o.id)
-                ? { ...o, status: 'completed', is_shipped: true, is_waiting_inventory: false }
+                ? {
+                    ...o,
+                    status: 'completed',
+                    is_shipped: true,
+                    is_waiting_inventory: false,
+                    updated_at: shippedAt,
+                  }
                 : o
             )
           );
           if (selectedOrder && idsToUpdate.includes(selectedOrder.id)) {
             setSelectedOrder((prev) =>
               prev
-                ? { ...prev, status: 'completed', is_shipped: true, is_waiting_inventory: false }
+                ? {
+                    ...prev,
+                    status: 'completed',
+                    is_shipped: true,
+                    is_waiting_inventory: false,
+                    updated_at: shippedAt,
+                  }
                 : null
             );
           }
 
           const { error } = await supabase
             .from('picking_lists')
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .update({ status: 'completed', is_shipped: true, is_waiting_inventory: false } as any)
+            // updated_at is set explicitly — see handleBatchShip for why.
+             
+            .update({
+              status: 'completed',
+              is_shipped: true,
+              is_waiting_inventory: false,
+              updated_at: shippedAt,
+            } as any)
             .in('id', idsToUpdate);
           if (error) throw error;
           toast.success(`Order #${order.order_number} marked as Shipped!`);
@@ -1926,7 +1970,9 @@ export const ShipScreen = () => {
           : [pendingShipmentOrder.id]);
       const siblingIds = idsToUpdate.filter((id) => id !== pendingShipmentOrder.id);
 
-      // Optimistic update
+      // Optimistic update — see handleBatchShip for why updated_at is
+      // bumped locally alongside is_shipped.
+      const shippedAt = new Date().toISOString();
       setOrders((prev) =>
         prev.map((o) =>
           idsToUpdate.includes(o.id)
@@ -1935,6 +1981,7 @@ export const ShipScreen = () => {
                 status: 'completed',
                 is_shipped: true,
                 is_waiting_inventory: false,
+                updated_at: shippedAt,
                 ...(o.id === pendingShipmentOrder.id ? { pallet_photos: updatedPhotos } : {}),
               }
             : o
@@ -1948,6 +1995,7 @@ export const ShipScreen = () => {
                 status: 'completed',
                 is_shipped: true,
                 is_waiting_inventory: false,
+                updated_at: shippedAt,
                 pallet_photos: updatedPhotos,
               }
             : null
@@ -1955,12 +2003,14 @@ export const ShipScreen = () => {
       }
 
       // Update Database — anchor gets the photo, siblings just flip status.
+      // updated_at is set explicitly — see handleBatchShip for why.
       const { error } = await supabase
         .from('picking_lists')
         .update({
           status: 'completed',
           is_shipped: true,
           is_waiting_inventory: false,
+          updated_at: shippedAt,
           pallet_photos: updatedPhotos,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any)
@@ -1975,6 +2025,7 @@ export const ShipScreen = () => {
             status: 'completed',
             is_shipped: true,
             is_waiting_inventory: false,
+            updated_at: shippedAt,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
           } as any)
           .in('id', siblingIds);
