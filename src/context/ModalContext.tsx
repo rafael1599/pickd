@@ -37,7 +37,12 @@ export type ModalState =
     }
   | { type: 'picking-summary'; listId: string }
   | { type: 'notification-history' }
-  | { type: 'order-notes'; listId: string; autoFocusComposer?: boolean }
+  | {
+      type: 'order-notes';
+      listId: string;
+      autoFocusComposer?: boolean;
+      watcherNote?: string | null;
+    }
   | null;
 
 interface ModalContextValue {
@@ -72,6 +77,7 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
         <OrderNotesModal
           listId={modal.listId}
           autoFocusComposer={modal.autoFocusComposer}
+          watcherNote={modal.watcherNote}
           onClose={close}
         />
       )}

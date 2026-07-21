@@ -11,6 +11,10 @@ import { getUserColor } from '../../../utils/userUtils';
 interface OrderNotesModalProps {
   listId: string;
   autoFocusComposer?: boolean;
+  /** The AS400/watcher import note — rendered as the earliest entry in the
+   *  history, ahead of every user note, labeled distinctly since it has no
+   *  author. */
+  watcherNote?: string | null;
   onClose: () => void;
 }
 
@@ -32,9 +36,11 @@ function formatNoteTime(source: string): string {
 export const OrderNotesModal: React.FC<OrderNotesModalProps> = ({
   listId,
   autoFocusComposer,
+  watcherNote,
   onClose,
 }) => {
   const { notes, isLoading, addNote } = usePickingNotes(listId);
+  const totalCount = notes.length + (watcherNote ? 1 : 0);
   const { user } = useAuth();
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -72,7 +78,7 @@ export const OrderNotesModal: React.FC<OrderNotesModalProps> = ({
             <div>
               <h2 className="text-lg font-black uppercase tracking-tight text-content">Notes</h2>
               <p className="text-[10px] text-muted font-bold uppercase tracking-widest">
-                {notes.length} {notes.length === 1 ? 'note' : 'notes'}
+                {totalCount} {totalCount === 1 ? 'note' : 'notes'}
               </p>
             </div>
           </div>
@@ -86,11 +92,11 @@ export const OrderNotesModal: React.FC<OrderNotesModalProps> = ({
 
         {/* List */}
         <div className="flex-1 overflow-y-auto px-4 pb-2">
-          {isLoading && notes.length === 0 ? (
+          {isLoading && totalCount === 0 ? (
             <div className="flex items-center justify-center py-16 opacity-50">
               <div className="animate-spin rounded-full h-4 w-4 border-2 border-accent border-t-transparent" />
             </div>
-          ) : notes.length === 0 ? (
+          ) : totalCount === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="p-4 bg-card border border-subtle rounded-2xl text-muted mb-3">
                 <MessageSquare size={24} />
@@ -100,6 +106,18 @@ export const OrderNotesModal: React.FC<OrderNotesModalProps> = ({
             </div>
           ) : (
             <ul className="space-y-2">
+              {watcherNote && (
+                <li className="p-3 bg-red-500/5 border border-red-500/20 rounded-2xl">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="text-[10px] font-black uppercase tracking-widest truncate text-red-400">
+                      System (AS400)
+                    </span>
+                  </div>
+                  <p className="text-sm text-content whitespace-pre-wrap break-words">
+                    {watcherNote}
+                  </p>
+                </li>
+              )}
               {notes.map((note) => (
                 <li key={note.id} className="p-3 bg-card border border-subtle rounded-2xl">
                   <div className="flex items-center justify-between gap-2 mb-1">

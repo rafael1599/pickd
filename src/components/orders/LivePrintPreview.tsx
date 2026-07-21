@@ -88,7 +88,10 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
                 })}
               </p>
             )}
-            {watcherNote && watcherNote.trim() && (
+            {/* When notesSlot is provided (screen-only), it already covers the
+                watcher note as a clickable preview — this static duplicate
+                would otherwise render the same text twice, once inert. */}
+            {!notesSlot && watcherNote && watcherNote.trim() && (
               <p className="text-red-500 text-xs font-bold tracking-wide animate-soft-in">
                 {watcherNote.trim()}
               </p>

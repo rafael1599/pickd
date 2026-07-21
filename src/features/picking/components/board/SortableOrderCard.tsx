@@ -8,7 +8,6 @@ import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import Unlink from 'lucide-react/dist/esm/icons/unlink';
 import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
-import MessageSquare from 'lucide-react/dist/esm/icons/message-square';
 import type { PickingList } from '../../hooks/useDoubleCheckList';
 
 import { TransportLogo } from '../../../../components/orders/TransportLogo';
@@ -17,7 +16,7 @@ import {
   type PickingItem,
 } from '../../../../utils/pickingLogic';
 import { orderColorFor, SINGLE_ORDER_COLOR } from '../../../../utils/orderColors';
-import { usePickingNotes } from '../../hooks/usePickingNotes';
+import { OrderNotesInline } from '../OrderNotesInline';
 import { getCarrierTextColor } from '../../../../components/orders/transportLogos';
 import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../lib/supabase';
@@ -127,66 +126,6 @@ function completedAtLabel(iso: string | undefined, showDate: boolean): string | 
 
   return `${dateStr} · ${time}`;
 }
-
-// ─── Notes Section Component ────────────────────────────────────────────────
-
-interface OrderNotesProps {
-  order: PickingList;
-}
-
-const OrderNotesSection: React.FC<OrderNotesProps> = ({ order }) => {
-  const { notes: userNotes } = usePickingNotes(order.is_shipped ? order.id : null);
-  const isCompleted = order.is_shipped === true;
-
-  // Active orders: show only the original note from AS400
-  if (!isCompleted) {
-    if (!order.notes) return null;
-
-    return (
-      <div className="mt-2 px-3 md:px-4">
-        <p className="text-[9px] text-content/80 line-clamp-2">{order.notes}</p>
-        {userNotes.length > 0 && (
-          <div className="mt-1.5 flex items-center gap-1 px-2 py-1 bg-amber-500/10 border border-amber-500/30 rounded-lg w-fit">
-            <MessageSquare size={10} className="text-amber-500" />
-            <span className="text-[9px] font-bold text-amber-500">
-              {userNotes.length} note{userNotes.length > 1 ? 's' : ''}
-            </span>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // Completed orders: show all notes (original + user notes)
-  return (
-    <div className="mt-3 pt-3 border-t border-subtle/20 px-3 md:px-4 space-y-2">
-      {order.notes && (
-        <div>
-          <div className="text-[8px] font-bold text-muted uppercase tracking-wider mb-1">
-            Original Note
-          </div>
-          <p className="text-[9px] text-content/80">{order.notes}</p>
-        </div>
-      )}
-
-      {userNotes.length > 0 && (
-        <div>
-          <div className="text-[8px] font-bold text-muted uppercase tracking-wider mb-1">
-            History ({userNotes.length})
-          </div>
-          <div className="space-y-1">
-            {userNotes.map((note) => (
-              <div key={note.id} className="text-[9px] text-content/80">
-                <span className="font-semibold text-amber-500">{note.user_display_name}:</span>
-                <span className="ml-1">{note.message}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
 
 // ─── Shared visual content (no DnD hooks) ────────────────────────────────────
 
@@ -416,83 +355,93 @@ const OrderCardShell: React.FC<CardProps> = ({
         </div>
 
         {/* Right Panel */}
-        <button
-          onClick={() => onSelect(order)}
-          className={`flex-1 text-left px-3 py-2.5 md:px-4 md:py-3 flex flex-col justify-center gap-1 min-w-0 w-full ${
-            effectiveStatus === 'double_checking' ? 'opacity-70' : ''
-          }`}
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            {showStatusIcon && (
-              <Icon
-                size={22}
-                className={`shrink-0 ${statusStyles.icon} md:w-7 md:h-7`}
-                aria-label={order.status}
-              />
-            )}
-            <span className="text-[clamp(1.2rem,2.5vw,3.5rem)] leading-none font-black uppercase tracking-tight text-content whitespace-nowrap">
-              {numberParts.segments ? (
-                <>
-                  <span className="text-content/35 mr-1 select-none">#</span>
-                  {numberParts.segments.map((seg, i) => {
-                    const c = orderColorFor(seg, numberParts.segments!);
-                    return (
-                      <React.Fragment key={i}>
-                        {i > 0 && <span className="text-content/35 mx-1.5 select-none">/</span>}
-                        <span
-                          style={{ textShadow: c.shadow }}
-                          className={`${c.face} text-[1.27em] font-black tracking-tight leading-none inline-block align-baseline relative z-10`}
-                        >
-                          {seg.slice(-3)}
-                        </span>
-                      </React.Fragment>
-                    );
-                  })}
-                </>
-              ) : (
-                <>
-                  <span className="text-content/35 mr-1 select-none">#{numberParts.firstPart}</span>
-                  <span
-                    style={{ textShadow: SINGLE_ORDER_COLOR.shadow }}
-                    className={`${SINGLE_ORDER_COLOR.face} text-[1.27em] font-black tracking-tight leading-none inline-block align-baseline relative z-10`}
-                  >
-                    {numberParts.lastThree}
-                  </span>
-                </>
+        <div className="flex-1 flex flex-col justify-center min-w-0 w-full">
+          <button
+            onClick={() => onSelect(order)}
+            className={`text-left px-3 py-2.5 md:px-4 md:py-3 pb-0 md:pb-0 flex flex-col gap-1 min-w-0 w-full ${
+              effectiveStatus === 'double_checking' ? 'opacity-70' : ''
+            }`}
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              {showStatusIcon && (
+                <Icon
+                  size={22}
+                  className={`shrink-0 ${statusStyles.icon} md:w-7 md:h-7`}
+                  aria-label={order.status}
+                />
               )}
-            </span>
-            {order.is_addon && (
-              <span className="shrink-0 text-[clamp(0.6rem,1vw,1rem)] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black animate-pulse">
-                ADD-ON
+              <span className="text-[clamp(1.2rem,2.5vw,3.5rem)] leading-none font-black uppercase tracking-tight text-content whitespace-nowrap">
+                {numberParts.segments ? (
+                  <>
+                    <span className="text-content/35 mr-1 select-none">#</span>
+                    {numberParts.segments.map((seg, i) => {
+                      const c = orderColorFor(seg, numberParts.segments!);
+                      return (
+                        <React.Fragment key={i}>
+                          {i > 0 && <span className="text-content/35 mx-1.5 select-none">/</span>}
+                          <span
+                            style={{ textShadow: c.shadow }}
+                            className={`${c.face} text-[1.27em] font-black tracking-tight leading-none inline-block align-baseline relative z-10`}
+                          >
+                            {seg.slice(-3)}
+                          </span>
+                        </React.Fragment>
+                      );
+                    })}
+                  </>
+                ) : (
+                  <>
+                    <span className="text-content/35 mr-1 select-none">
+                      #{numberParts.firstPart}
+                    </span>
+                    <span
+                      style={{ textShadow: SINGLE_ORDER_COLOR.shadow }}
+                      className={`${SINGLE_ORDER_COLOR.face} text-[1.27em] font-black tracking-tight leading-none inline-block align-baseline relative z-10`}
+                    >
+                      {numberParts.lastThree}
+                    </span>
+                  </>
+                )}
               </span>
-            )}
-          </div>
-          <div className="flex items-baseline gap-3 min-w-0">
-            {when ? (
-              <span className="text-[clamp(0.85rem,1.2vw,1.4rem)] text-muted font-bold uppercase tracking-wide truncate">
-                {when}
-              </span>
-            ) : worker ? (
-              <span className="text-[clamp(1.05rem,1.8vw,2.25rem)] leading-tight font-bold uppercase tracking-wide text-muted truncate">
-                {worker}
-              </span>
-            ) : null}
-          </div>
-          {progressPercent > 0 && order.status !== 'completed' && (
-            <div className="mt-2 h-2 w-full bg-surface rounded-full overflow-hidden border border-subtle">
-              <div
-                className="h-full transition-all duration-500 ease-out"
-                style={{
-                  width: `${progressPercent}%`,
-                  background:
-                    'linear-gradient(to right, rgb(59, 130, 246), rgb(6, 182, 212), rgb(16, 185, 129)) 0% 0% / 162.242% 100%',
-                }}
-              />
+              {order.is_addon && (
+                <span className="shrink-0 text-[clamp(0.6rem,1vw,1rem)] bg-amber-500 text-white px-1.5 py-0.5 rounded font-black animate-pulse">
+                  ADD-ON
+                </span>
+              )}
             </div>
-          )}
+            <div className="flex items-baseline gap-3 min-w-0">
+              {when ? (
+                <span className="text-[clamp(0.85rem,1.2vw,1.4rem)] text-muted font-bold uppercase tracking-wide truncate">
+                  {when}
+                </span>
+              ) : worker ? (
+                <span className="text-[clamp(1.05rem,1.8vw,2.25rem)] leading-tight font-bold uppercase tracking-wide text-muted truncate">
+                  {worker}
+                </span>
+              ) : null}
+            </div>
+            {progressPercent > 0 && order.status !== 'completed' && (
+              <div className="mt-2 h-2 w-full bg-surface rounded-full overflow-hidden border border-subtle">
+                <div
+                  className="h-full transition-all duration-500 ease-out"
+                  style={{
+                    width: `${progressPercent}%`,
+                    background:
+                      'linear-gradient(to right, rgb(59, 130, 246), rgb(6, 182, 212), rgb(16, 185, 129)) 0% 0% / 162.242% 100%',
+                  }}
+                />
+              </div>
+            )}
+          </button>
 
-          <OrderNotesSection order={order} />
-        </button>
+          {/* Notes preview lives outside the select button — it opens its
+              own modal on click, and nested <button>s aren't valid HTML. */}
+          <OrderNotesInline
+            listId={order.id}
+            watcherNote={order.notes}
+            className="px-3 md:px-4 pb-2 pt-1 text-left"
+          />
+        </div>
 
         {/* Right Panel: Carrier Logo Panel (Full Height) - Only shown on completed orders */}
         {order.status === 'completed' && (

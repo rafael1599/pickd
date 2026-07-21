@@ -216,6 +216,7 @@ const ORDER_LIST_SELECT = `
   combine_meta,
   verified_item_keys,
   items,
+  notes,
   customer:customers(id, name, street, city, state, zip_code),
   user:profiles!user_id(full_name),
   checker:profiles!checked_by(full_name),
@@ -2085,7 +2086,12 @@ export const ShipScreen = () => {
                       totalWeight={effectiveWeight}
                       completedAt={selectedOrder.updated_at}
                       transportCompany={formData.transportCompany}
-                      notesSlot={<OrderNotesInline listId={selectedOrder.id} />}
+                      notesSlot={
+                        <OrderNotesInline
+                          listId={selectedOrder.id}
+                          watcherNote={selectedOrder.notes}
+                        />
+                      }
                       screenOnly
                     />
 
@@ -2175,11 +2181,16 @@ export const ShipScreen = () => {
                             type: 'order-notes',
                             listId: selectedOrder.id,
                             autoFocusComposer: true,
+                            watcherNote: selectedOrder.notes,
                           });
                         }}
                         onViewNotes={() => {
                           setIsActionsMenuOpen(false);
-                          openModal({ type: 'order-notes', listId: selectedOrder.id });
+                          openModal({
+                            type: 'order-notes',
+                            listId: selectedOrder.id,
+                            watcherNote: selectedOrder.notes,
+                          });
                         }}
                       />
                     )}
