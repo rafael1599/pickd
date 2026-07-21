@@ -313,17 +313,36 @@ export const ShipScreen = () => {
   const debouncedSearchQuery = useDebounce(searchQuery, 200);
   const [selectedCarriers, setSelectedCarriers] = useState<Set<string>>(new Set());
   const [includeUnassigned, setIncludeUnassigned] = useState(false);
-  const handleCarrierToggle = useCallback((carrier: string) => {
-    setSelectedCarriers((prev) => {
-      const next = new Set(prev);
-      if (next.has(carrier)) {
-        next.delete(carrier);
-      } else {
-        next.add(carrier);
+  const handleCarrierToggle = useCallback(
+    (carrier: string) => {
+      const isSelecting = !selectedCarriers.has(carrier);
+      setSelectedCarriers((prev) => {
+        const next = new Set(prev);
+        if (next.has(carrier)) {
+          next.delete(carrier);
+        } else {
+          next.add(carrier);
+        }
+        return next;
+      });
+
+      // Selecting a carrier that has orders in both states — pending AND
+      // already shipped today — should surface all of them, not leave the
+      // shipped ones hidden behind an unchecked box.
+      if (isSelecting) {
+        const todayStr = dayKey(new Date());
+        const hasShippedToday = orders.some(
+          (o) =>
+            o.status !== 'cancelled' &&
+            !!o.is_shipped &&
+            dayKey(new Date(o.updated_at)) === todayStr &&
+            getCarrierLabel(o) === carrier
+        );
+        if (hasShippedToday) setIncludeShipped(true);
       }
-      return next;
-    });
-  }, []);
+    },
+    [selectedCarriers, orders]
+  );
   const matchesCarrierFilter = useCallback(
     (o: OrderWithRelations) => {
       if (selectedCarriers.size === 0 && !includeUnassigned) return true;
