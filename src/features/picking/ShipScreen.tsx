@@ -908,7 +908,11 @@ export const ShipScreen = () => {
         pallets: String(selectedOrder.pallets_qty || 1),
         units: String(selectedOrder.total_units || 0),
         loadNumber: selectedOrder.load_number || '',
-        transportCompany: selectedOrder.transport_company || '',
+        // No explicit carrier yet but already classified FedEx (auto by
+        // weight/bike-count, or a 'fedex' group) — default the selector to
+        // FEDEX instead of making the user pick what the system already knows.
+        transportCompany:
+          selectedOrder.transport_company || (isFedexLane(selectedOrder) ? 'FEDEX' : ''),
         bikes: '',
         parts: '',
         // Weight stays blank by default — placeholder shows the auto-calculated
@@ -2046,8 +2050,8 @@ export const ShipScreen = () => {
         className="flex-1 overflow-y-auto no-scrollbar relative bg-bg-main px-4 md:px-6 pb-32"
       >
         <div className="w-full flex flex-col md:flex-row gap-4 md:gap-6 pt-4 items-start">
-          {/* Selected order — desktop 60% / mobile full width */}
-          <div className="w-full md:basis-[60%] md:max-w-[60%] min-w-0 flex flex-col gap-6 pb-8 order-first">
+          {/* Selected order — desktop 40% / mobile full width */}
+          <div className="w-full md:basis-[40%] md:max-w-[40%] min-w-0 flex flex-col gap-6 pb-8 order-first">
             <OrderDetailsContainer
               selectedOrderId={selectedOrder?.id ?? null}
               isLoadingDetails={isLoadingDetails || loading}
@@ -2295,131 +2299,106 @@ export const ShipScreen = () => {
             </OrderDetailsContainer>
           </div>
 
-          {/* Vertical order list — desktop 40% / mobile full width */}
-          <div className="w-full md:basis-[40%] md:max-w-[40%] md:min-w-[22rem] shrink-0 md:sticky md:top-0 order-last">
+          {/* Vertical order list — desktop 60% / mobile full width */}
+          <div className="w-full md:basis-[60%] md:max-w-[60%] md:min-w-[22rem] shrink-0 md:sticky md:top-0 order-last">
             <div className="bg-card border border-subtle rounded-3xl p-3 flex flex-col gap-2">
+              {/* No "Orders" title — the checkbox+label row below carries the
+                  same information (which view is active, and its count). */}
               <div className="px-2 pb-1 flex items-center justify-between min-h-[24px] gap-3">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-muted/50">
-                    Orders
+                <label className="flex items-center gap-1.5 cursor-pointer select-none min-w-0">
+                  <input
+                    type="checkbox"
+                    checked={shipTab === 'shipped'}
+                    onChange={(e) => {
+                      const showShipped = e.target.checked;
+                      setShipTab(showShipped ? 'shipped' : 'to_ship');
+                      if (showShipped) {
+                        if (!selectedOrder?.is_shipped) {
+                          const todayStr = dayKey(new Date());
+                          const firstShipped = orders.find(
+                            (o) =>
+                              o.status !== 'cancelled' &&
+                              !!o.is_shipped &&
+                              dayKey(new Date(o.updated_at)) === todayStr
+                          );
+                          setSelectedOrder(firstShipped || null);
+                        }
+                      } else if (selectedOrder?.is_shipped) {
+                        const firstUnshipped = filteredOrders.find((o) => !o.is_shipped);
+                        setSelectedOrder(firstUnshipped || null);
+                      }
+                    }}
+                    className="w-3.5 h-3.5 rounded border-subtle accent-emerald-500 cursor-pointer shrink-0"
+                  />
+                  <span
+                    className={`text-[10px] font-black uppercase tracking-wider ${
+                      shipTab === 'shipped' ? 'text-emerald-400' : 'text-muted'
+                    }`}
+                  >
+                    Shipped ({shippedCount})
                   </span>
-                </div>
-                {shipTab === 'to_ship' && eligibleShippingOrders.length > 0 && (
-                  <div className="flex items-center gap-2">
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    aria-label="How Shipped is calculated"
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseEnter={(e) => {
+                      e.stopPropagation();
+                      setHoveredTabInfo('shipped');
+                    }}
+                    onMouseLeave={(e) => {
+                      e.stopPropagation();
+                      setHoveredTabInfo((current) => (current === 'shipped' ? null : current));
+                    }}
+                    onFocus={() => setHoveredTabInfo('shipped')}
+                    onBlur={() =>
+                      setHoveredTabInfo((current) => (current === 'shipped' ? null : current))
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setHoveredTabInfo('shipped');
+                      }
+                    }}
+                    className="inline-flex items-center justify-center rounded-full border border-subtle bg-bg-main px-1.5 py-0.5 text-[10px] font-black text-content/80 hover:border-accent/40 hover:text-accent cursor-help shrink-0"
+                  >
+                    <Info size={10} className="text-current" />
+                  </span>
+                </label>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    aria-label="How To Ship is calculated"
+                    onMouseEnter={() => setHoveredTabInfo('to_ship')}
+                    onMouseLeave={() =>
+                      setHoveredTabInfo((current) => (current === 'to_ship' ? null : current))
+                    }
+                    onFocus={() => setHoveredTabInfo('to_ship')}
+                    onBlur={() =>
+                      setHoveredTabInfo((current) => (current === 'to_ship' ? null : current))
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setHoveredTabInfo('to_ship');
+                      }
+                    }}
+                    className="text-[10px] font-black uppercase tracking-wider text-accent cursor-help"
+                  >
+                    To Ship ({toShipCount})
+                  </span>
+                  {shipTab === 'to_ship' && eligibleShippingOrders.length > 0 && (
                     <button
                       onClick={() => setShowShippingPreview(true)}
                       className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border border-accent/30 bg-accent/10 text-accent hover:bg-accent hover:text-white transition-all select-none"
                     >
                       Start Shipping ({eligibleShippingOrders.length})
                     </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Tab Switcher */}
-              <div className="relative grid grid-cols-2 p-0.5 bg-bg-main rounded-xl border border-subtle text-[10px] select-none overflow-visible">
-                <button
-                  onClick={() => {
-                    setShipTab('to_ship');
-                    if (selectedOrder?.is_shipped) {
-                      const firstUnshipped = filteredOrders.find((o) => !o.is_shipped);
-                      setSelectedOrder(firstUnshipped || null);
-                    }
-                  }}
-                  className={`py-1 rounded-lg font-black uppercase tracking-wider text-center transition-all ${
-                    shipTab === 'to_ship'
-                      ? 'bg-card text-accent border border-subtle shadow-sm'
-                      : 'text-muted hover:text-content'
-                  }`}
-                >
-                  <span className="inline-flex items-center gap-1">
-                    To Ship ({toShipCount})
-                    <span className="relative inline-flex items-center">
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        aria-label="How To Ship is calculated"
-                        onClick={(e) => e.stopPropagation()}
-                        onMouseEnter={(e) => {
-                          e.stopPropagation();
-                          setHoveredTabInfo('to_ship');
-                        }}
-                        onMouseLeave={(e) => {
-                          e.stopPropagation();
-                          setHoveredTabInfo((current) => (current === 'to_ship' ? null : current));
-                        }}
-                        onFocus={() => setHoveredTabInfo('to_ship')}
-                        onBlur={() =>
-                          setHoveredTabInfo((current) => (current === 'to_ship' ? null : current))
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setHoveredTabInfo('to_ship');
-                          }
-                        }}
-                        className="inline-flex items-center justify-center rounded-full border border-subtle bg-bg-main px-1.5 py-0.5 text-[10px] font-black text-content/80 hover:border-accent/40 hover:text-accent cursor-help"
-                      >
-                        <Info size={10} className="text-current" />
-                      </span>
-                    </span>
-                  </span>
-                </button>
-                <button
-                  onClick={() => {
-                    setShipTab('shipped');
-                    if (!selectedOrder?.is_shipped) {
-                      const todayStr = dayKey(new Date());
-                      const firstShipped = orders.find(
-                        (o) =>
-                          o.status !== 'cancelled' &&
-                          !!o.is_shipped &&
-                          dayKey(new Date(o.updated_at)) === todayStr
-                      );
-                      setSelectedOrder(firstShipped || null);
-                    }
-                  }}
-                  className={`py-1 rounded-lg font-black uppercase tracking-wider text-center transition-all ${
-                    shipTab === 'shipped'
-                      ? 'bg-card text-emerald-400 border border-subtle shadow-sm'
-                      : 'text-muted hover:text-content'
-                  }`}
-                >
-                  <span className="inline-flex items-center gap-1">
-                    Shipped ({shippedCount})
-                    <span className="relative inline-flex items-center">
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        aria-label="How Shipped is calculated"
-                        onClick={(e) => e.stopPropagation()}
-                        onMouseEnter={(e) => {
-                          e.stopPropagation();
-                          setHoveredTabInfo('shipped');
-                        }}
-                        onMouseLeave={(e) => {
-                          e.stopPropagation();
-                          setHoveredTabInfo((current) => (current === 'shipped' ? null : current));
-                        }}
-                        onFocus={() => setHoveredTabInfo('shipped')}
-                        onBlur={() =>
-                          setHoveredTabInfo((current) => (current === 'shipped' ? null : current))
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setHoveredTabInfo('shipped');
-                          }
-                        }}
-                        className="inline-flex items-center justify-center rounded-full border border-subtle bg-bg-main px-1.5 py-0.5 text-[10px] font-black text-content/80 hover:border-accent/40 hover:text-accent cursor-help"
-                      >
-                        <Info size={10} className="text-current" />
-                      </span>
-                    </span>
-                  </span>
-                </button>
+                  )}
+                </div>
               </div>
 
               {hoveredTabInfo && (
