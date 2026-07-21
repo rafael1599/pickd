@@ -60,8 +60,7 @@ export function useCanonicalSkuResolution(cartItems: ResolutionItem[]): Map<stri
       const { data, error } = await supabase
         .from('inventory')
         .select('sku, location, quantity, distribution, sublocation, is_active')
-        .in('sku', canonSkus)
-        .gt('quantity', 0);
+        .in('sku', canonSkus);
 
       if (cancelled || error || !data) return;
 
