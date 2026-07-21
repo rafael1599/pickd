@@ -24,7 +24,7 @@ import { supabase } from '../../../../lib/supabase';
 import toast from 'react-hot-toast';
 import { useParkedLocations } from '../../hooks/useParkedLocations';
 
-type ShippingType = 'fedex' | 'regular';
+type ShippingType = 'fedex' | 'regular' | 'pickup';
 
 export interface CardProps {
   order: PickingList;
@@ -54,6 +54,7 @@ const SHIPPING_COLORS: Record<ShippingType, { stripe: string; badge: string; bad
   {
     fedex: { stripe: 'bg-purple-500/70', badge: 'bg-purple-500', badgeText: 'FDX' },
     regular: { stripe: 'bg-emerald-500/70', badge: 'bg-emerald-500', badgeText: 'TRK' },
+    pickup: { stripe: 'bg-red-500/70', badge: 'bg-red-500', badgeText: 'PU' },
   };
 
 function getStatusStyles(status: string) {
@@ -496,8 +497,19 @@ const OrderCardShell: React.FC<CardProps> = ({
         {/* Right Panel: Carrier Logo Panel (Full Height) - Only shown on completed orders */}
         {order.status === 'completed' && (
           <div className="relative flex items-center justify-center shrink-0 self-stretch min-w-[76px] md:min-w-[84px] overflow-hidden">
-            {shippingType === 'fedex' ||
-            (order.transport_company && order.transport_company !== 'PICK UP') ? (
+            {order.transport_company === 'PICK UP' ? (
+              // Checked first, unconditionally — a PICK UP order's own
+              // auto-classified shippingType (fedex/regular, used for the
+              // stripe/lane) previously leaked into this panel, showing the
+              // FedEx logo or "Set Carrier" (as if no carrier was assigned)
+              // for an order that DOES have a carrier: PICK UP.
+              <TransportLogo
+                company="PICK UP"
+                className="absolute inset-0 h-full w-full object-contain select-none"
+                plain
+                textColor="text-red-500"
+              />
+            ) : shippingType === 'fedex' || order.transport_company ? (
               <TransportLogo
                 company={shippingType === 'fedex' ? 'FEDEX' : order.transport_company}
                 className="absolute inset-0 h-full w-full object-contain select-none"

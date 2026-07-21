@@ -35,13 +35,22 @@ export const CompletedZone: React.FC<CompletedZoneProps> = ({
 
   const handleSelect = (order: PickingList) => onSelectOrder(order.id);
 
+  // PICK UP orders get their own red stripe, regardless of how their
+  // content would otherwise auto-classify (fedex/regular) — a PICK UP order
+  // is picked up in person, it's neither a FedEx parcel nor a truck pallet.
+  const effectiveShippingType = (
+    order: PickingList,
+    fallback: 'fedex' | 'regular'
+  ): 'fedex' | 'regular' | 'pickup' =>
+    order.transport_company === 'PICK UP' ? 'pickup' : fallback;
+
   const renderOrderButton = (order: PickingList, shippingType: 'fedex' | 'regular') => {
     const suggestion = findCombineSuggestion?.(order) ?? null;
     return (
       <div key={order.id} className="space-y-1">
         <StaticOrderCard
           order={order}
-          shippingType={shippingType}
+          shippingType={effectiveShippingType(order, shippingType)}
           showShippingBadge={true}
           showDate={showDate}
           onSelect={handleSelect}
@@ -84,19 +93,22 @@ export const CompletedZone: React.FC<CompletedZoneProps> = ({
 
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {Array.from(grouped.entries()).map(([groupId, groupOrders]) => (
-          <StaticOrderCard
-            key={groupId}
-            order={mergeGroupOrders(groupOrders)}
-            shippingType="regular"
-            showShippingBadge={true}
-            showDate={showDate}
-            onSelect={handleSelect}
-            onMerge={onMerge}
-            onUngroup={onUngroup}
-            onDelete={onDelete}
-          />
-        ))}
+        {Array.from(grouped.entries()).map(([groupId, groupOrders]) => {
+          const merged = mergeGroupOrders(groupOrders);
+          return (
+            <StaticOrderCard
+              key={groupId}
+              order={merged}
+              shippingType={effectiveShippingType(merged, 'regular')}
+              showShippingBadge={true}
+              showDate={showDate}
+              onSelect={handleSelect}
+              onMerge={onMerge}
+              onUngroup={onUngroup}
+              onDelete={onDelete}
+            />
+          );
+        })}
         {ungrouped.map((order) => renderOrderButton(order, 'regular'))}
       </div>
     );
