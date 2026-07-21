@@ -988,6 +988,87 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cartSkuKey]);
 
+  // Auto-resolve null locations and static low-stock flags in the database
+  useEffect(() => {
+    if (!activeListId || isReadOnly) return;
+    if (Object.keys(skuLocationsMap).length === 0) return;
+    if (!reservationsMap) return;
+
+    let needsUpdate = false;
+    const updated = cartItems.map((item) => {
+      const newItem = { ...item };
+      let changed = false;
+
+      // 1. If location is null but we resolved it dynamically
+      if (!newItem.location && skuLocationsMap[newItem.sku]) {
+        newItem.location = skuLocationsMap[newItem.sku];
+
+        // Resolve sublocation
+        const subKey = `${newItem.sku}-${newItem.location.toUpperCase()}`;
+        if (sublocationMap[subKey] && sublocationMap[subKey].length > 0) {
+          newItem.sublocation = sublocationMap[subKey];
+        }
+        changed = true;
+      }
+
+      // 2. If insufficient_stock is true but we now have enough stock in vivo
+      if (newItem.insufficient_stock) {
+        const totalStock = stockMap[newItem.sku] ?? 0;
+        const totalReservedElsewhere = Array.from(reservationsMap?.entries() || [])
+          .filter(([key]) => key.startsWith(`${newItem.sku}::${newItem.warehouse || 'LUDLOW'}::`))
+          .reduce((sum, [, info]) => sum + info.reserved, 0);
+
+        const liveInsufficient = totalStock - totalReservedElsewhere < (newItem.pickingQty || 0);
+        if (!liveInsufficient) {
+          newItem.insufficient_stock = false;
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        needsUpdate = true;
+      }
+      return newItem;
+    });
+
+    if (needsUpdate) {
+      // Sort the updated items alphanumerically by location so they display in order
+      const sorted = [...updated].sort((a, b) => {
+        const locA = a.location || '';
+        const locB = b.location || '';
+        if (locA !== locB) {
+          return locA.localeCompare(locB, undefined, { numeric: true, sensitivity: 'base' });
+        }
+        const subA =
+          Array.isArray(a.sublocation) && a.sublocation.length > 0 ? a.sublocation[0] : '';
+        const subB =
+          Array.isArray(b.sublocation) && b.sublocation.length > 0 ? b.sublocation[0] : '';
+        return subA.localeCompare(subB);
+      });
+
+      // Write back to the database
+      void supabase
+        .from('picking_lists')
+        .update({ items: sorted })
+        .eq('id', activeListId)
+        .then(({ error }) => {
+          if (error) {
+            console.error('Error auto-resolving locations/stock in DB:', error);
+          } else {
+            console.log('Successfully auto-resolved locations and stock in database!');
+          }
+        });
+    }
+  }, [
+    cartItems,
+    skuLocationsMap,
+    stockMap,
+    reservationsMap,
+    sublocationMap,
+    activeListId,
+    isReadOnly,
+  ]);
+
   // Keep edit-callbacks ref fresh — see editCallbacksRef declaration above
   useEffect(() => {
     editCallbacksRef.current = { updateItem, deleteItem, addItem, fetchDistributions };
