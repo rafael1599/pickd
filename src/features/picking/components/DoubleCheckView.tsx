@@ -2272,9 +2272,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                                   // Hidden once checked — frees space for pending rows.
                                   const firstSub =
                                     subs && subs.length > 0 ? [...subs].sort()[0] : null;
-                                  return !hideDetails && firstSub ? (
-                                    <span className="ml-2">{firstSub}</span>
-                                  ) : null;
+                                  return firstSub ? <span className="ml-2">{firstSub}</span> : null;
                                 })()}
                               </div>
                               {!isReviewMode && isChecked && (
