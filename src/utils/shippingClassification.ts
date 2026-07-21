@@ -1,4 +1,4 @@
-interface ClassifiableItem {
+export interface ClassifiableItem {
   sku: string;
   pickingQty: number;
   /** Present when the item was saved with its metadata joined. */
@@ -65,4 +65,36 @@ export function autoClassifyShippingType(
   }
 
   return classifySingleOrder(items, skuWeights);
+}
+
+/** The subset of an order's fields needed to decide whether it's FedEx. */
+export interface FedexClassifiableOrder {
+  shipping_type?: string | null;
+  transport_company?: string | null;
+  order_group?: { group_type?: string | null } | null;
+  items?: ClassifiableItem[] | null;
+}
+
+/**
+ * Single source of truth for "is this order FedEx" — Orders, Ship, and the
+ * Live Board all call this so the same order can't read FedEx on one screen
+ * and Regular/unassigned on another. Precedence:
+ *   1. Explicit transport_company === 'FEDEX' (carrier already assigned).
+ *   2. Combined-group's group_type === 'fedex'.
+ *   3. Explicit shipping_type === 'fedex'.
+ *   4. Auto-classify from items — only when shipping_type is unset. An
+ *      explicit shipping_type of 'regular' always wins over the guess.
+ */
+export function isFedexOrder(
+  order: FedexClassifiableOrder,
+  skuWeights: Record<string, number> = {}
+): boolean {
+  const transport = String(order.transport_company ?? '')
+    .trim()
+    .toUpperCase();
+  if (transport === 'FEDEX') return true;
+  if (order.order_group?.group_type === 'fedex') return true;
+  if (order.shipping_type === 'fedex') return true;
+  if (order.shipping_type) return false;
+  return autoClassifyShippingType(order.items ?? [], skuWeights) === 'fedex';
 }

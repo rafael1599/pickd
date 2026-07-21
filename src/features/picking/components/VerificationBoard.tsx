@@ -10,7 +10,10 @@ import { useViewMode } from '../../../context/ViewModeContext';
 import { usePickingSession } from '../../../context/PickingContext';
 import { useConfirmation } from '../../../context/ConfirmationContext';
 import { useAuth } from '../../../context/AuthContext';
-import { autoClassifyShippingType } from '../../../utils/shippingClassification';
+import {
+  autoClassifyShippingType,
+  isFedexOrder as isFedexOrderShared,
+} from '../../../utils/shippingClassification';
 import { SortableOrderCard, StaticOrderCard } from './board/SortableOrderCard';
 import { CompletedZone } from './board/CompletedZone';
 import { WaitingZone } from './board/WaitingZone';
@@ -278,36 +281,27 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       return matchNum || matchCust;
     });
 
-    // Pre-calculate shipping types for all active orders
+    // Pre-calculate shipping types for all active orders — via the same
+    // canonical classifier Orders and Ship use, so a FedEx order here can't
+    // read as Regular/unassigned once it lands on either of those screens.
     const orderShippingTypes = new Map<string, 'fedex' | 'regular'>();
     for (const order of filteredOrders) {
-      const isFedexTransport =
-        String(order.transport_company || '')
-          .trim()
-          .toUpperCase() === 'FEDEX';
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const isFedexGroup = (order as any).order_group?.group_type === 'fedex';
-
-      let st: string = 'regular';
-      if (order.shipping_type === 'fedex' || isFedexTransport || isFedexGroup) {
-        st = 'fedex';
-      } else {
-        st =
-          order.shipping_type ??
-          autoClassifyShippingType(
-            order.items?.map((i) => ({
-              sku: i.sku,
-              pickingQty: (i as Record<string, unknown>).pickingQty as number,
-              source_order: (i as Record<string, unknown>).source_order as string | undefined,
-              sku_metadata: (i as Record<string, unknown>).sku_metadata as
-                | { is_bike?: boolean | null }
-                | null
-                | undefined,
-            })) ?? [],
-            {}
-          );
-      }
-      orderShippingTypes.set(order.id, st === 'fedex' ? 'fedex' : 'regular');
+      const items = (order.items ?? []).map((i) => ({
+        sku: String((i as Record<string, unknown>).sku ?? ''),
+        pickingQty: Number((i as Record<string, unknown>).pickingQty ?? 0),
+        source_order: (i as Record<string, unknown>).source_order as string | undefined,
+        sku_metadata: (i as Record<string, unknown>).sku_metadata as
+          | { is_bike?: boolean | null }
+          | null
+          | undefined,
+      }));
+      const fedex = isFedexOrderShared({
+        shipping_type: order.shipping_type,
+        transport_company: order.transport_company,
+        order_group: order.order_group,
+        items,
+      });
+      orderShippingTypes.set(order.id, fedex ? 'fedex' : 'regular');
     }
 
     // Unify group-level states for combined orders

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { withSupabaseRetry } from '../../../lib/supabaseRetry';
-import { autoClassifyShippingType } from '../../../utils/shippingClassification';
+import { isFedexOrder as isFedexOrderShared } from '../../../utils/shippingClassification';
 
 /**
  * A single line-item inside an order's `items` JSON array. Every field is
@@ -62,19 +62,17 @@ export interface OrderRow {
 }
 
 /**
- * True when an order ships via FedEx. Precedence:
- *   1. Explicit group type ('fedex').
- *   2. Explicit shipping_type ('fedex').
- *   3. Auto-classification of the items when no shipping_type is set.
+ * True when an order ships via FedEx — thin re-export of the canonical
+ * classifier (shared with Ship and the Live Board) typed to this hook's
+ * OrderRow shape.
  */
 export function isFedexOrder(o: OrderRow): boolean {
-  return (
-    o.order_group?.group_type === 'fedex' ||
-    o.shipping_type === 'fedex' ||
-    (!o.shipping_type &&
-      autoClassifyShippingType((o.items ?? []) as { sku: string; pickingQty: number }[], {}) ===
-        'fedex')
-  );
+  return isFedexOrderShared({
+    shipping_type: o.shipping_type,
+    transport_company: o.transport_company,
+    order_group: o.order_group,
+    items: (o.items ?? []).map((i) => ({ sku: i.sku ?? '', pickingQty: i.pickingQty ?? 0 })),
+  });
 }
 
 /**

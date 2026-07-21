@@ -44,6 +44,7 @@ import { CarrierFilter } from './components/board/CarrierFilter';
 import { OrderNotesInline } from './components/OrderNotesInline';
 import { OrderActionsMenu } from './components/OrderActionsMenu';
 import { useModal } from '../../context/ModalContext';
+import { isFedexOrder as isFedexOrderShared } from '../../utils/shippingClassification';
 
 function dayKey(date: Date): string {
   const formatter = new Intl.DateTimeFormat('en-US', {
@@ -115,12 +116,15 @@ function isLikelyBike(sku: string, meta?: { is_bike: boolean }): boolean {
   return sku.startsWith('03-');
 }
 
+/**
+ * True when an order ships via FedEx — delegates to the canonical classifier
+ * shared with Orders and the Live Board, so the same order can't read FedEx
+ * on one screen and Regular/unassigned on another (previously this only
+ * checked group_type/transport_company, missing the shipping_type + item
+ * auto-classify signals the Live Board already used to decide FedEx).
+ */
 function isFedexLane(order: OrderWithRelations): boolean {
-  const groupType = (order.order_group as { group_type?: string } | null)?.group_type;
-  const transport = String(order.transport_company || '')
-    .trim()
-    .toUpperCase();
-  return groupType === 'fedex' || transport === 'FEDEX';
+  return isFedexOrderShared(order);
 }
 
 /**
@@ -248,6 +252,7 @@ interface OrderWithRelations {
   total_units: number | null;
   load_number: string | null;
   transport_company: string | null;
+  shipping_type: string | null;
   status: string;
   items: PickingListItem[] | null;
   correction_notes: string | null;
@@ -447,9 +452,10 @@ export const ShipScreen = () => {
     });
   }, [weightsReady, itemsMissingWeight, skuMeta]);
 
-  // FedEx orders don't use pallets — skip pallet weight
-  const isFedexOrder =
-    (selectedOrder?.order_group as { group_type?: string } | null)?.group_type === 'fedex';
+  // FedEx orders don't use pallets — skip pallet weight. Previously only
+  // checked group_type, missing orders classified FedEx via shipping_type
+  // or transport_company alone.
+  const isFedexOrder = !!selectedOrder && isFedexLane(selectedOrder);
 
   // Calculate total weight live from the Pallets/Bikes/Parts fields shown in
   // this view — not just the raw item list — so overriding Bikes or Parts
