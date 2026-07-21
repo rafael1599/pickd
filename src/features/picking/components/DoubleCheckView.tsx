@@ -926,6 +926,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const [skuInventoryMap, setSkuInventoryMap] = useState<
     Record<string, { distribution: DistributionItem[]; quantity: number }[]>
   >({});
+  const [skuLocationsMap, setSkuLocationsMap] = useState<Record<string, string>>({});
 
   const fetchDistributions = useCallback(async () => {
     const skus = [...new Set(cartItems.map((i) => i.sku))];
@@ -938,6 +939,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
     const map: Record<string, { distribution: DistributionItem[]; quantity: number }[]> = {};
     const subMap: Record<string, string[]> = {};
+    const locRows: Record<string, { location: string; quantity: number }[]> = {};
+
     (data || []).forEach((row) => {
       const r = row as {
         sku: string;
@@ -954,9 +957,26 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       if (r.sublocation && r.sublocation.length > 0 && r.location) {
         subMap[`${r.sku}-${r.location.toUpperCase()}`] = r.sublocation;
       }
+      if (r.location) {
+        if (!locRows[r.sku]) locRows[r.sku] = [];
+        locRows[r.sku].push({ location: r.location, quantity: r.quantity ?? 0 });
+      }
     });
+
+    const locMap: Record<string, string> = {};
+    Object.entries(locRows).forEach(([sku, rows]) => {
+      // Sort by quantity desc, then location name asc
+      const sorted = rows.sort(
+        (a, b) => b.quantity - a.quantity || a.location.localeCompare(b.location)
+      );
+      if (sorted[0]) {
+        locMap[sku] = sorted[0].location;
+      }
+    });
+
     setSkuInventoryMap(map);
     setDirectSublocationMap(subMap);
+    setSkuLocationsMap(locMap);
   }, [cartItems]);
 
   const cartSkuKey = cartItems
@@ -1960,7 +1980,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                       ? totalStock - totalReservedElsewhere < (item.pickingQty || 0)
                       : !!item.insufficient_stock;
                   const insufficientStock = liveInsufficient && !aliasCovered;
-                  const displayLocation = item.location || canonResolved?.location || null;
+                  const displayLocation =
+                    item.location || skuLocationsMap[item.sku] || canonResolved?.location || null;
                   // SKU font shrinks by length so a long SKU fits its column WHOLE
                   // (no truncation, no overflow into the distribution/location cols).
                   const skuText = sdSerialMap.get(item.sku) ?? item.sku;
