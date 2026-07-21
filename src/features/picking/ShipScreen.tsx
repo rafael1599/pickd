@@ -340,7 +340,10 @@ export const ShipScreen = () => {
   const [restoreReason, setRestoreReason] = useState('');
   const [pendingShipmentOrder, setPendingShipmentOrder] = useState<OrderWithRelations | null>(null);
   const shipCameraInputRef = useRef<HTMLInputElement>(null);
-  const [shipTab, setShipTab] = useState<'to_ship' | 'shipped'>('to_ship');
+  // The order list is always split: "To Ship" on the left is the permanent
+  // default view, "Shipped" on the right is an extra column revealed by the
+  // checkbox — never a replacement, so nothing gets hidden by switching tabs.
+  const [includeShipped, setIncludeShipped] = useState(false);
   const [hoveredTabInfo, setHoveredTabInfo] = useState<'to_ship' | 'shipped' | null>(null);
   const [showShippingPreview, setShowShippingPreview] = useState(false);
   const [isShippingBatch, setIsShippingBatch] = useState(false);
@@ -348,10 +351,10 @@ export const ShipScreen = () => {
   useEffect(() => {
     if (loading || orders.length === 0) return;
     const hasUnshipped = orders.some((o) => o.status !== 'cancelled' && !o.is_shipped);
-    if (!hasUnshipped && shipTab === 'to_ship') {
-      setShipTab('shipped');
+    if (!hasUnshipped) {
+      setIncludeShipped(true);
     }
-  }, [orders, loading, shipTab]);
+  }, [orders, loading]);
   // Add-On reopen flow (idea-067 Phase 2): after the user picks the reason,
   const searchQueryRef = useRef(searchQuery);
 
@@ -946,75 +949,86 @@ export const ShipScreen = () => {
     };
   }, [orders]);
 
-  const filteredOrders = useMemo(() => {
-    const todayStr = dayKey(new Date());
-    const query = debouncedSearchQuery.toLowerCase().trim();
+  // Shared pipeline behind both columns — To Ship and Shipped are always
+  // built independently (never one replacing the other) so the split view
+  // can show both at once without either one hiding orders from the other.
+  const buildOrdersForTab = useCallback(
+    (tab: 'to_ship' | 'shipped') => {
+      const todayStr = dayKey(new Date());
+      const query = debouncedSearchQuery.toLowerCase().trim();
 
-    // 1. Drop cancelled orders only. Grouping has to run BEFORE the tab/
-    //    carrier filter — deciding "to ship" vs "shipped" per raw sibling
-    //    (instead of per combined group) let one already-shipped sibling
-    //    filter itself out while its still-pending twin stayed visible,
-    //    which is what made a combined order look "solita" outside of
-    //    search (search skipped this filter entirely via the `if (query)`
-    //    early-return below, which is why it only ever looked right there).
-    const notCancelled = orders.filter((o) => o.status !== 'cancelled');
+      // 1. Drop cancelled orders only. Grouping has to run BEFORE the tab/
+      //    carrier filter — deciding "to ship" vs "shipped" per raw sibling
+      //    (instead of per combined group) let one already-shipped sibling
+      //    filter itself out while its still-pending twin stayed visible,
+      //    which is what made a combined order look "solita" outside of
+      //    search.
+      const notCancelled = orders.filter((o) => o.status !== 'cancelled');
 
-    // 2. Collapse 'general' group siblings into a single virtual entry per
-    //    group_id. We pick the OLDEST (first by created_at ASC) sibling as
-    //    the underlying picking_list — clicks/select operate on its id, and
-    //    loadExternalList merges sibling items via group_id at open time.
-    //    The display order_number becomes "A / B" sorted ascending.
-    const byGroup = new Map<string, typeof notCancelled>();
-    const ungrouped: typeof notCancelled = [];
-    for (const o of notCancelled) {
-      const isGeneralGroup = o.group_id && isDeliberateCombineGroupType(o.order_group?.group_type);
-      if (isGeneralGroup) {
-        const arr = byGroup.get(o.group_id!) ?? [];
-        arr.push(o);
-        byGroup.set(o.group_id!, arr);
-      } else {
-        ungrouped.push(o);
+      // 2. Collapse 'general' group siblings into a single virtual entry per
+      //    group_id. We pick the OLDEST (first by created_at ASC) sibling as
+      //    the underlying picking_list — clicks/select operate on its id, and
+      //    loadExternalList merges sibling items via group_id at open time.
+      //    The display order_number becomes "A / B" sorted ascending.
+      const byGroup = new Map<string, typeof notCancelled>();
+      const ungrouped: typeof notCancelled = [];
+      for (const o of notCancelled) {
+        const isGeneralGroup =
+          o.group_id && isDeliberateCombineGroupType(o.order_group?.group_type);
+        if (isGeneralGroup) {
+          const arr = byGroup.get(o.group_id!) ?? [];
+          arr.push(o);
+          byGroup.set(o.group_id!, arr);
+        } else {
+          ungrouped.push(o);
+        }
       }
-    }
 
-    const collapsed = [...ungrouped];
-    for (const siblings of byGroup.values()) {
-      collapsed.push(combineGeneralGroupSiblings(siblings));
-    }
+      const collapsed = [...ungrouped];
+      for (const siblings of byGroup.values()) {
+        collapsed.push(combineGeneralGroupSiblings(siblings));
+      }
 
-    // 3. Filter by status/tab and the carrier filter panel — now operating on
-    //    the already-combined groups, so a group's shipped state is judged
-    //    as a whole (all siblings shipped) rather than per raw row.
-    const byCarrier = collapsed.filter((o) => {
-      if (query) return true; // If searching, ignore tab/carrier boundaries
+      // 3. Filter by status/tab and the carrier filter panel — now operating
+      //    on the already-combined groups, so a group's shipped state is
+      //    judged as a whole (all siblings shipped) rather than per raw row.
+      //    Search still bypasses the carrier chips (find it regardless of
+      //    what's checked) but never the to-ship/shipped boundary — each
+      //    column always stays true to its own status, split view or not.
+      const byCarrier = collapsed.filter((o) => {
+        const shippedToday = !!o.is_shipped && dayKey(new Date(o.updated_at)) === todayStr;
+        const matchTab = tab === 'shipped' ? shippedToday : !o.is_shipped;
+        if (!matchTab) return false;
+        if (query) return true;
 
-      const shippedToday = !!o.is_shipped && dayKey(new Date(o.updated_at)) === todayStr;
-      const matchTab = shipTab === 'shipped' ? shippedToday : !o.is_shipped;
-      if (!matchTab) return false;
+        return matchesCarrierFilter(o);
+      });
 
-      return matchesCarrierFilter(o);
-    });
+      // Re-sort by created_at desc to preserve the original list ordering.
+      byCarrier.sort((a, b) => b.created_at.localeCompare(a.created_at));
 
-    // Re-sort by created_at desc to preserve the original list ordering.
-    byCarrier.sort((a, b) => b.created_at.localeCompare(a.created_at));
+      const results = byCarrier.filter((order) => {
+        const orderNum = String(order.order_number || order.id.toString().slice(-6)).toLowerCase();
+        const customer = String(order.customer?.name || '').toLowerCase();
+        return !query || orderNum.includes(query) || customer.includes(query);
+      });
 
-    const results = byCarrier.filter((order) => {
-      const orderNum = String(order.order_number || order.id.toString().slice(-6)).toLowerCase();
-      const customer = String(order.customer?.name || '').toLowerCase();
-      return !query || orderNum.includes(query) || customer.includes(query);
-    });
+      if (!query) return results;
 
-    if (!query) return results;
+      // Reordering logic: Exact matches or "Starts with" first
+      return [...results].sort((a, b) => {
+        const aNum = String(a.order_number).toLowerCase();
+        const bNum = String(b.order_number).toLowerCase();
+        const aStartsWith = aNum.startsWith(query) ? 1 : 0;
+        const bStartsWith = bNum.startsWith(query) ? 1 : 0;
+        return bStartsWith - aStartsWith;
+      });
+    },
+    [orders, debouncedSearchQuery, matchesCarrierFilter]
+  );
 
-    // Reordering logic: Exact matches or "Starts with" first
-    return [...results].sort((a, b) => {
-      const aNum = String(a.order_number).toLowerCase();
-      const bNum = String(b.order_number).toLowerCase();
-      const aStartsWith = aNum.startsWith(query) ? 1 : 0;
-      const bStartsWith = bNum.startsWith(query) ? 1 : 0;
-      return bStartsWith - aStartsWith;
-    });
-  }, [orders, debouncedSearchQuery, shipTab, matchesCarrierFilter]);
+  const filteredOrders = useMemo(() => buildOrdersForTab('to_ship'), [buildOrdersForTab]);
+  const shippedFilteredOrders = useMemo(() => buildOrdersForTab('shipped'), [buildOrdersForTab]);
 
   // Auto-select the most recently completed order if none selected AND no
   // external jump pending — that's the one a picker most likely just
@@ -1159,20 +1173,18 @@ export const ShipScreen = () => {
 
   const visibleOrders = useMemo(() => filteredOrders, [filteredOrders]);
 
-  // Auto-select the first result's tab and order when a search query is active
+  // Auto-select the first search result — To Ship first, falling back to
+  // Shipped, so a search for an already-shipped order still opens it even
+  // when the Shipped column isn't checked on.
   useEffect(() => {
-    if (debouncedSearchQuery && filteredOrders.length > 0) {
-      const firstResult = filteredOrders[0];
-      if (firstResult) {
-        setShipTab(firstResult.is_shipped ? 'shipped' : 'to_ship');
-        setSelectedOrder(firstResult);
-      }
-    }
-  }, [debouncedSearchQuery, filteredOrders]);
+    if (!debouncedSearchQuery) return;
+    const firstResult = filteredOrders[0] ?? shippedFilteredOrders[0];
+    if (firstResult) setSelectedOrder(firstResult);
+  }, [debouncedSearchQuery, filteredOrders, shippedFilteredOrders]);
 
-  const ordersGroupedByDate = useMemo<DayGroup[]>(() => {
+  const groupOrdersByDate = useCallback((list: OrderWithRelations[]): DayGroup[] => {
     const map = new Map<string, DayGroup>();
-    for (const o of visibleOrders) {
+    for (const o of list) {
       const d = new Date(o.created_at);
       const key = Number.isNaN(d.getTime()) ? 'unknown' : dayKey(d);
       let group = map.get(key);
@@ -1187,56 +1199,24 @@ export const ShipScreen = () => {
       group.orders.push(o);
     }
     return Array.from(map.values());
-  }, [visibleOrders]);
+  }, []);
 
-  const toShipCount = useMemo(() => {
-    if (shipTab === 'to_ship') return filteredOrders.length;
+  // Both columns render at once (split view), each grouped independently.
+  const ordersGroupedByDate = useMemo(
+    () => groupOrdersByDate(visibleOrders),
+    [visibleOrders, groupOrdersByDate]
+  );
+  const shippedGroupedByDate = useMemo(
+    () => groupOrdersByDate(shippedFilteredOrders),
+    [shippedFilteredOrders, groupOrdersByDate]
+  );
 
-    const toShipOrders = orders.filter(
-      (o) => o.status !== 'cancelled' && !o.is_shipped && matchesCarrierFilter(o)
-    );
-
-    const byGroup = new Map<string, OrderWithRelations[]>();
-    const ungrouped: OrderWithRelations[] = [];
-    for (const o of toShipOrders) {
-      const isGeneralGroup = o.group_id && isDeliberateCombineGroupType(o.order_group?.group_type);
-      if (isGeneralGroup) {
-        const arr = byGroup.get(o.group_id!) ?? [];
-        arr.push(o);
-        byGroup.set(o.group_id!, arr);
-      } else {
-        ungrouped.push(o);
-      }
-    }
-
-    return ungrouped.length + byGroup.size;
-  }, [shipTab, filteredOrders.length, orders, matchesCarrierFilter]);
-
-  const shippedCount = useMemo(() => {
-    if (shipTab === 'shipped') return filteredOrders.length;
-
-    const todayStr = dayKey(new Date());
-    const shippedTodayOrders = orders.filter((o) => {
-      if (o.status === 'cancelled' || !o.is_shipped) return false;
-      if (dayKey(new Date(o.updated_at)) !== todayStr) return false;
-      return matchesCarrierFilter(o);
-    });
-
-    const byGroup = new Map<string, OrderWithRelations[]>();
-    const ungrouped: OrderWithRelations[] = [];
-    for (const o of shippedTodayOrders) {
-      const isGeneralGroup = o.group_id && isDeliberateCombineGroupType(o.order_group?.group_type);
-      if (isGeneralGroup) {
-        const arr = byGroup.get(o.group_id!) ?? [];
-        arr.push(o);
-        byGroup.set(o.group_id!, arr);
-      } else {
-        ungrouped.push(o);
-      }
-    }
-
-    return ungrouped.length + byGroup.size;
-  }, [shipTab, filteredOrders.length, orders, matchesCarrierFilter]);
+  // filteredOrders/shippedFilteredOrders already collapse combined groups
+  // into one pseudo-order each, so .length is the right-facing count for
+  // both columns — no separate grouped-count fallback needed anymore now
+  // that both are always computed (not gated behind a mutually-exclusive tab).
+  const toShipCount = filteredOrders.length;
+  const shippedCount = shippedFilteredOrders.length;
 
   const readyToShipVisibleCount = useMemo(
     () => visibleOrders.filter((o) => !o.is_waiting_inventory && o.status === 'completed').length,
@@ -2308,31 +2288,13 @@ export const ShipScreen = () => {
                 <label className="flex items-center gap-1.5 cursor-pointer select-none min-w-0">
                   <input
                     type="checkbox"
-                    checked={shipTab === 'shipped'}
-                    onChange={(e) => {
-                      const showShipped = e.target.checked;
-                      setShipTab(showShipped ? 'shipped' : 'to_ship');
-                      if (showShipped) {
-                        if (!selectedOrder?.is_shipped) {
-                          const todayStr = dayKey(new Date());
-                          const firstShipped = orders.find(
-                            (o) =>
-                              o.status !== 'cancelled' &&
-                              !!o.is_shipped &&
-                              dayKey(new Date(o.updated_at)) === todayStr
-                          );
-                          setSelectedOrder(firstShipped || null);
-                        }
-                      } else if (selectedOrder?.is_shipped) {
-                        const firstUnshipped = filteredOrders.find((o) => !o.is_shipped);
-                        setSelectedOrder(firstUnshipped || null);
-                      }
-                    }}
+                    checked={includeShipped}
+                    onChange={(e) => setIncludeShipped(e.target.checked)}
                     className="w-3.5 h-3.5 rounded border-subtle accent-emerald-500 cursor-pointer shrink-0"
                   />
                   <span
                     className={`text-[10px] font-black uppercase tracking-wider ${
-                      shipTab === 'shipped' ? 'text-emerald-400' : 'text-muted'
+                      includeShipped ? 'text-emerald-400' : 'text-muted'
                     }`}
                   >
                     Shipped ({shippedCount})
@@ -2390,7 +2352,7 @@ export const ShipScreen = () => {
                   >
                     To Ship ({toShipCount})
                   </span>
-                  {shipTab === 'to_ship' && eligibleShippingOrders.length > 0 && (
+                  {eligibleShippingOrders.length > 0 && (
                     <button
                       onClick={() => setShowShippingPreview(true)}
                       className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border border-accent/30 bg-accent/10 text-accent hover:bg-accent hover:text-white transition-all select-none"
@@ -2411,237 +2373,266 @@ export const ShipScreen = () => {
                 </div>
               )}
 
-              <div className="px-2 -mt-0.5 mb-1 space-y-1">
-                {shipTab === 'to_ship' ? (
-                  <p className="text-[10px] font-bold text-muted">
-                    {readyToShipVisibleCount} ready to ship
-                  </p>
-                ) : (
-                  <p className="text-[10px] font-bold text-muted">Today only</p>
-                )}
-                {searchQuery.trim() && (
-                  <p className="text-[10px] font-bold text-muted/80 truncate" title={filterSummary}>
-                    search: "{searchQuery.trim()}"
-                  </p>
-                )}
-              </div>
-
-              <div className="flex flex-col gap-2 max-h-[40vh] md:max-h-[calc(100vh-16rem)] overflow-y-auto no-scrollbar">
-                {loading ? (
-                  <ShipOrderListSkeleton />
-                ) : ordersGroupedByDate.length > 0 ? (
-                  <div className="space-y-3">
-                    {ordersGroupedByDate.map((group) => (
-                      <div key={group.key} className="space-y-1.5">
-                        <div className="sticky top-0 z-[1] px-2 py-1 text-[9px] font-black uppercase tracking-widest text-muted/60 bg-card/80 backdrop-blur-sm">
-                          {group.label}
-                        </div>
-                        {group.orders.map((order) => {
-                          const isSelected = selectedOrder?.id === order.id;
-                          const isFedex = isFedexLane(order);
-                          return (
-                            <div
-                              key={order.id}
-                              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl border transition-all ${
-                                isSelected
-                                  ? 'bg-accent/10 border-accent/30'
-                                  : 'bg-surface border-transparent hover:border-subtle'
-                              }`}
-                            >
-                              <div
-                                className="min-w-0 flex-1 flex flex-col cursor-pointer"
-                                onClick={() => {
-                                  setSelectedOrder(order);
-                                  setShipTab(order.is_shipped ? 'shipped' : 'to_ship');
-                                }}
-                              >
-                                <span
-                                  className="font-mono text-sm font-black text-content flex items-center gap-1 flex-wrap"
-                                  title={
-                                    order.order_number?.includes(' / ')
-                                      ? order.order_number
-                                          .split(' / ')
-                                          .map((n) => n.trim())
-                                          .sort((a, b) =>
-                                            b.localeCompare(a, undefined, { numeric: true })
-                                          )
-                                          .map((n) => `#${n}`)
-                                          .join(', ')
-                                      : undefined
-                                  }
-                                >
-                                  {order.order_number?.includes(' / ') ? (
-                                    <span>
-                                      <span className="text-muted/60">#</span>
-                                      {order.order_number
-                                        .split(' / ')
-                                        .map((n) => n.trim())
-                                        .sort((a, b) =>
-                                          b.localeCompare(a, undefined, { numeric: true })
-                                        )
-                                        .map((num, i, arr) => (
-                                          <Fragment key={`${num}-${i}`}>
-                                            {i > 0 && <span className="text-muted/50"> / </span>}
-                                            <span
-                                              style={{ color: orderColorFor(num.trim(), arr).hex }}
-                                            >
-                                              {num.trim().slice(-3)}
-                                            </span>
-                                          </Fragment>
-                                        ))}
-                                    </span>
-                                  ) : (
-                                    <>#{order.order_number}</>
-                                  )}
-                                </span>
-
-                                <span className="text-[11px] text-muted truncate">
-                                  {order.customer?.name || '—'}
-                                </span>
-                                <div className="flex flex-col gap-0.5 mt-1 text-[9px] text-muted">
-                                  {!order.is_shipped && (
-                                    <span>
-                                      Created:{' '}
-                                      {new Date(order.created_at).toLocaleDateString('en-US', {
-                                        month: 'short',
-                                        day: 'numeric',
-                                      })}
-                                    </span>
-                                  )}
-                                </div>
-                                <OrderProgressBar
-                                  status={order.status}
-                                  isShipped={order.is_shipped ?? false}
-                                  items={order.items}
-                                  verifiedKeys={order.verified_item_keys ?? null}
-                                  totalUnits={order.total_units || 0}
-                                  className="mt-2 w-full"
-                                />
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <TransportLogo
-                                  company={order.transport_company || (isFedex ? 'FEDEX' : null)}
-                                  height={14}
-                                  className="select-none shrink-0"
-                                />
-                                {shipTab === 'shipped' ? (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleUndoShipOrder(order);
-                                    }}
-                                    className="p-1 rounded bg-amber-500/15 border border-amber-500/30 text-amber-500 hover:bg-amber-500 hover:text-white transition-all active:scale-95 flex items-center justify-center"
-                                    title="Undo Shipped"
-                                  >
-                                    <RotateCcw size={14} />
-                                  </button>
-                                ) : (
-                                  <>
-                                    {order.status === 'completed' ? (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleShipOrderClick(order);
-                                        }}
-                                        className="px-2 py-1 rounded-lg bg-accent/15 border border-accent/30 text-accent hover:bg-accent hover:text-white transition-all active:scale-95 flex items-center justify-center text-[9px] font-black uppercase tracking-wider"
-                                        title="Mark as Shipped"
-                                      >
-                                        <Truck size={14} />
-                                      </button>
-                                    ) : order.status === 'reopened' ? (
-                                      <button
-                                        onClick={async (e) => {
-                                          e.stopPropagation();
-                                          if (order.id !== selectedOrder?.id) {
-                                            setSelectedOrder(order);
-                                          }
-                                          try {
-                                            if (order.user_id !== user?.id) {
-                                              await takeOverOrder(order.id);
-                                            }
-                                            await resumeReopenedOrder(order.id);
-                                            setViewMode('picking');
-                                            navigate('/');
-                                          } catch {
-                                            // Errors are handled by the shared actions.
-                                          }
-                                        }}
-                                        className="px-2 py-1 rounded-lg bg-orange-500/10 border border-orange-500/30 text-orange-400 hover:bg-orange-500 hover:text-white transition-all active:scale-95 flex items-center justify-center text-[9px] font-black uppercase tracking-wider"
-                                        title={
-                                          order.user_id !== user?.id
-                                            ? 'Take Over Order'
-                                            : 'Continue Editing'
-                                        }
-                                      >
-                                        {order.user_id !== user?.id
-                                          ? 'Take Over Order'
-                                          : 'Continue Editing'}
-                                      </button>
-                                    ) : order.is_waiting_inventory ? (
-                                      <button
-                                        onClick={async (e) => {
-                                          e.stopPropagation();
-                                          try {
-                                            await handleResumeWaitingOrder(order);
-                                          } catch {
-                                            // Error toast comes from the waiting mutation.
-                                          }
-                                        }}
-                                        className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all active:scale-95 flex items-center justify-center text-[9px] font-black uppercase tracking-wider"
-                                        title="Resume Order"
-                                      >
-                                        Resume Order
-                                      </button>
-                                    ) : ['ready_to_double_check', 'double_checking'].includes(
-                                        order.status
-                                      ) ? (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          openOrderInDoubleCheck(order);
-                                        }}
-                                        className="px-2 py-1 rounded-lg bg-sky-500/10 border border-sky-500/30 text-sky-400 hover:bg-sky-500 hover:text-white transition-all active:scale-95 flex items-center justify-center text-[9px] font-black uppercase tracking-wider"
-                                        title="Double Check"
-                                      >
-                                        Double Check
-                                      </button>
-                                    ) : (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          openOrderInDoubleCheck(order, 'edit');
-                                        }}
-                                        className="px-2 py-1 rounded-lg bg-sky-500/10 border border-sky-500/30 text-sky-400 hover:bg-sky-500 hover:text-white transition-all active:scale-95 flex items-center justify-center text-[9px] font-black uppercase tracking-wider"
-                                        title="Edit Order"
-                                      >
-                                        Edit Order
-                                      </button>
-                                    )}
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                ) : shipTab === 'shipped' ? (
-                  <div className="flex flex-col items-center justify-center text-center py-6 px-3 gap-3">
-                    <p className="text-xs text-muted">No orders were marked as shipped today.</p>
-                    <button
-                      onClick={() => navigate('/orders')}
-                      className="px-3 py-2 rounded-xl border border-subtle bg-surface text-content text-[10px] font-black uppercase tracking-widest hover:border-accent/40 hover:text-accent transition-all active:scale-95"
+              {(() => {
+                const renderOrderCard = (order: OrderWithRelations, isShippedColumn: boolean) => {
+                  const isSelected = selectedOrder?.id === order.id;
+                  const isFedex = isFedexLane(order);
+                  return (
+                    <div
+                      key={order.id}
+                      className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl border transition-all ${
+                        isSelected
+                          ? 'bg-accent/10 border-accent/30'
+                          : 'bg-surface border-transparent hover:border-subtle'
+                      }`}
                     >
-                      View all orders
-                    </button>
+                      <div
+                        className="min-w-0 flex-1 flex flex-col cursor-pointer"
+                        onClick={() => setSelectedOrder(order)}
+                      >
+                        <span
+                          className="font-mono text-sm font-black text-content flex items-center gap-1 flex-wrap"
+                          title={
+                            order.order_number?.includes(' / ')
+                              ? order.order_number
+                                  .split(' / ')
+                                  .map((n) => n.trim())
+                                  .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
+                                  .map((n) => `#${n}`)
+                                  .join(', ')
+                              : undefined
+                          }
+                        >
+                          {order.order_number?.includes(' / ') ? (
+                            <span>
+                              <span className="text-muted/60">#</span>
+                              {order.order_number
+                                .split(' / ')
+                                .map((n) => n.trim())
+                                .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
+                                .map((num, i, arr) => (
+                                  <Fragment key={`${num}-${i}`}>
+                                    {i > 0 && <span className="text-muted/50"> / </span>}
+                                    <span style={{ color: orderColorFor(num.trim(), arr).hex }}>
+                                      {num.trim().slice(-3)}
+                                    </span>
+                                  </Fragment>
+                                ))}
+                            </span>
+                          ) : (
+                            <>#{order.order_number}</>
+                          )}
+                        </span>
+
+                        <span className="text-[11px] text-muted truncate">
+                          {order.customer?.name || '—'}
+                        </span>
+                        <div className="flex flex-col gap-0.5 mt-1 text-[9px] text-muted">
+                          {!order.is_shipped && (
+                            <span>
+                              Created:{' '}
+                              {new Date(order.created_at).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                              })}
+                            </span>
+                          )}
+                        </div>
+                        <OrderProgressBar
+                          status={order.status}
+                          isShipped={order.is_shipped ?? false}
+                          items={order.items}
+                          verifiedKeys={order.verified_item_keys ?? null}
+                          totalUnits={order.total_units || 0}
+                          className="mt-2 w-full"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <TransportLogo
+                          company={order.transport_company || (isFedex ? 'FEDEX' : null)}
+                          height={14}
+                          className="select-none shrink-0"
+                        />
+                        {isShippedColumn ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUndoShipOrder(order);
+                            }}
+                            className="p-1 rounded bg-amber-500/15 border border-amber-500/30 text-amber-500 hover:bg-amber-500 hover:text-white transition-all active:scale-95 flex items-center justify-center"
+                            title="Undo Shipped"
+                          >
+                            <RotateCcw size={14} />
+                          </button>
+                        ) : (
+                          <>
+                            {order.status === 'completed' ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleShipOrderClick(order);
+                                }}
+                                className="px-2 py-1 rounded-lg bg-accent/15 border border-accent/30 text-accent hover:bg-accent hover:text-white transition-all active:scale-95 flex items-center justify-center text-[9px] font-black uppercase tracking-wider"
+                                title="Mark as Shipped"
+                              >
+                                <Truck size={14} />
+                              </button>
+                            ) : order.status === 'reopened' ? (
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  if (order.id !== selectedOrder?.id) {
+                                    setSelectedOrder(order);
+                                  }
+                                  try {
+                                    if (order.user_id !== user?.id) {
+                                      await takeOverOrder(order.id);
+                                    }
+                                    await resumeReopenedOrder(order.id);
+                                    setViewMode('picking');
+                                    navigate('/');
+                                  } catch {
+                                    // Errors are handled by the shared actions.
+                                  }
+                                }}
+                                className="px-2 py-1 rounded-lg bg-orange-500/10 border border-orange-500/30 text-orange-400 hover:bg-orange-500 hover:text-white transition-all active:scale-95 flex items-center justify-center text-[9px] font-black uppercase tracking-wider"
+                                title={
+                                  order.user_id !== user?.id
+                                    ? 'Take Over Order'
+                                    : 'Continue Editing'
+                                }
+                              >
+                                {order.user_id !== user?.id
+                                  ? 'Take Over Order'
+                                  : 'Continue Editing'}
+                              </button>
+                            ) : order.is_waiting_inventory ? (
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    await handleResumeWaitingOrder(order);
+                                  } catch {
+                                    // Error toast comes from the waiting mutation.
+                                  }
+                                }}
+                                className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all active:scale-95 flex items-center justify-center text-[9px] font-black uppercase tracking-wider"
+                                title="Resume Order"
+                              >
+                                Resume Order
+                              </button>
+                            ) : ['ready_to_double_check', 'double_checking'].includes(
+                                order.status
+                              ) ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openOrderInDoubleCheck(order);
+                                }}
+                                className="px-2 py-1 rounded-lg bg-sky-500/10 border border-sky-500/30 text-sky-400 hover:bg-sky-500 hover:text-white transition-all active:scale-95 flex items-center justify-center text-[9px] font-black uppercase tracking-wider"
+                                title="Double Check"
+                              >
+                                Double Check
+                              </button>
+                            ) : (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openOrderInDoubleCheck(order, 'edit');
+                                }}
+                                className="px-2 py-1 rounded-lg bg-sky-500/10 border border-sky-500/30 text-sky-400 hover:bg-sky-500 hover:text-white transition-all active:scale-95 flex items-center justify-center text-[9px] font-black uppercase tracking-wider"
+                                title="Edit Order"
+                              >
+                                Edit Order
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                };
+
+                const renderOrderColumn = (
+                  groups: DayGroup[],
+                  isShippedColumn: boolean,
+                  emptyState: React.ReactNode
+                ) => (
+                  <div className="flex flex-col gap-2 max-h-[40vh] md:max-h-[calc(100vh-16rem)] overflow-y-auto no-scrollbar">
+                    {loading ? (
+                      <ShipOrderListSkeleton />
+                    ) : groups.length > 0 ? (
+                      <div className="space-y-3">
+                        {groups.map((group) => (
+                          <div key={group.key} className="space-y-1.5">
+                            <div className="sticky top-0 z-[1] px-2 py-1 text-[9px] font-black uppercase tracking-widest text-muted/60 bg-card/80 backdrop-blur-sm">
+                              {group.label}
+                            </div>
+                            {group.orders.map((order) => renderOrderCard(order, isShippedColumn))}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      emptyState
+                    )}
                   </div>
-                ) : (
-                  <div className="h-full flex flex-col items-center justify-center text-text-muted space-y-4 py-8">
-                    <p className="font-heading text-xl font-bold opacity-30">No orders found</p>
+                );
+
+                return (
+                  <div className={`flex flex-col gap-3 ${includeShipped ? 'md:flex-row' : ''}`}>
+                    {/* To Ship — always visible, the permanent default column. */}
+                    <div className={includeShipped ? 'md:flex-1 md:min-w-0' : 'w-full'}>
+                      <div className="px-2 -mt-0.5 mb-1 space-y-1">
+                        <p className="text-[10px] font-bold text-muted">
+                          {readyToShipVisibleCount} ready to ship
+                        </p>
+                        {searchQuery.trim() && (
+                          <p
+                            className="text-[10px] font-bold text-muted/80 truncate"
+                            title={filterSummary}
+                          >
+                            search: "{searchQuery.trim()}"
+                          </p>
+                        )}
+                      </div>
+                      {renderOrderColumn(
+                        ordersGroupedByDate,
+                        false,
+                        <div className="h-full flex flex-col items-center justify-center text-text-muted space-y-4 py-8">
+                          <p className="font-heading text-xl font-bold opacity-30">
+                            No orders found
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Shipped — an extra column revealed by the checkbox, never a
+                        replacement for the To Ship column above. */}
+                    {includeShipped && (
+                      <div className="md:flex-1 md:min-w-0 md:border-l md:border-subtle md:pl-3">
+                        <div className="px-2 -mt-0.5 mb-1 space-y-1">
+                          <p className="text-[10px] font-bold text-muted">Today only</p>
+                        </div>
+                        {renderOrderColumn(
+                          shippedGroupedByDate,
+                          true,
+                          <div className="flex flex-col items-center justify-center text-center py-6 px-3 gap-3">
+                            <p className="text-xs text-muted">
+                              No orders were marked as shipped today.
+                            </p>
+                            <button
+                              onClick={() => navigate('/orders')}
+                              className="px-3 py-2 rounded-xl border border-subtle bg-surface text-content text-[10px] font-black uppercase tracking-widest hover:border-accent/40 hover:text-accent transition-all active:scale-95"
+                            >
+                              View all orders
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                );
+              })()}
             </div>
           </div>
         </div>
