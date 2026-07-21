@@ -5,6 +5,7 @@ import { SearchInput } from '../../components/ui/SearchInput';
 import { useViewMode } from '../../context/ViewModeContext';
 import { useDebounce } from '../../hooks/useDebounce';
 import { CarrierFilter } from '../picking/components/board/CarrierFilter';
+import { getCarrierLabel as getCarrierLabelShared } from '../../utils/shippingClassification';
 import {
   computeBikesParts,
   isFedexOrder,
@@ -14,18 +15,10 @@ import {
 import { OrderRowCard } from './components/OrderRowCard';
 import { printOrderDetail } from './lib/printOrderDetail';
 
-/**
- * FedEx orders count as the 'FEDEX' carrier; everything else uses its
- * transport_company. PICK UP is checked first — isFedexOrder() falls back to
- * auto-classifying by weight/bike-count when shipping_type is unset, and a
- * PICK UP order (no truck, no shipping_type) would otherwise default into
- * 'fedex' and vanish from its own carrier filter chip.
- */
+/** Thin wrapper over the shared carrier-label classifier (shared with Ship
+ *  and the Live Board), typed to this screen's OrderRow shape. */
 function getCarrierLabel(order: OrderRow): string | null {
-  const explicit = order.transport_company?.trim().toUpperCase() || null;
-  if (explicit === 'PICK UP') return explicit;
-  if (isFedexOrder(order)) return 'FEDEX';
-  return explicit;
+  return getCarrierLabelShared(order.transport_company, isFedexOrder(order));
 }
 
 const DEFAULT_LIMIT = 20;

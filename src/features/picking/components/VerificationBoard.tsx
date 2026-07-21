@@ -13,6 +13,8 @@ import { useAuth } from '../../../context/AuthContext';
 import {
   isFedexOrder as isFedexOrderShared,
   isDeliberateCombineGroupType,
+  getCarrierLabel as getCarrierLabelShared,
+  type ClassifiableItem,
 } from '../../../utils/shippingClassification';
 import { SortableOrderCard, StaticOrderCard } from './board/SortableOrderCard';
 import { CompletedZone } from './board/CompletedZone';
@@ -49,6 +51,33 @@ const LANE_GRID = 'grid grid-cols-1 gap-2';
 
 // Lightweight drop target wrapper. Transparent drop region — line-based
 // separators handle the visual structure.
+
+/** Maps a PickingList's loosely-typed JSONB items to the canonical
+ *  ClassifiableItem shape used by shippingClassification.ts. */
+function toClassifiableItems(items: PickingList['items']): ClassifiableItem[] {
+  return (items ?? []).map((i) => ({
+    sku: String((i as Record<string, unknown>).sku ?? ''),
+    pickingQty: Number((i as Record<string, unknown>).pickingQty ?? 0),
+    source_order: (i as Record<string, unknown>).source_order as string | undefined,
+    sku_metadata: (i as Record<string, unknown>).sku_metadata as
+      | { is_bike?: boolean | null }
+      | null
+      | undefined,
+  }));
+}
+
+/** Carrier chip/filter label — same canonical classifier Orders and Ship
+ *  use, so a FedEx order without an explicit transport_company can't read
+ *  as "Unassigned" here while showing correctly as FedEx everywhere else. */
+function classifyOrderCarrier(order: PickingList): string | null {
+  const fedex = isFedexOrderShared({
+    shipping_type: order.shipping_type,
+    transport_company: order.transport_company,
+    order_group: order.order_group,
+    items: toClassifiableItems(order.items),
+  });
+  return getCarrierLabelShared(order.transport_company, fedex);
+}
 
 interface VerificationBoardProps {
   onClose: () => void;
@@ -109,29 +138,20 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     setIncludeUnassigned(include);
   }, []);
 
-  // Normalize transport_company: treat empty/null as unassigned
-  const getNormalizedCarrier = (company: string | null | undefined): string | null => {
-    const trimmed = (company ?? '').trim();
-    return trimmed || null;
-  };
-
-  // Check if there are unassigned orders and get available carriers
-  const hasUnassignedOrders = completedOrders.some(
-    (o) => !getNormalizedCarrier(o.transport_company)
-  );
+  // Check if there are unassigned orders and get available carriers — via
+  // the same canonical classifier as Orders/Ship (classifyOrderCarrier),
+  // not the raw transport_company column, so a FedEx order without an
+  // explicit carrier assigned doesn't show up here as "Unassigned".
+  const hasUnassignedOrders = completedOrders.some((o) => !classifyOrderCarrier(o));
   const availableCarriers = Array.from(
-    new Set(
-      completedOrders
-        .map((o) => getNormalizedCarrier(o.transport_company))
-        .filter((c): c is string => !!c)
-    )
+    new Set(completedOrders.map(classifyOrderCarrier).filter((c): c is string => !!c))
   ).sort();
 
   // Count orders by carrier type
   const carrierCounts = new Map<string, number>();
   let unassignedCount = 0;
   completedOrders.forEach((order) => {
-    const carrier = getNormalizedCarrier(order.transport_company);
+    const carrier = classifyOrderCarrier(order);
     if (carrier) {
       carrierCounts.set(carrier, (carrierCounts.get(carrier) ?? 0) + 1);
     } else {
@@ -141,7 +161,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
 
   // Filter completed orders by carrier
   const filteredCompletedOrders = completedOrders.filter((order) => {
-    const normalizedCarrier = getNormalizedCarrier(order.transport_company);
+    const normalizedCarrier = classifyOrderCarrier(order);
     const isUnassigned = normalizedCarrier === null;
     const isSelectedCarrier = normalizedCarrier && selectedCarriers.has(normalizedCarrier);
 
@@ -274,20 +294,11 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     // here can't read as Regular/unassigned once it lands on either screen.
     const orderShippingTypes = new Map<string, 'fedex' | 'regular'>();
     for (const order of allForGrouping) {
-      const items = (order.items ?? []).map((i) => ({
-        sku: String((i as Record<string, unknown>).sku ?? ''),
-        pickingQty: Number((i as Record<string, unknown>).pickingQty ?? 0),
-        source_order: (i as Record<string, unknown>).source_order as string | undefined,
-        sku_metadata: (i as Record<string, unknown>).sku_metadata as
-          | { is_bike?: boolean | null }
-          | null
-          | undefined,
-      }));
       const fedex = isFedexOrderShared({
         shipping_type: order.shipping_type,
         transport_company: order.transport_company,
         order_group: order.order_group,
-        items,
+        items: toClassifiableItems(order.items),
       });
       orderShippingTypes.set(order.id, fedex ? 'fedex' : 'regular');
     }

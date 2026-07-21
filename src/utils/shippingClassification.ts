@@ -110,3 +110,30 @@ export function isFedexOrder(
   if (order.shipping_type) return false;
   return autoClassifyShippingType(order.items ?? [], skuWeights) === 'fedex';
 }
+
+/**
+ * Single source of truth for the carrier chip/filter label shown on
+ * Orders, Ship, and the Live Board — a raw `transport_company` string is
+ * NOT the carrier: FedEx orders routinely have no transport_company set
+ * (auto-classified by weight/bike-count, or inherited from a 'fedex'
+ * group_type) and would otherwise read as "Unassigned" on one screen while
+ * showing correctly as FedEx on another. PICK UP is checked first — it has
+ * no shipping_type/weight signal of its own and would otherwise fall
+ * through to the FedEx auto-classify guess.
+ *
+ * Callers compute `isFedex` via their own typed `isFedexOrder` wrapper
+ * (item shapes vary slightly across screens) and pass it in here alongside
+ * the raw transport_company string.
+ */
+export function getCarrierLabel(
+  transportCompany: string | null | undefined,
+  isFedex: boolean
+): string | null {
+  const explicit =
+    String(transportCompany ?? '')
+      .trim()
+      .toUpperCase() || null;
+  if (explicit === 'PICK UP') return explicit;
+  if (isFedex) return 'FEDEX';
+  return explicit;
+}

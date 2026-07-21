@@ -48,6 +48,7 @@ import { useModal } from '../../context/ModalContext';
 import {
   isFedexOrder as isFedexOrderShared,
   isDeliberateCombineGroupType,
+  getCarrierLabel as getCarrierLabelShared,
 } from '../../utils/shippingClassification';
 import { useOrderGroups } from './hooks/useOrderGroups';
 import { ShippingResolutionModal } from './components/board/ShippingResolutionModal';
@@ -224,16 +225,10 @@ const ORDER_LIST_SELECT = `
   order_group:order_groups(group_type)
 `;
 
-/**
- * FedEx orders count as the 'FEDEX' carrier; everything else uses its
- * transport_company. PICK UP is checked first so it never gets swallowed by
- * a 'fedex' lane classification (mirrors the same guard in OrdersBoardScreen).
- */
+/** Thin wrapper over the shared carrier-label classifier (shared with
+ *  Orders and the Live Board), typed to this screen's OrderWithRelations. */
 function getCarrierLabel(order: OrderWithRelations): string | null {
-  const explicit = order.transport_company?.trim().toUpperCase() || null;
-  if (explicit === 'PICK UP') return explicit;
-  if (isFedexLane(order)) return 'FEDEX';
-  return explicit;
+  return getCarrierLabelShared(order.transport_company, isFedexLane(order));
 }
 
 interface DayGroup {
