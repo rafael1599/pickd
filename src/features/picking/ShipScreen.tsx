@@ -4,7 +4,6 @@ import { orderColorFor } from '../../utils/orderColors';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { useDebounce } from '../../hooks/useDebounce';
 
-import Info from 'lucide-react/dist/esm/icons/info';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { LivePrintPreview } from '../../components/orders/LivePrintPreview.tsx';
@@ -363,7 +362,6 @@ export const ShipScreen = () => {
   // default view, "Shipped" on the right is an extra column revealed by the
   // checkbox — never a replacement, so nothing gets hidden by switching tabs.
   const [includeShipped, setIncludeShipped] = useState(false);
-  const [hoveredTabInfo, setHoveredTabInfo] = useState<'to_ship' | 'shipped' | null>(null);
   const [showShippingPreview, setShowShippingPreview] = useState(false);
   const [isShippingBatch, setIsShippingBatch] = useState(false);
 
@@ -2293,26 +2291,7 @@ export const ShipScreen = () => {
               {/* Card header — title + Shipped checkbox, then Filter by
                   Carrier (moved down from the page-level header). */}
               <div className="px-2 pb-1 flex items-center justify-between min-h-[24px] gap-3">
-                <span
-                  role="button"
-                  tabIndex={0}
-                  aria-label="How To Ship is calculated"
-                  onMouseEnter={() => setHoveredTabInfo('to_ship')}
-                  onMouseLeave={() =>
-                    setHoveredTabInfo((current) => (current === 'to_ship' ? null : current))
-                  }
-                  onFocus={() => setHoveredTabInfo('to_ship')}
-                  onBlur={() =>
-                    setHoveredTabInfo((current) => (current === 'to_ship' ? null : current))
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      setHoveredTabInfo('to_ship');
-                    }
-                  }}
-                  className="text-sm font-black uppercase tracking-wider text-content cursor-help min-w-0 truncate"
-                >
+                <span className="text-sm font-black uppercase tracking-wider text-content min-w-0 truncate">
                   To Ship ({toShipCount})
                 </span>
 
@@ -2339,34 +2318,6 @@ export const ShipScreen = () => {
                     >
                       Shipped ({shippedCount})
                     </span>
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      aria-label="How Shipped is calculated"
-                      onClick={(e) => e.stopPropagation()}
-                      onMouseEnter={(e) => {
-                        e.stopPropagation();
-                        setHoveredTabInfo('shipped');
-                      }}
-                      onMouseLeave={(e) => {
-                        e.stopPropagation();
-                        setHoveredTabInfo((current) => (current === 'shipped' ? null : current));
-                      }}
-                      onFocus={() => setHoveredTabInfo('shipped')}
-                      onBlur={() =>
-                        setHoveredTabInfo((current) => (current === 'shipped' ? null : current))
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setHoveredTabInfo('shipped');
-                        }
-                      }}
-                      className="inline-flex items-center justify-center rounded-full border border-subtle bg-bg-main px-1.5 py-0.5 text-[10px] font-black text-content/80 hover:border-accent/40 hover:text-accent cursor-help shrink-0"
-                    >
-                      <Info size={10} className="text-current" />
-                    </span>
                   </label>
                 </div>
               </div>
@@ -2383,16 +2334,6 @@ export const ShipScreen = () => {
                     onCarrierToggle={handleCarrierToggle}
                     onUnassignedToggle={setIncludeUnassigned}
                   />
-                </div>
-              )}
-
-              {hoveredTabInfo && (
-                <div className="px-2 pb-1">
-                  <div className="rounded-2xl border border-subtle bg-surface px-3 py-2 text-[10px] font-bold leading-relaxed text-content shadow-lg">
-                    {hoveredTabInfo === 'to_ship'
-                      ? `To Ship shows every order that has not been marked as shipped yet${searchQuery.trim() ? ` and matches "${searchQuery.trim()}"` : ''}.`
-                      : `Shipped shows only orders marked as shipped today${searchQuery.trim() ? ` that also match "${searchQuery.trim()}"` : ''}.`}
-                  </div>
                 </div>
               )}
 
