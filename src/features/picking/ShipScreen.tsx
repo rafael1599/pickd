@@ -361,7 +361,7 @@ export const ShipScreen = () => {
   // The order list is always split: "To Ship" on the left is the permanent
   // default view, "Shipped" on the right is an extra column revealed by the
   // checkbox — never a replacement, so nothing gets hidden by switching tabs.
-  const [includeShipped, setIncludeShipped] = useState(false);
+  const [includeShipped, setIncludeShipped] = useState(true);
   const [showShippingPreview, setShowShippingPreview] = useState(false);
   const [isShippingBatch, setIsShippingBatch] = useState(false);
 
