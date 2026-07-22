@@ -47,7 +47,7 @@ export async function printOrderDetail(
   const orderNumber = order.order_number || order.id.slice(-6);
 
   const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
-  const orderUrl = `${baseUrl}/orders?order=${order.id}`;
+  const orderUrl = `${baseUrl}/orders?order=${orderNumber}`;
   const QRCode = await import('qrcode');
   const qrDataUrl = await QRCode.toDataURL(orderUrl, {
     width: 200,
