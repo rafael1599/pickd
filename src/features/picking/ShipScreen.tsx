@@ -33,7 +33,7 @@ import { SplitOrderModal } from '../../components/orders/SplitOrderModal.tsx';
 import { SearchInput } from '../../components/ui/SearchInput.tsx';
 import type { PickingListItem, CombineMeta } from '../../schemas/picking.schema';
 import { saveCustomerAddress } from '../../lib/customerAddresses';
-import { DoubleCheckHeader } from './components/DoubleCheckHeader';
+
 import { ShipHeader } from './ship/components/header/ShipHeader';
 import { PartsWeightEditor } from './ship/components/details/PartsWeightEditor';
 import { OrderItemsTable } from './ship/components/details/OrderItemsTable';

@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useViewMode } from '../../context/ViewModeContext';
 import { ModalProvider } from '../../context/ModalContext';
 import { UserMenu } from './UserMenu';
-import { DoubleCheckHeader } from '../../features/picking/components/DoubleCheckHeader';
+
 import { SyncStatusIndicator } from './SyncStatusIndicator';
 import { PickingCartDrawer } from '../../features/picking/components/PickingCartDrawer';
 import { PullToRefresh } from '../ui/PullToRefresh';
@@ -130,8 +130,6 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <DoubleCheckHeader />
-
                   <SyncStatusIndicator />
 
                   <button

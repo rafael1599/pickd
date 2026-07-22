@@ -1,5 +1,4 @@
 import React from 'react';
-import { DoubleCheckHeader } from '../../../components/DoubleCheckHeader';
 
 export const ShipHeader: React.FC = () => {
   return (
@@ -9,7 +8,6 @@ export const ShipHeader: React.FC = () => {
           <h1 className="text-xl md:text-2xl font-black uppercase tracking-tight text-content">
             Ship
           </h1>
-          <DoubleCheckHeader />
         </div>
       </div>
     </header>
