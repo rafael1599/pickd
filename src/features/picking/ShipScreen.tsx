@@ -1,10 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from 'react';
 import { supabase } from '../../lib/supabase.ts';
-import { orderColorFor } from '../../utils/orderColors';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { useDebounce } from '../../hooks/useDebounce';
-import shippedImg from '../../assets/shipped.png';
-import shippedFedexImg from '../../assets/shipped-fedex.png';
 
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -37,8 +34,10 @@ import { SplitOrderModal } from '../../components/orders/SplitOrderModal.tsx';
 import { SearchInput } from '../../components/ui/SearchInput.tsx';
 import type { PickingListItem, CombineMeta } from '../../schemas/picking.schema';
 import { saveCustomerAddress } from '../../lib/customerAddresses';
-import { ReasonPicker } from './components/ReasonPicker';
 import { DoubleCheckHeader } from './components/DoubleCheckHeader';
+import { ShipHeader } from './ship/components/header/ShipHeader';
+import { PartsWeightEditor } from './ship/components/details/PartsWeightEditor';
+import { ShipFeedCard } from './ship/components/feed/ShipFeedCard';
 import { ShippingFlowPreviewModal } from './components/ShippingFlowPreviewModal';
 import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.service';
 import { useUnmarkWaiting } from './hooks/useWaitingOrders';
@@ -2090,23 +2089,7 @@ export const ShipScreen = () => {
 
   return (
     <div className="relative flex flex-col h-screen w-full overflow-hidden bg-bg-main font-body">
-      {/* Header — title, then full-width search. Filter by Carrier now lives
-          inside the order-list card below as its own header. */}
-      <header className="shrink-0 ios-glass !border-none !shadow-none px-4 md:px-6 py-4 z-[100]">
-        <div className="w-full flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-3">
-            <h1 className="text-2xl font-black uppercase tracking-tight text-content">Ship</h1>
-            <DoubleCheckHeader />
-          </div>
-          <SearchInput
-            variant="inline"
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder="Search orders or customer..."
-            preferenceId="ship"
-          />
-        </div>
-      </header>
+      <ShipHeader searchQuery={searchQuery} onSearchChange={setSearchQuery} />
 
       {/* Main scroll area */}
       <div
@@ -2304,60 +2287,15 @@ export const ShipScreen = () => {
                     autoWeight={totalWeight}
                   />
 
-                  {/* Parts Weight Editor (idea-028) */}
-                  {partsWithWeights.length > 0 && (
-                    <div className="w-full max-w-md bg-surface rounded-2xl border border-subtle overflow-hidden">
-                      <div className="px-4 py-3 border-b border-subtle">
-                        <h3 className="text-[10px] font-black uppercase tracking-widest text-muted">
-                          Parts Weight
-                        </h3>
-                      </div>
-                      <div className="divide-y divide-subtle">
-                        {partsWithWeights.map((part) => (
-                          <div
-                            key={part.sku}
-                            className="flex items-center justify-between px-4 py-3 gap-3"
-                          >
-                            <div className="flex items-center gap-3 min-w-0">
-                              <span className="font-mono font-bold text-xs text-content truncate">
-                                {part.sku}
-                              </span>
-                              <span className="text-[10px] text-muted font-bold shrink-0">
-                                ×{part.qty}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <input
-                                type="number"
-                                value={part.weight || ''}
-                                onChange={(e) => {
-                                  const val = parseFloat(e.target.value);
-                                  if (isNaN(val) || val < 0) return;
-                                  setSkuMeta((prev) => ({
-                                    ...prev,
-                                    [part.sku]: { ...prev[part.sku], weight_lbs: val },
-                                  }));
-                                  supabase
-                                    .from('sku_metadata')
-                                    .upsert(
-                                      { sku: part.sku, weight_lbs: val },
-                                      { onConflict: 'sku' }
-                                    );
-                                }}
-                                step="0.1"
-                                min="0"
-                                className="w-16 text-right bg-main border border-subtle rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-content focus:outline-none focus:border-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                              />
-                              <span className="text-[10px] text-muted font-bold">lbs</span>
-                              <span className="text-[10px] text-muted/40 font-bold">
-                                ={((part.weight || 0) * part.qty).toFixed(1)}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  <PartsWeightEditor
+                    partsWithWeights={partsWithWeights}
+                    onWeightChange={(sku, weight) => {
+                      setSkuMeta((prev) => ({
+                        ...prev,
+                        [sku]: { ...prev[sku], weight_lbs: weight },
+                      }));
+                    }}
+                  />
                 </>
               )}
             </OrderDetailsContainer>
@@ -2416,203 +2354,36 @@ export const ShipScreen = () => {
               )}
 
               {(() => {
-                const renderOrderCard = (order: OrderWithRelations, isShippedColumn: boolean) => {
-                  const isSelected = selectedOrder?.id === order.id;
-                  const isFedex = isFedexLane(order);
-                  const shippingStripe =
-                    order.transport_company === 'PICK UP'
-                      ? 'bg-red-500/70'
-                      : isFedex
-                        ? 'bg-purple-500/70'
-                        : 'bg-emerald-500/70';
-                  return (
-                    <div
-                      key={order.id}
-                      className={`w-full flex items-stretch rounded-2xl border transition-all overflow-hidden ${
-                        isSelected
-                          ? 'bg-accent/10 border-accent/30'
-                          : 'bg-surface border-transparent hover:border-subtle'
-                      }`}
-                    >
-                      <div className={`w-1.5 shrink-0 ${shippingStripe}`} />
-                      <div className="flex-1 flex items-center justify-between gap-2 px-3 py-2.5 min-w-0">
-                        <div
-                          className="min-w-0 flex-1 flex flex-col cursor-pointer"
-                          onClick={() => setSelectedOrder(order)}
-                        >
-                          <span
-                            className="font-mono text-sm font-black text-content flex items-center gap-1 flex-wrap"
-                            title={
-                              order.order_number?.includes(' / ')
-                                ? order.order_number
-                                    .split(' / ')
-                                    .map((n) => n.trim())
-                                    .sort((a, b) =>
-                                      b.localeCompare(a, undefined, { numeric: true })
-                                    )
-                                    .map((n) => `#${n}`)
-                                    .join(', ')
-                                : undefined
-                            }
-                          >
-                            {order.order_number?.includes(' / ') ? (
-                              <span>
-                                <span className="text-muted/60">#</span>
-                                {order.order_number
-                                  .split(' / ')
-                                  .map((n) => n.trim())
-                                  .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
-                                  .map((num, i, arr) => (
-                                    <Fragment key={`${num}-${i}`}>
-                                      {i > 0 && <span className="text-muted/50"> / </span>}
-                                      <span style={{ color: orderColorFor(num.trim(), arr).hex }}>
-                                        {num.trim().slice(-3)}
-                                      </span>
-                                    </Fragment>
-                                  ))}
-                              </span>
-                            ) : (
-                              <>#{order.order_number}</>
-                            )}
-                          </span>
-
-                          <span className="text-[11px] text-muted truncate">
-                            {order.customer?.name || '—'}
-                          </span>
-                          <div className="flex flex-col gap-0.5 mt-1 text-[9px] text-muted">
-                            {!order.is_shipped && (
-                              <span>
-                                Created:{' '}
-                                {new Date(order.created_at).toLocaleDateString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                })}
-                              </span>
-                            )}
-                          </div>
-                          <OrderProgressBar
-                            status={order.status}
-                            isShipped={order.is_shipped ?? false}
-                            items={order.items}
-                            verifiedKeys={order.verified_item_keys ?? null}
-                            totalUnits={order.total_units || 0}
-                            className="mt-2 w-full"
-                          />
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {isShippedColumn ? (
-                            <img
-                              src={isFedex ? shippedFedexImg : shippedImg}
-                              alt={isFedex ? 'Shipped via FedEx' : 'Shipped'}
-                              className="h-7 w-auto object-contain select-none shrink-0"
-                            />
-                          ) : (
-                            <TransportLogo
-                              company={order.transport_company || (isFedex ? 'FEDEX' : null)}
-                              height={14}
-                              className="select-none shrink-0"
-                            />
-                          )}
-                          {isShippedColumn ? (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleUndoShipOrder(order);
-                              }}
-                              className="p-1 rounded bg-amber-500/15 border border-amber-500/30 text-amber-500 hover:bg-amber-500 hover:text-white transition-all active:scale-95 flex items-center justify-center"
-                              title="Undo Shipped"
-                            >
-                              <RotateCcw size={14} />
-                            </button>
-                          ) : (
-                            <>
-                              {order.status === 'completed' ? (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleShipOrderClick(order);
-                                  }}
-                                  className="px-2 py-1 rounded-lg bg-accent/15 border border-accent/30 text-accent hover:bg-accent hover:text-white transition-all active:scale-95 flex items-center justify-center text-[9px] font-black uppercase tracking-wider"
-                                  title="Mark as Shipped"
-                                >
-                                  <Truck size={14} />
-                                </button>
-                              ) : order.status === 'reopened' ? (
-                                <button
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    if (order.id !== selectedOrder?.id) {
-                                      setSelectedOrder(order);
-                                    }
-                                    try {
-                                      if (order.user_id !== user?.id) {
-                                        await takeOverOrder(order.id);
-                                      }
-                                      await resumeReopenedOrder(order.id);
-                                      setViewMode('picking');
-                                      navigate('/');
-                                    } catch {
-                                      // Errors are handled by the shared actions.
-                                    }
-                                  }}
-                                  className="px-2 py-1 rounded-lg bg-orange-500/10 border border-orange-500/30 text-orange-400 hover:bg-orange-500 hover:text-white transition-all active:scale-95 flex items-center justify-center text-[9px] font-black uppercase tracking-wider"
-                                  title={
-                                    order.user_id !== user?.id
-                                      ? 'Take Over Order'
-                                      : 'Continue Editing'
-                                  }
-                                >
-                                  {order.user_id !== user?.id
-                                    ? 'Take Over Order'
-                                    : 'Continue Editing'}
-                                </button>
-                              ) : order.is_waiting_inventory ? (
-                                <button
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    try {
-                                      await handleResumeWaitingOrder(order);
-                                    } catch {
-                                      // Error toast comes from the waiting mutation.
-                                    }
-                                  }}
-                                  className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all active:scale-95 flex items-center justify-center text-[9px] font-black uppercase tracking-wider"
-                                  title="Resume Order"
-                                >
-                                  Resume Order
-                                </button>
-                              ) : ['ready_to_double_check', 'double_checking'].includes(
-                                  order.status
-                                ) ? (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openOrderInDoubleCheck(order);
-                                  }}
-                                  className="px-2 py-1 rounded-lg bg-sky-500/10 border border-sky-500/30 text-sky-400 hover:bg-sky-500 hover:text-white transition-all active:scale-95 flex items-center justify-center text-[9px] font-black uppercase tracking-wider"
-                                  title="Double Check"
-                                >
-                                  Double Check
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openOrderInDoubleCheck(order, 'edit');
-                                  }}
-                                  className="px-2 py-1 rounded-lg bg-sky-500/10 border border-sky-500/30 text-sky-400 hover:bg-sky-500 hover:text-white transition-all active:scale-95 flex items-center justify-center text-[9px] font-black uppercase tracking-wider"
-                                  title="Edit Order"
-                                >
-                                  Edit Order
-                                </button>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                };
+                const renderOrderCard = (order: OrderWithRelations, isShippedColumn: boolean) => (
+                  <ShipFeedCard
+                    key={order.id}
+                    order={order}
+                    isSelected={selectedOrder?.id === order.id}
+                    isShippedColumn={isShippedColumn}
+                    isFedex={isFedexLane(order)}
+                    userId={user?.id}
+                    onSelect={setSelectedOrder}
+                    onUndoShip={handleUndoShipOrder}
+                    onShipClick={handleShipOrderClick}
+                    onResumeWaiting={handleResumeWaitingOrder}
+                    onOpenDoubleCheck={openOrderInDoubleCheck}
+                    onResumeReopened={async (ord) => {
+                      if (ord.id !== selectedOrder?.id) {
+                        setSelectedOrder(ord);
+                      }
+                      try {
+                        if (ord.user_id !== user?.id) {
+                          await takeOverOrder(ord.id);
+                        }
+                        await resumeReopenedOrder(ord.id);
+                        setViewMode('picking');
+                        navigate('/');
+                      } catch {
+                        // Errors handled by shared actions
+                      }
+                    }}
+                  />
+                );
 
                 const renderOrderColumn = (
                   groups: DayGroup[],
