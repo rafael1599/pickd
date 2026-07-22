@@ -1,5 +1,4 @@
 import Box from 'lucide-react/dist/esm/icons/box';
-import ClipboardList from 'lucide-react/dist/esm/icons/clipboard-list';
 import Printer from 'lucide-react/dist/esm/icons/printer';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useViewMode } from '../../context/ViewModeContext';
@@ -74,13 +73,6 @@ export const BottomNavigation = () => {
           label="STOCK"
           isActive={location.pathname === '/' && viewMode === 'stock'}
           onClick={handleStockClick}
-          isCompact={isSearching}
-        />
-        <NavItem
-          icon={ClipboardList}
-          label="ORDERS"
-          isActive={location.pathname === '/orders'}
-          onClick={() => navigate('/orders')}
           isCompact={isSearching}
         />
         <NavItem

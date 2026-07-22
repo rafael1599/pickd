@@ -27,9 +27,6 @@ const LoginScreen = lazyWithRetry(() =>
 const ShipScreen = lazyWithRetry(() =>
   import('./features/picking/ShipScreen.tsx').then((m) => ({ default: m.ShipScreen }))
 );
-const OrdersBoardScreen = lazyWithRetry(() =>
-  import('./features/orders/OrdersBoardScreen.tsx').then((m) => ({ default: m.OrdersBoardScreen }))
-);
 const SnapshotViewer = lazyWithRetry(() =>
   import('./features/inventory/SnapshotViewer.tsx').then((m) => ({ default: m.SnapshotViewer }))
 );
@@ -96,7 +93,7 @@ import { StagingBanner } from './components/layout/StagingBanner.tsx';
 const OrderParamRedirect = () => {
   const { orderNumber } = useParams<{ orderNumber: string }>();
   if (!orderNumber) return <Navigate to="/" replace />;
-  return <Navigate to={`/orders?order=${encodeURIComponent(orderNumber)}`} replace />;
+  return <Navigate to={`/ship?order=${encodeURIComponent(orderNumber)}`} replace />;
 };
 
 // Content accessible only after login
@@ -123,7 +120,7 @@ const AuthenticatedContent = () => {
             <Routes>
               <Route path="/" element={<InventoryScreen />} />
               <Route path="/history" element={<HistoryScreen />} />
-              <Route path="/orders" element={<OrdersBoardScreen />} />
+              <Route path="/orders" element={<Navigate to="/ship" replace />} />
               <Route path="/ship" element={<ShipScreen />} />
               <Route
                 path="/settings"

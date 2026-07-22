@@ -2130,15 +2130,7 @@ export const ShipScreen = () => {
                         setSelectedOrder(filteredOrders[currentIndex - 1]);
                       }
                     }}
-                    onShowPickingSummary={() => {
-                      setExternalOrderId(selectedOrder?.id ?? null);
-                      navigate('/orders', {
-                        state: {
-                          searchOrderNumber: selectedOrder?.order_number,
-                          targetId: selectedOrder?.id,
-                        },
-                      });
-                    }}
+                    onShowPickingSummary={() => setIsShowingPickingSummary(true)}
                     onSplitOrder={() => setIsShowingSplitModal(true)}
                     onReopenOrder={handleReopenOrder}
                     onRestoreOrder={handleRestoreOrder}
@@ -2291,12 +2283,6 @@ export const ShipScreen = () => {
                             <p className="text-xs text-muted">
                               No orders were marked as shipped today.
                             </p>
-                            <button
-                              onClick={() => navigate('/orders')}
-                              className="px-3 py-2 rounded-xl border border-subtle bg-surface text-content text-[10px] font-black uppercase tracking-widest hover:border-accent/40 hover:text-accent transition-all active:scale-95"
-                            >
-                              View all orders
-                            </button>
                           </div>
                         )}
                       </div>

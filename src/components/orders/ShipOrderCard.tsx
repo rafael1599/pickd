@@ -12,7 +12,6 @@ import Copy from 'lucide-react/dist/esm/icons/copy';
 import Check from 'lucide-react/dist/esm/icons/check';
 import Eye from 'lucide-react/dist/esm/icons/eye';
 import toast from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { CustomerAutocomplete } from '../../features/picking/components/CustomerAutocomplete';
 import { usePickingSession } from '../../context/PickingContext';
@@ -234,7 +233,6 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   const clearSaveRef = useRef<NodeJS.Timeout | null>(null);
   const { deleteList } = usePickingSession();
   const { showConfirmation } = useConfirmation();
-  const navigate = useNavigate();
 
   const { addresses } = useCustomerAddresses(selectedCustomerId);
 
@@ -874,14 +872,6 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           onClick={() => {
             if (onShowPickingSummary) {
               onShowPickingSummary();
-            } else {
-              // Fallback if not provided
-              navigate('/orders', {
-                state: {
-                  searchOrderNumber: selectedOrder.order_number,
-                  targetId: selectedOrder.id,
-                },
-              });
             }
           }}
           className="flex-1 min-w-[160px] flex items-center justify-center gap-2 h-12 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-2xl text-[10px] font-black uppercase tracking-widest text-blue-500 transition-all active:scale-95"
