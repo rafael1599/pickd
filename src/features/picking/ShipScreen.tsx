@@ -1986,9 +1986,9 @@ export const ShipScreen = () => {
       {/* Main scroll area */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto no-scrollbar relative bg-bg-main px-4 md:px-6 pb-32"
+        className="flex-1 overflow-y-auto no-scrollbar relative bg-bg-main px-4 md:px-6 pb-20"
       >
-        <div className="w-full flex flex-col md:flex-row gap-4 md:gap-6 pt-4 items-start">
+        <div className="w-full flex flex-col md:flex-row gap-4 md:gap-6 pt-1 md:pt-2 items-start">
           {/* Selected order — desktop 40% / mobile full width */}
           <div className="w-full md:basis-[40%] md:max-w-[40%] min-w-0 flex flex-col gap-6 pb-8 order-first">
             <OrderDetailsContainer
