@@ -315,13 +315,18 @@ export const ShipScreen = () => {
     searchQuery,
     debouncedSearchQuery,
     setSearchQuery,
-    selectedCarriers,
-    includeUnassigned,
-    setIncludeUnassigned,
+    pendingSelectedCarriers,
+    pendingIncludeUnassigned,
+    setPendingIncludeUnassigned,
+    shippedSelectedCarriers,
+    shippedIncludeUnassigned,
+    setShippedIncludeUnassigned,
     includeShipped,
     setIncludeShipped,
-    handleCarrierToggle,
-    matchesCarrierFilter,
+    handlePendingCarrierToggle,
+    handleShippedCarrierToggle,
+    matchesPendingCarrierFilter,
+    matchesShippedCarrierFilter,
     fetchOrders,
   } = useShipOrdersData();
 
@@ -829,11 +834,33 @@ export const ShipScreen = () => {
     // keyed on id only, see comment above
   }, [selectedOrder?.id]);
 
-  const { availableCarriers, carrierCounts, hasUnassignedOrders, unassignedCount } = useMemo(() => {
+  const pendingCarrierStats = useMemo(() => {
     const counts = new Map<string, number>();
     let unassigned = 0;
     for (const o of orders) {
-      if (o.status === 'cancelled') continue;
+      if (o.status === 'cancelled' || o.is_shipped) continue;
+      const carrier = getCarrierLabel(o);
+      if (carrier) {
+        counts.set(carrier, (counts.get(carrier) || 0) + 1);
+      } else {
+        unassigned++;
+      }
+    }
+    return {
+      availableCarriers: Array.from(counts.keys()).sort(),
+      carrierCounts: counts,
+      hasUnassignedOrders: unassigned > 0,
+      unassignedCount: unassigned,
+    };
+  }, [orders]);
+
+  const shippedCarrierStats = useMemo(() => {
+    const todayStr = dayKey(new Date());
+    const counts = new Map<string, number>();
+    let unassigned = 0;
+    for (const o of orders) {
+      if (o.status === 'cancelled' || !o.is_shipped) continue;
+      if (dayKey(new Date(o.updated_at)) !== todayStr) continue;
       const carrier = getCarrierLabel(o);
       if (carrier) {
         counts.set(carrier, (counts.get(carrier) || 0) + 1);
@@ -857,19 +884,8 @@ export const ShipScreen = () => {
       const todayStr = dayKey(new Date());
       const query = debouncedSearchQuery.toLowerCase().trim();
 
-      // 1. Drop cancelled orders only. Grouping has to run BEFORE the tab/
-      //    carrier filter — deciding "to ship" vs "shipped" per raw sibling
-      //    (instead of per combined group) let one already-shipped sibling
-      //    filter itself out while its still-pending twin stayed visible,
-      //    which is what made a combined order look "solita" outside of
-      //    search.
       const notCancelled = orders.filter((o) => o.status !== 'cancelled');
 
-      // 2. Collapse 'general' group siblings into a single virtual entry per
-      //    group_id. We pick the OLDEST (first by created_at ASC) sibling as
-      //    the underlying picking_list — clicks/select operate on its id, and
-      //    loadExternalList merges sibling items via group_id at open time.
-      //    The display order_number becomes "A / B" sorted ascending.
       const byGroup = new Map<string, typeof notCancelled>();
       const ungrouped: typeof notCancelled = [];
       for (const o of notCancelled) {
@@ -889,19 +905,13 @@ export const ShipScreen = () => {
         collapsed.push(combineGeneralGroupSiblings(siblings));
       }
 
-      // 3. Filter by status/tab and the carrier filter panel — now operating
-      //    on the already-combined groups, so a group's shipped state is
-      //    judged as a whole (all siblings shipped) rather than per raw row.
-      //    Search still bypasses the carrier chips (find it regardless of
-      //    what's checked) but never the to-ship/shipped boundary — each
-      //    column always stays true to its own status, split view or not.
       const byCarrier = collapsed.filter((o) => {
         const shippedToday = !!o.is_shipped && dayKey(new Date(o.updated_at)) === todayStr;
         const matchTab = tab === 'shipped' ? shippedToday : !o.is_shipped;
         if (!matchTab) return false;
         if (query) return true;
 
-        return matchesCarrierFilter(o);
+        return tab === 'shipped' ? matchesShippedCarrierFilter(o) : matchesPendingCarrierFilter(o);
       });
 
       // Re-sort by created_at desc to preserve the original list ordering.
@@ -924,7 +934,7 @@ export const ShipScreen = () => {
         return bStartsWith - aStartsWith;
       });
     },
-    [orders, debouncedSearchQuery, matchesCarrierFilter]
+    [orders, debouncedSearchQuery, matchesPendingCarrierFilter, matchesShippedCarrierFilter]
   );
 
   const filteredOrders = useMemo(() => buildOrdersForTab('to_ship'), [buildOrdersForTab]);
@@ -2174,14 +2184,14 @@ export const ShipScreen = () => {
                 includeShipped={includeShipped}
                 onIncludeShippedChange={setIncludeShipped}
                 onStartShippingClick={() => setShowShippingPreview(true)}
-                availableCarriers={availableCarriers}
-                selectedCarriers={selectedCarriers}
-                includeUnassigned={includeUnassigned}
-                hasUnassignedOrders={hasUnassignedOrders}
-                carrierCounts={carrierCounts}
-                unassignedCount={unassignedCount}
-                onCarrierToggle={handleCarrierToggle}
-                onUnassignedToggle={setIncludeUnassigned}
+                availableCarriers={pendingCarrierStats.availableCarriers}
+                selectedCarriers={pendingSelectedCarriers}
+                includeUnassigned={pendingIncludeUnassigned}
+                hasUnassignedOrders={pendingCarrierStats.hasUnassignedOrders}
+                carrierCounts={pendingCarrierStats.carrierCounts}
+                unassignedCount={pendingCarrierStats.unassignedCount}
+                onCarrierToggle={handlePendingCarrierToggle}
+                onUnassignedToggle={setPendingIncludeUnassigned}
               />
 
               {(() => {
@@ -2243,11 +2253,11 @@ export const ShipScreen = () => {
 
                 return (
                   <div className={`flex flex-col gap-3 ${includeShipped ? 'md:flex-row' : ''}`}>
-                    {/* To Ship — always visible, the permanent default column. */}
+                    {/* Pending Ship — always visible, the permanent default column. */}
                     <div className={includeShipped ? 'md:flex-1 md:min-w-0' : 'w-full'}>
                       <div className="px-2 -mt-0.5 mb-1 space-y-1">
                         <p className="text-[10px] font-bold text-muted">
-                          {readyToShipVisibleCount} ready to ship
+                          {readyToShipVisibleCount} pending ship
                         </p>
                         {searchQuery.trim() && (
                           <p
@@ -2269,13 +2279,30 @@ export const ShipScreen = () => {
                       )}
                     </div>
 
-                    {/* Shipped — an extra column revealed by the checkbox, never a
-                        replacement for the To Ship column above. */}
+                    {/* Shipped — an extra column revealed by the checkbox */}
                     {includeShipped && (
                       <div className="md:flex-1 md:min-w-0 md:border-l md:border-subtle md:pl-3">
                         <div className="px-2 -mt-0.5 mb-1 space-y-1">
-                          <p className="text-[10px] font-bold text-muted">Today only</p>
+                          <p className="text-[10px] font-bold text-muted">
+                            Shipped Today ({shippedCount})
+                          </p>
                         </div>
+
+                        {shippedCarrierStats.availableCarriers.length > 0 && (
+                          <div className="px-2 mb-2">
+                            <CarrierFilter
+                              selectedCarriers={shippedSelectedCarriers}
+                              includeUnassigned={shippedIncludeUnassigned}
+                              hasUnassignedOrders={shippedCarrierStats.hasUnassignedOrders}
+                              availableCarriers={shippedCarrierStats.availableCarriers}
+                              carrierCounts={shippedCarrierStats.carrierCounts}
+                              unassignedCount={shippedCarrierStats.unassignedCount}
+                              onCarrierToggle={handleShippedCarrierToggle}
+                              onUnassignedToggle={setShippedIncludeUnassigned}
+                            />
+                          </div>
+                        )}
+
                         {renderOrderColumn(
                           shippedGroupedByDate,
                           true,

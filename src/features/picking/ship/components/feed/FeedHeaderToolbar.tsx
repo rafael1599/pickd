@@ -9,10 +9,10 @@ interface FeedHeaderToolbarProps {
   onIncludeShippedChange: (include: boolean) => void;
   onStartShippingClick: () => void;
   availableCarriers: string[];
-  selectedCarriers: string[];
+  selectedCarriers: Set<string>;
   includeUnassigned: boolean;
   hasUnassignedOrders: boolean;
-  carrierCounts: Record<string, number>;
+  carrierCounts: Map<string, number>;
   unassignedCount: number;
   onCarrierToggle: (carrier: string) => void;
   onUnassignedToggle: (include: boolean) => void;
@@ -38,7 +38,7 @@ export const FeedHeaderToolbar: React.FC<FeedHeaderToolbarProps> = ({
     <>
       <div className="px-2 pb-1 flex items-center justify-between min-h-[24px] gap-3">
         <span className="text-sm font-black uppercase tracking-wider text-content min-w-0 truncate">
-          To Ship ({toShipCount})
+          Pending Ship ({toShipCount})
         </span>
 
         <div className="flex items-center gap-2 shrink-0">

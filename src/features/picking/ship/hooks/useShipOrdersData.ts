@@ -202,47 +202,58 @@ export function useShipOrdersData() {
     return urlOrder ? urlOrder.trim() : '';
   });
   const debouncedSearchQuery = useDebounce(searchQuery, 200);
-  const [selectedCarriers, setSelectedCarriers] = useState<Set<string>>(new Set());
-  const [includeUnassigned, setIncludeUnassigned] = useState(false);
+  // Pending Ship carrier filter state
+  const [pendingSelectedCarriers, setPendingSelectedCarriers] = useState<Set<string>>(new Set());
+  const [pendingIncludeUnassigned, setPendingIncludeUnassigned] = useState(false);
+
+  // Shipped carrier filter state
+  const [shippedSelectedCarriers, setShippedSelectedCarriers] = useState<Set<string>>(new Set());
+  const [shippedIncludeUnassigned, setShippedIncludeUnassigned] = useState(false);
+
   const [includeShipped, setIncludeShipped] = useState(true);
 
   const hasLoadedOnceRef = useRef(false);
 
-  const handleCarrierToggle = useCallback(
-    (carrier: string) => {
-      const isSelecting = !selectedCarriers.has(carrier);
-      setSelectedCarriers((prev) => {
-        const next = new Set(prev);
-        if (next.has(carrier)) {
-          next.delete(carrier);
-        } else {
-          next.add(carrier);
-        }
-        return next;
-      });
-
-      if (isSelecting) {
-        const todayStr = dayKey(new Date());
-        const hasShippedToday = orders.some(
-          (o) =>
-            o.status !== 'cancelled' &&
-            !!o.is_shipped &&
-            dayKey(new Date(o.updated_at)) === todayStr &&
-            getCarrierLabel(o) === carrier
-        );
-        if (hasShippedToday) setIncludeShipped(true);
+  const handlePendingCarrierToggle = useCallback((carrier: string) => {
+    setPendingSelectedCarriers((prev) => {
+      const next = new Set(prev);
+      if (next.has(carrier)) {
+        next.delete(carrier);
+      } else {
+        next.add(carrier);
       }
+      return next;
+    });
+  }, []);
+
+  const handleShippedCarrierToggle = useCallback((carrier: string) => {
+    setShippedSelectedCarriers((prev) => {
+      const next = new Set(prev);
+      if (next.has(carrier)) {
+        next.delete(carrier);
+      } else {
+        next.add(carrier);
+      }
+      return next;
+    });
+  }, []);
+
+  const matchesPendingCarrierFilter = useCallback(
+    (o: OrderWithRelations) => {
+      if (pendingSelectedCarriers.size === 0 && !pendingIncludeUnassigned) return true;
+      const carrier = getCarrierLabel(o);
+      return carrier ? pendingSelectedCarriers.has(carrier) : pendingIncludeUnassigned;
     },
-    [selectedCarriers, orders]
+    [pendingSelectedCarriers, pendingIncludeUnassigned]
   );
 
-  const matchesCarrierFilter = useCallback(
+  const matchesShippedCarrierFilter = useCallback(
     (o: OrderWithRelations) => {
-      if (selectedCarriers.size === 0 && !includeUnassigned) return true;
+      if (shippedSelectedCarriers.size === 0 && !shippedIncludeUnassigned) return true;
       const carrier = getCarrierLabel(o);
-      return carrier ? selectedCarriers.has(carrier) : includeUnassigned;
+      return carrier ? shippedSelectedCarriers.has(carrier) : shippedIncludeUnassigned;
     },
-    [selectedCarriers, includeUnassigned]
+    [shippedSelectedCarriers, shippedIncludeUnassigned]
   );
 
   const fetchOrders = useCallback(async () => {
@@ -336,14 +347,20 @@ export function useShipOrdersData() {
     searchQuery,
     debouncedSearchQuery,
     setSearchQuery,
-    selectedCarriers,
-    setSelectedCarriers,
-    includeUnassigned,
-    setIncludeUnassigned,
+    pendingSelectedCarriers,
+    setPendingSelectedCarriers,
+    pendingIncludeUnassigned,
+    setPendingIncludeUnassigned,
+    shippedSelectedCarriers,
+    setShippedSelectedCarriers,
+    shippedIncludeUnassigned,
+    setShippedIncludeUnassigned,
     includeShipped,
     setIncludeShipped,
-    handleCarrierToggle,
-    matchesCarrierFilter,
+    handlePendingCarrierToggle,
+    handleShippedCarrierToggle,
+    matchesPendingCarrierFilter,
+    matchesShippedCarrierFilter,
     fetchOrders,
   };
 }
