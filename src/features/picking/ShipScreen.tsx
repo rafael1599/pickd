@@ -38,8 +38,8 @@ import { DoubleCheckHeader } from './components/DoubleCheckHeader';
 import { ShipHeader } from './ship/components/header/ShipHeader';
 import { PartsWeightEditor } from './ship/components/details/PartsWeightEditor';
 import { CombineSuggestionBanner } from './ship/components/details/CombineSuggestionBanner';
-import { ShipFeedCard } from './ship/components/feed/ShipFeedCard';
 import { FeedHeaderToolbar } from './ship/components/feed/FeedHeaderToolbar';
+import { ShipModalsManager } from './ship/components/modals/ShipModalsManager';
 import { ShippingFlowPreviewModal } from './components/ShippingFlowPreviewModal';
 import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.service';
 import { useUnmarkWaiting } from './hooks/useWaitingOrders';
@@ -2436,125 +2436,41 @@ export const ShipScreen = () => {
         )}
       </div>
 
-      {/* Picking Summary Modal */}
-      {isShowingPickingSummary && selectedOrder && (
-        <PickingSummaryModal
-          listId={selectedOrder.id}
-          orderNumber={selectedOrder.order_number || ''}
-          customerName={selectedOrder.customer?.name ?? undefined}
-          items={selectedOrder.items || []}
-          completedAt={selectedOrder.updated_at}
-          pickedBy={selectedOrder.user?.full_name ?? undefined}
-          checkedBy={selectedOrder.checker?.full_name ?? undefined}
-          palletPhotos={selectedOrder.pallet_photos ?? undefined}
-          status={selectedOrder.status ?? undefined}
-          onClose={() => setIsShowingPickingSummary(false)}
-        />
-      )}
-
-      {/* Split Order Modal */}
-      {isShowingSplitModal && selectedOrder && (
-        <SplitOrderModal
-          order={selectedOrder as React.ComponentProps<typeof SplitOrderModal>['order']}
-          onClose={() => setIsShowingSplitModal(false)}
-          onSplitComplete={() => {
-            setIsShowingSplitModal(false);
-            setSelectedOrder(null);
-            fetchOrders();
-          }}
-        />
-      )}
-
-      {/* Restore reason modal */}
-      {restoreReasonModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-main/60 backdrop-blur-md p-4">
-          <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 w-full max-w-sm">
-            <h3 className="text-sm font-black text-orange-400 uppercase tracking-widest mb-4">
-              Why are you restoring this order?
-            </h3>
-            <ReasonPicker
-              actionType="restore"
-              selectedReason={restoreReason}
-              onReasonChange={setRestoreReason}
-            />
-            <div className="flex items-center gap-2 mt-4">
-              <button
-                onClick={() => setRestoreReasonModal(false)}
-                className="flex-1 min-h-12 rounded-xl font-black uppercase tracking-widest text-[10px] bg-surface text-muted border border-subtle transition-all hover:bg-surface/80 active:scale-[0.97]"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmRestore}
-                disabled={!restoreReason}
-                className="flex-1 min-h-12 rounded-xl font-black uppercase tracking-widest text-[10px] bg-orange-500 text-white border border-orange-500 transition-all hover:opacity-80 active:scale-[0.97] disabled:opacity-50"
-              >
-                Restore
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Reopen reason modal */}
-      {reopenReasonModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-main/60 backdrop-blur-md p-4">
-          <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 w-full max-w-sm">
-            <h3 className="text-sm font-black text-orange-400 uppercase tracking-widest mb-4">
-              Why are you reopening this order?
-            </h3>
-            <ReasonPicker
-              actionType="reopen"
-              selectedReason={reopenReason}
-              onReasonChange={setReopenReason}
-            />
-            <div className="flex items-center gap-2 mt-4">
-              <button
-                onClick={() => setReopenReasonModal(false)}
-                className="flex-1 min-h-12 rounded-xl font-black uppercase tracking-widest text-[10px] bg-surface text-muted border border-subtle transition-all hover:bg-surface/80 active:scale-[0.97]"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmReopen}
-                disabled={!reopenReason}
-                className="flex-1 min-h-12 rounded-xl font-black uppercase tracking-widest text-[10px] bg-orange-500 text-white border border-orange-500 transition-all hover:opacity-80 active:scale-[0.97] disabled:opacity-50"
-              >
-                Reopen
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <input
-        ref={shipCameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleShipCameraChange}
-        className="hidden"
+      <ShipModalsManager
+        selectedOrder={selectedOrder}
+        isShowingPickingSummary={isShowingPickingSummary}
+        onClosePickingSummary={() => setIsShowingPickingSummary(false)}
+        isShowingSplitModal={isShowingSplitModal}
+        onCloseSplitModal={() => setIsShowingSplitModal(false)}
+        onSplitComplete={() => {
+          setIsShowingSplitModal(false);
+          setSelectedOrder(null);
+          fetchOrders();
+        }}
+        restoreReasonModal={restoreReasonModal}
+        restoreReason={restoreReason}
+        onRestoreReasonChange={setRestoreReason}
+        onCloseRestoreReasonModal={() => setRestoreReasonModal(false)}
+        onConfirmRestore={handleConfirmRestore}
+        reopenReasonModal={reopenReasonModal}
+        reopenReason={reopenReason}
+        onReopenReasonChange={setReopenReason}
+        onCloseReopenReasonModal={() => setReopenReasonModal(false)}
+        onConfirmReopen={handleConfirmReopen}
+        shipCameraInputRef={shipCameraInputRef}
+        onShipCameraChange={handleShipCameraChange}
+        showShippingPreview={showShippingPreview}
+        shippingPreviewOrders={shippingPreviewOrders}
+        onCloseShippingPreview={() => setShowShippingPreview(false)}
+        onConfirmBatchShip={handleBatchShip}
+        isShippingBatch={isShippingBatch}
+        pendingShippingResolutionGroupId={pendingShippingResolutionGroupId}
+        onCloseShippingResolution={() => setPendingShippingResolutionGroupId(null)}
+        onShippingResolutionResolved={() => {
+          setPendingShippingResolutionGroupId(null);
+          fetchOrders();
+        }}
       />
-
-      {showShippingPreview && (
-        <ShippingFlowPreviewModal
-          orders={shippingPreviewOrders}
-          onClose={() => setShowShippingPreview(false)}
-          onConfirm={handleBatchShip}
-          isSubmitting={isShippingBatch}
-        />
-      )}
-
-      {pendingShippingResolutionGroupId && (
-        <ShippingResolutionModal
-          groupId={pendingShippingResolutionGroupId}
-          onClose={() => setPendingShippingResolutionGroupId(null)}
-          onResolved={() => {
-            setPendingShippingResolutionGroupId(null);
-            fetchOrders();
-          }}
-        />
-      )}
     </div>
   );
 };
