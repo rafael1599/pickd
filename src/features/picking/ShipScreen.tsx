@@ -36,6 +36,7 @@ import { saveCustomerAddress } from '../../lib/customerAddresses';
 import { DoubleCheckHeader } from './components/DoubleCheckHeader';
 import { ShipHeader } from './ship/components/header/ShipHeader';
 import { PartsWeightEditor } from './ship/components/details/PartsWeightEditor';
+import { OrderItemsTable } from './ship/components/details/OrderItemsTable';
 import { CombineSuggestionBanner } from './ship/components/details/CombineSuggestionBanner';
 import { FeedHeaderToolbar } from './ship/components/feed/FeedHeaderToolbar';
 import { ShipModalsManager } from './ship/components/modals/ShipModalsManager';
@@ -2154,6 +2155,14 @@ export const ShipScreen = () => {
                       }));
                     }}
                   />
+
+                  {selectedOrder && (
+                    <OrderItemsTable
+                      order={selectedOrder}
+                      bikeCount={bikeCount}
+                      partCount={partCount}
+                    />
+                  )}
                 </>
               )}
             </OrderDetailsContainer>

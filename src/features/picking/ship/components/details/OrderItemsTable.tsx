@@ -1,0 +1,123 @@
+import React from 'react';
+import Printer from 'lucide-react/dist/esm/icons/printer';
+import { printOrderDetail } from '../../../../orders/lib/printOrderDetail';
+import type { OrderWithRelations } from '../../hooks/useShipOrdersData';
+import type { OrderRow } from '../../../../orders/hooks/useOrdersOfDay';
+
+interface OrderItemsTableProps {
+  order: OrderWithRelations;
+  bikeCount: number;
+  partCount: number;
+}
+
+export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
+  order,
+  bikeCount,
+  partCount,
+}) => {
+  const items = React.useMemo(() => {
+    if (!Array.isArray(order.items)) return [];
+    return [...order.items].sort((a, b) => {
+      const locA = a.location || '';
+      const locB = b.location || '';
+      if (locA !== locB) return locA.localeCompare(locB, undefined, { numeric: true });
+      return (a.sku || '').localeCompare(b.sku || '', undefined, { numeric: true });
+    });
+  }, [order.items]);
+
+  const handlePrintClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    void printOrderDetail(order as unknown as OrderRow, { bikes: bikeCount, parts: partCount });
+  };
+
+  return (
+    <div className="w-full bg-surface rounded-2xl border border-subtle overflow-hidden flex flex-col gap-0 shadow-sm mt-3">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-subtle flex items-center justify-between bg-card/50">
+        <div className="flex items-center gap-2">
+          <h3 className="text-xs font-black uppercase tracking-widest text-content">
+            Order Items ({items.length})
+          </h3>
+        </div>
+        <button
+          type="button"
+          onClick={handlePrintClick}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent text-white text-[11px] font-black uppercase tracking-wider hover:bg-accent/90 transition-all active:scale-95 shadow-sm select-none cursor-pointer"
+          title="Print Packing Slip with QR Code"
+        >
+          <Printer size={14} />
+          <span>Print</span>
+        </button>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto no-scrollbar">
+        <table className="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr className="border-b border-subtle bg-main/40 text-[10px] font-black uppercase tracking-wider text-muted select-none">
+              <th className="py-2.5 px-4 text-right w-14">Qty</th>
+              <th className="py-2.5 px-4 font-mono w-36">SKU</th>
+              <th className="py-2.5 px-4">Description</th>
+              <th className="py-2.5 px-4 font-mono w-28">Location</th>
+              <th className="py-2.5 px-4 font-mono w-24">Sublocation</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-subtle/50 text-content">
+            {items.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="py-6 text-center text-muted font-medium text-xs">
+                  No items listed for this order
+                </td>
+              </tr>
+            ) : (
+              items.map((item, idx) => {
+                const qty = item.pickingQty ?? item.quantity ?? 1;
+                const sku = item.sku || item.raw_sku || '—';
+                const desc = item.description || item.item_name || '—';
+                const location = item.location || '—';
+                const sublocRaw = item.sublocation;
+                const sublocation = Array.isArray(sublocRaw)
+                  ? sublocRaw.join('')
+                  : sublocRaw || '—';
+
+                return (
+                  <tr key={`${sku}-${idx}`} className="hover:bg-main/30 transition-colors">
+                    <td className="py-2.5 px-4 font-mono font-bold text-right text-accent">
+                      {qty}
+                    </td>
+                    <td className="py-2.5 px-4 font-mono font-black tracking-tight">{sku}</td>
+                    <td
+                      className="py-2.5 px-4 font-medium text-content/90 truncate max-w-xs"
+                      title={desc}
+                    >
+                      {desc}
+                    </td>
+                    <td className="py-2.5 px-4 font-mono text-muted/90 font-semibold">
+                      {location}
+                    </td>
+                    <td className="py-2.5 px-4 font-mono text-muted/80 font-semibold">
+                      {sublocation}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Footer Print button */}
+      <div className="p-3 border-t border-subtle bg-main/20 flex justify-end">
+        <button
+          type="button"
+          onClick={handlePrintClick}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-white text-xs font-black uppercase tracking-wider hover:bg-accent/90 transition-all active:scale-95 shadow-md select-none cursor-pointer"
+        >
+          <Printer size={15} />
+          <span>Print Document</span>
+        </button>
+      </div>
+    </div>
+  );
+};
