@@ -1969,7 +1969,7 @@ export const ShipScreen = () => {
 
   return (
     <div className="relative flex flex-col h-screen w-full overflow-hidden bg-bg-main font-body">
-      <ShipHeader searchQuery={searchQuery} onSearchChange={setSearchQuery} />
+      <ShipHeader />
 
       {/* Main scroll area */}
       <div
@@ -2166,6 +2166,8 @@ export const ShipScreen = () => {
           <div className="w-full md:basis-[60%] md:max-w-[60%] md:min-w-[22rem] shrink-0 md:sticky md:top-0 order-last">
             <div className="bg-card border border-subtle rounded-3xl p-3 flex flex-col gap-2">
               <FeedHeaderToolbar
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
                 shippedCount={shippedCount}
                 eligibleShippingCount={eligibleShippingOrders.length}
                 includeShipped={includeShipped}

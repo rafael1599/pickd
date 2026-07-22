@@ -46,7 +46,7 @@ export const BottomNavigation = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  if (isNavHidden || location.pathname === '/ship') return null;
+  if (isNavHidden) return null;
 
   const handleStockClick = () => {
     // Explicit signal (idea-129): also closes an open double-check drawer like
