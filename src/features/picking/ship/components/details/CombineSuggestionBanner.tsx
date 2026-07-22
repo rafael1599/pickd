@@ -1,6 +1,6 @@
 import React from 'react';
 import X from 'lucide-react/dist/esm/icons/x';
-import type { OrderWithRelations } from '../../../types';
+import type { OrderWithRelations } from '../../hooks/useShipOrdersData';
 
 interface CombineSuggestionBannerProps {
   candidate: OrderWithRelations;

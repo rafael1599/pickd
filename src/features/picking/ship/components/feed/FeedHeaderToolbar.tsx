@@ -1,5 +1,5 @@
 import React from 'react';
-import { CarrierFilter } from '../../components/board/CarrierFilter';
+import { CarrierFilter } from '../../../components/board/CarrierFilter';
 
 interface FeedHeaderToolbarProps {
   toShipCount: number;

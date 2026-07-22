@@ -6,7 +6,7 @@ import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
 import Truck from 'lucide-react/dist/esm/icons/truck';
 import { OrderProgressBar } from '../../../components/OrderProgressBar';
 import { TransportLogo } from '../../../../../components/orders/TransportLogo';
-import type { OrderWithRelations } from '../../../types';
+import type { OrderWithRelations } from '../../hooks/useShipOrdersData';
 
 interface ShipFeedCardProps {
   order: OrderWithRelations;

@@ -1,10 +1,10 @@
 import React from 'react';
-import { PickingSummaryModal } from '../../../../components/orders/PickingSummaryModal';
-import { SplitOrderModal } from '../../../../components/orders/SplitOrderModal';
-import { ReasonPicker } from '../ReasonPicker';
-import { ShippingFlowPreviewModal } from '../ShippingFlowPreviewModal';
-import { ShippingResolutionModal } from '../board/ShippingResolutionModal';
-import type { OrderWithRelations } from '../../types';
+import { PickingSummaryModal } from '../../../../../components/orders/PickingSummaryModal';
+import { SplitOrderModal } from '../../../../../components/orders/SplitOrderModal';
+import { ReasonPicker } from '../../../components/ReasonPicker';
+import { ShippingFlowPreviewModal } from '../../../components/ShippingFlowPreviewModal';
+import { ShippingResolutionModal } from '../../../components/board/ShippingResolutionModal';
+import type { OrderWithRelations } from '../../hooks/useShipOrdersData';
 
 interface ShipModalsManagerProps {
   selectedOrder: OrderWithRelations | null;
