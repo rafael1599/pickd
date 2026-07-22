@@ -37,7 +37,9 @@ import { saveCustomerAddress } from '../../lib/customerAddresses';
 import { DoubleCheckHeader } from './components/DoubleCheckHeader';
 import { ShipHeader } from './ship/components/header/ShipHeader';
 import { PartsWeightEditor } from './ship/components/details/PartsWeightEditor';
+import { CombineSuggestionBanner } from './ship/components/details/CombineSuggestionBanner';
 import { ShipFeedCard } from './ship/components/feed/ShipFeedCard';
+import { FeedHeaderToolbar } from './ship/components/feed/FeedHeaderToolbar';
 import { ShippingFlowPreviewModal } from './components/ShippingFlowPreviewModal';
 import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.service';
 import { useUnmarkWaiting } from './hooks/useWaitingOrders';
@@ -2173,35 +2175,16 @@ export const ShipScreen = () => {
                     </div>
 
                     {combineSuggestionCandidate && (
-                      <div className="mx-1 mt-2 flex items-center justify-between gap-2 rounded-xl border border-accent/30 bg-accent/10 px-3 py-2">
-                        <p className="text-[11px] font-bold text-content/80 leading-tight">
-                          This customer also has order{' '}
-                          <span className="font-black">
-                            #{combineSuggestionCandidate.order_number}
-                          </span>{' '}
-                          pending — combine them?
-                        </p>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            onClick={handleAcceptCombineSuggestion}
-                            disabled={isAcceptingCombineSuggestion}
-                            className="px-2.5 py-1 rounded-lg bg-accent text-white text-[10px] font-black uppercase tracking-wider disabled:opacity-50"
-                          >
-                            {isAcceptingCombineSuggestion ? 'Combining…' : 'Combine'}
-                          </button>
-                          <button
-                            onClick={() =>
-                              setDismissedCombineSuggestionIds((prev) =>
-                                new Set(prev).add(selectedOrder.id)
-                              )
-                            }
-                            className="p-1 text-muted hover:text-content transition-colors"
-                            title="Dismiss"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                      </div>
+                      <CombineSuggestionBanner
+                        candidate={combineSuggestionCandidate}
+                        isAccepting={isAcceptingCombineSuggestion}
+                        onAccept={handleAcceptCombineSuggestion}
+                        onDismiss={() =>
+                          setDismissedCombineSuggestionIds((prev) =>
+                            new Set(prev).add(selectedOrder.id)
+                          )
+                        }
+                      />
                     )}
 
                     {isActionsMenuOpen && (
@@ -2304,54 +2287,22 @@ export const ShipScreen = () => {
           {/* Vertical order list — desktop 60% / mobile full width */}
           <div className="w-full md:basis-[60%] md:max-w-[60%] md:min-w-[22rem] shrink-0 md:sticky md:top-0 order-last">
             <div className="bg-card border border-subtle rounded-3xl p-3 flex flex-col gap-2">
-              {/* Card header — title + Shipped checkbox, then Filter by
-                  Carrier (moved down from the page-level header). */}
-              <div className="px-2 pb-1 flex items-center justify-between min-h-[24px] gap-3">
-                <span className="text-sm font-black uppercase tracking-wider text-content min-w-0 truncate">
-                  To Ship ({toShipCount})
-                </span>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  {eligibleShippingOrders.length > 0 && (
-                    <button
-                      onClick={() => setShowShippingPreview(true)}
-                      className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border border-accent/30 bg-accent/10 text-accent hover:bg-accent hover:text-white transition-all select-none"
-                    >
-                      Start Shipping ({eligibleShippingOrders.length})
-                    </button>
-                  )}
-                  <label className="flex items-center gap-1.5 cursor-pointer select-none min-w-0">
-                    <input
-                      type="checkbox"
-                      checked={includeShipped}
-                      onChange={(e) => setIncludeShipped(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border-subtle accent-emerald-500 cursor-pointer shrink-0"
-                    />
-                    <span
-                      className={`text-[10px] font-black uppercase tracking-wider ${
-                        includeShipped ? 'text-emerald-400' : 'text-muted'
-                      }`}
-                    >
-                      Shipped ({shippedCount})
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              {availableCarriers.length > 0 && (
-                <div className="px-2">
-                  <CarrierFilter
-                    selectedCarriers={selectedCarriers}
-                    includeUnassigned={includeUnassigned}
-                    hasUnassignedOrders={hasUnassignedOrders}
-                    availableCarriers={availableCarriers}
-                    carrierCounts={carrierCounts}
-                    unassignedCount={unassignedCount}
-                    onCarrierToggle={handleCarrierToggle}
-                    onUnassignedToggle={setIncludeUnassigned}
-                  />
-                </div>
-              )}
+              <FeedHeaderToolbar
+                toShipCount={toShipCount}
+                shippedCount={shippedCount}
+                eligibleShippingCount={eligibleShippingOrders.length}
+                includeShipped={includeShipped}
+                onIncludeShippedChange={setIncludeShipped}
+                onStartShippingClick={() => setShowShippingPreview(true)}
+                availableCarriers={availableCarriers}
+                selectedCarriers={selectedCarriers}
+                includeUnassigned={includeUnassigned}
+                hasUnassignedOrders={hasUnassignedOrders}
+                carrierCounts={carrierCounts}
+                unassignedCount={unassignedCount}
+                onCarrierToggle={handleCarrierToggle}
+                onUnassignedToggle={setIncludeUnassigned}
+              />
 
               {(() => {
                 const renderOrderCard = (order: OrderWithRelations, isShippedColumn: boolean) => (
