@@ -1142,11 +1142,6 @@ export const ShipScreen = () => {
   const toShipCount = filteredOrders.length;
   const shippedCount = shippedFilteredOrders.length;
 
-  const readyToShipVisibleCount = useMemo(
-    () => visibleOrders.filter((o) => !o.is_waiting_inventory && o.status === 'completed').length,
-    [visibleOrders]
-  );
-
   const eligibleShippingOrders = useMemo(
     () => visibleOrders.filter((o) => !o.is_waiting_inventory && o.status === 'completed'),
     [visibleOrders]
@@ -1177,13 +1172,6 @@ export const ShipScreen = () => {
       }),
     [eligibleShippingOrders]
   );
-
-  const filterSummary = useMemo(() => {
-    const parts: string[] = [];
-    if (searchQuery.trim()) parts.push(`search: "${searchQuery.trim()}"`);
-    parts.push(`${visibleOrders.length} visible`);
-    return parts.join(' · ');
-  }, [searchQuery, visibleOrders.length]);
 
   const handleBatchShip = async (idsToShip: string[]) => {
     if (idsToShip.length === 0) return;
@@ -2178,20 +2166,11 @@ export const ShipScreen = () => {
           <div className="w-full md:basis-[60%] md:max-w-[60%] md:min-w-[22rem] shrink-0 md:sticky md:top-0 order-last">
             <div className="bg-card border border-subtle rounded-3xl p-3 flex flex-col gap-2">
               <FeedHeaderToolbar
-                toShipCount={toShipCount}
                 shippedCount={shippedCount}
                 eligibleShippingCount={eligibleShippingOrders.length}
                 includeShipped={includeShipped}
                 onIncludeShippedChange={setIncludeShipped}
                 onStartShippingClick={() => setShowShippingPreview(true)}
-                availableCarriers={pendingCarrierStats.availableCarriers}
-                selectedCarriers={pendingSelectedCarriers}
-                includeUnassigned={pendingIncludeUnassigned}
-                hasUnassignedOrders={pendingCarrierStats.hasUnassignedOrders}
-                carrierCounts={pendingCarrierStats.carrierCounts}
-                unassignedCount={pendingCarrierStats.unassignedCount}
-                onCarrierToggle={handlePendingCarrierToggle}
-                onUnassignedToggle={setPendingIncludeUnassigned}
               />
 
               {(() => {
@@ -2253,21 +2232,34 @@ export const ShipScreen = () => {
 
                 return (
                   <div className={`flex flex-col gap-3 ${includeShipped ? 'md:flex-row' : ''}`}>
-                    {/* Pending Ship — always visible, the permanent default column. */}
+                    {/* Pending Ship — twin column 1 */}
                     <div className={includeShipped ? 'md:flex-1 md:min-w-0' : 'w-full'}>
-                      <div className="px-2 -mt-0.5 mb-1 space-y-1">
-                        <p className="text-[10px] font-bold text-muted">
-                          {readyToShipVisibleCount} pending ship
-                        </p>
+                      <div className="px-2 mb-2 flex items-center justify-between min-h-[20px]">
+                        <span className="text-xs font-black uppercase tracking-wider text-content">
+                          Pending Ship ({toShipCount})
+                        </span>
                         {searchQuery.trim() && (
-                          <p
-                            className="text-[10px] font-bold text-muted/80 truncate"
-                            title={filterSummary}
-                          >
+                          <span className="text-[10px] font-bold text-muted/80 truncate">
                             search: "{searchQuery.trim()}"
-                          </p>
+                          </span>
                         )}
                       </div>
+
+                      {pendingCarrierStats.availableCarriers.length > 0 && (
+                        <div className="px-2 mb-2">
+                          <CarrierFilter
+                            selectedCarriers={pendingSelectedCarriers}
+                            includeUnassigned={pendingIncludeUnassigned}
+                            hasUnassignedOrders={pendingCarrierStats.hasUnassignedOrders}
+                            availableCarriers={pendingCarrierStats.availableCarriers}
+                            carrierCounts={pendingCarrierStats.carrierCounts}
+                            unassignedCount={pendingCarrierStats.unassignedCount}
+                            onCarrierToggle={handlePendingCarrierToggle}
+                            onUnassignedToggle={setPendingIncludeUnassigned}
+                          />
+                        </div>
+                      )}
+
                       {renderOrderColumn(
                         ordersGroupedByDate,
                         false,
@@ -2279,13 +2271,13 @@ export const ShipScreen = () => {
                       )}
                     </div>
 
-                    {/* Shipped — an extra column revealed by the checkbox */}
+                    {/* Shipped — twin column 2 */}
                     {includeShipped && (
                       <div className="md:flex-1 md:min-w-0 md:border-l md:border-subtle md:pl-3">
-                        <div className="px-2 -mt-0.5 mb-1 space-y-1">
-                          <p className="text-[10px] font-bold text-muted">
+                        <div className="px-2 mb-2 flex items-center justify-between min-h-[20px]">
+                          <span className="text-xs font-black uppercase tracking-wider text-emerald-400">
                             Shipped Today ({shippedCount})
-                          </p>
+                          </span>
                         </div>
 
                         {shippedCarrierStats.availableCarriers.length > 0 && (
