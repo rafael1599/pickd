@@ -32,15 +32,28 @@ function formatDateTime(source: string | null | undefined): string {
 
 /**
  * Opens a new window with a clean, black-and-white packing slip for the given
- * order and triggers the browser print dialog. Fully synchronous — reads only
- * from `order` (in-app notes are intentionally excluded, they'd require an
- * async fetch). `opts` carries the pre-computed bikes/parts split.
+ * order and triggers the browser print dialog. `window.open` runs first and
+ * synchronously (so the popup isn't blocked by the browser); the QR code is
+ * generated afterwards and the window is only populated once it resolves.
+ * `opts` carries the pre-computed bikes/parts split.
  */
-export function printOrderDetail(order: OrderRow, opts: { bikes: number; parts: number }): void {
+export async function printOrderDetail(
+  order: OrderRow,
+  opts: { bikes: number; parts: number }
+): Promise<void> {
   const win = window.open('', '_blank');
   if (win === null) return;
 
   const orderNumber = order.order_number || order.id.slice(-6);
+
+  const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+  const orderUrl = `${baseUrl}/orders?order=${order.id}`;
+  const QRCode = await import('qrcode');
+  const qrDataUrl = await QRCode.toDataURL(orderUrl, {
+    width: 160,
+    margin: 1,
+    errorCorrectionLevel: 'L',
+  });
 
   const cityLine = [order.customer?.city, order.customer?.state, order.customer?.zip_code]
     .filter(Boolean)
@@ -113,9 +126,11 @@ export function printOrderDetail(order: OrderRow, opts: { bikes: number; parts: 
     }
     .top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     .top-row h1 { font-size: 22px; margin: 0; text-transform: uppercase; letter-spacing: 0.5px; }
+    .top-row-right { display: flex; align-items: center; gap: 14px; }
     .print-carrier-logo { display: flex; align-items: center; justify-content: flex-end; }
     .print-pdf-tlogo { height: 32px; width: auto; object-fit: contain; }
     .print-carrier-logo.text-fallback { font-size: 14px; font-weight: bold; text-transform: uppercase; color: #555; }
+    .qr-code { height: 64px; width: 64px; }
     h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #555; margin: 20px 0 6px; }
     .block { margin-bottom: 8px; }
     .block div { margin-bottom: 2px; }
@@ -145,17 +160,20 @@ export function printOrderDetail(order: OrderRow, opts: { bikes: number; parts: 
 <body>
   <div class="top-row">
     <h1>Order #${esc(orderNumber)}</h1>
-    ${
-      order.transport_company
-        ? logoPath
-          ? `<div class="print-carrier-logo">
-              <img class="print-pdf-tlogo" src="${esc(window.location.origin + logoPath)}" alt="${esc(order.transport_company)}" />
-             </div>`
-          : `<div class="print-carrier-logo text-fallback">
-              <span>${esc(order.transport_company)}</span>
-             </div>`
-        : ''
-    }
+    <div class="top-row-right">
+      ${
+        order.transport_company
+          ? logoPath
+            ? `<div class="print-carrier-logo">
+                <img class="print-pdf-tlogo" src="${esc(window.location.origin + logoPath)}" alt="${esc(order.transport_company)}" />
+               </div>`
+            : `<div class="print-carrier-logo text-fallback">
+                <span>${esc(order.transport_company)}</span>
+               </div>`
+          : ''
+      }
+      <img class="qr-code" src="${qrDataUrl}" alt="Scan to view order online" />
+    </div>
   </div>
 
   <div class="header">

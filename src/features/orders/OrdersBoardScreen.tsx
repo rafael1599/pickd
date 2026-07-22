@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { useViewMode } from '../../context/ViewModeContext';
@@ -57,6 +57,7 @@ interface DayGroup {
 export const OrdersBoardScreen = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { externalOrderId, setExternalOrderId } = useViewMode();
 
   const [searchQuery, setSearchQuery] = useState(
@@ -86,6 +87,33 @@ export const OrdersBoardScreen = () => {
       setExpandedId(passedTargetId);
     }
   }, [location.state]);
+
+  // Deep link from a printed order's QR code: /orders?order=<id> opens the
+  // board with that order's card expanded and scrolled into view, then the
+  // param is stripped so it doesn't re-trigger on later state changes.
+  useEffect(() => {
+    const targetId = searchParams.get('order');
+    if (!targetId || orders.length === 0) return;
+    const match = orders.find((o) => o.id === targetId);
+    if (!match) return;
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing from the QR-scan URL param
+    setExpandedId(match.id);
+    requestAnimationFrame(() => {
+      document
+        .getElementById(`order-${match.id}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('order');
+        return next;
+      },
+      { replace: true }
+    );
+  }, [orders, searchParams, setSearchParams]);
 
   const handleCarrierToggle = useCallback((carrier: string) => {
     setSelectedCarriers((prev) => {
@@ -297,14 +325,17 @@ export const OrdersBoardScreen = () => {
                     {group.label}
                   </div>
                   {group.orders.map((order) => (
-                    <OrderRowCard
-                      key={order.id}
-                      order={order}
-                      skuIsBike={skuIsBike}
-                      expanded={expandedId === order.id}
-                      onToggle={() => setExpandedId((cur) => (cur === order.id ? null : order.id))}
-                      onEditLabel={() => handleEditLabel(order)}
-                    />
+                    <div key={order.id} id={`order-${order.id}`}>
+                      <OrderRowCard
+                        order={order}
+                        skuIsBike={skuIsBike}
+                        expanded={expandedId === order.id}
+                        onToggle={() =>
+                          setExpandedId((cur) => (cur === order.id ? null : order.id))
+                        }
+                        onEditLabel={() => handleEditLabel(order)}
+                      />
+                    </div>
                   ))}
                 </div>
               ))}
