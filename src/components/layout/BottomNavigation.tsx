@@ -16,23 +16,29 @@ const NavItem = ({ icon: Icon, label, isActive, onClick, isCompact }: NavItemPro
   <button
     onClick={onClick}
     aria-label={label}
-    className={`flex flex-col items-center justify-center flex-1 lg:flex-none lg:w-full h-full lg:h-auto transition-all duration-300 active:scale-90 ${
-      isActive ? 'text-accent' : 'text-muted'
+    className={`flex flex-col md:flex-row items-center justify-center flex-1 md:flex-none h-full md:h-auto md:px-3.5 md:py-1.5 md:rounded-full transition-all duration-300 active:scale-95 md:gap-2 ${
+      isActive
+        ? 'text-accent md:bg-accent/15 md:border md:border-accent/30'
+        : 'text-muted hover:text-content'
     } ${isCompact ? 'px-1' : ''}`}
   >
     <div
-      className={`rounded-xl transition-all duration-300 ${isActive ? 'bg-accent/10 shadow-lg shadow-accent/5' : ''} ${isCompact ? 'p-1' : 'p-1.5'}`}
+      className={`rounded-xl md:rounded-none transition-all duration-300 ${
+        isActive ? 'bg-accent/10 md:bg-transparent shadow-lg md:shadow-none shadow-accent/5' : ''
+      } ${isCompact ? 'p-1' : 'p-1.5 md:p-0'}`}
     >
-      <Icon size={isCompact ? 18 : 22} strokeWidth={isActive ? 2.5 : 2} />
+      <Icon size={isCompact ? 18 : 20} strokeWidth={isActive ? 2.5 : 2} />
     </div>
-    {!isCompact && (
-      <span
-        className={`text-[10px] font-extrabold uppercase tracking-tight mt-1 transition-all duration-300 ${isActive ? 'opacity-100 translate-y-0' : 'opacity-60 translate-y-0.5'}`}
-        style={{ fontFamily: 'var(--font-heading)' }}
-      >
-        {label}
-      </span>
-    )}
+    <span
+      className={`text-[10px] md:text-xs font-extrabold uppercase tracking-wider mt-1 md:mt-0 transition-all duration-300 ${
+        isActive
+          ? 'opacity-100 translate-y-0'
+          : 'opacity-60 md:opacity-75 translate-y-0.5 md:translate-y-0'
+      }`}
+      style={{ fontFamily: 'var(--font-heading)' }}
+    >
+      {label}
+    </span>
   </button>
 );
 
@@ -52,13 +58,15 @@ export const BottomNavigation = () => {
 
   return (
     <div
-      className={`fixed bottom-0 left-0 right-0 lg:top-auto lg:bottom-6 lg:left-auto lg:right-6 lg:translate-y-0 pointer-events-none flex justify-center lg:flex-col lg:w-auto lg:h-auto z-[100] p-4 transition-all duration-300 ${isSearching ? 'h-16 lg:h-auto' : 'h-24 lg:h-auto'}`}
+      className={`fixed bottom-0 left-0 right-0 md:top-2.5 md:bottom-auto md:left-1/2 md:-translate-x-1/2 pointer-events-none flex justify-center md:w-auto md:h-auto z-[150] p-4 md:p-0 transition-all duration-300 ${
+        isSearching ? 'h-16 md:h-auto' : 'h-24 md:h-auto'
+      }`}
     >
       <div
         className={`
-        w-full max-w-sm lg:w-16 lg:h-auto lg:py-6 pointer-events-auto ios-glass frost-grain rounded-[2rem] flex items-center lg:flex-col lg:gap-6 justify-around h-full
-        transition-all duration-500 ease-in-out
-        ${isSearching ? 'px-2 lg:px-0 lg:py-4' : 'px-4 lg:px-0 lg:py-6'}
+        w-full max-w-sm md:w-auto md:h-11 pointer-events-auto ios-glass frost-grain rounded-[2rem] md:rounded-full flex items-center md:flex-row md:gap-1.5 justify-around h-full
+        transition-all duration-500 ease-in-out md:border md:border-subtle/50 md:bg-card/90 md:backdrop-blur-xl md:shadow-xl
+        ${isSearching ? 'px-2 md:px-2 md:py-1' : 'px-4 md:px-2 md:py-1'}
       `}
       >
         <NavItem
