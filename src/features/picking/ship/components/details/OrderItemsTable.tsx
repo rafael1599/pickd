@@ -16,19 +16,29 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
   partCount,
 }) => {
   const items = React.useMemo(() => {
-    if (!Array.isArray(order.items)) return [];
-    return [...order.items].sort((a, b) => {
-      const locA = a.location || '';
-      const locB = b.location || '';
-      if (locA !== locB) return locA.localeCompare(locB, undefined, { numeric: true });
-      return (a.sku || '').localeCompare(b.sku || '', undefined, { numeric: true });
-    });
-  }, [order.items]);
+    if (!order || !Array.isArray(order.items)) return [];
+    return [...order.items]
+      .filter((item): item is NonNullable<typeof item> => Boolean(item))
+      .sort((a, b) => {
+        const locA = a.location || '';
+        const locB = b.location || '';
+        if (locA !== locB) return locA.localeCompare(locB, undefined, { numeric: true });
+        return (a.sku || '').localeCompare(b.sku || '', undefined, { numeric: true });
+      });
+  }, [order]);
 
   const handlePrintClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    void printOrderDetail(order as unknown as OrderRow, { bikes: bikeCount, parts: partCount });
+    if (!order) return;
+    try {
+      void printOrderDetail(order as unknown as OrderRow, {
+        bikes: bikeCount || 0,
+        parts: partCount || 0,
+      });
+    } catch (err) {
+      console.error('Failed to print order detail:', err);
+    }
   };
 
   return (
@@ -105,18 +115,6 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
             )}
           </tbody>
         </table>
-      </div>
-
-      {/* Footer Print button */}
-      <div className="p-3 border-t border-subtle bg-main/20 flex justify-end">
-        <button
-          type="button"
-          onClick={handlePrintClick}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-white text-xs font-black uppercase tracking-wider hover:bg-accent/90 transition-all active:scale-95 shadow-md select-none cursor-pointer"
-        >
-          <Printer size={15} />
-          <span>Print Document</span>
-        </button>
       </div>
     </div>
   );
