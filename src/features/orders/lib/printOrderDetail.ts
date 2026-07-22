@@ -50,7 +50,7 @@ export async function printOrderDetail(
   const orderUrl = `${baseUrl}/orders?order=${order.id}`;
   const QRCode = await import('qrcode');
   const qrDataUrl = await QRCode.toDataURL(orderUrl, {
-    width: 160,
+    width: 200,
     margin: 1,
     errorCorrectionLevel: 'L',
   });
@@ -130,7 +130,9 @@ export async function printOrderDetail(
     .print-carrier-logo { display: flex; align-items: center; justify-content: flex-end; }
     .print-pdf-tlogo { height: 32px; width: auto; object-fit: contain; }
     .print-carrier-logo.text-fallback { font-size: 14px; font-weight: bold; text-transform: uppercase; color: #555; }
-    .qr-code { height: 64px; width: 64px; }
+    .qr-footer { margin-top: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; width: 100%; page-break-inside: avoid; }
+    .qr-code { height: 71px; width: 71px; object-fit: contain; }
+    .qr-url { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 10px; color: #444; margin-top: 4px; word-break: break-all; }
     h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #555; margin: 20px 0 6px; }
     .block { margin-bottom: 8px; }
     .block div { margin-bottom: 2px; }
@@ -154,6 +156,7 @@ export async function printOrderDetail(
       .top-row h1 { font-size: 18px; }
       h2 { margin-top: 10px; }
       .photos img { height: 70px; }
+      .qr-code { height: 71px; width: 71px; }
     }
   </style>
 </head>
@@ -172,7 +175,6 @@ export async function printOrderDetail(
                </div>`
           : ''
       }
-      <img class="qr-code" src="${qrDataUrl}" alt="Scan to view order online" />
     </div>
   </div>
 
@@ -216,6 +218,11 @@ export async function printOrderDetail(
   </table>
 
   ${photosHtml}
+
+  <div class="qr-footer">
+    <img class="qr-code" src="${qrDataUrl}" alt="Scan to view order online" />
+    <div class="qr-url">${esc(orderUrl)}</div>
+  </div>
 
   <script>
     (function () {
