@@ -196,6 +196,7 @@ export function combineGeneralGroupSiblings(siblings: OrderWithRelations[]): Ord
 export function useShipOrdersData() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<OrderWithRelations[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const urlOrder = params.get('order') || params.get('q');
