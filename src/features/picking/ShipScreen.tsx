@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from 'react';
 import { supabase } from '../../lib/supabase.ts';
 import { useAuth } from '../../context/AuthContext.tsx';
-import { useDebounce } from '../../hooks/useDebounce';
 
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -40,9 +39,9 @@ import { PartsWeightEditor } from './ship/components/details/PartsWeightEditor';
 import { CombineSuggestionBanner } from './ship/components/details/CombineSuggestionBanner';
 import { FeedHeaderToolbar } from './ship/components/feed/FeedHeaderToolbar';
 import { ShipModalsManager } from './ship/components/modals/ShipModalsManager';
+import { useShipOrdersData } from './ship/hooks/useShipOrdersData';
 import { ShippingFlowPreviewModal } from './components/ShippingFlowPreviewModal';
 import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.service';
-import { useUnmarkWaiting } from './hooks/useWaitingOrders';
 import { CarrierFilter } from './components/board/CarrierFilter';
 import { OrderNotesInline } from './components/OrderNotesInline';
 import { OrderActionsMenu } from './components/OrderActionsMenu';
@@ -305,54 +304,25 @@ export const ShipScreen = () => {
     setExternalActionTrigger,
     setViewMode,
   } = useViewModeCtx();
-  const unmarkWaiting = useUnmarkWaiting();
-  const [orders, setOrders] = useState<OrderWithRelations[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    orders,
+    setOrders,
+    loading,
+    searchQuery,
+    setSearchQuery,
+    selectedCarriers,
+    includeUnassigned,
+    setIncludeUnassigned,
+    includeShipped,
+    setIncludeShipped,
+    handleCarrierToggle,
+    matchesCarrierFilter,
+    fetchOrders,
+  } = useShipOrdersData();
+
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<AutoSaveStatus>('idle');
   const [selectedOrder, setSelectedOrder] = useState<OrderWithRelations | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const debouncedSearchQuery = useDebounce(searchQuery, 200);
-  const [selectedCarriers, setSelectedCarriers] = useState<Set<string>>(new Set());
-  const [includeUnassigned, setIncludeUnassigned] = useState(false);
-  const handleCarrierToggle = useCallback(
-    (carrier: string) => {
-      const isSelecting = !selectedCarriers.has(carrier);
-      setSelectedCarriers((prev) => {
-        const next = new Set(prev);
-        if (next.has(carrier)) {
-          next.delete(carrier);
-        } else {
-          next.add(carrier);
-        }
-        return next;
-      });
-
-      // Selecting a carrier that has orders in both states — pending AND
-      // already shipped today — should surface all of them, not leave the
-      // shipped ones hidden behind an unchecked box.
-      if (isSelecting) {
-        const todayStr = dayKey(new Date());
-        const hasShippedToday = orders.some(
-          (o) =>
-            o.status !== 'cancelled' &&
-            !!o.is_shipped &&
-            dayKey(new Date(o.updated_at)) === todayStr &&
-            getCarrierLabel(o) === carrier
-        );
-        if (hasShippedToday) setIncludeShipped(true);
-      }
-    },
-    [selectedCarriers, orders]
-  );
-  const matchesCarrierFilter = useCallback(
-    (o: OrderWithRelations) => {
-      if (selectedCarriers.size === 0 && !includeUnassigned) return true;
-      const carrier = getCarrierLabel(o);
-      return carrier ? selectedCarriers.has(carrier) : includeUnassigned;
-    },
-    [selectedCarriers, includeUnassigned]
-  );
   const navigate = useNavigate();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [reopenReasonModal, setReopenReasonModal] = useState(false);
@@ -361,10 +331,6 @@ export const ShipScreen = () => {
   const [restoreReason, setRestoreReason] = useState('');
   const [pendingShipmentOrder, setPendingShipmentOrder] = useState<OrderWithRelations | null>(null);
   const shipCameraInputRef = useRef<HTMLInputElement>(null);
-  // The order list is always split: "To Ship" on the left is the permanent
-  // default view, "Shipped" on the right is an extra column revealed by the
-  // checkbox — never a replacement, so nothing gets hidden by switching tabs.
-  const [includeShipped, setIncludeShipped] = useState(true);
   const [showShippingPreview, setShowShippingPreview] = useState(false);
   const [isShippingBatch, setIsShippingBatch] = useState(false);
 
@@ -607,97 +573,6 @@ export const ShipScreen = () => {
   const hasLoadedOnceRef = useRef(false);
 
   const lastFetchedDetailIdRef = useRef<string | null>(null);
-
-  const fetchOrders = useCallback(async () => {
-    if (!user) return;
-    if (!hasLoadedOnceRef.current) setLoading(true);
-    try {
-      const nyMidnight = getNYMidnightISO();
-      const sq = debouncedSearchQuery.trim();
-      let customerIds: string[] = [];
-
-      if (sq && sq.length >= 2 && !/^\d+$/.test(sq)) {
-        const { data } = await supabase
-          .from('customers')
-          .select('id')
-          .ilike('name', `%${sq}%`)
-          .limit(20);
-        if (data) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          customerIds = data.map((c: any) => c.id);
-        }
-      }
-
-      let query = supabase
-        .from('picking_lists')
-        .select(ORDER_LIST_SELECT)
-        .neq('status', 'cancelled')
-        .order('created_at', { ascending: false });
-
-      if (sq) {
-        if (customerIds.length > 0) {
-          query = query.or(`order_number.ilike.%${sq}%,customer_id.in.(${customerIds.join(',')})`);
-        } else {
-          query = query.ilike('order_number', `%${sq}%`);
-        }
-        query = query.limit(100);
-      } else {
-        query = query.or(
-          `is_shipped.is.null,is_shipped.eq.false,and(is_shipped.eq.true,updated_at.gte.${nyMidnight})`
-        );
-      }
-
-      // Wrap the supabase call so transient network/5xx errors get
-      // retried with exponential backoff. Without this, a single
-      // flake on a flaky network surfaces as "Failed to load orders"
-      // and the picker has to manually refresh.
-      const { data, error } = await withSupabaseRetry(() => query, {
-        label: 'OrdersScreen.fetchOrders',
-      });
-
-      if (error) throw error;
-
-      let mappedData = ((data || []) as unknown as OrderWithRelations[]).map((order) => ({
-        ...order,
-        customer_details: order.customer || {},
-      }));
-
-      // Top up any "general" combined group whose siblings didn't ALL match
-      // this fetch's own filters (most commonly: search text only matches
-      // one sibling's own order_number, e.g. searching "787" never fetches
-      // "880848" at all). Combining needs every sibling present — without
-      // this, a search or a narrow status/tab filter silently shows the
-      // group as if it were just the one matching sibling.
-      const groupIds = Array.from(
-        new Set(
-          mappedData
-            .filter((o) => o.group_id && isDeliberateCombineGroupType(o.order_group?.group_type))
-            .map((o) => o.group_id as string)
-        )
-      );
-      if (groupIds.length > 0) {
-        const { data: siblingRows } = await withSupabaseRetry(
-          () => supabase.from('picking_lists').select(ORDER_LIST_SELECT).in('group_id', groupIds),
-          { label: 'OrdersScreen.fetchOrders.topUpSiblings' }
-        );
-        if (siblingRows) {
-          const existingIds = new Set(mappedData.map((o) => o.id));
-          const extra = (siblingRows as unknown as OrderWithRelations[])
-            .filter((o) => !existingIds.has(o.id))
-            .map((o) => ({ ...o, customer_details: o.customer || {} }));
-          if (extra.length > 0) mappedData = [...mappedData, ...extra];
-        }
-      }
-
-      setOrders(mappedData);
-    } catch (err) {
-      console.error('Error fetching orders:', err);
-      toast.error('Failed to load orders');
-    } finally {
-      hasLoadedOnceRef.current = true;
-      setLoading(false);
-    }
-  }, [user, externalOrderId, debouncedSearchQuery]); // Include externalOrderId here to ensure consistency
 
   const fetchOrderDetails = useCallback(async (id: string) => {
     try {
