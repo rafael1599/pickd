@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { ShipScreenFallback } from './components/layout/ShipScreenFallback.tsx';
 import { InventoryProvider } from './features/inventory/hooks/InventoryProvider.tsx';
 import { LayoutMain } from './components/layout/LayoutMain.tsx';
@@ -93,6 +93,12 @@ import { ThemeProvider } from './context/ThemeContext.tsx';
 import { Suspense } from 'react';
 import { StagingBanner } from './components/layout/StagingBanner.tsx';
 
+const OrderParamRedirect = () => {
+  const { orderNumber } = useParams<{ orderNumber: string }>();
+  if (!orderNumber) return <Navigate to="/" replace />;
+  return <Navigate to={`/orders?order=${encodeURIComponent(orderNumber)}`} replace />;
+};
+
 // Content accessible only after login
 const AuthenticatedContent = () => {
   const { isAdmin } = useAuth();
@@ -149,6 +155,7 @@ const AuthenticatedContent = () => {
                 element={isAdmin ? <RegistrarContainerScreen /> : <Navigate to="/" replace />}
               />
               <Route path="/warehouse-map" element={<WarehouseMapScreen />} />
+              <Route path="/:orderNumber" element={<OrderParamRedirect />} />
               {/* Catch-all for unknown routes */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
