@@ -80,46 +80,48 @@ export const BottomNavigation = () => {
 
   return (
     <>
-      <div
-        className={`fixed bottom-0 left-0 right-0 md:top-2.5 md:bottom-auto md:left-1/2 md:-translate-x-1/2 pointer-events-none flex justify-center md:w-auto md:h-auto z-[150] p-4 md:p-0 transition-all duration-300 ${
-          isSearching ? 'h-16 md:h-auto' : 'h-24 md:h-auto'
-        }`}
-      >
+      {!isBoardOpen && (
         <div
-          className={`
-          w-full max-w-sm md:w-auto md:h-11 pointer-events-auto ios-glass frost-grain rounded-[2rem] md:rounded-full flex items-center md:flex-row md:gap-1.5 justify-around h-full
-          transition-all duration-500 ease-in-out md:border md:border-subtle/50 md:bg-card/90 md:backdrop-blur-xl md:shadow-xl
-          ${isSearching ? 'px-2 md:px-2 md:py-1' : 'px-4 md:px-2 md:py-1'}
-        `}
+          className={`fixed bottom-0 left-0 right-0 md:top-2.5 md:bottom-auto md:left-1/2 md:-translate-x-1/2 pointer-events-none flex justify-center md:w-auto md:h-auto z-[150] p-4 md:p-0 transition-all duration-300 ${
+            isSearching ? 'h-16 md:h-auto' : 'h-24 md:h-auto'
+          }`}
         >
-          <NavItem
-            icon={Box}
-            label="STOCK"
-            isActive={location.pathname === '/' && viewMode === 'stock'}
-            onClick={handleStockClick}
-            isCompact={isSearching}
-          />
-          <NavItem
-            icon={Printer}
-            label="SHIP"
-            isActive={location.pathname === '/ship'}
-            onClick={() => navigate('/ship')}
-            isCompact={isSearching}
-          />
-          <NavItem
-            icon={ClipboardCheck}
-            label="BOARD"
-            isActive={isBoardOpen}
-            onClick={() => {
-              const next = !isBoardOpen;
-              setIsBoardOpen(next);
-              if (next) refresh();
-            }}
-            isCompact={isSearching}
-            badge={totalActions}
-          />
+          <div
+            className={`
+            w-full max-w-sm md:w-auto md:h-11 pointer-events-auto ios-glass frost-grain rounded-[2rem] md:rounded-full flex items-center md:flex-row md:gap-1.5 justify-around h-full
+            transition-all duration-500 ease-in-out md:border md:border-subtle/50 md:bg-card/90 md:backdrop-blur-xl md:shadow-xl
+            ${isSearching ? 'px-2 md:px-2 md:py-1' : 'px-4 md:px-2 md:py-1'}
+          `}
+          >
+            <NavItem
+              icon={Box}
+              label="STOCK"
+              isActive={location.pathname === '/' && viewMode === 'stock'}
+              onClick={handleStockClick}
+              isCompact={isSearching}
+            />
+            <NavItem
+              icon={Printer}
+              label="SHIP"
+              isActive={location.pathname === '/ship'}
+              onClick={() => navigate('/ship')}
+              isCompact={isSearching}
+            />
+            <NavItem
+              icon={ClipboardCheck}
+              label="BOARD"
+              isActive={isBoardOpen}
+              onClick={() => {
+                const next = !isBoardOpen;
+                setIsBoardOpen(next);
+                if (next) refresh();
+              }}
+              isCompact={isSearching}
+              badge={totalActions}
+            />
+          </div>
         </div>
-      </div>
+      )}
       {isBoardOpen &&
         createPortal(<VerificationBoard onClose={() => setIsBoardOpen(false)} />, document.body)}
     </>
