@@ -96,6 +96,7 @@ export const ShipFeedCard: React.FC<ShipFeedCardProps> = ({
               <span>
                 Created:{' '}
                 {new Date(order.created_at).toLocaleDateString('en-US', {
+                  timeZone: 'America/New_York',
                   month: 'short',
                   day: 'numeric',
                 })}

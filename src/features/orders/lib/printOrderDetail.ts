@@ -17,7 +17,12 @@ function formatDate(source: string | null | undefined): string {
   if (!source) return '—';
   const d = new Date(source);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return d.toLocaleDateString('en-US', {
+    timeZone: 'America/New_York',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 /** `Jul 8 · 12:48 PM` style timestamp (or em-dash when unparseable). */
@@ -25,8 +30,16 @@ function formatDateTime(source: string | null | undefined): string {
   if (!source) return '—';
   const d = new Date(source);
   if (Number.isNaN(d.getTime())) return '—';
-  const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const date = d.toLocaleDateString('en-US', {
+    timeZone: 'America/New_York',
+    month: 'short',
+    day: 'numeric',
+  });
+  const time = d.toLocaleTimeString('en-US', {
+    timeZone: 'America/New_York',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
   return `${date} · ${time}`;
 }
 

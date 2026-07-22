@@ -103,14 +103,36 @@ function getNYMidnightISO(): string {
 }
 
 function dayLabel(date: Date): string {
+  const nyTimeZone = 'America/New_York';
   const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const diffDays = Math.round((today.getTime() - target.getTime()) / 86_400_000);
-  if (diffDays === 0) return 'Today';
+  const todayKey = dayKey(now);
+  const targetKey = dayKey(date);
+
+  if (targetKey === todayKey) return 'Today';
+
+  const todayDate = new Date(todayKey + 'T00:00:00');
+  const targetDate = new Date(targetKey + 'T00:00:00');
+  const diffDays = Math.round((todayDate.getTime() - targetDate.getTime()) / 86_400_000);
+
   if (diffDays === 1) return 'Yesterday';
-  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
-  if (date.getFullYear() !== now.getFullYear()) opts.year = 'numeric';
+
+  const opts: Intl.DateTimeFormatOptions = {
+    timeZone: nyTimeZone,
+    month: 'short',
+    day: 'numeric',
+  };
+
+  const nowYear = new Intl.DateTimeFormat('en-US', {
+    timeZone: nyTimeZone,
+    year: 'numeric',
+  }).format(now);
+  const targetYear = new Intl.DateTimeFormat('en-US', {
+    timeZone: nyTimeZone,
+    year: 'numeric',
+  }).format(date);
+
+  if (targetYear !== nowYear) opts.year = 'numeric';
+
   return date.toLocaleDateString('en-US', opts);
 }
 

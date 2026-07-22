@@ -76,12 +76,14 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
             {completedAt && (
               <p className="text-muted text-xs font-bold tracking-wide whitespace-nowrap animate-soft-in">
                 {new Date(completedAt).toLocaleDateString('en-US', {
+                  timeZone: 'America/New_York',
                   month: 'short',
                   day: 'numeric',
                   year: 'numeric',
                 })}
                 {' · '}
                 {new Date(completedAt).toLocaleTimeString('en-US', {
+                  timeZone: 'America/New_York',
                   hour: 'numeric',
                   minute: '2-digit',
                   hour12: true,
