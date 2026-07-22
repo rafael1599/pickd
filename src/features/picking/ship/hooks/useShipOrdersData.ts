@@ -331,6 +331,7 @@ export function useShipOrdersData() {
     loading,
     setLoading,
     searchQuery,
+    debouncedSearchQuery,
     setSearchQuery,
     selectedCarriers,
     setSelectedCarriers,

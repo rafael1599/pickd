@@ -38,11 +38,13 @@ import { ShipHeader } from './ship/components/header/ShipHeader';
 import { PartsWeightEditor } from './ship/components/details/PartsWeightEditor';
 import { OrderItemsTable } from './ship/components/details/OrderItemsTable';
 import { CombineSuggestionBanner } from './ship/components/details/CombineSuggestionBanner';
+import { ShipFeedCard } from './ship/components/feed/ShipFeedCard';
 import { FeedHeaderToolbar } from './ship/components/feed/FeedHeaderToolbar';
 import { ShipModalsManager } from './ship/components/modals/ShipModalsManager';
 import { useShipOrdersData } from './ship/hooks/useShipOrdersData';
 import { ShippingFlowPreviewModal } from './components/ShippingFlowPreviewModal';
 import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.service';
+import { useUnmarkWaiting } from './hooks/useWaitingOrders';
 import { CarrierFilter } from './components/board/CarrierFilter';
 import { OrderNotesInline } from './components/OrderNotesInline';
 import { OrderActionsMenu } from './components/OrderActionsMenu';
@@ -305,11 +307,13 @@ export const ShipScreen = () => {
     setExternalActionTrigger,
     setViewMode,
   } = useViewModeCtx();
+  const unmarkWaiting = useUnmarkWaiting();
   const {
     orders,
     setOrders,
     loading,
     searchQuery,
+    debouncedSearchQuery,
     setSearchQuery,
     selectedCarriers,
     includeUnassigned,
