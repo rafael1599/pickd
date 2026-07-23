@@ -1,14 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { normalizeTagToken } from '../../utils/tagToken';
-import { createClient } from '@supabase/supabase-js';
+import { publicSupabase } from '../../lib/publicSupabase';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import { parseBikeName } from '../inventory/utils/parseBikeName';
-
-// Use anon client for public access (no auth required)
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const publicSupabase = createClient(supabaseUrl, supabaseAnonKey);
 
 interface TagData {
   short_code: string;

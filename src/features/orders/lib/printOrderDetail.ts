@@ -60,7 +60,10 @@ export async function printOrderDetail(
   const orderNumber = order.order_number || order.id.slice(-6);
 
   const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
-  const orderUrl = `${baseUrl}/${orderNumber}`;
+  // Combined order numbers contain " / " — encodeURIComponent keeps this a
+  // single path segment (previously it broke the /order/:orderNumber route
+  // match entirely and fell through to the Stock screen instead).
+  const orderUrl = `${baseUrl}/order/${encodeURIComponent(orderNumber)}`;
   const QRCode = await import('qrcode');
   const qrDataUrl = await QRCode.toDataURL(orderUrl, {
     width: 200,

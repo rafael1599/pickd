@@ -36,6 +36,9 @@ const PickdReportViewer = lazyWithRetry(() =>
 const PublicTagView = lazyWithRetry(() =>
   import('./features/labels/PublicTagView.tsx').then((m) => ({ default: m.PublicTagView }))
 );
+const PublicOrderView = lazyWithRetry(() =>
+  import('./features/orders/PublicOrderView.tsx').then((m) => ({ default: m.PublicOrderView }))
+);
 const StockCountScreen = lazyWithRetry(() =>
   import('./features/inventory/StockCountScreen.tsx').then((m) => ({ default: m.StockCountScreen }))
 );
@@ -90,10 +93,15 @@ import { ThemeProvider } from './context/ThemeContext.tsx';
 import { Suspense } from 'react';
 import { StagingBanner } from './components/layout/StagingBanner.tsx';
 
+// Backward-compat for already-printed labels whose QR still encodes the old
+// bare /<orderNumber> URL (single order numbers only — a combined order's
+// " / " broke this route entirely and fell through to Stock, which is the
+// bug this whole redirect exists to stop happening again). New prints go
+// straight to /order/:orderNumber (printOrderDetail.ts).
 const OrderParamRedirect = () => {
   const { orderNumber } = useParams<{ orderNumber: string }>();
   if (!orderNumber) return <Navigate to="/" replace />;
-  return <Navigate to={`/ship?order=${encodeURIComponent(orderNumber)}`} replace />;
+  return <Navigate to={`/order/${encodeURIComponent(orderNumber)}`} replace />;
 };
 
 // Content accessible only after login
@@ -301,6 +309,24 @@ function App() {
                         }
                       >
                         <PublicTagView />
+                      </Suspense>
+                    </ErrorBoundary>
+                  }
+                />
+
+                {/* Public order detail — the printed packing-slip QR (printOrderDetail.ts) points here. */}
+                <Route
+                  path="/order/:orderNumber"
+                  element={
+                    <ErrorBoundary>
+                      <Suspense
+                        fallback={
+                          <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                            <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
+                          </div>
+                        }
+                      >
+                        <PublicOrderView />
                       </Suspense>
                     </ErrorBoundary>
                   }
