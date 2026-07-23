@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import Box from 'lucide-react/dist/esm/icons/box';
 import Printer from 'lucide-react/dist/esm/icons/printer';
@@ -53,12 +53,17 @@ const NavItem = ({ icon: Icon, label, isActive, onClick, isCompact, badge }: Nav
   </button>
 );
 
+const NAV_AUTO_HIDE_DELAY_MS = 3000;
+
 export const BottomNavigation = () => {
   const { viewMode, isNavHidden, isSearching, requestStockView } = useViewMode();
   const navigate = useNavigate();
   const location = useLocation();
   const { readyCount, correctionCount, waitingCount, refresh } = useDoubleCheckList();
   const [isBoardOpen, setIsBoardOpen] = useState(false);
+  const [isAutoHidden, setIsAutoHidden] = useState(false);
+  const isHoveredRef = useRef(false);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useScrollLock(isBoardOpen, () => setIsBoardOpen(false));
 
   // Close board on route change or viewMode change
@@ -66,6 +71,46 @@ export const BottomNavigation = () => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (isBoardOpen) setIsBoardOpen(false);
   }, [location.pathname, viewMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const scheduleHide = useCallback(() => {
+    clearTimeout(hideTimerRef.current);
+    if (isHoveredRef.current) return;
+    hideTimerRef.current = setTimeout(() => setIsAutoHidden(true), NAV_AUTO_HIDE_DELAY_MS);
+  }, []);
+
+  // Auto-hide after a few seconds without scrolling; only scrolling up brings it back.
+  // Hovering the bar pauses the auto-hide entirely.
+  useEffect(() => {
+    let lastScrollY = window.scrollY;
+
+    const handleScroll = () => {
+      const currentY = window.scrollY;
+      if (currentY < lastScrollY - 5) {
+        setIsAutoHidden(false);
+      }
+      lastScrollY = currentY;
+      scheduleHide();
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    scheduleHide();
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      clearTimeout(hideTimerRef.current);
+    };
+  }, [scheduleHide]);
+
+  const handleNavMouseEnter = () => {
+    isHoveredRef.current = true;
+    clearTimeout(hideTimerRef.current);
+    setIsAutoHidden(false);
+  };
+
+  const handleNavMouseLeave = () => {
+    isHoveredRef.current = false;
+    scheduleHide();
+  };
 
   if (isNavHidden) return null;
 
@@ -87,10 +132,17 @@ export const BottomNavigation = () => {
           }`}
         >
           <div
+            onMouseEnter={handleNavMouseEnter}
+            onMouseLeave={handleNavMouseLeave}
             className={`
-            w-full max-w-sm md:w-auto md:h-11 pointer-events-auto ios-glass frost-grain rounded-[2rem] md:rounded-full flex items-center md:flex-row md:gap-1.5 justify-around h-full
+            w-full max-w-sm md:w-auto md:h-11 ios-glass frost-grain rounded-[2rem] md:rounded-full flex items-center md:flex-row md:gap-1.5 justify-around h-full
             transition-all duration-500 ease-in-out md:border md:border-subtle/50 md:bg-card/90 md:backdrop-blur-xl md:shadow-xl
             ${isSearching ? 'px-2 md:px-2 md:py-1' : 'px-4 md:px-2 md:py-1'}
+            ${
+              isAutoHidden
+                ? 'translate-y-[150%] md:translate-y-0 md:-translate-y-16 opacity-0 pointer-events-none'
+                : 'translate-y-0 opacity-100 pointer-events-auto'
+            }
           `}
           >
             <NavItem

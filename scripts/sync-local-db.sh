@@ -160,11 +160,18 @@ VALUES
  'email', now(), now(), now(), '00000000-0000-0000-0000-000000000002')
 ON CONFLICT DO NOTHING;
 
--- Create profiles for E2E users
+-- Create profiles for E2E users.
+-- handle_new_user() already auto-created these rows (role='staff' default)
+-- when the auth.users insert above fired its trigger, so this upsert hits
+-- the UPDATE path — which profiles_prevent_role_escalation blocks outside a
+-- real admin session (there's no auth.uid() here, just raw superuser psql).
+-- Disable it for this one statement, same pattern as the auth.users triggers.
+ALTER TABLE public.profiles DISABLE TRIGGER profiles_prevent_role_escalation;
 INSERT INTO public.profiles (id, email, full_name, role, is_active) VALUES
 ('00000000-0000-0000-0000-000000000001', 'admin@test.com', 'Test Admin', 'admin', true),
 ('00000000-0000-0000-0000-000000000002', 'staff@test.com', 'Test Staff', 'staff', true)
 ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, is_active = EXCLUDED.is_active;
+ALTER TABLE public.profiles ENABLE TRIGGER profiles_prevent_role_escalation;
 
 -- Reload PostgREST schema cache
 NOTIFY pgrst, 'reload schema';
