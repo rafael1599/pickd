@@ -33,6 +33,10 @@ import { SplitOrderModal } from '../../components/orders/SplitOrderModal.tsx';
 import { SearchInput } from '../../components/ui/SearchInput.tsx';
 import type { PickingListItem, CombineMeta } from '../../schemas/picking.schema';
 import { saveCustomerAddress } from '../../lib/customerAddresses';
+import { mergeSiblingPalletPhotos } from '../../utils/mergeSiblingPalletPhotos';
+import { fetchGroupSiblings } from './utils/fetchGroupSiblings';
+import { useCombinedOrderFilter } from '../../hooks/useCombinedOrderFilter';
+import { ActiveFilterPill } from '../../components/orders/CombinedOrderNumbers';
 
 import { ShipHeader } from './ship/components/header/ShipHeader';
 import { PartsWeightEditor } from './ship/components/details/PartsWeightEditor';
@@ -190,7 +194,18 @@ function combineGeneralGroupSiblings(siblings: OrderWithRelations[]): OrderWithR
   );
 
   const combinedPalletsQty = sorted.reduce((sum, s) => sum + (s.pallets_qty ?? 0), 0);
-  const combinedItems = sorted.flatMap((s) => (Array.isArray(s.items) ? s.items : []));
+  // Tag each sibling's items with which order they came from (unless a
+  // finer-grained tag already exists, e.g. this sibling is itself a
+  // DB-merge) — this is what lets OrderItemsTable filter by sub-order, the
+  // same way DoubleCheckView's pallets memo already does.
+  const combinedItems = sorted.flatMap((s) =>
+    (Array.isArray(s.items) ? s.items : []).map((item) => {
+      const tagged = item as PickingListItem & { source_order?: string };
+      return tagged.source_order
+        ? tagged
+        : { ...tagged, source_order: s.order_number ?? 'unknown' };
+    })
+  );
   // Prefer summing pickingQty straight off the merged items — per-sibling
   // total_units columns can drift stale after corrections, so trust the
   // live items when they're present (matches Orders board's getOrderUnits).
@@ -203,6 +218,19 @@ function combineGeneralGroupSiblings(siblings: OrderWithRelations[]): OrderWithR
   // shipped ahead of the rest (legacy data, or shipped before being combined)
   // shouldn't make the whole group disappear from the "to ship" tab.
   const allShipped = sorted.every((s) => !!s.is_shipped);
+  // Raw group_id-merged rows always have combine_meta null — reconstruct
+  // source_orders from the siblings on every call instead of spreading the
+  // anchor's (null) combine_meta, otherwise ShipOrderCard's "Combined Order
+  // Info" panel silently renders empty for every group_id merge.
+  const sourceOrders = sorted.map((s) => ({
+    order_number: s.order_number ?? '',
+    added_at: s.created_at,
+    item_count: (Array.isArray(s.items) ? s.items : []).reduce(
+      (sum, i) => sum + (i.pickingQty || 0),
+      0
+    ),
+  }));
+  const combinedPalletPhotos = mergeSiblingPalletPhotos(sorted).photos;
 
   return {
     ...anchor,
@@ -212,10 +240,11 @@ function combineGeneralGroupSiblings(siblings: OrderWithRelations[]): OrderWithR
     pallets_qty: combinedPalletsQty,
     total_units: combinedTotalUnits,
     items: combinedItems,
+    pallet_photos: combinedPalletPhotos,
     verified_item_keys: combinedVerifiedKeys,
     is_shipped: allShipped,
     combined_member_ids: sorted.map((s) => s.id),
-    combine_meta: { ...(anchor.combine_meta ?? {}), is_combined: true } as CombineMeta,
+    combine_meta: { is_combined: true, source_orders: sourceOrders } as CombineMeta,
   };
 }
 
@@ -244,6 +273,7 @@ const ORDER_LIST_SELECT = `
   verified_item_keys,
   items,
   notes,
+  pallet_photos,
   customer:customers(id, name, street, city, state, zip_code),
   user:profiles!user_id(full_name),
   checker:profiles!checked_by(full_name),
@@ -355,6 +385,12 @@ export const ShipScreen = () => {
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<AutoSaveStatus>('idle');
   const [selectedOrder, setSelectedOrder] = useState<OrderWithRelations | null>(null);
+  const {
+    combinedNumbers: selectedOrderCombinedNumbers,
+    activeOrderFilter: selectedOrderFilter,
+    toggleOrderFilter: toggleSelectedOrderFilter,
+    clearOrderFilter: clearSelectedOrderFilter,
+  } = useCombinedOrderFilter(selectedOrder?.order_number);
   const navigate = useNavigate();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [reopenReasonModal, setReopenReasonModal] = useState(false);
@@ -641,34 +677,30 @@ export const ShipScreen = () => {
     return null;
   }, []);
 
-  // Fetches every sibling of a "general" combined group fresh from the DB —
-  // used so the realtime handler can resolve straight to the properly
-  // combined pseudo-order instead of setting selectedOrder to a lone raw
-  // sibling and waiting a render cycle for the self-heal effect to catch it.
-  const fetchGroupSiblings = useCallback(async (groupId: string) => {
+  // Fetches every non-cancelled sibling of a "general" combined group fresh
+  // from the DB — used so the realtime handler can resolve straight to the
+  // properly combined pseudo-order instead of setting selectedOrder to a
+  // lone raw sibling and waiting a render cycle for the self-heal effect to
+  // catch it. excludeStatuses defaults to ['cancelled'] (this screen's own
+  // baseline, matching fetchOrders) — previously this had NO status filter
+  // at all, so a cancelled sibling could show up here but nowhere else,
+  // making the merged view's membership depend on realtime timing.
+  const fetchOrderGroupSiblings = useCallback(async (groupId: string) => {
     try {
-      const { data, error } = await withSupabaseRetry(
-        () =>
-          supabase
-            .from('picking_lists')
-            .select(
-              `
+      const data = await fetchGroupSiblings<{ id: string } & Record<string, unknown>>(groupId, {
+        columns: `
           *,
           customer:customers(id, name, street, city, state, zip_code),
           user:profiles!user_id(full_name),
           checker:profiles!checked_by(full_name),
           presence:user_presence!user_id(last_seen_at),
           order_group:order_groups(group_type)
-        `
-            )
-            .eq('group_id', groupId),
-        { label: 'OrdersScreen.fetchGroupSiblings' }
-      );
-
-      if (error) throw error;
-      return (data ?? []).map((d) => ({
+        `,
+        label: 'OrdersScreen.fetchGroupSiblings',
+      });
+      return data.map((d) => ({
         ...d,
-        customer_details: d.customer || {},
+        customer_details: (d as { customer?: unknown }).customer || {},
       })) as unknown as OrderWithRelations[];
     } catch (err) {
       console.error('Error fetching group siblings:', err);
@@ -794,7 +826,7 @@ export const ShipScreen = () => {
                       // set the raw lone sibling even momentarily, that's
                       // exactly what let one field's save flash the others
                       // back to a single sibling's numbers.
-                      const siblings = await fetchGroupSiblings(details.group_id as string);
+                      const siblings = await fetchOrderGroupSiblings(details.group_id as string);
                       if (selectedOrderRef.current?.id === updated.id) {
                         setSelectedOrder(
                           siblings.length > 0 ? combineGeneralGroupSiblings(siblings) : details
@@ -819,7 +851,7 @@ export const ShipScreen = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchOrders, fetchSingleLightweightOrder, fetchOrderDetails, fetchGroupSiblings]);
+  }, [fetchOrders, fetchSingleLightweightOrder, fetchOrderDetails, fetchOrderGroupSiblings]);
 
   // Sync form data when the SELECTED ORDER CHANGES (i.e. the user picks a
   // different order) — deliberately keyed on id, not the object reference.
@@ -2167,6 +2199,8 @@ export const ShipScreen = () => {
                     autoBikeCount={autoBikeCount}
                     autoPartCount={autoPartCount}
                     autoWeight={totalWeight}
+                    activeOrderFilter={selectedOrderFilter}
+                    onToggleOrderFilter={toggleSelectedOrderFilter}
                   />
 
                   <PartsWeightEditor
@@ -2184,11 +2218,17 @@ export const ShipScreen = () => {
                       order={selectedOrder}
                       bikeCount={bikeCount}
                       partCount={partCount}
+                      activeOrderFilter={selectedOrderFilter}
                     />
                   )}
                 </>
               )}
             </OrderDetailsContainer>
+            <ActiveFilterPill
+              activeOrderFilter={selectedOrderFilter}
+              combinedNumbers={selectedOrderCombinedNumbers}
+              onClear={clearSelectedOrderFilter}
+            />
           </div>
 
           {/* Vertical order list — desktop 60% / mobile full width */}

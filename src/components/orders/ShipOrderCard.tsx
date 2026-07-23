@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { orderColorFor } from '../../utils/orderColors';
+import { CombinedOrderNumbers } from './CombinedOrderNumbers';
 import MapPin from 'lucide-react/dist/esm/icons/map-pin';
 import Hash from 'lucide-react/dist/esm/icons/hash';
 import HandMetal from 'lucide-react/dist/esm/icons/hand-metal';
@@ -90,6 +91,10 @@ interface ShipOrderCardProps {
   /** Auto-calculated weight (sum of sku_metadata.weight_lbs × qty + pallets).
    *  Shown as placeholder when the user hasn't entered a manual override. */
   autoWeight?: number;
+  /** Click-to-filter state for a combined order, shared with the rest of
+   *  this screen (ShipScreen owns one useCombinedOrderFilter instance). */
+  activeOrderFilter?: string | null;
+  onToggleOrderFilter?: (orderNumber: string) => void;
 }
 
 type EditableField =
@@ -223,6 +228,8 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   autoBikeCount = 0,
   autoPartCount = 0,
   autoWeight = 0,
+  activeOrderFilter = null,
+  onToggleOrderFilter,
 }) => {
   const [editingField, setEditingField] = useState<EditableField>(null);
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
@@ -830,6 +837,14 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           <p className="text-[10px] font-black uppercase tracking-widest text-blue-400 flex items-center gap-1.5">
             🔗 Combined Order
           </p>
+          {onToggleOrderFilter && (
+            <CombinedOrderNumbers
+              numbers={selectedOrder.combine_meta?.source_orders?.map((s) => s.order_number) ?? []}
+              activeOrderFilter={activeOrderFilter}
+              onToggle={onToggleOrderFilter}
+              variant="inline"
+            />
+          )}
           <div className="flex flex-col gap-1">
             {selectedOrder.combine_meta?.source_orders?.map((src, i) => {
               const allNumbers =
@@ -854,7 +869,16 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
               );
             })}
           </div>
-          {onSplitOrder && selectedOrder.status !== 'completed' && (
+          {/* Split Orders rebuilds each source into its own fresh row from
+              combine_meta.source_orders — only correct for a real single-row
+              DB-merge. A group_id merge's "order" here is a client-built
+              pseudo-order (its siblings are already separate rows); running
+              Split on it would insert duplicate rows AND leave the
+              non-anchor siblings active/uncancelled. Now that step 3 also
+              populates source_orders for group_id merges (for the info
+              panel above), this guard is what keeps that combination from
+              becoming reachable. */}
+          {onSplitOrder && selectedOrder.status !== 'completed' && !selectedOrder.group_id && (
             <button
               onClick={onSplitOrder}
               className="w-full mt-2 flex items-center justify-center gap-2 h-10 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-xl text-[10px] font-black uppercase tracking-widest text-blue-400 transition-all active:scale-95"

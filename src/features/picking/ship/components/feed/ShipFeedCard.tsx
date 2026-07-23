@@ -1,5 +1,6 @@
-import React, { Fragment } from 'react';
-import { orderColorFor } from '../../../../../utils/orderColors';
+import React from 'react';
+import { CombinedOrderNumbers } from '../../../../../components/orders/CombinedOrderNumbers';
+import { splitOrderNumbers } from '../../../../../utils/orderLabel';
 import shippedImg from '../../../../../assets/shipped.png';
 import shippedFedexImg from '../../../../../assets/shipped-fedex.png';
 import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
@@ -56,35 +57,19 @@ export const ShipFeedCard: React.FC<ShipFeedCardProps> = ({
           className="min-w-0 flex-1 flex flex-col cursor-pointer"
           onClick={() => onSelect(order)}
         >
-          <span
-            className="font-mono text-sm font-black text-content flex items-center gap-1 flex-wrap"
-            title={
-              order.order_number?.includes(' / ')
-                ? order.order_number
-                    .split(' / ')
-                    .map((n) => n.trim())
-                    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
-                    .map((n) => `#${n}`)
-                    .join(', ')
-                : undefined
-            }
-          >
+          <span className="font-mono text-sm font-black text-content flex items-center gap-1 flex-wrap">
             {order.order_number?.includes(' / ') ? (
-              <span>
-                <span className="text-muted/60">#</span>
-                {order.order_number
-                  .split(' / ')
-                  .map((n) => n.trim())
-                  .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
-                  .map((num, i, arr) => (
-                    <Fragment key={`${num}-${i}`}>
-                      {i > 0 && <span className="text-muted/50"> / </span>}
-                      <span style={{ color: orderColorFor(num.trim(), arr).hex }}>
-                        {num.trim().slice(-3)}
-                      </span>
-                    </Fragment>
-                  ))}
-              </span>
+              // A number click here just selects the order (same as the
+              // rest of the row) — filtering to one sub-order happens once
+              // the order is open in the detail pane, via the same
+              // CombinedOrderNumbers there.
+              <CombinedOrderNumbers
+                numbers={splitOrderNumbers(order.order_number)}
+                activeOrderFilter={null}
+                onToggle={() => onSelect(order)}
+                variant="header"
+                compact
+              />
             ) : (
               <>#{order.order_number}</>
             )}

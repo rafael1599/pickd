@@ -3,29 +3,40 @@ import Printer from 'lucide-react/dist/esm/icons/printer';
 import { printOrderDetail } from '../../../../orders/lib/printOrderDetail';
 import type { OrderWithRelations } from '../../hooks/useShipOrdersData';
 import type { OrderRow } from '../../../../orders/hooks/useOrdersOfDay';
+import type { PickingListItem } from '../../../../../schemas/picking.schema';
 
 interface OrderItemsTableProps {
   order: OrderWithRelations;
   bikeCount: number;
   partCount: number;
+  /** When set (a combined order filtered to one sub-order), only that
+   *  sub-order's items are shown — mirrors DoubleCheckView's pallets memo. */
+  activeOrderFilter?: string | null;
 }
 
 export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
   order,
   bikeCount,
   partCount,
+  activeOrderFilter = null,
 }) => {
   const items = React.useMemo(() => {
     if (!order || !Array.isArray(order.items)) return [];
     return [...order.items]
       .filter((item): item is NonNullable<typeof item> => Boolean(item))
+      .filter((item) => {
+        if (!activeOrderFilter) return true;
+        return (
+          (item as PickingListItem & { source_order?: string }).source_order === activeOrderFilter
+        );
+      })
       .sort((a, b) => {
         const locA = a.location || '';
         const locB = b.location || '';
         if (locA !== locB) return locA.localeCompare(locB, undefined, { numeric: true });
         return (a.sku || '').localeCompare(b.sku || '', undefined, { numeric: true });
       });
-  }, [order]);
+  }, [order, activeOrderFilter]);
 
   const handlePrintClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -48,6 +59,12 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
         <div className="flex items-center gap-2">
           <h3 className="text-xs font-black uppercase tracking-widest text-content">
             Order Items ({items.length})
+            {activeOrderFilter && (
+              <span className="text-muted normal-case tracking-normal font-semibold">
+                {' '}
+                — #{activeOrderFilter} only
+              </span>
+            )}
           </h3>
         </div>
         <button

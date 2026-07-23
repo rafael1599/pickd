@@ -143,55 +143,13 @@ export const ORDER_LIST_SELECT = `
   verified_item_keys,
   items,
   notes,
+  pallet_photos,
   customer:customers(id, name, street, city, state, zip_code),
   user:profiles!user_id(full_name),
   checker:profiles!checked_by(full_name),
   presence:user_presence!user_id(last_seen_at),
   order_group:order_groups(group_type)
 `;
-
-export function combineGeneralGroupSiblings(siblings: OrderWithRelations[]): OrderWithRelations {
-  const sorted = [...siblings].sort((a, b) => a.created_at.localeCompare(b.created_at));
-  const anchor = sorted[0];
-
-  const allOrderNumbers = sorted
-    .map((s) => s.order_number)
-    .filter((n): n is string => !!n)
-    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
-  const combinedOrderNumber = allOrderNumbers.join(' / ');
-
-  const newestCreatedAt = sorted.reduce(
-    (max, s) => (s.created_at > max ? s.created_at : max),
-    anchor.created_at
-  );
-  const newestUpdatedAt = sorted.reduce(
-    (max, s) => (s.updated_at > max ? s.updated_at : max),
-    anchor.updated_at
-  );
-
-  const combinedPalletsQty = sorted.reduce((sum, s) => sum + (s.pallets_qty ?? 0), 0);
-  const combinedItems = sorted.flatMap((s) => (Array.isArray(s.items) ? s.items : []));
-  const combinedTotalUnits =
-    combinedItems.length > 0
-      ? combinedItems.reduce((sum, i) => sum + (i.pickingQty || 0), 0)
-      : sorted.reduce((sum, s) => sum + (s.total_units ?? 0), 0);
-  const combinedVerifiedKeys = sorted.flatMap((s) => s.verified_item_keys ?? []);
-  const allShipped = sorted.every((s) => !!s.is_shipped);
-
-  return {
-    ...anchor,
-    order_number: combinedOrderNumber || anchor.order_number,
-    created_at: newestCreatedAt,
-    updated_at: newestUpdatedAt,
-    pallets_qty: combinedPalletsQty,
-    total_units: combinedTotalUnits,
-    items: combinedItems,
-    verified_item_keys: combinedVerifiedKeys,
-    is_shipped: allShipped,
-    combined_member_ids: sorted.map((s) => s.id),
-    combine_meta: { ...(anchor.combine_meta ?? {}), is_combined: true } as CombineMeta,
-  };
-}
 
 export function useShipOrdersData() {
   const { user } = useAuth();
@@ -318,7 +276,12 @@ export function useShipOrdersData() {
       );
       if (groupIds.length > 0) {
         const { data: siblingRows } = await withSupabaseRetry(
-          () => supabase.from('picking_lists').select(ORDER_LIST_SELECT).in('group_id', groupIds),
+          () =>
+            supabase
+              .from('picking_lists')
+              .select(ORDER_LIST_SELECT)
+              .in('group_id', groupIds)
+              .neq('status', 'cancelled'),
           { label: 'OrdersScreen.fetchOrders.topUpSiblings' }
         );
         if (siblingRows) {

@@ -3,6 +3,7 @@ import { type User } from '@supabase/supabase-js';
 import { supabase } from '../../../lib/supabase';
 import { withSupabaseRetry } from '../../../lib/supabaseRetry';
 import { debounce, type DebouncedFunction } from '../../../utils/debounce';
+import { fetchGroupSiblings } from '../utils/fetchGroupSiblings';
 import toast from 'react-hot-toast';
 import type { CartItem } from './usePickingCart';
 import type { Customer } from '../../../types/schema';
@@ -707,15 +708,18 @@ export const usePickingSync = ({
           // for display in DoubleCheckView. The merged state is READ-ONLY —
           // write paths (saveToDb, markAsReady) must guard against writing it back.
           if (data.group_id) {
-            const { data: siblings } = await supabase
-              .from('picking_lists')
-              .select('id, items, order_number')
-              .eq('group_id', data.group_id)
-              .neq('id', listId)
-              .neq('status', 'completed')
-              .neq('status', 'cancelled');
+            const siblings = await fetchGroupSiblings<{
+              id: string;
+              items: unknown;
+              order_number: string | null;
+            }>(data.group_id as string, {
+              columns: 'id, items, order_number',
+              excludeId: listId,
+              excludeStatuses: ['completed', 'cancelled'],
+              label: 'usePickingSync.loadExternalList.siblings',
+            });
 
-            if (siblings && siblings.length > 0) {
+            if (siblings.length > 0) {
               const orderNumbers = [data.order_number];
               // Tag anchor items with their owning list_id so per-item RPCs
               // (pick_item / unpick_item) route to the correct picking_list.

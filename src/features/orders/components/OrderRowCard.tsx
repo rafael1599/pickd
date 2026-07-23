@@ -12,7 +12,9 @@ import {
   LABELS as STATUS_LABELS,
 } from '../../../components/orders/OrderStatusPill';
 import { OrderProgressBar } from '../../picking/components/OrderProgressBar';
-import { orderColorFor } from '../../../utils/orderColors';
+import { CombinedOrderNumbers } from '../../../components/orders/CombinedOrderNumbers';
+import { splitOrderNumbers } from '../../../utils/orderLabel';
+import { useCombinedOrderFilter } from '../../../hooks/useCombinedOrderFilter';
 
 const STATUS_TEXT: Record<string, string> = {
   ready_to_double_check: 'text-sky-400',
@@ -109,27 +111,37 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
       .join(' / ');
   }
 
-  const items = order.items ?? [];
+  const { activeOrderFilter, toggleOrderFilter } = useCombinedOrderFilter(displayNumber);
+  const handleToggleOrderFilter = (num: string) => {
+    toggleOrderFilter(num);
+    if (!expanded) onToggle();
+  };
+
+  const items = useMemo(() => {
+    const all = order.items ?? [];
+    if (!activeOrderFilter) return all;
+    return all.filter(
+      (item) => (item as { source_order?: string }).source_order === activeOrderFilter
+    );
+  }, [order.items, activeOrderFilter]);
   const { bikes, parts } = useMemo(() => computeBikesParts(order, skuIsBike), [order, skuIsBike]);
 
   const photos = order.pallet_photos ?? [];
   const [lightboxIndex, setLightboxIndex] = useState(-1);
 
+  // A number click here just toggles the row open (same as the rest of the
+  // header) — this screen never merges group_id siblings (useOrdersOfDay
+  // doesn't), so displayNumber only ever contains ' / ' for a DB-merged
+  // (mechanism-1) order, whose items are already tagged with source_order
+  // at ingestion; the expanded item table below filters on it directly.
   const numberNode = displayNumber.includes(' / ') ? (
-    <span
-      title={displayNumber
-        .split(' / ')
-        .map((n) => `#${n.trim()}`)
-        .join(', ')}
-    >
-      <span className="text-content/50">#</span>
-      {displayNumber.split(' / ').map((num, i, arr) => (
-        <React.Fragment key={`${num}-${i}`}>
-          {i > 0 && <span className="text-content/40"> / </span>}
-          <span style={{ color: orderColorFor(num.trim(), arr).hex }}>{num.trim().slice(-3)}</span>
-        </React.Fragment>
-      ))}
-    </span>
+    <CombinedOrderNumbers
+      numbers={splitOrderNumbers(displayNumber)}
+      activeOrderFilter={activeOrderFilter}
+      onToggle={handleToggleOrderFilter}
+      variant="header"
+      compact
+    />
   ) : (
     <>#{displayNumber}</>
   );
@@ -367,6 +379,11 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
 
           {/* Line items */}
           <div className="-mx-3 overflow-x-auto">
+            {activeOrderFilter && (
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted/50 mb-1 px-3">
+                Showing #{activeOrderFilter} only
+              </p>
+            )}
             <table className="w-full min-w-[520px] text-xs">
               <thead>
                 <tr className="text-[10px] font-black uppercase tracking-widest text-muted/50 border-b border-subtle">

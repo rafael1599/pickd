@@ -2,7 +2,7 @@ import React from 'react';
 import Hourglass from 'lucide-react/dist/esm/icons/hourglass';
 import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
 import type { PickingList } from '../../hooks/useDoubleCheckList';
-import { orderColorFor } from '../../../../utils/orderColors';
+import { CombinedOrderNumbers } from '../../../../components/orders/CombinedOrderNumbers';
 
 interface WaitingZoneProps {
   orders: PickingList[];
@@ -52,25 +52,16 @@ export const WaitingZone: React.FC<WaitingZoneProps> = ({ orders, onSelect, onMe
                 </span>
               </div>
               <div className="min-w-0 flex-1 pr-6">
-                <div
-                  className="text-[clamp(1.1rem,1.7vw,2.15rem)] leading-none font-black text-content uppercase tracking-tight truncate"
-                  title={allNumbers.map((n) => `#${n}`).join(', ')}
-                >
-                  <span className="text-content/35 mr-0.5 select-none">#</span>
-                  {allNumbers.map((num, i) => {
-                    const c = orderColorFor(num, allNumbers);
-                    return (
-                      <React.Fragment key={`${num}-${i}`}>
-                        {i > 0 && <span className="text-content/35 mx-1 select-none">/</span>}
-                        <span
-                          style={{ textShadow: c.shadow }}
-                          className={`${c.face} text-[1.15em] font-black tracking-tight leading-none inline-block align-baseline relative z-10`}
-                        >
-                          {num.slice(-3)}
-                        </span>
-                      </React.Fragment>
-                    );
-                  })}
+                <div className="text-[clamp(1.1rem,1.7vw,2.15rem)] leading-none font-black text-content uppercase tracking-tight truncate">
+                  {/* A number click here just opens the order (same as the
+                      rest of the card) — filtering to one sub-order happens
+                      once it's open in DoubleCheckView. */}
+                  <CombinedOrderNumbers
+                    numbers={allNumbers}
+                    activeOrderFilter={null}
+                    onToggle={() => onSelect(firstOrder)}
+                    variant="inline"
+                  />
                 </div>
                 <div
                   className="text-[clamp(0.8rem,1.1vw,1.3rem)] text-amber-500/80 font-bold truncate mt-0.5"

@@ -19,8 +19,17 @@ import { SlideToConfirm } from '../../../components/ui/SlideToConfirm.tsx';
 import { useConfirmation } from '../../../context/ConfirmationContext.tsx';
 import { usePickingSession } from '../../../context/PickingContext.tsx';
 import { useInventory } from '../../inventory/hooks/InventoryProvider.tsx';
-import { orderHeaderLabel, splitOrderNumbers } from '../utils/orderLabel.ts';
+import { orderHeaderLabel } from '../../../utils/orderLabel';
 import { orderColorFor } from '../../../utils/orderColors';
+import { useCombinedOrderFilter } from '../../../hooks/useCombinedOrderFilter';
+import {
+  CombinedOrderNumbers,
+  ActiveFilterPill,
+} from '../../../components/orders/CombinedOrderNumbers';
+import {
+  mergeSiblingPalletPhotos,
+  type PhotoOwnerRow,
+} from '../../../utils/mergeSiblingPalletPhotos';
 import { OrderActionsMenu } from './OrderActionsMenu';
 import { meaningfulNote } from '../utils/meaningfulNote.ts';
 import {
@@ -394,32 +403,57 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const [isDeducting, setIsDeducting] = useState(false);
   const [showWaitingPicker, setShowWaitingPicker] = useState(false);
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
-  const [activeOrderFilter, setActiveOrderFilter] = useState<string | null>(null);
+  const { combinedNumbers, activeOrderFilter, toggleOrderFilter, clearOrderFilter } =
+    useCombinedOrderFilter(orderNumber);
   const [scanResults, setScanResults] = useState<Map<string, Set<string>>>(new Map());
   const [isScanning, setIsScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState<string>('');
-  const [palletPhotos, setPalletPhotos] = useState<string[]>([]);
+  // Pallet photos are per-row (`pallet_photos` on picking_lists), but a
+  // group_id-merged combined order is really N rows. photoRows holds each
+  // owning row's own array; palletPhotos/ownerByUrl below merge them for
+  // display while keeping enough ownership info that a delete can still
+  // target the correct row instead of corrupting a sibling's photos.
+  const [photoRows, setPhotoRows] = useState<PhotoOwnerRow[]>([]);
+  const { photos: palletPhotos, ownerByUrl } = useMemo(
+    () => mergeSiblingPalletPhotos(photoRows),
+    [photoRows]
+  );
   const palletPhotosCount = palletPhotos.length;
+  const setOwnerPhotos = useCallback((ownerId: string, photos: string[]) => {
+    setPhotoRows((prev) => {
+      if (prev.some((row) => row.id === ownerId)) {
+        return prev.map((row) => (row.id === ownerId ? { ...row, pallet_photos: photos } : row));
+      }
+      return [...prev, { id: ownerId, pallet_photos: photos }];
+    });
+  }, []);
   const [palletLightboxIndex, setPalletLightboxIndex] = useState<number | null>(null);
 
   const handleDeletePalletPhoto = useCallback(
     (index: number) => {
       if (!activeListId) return;
+      const url = palletPhotos[index];
+      const ownerId = (url && ownerByUrl.get(url)) || activeListId;
       showConfirmation(
         'Delete Photo',
         'Are you sure you want to delete this pallet photo? This cannot be undone.',
         async () => {
-          const next = palletPhotos.filter((_, i) => i !== index);
-          const previous = palletPhotos;
-          setPalletPhotos(next); // optimistic
+          const previous = photoRows;
+          const nextRows = photoRows.map((row) =>
+            row.id === ownerId
+              ? { ...row, pallet_photos: (row.pallet_photos ?? []).filter((u) => u !== url) }
+              : row
+          );
+          const ownerRow = nextRows.find((row) => row.id === ownerId);
+          setPhotoRows(nextRows); // optimistic
           try {
             await supabase
               .from('picking_lists')
-              .update({ pallet_photos: next })
-              .eq('id', activeListId);
+              .update({ pallet_photos: ownerRow?.pallet_photos ?? [] })
+              .eq('id', ownerId);
           } catch (err) {
             console.error('Delete pallet photo failed:', err);
-            setPalletPhotos(previous);
+            setPhotoRows(previous);
             toast.error('Failed to delete photo');
           }
         },
@@ -429,7 +463,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         'danger'
       );
     },
-    [activeListId, palletPhotos, showConfirmation]
+    [activeListId, palletPhotos, ownerByUrl, photoRows, showConfirmation]
   );
   const scanInputRef = useRef<HTMLInputElement>(null);
 
@@ -510,9 +544,8 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
   // A merged FedEx cart tags every item with source_order (see usePickingSync.loadExternalList).
   const isCombined = useMemo(() => cartItems.some((i) => i.source_order), [cartItems]);
-  // Full order numbers of the combined set — drives the per-order color coding
-  // (header numbers + item-row stripes), matching the Live Board cards.
-  const combinedNumbers = useMemo(() => splitOrderNumbers(orderNumber), [orderNumber]);
+  // combinedNumbers (full order numbers of the combined set, driving the
+  // per-order color coding) now comes from useCombinedOrderFilter above.
 
   const orderQuantities = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -646,27 +679,47 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     onPalletCountChange?.(physicalPalletCount);
   }, [physicalPalletCount, onPalletCountChange]);
 
-  // Fetch initial pallet photos count for the active order
+  // Every distinct row a currently-loaded item is tagged as belonging to —
+  // for a group_id-merged combined order this is every sibling, not just
+  // the anchor (source_list_id is only ever set on merged items; a
+  // non-combined order's items carry none, so activeListId alone covers it).
+  const photoOwnerIdsKey = useMemo(() => {
+    const ids = new Set<string>();
+    if (activeListId) ids.add(activeListId);
+    for (const item of cartItems) {
+      if (item.source_list_id) ids.add(item.source_list_id);
+    }
+    return Array.from(ids).sort().join(',');
+  }, [activeListId, cartItems]);
+
+  // Fetch pallet photos for every owning row of the active (possibly
+  // combined) order, merged for display — previously this only ever
+  // queried activeListId, so a group_id sibling's photos silently never
+  // showed up.
   useEffect(() => {
-    if (!activeListId) {
-      setPalletPhotos([]);
+    const ids = photoOwnerIdsKey ? photoOwnerIdsKey.split(',') : [];
+    if (ids.length === 0) {
+      setPhotoRows([]);
       return;
     }
     let cancelled = false;
     (async () => {
       const { data } = await supabase
         .from('picking_lists')
-        .select('pallet_photos')
-        .eq('id', activeListId)
-        .single();
+        .select('id, pallet_photos')
+        .in('id', ids);
       if (cancelled) return;
-      const photos = Array.isArray(data?.pallet_photos) ? (data.pallet_photos as string[]) : [];
-      setPalletPhotos(photos);
+      setPhotoRows(
+        (data ?? []).map((row) => ({
+          id: row.id as string,
+          pallet_photos: Array.isArray(row.pallet_photos) ? (row.pallet_photos as string[]) : [],
+        }))
+      );
     })();
     return () => {
       cancelled = true;
     };
-  }, [activeListId]);
+  }, [photoOwnerIdsKey]);
 
   // Migrate checked items by SKU when redistribution changes pallet assignments
   const prevPalletsRef = useRef<Pallet[]>(originalPallets);
@@ -1387,7 +1440,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       // We add a placeholder marker so the burst mode counter advances. The
       // real URL replaces it when the fire-and-forget upload below finishes.
       const newCount = palletPhotosCount + 1;
-      setPalletPhotos((prev) => [...prev, '']);
+      const placeholderOwnerId = activeListId ?? 'pending';
+      const ownerCurrentPhotos =
+        photoRows.find((row) => row.id === placeholderOwnerId)?.pallet_photos ?? [];
+      setOwnerPhotos(placeholderOwnerId, [...ownerCurrentPhotos, '']);
 
       // Burst mode: if we still need more photos to match pallet count,
       // auto-reopen the camera. Browsers preserve user activation briefly
@@ -1487,7 +1543,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 .update({ pallet_photos: photos })
                 .eq('id', activeListId);
               // Replace the placeholder with the real URL (or sync from DB)
-              setPalletPhotos(photos);
+              setOwnerPhotos(activeListId, photos);
             } catch (err) {
               console.error('Pallet photo upload failed:', err);
             }
@@ -1500,7 +1556,15 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         setIsScanning(false);
       }
     },
-    [cartItems, palletPhotosCount, physicalPalletCount, activeListId, isReadOnly]
+    [
+      cartItems,
+      palletPhotosCount,
+      physicalPalletCount,
+      activeListId,
+      isReadOnly,
+      photoRows,
+      setOwnerPhotos,
+    ]
   );
 
   // Auto-check items where scan count >= pickingQty
@@ -1612,37 +1676,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 // Combined (2+): every order visible at a glance — last 3 of
                 // each in its per-order color. No +N badge, no dropdown.
                 return (
-                  <span
-                    className="flex items-center text-sm md:text-base font-mono font-black tracking-widest bg-accent/10 px-2 py-1 rounded-lg border border-accent/20"
-                    title={`${combinedNumbers.length} orders combined: ${combinedNumbers
-                      .map((n) => `#${n}`)
-                      .join(', ')}`}
-                  >
-                    {combinedNumbers.map((num, i) => (
-                      <React.Fragment key={num}>
-                        {i > 0 && <span className="text-accent/50 mx-1.5 self-center"> / </span>}
-                        <button
-                          onClick={() =>
-                            setActiveOrderFilter(activeOrderFilter === num ? null : num)
-                          }
-                          style={{
-                            color: orderColorFor(num, combinedNumbers).hex,
-                            lineHeight: '1.1',
-                          }}
-                          className={`flex flex-col items-center justify-center transition-opacity ${
-                            activeOrderFilter && activeOrderFilter !== num
-                              ? 'opacity-30'
-                              : 'hover:opacity-80'
-                          }`}
-                        >
-                          <span className="leading-none">{num.slice(-3)}</span>
-                          <span className="leading-none opacity-80">
-                            {orderQuantities[num] || 0}u
-                          </span>
-                        </button>
-                      </React.Fragment>
-                    ))}
-                  </span>
+                  <CombinedOrderNumbers
+                    numbers={combinedNumbers}
+                    activeOrderFilter={activeOrderFilter}
+                    onToggle={toggleOrderFilter}
+                    unitsByOrder={orderQuantities}
+                    variant="header"
+                  />
                 );
               })()}
               {activeListId && (
@@ -2827,39 +2867,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         />
       )}
 
-      {activeOrderFilter &&
-        (() => {
-          const orderColorHex = orderColorFor(activeOrderFilter, combinedNumbers).hex;
-          return (
-            <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[100]">
-              <button
-                onClick={() => setActiveOrderFilter(null)}
-                className="backdrop-blur border px-4 py-2.5 rounded-full shadow-lg text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap animate-in fade-in slide-in-from-bottom-4"
-                style={{
-                  backgroundColor: `${orderColorHex}26`,
-                  borderColor: `${orderColorHex}4D`,
-                  color: orderColorHex,
-                  boxShadow: `0 10px 15px -3px ${orderColorHex}1a`,
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = `${orderColorHex}40`)}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = `${orderColorHex}26`)}
-              >
-                <X size={16} />
-                <span className="flex">
-                  {`Showing #${activeOrderFilter} Only`.split('').map((char, index) => (
-                    <span
-                      key={index}
-                      className="animate-color-wave"
-                      style={{ animationDelay: `${index * 0.05}s` }}
-                    >
-                      {char === ' ' ? '\u00A0' : char}
-                    </span>
-                  ))}
-                </span>
-              </button>
-            </div>
-          );
-        })()}
+      <ActiveFilterPill
+        activeOrderFilter={activeOrderFilter}
+        combinedNumbers={combinedNumbers}
+        onClear={clearOrderFilter}
+      />
     </div>
   );
 };

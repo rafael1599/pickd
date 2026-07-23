@@ -15,7 +15,8 @@ import {
   calculatePalletsWithBikeAwareness,
   type PickingItem,
 } from '../../../../utils/pickingLogic';
-import { orderColorFor, SINGLE_ORDER_COLOR } from '../../../../utils/orderColors';
+import { SINGLE_ORDER_COLOR } from '../../../../utils/orderColors';
+import { CombinedOrderNumbers } from '../../../../components/orders/CombinedOrderNumbers';
 import { OrderNotesInline } from '../OrderNotesInline';
 import { getCarrierTextColor } from '../../../../components/orders/transportLogos';
 import { useAuth } from '../../../../context/AuthContext';
@@ -372,23 +373,16 @@ const OrderCardShell: React.FC<CardProps> = ({
               )}
               <span className="text-[clamp(1.2rem,2.5vw,3.5rem)] leading-none font-black uppercase tracking-tight text-content whitespace-nowrap">
                 {numberParts.segments ? (
-                  <>
-                    <span className="text-content/35 mr-1 select-none">#</span>
-                    {numberParts.segments.map((seg, i) => {
-                      const c = orderColorFor(seg, numberParts.segments!);
-                      return (
-                        <React.Fragment key={i}>
-                          {i > 0 && <span className="text-content/35 mx-1.5 select-none">/</span>}
-                          <span
-                            style={{ textShadow: c.shadow }}
-                            className={`${c.face} text-[1.27em] font-black tracking-tight leading-none inline-block align-baseline relative z-10`}
-                          >
-                            {seg.slice(-3)}
-                          </span>
-                        </React.Fragment>
-                      );
-                    })}
-                  </>
+                  // A number click here just opens the order (same as the
+                  // rest of the card) — filtering to one sub-order happens
+                  // once it's open in DoubleCheckView, via the same
+                  // CombinedOrderNumbers there.
+                  <CombinedOrderNumbers
+                    numbers={numberParts.segments}
+                    activeOrderFilter={null}
+                    onToggle={() => onSelect(order)}
+                    variant="inline"
+                  />
                 ) : (
                   <>
                     <span className="text-content/35 mr-1 select-none">
