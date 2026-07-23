@@ -52,19 +52,38 @@ const DEFAULT_MAX_ATTEMPTS = 4;
 const BACKOFF_CAP_MS = 30_000;
 
 /**
+ * Whether an error means the session's JWT is expired/invalid. Supabase-js
+ * rarely sets `.status` on a PostgrestError (that lives on the underlying
+ * fetch Response, which isn't attached) — `code === 'PGRST301'` is the
+ * reliable signal, same one `query-client.ts`'s QueryCache/MutationCache
+ * `onError` checks.
+ */
+function isAuthError(error: SupabaseLikeResult<unknown>['error']): boolean {
+  if (!error) return false;
+  const status = (error as { status?: number }).status;
+  const code = (error as { code?: string }).code;
+  return status === 401 || code === 'PGRST301';
+}
+
+/**
  * Decide whether an error from supabase is worth retrying. Mirrors the
  * conservative rule in `query-client.ts:retry` so behavior is
  * consistent across the app.
  *
  * Retryable: anything with no `status` (fetch failure → no response),
  *            5xx server errors, 408 timeout, 429 rate limit.
- * Not retryable: 4xx auth/permission/validation (status 400-499 except
+ * Not retryable: auth errors (401/PGRST301 — retrying with the same
+ *                expired token just burns the whole backoff window),
+ *                4xx auth/permission/validation (status 400-499 except
  *                408/429), and "no rows" PGRST116.
  */
 function isRetryable(error: SupabaseLikeResult<unknown>['error']): boolean {
   if (!error) return false;
   const status = (error as { status?: number }).status;
   const code = (error as { code?: string }).code;
+
+  // Expired/invalid JWT — never transient, no point burning attempts.
+  if (isAuthError(error)) return false;
 
   // PostgREST "row not found" is a deterministic logical outcome,
   // never a transient failure.
@@ -126,6 +145,16 @@ export async function withSupabaseRetry<R>(
     // so we reach into the object reflectively without forcing every caller
     // to widen their types.
     const err = (lastResult as { error?: SupabaseLikeResult<unknown>['error'] } | undefined)?.error;
+    if (err && isAuthError(err)) {
+      // Same signal query-client.ts's QueryCache/MutationCache onError acts
+      // on — AuthContext listens for this and redirects to /login. Without
+      // this, calls made outside useQuery/useMutation (this helper's whole
+      // reason to exist) never escalate and the app is stuck retrying an
+      // expired token forever.
+      console.warn(`[${label}] Session expired (401/PGRST301) — dispatching auth-error-401`);
+      window.dispatchEvent(new CustomEvent('auth-error-401'));
+      return lastResult;
+    }
     if (!err || !isRetryable(err)) {
       return lastResult;
     }

@@ -52,6 +52,39 @@ describe('withSupabaseRetry', () => {
     expect(result.error?.code).toBe('PGRST116');
   });
 
+  it('fails fast on PGRST301 (expired JWT) and dispatches auth-error-401', async () => {
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+    const fn = vi
+      .fn<() => Promise<R>>()
+      .mockResolvedValue({ data: null, error: { code: 'PGRST301', message: 'JWT expired' } });
+    const result = await runWithTicks(withSupabaseRetry(fn));
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(result.error?.code).toBe('PGRST301');
+    expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'auth-error-401' }));
+  });
+
+  it('fails fast on status 401 and dispatches auth-error-401', async () => {
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+    const fn = vi
+      .fn<() => Promise<R>>()
+      .mockResolvedValue({ data: null, error: { status: 401, message: 'unauthorized' } });
+    const result = await runWithTicks(withSupabaseRetry(fn));
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(result.error?.status).toBe(401);
+    expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'auth-error-401' }));
+  });
+
+  it('does NOT dispatch auth-error-401 for unrelated errors', async () => {
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+    const fn = vi
+      .fn<() => Promise<R>>()
+      .mockResolvedValue({ data: null, error: { status: 403, message: 'forbidden' } });
+    await runWithTicks(withSupabaseRetry(fn));
+    expect(dispatchSpy).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'auth-error-401' })
+    );
+  });
+
   it('retries 5xx server errors and recovers on success', async () => {
     const fn = vi
       .fn<() => Promise<R>>()
