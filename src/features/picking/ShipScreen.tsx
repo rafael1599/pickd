@@ -928,10 +928,17 @@ export const ShipScreen = () => {
       }
 
       const byCarrier = collapsed.filter((o) => {
+        if (query) {
+          // While searching, route by actual shipped status only — drop the
+          // "shipped TODAY" date window so an order shipped last week is
+          // still findable in the Shipped column instead of being filtered
+          // out before the search query is even consulted.
+          return tab === 'shipped' ? !!o.is_shipped : !o.is_shipped;
+        }
+
         const shippedToday = !!o.is_shipped && dayKey(new Date(o.updated_at)) === todayStr;
         const matchTab = tab === 'shipped' ? shippedToday : !o.is_shipped;
         if (!matchTab) return false;
-        if (query) return true;
 
         return tab === 'shipped' ? matchesShippedCarrierFilter(o) : matchesPendingCarrierFilter(o);
       });

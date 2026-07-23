@@ -288,7 +288,10 @@ export function useShipOrdersData() {
         } else {
           query = query.ilike('order_number', `%${sq}%`);
         }
-        query = query.limit(100);
+        // Ordered by created_at desc, so a low cap here silently drops older
+        // matches for generic/short queries before the client even sees
+        // them. 500 gives a lot more headroom while still bounding payload size.
+        query = query.limit(500);
       } else {
         query = query.or(
           `is_shipped.is.null,is_shipped.eq.false,and(is_shipped.eq.true,updated_at.gte.${nyMidnight})`
