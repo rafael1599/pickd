@@ -216,11 +216,12 @@ export const PickingCartDrawer: React.FC = () => {
               is_waiting_inventory?: boolean | null;
             };
 
-            // Read-only if another user is verifying it OR another user is picking it
-            let needsTakeover = !!(
-              (listData.checked_by && listData.checked_by !== user.id) ||
-              (!listData.checked_by && listData.user_id && listData.user_id !== user.id)
-            );
+            // Read-only only if someone else currently has it locked open
+            // (checked_by — a live lock set by lockForCheck, cleared by
+            // releaseCheck). listData.user_id is just the original picker
+            // and has no bearing on live presence — an order nobody
+            // currently has open must never require a manual "Take Over".
+            let needsTakeover = !!(listData.checked_by && listData.checked_by !== user.id);
 
             if (!needsTakeover && listData.group_id) {
               const { data: groupSiblings } = await supabase
