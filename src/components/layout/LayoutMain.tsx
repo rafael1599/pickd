@@ -91,7 +91,7 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
           <>
             <header
               className={`
-                    fixed top-0 left-0 right-0 bg-card border-b border-subtle z-50 transition-transform duration-200
+                    fixed top-0 left-0 right-0 bg-card border-b border-subtle z-50 transition-transform duration-200 print:hidden
                     ${isHeaderHidden || isSearching ? '-translate-y-full' : 'translate-y-0'}
                 `}
             >
@@ -142,7 +142,7 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
               </div>
             </header>
             {/* Spacer for fixed header */}
-            <div className="h-[60px]" />
+            <div className="h-[60px] print:hidden" />
           </>
         )}
 

@@ -25,7 +25,7 @@ export const SkuDetailPanel: React.FC<SkuDetailPanelProps> = ({ selected, info, 
   const color = skuColor(selected.sku);
 
   return (
-    <div className="absolute top-4 right-4 z-30 w-72 bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden">
+    <div className="print:hidden absolute top-4 right-4 z-30 w-72 bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden">
       <div className="flex items-start justify-between px-4 pt-3 pb-2 border-b border-gray-100">
         <div className="min-w-0">
           <div className="font-mono font-bold text-sm" style={{ color: color.text }}>

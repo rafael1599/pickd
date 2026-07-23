@@ -127,7 +127,7 @@ export const BottomNavigation = () => {
     <>
       {!isBoardOpen && (
         <div
-          className={`fixed bottom-0 left-0 right-0 md:top-2.5 md:bottom-auto md:left-1/2 md:-translate-x-1/2 pointer-events-none flex justify-center md:w-auto md:h-auto z-[150] p-4 md:p-0 transition-all duration-300 ${
+          className={`fixed bottom-0 left-0 right-0 md:top-2.5 md:bottom-auto md:left-1/2 md:-translate-x-1/2 pointer-events-none flex justify-center md:w-auto md:h-auto z-[150] p-4 md:p-0 transition-all duration-300 print:hidden ${
             isSearching ? 'h-16 md:h-auto' : 'h-24 md:h-auto'
           }`}
         >

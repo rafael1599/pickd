@@ -8,7 +8,7 @@ export const WarehouseMapScreen: React.FC = () => {
   return (
     <div className="h-full w-full flex flex-col bg-white">
       {/* We can add a back button or leave it to the LayoutMain */}
-      <div className="border-b px-6 py-4 flex items-center bg-white shadow-sm z-10">
+      <div className="border-b px-6 py-4 flex items-center bg-white shadow-sm z-10 print:hidden">
         <button
           onClick={() => navigate(-1)}
           className="mr-4 px-3 py-1.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
@@ -18,7 +18,7 @@ export const WarehouseMapScreen: React.FC = () => {
         <h1 className="text-xl font-bold text-slate-800">Visual Layout</h1>
       </div>
 
-      <div className="flex-1 overflow-hidden relative">
+      <div className="flex-1 overflow-hidden print:overflow-visible relative">
         <WarehouseMap />
       </div>
     </div>

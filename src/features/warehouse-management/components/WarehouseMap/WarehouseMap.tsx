@@ -3,6 +3,7 @@ import { RotateCw, Loader2 } from 'lucide-react';
 import { WarehouseGrid } from './WarehouseGrid';
 import { WarehouseMapFilters } from './WarehouseMapFilters';
 import { SkuDetailPanel, type SelectedSku, type SkuDetailInfo } from './SkuDetailPanel';
+import { ExcludedItemsSummary } from './ExcludedItemsSummary';
 import {
   useOverstockCandidatePool,
   computeOverstockPlan,
@@ -80,9 +81,9 @@ export const WarehouseMap: React.FC = () => {
   }, [data]);
 
   return (
-    <div className="w-full h-full flex flex-col p-6 overflow-auto bg-white">
+    <div className="w-full h-full flex flex-col p-6 print:p-0 overflow-auto print:overflow-visible bg-white">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+      <div className="print:hidden flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <h2 className="text-2xl font-bold text-slate-800">Warehouse Top View</h2>
 
         <div className="flex items-center gap-4">
@@ -112,8 +113,14 @@ export const WarehouseMap: React.FC = () => {
         </div>
       </div>
 
+      <ExcludedItemsSummary
+        pool={pool ?? []}
+        autoExclusionReasons={autoExclusionReasons}
+        effectivelyExcludedSkus={effectivelyExcludedSkus}
+      />
+
       {/* Map Container */}
-      <div className="relative flex-1 rounded-2xl bg-[#F8FAFC] border-2 border-dashed border-slate-200 p-8 overflow-auto">
+      <div className="relative flex-1 rounded-2xl print:rounded-none bg-[#F8FAFC] print:bg-white border-2 print:border-0 border-dashed border-slate-200 p-8 print:p-0 overflow-auto print:overflow-visible">
         {isLoading ? (
           <div className="flex items-center justify-center h-full text-slate-400 gap-2">
             <Loader2 className="w-5 h-5 animate-spin" /> Loading overstock plan…
@@ -123,7 +130,7 @@ export const WarehouseMap: React.FC = () => {
             Failed to load overstock plan.
           </div>
         ) : (
-          <div className="flex justify-center items-center min-w-max mx-auto h-full">
+          <div className="flex justify-center items-center min-w-max mx-auto h-full print:h-auto">
             <WarehouseGrid
               slots={data?.plan.slots ?? []}
               rotation={rotation}
