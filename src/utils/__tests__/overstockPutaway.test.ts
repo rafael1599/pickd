@@ -130,6 +130,39 @@ describe('planOverstockPutaway', () => {
     });
   });
 
+  it("keeps a tower-having SKU's line entry at the edge closest to its tower, even when other SKUs' lines get added to that cell afterward", () => {
+    // Reproduces the reported bug: 06-4516KW (tower + line) opens the
+    // shared cell first, then 5 unrelated single-line SKUs get pushed in
+    // afterward — without the final reorder pass, 06-4516KW's own entry
+    // would get buried at the far end instead of staying next to its tower.
+    const candidates = [
+      { sku: 'anchor', totalQty: 32 }, // 1 tower (30) + 1 line (2)
+      ...Array.from({ length: 5 }, (_, i) => ({ sku: `filler-${i}`, totalQty: 3 })),
+    ];
+    const { slots, unplaced } = planOverstockPutaway(candidates);
+    expect(unplaced).toHaveLength(0);
+
+    const towerSlot = slots.find((s) => s.usage.kind === 'tower' && s.usage.sku === 'anchor');
+    const lineSlot = slots.find(
+      (s) => s.usage.kind === 'lines' && s.usage.entries.some((e) => e.sku === 'anchor')
+    );
+    expect(towerSlot).toBeDefined();
+    expect(lineSlot?.usage.kind).toBe('lines');
+    if (lineSlot?.usage.kind !== 'lines') return;
+
+    // Every filler shares the cell too (proves the "buried in the middle" setup is real).
+    expect(lineSlot.usage.entries.length).toBe(6);
+
+    // 'anchor's tower sits at whichever letter is adjacent to the line cell —
+    // its own entry must be on the edge that faces that tower, not sandwiched
+    // in between the filler entries.
+    const anchorIndex = lineSlot.usage.entries.findIndex((e) => e.sku === 'anchor');
+    const towerLetterIdx = 'ABCDEFGHIJ'.indexOf(towerSlot!.letter);
+    const lineLetterIdx = 'ABCDEFGHIJ'.indexOf(lineSlot.letter);
+    const expectedIndex = towerLetterIdx > lineLetterIdx ? lineSlot.usage.entries.length - 1 : 0;
+    expect(anchorIndex).toBe(expectedIndex);
+  });
+
   it('never places two line-sublocations next to each other in the same row', () => {
     // 7 different SKUs each needing exactly 1 line forces multiple line-sublocations to open.
     const candidates = Array.from({ length: 7 }, (_, i) => ({ sku: `S${i}`, totalQty: 3 }));

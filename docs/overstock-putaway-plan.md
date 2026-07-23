@@ -78,7 +78,12 @@ towers**, never lines.
    only land in one of the tower's immediate letter-neighbors in the same
    row — never anywhere else in the block, even if that means reporting it
    `unplaced` instead. The neighbor must be accessible (a landlocked one,
-   like 32-B next to 32-A, doesn't count).
+   like 32-B next to 32-A, doesn't count). Since that neighbor cell can be
+   shared with several unrelated SKUs' lines, a final pass
+   (`reorderLinesToFaceTowers`) keeps this SKU's entry pinned at the edge of
+   the list that actually faces its tower, instead of wherever insertion
+   order happened to leave it — otherwise it can read as "buried" among
+   other SKUs even though the sublocation itself is correctly adjacent.
 7. **Picking order**: within a SKU, lines are picked before its tower; within
    a tower, pick from the top (LIFO), decrementing that SKU's total. Same
    picking-priority logic as DoubleCheckView.

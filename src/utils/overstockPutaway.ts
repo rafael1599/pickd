@@ -143,6 +143,37 @@ function adjacentSlots(slots: PlannedSlot[], anchor: PlannedSlot): PlannedSlot[]
     .filter((s): s is PlannedSlot => s !== undefined);
 }
 
+/**
+ * A shared line cell can end up with several unrelated SKUs' entries in it.
+ * If one of the cell's two letter-neighbors is a tower, and that tower's
+ * SKU also has a line entry in this cell, that entry needs to sit at the
+ * edge of the list closest to that tower — otherwise it can read as
+ * "buried" in the middle of unrelated SKUs even though the sublocation
+ * itself is already the tower's direct neighbor. Insertion order during
+ * placement can't guarantee this on its own (a later, unrelated SKU can
+ * always push in after an earlier tower-facing entry), so this runs once,
+ * after every SKU has been placed, as a final presentation pass — it never
+ * moves anything between sublocations, only reorders entries within one.
+ */
+function reorderLinesToFaceTowers(slots: PlannedSlot[]): void {
+  for (const slot of slots) {
+    if (slot.usage.kind !== 'lines') continue;
+    const [prevSlot, nextSlot] = [-1, 1].map((delta) => {
+      const letter = LETTERS[LETTERS.indexOf(slot.letter) + delta];
+      return letter ? slots.find((s) => s.row === slot.row && s.letter === letter) : undefined;
+    });
+    const prevSku = prevSlot?.usage.kind === 'tower' ? prevSlot.usage.sku : undefined;
+    const nextSku = nextSlot?.usage.kind === 'tower' ? nextSlot.usage.sku : undefined;
+    if (!prevSku && !nextSku) continue;
+
+    const entries = slot.usage.entries;
+    const facingPrev = prevSku ? entries.filter((e) => e.sku === prevSku) : [];
+    const facingNext = nextSku ? entries.filter((e) => e.sku === nextSku) : [];
+    const rest = entries.filter((e) => e.sku !== prevSku && e.sku !== nextSku);
+    slot.usage.entries = [...facingPrev, ...rest, ...facingNext];
+  }
+}
+
 function placeTower(
   slots: PlannedSlot[],
   sku: string,
@@ -326,6 +357,7 @@ export function planOverstockPutaway(candidates: OverstockCandidate[]): PutawayP
     }
   }
 
+  reorderLinesToFaceTowers(slots);
   return { slots, unplaced };
 }
 
