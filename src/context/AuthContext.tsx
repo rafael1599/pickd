@@ -9,7 +9,7 @@ import {
   ReactNode,
 } from 'react';
 import { supabase } from '../lib/supabase';
-import { queryClient } from '../lib/query-client';
+import { queryClient, persister } from '../lib/query-client';
 import { type User } from '@supabase/supabase-js';
 
 export interface AuthProfile {
@@ -119,6 +119,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // On generalized SIGNED_OUT event (could be session expiry or other tab logout)
           // we play it safe and only remove sensitive queries, preserving the mutation queue.
           queryClient.removeQueries();
+          // Also drop the on-disk IndexedDB snapshot — otherwise the next
+          // load can restore query data built against the session that
+          // just ended, before a fresh sign-in has a chance to overwrite it.
+          Promise.resolve(persister.removeClient()).catch(() => {});
 
           setUser(null);
           setRole(null);
@@ -135,19 +139,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Listen for global 401 auth errors from QueryClient
     const handleAuthError = () => {
       console.warn(
-        '[AuthContext] 401 detected. Session expired. Preserving mutations, clearing queries.'
+        '[AuthContext] 401 detected. Session expired. Preserving mutations, clearing queries and stale session.'
       );
-      // 401 is involuntary logout: remove queries only
+      // 401 is involuntary logout: remove queries only, preserve the
+      // mutation queue so in-flight offline work isn't discarded.
       queryClient.removeQueries();
 
-      // Clear app state and redirect
+      // Clear app state
       setUser(null);
       setRole(null);
       setProfile(null);
 
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
-      }
+      // The dead session token (localStorage) and the on-disk IndexedDB
+      // query snapshot both survive a plain redirect — removeQueries() only
+      // clears in-memory state, and PersistQueryClientProvider's auto-persist
+      // is debounced, so it rarely gets a chance to run before
+      // window.location.href unloads the page. Left alone, the next load
+      // restores the same dead session + stale cache from storage and
+      // immediately 401s again — this is why only a full manual browser
+      // data wipe used to actually fix it. Explicitly clear both, in
+      // parallel, before navigating away.
+      Promise.allSettled([supabase.auth.signOut(), persister.removeClient()]).finally(() => {
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+      });
     };
 
     window.addEventListener('auth-error-401', handleAuthError);
