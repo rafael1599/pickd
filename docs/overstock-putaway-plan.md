@@ -64,6 +64,12 @@ towers**, never lines.
 6. **Max 6 lines per sublocation**, 5 units per line, one SKU per line (a
    single SKU can occupy more than one line if it needs more than 5 units in
    that bucket).
+   6b. **A SKU's tower and its own line remainder must stay adjacent.** If a SKU
+   has both (e.g. qty 35 = 1 tower + a 5-unit line), the line remainder can
+   only land in one of the tower's immediate letter-neighbors in the same
+   row — never anywhere else in the block, even if that means reporting it
+   `unplaced` instead. The neighbor must be accessible (a landlocked one,
+   like 32-B next to 32-A, doesn't count).
 7. **Picking order**: within a SKU, lines are picked before its tower; within
    a tower, pick from the top (LIFO), decrementing that SKU's total. Same
    picking-priority logic as DoubleCheckView.

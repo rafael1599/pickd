@@ -131,12 +131,24 @@ function neighborIsLineSlot(slots: PlannedSlot[], slot: PlannedSlot): boolean {
   );
 }
 
+/** The up-to-2 immediate letter-neighbors of a slot, same row. */
+function adjacentSlots(slots: PlannedSlot[], anchor: PlannedSlot): PlannedSlot[] {
+  const idx = LETTERS.indexOf(anchor.letter);
+  const letters = [
+    idx > 0 ? LETTERS[idx - 1] : null,
+    idx < LETTERS.length - 1 ? LETTERS[idx + 1] : null,
+  ].filter((l): l is (typeof LETTERS)[number] => l !== null);
+  return letters
+    .map((letter) => slots.find((s) => s.row === anchor.row && s.letter === letter))
+    .filter((s): s is PlannedSlot => s !== undefined);
+}
+
 function placeTower(
   slots: PlannedSlot[],
   sku: string,
   units: number,
   preferLandlocked: boolean
-): boolean {
+): PlannedSlot | null {
   const pool = (accessibility: Accessibility) =>
     slots
       .filter(isEmpty)
@@ -145,15 +157,29 @@ function placeTower(
   const candidates = pool(preferLandlocked ? 'landlocked' : 'accessible');
   const fallback = preferLandlocked ? pool('accessible') : [];
   const target = candidates[0] ?? fallback[0];
-  if (!target) return false;
+  if (!target) return null;
   target.usage = { kind: 'tower', sku, units };
-  return true;
+  return target;
 }
 
-function placeLine(slots: PlannedSlot[], sku: string, units: number): boolean {
+/**
+ * @param anchorSlot If this SKU already has a tower, its line remainder must
+ * never drift away from it — the furthest it's allowed to land is one of the
+ * tower's immediate (always-accessible) neighbors in the same row. No
+ * `anchorSlot` means this SKU has no tower (pure-lines), so the normal
+ * proximity-to-J placement applies instead.
+ */
+function placeLine(
+  slots: PlannedSlot[],
+  sku: string,
+  units: number,
+  anchorSlot?: PlannedSlot
+): boolean {
   const notForcedTower = (s: PlannedSlot) => !FORCED_TOWER_SLOT_IDS.includes(s.id);
 
-  // Prefer topping off a sublocation that already has a line for this SKU.
+  // Prefer topping off a sublocation that already has a line for this SKU
+  // (keeps a SKU's own multi-chunk lines together — if that slot was chosen
+  // as a tower's neighbor, this keeps every later chunk there too).
   const existing = slots
     .filter(
       (s) =>
@@ -168,7 +194,43 @@ function placeLine(slots: PlannedSlot[], sku: string, units: number): boolean {
     return true;
   }
 
-  // Any accessible sublocation already running lines with room.
+  if (anchorSlot) {
+    const neighbors = adjacentSlots(slots, anchorSlot);
+
+    const emptyNeighbor = neighbors
+      .filter(
+        (s) =>
+          s.accessibility === 'accessible' &&
+          isEmpty(s) &&
+          notForcedTower(s) &&
+          !neighborIsLineSlot(slots, s)
+      )
+      .sort(byProximityToJ)[0];
+    if (emptyNeighbor) {
+      emptyNeighbor.usage = { kind: 'lines', entries: [{ sku, units }] };
+      return true;
+    }
+
+    // A neighbor already running someone else's lines, with room, still
+    // keeps this SKU physically next to its own tower.
+    const neighborWithRoom = neighbors
+      .filter(
+        (s) =>
+          s.accessibility === 'accessible' &&
+          s.usage.kind === 'lines' &&
+          s.usage.entries.length < MAX_LINES_PER_SUBLOCATION
+      )
+      .sort(byProximityToJ)[0];
+    if (neighborWithRoom && neighborWithRoom.usage.kind === 'lines') {
+      neighborWithRoom.usage.entries.push({ sku, units });
+      return true;
+    }
+
+    // Never drift further than a neighbor of this SKU's own tower.
+    return false;
+  }
+
+  // No tower anchor (pure-lines SKU) — any accessible sublocation already running lines with room.
   const openSlot = slots
     .filter(
       (s) =>
@@ -209,6 +271,7 @@ export function planOverstockPutaway(candidates: OverstockCandidate[]): PutawayP
   for (const { sku, totalQty } of candidates) {
     const { fullTowers, extraTowerUnits, lineUnits } = splitQty(totalQty);
     let hasAccessiblePlacement = false;
+    let anchorTowerSlot: PlannedSlot | undefined;
     const towerUnitsQueue = [
       ...Array(fullTowers).fill(TOWER_CAPACITY),
       ...(extraTowerUnits > 0 ? [extraTowerUnits] : []),
@@ -218,8 +281,10 @@ export function planOverstockPutaway(candidates: OverstockCandidate[]): PutawayP
     // First unit of this SKU must land somewhere accessible (rule 3's precondition).
     if (towerUnitsQueue.length > 0) {
       const units = towerUnitsQueue.shift() as number;
-      if (placeTower(slots, sku, units, false)) {
+      const placed = placeTower(slots, sku, units, false);
+      if (placed) {
         hasAccessiblePlacement = true;
+        anchorTowerSlot = placed;
       } else {
         unplaced.push({ sku, units, reason: 'No accessible sublocation available' });
       }
@@ -240,11 +305,18 @@ export function planOverstockPutaway(candidates: OverstockCandidate[]): PutawayP
       }
     }
 
-    // Remaining lines: always accessible.
+    // Remaining lines: glued to this SKU's own tower (its immediate
+    // neighbor) if it has one — never left to drift elsewhere in the block.
     while (linesQueue.length > 0) {
       const units = linesQueue.shift() as number;
-      if (!placeLine(slots, sku, units)) {
-        unplaced.push({ sku, units, reason: 'No accessible line capacity left' });
+      if (!placeLine(slots, sku, units, anchorTowerSlot)) {
+        unplaced.push({
+          sku,
+          units,
+          reason: anchorTowerSlot
+            ? "No accessible sublocation next to this SKU's tower"
+            : 'No accessible line capacity left',
+        });
       }
     }
   }

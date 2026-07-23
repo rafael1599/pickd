@@ -73,6 +73,46 @@ describe('planOverstockPutaway', () => {
     }
   });
 
+  it("keeps a SKU's line remainder physically adjacent to its own tower", () => {
+    // qty=35 -> 1 full tower (30) + a 5-unit line remainder.
+    const { slots, unplaced } = planOverstockPutaway([{ sku: 'A', totalQty: 35 }]);
+    expect(unplaced).toHaveLength(0);
+    const towerSlot = slots.find((s) => s.usage.kind === 'tower' && s.usage.sku === 'A');
+    const lineSlot = slots.find(
+      (s) => s.usage.kind === 'lines' && s.usage.entries.some((e) => e.sku === 'A')
+    );
+    expect(towerSlot).toBeDefined();
+    expect(lineSlot).toBeDefined();
+    expect(lineSlot?.row).toBe(towerSlot?.row);
+    const letterDistance = Math.abs(
+      'ABCDEFGHIJ'.indexOf(lineSlot!.letter) - 'ABCDEFGHIJ'.indexOf(towerSlot!.letter)
+    );
+    expect(letterDistance).toBe(1);
+  });
+
+  it("never lets a SKU's line remainder drift away from its tower into a distant sublocation", () => {
+    // Fill every accessible slot except 32-A, 33-A first (17 single-tower
+    // blockers: the 16 non-A-letter accessible slots, plus 31-A). The test
+    // SKU then has nowhere left but 32-A for its tower — whose only letter
+    // neighbor (32-B) is landlocked — so its line remainder must come back
+    // unplaced instead of landing somewhere else in the block.
+    const blockers = Array.from({ length: 17 }, (_, i) => ({ sku: `blocker-${i}`, totalQty: 30 }));
+    const { slots, unplaced } = planOverstockPutaway([...blockers, { sku: 'A', totalQty: 35 }]);
+
+    const towerSlot = slots.find((s) => s.usage.kind === 'tower' && s.usage.sku === 'A');
+    expect(towerSlot?.id).toBe('32-A');
+
+    const lineSlot = slots.find(
+      (s) => s.usage.kind === 'lines' && s.usage.entries.some((e) => e.sku === 'A')
+    );
+    expect(lineSlot).toBeUndefined();
+    expect(unplaced).toContainEqual({
+      sku: 'A',
+      units: 5,
+      reason: "No accessible sublocation next to this SKU's tower",
+    });
+  });
+
   it('never places two line-sublocations next to each other in the same row', () => {
     // 7 different SKUs each needing exactly 1 line forces multiple line-sublocations to open.
     const candidates = Array.from({ length: 7 }, (_, i) => ({ sku: `S${i}`, totalQty: 3 }));
