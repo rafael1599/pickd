@@ -11,7 +11,14 @@ interface SkuCellProps {
   /** Fixed height (rem) so every sublocation matches the biggest one on screen. */
   heightRem: number;
   onSelectSku: (selection: SelectedSku) => void;
+  borderRight?: boolean;
+  borderBottom?: boolean;
 }
+
+// Print gets a noticeably bigger, easier-to-read SKU code — the cell height
+// scales up to match (via the --cell-h custom property) so a taller font
+// never gets clipped or forces a wrap onto a second line.
+const PRINT_HEIGHT_SCALE = 1.5;
 
 export const SkuCell: React.FC<SkuCellProps> = ({
   usage,
@@ -19,19 +26,26 @@ export const SkuCell: React.FC<SkuCellProps> = ({
   dashed,
   heightRem,
   onSelectSku,
+  borderRight,
+  borderBottom,
 }) => {
   const counterRotate = counterRotateTextStyle(rotation);
-  const height = `${heightRem}rem`;
+  const heightVars = {
+    '--cell-h': `${heightRem}rem`,
+    '--cell-h-print': `${heightRem * PRINT_HEIGHT_SCALE}rem`,
+  } as React.CSSProperties;
+  const heightClass = 'h-[var(--cell-h)] print:h-[var(--cell-h-print)]';
+  const borderClass = `${borderRight ? 'border-r' : ''} ${borderBottom ? 'border-b' : ''} border-gray-300`;
 
   if (usage.kind === 'reserved') {
     return (
       <div
-        className={`flex items-center justify-center bg-gray-50 text-gray-300 text-[10px] italic ${
+        className={`flex items-center justify-center bg-gray-50 text-gray-300 text-[10px] italic ${heightClass} ${borderClass} ${
           dashed
             ? 'relative z-10 outline outline-2 outline-dashed outline-gray-300 outline-offset-[-2px]'
             : ''
         }`}
-        style={{ height }}
+        style={heightVars}
       >
         <span style={counterRotate}>reserved</span>
       </div>
@@ -39,7 +53,7 @@ export const SkuCell: React.FC<SkuCellProps> = ({
   }
 
   if (usage.kind === 'empty') {
-    return <div className="bg-white" style={{ height }} />;
+    return <div className={`bg-white ${heightClass} ${borderClass}`} style={heightVars} />;
   }
 
   if (usage.kind === 'tower') {
@@ -47,17 +61,20 @@ export const SkuCell: React.FC<SkuCellProps> = ({
     const color = skuColor(sku);
     return (
       <div
-        className="flex flex-col justify-center gap-0.5 px-2.5 py-1.5 border-l-4 cursor-pointer hover:brightness-95"
-        style={{ height, backgroundColor: color.bg, borderLeftColor: color.border }}
+        className={`flex flex-col justify-center gap-0.5 px-2.5 py-1.5 border-l-4 cursor-pointer hover:brightness-95 overflow-hidden ${heightClass} ${borderClass}`}
+        style={{ ...heightVars, backgroundColor: color.bg, borderLeftColor: color.border }}
         onClick={() => onSelectSku({ sku, unitsHere: units, kind: 'tower' })}
       >
         <div
-          className="font-mono font-bold text-[11px]"
+          className="font-mono font-bold text-[11px] print:text-base whitespace-nowrap overflow-hidden text-ellipsis"
           style={{ ...counterRotate, color: color.text }}
         >
           {sku}
         </div>
-        <div className="text-[10px] text-slate-400" style={counterRotate}>
+        <div
+          className="text-[10px] print:text-xs text-slate-400 whitespace-nowrap"
+          style={counterRotate}
+        >
           {units}u tower
         </div>
       </div>
@@ -65,20 +82,26 @@ export const SkuCell: React.FC<SkuCellProps> = ({
   }
 
   return (
-    <div className="flex flex-col justify-center gap-1 px-2.5 py-1.5 bg-white" style={{ height }}>
+    <div
+      className={`flex flex-col justify-center gap-1 px-2.5 py-1.5 bg-white overflow-hidden ${heightClass} ${borderClass}`}
+      style={heightVars}
+    >
       {usage.entries.map((e) => {
         const color = skuColor(e.sku);
         return (
           <div
             key={e.sku}
             style={counterRotate}
-            className="cursor-pointer hover:brightness-90 rounded"
+            className="cursor-pointer hover:brightness-90 rounded whitespace-nowrap overflow-hidden text-ellipsis"
             onClick={() => onSelectSku({ sku: e.sku, unitsHere: e.units, kind: 'line' })}
           >
-            <span className="font-mono font-semibold text-[11px]" style={{ color: color.text }}>
+            <span
+              className="font-mono font-semibold text-[11px] print:text-base"
+              style={{ color: color.text }}
+            >
               {e.sku}
             </span>
-            <span className="text-[10px] text-slate-400"> · {e.units}u</span>
+            <span className="text-[10px] print:text-xs text-slate-400"> · {e.units}u</span>
           </div>
         );
       })}
