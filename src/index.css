@@ -430,3 +430,18 @@ body::before {
     display: none;
   }
 }
+
+/* Warehouse Top View print output: black on white only. The per-SKU
+   colors (skuColor()) are set via inline styles for on-screen identity —
+   !important here is required to override those on print, since inline
+   styles otherwise beat stylesheet rules regardless of selector specificity. */
+@media print {
+  .warehouse-grid-print,
+  .warehouse-grid-print * {
+    color: #000 !important;
+    background-color: #fff !important;
+    background-image: none !important;
+    border-color: #000 !important;
+    outline-color: #000 !important;
+  }
+}

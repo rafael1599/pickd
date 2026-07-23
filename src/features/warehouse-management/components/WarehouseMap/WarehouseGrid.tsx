@@ -33,7 +33,7 @@ export const WarehouseGrid: React.FC<WarehouseGridProps> = ({ slots, rotation, o
 
   return (
     <div
-      className="grid border-2 border-gray-300 rounded-lg overflow-hidden shadow-sm bg-white transition-transform duration-500 ease-in-out"
+      className="warehouse-grid-print grid border-2 border-gray-300 rounded-lg overflow-hidden shadow-sm bg-white transition-transform duration-500 ease-in-out"
       style={{
         gridTemplateColumns: `2.5rem repeat(${ROWS.length}, minmax(11rem, 1fr))`,
         transform: `rotate(${rotation}deg)`,
