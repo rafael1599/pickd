@@ -52,19 +52,28 @@ towers**, never lines.
 1. **Towers are mono-SKU.** One sublocation = one SKU when used as a tower.
 2. **No side preference.** A SKU needing multiple towers can use either 31 or
    33 (or both) — whichever has room. No requirement to keep them together.
-3. **Landlocked cells (32, B–I) are tower-only, and only as reserve stock.**
-   A tower may be placed in a landlocked cell **only if that SKU already has
-   an accessible unit (tower or line) elsewhere** — pickers must never need
-   to enter the dead zone to fulfill an order; landlocked stock is pulled
-   forward manually when the accessible stock runs out.
-4. **Lines are always accessible.** Never placed in a landlocked cell.
-5. **No two consecutive line-sublocations** within a row. Lines must
+3. **Smaller quantity groupings get the accessible spot; the bulk goes to
+   the reserve.** One principle covers both towers and lines: within a
+   SKU's own allocation, whichever grouping holds fewer units is the one
+   guaranteed accessible, and larger/equal-sized groupings are the ones
+   that may go landlocked. Concretely:
+   - Lines (≤5 units each) are always smaller than a tower (18-30), so
+     **lines are always accessible** — never placed in a landlocked cell.
+   - If a SKU has more than one tower, the partial tower (18-29 units, from
+     a remainder ≥18) is always smaller than a full 30-unit one, so **the
+     partial tower wins the guaranteed-accessible anchor spot** — the full
+     towers are what get pushed to landlocked.
+   - A tower may only be placed in a landlocked cell if that SKU already
+     has an accessible unit elsewhere — pickers must never need to enter
+     the dead zone to fulfill an order; landlocked stock is pulled forward
+     manually when the accessible stock runs out.
+4. **No two consecutive line-sublocations** within a row. Lines must
    alternate with at least one tower between them (`... T L T ... `, never
    `... L L ...`). Towers may sit next to each other freely.
-6. **Max 6 lines per sublocation**, 5 units per line, one SKU per line (a
+5. **Max 6 lines per sublocation**, 5 units per line, one SKU per line (a
    single SKU can occupy more than one line if it needs more than 5 units in
    that bucket).
-   6b. **A SKU's tower and its own line remainder must stay adjacent.** If a SKU
+6. **A SKU's tower and its own line remainder must stay adjacent.** If a SKU
    has both (e.g. qty 35 = 1 tower + a 5-unit line), the line remainder can
    only land in one of the tower's immediate letter-neighbors in the same
    row — never anywhere else in the block, even if that means reporting it

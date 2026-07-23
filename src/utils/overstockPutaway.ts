@@ -272,9 +272,14 @@ export function planOverstockPutaway(candidates: OverstockCandidate[]): PutawayP
     const { fullTowers, extraTowerUnits, lineUnits } = splitQty(totalQty);
     let hasAccessiblePlacement = false;
     let anchorTowerSlot: PlannedSlot | undefined;
+    // Smallest-first: the partial tower (18-29 units, always smaller than a
+    // full 30-unit one) goes first so it wins the guaranteed-accessible
+    // anchor spot — same principle as lines always being accessible, just
+    // applied to towers too. Full towers (all equal size) are the ones that
+    // absorb the landlocked reserve space.
     const towerUnitsQueue = [
-      ...Array(fullTowers).fill(TOWER_CAPACITY),
       ...(extraTowerUnits > 0 ? [extraTowerUnits] : []),
+      ...Array(fullTowers).fill(TOWER_CAPACITY),
     ];
     const linesQueue = [...lineUnits];
 

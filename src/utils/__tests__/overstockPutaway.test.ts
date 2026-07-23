@@ -61,6 +61,23 @@ describe('planOverstockPutaway', () => {
     expect(towers.some((s) => s.accessibility === 'accessible')).toBe(true);
   });
 
+  it('gives the smaller partial tower the accessible anchor spot, not a full one', () => {
+    // qty=48 -> 1 full tower (30) + 1 partial tower (18). The 18-unit tower
+    // is smaller, so it should win the guaranteed-accessible slot; the
+    // full 30-unit tower should be the one pushed to landlocked.
+    const { slots, unplaced } = planOverstockPutaway([{ sku: 'A', totalQty: 48 }]);
+    expect(unplaced).toHaveLength(0);
+    const towers = slots.filter((s) => s.usage.kind === 'tower' && s.usage.sku === 'A');
+    expect(towers).toHaveLength(2);
+
+    const accessibleTower = towers.find((s) => s.accessibility === 'accessible');
+    const landlockedTower = towers.find((s) => s.accessibility === 'landlocked');
+    expect(accessibleTower).toBeDefined();
+    expect(landlockedTower).toBeDefined();
+    expect(accessibleTower?.usage.kind === 'tower' && accessibleTower.usage.units).toBe(18);
+    expect(landlockedTower?.usage.kind === 'tower' && landlockedTower.usage.units).toBe(30);
+  });
+
   it('splits a small quantity into multiple lines within the same accessible sublocation', () => {
     const { slots, unplaced } = planOverstockPutaway([{ sku: 'B', totalQty: 8 }]);
     expect(unplaced).toHaveLength(0);
