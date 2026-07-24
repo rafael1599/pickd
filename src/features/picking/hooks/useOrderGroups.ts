@@ -4,6 +4,41 @@ import toast from 'react-hot-toast';
 
 export type GroupType = 'fedex' | 'general' | 'pickup';
 
+/**
+ * load_number has a blanket UNIQUE constraint (picking_lists_load_number_key)
+ * with no exception for grouped rows — it was designed around "one physical
+ * load = one row", never revisited for combined orders. The merged view
+ * (combineGeneralGroupSiblings) only ever shows/saves the anchor's (oldest
+ * member's) load_number, so any OTHER member still carrying its own
+ * pre-combine value is landmine: the very next save of that same value on
+ * the anchor hits the unique constraint against its own sibling. Keeping
+ * "at most one non-null load_number per group, and it's the anchor's" as an
+ * invariant enforced right here — once, wherever membership changes — is
+ * simpler than teaching every save path to know about it.
+ */
+async function clearNonAnchorLoadNumbers(groupId: string): Promise<void> {
+  const { data: members, error } = await supabase
+    .from('picking_lists')
+    .select('id, created_at, load_number')
+    .eq('group_id', groupId);
+
+  if (error || !members || members.length < 2) return;
+
+  const sorted = [...members].sort((a, b) =>
+    (a.created_at ?? '').localeCompare(b.created_at ?? '')
+  );
+  const anchorId = sorted[0].id;
+  const staleIds = sorted.filter((m) => m.id !== anchorId && m.load_number).map((m) => m.id);
+
+  if (staleIds.length === 0) return;
+
+  const { error: clearError } = await supabase
+    .from('picking_lists')
+    .update({ load_number: null })
+    .in('id', staleIds);
+  if (clearError) console.error('Failed to clear sibling load_number:', clearError);
+}
+
 export const useOrderGroups = () => {
   const createGroup = useCallback(async (type: GroupType, orderIds: string[]) => {
     if (orderIds.length < 2) return null;
@@ -32,6 +67,8 @@ export const useOrderGroups = () => {
       return null;
     }
 
+    await clearNonAnchorLoadNumbers(group.id);
+
     toast.success(type === 'fedex' ? 'FedEx group created' : 'Group created');
     return group.id;
   }, []);
@@ -47,6 +84,8 @@ export const useOrderGroups = () => {
       toast.error('Failed to add order to group');
       return false;
     }
+
+    await clearNonAnchorLoadNumbers(groupId);
 
     toast.success('Order added to group');
     return true;
