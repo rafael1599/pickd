@@ -22,6 +22,7 @@ export const CombineMetaSchema = z
         order_number: z.string(),
         added_at: z.string(),
         item_count: z.number().optional(),
+        pallets_qty: z.number().optional(),
         pdf_hash: z.string().optional(),
         file_name: z.string().optional(),
       })

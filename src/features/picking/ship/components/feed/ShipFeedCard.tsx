@@ -16,6 +16,9 @@ interface ShipFeedCardProps {
   isFedex: boolean;
   userId?: string | null;
   onSelect: (order: OrderWithRelations) => void;
+  /** Selects this order AND filters straight to one sub-order — used by the
+   *  combined-number click. Falls back to plain onSelect when omitted. */
+  onSelectSubOrder?: (order: OrderWithRelations, subOrderNumber: string) => void;
   onUndoShip?: (order: OrderWithRelations) => void;
   onShipClick?: (order: OrderWithRelations) => void;
   onResumeWaiting?: (order: OrderWithRelations) => void;
@@ -30,6 +33,7 @@ export const ShipFeedCard: React.FC<ShipFeedCardProps> = ({
   isFedex,
   userId,
   onSelect,
+  onSelectSubOrder,
   onUndoShip,
   onShipClick,
   onResumeWaiting,
@@ -59,14 +63,12 @@ export const ShipFeedCard: React.FC<ShipFeedCardProps> = ({
         >
           <span className="font-mono text-sm font-black text-content flex items-center gap-1 flex-wrap">
             {order.order_number?.includes(' / ') ? (
-              // A number click here just selects the order (same as the
-              // rest of the row) — filtering to one sub-order happens once
-              // the order is open in the detail pane, via the same
-              // CombinedOrderNumbers there.
               <CombinedOrderNumbers
                 numbers={splitOrderNumbers(order.order_number)}
                 activeOrderFilter={null}
-                onToggle={() => onSelect(order)}
+                onToggle={(num) =>
+                  onSelectSubOrder ? onSelectSubOrder(order, num) : onSelect(order)
+                }
                 variant="header"
                 compact
               />

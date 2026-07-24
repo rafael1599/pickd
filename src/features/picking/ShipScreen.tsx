@@ -229,6 +229,7 @@ function combineGeneralGroupSiblings(siblings: OrderWithRelations[]): OrderWithR
       (sum, i) => sum + (i.pickingQty || 0),
       0
     ),
+    pallets_qty: s.pallets_qty ?? 0,
   }));
   const combinedPalletPhotos = mergeSiblingPalletPhotos(sorted).photos;
 
@@ -390,7 +391,26 @@ export const ShipScreen = () => {
     activeOrderFilter: selectedOrderFilter,
     toggleOrderFilter: toggleSelectedOrderFilter,
     clearOrderFilter: clearSelectedOrderFilter,
+    presetFilterForNextOrder,
   } = useCombinedOrderFilter(selectedOrder?.order_number);
+
+  // A number click on a feed-list row needs to both select that order AND
+  // filter to that sub-order — presetFilterForNextOrder arms the filter for
+  // the order_number about to become selected (see its own doc comment for
+  // why this can't just be onSelect + toggleOrderFilter in the same click).
+  const handleSelectSubOrder = useCallback(
+    (order: OrderWithRelations, subOrderNumber: string) => {
+      if (selectedOrder?.id === order.id) {
+        toggleSelectedOrderFilter(subOrderNumber);
+      } else {
+        if (order.order_number) {
+          presetFilterForNextOrder(order.order_number, subOrderNumber);
+        }
+        setSelectedOrder(order);
+      }
+    },
+    [selectedOrder?.id, toggleSelectedOrderFilter, presetFilterForNextOrder]
+  );
   const navigate = useNavigate();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [reopenReasonModal, setReopenReasonModal] = useState(false);
@@ -537,9 +557,27 @@ export const ShipScreen = () => {
   // currently shown (edited or auto), same fallback order as autoBikeCount/
   // autoPartCount and the same 45/0.1 lbs defaults used to backfill missing
   // sku_metadata weights.
-  const totalWeight = useMemo(() => {
+  // When filtered to one sub-order, every stat below is computed purely
+  // from that sub-order's own items — the saved formData.bikes/parts/weight
+  // fields describe the WHOLE combined order and can't be sliced, so while a
+  // filter is active they're bypassed entirely in favor of live numbers.
+  const filteredItems = useMemo(() => {
     const items = selectedOrder?.items;
-    const palletCount = parseInt(formData.pallets, 10) || 0;
+    if (!Array.isArray(items)) return [];
+    if (!selectedOrderFilter) return items;
+    return items.filter(
+      (item) =>
+        (item as PickingListItem & { source_order?: string }).source_order === selectedOrderFilter
+    );
+  }, [selectedOrder?.items, selectedOrderFilter]);
+
+  const totalWeight = useMemo(() => {
+    const items = filteredItems;
+    const palletCount = selectedOrderFilter
+      ? (selectedOrder?.combine_meta?.source_orders?.find(
+          (s) => s.order_number === selectedOrderFilter
+        )?.pallets_qty ?? 0)
+      : parseInt(formData.pallets, 10) || 0;
     const palletWeight = isFedexOrder ? 0 : palletCount * 40;
 
     if (!Array.isArray(items) || items.length === 0) {
@@ -565,48 +603,73 @@ export const ShipScreen = () => {
     const avgBikeWeight = bikeUnits > 0 ? bikeWeightTotal / bikeUnits : 45;
     const avgPartWeight = partUnits > 0 ? partWeightTotal / partUnits : 0.1;
 
-    const bikesCount = formData.bikes !== '' ? parseInt(formData.bikes, 10) || 0 : bikeUnits;
-    const partsCount = formData.parts !== '' ? parseInt(formData.parts, 10) || 0 : partUnits;
+    const bikesCount =
+      !selectedOrderFilter && formData.bikes !== '' ? parseInt(formData.bikes, 10) || 0 : bikeUnits;
+    const partsCount =
+      !selectedOrderFilter && formData.parts !== '' ? parseInt(formData.parts, 10) || 0 : partUnits;
     const productWeight = bikesCount * avgBikeWeight + partsCount * avgPartWeight;
 
     return Math.round(productWeight + palletWeight);
   }, [
-    selectedOrder?.items,
+    filteredItems,
     skuMeta,
     formData.pallets,
     formData.bikes,
     formData.parts,
     isFedexOrder,
+    selectedOrderFilter,
+    selectedOrder?.combine_meta?.source_orders,
   ]);
 
   // Manual override: if the user typed a value in the Weight field, use it.
   // Otherwise fall back to the auto-calculated total. Used by preview, PDF,
-  // and DB persistence so all three stay in sync.
+  // and DB persistence so all three stay in sync. Bypassed while filtered —
+  // same reasoning as above.
   const effectiveWeight = useMemo(() => {
+    if (selectedOrderFilter) return totalWeight;
     const trimmed = formData.weight.trim();
     if (trimmed === '') return totalWeight;
     const manual = parseFloat(trimmed);
     if (Number.isNaN(manual) || manual < 0) return totalWeight;
     return Math.round(manual);
-  }, [formData.weight, totalWeight]);
+  }, [formData.weight, totalWeight, selectedOrderFilter]);
 
-  // Split item counts: bikes vs parts (auto-calculated)
+  // Split item counts: bikes vs parts (auto-calculated, from filteredItems
+  // so this already reflects the active sub-order filter when one is set)
   const { autoBikeCount, autoPartCount } = useMemo(() => {
-    const items = selectedOrder?.items;
-    if (!Array.isArray(items)) return { autoBikeCount: 0, autoPartCount: 0 };
     let bikes = 0,
       parts = 0;
-    items.forEach((item: PickingListItem) => {
+    filteredItems.forEach((item: PickingListItem) => {
       const qty = item.pickingQty || 0;
       if (isLikelyBike(item.sku, skuMeta[item.sku])) bikes += qty;
       else parts += qty;
     });
     return { autoBikeCount: bikes, autoPartCount: parts };
-  }, [selectedOrder?.items, skuMeta]);
+  }, [filteredItems, skuMeta]);
 
-  // Effective counts: manual override takes priority over auto-calculated
-  const bikeCount = formData.bikes !== '' ? parseInt(formData.bikes, 10) || 0 : autoBikeCount;
-  const partCount = formData.parts !== '' ? parseInt(formData.parts, 10) || 0 : autoPartCount;
+  // Effective counts: manual override takes priority over auto-calculated,
+  // but only when unfiltered — see filteredItems comment above.
+  const bikeCount =
+    !selectedOrderFilter && formData.bikes !== ''
+      ? parseInt(formData.bikes, 10) || 0
+      : autoBikeCount;
+  const partCount =
+    !selectedOrderFilter && formData.parts !== ''
+      ? parseInt(formData.parts, 10) || 0
+      : autoPartCount;
+
+  // Pill display (pallets/units next to the status badge) — same
+  // filtered-vs-whole-order split as the stats above.
+  const pillPallets = selectedOrderFilter
+    ? (selectedOrder?.combine_meta?.source_orders?.find(
+        (s) => s.order_number === selectedOrderFilter
+      )?.pallets_qty ?? 0)
+    : parseInt(formData.pallets, 10) || 0;
+  const pillUnits = selectedOrderFilter
+    ? (selectedOrder?.combine_meta?.source_orders?.find(
+        (s) => s.order_number === selectedOrderFilter
+      )?.item_count ?? 0)
+    : parseInt(formData.units, 10) || 0;
 
   // Parts SKUs with their weights (for inline editor)
   const partsWithWeights = useMemo(() => {
@@ -2080,15 +2143,18 @@ export const ShipScreen = () => {
                         />
                       }
                       screenOnly
+                      combinedNumbers={selectedOrderCombinedNumbers}
+                      activeOrderFilter={selectedOrderFilter}
+                      onToggleOrderFilter={toggleSelectedOrderFilter}
                     />
 
                     <div className="-mt-2 px-1 pr-8 flex justify-between items-start">
                       <div className="inline-flex flex-wrap items-center gap-2 rounded-full border border-subtle bg-card px-3 py-1 text-[10px] font-black uppercase tracking-wider text-muted">
                         <span className="text-content">{selectedOrder.status}</span>
                         <span>·</span>
-                        <span>{formData.pallets || '0'} pallets</span>
+                        <span>{pillPallets} pallets</span>
                         <span>·</span>
-                        <span>{formData.units || '0'} units</span>
+                        <span>{pillUnits} units</span>
                         <span>·</span>
                         <OrderAutoSaveIndicator status={autoSaveStatus} />
                       </div>
@@ -2254,6 +2320,7 @@ export const ShipScreen = () => {
                     isFedex={isFedexLane(order)}
                     userId={user?.id}
                     onSelect={setSelectedOrder}
+                    onSelectSubOrder={handleSelectSubOrder}
                     onUndoShip={handleUndoShipOrder}
                     onShipClick={handleShipOrderClick}
                     onResumeWaiting={handleResumeWaitingOrder}

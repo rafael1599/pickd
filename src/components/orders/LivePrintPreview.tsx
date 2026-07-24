@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import React from 'react';
 import { TransportLogo } from './TransportLogo';
+import { CombinedOrderNumbers } from './CombinedOrderNumbers';
 
 export const TRANSPORT_COLORS: Record<string, { bg: string; text: string }> = {
   'R+L': { bg: '#006647', text: '#FFFFFF' },
@@ -36,6 +37,11 @@ interface LivePrintPreviewProps {
   /** Screen-only slot rendered next to the watcher note (e.g. in-app notes
    *  preview). Caller-composed so this component stays print/PDF-agnostic. */
   notesSlot?: React.ReactNode;
+  /** Click-to-filter for a combined order — only meaningful when screenOnly;
+   *  the print/PDF path never passes these, so the header stays plain text there. */
+  combinedNumbers?: string[];
+  activeOrderFilter?: string | null;
+  onToggleOrderFilter?: (orderNumber: string) => void;
 }
 
 /** Build the BIKES/PARTS lines for labels */
@@ -53,7 +59,11 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
   completedAt,
   transportCompany,
   notesSlot,
+  combinedNumbers,
+  activeOrderFilter,
+  onToggleOrderFilter,
 }) => {
+  const isClickableCombined = (combinedNumbers?.length ?? 0) > 1 && onToggleOrderFilter;
   return (
     <div className="w-full px-1 md:px-4 bg-transparent">
       {/* Compact horizontal header — order # + carrier on the left, date +
@@ -62,9 +72,20 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
           editable card below. */}
       <div className="w-full flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          <h2 className="text-xl md:text-2xl font-[900] text-content tracking-tighter uppercase truncate animate-soft-in">
-            Order #{orderNumber}
-          </h2>
+          {isClickableCombined ? (
+            <h2 className="text-xl md:text-2xl font-[900] tracking-tighter uppercase truncate animate-soft-in">
+              <CombinedOrderNumbers
+                numbers={combinedNumbers!}
+                activeOrderFilter={activeOrderFilter ?? null}
+                onToggle={onToggleOrderFilter!}
+                variant="header"
+              />
+            </h2>
+          ) : (
+            <h2 className="text-xl md:text-2xl font-[900] text-content tracking-tighter uppercase truncate animate-soft-in">
+              Order #{orderNumber}
+            </h2>
+          )}
           {transportCompany && (
             <div className="shrink-0 animate-soft-in">
               <TransportLogo company={transportCompany} height={28} plain />

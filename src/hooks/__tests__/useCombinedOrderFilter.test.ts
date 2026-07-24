@@ -54,4 +54,40 @@ describe('useCombinedOrderFilter', () => {
     expect(result.current.activeOrderFilter).toBeNull();
     expect(result.current.combinedNumbers).toEqual(['990002', '990001']);
   });
+
+  it('presetFilterForNextOrder applies the filter exactly when the armed order_number arrives', () => {
+    const { result, rerender } = renderHook(
+      ({ orderNumber }) => useCombinedOrderFilter(orderNumber),
+      { initialProps: { orderNumber: '880848 / 880787' } }
+    );
+
+    act(() => result.current.presetFilterForNextOrder('990001 / 990002', '990002'));
+    rerender({ orderNumber: '990001 / 990002' });
+    expect(result.current.activeOrderFilter).toBe('990002');
+  });
+
+  it('presetFilterForNextOrder is ignored if a different order_number arrives instead', () => {
+    const { result, rerender } = renderHook(
+      ({ orderNumber }) => useCombinedOrderFilter(orderNumber),
+      { initialProps: { orderNumber: '880848 / 880787' } }
+    );
+
+    act(() => result.current.presetFilterForNextOrder('990001 / 990002', '990002'));
+    rerender({ orderNumber: '770001' });
+    expect(result.current.activeOrderFilter).toBeNull();
+  });
+
+  it('presetFilterForNextOrder is consumed once — a later unrelated order change still resets', () => {
+    const { result, rerender } = renderHook(
+      ({ orderNumber }) => useCombinedOrderFilter(orderNumber),
+      { initialProps: { orderNumber: '880848 / 880787' } }
+    );
+
+    act(() => result.current.presetFilterForNextOrder('990001 / 990002', '990002'));
+    rerender({ orderNumber: '990001 / 990002' });
+    expect(result.current.activeOrderFilter).toBe('990002');
+
+    rerender({ orderNumber: '770001' });
+    expect(result.current.activeOrderFilter).toBeNull();
+  });
 });
