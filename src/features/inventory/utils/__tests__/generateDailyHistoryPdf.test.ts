@@ -79,17 +79,43 @@ describe('generateDailyHistoryDoc', () => {
       '12',
       '7',
       '15', // 03-2's per-SKU TOTAL (12 + 3)
+      '794613', // 03-3's note, FedEx Return prefix stripped — same as full mode
     ]);
 
-    // The move-by-move detail is gone in the AS400 report.
+    // The move-by-move detail is gone in the AS400 report, but notes aren't
+    // — they're per-SKU (a SKU can carry several movements' worth), not
+    // per-log like the ACTIVITY column.
     const all = rec.allText();
     expect(all).not.toContain('Moved');
     expect(all).not.toContain('ACTIVITY');
+    expect(all).not.toContain('FedEx Return'); // prefix stripped, same as full mode
 
     // Page 1 is the single-location section (no section label now), in order…
     expectOrderedText(rec, ['AS400 Sync', '03-1', '03-3']);
     // …and the split SKU lives on its own page 2 under "Multiple locations".
     expectOrderedText(rec, ['AS400 Sync', 'Multiple locations', '03-2'], 2);
+  });
+
+  it("AS400 mode folds a note into the multi-location SKU's existing note row", async () => {
+    const multiLocationLogsWithNote: HistoryLog[] = [
+      {
+        sku: '03-2',
+        action_type: 'MOVE',
+        from_location: 'ROW 1',
+        to_location: 'ROW 5',
+        note: 'Damaged box, verify count',
+      },
+    ];
+    generateDailyHistoryDoc(jsPDF, autoTable, {
+      logs: multiLocationLogsWithNote,
+      filter: 'ALL',
+      userFilter: 'ALL',
+      timeFilter: 'TODAY',
+      getDisplayQty: () => 2,
+      mode: 'as400',
+      stock, // 03-2 has two current locations (ROW 5, GEN) — the multi-location table
+    });
+    expectContains(rec, ['Multiple locations', 'Damaged box, verify count']);
   });
 
   it('AS400 mode still renders every moved SKU when no stock is supplied', async () => {

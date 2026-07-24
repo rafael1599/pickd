@@ -108,10 +108,23 @@ function renderAs400<TLog extends HistoryLog>(
   const seenSku = new Set<string>();
   const fromBySku = new Map<string, Map<string, number>>();
   const toBySku = new Map<string, Set<string>>();
+  // Every distinct, non-empty note left on this SKU's logs today — this view is
+  // SKU-aggregated (unlike 'full' mode's one-row-per-log), so a SKU can surface
+  // several movements' worth of notes at once. Same "FedEx Return" prefix strip
+  // as renderFull, for the same reason: that prefix is a generated tag, not
+  // something a person wrote, and just adds noise here.
+  const notesBySku = new Map<string, string[]>();
   for (const log of logs) {
     if (!seenSku.has(log.sku)) {
       seenSku.add(log.sku);
       skuOrder.push(log.sku);
+    }
+    const rawNote = (log.note ?? '').trim();
+    if (rawNote) {
+      const cleaned = rawNote.replace(/^FedEx Return\s+/i, '');
+      const existing = notesBySku.get(log.sku) ?? [];
+      if (!existing.includes(cleaned)) existing.push(cleaned);
+      notesBySku.set(log.sku, existing);
     }
     if (log.action_type !== 'MOVE') continue;
     const from = (log.from_location || '').toUpperCase();
@@ -250,15 +263,34 @@ function renderAs400<TLog extends HistoryLog>(
 
   // Single location: SKU | MOVED FROM | CURRENT STOCK. "LOC = total" is the current
   // count (no separate qty column, no "Single location" label, no redundant total).
+  // A SKU with notes gets a second, merged-note row below it (SKU cell spans both),
+  // same visual pattern as the multi-location table's note row below.
   if (singles.length) {
+    const singlesBody: RowInput[] = [];
+    for (const s of singles) {
+      const stockCell = s.tos[0] ? `${s.tos[0].loc} = ${s.tos[0].qty}` : '—';
+      const notes = notesBySku.get(s.sku) ?? [];
+      if (notes.length === 0) {
+        singlesBody.push([s.sku, s.from, stockCell]);
+        continue;
+      }
+      singlesBody.push([
+        { content: s.sku, rowSpan: 2, styles: { fontStyle: 'bold', fontSize: BIG } },
+        s.from,
+        stockCell,
+      ]);
+      singlesBody.push([
+        {
+          content: notes.join('\n'),
+          colSpan: 2,
+          styles: { fontStyle: 'italic', fontSize: REG - 1, textColor: [70, 70, 70] },
+        },
+      ]);
+    }
     autoTable(doc, {
       startY: sectionHeader(`${today} · ${plural(singles.length)}`),
       head: [['SKU', 'MOVED FROM', 'CURRENT STOCK']],
-      body: singles.map((s) => [
-        s.sku,
-        s.from,
-        s.tos[0] ? `${s.tos[0].loc} = ${s.tos[0].qty}` : '—',
-      ]),
+      body: singlesBody,
       theme: 'grid',
       styles,
       headStyles,
@@ -286,8 +318,9 @@ function renderAs400<TLog extends HistoryLog>(
       // to the largest current location (s.tos is sorted by qty desc).
       const dest = s.tos.find((t) => dests?.has(t.loc)) ?? s.tos[0];
       if (!dest) continue;
-      // Note: every OTHER current location, phrased by how it relates to today's move.
-      const note = s.tos
+      // Note: every OTHER current location, phrased by how it relates to today's move,
+      // plus whatever was written on this SKU's own movements today.
+      const locationLines = s.tos
         .filter((t) => t !== dest)
         .map((t) => {
           const prefix = sources?.has(t.loc)
@@ -296,8 +329,8 @@ function renderAs400<TLog extends HistoryLog>(
               ? 'Also moved to ' // a second destination of today's move
               : 'Also in stock: '; // pre-existing stock, untouched today
           return `${prefix}${t.loc} = ${t.qty}`;
-        })
-        .join('\n');
+        });
+      const note = [...locationLines, ...(notesBySku.get(s.sku) ?? [])].join('\n');
       body.push([
         { content: s.sku, rowSpan: 2, styles: { fontStyle: 'bold', fontSize: BIG } },
         s.from,

@@ -42,6 +42,7 @@ export const InventoryLogSchema = z.object({
   list_id: z.string().uuid().optional().nullable().catch(null),
   order_number: z.string().optional().nullable(),
   user_id: z.string().uuid().optional().nullable().catch(null),
+  note: z.string().optional().nullable(),
 });
 
 /**
