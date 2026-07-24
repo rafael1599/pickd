@@ -39,3 +39,10 @@ verify_jwt = true
 # upload-photo) — otherwise gateway rejects with 401 before function runs.
 [functions.manage-users]
 verify_jwt = false
+
+# App photos (SKU inventory + gallery) go straight to Cloudflare R2 via the
+# upload-photo edge function — Supabase Storage's own image transforms are
+# never used. Disabled so local `supabase start` doesn't need to pull the
+# imgproxy image at all.
+[storage.image_transformation]
+enabled = false

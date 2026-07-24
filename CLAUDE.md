@@ -84,6 +84,16 @@ Ver `JAMIS/SHARED-DB-CONTRACT.md` para ownership de tablas, RPCs, y reglas de mi
 - **Banner de staging:** `StagingBanner.tsx` muestra un banner amarillo "STAGING" automáticamente cuando el hostname no es producción ni localhost.
 - **Reports prebuild:** `pnpm prebuild` copies `reports/daily/*.html` to `public/reports/daily/` for static serving. Runs automatically before `pnpm build`. The `/pickd-report` route serves these via iframe.
 
+## Desarrollo local (Supabase + OrbStack)
+
+El stack local de Supabase corre como contenedores Docker dentro de **OrbStack** (`project_id = "pickd"` en `supabase/config.toml`, nombra los contenedores `supabase_*_pickd`).
+
+- **`npx supabase stop` ELIMINA los contenedores** (no los pausa) — por eso desaparecen de la lista de OrbStack. Los datos sobreviven en un volumen Docker aparte (mensaje "Local data are backed up to docker volume" al parar). `npx supabase start` los recrea desde cero usando ese volumen — no se pierde nada, pero si las imágenes no están cacheadas puede tardar.
+- **Si `supabase start` se cuelga descargando `imgproxy`:** esta app nunca usa las transformaciones de imagen de Supabase Storage (las fotos van directo a R2, ver sección de Fotos abajo), así que ese servicio no hace falta. Arrancar con `npx supabase start --exclude imgproxy` lo salta por completo — más rápido y evita depender de que `public.ecr.aws` esté disponible. `supabase/config.toml` tiene `[storage.image_transformation] enabled = false`, pero eso solo desactiva la feature — el flag `--exclude` es lo que evita el pull.
+- **Migraciones pendientes en local:** `npx supabase start` no aplica migraciones nuevas si el volumen es de una sesión vieja. Verificar con `npx supabase migration list --local` (columna `remote` vacía = pendiente) y aplicar con `npx supabase migration up --include-all`.
+- **Mismatch de historial de migraciones** (mismo síntoma que en prod — versión `20260717` sin match): `npx supabase migration repair --local --status reverted 20260717` y despues `npx supabase migration up --include-all`.
+- **Límite de recursos de OrbStack:** configurado a 4 CPUs / 2GB RAM (`orbctl config show`) para no acaparar toda la Mac — antes estaba en 8 CPUs/4GB (el 100%/50% de una Mac de 8 cores/8GB). Cambios de `orbctl config set` requieren `orbctl stop` para aplicarse (mata cualquier contenedor vivo, incluidos MCP servers de sesiones activas — no correrlo con sesiones en curso).
+
 ## Servicios externos
 
 - **watchdog-pickd** — Daemon Python que monitorea PDFs y auto-crea órdenes. Corre en la **MacBook de Bay 2** (no en esta máquina) como servicio launchd (`com.antigravity.watchdog-pickd`). Usa `service_role` key (bypasses RLS). Repo: `~/Documents/Projects/JAMIS/watchdog-pickd/`. Para reinstalar: `python watcher.py --install`.
