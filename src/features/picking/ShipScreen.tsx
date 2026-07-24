@@ -1110,11 +1110,13 @@ export const ShipScreen = () => {
     // Same-customer + same-address alone isn't enough — a repeat customer's
     // order from weeks ago being unshipped (stuck waiting, forgotten, etc.)
     // isn't "the other half of a split shipment" just because it hasn't
-    // shipped yet. The watchdog's own same-customer auto-combine uses a
-    // strict 24h window for this exact judgment call; this manual banner
-    // was missing any window at all, so it could suggest combining with
-    // something arbitrarily old. Match the watchdog's window here too.
-    const COMBINE_SUGGESTION_WINDOW_MS = 24 * 60 * 60 * 1000;
+    // shipped yet. Cutoff is 3 days: within it, still suggest; past it,
+    // don't — staff can always combine manually regardless, this only
+    // gates the automatic suggestion. Wider than the watchdog's own 24h
+    // same-customer auto-combine window on purpose — this path is always
+    // human-reviewed (a person sees the banner and chooses), the watchdog's
+    // isn't, so it can afford to stay eligible a bit longer.
+    const COMBINE_SUGGESTION_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
     const isRecent = (createdAt: string) =>
       Date.now() - new Date(createdAt).getTime() <= COMBINE_SUGGESTION_WINDOW_MS;
 
