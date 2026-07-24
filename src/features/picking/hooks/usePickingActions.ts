@@ -294,12 +294,44 @@ export const usePickingActions = ({
           updateData.items = finalItems as unknown as Json;
           updateData.order_number = finalOrderNum;
         }
-        const { error } = await supabase
+        const { data: updatedRow, error } = await supabase
           .from('picking_lists')
           .update(updateData)
-          .eq('id', activeListId);
+          .eq('id', activeListId)
+          .select('group_id')
+          .single();
 
         if (error) throw error;
+
+        // A combined (group_id) order is picked as ONE unit but lives as N
+        // separate rows — the update above only ever touches activeListId,
+        // whichever specific row the picker happened to scan/search into.
+        // Left alone, every OTHER sibling silently stays behind in its old
+        // status (still 'active') while this one alone proceeds through
+        // double-check — the two halves of the same combined order drift
+        // apart and show up as separate, unrelated orders later (this is
+        // the actual mechanism behind "the combined order came apart on its
+        // own"). Push every non-terminal sibling into double_checking too,
+        // and zero their pallets_qty so the group's summed total (computed
+        // at read time) isn't double-counted — same convention already used
+        // for the Ship-screen save path.
+        if (isMergedGroup && updatedRow?.group_id) {
+          const { error: siblingError } = await supabase
+            .from('picking_lists')
+            .update({
+              status: 'double_checking',
+              checked_by: user.id,
+              correction_notes: null,
+              pallets_qty: 0,
+            })
+            .eq('group_id', updatedRow.group_id)
+            .neq('id', activeListId)
+            .neq('status', 'completed')
+            .neq('status', 'cancelled');
+          if (siblingError) {
+            console.error('Failed to transition sibling orders to double_checking:', siblingError);
+          }
+        }
 
         const listId = activeListId;
         setCartItems(finalItems);
