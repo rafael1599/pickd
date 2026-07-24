@@ -1107,12 +1107,24 @@ export const ShipScreen = () => {
         .replace(/[^a-z0-9]/g, '');
     const selStreet = normalizeAddr(selectedOrder.customer?.street);
 
+    // Same-customer + same-address alone isn't enough — a repeat customer's
+    // order from weeks ago being unshipped (stuck waiting, forgotten, etc.)
+    // isn't "the other half of a split shipment" just because it hasn't
+    // shipped yet. The watchdog's own same-customer auto-combine uses a
+    // strict 24h window for this exact judgment call; this manual banner
+    // was missing any window at all, so it could suggest combining with
+    // something arbitrarily old. Match the watchdog's window here too.
+    const COMBINE_SUGGESTION_WINDOW_MS = 24 * 60 * 60 * 1000;
+    const isRecent = (createdAt: string) =>
+      Date.now() - new Date(createdAt).getTime() <= COMBINE_SUGGESTION_WINDOW_MS;
+
     return (
       orders.find((o) => {
         if (o.customer_id !== selectedOrder.customer_id) return false;
         if (o.id === selectedOrder.id) return false;
         if (o.is_shipped) return false;
         if (selectedOrder.group_id && o.group_id === selectedOrder.group_id) return false;
+        if (!isRecent(o.created_at)) return false;
 
         // Do not suggest combining if they have different street addresses
         const oStreet = normalizeAddr(o.customer?.street);
