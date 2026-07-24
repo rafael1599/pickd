@@ -26,6 +26,7 @@ import type { CombineMeta, PickingList, PickingListItem } from '../../schemas/pi
 import { PalletPhotosBlock } from './PalletPhotosBlock';
 import type { Customer } from '../../types/schema';
 import type { User } from '@supabase/supabase-js';
+import { isDeliberateCombineGroupType } from '../../utils/shippingClassification';
 
 interface OrderFormData {
   customerName: string;
@@ -59,6 +60,7 @@ interface SelectedOrder extends PickingList {
   combine_meta?: CombineMeta;
   is_waiting_inventory?: boolean | null;
   is_shipped?: boolean | null;
+  order_group?: { group_type: string | null } | null;
 }
 
 interface ShipOrderCardProps {
@@ -95,6 +97,10 @@ interface ShipOrderCardProps {
    *  this screen (ShipScreen owns one useCombinedOrderFilter instance). */
   activeOrderFilter?: string | null;
   onToggleOrderFilter?: (orderNumber: string) => void;
+  /** Current FedEx classification (same isFedexOrder signal used for the
+   *  purple/green board treatment) — gates the "you sure?" prompt when
+   *  switching away from FedEx below. */
+  isFedexOrder?: boolean;
 }
 
 type EditableField =
@@ -230,6 +236,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   autoWeight = 0,
   activeOrderFilter = null,
   onToggleOrderFilter,
+  isFedexOrder = false,
 }) => {
   const [editingField, setEditingField] = useState<EditableField>(null);
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
@@ -363,7 +370,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
     );
   };
 
-  const handleCarrierChange = async (company: string) => {
+  const applyCarrierChange = (company: string) => {
     const newCompany = formData.transportCompany === company ? '' : company;
     setFormData({
       ...formData,
@@ -378,50 +385,94 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
     // If deselecting FEDEX or selecting another, clear the order_group
     if (newCompany === 'FEDEX') {
       setIsUpdatingCarrier(true);
-      try {
-        // Create or update order_group with type 'fedex'
-        const { data: group, error: groupError } = await supabase
-          .from('order_groups')
-          .insert({ group_type: 'fedex' })
-          .select()
-          .single();
+      (async () => {
+        try {
+          // Create or update order_group with type 'fedex'
+          const { data: group, error: groupError } = await supabase
+            .from('order_groups')
+            .insert({ group_type: 'fedex' })
+            .select()
+            .single();
 
-        if (groupError) throw groupError;
+          if (groupError) throw groupError;
 
-        // Link the order to this fedex group
-        const { error: updateError } = await supabase
-          .from('picking_lists')
-          .update({ group_id: group.id })
-          .eq('id', selectedOrder.id);
+          // Link the order to this fedex group
+          const { error: updateError } = await supabase
+            .from('picking_lists')
+            .update({ group_id: group.id })
+            .eq('id', selectedOrder.id);
 
-        if (updateError) throw updateError;
-        onRefresh();
-        toast.success('Order set to FedEx');
-      } catch (err) {
-        console.error('Failed to update carrier:', err);
-        toast.error('Failed to update carrier');
-      } finally {
-        setIsUpdatingCarrier(false);
-      }
-    } else if (formData.transportCompany === 'FEDEX' && newCompany !== 'FEDEX') {
-      // Deselecting FEDEX or switching to another carrier — remove from fedex group
+          if (updateError) throw updateError;
+          onRefresh();
+          toast.success('Order set to FedEx');
+        } catch (err) {
+          console.error('Failed to update carrier:', err);
+          toast.error('Failed to update carrier');
+        } finally {
+          setIsUpdatingCarrier(false);
+        }
+      })();
+    } else if (isFedexOrder && newCompany !== 'FEDEX') {
+      // Was FedEx (by any signal — explicit carrier, fedex group, or
+      // item-based auto-classify), now switching to a non-FedEx carrier.
+      // Confirmed via handleCarrierChange below before we ever get here.
       setIsUpdatingCarrier(true);
-      try {
-        const { error } = await supabase
-          .from('picking_lists')
-          .update({ group_id: null })
-          .eq('id', selectedOrder.id);
+      (async () => {
+        try {
+          const groupId = selectedOrder.group_id;
+          const isDeliberateGroup = isDeliberateCombineGroupType(
+            selectedOrder.order_group?.group_type
+          );
 
-        if (error) throw error;
-        onRefresh();
-        toast.success('Order set to Regular');
-      } catch (err) {
-        console.error('Failed to update carrier:', err);
-        toast.error('Failed to update carrier');
-      } finally {
-        setIsUpdatingCarrier(false);
-      }
+          if (groupId && isDeliberateGroup) {
+            // A real combined order (Quick Group / combine-suggestion) —
+            // both members become regular; the group stays linked, this
+            // isn't a split.
+            const { error } = await supabase
+              .from('picking_lists')
+              .update({ shipping_type: 'regular' })
+              .eq('group_id', groupId);
+            if (error) throw error;
+          } else {
+            // Solo order, or sitting in the operational FedEx-lane bucket
+            // (which may hold other customers' unrelated orders — leave
+            // those alone, only detach this one and mark it regular).
+            const { error } = await supabase
+              .from('picking_lists')
+              .update({ shipping_type: 'regular', group_id: null })
+              .eq('id', selectedOrder.id);
+            if (error) throw error;
+          }
+
+          onRefresh();
+          toast.success('Order set to Regular');
+        } catch (err) {
+          console.error('Failed to update carrier:', err);
+          toast.error('Failed to update carrier');
+        } finally {
+          setIsUpdatingCarrier(false);
+        }
+      })();
     }
+  };
+
+  const handleCarrierChange = (company: string) => {
+    const newCompany = formData.transportCompany === company ? '' : company;
+
+    if (isFedexOrder && newCompany !== 'FEDEX') {
+      showConfirmation(
+        `Ship via ${newCompany || 'no carrier'} instead of FedEx?`,
+        `This order has only ${autoBikeCount} bike${autoBikeCount === 1 ? '' : 's'}. Are you sure you want to send it with ${newCompany || 'no carrier'} instead of FedEx?`,
+        () => applyCarrierChange(company),
+        () => {},
+        'Yes, switch carrier',
+        'Cancel',
+        'warning'
+      );
+      return;
+    }
+
+    applyCarrierChange(company);
   };
 
   return (

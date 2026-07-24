@@ -2281,6 +2281,7 @@ export const ShipScreen = () => {
                     autoWeight={totalWeight}
                     activeOrderFilter={selectedOrderFilter}
                     onToggleOrderFilter={toggleSelectedOrderFilter}
+                    isFedexOrder={isFedexOrder}
                   />
 
                   <PartsWeightEditor
