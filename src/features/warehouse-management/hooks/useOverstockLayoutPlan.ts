@@ -40,17 +40,37 @@ export function useOverstockCandidatePool() {
         item_name: string | null;
         sku_metadata: { is_bike: boolean | null; weight_lbs: number | null } | null;
       };
+      const inv: InvRow[] = [];
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData?.session;
+
       for (let from = 0; ; from += 1000) {
-        const { data: page, error } = await supabase
-          .from('inventory')
-          .select(
-            'sku, quantity, location, sublocation, item_name, sku_metadata(is_bike, weight_lbs)'
-          )
-          .eq('is_active', true)
-          .gt('quantity', 0)
-          .eq('warehouse', 'LUDLOW')
-          .range(from, from + 999);
-        if (error) throw error;
+        let page: InvRow[] | null = null;
+        if (!session && anonKey) {
+          const res = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/inventory?select=sku,quantity,location,sublocation,item_name,sku_metadata(is_bike,weight_lbs)&is_active=eq.true&quantity=gt.0&warehouse=eq.LUDLOW&offset=${from}&limit=1000`,
+            {
+              headers: {
+                apikey: anonKey,
+                Authorization: `Bearer ${anonKey}`,
+              },
+            }
+          );
+          if (res.ok) page = await res.json();
+        } else {
+          const { data, error } = await supabase
+            .from('inventory')
+            .select(
+              'sku, quantity, location, sublocation, item_name, sku_metadata(is_bike, weight_lbs)'
+            )
+            .eq('is_active', true)
+            .gt('quantity', 0)
+            .eq('warehouse', 'LUDLOW')
+            .range(from, from + 999);
+          if (error) throw error;
+          page = data as unknown as InvRow[];
+        }
         inv.push(...((page ?? []) as unknown as InvRow[]));
         if (!page || page.length < 1000) break;
       }
@@ -88,11 +108,35 @@ export function useOverstockCandidatePool() {
       since.setMonth(since.getMonth() - MONTHS);
       const stats = new Map<string, { orders: number; lastShipped: string | null }>();
       for (let i = 0; i < skus.length; i += 200) {
-        const { data: st, error } = await supabase.rpc('get_sku_movement_stats_batch', {
-          p_skus: skus.slice(i, i + 200),
-          p_since: since.toISOString(),
-        });
-        if (error) throw error;
+        type StatRow = { sku: string; orders_completed: number; last_shipped: string | null };
+        let st: StatRow[] | null = null;
+
+        if (!session && anonKey) {
+          const res = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/get_sku_movement_stats_batch`,
+            {
+              method: 'POST',
+              headers: {
+                apikey: anonKey,
+                Authorization: `Bearer ${anonKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                p_skus: skus.slice(i, i + 200),
+                p_since: since.toISOString(),
+              }),
+            }
+          );
+          if (res.ok) st = await res.json();
+        } else {
+          const { data, error } = await supabase.rpc('get_sku_movement_stats_batch', {
+            p_skus: skus.slice(i, i + 200),
+            p_since: since.toISOString(),
+          });
+          if (error) throw error;
+          st = data as StatRow[];
+        }
+
         for (const s of st ?? []) {
           stats.set(s.sku, {
             orders: Number(s.orders_completed) || 0,

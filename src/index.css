@@ -451,15 +451,14 @@ body::before {
     padding: 0 !important;
     overflow: hidden !important;
     background: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   .warehouse-grid-print,
   .warehouse-grid-print * {
-    color: #000 !important;
-    background-color: #fff !important;
-    background-image: none !important;
-    border-color: #000 !important;
-    outline-color: #000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
     box-sizing: border-box !important;
   }
 
