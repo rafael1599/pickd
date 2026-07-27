@@ -8,6 +8,8 @@ interface WarehouseGridProps {
   slots: PlannedSlot[];
   rotation: number;
   onSelectSku: (selection: SelectedSku) => void;
+  customRows?: number[];
+  customLetters?: string[];
 }
 
 // Per-line-row footprint inside a cell (font + gap), plus the cell's own
@@ -34,22 +36,33 @@ function shouldReverse(rotation: number): { rows: boolean; letters: boolean } {
   };
 }
 
-export const WarehouseGrid: React.FC<WarehouseGridProps> = ({ slots, rotation, onSelectSku }) => {
+export const WarehouseGrid: React.FC<WarehouseGridProps> = ({
+  slots,
+  rotation,
+  onSelectSku,
+  customRows,
+  customLetters,
+}) => {
   const counterRotate = counterRotateTextStyle(rotation);
 
-  const slotAt = (row: (typeof ROWS)[number], letter: (typeof LETTERS)[number]) =>
-    slots.find((s) => s.row === row && s.letter === letter);
+  const activeRows = customRows ?? (ROWS as unknown as number[]);
+  const activeLetters = customLetters ?? (LETTERS as unknown as string[]);
+
+  const slotAt = (row: number, letter: string) =>
+    slots.find(
+      (s) =>
+        s.row === row &&
+        (s.letter === letter || (s as unknown as { sublocation: string }).sublocation === letter)
+    );
 
   // Screen display order — depends on current rotation angle.
   const reverse = shouldReverse(rotation);
-  const displayRows = reverse.rows ? ([...ROWS].reverse() as unknown as typeof ROWS) : ROWS;
-  const displayLetters = reverse.letters
-    ? ([...LETTERS].reverse() as unknown as typeof LETTERS)
-    : LETTERS;
+  const displayRows = reverse.rows ? [...activeRows].reverse() : activeRows;
+  const displayLetters = reverse.letters ? [...activeLetters].reverse() : activeLetters;
 
   // Print always uses 180° order (rows reversed, letters reversed).
-  const printRows = [...ROWS].reverse() as unknown as typeof ROWS;
-  const printLetters = [...LETTERS].reverse() as unknown as typeof LETTERS;
+  const printRows = [...activeRows].reverse();
+  const printLetters = [...activeLetters].reverse();
 
   // All sublocations get sized to match the biggest one currently on screen
   // (a "lines" cell with the most entries), instead of each growing to fit
@@ -60,13 +73,15 @@ export const WarehouseGrid: React.FC<WarehouseGridProps> = ({ slots, rotation, o
   );
   const cellHeightRem = Math.max(MIN_CELL_HEIGHT_REM, maxLines * REM_PER_LINE + CELL_PADDING_REM);
 
+  const columnWidthClass = activeRows.length === 1 ? 'minmax(18rem, 1fr)' : 'minmax(11rem, 1fr)';
+
   return (
     <>
       {/* ── Screen grid (interactive, rotatable) ────────────────────────── */}
       <div
         className="warehouse-grid-print grid print:hidden border-2 border-gray-300 rounded-lg overflow-hidden shadow-sm bg-white transition-transform duration-500 ease-in-out"
         style={{
-          gridTemplateColumns: `2.5rem repeat(${ROWS.length}, minmax(11rem, 1fr)) 2.5rem`,
+          gridTemplateColumns: `2.5rem repeat(${activeRows.length}, ${columnWidthClass}) 2.5rem`,
           transform: `rotate(${rotation}deg)`,
         }}
       >
@@ -143,7 +158,7 @@ export const WarehouseGrid: React.FC<WarehouseGridProps> = ({ slots, rotation, o
       <div
         className="warehouse-grid-print warehouse-print-fit grid hidden print:grid border-2 border-gray-300 bg-white w-full max-w-full"
         style={{
-          gridTemplateColumns: `2.25rem repeat(${ROWS.length}, minmax(0, 1fr)) 2.25rem`,
+          gridTemplateColumns: `2.25rem repeat(${activeRows.length}, minmax(0, 1fr)) 2.25rem`,
         }}
       >
         <div className="bg-white border-r border-b border-gray-300" />

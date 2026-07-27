@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
-import { type SlotUsage } from '../../../utils/overstockPutaway';
+import { type SlotUsage, type PlannedSlot } from '../../../utils/overstockPutaway';
 
 export interface RealInventoryItem {
   id: string;
@@ -13,21 +13,23 @@ export interface RealInventoryItem {
 }
 
 export interface RealInventoryMapResult {
-  slots: SlotUsage[];
+  slots: PlannedSlot[];
+  letters: string[];
+  rowNumber: number;
   unassigned: RealInventoryItem[];
   availableRows: string[];
 }
 
-const DEFAULT_ROWS = ['ROW 33', 'ROW 32', 'ROW 31'];
-const SUBLOCATIONS = ['J', 'I', 'H', 'G', 'F', 'E', 'D', 'C', 'B', 'A'];
+const DEFAULT_ROW = 'ROW 2';
+const STANDARD_LETTERS = ['F', 'E', 'D', 'C', 'B', 'A'];
 
 /**
- * Normalizes a raw location string like "33", "row 33", "ROW 33" into "33"
+ * Normalizes a raw location string like "2", "row 2", "ROW 2" into number 2
  */
-function extractRowNumber(loc: string | null): number | null {
-  if (!loc) return null;
+export function extractRowNumber(loc: string | null): number {
+  if (!loc) return 0;
   const match = loc.match(/\d+/);
-  return match ? parseInt(match[0], 10) : null;
+  return match ? parseInt(match[0], 10) : 0;
 }
 
 /**
@@ -35,106 +37,114 @@ function extractRowNumber(loc: string | null): number | null {
  */
 export function transformRealInventoryToSlots(
   items: RealInventoryItem[],
-  selectedRows: string[]
+  selectedRowName: string
 ): RealInventoryMapResult {
-  // Extract row numbers from selected rows (e.g. ['ROW 33', 'ROW 32', 'ROW 31'] => [33, 32, 31])
-  const targetRowNums = selectedRows.map(extractRowNumber).filter((n): n is number => n !== null);
+  const rowNum = extractRowNumber(selectedRowName);
 
-  const slotsMap = new Map<string, SlotUsage>();
+  // 1. Gather all sublocations present in this row or default to A-F
+  const presentSublocsSet = new Set<string>();
   const unassigned: RealInventoryItem[] = [];
 
-  // Group items by key: `${rowNum}-${sublocationLetter}`
-  const grouped = new Map<string, RealInventoryItem[]>();
-
   for (const item of items) {
-    const rowNum = extractRowNumber(item.location);
-    if (rowNum === null || !targetRowNums.includes(rowNum)) {
-      unassigned.push(item);
-      continue;
-    }
-
     if (!item.sublocation || !item.sublocation.length) {
       unassigned.push(item);
       continue;
     }
-
-    for (const sublet of item.sublocation) {
-      const letter = sublet.trim().toUpperCase();
-      if (!SUBLOCATIONS.includes(letter)) continue;
-
-      const key = `${rowNum}-${letter}`;
-      const list = grouped.get(key) ?? [];
-      list.push(item);
-      grouped.set(key, list);
+    for (const sub of item.sublocation) {
+      const letter = sub.trim().toUpperCase();
+      if (letter) presentSublocsSet.add(letter);
     }
   }
 
-  // Build SlotUsage for every cell in targetRowNums x SUBLOCATIONS
-  for (const rowNum of targetRowNums) {
-    for (const letter of SUBLOCATIONS) {
-      const cellKey = `${rowNum}-${letter}`;
-      const cellItems = grouped.get(cellKey) ?? [];
+  // Combine standard A-F range with any extra sublocations found in DB
+  const allSublocs = new Set([...STANDARD_LETTERS, ...presentSublocsSet]);
 
-      if (!cellItems.length) {
-        slotsMap.set(cellKey, {
-          row: rowNum,
-          sublocation: letter,
-          usage: { kind: 'reserved' },
-        });
-        continue;
-      }
+  // Sort sublocations (alphabetical reverse: F down to A, or J down to A)
+  const letters = Array.from(allSublocs).sort((a, b) => {
+    return b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' });
+  });
 
-      // Check total quantity across cell items
-      const totalQty = cellItems.reduce((sum, i) => sum + i.quantity, 0);
-      const primaryItem = cellItems[0];
+  // Group items by sublocation letter
+  const grouped = new Map<string, RealInventoryItem[]>();
+  for (const item of items) {
+    if (!item.sublocation || !item.sublocation.length) continue;
+    for (const sub of item.sublocation) {
+      const letter = sub.trim().toUpperCase();
+      const list = grouped.get(letter) ?? [];
+      list.push(item);
+      grouped.set(letter, list);
+    }
+  }
 
-      if (cellItems.length === 1 && totalQty >= 15) {
-        // Single SKU Tower
-        slotsMap.set(cellKey, {
-          row: rowNum,
-          sublocation: letter,
-          usage: {
-            kind: 'tower',
-            sku: primaryItem.sku,
-            units: totalQty,
-          },
-        });
-      } else {
-        // Multiple SKUs or Lines
-        const lineEntries = cellItems.map((i) => ({
-          sku: i.sku,
-          units: i.quantity,
-        }));
-        slotsMap.set(cellKey, {
-          row: rowNum,
-          sublocation: letter,
-          usage: {
-            kind: 'lines',
-            entries: lineEntries,
-          },
-        });
-      }
+  // 2. Build PlannedSlot array for every sublocation in letters
+  const slots: PlannedSlot[] = [];
+
+  for (const letter of letters) {
+    const cellItems = grouped.get(letter) ?? [];
+
+    if (!cellItems.length) {
+      slots.push({
+        row: rowNum as 33 | 32 | 31,
+        letter: letter as 'A',
+        sublocation: letter,
+        usage: { kind: 'reserved' },
+      } as unknown as PlannedSlot);
+      continue;
+    }
+
+    const totalQty = cellItems.reduce((sum, i) => sum + i.quantity, 0);
+    const primaryItem = cellItems[0];
+
+    if (cellItems.length === 1 && totalQty >= 15) {
+      // Single SKU Tower
+      slots.push({
+        row: rowNum as 33 | 32 | 31,
+        letter: letter as 'A',
+        sublocation: letter,
+        usage: {
+          kind: 'tower',
+          sku: primaryItem.sku,
+          units: totalQty,
+        },
+      } as unknown as PlannedSlot);
+    } else {
+      // Multiple SKUs or Lines
+      const lineEntries = cellItems.map((i) => ({
+        sku: i.sku,
+        units: i.quantity,
+      }));
+      slots.push({
+        row: rowNum as 33 | 32 | 31,
+        letter: letter as 'A',
+        sublocation: letter,
+        usage: {
+          kind: 'lines',
+          entries: lineEntries,
+        },
+      } as unknown as PlannedSlot);
     }
   }
 
   return {
-    slots: Array.from(slotsMap.values()),
+    slots,
+    letters,
+    rowNumber: rowNum,
     unassigned,
-    availableRows: selectedRows,
+    availableRows: [selectedRowName],
   };
 }
 
 /**
- * Hook to query live physical stock from Supabase inventory table
+ * Hook to query live physical stock for a single selected row
  */
-export function useRealInventoryMap(selectedRows: string[] = DEFAULT_ROWS) {
+export function useRealInventoryMap(selectedRowName: string = DEFAULT_ROW) {
   return useQuery({
-    queryKey: ['real-inventory-map', selectedRows],
+    queryKey: ['real-inventory-map', selectedRowName],
     queryFn: async (): Promise<RealInventoryMapResult> => {
       const { data, error } = await supabase
         .from('inventory')
         .select('id, sku, location, sublocation, quantity, item_name, sku_metadata(weight_lbs)')
-        .in('location', selectedRows)
+        .eq('location', selectedRowName)
         .eq('is_active', true)
         .gt('quantity', 0);
 
@@ -152,9 +162,9 @@ export function useRealInventoryMap(selectedRows: string[] = DEFAULT_ROWS) {
         weightLbs: (d.sku_metadata as { weight_lbs: number | null } | null)?.weight_lbs ?? null,
       }));
 
-      return transformRealInventoryToSlots(rawItems, selectedRows);
+      return transformRealInventoryToSlots(rawItems, selectedRowName);
     },
-    enabled: selectedRows.length > 0,
+    enabled: !!selectedRowName,
     staleTime: 30 * 1000,
     refetchInterval: 60 * 1000,
   });
@@ -184,12 +194,12 @@ export function useAvailableWarehouseRows() {
       }
 
       const sorted = Array.from(set).sort((a, b) => {
-        const numA = extractRowNumber(a) ?? 0;
-        const numB = extractRowNumber(b) ?? 0;
-        return numB - numA;
+        const numA = extractRowNumber(a);
+        const numB = extractRowNumber(b);
+        return numA - numB;
       });
 
-      return sorted.length ? sorted : DEFAULT_ROWS;
+      return sorted.length ? sorted : [DEFAULT_ROW, 'ROW 33', 'ROW 32', 'ROW 31'];
     },
     staleTime: 5 * 60 * 1000,
   });
