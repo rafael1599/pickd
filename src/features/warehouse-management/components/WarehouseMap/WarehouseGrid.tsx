@@ -121,7 +121,12 @@ export const WarehouseGrid: React.FC<WarehouseGridProps> = ({
                   rotation={rotation}
                   dashed={letter === 'J'}
                   heightRem={cellHeightRem}
-                  onSelectSku={onSelectSku}
+                  onSelectSku={(selection) =>
+                    onSelectSku({
+                      ...selection,
+                      sublocationLabel: selection.sublocationLabel ?? `ROW ${row} (${letter})`,
+                    })
+                  }
                   borderRight={true}
                   borderBottom={letterIndex < displayLetters.length - 1}
                 />
@@ -195,7 +200,12 @@ export const WarehouseGrid: React.FC<WarehouseGridProps> = ({
                   rotation={0}
                   dashed={letter === 'J'}
                   heightRem={cellHeightRem}
-                  onSelectSku={onSelectSku}
+                  onSelectSku={(selection) =>
+                    onSelectSku({
+                      ...selection,
+                      sublocationLabel: selection.sublocationLabel ?? `ROW ${row} (${letter})`,
+                    })
+                  }
                   borderRight={true}
                   borderBottom={letterIndex < printLetters.length - 1}
                 />

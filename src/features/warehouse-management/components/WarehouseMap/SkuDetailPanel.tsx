@@ -1,11 +1,12 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, CheckCircle } from 'lucide-react';
 import { skuColor } from '../../utils/skuColor';
 
 export interface SelectedSku {
   sku: string;
   unitsHere: number;
-  kind: 'tower' | 'line';
+  kind: 'tower' | 'line' | 'empty' | 'reserved';
+  sublocationLabel?: string;
 }
 
 export interface SkuDetailInfo {
@@ -22,10 +23,59 @@ interface SkuDetailPanelProps {
 }
 
 export const SkuDetailPanel: React.FC<SkuDetailPanelProps> = ({ selected, info, onClose }) => {
+  if (selected.kind === 'empty' || selected.kind === 'reserved') {
+    return (
+      <div className="print:hidden absolute top-4 right-4 z-30 w-72 bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden animate-in fade-in zoom-in duration-150">
+        <div className="flex items-start justify-between px-4 pt-3 pb-2 border-b border-slate-100 bg-slate-50">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="font-bold text-sm text-slate-800 uppercase tracking-wide">
+                {selected.kind === 'reserved' ? 'Reserved Space' : 'Empty Sublocation'}
+              </span>
+            </div>
+            <div className="text-xs text-slate-500 font-medium mt-0.5">
+              {selected.sublocationLabel || 'Available Space'}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 text-slate-400 hover:text-slate-700 shrink-0"
+            title="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <dl className="px-4 py-3 space-y-2.5 text-xs">
+          <div className="flex items-center justify-between">
+            <dt className="text-slate-400">Current Stock</dt>
+            <dd className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              0 units (Empty)
+            </dd>
+          </div>
+          <div className="flex items-center justify-between">
+            <dt className="text-slate-400">Status</dt>
+            <dd className="font-semibold text-slate-700 flex items-center gap-1">
+              <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+              {selected.kind === 'reserved' ? 'Reserved for putaway' : 'Available for storage'}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-slate-400 mb-1">Location</dt>
+            <dd className="font-semibold text-slate-700 leading-snug">
+              {selected.sublocationLabel || info?.pullFrom || '—'}
+            </dd>
+          </div>
+        </dl>
+      </div>
+    );
+  }
+
   const color = skuColor(selected.sku);
 
   return (
-    <div className="print:hidden absolute top-4 right-4 z-30 w-72 bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden">
+    <div className="print:hidden absolute top-4 right-4 z-30 w-72 bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden animate-in fade-in zoom-in duration-150">
       <div className="flex items-start justify-between px-4 pt-3 pb-2 border-b border-gray-100">
         <div className="min-w-0">
           <div className="font-mono font-bold text-sm" style={{ color: color.text }}>

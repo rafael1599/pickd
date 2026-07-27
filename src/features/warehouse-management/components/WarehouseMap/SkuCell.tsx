@@ -37,23 +37,27 @@ export const SkuCell: React.FC<SkuCellProps> = ({
   const heightClass = 'h-[var(--cell-h)] print:h-auto';
   const borderClass = `${borderRight ? 'border-r' : ''} ${borderBottom ? 'border-b' : ''} border-gray-300`;
 
-  if (usage.kind === 'reserved') {
+  if (usage.kind === 'reserved' || usage.kind === 'empty') {
+    const isReserved = usage.kind === 'reserved';
     return (
       <div
-        className={`flex items-center justify-center bg-slate-50/80 text-slate-400 text-xs font-semibold italic ${heightClass} ${borderClass} ${
+        className={`flex items-center justify-center bg-slate-50/80 hover:bg-slate-100 text-slate-400 text-xs font-semibold italic cursor-pointer transition-colors ${heightClass} ${borderClass} ${
           dashed
             ? 'relative z-10 outline outline-2 outline-dashed outline-slate-300 outline-offset-[-2px]'
             : ''
         }`}
         style={heightVars}
+        onClick={() =>
+          onSelectSku({
+            sku: 'EMPTY',
+            unitsHere: 0,
+            kind: isReserved ? 'reserved' : 'empty',
+          })
+        }
       >
-        <span style={counterRotate}>reserved</span>
+        <span style={counterRotate}>{isReserved ? 'reserved' : 'empty'}</span>
       </div>
     );
-  }
-
-  if (usage.kind === 'empty') {
-    return <div className={`bg-white ${heightClass} ${borderClass}`} style={heightVars} />;
   }
 
   if (usage.kind === 'tower') {
