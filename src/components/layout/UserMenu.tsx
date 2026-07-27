@@ -211,7 +211,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
             <div className="flex items-center justify-between mb-2.5 px-1">
               <label className="text-[10px] text-muted font-black uppercase tracking-widest flex items-center gap-1">
                 <Sparkles size={12} className="text-accent" />
-                MÁS USADOS
+                MOST USED
               </label>
             </div>
 
@@ -236,7 +236,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                   <Map size={18} />
                 </div>
                 <span className="text-[10px] font-extrabold uppercase text-content tracking-tight">
-                  Mapa
+                  Map
                 </span>
               </button>
 
@@ -272,7 +272,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                   <ClipboardList size={18} />
                 </div>
                 <span className="text-[10px] font-extrabold uppercase text-content tracking-tight">
-                  Conteo
+                  Count
                 </span>
               </button>
 
@@ -290,10 +290,10 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
             </div>
           </div>
 
-          {/* Operaciones & Logística */}
+          {/* Operations & Logistics */}
           <div className="p-4 bg-card border border-subtle rounded-2xl">
             <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-3 block">
-              Operaciones &amp; Logística
+              Operations &amp; Logistics
             </label>
 
             <button
@@ -306,10 +306,10 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                 </div>
                 <div>
                   <p className="text-xs font-bold text-content uppercase tracking-tight">
-                    Mapa de Almacén
+                    Warehouse Map
                   </p>
                   <p className="text-[9px] text-muted font-bold uppercase">
-                    Vista top-view &amp; Overstock
+                    Top view &amp; overstock plan
                   </p>
                 </div>
               </div>
@@ -403,11 +403,11 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
             </button>
           </div>
 
-          {/* Admin & Gestión Tools */}
+          {/* Admin & Management Tools */}
           {isAdmin && (
             <div className="p-4 bg-card border border-subtle rounded-2xl">
               <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-3 block">
-                Admin &amp; Gestión
+                Admin &amp; Management
               </label>
 
               <button

@@ -149,7 +149,7 @@ export const WarehouseMap: React.FC = () => {
             <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
               <span>
-                Plan guardado · Actualizado {formattedLastUpdated.dateStr} a las{' '}
+                Saved Plan · Updated {formattedLastUpdated.dateStr} at{' '}
                 {formattedLastUpdated.timeStr}
                 {formattedLastUpdated.user ? ` (${formattedLastUpdated.user})` : ''}
               </span>
@@ -178,12 +178,12 @@ export const WarehouseMap: React.FC = () => {
             onClick={handleRecalculate}
             disabled={isRecalculating || isLoadingPool}
             className="flex items-center gap-1.5 px-3.5 h-10 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm hover:bg-emerald-100 active:scale-95 disabled:opacity-50 transition-all font-semibold text-xs tracking-wide"
-            title="Recalcular el plan desde la base de datos y guardar la nueva versión estática"
+            title="Recalculate overstock plan from database inventory & sales stats and save to database"
           >
             <RefreshCw
               className={`w-4 h-4 text-emerald-600 ${isRecalculating || isLoadingPool ? 'animate-spin' : ''}`}
             />
-            <span>{isRecalculating ? 'Recalculando…' : 'Recalcular Mapa'}</span>
+            <span>{isRecalculating ? 'Recalculating…' : 'Recalculate Map'}</span>
           </button>
 
           <button
@@ -192,7 +192,7 @@ export const WarehouseMap: React.FC = () => {
             title="Print / Save PDF (Landscape A4)"
           >
             <Printer className="w-4 h-4 text-slate-500" />
-            <span>Imprimir Horizontal</span>
+            <span>Print Landscape</span>
           </button>
 
           <button
