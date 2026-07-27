@@ -61,18 +61,18 @@ export const SkuCell: React.FC<SkuCellProps> = ({
     const color = skuColor(sku);
     return (
       <div
-        className={`flex flex-col justify-center gap-0.5 px-2.5 py-1.5 border-l-4 cursor-pointer hover:brightness-95 overflow-hidden ${heightClass} ${borderClass}`}
+        className={`flex flex-col justify-center gap-0.5 px-2.5 py-1.5 print:px-1.5 print:py-0 border-l-4 print:border-l-2 cursor-pointer hover:brightness-95 overflow-hidden min-h-0 ${heightClass} ${borderClass}`}
         style={{ ...heightVars, backgroundColor: color.bg, borderLeftColor: color.border }}
         onClick={() => onSelectSku({ sku, unitsHere: units, kind: 'tower' })}
       >
         <div
-          className="font-mono font-bold text-[11px] print:text-base whitespace-nowrap overflow-hidden text-ellipsis"
+          className="font-mono font-bold text-[11px] print:text-xs print:font-bold whitespace-nowrap overflow-hidden text-ellipsis"
           style={{ ...counterRotate, color: color.text }}
         >
           {sku}
         </div>
         <div
-          className="text-[10px] print:text-xs text-slate-400 whitespace-nowrap"
+          className="text-[10px] print:text-[10px] text-slate-400 whitespace-nowrap"
           style={counterRotate}
         >
           {units}u tower
@@ -83,7 +83,7 @@ export const SkuCell: React.FC<SkuCellProps> = ({
 
   return (
     <div
-      className={`flex flex-col print:flex-row print:flex-wrap print:items-baseline justify-center gap-1 print:gap-x-1 print:gap-y-0.5 px-2.5 py-1.5 bg-white overflow-hidden ${heightClass} ${borderClass}`}
+      className={`flex flex-col print:flex-row print:flex-wrap print:items-center print:content-center justify-center gap-1 print:gap-x-1.5 print:gap-y-0 px-2.5 py-1.5 print:px-1 print:py-0 bg-white overflow-hidden min-h-0 ${heightClass} ${borderClass}`}
       style={heightVars}
     >
       {usage.entries.map((e, i) => {
@@ -92,18 +92,18 @@ export const SkuCell: React.FC<SkuCellProps> = ({
           <div
             key={e.sku}
             style={counterRotate}
-            className="cursor-pointer hover:brightness-90 rounded whitespace-nowrap overflow-hidden text-ellipsis print:overflow-visible"
+            className="cursor-pointer hover:brightness-90 rounded whitespace-nowrap overflow-hidden text-ellipsis"
             onClick={() => onSelectSku({ sku: e.sku, unitsHere: e.units, kind: 'line' })}
           >
             <span
-              className="font-mono font-semibold text-[11px] print:text-base"
+              className="font-mono font-semibold text-[11px] print:text-xs"
               style={{ color: color.text }}
             >
               {e.sku}
             </span>
-            <span className="text-[10px] print:text-xs text-slate-400"> · {e.units}u</span>
+            <span className="text-[10px] print:text-[10px] text-slate-500">·{e.units}u</span>
             {i < usage.entries.length - 1 && (
-              <span className="hidden print:inline text-[10px]">,</span>
+              <span className="hidden print:inline text-[10px] text-slate-400 mr-0.5">,</span>
             )}
           </div>
         );

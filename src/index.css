@@ -434,7 +434,7 @@ body::before {
 /* Warehouse Top View — A4 landscape, one page, grid only. */
 @page {
   size: A4 landscape;
-  margin: 5mm;
+  margin: 4mm;
 }
 
 /* Warehouse Top View print output: black on white only. The per-SKU
@@ -458,16 +458,20 @@ body::before {
   }
 
   /* Force the print grid to fill exactly one page — header row auto-sizes,
-     the 10 sublocation rows share remaining height equally via 1fr. */
+     the 10 sublocation rows share remaining height equally via minmax(0, 1fr). */
   .warehouse-print-fit {
     height: 100vh !important;
-    grid-template-rows: auto;
-    grid-auto-rows: 1fr;
-    overflow: hidden;
+    max-height: 100vh !important;
+    grid-template-rows: auto repeat(10, minmax(0, 1fr)) !important;
+    grid-auto-rows: minmax(0, 1fr) !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
   }
 
-  /* Prevent any cell from being split across pages */
+  /* Prevent any cell from forcing row track expansion beyond 1fr share */
   .warehouse-grid-print > div {
+    min-height: 0 !important;
+    max-height: 100% !important;
     break-inside: avoid;
     overflow: hidden;
   }
