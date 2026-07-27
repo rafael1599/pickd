@@ -19,6 +19,9 @@ import PackageOpen from 'lucide-react/dist/esm/icons/package-open';
 import Boxes from 'lucide-react/dist/esm/icons/boxes';
 import Container from 'lucide-react/dist/esm/icons/container';
 import Scan from 'lucide-react/dist/esm/icons/scan';
+import Map from 'lucide-react/dist/esm/icons/map';
+import Box from 'lucide-react/dist/esm/icons/box';
+import Sparkles from 'lucide-react/dist/esm/icons/sparkles';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import { useModal } from '../../context/ModalContext';
 import { useViewMode } from '../../context/ViewModeContext';
@@ -59,8 +62,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
     onClose();
   };
 
-  // Picking is a view mode on the home screen, not a route: switch the mode
-  // and land on Home. (Moved here from the bottom nav.)
+  // Picking is a view mode on the home screen, not a route: switch the mode and land on Home.
   const startPicking = () => {
     setViewMode('picking');
     navTo('/');
@@ -187,66 +189,276 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-main/60 backdrop-blur-md" onClick={onClose} />
 
-      <div className="relative w-full max-w-sm bg-surface border border-subtle rounded-[2.5rem] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
-        <div className="p-6">
-          {/* Header */}
-          <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center gap-3">
-              <img src="/PickD.png" alt="PickD" className="w-7 h-7" />
-              <h2 className="text-xl font-black uppercase tracking-tight text-content">Menu</h2>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-card rounded-full text-muted transition-colors"
-            >
-              <X size={20} />
-            </button>
+      <div className="relative w-full max-w-sm max-h-[85vh] flex flex-col bg-surface border border-subtle rounded-[2.5rem] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
+        {/* Header */}
+        <div className="p-6 pb-2 flex justify-between items-center shrink-0">
+          <div className="flex items-center gap-3">
+            <img src="/PickD.png" alt="PickD" className="w-7 h-7" />
+            <h2 className="text-xl font-black uppercase tracking-tight text-content">Menu</h2>
           </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-card rounded-full text-muted transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
 
-          <div className="space-y-4">
-            {/* Warehouse Activities */}
-            <div className="p-4 bg-card border border-subtle rounded-2xl">
-              <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-3 block">
-                Warehouse Activities
+        {/* Scrollable Body */}
+        <div className="p-6 pt-2 overflow-y-auto space-y-4 flex-1">
+          {/* ⭐️ Quick Access Shortcuts Grid */}
+          <div className="p-3 bg-card border border-subtle rounded-2xl">
+            <div className="flex items-center justify-between mb-2.5 px-1">
+              <label className="text-[10px] text-muted font-black uppercase tracking-widest flex items-center gap-1">
+                <Sparkles size={12} className="text-accent" />
+                MÁS USADOS
               </label>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                onClick={() => navTo('/')}
+                className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-surface border border-subtle hover:border-accent/40 active:scale-95 transition-all text-center group"
+              >
+                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500 mb-1 group-hover:scale-110 transition-transform">
+                  <Box size={18} />
+                </div>
+                <span className="text-[10px] font-extrabold uppercase text-content tracking-tight">
+                  Stock
+                </span>
+              </button>
+
+              <button
+                onClick={() => navTo('/warehouse-map')}
+                className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-surface border border-subtle hover:border-accent/40 active:scale-95 transition-all text-center group"
+              >
+                <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500 mb-1 group-hover:scale-110 transition-transform">
+                  <Map size={18} />
+                </div>
+                <span className="text-[10px] font-extrabold uppercase text-content tracking-tight">
+                  Mapa
+                </span>
+              </button>
 
               <button
                 onClick={startPicking}
-                className="flex items-center justify-between w-full group text-left"
+                className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-surface border border-subtle hover:border-accent/40 active:scale-95 transition-all text-center group"
               >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-surface border border-subtle rounded-xl text-sky-500">
-                    <Scan size={16} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-content uppercase tracking-tight">
-                      Picking
-                    </p>
-                    <p className="text-[9px] text-muted font-bold uppercase">
-                      Pick &amp; fulfill orders
-                    </p>
-                  </div>
+                <div className="p-2 rounded-lg bg-sky-500/10 text-sky-500 mb-1 group-hover:scale-110 transition-transform">
+                  <Scan size={18} />
                 </div>
-                <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
+                <span className="text-[10px] font-extrabold uppercase text-content tracking-tight">
+                  Picking
+                </span>
               </button>
 
-              <div className="h-px bg-subtle my-2" />
+              <button
+                onClick={() => navTo('/ship')}
+                className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-surface border border-subtle hover:border-accent/40 active:scale-95 transition-all text-center group"
+              >
+                <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-500 mb-1 group-hover:scale-110 transition-transform">
+                  <Printer size={18} />
+                </div>
+                <span className="text-[10px] font-extrabold uppercase text-content tracking-tight">
+                  Ship
+                </span>
+              </button>
 
               <button
                 onClick={() => navTo('/stock-count')}
-                className="flex items-center justify-between w-full group text-left"
+                className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-surface border border-subtle hover:border-accent/40 active:scale-95 transition-all text-center group"
+              >
+                <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500 mb-1 group-hover:scale-110 transition-transform">
+                  <ClipboardList size={18} />
+                </div>
+                <span className="text-[10px] font-extrabold uppercase text-content tracking-tight">
+                  Conteo
+                </span>
+              </button>
+
+              <button
+                onClick={() => navTo('/consolidation')}
+                className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-surface border border-subtle hover:border-accent/40 active:scale-95 transition-all text-center group"
+              >
+                <div className="p-2 rounded-lg bg-orange-500/10 text-orange-500 mb-1 group-hover:scale-110 transition-transform">
+                  <Boxes size={18} />
+                </div>
+                <span className="text-[10px] font-extrabold uppercase text-content tracking-tight">
+                  Slotting
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* Operaciones & Logística */}
+          <div className="p-4 bg-card border border-subtle rounded-2xl">
+            <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-3 block">
+              Operaciones &amp; Logística
+            </label>
+
+            <button
+              onClick={() => navTo('/warehouse-map')}
+              className="flex items-center justify-between w-full group text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-surface border border-subtle rounded-xl text-blue-500">
+                  <Map size={16} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-content uppercase tracking-tight">
+                    Mapa de Almacén
+                  </p>
+                  <p className="text-[9px] text-muted font-bold uppercase">
+                    Vista top-view &amp; Overstock
+                  </p>
+                </div>
+              </div>
+              <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
+            </button>
+
+            <div className="h-px bg-subtle my-2" />
+
+            <button
+              onClick={startPicking}
+              className="flex items-center justify-between w-full group text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-surface border border-subtle rounded-xl text-sky-500">
+                  <Scan size={16} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-content uppercase tracking-tight">Picking</p>
+                  <p className="text-[9px] text-muted font-bold uppercase">
+                    Pick &amp; fulfill orders
+                  </p>
+                </div>
+              </div>
+              <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
+            </button>
+
+            <div className="h-px bg-subtle my-2" />
+
+            <button
+              onClick={() => navTo('/stock-count')}
+              className="flex items-center justify-between w-full group text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-surface border border-subtle rounded-xl text-emerald-500">
+                  <ClipboardList size={16} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-content uppercase tracking-tight">
+                    Stock Count
+                  </p>
+                  <p className="text-[9px] text-muted font-bold uppercase">
+                    Physical inventory check
+                  </p>
+                </div>
+              </div>
+              <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
+            </button>
+
+            <div className="h-px bg-subtle my-2" />
+
+            <button
+              onClick={() => navTo('/shopping-list')}
+              className="flex items-center justify-between w-full group text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-surface border border-subtle rounded-xl text-orange-500">
+                  <ShoppingCart size={16} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-content uppercase tracking-tight">
+                    Shopping List
+                  </p>
+                  <p className="text-[9px] text-muted font-bold uppercase">
+                    Supplies &amp; materials
+                  </p>
+                </div>
+              </div>
+              <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
+            </button>
+
+            <div className="h-px bg-subtle my-2" />
+
+            <button
+              onClick={() => navTo('/fedex-returns')}
+              className="flex items-center justify-between w-full group text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-surface border border-subtle rounded-xl text-purple-400">
+                  <PackageOpen size={16} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-content uppercase tracking-tight">
+                    FedEx Returns
+                  </p>
+                  <p className="text-[9px] text-muted font-bold uppercase">
+                    Intake &amp; process returns
+                  </p>
+                </div>
+              </div>
+              <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
+            </button>
+          </div>
+
+          {/* Admin & Gestión Tools */}
+          {isAdmin && (
+            <div className="p-4 bg-card border border-subtle rounded-2xl">
+              <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-3 block">
+                Admin &amp; Gestión
+              </label>
+
+              <button
+                onClick={() => navTo('/consolidation')}
+                className="flex items-center justify-between w-full group text-left mb-3"
               >
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-surface border border-subtle rounded-xl text-emerald-500">
-                    <ClipboardList size={16} />
+                  <div className="p-2 bg-surface border border-subtle rounded-xl text-orange-500">
+                    <Boxes size={16} />
                   </div>
                   <div>
                     <p className="text-xs font-bold text-content uppercase tracking-tight">
-                      Stock Count
+                      Consolidation
                     </p>
-                    <p className="text-[9px] text-muted font-bold uppercase">
-                      Physical inventory check
+                    <p className="text-[9px] text-muted font-bold uppercase">Slow-mover slotting</p>
+                  </div>
+                </div>
+                <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
+              </button>
+
+              <button
+                onClick={() => navTo('/registrar-container')}
+                className="flex items-center justify-between w-full group text-left mb-3"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-surface border border-subtle rounded-xl text-blue-500">
+                    <Container size={16} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-content uppercase tracking-tight">
+                      Register Container
                     </p>
+                    <p className="text-[9px] text-muted font-bold uppercase">Intake from Excel</p>
+                  </div>
+                </div>
+                <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
+              </button>
+
+              <button
+                onClick={() => navTo('/labels')}
+                className="flex items-center justify-between w-full group text-left mb-3"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-surface border border-subtle rounded-xl text-accent">
+                    <Printer size={16} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-content uppercase tracking-tight">
+                      Label Studio
+                    </p>
+                    <p className="text-[9px] text-muted font-bold uppercase">QR asset tags</p>
                   </div>
                 </div>
                 <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
@@ -255,8 +467,44 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
               <div className="h-px bg-subtle my-2" />
 
               <button
+                onClick={() => navTo('/activity-report')}
+                className="flex items-center justify-between w-full group text-left mb-3"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-surface border border-subtle rounded-xl text-teal-500">
+                    <FileSearch size={16} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-content uppercase tracking-tight">
+                      Activity Report
+                    </p>
+                    <p className="text-[9px] text-muted font-bold uppercase">Daily team summary</p>
+                  </div>
+                </div>
+                <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
+              </button>
+
+              <button
+                onClick={() => navTo('/projects')}
+                className="flex items-center justify-between w-full group text-left mb-3"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-surface border border-subtle rounded-xl text-indigo-500">
+                    <Kanban size={16} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-content uppercase tracking-tight">
+                      Projects
+                    </p>
+                    <p className="text-[9px] text-muted font-bold uppercase">Task board</p>
+                  </div>
+                </div>
+                <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
+              </button>
+
+              <button
                 onClick={() => navTo('/history')}
-                className="flex items-center justify-between w-full group text-left"
+                className="flex items-center justify-between w-full group text-left mb-3"
               >
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-surface border border-subtle rounded-xl text-muted">
@@ -275,192 +523,28 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
               <div className="h-px bg-subtle my-2" />
 
               <button
-                onClick={() => navTo('/shopping-list')}
-                className="flex items-center justify-between w-full group text-left"
+                onClick={() => {
+                  onClose();
+                  openModal({ type: 'inventory-snapshot' });
+                }}
+                className="flex items-center gap-3 w-full text-left"
               >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-surface border border-subtle rounded-xl text-orange-500">
-                    <ShoppingCart size={16} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-content uppercase tracking-tight">
-                      Shopping List
-                    </p>
-                    <p className="text-[9px] text-muted font-bold uppercase">
-                      Supplies &amp; materials
-                    </p>
-                  </div>
+                <div className="p-2 bg-surface border border-subtle rounded-xl text-purple-400">
+                  <History size={16} />
                 </div>
-                <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
-              </button>
-
-              <div className="h-px bg-subtle my-2" />
-
-              <button
-                onClick={() => navTo('/fedex-returns')}
-                className="flex items-center justify-between w-full group text-left"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-surface border border-subtle rounded-xl text-purple-400">
-                    <PackageOpen size={16} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-content uppercase tracking-tight">
-                      FedEx Returns
-                    </p>
-                    <p className="text-[9px] text-muted font-bold uppercase">
-                      Intake &amp; process returns
-                    </p>
-                  </div>
+                <div>
+                  <p className="text-xs font-bold text-content uppercase tracking-tight">
+                    Inventory Time Travel
+                  </p>
+                  <p className="text-[9px] text-muted font-bold uppercase">View past snapshots</p>
                 </div>
-                <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
               </button>
-
-              {isAdmin && (
-                <>
-                  <div className="h-px bg-subtle my-2" />
-                  <button
-                    onClick={() => navTo('/activity-report')}
-                    className="flex items-center justify-between w-full group text-left"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-surface border border-subtle rounded-xl text-teal-500">
-                        <FileSearch size={16} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-content uppercase tracking-tight">
-                          Activity Report
-                        </p>
-                        <p className="text-[9px] text-muted font-bold uppercase">
-                          Daily team summary
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-accent group-hover:translate-x-1 transition-transform">
-                      →
-                    </div>
-                  </button>
-
-                  <div className="h-px bg-subtle my-2" />
-
-                  <button
-                    onClick={() => navTo('/projects')}
-                    className="flex items-center justify-between w-full group text-left"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-surface border border-subtle rounded-xl text-indigo-500">
-                        <Kanban size={16} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-content uppercase tracking-tight">
-                          Projects
-                        </p>
-                        <p className="text-[9px] text-muted font-bold uppercase">Task board</p>
-                      </div>
-                    </div>
-                    <div className="text-accent group-hover:translate-x-1 transition-transform">
-                      →
-                    </div>
-                  </button>
-                </>
-              )}
             </div>
-
-            {/* Admin Tools */}
-            {isAdmin && (
-              <div className="p-4 bg-card border border-subtle rounded-2xl">
-                <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-3 block">
-                  Admin Tools
-                </label>
-
-                <button
-                  onClick={() => navTo('/consolidation')}
-                  className="flex items-center justify-between w-full group text-left mb-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-surface border border-subtle rounded-xl text-orange-500">
-                      <Boxes size={16} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-content uppercase tracking-tight">
-                        Consolidation
-                      </p>
-                      <p className="text-[9px] text-muted font-bold uppercase">
-                        Slow-mover slotting
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-accent group-hover:translate-x-1 transition-transform">
-                    →
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => navTo('/registrar-container')}
-                  className="flex items-center justify-between w-full group text-left mb-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-surface border border-subtle rounded-xl text-blue-500">
-                      <Container size={16} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-content uppercase tracking-tight">
-                        Register Container
-                      </p>
-                      <p className="text-[9px] text-muted font-bold uppercase">Intake from Excel</p>
-                    </div>
-                  </div>
-                  <div className="text-accent group-hover:translate-x-1 transition-transform">
-                    →
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => navTo('/labels')}
-                  className="flex items-center justify-between w-full group text-left"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-surface border border-subtle rounded-xl text-accent">
-                      <Printer size={16} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-content uppercase tracking-tight">
-                        Label Studio
-                      </p>
-                      <p className="text-[9px] text-muted font-bold uppercase">QR asset tags</p>
-                    </div>
-                  </div>
-                  <div className="text-accent group-hover:translate-x-1 transition-transform">
-                    →
-                  </div>
-                </button>
-
-                <div className="h-px bg-subtle my-2" />
-
-                <button
-                  onClick={() => {
-                    onClose();
-                    openModal({ type: 'inventory-snapshot' });
-                  }}
-                  className="flex items-center gap-3 w-full text-left"
-                >
-                  <div className="p-2 bg-surface border border-subtle rounded-xl text-purple-400">
-                    <History size={16} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-content uppercase tracking-tight">
-                      Inventory Time Travel
-                    </p>
-                    <p className="text-[9px] text-muted font-bold uppercase">View past snapshots</p>
-                  </div>
-                </button>
-              </div>
-            )}
-          </div>
+          )}
         </div>
 
         {/* Footer — Profile + Settings + Logout */}
-        <div className="px-6 py-4 bg-card border-t border-subtle flex items-center gap-3">
+        <div className="px-6 py-4 bg-card border-t border-subtle flex items-center gap-3 shrink-0">
           <button
             onClick={() => setShowProfile(true)}
             className="flex items-center gap-3 flex-1 min-w-0 text-left group"
