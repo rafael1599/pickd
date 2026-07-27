@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { RotateCw, Loader2, Printer } from 'lucide-react';
+import { RotateCw, Loader2, Printer, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { WarehouseGrid } from './WarehouseGrid';
 import { WarehouseMapFilters } from './WarehouseMapFilters';
 import { SkuDetailPanel, type SelectedSku, type SkuDetailInfo } from './SkuDetailPanel';
@@ -8,6 +8,10 @@ import {
   useOverstockCandidatePool,
   computeOverstockPlan,
 } from '../../hooks/useOverstockLayoutPlan';
+import {
+  useWarehouseMapPersistedPlan,
+  useRecalculateWarehouseMapPlan,
+} from '../../hooks/useWarehouseMapPersistedPlan';
 import { useSkuOverrides } from '../../hooks/useSkuOverrides';
 import { useWeightRangeFilter } from '../../hooks/useWeightRangeFilter';
 import { useRankingWeights } from '../../hooks/useRankingWeights';
@@ -19,7 +23,19 @@ export type AutoExclusionReason = DefaultExclusionReason | 'weight';
 export const WarehouseMap: React.FC = () => {
   const [rotation, setRotation] = useState(0);
   const [selectedSku, setSelectedSku] = useState<SelectedSku | null>(null);
-  const { data: pool, isLoading, isError } = useOverstockCandidatePool();
+
+  // 1. Fast O(1) static plan from Supabase DB (< 20ms)
+  const {
+    data: savedRecord,
+    isLoading: isLoadingSaved,
+    isError: isErrorSaved,
+  } = useWarehouseMapPersistedPlan();
+  const { mutateAsync: recalculatePlan, isPending: isRecalculating } =
+    useRecalculateWarehouseMapPlan();
+
+  // 2. Heavy candidate pool query — only fetched on demand or if DB record doesn't exist yet
+  const { data: pool, isLoading: isLoadingPool, refetch: fetchPool } = useOverstockCandidatePool();
+
   const { overrides, setOverride, clearAll: clearOverrides } = useSkuOverrides();
   const { range: weightRange, setRange: setWeightRange } = useWeightRangeFilter();
   const { weights: rankingWeights, setWeights: setRankingWeights } = useRankingWeights();
@@ -47,7 +63,6 @@ export const WarehouseMap: React.FC = () => {
   };
 
   // Automatic exclusion rules — default model families + weight range.
-  // Individually overridable per-SKU via useSkuOverrides.
   const autoExclusionReasons = useMemo(() => {
     const map = new Map<string, AutoExclusionReason>();
     for (const c of pool ?? []) {
@@ -66,7 +81,6 @@ export const WarehouseMap: React.FC = () => {
   const effectivelyExcludedSkus = useMemo(() => {
     const set = new Set<string>();
     for (const c of pool ?? []) {
-      // Pinned SKUs bypass exclusion — someone explicitly decided this needs a slot now.
       if (prioritySkus.has(c.sku)) continue;
       const override = overrides.get(c.sku);
       const excluded = override != null ? !override : autoExclusionReasons.has(c.sku);
@@ -75,17 +89,33 @@ export const WarehouseMap: React.FC = () => {
     return set;
   }, [pool, autoExclusionReasons, overrides, prioritySkus]);
 
-  const data = useMemo(
-    () =>
-      pool
-        ? computeOverstockPlan(pool, effectivelyExcludedSkus, rankingWeights, prioritySkus)
-        : undefined,
-    [pool, effectivelyExcludedSkus, rankingWeights, prioritySkus]
-  );
+  // Recalculate plan from fresh DB data and save to Supabase
+  const handleRecalculate = async () => {
+    const freshPoolResult = await fetchPool();
+    const candidatePool = freshPoolResult.data ?? pool ?? [];
+    await recalculatePlan({
+      pool: candidatePool,
+      effectivelyExcludedSkus,
+      rankingWeights,
+      prioritySkus,
+    });
+  };
+
+  // Active slots: use saved static plan from DB if available, else live computed fallback
+  const activeSlots = useMemo(() => {
+    if (savedRecord?.plan_data?.slots) {
+      return savedRecord.plan_data.slots;
+    }
+    if (pool) {
+      return computeOverstockPlan(pool, effectivelyExcludedSkus, rankingWeights, prioritySkus).plan
+        .slots;
+    }
+    return [];
+  }, [savedRecord, pool, effectivelyExcludedSkus, rankingWeights, prioritySkus]);
 
   const skuInfo = useMemo(() => {
     const map = new Map<string, SkuDetailInfo>();
-    for (const c of data?.candidates ?? []) {
+    for (const c of pool ?? []) {
       map.set(c.sku, {
         itemName: c.itemName,
         pullFrom: c.pullFrom,
@@ -94,15 +124,40 @@ export const WarehouseMap: React.FC = () => {
       });
     }
     return map;
-  }, [data]);
+  }, [pool]);
+
+  const isLoading = isLoadingSaved || (isRecalculating && !savedRecord);
+
+  // Formatting last updated timestamp
+  const formattedLastUpdated = useMemo(() => {
+    if (!savedRecord?.updated_at) return null;
+    const date = new Date(savedRecord.updated_at);
+    return {
+      timeStr: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      dateStr: date.toLocaleDateString([], { month: 'short', day: 'numeric' }),
+      user: savedRecord.updated_by ? savedRecord.updated_by.split('@')[0] : null,
+    };
+  }, [savedRecord]);
 
   return (
     <div className="w-full h-full flex flex-col p-6 print:p-0 overflow-auto print:overflow-visible bg-white">
       {/* Header */}
       <div className="print:hidden flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-        <h2 className="text-2xl font-bold text-slate-800">Warehouse Top View</h2>
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800">Warehouse Top View</h2>
+          {formattedLastUpdated && (
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+              <span>
+                Plan guardado · Actualizado {formattedLastUpdated.dateStr} a las{' '}
+                {formattedLastUpdated.timeStr}
+                {formattedLastUpdated.user ? ` (${formattedLastUpdated.user})` : ''}
+              </span>
+            </div>
+          )}
+        </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <WarehouseMapFilters
             pool={pool ?? []}
             autoExclusionReasons={autoExclusionReasons}
@@ -118,6 +173,18 @@ export const WarehouseMap: React.FC = () => {
             onAddPriority={addPriority}
             onRemovePriority={removePriority}
           />
+
+          <button
+            onClick={handleRecalculate}
+            disabled={isRecalculating || isLoadingPool}
+            className="flex items-center gap-1.5 px-3.5 h-10 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm hover:bg-emerald-100 active:scale-95 disabled:opacity-50 transition-all font-semibold text-xs tracking-wide"
+            title="Recalcular el plan desde la base de datos y guardar la nueva versión estática"
+          >
+            <RefreshCw
+              className={`w-4 h-4 text-emerald-600 ${isRecalculating || isLoadingPool ? 'animate-spin' : ''}`}
+            />
+            <span>{isRecalculating ? 'Recalculando…' : 'Recalcular Mapa'}</span>
+          </button>
 
           <button
             onClick={handlePrintLandscape}
@@ -152,17 +219,13 @@ export const WarehouseMap: React.FC = () => {
           <div className="flex items-center justify-center h-full text-slate-400 gap-2">
             <Loader2 className="w-5 h-5 animate-spin" /> Loading overstock plan…
           </div>
-        ) : isError ? (
+        ) : isErrorSaved ? (
           <div className="flex items-center justify-center h-full text-red-500 text-sm font-medium">
             Failed to load overstock plan.
           </div>
         ) : (
           <div className="flex justify-center items-center min-w-max print:min-w-0 print:w-full print:h-full mx-auto h-full print:h-auto">
-            <WarehouseGrid
-              slots={data?.plan.slots ?? []}
-              rotation={rotation}
-              onSelectSku={setSelectedSku}
-            />
+            <WarehouseGrid slots={activeSlots} rotation={rotation} onSelectSku={setSelectedSku} />
           </div>
         )}
 
