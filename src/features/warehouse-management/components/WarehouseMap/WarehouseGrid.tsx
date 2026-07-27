@@ -66,13 +66,11 @@ export const WarehouseGrid: React.FC<WarehouseGridProps> = ({ slots, rotation, o
       <div
         className="warehouse-grid-print grid print:hidden border-2 border-gray-300 rounded-lg overflow-hidden shadow-sm bg-white transition-transform duration-500 ease-in-out"
         style={{
-          gridTemplateColumns: `2.5rem repeat(${ROWS.length}, minmax(11rem, 1fr))`,
+          gridTemplateColumns: `2.5rem repeat(${ROWS.length}, minmax(11rem, 1fr)) 2.5rem`,
           transform: `rotate(${rotation}deg)`,
         }}
       >
-        {/* Header row — the sublocation axis label lives on the side now, this corner stays blank.
-            Dividers are real borders (not a background-color gap trick) so they still show up
-            when printing — most browsers strip background colors from print output by default. */}
+        {/* Header row — left corner, row headers, right corner */}
         <div className="bg-white border-r border-b border-gray-300" />
         {displayRows.map((row, i) => (
           <div
@@ -84,10 +82,12 @@ export const WarehouseGrid: React.FC<WarehouseGridProps> = ({ slots, rotation, o
             <span style={counterRotate}>{row}</span>
           </div>
         ))}
+        <div className="bg-white border-l border-b border-gray-300" />
 
-        {/* One row per sublocation letter, shown once on the side */}
+        {/* One row per sublocation letter, shown on left AND right sides */}
         {displayLetters.map((letter, letterIndex) => (
           <React.Fragment key={letter}>
+            {/* Left letter header */}
             <div
               className={`flex items-center justify-center bg-slate-100 text-slate-500 font-mono font-bold text-xs print:text-base border-r border-gray-300 ${
                 letterIndex < displayLetters.length - 1 ? 'border-b' : ''
@@ -95,7 +95,9 @@ export const WarehouseGrid: React.FC<WarehouseGridProps> = ({ slots, rotation, o
             >
               <span style={counterRotate}>{letter}</span>
             </div>
-            {displayRows.map((row, rowIndex) => {
+
+            {/* Sublocation cells */}
+            {displayRows.map((row) => {
               const slot = slotAt(row, letter);
               return (
                 <SkuCell
@@ -105,11 +107,20 @@ export const WarehouseGrid: React.FC<WarehouseGridProps> = ({ slots, rotation, o
                   dashed={letter === 'J'}
                   heightRem={cellHeightRem}
                   onSelectSku={onSelectSku}
-                  borderRight={rowIndex < displayRows.length - 1}
+                  borderRight={true}
                   borderBottom={letterIndex < displayLetters.length - 1}
                 />
               );
             })}
+
+            {/* Right letter header */}
+            <div
+              className={`flex items-center justify-center bg-slate-100 text-slate-500 font-mono font-bold text-xs print:text-base border-l border-gray-300 ${
+                letterIndex < displayLetters.length - 1 ? 'border-b' : ''
+              }`}
+            >
+              <span style={counterRotate}>{letter}</span>
+            </div>
           </React.Fragment>
         ))}
       </div>
@@ -118,7 +129,7 @@ export const WarehouseGrid: React.FC<WarehouseGridProps> = ({ slots, rotation, o
       <div
         className="warehouse-grid-print warehouse-print-fit grid hidden print:grid border-2 border-gray-300 bg-white"
         style={{
-          gridTemplateColumns: `2rem repeat(${ROWS.length}, 1fr)`,
+          gridTemplateColumns: `2.25rem repeat(${ROWS.length}, 1fr) 2.25rem`,
         }}
       >
         <div className="bg-white border-r border-b border-gray-300" />
@@ -132,9 +143,11 @@ export const WarehouseGrid: React.FC<WarehouseGridProps> = ({ slots, rotation, o
             {row}
           </div>
         ))}
+        <div className="bg-white border-l border-b border-gray-300" />
 
         {printLetters.map((letter, letterIndex) => (
           <React.Fragment key={letter}>
+            {/* Left letter header */}
             <div
               className={`flex items-center justify-center bg-slate-100 text-slate-500 font-mono font-bold text-sm border-r border-gray-300 ${
                 letterIndex < printLetters.length - 1 ? 'border-b' : ''
@@ -142,7 +155,9 @@ export const WarehouseGrid: React.FC<WarehouseGridProps> = ({ slots, rotation, o
             >
               {letter}
             </div>
-            {printRows.map((row, rowIndex) => {
+
+            {/* Sublocation cells */}
+            {printRows.map((row) => {
               const slot = slotAt(row, letter);
               return (
                 <SkuCell
@@ -152,11 +167,20 @@ export const WarehouseGrid: React.FC<WarehouseGridProps> = ({ slots, rotation, o
                   dashed={letter === 'J'}
                   heightRem={cellHeightRem}
                   onSelectSku={onSelectSku}
-                  borderRight={rowIndex < printRows.length - 1}
+                  borderRight={true}
                   borderBottom={letterIndex < printLetters.length - 1}
                 />
               );
             })}
+
+            {/* Right letter header */}
+            <div
+              className={`flex items-center justify-center bg-slate-100 text-slate-500 font-mono font-bold text-sm border-l border-gray-300 ${
+                letterIndex < printLetters.length - 1 ? 'border-b' : ''
+              }`}
+            >
+              {letter}
+            </div>
           </React.Fragment>
         ))}
       </div>

@@ -83,28 +83,27 @@ export const SkuCell: React.FC<SkuCellProps> = ({
 
   return (
     <div
-      className={`flex flex-col print:flex-row print:flex-wrap print:items-center print:content-center justify-center gap-1 print:gap-x-1.5 print:gap-y-0 px-2.5 py-1.5 print:px-1 print:py-0 bg-white overflow-hidden min-h-0 ${heightClass} ${borderClass}`}
+      className={`flex flex-col print:flex-row print:flex-wrap print:items-center print:content-center justify-center gap-1 print:gap-x-2 print:gap-y-0.5 px-2.5 py-1.5 print:px-1.5 print:py-0.5 bg-white overflow-hidden min-h-0 ${heightClass} ${borderClass}`}
       style={heightVars}
     >
-      {usage.entries.map((e, i) => {
+      {usage.entries.map((e) => {
         const color = skuColor(e.sku);
         return (
           <div
             key={e.sku}
             style={counterRotate}
-            className="cursor-pointer hover:brightness-90 rounded whitespace-nowrap overflow-hidden text-ellipsis"
+            className="cursor-pointer hover:brightness-90 rounded whitespace-nowrap overflow-hidden text-ellipsis print:inline-flex print:items-baseline print:gap-0.5"
             onClick={() => onSelectSku({ sku: e.sku, unitsHere: e.units, kind: 'line' })}
           >
             <span
-              className="font-mono font-semibold text-[11px] print:text-xs"
+              className="font-mono font-bold text-[11px] print:text-xs tracking-tight"
               style={{ color: color.text }}
             >
               {e.sku}
             </span>
-            <span className="text-[10px] print:text-[10px] text-slate-500">·{e.units}u</span>
-            {i < usage.entries.length - 1 && (
-              <span className="hidden print:inline text-[10px] text-slate-400 mr-0.5">,</span>
-            )}
+            <span className="text-[10px] print:text-[10px] text-slate-500 font-semibold print:text-slate-600">
+              ·{e.units}u
+            </span>
           </div>
         );
       })}
