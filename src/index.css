@@ -457,8 +457,18 @@ body::before {
     break-inside: avoid;
   }
 
+  /* Force the print grid to fill exactly one page — header row auto-sizes,
+     the 10 sublocation rows share remaining height equally via 1fr. */
+  .warehouse-print-fit {
+    height: 100vh !important;
+    grid-template-rows: auto;
+    grid-auto-rows: 1fr;
+    overflow: hidden;
+  }
+
   /* Prevent any cell from being split across pages */
   .warehouse-grid-print > div {
     break-inside: avoid;
+    overflow: hidden;
   }
 }

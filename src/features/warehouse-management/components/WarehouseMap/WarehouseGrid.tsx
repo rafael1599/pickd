@@ -116,7 +116,7 @@ export const WarehouseGrid: React.FC<WarehouseGridProps> = ({ slots, rotation, o
 
       {/* ── Print grid — always 180° order, no CSS transform ────────────── */}
       <div
-        className="warehouse-grid-print grid hidden print:grid border-2 border-gray-300 bg-white"
+        className="warehouse-grid-print warehouse-print-fit grid hidden print:grid border-2 border-gray-300 bg-white"
         style={{
           gridTemplateColumns: `2rem repeat(${ROWS.length}, 1fr)`,
         }}
