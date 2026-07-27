@@ -14,9 +14,9 @@ interface WarehouseGridProps {
 
 // Per-line-row footprint inside a cell (font + gap), plus the cell's own
 // vertical padding — used to size every cell to match the tallest one.
-const REM_PER_LINE = 1.1;
-const CELL_PADDING_REM = 0.9;
-const MIN_CELL_HEIGHT_REM = 3;
+const REM_PER_LINE = 1.5;
+const CELL_PADDING_REM = 1.0;
+const MIN_CELL_HEIGHT_REM = 3.8;
 
 /**
  * At 180° the grid is visually flipped on both axes; at 90°/270° one axis

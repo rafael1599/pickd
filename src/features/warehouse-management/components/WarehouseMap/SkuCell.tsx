@@ -40,9 +40,9 @@ export const SkuCell: React.FC<SkuCellProps> = ({
   if (usage.kind === 'reserved') {
     return (
       <div
-        className={`flex items-center justify-center bg-gray-50 text-gray-300 text-[10px] italic ${heightClass} ${borderClass} ${
+        className={`flex items-center justify-center bg-slate-50/80 text-slate-400 text-xs font-semibold italic ${heightClass} ${borderClass} ${
           dashed
-            ? 'relative z-10 outline outline-2 outline-dashed outline-gray-300 outline-offset-[-2px]'
+            ? 'relative z-10 outline outline-2 outline-dashed outline-slate-300 outline-offset-[-2px]'
             : ''
         }`}
         style={heightVars}
@@ -61,18 +61,18 @@ export const SkuCell: React.FC<SkuCellProps> = ({
     const color = skuColor(sku);
     return (
       <div
-        className={`flex flex-col justify-center gap-0.5 px-2.5 py-1.5 print:px-1.5 print:py-0 border-l-4 print:border-l-2 cursor-pointer hover:brightness-95 overflow-hidden min-h-0 ${heightClass} ${borderClass}`}
+        className={`flex flex-col justify-center gap-1 px-3 py-2 print:px-2 print:py-1 border-l-4 print:border-l-2 cursor-pointer hover:brightness-95 overflow-hidden min-h-0 ${heightClass} ${borderClass}`}
         style={{ ...heightVars, backgroundColor: color.bg, borderLeftColor: color.border }}
         onClick={() => onSelectSku({ sku, unitsHere: units, kind: 'tower' })}
       >
         <div
-          className="font-mono font-extrabold text-[11px] print:text-lg whitespace-nowrap overflow-hidden text-ellipsis tracking-tight"
+          className="font-mono font-extrabold text-xs print:text-lg whitespace-nowrap overflow-hidden text-ellipsis tracking-tight leading-snug"
           style={{ ...counterRotate, color: color.text }}
         >
           {sku}
         </div>
         <div
-          className="text-[10px] print:text-xs text-slate-400 whitespace-nowrap font-medium"
+          className="text-[11px] print:text-xs text-slate-500 whitespace-nowrap font-semibold leading-snug"
           style={counterRotate}
         >
           {units}u tower
@@ -83,7 +83,7 @@ export const SkuCell: React.FC<SkuCellProps> = ({
 
   return (
     <div
-      className={`flex flex-col print:flex-row print:flex-wrap print:items-center print:content-center justify-center gap-1 print:gap-x-2 print:gap-y-0.5 px-2.5 py-1.5 print:px-1.5 print:py-0.5 bg-white overflow-hidden min-h-0 ${heightClass} ${borderClass}`}
+      className={`flex flex-col justify-center gap-1.5 px-3 py-2 print:px-2 print:py-1 bg-white overflow-hidden min-h-0 ${heightClass} ${borderClass}`}
       style={heightVars}
     >
       {usage.entries.map((e, i) => {
@@ -92,16 +92,16 @@ export const SkuCell: React.FC<SkuCellProps> = ({
           <div
             key={`${e.sku}-${i}`}
             style={counterRotate}
-            className="cursor-pointer hover:brightness-90 rounded whitespace-nowrap overflow-hidden text-ellipsis print:inline-flex print:items-baseline print:gap-0.5"
+            className="cursor-pointer hover:brightness-90 rounded whitespace-nowrap overflow-hidden text-ellipsis flex items-center justify-between gap-2 leading-snug py-0.5"
             onClick={() => onSelectSku({ sku: e.sku, unitsHere: e.units, kind: 'line' })}
           >
             <span
-              className="font-mono font-bold text-[11px] print:text-sm print:font-extrabold tracking-tight"
+              className="font-mono font-bold text-xs print:text-sm print:font-extrabold tracking-tight"
               style={{ color: color.text }}
             >
               {e.sku}
             </span>
-            <span className="text-[10px] print:text-xs text-slate-500 font-semibold print:text-slate-600">
+            <span className="text-[11px] print:text-xs text-slate-500 font-bold print:text-slate-700">
               ·{e.units}u
             </span>
           </div>
