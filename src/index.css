@@ -431,6 +431,12 @@ body::before {
   }
 }
 
+/* Warehouse Top View — A4 landscape, one page, grid only. */
+@page {
+  size: A4 landscape;
+  margin: 5mm;
+}
+
 /* Warehouse Top View print output: black on white only. The per-SKU
    colors (skuColor()) are set via inline styles for on-screen identity —
    !important here is required to override those on print, since inline
@@ -443,5 +449,16 @@ body::before {
     background-image: none !important;
     border-color: #000 !important;
     outline-color: #000 !important;
+  }
+
+  /* Fill the full page — the grid is the only printed element */
+  .warehouse-grid-print {
+    width: 100% !important;
+    break-inside: avoid;
+  }
+
+  /* Prevent any cell from being split across pages */
+  .warehouse-grid-print > div {
+    break-inside: avoid;
   }
 }

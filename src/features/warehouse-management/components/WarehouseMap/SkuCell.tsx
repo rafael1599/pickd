@@ -34,7 +34,7 @@ export const SkuCell: React.FC<SkuCellProps> = ({
     '--cell-h': `${heightRem}rem`,
     '--cell-h-print': `${heightRem * PRINT_HEIGHT_SCALE}rem`,
   } as React.CSSProperties;
-  const heightClass = 'h-[var(--cell-h)] print:h-[var(--cell-h-print)]';
+  const heightClass = 'h-[var(--cell-h)] print:h-auto';
   const borderClass = `${borderRight ? 'border-r' : ''} ${borderBottom ? 'border-b' : ''} border-gray-300`;
 
   if (usage.kind === 'reserved') {
@@ -83,16 +83,16 @@ export const SkuCell: React.FC<SkuCellProps> = ({
 
   return (
     <div
-      className={`flex flex-col justify-center gap-1 px-2.5 py-1.5 bg-white overflow-hidden ${heightClass} ${borderClass}`}
+      className={`flex flex-col print:flex-row print:flex-wrap print:items-baseline justify-center gap-1 print:gap-x-1 print:gap-y-0.5 px-2.5 py-1.5 bg-white overflow-hidden ${heightClass} ${borderClass}`}
       style={heightVars}
     >
-      {usage.entries.map((e) => {
+      {usage.entries.map((e, i) => {
         const color = skuColor(e.sku);
         return (
           <div
             key={e.sku}
             style={counterRotate}
-            className="cursor-pointer hover:brightness-90 rounded whitespace-nowrap overflow-hidden text-ellipsis"
+            className="cursor-pointer hover:brightness-90 rounded whitespace-nowrap overflow-hidden text-ellipsis print:overflow-visible"
             onClick={() => onSelectSku({ sku: e.sku, unitsHere: e.units, kind: 'line' })}
           >
             <span
@@ -102,6 +102,9 @@ export const SkuCell: React.FC<SkuCellProps> = ({
               {e.sku}
             </span>
             <span className="text-[10px] print:text-xs text-slate-400"> · {e.units}u</span>
+            {i < usage.entries.length - 1 && (
+              <span className="hidden print:inline text-[10px]">,</span>
+            )}
           </div>
         );
       })}
