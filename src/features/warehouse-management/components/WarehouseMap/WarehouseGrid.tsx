@@ -123,13 +123,27 @@ export const WarehouseGrid: React.FC<WarehouseGridProps> = ({ slots, rotation, o
             </div>
           </React.Fragment>
         ))}
+
+        {/* Bottom header row — left corner, row headers, right corner */}
+        <div className="bg-white border-r border-t border-gray-300" />
+        {displayRows.map((row, i) => (
+          <div
+            key={`bottom-${row}`}
+            className={`bg-slate-800 text-white text-center py-2 font-bold tracking-widest text-sm print:text-lg border-t border-gray-300 ${
+              i < displayRows.length - 1 ? 'border-r border-slate-600' : ''
+            }`}
+          >
+            <span style={counterRotate}>{row}</span>
+          </div>
+        ))}
+        <div className="bg-white border-l border-t border-gray-300" />
       </div>
 
       {/* ── Print grid — always 180° order, no CSS transform ────────────── */}
       <div
-        className="warehouse-grid-print warehouse-print-fit grid hidden print:grid border-2 border-gray-300 bg-white"
+        className="warehouse-grid-print warehouse-print-fit grid hidden print:grid border-2 border-gray-300 bg-white w-full max-w-full"
         style={{
-          gridTemplateColumns: `2.25rem repeat(${ROWS.length}, 1fr) 2.25rem`,
+          gridTemplateColumns: `2.25rem repeat(${ROWS.length}, minmax(0, 1fr)) 2.25rem`,
         }}
       >
         <div className="bg-white border-r border-b border-gray-300" />
@@ -183,6 +197,20 @@ export const WarehouseGrid: React.FC<WarehouseGridProps> = ({ slots, rotation, o
             </div>
           </React.Fragment>
         ))}
+
+        {/* Bottom header row */}
+        <div className="bg-white border-r border-t border-gray-300" />
+        {printRows.map((row, i) => (
+          <div
+            key={`print-bottom-${row}`}
+            className={`bg-slate-800 text-white text-center py-1.5 font-bold tracking-widest text-lg border-t border-gray-300 ${
+              i < printRows.length - 1 ? 'border-r border-slate-600' : ''
+            }`}
+          >
+            {row}
+          </div>
+        ))}
+        <div className="bg-white border-l border-t border-gray-300" />
       </div>
     </>
   );

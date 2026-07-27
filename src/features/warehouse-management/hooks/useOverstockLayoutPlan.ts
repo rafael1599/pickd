@@ -40,7 +40,6 @@ export function useOverstockCandidatePool() {
         item_name: string | null;
         sku_metadata: { is_bike: boolean | null; weight_lbs: number | null } | null;
       };
-      const inv: InvRow[] = [];
       for (let from = 0; ; from += 1000) {
         const { data: page, error } = await supabase
           .from('inventory')

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { RotateCw, Loader2 } from 'lucide-react';
+import { RotateCw, Loader2, Printer } from 'lucide-react';
 import { WarehouseGrid } from './WarehouseGrid';
 import { WarehouseMapFilters } from './WarehouseMapFilters';
 import { SkuDetailPanel, type SelectedSku, type SkuDetailInfo } from './SkuDetailPanel';
@@ -29,6 +29,22 @@ export const WarehouseMap: React.FC = () => {
     add: addPriority,
     remove: removePriority,
   } = usePrioritySkus();
+
+  const handlePrintLandscape = () => {
+    const style = document.createElement('style');
+    style.id = 'print-landscape-override';
+    style.innerHTML = '@page { size: A4 landscape !important; margin: 4mm !important; }';
+    document.head.appendChild(style);
+
+    const cleanup = () => {
+      document.getElementById('print-landscape-override')?.remove();
+      window.removeEventListener('afterprint', cleanup);
+    };
+
+    window.addEventListener('afterprint', cleanup, { once: true });
+    window.print();
+    setTimeout(cleanup, 2000);
+  };
 
   // Automatic exclusion rules — default model families + weight range.
   // Individually overridable per-SKU via useSkuOverrides.
@@ -86,7 +102,7 @@ export const WarehouseMap: React.FC = () => {
       <div className="print:hidden flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <h2 className="text-2xl font-bold text-slate-800">Warehouse Top View</h2>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <WarehouseMapFilters
             pool={pool ?? []}
             autoExclusionReasons={autoExclusionReasons}
@@ -102,6 +118,15 @@ export const WarehouseMap: React.FC = () => {
             onAddPriority={addPriority}
             onRemovePriority={removePriority}
           />
+
+          <button
+            onClick={handlePrintLandscape}
+            className="flex items-center gap-1.5 px-3.5 h-10 rounded-lg border border-gray-200 bg-white text-slate-700 shadow-sm hover:bg-gray-50 active:scale-95 transition-all font-semibold text-xs tracking-wide"
+            title="Print / Save PDF (Landscape A4)"
+          >
+            <Printer className="w-4 h-4 text-slate-500" />
+            <span>Imprimir Horizontal</span>
+          </button>
 
           <button
             onClick={() => setRotation((prev) => prev + 90)}
@@ -132,7 +157,7 @@ export const WarehouseMap: React.FC = () => {
             Failed to load overstock plan.
           </div>
         ) : (
-          <div className="flex justify-center items-center min-w-max mx-auto h-full print:h-auto">
+          <div className="flex justify-center items-center min-w-max print:min-w-0 print:w-full print:h-full mx-auto h-full print:h-auto">
             <WarehouseGrid
               slots={data?.plan.slots ?? []}
               rotation={rotation}

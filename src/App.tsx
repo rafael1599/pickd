@@ -180,11 +180,12 @@ const AuthGuard = () => {
   const { confirmationState } = useConfirmation();
   const location = useLocation();
   const isShipRoute = location.pathname.startsWith('/ship');
+  const isPublicWarehouseMap = location.pathname === '/public-warehouse-map';
 
   // Initialize presence tracking
   usePresence();
 
-  if (loading) {
+  if (loading && !isPublicWarehouseMap) {
     if (isShipRoute) {
       return <ShipScreenFallback />;
     }
@@ -195,7 +196,7 @@ const AuthGuard = () => {
     );
   }
 
-  if (!user) {
+  if (!user && !isPublicWarehouseMap) {
     return (
       <ErrorBoundary>
         <Suspense
@@ -344,6 +345,23 @@ function App() {
                         }
                       >
                         <PickdReportViewer />
+                      </Suspense>
+                    </ErrorBoundary>
+                  }
+                />
+
+                <Route
+                  path="/public-warehouse-map"
+                  element={
+                    <ErrorBoundary>
+                      <Suspense
+                        fallback={
+                          <div className="min-h-screen bg-white flex items-center justify-center">
+                            <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
+                          </div>
+                        }
+                      >
+                        <WarehouseMapScreen />
                       </Suspense>
                     </ErrorBoundary>
                   }

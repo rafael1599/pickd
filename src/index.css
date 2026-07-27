@@ -431,9 +431,9 @@ body::before {
   }
 }
 
-/* Warehouse Top View — A4 landscape, one page, grid only. */
+/* Warehouse Top View — A4 portrait default print layout. */
 @page {
-  size: A4 landscape;
+  size: A4 portrait;
   margin: 4mm;
 }
 
@@ -442,6 +442,17 @@ body::before {
    !important here is required to override those on print, since inline
    styles otherwise beat stylesheet rules regardless of selector specificity. */
 @media print {
+  html,
+  body,
+  #root {
+    width: 100% !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    background: #fff !important;
+  }
+
   .warehouse-grid-print,
   .warehouse-grid-print * {
     color: #000 !important;
@@ -449,29 +460,34 @@ body::before {
     background-image: none !important;
     border-color: #000 !important;
     outline-color: #000 !important;
+    box-sizing: border-box !important;
   }
 
   /* Fill the full page — the grid is the only printed element */
   .warehouse-grid-print {
     width: 100% !important;
+    max-width: 100% !important;
     break-inside: avoid;
   }
 
-  /* Force the print grid to fill exactly one page — header row auto-sizes,
+  /* Force the print grid to fill exactly one page — top/bottom header rows auto-size,
      the 10 sublocation rows share remaining height equally via minmax(0, 1fr). */
   .warehouse-print-fit {
     height: 100vh !important;
     max-height: 100vh !important;
-    grid-template-rows: auto repeat(10, minmax(0, 1fr)) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    grid-template-rows: auto repeat(10, minmax(0, 1fr)) auto !important;
     grid-auto-rows: minmax(0, 1fr) !important;
     overflow: hidden !important;
     box-sizing: border-box !important;
   }
 
-  /* Prevent any cell from forcing row track expansion beyond 1fr share */
+  /* Prevent any cell from forcing row track expansion or horizontal spill */
   .warehouse-grid-print > div {
     min-height: 0 !important;
     max-height: 100% !important;
+    min-width: 0 !important;
     break-inside: avoid;
     overflow: hidden;
   }
