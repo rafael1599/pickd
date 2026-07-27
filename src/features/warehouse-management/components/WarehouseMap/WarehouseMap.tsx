@@ -113,11 +113,13 @@ export const WarehouseMap: React.FC = () => {
         </div>
       </div>
 
-      <ExcludedItemsSummary
-        pool={pool ?? []}
-        autoExclusionReasons={autoExclusionReasons}
-        effectivelyExcludedSkus={effectivelyExcludedSkus}
-      />
+      <div className="print:hidden">
+        <ExcludedItemsSummary
+          pool={pool ?? []}
+          autoExclusionReasons={autoExclusionReasons}
+          effectivelyExcludedSkus={effectivelyExcludedSkus}
+        />
+      </div>
 
       {/* Map Container */}
       <div className="relative flex-1 rounded-2xl print:rounded-none bg-[#F8FAFC] print:bg-white border-2 print:border-0 border-dashed border-slate-200 p-8 print:p-0 overflow-auto print:overflow-visible">
@@ -140,11 +142,13 @@ export const WarehouseMap: React.FC = () => {
         )}
 
         {selectedSku && (
-          <SkuDetailPanel
-            selected={selectedSku}
-            info={skuInfo.get(selectedSku.sku)}
-            onClose={() => setSelectedSku(null)}
-          />
+          <div className="print:hidden">
+            <SkuDetailPanel
+              selected={selectedSku}
+              info={skuInfo.get(selectedSku.sku)}
+              onClose={() => setSelectedSku(null)}
+            />
+          </div>
         )}
       </div>
     </div>
