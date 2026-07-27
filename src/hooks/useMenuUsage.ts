@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../lib/supabase';
 import Box from 'lucide-react/dist/esm/icons/box';
 import Map from 'lucide-react/dist/esm/icons/map';
 import Scan from 'lucide-react/dist/esm/icons/scan';
@@ -134,44 +135,100 @@ export const ALL_MENU_ITEMS: MenuItemSpec[] = [
   },
 ];
 
-const STORAGE_KEY = 'pickd_menu_usage_counts_v1';
+const LOCAL_STORAGE_KEY = 'pickd_global_menu_usage_cache_v1';
 
 export function useMenuUsage() {
-  const [counts, setCounts] = useState<Record<string, number>>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
+  const queryClient = useQueryClient();
+
+  // 1. Fetch team-wide global usage statistics from Supabase database
+  const { data: dbCounts } = useQuery({
+    queryKey: ['global-menu-usage-stats'],
+    queryFn: async (): Promise<Record<string, number>> => {
+      const { data, error } = await supabase
+        .from('warehouse_menu_usage_stats')
+        .select('menu_item_id, use_count');
+
+      if (error) {
+        // Fallback to local cache if offline or error
+        try {
+          const cached = localStorage.getItem(LOCAL_STORAGE_KEY);
+          return cached ? JSON.parse(cached) : {};
+        } catch {
+          return {};
+        }
+      }
+
+      const map: Record<string, number> = {};
+      for (const row of data ?? []) {
+        map[row.menu_item_id] = row.use_count;
+      }
+
+      // Update local storage backup
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(map));
+      } catch {
+        // Ignore
+      }
+
+      return map;
+    },
+    staleTime: 5 * 60 * 1000,
   });
 
-  const recordUsage = (id: string) => {
-    setCounts((prev) => {
-      const next = { ...prev, [id]: (prev[id] ?? 0) + 1 };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        // Ignore quota errors
+  // 2. Mutation to record usage globally in Supabase
+  const recordMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      const { error } = await supabase.rpc('increment_menu_usage', { item_id: itemId });
+      if (error) {
+        // Fallback direct upsert if RPC fails
+        await supabase.from('warehouse_menu_usage_stats').upsert(
+          {
+            menu_item_id: itemId,
+            use_count: (dbCounts?.[itemId] ?? 0) + 1,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'menu_item_id' }
+        );
       }
-      return next;
-    });
+    },
+    onMutate: async (itemId: string) => {
+      await queryClient.cancelQueries({ queryKey: ['global-menu-usage-stats'] });
+      const previous = queryClient.getQueryData<Record<string, number>>([
+        'global-menu-usage-stats',
+      ]);
+
+      const next = { ...(previous ?? {}), [itemId]: ((previous ?? {})[itemId] ?? 0) + 1 };
+      queryClient.setQueryData(['global-menu-usage-stats'], next);
+
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // Ignore
+      }
+
+      return { previous };
+    },
+    onError: (_err, _itemId, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['global-menu-usage-stats'], context.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['global-menu-usage-stats'] });
+    },
+  });
+
+  const recordUsage = (itemId: string) => {
+    recordMutation.mutate(itemId);
   };
 
-  const resetUsage = () => {
-    setCounts({});
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // Ignore
-    }
-  };
+  const currentCounts = dbCounts ?? {};
 
-  // Sort items by count desc, then defaultRank asc
+  // Sort menu items by global team usage count desc, then defaultRank asc
   const mostUsedItems = [...ALL_MENU_ITEMS]
     .sort((a, b) => {
-      const countA = counts[a.id] ?? 0;
-      const countB = counts[b.id] ?? 0;
+      const countA = currentCounts[a.id] ?? 0;
+      const countB = currentCounts[b.id] ?? 0;
       if (countA !== countB) return countB - countA;
       return a.defaultRank - b.defaultRank;
     })
@@ -180,7 +237,5 @@ export function useMenuUsage() {
   return {
     mostUsedItems,
     recordUsage,
-    resetUsage,
-    counts,
   };
 }
