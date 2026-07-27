@@ -25,6 +25,7 @@ import Sparkles from 'lucide-react/dist/esm/icons/sparkles';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import { useModal } from '../../context/ModalContext';
 import { useViewMode } from '../../context/ViewModeContext';
+import { useMenuUsage, type MenuItemSpec } from '../../hooks/useMenuUsage';
 
 interface UserMenuProps {
   isOpen: boolean;
@@ -37,6 +38,8 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
   const { profile, signOut, updateProfileName, isAdmin } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { setViewMode } = useViewMode();
+  const { mostUsedItems, recordUsage } = useMenuUsage();
+
   const [newName, setNewName] = useState(profile?.full_name || '');
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -56,7 +59,8 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
     setIsSaving(false);
   };
 
-  const navTo = (path: string) => {
+  const navTo = (path: string, itemId?: string) => {
+    if (itemId) recordUsage(itemId);
     setShowProfile(false);
     navigate(path);
     onClose();
@@ -64,8 +68,18 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
 
   // Picking is a view mode on the home screen, not a route: switch the mode and land on Home.
   const startPicking = () => {
+    recordUsage('picking');
     setViewMode('picking');
-    navTo('/');
+    navTo('/', 'picking');
+  };
+
+  const handleShortcutClick = (item: MenuItemSpec) => {
+    recordUsage(item.id);
+    if (item.action === 'picking') {
+      startPicking();
+    } else if (item.path) {
+      navTo(item.path);
+    }
   };
 
   const versionLabel = import.meta.env.PROD
@@ -120,61 +134,57 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                       type="text"
                       value={newName}
                       onChange={(e) => setNewName(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-                      className="flex-1 bg-surface border border-subtle rounded-xl px-4 py-2 text-sm text-content focus:outline-none focus:border-accent/50"
+                      className="flex-1 px-4 py-2.5 bg-surface border border-subtle rounded-xl text-sm font-semibold text-content focus:outline-none focus:border-accent"
+                      placeholder="Your name"
                     />
                     <button
-                      onClick={handleSave}
                       disabled={isSaving}
-                      className="ios-btn items-center justify-center h-10 w-12 bg-accent text-white shadow-lg active:scale-90 disabled:opacity-50 transition-all"
+                      onClick={handleSave}
+                      className="px-4 py-2.5 bg-accent hover:bg-accent/90 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-colors disabled:opacity-50 flex items-center gap-1 shrink-0"
                     >
-                      {isSaving ? (
-                        <div className="w-5 h-5 border-2 border-white/20 border-t-white animate-spin rounded-full" />
-                      ) : (
-                        <Check size={20} />
-                      )}
+                      <Check size={16} />
+                      {isSaving ? '...' : 'Save'}
                     </button>
                   </div>
                 ) : (
-                  <div
-                    className="flex justify-between items-center group cursor-pointer"
-                    onClick={() => setIsEditing(true)}
-                  >
-                    <span className="text-sm font-bold text-content tracking-tight">
-                      {profile?.full_name || 'Set Name'}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-content">
+                      {profile?.full_name || 'Not set'}
                     </span>
-                    <button className="text-[10px] text-accent font-black uppercase tracking-[0.2em] group-hover:underline transition-all">
+                    <button
+                      onClick={() => {
+                        setNewName(profile?.full_name || '');
+                        setIsEditing(true);
+                      }}
+                      className="text-xs font-bold text-accent hover:underline uppercase tracking-wider"
+                    >
                       Edit
                     </button>
                   </div>
                 )}
               </div>
 
-              {/* Theme toggle */}
+              {/* Appearance / Theme Toggle */}
               <div className="p-4 bg-card border border-subtle rounded-2xl">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-surface border border-subtle rounded-xl text-content">
-                      {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-content uppercase tracking-tight">
-                        {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={toggleTheme}
-                    className={`relative w-14 h-7 rounded-full p-1 transition-all duration-300 focus:outline-none ring-1
-                      ${theme === 'dark' ? 'bg-accent/20 ring-accent/30' : 'bg-subtle ring-subtle/50'}`}
-                    aria-label="Toggle Theme"
-                  >
-                    <div
-                      className={`w-5 h-5 bg-accent rounded-full shadow-lg transition-all duration-300 transform
-                        ${theme === 'dark' ? 'translate-x-7 rotate-0' : 'translate-x-0 rotate-180'}`}
-                    />
-                  </button>
-                </div>
+                <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-3 block">
+                  Appearance
+                </label>
+                <button
+                  onClick={toggleTheme}
+                  className="flex items-center justify-between w-full p-3 bg-surface border border-subtle rounded-xl text-content font-bold text-xs uppercase tracking-wider hover:border-accent/40 transition-colors"
+                >
+                  <span className="flex items-center gap-2.5">
+                    {theme === 'dark' ? (
+                      <Moon size={16} className="text-accent" />
+                    ) : (
+                      <Sun size={16} className="text-amber-500" />
+                    )}
+                    {theme === 'dark' ? 'Dark Theme' : 'Light Theme'}
+                  </span>
+                  <span className="text-[10px] font-black text-accent uppercase tracking-widest bg-accent/10 px-2 py-1 rounded-md">
+                    Switch
+                  </span>
+                </button>
               </div>
             </div>
           </div>
@@ -184,9 +194,9 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
     );
   }
 
-  // ─── Main Menu ───
+  // ─── Main Menu Portal ───
   return createPortal(
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-main/60 backdrop-blur-md" onClick={onClose} />
 
       <div className="relative w-full max-w-sm max-h-[85vh] flex flex-col bg-surface border border-subtle rounded-[2.5rem] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
@@ -206,7 +216,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
 
         {/* Scrollable Body */}
         <div className="p-6 pt-2 overflow-y-auto space-y-4 flex-1">
-          {/* ⭐️ Quick Access Shortcuts Grid */}
+          {/* ⭐️ Dynamic Smart Shortcuts Grid (Top 6 Most Used) */}
           <div className="p-3 bg-card border border-subtle rounded-2xl">
             <div className="flex items-center justify-between mb-2.5 px-1">
               <label className="text-[10px] text-muted font-black uppercase tracking-widest flex items-center gap-1">
@@ -216,77 +226,25 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
             </div>
 
             <div className="grid grid-cols-3 gap-2">
-              <button
-                onClick={() => navTo('/')}
-                className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-surface border border-subtle hover:border-accent/40 active:scale-95 transition-all text-center group"
-              >
-                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500 mb-1 group-hover:scale-110 transition-transform">
-                  <Box size={18} />
-                </div>
-                <span className="text-[10px] font-extrabold uppercase text-content tracking-tight">
-                  Stock
-                </span>
-              </button>
-
-              <button
-                onClick={() => navTo('/warehouse-map')}
-                className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-surface border border-subtle hover:border-accent/40 active:scale-95 transition-all text-center group"
-              >
-                <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500 mb-1 group-hover:scale-110 transition-transform">
-                  <Map size={18} />
-                </div>
-                <span className="text-[10px] font-extrabold uppercase text-content tracking-tight">
-                  Map
-                </span>
-              </button>
-
-              <button
-                onClick={startPicking}
-                className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-surface border border-subtle hover:border-accent/40 active:scale-95 transition-all text-center group"
-              >
-                <div className="p-2 rounded-lg bg-sky-500/10 text-sky-500 mb-1 group-hover:scale-110 transition-transform">
-                  <Scan size={18} />
-                </div>
-                <span className="text-[10px] font-extrabold uppercase text-content tracking-tight">
-                  Picking
-                </span>
-              </button>
-
-              <button
-                onClick={() => navTo('/ship')}
-                className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-surface border border-subtle hover:border-accent/40 active:scale-95 transition-all text-center group"
-              >
-                <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-500 mb-1 group-hover:scale-110 transition-transform">
-                  <Printer size={18} />
-                </div>
-                <span className="text-[10px] font-extrabold uppercase text-content tracking-tight">
-                  Ship
-                </span>
-              </button>
-
-              <button
-                onClick={() => navTo('/stock-count')}
-                className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-surface border border-subtle hover:border-accent/40 active:scale-95 transition-all text-center group"
-              >
-                <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500 mb-1 group-hover:scale-110 transition-transform">
-                  <ClipboardList size={18} />
-                </div>
-                <span className="text-[10px] font-extrabold uppercase text-content tracking-tight">
-                  Count
-                </span>
-              </button>
-
-              <button
-                onClick={() => navTo('/consolidation')}
-                className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-surface border border-subtle hover:border-accent/40 active:scale-95 transition-all text-center group"
-              >
-                <div className="p-2 rounded-lg bg-orange-500/10 text-orange-500 mb-1 group-hover:scale-110 transition-transform">
-                  <Boxes size={18} />
-                </div>
-                <span className="text-[10px] font-extrabold uppercase text-content tracking-tight">
-                  Slotting
-                </span>
-              </button>
+              {mostUsedItems.map((item) => {
+                const IconComponent = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleShortcutClick(item)}
+                    className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-surface border border-subtle hover:border-accent/40 active:scale-95 transition-all text-center group"
+                  >
+                    <div
+                      className={`p-2 rounded-lg ${item.colorBg} ${item.colorText} mb-1 group-hover:scale-110 transition-transform`}
+                    >
+                      <IconComponent size={18} />
+                    </div>
+                    <span className="text-[10px] font-extrabold uppercase text-content tracking-tight">
+                      {item.label}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -297,7 +255,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
             </label>
 
             <button
-              onClick={() => navTo('/warehouse-map')}
+              onClick={() => navTo('/warehouse-map', 'map')}
               className="flex items-center justify-between w-full group text-left"
             >
               <div className="flex items-center gap-3">
@@ -339,7 +297,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
             <div className="h-px bg-subtle my-2" />
 
             <button
-              onClick={() => navTo('/stock-count')}
+              onClick={() => navTo('/stock-count', 'count')}
               className="flex items-center justify-between w-full group text-left"
             >
               <div className="flex items-center gap-3">
@@ -361,7 +319,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
             <div className="h-px bg-subtle my-2" />
 
             <button
-              onClick={() => navTo('/shopping-list')}
+              onClick={() => navTo('/shopping-list', 'shopping')}
               className="flex items-center justify-between w-full group text-left"
             >
               <div className="flex items-center gap-3">
@@ -383,7 +341,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
             <div className="h-px bg-subtle my-2" />
 
             <button
-              onClick={() => navTo('/fedex-returns')}
+              onClick={() => navTo('/fedex-returns', 'returns')}
               className="flex items-center justify-between w-full group text-left"
             >
               <div className="flex items-center gap-3">
@@ -411,7 +369,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
               </label>
 
               <button
-                onClick={() => navTo('/consolidation')}
+                onClick={() => navTo('/consolidation', 'slotting')}
                 className="flex items-center justify-between w-full group text-left mb-3"
               >
                 <div className="flex items-center gap-3">
@@ -429,7 +387,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
               </button>
 
               <button
-                onClick={() => navTo('/registrar-container')}
+                onClick={() => navTo('/registrar-container', 'container')}
                 className="flex items-center justify-between w-full group text-left mb-3"
               >
                 <div className="flex items-center gap-3">
@@ -467,7 +425,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
               <div className="h-px bg-subtle my-2" />
 
               <button
-                onClick={() => navTo('/activity-report')}
+                onClick={() => navTo('/activity-report', 'reports')}
                 className="flex items-center justify-between w-full group text-left mb-3"
               >
                 <div className="flex items-center gap-3">
@@ -485,7 +443,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
               </button>
 
               <button
-                onClick={() => navTo('/projects')}
+                onClick={() => navTo('/projects', 'projects')}
                 className="flex items-center justify-between w-full group text-left mb-3"
               >
                 <div className="flex items-center gap-3">
@@ -503,7 +461,7 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
               </button>
 
               <button
-                onClick={() => navTo('/history')}
+                onClick={() => navTo('/history', 'history')}
                 className="flex items-center justify-between w-full group text-left mb-3"
               >
                 <div className="flex items-center gap-3">
