@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { WarehouseMap } from './components/WarehouseMap/WarehouseMap';
 import { WarehouseLiveMap } from './components/WarehouseMap/WarehouseLiveMap';
+import { NoMoverClassification } from './components/NoMoverClassification';
 import { useNavigate } from 'react-router-dom';
-import { LayoutGrid } from 'lucide-react';
+import { LayoutGrid, ListChecks } from 'lucide-react';
 
 export const WarehouseMapScreen: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'plan' | 'live'>('plan');
+  // No-movers comes first: the plan cannot be calculated without the list.
+  const [activeTab, setActiveTab] = useState<'no-movers' | 'plan' | 'live'>('no-movers');
 
   return (
     <div className="h-full w-full flex flex-col bg-white">
@@ -22,8 +24,20 @@ export const WarehouseMapScreen: React.FC = () => {
           <h1 className="text-xl font-bold text-slate-800">Visual Layout</h1>
         </div>
 
-        {/* Plan vs Live Segmented Control Tabs */}
+        {/* No-movers → Plan → Live. The order is the workflow. */}
         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+          <button
+            onClick={() => setActiveTab('no-movers')}
+            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-extrabold uppercase tracking-wider transition-all ${
+              activeTab === 'no-movers'
+                ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <ListChecks className="w-3.5 h-3.5 text-slate-600" />
+            <span>No-movers</span>
+          </button>
+
           <button
             onClick={() => setActiveTab('plan')}
             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-extrabold uppercase tracking-wider transition-all ${
@@ -55,7 +69,13 @@ export const WarehouseMapScreen: React.FC = () => {
 
       {/* Screen Body */}
       <div className="flex-1 overflow-hidden print:overflow-visible relative">
-        {activeTab === 'plan' ? <WarehouseMap /> : <WarehouseLiveMap />}
+        {activeTab === 'no-movers' ? (
+          <NoMoverClassification />
+        ) : activeTab === 'plan' ? (
+          <WarehouseMap />
+        ) : (
+          <WarehouseLiveMap />
+        )}
       </div>
     </div>
   );
