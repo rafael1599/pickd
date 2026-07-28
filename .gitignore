@@ -61,3 +61,4 @@ public/reports/daily/
 # Performance reports
 reports/performance/*.txt
 
+scripts/.sync-progress
