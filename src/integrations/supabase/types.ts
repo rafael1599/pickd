@@ -1567,6 +1567,111 @@ export type Database = {
           },
         ];
       };
+      warehouse_block_settings: {
+        Row: {
+          block_id: string;
+          min_units: number;
+          positions_per_row: number;
+          recency_days: number;
+          reserve_last_position: boolean;
+          updated_at: string;
+          updated_by: string | null;
+          warehouse: string;
+        };
+        Insert: {
+          block_id: string;
+          min_units?: number;
+          positions_per_row?: number;
+          recency_days?: number;
+          reserve_last_position?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+          warehouse?: string;
+        };
+        Update: {
+          block_id?: string;
+          min_units?: number;
+          positions_per_row?: number;
+          recency_days?: number;
+          reserve_last_position?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+          warehouse?: string;
+        };
+        Relationships: [];
+      };
+      warehouse_no_movers: {
+        Row: {
+          block_id: string;
+          created_at: string;
+          last_shipped_at: string | null;
+          qty_at_decision: number | null;
+          sku: string;
+          updated_at: string;
+          updated_by: string | null;
+          warehouse: string;
+        };
+        Insert: {
+          block_id: string;
+          created_at?: string;
+          last_shipped_at?: string | null;
+          qty_at_decision?: number | null;
+          sku: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          warehouse?: string;
+        };
+        Update: {
+          block_id?: string;
+          created_at?: string;
+          last_shipped_at?: string | null;
+          qty_at_decision?: number | null;
+          sku?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          warehouse?: string;
+        };
+        Relationships: [];
+      };
+      warehouse_overstock_plans: {
+        Row: {
+          block_id: string | null;
+          effectively_excluded_skus: string[];
+          id: string;
+          plan_data: Json;
+          plan_version: number;
+          pull_first: Json;
+          ranking_weights: Json;
+          updated_at: string;
+          updated_by: string | null;
+          warehouse: string;
+        };
+        Insert: {
+          block_id?: string | null;
+          effectively_excluded_skus?: string[];
+          id: string;
+          plan_data: Json;
+          plan_version?: number;
+          pull_first?: Json;
+          ranking_weights: Json;
+          updated_at?: string;
+          updated_by?: string | null;
+          warehouse?: string;
+        };
+        Update: {
+          block_id?: string | null;
+          effectively_excluded_skus?: string[];
+          id?: string;
+          plan_data?: Json;
+          plan_version?: number;
+          pull_first?: Json;
+          ranking_weights?: Json;
+          updated_at?: string;
+          updated_by?: string | null;
+          warehouse?: string;
+        };
+        Relationships: [];
+      };
       warehouse_slot_layouts: {
         Row: {
           created_at: string;
@@ -1862,6 +1967,18 @@ export type Database = {
           orders_completed: number;
           sku: string;
           units_shipped: number;
+        }[];
+      };
+      get_block_classification_candidates: {
+        Args: { p_recency_days?: number; p_rows: string[] };
+        Returns: {
+          is_mover: boolean;
+          last_shipped: string;
+          location: string;
+          orders_completed: number;
+          sku: string;
+          sublocation: string[];
+          total_qty: number;
         }[];
       };
       get_sku_movement_stats_batch: {
