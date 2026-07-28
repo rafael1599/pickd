@@ -100,8 +100,14 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
             ) : (
               items.map((item, idx) => {
                 const qty = item.pickingQty ?? item.quantity ?? 1;
-                const sku = item.sku || item.raw_sku || '—';
-                const desc = item.description || item.item_name || '—';
+                // Orders stored before the schema settled carry raw_sku and
+                // description instead of sku and item_name.
+                const legacy = item as typeof item & {
+                  raw_sku?: string | null;
+                  description?: string | null;
+                };
+                const sku = item.sku || legacy.raw_sku || '—';
+                const desc = legacy.description || item.item_name || '—';
                 const location = item.location || '—';
                 const sublocRaw = item.sublocation;
                 const sublocation = Array.isArray(sublocRaw)

@@ -1592,6 +1592,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      warehouse_menu_usage_stats: {
+        Row: {
+          menu_item_id: string;
+          updated_at: string;
+          use_count: number;
+        };
+        Insert: {
+          menu_item_id: string;
+          updated_at?: string;
+          use_count?: number;
+        };
+        Update: {
+          menu_item_id?: string;
+          updated_at?: string;
+          use_count?: number;
+        };
+        Relationships: [];
+      };
       warehouse_no_movers: {
         Row: {
           block_id: string;
@@ -1964,6 +1982,10 @@ export type Database = {
           sublocation: string[];
           total_qty: number;
         }[];
+      };
+      increment_menu_usage: {
+        Args: { item_id: string };
+        Returns: undefined;
       };
       get_sku_movement_stats_batch: {
         Args: { p_since?: string; p_skus: string[] };

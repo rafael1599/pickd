@@ -13,7 +13,8 @@ export interface PersistedWarehousePlanRecord {
   warehouse: string;
   plan_data: {
     slots: OverstockLayoutPlanResult['plan']['slots'];
-    stats: OverstockLayoutPlanResult['plan']['stats'];
+    /** Units that did not fit. Previously computed and then dropped on save. */
+    unplaced: OverstockLayoutPlanResult['plan']['unplaced'];
   };
   ranking_weights: RankingWeights;
   effectively_excluded_skus: string[];
@@ -81,7 +82,7 @@ export function useRecalculateWarehouseMapPlan() {
         warehouse: 'LUDLOW',
         plan_data: {
           slots: computed.plan.slots,
-          stats: computed.plan.stats,
+          unplaced: computed.plan.unplaced,
         },
         ranking_weights: rankingWeights,
         effectively_excluded_skus: Array.from(effectivelyExcludedSkus),
@@ -89,7 +90,7 @@ export function useRecalculateWarehouseMapPlan() {
         updated_by: user?.email ?? 'Usuario',
       };
 
-      const { error } = await supabase.from('warehouse_overstock_plans').upsert(record);
+      const { error } = await supabase.from('warehouse_overstock_plans').upsert(record as never);
 
       if (error) {
         throw new Error(`Failed to save plan: ${error.message}`);

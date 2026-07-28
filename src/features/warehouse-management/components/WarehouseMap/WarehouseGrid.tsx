@@ -8,7 +8,8 @@ interface WarehouseGridProps {
   slots: PlannedSlot[];
   rotation: number;
   onSelectSku: (selection: SelectedSku) => void;
-  customRows?: number[];
+  /** Rows can arrive as numbers from the Live view or as the planner's string codes. */
+  customRows?: (string | number)[];
   customLetters?: string[];
 }
 
@@ -45,13 +46,15 @@ export const WarehouseGrid: React.FC<WarehouseGridProps> = ({
 }) => {
   const counterRotate = counterRotateTextStyle(rotation);
 
-  const activeRows = customRows ?? (ROWS as unknown as number[]);
-  const activeLetters = customLetters ?? (LETTERS as unknown as string[]);
+  const activeRows: (string | number)[] = customRows ?? [...ROWS];
+  const activeLetters: string[] = customLetters ?? [...LETTERS];
 
-  const slotAt = (row: number, letter: string) =>
+  // Row identity is compared as text: the planner keys rows as '31', while the
+  // Live view passes the number 31 for the same shelf.
+  const slotAt = (row: string | number, letter: string) =>
     slots.find(
       (s) =>
-        s.row === row &&
+        String(s.row) === String(row) &&
         (s.letter === letter || (s as unknown as { sublocation: string }).sublocation === letter)
     );
 

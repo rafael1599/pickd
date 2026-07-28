@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '../../lib/supabase.ts';
 import { useAuth } from '../../context/AuthContext.tsx';
 
@@ -18,19 +18,11 @@ import {
 import type { AutoSaveStatus } from './ship/types';
 import MessageSquare from 'lucide-react/dist/esm/icons/message-square';
 import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
-import Truck from 'lucide-react/dist/esm/icons/truck';
-import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
 import ShoppingCart from 'lucide-react/dist/esm/icons/shopping-cart';
-import X from 'lucide-react/dist/esm/icons/x';
 import { ShipOrderCard } from '../../components/orders/ShipOrderCard.tsx';
 import { ShippedTruckBadge } from '../../components/orders/ShippedTruckBadge.tsx';
-import { OrderProgressBar } from './components/OrderProgressBar.tsx';
-import { TransportLogo } from '../../components/orders/TransportLogo.tsx';
 import { useShipOutSms } from './hooks/useShipOutSms';
 import { withSupabaseRetry } from '../../lib/supabaseRetry';
-import { PickingSummaryModal } from '../../components/orders/PickingSummaryModal.tsx';
-import { SplitOrderModal } from '../../components/orders/SplitOrderModal.tsx';
-import { SearchInput } from '../../components/ui/SearchInput.tsx';
 import type { PickingListItem, CombineMeta } from '../../schemas/picking.schema';
 import { saveCustomerAddress } from '../../lib/customerAddresses';
 import { mergeSiblingPalletPhotos } from '../../utils/mergeSiblingPalletPhotos';
@@ -46,7 +38,6 @@ import { ShipFeedCard } from './ship/components/feed/ShipFeedCard';
 import { FeedHeaderToolbar } from './ship/components/feed/FeedHeaderToolbar';
 import { ShipModalsManager } from './ship/components/modals/ShipModalsManager';
 import { useShipOrdersData } from './ship/hooks/useShipOrdersData';
-import { ShippingFlowPreviewModal } from './components/ShippingFlowPreviewModal';
 import { compressImage, base64ToBlobUrl } from '../../services/photoUpload.service';
 import { useUnmarkWaiting } from './hooks/useWaitingOrders';
 import { CarrierFilter } from './components/board/CarrierFilter';
@@ -59,7 +50,6 @@ import {
   getCarrierLabel as getCarrierLabelShared,
 } from '../../utils/shippingClassification';
 import { useOrderGroups } from './hooks/useOrderGroups';
-import { ShippingResolutionModal } from './components/board/ShippingResolutionModal';
 
 function dayKey(date: Date): string {
   const formatter = new Intl.DateTimeFormat('en-US', {

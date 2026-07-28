@@ -2,7 +2,10 @@ import React from 'react';
 import { PickingSummaryModal } from '../../../../../components/orders/PickingSummaryModal';
 import { SplitOrderModal } from '../../../../../components/orders/SplitOrderModal';
 import { ReasonPicker } from '../../../components/ReasonPicker';
-import { ShippingFlowPreviewModal } from '../../../components/ShippingFlowPreviewModal';
+import {
+  ShippingFlowPreviewModal,
+  type ShippingPreviewOrder,
+} from '../../../components/ShippingFlowPreviewModal';
 import { ShippingResolutionModal } from '../../../components/board/ShippingResolutionModal';
 import type { OrderWithRelations } from '../../hooks/useShipOrdersData';
 
@@ -32,9 +35,9 @@ interface ShipModalsManagerProps {
   onShipCameraChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   // Flow preview modal
   showShippingPreview: boolean;
-  shippingPreviewOrders: OrderWithRelations[];
+  shippingPreviewOrders: ShippingPreviewOrder[];
   onCloseShippingPreview: () => void;
-  onConfirmBatchShip: (photos: Record<string, string[]>) => Promise<void>;
+  onConfirmBatchShip: (ids: string[]) => Promise<void> | void;
   isShippingBatch: boolean;
   // Resolution modal
   pendingShippingResolutionGroupId: string | null;

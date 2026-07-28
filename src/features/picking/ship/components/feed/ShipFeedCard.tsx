@@ -22,7 +22,7 @@ interface ShipFeedCardProps {
   onUndoShip?: (order: OrderWithRelations) => void;
   onShipClick?: (order: OrderWithRelations) => void;
   onResumeWaiting?: (order: OrderWithRelations) => void;
-  onOpenDoubleCheck?: (order: OrderWithRelations, action?: 'edit' | 'cancel') => void;
+  onOpenDoubleCheck?: (order: OrderWithRelations, action?: 'edit' | 'photo' | null) => void;
   onResumeReopened?: (order: OrderWithRelations) => void;
 }
 

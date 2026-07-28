@@ -20,7 +20,6 @@ import Boxes from 'lucide-react/dist/esm/icons/boxes';
 import Container from 'lucide-react/dist/esm/icons/container';
 import Scan from 'lucide-react/dist/esm/icons/scan';
 import Map from 'lucide-react/dist/esm/icons/map';
-import Box from 'lucide-react/dist/esm/icons/box';
 import Sparkles from 'lucide-react/dist/esm/icons/sparkles';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import { useModal } from '../../context/ModalContext';

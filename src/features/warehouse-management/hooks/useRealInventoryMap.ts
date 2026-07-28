@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
-import { type SlotUsage, type PlannedSlot } from '../../../utils/overstockPutaway';
+import { type PlannedSlot } from '../../../utils/overstockPutaway';
 
 export interface RealInventoryItem {
-  id: string;
+  id: number;
   sku: string;
   location: string | null;
   sublocation: string[] | null;
@@ -157,7 +157,7 @@ export function useRealInventoryMap(selectedRowName: string = DEFAULT_ROW) {
         sku: d.sku,
         location: d.location,
         sublocation: d.sublocation as string[] | null,
-        quantity: d.quantity,
+        quantity: d.quantity ?? 0,
         itemName: d.item_name,
         weightLbs: (d.sku_metadata as { weight_lbs: number | null } | null)?.weight_lbs ?? null,
       }));
