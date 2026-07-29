@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from 'react';
+import { ReactNode, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { BottomNavigation } from './BottomNavigation';
 import Settings from 'lucide-react/dist/esm/icons/settings';
@@ -29,33 +29,6 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
   // z-60 overlay). Keyed on the drawer's real open state via the overlay store.
   const isPickingOverlayOpen = usePickingOverlayOpen();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isHeaderHidden, setIsHeaderHidden] = useState(false);
-
-  useEffect(() => {
-    let lastScrollY = window.scrollY;
-    let ticking = false;
-
-    const handleScroll = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(() => {
-        const currentY = window.scrollY;
-        if (currentY < 80) {
-          setIsHeaderHidden(false);
-        } else if (currentY < lastScrollY - 5) {
-          // Scrolling up (5px threshold to avoid noise)
-          setIsHeaderHidden(false);
-        } else if (currentY > lastScrollY + 5) {
-          // Scrolling down
-          setIsHeaderHidden(true);
-        }
-        lastScrollY = currentY;
-        ticking = false;
-      });
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   const pbClass = isShipPage || isStockCountPage ? 'pb-0' : isSearching ? 'pb-12' : 'pb-20';
 
@@ -86,13 +59,13 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
           />
         </div>
 
-        {/* Header / Brand (Scrolls with the page) */}
+        {/* Header / Brand */}
         {!isShipPage && !isStockCountPage && (
           <>
             <header
               className={`
                     fixed top-0 left-0 right-0 bg-card border-b border-subtle z-50 transition-transform duration-200 print:hidden
-                    ${isHeaderHidden || isSearching ? '-translate-y-full' : 'translate-y-0'}
+                    ${isSearching ? '-translate-y-full' : 'translate-y-0'}
                 `}
             >
               <div className="flex justify-between items-center px-4 py-3">

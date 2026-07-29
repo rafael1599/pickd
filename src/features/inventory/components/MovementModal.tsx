@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { ModalOverlay } from '../../../components/ui/ModalOverlay';
 import X from 'lucide-react/dist/esm/icons/x';
@@ -18,7 +18,6 @@ import AutocompleteInput from '../../../components/ui/AutocompleteInput.tsx';
 import { CapacityBar } from '../../../components/ui/CapacityBar.tsx';
 import { useLocationManagement } from '../hooks/useLocationManagement.ts';
 import { predictLocation } from '../../../utils/locationPredictor.ts';
-import { useViewMode } from '../../../context/ViewModeContext.tsx';
 import { useAutoSelect } from '../../../hooks/useAutoSelect.ts';
 import toast from 'react-hot-toast';
 import {
@@ -54,7 +53,6 @@ export const MovementModal: React.FC<MovementModalProps> = ({
   const { formData, setField, validate } = useMovementForm(initialSourceItem);
   const { locations } = useLocationManagement();
   const { locationCapacities, inventoryData } = useInventory();
-  const { setIsNavHidden } = useViewMode();
   const autoSelect = useAutoSelect();
   const [noteConflict, setNoteConflict] = useState<{
     sourceNote: string;
@@ -100,16 +98,6 @@ export const MovementModal: React.FC<MovementModalProps> = ({
     () => predictLocation(formData.targetLocation, validLocationNames),
     [formData.targetLocation, validLocationNames]
   );
-
-  useEffect(() => {
-    if (isOpen) {
-      setIsNavHidden!(true);
-    } else {
-      setIsNavHidden!(false);
-    }
-
-    return () => setIsNavHidden!(false);
-  }, [formData.targetLocation, isOpen, setIsNavHidden]);
 
   const displaySuggestions: LocationSuggestion[] = useMemo(() => {
     if (formData.targetLocation && formData.targetLocation.length > 0) {

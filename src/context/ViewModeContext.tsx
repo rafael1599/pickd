@@ -10,8 +10,6 @@ interface ViewModeContextType {
   setExternalDoubleCheckId: (id: string | number | null) => void;
   externalOrderId: string | number | null;
   setExternalOrderId: (id: string | number | null) => void;
-  isNavHidden: boolean;
-  setIsNavHidden: (hidden: boolean) => void;
   isSearching: boolean;
   setIsSearching: (searching: boolean) => void;
   /** Monotonic counter bumped by the bottom-nav STOCK button (idea-129).
@@ -30,7 +28,6 @@ export const ViewModeProvider = ({ children }: { children: ReactNode }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('stock');
   const [externalDoubleCheckId, setExternalDoubleCheckId] = useState<string | number | null>(null);
   const [externalOrderId, setExternalOrderId] = useState<string | number | null>(null);
-  const [isNavHidden, setIsNavHidden] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [stockNavSignal, setStockNavSignal] = useState(0);
   const [externalActionTrigger, setExternalActionTrigger] = useState<
@@ -50,8 +47,6 @@ export const ViewModeProvider = ({ children }: { children: ReactNode }) => {
       setExternalDoubleCheckId,
       externalOrderId,
       setExternalOrderId,
-      isNavHidden,
-      setIsNavHidden,
       isSearching,
       setIsSearching,
       stockNavSignal,
@@ -63,7 +58,6 @@ export const ViewModeProvider = ({ children }: { children: ReactNode }) => {
       viewMode,
       externalDoubleCheckId,
       externalOrderId,
-      isNavHidden,
       isSearching,
       stockNavSignal,
       requestStockView,

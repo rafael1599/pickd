@@ -13,7 +13,6 @@ import { useInventory } from '../../hooks/useInventoryData.ts';
 import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from '../../hooks/useInventoryRealtime';
 import { useLocationManagement } from '../../hooks/useLocationManagement.ts';
 import { useConfirmation } from '../../../../context/ConfirmationContext.tsx';
-import { useViewMode } from '../../../../context/ViewModeContext.tsx';
 
 import AutocompleteInput from '../../../../components/ui/AutocompleteInput.tsx';
 import {
@@ -86,7 +85,6 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
 
   const { ludlowData, atsData, isAdmin, updateSKUMetadata } = useInventory();
   const { locations } = useLocationManagement();
-  const { setIsNavHidden } = useViewMode();
   const { showConfirmation } = useConfirmation();
   const { activeField, setActiveField, isActive } = useActiveField();
   const { user } = useAuth();
@@ -168,7 +166,6 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   // ─── Sync Initial Data ───
   useEffect(() => {
     if (isOpen) {
-      setIsNavHidden?.(true);
       setActiveField(null);
 
       if (mode === 'edit' && initialData) {
@@ -232,11 +229,8 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         setPhotoPreview(initialData?.sku_metadata?.image_url || null);
         setTypeIsBike(initialData?.sku_metadata?.is_bike !== false);
       }
-    } else {
-      setIsNavHidden?.(false);
     }
-    return () => setIsNavHidden?.(false);
-  }, [isOpen, initialData, mode, screenType, reset, setIsNavHidden, setActiveField]);
+  }, [isOpen, initialData, mode, screenType, reset, setActiveField]);
 
   // Sync distribution from realtime
   useEffect(() => {
