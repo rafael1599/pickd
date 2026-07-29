@@ -8,6 +8,9 @@ export interface CartItem extends InventoryItemWithMetadata {
   source_order?: string;
   source_list_id?: string;
   sku_not_found?: boolean;
+  /** Set once the item is physically in the cart; persisted in picking_lists.items. */
+  picked?: boolean;
+  picked_at?: string | null;
 }
 
 const LOCAL_STORAGE_KEY = 'picking_cart_items';
