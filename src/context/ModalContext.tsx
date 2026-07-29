@@ -39,7 +39,7 @@ export type ModalState =
   | { type: 'notification-history' }
   | {
       type: 'order-notes';
-      listId: string;
+      listId: string | string[];
       autoFocusComposer?: boolean;
       watcherNote?: string | null;
     }

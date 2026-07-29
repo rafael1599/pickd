@@ -3,7 +3,7 @@ import { useModal } from '../../../context/ModalContext';
 import { getUserColor } from '../../../utils/userUtils';
 
 interface OrderNotesInlineProps {
-  listId: string;
+  listId: string | string[];
   /** The AS400/watcher import note (picking_lists.notes) — shown as the
    *  preview only when no user note has been added yet (a fresh order's
    *  only "note" is this one; once someone adds a real note, that becomes

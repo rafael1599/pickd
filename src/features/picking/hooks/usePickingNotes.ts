@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 import { withSupabaseRetry } from '../../../lib/supabaseRetry';
@@ -12,46 +12,46 @@ export interface PickingNote {
   user_display_name?: string;
   /**
    * Tentative notes (added optimistically in `onMutate` before the
-   * server confirms the INSERT) carry this flag. The realtime INSERT
-   * handler swaps them out for the canonical server row when it
-   * arrives; the toast on error removes them. Consumers can use this
-   * to render a "sending…" affordance.
+   * server confirms the INSERT) carry this flag.
    */
   pending?: boolean;
 }
 
 const PENDING_ID_PREFIX = 'pending-';
 
-export const usePickingNotes = (listId: string | null) => {
+export const usePickingNotes = (listIdInput: string | string[] | null) => {
   const [notes, setNotes] = useState<PickingNote[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Keep the latest notes around for the realtime handler so it can
-  // dedupe pending entries without re-subscribing on every state
-  // change. The ref pattern mirrors usePickingSync.
+  const listIds = useMemo(() => {
+    if (!listIdInput) return [];
+    if (Array.isArray(listIdInput)) return listIdInput.filter(Boolean);
+    return [listIdInput];
+  }, [listIdInput]);
+
+  const listIdsKey = listIds.sort().join(',');
+
   const notesRef = useRef<PickingNote[]>(notes);
   notesRef.current = notes;
 
   const fetchNotes = useCallback(async () => {
-    if (!listId) {
+    if (listIds.length === 0) {
       setNotes([]);
       return;
     }
 
     setIsLoading(true);
     try {
+      const query = supabase.from('picking_list_notes').select(`
+            *,
+            profiles (email, full_name)
+          `);
+
+      const finalQuery =
+        listIds.length === 1 ? query.eq('list_id', listIds[0]) : query.in('list_id', listIds);
+
       const { data, error } = await withSupabaseRetry(
-        () =>
-          supabase
-            .from('picking_list_notes')
-            .select(
-              `
-                    *,
-                    profiles (email, full_name)
-                `
-            )
-            .eq('list_id', listId)
-            .order('created_at', { ascending: true }),
+        () => finalQuery.order('created_at', { ascending: true }),
         { label: 'usePickingNotes.fetch' }
       );
 
@@ -71,31 +71,29 @@ export const usePickingNotes = (listId: string | null) => {
     } finally {
       setIsLoading(false);
     }
-  }, [listId]);
+  }, [listIdsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Initial fetch
   useEffect(() => {
     fetchNotes();
   }, [fetchNotes]);
 
-  // Real-time subscription. When an INSERT arrives, dedupe against
-  // any pending entry the local user already added optimistically
-  // (matching user_id + message) so the note doesn't flicker in/out.
+  // Real-time subscription for single or combined sibling list IDs
   useEffect(() => {
-    if (!listId) return;
+    if (listIds.length === 0) return;
 
     const channel = supabase
-      .channel(`picking_notes_${listId}`)
+      .channel(`picking_notes_${listIdsKey}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'picking_list_notes',
-          filter: `list_id=eq.${listId}`,
         },
         async (payload) => {
           const newNote = payload.new as PickingNote;
+          if (!listIds.includes(newNote.list_id)) return;
 
           // Fetch profile for the new note to get the name
           const { data: profile } = await withSupabaseRetry(
@@ -114,8 +112,6 @@ export const usePickingNotes = (listId: string | null) => {
           };
 
           setNotes((prev) => {
-            // Replace a matching pending entry in place if one
-            // exists — preserves list order and avoids flicker.
             const pendingIdx = prev.findIndex(
               (n) => n.pending && n.user_id === resolved.user_id && n.message === resolved.message
             );
@@ -124,10 +120,6 @@ export const usePickingNotes = (listId: string | null) => {
               copy[pendingIdx] = resolved;
               return copy;
             }
-            // Otherwise append. Note: if for some reason the realtime
-            // event fires twice, the duplicate id check below would
-            // prevent stacking — but the standard flow has exactly one
-            // INSERT echo per real row.
             if (prev.some((n) => n.id === resolved.id)) return prev;
             return [...prev, resolved];
           });
@@ -138,38 +130,31 @@ export const usePickingNotes = (listId: string | null) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [listId]);
+  }, [listIdsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Add a note with optimistic insert.
-   *
-   * - `onMutate` inserts a tentative entry tagged `pending: true` so
-   *   the UI renders it instantly. The id starts with `PENDING_ID_PREFIX`
-   *   so consumers can style/identify it.
-   * - The realtime INSERT handler (above) replaces the pending entry
-   *   in place when the server echoes back.
-   * - `onError` removes the pending entry and surfaces the error.
-   *
-   * Inherits the project's mutation retry+backoff defaults from
-   * query-client.ts.
+   * Inserts into primary list ID (listIds[0]).
    */
   const addNoteMutation = useMutation({
-    mutationKey: ['add-picking-note', listId],
+    mutationKey: ['add-picking-note', listIdsKey],
     mutationFn: async (vars: { userId: string; message: string }) => {
-      if (!listId) throw new Error('No list selected');
+      const primaryId = listIds[0];
+      if (!primaryId) throw new Error('No list selected');
       const { error } = await supabase.from('picking_list_notes').insert({
-        list_id: listId,
+        list_id: primaryId,
         user_id: vars.userId,
         message: vars.message.trim(),
       });
       if (error) throw error;
     },
     onMutate: (vars): { tempId: string } | undefined => {
-      if (!listId) return undefined;
+      const primaryId = listIds[0];
+      if (!primaryId) return undefined;
       const tempId = `${PENDING_ID_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       const tentative: PickingNote = {
         id: tempId,
-        list_id: listId,
+        list_id: primaryId,
         user_id: vars.userId,
         message: vars.message.trim(),
         created_at: new Date().toISOString(),
@@ -188,10 +173,7 @@ export const usePickingNotes = (listId: string | null) => {
   });
 
   const addNote = async (userId: string, message: string) => {
-    if (!listId || !message.trim()) return;
-    // mutateAsync so callers awaiting on this still get the
-    // post-resolution behavior; failures throw, matching the
-    // pre-refactor signature.
+    if (listIds.length === 0 || !message.trim()) return;
     await addNoteMutation.mutateAsync({ userId, message });
   };
 

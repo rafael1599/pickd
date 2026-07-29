@@ -2217,7 +2217,7 @@ export const ShipScreen = () => {
                           setIsActionsMenuOpen(false);
                           openModal({
                             type: 'order-notes',
-                            listId: selectedOrder.id,
+                            listId: selectedOrder.combined_member_ids ?? selectedOrder.id,
                             autoFocusComposer: true,
                             watcherNote: selectedOrder.notes,
                           });
@@ -2226,7 +2226,7 @@ export const ShipScreen = () => {
                           setIsActionsMenuOpen(false);
                           openModal({
                             type: 'order-notes',
-                            listId: selectedOrder.id,
+                            listId: selectedOrder.combined_member_ids ?? selectedOrder.id,
                             watcherNote: selectedOrder.notes,
                           });
                         }}

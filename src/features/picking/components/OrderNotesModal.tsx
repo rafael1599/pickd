@@ -9,7 +9,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { getUserColor } from '../../../utils/userUtils';
 
 interface OrderNotesModalProps {
-  listId: string;
+  listId: string | string[];
   autoFocusComposer?: boolean;
   /** The AS400/watcher import note — rendered as the earliest entry in the
    *  history, ahead of every user note, labeled distinctly since it has no
