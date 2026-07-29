@@ -195,7 +195,10 @@ export function useInventoryMutations() {
         }
         const { data: dbItem } = await query.maybeSingle();
         if (dbItem) {
-          item = dbItem as InventoryItemWithMetadata;
+          // Raw rows type created_at as a string while the schema coerces it to a
+          // Date, so the widening cast is needed — same as every other place that
+          // hydrates an inventory row straight from the table.
+          item = dbItem as unknown as InventoryItemWithMetadata;
         }
       }
       if (!item) throw new Error('Item not found');
