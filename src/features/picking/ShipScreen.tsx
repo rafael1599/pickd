@@ -1193,24 +1193,33 @@ export const ShipScreen = () => {
   // Handle external selections (e.g. from DoubleCheckHeader or VerificationBoard)
   useEffect(() => {
     if (!externalOrderId) return;
-    if (!hasLoadedOnceRef.current) return;
 
     const targetId = externalOrderId;
-    // Clear it immediately to avoid re-triggering
-    setExternalOrderId(null);
 
-    const rawOrder = orders.find((o) => o.id === targetId);
+    const rawOrder = orders.find((o) => o.id === targetId || o.order_number === targetId);
     // Deep-links (Edit Label, DoubleCheckHeader, VerificationBoard) pass a
     // single sibling's raw id — resolve to whichever merged card in
-    // filteredOrders lists it as a member (general combine OR same-customer
+    // filteredOrders or shippedFilteredOrders lists it as a member (general combine OR same-customer
     // FedEx cluster), so it works regardless of which sibling was clicked.
     const order =
       filteredOrders.find(
-        (o) => o.id === targetId || o.combined_member_ids?.includes(targetId as string)
-      ) ?? rawOrder;
+        (o) =>
+          o.id === targetId ||
+          o.order_number === targetId ||
+          o.combined_member_ids?.includes(targetId as string)
+      ) ??
+      shippedFilteredOrders.find(
+        (o) =>
+          o.id === targetId ||
+          o.order_number === targetId ||
+          o.combined_member_ids?.includes(targetId as string)
+      ) ??
+      rawOrder;
+
     if (order) {
       setSelectedOrder(order);
-    } else {
+      setExternalOrderId(null);
+    } else if (hasLoadedOnceRef.current) {
       fetchOrderDetails(targetId as string).then((fetched) => {
         if (fetched) {
           setOrders((prev) => {
@@ -1219,9 +1228,17 @@ export const ShipScreen = () => {
           });
           setSelectedOrder(fetched);
         }
+        setExternalOrderId(null);
       });
     }
-  }, [externalOrderId, orders, filteredOrders, setExternalOrderId, fetchOrderDetails]);
+  }, [
+    externalOrderId,
+    orders,
+    filteredOrders,
+    shippedFilteredOrders,
+    setExternalOrderId,
+    fetchOrderDetails,
+  ]);
 
   const visibleOrders = useMemo(() => filteredOrders, [filteredOrders]);
 
