@@ -8,3 +8,16 @@ if [ "$STAGED_COUNT" -gt 15 ]; then
 fi
 
 npx lint-staged
+
+# Typecheck when TS/TSX files are staged. `vite build` does not typecheck, so
+# without this gate type errors pile up unnoticed — 31 accumulated before the
+# first sweep, then 15 more landed the next day. Incremental, so only the first
+# run pays full price.
+if git diff --cached --name-only --diff-filter=ACM | grep -qE '\.(ts|tsx)$'; then
+  echo "🔍 Typechecking…"
+  if ! npx tsc --noEmit --incremental --tsBuildInfoFile node_modules/.cache/tsc-precommit.tsbuildinfo; then
+    echo ""
+    echo "❌ Type errors above. Fix them, or bypass with: git commit --no-verify"
+    exit 1
+  fi
+fi
