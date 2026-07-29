@@ -234,11 +234,10 @@ export const usePickingActions = ({
 
         // D. Validate my cart
         for (const myItem of finalItems) {
-          // Unregistered / unresolved items must not block parking or finishing.
-          // They have no reliable inventory row to reserve against, so skip the
-          // availability gate here and let the correction/completion flow handle
-          // them operationally.
-          if (myItem.sku_not_found || !myItem.warehouse || !myItem.location) {
+          // Unregistered, unresolved, or ALREADY PICKED items must not block parking or finishing.
+          // If an item is already picked (picked = true), it is physically in the cart/pallet
+          // and should not be blocked by shelf location inventory checks.
+          if (myItem.sku_not_found || !myItem.warehouse || !myItem.location || myItem.picked) {
             continue;
           }
 
@@ -808,6 +807,9 @@ export const usePickingActions = ({
       });
 
       for (const myItem of cartItems) {
+        if (myItem.sku_not_found || !myItem.warehouse || !myItem.location || myItem.picked) {
+          continue;
+        }
         const key = `${myItem.sku}-${myItem.warehouse}-${myItem.location}`;
         const entry = stockMap.get(key);
 
