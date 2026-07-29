@@ -177,12 +177,27 @@ export function useInventoryMutations() {
     mutationKey: ['inventory', 'deleteItem'],
     mutationFn: async (vars: { sku: string; warehouse: string; location?: string | null }) => {
       const items = queryClient.getQueryData<InventoryItemWithMetadata[]>(INVENTORY_ROOT_KEY) || [];
-      const item = items.find(
+      const targetLoc = (vars.location || '').trim().toUpperCase();
+      let item = items.find(
         (i) =>
           i.sku === vars.sku &&
           i.warehouse === vars.warehouse &&
-          (vars.location ? i.location === vars.location : true)
+          (targetLoc ? (i.location || '').trim().toUpperCase() === targetLoc : true)
       );
+      if (!item) {
+        let query = supabase
+          .from('inventory')
+          .select('*')
+          .eq('sku', vars.sku)
+          .eq('warehouse', vars.warehouse);
+        if (targetLoc) {
+          query = query.ilike('location', targetLoc);
+        }
+        const { data: dbItem } = await query.maybeSingle();
+        if (dbItem) {
+          item = dbItem as InventoryItemWithMetadata;
+        }
+      }
       if (!item) throw new Error('Item not found');
       return inventoryService.deleteItem(item, getServiceContext() as InventoryServiceContext);
     },
@@ -191,6 +206,7 @@ export function useInventoryMutations() {
       const previousData =
         queryClient.getQueryData<InventoryItemWithMetadata[]>(INVENTORY_ROOT_KEY);
 
+      const targetLoc = (vars.location || '').trim().toUpperCase();
       queryClient.setQueryData(
         INVENTORY_ROOT_KEY,
         (old: InventoryItemWithMetadata[] | undefined) => {
@@ -200,7 +216,7 @@ export function useInventoryMutations() {
               !(
                 item.sku === vars.sku &&
                 item.warehouse === vars.warehouse &&
-                (vars.location ? item.location === vars.location : true)
+                (targetLoc ? (item.location || '').trim().toUpperCase() === targetLoc : true)
               )
           );
         }
