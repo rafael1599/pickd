@@ -289,6 +289,7 @@ export const usePickingActions = ({
           load_number: loadNumber,
           correction_notes: null,
           pallets_qty: palletsQty,
+          verified_item_keys: [],
         };
         if (!isMergedGroup) {
           updateData.items = finalItems as unknown as Json;
@@ -490,6 +491,7 @@ export const usePickingActions = ({
         .update({
           status: 'ready_to_double_check',
           checked_by: null,
+          verified_item_keys: [],
         })
         .eq('id', listId)
         .neq('status', 'completed');
@@ -501,6 +503,7 @@ export const usePickingActions = ({
           .update({
             status: 'ready_to_double_check',
             checked_by: null,
+            verified_item_keys: [],
           })
           .eq('group_id', order.group_id)
           .neq('id', listId)
