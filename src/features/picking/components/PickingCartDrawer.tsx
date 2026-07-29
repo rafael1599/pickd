@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
+import { type Location } from '../../../schemas/location.schema';
 import ChevronUp from 'lucide-react/dist/esm/icons/chevron-up';
 import { DoubleCheckView, PickingItem, type CorrectionAction } from './DoubleCheckView';
 import { AddOnTargetPickerModal, type AddOnTargetCandidate } from './AddOnTargetPickerModal';
