@@ -5,7 +5,7 @@ import { skuColor } from '../../utils/skuColor';
 export interface SelectedSku {
   sku: string;
   unitsHere: number;
-  kind: 'tower' | 'line' | 'empty' | 'reserved';
+  kind: 'tower' | 'line' | 'pallet' | 'empty' | 'reserved';
   sublocationLabel?: string;
 }
 
@@ -25,7 +25,7 @@ interface SkuDetailPanelProps {
 export const SkuDetailPanel: React.FC<SkuDetailPanelProps> = ({ selected, info, onClose }) => {
   if (selected.kind === 'empty' || selected.kind === 'reserved') {
     return (
-      <div className="print:hidden absolute top-4 right-4 z-30 w-72 bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden animate-in fade-in zoom-in duration-150">
+      <div className="print:hidden fixed top-24 right-6 z-[110] w-72 bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden animate-in fade-in zoom-in duration-150">
         <div className="flex items-start justify-between px-4 pt-3 pb-2 border-b border-slate-100 bg-slate-50">
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
@@ -75,7 +75,7 @@ export const SkuDetailPanel: React.FC<SkuDetailPanelProps> = ({ selected, info, 
   const color = skuColor(selected.sku);
 
   return (
-    <div className="print:hidden absolute top-4 right-4 z-30 w-72 bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden animate-in fade-in zoom-in duration-150">
+    <div className="print:hidden fixed top-24 right-6 z-[110] w-72 bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden animate-in fade-in zoom-in duration-150">
       <div className="flex items-start justify-between px-4 pt-3 pb-2 border-b border-gray-100">
         <div className="min-w-0">
           <div className="font-mono font-bold text-sm" style={{ color: color.text }}>
