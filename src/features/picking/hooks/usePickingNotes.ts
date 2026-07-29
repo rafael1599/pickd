@@ -10,6 +10,7 @@ export interface PickingNote {
   message: string;
   created_at: string;
   user_display_name?: string;
+  order_number?: string;
   /**
    * Tentative notes (added optimistically in `onMutate` before the
    * server confirms the INSERT) carry this flag.
@@ -44,7 +45,8 @@ export const usePickingNotes = (listIdInput: string | string[] | null) => {
     try {
       const query = supabase.from('picking_list_notes').select(`
             *,
-            profiles (email, full_name)
+            profiles (email, full_name),
+            picking_lists (order_number)
           `);
 
       const finalQuery =
@@ -57,13 +59,17 @@ export const usePickingNotes = (listIdInput: string | string[] | null) => {
 
       if (error) throw error;
 
-      const formattedNotes = (data || []).map((note) => ({
-        ...note,
-        user_display_name:
-          (note.profiles as { full_name?: string; email?: string } | null)?.full_name ||
-          (note.profiles as { full_name?: string; email?: string } | null)?.email ||
-          'Unknown User',
-      }));
+      const formattedNotes: PickingNote[] = (data || []).map((note) => {
+        const orderNum = (note.picking_lists as { order_number?: string } | null)?.order_number;
+        return {
+          ...note,
+          order_number: orderNum || undefined,
+          user_display_name:
+            (note.profiles as { full_name?: string; email?: string } | null)?.full_name ||
+            (note.profiles as { full_name?: string; email?: string } | null)?.email ||
+            'Unknown User',
+        };
+      });
 
       setNotes(formattedNotes);
     } catch (err) {
@@ -95,19 +101,31 @@ export const usePickingNotes = (listIdInput: string | string[] | null) => {
           const newNote = payload.new as PickingNote;
           if (!listIds.includes(newNote.list_id)) return;
 
-          // Fetch profile for the new note to get the name
-          const { data: profile } = await withSupabaseRetry(
-            () =>
-              supabase
-                .from('profiles')
-                .select('email, full_name')
-                .eq('id', newNote.user_id)
-                .single(),
-            { label: 'usePickingNotes.realtimeProfile', maxAttempts: 2 }
-          );
+          // Fetch profile and picking_list for order_number
+          const [{ data: profile }, { data: pickingList }] = await Promise.all([
+            withSupabaseRetry(
+              () =>
+                supabase
+                  .from('profiles')
+                  .select('email, full_name')
+                  .eq('id', newNote.user_id)
+                  .single(),
+              { label: 'usePickingNotes.realtimeProfile', maxAttempts: 2 }
+            ),
+            withSupabaseRetry(
+              () =>
+                supabase
+                  .from('picking_lists')
+                  .select('order_number')
+                  .eq('id', newNote.list_id)
+                  .single(),
+              { label: 'usePickingNotes.realtimeOrderNum', maxAttempts: 2 }
+            ),
+          ]);
 
           const resolved: PickingNote = {
             ...newNote,
+            order_number: pickingList?.order_number || undefined,
             user_display_name: profile?.full_name || profile?.email || 'Unknown User',
           };
 

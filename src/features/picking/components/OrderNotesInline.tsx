@@ -29,8 +29,13 @@ export const OrderNotesInline: React.FC<OrderNotesInlineProps> = ({
   const { open } = useModal();
 
   const mostRecentUserNote = notes.length > 0 ? notes[notes.length - 1] : null;
-  const previewText = mostRecentUserNote?.message ?? watcherNote ?? null;
-  if (!previewText) return null;
+  const rawText = mostRecentUserNote?.message ?? watcherNote ?? null;
+  if (!rawText) return null;
+
+  const orderBadge = mostRecentUserNote?.order_number
+    ? `[#${mostRecentUserNote.order_number}] `
+    : '';
+  const previewText = `${orderBadge}${rawText}`;
 
   return (
     <button

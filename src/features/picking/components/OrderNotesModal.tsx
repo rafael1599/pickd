@@ -121,12 +121,19 @@ export const OrderNotesModal: React.FC<OrderNotesModalProps> = ({
               {notes.map((note) => (
                 <li key={note.id} className="p-3 bg-card border border-subtle rounded-2xl">
                   <div className="flex items-center justify-between gap-2 mb-1">
-                    <span
-                      className="text-[10px] font-black uppercase tracking-widest truncate"
-                      style={{ color: getUserColor(note.user_display_name ?? null) }}
-                    >
-                      {note.user_display_name || 'Unknown'}
-                    </span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {note.order_number && (
+                        <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-surface border border-subtle text-accent shrink-0">
+                          #{note.order_number}
+                        </span>
+                      )}
+                      <span
+                        className="text-[10px] font-black uppercase tracking-widest truncate"
+                        style={{ color: getUserColor(note.user_display_name ?? null) }}
+                      >
+                        {note.user_display_name || 'Unknown'}
+                      </span>
+                    </div>
                     <span className="text-[9px] text-muted font-bold uppercase tracking-widest shrink-0">
                       {formatNoteTime(note.created_at)}
                     </span>
