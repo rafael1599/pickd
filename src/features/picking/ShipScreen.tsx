@@ -2159,8 +2159,9 @@ export const ShipScreen = () => {
                       transportCompany={formData.transportCompany}
                       notesSlot={
                         <OrderNotesInline
-                          listId={selectedOrder.id}
+                          listId={selectedOrder.combined_member_ids ?? selectedOrder.id}
                           watcherNote={selectedOrder.notes}
+                          combinedNumbers={selectedOrderCombinedNumbers}
                         />
                       }
                       screenOnly

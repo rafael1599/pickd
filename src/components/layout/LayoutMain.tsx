@@ -30,7 +30,7 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
   const isPickingOverlayOpen = usePickingOverlayOpen();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
-  const pbClass = isShipPage || isStockCountPage ? 'pb-0' : isSearching ? 'pb-12' : 'pb-20';
+  const pbClass = isStockCountPage ? 'pb-0' : isSearching ? 'pb-12' : 'pb-24';
 
   return (
     <ModalProvider>

@@ -42,6 +42,7 @@ export type ModalState =
       listId: string | string[];
       autoFocusComposer?: boolean;
       watcherNote?: string | null;
+      combinedNumbers?: string[];
     }
   | null;
 
@@ -78,6 +79,7 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
           listId={modal.listId}
           autoFocusComposer={modal.autoFocusComposer}
           watcherNote={modal.watcherNote}
+          combinedNumbers={modal.combinedNumbers}
           onClose={close}
         />
       )}

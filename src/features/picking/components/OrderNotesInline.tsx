@@ -10,6 +10,7 @@ interface OrderNotesInlineProps {
    *  the more relevant thing to preview). Always available in the
    *  drill-down modal regardless, as the earliest entry. */
   watcherNote?: string | null;
+  combinedNumbers?: string[];
   className?: string;
 }
 
@@ -23,25 +24,26 @@ interface OrderNotesInlineProps {
 export const OrderNotesInline: React.FC<OrderNotesInlineProps> = ({
   listId,
   watcherNote,
+  combinedNumbers,
   className,
 }) => {
   const { notes } = usePickingNotes(listId);
   const { open } = useModal();
 
+  const isCombined = Array.isArray(listId) && listId.length > 1;
   const mostRecentUserNote = notes.length > 0 ? notes[notes.length - 1] : null;
   const rawText = mostRecentUserNote?.message ?? watcherNote ?? null;
   if (!rawText) return null;
 
-  const orderBadge = mostRecentUserNote?.order_number
-    ? `[#${mostRecentUserNote.order_number}] `
-    : '';
+  const orderBadge =
+    isCombined && mostRecentUserNote?.order_number ? `[#${mostRecentUserNote.order_number}] ` : '';
   const previewText = `${orderBadge}${rawText}`;
 
   return (
     <button
       onClick={(e) => {
         e.stopPropagation();
-        open({ type: 'order-notes', listId, watcherNote });
+        open({ type: 'order-notes', listId, watcherNote, combinedNumbers });
       }}
       title="View all notes"
       className={className ?? 'flex flex-col items-end gap-0.5 min-w-0'}

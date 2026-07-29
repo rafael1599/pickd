@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { usePickingNotes } from '../hooks/usePickingNotes';
 import { useAuth } from '../../../context/AuthContext';
 import { getUserColor } from '../../../utils/userUtils';
+import { orderColorFor } from '../../../utils/orderColors';
 
 interface OrderNotesModalProps {
   listId: string | string[];
@@ -15,6 +16,7 @@ interface OrderNotesModalProps {
    *  history, ahead of every user note, labeled distinctly since it has no
    *  author. */
   watcherNote?: string | null;
+  combinedNumbers?: string[];
   onClose: () => void;
 }
 
@@ -37,9 +39,11 @@ export const OrderNotesModal: React.FC<OrderNotesModalProps> = ({
   listId,
   autoFocusComposer,
   watcherNote,
+  combinedNumbers,
   onClose,
 }) => {
   const { notes, isLoading, addNote } = usePickingNotes(listId);
+  const isCombined = Array.isArray(listId) && listId.length > 1;
   const totalCount = notes.length + (watcherNote ? 1 : 0);
   const { user } = useAuth();
   const [message, setMessage] = useState('');
@@ -118,31 +122,46 @@ export const OrderNotesModal: React.FC<OrderNotesModalProps> = ({
                   </p>
                 </li>
               )}
-              {notes.map((note) => (
-                <li key={note.id} className="p-3 bg-card border border-subtle rounded-2xl">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      {note.order_number && (
-                        <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-surface border border-subtle text-accent shrink-0">
-                          #{note.order_number}
+              {notes.map((note) => {
+                const showBadge = isCombined && note.order_number;
+                const colorHex =
+                  showBadge && note.order_number && combinedNumbers
+                    ? orderColorFor(note.order_number, combinedNumbers).hex
+                    : null;
+
+                return (
+                  <li key={note.id} className="p-3 bg-card border border-subtle rounded-2xl">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {showBadge && note.order_number && (
+                          <span
+                            className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded border shrink-0"
+                            style={{
+                              color: colorHex || 'var(--text-accent)',
+                              backgroundColor: colorHex ? `${colorHex}20` : undefined,
+                              borderColor: colorHex ? `${colorHex}40` : undefined,
+                            }}
+                          >
+                            #{note.order_number}
+                          </span>
+                        )}
+                        <span
+                          className="text-[10px] font-black uppercase tracking-widest truncate"
+                          style={{ color: getUserColor(note.user_display_name ?? null) }}
+                        >
+                          {note.user_display_name || 'Unknown'}
                         </span>
-                      )}
-                      <span
-                        className="text-[10px] font-black uppercase tracking-widest truncate"
-                        style={{ color: getUserColor(note.user_display_name ?? null) }}
-                      >
-                        {note.user_display_name || 'Unknown'}
+                      </div>
+                      <span className="text-[9px] text-muted font-bold uppercase tracking-widest shrink-0">
+                        {formatNoteTime(note.created_at)}
                       </span>
                     </div>
-                    <span className="text-[9px] text-muted font-bold uppercase tracking-widest shrink-0">
-                      {formatNoteTime(note.created_at)}
-                    </span>
-                  </div>
-                  <p className="text-sm text-content whitespace-pre-wrap break-words">
-                    {note.message}
-                  </p>
-                </li>
-              ))}
+                    <p className="text-sm text-content whitespace-pre-wrap break-words">
+                      {note.message}
+                    </p>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
