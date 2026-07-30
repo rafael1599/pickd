@@ -21,6 +21,9 @@ export interface BlockSettings {
   block_id: string;
   recency_days: number;
   min_units: number;
+  /** Aptitude band — ranking inputs, not filters. Shared by both blocks. */
+  max_orders: number;
+  min_stock: number;
   positions_per_row: number;
   reserve_last_position: boolean;
   updated_at: string;

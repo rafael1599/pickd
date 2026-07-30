@@ -8,15 +8,20 @@
 
 import { useMemo } from 'react';
 import {
+  APTITUDE_DEFAULTS,
   BLOCKS,
-  assignCandidates,
+  assignToFill,
   fitMinimum,
+  type AptitudeCriteria,
   type MinimumFit,
   type NoMoverCandidate,
   type PoolCandidate,
 } from '../../../utils/dsPalletPlanner';
 import { useBikeCandidates, type BikeCandidate } from './useBikeCandidates';
 import { useNoMovers } from './useNoMoverList';
+
+/** Stable identity, so the memo below is not invalidated on every render. */
+const EMPTY_SKIPS: ReadonlySet<string> = new Set();
 
 export interface AutoAssignment {
   /** Candidates per block id, already fitted to the minimum below. */
@@ -43,31 +48,47 @@ function placementOf(c: BikeCandidate) {
 export function buildAssignment(
   candidates: BikeCandidate[] | undefined,
   listed: { sku: string; block_id: string }[] | undefined,
-  minUnits: number
+  minUnits: number,
+  criteria: AptitudeCriteria = APTITUDE_DEFAULTS,
+  /** Set aside for this plan only — held in React state, so it reverts on the next recalculation. */
+  skipped: ReadonlySet<string> = new Set()
 ): AutoAssignment {
   const pinned = new Map((listed ?? []).map((n) => [n.sku, n.block_id]));
 
   const pool: PoolCandidate[] = (candidates ?? [])
     // A mover is never a candidate, and an excluded bike never enters a block
-    // whatever its stock says.
-    .filter((c) => !c.isMover && !c.excludedReason && c.totalQty > 0)
+    // whatever its stock says. A skipped one is out of this plan only.
+    .filter((c) => !c.isMover && !c.excludedReason && c.totalQty > 0 && !skipped.has(c.sku))
     .map((c) => ({
       sku: c.sku,
       totalQty: c.totalQty,
+      ordersCompleted: c.ordersCompleted,
       currentPlacements: placementOf(c),
       pinnedBlockId: pinned.get(c.sku),
     }));
 
-  const fit = fitMinimum(pool, BLOCKS, minUnits);
-  return { byBlock: assignCandidates(pool, BLOCKS, fit.minUnits), fit, poolSize: pool.length };
+  // fitMinimum only proves the pallets exist; assignToFill proves they pack.
+  const filled = assignToFill(pool, BLOCKS, minUnits, criteria);
+  const fit = fitMinimum(pool, BLOCKS, filled.minUnits);
+
+  return {
+    byBlock: filled.byBlock,
+    fit: { ...fit, minUnits: filled.minUnits, fills: filled.fills },
+    poolSize: pool.length,
+  };
 }
 
-export function useAutoAssignment(minUnits: number, recencyDays: number): AutoAssignment {
+export function useAutoAssignment(
+  minUnits: number,
+  recencyDays: number,
+  criteria: AptitudeCriteria = APTITUDE_DEFAULTS,
+  skipped: ReadonlySet<string> = EMPTY_SKIPS
+): AutoAssignment {
   const { data: candidates } = useBikeCandidates(recencyDays);
   const { data: listed } = useNoMovers();
 
   return useMemo(
-    () => buildAssignment(candidates, listed, minUnits),
-    [candidates, listed, minUnits]
+    () => buildAssignment(candidates, listed, minUnits, criteria, skipped),
+    [candidates, listed, minUnits, criteria, skipped]
   );
 }

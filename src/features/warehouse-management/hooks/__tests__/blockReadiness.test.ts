@@ -11,6 +11,8 @@ const settingsRow: BlockSettings = {
   block_id: 'A',
   recency_days: 30,
   min_units: 20,
+  max_orders: 0,
+  min_stock: 21,
   positions_per_row: 10,
   reserve_last_position: true,
   updated_at: '2026-07-29T00:00:00Z',

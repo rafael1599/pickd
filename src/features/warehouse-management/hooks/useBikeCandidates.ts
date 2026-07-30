@@ -34,6 +34,8 @@ export interface BikeCandidate {
   location: string;
   sublocation: string[] | null;
   lastShipped: string | null;
+  /** Orders in the last 12 months — the first thing aptitude ranks on. */
+  ordersCompleted: number;
   isMover: boolean;
   /** Set when the SKU is barred from the blocks; the reason is free text. */
   excludedReason: string | null;
@@ -63,6 +65,7 @@ export function useBikeCandidates(recencyDays: number) {
         location: r.location ?? '',
         sublocation: r.sublocation ?? null,
         lastShipped: r.last_shipped ?? null,
+        ordersCompleted: Number(r.orders_completed ?? 0),
         isMover: Boolean(r.is_mover),
         excludedReason: r.excluded_reason ?? null,
       }));

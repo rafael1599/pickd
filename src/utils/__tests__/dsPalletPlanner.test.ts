@@ -7,7 +7,9 @@ import {
   blockCapacity,
   buildBlockLayout,
   assignCandidates,
+  assignToFill,
   fitMinimum,
+  rankCandidates,
   palletsAt,
   planBlock,
   positionLetters,
@@ -510,5 +512,112 @@ describe('assignCandidates', () => {
         ?.map((c) => c.sku)
         .sort()
     );
+  });
+});
+
+describe('rankCandidates', () => {
+  const criteria = { maxOrders: 0, minStock: 21 };
+  const c = (sku: string, totalQty: number, ordersCompleted?: number) => ({
+    sku,
+    totalQty,
+    ordersCompleted,
+  });
+
+  const order = (pool: ReturnType<typeof c>[]) => rankCandidates(pool, criteria).map((x) => x.sku);
+
+  it('puts the preferred band ahead of a much bigger bike outside it', () => {
+    // The whole point: 200 units that ship every week must not outrank 21 that
+    // have never shipped. Size stopped being the first question.
+    expect(order([c('BUSY', 200, 12), c('QUIET', 21, 0)])).toEqual(['QUIET', 'BUSY']);
+  });
+
+  it('ranks by order count before size inside the band', () => {
+    expect(order([c('TWO', 90, 2), c('ZERO', 25, 0), c('ONE', 60, 1)])).toEqual([
+      'ZERO',
+      'ONE',
+      'TWO',
+    ]);
+  });
+
+  it('keeps stock as the tiebreaker once orders match', () => {
+    expect(order([c('SMALL', 25, 0), c('BIG', 90, 0)])).toEqual(['BIG', 'SMALL']);
+  });
+
+  it('treats an unknown order count as worse than a known one', () => {
+    // A bike we know nothing about is not a first choice; absent must never
+    // read as zero.
+    expect(order([c('UNKNOWN', 90), c('KNOWN', 25, 3)])).toEqual(['KNOWN', 'UNKNOWN']);
+  });
+
+  it('breaks exact ties on SKU so the order never wobbles', () => {
+    expect(order([c('B-SKU', 40, 1), c('A-SKU', 40, 1)])).toEqual(['A-SKU', 'B-SKU']);
+  });
+
+  it('falls below the band on stock alone, however quiet the bike is', () => {
+    // 20 units is under minStock, so it leaves the band even at zero orders.
+    expect(order([c('THIN', 20, 0), c('DEEP', 21, 0)])).toEqual(['DEEP', 'THIN']);
+  });
+
+  it('does not mutate the pool it was given', () => {
+    const pool = [c('B', 10, 5), c('A', 90, 0)];
+    rankCandidates(pool, criteria);
+    expect(pool.map((x) => x.sku)).toEqual(['B', 'A']);
+  });
+
+  it('feeds the assignment, so the quietest bikes claim cells first', () => {
+    const assigned = assignCandidates(
+      [c('BUSY', 100, 40), c('QUIET', 25, 0), c('MILD', 100, 3)],
+      [BLOCK_A],
+      20,
+      criteria
+    );
+
+    expect(assigned.get('A')?.map((x) => x.sku)).toEqual(['QUIET', 'MILD', 'BUSY']);
+  });
+});
+
+describe('assignToFill', () => {
+  const criteria = { maxOrders: 0, minStock: 21 };
+  const cells = blockCapacity(BLOCK_A).cells + blockCapacity(BLOCK_B).cells;
+
+  const used = (m: Map<string, { totalQty: number }[]>, id: string, min: number) =>
+    (m.get(id) ?? []).reduce((s, c) => s + splitIntoPallets(c.totalQty, min).pallets.length, 0);
+
+  it('steps the minimum down until the blocks actually pack full', () => {
+    // Enough pallets exist at 20 by the sum, but every SKU is 21u, so 54 of
+    // them are needed and only 40 exist. Dropping the minimum lets each 21u
+    // still count while the 19u ones join in.
+    const pool = [
+      ...Array.from({ length: 40 }, (_, i) => ({ sku: `A${i}`, totalQty: 21 })),
+      ...Array.from({ length: 20 }, (_, i) => ({ sku: `B${i}`, totalQty: 19 })),
+    ];
+
+    const result = assignToFill(pool, [BLOCK_A, BLOCK_B], 20, criteria);
+
+    expect(result.fills).toBe(true);
+    expect(result.minUnits).toBeLessThan(20);
+    expect(used(result.byBlock, 'A', result.minUnits)).toBeGreaterThanOrEqual(
+      blockCapacity(BLOCK_A).cells
+    );
+    expect(used(result.byBlock, 'B', result.minUnits)).toBeGreaterThanOrEqual(
+      blockCapacity(BLOCK_B).cells
+    );
+  });
+
+  it('keeps the preferred minimum when it already packs full', () => {
+    const result = assignToFill(
+      Array.from({ length: cells }, (_, i) => ({ sku: `S${i}`, totalQty: 25 })),
+      [BLOCK_A, BLOCK_B],
+      20,
+      criteria
+    );
+
+    expect(result).toMatchObject({ fills: true, minUnits: 20 });
+  });
+
+  it('reports the shortfall rather than shredding stock into tiny pallets', () => {
+    const result = assignToFill([{ sku: 'ONLY', totalQty: 25 }], [BLOCK_A, BLOCK_B], 20, criteria);
+
+    expect(result).toMatchObject({ fills: false, minUnits: 20 });
   });
 });

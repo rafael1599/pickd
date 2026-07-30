@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, CheckCircle, Ban, ArrowLeftRight, Trash2, Loader2 } from 'lucide-react';
+import { X, CheckCircle, Ban, ArrowLeftRight, Trash2, Loader2, SkipForward } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { skuColor } from '../../utils/skuColor';
 import { BLOCKS } from '../../../../utils/dsPalletPlanner';
@@ -24,9 +24,16 @@ interface SkuDetailPanelProps {
   selected: SelectedSku;
   info?: SkuDetailInfo;
   onClose: () => void;
+  /** Drops the SKU from this plan and lets the next most apt take the cell. */
+  onSkip?: (sku: string) => void;
 }
 
-export const SkuDetailPanel: React.FC<SkuDetailPanelProps> = ({ selected, info, onClose }) => {
+export const SkuDetailPanel: React.FC<SkuDetailPanelProps> = ({
+  selected,
+  info,
+  onClose,
+  onSkip,
+}) => {
   if (selected.kind === 'empty' || selected.kind === 'reserved') {
     return (
       <div className="print:hidden fixed top-24 right-6 z-[110] w-72 bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden animate-in fade-in zoom-in duration-150">
@@ -76,7 +83,7 @@ export const SkuDetailPanel: React.FC<SkuDetailPanelProps> = ({ selected, info, 
     );
   }
 
-  return <PalletDetail selected={selected} info={info} onClose={onClose} />;
+  return <PalletDetail selected={selected} info={info} onClose={onClose} onSkip={onSkip} />;
 };
 
 /**
@@ -86,7 +93,7 @@ export const SkuDetailPanel: React.FC<SkuDetailPanelProps> = ({ selected, info, 
  * screen. None of them redraw the map on their own: the plan is a saved
  * snapshot, so the panel says which block to recalculate.
  */
-const PalletDetail: React.FC<SkuDetailPanelProps> = ({ selected, info, onClose }) => {
+const PalletDetail: React.FC<SkuDetailPanelProps> = ({ selected, info, onClose, onSkip }) => {
   const color = skuColor(selected.sku);
 
   const { data: listed } = useNoMovers();
@@ -173,6 +180,22 @@ const PalletDetail: React.FC<SkuDetailPanelProps> = ({ selected, info, onClose }
         </div>
 
         <div className="flex flex-col gap-1.5">
+          {/* The one that backfills: not a judgement about the bike, just not
+              this cell, now. It returns on the next Recalculate. */}
+          {onSkip && (
+            <button
+              onClick={() => {
+                onSkip(selected.sku);
+                onClose();
+              }}
+              disabled={busy}
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 disabled:opacity-40 transition-colors"
+            >
+              <SkipForward className="w-3.5 h-3.5 text-slate-500" />
+              Skip — let the next best take this cell
+            </button>
+          )}
+
           {currentBlock && (
             <button
               onClick={handleRemove}
