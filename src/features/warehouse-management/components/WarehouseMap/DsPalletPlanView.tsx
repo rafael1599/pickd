@@ -10,9 +10,16 @@ import toast from 'react-hot-toast';
 import { DsPalletGrid } from './DsPalletGrid';
 import { isTransposed } from '../../utils/gridOrientation';
 import { BlockReadinessPanel } from './BlockReadinessPanel';
+import { MapCriteriaBar } from './MapCriteriaBar';
 import { PullFirstPanel } from './PullFirstPanel';
 import { SkuDetailPanel, type SelectedSku, type SkuDetailInfo } from './SkuDetailPanel';
-import { BLOCKS, DS_PALLET_MIN_DEFAULT, type BlockConfig } from '../../../../utils/dsPalletPlanner';
+import {
+  APTITUDE_DEFAULTS,
+  BLOCKS,
+  DS_PALLET_MIN_DEFAULT,
+  type AptitudeCriteria,
+  type BlockConfig,
+} from '../../../../utils/dsPalletPlanner';
 import { blockWithSettings, useBlockSettings } from '../../hooks/useNoMoverList';
 import { useBlockReadiness } from '../../hooks/useBlockReadiness';
 import { useDsPalletPlan, useRecalculateDsPalletPlan } from '../../hooks/useDsPalletPlan';
@@ -22,6 +29,9 @@ interface BlockPanelProps {
   minUnits: number;
   /** Drives what counts as a mover, and so what the pool contains. */
   recencyDays: number;
+  criteria: AptitudeCriteria;
+  /** SKUs set aside for this plan only. */
+  skipped: ReadonlySet<string>;
   rotation: number;
   onSelectSku: (selection: SelectedSku) => void;
   onSkuInfo: (info: Map<string, SkuDetailInfo>) => void;
@@ -34,6 +44,8 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
   block,
   minUnits,
   recencyDays,
+  criteria,
+  skipped,
   rotation,
   onSelectSku,
   onSkuInfo,
@@ -44,13 +56,15 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
   const { checks, blocker, candidates, revalidate } = useBlockReadiness(
     block,
     minUnits,
-    recencyDays
+    recencyDays,
+    criteria,
+    skipped
   );
   const recalculate = useRecalculateDsPalletPlan();
 
   const saved = planResult?.plan ?? null;
   const staleVersion = planResult?.staleVersion ?? null;
-  const slots = saved?.plan_data?.slots ?? [];
+  const slots = useMemo(() => saved?.plan_data?.slots ?? [], [saved]);
   const pullFirstCount = saved?.pull_first?.length ?? 0;
 
   // Pull First shows a leftover against the SKU's whole stock, which the plan
@@ -287,6 +301,26 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
 
   const { data: settings } = useBlockSettings();
 
+  // Deliberately not persisted: a skip means "not this one, now", and it is
+  // meant to be forgotten the next time the plan is built from scratch.
+  const [skipped, setSkipped] = useState<ReadonlySet<string>>(new Set());
+  const skipSku = React.useCallback((sku: string) => {
+    setSkipped((prev) => new Set(prev).add(sku));
+    toast.success(`${sku} set aside. Recalculate to let the next best take its cell.`, {
+      duration: 6000,
+    });
+  }, []);
+
+  // Both blocks share one pool, so they share one definition of "apt". Block A
+  // holds the canonical row; the bar writes both.
+  const criteria: AptitudeCriteria = useMemo(
+    () => ({
+      maxOrders: settings?.A?.max_orders ?? APTITUDE_DEFAULTS.maxOrders,
+      minStock: settings?.A?.min_stock ?? APTITUDE_DEFAULTS.minStock,
+    }),
+    [settings]
+  );
+
   const mergeSkuInfo = React.useCallback((incoming: Map<string, SkuDetailInfo>) => {
     setSkuInfo((prev) => {
       const next = new Map(prev);
@@ -348,6 +382,12 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
           </div>
         </div>
 
+        <MapCriteriaBar
+          criteria={criteria}
+          minUnits={settings?.A?.min_units ?? DS_PALLET_MIN_DEFAULT}
+          recencyDays={settings?.A?.recency_days ?? 30}
+        />
+
         <div className="flex flex-wrap gap-8 print:block print:gap-0">
           {BLOCKS.map((b) => {
             const merged = blockWithSettings(b, settings?.[b.id]);
@@ -357,6 +397,8 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
                 block={merged}
                 minUnits={settings?.[b.id]?.min_units ?? DS_PALLET_MIN_DEFAULT}
                 recencyDays={settings?.[b.id]?.recency_days ?? 30}
+                criteria={criteria}
+                skipped={skipped}
                 rotation={rotation}
                 onSelectSku={setSelectedSku}
                 onSkuInfo={mergeSkuInfo}
@@ -372,6 +414,7 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
             selected={selectedSku}
             info={skuInfo.get(selectedSku.sku)}
             onClose={() => setSelectedSku(null)}
+            onSkip={skipSku}
           />
         )}
       </div>

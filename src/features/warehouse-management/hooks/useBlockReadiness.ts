@@ -12,8 +12,10 @@
 
 import { useMemo } from 'react';
 import {
+  APTITUDE_DEFAULTS,
   blockCapacity,
   splitIntoPallets,
+  type AptitudeCriteria,
   type BlockConfig,
   type MinimumFit,
   type NoMoverCandidate,
@@ -26,6 +28,9 @@ import {
 } from './useNoMoverList';
 import { buildAssignment, useAutoAssignment } from './useAutoAssignment';
 import { useBikeCandidates } from './useBikeCandidates';
+
+/** Stable identity so the assignment memo is not invalidated every render. */
+const EMPTY_SKIPS: ReadonlySet<string> = new Set();
 
 export type CheckStatus = 'ok' | 'warning' | 'blocked' | 'loading';
 
@@ -226,12 +231,14 @@ export interface BlockReadiness {
 export function useBlockReadiness(
   block: BlockConfig,
   minUnits: number,
-  recencyDays: number
+  recencyDays: number,
+  criteria: AptitudeCriteria = APTITUDE_DEFAULTS,
+  skipped: ReadonlySet<string> = EMPTY_SKIPS
 ): BlockReadiness {
   const settings = useBlockSettings();
   const noMovers = useNoMovers();
   const bikes = useBikeCandidates(recencyDays);
-  const auto = useAutoAssignment(minUnits, recencyDays);
+  const auto = useAutoAssignment(minUnits, recencyDays, criteria, skipped);
 
   // What this block was actually given, not what someone typed into a list.
   const candidates = {
@@ -286,7 +293,13 @@ export function useBlockReadiness(
     // Rebuilt from the fresh pool, not read off the last render: an exclusion
     // made seconds ago in the other tab has to count.
     const freshBikes = await bikes.refetch();
-    const freshAssignment = buildAssignment(freshBikes.data, freshNoMovers.data, minUnits);
+    const freshAssignment = buildAssignment(
+      freshBikes.data,
+      freshNoMovers.data,
+      minUnits,
+      criteria,
+      skipped
+    );
     const freshCandidates = {
       data: freshAssignment.byBlock.get(block.id) ?? [],
       error: freshBikes.error,

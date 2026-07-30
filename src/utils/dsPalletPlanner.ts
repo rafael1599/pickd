@@ -409,10 +409,60 @@ export function blockCapacity(block: BlockConfig): { cells: number; units: numbe
 export interface PoolCandidate {
   sku: string;
   totalQty: number;
+  /** Orders in the last 12 months. Absent counts as unknown, never as zero. */
+  ordersCompleted?: number;
   /** Where its units sit today. A cell inside a block both anchors and assigns it. */
   currentPlacements?: CurrentPlacement[];
   /** Set when someone put this SKU on a block's list by hand; that decision wins. */
   pinnedBlockId?: string;
+}
+
+/**
+ * How apt a candidate is, expressed as the band the operator prefers.
+ *
+ * These are ranking inputs, not gates. Measured against production, "0 orders
+ * and >= 21 units" describes five bikes for 54 cells — as a filter it empties
+ * the blocks. Inside the band goes first; outside still gets placed.
+ */
+export interface AptitudeCriteria {
+  /** Orders at or below which a bike is preferred. */
+  maxOrders: number;
+  /** Units at or above which a bike is preferred. Not a floor. */
+  minStock: number;
+}
+
+export const APTITUDE_DEFAULTS: AptitudeCriteria = { maxOrders: 0, minStock: 21 };
+
+/** Inside the preferred band: quiet enough and deep enough to be a first choice. */
+function isPreferred(c: PoolCandidate, criteria: AptitudeCriteria): boolean {
+  return (
+    (c.ordersCompleted ?? Number.POSITIVE_INFINITY) <= criteria.maxOrders &&
+    c.totalQty >= criteria.minStock
+  );
+}
+
+/**
+ * Merit order: the band first, then the quietest, then the deepest stock.
+ *
+ * Ties break on SKU so the result never depends on which block was
+ * recalculated, and an unknown order count sorts last rather than passing for
+ * zero — a bike we know nothing about is not a first choice.
+ */
+export function rankCandidates<T extends PoolCandidate>(
+  pool: T[],
+  criteria: AptitudeCriteria = APTITUDE_DEFAULTS
+): T[] {
+  return [...pool].sort((a, b) => {
+    const band = Number(isPreferred(b, criteria)) - Number(isPreferred(a, criteria));
+    if (band !== 0) return band;
+
+    const orders =
+      (a.ordersCompleted ?? Number.POSITIVE_INFINITY) -
+      (b.ordersCompleted ?? Number.POSITIVE_INFINITY);
+    if (orders !== 0) return orders;
+
+    return b.totalQty - a.totalQty || a.sku.localeCompare(b.sku);
+  });
 }
 
 /**
@@ -424,15 +474,15 @@ export interface PoolCandidate {
  * block by hand, and a SKU already standing in a block's rows, which keeps its
  * cell (RF-012).
  *
- * The rest is greedy by quantity: the largest SKUs go first, each to whichever
- * block has the most cells still to fill. Largest-first matters because a SKU
- * of 60 has to land somewhere it can keep its pallets together, and ties break
- * on SKU so the result does not depend on which Recalculate was pressed.
+ * The rest goes in merit order (see rankCandidates), each to whichever block
+ * has the most cells still to fill. Ranking decides who gets offered a cell
+ * first; capacity still decides whether they fit.
  */
 export function assignCandidates(
   pool: PoolCandidate[],
   blocks: BlockConfig[],
-  minUnits: number = DS_PALLET_MIN_DEFAULT
+  minUnits: number = DS_PALLET_MIN_DEFAULT,
+  criteria: AptitudeCriteria = APTITUDE_DEFAULTS
 ): Map<string, NoMoverCandidate[]> {
   const assigned = new Map<string, NoMoverCandidate[]>(blocks.map((b) => [b.id, []]));
   const remaining = new Map<string, number>(blocks.map((b) => [b.id, blockCapacity(b).cells]));
@@ -453,8 +503,7 @@ export function assignCandidates(
     remaining.set(blockId, (remaining.get(blockId) ?? 0) - cells);
   };
 
-  // Deterministic order: biggest first, then by SKU so ties never wobble.
-  const ordered = [...pool].sort((a, b) => b.totalQty - a.totalQty || a.sku.localeCompare(b.sku));
+  const ordered = rankCandidates(pool, criteria);
 
   const leftovers: PoolCandidate[] = [];
   for (const candidate of ordered) {
@@ -487,6 +536,56 @@ export function assignCandidates(
   }
 
   return assigned;
+}
+
+/** Cells a block's assignment actually claims. */
+function cellsUsed(assigned: NoMoverCandidate[], minUnits: number): number {
+  return assigned.reduce(
+    (sum, c) => sum + splitIntoPallets(c.totalQty, minUnits).pallets.length,
+    0
+  );
+}
+
+export interface FilledAssignment {
+  byBlock: Map<string, NoMoverCandidate[]>;
+  minUnits: number;
+  /** False when no minimum down to 1 fills every block. */
+  fills: boolean;
+}
+
+/**
+ * Assigns at the highest minimum that actually fills the blocks.
+ *
+ * fitMinimum answers a weaker question: whether enough pallets *exist*. It
+ * cannot see whether they pack. Since a candidate is taken whole or not at all,
+ * a pool with 54 pallets can still leave cells standing — the tail needs three
+ * cells and two are free. Ranking made that visible: with merit order the big
+ * multi-pallet SKUs no longer happen to go first and tidy the packing up.
+ *
+ * So the fit is verified against the assignment itself, stepping the minimum
+ * down only as far as it takes to leave nothing empty.
+ */
+export function assignToFill(
+  pool: PoolCandidate[],
+  blocks: BlockConfig[],
+  preferredMin: number = DS_PALLET_MIN_DEFAULT,
+  criteria: AptitudeCriteria = APTITUDE_DEFAULTS
+): FilledAssignment {
+  const full = (byBlock: Map<string, NoMoverCandidate[]>, minUnits: number) =>
+    blocks.every((b) => cellsUsed(byBlock.get(b.id) ?? [], minUnits) >= blockCapacity(b).cells);
+
+  for (let min = preferredMin; min >= 1; min--) {
+    const byBlock = assignCandidates(pool, blocks, min, criteria);
+    if (full(byBlock, min)) return { byBlock, minUnits: min, fills: true };
+  }
+
+  // Nothing fills: keep the preferred minimum so the shortfall stays visible
+  // rather than being buried under one-unit pallets.
+  return {
+    byBlock: assignCandidates(pool, blocks, preferredMin, criteria),
+    minUnits: preferredMin,
+    fills: false,
+  };
 }
 
 /** How many pallets a set of candidates yields at a given minimum. */

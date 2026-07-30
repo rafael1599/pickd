@@ -1562,6 +1562,8 @@ export type Database = {
       warehouse_block_settings: {
         Row: {
           block_id: string;
+          max_orders: number;
+          min_stock: number;
           min_units: number;
           positions_per_row: number;
           recency_days: number;
@@ -1572,6 +1574,8 @@ export type Database = {
         };
         Insert: {
           block_id: string;
+          max_orders?: number;
+          min_stock?: number;
           min_units?: number;
           positions_per_row?: number;
           recency_days?: number;
@@ -1582,6 +1586,8 @@ export type Database = {
         };
         Update: {
           block_id?: string;
+          max_orders?: number;
+          min_stock?: number;
           min_units?: number;
           positions_per_row?: number;
           recency_days?: number;
@@ -2000,6 +2006,7 @@ export type Database = {
           item_name: string;
           last_shipped: string;
           location: string;
+          orders_completed: number;
           sku: string;
           sublocation: string[];
           total_qty: number;
