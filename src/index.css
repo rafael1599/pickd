@@ -442,14 +442,20 @@ body::before {
    !important here is required to override those on print, since inline
    styles otherwise beat stylesheet rules regardless of selector specificity. */
 @media print {
+  /* `height: auto` and `overflow: visible` are what let the output run past a
+     single sheet. Pinned to 100vh with overflow hidden — as this was, for the
+     old model where the grid was the only thing printed — the document can
+     never be taller than one page, so nothing inside it paginates and any
+     overflow is silently cut. Every break-inside/break-after in the app is
+     dead while these are capped, whatever the element-level rules say. */
   html,
   body,
   #root {
     width: 100% !important;
-    height: 100vh !important;
+    height: auto !important;
     margin: 0 !important;
     padding: 0 !important;
-    overflow: hidden !important;
+    overflow: visible !important;
     background: #fff !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
