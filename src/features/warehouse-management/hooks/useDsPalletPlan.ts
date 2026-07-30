@@ -27,7 +27,9 @@ export interface PersistedDsPalletPlan {
   id: string;
   block_id: string;
   plan_version: number;
-  plan_data: { slots: PalletSlot[] };
+  /** `minUnits` records what the plan was fitted to, so Pull First can name the
+   *  threshold a leftover actually missed. Absent on plans saved before it. */
+  plan_data: { slots: PalletSlot[]; minUnits?: number };
   pull_first: PullFirstEntry[];
   updated_at: string;
   updated_by: string | null;
@@ -173,7 +175,7 @@ export function useRecalculateDsPalletPlan() {
         block_id: block.id,
         warehouse: 'LUDLOW',
         plan_version: plan.planVersion,
-        plan_data: { slots: plan.slots } as never,
+        plan_data: { slots: plan.slots, minUnits: fit.minUnits } as never,
         pull_first: plan.pullFirst as never,
         // Carried over from the previous model; unused by the DS-Pallet planner.
         ranking_weights: {} as never,
