@@ -199,7 +199,9 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
       </div>
 
       {/* Print keeps the block identified once the buttons are gone. */}
-      <h3 className="hidden print:block text-base font-bold mb-1">
+      {/* The root mounts with `dark` on <html>, so inherited text is white and
+          this came out invisible on paper. Print titles fix their own colour. */}
+      <h3 className="hidden print:block print:text-black text-base font-bold mb-1">
         Block {block.id} · {block.label}
       </h3>
 
