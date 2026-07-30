@@ -88,6 +88,13 @@ export type PullFirstReason = 'below-min' | 'partition-remainder' | 'no-space';
 export interface PullFirstEntry {
   sku: string;
   units: number;
+  /**
+   * The SKU's whole stock when the plan was built. Carried on the entry rather
+   * than looked up live: the plan is read long after it was saved, often on
+   * paper, and a total fetched now would describe a different day. Absent on
+   * plans written before it was recorded.
+   */
+  total?: number;
   /** Human-readable origin, e.g. "ROW 31 · B". Absent when the SKU has no current cell. */
   from?: string;
   reason: PullFirstReason;
@@ -286,6 +293,7 @@ function resolveAnchors(
       pullFirst.push({
         sku: winner.candidate.sku,
         units: winner.candidate.totalQty,
+        total: winner.candidate.totalQty,
         from: formatOrigin(winner.slot.row, winner.slot.letter),
         reason: 'below-min',
       });
@@ -328,6 +336,7 @@ export function planBlock(
       pullFirst.push({
         sku: candidate.sku,
         units: candidate.totalQty,
+        total: candidate.totalQty,
         from: first ? formatOrigin(first.row, first.letter) : undefined,
         reason: 'below-min',
       });
@@ -363,14 +372,26 @@ export function planBlock(
     for (const units of pallets) {
       const placed = placePallet(slots, letters, candidate.sku, units, hasAccessible);
       if (!placed) {
-        pullFirst.push({ sku: candidate.sku, units, from, reason: 'no-space' });
+        pullFirst.push({
+          sku: candidate.sku,
+          units,
+          total: candidate.totalQty,
+          from,
+          reason: 'no-space',
+        });
         continue;
       }
       if (placed.accessibility === 'accessible') hasAccessible = true;
     }
 
     if (leftover > 0) {
-      pullFirst.push({ sku: candidate.sku, units: leftover, from, reason: 'partition-remainder' });
+      pullFirst.push({
+        sku: candidate.sku,
+        units: leftover,
+        total: candidate.totalQty,
+        from,
+        reason: 'partition-remainder',
+      });
     }
   }
 

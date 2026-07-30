@@ -157,7 +157,7 @@ describe('planBlock — acceptance criteria', () => {
     expect(placed).toHaveLength(2);
     expect(placed.every((p) => p.sku === '03-4065BL' && p.units === 25)).toBe(true);
     expect(plan.pullFirst).toEqual([
-      { sku: '03-4065BL', units: 10, from: undefined, reason: 'partition-remainder' },
+      { sku: '03-4065BL', units: 10, total: 60, from: undefined, reason: 'partition-remainder' },
     ]);
   });
 
@@ -179,7 +179,7 @@ describe('planBlock — acceptance criteria', () => {
       anchored: true,
     });
     expect(plan.pullFirst).toEqual([
-      { sku: '06-4638BK', units: 5, from: 'ROW 32 · C', reason: 'partition-remainder' },
+      { sku: '06-4638BK', units: 5, total: 30, from: 'ROW 32 · C', reason: 'partition-remainder' },
     ]);
   });
 
@@ -196,7 +196,7 @@ describe('planBlock — acceptance criteria', () => {
 
     expect(slotAt(plan.slots, '33-B').usage).toEqual({ kind: 'empty' });
     expect(plan.pullFirst).toEqual([
-      { sku: '03-4266BK', units: 12, from: 'ROW 33 · B', reason: 'below-min' },
+      { sku: '03-4266BK', units: 12, total: 12, from: 'ROW 33 · B', reason: 'below-min' },
     ]);
   });
 
@@ -302,7 +302,7 @@ describe('planBlock — conflict rules', () => {
     expect(placed).toHaveLength(1);
     expect(placed[0].anchored).toBe(false);
     expect(plan.pullFirst).toEqual([
-      { sku: '06-4516KW', units: 7, from: 'ROW 24 · B', reason: 'partition-remainder' },
+      { sku: '06-4516KW', units: 7, total: 32, from: 'ROW 24 · B', reason: 'partition-remainder' },
     ]);
   });
 
