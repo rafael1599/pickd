@@ -14,6 +14,7 @@ import toast from 'react-hot-toast';
 import { SearchInput } from '../../../components/ui/SearchInput';
 import { useDebounce } from '../../../hooks/useDebounce';
 import {
+  EXCLUSION_REASONS,
   useBikeCandidates,
   useExcludeSkus,
   useUnexcludeSkus,
@@ -29,12 +30,6 @@ interface BringInPanelProps {
   minUnits: number;
   recencyDays: number;
 }
-
-/** The two reasons that exist today. Free text in the DB — this is just the shortcut. */
-const REASONS = [
-  { id: 'juvenile', label: 'Juvenile', hint: 'ROW 17' },
-  { id: 'oversize', label: 'Oversize', hint: 'ROW 10' },
-];
 
 function formatDate(iso: string | null): string {
   if (!iso) return 'never';
@@ -52,6 +47,10 @@ export const BringInPanel: React.FC<BringInPanelProps> = ({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showExcluded, setShowExcluded] = useState(false);
   const [onlyPalletSized, setOnlyPalletSized] = useState(true);
+  // Movers are hidden by default because they are not candidates, but they
+  // still have to be reachable: an oversize bike that happens to be shipping
+  // today is exactly the one worth ruling out before it goes quiet.
+  const [showMovers, setShowMovers] = useState(false);
   const debouncedQuery = useDebounce(query, 200);
 
   const { data: candidates, isLoading, isError, error } = useBikeCandidates(recencyDays);
@@ -67,9 +66,10 @@ export const BringInPanel: React.FC<BringInPanelProps> = ({
     const q = debouncedQuery.trim().toLowerCase();
     return (candidates ?? [])
       .filter((c) => {
-        if (c.isMover) return false;
+        if (c.isMover && !showMovers) return false;
         if (showExcluded !== (c.excludedReason !== null)) return false;
         if (onlyPalletSized && c.totalQty < minUnits) return false;
+        // The block's own rows belong to the other tab, which now excludes too.
         if (ownRows.has(c.location)) return false;
         if (!q) return true;
         return (
@@ -79,7 +79,7 @@ export const BringInPanel: React.FC<BringInPanelProps> = ({
         );
       })
       .sort((a, b) => b.totalQty - a.totalQty);
-  }, [candidates, debouncedQuery, showExcluded, onlyPalletSized, minUnits, ownRows]);
+  }, [candidates, debouncedQuery, showExcluded, onlyPalletSized, showMovers, minUnits, ownRows]);
 
   const selectedRows = rows.filter((c) => selected.has(c.sku));
   const busy = setNoMovers.isPending || exclude.isPending || unexclude.isPending;
@@ -96,9 +96,22 @@ export const BringInPanel: React.FC<BringInPanelProps> = ({
     setSelected(selected.size === rows.length ? new Set() : new Set(rows.map((c) => c.sku)));
 
   const handleAdd = async (picked: BikeCandidate[]) => {
-    if (picked.length === 0) return;
+    // A mover can be ruled out from this list but never brought in — the block
+    // is for stock that does not move, and the floor would evict it anyway.
+    const eligible = picked.filter((c) => !c.isMover);
+    const skipped = picked.length - eligible.length;
+
+    if (eligible.length === 0) {
+      toast.error(
+        skipped === 1
+          ? 'That SKU is a mover — it cannot be brought into a block.'
+          : 'Those SKUs are movers — they cannot be brought into a block.'
+      );
+      return;
+    }
+
     await setNoMovers.mutateAsync(
-      picked.map((c) => ({
+      eligible.map((c) => ({
         sku: c.sku,
         blockId,
         lastShipped: c.lastShipped,
@@ -106,9 +119,8 @@ export const BringInPanel: React.FC<BringInPanelProps> = ({
       }))
     );
     toast.success(
-      picked.length === 1
-        ? `${picked[0].sku} → block ${blockId}`
-        : `${picked.length} SKUs → block ${blockId}`
+      `${eligible.length === 1 ? eligible[0].sku : `${eligible.length} SKUs`} → block ${blockId}` +
+        (skipped > 0 ? ` · ${skipped} mover${skipped === 1 ? '' : 's'} skipped` : '')
     );
     setSelected(new Set());
   };
@@ -129,7 +141,10 @@ export const BringInPanel: React.FC<BringInPanelProps> = ({
     setSelected(new Set());
   };
 
-  const totalPallets = rows.reduce(
+  // Movers are listed so they can be ruled out, never brought in, so they must
+  // not inflate the count of what this list can actually contribute.
+  const bringable = rows.filter((c) => !c.isMover);
+  const totalPallets = bringable.reduce(
     (sum, c) => sum + Math.floor(c.totalQty / 25) + (c.totalQty % 25 >= minUnits ? 1 : 0),
     0
   );
@@ -159,6 +174,21 @@ export const BringInPanel: React.FC<BringInPanelProps> = ({
           }`}
         >
           Only ≥ {minUnits}u
+        </button>
+
+        <button
+          onClick={() => {
+            setShowMovers((v) => !v);
+            setSelected(new Set());
+          }}
+          title="Movers cannot be brought in, but they can be ruled out"
+          className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold border transition-colors ${
+            showMovers
+              ? 'bg-amber-500 text-white border-amber-500'
+              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          Include movers
         </button>
 
         <button
@@ -200,7 +230,7 @@ export const BringInPanel: React.FC<BringInPanelProps> = ({
                 Bring into block {blockId}
               </button>
               <span className="text-slate-400">·</span>
-              {REASONS.map((r) => (
+              {EXCLUSION_REASONS.map((r) => (
                 <button
                   key={r.id}
                   onClick={() => handleExclude(r.id)}
@@ -253,7 +283,13 @@ export const BringInPanel: React.FC<BringInPanelProps> = ({
             </span>
             <span className="text-xs text-slate-500">
               {rows.length} SKU · {rows.reduce((s, c) => s + c.totalQty, 0)}u
-              {!showExcluded && ` · ${totalPallets} pallets`}
+              {!showExcluded && ` · ${totalPallets} pallets to bring in`}
+              {!showExcluded && rows.length !== bringable.length && (
+                <span className="text-amber-700">
+                  {' '}
+                  · {rows.length - bringable.length} movers, not bringable
+                </span>
+              )}
             </span>
           </div>
 
@@ -284,6 +320,13 @@ export const BringInPanel: React.FC<BringInPanelProps> = ({
               {c.excludedReason ? (
                 <span className="w-28 shrink-0 text-[11px] font-bold text-rose-600">
                   {c.excludedReason}
+                </span>
+              ) : c.isMover ? (
+                <span
+                  className="w-28 shrink-0 text-[11px] font-bold text-amber-700"
+                  title="Shipped inside the recency window — rule it out if it should never enter a block"
+                >
+                  mover
                 </span>
               ) : listedSkus.has(c.sku) ? (
                 <span className="flex items-center gap-1 w-28 shrink-0 text-[11px] font-bold text-emerald-700">

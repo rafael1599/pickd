@@ -7,7 +7,7 @@
 // confirmed (RF-001..006).
 
 import React, { useMemo, useState } from 'react';
-import { Loader2, RefreshCw, Check, X, AlertTriangle } from 'lucide-react';
+import { Loader2, RefreshCw, Check, X, AlertTriangle, Ban } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { SearchInput } from '../../../components/ui/SearchInput';
 import { useDebounce } from '../../../hooks/useDebounce';
@@ -22,6 +22,7 @@ import {
   useBlockClassification,
   type ClassificationCandidate,
 } from '../hooks/useNoMoverList';
+import { EXCLUSION_REASONS, useExcludeSkus, useExcludedSkus } from '../hooks/useBikeCandidates';
 
 const RECENCY_CHOICES = [30, 45, 60];
 
@@ -57,6 +58,8 @@ export const NoMoverClassification: React.FC = () => {
   const { data: listed } = useNoMovers();
   const setNoMovers = useSetNoMovers();
   const removeNoMovers = useRemoveNoMovers();
+  const excludeSkus = useExcludeSkus();
+  const { data: excluded } = useExcludedSkus();
 
   const {
     data: candidates,
@@ -71,6 +74,10 @@ export const NoMoverClassification: React.FC = () => {
   const { data: atSaved } = useBlockClassification(block, savedRecency);
 
   const listedSkus = useMemo(() => new Set((listed ?? []).map((n) => n.sku)), [listed]);
+  const excludedBySku = useMemo(
+    () => new Map((excluded ?? []).map((e) => [e.sku, e.reason])),
+    [excluded]
+  );
 
   const { movers, nonMovers } = useMemo(() => {
     const q = debouncedQuery.trim().toLowerCase();
@@ -134,6 +141,18 @@ export const NoMoverClassification: React.FC = () => {
     setSelected(new Set());
   };
 
+  // Reachable here as well as from Bring in, because a bike sitting in the
+  // block's own rows never appears in that list — ROW 33's junk drawer would
+  // otherwise have no way to be ruled out at all.
+  const handleExclude = async (skus: string[], reason: string) => {
+    if (skus.length === 0) return;
+    await excludeSkus.mutateAsync({ skus, reason });
+    toast.success(
+      `${skus.length === 1 ? skus[0] : `${skus.length} SKUs`} excluded from every block (${reason})`
+    );
+    setSelected(new Set());
+  };
+
   const applyRecency = async () => {
     if (draftRecency === null) return;
     await updateSettings.mutateAsync({ blockId, recency_days: draftRecency });
@@ -145,6 +164,7 @@ export const NoMoverClassification: React.FC = () => {
 
   const renderRow = (c: ClassificationCandidate, kind: 'mover' | 'non-mover') => {
     const inList = listedSkus.has(c.sku);
+    const excludedReason = excludedBySku.get(c.sku);
     const destination = c.totalQty >= minUnits ? 'DS-Pallet' : `${c.totalQty}u < ${minUnits}u min`;
 
     return (
@@ -178,20 +198,45 @@ export const NoMoverClassification: React.FC = () => {
           {kind === 'non-mover' ? destination : ''}
         </span>
 
-        {kind === 'non-mover' && (
-          <button
-            onClick={() => (inList ? handleDiscard([c.sku]) : handleConfirm([c]))}
-            disabled={busy}
-            className={`ml-auto flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors disabled:opacity-40 ${
-              inList
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
-            }`}
-          >
-            {inList ? <Check className="w-3 h-3" /> : null}
-            {inList ? 'In list' : 'Add'}
-          </button>
-        )}
+        <div className="ml-auto flex items-center gap-1.5 shrink-0">
+          {excludedReason ? (
+            <span className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+              <Ban className="w-3 h-3" /> {excludedReason}
+            </span>
+          ) : (
+            <>
+              {kind === 'non-mover' && (
+                <button
+                  onClick={() => (inList ? handleDiscard([c.sku]) : handleConfirm([c]))}
+                  disabled={busy}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors disabled:opacity-40 ${
+                    inList
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
+                  }`}
+                >
+                  {inList ? <Check className="w-3 h-3" /> : null}
+                  {inList ? 'In list' : 'Add'}
+                </button>
+              )}
+
+              {/* Movers get this too: an oversize bike shipping today is exactly
+                  the one worth ruling out before it goes quiet. */}
+              {EXCLUSION_REASONS.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => handleExclude([c.sku], r.id)}
+                  disabled={busy || excludeSkus.isPending}
+                  title={`Never place ${c.sku} in a block — ${r.label.toLowerCase()}`}
+                  className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold bg-white text-slate-500 border border-slate-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 transition-colors disabled:opacity-40"
+                >
+                  <Ban className="w-3 h-3" />
+                  {r.label}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
       </div>
     );
   };
@@ -371,7 +416,7 @@ export const NoMoverClassification: React.FC = () => {
 
             {/* Bulk bar — the long tail of 1-unit leftovers is unusable one by one */}
             {selected.size > 0 && (
-              <div className="flex items-center gap-3 mb-3 px-3 py-2 rounded-lg bg-slate-800 text-white text-xs">
+              <div className="flex flex-wrap items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-slate-800 text-white text-xs">
                 <span className="font-bold">{selected.size} selected</span>
                 <button
                   onClick={() => handleConfirm(nonMovers.filter((c) => selected.has(c.sku)))}
@@ -387,6 +432,18 @@ export const NoMoverClassification: React.FC = () => {
                 >
                   Discard
                 </button>
+                <span className="text-slate-400">·</span>
+                {EXCLUSION_REASONS.map((r) => (
+                  <button
+                    key={r.id}
+                    onClick={() => handleExclude(Array.from(selected), r.id)}
+                    disabled={busy || excludeSkus.isPending}
+                    title={`Never place these in a block — ${r.hint}`}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-800 font-bold disabled:opacity-40"
+                  >
+                    <Ban className="w-3 h-3" /> {r.label}
+                  </button>
+                ))}
                 <button
                   onClick={() => setSelected(new Set())}
                   className="ml-auto flex items-center gap-1 text-slate-300 hover:text-white"
