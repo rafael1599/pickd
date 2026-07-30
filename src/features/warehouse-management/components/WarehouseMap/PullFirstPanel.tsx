@@ -56,7 +56,12 @@ export const PullFirstPanel: React.FC<PullFirstPanelProps> = ({ blockId, entries
               <span className="font-mono font-bold text-slate-800 w-28 shrink-0">{entry.sku}</span>
               <span className="font-semibold text-slate-700 w-20 text-right shrink-0">
                 {entry.units}
-                <span className="text-slate-400">/{totalBySku.get(entry.sku) ?? '?'}u</span>
+                <span className="text-slate-400">
+                  {(() => {
+                    const total = entry.total ?? totalBySku.get(entry.sku);
+                    return total ? `/${total}u` : 'u';
+                  })()}
+                </span>
               </span>
               <span className="text-slate-500">{entry.from ?? '—'}</span>
             </li>
