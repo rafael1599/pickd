@@ -53,6 +53,13 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
   const slots = saved?.plan_data?.slots ?? [];
   const pullFirstCount = saved?.pull_first?.length ?? 0;
 
+  // Pull First shows a leftover against the SKU's whole stock, which the plan
+  // does not record — the live candidates do.
+  const totalBySku = useMemo(
+    () => new Map(candidates.map((c) => [c.sku, c.totalQty])),
+    [candidates]
+  );
+
   const stamp = useMemo(() => {
     if (!saved?.updated_at) return null;
     const d = new Date(saved.updated_at);
@@ -200,7 +207,7 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
       <PullFirstPanel
         blockId={block.id}
         entries={saved?.pull_first ?? []}
-        minUnits={saved?.plan_data?.minUnits}
+        totalBySku={totalBySku}
       />
 
       {isLoading ? (

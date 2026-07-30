@@ -1,10 +1,9 @@
 // What the block could not take, sitting above the block it came out of.
 //
-// Every one of these is a trip someone has to make on the floor, so the list is
-// worth more than the count that used to stand in for it. Each row says where
-// the units are and why they were turned away, because the three reasons are
-// resolved differently: a remainder is topped up or moved on, a short SKU never
-// belonged, and an overflow means the block is genuinely out of room.
+// Three columns, because that is the whole job on the floor: which SKU, how
+// much of its stock is stranded, and where to go for it. The reason a unit was
+// turned away is planner bookkeeping — it changes nothing about the trip, and
+// it was the widest column on the sheet.
 
 import React, { useState } from 'react';
 import { ChevronDown, PackageMinus } from 'lucide-react';
@@ -13,26 +12,11 @@ import type { PullFirstEntry } from '../../../../utils/dsPalletPlanner';
 interface PullFirstPanelProps {
   blockId: string;
   entries: PullFirstEntry[];
-  /** What the plan was fitted to. Absent on plans saved before it was recorded. */
-  minUnits?: number;
+  /** Total stock per SKU, so a leftover reads against the whole of it. */
+  totalBySku: Map<string, number>;
 }
 
-function reasonText(entry: PullFirstEntry, minUnits?: number): string {
-  switch (entry.reason) {
-    case 'below-min':
-      return minUnits
-        ? `${entry.units}u — under the ${minUnits}u minimum`
-        : 'under the minimum for a pallet';
-    case 'partition-remainder':
-      return minUnits
-        ? `${entry.units}u left over — under the ${minUnits}u minimum`
-        : 'left over after its full pallets';
-    case 'no-space':
-      return 'no cell left in the block';
-  }
-}
-
-export const PullFirstPanel: React.FC<PullFirstPanelProps> = ({ blockId, entries, minUnits }) => {
+export const PullFirstPanel: React.FC<PullFirstPanelProps> = ({ blockId, entries, totalBySku }) => {
   const [open, setOpen] = useState(false);
 
   if (entries.length === 0) return null;
@@ -70,11 +54,11 @@ export const PullFirstPanel: React.FC<PullFirstPanelProps> = ({ blockId, entries
               className="flex items-center gap-3 px-3 py-1.5 text-xs print:py-0.5 print:break-inside-avoid"
             >
               <span className="font-mono font-bold text-slate-800 w-28 shrink-0">{entry.sku}</span>
-              <span className="font-semibold text-slate-700 w-12 text-right shrink-0">
-                {entry.units}u
+              <span className="font-semibold text-slate-700 w-20 text-right shrink-0">
+                {entry.units}
+                <span className="text-slate-400">/{totalBySku.get(entry.sku) ?? '?'}u</span>
               </span>
-              <span className="text-slate-500 w-28 shrink-0">{entry.from ?? '—'}</span>
-              <span className="text-amber-700 print:text-black">{reasonText(entry, minUnits)}</span>
+              <span className="text-slate-500">{entry.from ?? '—'}</span>
             </li>
           ))}
         </ul>
