@@ -383,3 +383,52 @@ export function blockCapacity(block: BlockConfig): { cells: number; units: numbe
   const cells = perRow * block.rows.length;
   return { cells, units: cells * DS_PALLET_MAX };
 }
+
+/** How many pallets a set of candidates yields at a given minimum. */
+export function palletsAt(candidates: NoMoverCandidate[], minUnits: number): number {
+  return candidates.reduce(
+    (sum, c) => sum + splitIntoPallets(c.totalQty, minUnits).pallets.length,
+    0
+  );
+}
+
+export interface MinimumFit {
+  /** The minimum to plan with. */
+  minUnits: number;
+  /** Pallets it yields. Below `cells` when even a minimum of 1 cannot fill the block. */
+  pallets: number;
+  cells: number;
+  /** False when the candidate list cannot fill the block at any minimum. */
+  fills: boolean;
+}
+
+/**
+ * The largest minimum that still fills every assignable cell.
+ *
+ * Lowering the minimum only ever adds pallets — it lets a remainder that would
+ * have gone to Pull First claim a cell of its own — so the fullest possible
+ * pallets come from the *highest* minimum that still reaches capacity, not the
+ * lowest. Going lower than that trades units per pallet for nothing.
+ *
+ * When no minimum fills the block the preferred one is returned untouched:
+ * a half-empty block is a signal to widen the list, and quietly planning
+ * three-unit pallets would hide it.
+ */
+export function fitMinimum(
+  candidates: NoMoverCandidate[],
+  block: BlockConfig,
+  preferred: number = DS_PALLET_MIN_DEFAULT
+): MinimumFit {
+  const { cells } = blockCapacity(block);
+  const atPreferred = palletsAt(candidates, preferred);
+  if (atPreferred >= cells) {
+    return { minUnits: preferred, pallets: atPreferred, cells, fills: true };
+  }
+
+  for (let min = preferred - 1; min >= 1; min--) {
+    const pallets = palletsAt(candidates, min);
+    if (pallets >= cells) return { minUnits: min, pallets, cells, fills: true };
+  }
+
+  return { minUnits: preferred, pallets: atPreferred, cells, fills: false };
+}

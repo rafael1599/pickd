@@ -11,6 +11,7 @@ import { Loader2, RefreshCw, Check, X, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { SearchInput } from '../../../components/ui/SearchInput';
 import { useDebounce } from '../../../hooks/useDebounce';
+import { BringInPanel } from './BringInPanel';
 import { BLOCKS, DS_PALLET_MIN_DEFAULT } from '../../../utils/dsPalletPlanner';
 import {
   useBlockSettings,
@@ -31,8 +32,12 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
+/** What the block keeps, versus what it has to be given. */
+type Scope = 'in-block' | 'bring-in';
+
 export const NoMoverClassification: React.FC = () => {
   const [blockId, setBlockId] = useState(BLOCKS[0].id);
+  const [scope, setScope] = useState<Scope>('in-block');
   const [query, setQuery] = useState('');
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -270,7 +275,7 @@ export const NoMoverClassification: React.FC = () => {
           )}
         </div>
 
-        {/* Block + search + quick filters */}
+        {/* Block + scope */}
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
             {BLOCKS.map((b) => (
@@ -292,111 +297,151 @@ export const NoMoverClassification: React.FC = () => {
             ))}
           </div>
 
-          <div className="flex-1 min-w-[220px]">
-            <SearchInput
-              value={query}
-              onChange={setQuery}
-              placeholder="Search SKU, row…"
-              variant="inline"
-              preferenceId="warehouse-no-movers"
-            />
+          {/* The block's own contents never fill it — the second scope is where
+              the pallets actually come from, and where bikes get ruled out. */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
+            {(
+              [
+                ['in-block', 'In the block'],
+                ['bring-in', 'Bring in'],
+              ] as [Scope, string][]
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => {
+                  setScope(id);
+                  setSelected(new Set());
+                }}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                  scope === id
+                    ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-
-          {(['all', 'single-unit', 'never-shipped'] as QuickFilter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setQuickFilter(f)}
-              className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold border transition-colors ${
-                quickFilter === f
-                  ? 'bg-slate-800 text-white border-slate-800'
-                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              {f === 'all' ? 'All' : f === 'single-unit' ? 'Only 1 unit' : 'Never shipped'}
-            </button>
-          ))}
-
-          <button
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="flex items-center justify-center w-9 h-9 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-            title="Refresh"
-          >
-            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
-          </button>
         </div>
 
-        {/* Bulk bar — the long tail of 1-unit leftovers is unusable one by one */}
-        {selected.size > 0 && (
-          <div className="flex items-center gap-3 mb-3 px-3 py-2 rounded-lg bg-slate-800 text-white text-xs">
-            <span className="font-bold">{selected.size} selected</span>
-            <button
-              onClick={() => handleConfirm(nonMovers.filter((c) => selected.has(c.sku)))}
-              disabled={busy}
-              className="px-2.5 py-1 rounded-md bg-emerald-600 font-bold disabled:opacity-40"
-            >
-              Add to list
-            </button>
-            <button
-              onClick={() => handleDiscard(Array.from(selected))}
-              disabled={busy}
-              className="px-2.5 py-1 rounded-md bg-rose-600 font-bold disabled:opacity-40"
-            >
-              Discard
-            </button>
-            <button
-              onClick={() => setSelected(new Set())}
-              className="ml-auto flex items-center gap-1 text-slate-300 hover:text-white"
-            >
-              <X className="w-3 h-3" /> Clear
-            </button>
-          </div>
-        )}
-
-        {/* States */}
-        {isLoading || loadingSettings ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="animate-spin text-emerald-600 w-6 h-6 opacity-30" />
-          </div>
-        ) : isError ? (
-          <div className="flex flex-col items-center gap-3 py-12">
-            <div className="flex items-center gap-2 text-rose-600 text-sm font-medium">
-              <AlertTriangle className="w-4 h-4" />
-              {(error as Error)?.message ?? 'Failed to load candidates.'}
-            </div>
-            <button
-              onClick={() => refetch()}
-              className="px-3 py-1.5 rounded-md border border-slate-300 text-sm font-semibold"
-            >
-              Retry
-            </button>
-          </div>
-        ) : nonMovers.length === 0 && movers.length === 0 ? (
-          <div className="text-center text-slate-400 text-sm py-12">
-            {debouncedQuery
-              ? `No matches for "${debouncedQuery}".`
-              : quickFilter !== 'all'
-                ? 'No SKUs match this filter.'
-                : `No stock in block ${blockId}.`}
-          </div>
+        {scope === 'bring-in' ? (
+          <BringInPanel
+            blockId={blockId}
+            blockLabel={`block ${blockId} · ${block.label}`}
+            blockRows={block.rows}
+            minUnits={minUnits}
+            recencyDays={activeRecency}
+          />
         ) : (
-          <div className="rounded-xl border border-slate-200 overflow-hidden">
-            {listHeader(
-              'Non-movers — stay',
-              nonMovers.length,
-              nonMovers.reduce((s, c) => s + c.totalQty, 0),
-              'text-emerald-700'
-            )}
-            {nonMovers.map((c) => renderRow(c, 'non-mover'))}
+          <>
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <div className="flex-1 min-w-[220px]">
+                <SearchInput
+                  value={query}
+                  onChange={setQuery}
+                  placeholder="Search SKU, row…"
+                  variant="inline"
+                  preferenceId="warehouse-no-movers"
+                />
+              </div>
 
-            {listHeader(
-              'Movers — leave the block',
-              movers.length,
-              movers.reduce((s, c) => s + c.totalQty, 0),
-              'text-rose-600'
+              {(['all', 'single-unit', 'never-shipped'] as QuickFilter[]).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setQuickFilter(f)}
+                  className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold border transition-colors ${
+                    quickFilter === f
+                      ? 'bg-slate-800 text-white border-slate-800'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {f === 'all' ? 'All' : f === 'single-unit' ? 'Only 1 unit' : 'Never shipped'}
+                </button>
+              ))}
+
+              <button
+                onClick={() => refetch()}
+                disabled={isFetching}
+                className="flex items-center justify-center w-9 h-9 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                title="Refresh"
+              >
+                <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+
+            {/* Bulk bar — the long tail of 1-unit leftovers is unusable one by one */}
+            {selected.size > 0 && (
+              <div className="flex items-center gap-3 mb-3 px-3 py-2 rounded-lg bg-slate-800 text-white text-xs">
+                <span className="font-bold">{selected.size} selected</span>
+                <button
+                  onClick={() => handleConfirm(nonMovers.filter((c) => selected.has(c.sku)))}
+                  disabled={busy}
+                  className="px-2.5 py-1 rounded-md bg-emerald-600 font-bold disabled:opacity-40"
+                >
+                  Add to list
+                </button>
+                <button
+                  onClick={() => handleDiscard(Array.from(selected))}
+                  disabled={busy}
+                  className="px-2.5 py-1 rounded-md bg-rose-600 font-bold disabled:opacity-40"
+                >
+                  Discard
+                </button>
+                <button
+                  onClick={() => setSelected(new Set())}
+                  className="ml-auto flex items-center gap-1 text-slate-300 hover:text-white"
+                >
+                  <X className="w-3 h-3" /> Clear
+                </button>
+              </div>
             )}
-            {movers.map((c) => renderRow(c, 'mover'))}
-          </div>
+
+            {/* States */}
+            {isLoading || loadingSettings ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="animate-spin text-emerald-600 w-6 h-6 opacity-30" />
+              </div>
+            ) : isError ? (
+              <div className="flex flex-col items-center gap-3 py-12">
+                <div className="flex items-center gap-2 text-rose-600 text-sm font-medium">
+                  <AlertTriangle className="w-4 h-4" />
+                  {(error as Error)?.message ?? 'Failed to load candidates.'}
+                </div>
+                <button
+                  onClick={() => refetch()}
+                  className="px-3 py-1.5 rounded-md border border-slate-300 text-sm font-semibold"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : nonMovers.length === 0 && movers.length === 0 ? (
+              <div className="text-center text-slate-400 text-sm py-12">
+                {debouncedQuery
+                  ? `No matches for "${debouncedQuery}".`
+                  : quickFilter !== 'all'
+                    ? 'No SKUs match this filter.'
+                    : `No stock in block ${blockId}.`}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-slate-200 overflow-hidden">
+                {listHeader(
+                  'Non-movers — stay',
+                  nonMovers.length,
+                  nonMovers.reduce((s, c) => s + c.totalQty, 0),
+                  'text-emerald-700'
+                )}
+                {nonMovers.map((c) => renderRow(c, 'non-mover'))}
+
+                {listHeader(
+                  'Movers — leave the block',
+                  movers.length,
+                  movers.reduce((s, c) => s + c.totalQty, 0),
+                  'text-rose-600'
+                )}
+                {movers.map((c) => renderRow(c, 'mover'))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
