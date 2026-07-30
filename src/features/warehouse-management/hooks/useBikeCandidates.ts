@@ -16,6 +16,16 @@ import { useAuth } from '../../../context/AuthContext';
 const CANDIDATES_KEY = 'warehouse-bike-candidates';
 const EXCLUDED_KEY = ['warehouse-excluded-skus'];
 
+/**
+ * The reasons that exist today. The column is free text, so a third one is a
+ * line here rather than a migration — this is only the shortcut the two
+ * classification screens offer.
+ */
+export const EXCLUSION_REASONS = [
+  { id: 'juvenile', label: 'Juvenile', hint: 'ROW 17' },
+  { id: 'oversize', label: 'Oversize', hint: 'ROW 10' },
+];
+
 export interface BikeCandidate {
   sku: string;
   itemName: string | null;
