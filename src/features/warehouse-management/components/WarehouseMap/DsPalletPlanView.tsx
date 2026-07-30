@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import { DsPalletGrid } from './DsPalletGrid';
 import { isTransposed } from '../../utils/gridOrientation';
 import { BlockReadinessPanel } from './BlockReadinessPanel';
+import { PullFirstPanel } from './PullFirstPanel';
 import { SkuDetailPanel, type SelectedSku, type SkuDetailInfo } from './SkuDetailPanel';
 import { BLOCKS, DS_PALLET_MIN_DEFAULT, type BlockConfig } from '../../../../utils/dsPalletPlanner';
 import { blockWithSettings, useBlockSettings } from '../../hooks/useNoMoverList';
@@ -188,6 +189,13 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
       <h3 className="hidden print:block text-base font-bold mb-1">
         Block {block.id} · {block.label}
       </h3>
+
+      {/* Above the grid: what came out of this block is read before walking it. */}
+      <PullFirstPanel
+        blockId={block.id}
+        entries={saved?.pull_first ?? []}
+        minUnits={saved?.plan_data?.minUnits}
+      />
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-slate-400 gap-2">
