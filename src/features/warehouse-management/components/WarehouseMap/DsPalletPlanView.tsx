@@ -26,6 +26,8 @@ interface BlockPanelProps {
   onSelectSku: (selection: SelectedSku) => void;
   onSkuInfo: (info: Map<string, SkuDetailInfo>) => void;
   onGoToNoMovers: () => void;
+  /** True while the *other* block is the one being sent to the printer. */
+  hiddenForPrint: boolean;
 }
 
 const BlockPanel: React.FC<BlockPanelProps> = ({
@@ -36,6 +38,7 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
   onSelectSku,
   onSkuInfo,
   onGoToNoMovers,
+  hiddenForPrint,
 }) => {
   const { data: planResult, isLoading, isError, error } = useDsPalletPlan(block.id);
   const { checks, blocker, candidates, revalidate } = useBlockReadiness(
@@ -130,12 +133,15 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
       ? 'flex-[2_1_0%] min-w-[24rem]'
       : 'flex-[1_1_0%] min-w-[15rem]';
 
-  // `break-inside-avoid` keeps a block whole; `break-after-page` pushes the
-  // next one onto its own sheet. The last block clears it, or the browser
-  // emits a trailing blank page.
+  // Printing is one block per job, so nothing here forces a page break: the
+  // other block is simply not in the document being printed.
+  //
+  // The section itself must stay breakable. Block B's Pull First runs to 23
+  // rows, and a section that cannot break does not shrink to fit — it gets
+  // clipped. Only the grid is kept whole, so the overflow lands in the list.
   return (
     <section
-      className={`print:min-w-0 print:w-full print:break-inside-avoid print:break-after-page print:last:break-after-auto ${width}`}
+      className={`print:min-w-0 print:w-full ${hiddenForPrint ? 'print:hidden' : ''} ${width}`}
     >
       <div className="print:hidden flex flex-wrap items-center gap-x-3 gap-y-2 mb-2">
         <div className="min-w-0 flex-1">
@@ -252,27 +258,30 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
     });
   }, []);
 
-  // One portrait sheet per block. A block is walked as a tall column of
-  // positions, so portrait matches what the reader is holding, and the two
-  // blocks must never share a page — comparing them is not the job, walking
-  // one of them is.
-  const handlePrint = () => {
+  // One block per print job. Page breaks between the two never survived the
+  // scrolling ancestors — a scroll container is not fragmented, so every
+  // break-after inside it was dropped and both blocks landed on one sheet.
+  // Printing them separately removes the fragmentation problem instead of
+  // fighting it: the other block is not in the document being printed.
+  const [printing, setPrinting] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!printing) return;
+
     const style = document.createElement('style');
     style.id = 'print-portrait-override';
     style.innerHTML = '@page { size: A4 portrait !important; margin: 8mm !important; }';
     document.head.appendChild(style);
 
-    const cleanup = () => {
-      document.getElementById('print-portrait-override')?.remove();
-      window.removeEventListener('afterprint', cleanup);
-    };
-    window.addEventListener('afterprint', cleanup, { once: true });
+    // Runs after the commit that hid the other block, so the printer sees it.
     window.print();
-    setTimeout(cleanup, 2000);
-  };
+
+    style.remove();
+    setPrinting(null);
+  }, [printing]);
 
   return (
-    <div className="w-full h-full overflow-auto bg-white">
+    <div className="w-full h-full overflow-auto bg-white print:h-auto print:overflow-visible">
       <div className="p-6 pb-32 print:p-0">
         <div className="print:hidden flex flex-wrap justify-between items-center gap-3 mb-5">
           <h2 className="text-2xl font-bold text-slate-800 min-w-0">Warehouse Top View</h2>
@@ -280,14 +289,18 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
           {/* shrink-0 so the controls wrap under the title instead of sliding
               past the layout's clipped right edge, where they are unreachable. */}
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3.5 h-10 rounded-lg border border-gray-200 bg-white text-slate-700 shadow-sm hover:bg-gray-50 active:scale-95 transition-all font-semibold text-xs tracking-wide"
-              title="Print — one sheet per block"
-            >
-              <Printer className="w-4 h-4 text-slate-500" />
-              <span>Print (2 sheets)</span>
-            </button>
+            {BLOCKS.map((b) => (
+              <button
+                key={b.id}
+                onClick={() => setPrinting(b.id)}
+                disabled={printing !== null}
+                className="flex items-center gap-1.5 px-3.5 h-10 rounded-lg border border-gray-200 bg-white text-slate-700 shadow-sm hover:bg-gray-50 active:scale-95 disabled:opacity-40 transition-all font-semibold text-xs tracking-wide"
+                title={`Print block ${b.id} on its own sheet`}
+              >
+                <Printer className="w-4 h-4 text-slate-500" />
+                <span>Print {b.id}</span>
+              </button>
+            ))}
             <button
               onClick={() => setRotation((r) => r + 90)}
               className="flex items-center justify-center w-10 h-10 rounded-lg border border-gray-200 bg-white text-slate-600 shadow-sm hover:bg-gray-50 hover:text-slate-800 transition-colors"
@@ -311,6 +324,7 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
                 onSelectSku={setSelectedSku}
                 onSkuInfo={mergeSkuInfo}
                 onGoToNoMovers={onGoToNoMovers}
+                hiddenForPrint={printing !== null && printing !== b.id}
               />
             );
           })}
