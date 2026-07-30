@@ -62,3 +62,4 @@ public/reports/daily/
 reports/performance/*.txt
 
 scripts/.sync-progress
+.env.bak-*

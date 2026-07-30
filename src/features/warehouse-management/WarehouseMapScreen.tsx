@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { WarehouseMap } from './components/WarehouseMap/WarehouseMap';
+import { DsPalletPlanView } from './components/WarehouseMap/DsPalletPlanView';
 import { WarehouseLiveMap } from './components/WarehouseMap/WarehouseLiveMap';
 import { NoMoverClassification } from './components/NoMoverClassification';
 import { useNavigate } from 'react-router-dom';
@@ -72,7 +72,7 @@ export const WarehouseMapScreen: React.FC = () => {
         {activeTab === 'no-movers' ? (
           <NoMoverClassification />
         ) : activeTab === 'plan' ? (
-          <WarehouseMap />
+          <DsPalletPlanView />
         ) : (
           <WarehouseLiveMap />
         )}
