@@ -7,6 +7,25 @@ if [ "$STAGED_COUNT" -gt 15 ]; then
   echo ""
 fi
 
+# A migration filename must carry a 14-digit YYYYMMDDHHMMSS version. The CLI
+# matches local files against the remote history table by that prefix, and a
+# shorter one never matches: a single `20260717_` file made every `db push`
+# fail with "Remote migration versions not found", and unblocking it meant
+# repairing the history table of the production database by hand.
+BAD_MIGRATIONS=$(git diff --cached --name-only --diff-filter=ACMR \
+  | grep -E '^supabase/migrations/.*\.sql$' \
+  | sed 's|.*/||' \
+  | grep -vE '^[0-9]{14}_' || true)
+
+if [ -n "$BAD_MIGRATIONS" ]; then
+  echo ""
+  echo "❌ Migration filenames need a 14-digit YYYYMMDDHHMMSS prefix:"
+  echo "$BAD_MIGRATIONS" | sed 's/^/   /'
+  echo "   Rename to e.g. $(date -u +%Y%m%d%H%M%S)_your_change.sql"
+  echo ""
+  exit 1
+fi
+
 npx lint-staged
 
 # Typecheck when TS/TSX files are staged. `vite build` does not typecheck, so
