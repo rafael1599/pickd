@@ -68,6 +68,11 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
     return (saved?.pull_first ?? []).filter((e) => placed.has(e.sku));
   }, [slots, saved]);
 
+  const strandedBySku = useMemo(
+    () => new Map(strandedHere.map((e) => [e.sku, e.units])),
+    [strandedHere]
+  );
+
   const stamp = useMemo(() => {
     if (!saved?.updated_at) return null;
     const d = new Date(saved.updated_at);
@@ -245,7 +250,26 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
           </span>
         </div>
       ) : (
-        <DsPalletGrid block={block} slots={slots} rotation={rotation} onSelectSku={onSelectSku} />
+        <>
+          {/* The sheet leaves the screen behind, so the marks explain themselves. */}
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mb-1.5 text-[11px] text-slate-500 print:text-black">
+            <span>
+              <span className="font-bold text-slate-600 print:text-black">✗</span> already in this
+              block — leave it
+            </span>
+            <span>
+              <span className="font-bold text-amber-700 print:text-black">★</span> more of this SKU
+              is in Pull First
+            </span>
+          </div>
+          <DsPalletGrid
+            block={block}
+            slots={slots}
+            strandedBySku={strandedBySku}
+            rotation={rotation}
+            onSelectSku={onSelectSku}
+          />
+        </>
       )}
     </section>
   );

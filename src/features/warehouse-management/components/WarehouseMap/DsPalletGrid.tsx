@@ -11,6 +11,8 @@ import type { SelectedSku } from './SkuDetailPanel';
 interface DsPalletGridProps {
   block: BlockConfig;
   slots: PalletSlot[];
+  /** Units per SKU still sitting in Pull First. */
+  strandedBySku: Map<string, number>;
   rotation: number;
   onSelectSku: (selection: SelectedSku) => void;
 }
@@ -22,6 +24,7 @@ const CELL_HEIGHT_REM = 3.4;
 export const DsPalletGrid: React.FC<DsPalletGridProps> = ({
   block,
   slots,
+  strandedBySku,
   rotation,
   onSelectSku,
 }) => {
@@ -112,6 +115,9 @@ export const DsPalletGrid: React.FC<DsPalletGridProps> = ({
                   <DsPalletCell
                     key={`${row}-${letter}`}
                     usage={slot?.usage ?? { kind: 'empty' }}
+                    strandedUnits={
+                      slot?.usage.kind === 'pallet' ? (strandedBySku.get(slot.usage.sku) ?? 0) : 0
+                    }
                     heightRem={CELL_HEIGHT_REM}
                     dashed={letter === lastLetter && block.reserveLastPosition}
                     onSelectSku={(selection) =>

@@ -8,6 +8,8 @@ import type { SelectedSku } from './SkuDetailPanel';
 // and at the size it was laid out. Nothing here counter-rotates.
 interface DsPalletCellProps {
   usage: SlotUsage;
+  /** Units of this SKU stranded in Pull First, if any. */
+  strandedUnits?: number;
   /** Fixed across the grid — every cell now holds exactly one pallet. */
   heightRem: number;
   onSelectSku: (selection: SelectedSku) => void;
@@ -22,6 +24,7 @@ const PRINT_HEIGHT_SCALE = 1.5;
 
 export const DsPalletCell: React.FC<DsPalletCellProps> = ({
   usage,
+  strandedUnits = 0,
   heightRem,
   onSelectSku,
   borderRight,
@@ -78,9 +81,22 @@ export const DsPalletCell: React.FC<DsPalletCellProps> = ({
         <span className={isFull ? 'text-slate-500' : 'text-amber-700'}>
           {isFull ? '● full' : '◐ partial'}
         </span>
+        {/* Two marks that survive a photocopy: this pallet is already standing
+            here, and there is more of this SKU still outside the block. */}
         {anchored && (
-          <span className="text-slate-400 print:text-slate-600" title="already in place">
-            · in place
+          <span
+            className="font-bold text-slate-600 print:text-black"
+            title="Already in this block — leave it where it is"
+          >
+            ✗
+          </span>
+        )}
+        {strandedUnits > 0 && (
+          <span
+            className="font-bold text-amber-700 print:text-black"
+            title={`${strandedUnits}u of this SKU are in Pull First`}
+          >
+            ★{strandedUnits}
           </span>
         )}
       </div>
