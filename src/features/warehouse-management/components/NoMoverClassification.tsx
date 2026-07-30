@@ -12,7 +12,7 @@ import toast from 'react-hot-toast';
 import { SearchInput } from '../../../components/ui/SearchInput';
 import { useDebounce } from '../../../hooks/useDebounce';
 import { BringInPanel } from './BringInPanel';
-import { BLOCKS, DS_PALLET_MIN_DEFAULT } from '../../../utils/dsPalletPlanner';
+import { BLOCKS, DS_PALLET_MIN_DEFAULT, blockCapacity } from '../../../utils/dsPalletPlanner';
 import {
   useBlockSettings,
   useUpdateBlockSettings,
@@ -20,6 +20,7 @@ import {
   useSetNoMovers,
   useRemoveNoMovers,
   useBlockClassification,
+  blockWithSettings,
   type ClassificationCandidate,
 } from '../hooks/useNoMoverList';
 import { EXCLUSION_REASONS, useExcludeSkus, useExcludedSkus } from '../hooks/useBikeCandidates';
@@ -374,6 +375,7 @@ export const NoMoverClassification: React.FC = () => {
             blockId={blockId}
             blockLabel={`block ${blockId} · ${block.label}`}
             blockRows={block.rows}
+            capacityCells={blockCapacity(blockWithSettings(block, saved)).cells}
             minUnits={minUnits}
             recencyDays={activeRecency}
           />
