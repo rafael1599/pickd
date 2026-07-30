@@ -15,6 +15,7 @@ import {
   blockCapacity,
   splitIntoPallets,
   type BlockConfig,
+  type MinimumFit,
   type NoMoverCandidate,
 } from '../../../utils/dsPalletPlanner';
 import {
@@ -23,7 +24,8 @@ import {
   type BlockSettings,
   type NoMoverEntry,
 } from './useNoMoverList';
-import { useDsPalletCandidates } from './useDsPalletPlan';
+import { buildAssignment, useAutoAssignment } from './useAutoAssignment';
+import { useBikeCandidates } from './useBikeCandidates';
 
 export type CheckStatus = 'ok' | 'warning' | 'blocked' | 'loading';
 
@@ -122,22 +124,16 @@ export function buildChecks({
     checks.push({ id: 'list', status: 'loading', label: 'No-mover list', detail: 'Loading…' });
     return checks;
   }
-  if (listed.length === 0) {
-    checks.push({
-      id: 'list',
-      status: 'blocked',
-      label: 'No-mover list',
-      detail: `0 SKUs assigned to block ${block.id}`,
-      fix: `Open the No-movers tab, pick block ${block.id} (${block.label}), select the SKUs that stay and press "Add to list".`,
-      goToNoMovers: true,
-    });
-    return checks;
-  }
+  // Candidates are assigned automatically now, so an empty manual list is
+  // normal rather than a blocker — it only means nothing was pinned by hand.
   checks.push({
     id: 'list',
     status: 'ok',
-    label: 'No-mover list',
-    detail: `${listed.length} SKU${listed.length === 1 ? '' : 's'} assigned to block ${block.id}`,
+    label: 'Pinned by hand',
+    detail:
+      listed.length === 0
+        ? `None — block ${block.id} fills automatically`
+        : `${listed.length} SKU${listed.length === 1 ? '' : 's'} pinned to block ${block.id}`,
   });
 
   // 3 — Live stock for the listed SKUs. A list pointing at SKUs whose stock is
@@ -163,9 +159,9 @@ export function buildChecks({
     checks.push({
       id: 'stock',
       status: 'blocked',
-      label: 'Stock',
-      detail: `None of the ${rows.length} listed SKUs has active stock`,
-      fix: 'The list points at SKUs with quantity 0 or is_active = false. Fix the stock, or discard them in the No-movers tab.',
+      label: 'Candidates',
+      detail: `No bike qualifies for block ${block.id}`,
+      fix: 'Every bike is either a mover, excluded, or out of stock. Widen the recency window, or restore something from the excluded list.',
       goToNoMovers: true,
     });
     return checks;
@@ -185,7 +181,7 @@ export function buildChecks({
   checks.push({
     id: 'stock',
     status: 'ok',
-    label: 'Stock',
+    label: 'Candidates',
     detail: `${withStock.length} SKUs · ${totalUnits}u → ${palletsNeeded} pallet${
       palletsNeeded === 1 ? '' : 's'
     }`,
@@ -218,6 +214,8 @@ export function buildChecks({
 export interface RevalidateResult {
   blocker: ReadinessCheck | null;
   candidates: NoMoverCandidate[];
+  /** The fitted minimum for the fresh pool — what the plan should run at. */
+  minUnits: number;
 }
 
 export interface BlockReadiness {
@@ -225,6 +223,8 @@ export interface BlockReadiness {
   /** The first check that makes a recalculation impossible, if any. */
   blocker: ReadinessCheck | null;
   candidates: NoMoverCandidate[];
+  /** The minimum that fills both blocks from the shared pool. */
+  fit: MinimumFit;
   /** Re-reads every precondition and judges the fresh data, not this render. */
   revalidate: () => Promise<RevalidateResult>;
 }
@@ -233,10 +233,23 @@ export interface BlockReadiness {
  * Reads the three inputs a plan needs — settings, curated list, live stock —
  * and reports each one on its own.
  */
-export function useBlockReadiness(block: BlockConfig, minUnits: number): BlockReadiness {
+export function useBlockReadiness(
+  block: BlockConfig,
+  minUnits: number,
+  recencyDays: number
+): BlockReadiness {
   const settings = useBlockSettings();
   const noMovers = useNoMovers();
-  const candidates = useDsPalletCandidates(block);
+  const bikes = useBikeCandidates(recencyDays);
+  const auto = useAutoAssignment(minUnits, recencyDays);
+
+  // What this block was actually given, not what someone typed into a list.
+  const candidates = {
+    data: bikes.data ? (auto.byBlock.get(block.id) ?? []) : undefined,
+    error: bikes.error,
+    isLoading: bikes.isLoading,
+    refetch: bikes.refetch,
+  };
 
   const checks = useMemo(
     () =>
@@ -280,10 +293,14 @@ export function useBlockReadiness(block: BlockConfig, minUnits: number): BlockRe
       noMovers.refetch(),
     ]);
 
-    // The candidates query is keyed by the SKU list, so a list that just went
-    // from empty to populated has no cached result to refetch — it reports as
-    // still loading, and the checks below will say so rather than plan on it.
-    const freshCandidates = await candidates.refetch();
+    // Rebuilt from the fresh pool, not read off the last render: an exclusion
+    // made seconds ago in the other tab has to count.
+    const freshBikes = await bikes.refetch();
+    const freshAssignment = buildAssignment(freshBikes.data, freshNoMovers.data, minUnits);
+    const freshCandidates = {
+      data: freshAssignment.byBlock.get(block.id) ?? [],
+      error: freshBikes.error,
+    };
 
     const fresh = buildChecks({
       block,
@@ -308,6 +325,7 @@ export function useBlockReadiness(block: BlockConfig, minUnits: number): BlockRe
     return {
       blocker: fresh.find((c) => c.status === 'blocked') ?? null,
       candidates: freshCandidates.data ?? [],
+      minUnits: freshAssignment.fit.minUnits,
     };
   };
 
@@ -315,6 +333,7 @@ export function useBlockReadiness(block: BlockConfig, minUnits: number): BlockRe
     checks,
     blocker: checks.find((c) => c.status === 'blocked') ?? null,
     candidates: candidates.data ?? [],
+    fit: auto.fit,
     revalidate,
   };
 }

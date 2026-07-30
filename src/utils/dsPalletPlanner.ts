@@ -384,8 +384,82 @@ export function blockCapacity(block: BlockConfig): { cells: number; units: numbe
   return { cells, units: cells * DS_PALLET_MAX };
 }
 
+/** A bike offered to the blocks, before it belongs to either of them. */
+export interface PoolCandidate {
+  sku: string;
+  totalQty: number;
+  /** Where its units sit today. A cell inside a block both anchors and assigns it. */
+  currentPlacements?: CurrentPlacement[];
+  /** Set when someone put this SKU on a block's list by hand; that decision wins. */
+  pinnedBlockId?: string;
+}
+
+/**
+ * Hands every candidate to a block, filling both to capacity.
+ *
+ * The blocks are meant to end up full: an empty sublocation is wasted floor,
+ * and curating two lists by hand to achieve that is work nobody should do. So
+ * assignment is automatic, and only two things override it — a SKU pinned to a
+ * block by hand, and a SKU already standing in a block's rows, which keeps its
+ * cell (RF-012).
+ *
+ * The rest is greedy by quantity: the largest SKUs go first, each to whichever
+ * block has the most cells still to fill. Largest-first matters because a SKU
+ * of 60 has to land somewhere it can keep its pallets together, and ties break
+ * on SKU so the result does not depend on which Recalculate was pressed.
+ */
+export function assignCandidates(
+  pool: PoolCandidate[],
+  blocks: BlockConfig[],
+  minUnits: number = DS_PALLET_MIN_DEFAULT
+): Map<string, NoMoverCandidate[]> {
+  const assigned = new Map<string, NoMoverCandidate[]>(blocks.map((b) => [b.id, []]));
+  const remaining = new Map<string, number>(blocks.map((b) => [b.id, blockCapacity(b).cells]));
+
+  const rowOwner = new Map<string, string>();
+  for (const block of blocks) {
+    for (const row of block.rows) rowOwner.set(row, block.id);
+  }
+
+  const take = (blockId: string, candidate: PoolCandidate) => {
+    assigned.get(blockId)?.push({
+      sku: candidate.sku,
+      totalQty: candidate.totalQty,
+      blockId,
+      currentPlacements: candidate.currentPlacements,
+    });
+    const cells = splitIntoPallets(candidate.totalQty, minUnits).pallets.length;
+    remaining.set(blockId, (remaining.get(blockId) ?? 0) - cells);
+  };
+
+  // Deterministic order: biggest first, then by SKU so ties never wobble.
+  const ordered = [...pool].sort((a, b) => b.totalQty - a.totalQty || a.sku.localeCompare(b.sku));
+
+  const leftovers: PoolCandidate[] = [];
+  for (const candidate of ordered) {
+    const home =
+      candidate.pinnedBlockId ??
+      candidate.currentPlacements?.map((p) => rowOwner.get(p.row)).find(Boolean);
+
+    if (home && assigned.has(home)) take(home, candidate);
+    else leftovers.push(candidate);
+  }
+
+  // Then fill, always feeding the emptiest block so neither is left short.
+  for (const candidate of leftovers) {
+    const target = blocks
+      .map((b) => b.id)
+      .sort((a, b) => (remaining.get(b) ?? 0) - (remaining.get(a) ?? 0) || a.localeCompare(b))[0];
+
+    if ((remaining.get(target) ?? 0) <= 0) break;
+    take(target, candidate);
+  }
+
+  return assigned;
+}
+
 /** How many pallets a set of candidates yields at a given minimum. */
-export function palletsAt(candidates: NoMoverCandidate[], minUnits: number): number {
+export function palletsAt(candidates: { totalQty: number }[], minUnits: number): number {
   return candidates.reduce(
     (sum, c) => sum + splitIntoPallets(c.totalQty, minUnits).pallets.length,
     0
@@ -415,11 +489,18 @@ export interface MinimumFit {
  * three-unit pallets would hide it.
  */
 export function fitMinimum(
-  candidates: NoMoverCandidate[],
-  block: BlockConfig,
+  candidates: { totalQty: number }[],
+  blocks: BlockConfig | BlockConfig[],
   preferred: number = DS_PALLET_MIN_DEFAULT
 ): MinimumFit {
-  const { cells } = blockCapacity(block);
+  // Fitting is global when both blocks are filled from one pool: lowering the
+  // minimum for A while B stays short would leave the floor half empty and
+  // call it a fit.
+  const cells = (Array.isArray(blocks) ? blocks : [blocks]).reduce(
+    (sum, b) => sum + blockCapacity(b).cells,
+    0
+  );
+
   const atPreferred = palletsAt(candidates, preferred);
   if (atPreferred >= cells) {
     return { minUnits: preferred, pallets: atPreferred, cells, fills: true };

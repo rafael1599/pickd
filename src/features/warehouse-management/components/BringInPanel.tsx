@@ -27,8 +27,15 @@ interface BringInPanelProps {
   blockLabel: string;
   /** The block's own rows — those SKUs are already handled by the other tab. */
   blockRows: string[];
+  /** Assignable cells in the block. The ceiling is counted in cells, not SKUs. */
+  capacityCells: number;
   minUnits: number;
   recencyDays: number;
+}
+
+/** Cells a SKU will occupy: full pallets, plus a remainder that earns its own. */
+function cellsFor(totalQty: number, minUnits: number): number {
+  return Math.floor(totalQty / 25) + (totalQty % 25 >= minUnits ? 1 : 0);
 }
 
 function formatDate(iso: string | null): string {
@@ -40,6 +47,7 @@ export const BringInPanel: React.FC<BringInPanelProps> = ({
   blockId,
   blockLabel,
   blockRows,
+  capacityCells,
   minUnits,
   recencyDays,
 }) => {
@@ -84,6 +92,23 @@ export const BringInPanel: React.FC<BringInPanelProps> = ({
   const selectedRows = rows.filter((c) => selected.has(c.sku));
   const busy = setNoMovers.isPending || exclude.isPending || unexclude.isPending;
 
+  // The ceiling is cells, not SKUs: one SKU of 60u takes three of them. What is
+  // already on the block's list counts against it, so the number on screen is
+  // what is genuinely left rather than a fresh 27 every visit.
+  const committedCells = useMemo(() => {
+    const qtyBySku = new Map((candidates ?? []).map((c) => [c.sku, c.totalQty]));
+    return (listed ?? [])
+      .filter((n) => n.block_id === blockId)
+      .reduce((sum, n) => sum + cellsFor(qtyBySku.get(n.sku) ?? 0, minUnits), 0);
+  }, [listed, candidates, blockId, minUnits]);
+
+  const selectedCells = selectedRows
+    .filter((c) => !c.isMover)
+    .reduce((sum, c) => sum + cellsFor(c.totalQty, minUnits), 0);
+
+  const freeCells = capacityCells - committedCells;
+  const overBy = selectedCells - freeCells;
+
   const toggle = (sku: string) =>
     setSelected((prev) => {
       const next = new Set(prev);
@@ -106,6 +131,19 @@ export const BringInPanel: React.FC<BringInPanelProps> = ({
         skipped === 1
           ? 'That SKU is a mover — it cannot be brought into a block.'
           : 'Those SKUs are movers — they cannot be brought into a block.'
+      );
+      return;
+    }
+
+    // Refuse rather than trim: silently dropping the tail would leave the
+    // operator believing SKUs are in the block that never made it.
+    const wanted = eligible.reduce((sum, c) => sum + cellsFor(c.totalQty, minUnits), 0);
+    if (wanted > freeCells) {
+      toast.error(
+        freeCells <= 0
+          ? `Block ${blockId} is full — ${committedCells} of ${capacityCells} cells taken. Free some up first.`
+          : `That needs ${wanted} cells and block ${blockId} has ${freeCells} left. Deselect ${wanted - freeCells} cells' worth.`,
+        { duration: 7000 }
       );
       return;
     }
@@ -224,11 +262,23 @@ export const BringInPanel: React.FC<BringInPanelProps> = ({
             <>
               <button
                 onClick={() => handleAdd(selectedRows)}
-                disabled={busy}
+                disabled={busy || overBy > 0 || selectedCells === 0}
+                title={
+                  overBy > 0 ? `${overBy} cells over what block ${blockId} has left` : undefined
+                }
                 className="px-2.5 py-1 rounded-md bg-emerald-600 font-bold disabled:opacity-40"
               >
                 Bring into block {blockId}
               </button>
+
+              {/* The count is the whole point: selection is free, the block is not. */}
+              <span
+                className={`font-bold ${overBy > 0 ? 'text-rose-300' : 'text-slate-300'}`}
+                title={`${committedCells} of ${capacityCells} cells already taken in block ${blockId}`}
+              >
+                {selectedCells} of {freeCells} free cells
+                {overBy > 0 && ` · ${overBy} over`}
+              </span>
               <span className="text-slate-400">·</span>
               {EXCLUSION_REASONS.map((r) => (
                 <button
