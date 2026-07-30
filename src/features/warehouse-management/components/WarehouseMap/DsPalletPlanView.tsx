@@ -129,8 +129,13 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
       ? 'flex-[2_1_0%] min-w-[24rem]'
       : 'flex-[1_1_0%] min-w-[15rem]';
 
+  // `break-inside-avoid` keeps a block whole; `break-after-page` pushes the
+  // next one onto its own sheet. The last block clears it, or the browser
+  // emits a trailing blank page.
   return (
-    <section className={`print:min-w-0 print:w-full print:break-after-page ${width}`}>
+    <section
+      className={`print:min-w-0 print:w-full print:break-inside-avoid print:break-after-page print:last:break-after-auto ${width}`}
+    >
       <div className="print:hidden flex flex-wrap items-center gap-x-3 gap-y-2 mb-2">
         <div className="min-w-0 flex-1">
           <h3 className="font-bold text-slate-800 text-sm">
@@ -239,14 +244,18 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
     });
   }, []);
 
+  // One portrait sheet per block. A block is walked as a tall column of
+  // positions, so portrait matches what the reader is holding, and the two
+  // blocks must never share a page — comparing them is not the job, walking
+  // one of them is.
   const handlePrint = () => {
     const style = document.createElement('style');
-    style.id = 'print-landscape-override';
-    style.innerHTML = '@page { size: A4 landscape !important; margin: 6mm !important; }';
+    style.id = 'print-portrait-override';
+    style.innerHTML = '@page { size: A4 portrait !important; margin: 8mm !important; }';
     document.head.appendChild(style);
 
     const cleanup = () => {
-      document.getElementById('print-landscape-override')?.remove();
+      document.getElementById('print-portrait-override')?.remove();
       window.removeEventListener('afterprint', cleanup);
     };
     window.addEventListener('afterprint', cleanup, { once: true });
