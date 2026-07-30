@@ -72,7 +72,7 @@ export const WarehouseMapScreen: React.FC = () => {
         {activeTab === 'no-movers' ? (
           <NoMoverClassification />
         ) : activeTab === 'plan' ? (
-          <DsPalletPlanView />
+          <DsPalletPlanView onGoToNoMovers={() => setActiveTab('no-movers')} />
         ) : (
           <WarehouseLiveMap />
         )}

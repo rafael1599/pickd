@@ -34,15 +34,23 @@ export interface PersistedDsPalletPlan {
 const planId = (blockId: string) => `LUDLOW_DSP_${blockId}`;
 const planKey = (blockId: string) => ['ds-pallet-plan', blockId];
 
+export interface PlanQueryResult {
+  /** Null when there is no plan this code can read. */
+  plan: PersistedDsPalletPlan | null;
+  /** The version found when a row exists but predates the current model. */
+  staleVersion: number | null;
+}
+
 /**
- * The saved plan for a block, or null when there is none the current code can
- * read. A stale plan_version is treated as "no plan" so the UI asks for a
- * recalculation instead of rendering cells from a model that no longer exists.
+ * The saved plan for a block. A stale plan_version is not rendered — the cells
+ * would come from a model that no longer exists — but it is reported instead of
+ * being flattened into "no plan", because "recalculate to upgrade this" and
+ * "nothing was ever saved" are different things to tell the operator.
  */
 export function useDsPalletPlan(blockId: string) {
   return useQuery({
     queryKey: planKey(blockId),
-    queryFn: async (): Promise<PersistedDsPalletPlan | null> => {
+    queryFn: async (): Promise<PlanQueryResult> => {
       const { data, error } = await supabase
         .from('warehouse_overstock_plans')
         .select('*')
@@ -52,11 +60,13 @@ export function useDsPalletPlan(blockId: string) {
       if (error && error.code !== 'PGRST116') {
         throw new Error(`Failed to load plan: ${error.message}`);
       }
-      if (!data) return null;
+      if (!data) return { plan: null, staleVersion: null };
 
       const record = data as unknown as PersistedDsPalletPlan;
-      if (record.plan_version !== PLAN_VERSION) return null;
-      return record;
+      if (record.plan_version !== PLAN_VERSION) {
+        return { plan: null, staleVersion: record.plan_version };
+      }
+      return { plan: record, staleVersion: null };
     },
     staleTime: 60_000,
   });

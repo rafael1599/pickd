@@ -8,14 +8,12 @@ import React, { useMemo, useState } from 'react';
 import { Loader2, Printer, RefreshCw, RotateCw, CheckCircle2, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { DsPalletGrid } from './DsPalletGrid';
+import { BlockReadinessPanel } from './BlockReadinessPanel';
 import { SkuDetailPanel, type SelectedSku, type SkuDetailInfo } from './SkuDetailPanel';
 import { BLOCKS, DS_PALLET_MIN_DEFAULT, type BlockConfig } from '../../../../utils/dsPalletPlanner';
 import { blockWithSettings, useBlockSettings } from '../../hooks/useNoMoverList';
-import {
-  useDsPalletCandidates,
-  useDsPalletPlan,
-  useRecalculateDsPalletPlan,
-} from '../../hooks/useDsPalletPlan';
+import { useBlockReadiness } from '../../hooks/useBlockReadiness';
+import { useDsPalletPlan, useRecalculateDsPalletPlan } from '../../hooks/useDsPalletPlan';
 
 interface BlockPanelProps {
   block: BlockConfig;
@@ -23,6 +21,7 @@ interface BlockPanelProps {
   rotation: number;
   onSelectSku: (selection: SelectedSku) => void;
   onSkuInfo: (info: Map<string, SkuDetailInfo>) => void;
+  onGoToNoMovers: () => void;
 }
 
 const BlockPanel: React.FC<BlockPanelProps> = ({
@@ -31,11 +30,14 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
   rotation,
   onSelectSku,
   onSkuInfo,
+  onGoToNoMovers,
 }) => {
-  const { data: saved, isLoading, isError } = useDsPalletPlan(block.id);
-  const { data: candidates } = useDsPalletCandidates(block);
+  const { data: planResult, isLoading, isError, error } = useDsPalletPlan(block.id);
+  const { checks, blocker, candidates, revalidate } = useBlockReadiness(block, minUnits);
   const recalculate = useRecalculateDsPalletPlan();
 
+  const saved = planResult?.plan ?? null;
+  const staleVersion = planResult?.staleVersion ?? null;
   const slots = saved?.plan_data?.slots ?? [];
   const pullFirstCount = saved?.pull_first?.length ?? 0;
 
@@ -50,7 +52,7 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
 
   // The detail panel needs a name and a source per SKU; candidates carry both.
   React.useEffect(() => {
-    if (!candidates) return;
+    if (candidates.length === 0) return;
     const map = new Map<string, SkuDetailInfo>();
     for (const c of candidates) {
       map.set(c.sku, {
@@ -65,19 +67,28 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
     onSkuInfo(map);
   }, [candidates, onSkuInfo]);
 
+  // The button always does something. A missing precondition is often stale
+  // rather than real — the list is usually edited in the other tab, seconds
+  // ago — so it re-reads everything first, then names the one still blocking
+  // instead of sitting there disabled.
   const handleRecalculate = async () => {
-    if (!candidates || candidates.length === 0) {
-      toast.error('Define the no-mover list for this block first.');
+    const { blocker: fresh, candidates: rows } = await revalidate();
+
+    if (fresh) {
+      toast.error(`${fresh.label}: ${fresh.fix ?? fresh.detail}`, { duration: 7000 });
       return;
     }
-    const plan = await recalculate.mutateAsync({ block, candidates, minUnits });
+    if (rows.length === 0) {
+      toast('Stock is still loading for this block — press Recalculate again.');
+      return;
+    }
+
+    const plan = await recalculate.mutateAsync({ block, candidates: rows, minUnits });
     const placed = plan.slots.filter((s) => s.usage.kind === 'pallet').length;
     toast.success(
       `Block ${block.id}: ${placed} pallets placed, ${plan.pullFirst.length} to Pull First`
     );
   };
-
-  const hasList = (candidates?.length ?? 0) > 0;
 
   return (
     <section className="flex-1 min-w-[26rem] print:min-w-0 print:break-after-page">
@@ -99,15 +110,32 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
           )}
         </div>
 
+        {/* Only ever disabled while it is working: a disabled button is not an
+            error message, and this one used to be the whole explanation. */}
         <button
           onClick={handleRecalculate}
-          disabled={recalculate.isPending || !hasList}
-          title={hasList ? undefined : 'Define the no-mover list for this block first'}
-          className="ml-auto flex items-center gap-1.5 px-3 h-9 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm hover:bg-emerald-100 active:scale-95 disabled:opacity-40 transition-all font-semibold text-xs tracking-wide"
+          disabled={recalculate.isPending}
+          className={`ml-auto flex items-center gap-1.5 px-3 h-9 rounded-lg border shadow-sm active:scale-95 disabled:opacity-40 transition-all font-semibold text-xs tracking-wide ${
+            blocker
+              ? 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+          }`}
         >
           <RefreshCw className={`w-4 h-4 ${recalculate.isPending ? 'animate-spin' : ''}`} />
           <span>{recalculate.isPending ? 'Recalculating…' : `Recalculate ${block.id}`}</span>
         </button>
+      </div>
+
+      {/* Keyed on the blocked/clear state: crossing that line remounts the
+          panel so the fold returns to the default for the new situation. */}
+      <div className="mb-3">
+        <BlockReadinessPanel
+          key={blocker ? 'blocked' : 'clear'}
+          blockId={block.id}
+          checks={checks}
+          defaultOpen={blocker !== null}
+          onGoToNoMovers={onGoToNoMovers}
+        />
       </div>
 
       {/* Print keeps the block identified once the buttons are gone. */}
@@ -120,14 +148,27 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
           <Loader2 className="w-5 h-5 animate-spin" /> Loading plan…
         </div>
       ) : isError ? (
-        <div className="flex items-center justify-center gap-2 py-16 text-rose-600 text-sm font-medium">
-          <AlertTriangle className="w-4 h-4" /> Failed to load this block&apos;s plan.
+        <div className="flex flex-col items-center justify-center gap-1.5 py-16 px-4 text-center text-rose-600 text-sm font-medium">
+          <span className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4" /> Failed to load this block&apos;s plan.
+          </span>
+          <span className="text-xs font-normal text-rose-500 break-words">
+            {(error as Error)?.message}
+          </span>
         </div>
       ) : slots.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-1 py-16 text-slate-400 text-sm border-2 border-dashed border-slate-200 rounded-lg">
-          <span>No plan saved for block {block.id}.</span>
-          <span className="text-xs">
-            {hasList ? 'Press Recalculate to build it.' : 'Define its no-mover list first.'}
+        <div className="flex flex-col items-center justify-center gap-1 py-16 px-4 text-center text-slate-500 text-sm border-2 border-dashed border-slate-200 rounded-lg">
+          <span>
+            {staleVersion !== null
+              ? `Block ${block.id} has a plan from an older model (v${staleVersion}).`
+              : `No plan saved for block ${block.id}.`}
+          </span>
+          <span className="text-xs text-slate-400">
+            {blocker
+              ? `${blocker.label}: ${blocker.fix ?? blocker.detail}`
+              : staleVersion !== null
+                ? 'Press Recalculate to rebuild it under the DS-Pallet model.'
+                : 'Press Recalculate to build it.'}
           </span>
         </div>
       ) : (
@@ -137,7 +178,12 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
   );
 };
 
-export const DsPalletPlanView: React.FC = () => {
+interface DsPalletPlanViewProps {
+  /** Lets a blocked block send the user straight to where its fix lives. */
+  onGoToNoMovers: () => void;
+}
+
+export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMovers }) => {
   const [rotation, setRotation] = useState(0);
   const [selectedSku, setSelectedSku] = useState<SelectedSku | null>(null);
   const [skuInfo, setSkuInfo] = useState<Map<string, SkuDetailInfo>>(new Map());
@@ -203,6 +249,7 @@ export const DsPalletPlanView: React.FC = () => {
                 rotation={rotation}
                 onSelectSku={setSelectedSku}
                 onSkuInfo={mergeSkuInfo}
+                onGoToNoMovers={onGoToNoMovers}
               />
             );
           })}
