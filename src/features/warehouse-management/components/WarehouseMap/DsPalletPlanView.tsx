@@ -8,6 +8,7 @@ import React, { useMemo, useState } from 'react';
 import { Loader2, Printer, RefreshCw, RotateCw, CheckCircle2, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { DsPalletGrid } from './DsPalletGrid';
+import { isTransposed } from '../../utils/gridOrientation';
 import { BlockReadinessPanel } from './BlockReadinessPanel';
 import { SkuDetailPanel, type SelectedSku, type SkuDetailInfo } from './SkuDetailPanel';
 import { BLOCKS, DS_PALLET_MIN_DEFAULT, type BlockConfig } from '../../../../utils/dsPalletPlanner';
@@ -90,8 +91,14 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
     );
   };
 
+  // Side by side upright; stacked on a quarter turn, where each block is ten
+  // columns wide and would otherwise squeeze its neighbour off the row.
   return (
-    <section className="flex-1 min-w-[26rem] print:min-w-0 print:break-after-page">
+    <section
+      className={`print:min-w-0 print:w-full print:break-after-page ${
+        isTransposed(rotation) ? 'w-full' : 'flex-1 min-w-[26rem]'
+      }`}
+    >
       <div className="print:hidden flex flex-wrap items-center gap-3 mb-2">
         <div className="min-w-0">
           <h3 className="font-bold text-slate-800 text-sm">
