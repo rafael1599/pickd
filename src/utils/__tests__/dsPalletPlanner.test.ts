@@ -6,6 +6,7 @@ import {
   PLAN_VERSION,
   blockCapacity,
   buildBlockLayout,
+  assignCandidates,
   fitMinimum,
   palletsAt,
   planBlock,
@@ -390,8 +391,87 @@ describe('fitMinimum', () => {
 
   it('counts full pallets that a lower minimum cannot change', () => {
     // 100u is four full pallets whatever the minimum; only the remainder moves.
-    expect(palletsAt([{ sku: 'A', totalQty: 100, blockId: 'A' }], 20)).toBe(4);
-    expect(palletsAt([{ sku: 'A', totalQty: 110, blockId: 'A' }], 20)).toBe(4);
-    expect(palletsAt([{ sku: 'A', totalQty: 110, blockId: 'A' }], 10)).toBe(5);
+    expect(palletsAt([{ totalQty: 100 }], 20)).toBe(4);
+    expect(palletsAt([{ totalQty: 110 }], 20)).toBe(4);
+    expect(palletsAt([{ totalQty: 110 }], 10)).toBe(5);
+  });
+});
+
+describe('assignCandidates', () => {
+  const pool = (count: number, qty: number, prefix = 'S') =>
+    Array.from({ length: count }, (_, i) => ({ sku: `${prefix}${i}`, totalQty: qty }));
+
+  const counts = (m: Map<string, { sku: string }[]>) => ({
+    A: m.get('A')?.length ?? 0,
+    B: m.get('B')?.length ?? 0,
+  });
+
+  it('fills both blocks instead of loading up the first', () => {
+    const assigned = assignCandidates(pool(54, 25), [BLOCK_A, BLOCK_B], 20);
+
+    expect(counts(assigned)).toEqual({ A: 27, B: 27 });
+  });
+
+  it('sends a SKU to the block it already stands in', () => {
+    const assigned = assignCandidates(
+      [{ sku: 'HOME', totalQty: 25, currentPlacements: [{ row: '29', letter: 'C', units: 25 }] }],
+      [BLOCK_A, BLOCK_B],
+      20
+    );
+
+    expect(counts(assigned)).toEqual({ A: 0, B: 1 });
+    expect(assigned.get('B')?.[0].currentPlacements).toEqual([
+      { row: '29', letter: 'C', units: 25 },
+    ]);
+  });
+
+  it('lets a hand-pinned block beat where the stock happens to sit', () => {
+    const assigned = assignCandidates(
+      [
+        {
+          sku: 'PINNED',
+          totalQty: 25,
+          pinnedBlockId: 'A',
+          currentPlacements: [{ row: '29', letter: 'C', units: 25 }],
+        },
+      ],
+      [BLOCK_A, BLOCK_B],
+      20
+    );
+
+    expect(counts(assigned)).toEqual({ A: 1, B: 0 });
+  });
+
+  it('charges a multi-pallet SKU every cell it will occupy', () => {
+    // 100u = 4 pallets. Seven of them exactly fill the 27 cells of one block,
+    // so the eighth has to open the other.
+    const assigned = assignCandidates(pool(8, 100), [BLOCK_A, BLOCK_B], 20);
+
+    expect(counts(assigned).A + counts(assigned).B).toBe(8);
+    expect(counts(assigned).A).toBeLessThanOrEqual(7);
+    expect(counts(assigned).B).toBeLessThanOrEqual(7);
+  });
+
+  it('stops once both blocks are full rather than assigning the whole warehouse', () => {
+    const assigned = assignCandidates(pool(200, 25), [BLOCK_A, BLOCK_B], 20);
+
+    expect(counts(assigned).A + counts(assigned).B).toBe(54);
+  });
+
+  it('does not depend on which block was recalculated', () => {
+    const first = assignCandidates(pool(40, 25), [BLOCK_A, BLOCK_B], 20);
+    const second = assignCandidates(pool(40, 25), [BLOCK_B, BLOCK_A], 20);
+
+    expect(
+      first
+        .get('A')
+        ?.map((c) => c.sku)
+        .sort()
+    ).toEqual(
+      second
+        .get('A')
+        ?.map((c) => c.sku)
+        .sort()
+    );
   });
 });
