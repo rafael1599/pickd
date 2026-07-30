@@ -2,12 +2,12 @@ import React from 'react';
 import type { SlotUsage } from '../../../../utils/dsPalletPlanner';
 import { DS_PALLET_MAX } from '../../../../utils/dsPalletPlanner';
 import { skuColor } from '../../utils/skuColor';
-import { counterRotateTextStyle } from '../../utils/counterRotateText';
 import type { SelectedSku } from './SkuDetailPanel';
 
+// The grid transposes instead of rotating, so a cell is always drawn upright
+// and at the size it was laid out. Nothing here counter-rotates.
 interface DsPalletCellProps {
   usage: SlotUsage;
-  rotation: number;
   /** Fixed across the grid — every cell now holds exactly one pallet. */
   heightRem: number;
   onSelectSku: (selection: SelectedSku) => void;
@@ -22,14 +22,12 @@ const PRINT_HEIGHT_SCALE = 1.5;
 
 export const DsPalletCell: React.FC<DsPalletCellProps> = ({
   usage,
-  rotation,
   heightRem,
   onSelectSku,
   borderRight,
   borderBottom,
   dashed,
 }) => {
-  const counterRotate = counterRotateTextStyle(rotation);
   const heightVars = {
     '--cell-h': `${heightRem}rem`,
     '--cell-h-print': `${heightRem * PRINT_HEIGHT_SCALE}rem`,
@@ -51,7 +49,7 @@ export const DsPalletCell: React.FC<DsPalletCellProps> = ({
           onSelectSku({ sku: 'EMPTY', unitsHere: 0, kind: isReserved ? 'reserved' : 'empty' })
         }
       >
-        <span style={counterRotate}>{isReserved ? 'reserved' : 'empty'}</span>
+        <span>{isReserved ? 'reserved' : 'empty'}</span>
       </div>
     );
   }
@@ -71,14 +69,11 @@ export const DsPalletCell: React.FC<DsPalletCellProps> = ({
     >
       <div
         className="font-mono font-extrabold text-xs print:text-lg whitespace-nowrap overflow-hidden text-ellipsis tracking-tight leading-snug"
-        style={{ ...counterRotate, color: color.text }}
+        style={{ color: color.text }}
       >
         {sku}
       </div>
-      <div
-        className="flex items-center gap-1.5 text-[11px] print:text-xs text-slate-500 whitespace-nowrap font-semibold leading-snug"
-        style={counterRotate}
-      >
+      <div className="flex items-center gap-1.5 text-[11px] print:text-xs text-slate-500 whitespace-nowrap font-semibold leading-snug">
         <span>{units}u</span>
         <span className={isFull ? 'text-slate-500' : 'text-amber-700'}>
           {isFull ? '● full' : '◐ partial'}
