@@ -41,7 +41,7 @@ export const PullFirstPanel: React.FC<PullFirstPanelProps> = ({ blockId, entries
   const sorted = [...entries].sort((a, b) => b.units - a.units || a.sku.localeCompare(b.sku));
 
   return (
-    <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 text-slate-800 print:border-gray-400 print:bg-white print:break-inside-avoid">
+    <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 text-slate-800 print:border-gray-400 print:bg-white">
       <button
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center gap-2 px-3 py-2.5 text-left print:py-1"
@@ -67,7 +67,7 @@ export const PullFirstPanel: React.FC<PullFirstPanelProps> = ({ blockId, entries
           {sorted.map((entry) => (
             <li
               key={`${entry.sku}-${entry.reason}`}
-              className="flex items-center gap-3 px-3 py-1.5 text-xs print:py-0.5"
+              className="flex items-center gap-3 px-3 py-1.5 text-xs print:py-0.5 print:break-inside-avoid"
             >
               <span className="font-mono font-bold text-slate-800 w-28 shrink-0">{entry.sku}</span>
               <span className="font-semibold text-slate-700 w-12 text-right shrink-0">

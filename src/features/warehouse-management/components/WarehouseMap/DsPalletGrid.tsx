@@ -61,7 +61,7 @@ export const DsPalletGrid: React.FC<DsPalletGridProps> = ({
       <div
         className={
           forPrint
-            ? 'hidden print:grid border border-gray-400 rounded-none overflow-hidden bg-white w-full'
+            ? 'hidden print:grid print:break-inside-avoid border border-gray-400 rounded-none overflow-hidden bg-white w-full'
             : 'grid print:hidden border-2 border-gray-300 rounded-lg overflow-hidden shadow-sm bg-white'
         }
         style={{
