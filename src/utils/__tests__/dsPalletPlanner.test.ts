@@ -6,6 +6,8 @@ import {
   PLAN_VERSION,
   blockCapacity,
   buildBlockLayout,
+  fitMinimum,
+  palletsAt,
   planBlock,
   positionLetters,
   splitIntoPallets,
@@ -345,5 +347,51 @@ describe('planBlock — placement priority', () => {
     const accessibility = placed.map((p) => slotAt(plan.slots, p.id).accessibility);
     expect(accessibility).toContain('accessible');
     expect(accessibility).toContain('landlocked');
+  });
+});
+
+describe('fitMinimum', () => {
+  // BLOCK_A: 10 positions, last reserved → 9 × 3 = 27 assignable cells.
+  const many = (count: number, qty: number): NoMoverCandidate[] =>
+    Array.from({ length: count }, (_, i) => ({ sku: `S${i}`, totalQty: qty, blockId: 'A' }));
+
+  it('keeps the preferred minimum when the list already fills the block', () => {
+    const fit = fitMinimum(many(27, 25), BLOCK_A, 20);
+
+    expect(fit).toEqual({ minUnits: 20, pallets: 27, cells: 27, fills: true });
+  });
+
+  it('takes the highest minimum that fills, not the lowest', () => {
+    // 27 SKUs of 18u: nothing forms at 20 or 19, everything forms at 18. A
+    // lower minimum would fill too, and waste units per pallet doing it.
+    const fit = fitMinimum(many(27, 18), BLOCK_A, 20);
+
+    expect(fit.minUnits).toBe(18);
+    expect(fit.fills).toBe(true);
+    expect(fit.pallets).toBe(27);
+  });
+
+  it('stops as soon as capacity is reached, ignoring the surplus below', () => {
+    // 20 SKUs of 25u (20 pallets) plus 20 of 12u. The 12s only count from 12
+    // down, and 20 + 20 = 40 clears the 27 cells.
+    const fit = fitMinimum([...many(20, 25), ...many(20, 12)], BLOCK_A, 20);
+
+    expect(fit.minUnits).toBe(12);
+    expect(fit.pallets).toBe(40);
+  });
+
+  it('reports the shortfall rather than planning three-unit pallets', () => {
+    // Five SKUs cannot fill 27 cells at any minimum, so the preferred one
+    // stands and `fills` says the list is too short.
+    const fit = fitMinimum(many(5, 4), BLOCK_A, 20);
+
+    expect(fit).toEqual({ minUnits: 20, pallets: 0, cells: 27, fills: false });
+  });
+
+  it('counts full pallets that a lower minimum cannot change', () => {
+    // 100u is four full pallets whatever the minimum; only the remainder moves.
+    expect(palletsAt([{ sku: 'A', totalQty: 100, blockId: 'A' }], 20)).toBe(4);
+    expect(palletsAt([{ sku: 'A', totalQty: 110, blockId: 'A' }], 20)).toBe(4);
+    expect(palletsAt([{ sku: 'A', totalQty: 110, blockId: 'A' }], 10)).toBe(5);
   });
 });

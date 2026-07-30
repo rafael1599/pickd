@@ -11,6 +11,8 @@ import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
 import {
   PLAN_VERSION,
+  fitMinimum,
+  palletsAt,
   planBlock,
   type BlockConfig,
   type BlockPlan,
@@ -127,7 +129,23 @@ export function useDsPalletCandidates(block: BlockConfig) {
   });
 }
 
-/** Runs the planner and saves the result for one block. */
+export interface RecalculatedPlan extends BlockPlan {
+  /** What the planner actually ran with, after fitting. */
+  minUnits: number;
+  /** Set when fitting had to go below the configured minimum to fill the block. */
+  fittedFrom: number | null;
+  /** False when no minimum fills the block — the list is simply too short. */
+  fills: boolean;
+}
+
+/**
+ * Runs the planner and saves the result for one block.
+ *
+ * The minimum is fitted rather than obeyed: an empty cell is worse than a
+ * pallet of 17 instead of 20, so the planner runs at the highest minimum that
+ * still fills the block. It never goes lower than it has to, and when nothing
+ * fills it leaves the configured minimum alone so the shortfall stays visible.
+ */
 export function useRecalculateDsPalletPlan() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -137,12 +155,18 @@ export function useRecalculateDsPalletPlan() {
       block,
       candidates,
       minUnits,
+      autoFit = true,
     }: {
       block: BlockConfig;
       candidates: NoMoverCandidate[];
       minUnits: number;
-    }): Promise<BlockPlan> => {
-      const plan = planBlock(block, candidates, { minUnits });
+      autoFit?: boolean;
+    }): Promise<RecalculatedPlan> => {
+      const fit = autoFit
+        ? fitMinimum(candidates, block, minUnits)
+        : { minUnits, pallets: palletsAt(candidates, minUnits), cells: 0, fills: true };
+
+      const plan = planBlock(block, candidates, { minUnits: fit.minUnits });
 
       const { error } = await supabase.from('warehouse_overstock_plans').upsert({
         id: planId(block.id),
@@ -158,7 +182,12 @@ export function useRecalculateDsPalletPlan() {
       });
 
       if (error) throw new Error(`Failed to save plan: ${error.message}`);
-      return plan;
+      return {
+        ...plan,
+        minUnits: fit.minUnits,
+        fittedFrom: fit.minUnits < minUnits ? minUnits : null,
+        fills: fit.fills,
+      };
     },
     onSuccess: (_plan, { block }) => {
       queryClient.invalidateQueries({ queryKey: planKey(block.id) });

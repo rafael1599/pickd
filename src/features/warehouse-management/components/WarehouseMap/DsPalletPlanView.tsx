@@ -86,9 +86,23 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
 
     const plan = await recalculate.mutateAsync({ block, candidates: rows, minUnits });
     const placed = plan.slots.filter((s) => s.usage.kind === 'pallet').length;
-    toast.success(
-      `Block ${block.id}: ${placed} pallets placed, ${plan.pullFirst.length} to Pull First`
-    );
+    const empty = plan.slots.filter((s) => s.usage.kind === 'empty').length;
+
+    // The fitted minimum has to be said out loud: it silently changes what a
+    // pallet means on the floor, and the operator has to be able to veto it.
+    const summary = `Block ${block.id}: ${placed} pallets placed, ${plan.pullFirst.length} to Pull First`;
+
+    if (plan.fittedFrom !== null) {
+      toast.success(`${summary}. Minimum fitted to ${plan.minUnits}u (from ${plan.fittedFrom}u).`, {
+        duration: 7000,
+      });
+    } else if (empty > 0) {
+      toast(`${summary}. ${empty} cells stay empty — the list is too short to fill the block.`, {
+        duration: 7000,
+      });
+    } else {
+      toast.success(summary);
+    }
   };
 
   // The width goes where the information is. A block showing its grid is worth

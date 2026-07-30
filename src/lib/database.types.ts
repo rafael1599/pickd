@@ -1610,6 +1610,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      warehouse_excluded_skus: {
+        Row: {
+          reason: string;
+          sku: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          reason: string;
+          sku: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          reason?: string;
+          sku?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       warehouse_no_movers: {
         Row: {
           block_id: string;
@@ -1969,6 +1990,19 @@ export type Database = {
           orders_completed: number;
           sku: string;
           units_shipped: number;
+        }[];
+      };
+      get_bike_block_candidates: {
+        Args: { p_recency_days?: number };
+        Returns: {
+          excluded_reason: string;
+          is_mover: boolean;
+          item_name: string;
+          last_shipped: string;
+          location: string;
+          sku: string;
+          sublocation: string[];
+          total_qty: number;
         }[];
       };
       get_block_classification_candidates: {
