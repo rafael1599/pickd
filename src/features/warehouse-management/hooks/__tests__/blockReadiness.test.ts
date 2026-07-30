@@ -144,15 +144,18 @@ describe('buildChecks', () => {
     expect(by('capacity')?.detail).toBe('2 of 27 assignable cells');
   });
 
-  it('warns when the pallets outnumber the assignable cells', () => {
+  it('never warns about capacity — the surplus is discarded before it gets here', () => {
+    // The block cannot be asked for more cells than it has: assignment takes a
+    // SKU only when all of its pallets fit. The old "N pallets will land in
+    // Pull First as no space" warning described a state that cannot occur.
     const entries = Array.from({ length: 30 }, (_, i) => listedSku(`01-${1000 + i}`));
     const rows = entries.map((e) => candidate(e.sku, 25));
 
-    const { blocker, by } = run({ noMovers: loaded(entries), candidates: loaded(rows) });
+    const { blocker, by, checks } = run({ noMovers: loaded(entries), candidates: loaded(rows) });
 
     expect(blocker).toBeNull();
-    expect(by('capacity')?.status).toBe('warning');
-    expect(by('capacity')?.fix).toContain('3 pallets will land in Pull First');
+    expect(by('capacity')?.status).toBe('ok');
+    expect(checks.some((c) => c.status === 'warning' && c.id === 'capacity')).toBe(false);
   });
 
   it('treats a missing settings row as a warning, naming the defaults in use', () => {

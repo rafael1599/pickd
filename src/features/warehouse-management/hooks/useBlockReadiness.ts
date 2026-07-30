@@ -187,26 +187,16 @@ export function buildChecks({
     }`,
   });
 
-  // 4 — Capacity. Never blocking: the overflow is a legitimate Pull First
-  // reason, but the operator should know before printing the sheet.
+  // Capacity is no longer a warning: assignment takes a SKU only when the
+  // block can hold all of its pallets, so it can never be asked for more cells
+  // than it has. What is left over is discarded before it reaches the plan.
   const assignable = blockCapacity(block).cells;
-  const over = palletsNeeded - assignable;
-  checks.push(
-    over > 0
-      ? {
-          id: 'capacity',
-          status: 'warning',
-          label: 'Capacity',
-          detail: `${palletsNeeded} pallets for ${assignable} assignable cells`,
-          fix: `${over} pallet${over === 1 ? '' : 's'} will land in Pull First as "no space".`,
-        }
-      : {
-          id: 'capacity',
-          status: 'ok',
-          label: 'Capacity',
-          detail: `${palletsNeeded} of ${assignable} assignable cells`,
-        }
-  );
+  checks.push({
+    id: 'capacity',
+    status: 'ok',
+    label: 'Capacity',
+    detail: `${palletsNeeded} of ${assignable} assignable cells`,
+  });
 
   return checks;
 }

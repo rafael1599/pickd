@@ -458,6 +458,43 @@ describe('assignCandidates', () => {
     expect(counts(assigned).A + counts(assigned).B).toBe(54);
   });
 
+  it('discards a SKU that cannot fit whole rather than stranding its tail', () => {
+    // 100u is four cells, so six fill a block and leave three standing. The
+    // seventh has nowhere to go whole in either block and is dropped, instead
+    // of taking three cells and reporting its fourth pallet as "no space".
+    const assigned = assignCandidates(pool(20, 100), [BLOCK_A, BLOCK_B], 20);
+    const all = [...(assigned.get('A') ?? []), ...(assigned.get('B') ?? [])];
+
+    expect(all).toHaveLength(12);
+    expect(assigned.get('A')).toHaveLength(6);
+    expect(assigned.get('B')).toHaveLength(6);
+  });
+
+  it('lets smaller candidates claim the tail the big ones could not use', () => {
+    // Six 100u SKUs per block leave three cells each. Singles must still find
+    // them, or discarding the surplus would cost the block its last cells.
+    const assigned = assignCandidates(
+      [...pool(20, 100, 'BIG'), ...pool(10, 25, 'SMALL')],
+      [BLOCK_A, BLOCK_B],
+      20
+    );
+    const all = [...(assigned.get('A') ?? []), ...(assigned.get('B') ?? [])];
+
+    expect(all.filter((c) => c.sku.startsWith('SMALL'))).toHaveLength(6);
+  });
+
+  it('never assigns a block more pallets than it has cells', () => {
+    const assigned = assignCandidates(pool(200, 100), [BLOCK_A, BLOCK_B], 20);
+
+    for (const block of [BLOCK_A, BLOCK_B]) {
+      const cells = (assigned.get(block.id) ?? []).reduce(
+        (sum, c) => sum + splitIntoPallets(c.totalQty, 20).pallets.length,
+        0
+      );
+      expect(cells).toBeLessThanOrEqual(blockCapacity(block).cells);
+    }
+  });
+
   it('does not depend on which block was recalculated', () => {
     const first = assignCandidates(pool(40, 25), [BLOCK_A, BLOCK_B], 20);
     const second = assignCandidates(pool(40, 25), [BLOCK_B, BLOCK_A], 20);

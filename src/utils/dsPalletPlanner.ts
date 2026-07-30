@@ -446,12 +446,22 @@ export function assignCandidates(
   }
 
   // Then fill, always feeding the emptiest block so neither is left short.
+  //
+  // A candidate is taken whole or not at all. Handing a SKU fewer cells than
+  // its pallets need strands the rest as "no space" — a Pull First row for
+  // stock that never had anywhere to go, which is noise, not a trip. The
+  // surplus is simply discarded, and a smaller candidate can still claim the
+  // tail the big one could not use, so the block still ends up full.
   for (const candidate of leftovers) {
+    const needed = splitIntoPallets(candidate.totalQty, minUnits).pallets.length;
+    if (needed === 0) continue;
+
     const target = blocks
       .map((b) => b.id)
+      .filter((id) => (remaining.get(id) ?? 0) >= needed)
       .sort((a, b) => (remaining.get(b) ?? 0) - (remaining.get(a) ?? 0) || a.localeCompare(b))[0];
 
-    if ((remaining.get(target) ?? 0) <= 0) break;
+    if (!target) continue;
     take(target, candidate);
   }
 
