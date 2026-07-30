@@ -60,6 +60,14 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
     [candidates]
   );
 
+  // Only the stock stranded *from* this block. A SKU that never earned a cell
+  // is not this block's problem to walk — it was never here, and listing it
+  // sent someone to a sublocation that holds nothing of it.
+  const strandedHere = useMemo(() => {
+    const placed = new Set(slots.flatMap((s) => (s.usage.kind === 'pallet' ? [s.usage.sku] : [])));
+    return (saved?.pull_first ?? []).filter((e) => placed.has(e.sku));
+  }, [slots, saved]);
+
   const stamp = useMemo(() => {
     if (!saved?.updated_at) return null;
     const d = new Date(saved.updated_at);
@@ -206,11 +214,7 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
       </h3>
 
       {/* Above the grid: what came out of this block is read before walking it. */}
-      <PullFirstPanel
-        blockId={block.id}
-        entries={saved?.pull_first ?? []}
-        totalBySku={totalBySku}
-      />
+      <PullFirstPanel blockId={block.id} entries={strandedHere} totalBySku={totalBySku} />
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-slate-400 gap-2">
