@@ -91,16 +91,21 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
     );
   };
 
-  // Side by side upright; stacked on a quarter turn, where each block is ten
-  // columns wide and would otherwise squeeze its neighbour off the row.
+  // The width goes where the information is. A block showing its grid is worth
+  // twice one showing a setup checklist, so with one of each the checklist
+  // takes a third and the map two thirds; two blocks in the same state split
+  // the row evenly. A quarter turn overrides both — transposed, a block is ten
+  // columns wide and gets the row to itself.
+  const width = isTransposed(rotation)
+    ? 'w-full'
+    : slots.length > 0
+      ? 'flex-[2_1_0%] min-w-[24rem]'
+      : 'flex-[1_1_0%] min-w-[15rem]';
+
   return (
-    <section
-      className={`print:min-w-0 print:w-full print:break-after-page ${
-        isTransposed(rotation) ? 'w-full' : 'flex-1 min-w-[26rem]'
-      }`}
-    >
-      <div className="print:hidden flex flex-wrap items-center gap-3 mb-2">
-        <div className="min-w-0">
+    <section className={`print:min-w-0 print:w-full print:break-after-page ${width}`}>
+      <div className="print:hidden flex flex-wrap items-center gap-x-3 gap-y-2 mb-2">
+        <div className="min-w-0 flex-1">
           <h3 className="font-bold text-slate-800 text-sm">
             Block {block.id} · {block.label}
           </h3>
@@ -118,11 +123,13 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
         </div>
 
         {/* Only ever disabled while it is working: a disabled button is not an
-            error message, and this one used to be the whole explanation. */}
+            error message, and this one used to be the whole explanation.
+            `shrink-0` over `ml-auto` — pinned to the right it was the first
+            thing to slide under the clipped edge of the layout. */}
         <button
           onClick={handleRecalculate}
           disabled={recalculate.isPending}
-          className={`ml-auto flex items-center gap-1.5 px-3 h-9 rounded-lg border shadow-sm active:scale-95 disabled:opacity-40 transition-all font-semibold text-xs tracking-wide ${
+          className={`shrink-0 flex items-center gap-1.5 px-3 h-9 rounded-lg border shadow-sm active:scale-95 disabled:opacity-40 transition-all font-semibold text-xs tracking-wide ${
             blocker
               ? 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
               : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
@@ -224,9 +231,11 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
     <div className="w-full h-full overflow-auto bg-white">
       <div className="p-6 pb-32 print:p-0">
         <div className="print:hidden flex flex-wrap justify-between items-center gap-3 mb-5">
-          <h2 className="text-2xl font-bold text-slate-800">Warehouse Top View</h2>
+          <h2 className="text-2xl font-bold text-slate-800 min-w-0">Warehouse Top View</h2>
 
-          <div className="flex items-center gap-2">
+          {/* shrink-0 so the controls wrap under the title instead of sliding
+              past the layout's clipped right edge, where they are unreachable. */}
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handlePrint}
               className="flex items-center gap-1.5 px-3.5 h-10 rounded-lg border border-gray-200 bg-white text-slate-700 shadow-sm hover:bg-gray-50 active:scale-95 transition-all font-semibold text-xs tracking-wide"

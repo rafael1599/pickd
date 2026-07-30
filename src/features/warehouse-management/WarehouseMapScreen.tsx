@@ -12,9 +12,10 @@ export const WarehouseMapScreen: React.FC = () => {
 
   return (
     <div className="h-full w-full flex flex-col bg-white">
-      {/* Top Header Bar */}
-      <div className="border-b px-6 py-3 flex items-center justify-between bg-white shadow-sm z-10 print:hidden">
-        <div className="flex items-center gap-4">
+      {/* Top Header Bar. It wraps: the layout clips its overflow rather than
+          scrolling it, so a tab pushed past the right edge is unreachable. */}
+      <div className="border-b px-6 py-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-white shadow-sm z-10 print:hidden">
+        <div className="flex items-center gap-4 min-w-0">
           <button
             onClick={() => navigate(-1)}
             className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
@@ -25,7 +26,7 @@ export const WarehouseMapScreen: React.FC = () => {
         </div>
 
         {/* No-movers → Plan → Live. The order is the workflow. */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
           <button
             onClick={() => setActiveTab('no-movers')}
             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-extrabold uppercase tracking-wider transition-all ${
