@@ -156,12 +156,14 @@ export const NoMoverClassification: React.FC = () => {
             aria-label={`Select ${c.sku}`}
           />
         )}
-        <span className="font-mono font-bold text-xs w-28 shrink-0">{c.sku}</span>
+        <span className="font-mono font-bold text-xs w-28 shrink-0 text-slate-800">{c.sku}</span>
         <span className="text-xs text-slate-500 w-24 shrink-0">
           {c.location}
           {c.sublocation?.length ? ` · ${c.sublocation.join('/')}` : ''}
         </span>
-        <span className="text-xs font-semibold w-14 text-right shrink-0">{c.totalQty}u</span>
+        <span className="text-xs font-semibold w-14 text-right shrink-0 text-slate-700">
+          {c.totalQty}u
+        </span>
         <span className="text-xs text-slate-400 w-24 shrink-0">{formatDate(c.lastShipped)}</span>
         <span
           className={`text-[11px] font-semibold w-32 shrink-0 ${
@@ -215,7 +217,7 @@ export const NoMoverClassification: React.FC = () => {
               <select
                 value={activeRecency}
                 onChange={(e) => setDraftRecency(Number(e.target.value))}
-                className="border border-slate-300 rounded-md px-2 py-1 text-sm font-semibold bg-white"
+                className="border border-slate-300 rounded-md px-2 py-1 text-sm font-semibold bg-white text-slate-800"
               >
                 {RECENCY_CHOICES.map((d) => (
                   <option key={d} value={d}>
@@ -236,7 +238,7 @@ export const NoMoverClassification: React.FC = () => {
                 onChange={(e) =>
                   updateSettings.mutate({ blockId, min_units: Number(e.target.value) })
                 }
-                className="border border-slate-300 rounded-md px-2 py-1 w-16 text-sm font-semibold bg-white"
+                className="border border-slate-300 rounded-md px-2 py-1 w-16 text-sm font-semibold bg-white text-slate-800"
               />
               <span className="text-slate-600">units</span>
             </label>
