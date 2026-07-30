@@ -19,6 +19,8 @@ import { useDsPalletPlan, useRecalculateDsPalletPlan } from '../../hooks/useDsPa
 interface BlockPanelProps {
   block: BlockConfig;
   minUnits: number;
+  /** Drives what counts as a mover, and so what the pool contains. */
+  recencyDays: number;
   rotation: number;
   onSelectSku: (selection: SelectedSku) => void;
   onSkuInfo: (info: Map<string, SkuDetailInfo>) => void;
@@ -28,13 +30,18 @@ interface BlockPanelProps {
 const BlockPanel: React.FC<BlockPanelProps> = ({
   block,
   minUnits,
+  recencyDays,
   rotation,
   onSelectSku,
   onSkuInfo,
   onGoToNoMovers,
 }) => {
   const { data: planResult, isLoading, isError, error } = useDsPalletPlan(block.id);
-  const { checks, blocker, candidates, revalidate } = useBlockReadiness(block, minUnits);
+  const { checks, blocker, candidates, revalidate } = useBlockReadiness(
+    block,
+    minUnits,
+    recencyDays
+  );
   const recalculate = useRecalculateDsPalletPlan();
 
   const saved = planResult?.plan ?? null;
@@ -73,7 +80,7 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
   // ago — so it re-reads everything first, then names the one still blocking
   // instead of sitting there disabled.
   const handleRecalculate = async () => {
-    const { blocker: fresh, candidates: rows } = await revalidate();
+    const { blocker: fresh, candidates: rows, minUnits: fitted } = await revalidate();
 
     if (fresh) {
       toast.error(`${fresh.label}: ${fresh.fix ?? fresh.detail}`, { duration: 7000 });
@@ -84,7 +91,12 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
       return;
     }
 
-    const plan = await recalculate.mutateAsync({ block, candidates: rows, minUnits });
+    const plan = await recalculate.mutateAsync({
+      block,
+      candidates: rows,
+      minUnits: fitted,
+      autoFit: false,
+    });
     const placed = plan.slots.filter((s) => s.usage.kind === 'pallet').length;
     const empty = plan.slots.filter((s) => s.usage.kind === 'empty').length;
 
@@ -92,14 +104,15 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
     // pallet means on the floor, and the operator has to be able to veto it.
     const summary = `Block ${block.id}: ${placed} pallets placed, ${plan.pullFirst.length} to Pull First`;
 
-    if (plan.fittedFrom !== null) {
-      toast.success(`${summary}. Minimum fitted to ${plan.minUnits}u (from ${plan.fittedFrom}u).`, {
+    if (fitted < minUnits) {
+      toast.success(`${summary}. Minimum fitted to ${fitted}u (from ${minUnits}u).`, {
         duration: 7000,
       });
     } else if (empty > 0) {
-      toast(`${summary}. ${empty} cells stay empty — the list is too short to fill the block.`, {
-        duration: 7000,
-      });
+      toast(
+        `${summary}. ${empty} cells stay empty — not enough non-mover bikes to fill the block.`,
+        { duration: 7000 }
+      );
     } else {
       toast.success(summary);
     }
@@ -276,6 +289,7 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
                 key={b.id}
                 block={merged}
                 minUnits={settings?.[b.id]?.min_units ?? DS_PALLET_MIN_DEFAULT}
+                recencyDays={settings?.[b.id]?.recency_days ?? 30}
                 rotation={rotation}
                 onSelectSku={setSelectedSku}
                 onSkuInfo={mergeSkuInfo}

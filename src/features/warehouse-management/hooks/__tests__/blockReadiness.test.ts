@@ -65,12 +65,20 @@ function run({
 }
 
 describe('buildChecks', () => {
-  it('blocks on an empty list and points at the tab that fixes it', () => {
-    const { blocker } = run();
+  it('does not block on an empty manual list — the block fills itself', () => {
+    // Curating a list by hand stopped being a precondition when assignment
+    // became automatic; only an empty candidate pool blocks now.
+    const { by } = run({ candidates: loaded([candidate('01-1000', 40)]) });
 
-    expect(blocker?.id).toBe('list');
-    expect(blocker?.detail).toContain('0 SKUs');
-    expect(blocker?.fix).toContain('No-movers tab');
+    expect(by('list')?.status).toBe('ok');
+    expect(by('list')?.detail).toContain('fills automatically');
+  });
+
+  it('blocks when no bike qualifies at all', () => {
+    const { blocker } = run({ candidates: loaded<NoMoverCandidate[]>([]) });
+
+    expect(blocker?.id).toBe('stock');
+    expect(blocker?.detail).toContain('No bike qualifies');
     expect(blocker?.goToNoMovers).toBe(true);
   });
 
@@ -81,7 +89,7 @@ describe('buildChecks', () => {
     });
 
     expect(blocker).toBeNull();
-    expect(by('list')?.detail).toBe('1 SKU assigned to block A');
+    expect(by('list')?.detail).toBe('1 SKU pinned to block A');
   });
 
   it('names an unapplied migration instead of a generic failure', () => {
@@ -99,14 +107,14 @@ describe('buildChecks', () => {
     expect(blocker?.fix).toContain('supabase db push');
   });
 
-  it('separates "list points at dead stock" from "list is empty"', () => {
+  it('blocks when every candidate is out of stock', () => {
     const { blocker } = run({
       noMovers: loaded([listedSku('01-1000')]),
       candidates: loaded([candidate('01-1000', 0)]),
     });
 
     expect(blocker?.id).toBe('stock');
-    expect(blocker?.detail).toContain('None of the 1 listed SKUs has active stock');
+    expect(blocker?.detail).toContain('No bike qualifies');
     expect(blocker?.goToNoMovers).toBe(true);
   });
 
