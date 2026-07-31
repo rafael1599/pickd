@@ -42,6 +42,31 @@ export function resolveInventorySku(sku: string | null | undefined): string {
 }
 
 /**
+ * Every inventory SKU worth trying for an order SKU, best guess first.
+ *
+ * The dash is the reason this exists. The watcher reads "03 4664 BR" off the
+ * PDF and can emit it collapsed to "034664BR", which matches no inventory row,
+ * so the picker fixes it by hand — a quarter of every replacement logged in
+ * five months is someone re-typing a SKU that differs only by that character.
+ *
+ * It cannot simply be inserted: eight SKUs really are stored without one, four
+ * of them holding live stock (700106BK, 860005BK…), and dashing those would
+ * break picks that work today. So this keeps the fallback contract the rest of
+ * the module follows — the exact SKU is always first, the dashed form is only
+ * ever a later guess, and the caller takes the first candidate that actually
+ * has stock.
+ */
+export function inventorySkuCandidates(sku: string | null | undefined): string[] {
+  const exact = (sku || '').trim();
+  if (!exact) return [];
+
+  const dashed = normalizeSkuOnRegister(exact);
+  const ordered = [exact, resolveInventorySku(exact), dashed, resolveInventorySku(dashed)];
+
+  return [...new Set(ordered.filter(Boolean))];
+}
+
+/**
  * Out-of-stock SUBSTITUTES — hardcoded equivalences where an ordered SKU should
  * be REPLACED by a different, genuinely distinct SKU when the ordered one runs
  * dry. This is a different relationship from {@link AS400_SKU_ALIASES}:

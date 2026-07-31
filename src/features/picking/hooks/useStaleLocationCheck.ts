@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { byPickPreference, toPickingOrderMap, type PickingOrderMap } from '../utils/pickLocation';
 
 /** A pick whose frozen location is empty while the SKU has stock elsewhere. */
 export interface StaleLocationItem {
@@ -50,7 +51,8 @@ const norm = (s: string | null | undefined): string => (s || '').trim().toUpperC
  */
 export function detectStaleLocations(
   cartItems: StaleCheckItem[],
-  rows: StaleInventoryRow[]
+  rows: StaleInventoryRow[],
+  pickingOrder?: PickingOrderMap
 ): StaleLocationItem[] {
   const result: StaleLocationItem[] = [];
   const seen = new Set<string>();
@@ -79,7 +81,7 @@ export function detectStaleLocations(
           Number(r.quantity || 0) > 0 &&
           r.is_active !== false
       )
-      .sort((a, b) => Number(b.quantity || 0) - Number(a.quantity || 0));
+      .sort(byPickPreference(pickingOrder));
     if (elsewhere.length === 0) continue; // no stock anywhere → genuine out-of-stock, not stale
 
     result.push({
@@ -116,11 +118,13 @@ export function detectStaleLocations(
  */
 export function rebaseToActualStock<T extends StaleCheckItem>(
   items: T[],
-  rows: StaleInventoryRow[]
+  rows: StaleInventoryRow[],
+  pickingOrder?: PickingOrderMap
 ): { items: T[]; moves: StaleLocationItem[] } {
   const moves = detectStaleLocations(
     items.filter((i) => !i.picked),
-    rows
+    rows,
+    pickingOrder
   ).filter((m) => !!m.suggestedLocation);
 
   if (moves.length === 0) return { items, moves };
@@ -174,14 +178,21 @@ export function useStaleLocationCheck(
         return;
       }
 
-      const { data, error } = await supabase
-        .from('inventory')
-        .select('sku, warehouse, location, quantity, is_active, sublocation')
-        .in('sku', skus);
+      const [{ data, error }, { data: locationRows }] = await Promise.all([
+        supabase
+          .from('inventory')
+          .select('sku, warehouse, location, quantity, is_active, sublocation')
+          .in('sku', skus),
+        supabase.from('locations').select('location, picking_order'),
+      ]);
 
       if (cancelled || error || !data) return;
 
-      const result = detectStaleLocations(cartItems, data as StaleInventoryRow[]);
+      const result = detectStaleLocations(
+        cartItems,
+        data as StaleInventoryRow[],
+        toPickingOrderMap(locationRows)
+      );
       if (cancelled) return;
       setStale(result);
 
