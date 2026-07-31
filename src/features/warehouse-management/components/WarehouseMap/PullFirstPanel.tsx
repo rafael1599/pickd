@@ -1,4 +1,4 @@
-// What the block could not take, sitting above the block it came out of.
+// What the block could not take, sitting under the block it came out of.
 //
 // Three columns, because that is the whole job on the floor: which SKU, how
 // much of its stock is stranded, and where to go for it. The reason a unit was
@@ -25,7 +25,7 @@ export const PullFirstPanel: React.FC<PullFirstPanelProps> = ({ blockId, entries
   const sorted = [...entries].sort((a, b) => b.units - a.units || a.sku.localeCompare(b.sku));
 
   return (
-    <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 text-slate-800 print:border-gray-400 print:bg-white">
+    <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 text-slate-800 print:border-gray-400 print:bg-white">
       <button
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center gap-2 px-3 py-2.5 text-left print:py-1"

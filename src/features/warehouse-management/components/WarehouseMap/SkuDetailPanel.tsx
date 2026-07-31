@@ -11,7 +11,21 @@ export interface SelectedSku {
   unitsHere: number;
   kind: 'tower' | 'line' | 'pallet' | 'empty' | 'reserved';
   sublocationLabel?: string;
+  /**
+   * Which block's grid the cell belongs to — a skip has to rebuild that one.
+   * Only the DS-Pallet plan is block-scoped; the live and legacy maps span the
+   * whole warehouse and have no block to name, which is why this is optional
+   * and why Skip is not offered without it.
+   */
+  blockId?: string;
 }
+
+/**
+ * What a cell of a block's grid can say about itself. The block is not the
+ * cell's to know: the same grid is rendered per block, so the panel that owns
+ * it stamps the id on the way up.
+ */
+export type CellSelection = Omit<SelectedSku, 'blockId'>;
 
 export interface SkuDetailInfo {
   itemName: string | null;
@@ -25,7 +39,7 @@ interface SkuDetailPanelProps {
   info?: SkuDetailInfo;
   onClose: () => void;
   /** Drops the SKU from this plan and lets the next most apt take the cell. */
-  onSkip?: (sku: string) => void;
+  onSkip?: (sku: string, blockId: string) => void;
 }
 
 export const SkuDetailPanel: React.FC<SkuDetailPanelProps> = ({
@@ -95,6 +109,8 @@ export const SkuDetailPanel: React.FC<SkuDetailPanelProps> = ({
  */
 const PalletDetail: React.FC<SkuDetailPanelProps> = ({ selected, info, onClose, onSkip }) => {
   const color = skuColor(selected.sku);
+  // Bound to a const so the guard below narrows it inside the click handler.
+  const blockId = selected.blockId;
 
   const { data: listed } = useNoMovers();
   const excludeSkus = useExcludeSkus();
@@ -181,11 +197,13 @@ const PalletDetail: React.FC<SkuDetailPanelProps> = ({ selected, info, onClose, 
 
         <div className="flex flex-col gap-1.5">
           {/* The one that backfills: not a judgement about the bike, just not
-              this cell, now. It returns on the next Recalculate. */}
-          {onSkip && (
+              this cell, now. Unlike the rest, this one redraws the map on its
+              own — the block is rebuilt immediately and the replacement lands
+              in the cell, so it does not belong under the caption below. */}
+          {onSkip && blockId && (
             <button
               onClick={() => {
-                onSkip(selected.sku);
+                onSkip(selected.sku, blockId);
                 onClose();
               }}
               disabled={busy}
@@ -236,7 +254,7 @@ const PalletDetail: React.FC<SkuDetailPanelProps> = ({ selected, info, onClose, 
 
         <div className="flex items-center gap-1.5 mt-2 text-[11px] text-slate-500">
           {busy && <Loader2 className="w-3 h-3 animate-spin" />}
-          <span>The saved plan does not change until you recalculate.</span>
+          <span>Apart from Skip, the saved plan does not change until you recalculate.</span>
         </div>
       </div>
     </div>

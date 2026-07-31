@@ -6,7 +6,7 @@ import {
 } from '../../../../utils/dsPalletPlanner';
 import { orientationFor, type Orientation } from '../../utils/gridOrientation';
 import { DsPalletCell } from './DsPalletCell';
-import type { SelectedSku } from './SkuDetailPanel';
+import type { CellSelection } from './SkuDetailPanel';
 
 interface DsPalletGridProps {
   block: BlockConfig;
@@ -14,7 +14,7 @@ interface DsPalletGridProps {
   /** Units per SKU still sitting in Pull First. */
   strandedBySku: Map<string, number>;
   rotation: number;
-  onSelectSku: (selection: SelectedSku) => void;
+  onSelectSku: (selection: CellSelection) => void;
 }
 
 // Every cell holds one pallet, so unlike the tower/line grid there is nothing
