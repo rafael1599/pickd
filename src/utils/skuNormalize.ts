@@ -59,9 +59,18 @@ export function resolveInventorySku(sku: string | null | undefined): string {
  *
  * Seed: 03-3768BL (DIVIDE S/O 12X27 2026 RIPTIDE, routinely 0 stock) →
  *       03-3768BLD (DIVIDE S/O 12X27 2025 RIPTIDE, where the units actually are).
+ *
+ * Deliberately kept by hand rather than derived from stock. Tier 1 swaps without
+ * asking, so an entry here is a standing decision that the prior model year is
+ * an acceptable substitute for this bike — a product call, not an inference. A
+ * rule read off inventory would make a SKU auto-substitutable the moment it hit
+ * zero and stop the moment it was restocked. Anything not listed here is not
+ * lost: findSimilarSkus surfaces the same-model sibling as a one-tap suggestion
+ * (tier 2, in CorrectionModeView), which keeps a human on the model-year call.
  */
 export const SKU_SUBSTITUTES: Record<string, string> = {
   '03-3768BL': '03-3768BLD',
+  '03-3769BL': '03-3769BLD',
 };
 
 /**
