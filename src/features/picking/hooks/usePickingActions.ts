@@ -11,6 +11,7 @@ import {
 import { resolveBikeSkuSet } from '../../../utils/bikeDetection';
 import { isCombinedOrderNumber, isUnsafeToWriteItems } from '../utils/mergedGroupState';
 import { rebaseToActualStock } from './useStaleLocationCheck';
+import { toPickingOrderMap } from '../utils/pickLocation';
 import type { User } from '@supabase/supabase-js';
 import type { Json } from '../../../integrations/supabase/types';
 import type { Location } from '../../../schemas/location.schema';
@@ -188,6 +189,14 @@ export const usePickingActions = ({
 
         if (stockError) throw stockError;
 
+        // Loaded before the rebase, not after: it decides which shelf a moved
+        // pick lands on, so a buried pallet is not offered while a normal row
+        // still holds the bike.
+        const { data: allLocations } = await supabase
+          .from('locations')
+          .select('location, picking_order');
+        const pickingOrder = toPickingOrderMap(allLocations);
+
         // Follow the stock before judging it. A row consolidated by someone else
         // leaves the frozen address empty, and every check below is keyed on that
         // address — so an order that is entirely fillable reads as out of stock
@@ -196,7 +205,8 @@ export const usePickingActions = ({
         // actually on, which is also the shelf it will be deducted from.
         const { items: rebasedItems, moves } = rebaseToActualStock(
           finalItems,
-          (currentStock as InventoryRow[] | null) ?? []
+          (currentStock as InventoryRow[] | null) ?? [],
+          pickingOrder
         );
 
         if (moves.length > 0) {

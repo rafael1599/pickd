@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
-import { resolveInventorySku } from '../../../utils/skuNormalize';
+import { inventorySkuCandidates } from '../../../utils/skuNormalize';
+import { byPickPreference, toPickingOrderMap } from '../utils/pickLocation';
 import type { DistributionItem } from '../../../schemas/inventory.schema';
 
 /** Inventory resolved for an item via its canonical (de-mangled) SKU. */
@@ -40,8 +41,14 @@ interface InventoryRow {
 export function useCanonicalSkuResolution(cartItems: ResolutionItem[]): Map<string, ResolvedPick> {
   const [resolved, setResolved] = useState<Map<string, ResolvedPick>>(new Map());
 
+  // Anything with an alternative worth trying. Previously this was only SKUs
+  // whose canonical form differed, which silently excluded the dashless ones —
+  // "034664BR" de-mangles to itself, so the hook never ran and the picker was
+  // left to retype it.
   const targets = [
-    ...new Set(cartItems.map((i) => i.sku).filter((s) => s && resolveInventorySku(s) !== s)),
+    ...new Set(
+      cartItems.map((i) => i.sku).filter((s) => s && inventorySkuCandidates(s).length > 1)
+    ),
   ];
   const key = targets.slice().sort().join(',');
 
@@ -55,33 +62,46 @@ export function useCanonicalSkuResolution(cartItems: ResolutionItem[]): Map<stri
 
     void (async () => {
       const rawSkus = key.split(',');
-      const canonSkus = [...new Set(rawSkus.map(resolveInventorySku))];
+      const candidatesBySku = new Map(rawSkus.map((s) => [s, inventorySkuCandidates(s)]));
+      const allCandidates = [...new Set([...candidatesBySku.values()].flat())];
 
-      const { data, error } = await supabase
-        .from('inventory')
-        .select('sku, location, quantity, distribution, sublocation, is_active')
-        .in('sku', canonSkus);
+      const [{ data, error }, { data: locationRows }] = await Promise.all([
+        supabase
+          .from('inventory')
+          .select('sku, location, quantity, distribution, sublocation, is_active')
+          .in('sku', allCandidates),
+        supabase.from('locations').select('location, picking_order'),
+      ]);
 
       if (cancelled || error || !data) return;
 
-      const byCanon = new Map<string, InventoryRow[]>();
+      const bySku = new Map<string, InventoryRow[]>();
       for (const row of data as InventoryRow[]) {
         if (row.is_active === false) continue;
-        const arr = byCanon.get(row.sku) ?? [];
+        if (Number(row.quantity || 0) <= 0) continue;
+        const arr = bySku.get(row.sku) ?? [];
         arr.push(row);
-        byCanon.set(row.sku, arr);
+        bySku.set(row.sku, arr);
       }
+
+      const pickingOrder = toPickingOrderMap(locationRows);
+      const preferred = byPickPreference<InventoryRow>(pickingOrder);
 
       const result = new Map<string, ResolvedPick>();
       for (const rawSku of rawSkus) {
-        const canon = resolveInventorySku(rawSku);
-        const rows = byCanon.get(canon);
-        if (!rows || rows.length === 0) continue;
+        // First candidate that actually holds stock wins, so the exact SKU is
+        // never displaced by a guess that merely looks plausible.
+        const match = (candidatesBySku.get(rawSku) ?? []).find((c) => bySku.has(c));
+        if (!match) continue;
+        // Nothing to report when the SKU was already right — the consumers read
+        // this map as "this item had to be redirected".
+        if (match === rawSku) continue;
 
-        const best = [...rows].sort((a, b) => Number(b.quantity || 0) - Number(a.quantity || 0))[0];
+        const rows = bySku.get(match)!;
+        const best = [...rows].sort(preferred)[0];
 
         result.set(rawSku, {
-          canonicalSku: canon,
+          canonicalSku: match,
           location: best.location ?? null,
           quantity: rows.reduce((sum, r) => sum + Number(r.quantity || 0), 0),
           distribution: rows.flatMap((r) => (Array.isArray(r.distribution) ? r.distribution : [])),

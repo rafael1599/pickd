@@ -481,9 +481,21 @@ export const PickingCartDrawer: React.FC = () => {
               : item
           );
           const qtySuffix = action.newQty !== undefined ? ` (qty ${action.newQty})` : '';
+          // The address goes in the note. A third of the replacements on record
+          // are the same SKU on both sides — the picker changed only where they
+          // took it from — and without the locations there is nothing in the
+          // note to say which way, so the whole category was unmeasurable.
+          const fromLocation = sourceItems.find((i) => i.sku === action.originalSku)?.location;
+          const toLocation = action.replacement.location;
+          const where =
+            fromLocation && toLocation && fromLocation !== toLocation
+              ? ` [${fromLocation} → ${toLocation}]`
+              : toLocation
+                ? ` [${toLocation}]`
+                : '';
           logMessage = action.reason
-            ? `Replaced ${action.originalSku} → ${action.replacement.sku}${qtySuffix}: ${action.reason}`
-            : `Swapped SKU ${action.originalSku} → ${action.replacement.sku}${qtySuffix}`;
+            ? `Replaced ${action.originalSku} → ${action.replacement.sku}${qtySuffix}${where}: ${action.reason}`
+            : `Swapped SKU ${action.originalSku} → ${action.replacement.sku}${qtySuffix}${where}`;
           break;
         }
         case 'adjust_qty': {
