@@ -2,7 +2,7 @@ import React from 'react';
 import type { SlotUsage } from '../../../../utils/dsPalletPlanner';
 import { DS_PALLET_MAX } from '../../../../utils/dsPalletPlanner';
 import { skuColor } from '../../utils/skuColor';
-import type { SelectedSku } from './SkuDetailPanel';
+import type { CellSelection } from './SkuDetailPanel';
 
 // The grid transposes instead of rotating, so a cell is always drawn upright
 // and at the size it was laid out. Nothing here counter-rotates.
@@ -12,7 +12,7 @@ interface DsPalletCellProps {
   strandedUnits?: number;
   /** Fixed across the grid — every cell now holds exactly one pallet. */
   heightRem: number;
-  onSelectSku: (selection: SelectedSku) => void;
+  onSelectSku: (selection: CellSelection) => void;
   borderRight?: boolean;
   borderBottom?: boolean;
   dashed?: boolean;

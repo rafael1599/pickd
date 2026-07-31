@@ -12,7 +12,12 @@ import { isTransposed } from '../../utils/gridOrientation';
 import { BlockReadinessPanel } from './BlockReadinessPanel';
 import { MapCriteriaBar } from './MapCriteriaBar';
 import { PullFirstPanel } from './PullFirstPanel';
-import { SkuDetailPanel, type SelectedSku, type SkuDetailInfo } from './SkuDetailPanel';
+import {
+  SkuDetailPanel,
+  type CellSelection,
+  type SelectedSku,
+  type SkuDetailInfo,
+} from './SkuDetailPanel';
 import {
   APTITUDE_DEFAULTS,
   BLOCKS,
@@ -32,6 +37,8 @@ interface BlockPanelProps {
   criteria: AptitudeCriteria;
   /** SKUs set aside for this plan only. */
   skipped: ReadonlySet<string>;
+  /** Bumped when a SKU is skipped out of *this* block; rebuilds it once. */
+  skipToken: number | null;
   rotation: number;
   onSelectSku: (selection: SelectedSku) => void;
   onSkuInfo: (info: Map<string, SkuDetailInfo>) => void;
@@ -46,6 +53,7 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
   recencyDays,
   criteria,
   skipped,
+  skipToken,
   rotation,
   onSelectSku,
   onSkuInfo,
@@ -156,6 +164,34 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
     }
   };
 
+  // A skip rebuilds the block by itself.
+  //
+  // Adding the SKU to `skipped` only changes what the *next* plan would hold —
+  // the map on screen is a saved snapshot, so until it is rebuilt the cell keeps
+  // showing the bike that was just set aside, and the action reads as broken.
+  // The recalculation is fired here rather than asked for in a toast.
+  //
+  // Through a ref because the effect must run once per token, not every time
+  // the handler is rebuilt; and the effect runs after the commit that added the
+  // SKU, so revalidate() reads a pool that no longer contains it.
+  const latestRecalculate = React.useRef(handleRecalculate);
+  React.useEffect(() => {
+    latestRecalculate.current = handleRecalculate;
+  });
+
+  const firedToken = React.useRef<number | null>(null);
+  React.useEffect(() => {
+    if (skipToken === null || skipToken === firedToken.current) return;
+    firedToken.current = skipToken;
+    void latestRecalculate.current();
+  }, [skipToken]);
+
+  // The cell knows its position, not its block — that is this panel's to add.
+  const handleSelectSku = React.useCallback(
+    (selection: CellSelection) => onSelectSku({ ...selection, blockId: block.id }),
+    [onSelectSku, block.id]
+  );
+
   // The width goes where the information is. A block showing its grid is worth
   // twice one showing a setup checklist, so with one of each the checklist
   // takes a third and the map two thirds; two blocks in the same state split
@@ -232,9 +268,6 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
         Block {block.id} · {block.label}
       </h3>
 
-      {/* Above the grid: what came out of this block is read before walking it. */}
-      <PullFirstPanel blockId={block.id} entries={strandedHere} totalBySku={totalBySku} />
-
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-slate-400 gap-2">
           <Loader2 className="w-5 h-5 animate-spin" /> Loading plan…
@@ -276,15 +309,30 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
               is in Pull First
             </span>
           </div>
-          <DsPalletGrid
-            block={block}
-            slots={slots}
-            strandedBySku={strandedBySku}
-            rotation={rotation}
-            onSelectSku={onSelectSku}
-          />
+          {/* The grid stays mounted under the loader rather than being swapped
+              for one: the block keeps its size, so the replacement appears in
+              place instead of the page jumping back from a collapsed panel. */}
+          <div className="relative">
+            <DsPalletGrid
+              block={block}
+              slots={slots}
+              strandedBySku={strandedBySku}
+              rotation={rotation}
+              onSelectSku={handleSelectSku}
+            />
+            {recalculate.isPending && (
+              <div className="print:hidden absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-lg bg-white/75 backdrop-blur-[1px] text-sm font-semibold text-slate-600">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Rebuilding block {block.id}…
+              </div>
+            )}
+          </div>
         </>
       )}
+
+      {/* Under the grid: the block is walked first, and what it could not take
+          is the follow-up trip — so it reads after the map, not before it. */}
+      <PullFirstPanel blockId={block.id} entries={strandedHere} totalBySku={totalBySku} />
     </section>
   );
 };
@@ -304,11 +352,15 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
   // Deliberately not persisted: a skip means "not this one, now", and it is
   // meant to be forgotten the next time the plan is built from scratch.
   const [skipped, setSkipped] = useState<ReadonlySet<string>>(new Set());
-  const skipSku = React.useCallback((sku: string) => {
+
+  // Which block owes a rebuild, and a token so the same block can be skipped
+  // twice in a row and still fire twice.
+  const [skipRebuild, setSkipRebuild] = useState<{ blockId: string; token: number } | null>(null);
+
+  const skipSku = React.useCallback((sku: string, blockId: string) => {
     setSkipped((prev) => new Set(prev).add(sku));
-    toast.success(`${sku} set aside. Recalculate to let the next best take its cell.`, {
-      duration: 6000,
-    });
+    setSkipRebuild({ blockId, token: Date.now() });
+    toast.success(`${sku} set aside — rebuilding block ${blockId}…`, { duration: 3000 });
   }, []);
 
   // Both blocks share one pool, so they share one definition of "apt". Block A
@@ -399,6 +451,7 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
                 recencyDays={settings?.[b.id]?.recency_days ?? 30}
                 criteria={criteria}
                 skipped={skipped}
+                skipToken={skipRebuild?.blockId === b.id ? skipRebuild.token : null}
                 rotation={rotation}
                 onSelectSku={setSelectedSku}
                 onSkuInfo={mergeSkuInfo}
