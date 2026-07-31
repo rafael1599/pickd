@@ -9,6 +9,7 @@ import {
   type PickingItem,
 } from '../../../utils/pickingLogic';
 import { resolveBikeSkuSet } from '../../../utils/bikeDetection';
+import { isCombinedOrderNumber, isUnsafeToWriteItems } from '../utils/mergedGroupState';
 import type { User } from '@supabase/supabase-js';
 import type { Json } from '../../../integrations/supabase/types';
 import type { Location } from '../../../schemas/location.schema';
@@ -279,8 +280,8 @@ export const usePickingActions = ({
         const palletsQty = pallets.filter((p) => !p.isParts).length;
 
         // Transition to double_checking immediately
-        // Guard: never write merged group data back — merged order_numbers contain ' / '
-        const isMergedGroup = finalOrderNum?.includes(' / ');
+        // Guard: never write merged group data back. Asked of the data itself,
+        // not of the order number — see mergedGroupState.
         const updateData: Record<string, unknown> = {
           status: 'double_checking',
           checked_by: user.id,
@@ -290,8 +291,10 @@ export const usePickingActions = ({
           pallets_qty: palletsQty,
           verified_item_keys: [],
         };
-        if (!isMergedGroup) {
+        if (!isUnsafeToWriteItems(finalItems, activeListId, finalOrderNum)) {
           updateData.items = finalItems as unknown as Json;
+        }
+        if (!isCombinedOrderNumber(finalOrderNum)) {
           updateData.order_number = finalOrderNum;
         }
         const { data: updatedRow, error } = await supabase
@@ -315,7 +318,12 @@ export const usePickingActions = ({
         // and zero their pallets_qty so the group's summed total (computed
         // at read time) isn't double-counted — same convention already used
         // for the Ship-screen save path.
-        if (isMergedGroup && updatedRow?.group_id) {
+        //
+        // Keyed on the group existing, not on the merged view having been the
+        // thing on screen: a picker who scanned into one sibling directly is
+        // still marking the whole combined order ready, and gating this on the
+        // order-number sniff is precisely how the halves used to drift apart.
+        if (updatedRow?.group_id) {
           const { error: siblingError } = await supabase
             .from('picking_lists')
             .update({
@@ -873,19 +881,22 @@ export const usePickingActions = ({
       if (activeListId) {
         // Reuse existing picking_list record (user returned from double-check to correct items)
         // Guard (mirrors dd64e78): never write merged group / watchdog-combined
-        // data back to DB. Merged order_numbers contain ' / ' (e.g.
-        // "879484 / 879460"). Local cartItems can lag behind the DB after a
+        // data back to DB. Local cartItems can lag behind the DB after a
         // watchdog combine (realtime only syncs metadata), so writing the
         // local snapshot here would silently delete items the watchdog merged.
         // Order 879460 lost 11 items on 2026-04-30 through this exact path.
-        const isMergedGroup = orderNumber?.includes(' / ');
+        // The array is now also checked directly, which catches the merged
+        // group view even when the order number alone would not. See
+        // mergedGroupState.
         const updateData: Record<string, unknown> = {
           status: 'active',
           customer_id: customerId,
           load_number: loadNumber,
         };
-        if (!isMergedGroup) {
+        if (!isUnsafeToWriteItems(cartItems, activeListId, orderNumber)) {
           updateData.items = cartItems as unknown as Json;
+        }
+        if (!isCombinedOrderNumber(orderNumber)) {
           updateData.order_number = orderNumber;
         }
         const result = await supabase

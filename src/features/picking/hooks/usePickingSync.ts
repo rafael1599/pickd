@@ -4,6 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import { withSupabaseRetry } from '../../../lib/supabaseRetry';
 import { debounce, type DebouncedFunction } from '../../../utils/debounce';
 import { fetchGroupSiblings } from '../utils/fetchGroupSiblings';
+import { isCombinedOrderNumber, isUnsafeToWriteItems } from '../utils/mergedGroupState';
 import toast from 'react-hot-toast';
 import type { CartItem } from './usePickingCart';
 import type { Customer } from '../../../types/schema';
@@ -578,15 +579,18 @@ export const usePickingSync = ({
 
       const sanitizedItems = items; // Data already in correct format from database
       if (listId) {
-        // Guard: never write merged group data back to DB.
-        // Merged order_numbers contain ' / ' (e.g. "879270 / 879268").
-        const isMergedGroup = orderNum?.includes(' / ');
+        // Guard: never write merged group data back to DB. Items and the order
+        // number are asked separately — an array can span siblings while the
+        // order number in memory is a single one, and that is the case the old
+        // one-flag-for-both check missed. See mergedGroupState.
         const updateData: Record<string, unknown> = {
           customer_id: resolvedCustomerId ?? null,
           load_number: loadNumber,
         };
-        if (!isMergedGroup) {
+        if (!isUnsafeToWriteItems(sanitizedItems, listId, orderNum)) {
           updateData.items = sanitizedItems as unknown as Json;
+        }
+        if (!isCombinedOrderNumber(orderNum)) {
           updateData.order_number = orderNum;
         }
         const { error } = await supabase.from('picking_lists').update(updateData).eq('id', listId);
@@ -730,10 +734,16 @@ export const usePickingSync = ({
               }));
               for (const sibling of siblings) {
                 const siblingItems = (sibling.items as unknown as CartItem[]) || [];
+                // Only tag what is untagged, matching the anchor above. A tag
+                // already on the item is the finer-grained truth: a sibling can
+                // itself be a DB-merge, whose items name the real order they
+                // came from and whose own order_number is a "A / B" display
+                // string. Overwriting also laundered leaked rows into looking
+                // native, which is what hid 880985's items inside 880977.
                 const taggedItems = siblingItems.map((item) => ({
                   ...item,
-                  source_order: sibling.order_number || 'unknown',
-                  source_list_id: sibling.id as string,
+                  source_order: item.source_order || sibling.order_number || 'unknown',
+                  source_list_id: item.source_list_id || (sibling.id as string),
                 }));
                 allItems = [...allItems, ...taggedItems];
                 if (sibling.order_number) orderNumbers.push(sibling.order_number);
