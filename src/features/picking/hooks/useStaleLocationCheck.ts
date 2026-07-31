@@ -7,6 +7,8 @@ export interface StaleLocationItem {
   frozenLocation: string;
   warehouse: string | null;
   suggestedLocation: string | null;
+  /** Position inside the suggested row, so the picker gets the whole address. */
+  suggestedSublocation: string[] | null;
   suggestedQty: number;
 }
 
@@ -16,6 +18,8 @@ interface StaleCheckItem {
   location: string | null;
   warehouse?: string | null;
   sku_not_found?: boolean;
+  sublocation?: string[] | null;
+  picked?: boolean;
 }
 
 /** Minimal shape of an inventory row this check needs. */
@@ -24,7 +28,9 @@ export interface StaleInventoryRow {
   warehouse: string | null;
   location: string | null;
   quantity: number | null;
-  is_active: boolean | null;
+  /** Absent is treated as active — only an explicit `false` disqualifies a row. */
+  is_active?: boolean | null;
+  sublocation?: string[] | null;
 }
 
 interface NoteLike {
@@ -81,11 +87,60 @@ export function detectStaleLocations(
       frozenLocation: item.location,
       warehouse: item.warehouse ?? null,
       suggestedLocation: elsewhere[0].location,
+      suggestedSublocation: elsewhere[0].sublocation ?? null,
       suggestedQty: Number(elsewhere[0].quantity || 0),
     });
   }
 
   return result;
+}
+
+/**
+ * Moves each pick to wherever its stock actually is.
+ *
+ * A pick freezes the location the SKU was in when the order was built. Another
+ * user consolidating a row hours later leaves that address empty, and every
+ * check keyed on it then reads "no stock" for a bike that is sitting one row
+ * over — the picker is blocked from sending the order to double-check by an
+ * order that is, physically, entirely fillable.
+ *
+ * Naming the new address is not enough: the item still carries the old one, so
+ * whatever the banner says, the guard still fails and the deduction would still
+ * be aimed at an empty shelf. This rebases the item itself, which is what makes
+ * the rest of the pipeline agree with the floor.
+ *
+ * Only unpicked items move. A picked one is already on the pallet, so its
+ * location is spent history — and rewriting it would read to
+ * `compensate_picking_list_changes` as a remove-and-re-add of a picked item,
+ * which restores and re-deducts stock for a bike that never moved.
+ */
+export function rebaseToActualStock<T extends StaleCheckItem>(
+  items: T[],
+  rows: StaleInventoryRow[]
+): { items: T[]; moves: StaleLocationItem[] } {
+  const moves = detectStaleLocations(
+    items.filter((i) => !i.picked),
+    rows
+  ).filter((m) => !!m.suggestedLocation);
+
+  if (moves.length === 0) return { items, moves };
+
+  const byItem = new Map(
+    moves.map((m) => [`${m.sku}|${norm(m.warehouse)}|${norm(m.frozenLocation)}`, m])
+  );
+
+  const rebased = items.map((item) => {
+    if (item.picked) return item;
+    const move = byItem.get(`${item.sku}|${norm(item.warehouse)}|${norm(item.location)}`);
+    if (!move) return item;
+    return {
+      ...item,
+      location: move.suggestedLocation,
+      sublocation: move.suggestedSublocation,
+    };
+  });
+
+  return { items: rebased, moves };
 }
 
 /**
@@ -121,7 +176,7 @@ export function useStaleLocationCheck(
 
       const { data, error } = await supabase
         .from('inventory')
-        .select('sku, warehouse, location, quantity, is_active')
+        .select('sku, warehouse, location, quantity, is_active, sublocation')
         .in('sku', skus);
 
       if (cancelled || error || !data) return;

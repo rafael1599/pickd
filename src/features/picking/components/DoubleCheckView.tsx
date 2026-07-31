@@ -1958,11 +1958,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             </div>
             <div className="flex-1">
               <p className="text-xs font-black text-amber-500/80 uppercase tracking-widest mb-1">
-                Stale pick location{staleLocations.length > 1 ? 's' : ''}
+                Moved since this order was built
               </p>
               <p className="text-[11px] font-medium text-muted mb-2 leading-relaxed">
-                The frozen location is empty but stock exists elsewhere — pick from the suggested
-                location (verify physically before picking).
+                Someone moved {staleLocations.length > 1 ? 'these' : 'this'} while the order was
+                open. Pick from the address below — that is also where the units come off.
               </p>
               <ul className="space-y-1">
                 {staleLocations.map((s) => (
@@ -1973,7 +1973,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                     <span className="font-black">{s.sku}</span>{' '}
                     <span className="text-amber-500/80 line-through">{s.frozenLocation}</span>{' '}
                     <span className="text-muted">→</span>{' '}
-                    <span className="font-black text-emerald-400">{s.suggestedLocation}</span>{' '}
+                    <span className="font-black text-emerald-400">
+                      {s.suggestedLocation}
+                      {s.suggestedSublocation?.length
+                        ? ` · ${s.suggestedSublocation.join('/')}`
+                        : ''}
+                    </span>{' '}
                     <span className="text-muted">({s.suggestedQty} in stock)</span>
                   </li>
                 ))}
