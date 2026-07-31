@@ -10,6 +10,7 @@ import {
 } from '../../../utils/pickingLogic';
 import { resolveBikeSkuSet } from '../../../utils/bikeDetection';
 import { isCombinedOrderNumber, isUnsafeToWriteItems } from '../utils/mergedGroupState';
+import { rebaseToActualStock } from './useStaleLocationCheck';
 import type { User } from '@supabase/supabase-js';
 import type { Json } from '../../../integrations/supabase/types';
 import type { Location } from '../../../schemas/location.schema';
@@ -27,6 +28,8 @@ interface InventoryRow {
   quantity: number;
   warehouse: string;
   location: string | null;
+  is_active?: boolean | null;
+  sublocation?: string[] | null;
 }
 
 /** Shape returned by the picking_lists select query (partial) */
@@ -180,14 +183,40 @@ export const usePickingActions = ({
         // A. Fetch current stock
         const { data: currentStock, error: stockError } = await supabase
           .from('inventory')
-          .select('sku, quantity, warehouse, location')
+          .select('sku, quantity, warehouse, location, is_active, sublocation')
           .in('sku', skuList);
 
         if (stockError) throw stockError;
 
+        // Follow the stock before judging it. A row consolidated by someone else
+        // leaves the frozen address empty, and every check below is keyed on that
+        // address — so an order that is entirely fillable reads as out of stock
+        // and cannot be sent to double-check. Rebasing here means the validation,
+        // the pallet math, and the saved item all name the shelf the bike is
+        // actually on, which is also the shelf it will be deducted from.
+        const { items: rebasedItems, moves } = rebaseToActualStock(
+          finalItems,
+          (currentStock as InventoryRow[] | null) ?? []
+        );
+
+        if (moves.length > 0) {
+          const summary = moves
+            .map((m) => {
+              const spot = m.suggestedSublocation?.length
+                ? `${m.suggestedLocation} · ${m.suggestedSublocation.join('/')}`
+                : m.suggestedLocation;
+              return `${m.sku}: ${m.frozenLocation} → ${spot}`;
+            })
+            .join('\n');
+          toast(`Moved since this order was built — picking from:\n${summary}`, {
+            duration: 8000,
+            icon: '📍',
+          });
+        }
+
         // NEW: Fetch locations picking order for optimization
         const locationsToFetch = Array.from(
-          new Set(finalItems.map((i) => i.location).filter((loc): loc is string => !!loc))
+          new Set(rebasedItems.map((i) => i.location).filter((loc): loc is string => !!loc))
         );
         const { data: locationsData, error: locsError } = await supabase
           .from('locations')
@@ -234,7 +263,7 @@ export const usePickingActions = ({
         });
 
         // D. Validate my cart
-        for (const myItem of finalItems) {
+        for (const myItem of rebasedItems) {
           // Unregistered, unresolved, or ALREADY PICKED items must not block parking or finishing.
           // If an item is already picked (picked = true), it is physically in the cart/pallet
           // and should not be blocked by shelf location inventory checks.
@@ -272,7 +301,7 @@ export const usePickingActions = ({
 
         // Calculate Pallets using the same logic as UI
         const optimizedItems = getOptimizedPickingPath(
-          finalItems as unknown as PickingItem[],
+          rebasedItems as unknown as PickingItem[],
           (locationsData as Location[]) || []
         );
         const bikeSkuSet = await resolveBikeSkuSet(optimizedItems.map((i) => i.sku));
@@ -291,8 +320,8 @@ export const usePickingActions = ({
           pallets_qty: palletsQty,
           verified_item_keys: [],
         };
-        if (!isUnsafeToWriteItems(finalItems, activeListId, finalOrderNum)) {
-          updateData.items = finalItems as unknown as Json;
+        if (!isUnsafeToWriteItems(rebasedItems, activeListId, finalOrderNum)) {
+          updateData.items = rebasedItems as unknown as Json;
         }
         if (!isCombinedOrderNumber(finalOrderNum)) {
           updateData.order_number = finalOrderNum;
@@ -342,7 +371,7 @@ export const usePickingActions = ({
         }
 
         const listId = activeListId;
-        setCartItems(finalItems);
+        setCartItems(rebasedItems);
         setOrderNumber(finalOrderNum); // Ensure local state matches
         setCorrectionNotes(null);
         setListStatus('double_checking');
