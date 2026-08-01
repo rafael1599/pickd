@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { rebaseToActualStock, type StaleInventoryRow } from '../useStaleLocationCheck';
+import { toPickingOrderMap } from '../../utils/pickLocation';
 
 const row = (
   sku: string,
@@ -16,6 +17,8 @@ interface TestItem {
   pickingQty: number;
   sublocation?: string[] | null;
   picked?: boolean;
+  insufficient_stock?: boolean;
+  pickSplit?: { part: number; of: number; totalQty: number; isLastResort: boolean } | null;
 }
 
 const item = (sku: string, location: string | null, extra: Partial<TestItem> = {}): TestItem => ({
@@ -129,5 +132,262 @@ describe('rebaseToActualStock', () => {
     const { items: rebased } = rebaseToActualStock(items, rows);
 
     expect(rebased[0].location).toBe('ROW 31');
+  });
+});
+
+describe('rebaseToActualStock — picks split across shelves', () => {
+  const order = toPickingOrderMap([
+    { warehouse: 'LUDLOW', location: 'ROW 28', picking_order: 145 },
+    { warehouse: 'LUDLOW', location: 'ROW 15', picking_order: 290 },
+    { warehouse: 'LUDLOW', location: '42 BURIED', picking_order: 9999 },
+  ]);
+
+  // Production shape of 03-3931BK: 13 reachable in ROW 28, 39 buried. A pick of
+  // 20 used to be sent whole to ROW 28 — a shelf that cannot cover it — and the
+  // picker finished the job by hand.
+  it('splits one item into one row per stop', () => {
+    const items = [item('03-3931BK', 'ROW 42', { pickingQty: 20 })];
+    const rows = [
+      row('03-3931BK', 'ROW 42', 0),
+      row('03-3931BK', 'ROW 28', 13, ['B']),
+      row('03-3931BK', '42 BURIED', 39),
+    ];
+
+    const { items: rebased, moves } = rebaseToActualStock(items, rows, order);
+
+    expect(rebased).toHaveLength(2);
+    expect(rebased.map((i) => [i.location, i.pickingQty])).toEqual([
+      ['ROW 28', 13],
+      ['42 BURIED', 7],
+    ]);
+    expect(rebased[0].sublocation).toEqual(['B']);
+    expect(moves[0].legs.map((l) => l.qty)).toEqual([13, 7]);
+  });
+
+  // The case that used to read as a flat out-of-stock: the shelf the order was
+  // built against still holds units, just not enough.
+  it('splits when the frozen shelf has some of the pick but not all', () => {
+    const items = [item('03-3931BK', 'ROW 28', { pickingQty: 20 })];
+    const rows = [row('03-3931BK', 'ROW 28', 13), row('03-3931BK', '42 BURIED', 39)];
+
+    const { items: rebased } = rebaseToActualStock(items, rows, order);
+
+    expect(rebased.map((i) => [i.location, i.pickingQty])).toEqual([
+      ['ROW 28', 13],
+      ['42 BURIED', 7],
+    ]);
+  });
+
+  it('tags each row so the card can say which stop it is', () => {
+    const items = [item('03-3931BK', 'ROW 28', { pickingQty: 20 })];
+    const rows = [row('03-3931BK', 'ROW 28', 13), row('03-3931BK', '42 BURIED', 39)];
+
+    const { items: rebased } = rebaseToActualStock(items, rows, order);
+
+    expect(rebased[0].pickSplit).toEqual({
+      part: 1,
+      of: 2,
+      totalQty: 20,
+      isLastResort: false,
+    });
+    expect(rebased[1].pickSplit).toEqual({
+      part: 2,
+      of: 2,
+      totalQty: 20,
+      isLastResort: true,
+    });
+  });
+
+  // The alarm was about the shelf, not the warehouse. Once the route covers the
+  // order, keeping the flag would block a pick that is entirely fillable.
+  it('clears insufficient_stock once the route covers the order', () => {
+    const items = [item('03-3931BK', 'ROW 28', { pickingQty: 20, insufficient_stock: true })];
+    const rows = [row('03-3931BK', 'ROW 28', 13), row('03-3931BK', '42 BURIED', 39)];
+
+    const { items: rebased } = rebaseToActualStock(items, rows, order);
+
+    expect(rebased.every((i) => i.insufficient_stock === false)).toBe(true);
+  });
+
+  it('keeps insufficient_stock when even the full route falls short', () => {
+    const items = [item('03-3931BK', 'ROW 28', { pickingQty: 20, insufficient_stock: true })];
+    const rows = [row('03-3931BK', 'ROW 28', 5), row('03-3931BK', '42 BURIED', 4)];
+
+    const { items: rebased, moves } = rebaseToActualStock(items, rows, order);
+
+    expect(moves[0].shortfall).toBe(11);
+    expect(rebased.every((i) => i.insufficient_stock === true)).toBe(true);
+  });
+
+  it('does not split when one reachable shelf covers the whole pick', () => {
+    const items = [item('03-3931BK', 'ROW 42', { pickingQty: 10 })];
+    const rows = [
+      row('03-3931BK', 'ROW 42', 0),
+      row('03-3931BK', 'ROW 28', 13),
+      row('03-3931BK', '42 BURIED', 39),
+    ];
+
+    const { items: rebased } = rebaseToActualStock(items, rows, order);
+
+    expect(rebased).toHaveLength(1);
+    expect(rebased[0].location).toBe('ROW 28');
+    expect(rebased[0].pickSplit ?? undefined).toBeUndefined();
+  });
+
+  it('leaves the pick alone when its own shelf still covers it', () => {
+    const items = [item('03-3931BK', 'ROW 28', { pickingQty: 10 })];
+    const rows = [row('03-3931BK', 'ROW 28', 13), row('03-3931BK', '42 BURIED', 39)];
+
+    const { items: rebased, moves } = rebaseToActualStock(items, rows, order);
+
+    expect(rebased).toBe(items);
+    expect(moves).toHaveLength(0);
+  });
+
+  // A picked bike is on the pallet. Splitting it would read to
+  // compensate_picking_list_changes as a remove-and-re-add.
+  it('never splits an item that is already picked', () => {
+    const items = [item('03-3931BK', 'ROW 28', { pickingQty: 20, picked: true })];
+    const rows = [row('03-3931BK', 'ROW 28', 13), row('03-3931BK', '42 BURIED', 39)];
+
+    const { items: rebased } = rebaseToActualStock(items, rows, order);
+
+    expect(rebased).toHaveLength(1);
+    expect(rebased[0].location).toBe('ROW 28');
+  });
+
+  it('splits across two reachable shelves, with no buried stock involved', () => {
+    const items = [item('03-4085BK', 'ROW 28', { pickingQty: 30 })];
+    const rows = [row('03-4085BK', 'ROW 28', 24), row('03-4085BK', 'ROW 15', 10)];
+
+    const { items: rebased } = rebaseToActualStock(items, rows, order);
+
+    expect(rebased.map((i) => [i.location, i.pickingQty])).toEqual([
+      ['ROW 28', 24],
+      ['ROW 15', 6],
+    ]);
+    expect(rebased.every((i) => i.pickSplit?.isLastResort === false)).toBe(true);
+  });
+
+  it('splits the neighbours of a split item without disturbing them', () => {
+    const items = [
+      item('03-3931BK', 'ROW 28', { pickingQty: 20 }),
+      item('06-4427RB', 'ROW 4', { pickingQty: 2 }),
+    ];
+    const rows = [
+      row('03-3931BK', 'ROW 28', 13),
+      row('03-3931BK', '42 BURIED', 39),
+      row('06-4427RB', 'ROW 4', 10),
+    ];
+
+    const { items: rebased } = rebaseToActualStock(items, rows, order);
+
+    expect(rebased).toHaveLength(3);
+    expect(rebased[2]).toMatchObject({ sku: '06-4427RB', location: 'ROW 4', pickingQty: 2 });
+    expect(rebased[2].pickSplit).toBeUndefined();
+  });
+});
+
+// An order can already name one SKU at two addresses — a split from an earlier
+// pass, or an extra added by hand in Edit Order. Planning each row on its own
+// let both of them claim the same units.
+describe('rebaseToActualStock — one SKU already spread over two rows', () => {
+  const order = toPickingOrderMap([
+    { warehouse: 'LUDLOW', location: 'ROW 28', picking_order: 145 },
+    { warehouse: 'LUDLOW', location: 'ROW 15', picking_order: 290 },
+    { warehouse: 'LUDLOW', location: '42 BURIED', picking_order: 9999 },
+  ]);
+
+  const split = (part: number, of: number, isLastResort = false) => ({
+    part,
+    of,
+    totalQty: 20,
+    isLastResort,
+  });
+
+  it('leaves an intact split alone, so a second pass changes nothing', () => {
+    const items = [
+      item('03-3931BK', 'ROW 28', { pickingQty: 13, pickSplit: split(1, 2) }),
+      item('03-3931BK', '42 BURIED', { pickingQty: 7, pickSplit: split(2, 2, true) }),
+    ];
+    const rows = [row('03-3931BK', 'ROW 28', 13), row('03-3931BK', '42 BURIED', 39)];
+
+    const { items: rebased, moves } = rebaseToActualStock(items, rows, order);
+
+    expect(rebased).toBe(items);
+    expect(moves).toHaveLength(0);
+  });
+
+  // Both legs re-planned on their own would each be sent to ROW 15 as a
+  // separate row. pick_item matches (sku, warehouse, location), so the second
+  // one could never be checked off.
+  it('does not emit two rows for the same address', () => {
+    const items = [
+      item('03-3931BK', 'ROW 28', { pickingQty: 13, pickSplit: split(1, 2) }),
+      item('03-3931BK', '42 BURIED', { pickingQty: 7, pickSplit: split(2, 2, true) }),
+    ];
+    const rows = [
+      row('03-3931BK', 'ROW 28', 0),
+      row('03-3931BK', '42 BURIED', 0),
+      row('03-3931BK', 'ROW 15', 50),
+    ];
+
+    const { items: rebased } = rebaseToActualStock(items, rows, order);
+
+    expect(rebased).toHaveLength(1);
+    expect(rebased[0]).toMatchObject({ location: 'ROW 15', pickingQty: 20 });
+    expect(rebased[0].pickSplit).toBeNull();
+  });
+
+  // 13 + 7 against a shelf holding 15: planned separately both rows fit, and
+  // the order walks away claiming 20 units from 15.
+  it('plans the SKU once against the stock as a whole', () => {
+    const items = [
+      item('03-3931BK', 'ROW 28', { pickingQty: 13, pickSplit: split(1, 2) }),
+      item('03-3931BK', '42 BURIED', { pickingQty: 7, pickSplit: split(2, 2, true) }),
+    ];
+    const rows = [
+      row('03-3931BK', 'ROW 28', 0),
+      row('03-3931BK', '42 BURIED', 0),
+      row('03-3931BK', 'ROW 15', 15),
+    ];
+
+    const { items: rebased, moves } = rebaseToActualStock(items, rows, order);
+
+    expect(rebased.reduce((sum, i) => sum + i.pickingQty, 0)).toBe(15);
+    expect(moves[0].shortfall).toBe(5);
+  });
+
+  it('re-splits the whole SKU when one of its shelves empties', () => {
+    const items = [
+      item('03-3931BK', 'ROW 28', { pickingQty: 13, pickSplit: split(1, 2) }),
+      item('03-3931BK', '42 BURIED', { pickingQty: 7, pickSplit: split(2, 2, true) }),
+    ];
+    const rows = [
+      row('03-3931BK', 'ROW 28', 0),
+      row('03-3931BK', '42 BURIED', 39),
+      row('03-3931BK', 'ROW 15', 12),
+    ];
+
+    const { items: rebased } = rebaseToActualStock(items, rows, order);
+
+    expect(rebased.map((i) => [i.location, i.pickingQty])).toEqual([
+      ['ROW 15', 12],
+      ['42 BURIED', 8],
+    ]);
+    expect(rebased.map((i) => i.pickSplit?.part)).toEqual([1, 2]);
+  });
+
+  it('keeps a picked leg out of the replan and off the books', () => {
+    const items = [
+      item('03-3931BK', 'ROW 28', { pickingQty: 13, picked: true, pickSplit: split(1, 2) }),
+      item('03-3931BK', '42 BURIED', { pickingQty: 7, pickSplit: split(2, 2, true) }),
+    ];
+    const rows = [row('03-3931BK', '42 BURIED', 0), row('03-3931BK', 'ROW 15', 30)];
+
+    const { items: rebased } = rebaseToActualStock(items, rows, order);
+
+    expect(rebased[0]).toMatchObject({ location: 'ROW 28', pickingQty: 13, picked: true });
+    expect(rebased[1]).toMatchObject({ location: 'ROW 15', pickingQty: 7 });
   });
 });

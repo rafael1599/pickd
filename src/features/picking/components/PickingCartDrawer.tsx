@@ -18,6 +18,7 @@ import {
   calculatePalletsWithBikeAwareness,
 } from '../../../utils/pickingLogic';
 import { resolveBikeSkuSet } from '../../../utils/bikeDetection';
+import { collapseSplitForSku } from '../utils/pickLocation';
 import { useBikeSkuSet } from '../../../hooks/useBikeSkuSet';
 import { supabase } from '../../../lib/supabase';
 import type { Json } from '../../../lib/database.types';
@@ -386,6 +387,7 @@ export const PickingCartDrawer: React.FC = () => {
       max_capacity: null,
       picking_order: null,
       is_active: true,
+      counts_as_storage: true,
       created_at: '',
       length_ft: null,
       bike_line: null,
@@ -466,7 +468,11 @@ export const PickingCartDrawer: React.FC = () => {
 
       switch (action.type) {
         case 'swap': {
-          newItems = sourceItems.map((item) =>
+          // A split pick is several rows for one SKU. Every correction below
+          // addresses the SKU, so fold it back to one row first — see
+          // collapseSplitForSku.
+          const base = collapseSplitForSku(sourceItems, action.originalSku);
+          newItems = base.map((item) =>
             item.sku === action.originalSku
               ? {
                   ...item,
@@ -485,7 +491,7 @@ export const PickingCartDrawer: React.FC = () => {
           // are the same SKU on both sides — the picker changed only where they
           // took it from — and without the locations there is nothing in the
           // note to say which way, so the whole category was unmeasurable.
-          const fromLocation = sourceItems.find((i) => i.sku === action.originalSku)?.location;
+          const fromLocation = base.find((i) => i.sku === action.originalSku)?.location;
           const toLocation = action.replacement.location;
           const where =
             fromLocation && toLocation && fromLocation !== toLocation
@@ -499,7 +505,7 @@ export const PickingCartDrawer: React.FC = () => {
           break;
         }
         case 'adjust_qty': {
-          newItems = sourceItems.map((item) =>
+          newItems = collapseSplitForSku(sourceItems, action.sku).map((item) =>
             item.sku === action.sku
               ? { ...item, pickingQty: action.newQty, insufficient_stock: false }
               : item
@@ -517,9 +523,10 @@ export const PickingCartDrawer: React.FC = () => {
           break;
         }
         case 'add': {
-          const existing = sourceItems.find((item) => item.sku === action.item.sku);
+          const base = collapseSplitForSku(sourceItems, action.item.sku);
+          const existing = base.find((item) => item.sku === action.item.sku);
           if (existing) {
-            newItems = sourceItems.map((item) =>
+            newItems = base.map((item) =>
               item.sku === action.item.sku
                 ? { ...item, pickingQty: item.pickingQty + action.item.pickingQty }
                 : item
@@ -529,7 +536,7 @@ export const PickingCartDrawer: React.FC = () => {
               : `Extra item: ${action.item.sku}, qty ${action.item.pickingQty} (total ${existing.pickingQty + action.item.pickingQty})`;
           } else {
             newItems = [
-              ...sourceItems,
+              ...base,
               {
                 sku: action.item.sku,
                 location: action.item.location,
@@ -626,6 +633,7 @@ export const PickingCartDrawer: React.FC = () => {
           max_capacity: null,
           picking_order: null,
           is_active: true,
+          counts_as_storage: true,
           created_at: '',
           length_ft: null,
           bike_line: null,
@@ -698,6 +706,7 @@ export const PickingCartDrawer: React.FC = () => {
                 max_capacity: null,
                 picking_order: null,
                 is_active: true,
+                counts_as_storage: true,
                 created_at: '',
                 length_ft: null,
                 bike_line: null,
@@ -807,6 +816,7 @@ export const PickingCartDrawer: React.FC = () => {
                     max_capacity: null,
                     picking_order: null,
                     is_active: true,
+                    counts_as_storage: true,
                     created_at: '',
                     length_ft: null,
                     bike_line: null,

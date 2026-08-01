@@ -1,8 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
-import { byPickPreference, toPickingOrderMap, type PickingOrderMap } from '../utils/pickLocation';
+import {
+  byPickPreference,
+  planPickAcrossLocations,
+  toPickingOrderMap,
+  type PickingOrderMap,
+  type PickLeg,
+  type PickSplit,
+} from '../utils/pickLocation';
 
-/** A pick whose frozen location is empty while the SKU has stock elsewhere. */
+/** A pick whose frozen location can no longer cover it on its own. */
 export interface StaleLocationItem {
   sku: string;
   frozenLocation: string;
@@ -11,6 +18,14 @@ export interface StaleLocationItem {
   /** Position inside the suggested row, so the picker gets the whole address. */
   suggestedSublocation: string[] | null;
   suggestedQty: number;
+  /**
+   * Every stop the pick now needs, in walking order. One leg is the old
+   * "it moved, go here instead"; more than one means no single shelf covers
+   * the order and the pick is split across addresses.
+   */
+  legs: PickLeg[];
+  /** Units even the full route cannot cover — a real shortage. */
+  shortfall: number;
 }
 
 /** Minimal shape of an order/cart item this check needs. */
@@ -21,6 +36,10 @@ interface StaleCheckItem {
   sku_not_found?: boolean;
   sublocation?: string[] | null;
   picked?: boolean;
+  /** Drives the split. Absent → the check stays purely "is the shelf empty?". */
+  pickingQty?: number;
+  insufficient_stock?: boolean;
+  pickSplit?: PickSplit | null;
 }
 
 /** Minimal shape of an inventory row this check needs. */
@@ -44,10 +63,16 @@ const norm = (s: string | null | undefined): string => (s || '').trim().toUpperC
 
 /**
  * Pure detection: given order items and the current inventory rows for their
- * SKUs, return the items whose frozen location now holds 0 units while the same
- * SKU+warehouse has stock in another *active* location. Only active rows count
- * as real stock so register_new_sku placeholders / ghost rows never qualify as a
- * suggestion. Exported separately so it can be unit-tested without Supabase.
+ * SKUs, return the items whose frozen location can no longer cover the pick on
+ * its own, along with the route that can. Only active rows count as real stock
+ * so register_new_sku placeholders / ghost rows never qualify as a suggestion.
+ * Exported separately so it can be unit-tested without Supabase.
+ *
+ * Two things put an item in the result. The shelf went empty — someone
+ * consolidated the row out from under the order — or it still holds units but
+ * fewer than the pick needs, which used to surface as a bare `insufficient_stock`
+ * flag even when the rest of the bikes were one row over. Both are the same
+ * question: where does this pick actually come from now.
  */
 export function detectStaleLocations(
   cartItems: StaleCheckItem[],
@@ -55,42 +80,99 @@ export function detectStaleLocations(
   pickingOrder?: PickingOrderMap
 ): StaleLocationItem[] {
   const result: StaleLocationItem[] = [];
-  const seen = new Set<string>();
 
+  // Grouped by SKU and warehouse, not by row. An order can already name the
+  // same SKU at two addresses — a split from an earlier pass, or a hand-added
+  // extra — and planning each row on its own lets both of them claim the same
+  // units: two rows needing 13 and 7 would each be sent to a shelf holding 15.
+  // One SKU is one question, asked once, against the stock as a whole.
+  const groups = new Map<string, StaleCheckItem[]>();
   for (const item of cartItems) {
     if (item.sku_not_found || !item.location) continue;
+    const key = `${item.sku}|${norm(item.warehouse)}`;
+    const group = groups.get(key) ?? [];
+    group.push(item);
+    groups.set(key, group);
+  }
 
-    const dedupeKey = `${item.sku}|${norm(item.warehouse)}|${norm(item.location)}`;
-    if (seen.has(dedupeKey)) continue;
-    seen.add(dedupeKey);
-
+  for (const group of groups.values()) {
+    const first = group[0];
     const skuRows = rows.filter(
-      (r) => r.sku === item.sku && norm(r.warehouse) === norm(item.warehouse)
+      (r) => r.sku === first.sku && norm(r.warehouse) === norm(first.warehouse)
     );
     if (skuRows.length === 0) continue;
 
-    const frozenQty = skuRows
-      .filter((r) => norm(r.location) === norm(item.location))
-      .reduce((sum, r) => sum + Number(r.quantity || 0), 0);
-    if (frozenQty > 0) continue; // frozen location still has stock → not stale
+    const stockAt = (location: string | null | undefined): number =>
+      skuRows
+        .filter((r) => norm(r.location) === norm(location))
+        .reduce((sum, r) => sum + Number(r.quantity || 0), 0);
 
-    const elsewhere = skuRows
-      .filter(
-        (r) =>
-          norm(r.location) !== norm(item.location) &&
-          Number(r.quantity || 0) > 0 &&
-          r.is_active !== false
-      )
-      .sort(byPickPreference(pickingOrder));
-    if (elsewhere.length === 0) continue; // no stock anywhere → genuine out-of-stock, not stale
+    // Knowing the qty is what separates "it moved" from "it is no longer all in
+    // one place". Without one, any stock at all counts, exactly as this read
+    // before.
+    const required = group.reduce(
+      (sum, i) => sum + Math.max(0, Math.trunc(Number(i.pickingQty) || 0)),
+      0
+    );
+
+    // Nothing to say while every address the order names still covers what it
+    // was asked for there.
+    const claimed = new Map<string, number>();
+    for (const i of group) {
+      claimed.set(
+        norm(i.location),
+        (claimed.get(norm(i.location)) ?? 0) + Math.max(0, Math.trunc(Number(i.pickingQty) || 0))
+      );
+    }
+    const arrangementHolds = [...claimed.entries()].every(([location, qty]) =>
+      required > 0 ? stockAt(location) >= qty : stockAt(location) > 0
+    );
+    if (arrangementHolds) continue;
+
+    const stocked = skuRows.filter((r) => Number(r.quantity || 0) > 0 && r.is_active !== false);
+    if (stocked.length === 0) continue; // no stock anywhere → genuine out-of-stock, not stale
+
+    if (required === 0) {
+      // No qty to plan against: the old behaviour, move the pick somewhere it exists.
+      const elsewhere = stocked
+        .filter((r) => norm(r.location) !== norm(first.location))
+        .sort(byPickPreference(pickingOrder));
+      if (elsewhere.length === 0) continue;
+
+      result.push({
+        sku: first.sku,
+        frozenLocation: first.location as string,
+        warehouse: first.warehouse ?? null,
+        suggestedLocation: elsewhere[0].location,
+        suggestedSublocation: elsewhere[0].sublocation ?? null,
+        suggestedQty: Number(elsewhere[0].quantity || 0),
+        legs: [],
+        shortfall: 0,
+      });
+      continue;
+    }
+
+    const plan = planPickAcrossLocations(stocked, required, pickingOrder, first.location);
+    if (plan.legs.length === 0) continue;
+
+    // Already right where it is, in one stop — nothing to tell the picker.
+    if (
+      plan.legs.length === 1 &&
+      group.length === 1 &&
+      norm(plan.legs[0].location) === norm(first.location)
+    ) {
+      continue;
+    }
 
     result.push({
-      sku: item.sku,
-      frozenLocation: item.location,
-      warehouse: item.warehouse ?? null,
-      suggestedLocation: elsewhere[0].location,
-      suggestedSublocation: elsewhere[0].sublocation ?? null,
-      suggestedQty: Number(elsewhere[0].quantity || 0),
+      sku: first.sku,
+      frozenLocation: first.location as string,
+      warehouse: first.warehouse ?? null,
+      suggestedLocation: plan.legs[0].location,
+      suggestedSublocation: plan.legs[0].sublocation,
+      suggestedQty: plan.legs[0].available,
+      legs: plan.legs,
+      shortfall: plan.shortfall,
     });
   }
 
@@ -111,6 +193,10 @@ export function detectStaleLocations(
  * be aimed at an empty shelf. This rebases the item itself, which is what makes
  * the rest of the pipeline agree with the floor.
  *
+ * When no single shelf covers the pick, the item is split — one row per stop,
+ * each carrying the units taken there. The picker gets a card per address
+ * instead of a card that quietly asks for more than the shelf holds.
+ *
  * Only unpicked items move. A picked one is already on the pallet, so its
  * location is spent history — and rewriting it would read to
  * `compensate_picking_list_changes` as a remove-and-re-add of a picked item,
@@ -129,19 +215,74 @@ export function rebaseToActualStock<T extends StaleCheckItem>(
 
   if (moves.length === 0) return { items, moves };
 
-  const byItem = new Map(
-    moves.map((m) => [`${m.sku}|${norm(m.warehouse)}|${norm(m.frozenLocation)}`, m])
-  );
+  // Keyed on the group the plan was made for, so the whole of a SKU is replaced
+  // by the whole of its route. Anything else lets two rows for one SKU each
+  // apply the same plan and double the order.
+  const byGroup = new Map(moves.map((m) => [`${m.sku}|${norm(m.warehouse)}`, m]));
+  const spent = new Set<string>();
 
-  const rebased = items.map((item) => {
-    if (item.picked) return item;
-    const move = byItem.get(`${item.sku}|${norm(item.warehouse)}|${norm(item.location)}`);
-    if (!move) return item;
-    return {
+  // flatMap, because a pick no single shelf can cover stops being one item.
+  // Each leg becomes its own row with its own address and its own share of the
+  // qty — which is exactly what the rest of the pipeline is keyed on: pick_item
+  // matches (sku, warehouse, location), and process_picking_list deducts per
+  // item, so the units come off each shelf in the amount actually taken there.
+  const rebased = items.flatMap((item) => {
+    if (item.picked) return [item];
+    const groupKey = `${item.sku}|${norm(item.warehouse)}`;
+    const move = byGroup.get(groupKey);
+    if (!move) return [item];
+
+    // The route replaces every row of the group at once, at the position of the
+    // first of them. The rest drop out rather than each re-applying it.
+    if (spent.has(groupKey)) return [];
+    spent.add(groupKey);
+
+    // No qty to plan against: a plain relocation, as this always did.
+    if (move.legs.length === 0) {
+      return [
+        {
+          ...item,
+          location: move.suggestedLocation,
+          sublocation: move.suggestedSublocation,
+        },
+      ];
+    }
+
+    // One stop covers it. The leg carries the group's whole quantity, which
+    // matters when the group was several rows and is now one, and the split tag
+    // is cleared so a card left over from an earlier pass stops claiming to be
+    // part of a route that no longer exists.
+    if (move.legs.length === 1) {
+      return [
+        {
+          ...item,
+          location: move.legs[0].location,
+          sublocation: move.legs[0].sublocation,
+          pickingQty: move.legs[0].qty,
+          insufficient_stock: move.shortfall === 0 ? false : item.insufficient_stock,
+          pickSplit: null,
+        },
+      ];
+    }
+
+    const totalQty = move.legs.reduce((sum, leg) => sum + leg.qty, 0) + move.shortfall;
+
+    return move.legs.map((leg, idx) => ({
       ...item,
-      location: move.suggestedLocation,
-      sublocation: move.suggestedSublocation,
-    };
+      location: leg.location,
+      sublocation: leg.sublocation,
+      pickingQty: leg.qty,
+      // The route covers the order, so the out-of-stock alarm the single-shelf
+      // view raised was about the shelf, not the warehouse. A real shortfall
+      // leaves it alone.
+      insufficient_stock: move.shortfall === 0 ? false : item.insufficient_stock,
+      pickSplit: {
+        part: idx + 1,
+        of: move.legs.length,
+        totalQty,
+        isLastResort: leg.isLastResort,
+      },
+    }));
   });
 
   return { items: rebased, moves };
@@ -183,7 +324,7 @@ export function useStaleLocationCheck(
           .from('inventory')
           .select('sku, warehouse, location, quantity, is_active, sublocation')
           .in('sku', skus),
-        supabase.from('locations').select('location, picking_order'),
+        supabase.from('locations').select('warehouse, location, picking_order'),
       ]);
 
       if (cancelled || error || !data) return;

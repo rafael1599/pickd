@@ -59,6 +59,7 @@ import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingCo
 import { useStockReservations, buildReservationKey } from '../hooks/useStockReservations';
 import { useStaleLocationCheck } from '../hooks/useStaleLocationCheck';
 import { useCanonicalSkuResolution } from '../hooks/useCanonicalSkuResolution';
+import type { PickSplit } from '../utils/pickLocation';
 import { AS400_SKU_ALIASES } from '../../../utils/skuNormalize';
 import { DistributionGlyph } from '../../inventory/components/DistributionJengaViz';
 import { WaitingConflictModal } from './WaitingConflictModal';
@@ -87,6 +88,8 @@ export interface PickingItem {
   source_order?: string;
   source_list_id?: string;
   isStackedPart?: boolean;
+  /** Present when no single shelf covered the pick — see rebaseToActualStock. */
+  pickSplit?: PickSplit | null;
   sku_metadata?: {
     image_url?: string | null;
     length_in?: number | null;
@@ -1961,8 +1964,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                 Moved since this order was built
               </p>
               <p className="text-[11px] font-medium text-muted mb-2 leading-relaxed">
-                Someone moved {staleLocations.length > 1 ? 'these' : 'this'} while the order was
-                open. Pick from the address below — that is also where the units come off.
+                {staleLocations.length > 1 ? 'These are' : 'This is'} no longer all in one place.
+                Pick from the{' '}
+                {staleLocations.some((s) => s.legs.length > 1) ? 'addresses' : 'address'} below —
+                that is also where the units come off.
               </p>
               <ul className="space-y-1">
                 {staleLocations.map((s) => (
@@ -1973,13 +1978,35 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                     <span className="font-black">{s.sku}</span>{' '}
                     <span className="text-amber-500/80 line-through">{s.frozenLocation}</span>{' '}
                     <span className="text-muted">→</span>{' '}
-                    <span className="font-black text-emerald-400">
-                      {s.suggestedLocation}
-                      {s.suggestedSublocation?.length
-                        ? ` · ${s.suggestedSublocation.join('/')}`
-                        : ''}
-                    </span>{' '}
-                    <span className="text-muted">({s.suggestedQty} in stock)</span>
+                    {s.legs.length > 1 ? (
+                      // Split pick: the whole route, so the banner and the cards
+                      // tell the picker the same story.
+                      s.legs.map((leg, i) => (
+                        <React.Fragment key={`${leg.location}-${i}`}>
+                          {i > 0 && <span className="text-muted"> + </span>}
+                          <span
+                            className={`font-black ${leg.isLastResort ? 'text-amber-400' : 'text-emerald-400'}`}
+                          >
+                            {leg.location}
+                            {leg.sublocation?.length ? ` · ${leg.sublocation.join('/')}` : ''}
+                          </span>{' '}
+                          <span className="text-muted">(take {leg.qty})</span>
+                        </React.Fragment>
+                      ))
+                    ) : (
+                      <>
+                        <span className="font-black text-emerald-400">
+                          {s.suggestedLocation}
+                          {s.suggestedSublocation?.length
+                            ? ` · ${s.suggestedSublocation.join('/')}`
+                            : ''}
+                        </span>{' '}
+                        <span className="text-muted">({s.suggestedQty} in stock)</span>
+                      </>
+                    )}
+                    {s.shortfall > 0 && (
+                      <span className="text-rose-400 font-black"> · {s.shortfall} short</span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -2225,6 +2252,26 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                             >
                               {item.pickingQty}
                             </span>
+                            {/* Split pick: this SKU did not fit on one shelf, so it
+                                appears once per address. Without this the two cards
+                                read as a duplicated SKU and the picker "fixes" it. */}
+                            {item.pickSplit && (
+                              <div
+                                title={`Stop ${item.pickSplit.part} of ${item.pickSplit.of} — ${item.pickingQty} of ${item.pickSplit.totalQty} units come off ${item.location ?? 'this address'}`}
+                                className={`mt-1 flex flex-col items-center rounded px-1 py-0.5 leading-none ${
+                                  item.pickSplit.isLastResort
+                                    ? 'bg-amber-500/15 text-amber-500'
+                                    : 'bg-sky-500/15 text-sky-400'
+                                }`}
+                              >
+                                <span className="text-[9px] font-black uppercase tracking-wider whitespace-nowrap">
+                                  {item.pickSplit.part}/{item.pickSplit.of}
+                                </span>
+                                <span className="text-[8px] font-bold uppercase tracking-wide whitespace-nowrap opacity-80">
+                                  of {item.pickSplit.totalQty}
+                                </span>
+                              </div>
+                            )}
                           </div>
 
                           {item.sku_metadata?.image_url && (

@@ -70,7 +70,7 @@ export function useCanonicalSkuResolution(cartItems: ResolutionItem[]): Map<stri
           .from('inventory')
           .select('sku, location, quantity, distribution, sublocation, is_active')
           .in('sku', allCandidates),
-        supabase.from('locations').select('location, picking_order'),
+        supabase.from('locations').select('warehouse, location, picking_order'),
       ]);
 
       if (cancelled || error || !data) return;
