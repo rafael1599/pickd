@@ -10,8 +10,10 @@ import Plus from 'lucide-react/dist/esm/icons/plus';
 import Loader from 'lucide-react/dist/esm/icons/loader';
 import { findSimilarSkus, type SimilarSku } from '../utils/findSimilarSkus';
 import { pickBestStockRow } from '../utils/stockSubstitute';
+import { toPickingOrderMap } from '../utils/pickLocation';
 import { getSubstituteSku } from '../../../utils/skuNormalize';
 import { inventoryApi } from '../../inventory/api/inventoryApi';
+import { supabase } from '../../../lib/supabase';
 import type { PickingItem, CorrectionAction } from './DoubleCheckView';
 import type { InventoryItemWithMetadata } from '../../../schemas/inventory.schema';
 import type { InventoryItem } from '../../../schemas/inventory.schema';
@@ -342,11 +344,22 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
       if (!subSku) return;
       const warehouse = item.warehouse || 'LUDLOW';
       try {
-        const [bikes, parts] = await Promise.all([
+        const [bikes, parts, locationRows] = await Promise.all([
           inventoryApi.fetchInventoryWithMetadata({ search: subSku, showParts: false, limit: 10 }),
           inventoryApi.fetchInventoryWithMetadata({ search: subSku, showParts: true, limit: 10 }),
+          supabase.from('locations').select('warehouse, location, picking_order'),
         ]);
-        const best = pickBestStockRow([...bikes.data, ...parts.data], subSku, warehouse);
+        // The substitute is chosen the same way every other pick is: a buried
+        // pallet is not offered while a normal shelf still has the bike. Without
+        // this the auto-swap was the one chooser that still ranked on quantity
+        // alone, and it silently sent the picker to the pallet.
+        const best = pickBestStockRow(
+          [...bikes.data, ...parts.data],
+          subSku,
+          warehouse,
+          toPickingOrderMap(locationRows.data),
+          item.pickingQty
+        );
         // Only auto-swap when the substitute fully covers the order. Partial
         // stock is a judgment call — leave it flagged for the picker.
         if (!best || best.quantity < item.pickingQty) return;

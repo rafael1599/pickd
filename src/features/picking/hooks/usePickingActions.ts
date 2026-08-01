@@ -191,10 +191,15 @@ export const usePickingActions = ({
 
         // Loaded before the rebase, not after: it decides which shelf a moved
         // pick lands on, so a buried pallet is not offered while a normal row
-        // still holds the bike.
-        const { data: allLocations } = await supabase
+        // still holds the bike. The rebase needs every location to choose from,
+        // and the pallet ordering below reads the same table, so this replaces
+        // the second, narrower fetch that used to sit between them.
+        const { data: allLocations, error: locsError } = await supabase
           .from('locations')
-          .select('location, picking_order');
+          .select('warehouse, location, picking_order');
+
+        if (locsError) console.error('Error fetching picking orders:', locsError);
+
         const pickingOrder = toPickingOrderMap(allLocations);
 
         // Follow the stock before judging it. A row consolidated by someone else
@@ -223,17 +228,6 @@ export const usePickingActions = ({
             icon: '📍',
           });
         }
-
-        // NEW: Fetch locations picking order for optimization
-        const locationsToFetch = Array.from(
-          new Set(rebasedItems.map((i) => i.location).filter((loc): loc is string => !!loc))
-        );
-        const { data: locationsData, error: locsError } = await supabase
-          .from('locations')
-          .select('warehouse, location, picking_order')
-          .in('location', locationsToFetch);
-
-        if (locsError) console.error('Error fetching picking orders:', locsError);
 
         // B. Fetch ALL active allocations for these SKUs (excluding self)
         const { data: activeLists, error: listsError } = await supabase
@@ -312,7 +306,7 @@ export const usePickingActions = ({
         // Calculate Pallets using the same logic as UI
         const optimizedItems = getOptimizedPickingPath(
           rebasedItems as unknown as PickingItem[],
-          (locationsData as Location[]) || []
+          (allLocations as Location[]) || []
         );
         const bikeSkuSet = await resolveBikeSkuSet(optimizedItems.map((i) => i.sku));
         const pallets = calculatePalletsWithBikeAwareness(optimizedItems, bikeSkuSet);

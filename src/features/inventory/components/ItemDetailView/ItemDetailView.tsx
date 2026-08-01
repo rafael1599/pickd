@@ -24,6 +24,7 @@ import {
 } from '../../../../schemas/inventory.schema.ts';
 import { predictLocation } from '../../../../utils/locationPredictor.ts';
 import { calculateBikeDistribution } from '../../../../utils/distributionCalculator.ts';
+import { skuDefaultsFor } from '../../../../utils/skuDefaults';
 import { inventoryService } from '../../api/inventory.service.ts';
 import { uploadPhoto, deletePhoto } from '../../../../services/photoUpload.service';
 import { useScrollLock } from '../../../../hooks/useScrollLock';
@@ -53,11 +54,9 @@ type WarehouseType = 'LUDLOW' | 'ATS' | 'DELETED ITEMS';
 
 const DEFAULT_UNITS: Record<string, number> = { TOWER: 30, LINE: 5, PALLET: 10, OTHER: 1 };
 
-/** Dimension defaults: bikes get standard box dims, parts get zeros */
+/** Dimension defaults: bikes get standard box dims, parts get zeros and 1 lb. */
 function dimensionDefaults(isBike?: boolean | null) {
-  return isBike !== false // default to bike dims when unknown (null/undefined)
-    ? { length_in: 54, width_in: 8, height_in: 30, weight_lbs: 45 }
-    : { length_in: 0, width_in: 0, height_in: 0, weight_lbs: 0 };
+  return skuDefaultsFor(isBike);
 }
 
 interface ItemDetailViewProps {

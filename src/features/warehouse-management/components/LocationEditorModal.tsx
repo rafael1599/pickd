@@ -12,6 +12,7 @@ import {
   calculateLocationChangeImpact,
 } from '../../../utils/locationValidations';
 import { DEFAULT_MAX_CAPACITY } from '../../../utils/capacityUtils';
+import { LAST_RESORT_PICKING_ORDER, isLastResortOrder } from '../../../utils/pickingOrder';
 import { useAutoSelect } from '../../../hooks/useAutoSelect';
 import { type Location } from '../../../schemas/location.schema';
 import { useScrollLock } from '../../../hooks/useScrollLock';
@@ -47,6 +48,7 @@ export default function LocationEditorModal({
     zone: location?.zone ?? 'UNASSIGNED',
     picking_order: location?.picking_order ?? 999,
     notes: location?.notes ?? '',
+    counts_as_storage: location?.counts_as_storage ?? true,
   });
 
   const [validation, setValidation] = useState<{ errors: string[]; warnings: string[] }>({
@@ -198,6 +200,33 @@ export default function LocationEditorModal({
             />
           </div>
 
+          {/* Counts as storage — governs whether the capacity above is real
+              warehouse space. Shipping lanes, staging bays and container names
+              are tracked here too, and their default 550 used to be reported as
+              free space nobody could ever put a bike in. */}
+          <div>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.counts_as_storage}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, counts_as_storage: e.target.checked }))
+                }
+                className="mt-0.5 w-5 h-5 shrink-0 rounded border-subtle bg-main text-accent focus:ring-accent cursor-pointer"
+              />
+              <span>
+                <span className="block text-sm font-semibold text-content">
+                  Counts as storage space
+                </span>
+                <span className="block text-xs text-muted mt-0.5">
+                  {formData.counts_as_storage
+                    ? 'The capacity above is counted as available warehouse space.'
+                    : 'Tracked as usual, but the capacity above is left out of available space — for shipping, staging, containers and cages.'}
+                </span>
+              </span>
+            </label>
+          </div>
+
           {/* Picking Order */}
           <div>
             <label className="block text-sm font-semibold text-muted mb-2">
@@ -216,6 +245,16 @@ export default function LocationEditorModal({
               {...autoSelect}
               className="w-full px-4 py-3 bg-main border border-subtle rounded-lg text-content focus:border-accent focus:outline-none transition-colors"
             />
+            {/* The real walking order tops out in the hundreds, so a number in
+                this band is not "very late" — it takes the location out of the
+                picking route. Typing 9999 to mean "put it last" would do that
+                silently, which is how a buried pallet gets created by accident. */}
+            {isLastResortOrder(formData.picking_order) && (
+              <p className="mt-2 text-xs font-semibold text-amber-500">
+                {LAST_RESORT_PICKING_ORDER}+ marks this as a location of last resort. Pickers are
+                sent here only when no normal shelf has the SKU.
+              </p>
+            )}
           </div>
 
           {/* Notes */}

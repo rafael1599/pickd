@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import type { InventoryItem, InventoryItemWithMetadata } from '../../../schemas/inventory.schema';
 import type { Customer } from '../../../types/schema';
+import type { PickSplit } from '../utils/pickLocation';
 
 export interface CartItem extends InventoryItemWithMetadata {
   pickingQty: number;
@@ -11,6 +12,8 @@ export interface CartItem extends InventoryItemWithMetadata {
   /** Set once the item is physically in the cart; persisted in picking_lists.items. */
   picked?: boolean;
   picked_at?: string | null;
+  /** Present when no single shelf covered the pick — see rebaseToActualStock. */
+  pickSplit?: PickSplit | null;
 }
 
 const LOCAL_STORAGE_KEY = 'picking_cart_items';

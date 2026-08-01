@@ -7,6 +7,7 @@ import { useInventory } from '../../inventory/hooks/useInventoryData';
 import LocationEditorModal from './LocationEditorModal';
 import { type Location } from '../../../schemas/location.schema';
 import { SearchInput } from '../../../components/ui/SearchInput';
+import { isLastResortOrder } from '../../../utils/pickingOrder';
 
 /**
  * LocationList - Grid/List of locations with edit capability
@@ -178,6 +179,28 @@ export const LocationList = () => {
                 {loc.picking_order !== null && loc.picking_order < 999 && (
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-accent/10 text-accent border border-accent/20">
                     #{loc.picking_order}
+                  </span>
+                )}
+                {/* Tracked, but not warehouse space — its capacity stays out of
+                    the available-space stat. */}
+                {loc.counts_as_storage === false && (
+                  <span
+                    title="Movements are tracked here as usual, but this location's capacity is not counted as available storage space."
+                    className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20"
+                  >
+                    NO STORAGE
+                  </span>
+                )}
+                {/* A location ranked past the last-resort band is skipped by
+                    picking while any normal shelf still has the SKU. That is a
+                    real routing decision and nothing here used to show it — the
+                    badge above hides everything from 999 up. */}
+                {isLastResortOrder(loc.picking_order) && (
+                  <span
+                    title={`Picking order ${loc.picking_order}: pickers are sent here only when no normal shelf has the SKU.`}
+                    className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                  >
+                    LAST RESORT
                   </span>
                 )}
               </div>
