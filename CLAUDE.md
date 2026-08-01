@@ -70,6 +70,51 @@ Ver `JAMIS/SHARED-DB-CONTRACT.md` para ownership de tablas, RPCs, y reglas de mi
 - **`inventory.sublocation`** (idea-024): posición dentro de un ROW (A-F). CHECK constraints: `^[A-Z]{1,3}$` y solo para `location ILIKE 'ROW%'`. Se auto-limpia a NULL al mover a non-ROW. UI: chips en ItemDetailView/MovementModal, badge en InventoryCard/DoubleCheckView.
 - **Invariante qty=0 → is_active=false:** `adjust_inventory_quantity` y `undo_inventory_action` mantienen `is_active = (quantity > 0)` bidireccionalmente. **Excepción:** `register_new_sku` crea placeholders con `qty=0, is_active=true` para onboarding de bikes nuevos — NO modificar este comportamiento. Ghost trail en búsqueda usa `includeInactive: true` para seguir mostrando items sin stock con su último movimiento.
 
+### `locations`: el nombre no es único, y no toda ubicación es almacenamiento
+
+Una ubicación se identifica por **(warehouse, location)**, nunca por el nombre solo. ATS tiene su propio `PALLETIZED`, distinto del de LUDLOW y con otro ranking; indexar por nombre hace que una pise a la otra. Vale para código (`toPickingOrderMap`) y para SQL — cualquier `UPDATE locations` o rename tiene que filtrar por warehouse.
+
+**Renames aplicados** (`20260731180000`): LUDLOW `42 BURIED` → `ROW 42 BURIED` y `PALLETIZED` → `ROW X EP`. Son filas de bikes y el nombre ahora lo dice. `location` es texto denormalizado en 5 tablas (`locations`, `inventory`, `inventory_logs` ×2, `daily_inventory_snapshots`, `asset_tags`), así que renombrar es migración de datos, no cambio de etiqueta — y hay que reescribir el historial o el ghost trail queda apuntando a un nombre inexistente. El `PALLETIZED` de ATS quedó intacto. Efecto secundario buscado: al empezar con `ROW`, ahora admiten sublocation (el CHECK es `location ILIKE 'ROW%'`), entran al mapa y a la auditoría — y también se vuelven elegibles para sugerencias de put-away, donde su `picking_order` 9999/9995 es lo único que las mantiene al final.
+
+- **`counts_as_storage`** (boolean, default `true`): si la capacidad de la ubicación es espacio real de warehouse. `false` = existe para dar seguimiento pero su `max_capacity` NO entra en el espacio disponible — shipping (`FDX*`, `SD`), staging (`INCOMING`, `BAY*`, `22F`, `FLORIDA`, `UNASSIGNED`), containers (`^\d{4}N$`, el nombre temporal que se le pone a un load), jaulas (`CAGE*`), medias filas fantasma (`ROW n.5`) y pruebas (`TEST-*`). Lo consume `get_inventory_stats`; reemplazó a un `NOT ILIKE 'CAGE%'` hardcodeado. **Nunca borrar estas ubicaciones:** cuatro FKs (`inventory`, `inventory_logs` ×2, `daily_inventory_snapshots`) son `ON DELETE NO ACTION`, así que Postgres rechaza el DELETE, y el nombre del container _es_ el registro de staging. Editable desde LocationEditorModal; badge `NO STORAGE` en LocationList.
+- **`picking_order >= 9000` = último recurso** (`LAST_RESORT_PICKING_ORDER` en `src/utils/pickingOrder.ts`): el picker va ahí solo cuando ningún estante normal tiene el SKU (pallets enterrados, overflow palletizado). El recorrido real llega hasta 999, y **999 es el centinela de "sin ranking"** que usa la UI al crear una ubicación — por eso la banda arranca en 9000. `NULL` = sin ranking, tratado como normal: media bodega no tiene `picking_order` y degradarlas movería casi todos los picks. Badge `LAST RESORT` en LocationList.
+- **`get_inventory_stats` cuenta la capacidad de una ubicación solo mientras tenga algo del tipo consultado** (el `EXISTS`). O sea: "disponible" = hueco en las filas que ya se están usando, no espacio en el edificio — una ROW vacía aporta 0. Es intencional pero discutible; cambiarlo cambia el significado del número.
+- **`counts_as_storage` vs `is_shipping_area`** — son dos preguntas distintas, no dupliques: `is_shipping_area` = "¿el put-away debería sugerir este lugar?" (la leen `suggest_locations_for_sku` y la promoción de consolidación); `counts_as_storage` = "¿su capacidad es espacio de warehouse?". Se solapan pero no coinciden: una jaula no es área de envío, y una `ROW 2.5` fantasma tampoco.
+- **Dato malo conocido:** `LUDLOW / ROW 17` tiene `max_capacity = 0` con ~129 bikes dentro, así que aporta −129 al disponible. Falta la capacidad real.
+- **Bug conocido sin resolver:** `is_shipping_area` está en `false` en las 330 filas — nunca se pobló — así que los filtros construidos sobre ella no filtran nada y el put-away hoy puede sugerir `FDX STATION`. Poblarla cambia el comportamiento de sugerencias; decisión aparte.
+
+### `sku_metadata.is_bike`: quién lo decide, y por qué la ubicación no sirve de regla
+
+`is_bike` nunca está en NULL, lo que lo hace parecer confiable. Se rellena solo, y hay **tres reglas distintas** en el sistema para la misma pregunta:
+
+1. **La regla viva** — trigger `tr_sku_metadata_set_is_bike` en `sku_metadata`, función `set_is_bike_on_insert`: `LEFT(sku,2) IN ('01','02','03','06','07')`. Solo aplica cuando `is_bike IS NULL`, así que **un valor explícito siempre gana**.
+2. **El fallback del front** — `inferBikeSkusByPrefix` en `src/utils/bikeDetection.ts`: solo `03-`. Discrepa con la DB en **343 de 2.227 SKUs (15%)**.
+3. **`set_sku_metadata_is_bike`** — función más elaborada (incluye prefijo `05`, exige guion). **No está enganchada a ninguna tabla**: código muerto que discrepa con las otras dos en 215 SKUs.
+
+Además hay **86 SKUs cuyo `is_bike` contradice la regla viva** — corregidos a mano en algún momento. Unificar las tres reglas es la deuda más barata de pagar aquí.
+
+**⚠️ La ubicación NO determina si algo es bike.** Suena razonable ("si no está en un ROW no es bike") y es falso en las dos direcciones — verificado contra prod:
+
+- **Bikes legítimas fuera de un ROW numerado:** `ROW X EP` (03-4085BK ×41), `ROW 42 BURIED` (03-3931BK ×39) y las jaulas `CAGE*` (03-3666Bl, 03-3667BL, 03-3668BL, 03-3669BL, 09-48xx — bikes bajo llave). Reclasificarlas por ubicación rompería el cálculo de pallets, labels y la clasificación FedEx.
+- **⚠️ Un `item_name` que nombra un modelo de bici NO significa que el ítem sea una bici.** En este almacén las partes se nombran por la bici a la que pertenecen. `E47` tenía 5 SKUs marcados bike llamados "LASER 1.6 2017", "TAXI 2020 GLOSS BLACK", "CUSTOM COMMUTER 2020 BLUE" — y son **pedales**. Ninguna señal del registro los contradecía: `weight_lbs 45` / `length_in 55` son los defaults de registro, no medidas. Corregido en `20260731170000` (`is_bike = false` + prefijo `PEDAL ` en el nombre, para que no vuelva a pasar). **Esta confusión es exactamente lo que motiva pedir el tipo obligatoriamente al registrar.**
+- **`01-` y `02-` son prefijos de bike legítimos:** 139 y 20 SKUs, de los cuales 107 y 13 estuvieron en un ROW. Sacarlos del trigger misclasificaría ~120 bikes.
+- **Los tracking numbers de FedEx son `is_bike = true` a propósito** (`useFedExReturns.ts`): "returns are always bikes (per ops policy)", y se fuerza para que el placeholder aparezca en el carril de bikes donde el operador lo procesa. Son 34 SKUs / 34 unidades. Físicamente son bikes, pero inflan `total_skus` con números de tracking que no son modelos.
+
+Usar "no está en un ROW" como **detector** de sospechosos es útil; usarlo como **regla de clasificación** corrompe datos.
+
+**Registros basura conocidos, sin resolver:** `01-$&;%` ("Bike example", qty 0, en FDX), `00-0000` ("Faultline A1 Frame" — un cuadro, no una bike, en CAGE), `01-513/518/525/526/528` (sin `item_name`, `length_in = 5`, qty 1 en SD — marcados bike, sin nombre no se puede decidir qué son), y `03-3666Bl` con la L final en minúscula. Todos entraron por el mismo agujero: registro sin elegir el tipo.
+
+**Defaults de peso y dimensiones** (`20260731190000`): los pone el **trigger** `tr_sku_metadata_set_is_bike` según el tipo resuelto — bike 45 lbs / 55×8.5×30.5", part **1 lb** / 0×0×0. Solo rellena lo que viene NULL, así que un valor explícito siempre gana (verificado: un SKU con prefijo `03-` registrado explícitamente como part sale con 1 lb).
+
+- **Espejo en TS:** `src/utils/skuDefaults.ts`. La DB es la autoridad; el TS existe para prellenar formularios sin round-trip. **Mantener ambos en sync**, igual que `classify_picking_list_fedex`.
+- **Por qué existía el problema:** la columna tenía `DEFAULT 45` — el peso de una bici en caja — así que 1.376 de 1.387 parts pesaban 45 lbs y los totales del Ship screen sumaban una bici por cada pedal. Además había **tres respuestas distintas** para "cuánto pesa una parte": 0 en `ItemDetailView`, 0.1 en `ShipScreen`, 45 en `inventory.service` y la columna. Ahora hay una.
+- **`length_in` y `width_in` tenían `DEFAULT 5` y `6`** (ni bici ni nada), lo que además hacía inalcanzable la lógica de dimensiones del trigger. Los tres defaults de columna fueron eliminados para que el NULL llegue al trigger.
+- **`inventory.service.ts` ya no manda dimensiones** al crear el shell de un SKU no registrado: mandaba las de bici y pisaba el default que la DB habría acertado.
+- Sin efecto en shipping: `classify_picking_list_fedex` rutea a Regular con `weight_lbs > 50`, y tanto 45 como 1 están por debajo.
+- **Pendiente:** 144 SKUs (55 parts, 89 bikes) conservan las dimensiones basura `5×6`. El backfill de peso no las tocó porque algunas podrían estar medidas.
+
+**Detector, no regla:** "está fuera de un ROW" sirve para _encontrar_ sospechosos — así apareció E47 —, pero nunca para clasificar. `01-` y `02-` son prefijos de bike legítimos (139 y 20 SKUs, con 107 y 13 que vivieron en un ROW), así que sacarlos del trigger para atrapar cinco pedales misclasificaría ~120 bikes reales. La decisión la tiene que tomar una persona en el registro, no un patrón.
+
 ## Branching & Deployment
 
 - **`main`** — Producción. Despliega automáticamente a `pickd.pages.dev` (Cloudflare Pages).
