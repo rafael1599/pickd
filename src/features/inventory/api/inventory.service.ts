@@ -359,20 +359,15 @@ class InventoryService extends BaseService<
         console.log(
           `[InventoryService] SKU ${itemToInsert.sku} not found in metadata. Creating shell entry...`
         );
-        // Default dims for unregistered SKUs: standard bike box ~55×8.5×30.5", 45 lbs.
-        // e-bikes and children's bikes should be adjusted manually after ingest.
-        await this.supabase.from('sku_metadata').upsert(
-          [
-            {
-              sku: itemToInsert.sku,
-              length_in: 55,
-              width_in: 8.5,
-              height_in: 30.5,
-              weight_lbs: 45,
-            },
-          ],
-          { onConflict: 'sku' }
-        );
+        // Dimensions and weight are deliberately omitted: the sku_metadata
+        // trigger fills them from the resolved is_bike (bike 45 lbs in a
+        // 55×8.5×30.5" box, part 1 lb and no box). Sending bike dimensions from
+        // here is what stamped 45 lbs onto every part that arrived this way —
+        // the shell row overrode a default the database would have got right.
+        // e-bikes and children's bikes still need adjusting by hand after ingest.
+        await this.supabase
+          .from('sku_metadata')
+          .upsert([{ sku: itemToInsert.sku }], { onConflict: 'sku' });
       }
     } catch (metaErr) {
       console.warn(

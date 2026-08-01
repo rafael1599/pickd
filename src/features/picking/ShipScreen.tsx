@@ -26,6 +26,7 @@ import { withSupabaseRetry } from '../../lib/supabaseRetry';
 import type { PickingListItem, CombineMeta } from '../../schemas/picking.schema';
 import { saveCustomerAddress } from '../../lib/customerAddresses';
 import { mergeSiblingPalletPhotos } from '../../utils/mergeSiblingPalletPhotos';
+import { skuDefaultsFor } from '../../utils/skuDefaults';
 import { fetchGroupSiblings } from './utils/fetchGroupSiblings';
 import { useCombinedOrderFilter } from '../../hooks/useCombinedOrderFilter';
 import { ActiveFilterPill } from '../../components/orders/CombinedOrderNumbers';
@@ -508,16 +509,18 @@ export const ShipScreen = () => {
     });
   }, [selectedOrder?.items, skuMeta]);
 
-  // Auto-assign default weight to SKUs missing weight in sku_metadata
-  // Bikes → 45 lbs, Parts → 0.1 lbs
+  // Auto-assign default weight to SKUs missing weight in sku_metadata.
+  // Bikes → 45 lbs, Parts → 1 lb, from the shared table that mirrors the
+  // sku_metadata trigger. This used to say 0.1 for parts while two other call
+  // sites said 0 and 45, so the same pedal weighed three different things
+  // depending on which screen touched it first.
   useEffect(() => {
     if (!weightsReady || itemsMissingWeight.length === 0) return;
     const skusToFix = itemsMissingWeight.map((i: PickingListItem) => i.sku);
 
     Promise.all(
       skusToFix.map((sku: string) => {
-        const isBike = skuMeta[sku]?.is_bike;
-        const defaultWeight = isBike === false ? 0.1 : 45;
+        const defaultWeight = skuDefaultsFor(skuMeta[sku]?.is_bike).weight_lbs;
         return supabase
           .from('sku_metadata')
           .upsert({ sku, weight_lbs: defaultWeight }, { onConflict: 'sku' });
@@ -526,8 +529,10 @@ export const ShipScreen = () => {
       setSkuMeta((prev) => {
         const updated = { ...prev };
         skusToFix.forEach((sku: string) => {
-          const isBike = updated[sku]?.is_bike;
-          updated[sku] = { ...updated[sku], weight_lbs: isBike === false ? 0.1 : 45 };
+          updated[sku] = {
+            ...updated[sku],
+            weight_lbs: skuDefaultsFor(updated[sku]?.is_bike).weight_lbs,
+          };
         });
         return updated;
       });
