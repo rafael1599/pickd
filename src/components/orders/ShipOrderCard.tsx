@@ -866,7 +866,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                       onClick={() => handleCarrierChange(company)}
                       title={company}
                       aria-label={`Select carrier ${company}`}
-                      className={`flex-1 min-w-[85px] sm:min-w-[95px] h-11 px-3.5 rounded-2xl border flex items-center justify-center transition-all duration-200 active:scale-95 ${styleClasses} ${
+                      className={`shrink-0 px-4 h-11 rounded-2xl border inline-flex items-center justify-center transition-all duration-200 active:scale-95 ${styleClasses} ${
                         isUpdatingCarrier ? 'cursor-not-allowed' : ''
                       }`}
                     >
