@@ -23,6 +23,7 @@ import { useCustomerAddresses } from '../../hooks/useCustomerAddresses';
 import { getPavExpressZone } from '../../utils/pavExpressZones';
 import { OrderStatusPill } from './OrderStatusPill';
 import { TransportLogo } from './TransportLogo';
+import { getCarrierBrandColors } from './transportLogos';
 import { OrderProgressBar } from '../../features/picking/components/OrderProgressBar';
 import type { CustomerAddress } from '../../lib/customerAddresses';
 import type { CombineMeta, PickingList, PickingListItem } from '../../schemas/picking.schema';
@@ -824,6 +825,20 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 <div className="flex flex-wrap items-center gap-2">
                   {TRANSPORT_COMPANIES.map((company) => {
                     const isSelected = formData.transportCompany === company;
+                    const hasSelection = Boolean(formData.transportCompany);
+                    const brand = getCarrierBrandColors(company);
+
+                    let styleClasses = '';
+                    if (isSelected) {
+                      styleClasses = `bg-white ${brand.border} ring-2 ${brand.ring} ${brand.shadow} opacity-100 scale-105 z-10`;
+                    } else if (hasSelection) {
+                      styleClasses =
+                        'bg-main/60 border-subtle opacity-40 grayscale contrast-75 hover:opacity-100 hover:grayscale-0 hover:contrast-100 hover:border-content/30';
+                    } else {
+                      styleClasses =
+                        'bg-main border-subtle opacity-100 hover:border-content/30 hover:bg-surface';
+                    }
+
                     return (
                       <button
                         key={company}
@@ -832,17 +847,17 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                         onClick={() => handleCarrierChange(company)}
                         title={company}
                         aria-label={`Select carrier ${company}`}
-                        className={`h-10 px-3.5 rounded-2xl border flex items-center justify-center transition-all duration-150 active:scale-95 ${
-                          isSelected
-                            ? 'bg-white border-accent ring-2 ring-accent shadow-sm'
-                            : 'bg-main hover:bg-surface border-subtle hover:border-accent/60'
-                        } ${isUpdatingCarrier ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`h-10 px-3.5 rounded-2xl border flex items-center justify-center transition-all duration-200 active:scale-95 ${styleClasses} ${
+                          isUpdatingCarrier ? 'cursor-not-allowed' : ''
+                        }`}
                       >
                         <TransportLogo
                           company={company}
                           height={20}
                           plain
-                          textColor={isSelected ? 'text-accent font-black' : 'text-muted font-bold'}
+                          textColor={
+                            isSelected ? 'text-content font-black' : 'text-muted font-bold'
+                          }
                         />
                       </button>
                     );
