@@ -522,8 +522,9 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           </div>
         )}
 
-      <div className="flex flex-col lg:flex-row gap-5 lg:gap-6 items-start">
-        <div className="w-full lg:basis-[66.666%] lg:max-w-[66.666%] min-w-0 flex flex-col gap-5">
+      {/* Top Header Section: Status, Customer, Address on left + Pallet Photos on right */}
+      <div className="flex flex-col lg:flex-row gap-5 lg:gap-6 items-start w-full">
+        <div className="w-full lg:flex-1 min-w-0 flex flex-col gap-4">
           {/* Status — order number now lives in the LivePrintPreview block above.
               When shipped, the shipped logo shows in the header row above (right
               side), so we skip it here to avoid duplicating it. */}
@@ -740,206 +741,11 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
               </div>
             )}
           </div>
-
-          {/* Load number + Transport — click to edit */}
-          <div className="flex flex-col gap-3.5 w-full">
-            <div ref={editingField === 'load' ? editRef : undefined}>
-              {editingField === 'load' ? (
-                <input
-                  autoFocus
-                  type="text"
-                  value={formData.loadNumber}
-                  onChange={(e) =>
-                    setFormData({ ...formData, loadNumber: e.target.value.toUpperCase() })
-                  }
-                  onBlur={() => {
-                    setEditingField(null);
-                    void saveField('load');
-                  }}
-                  placeholder="E.G. 127035968"
-                  className="bg-main border border-subtle rounded-2xl px-4 py-2 text-sm font-bold text-content transition-colors duration-150 focus:border-accent focus:bg-surface shadow-sm w-48"
-                />
-              ) : (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditingField('load')}
-                    className="flex items-center gap-1.5 text-sm font-bold text-content hover:text-accent transition-colors duration-150"
-                  >
-                    <Hash size={13} className="shrink-0 text-muted" />
-                    {formData.loadNumber || (
-                      <span className="text-muted/50 italic font-semibold">Add load #…</span>
-                    )}
-                  </button>
-                  <SaveCheckmark show={justSavedField === 'load'} />
-                </div>
-              )}
-            </div>
-
-            <div className="w-full">
-              {/* Carrier selector — always visible, expands 100% full width */}
-              <div className="flex flex-col gap-2 w-full">
-                <span className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-1.5">
-                  <Truck size={11} className="text-muted" />
-                  Carrier
-                  {isUpdatingCarrier && (
-                    <span className="text-[9px] text-muted/50 font-semibold normal-case tracking-normal">
-                      saving…
-                    </span>
-                  )}
-                  <SaveCheckmark show={justSavedField === 'transport'} />
-                </span>
-
-                {showPavWarningBanner && (
-                  <div className="relative flex items-center justify-between gap-3 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-2xl w-full">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {/* PAV Express Logo crossed out with a thick red line */}
-                      <div className="relative shrink-0 w-12 h-6 bg-white rounded flex items-center justify-center p-0.5 overflow-hidden shadow-sm border border-subtle">
-                        <img
-                          src="/logos/transport/pav.png"
-                          alt="PAV Express"
-                          className="max-h-full max-w-full object-contain"
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="w-[140%] h-1 bg-red-600 rotate-[-25deg] shadow-sm rounded-full" />
-                        </div>
-                      </div>
-
-                      <span className="text-xs font-bold text-red-500 truncate">
-                        Outside PAV delivery zones
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setIsPavBannerDismissed(true)}
-                      title="Close warning"
-                      aria-label="Close warning"
-                      className="shrink-0 p-1 rounded-lg text-muted hover:text-content hover:bg-subtle transition-colors"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                )}
-
-                <div className="w-full flex flex-wrap items-center gap-2">
-                  {TRANSPORT_COMPANIES.map((company) => {
-                    const isSelected = formData.transportCompany === company;
-                    const hasSelection = Boolean(formData.transportCompany);
-                    const brand = getCarrierBrandColors(company);
-
-                    let styleClasses = '';
-                    if (isSelected) {
-                      styleClasses = `bg-white ${brand.border} ring-2 ${brand.ring} ${brand.shadow} opacity-100 scale-105 z-10`;
-                    } else if (hasSelection) {
-                      styleClasses =
-                        'bg-main/60 border-subtle opacity-40 grayscale contrast-75 hover:opacity-100 hover:grayscale-0 hover:contrast-100 hover:border-content/30';
-                    } else {
-                      styleClasses =
-                        'bg-main border-subtle opacity-100 hover:border-content/30 hover:bg-surface';
-                    }
-
-                    return (
-                      <button
-                        key={company}
-                        type="button"
-                        disabled={isUpdatingCarrier}
-                        onClick={() => handleCarrierChange(company)}
-                        title={company}
-                        aria-label={`Select carrier ${company}`}
-                        className={`flex-1 min-w-[80px] sm:min-w-[90px] h-10 px-3 rounded-2xl border flex items-center justify-center transition-all duration-200 active:scale-95 ${styleClasses} ${
-                          isUpdatingCarrier ? 'cursor-not-allowed' : ''
-                        }`}
-                      >
-                        <TransportLogo
-                          company={company}
-                          height={20}
-                          plain
-                          textColor={
-                            isSelected ? 'text-content font-black' : 'text-muted font-bold'
-                          }
-                        />
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Stats — click any figure to edit */}
-          <div className="flex flex-wrap gap-6 pt-4 border-t border-dashed border-subtle">
-            <StatField
-              label="Pallets"
-              value={formData.pallets}
-              editing={editingField === 'pallets'}
-              onEdit={() => setEditingField('pallets')}
-              onChange={(v) => setFormData({ ...formData, pallets: v })}
-              onBlur={() => {
-                setEditingField(null);
-                void saveField('pallets');
-              }}
-              editRef={editingField === 'pallets' ? editRef : undefined}
-              colorClass="text-[#22c55e]"
-              min="1"
-              showSaveCheckmark={justSavedField === 'pallets'}
-            />
-            <StatField
-              label="Bikes"
-              value={formData.bikes}
-              placeholder={String(autoBikeCount)}
-              editing={editingField === 'bikes'}
-              onEdit={() => setEditingField('bikes')}
-              onChange={(v) => setFormData({ ...formData, bikes: v })}
-              onBlur={() => {
-                setEditingField(null);
-                void saveField('bikes');
-              }}
-              editRef={editingField === 'bikes' ? editRef : undefined}
-              colorClass="text-blue-400"
-              showSaveCheckmark={justSavedField === 'bikes'}
-            />
-            <StatField
-              label="Parts"
-              value={formData.parts}
-              placeholder={String(autoPartCount)}
-              editing={editingField === 'parts'}
-              onEdit={() => setEditingField('parts')}
-              onChange={(v) => setFormData({ ...formData, parts: v })}
-              onBlur={() => {
-                setEditingField(null);
-                void saveField('parts');
-              }}
-              editRef={editingField === 'parts' ? editRef : undefined}
-              colorClass="text-orange-400"
-              showSaveCheckmark={justSavedField === 'parts'}
-            />
-            <div className="flex items-end gap-2">
-              <CopyButton
-                value={String(formData.weight || (autoWeight > 0 ? autoWeight : 0))}
-                label="Weight"
-              />
-              <StatField
-                label="Weight (lbs)"
-                value={formData.weight}
-                placeholder={autoWeight > 0 ? String(autoWeight) : '0'}
-                editing={editingField === 'weight'}
-                onEdit={() => setEditingField('weight')}
-                onChange={(v) => setFormData({ ...formData, weight: v })}
-                onBlur={() => {
-                  setEditingField(null);
-                  void saveField('weight');
-                }}
-                editRef={editingField === 'weight' ? editRef : undefined}
-                colorClass="text-purple-400"
-                showSaveCheckmark={justSavedField === 'weight'}
-              />
-            </div>
-          </div>
         </div>
 
+        {/* Pallet Photos Block — sits next to Customer/Address only */}
         {(selectedOrder.pallet_photos ?? []).length > 0 && (
-          <div className="w-full lg:basis-1/3 lg:max-w-[33.333%] shrink-0 self-stretch flex items-start justify-end">
+          <div className="w-full lg:w-72 shrink-0 flex items-start justify-end">
             <PalletPhotosBlock
               photos={selectedOrder.pallet_photos ?? []}
               orderNumber={selectedOrder.order_number ?? undefined}
@@ -950,6 +756,203 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
             />
           </div>
         )}
+      </div>
+
+      {/* Main Body Section (Load #, Carrier Selector, Stats) — FULL CARD WIDTH (100%) */}
+      <div className="flex flex-col gap-5 w-full">
+        {/* Load number + Transport — click to edit */}
+        <div className="flex flex-col gap-3.5 w-full">
+          <div ref={editingField === 'load' ? editRef : undefined}>
+            {editingField === 'load' ? (
+              <input
+                autoFocus
+                type="text"
+                value={formData.loadNumber}
+                onChange={(e) =>
+                  setFormData({ ...formData, loadNumber: e.target.value.toUpperCase() })
+                }
+                onBlur={() => {
+                  setEditingField(null);
+                  void saveField('load');
+                }}
+                placeholder="E.G. 127035968"
+                className="bg-main border border-subtle rounded-2xl px-4 py-2 text-sm font-bold text-content transition-colors duration-150 focus:border-accent focus:bg-surface shadow-sm w-48"
+              />
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingField('load')}
+                  className="flex items-center gap-1.5 text-sm font-bold text-content hover:text-accent transition-colors duration-150"
+                >
+                  <Hash size={13} className="shrink-0 text-muted" />
+                  {formData.loadNumber || (
+                    <span className="text-muted/50 italic font-semibold">Add load #…</span>
+                  )}
+                </button>
+                <SaveCheckmark show={justSavedField === 'load'} />
+              </div>
+            )}
+          </div>
+
+          <div className="w-full">
+            {/* Carrier selector — always visible, expands 100% full width */}
+            <div className="flex flex-col gap-2 w-full">
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-1.5">
+                <Truck size={11} className="text-muted" />
+                Carrier
+                {isUpdatingCarrier && (
+                  <span className="text-[9px] text-muted/50 font-semibold normal-case tracking-normal">
+                    saving…
+                  </span>
+                )}
+                <SaveCheckmark show={justSavedField === 'transport'} />
+              </span>
+
+              {showPavWarningBanner && (
+                <div className="relative flex items-center justify-between gap-3 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-2xl w-full">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {/* PAV Express Logo crossed out with a thick red line */}
+                    <div className="relative shrink-0 w-12 h-6 bg-white rounded flex items-center justify-center p-0.5 overflow-hidden shadow-sm border border-subtle">
+                      <img
+                        src="/logos/transport/pav.png"
+                        alt="PAV Express"
+                        className="max-h-full max-w-full object-contain"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-[140%] h-1 bg-red-600 rotate-[-25deg] shadow-sm rounded-full" />
+                      </div>
+                    </div>
+
+                    <span className="text-xs font-bold text-red-500 truncate">
+                      Outside PAV delivery zones
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsPavBannerDismissed(true)}
+                    title="Close warning"
+                    aria-label="Close warning"
+                    className="shrink-0 p-1 rounded-lg text-muted hover:text-content hover:bg-subtle transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+
+              <div className="w-full flex flex-wrap items-center gap-2">
+                {TRANSPORT_COMPANIES.map((company) => {
+                  const isSelected = formData.transportCompany === company;
+                  const hasSelection = Boolean(formData.transportCompany);
+                  const brand = getCarrierBrandColors(company);
+
+                  let styleClasses = '';
+                  if (isSelected) {
+                    styleClasses = `bg-white ${brand.border} ring-2 ${brand.ring} ${brand.shadow} opacity-100 scale-105 z-10`;
+                  } else if (hasSelection) {
+                    styleClasses =
+                      'bg-main/60 border-subtle opacity-40 grayscale contrast-75 hover:opacity-100 hover:grayscale-0 hover:contrast-100 hover:border-content/30';
+                  } else {
+                    styleClasses =
+                      'bg-main border-subtle opacity-100 hover:border-content/30 hover:bg-surface';
+                  }
+
+                  return (
+                    <button
+                      key={company}
+                      type="button"
+                      disabled={isUpdatingCarrier}
+                      onClick={() => handleCarrierChange(company)}
+                      title={company}
+                      aria-label={`Select carrier ${company}`}
+                      className={`flex-1 min-w-[80px] sm:min-w-[90px] h-10 px-3 rounded-2xl border flex items-center justify-center transition-all duration-200 active:scale-95 ${styleClasses} ${
+                        isUpdatingCarrier ? 'cursor-not-allowed' : ''
+                      }`}
+                    >
+                      <TransportLogo
+                        company={company}
+                        height={20}
+                        plain
+                        textColor={isSelected ? 'text-content font-black' : 'text-muted font-bold'}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats — click any figure to edit */}
+        <div className="flex flex-wrap gap-6 pt-4 border-t border-dashed border-subtle w-full">
+          <StatField
+            label="Pallets"
+            value={formData.pallets}
+            editing={editingField === 'pallets'}
+            onEdit={() => setEditingField('pallets')}
+            onChange={(v) => setFormData({ ...formData, pallets: v })}
+            onBlur={() => {
+              setEditingField(null);
+              void saveField('pallets');
+            }}
+            editRef={editingField === 'pallets' ? editRef : undefined}
+            colorClass="text-[#22c55e]"
+            min="1"
+            showSaveCheckmark={justSavedField === 'pallets'}
+          />
+          <StatField
+            label="Bikes"
+            value={formData.bikes}
+            placeholder={String(autoBikeCount)}
+            editing={editingField === 'bikes'}
+            onEdit={() => setEditingField('bikes')}
+            onChange={(v) => setFormData({ ...formData, bikes: v })}
+            onBlur={() => {
+              setEditingField(null);
+              void saveField('bikes');
+            }}
+            editRef={editingField === 'bikes' ? editRef : undefined}
+            colorClass="text-blue-400"
+            showSaveCheckmark={justSavedField === 'bikes'}
+          />
+          <StatField
+            label="Parts"
+            value={formData.parts}
+            placeholder={String(autoPartCount)}
+            editing={editingField === 'parts'}
+            onEdit={() => setEditingField('parts')}
+            onChange={(v) => setFormData({ ...formData, parts: v })}
+            onBlur={() => {
+              setEditingField(null);
+              void saveField('parts');
+            }}
+            editRef={editingField === 'parts' ? editRef : undefined}
+            colorClass="text-orange-400"
+            showSaveCheckmark={justSavedField === 'parts'}
+          />
+          <div className="flex items-end gap-2">
+            <CopyButton
+              value={String(formData.weight || (autoWeight > 0 ? autoWeight : 0))}
+              label="Weight"
+            />
+            <StatField
+              label="Weight (lbs)"
+              value={formData.weight}
+              placeholder={autoWeight > 0 ? String(autoWeight) : '0'}
+              editing={editingField === 'weight'}
+              onEdit={() => setEditingField('weight')}
+              onChange={(v) => setFormData({ ...formData, weight: v })}
+              onBlur={() => {
+                setEditingField(null);
+                void saveField('weight');
+              }}
+              editRef={editingField === 'weight' ? editRef : undefined}
+              colorClass="text-purple-400"
+              showSaveCheckmark={justSavedField === 'weight'}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Combined Order Info */}
