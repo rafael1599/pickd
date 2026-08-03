@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { autoClassifyShippingType } from '../shippingClassification';
+import { autoClassifyShippingType, isFedexOrder } from '../shippingClassification';
 
 describe('autoClassifyShippingType', () => {
   it('returns fedex for 1 light bike', () => {
@@ -18,6 +18,11 @@ describe('autoClassifyShippingType', () => {
     const items = [{ sku: '03-1000BL', pickingQty: 5 }];
     const weights = { '03-1000BL': 5 };
     expect(autoClassifyShippingType(items, weights)).toBe('regular');
+  });
+
+  it('returns regular for 5 bikes with 06- or 07- prefixes without metadata', () => {
+    const items = [{ sku: '06-4515BK', pickingQty: 5 }];
+    expect(autoClassifyShippingType(items, {})).toBe('regular');
   });
 
   it('returns fedex for a 50-part order — parts never force regular', () => {
@@ -98,5 +103,31 @@ describe('autoClassifyShippingType', () => {
     ];
     const weights = { '03-1000BL': 10, '98-6860': 10 };
     expect(autoClassifyShippingType(items, weights)).toBe('fedex');
+  });
+});
+
+describe('isFedexOrder with explicit transport companies', () => {
+  it('returns true when transport_company is FEDEX', () => {
+    expect(
+      isFedexOrder({ transport_company: 'FEDEX', items: [{ sku: '03-1000BL', pickingQty: 10 }] })
+    ).toBe(true);
+  });
+
+  it('returns false when transport_company is RIST or R+L (freight carriers)', () => {
+    expect(
+      isFedexOrder({ transport_company: 'RIST', items: [{ sku: '03-1000BL', pickingQty: 1 }] })
+    ).toBe(false);
+    expect(
+      isFedexOrder({ transport_company: 'R+L', items: [{ sku: '03-1000BL', pickingQty: 2 }] })
+    ).toBe(false);
+    expect(
+      isFedexOrder({ transport_company: 'DAYLIGHT', items: [{ sku: '03-1000BL', pickingQty: 1 }] })
+    ).toBe(false);
+  });
+
+  it('returns false when transport_company is PICK UP', () => {
+    expect(
+      isFedexOrder({ transport_company: 'PICK UP', items: [{ sku: '03-1000BL', pickingQty: 1 }] })
+    ).toBe(false);
   });
 });

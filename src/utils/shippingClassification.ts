@@ -12,7 +12,9 @@ export interface ClassifiableItem {
 function isBikeItem(item: ClassifiableItem): boolean {
   const flag = item.sku_metadata?.is_bike;
   if (typeof flag === 'boolean') return flag;
-  return item.sku?.startsWith('03-') ?? false;
+  const sku = item.sku ?? '';
+  const prefix = sku.slice(0, 2);
+  return ['01', '02', '03', '06', '07'].includes(prefix);
 }
 
 /**
@@ -105,6 +107,9 @@ export function isFedexOrder(
     .trim()
     .toUpperCase();
   if (transport === 'FEDEX') return true;
+  // An explicit transport_company carrier (e.g. RIST, R+L, DAYLIGHT, ESTES, ODFL, PICK UP)
+  // means a freight/regular carrier has been assigned.
+  if (transport && transport !== 'FEDEX') return false;
   if (order.order_group?.group_type === 'fedex') return true;
   if (order.shipping_type === 'fedex') return true;
   if (order.shipping_type) return false;

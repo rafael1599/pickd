@@ -12,6 +12,7 @@ import Wand2 from 'lucide-react/dist/esm/icons/wand-2';
 import Copy from 'lucide-react/dist/esm/icons/copy';
 import Check from 'lucide-react/dist/esm/icons/check';
 import Eye from 'lucide-react/dist/esm/icons/eye';
+import X from 'lucide-react/dist/esm/icons/x';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { CustomerAutocomplete } from '../../features/picking/components/CustomerAutocomplete';
@@ -19,6 +20,7 @@ import { usePickingSession } from '../../context/PickingContext';
 import { useConfirmation } from '../../context/ConfirmationContext';
 import { parseUSAddress } from '../../utils/parseUSAddress';
 import { useCustomerAddresses } from '../../hooks/useCustomerAddresses';
+import { getPavExpressZone } from '../../utils/pavExpressZones';
 import { OrderStatusPill } from './OrderStatusPill';
 import { OrderProgressBar } from '../../features/picking/components/OrderProgressBar';
 import type { CustomerAddress } from '../../lib/customerAddresses';
@@ -243,6 +245,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [isUpdatingCarrier, setIsUpdatingCarrier] = useState(false);
   const [justSavedField, setJustSavedField] = useState<string | null>(null);
+  const [isPavBannerDismissed, setIsPavBannerDismissed] = useState(false);
   const editRef = useRef<HTMLDivElement>(null);
   const clearSaveRef = useRef<NodeJS.Timeout | null>(null);
   const { deleteList } = usePickingSession();
@@ -270,11 +273,19 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
     };
   }, []);
 
-  // Close whichever field is being edited when the selected order changes,
-  // so switching orders in the list never leaves a stale field open.
+  // Close whichever field is being edited and reset PAV banner state when selected order changes
   useEffect(() => {
     setEditingField(null);
+    setIsPavBannerDismissed(false);
   }, [selectedOrder?.id]);
+
+  const isPavOutOfZone = React.useMemo(() => {
+    if (!formData.zip || formData.zip.trim().length < 3) return false;
+    return getPavExpressZone(formData.zip) === null;
+  }, [formData.zip]);
+
+  const showPavWarningBanner =
+    !isPavBannerDismissed && !formData.transportCompany && !isFedexOrder && isPavOutOfZone;
 
   // Close the active field on outside click — same pattern already used
   // elsewhere in this app for dropdowns (mousedown so it fires before the
@@ -776,6 +787,45 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                   )}
                   <SaveCheckmark show={justSavedField === 'transport'} />
                 </span>
+
+                {showPavWarningBanner && (
+                  <div className="relative flex items-center justify-between gap-3 p-3 bg-red-500/10 border border-red-500/30 rounded-2xl">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {/* PAV Express Logo crossed out with a thick red line */}
+                      <div className="relative shrink-0 w-16 h-8 bg-white rounded-md flex items-center justify-center p-1 overflow-hidden shadow-sm border border-subtle">
+                        <img
+                          src="/logos/transport/pav.png"
+                          alt="PAV Express"
+                          className="max-h-full max-w-full object-contain"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="w-[130%] h-1.5 bg-red-600 rotate-[-25deg] shadow-sm rounded-full" />
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs font-bold text-red-500">
+                          Not Covered by PAV Express
+                        </span>
+                        <span className="text-[11px] text-muted truncate">
+                          ZIP <span className="font-semibold text-content">{formData.zip}</span> is
+                          outside PAV Express delivery zones (Zone 1, 2, or 3).
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsPavBannerDismissed(true)}
+                      title="Close warning"
+                      aria-label="Close warning"
+                      className="shrink-0 p-1.5 rounded-lg text-muted hover:text-content hover:bg-subtle transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
+
                 <div className="flex flex-wrap gap-2">
                   {TRANSPORT_COMPANIES.map((company) => (
                     <button
