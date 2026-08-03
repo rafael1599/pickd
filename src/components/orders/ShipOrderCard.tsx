@@ -523,7 +523,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
         )}
 
       {/* Top Header Section: Status, Customer, Address on left + Pallet Photos on right */}
-      <div className="flex flex-col lg:flex-row gap-5 lg:gap-6 items-start w-full">
+      <div className="flex flex-col sm:flex-row gap-5 lg:gap-6 items-start justify-between w-full">
         <div className="w-full lg:flex-1 min-w-0 flex flex-col gap-4">
           {/* Status — order number now lives in the LivePrintPreview block above.
               When shipped, the shipped logo shows in the header row above (right
@@ -745,7 +745,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
 
         {/* Pallet Photos Block — sits next to Customer/Address only */}
         {(selectedOrder.pallet_photos ?? []).length > 0 && (
-          <div className="w-full lg:w-72 shrink-0 flex items-start justify-end">
+          <div className="w-full sm:w-auto shrink-0 flex items-start justify-end ml-auto">
             <PalletPhotosBlock
               photos={selectedOrder.pallet_photos ?? []}
               orderNumber={selectedOrder.order_number ?? undefined}
