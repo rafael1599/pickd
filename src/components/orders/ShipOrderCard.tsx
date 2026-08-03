@@ -22,6 +22,7 @@ import { parseUSAddress } from '../../utils/parseUSAddress';
 import { useCustomerAddresses } from '../../hooks/useCustomerAddresses';
 import { getPavExpressZone } from '../../utils/pavExpressZones';
 import { OrderStatusPill } from './OrderStatusPill';
+import { TransportLogo } from './TransportLogo';
 import { OrderProgressBar } from '../../features/picking/components/OrderProgressBar';
 import type { CustomerAddress } from '../../lib/customerAddresses';
 import type { CombineMeta, PickingList, PickingListItem } from '../../schemas/picking.schema';
@@ -789,29 +790,23 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 </span>
 
                 {showPavWarningBanner && (
-                  <div className="relative flex items-center justify-between gap-3 p-3 bg-red-500/10 border border-red-500/30 rounded-2xl">
-                    <div className="flex items-center gap-3 min-w-0">
+                  <div className="relative flex items-center justify-between gap-3 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-2xl">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       {/* PAV Express Logo crossed out with a thick red line */}
-                      <div className="relative shrink-0 w-16 h-8 bg-white rounded-md flex items-center justify-center p-1 overflow-hidden shadow-sm border border-subtle">
+                      <div className="relative shrink-0 w-12 h-6 bg-white rounded flex items-center justify-center p-0.5 overflow-hidden shadow-sm border border-subtle">
                         <img
                           src="/logos/transport/pav.png"
                           alt="PAV Express"
                           className="max-h-full max-w-full object-contain"
                         />
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="w-[130%] h-1.5 bg-red-600 rotate-[-25deg] shadow-sm rounded-full" />
+                          <div className="w-[140%] h-1 bg-red-600 rotate-[-25deg] shadow-sm rounded-full" />
                         </div>
                       </div>
 
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-xs font-bold text-red-500">
-                          Not Covered by PAV Express
-                        </span>
-                        <span className="text-[11px] text-muted truncate">
-                          ZIP <span className="font-semibold text-content">{formData.zip}</span> is
-                          outside PAV Express delivery zones (Zone 1, 2, or 3).
-                        </span>
-                      </div>
+                      <span className="text-xs font-bold text-red-500 truncate">
+                        Outside PAV delivery zones
+                      </span>
                     </div>
 
                     <button
@@ -819,29 +814,39 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                       onClick={() => setIsPavBannerDismissed(true)}
                       title="Close warning"
                       aria-label="Close warning"
-                      className="shrink-0 p-1.5 rounded-lg text-muted hover:text-content hover:bg-subtle transition-colors"
+                      className="shrink-0 p-1 rounded-lg text-muted hover:text-content hover:bg-subtle transition-colors"
                     >
                       <X size={14} />
                     </button>
                   </div>
                 )}
 
-                <div className="flex flex-wrap gap-2">
-                  {TRANSPORT_COMPANIES.map((company) => (
-                    <button
-                      key={company}
-                      type="button"
-                      disabled={isUpdatingCarrier}
-                      onClick={() => handleCarrierChange(company)}
-                      className={`px-3 py-1.5 rounded-2xl border text-xs font-black uppercase tracking-widest transition-colors duration-150 ${
-                        formData.transportCompany === company
-                          ? 'bg-accent text-main border-accent ring-2 ring-accent'
-                          : 'bg-main text-muted border-subtle hover:border-accent hover:text-content'
-                      } ${isUpdatingCarrier ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      {company}
-                    </button>
-                  ))}
+                <div className="flex flex-wrap items-center gap-2">
+                  {TRANSPORT_COMPANIES.map((company) => {
+                    const isSelected = formData.transportCompany === company;
+                    return (
+                      <button
+                        key={company}
+                        type="button"
+                        disabled={isUpdatingCarrier}
+                        onClick={() => handleCarrierChange(company)}
+                        title={company}
+                        aria-label={`Select carrier ${company}`}
+                        className={`h-10 px-3.5 rounded-2xl border flex items-center justify-center transition-all duration-150 active:scale-95 ${
+                          isSelected
+                            ? 'bg-white border-accent ring-2 ring-accent shadow-sm'
+                            : 'bg-main hover:bg-surface border-subtle hover:border-accent/60'
+                        } ${isUpdatingCarrier ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        <TransportLogo
+                          company={company}
+                          height={20}
+                          plain
+                          textColor={isSelected ? 'text-accent font-black' : 'text-muted font-bold'}
+                        />
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
