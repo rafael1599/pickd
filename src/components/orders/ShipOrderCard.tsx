@@ -742,7 +742,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           </div>
 
           {/* Load number + Transport — click to edit */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col gap-3.5 w-full">
             <div ref={editingField === 'load' ? editRef : undefined}>
               {editingField === 'load' ? (
                 <input
@@ -776,9 +776,9 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
               )}
             </div>
 
-            <div>
-              {/* Carrier selector — always visible, no expand/collapse needed */}
-              <div className="flex flex-col gap-2">
+            <div className="w-full">
+              {/* Carrier selector — always visible, expands 100% full width */}
+              <div className="flex flex-col gap-2 w-full">
                 <span className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-1.5">
                   <Truck size={11} className="text-muted" />
                   Carrier
@@ -791,7 +791,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 </span>
 
                 {showPavWarningBanner && (
-                  <div className="relative flex items-center justify-between gap-3 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-2xl">
+                  <div className="relative flex items-center justify-between gap-3 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-2xl w-full">
                     <div className="flex items-center gap-2.5 min-w-0">
                       {/* PAV Express Logo crossed out with a thick red line */}
                       <div className="relative shrink-0 w-12 h-6 bg-white rounded flex items-center justify-center p-0.5 overflow-hidden shadow-sm border border-subtle">
@@ -822,7 +822,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                   </div>
                 )}
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="w-full flex flex-wrap items-center gap-2">
                   {TRANSPORT_COMPANIES.map((company) => {
                     const isSelected = formData.transportCompany === company;
                     const hasSelection = Boolean(formData.transportCompany);
@@ -847,7 +847,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                         onClick={() => handleCarrierChange(company)}
                         title={company}
                         aria-label={`Select carrier ${company}`}
-                        className={`h-10 px-3.5 rounded-2xl border flex items-center justify-center transition-all duration-200 active:scale-95 ${styleClasses} ${
+                        className={`flex-1 min-w-[80px] sm:min-w-[90px] h-10 px-3 rounded-2xl border flex items-center justify-center transition-all duration-200 active:scale-95 ${styleClasses} ${
                           isUpdatingCarrier ? 'cursor-not-allowed' : ''
                         }`}
                       >
