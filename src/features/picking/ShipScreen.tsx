@@ -361,6 +361,8 @@ export const ShipScreen = () => {
     pendingSelectedCarriers,
     pendingIncludeUnassigned,
     setPendingIncludeUnassigned,
+    pendingShowWaiting,
+    setPendingShowWaiting,
     shippedSelectedCarriers,
     shippedIncludeUnassigned,
     setShippedIncludeUnassigned,
@@ -372,6 +374,12 @@ export const ShipScreen = () => {
     matchesShippedCarrierFilter,
     fetchOrders,
   } = useShipOrdersData();
+
+  const waitingCount = useMemo(() => {
+    return orders.filter(
+      (o) => !o.is_shipped && o.status !== 'cancelled' && !!o.is_waiting_inventory
+    ).length;
+  }, [orders]);
 
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<AutoSaveStatus>('idle');
@@ -2410,7 +2418,9 @@ export const ShipScreen = () => {
                         )}
                       </div>
 
-                      {pendingCarrierStats.availableCarriers.length > 0 && (
+                      {(pendingCarrierStats.availableCarriers.length > 0 ||
+                        pendingCarrierStats.hasUnassignedOrders ||
+                        waitingCount > 0) && (
                         <div className="px-2 mb-2">
                           <CarrierFilter
                             selectedCarriers={pendingSelectedCarriers}
@@ -2421,6 +2431,10 @@ export const ShipScreen = () => {
                             unassignedCount={pendingCarrierStats.unassignedCount}
                             onCarrierToggle={handlePendingCarrierToggle}
                             onUnassignedToggle={setPendingIncludeUnassigned}
+                            showWaitingFilter={true}
+                            isWaitingFilterActive={pendingShowWaiting}
+                            waitingCount={waitingCount}
+                            onWaitingToggle={() => setPendingShowWaiting((prev) => !prev)}
                           />
                         </div>
                       )}

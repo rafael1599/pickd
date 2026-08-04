@@ -164,6 +164,7 @@ export function useShipOrdersData() {
   // Pending Ship carrier filter state
   const [pendingSelectedCarriers, setPendingSelectedCarriers] = useState<Set<string>>(new Set());
   const [pendingIncludeUnassigned, setPendingIncludeUnassigned] = useState(false);
+  const [pendingShowWaiting, setPendingShowWaiting] = useState(false);
 
   // Shipped carrier filter state
   const [shippedSelectedCarriers, setShippedSelectedCarriers] = useState<Set<string>>(new Set());
@@ -199,11 +200,28 @@ export function useShipOrdersData() {
 
   const matchesPendingCarrierFilter = useCallback(
     (o: OrderWithRelations) => {
+      // Active text search query overrides waiting filter so any searched order is findable
+      if (debouncedSearchQuery.trim()) {
+        if (pendingSelectedCarriers.size === 0 && !pendingIncludeUnassigned) return true;
+        const carrier = getCarrierLabel(o);
+        return carrier ? pendingSelectedCarriers.has(carrier) : pendingIncludeUnassigned;
+      }
+
+      // Waiting filter rule:
+      // By default (pendingShowWaiting = false), orders in WAITING are hidden.
+      // When pendingShowWaiting = true, ONLY show orders in WAITING.
+      const isWaiting = !!o.is_waiting_inventory;
+      if (pendingShowWaiting) {
+        if (!isWaiting) return false;
+      } else {
+        if (isWaiting) return false;
+      }
+
       if (pendingSelectedCarriers.size === 0 && !pendingIncludeUnassigned) return true;
       const carrier = getCarrierLabel(o);
       return carrier ? pendingSelectedCarriers.has(carrier) : pendingIncludeUnassigned;
     },
-    [pendingSelectedCarriers, pendingIncludeUnassigned]
+    [pendingSelectedCarriers, pendingIncludeUnassigned, pendingShowWaiting, debouncedSearchQuery]
   );
 
   const matchesShippedCarrierFilter = useCallback(
@@ -318,6 +336,8 @@ export function useShipOrdersData() {
     setPendingSelectedCarriers,
     pendingIncludeUnassigned,
     setPendingIncludeUnassigned,
+    pendingShowWaiting,
+    setPendingShowWaiting,
     shippedSelectedCarriers,
     setShippedSelectedCarriers,
     shippedIncludeUnassigned,

@@ -11,6 +11,10 @@ interface CarrierFilterProps {
   unassignedCount: number;
   onCarrierToggle: (carrier: string) => void;
   onUnassignedToggle: (include: boolean) => void;
+  showWaitingFilter?: boolean;
+  isWaitingFilterActive?: boolean;
+  waitingCount?: number;
+  onWaitingToggle?: () => void;
 }
 
 export const CarrierFilter: React.FC<CarrierFilterProps> = ({
@@ -22,6 +26,10 @@ export const CarrierFilter: React.FC<CarrierFilterProps> = ({
   unassignedCount,
   onCarrierToggle,
   onUnassignedToggle,
+  showWaitingFilter,
+  isWaitingFilterActive,
+  waitingCount,
+  onWaitingToggle,
 }) => {
   const allSelected =
     selectedCarriers.size === availableCarriers.length &&
@@ -60,6 +68,30 @@ export const CarrierFilter: React.FC<CarrierFilterProps> = ({
       </div>
 
       <div className="flex flex-wrap gap-1">
+        {/* Waiting filter option */}
+        {showWaitingFilter && (
+          <button
+            onClick={onWaitingToggle}
+            className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border transition-all ${
+              isWaitingFilterActive
+                ? 'border-amber-500 bg-amber-500/10 text-amber-400 font-bold'
+                : 'border-subtle hover:border-amber-500/50 text-muted'
+            }`}
+            title="Show orders waiting for inventory"
+          >
+            <div
+              className={`w-3 h-3 rounded-sm border flex items-center justify-center transition shrink-0 ${
+                isWaitingFilterActive ? 'border-amber-500 bg-amber-500' : 'border-subtle'
+              }`}
+            >
+              {isWaitingFilterActive && <div className="w-1 h-1 bg-white rounded-sm" />}
+            </div>
+            <span className="text-[9px] font-bold uppercase tracking-wider">Waiting</span>
+            {waitingCount !== undefined && (
+              <span className="text-[9px] opacity-70">({waitingCount})</span>
+            )}
+          </button>
+        )}
         {/* Unassigned option - only show if there are unassigned orders */}
         {hasUnassignedOrders && (
           <button
