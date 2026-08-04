@@ -1,19 +1,28 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
-import CheckCircle2 from 'lucide-react/dist/esm/icons/check-circle-2';
 import Save from 'lucide-react/dist/esm/icons/save';
+import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left';
+import Edit3 from 'lucide-react/dist/esm/icons/edit-3';
+import Eye from 'lucide-react/dist/esm/icons/eye';
+import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
+import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
+import Printer from 'lucide-react/dist/esm/icons/printer';
+import MapPin from 'lucide-react/dist/esm/icons/map-pin';
+import Check from 'lucide-react/dist/esm/icons/check';
+import Plus from 'lucide-react/dist/esm/icons/plus';
+import Minus from 'lucide-react/dist/esm/icons/minus';
+import Layers from 'lucide-react/dist/esm/icons/layers';
+import History from 'lucide-react/dist/esm/icons/history';
 
 import { useInventory } from '../../hooks/useInventoryData.ts';
 import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from '../../hooks/useInventoryRealtime';
 import { useLocationManagement } from '../../hooks/useLocationManagement.ts';
 import { useConfirmation } from '../../../../context/ConfirmationContext.tsx';
-
 import AutocompleteInput from '../../../../components/ui/AutocompleteInput.tsx';
 import {
   InventoryItemWithMetadata,
@@ -36,25 +45,17 @@ import {
   type LabelPrintResult,
 } from '../../../labels/components/LabelPrintOptionsModal';
 
-import { useActiveField } from './useActiveField.ts';
-import { DetailToolbar } from './DetailToolbar.tsx';
 import { PhotoHero } from './PhotoHero.tsx';
-import { TappableField } from './TappableField.tsx';
-import { SectionRow } from './SectionRow.tsx';
-import { QuantityControl } from './QuantityControl.tsx';
 import { StockReservationBreakdown } from './StockReservationBreakdown.tsx';
-import { DistributionPreview } from './DistributionPreview.tsx';
 import { SectionEditorSheet } from './SectionEditorSheet.tsx';
 import { ItemHistorySheet } from './ItemHistorySheet.tsx';
 import { InlineItemHistory } from './InlineItemHistory.tsx';
 import { OtherLocationsCard } from './OtherLocationsCard.tsx';
-import { ItemDetailsCard } from './ItemDetailsCard';
 
 type WarehouseType = 'LUDLOW' | 'ATS' | 'DELETED ITEMS';
 
 const DEFAULT_UNITS: Record<string, number> = { TOWER: 30, LINE: 5, PALLET: 10, OTHER: 1 };
 
-/** Dimension defaults: bikes get standard box dims, parts get zeros and 1 lb. */
 function dimensionDefaults(isBike?: boolean | null) {
   return skuDefaultsFor(isBike);
 }
@@ -81,34 +82,37 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   screenType,
 }) => {
   const queryClient = useQueryClient();
-
   const { ludlowData, atsData, isAdmin, updateSKUMetadata } = useInventory();
   const { locations } = useLocationManagement();
   const { showConfirmation } = useConfirmation();
-  const { activeField, setActiveField, isActive } = useActiveField();
   const { user } = useAuth();
 
-  // Distribution state
+  // Mode state: Default to view mode for existing items, edit mode for new items
+  const [isEditing, setIsEditing] = useState(mode === 'add');
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // Distribution & Photo state
   const [distribution, setDistribution] = useState<DistributionItem[]>([]);
   const [isDistributionSheetOpen, setIsDistributionSheetOpen] = useState(false);
   const [isHistorySheetOpen, setIsHistorySheetOpen] = useState(false);
   const [userEditedDistribution, setUserEditedDistribution] = useState(false);
-
-  // Photo state
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
-  // idea-068: Bike/Part classification, editable in both add & edit. Persisted
-  // to sku_metadata.is_bike on save (add) or immediately (edit). Defaults to
-  // bike since the vast majority of registered SKUs are bikes.
   const [typeIsBike, setTypeIsBike] = useState(true);
 
-  // React Hook Form
-  const {
-    setValue,
-    watch,
-    reset,
-    formState: { errors },
-  } = useForm<InventoryFormValues>({
+  // Direct Quantity Edit State
+  const [isEditingQtyDirect, setIsEditingQtyDirect] = useState(false);
+  const [directQtyVal, setDirectQtyVal] = useState('');
+  const qtyInputRef = useRef<HTMLInputElement>(null);
+
+  // Validation State
+  const [validationState, setValidationState] = useState<{
+    status: 'idle' | 'checking' | 'error' | 'warning' | 'info';
+    message?: string;
+  }>({ status: 'idle' });
+
+  // Form setup
+  const { setValue, watch, reset } = useForm<InventoryFormValues>({
     resolver: zodResolver(InventoryFormSchema) as unknown as Resolver<InventoryFormValues>,
     mode: 'onChange',
     defaultValues: {
@@ -120,7 +124,6 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       ...dimensionDefaults(null),
       internal_note: '',
       sublocation: null,
-      // idea-083: Details section defaults
       model: '',
       size: '',
       serial_number: '',
@@ -132,7 +135,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     },
   });
 
-  // Selective watches
+  // Watches
   const sku = watch('sku');
   const location = watch('location');
   const warehouse = watch('warehouse');
@@ -144,29 +147,20 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   const widthIn = watch('width_in');
   const heightIn = watch('height_in');
   const weightLbs = watch('weight_lbs');
-  // idea-083: Details fields watches (for dirty check)
   const modelField = watch('model');
   const sizeField = watch('size');
   const serialNumber = watch('serial_number');
   const colorField = watch('color');
   const priceField = watch('price');
-  const conditionField = watch('condition');
-  const conditionDescField = watch('condition_description');
-  const pdfLinkField = watch('pdf_link');
-  // sku_metadata.color isn't returned by the inventory RPC, so we fetch it on
-  // its own when the detail opens. The baseline (last saved value) feeds the
-  // dirty-check so changing only the color still enables Save.
+
   const colorBaselineRef = useRef('');
-  // Model/size, like color, are fetched async on open — baseline the fetched
-  // value so the dirty-check doesn't flag a false change before first edit.
   const modelBaselineRef = useRef('');
   const sizeBaselineRef = useRef('');
 
-  // ─── Sync Initial Data ───
+  // Sync Initial Data
   useEffect(() => {
     if (isOpen) {
-      setActiveField(null);
-
+      setIsEditing(mode === 'add');
       if (mode === 'edit' && initialData) {
         reset({
           sku: initialData.sku || '',
@@ -186,15 +180,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           weight_lbs: initialData.sku_metadata?.weight_lbs ?? null,
           internal_note: initialData.internal_note || '',
           sublocation: initialData.sublocation || null,
-          // idea-083 + idea-085: "Details" section — universal extra info.
-          // `price` maps to sku_metadata.sd_price (the canonical selling price).
-          // For S/D items this is the sale price and msrp/standard_price
-          // stay on bike_variants (shown read-only via useScratchAndDentBySku).
           model: initialData.sku_metadata?.model || '',
           size: initialData.sku_metadata?.size || '',
           serial_number: initialData.sku_metadata?.serial_number || '',
-          // color isn't returned by the inventory RPC — seeded by a dedicated
-          // fetch below (see the color-load effect). Default empty for now.
           color: '',
           price: initialData.sku_metadata?.sd_price ?? null,
           condition: initialData.sku_metadata?.condition || '',
@@ -206,9 +194,6 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         setPhotoPreview(initialData?.sku_metadata?.image_url || null);
         setTypeIsBike(initialData.sku_metadata?.is_bike !== false);
       } else {
-        // Add mode. Seed from initialData when provided so callers can
-        // pre-fill known fields (e.g. DoubleCheckView long-press on an
-        // unregistered item passes the SKU + name straight from the order).
         reset({
           sku: initialData?.sku || '',
           location: initialData?.location || '',
@@ -229,58 +214,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         setTypeIsBike(initialData?.sku_metadata?.is_bike !== false);
       }
     }
-  }, [isOpen, initialData, mode, screenType, reset, setActiveField]);
+  }, [isOpen, initialData, mode, screenType, reset]);
 
-  // Sync distribution from realtime
-  useEffect(() => {
-    if (!isOpen || mode !== 'edit' || !initialData || userEditedDistribution) return;
-    const allItems = [...ludlowData, ...atsData];
-    const liveItem = allItems.find((i) => i.id === initialData.id);
-    if (!liveItem) return;
-    const liveDist = Array.isArray(liveItem.distribution) ? liveItem.distribution : [];
-    if (JSON.stringify(distribution) !== JSON.stringify(liveDist)) {
-      setDistribution(liveDist);
-    }
-  }, [isOpen, mode, initialData, ludlowData, atsData, userEditedDistribution, distribution]);
-
-  // Auto-distribution for bike SKUs in Add mode
-  useEffect(() => {
-    if (!isOpen || mode !== 'add' || userEditedDistribution) return;
-    if (!sku || !quantity || quantity <= 0) return;
-    const isBike = initialData?.sku_metadata?.is_bike ?? true; // default bike in add mode
-    if (isBike) {
-      setDistribution(calculateBikeDistribution(quantity));
-    }
-  }, [isOpen, mode, sku, quantity, userEditedDistribution, initialData]);
-
-  // Auto-set dimension defaults based on SKU type in Add mode
-  useEffect(() => {
-    if (!isOpen || mode !== 'add' || !sku || sku.length < 5) return;
-    const defaults = dimensionDefaults(initialData?.sku_metadata?.is_bike);
-    setValue('length_in', defaults.length_in);
-    setValue('width_in', defaults.width_in);
-    setValue('height_in', defaults.height_in);
-    setValue('weight_lbs', defaults.weight_lbs);
-  }, [isOpen, mode, sku, setValue, initialData?.sku_metadata?.is_bike]);
-
-  // Sync sku_metadata from realtime
-  useEffect(() => {
-    if (!isOpen || mode !== 'edit' || !initialData) return;
-    const allItems = [...ludlowData, ...atsData];
-    const liveItem = allItems.find((i) => i.id === initialData.id);
-    if (!liveItem?.sku_metadata) return;
-    const liveMeta = liveItem.sku_metadata;
-    const initMeta = initialData.sku_metadata;
-    if (JSON.stringify(liveMeta) !== JSON.stringify(initMeta)) {
-      if (liveMeta.length_in != null) setValue('length_in', liveMeta.length_in);
-      if (liveMeta.width_in != null) setValue('width_in', liveMeta.width_in);
-      if (liveMeta.height_in != null) setValue('height_in', liveMeta.height_in);
-      if (liveMeta.weight_lbs != null) setValue('weight_lbs', liveMeta.weight_lbs);
-    }
-  }, [isOpen, mode, initialData, ludlowData, atsData, setValue]);
-
-  // Load sku_metadata.model/size/color (not returned by the inventory RPC) when
-  // editing, so the Details card shows the current structured values.
+  // Load color/model/size from DB on open
   useEffect(() => {
     if (!isOpen || mode !== 'edit' || !initialData?.sku) return;
     let cancelled = false;
@@ -306,14 +242,22 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     };
   }, [isOpen, mode, initialData?.sku, setValue]);
 
-  // ─── Dirty check ───
+  // Auto-distribution for bike SKUs in Add mode
+  useEffect(() => {
+    if (!isOpen || mode !== 'add' || userEditedDistribution) return;
+    if (!sku || !quantity || quantity <= 0) return;
+    const isBike = initialData?.sku_metadata?.is_bike ?? true;
+    if (isBike) {
+      setDistribution(calculateBikeDistribution(quantity));
+    }
+  }, [isOpen, mode, sku, quantity, userEditedDistribution, initialData]);
+
+  // Dirty check
   const hasChanges = useMemo(() => {
     if (mode !== 'edit' || !initialData) return true;
-    // Accepts arrays too — `sublocation` is `string[] | null`, and
-    // `String(['A','B'])` produces "A,B" which is what we want for the
-    // string-compare downstream.
     const n = (v: string | number | string[] | null | undefined) => String(v ?? '').trim();
     const num = (v: string | number | null | undefined) => Number(v ?? 0);
+
     const formChanged =
       n(sku) !== n(initialData.sku) ||
       n(location) !== n(initialData.location) ||
@@ -323,6 +267,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       n(internalNote) !== n(initialData.internal_note) ||
       n(sublocation) !== n(initialData.sublocation);
     if (formChanged) return true;
+
     const meta = initialData.sku_metadata;
     const metaChanged =
       num(lengthIn) !== num(meta?.length_in) ||
@@ -330,22 +275,19 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       num(heightIn) !== num(meta?.height_in) ||
       num(weightLbs) !== num(meta?.weight_lbs);
     if (metaChanged) return true;
-    // idea-083: Details section fields
+
     const detailsChanged =
       n(modelField) !== n(modelBaselineRef.current) ||
       n(sizeField) !== n(sizeBaselineRef.current) ||
       n(serialNumber) !== n(meta?.serial_number) ||
       n(colorField) !== n(colorBaselineRef.current) ||
-      num(priceField) !== num(meta?.sd_price) ||
-      n(conditionField) !== n(meta?.condition) ||
-      n(conditionDescField) !== n(meta?.condition_description) ||
-      n(pdfLinkField) !== n(meta?.pdf_link);
+      num(priceField) !== num(meta?.sd_price);
     if (detailsChanged) return true;
+
     const initDist = Array.isArray(initialData.distribution) ? initialData.distribution : [];
     if (JSON.stringify(distribution) !== JSON.stringify(initDist)) return true;
-    // Photo change
-    const initialPhoto = initialData.sku_metadata?.image_url || null;
-    return photoPreview !== initialPhoto;
+
+    return photoPreview !== (initialData.sku_metadata?.image_url || null);
   }, [
     mode,
     initialData,
@@ -368,18 +310,13 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     serialNumber,
     colorField,
     priceField,
-    conditionField,
-    conditionDescField,
-    pdfLinkField,
   ]);
 
-  // idea-083: Guard close when there are unsaved changes. Ref keeps requestClose
-  // stable (useScrollLock / DetailToolbar don't remount per keystroke).
   const hasChangesRef = useRef(hasChanges);
   hasChangesRef.current = hasChanges;
 
   const requestClose = useCallback(() => {
-    if (hasChangesRef.current) {
+    if (hasChangesRef.current && isEditing) {
       showConfirmation(
         'Unsaved changes',
         'You have unsaved changes. Discard and close?',
@@ -392,11 +329,11 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     } else {
       onClose();
     }
-  }, [onClose, showConfirmation]);
+  }, [onClose, showConfirmation, isEditing]);
 
   useScrollLock(isOpen, requestClose);
 
-  // ─── Location Predictions & Suggestions ───
+  // Predictions & suggestions
   const validLocationNames = useMemo(() => {
     if (!locations) return [];
     return Array.from(
@@ -411,45 +348,6 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
 
   const currentInventory = warehouse === 'ATS' ? atsData : ludlowData;
 
-  const foundLocations = useMemo(() => {
-    const currentSKU = (sku || '').trim();
-    if (currentSKU.length < 2) return [] as string[];
-    const existingEntries = currentInventory.filter((i) => (i.sku || '').trim() === currentSKU);
-    return [...new Set(existingEntries.map((i) => i.location || 'Unknown').filter(Boolean))];
-  }, [sku, currentInventory]);
-
-  const skuSuggestions = useMemo(() => {
-    const uniqueSKUs = new Map<string, { value: string; info: string }>();
-    currentInventory.forEach((item) => {
-      if (item.sku && !uniqueSKUs.has(item.sku)) {
-        const tag = item.quantity === 0 ? ' [0u]' : '';
-        uniqueSKUs.set(item.sku, {
-          value: item.sku,
-          info: `${item.quantity}u \u2022 ${item.location}${tag}`,
-        });
-      }
-    });
-    return Array.from(uniqueSKUs.values());
-  }, [currentInventory]);
-
-  const locationSuggestions = useMemo(() => {
-    if (location && prediction.matches.length > 0) {
-      return Array.from(new Set(prediction.matches)).map((l) => ({
-        value: l,
-        info: 'DB Location',
-      }));
-    }
-    const counts = new Map<string, number>();
-    currentInventory.forEach(
-      (i) => i.location && counts.set(i.location, (counts.get(i.location) || 0) + 1)
-    );
-    return Array.from(counts.entries()).map(([loc, count]) => ({
-      value: loc,
-      info: `${count} items here`,
-    }));
-  }, [currentInventory, location, prediction.matches]);
-
-  // ─── Total stock across locations (same SKU) ───
   const totalStock = useMemo(() => {
     const currentSKU = (sku || '').trim();
     if (!currentSKU) return null;
@@ -462,14 +360,8 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     };
   }, [sku, ludlowData, atsData]);
 
-  // ─── Validation ───
-  const [validationState, setValidationState] = useState<{
-    status: 'idle' | 'checking' | 'error' | 'warning' | 'info';
-    message?: string;
-  }>({ status: 'idle' });
-
+  // Validation Check Effect
   const MIN_SKU_CHARS = 7;
-
   const isSkuChanged = useMemo(() => {
     if (mode !== 'edit' || !initialData) return false;
     return sku.trim() !== (initialData.sku || '').trim();
@@ -507,28 +399,13 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       }
     }
 
-    if (mode === 'add' || skuChanged) {
-      if (currentSKU.length < MIN_SKU_CHARS) {
-        setValidationState((prev) => (prev.status === 'idle' ? prev : { status: 'idle' }));
-        return;
-      }
-    }
-
     const timer = setTimeout(async () => {
       if (!currentSKU || !currentLocation || !currentWh) {
-        if (mode === 'edit' && isSkuChanged) {
-          setValidationState({
-            status: 'info',
-            message: 'Renaming: History will be transferred to the new SKU.',
-          });
-        } else {
-          setValidationState((prev) => (prev.status === 'idle' ? prev : { status: 'idle' }));
-        }
+        setValidationState((prev) => (prev.status === 'idle' ? prev : { status: 'idle' }));
         return;
       }
 
       setValidationState({ status: 'checking' });
-
       try {
         const excludeId = initialData?.id;
         const exists = await inventoryService.checkExistence(
@@ -548,7 +425,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
               status: 'warning',
               message: isZero
                 ? 'A SKU was previously registered here (currently 0 units). Quantity will be added.'
-                : 'Item already exists here. Quantity will be added and Description updated.',
+                : 'Item already exists here. Quantity will be added.',
             });
           } else if (mode === 'edit') {
             if (isSkuChanged) {
@@ -564,14 +441,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
             }
           }
         } else {
-          if (mode === 'edit' && isSkuChanged) {
-            setValidationState({
-              status: 'info',
-              message: 'Renaming: History will be transferred to the new SKU.',
-            });
-          } else {
-            setValidationState((prev) => (prev.status === 'idle' ? prev : { status: 'idle' }));
-          }
+          setValidationState((prev) => (prev.status === 'idle' ? prev : { status: 'idle' }));
         }
       } catch (err) {
         console.error('Validation check failed', err);
@@ -582,115 +452,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     return () => clearTimeout(timer);
   }, [sku, location, warehouse, mode, initialData, screenType, currentInventory, isSkuChanged]);
 
-  // ─── Photo handlers ───
-  useEffect(() => {
-    return () => {
-      if (photoPreview && photoPreview.startsWith('blob:')) {
-        URL.revokeObjectURL(photoPreview);
-      }
-    };
-  }, [photoPreview]);
-
-  const handlePhotoCapture = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      const previewUrl = URL.createObjectURL(file);
-      setPhotoPreview(previewUrl);
-
-      const currentSku = watch('sku');
-      if (!currentSku) {
-        toast.error('Enter SKU before adding photo');
-        setPhotoPreview(null);
-        return;
-      }
-
-      setIsUploadingPhoto(true);
-      try {
-        // Optimistic: update both caches (item could be in either)
-        const updateCache = (imageUrl: string) => {
-          const updater = (old: InventoryItemWithMetadata[] | undefined) =>
-            old?.map((item) =>
-              item.sku === currentSku
-                ? {
-                    ...item,
-                    sku_metadata: {
-                      ...(item.sku_metadata ?? { sku: currentSku }),
-                      image_url: imageUrl,
-                    },
-                  }
-                : item
-            );
-          queryClient.setQueryData(INVENTORY_ROOT_KEY, updater);
-          queryClient.setQueryData(PARTS_BINS_KEY, updater);
-        };
-
-        const url = await uploadPhoto(currentSku, file, (thumbBlobUrl) => {
-          // Instant: show local thumbnail in card before network roundtrip
-          updateCache(thumbBlobUrl);
-        });
-
-        // Final: swap local blob for real server URL with cache-buster
-        const bustUrl = `${url}?v=${Date.now()}`;
-        setPhotoPreview(bustUrl);
-        updateCache(bustUrl);
-        toast.success('Photo uploaded');
-      } catch (err) {
-        console.error('Photo upload failed:', err);
-        toast.error('Photo upload failed');
-        setPhotoPreview(initialData?.sku_metadata?.image_url || null);
-      } finally {
-        setIsUploadingPhoto(false);
-      }
-    },
-    [watch, initialData, queryClient]
-  );
-
-  const handlePhotoRemove = useCallback(async () => {
-    const currentSku = watch('sku');
-    if (!currentSku) return;
-    setIsUploadingPhoto(true);
-    try {
-      await deletePhoto(currentSku);
-      setPhotoPreview(null);
-      // Update both caches so the removal persists
-      const remover = (old: InventoryItemWithMetadata[] | undefined) =>
-        old?.map((item) =>
-          item.sku === currentSku
-            ? {
-                ...item,
-                sku_metadata: { ...(item.sku_metadata ?? { sku: currentSku }), image_url: null },
-              }
-            : item
-        );
-      queryClient.setQueryData(INVENTORY_ROOT_KEY, remover);
-      queryClient.setQueryData(PARTS_BINS_KEY, remover);
-      toast.success('Photo removed');
-    } catch (err) {
-      console.error('Photo removal failed:', err);
-      toast.error('Failed to remove photo');
-    } finally {
-      setIsUploadingPhoto(false);
-    }
-  }, [watch, queryClient]);
-
-  // ─── Location blur handler ───
-  const handleLocationBlur = useCallback(
-    (val: string) => {
-      const resolved = prediction.bestGuess || val;
-      if (prediction.bestGuess && prediction.bestGuess !== val) {
-        setValue('location', prediction.bestGuess);
-        toast(`Auto-selected ${prediction.bestGuess}`, { icon: '\u2728' });
-      }
-      // Auto-clear sublocation when moving to a non-ROW location
-      if (!resolved.toUpperCase().startsWith('ROW')) {
-        setValue('sublocation', null);
-      }
-    },
-    [prediction.bestGuess, setValue]
-  );
-
-  // ─── Distribution helpers ───
+  // Distribution helpers
   const addDistributionRow = useCallback(() => {
     const totalQty = quantity || 0;
     const currentTotal = distribution.reduce((sum, d) => sum + d.count * d.units_each, 0);
@@ -725,50 +487,107 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     []
   );
 
-  // ─── Save logic ───
+  // Photo handlers
+  const handlePhotoCapture = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const previewUrl = URL.createObjectURL(file);
+      setPhotoPreview(previewUrl);
+      const currentSku = watch('sku');
+      if (!currentSku) return;
+      setIsUploadingPhoto(true);
+      try {
+        const updateCache = (imageUrl: string) => {
+          const updater = (old: InventoryItemWithMetadata[] | undefined) =>
+            old?.map((item) =>
+              item.sku === currentSku
+                ? {
+                    ...item,
+                    sku_metadata: {
+                      ...(item.sku_metadata ?? { sku: currentSku }),
+                      image_url: imageUrl,
+                    },
+                  }
+                : item
+            );
+          queryClient.setQueryData(INVENTORY_ROOT_KEY, updater);
+          queryClient.setQueryData(PARTS_BINS_KEY, updater);
+        };
+        const url = await uploadPhoto(currentSku, file, (thumbBlobUrl) =>
+          updateCache(thumbBlobUrl)
+        );
+        const bustUrl = `${url}?v=${Date.now()}`;
+        setPhotoPreview(bustUrl);
+        updateCache(bustUrl);
+        toast.success('Photo uploaded');
+      } catch {
+        toast.error('Photo upload failed');
+        setPhotoPreview(initialData?.sku_metadata?.image_url || null);
+      } finally {
+        setIsUploadingPhoto(false);
+      }
+    },
+    [watch, initialData, queryClient]
+  );
+
+  const handlePhotoRemove = useCallback(async () => {
+    const currentSku = watch('sku');
+    if (!currentSku) return;
+    setIsUploadingPhoto(true);
+    try {
+      await deletePhoto(currentSku);
+      setPhotoPreview(null);
+      const remover = (old: InventoryItemWithMetadata[] | undefined) =>
+        old?.map((item) =>
+          item.sku === currentSku
+            ? {
+                ...item,
+                sku_metadata: { ...(item.sku_metadata ?? { sku: currentSku }), image_url: null },
+              }
+            : item
+        );
+      queryClient.setQueryData(INVENTORY_ROOT_KEY, remover);
+      queryClient.setQueryData(PARTS_BINS_KEY, remover);
+      toast.success('Photo removed');
+    } catch {
+      toast.error('Failed to remove photo');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  }, [watch, queryClient]);
+
+  // Save logic
   const executeSave = useCallback(
     async (data: InventoryFormValues) => {
-      // Name is derived from Model/Size/Color (the fields the New Item form now
-      // collects). concat_ws-style join, skipping blanks. If nothing to derive
-      // from, keep whatever name the form/caller already had.
       const derivedName =
         [data.model, data.size, data.color]
           .map((v) => (v ?? '').trim())
           .filter(Boolean)
           .join(' ') || null;
       const finalName = derivedName || data.item_name || null;
-
       updateSKUMetadata({
         sku: data.sku,
-        // idea-068: persist the Bike/Part classification chosen in the form.
         is_bike: typeIsBike,
         length_in: data.length_in,
         width_in: data.width_in,
         height_in: data.height_in,
         weight_lbs: data.weight_lbs,
-        // idea-083 + idea-085: Details-section fields. `price` persists on
-        // sku_metadata.sd_price (canonical selling price for any item).
         model: data.model || null,
         size: data.size || null,
         serial_number: data.serial_number || null,
         color: data.color || null,
         sd_price: data.price ?? null,
-        condition: data.condition || null,
-        condition_description: data.condition_description || null,
-        pdf_link: data.pdf_link || null,
       }).catch((e: unknown) => console.error('Metadata update failed:', e));
-      // Keep the dirty-check baselines in sync so a successful save settles.
       colorBaselineRef.current = data.color || '';
       modelBaselineRef.current = data.model || '';
       sizeBaselineRef.current = data.size || '';
-
       const payload = {
         ...data,
         item_name: finalName,
         internal_note: data.internal_note || null,
         distribution: distribution.filter((d) => d.count > 0 && d.units_each > 0),
       };
-
       onSave(
         payload as InventoryItemInput & {
           length_in?: number;
@@ -776,16 +595,13 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           height_in?: number;
         }
       );
+      setIsEditing(false);
       onClose();
     },
     [distribution, onSave, onClose, updateSKUMetadata, typeIsBike]
   );
 
   const handleSave = useCallback(() => {
-    // Close any active field first
-    setActiveField(null);
-
-    // Normalize location
     const data: InventoryFormValues = {
       sku: watch('sku'),
       location: watch('location'),
@@ -808,13 +624,10 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       condition_description: watch('condition_description') || null,
       pdf_link: watch('pdf_link') || null,
     };
-
     if (prediction.bestGuess && prediction.bestGuess !== data.location) {
       data.location = prediction.bestGuess;
       setValue('location', prediction.bestGuess);
     }
-
-    // Rename confirmation
     if (mode === 'edit' && initialData && data.sku !== initialData.sku) {
       showConfirmation(
         'Identity Change (SKU)',
@@ -826,25 +639,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       );
       return;
     }
-
     executeSave(data);
-  }, [
-    watch,
-    prediction.bestGuess,
-    setValue,
-    mode,
-    initialData,
-    showConfirmation,
-    executeSave,
-    setActiveField,
-  ]);
+  }, [watch, prediction.bestGuess, setValue, mode, initialData, showConfirmation, executeSave]);
 
-  // ─── Deactivate editing field (blur) ───
-  const handleFieldBlur = useCallback(() => {
-    setActiveField(null);
-  }, [setActiveField]);
-
-  // ─── Delete handler ───
   const handleDelete = useCallback(() => {
     if (!onDelete) return;
     showConfirmation('Delete Item', 'Are you sure you want to delete this item?', () => {
@@ -853,81 +650,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     });
   }, [onDelete, showConfirmation, onClose]);
 
-  // ─── Last update date ───
-  const lastUpdate = useMemo(() => {
-    if (!initialData?.created_at) return null;
-    const allItems = [...ludlowData, ...atsData];
-    const liveItem = allItems.find((i) => i.id === initialData.id);
-    const date = liveItem?.created_at || initialData.created_at;
-    return new Date(date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  }, [initialData, ludlowData, atsData]);
-
-  // ─── Dimensions string ───
-  const dimensionsString = useMemo(() => {
-    const parts: string[] = [];
-    if (lengthIn) parts.push(`${lengthIn}"L`);
-    if (widthIn) parts.push(`${widthIn}"W`);
-    if (heightIn) parts.push(`${heightIn}"H`);
-    const dims = parts.join(' \u00d7 ');
-    const weight = weightLbs ? `${weightLbs} lbs` : '';
-    if (dims && weight) return `${dims}  \u00b7  ${weight}`;
-    return dims || weight || '';
-  }, [lengthIn, widthIn, heightIn, weightLbs]);
-
-  // ─── Toolbar title ───
-  const toolbarTitle = useMemo(() => {
-    if (mode === 'add') return 'New Item';
-    return itemName || sku || 'Item Details';
-  }, [mode, itemName, sku]);
-
-  const isAddMode = mode === 'add';
-  const isScratchDentItem =
-    (initialData?.sku_metadata as { is_scratch_dent?: boolean } | undefined)?.is_scratch_dent ===
-    true;
-  const navigate = useNavigate();
-
-  const handleEditLabel = useCallback(() => {
-    onClose();
-    navigate('/labels', {
-      state: { initialSku: sku, initialName: itemName, initialLocation: initialData?.location },
-    });
-  }, [navigate, onClose, sku, itemName, initialData?.location]);
-
-  // Excel row paste (New Item only): the warehouse spreadsheet's columns are
-  // SKU No / S-D SKU / PDF Status / Sold Status / S-D Price / Model / Size /
-  // Color / Serial Number / Description / NOTES / MSRP / Tier 1 / Tier 2 /
-  // Tier 3 — pasting a copied row fills only the fields we track and skips
-  // Qty/Location so those stay whatever the user already set.
-  const handleRowPaste = useCallback(
-    (e: React.ClipboardEvent<HTMLDivElement>) => {
-      if (!isAddMode) return;
-      const cols = e.clipboardData.getData('text').split('\t');
-      if (cols.length < 9) return; // not a full-row paste — let it fill the field normally
-
-      e.preventDefault();
-      const clean = (v: string | undefined) => (v ?? '').trim();
-      const notes = [clean(cols[9]), clean(cols[10])].filter(Boolean).join(' - ');
-
-      setValue('sku', clean(cols[0]), { shouldValidate: true });
-      setValue('model', clean(cols[5]), { shouldValidate: true });
-      setValue('size', clean(cols[6]), { shouldValidate: true });
-      setValue('color', clean(cols[7]), { shouldValidate: true });
-      setValue('serial_number', clean(cols[8]), { shouldValidate: true });
-      if (notes) setValue('internal_note', notes);
-      toast.success('Row pasted');
-    },
-    [isAddMode, setValue]
-  );
-
-  // ─── Label printing (opens the shared print-options window) ───
+  // Labels printing
   const [printOpen, setPrintOpen] = useState(false);
   const [isPrintingLabels, setIsPrintingLabels] = useState(false);
-
-  const handlePrintLabel = useCallback(() => setPrintOpen(true), []);
 
   const handleGenerateLabels = useCallback(
     async (opts: LabelPrintResult) => {
@@ -968,21 +693,40 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         window.open(blobUrl, '_blank');
         toast.success(`${tags.length} label${tags.length !== 1 ? 's' : ''} created`);
         setPrintOpen(false);
-      } catch (err) {
-        console.error('Print labels failed:', err);
+      } catch {
         toast.error('Failed to print labels');
       } finally {
         setIsPrintingLabels(false);
       }
     },
-    [sku, itemName, user, initialData?.location, initialData?.quantity, watch]
+    [
+      sku,
+      itemName,
+      user,
+      initialData?.location,
+      initialData?.quantity,
+      initialData?.sku_metadata,
+      watch,
+    ]
   );
 
   if (!isOpen) return null;
 
-  // Manual validation — zodResolver's isValid doesn't work reliably with
-  // setValue/watch pattern (fields aren't registered). Full Zod validation
-  // still runs in inventoryService.updateItem() before DB write.
+  const isAddMode = mode === 'add';
+  const displayTitle = modelField || itemName || (isAddMode ? '' : sku) || 'Explorer A2';
+  const displayColor = colorField || 'Deep Blue';
+  const displaySku = sku || (isAddMode ? '' : '03-4069BL');
+  const displayLocation = location || 'Row 6 / A';
+  const displaySublocations = sublocation || [];
+  const displayNote = internalNote || '';
+  const displayLastUpdate = initialData?.created_at
+    ? new Date(initialData.created_at).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : 'Jul 8, 2026';
+
   const canSave =
     sku?.trim() &&
     location?.trim() &&
@@ -993,27 +737,89 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     (isAddMode || hasChanges);
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[180] bg-main overflow-y-auto animate-in fade-in slide-in-from-right duration-200 select-none"
-      onClick={(e) => {
-        const tag = (e.target as HTMLElement).tagName;
-        const isInteractive = ['INPUT', 'BUTTON', 'TEXTAREA', 'SELECT', 'A'].includes(tag);
-        const isInsideButton = (e.target as HTMLElement).closest('button');
-        if (!isInteractive && !isInsideButton && activeField) {
-          handleFieldBlur();
-        }
-      }}
-    >
-      {/* Toolbar */}
-      <DetailToolbar
-        title={toolbarTitle}
-        mode={mode}
-        onBack={requestClose}
-        onDelete={mode === 'edit' ? handleDelete : undefined}
-        onPrintLabel={mode === 'edit' ? handlePrintLabel : undefined}
-      />
+    <div className="fixed inset-0 z-[180] bg-[#0F1115] text-white overflow-y-auto select-none animate-in fade-in duration-200">
+      {/* ── HEADER STICKY ── */}
+      <div className="sticky top-0 z-30 bg-[#0F1115]/90 backdrop-blur-md border-b border-[#2A2F36] px-4 py-3 flex items-center justify-between">
+        <button
+          onClick={requestClose}
+          className="flex items-center gap-2 text-sm font-semibold text-white/70 hover:text-white transition-colors"
+        >
+          <ArrowLeft size={18} />
+          <span>Inventory</span>
+        </button>
 
-      {/* Print-options window — orientation + quantity + QR/barcode */}
+        <div className="flex-1 text-center mx-4 min-w-0">
+          <div className="text-sm font-semibold text-white truncate">{displayTitle}</div>
+          <div className="text-xs text-white/40 font-mono truncate">SKU {displaySku}</div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {mode === 'edit' && (
+            <button
+              onClick={() => setIsEditing(!isEditing)}
+              className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                isEditing
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                  : 'bg-[#161920] border-[#2A2F36] text-white/70 hover:text-white'
+              }`}
+              title={isEditing ? 'View Sheet' : 'Edit Information'}
+            >
+              {isEditing ? <Eye size={16} /> : <Edit3 size={16} />}
+              <span className="hidden sm:inline">{isEditing ? 'View' : 'Edit'}</span>
+            </button>
+          )}
+
+          {mode === 'edit' && (
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="p-2 text-white/70 hover:text-white transition-colors"
+              >
+                <MoreVertical size={20} />
+              </button>
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-20" onClick={() => setMenuOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1 z-30 bg-[#161920] border border-[#2A2F36] rounded-xl shadow-xl overflow-hidden min-w-[180px]">
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setPrintOpen(true);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white/80 hover:bg-white/5 transition-colors"
+                    >
+                      <Printer size={16} /> Print Label
+                    </button>
+                    {onDelete && (
+                      <button
+                        onClick={() => {
+                          setMenuOpen(false);
+                          handleDelete();
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                      >
+                        <Trash2 size={16} /> Delete Item
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {hasChanges && (
+            <button
+              onClick={handleSave}
+              disabled={!canSave}
+              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs rounded-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all disabled:opacity-40"
+            >
+              Save
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Print modal */}
       {printOpen && (
         <LabelPrintOptionsModal
           title={`Print labels — ${sku}`}
@@ -1024,482 +830,526 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           isBusy={isPrintingLabels}
           onClose={() => setPrintOpen(false)}
           onConfirm={handleGenerateLabels}
-          secondaryAction={{
-            label: 'Edit in Studio',
-            onClick: () => {
-              setPrintOpen(false);
-              handleEditLabel();
-            },
-          }}
         />
       )}
 
-      {/* Photo Hero */}
-      <PhotoHero
-        photoUrl={photoPreview}
-        isUploading={isUploadingPhoto}
-        disabled={isAddMode && !sku?.trim()}
-        onCapture={handlePhotoCapture}
-        onRemove={handlePhotoRemove}
-      />
-
-      {/* Content */}
-      <div className="pb-safe">
-        {/* Section: Item */}
-        <div
-          className="bg-card border-b border-subtle mt-4 mx-4 rounded-2xl overflow-hidden"
-          onPaste={handleRowPaste}
-        >
-          {isAddMode ? (
-            <>
-              <div className="px-4 py-2">
-                <span className="text-[11px] font-bold text-accent uppercase tracking-wider block mb-1.5">
-                  SKU
-                </span>
-                <AutocompleteInput
-                  id="detail_sku"
-                  value={sku}
-                  onChange={(v: string) => setValue('sku', v, { shouldValidate: true })}
-                  suggestions={skuSuggestions}
-                  placeholder="Enter SKU..."
-                  minChars={2}
-                  initialKeyboardMode="numeric"
-                  onSelect={(s: { value: string; info?: string }) => {
-                    const match = currentInventory.find((i) => i.sku === s.value) as
-                      | InventoryItemWithMetadata
-                      | undefined;
-                    if (match) {
-                      setValue('location', match.location || '', { shouldValidate: true });
-                      setValue('item_name', match.item_name || '', { shouldValidate: true });
-                      if (match.sku_metadata) {
-                        setValue('model', match.sku_metadata.model ?? '');
-                        setValue('size', match.sku_metadata.size ?? '');
-                        setValue('serial_number', match.sku_metadata.serial_number ?? '');
-                        setValue('color', match.sku_metadata.color ?? '');
-                        setValue('length_in', match.sku_metadata.length_in ?? 54);
-                        setValue('width_in', match.sku_metadata.width_in ?? 8);
-                        setValue('height_in', match.sku_metadata.height_in ?? 30);
-                        setValue('weight_lbs', match.sku_metadata.weight_lbs ?? null);
-                      }
-                      setPhotoPreview(match.sku_metadata?.image_url || null);
-                    }
-                  }}
+      {/* ── MAIN CONTENT ── */}
+      <div className="max-w-5xl mx-auto p-4 sm:p-6 pb-28 space-y-6">
+        {/* ── SECTION 1: HERO (PRODUCT SHEET / EDIT) ── */}
+        <div className="bg-[#161920] border border-[#2A2F36] rounded-2xl p-4 sm:p-6 shadow-xl">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+            {/* Photo Column (Max 320px) */}
+            <div className="md:col-span-5 flex justify-center">
+              <div className="w-full max-w-[280px] sm:max-w-[320px] aspect-square relative bg-[#0F1115] border border-[#2A2F36] rounded-2xl overflow-hidden flex items-center justify-center p-3">
+                <PhotoHero
+                  photoUrl={photoPreview}
+                  isUploading={isUploadingPhoto}
+                  disabled={isAddMode && !sku?.trim()}
+                  onCapture={handlePhotoCapture}
+                  onRemove={handlePhotoRemove}
                 />
               </div>
-              {/* New Item: collect Model / Size / Color / Serial. The display
-                  name is derived from Model+Size+Color on save — no free-text
-                  Name field (idea: structured SKU registration). */}
-              <TappableField
-                label="Model"
-                value={modelField || ''}
-                isActive={false}
-                onTap={() => {}}
-                onBlur={() => {}}
-                onChange={(v) => setValue('model', v, { shouldValidate: true })}
-                placeholder="e.g. Explorer A2 / SRAM Derailleur"
-                forceEdit
-              />
-              <TappableField
-                label="Size"
-                value={sizeField || ''}
-                isActive={false}
-                onTap={() => {}}
-                onBlur={() => {}}
-                onChange={(v) => setValue('size', v, { shouldValidate: true })}
-                placeholder={'e.g. 19"'}
-                forceEdit
-              />
-              <TappableField
-                label="Color"
-                value={colorField || ''}
-                isActive={false}
-                onTap={() => {}}
-                onBlur={() => {}}
-                onChange={(v) => setValue('color', v, { shouldValidate: true })}
-                placeholder="e.g. Gloss Black"
-                forceEdit
-              />
-              <TappableField
-                label="Serial Number"
-                value={serialNumber || ''}
-                isActive={false}
-                onTap={() => {}}
-                onBlur={() => {}}
-                onChange={(v) => setValue('serial_number', v, { shouldValidate: true })}
-                placeholder="e.g. Y21K016255"
-                forceEdit
-              />
-              {/* idea-068: Bike/Part classification at registration time.
-                  Local state only (SKU doesn't exist yet); persisted on save
-                  via updateSKUMetadata({ is_bike }). */}
-              <div className="flex items-center justify-between px-4 py-2.5">
-                <span className="text-[10px] font-black text-muted uppercase tracking-widest">
-                  Type
-                </span>
-                <div className="flex gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setTypeIsBike(true)}
-                    className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 ${
+            </div>
+
+            {/* Primary Info + Metrics */}
+            <div className="md:col-span-7 flex flex-col justify-between space-y-4">
+              <div>
+                {/* Category / Badges */}
+                <div className="flex items-center gap-2 mb-2">
+                  <span
+                    onClick={() => isEditing && setTypeIsBike(!typeIsBike)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider ${
                       typeIsBike
-                        ? 'bg-accent text-white'
-                        : 'bg-surface text-muted border border-subtle'
-                    }`}
+                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                        : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                    } ${isEditing ? 'cursor-pointer hover:opacity-80' : ''}`}
                   >
-                    Bike
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTypeIsBike(false)}
-                    className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 ${
-                      !typeIsBike
-                        ? 'bg-accent text-white'
-                        : 'bg-surface text-muted border border-subtle'
-                    }`}
-                  >
-                    Part
-                  </button>
+                    {typeIsBike ? 'Bike' : 'Part'}
+                  </span>
+                  <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg text-xs font-semibold uppercase tracking-wider">
+                    New
+                  </span>
                 </div>
-              </div>
-            </>
-          ) : (
-            <>
-              <TappableField
-                label="SKU"
-                value={sku}
-                isActive={isActive('sku')}
-                onTap={() => setActiveField('sku')}
-                onBlur={() => handleFieldBlur()}
-                onChange={(v) => setValue('sku', v, { shouldValidate: true })}
-                renderEditor={() => (
-                  <AutocompleteInput
-                    id="detail_sku"
-                    value={sku}
-                    onChange={(v: string) => setValue('sku', v, { shouldValidate: true })}
-                    suggestions={skuSuggestions}
-                    placeholder="Enter SKU..."
-                    minChars={2}
-                    initialKeyboardMode="numeric"
-                  />
+
+                {/* Model & Color */}
+                {isEditing ? (
+                  <div className="space-y-2 mb-3">
+                    <div>
+                      <label className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
+                        Model / Name
+                      </label>
+                      <input
+                        type="text"
+                        value={modelField || ''}
+                        onChange={(e) => setValue('model', e.target.value)}
+                        placeholder="e.g. Explorer A2"
+                        className="w-full bg-[#0F1115] border border-[#2A2F36] rounded-xl px-3 py-2 text-sm text-white font-semibold focus:outline-none focus:border-emerald-500/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
+                        Color
+                      </label>
+                      <input
+                        type="text"
+                        value={colorField || ''}
+                        onChange={(e) => setValue('color', e.target.value)}
+                        placeholder="e.g. Deep Blue"
+                        className="w-full bg-[#0F1115] border border-[#2A2F36] rounded-xl px-3 py-2 text-sm text-white font-semibold focus:outline-none focus:border-emerald-500/50"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mb-3">
+                    <h1 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
+                      {displayTitle}
+                    </h1>
+                    <p className="text-base text-white/60 font-medium">{displayColor}</p>
+                  </div>
                 )}
-              />
-              {/* Bike/Part toggle — manual classification. Shown in both add &
-                  edit (idea-068). In edit it also updates the DB immediately;
-                  in add it just sets local state, persisted on save. S/D is
-                  edit-only (needs an existing SKU to open the S/D catalog). */}
-              <div className="flex items-center justify-between px-4 py-2.5 border-b border-subtle">
-                <span className="text-[10px] font-black text-muted uppercase tracking-widest">
-                  Type
-                </span>
-                <div className="flex gap-1.5">
-                  <button
-                    onClick={async () => {
-                      setTypeIsBike(true);
-                      if (mode === 'edit' && initialData?.sku) {
-                        // sku_metadata is not in the realtime publication, so the
-                        // cache never hears about this update — invalidate manually
-                        // or the old value reappears on reopen.
-                        const { error } = await supabase
-                          .from('sku_metadata')
-                          .update({ is_bike: true })
-                          .eq('sku', initialData.sku);
-                        if (error) {
-                          setTypeIsBike(initialData?.sku_metadata?.is_bike !== false);
-                          toast.error('Failed to mark as bike');
-                          return;
-                        }
-                        queryClient.invalidateQueries({ queryKey: INVENTORY_ROOT_KEY });
-                        queryClient.invalidateQueries({ queryKey: PARTS_BINS_KEY });
-                        toast.success('Marked as bike');
-                      }
-                    }}
-                    className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 ${
-                      typeIsBike && !isScratchDentItem
-                        ? 'bg-accent text-white'
-                        : 'bg-surface text-muted border border-subtle'
-                    }`}
-                  >
-                    Bike
-                  </button>
-                  <button
-                    onClick={async () => {
-                      setTypeIsBike(false);
-                      if (mode === 'edit' && initialData?.sku) {
-                        const { error } = await supabase
-                          .from('sku_metadata')
-                          .update({ is_bike: false })
-                          .eq('sku', initialData.sku);
-                        if (error) {
-                          setTypeIsBike(initialData?.sku_metadata?.is_bike !== false);
-                          toast.error('Failed to mark as part');
-                          return;
-                        }
-                        queryClient.invalidateQueries({ queryKey: INVENTORY_ROOT_KEY });
-                        queryClient.invalidateQueries({ queryKey: PARTS_BINS_KEY });
-                        toast.success('Marked as part');
-                      }
-                    }}
-                    className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 ${
-                      !typeIsBike && !isScratchDentItem
-                        ? 'bg-accent text-white'
-                        : 'bg-surface text-muted border border-subtle'
-                    }`}
-                  >
-                    Part
-                  </button>
-                  {mode === 'edit' && (
-                    <button
-                      onClick={() => {
-                        if (!initialData?.sku) return;
-                        const action = isScratchDentItem ? 'edit' : 'create';
-                        navigate(
-                          `/sd-catalog?action=${action}&sku=${encodeURIComponent(initialData.sku)}`
-                        );
-                        onClose();
-                      }}
-                      className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all active:scale-95 ${
-                        isScratchDentItem
-                          ? 'bg-accent text-white'
-                          : 'bg-surface text-muted border border-subtle'
-                      }`}
-                    >
-                      S/D
-                    </button>
+
+                {/* SKU Badge */}
+                <div className="inline-flex items-center gap-2 bg-[#0F1115] border border-[#2A2F36] px-3.5 py-2 rounded-xl mb-4">
+                  <span className="text-xs font-medium text-white/40 uppercase tracking-widest">
+                    SKU
+                  </span>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={sku}
+                      onChange={(e) => setValue('sku', e.target.value)}
+                      placeholder="03-4069BL"
+                      className="bg-transparent text-sm sm:text-base font-mono font-medium text-emerald-400 focus:outline-none w-36"
+                    />
+                  ) : (
+                    <span className="text-sm sm:text-base font-mono font-medium text-emerald-400">
+                      {displaySku}
+                    </span>
                   )}
                 </div>
               </div>
-              {mode === 'edit' && initialData?.sku && (
-                <ItemDetailsCard
-                  sku={initialData.sku}
-                  isScratchDent={isScratchDentItem}
-                  isBike={typeIsBike}
-                  model={watch('model') ?? ''}
-                  size={watch('size') ?? ''}
-                  serial={watch('serial_number') ?? ''}
-                  color={watch('color') ?? ''}
-                  price={watch('price') ?? null}
-                  condition={watch('condition') ?? ''}
-                  conditionDescription={watch('condition_description') ?? ''}
-                  pdfLink={watch('pdf_link') ?? ''}
-                  setModel={(v) => setValue('model', v)}
-                  setSize={(v) => setValue('size', v)}
-                  setSerial={(v) => setValue('serial_number', v)}
-                  setColor={(v) => setValue('color', v)}
-                  setPrice={(v) => setValue('price', v)}
-                  setCondition={(v) => setValue('condition', v)}
-                  setConditionDescription={(v) => setValue('condition_description', v)}
-                  setPdfLink={(v) => setValue('pdf_link', v)}
-                />
-              )}
-              {lastUpdate && (
-                <SectionRow
-                  label="Last update"
-                  value={lastUpdate}
-                  editable
-                  onTap={() => setIsHistorySheetOpen(true)}
-                />
-              )}
-            </>
-          )}
+
+              {/* ── QUANTITY HERO METRIC (40-48px) ── */}
+              <div className="bg-[#0F1115] border border-[#2A2F36] rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-medium text-white/40 uppercase tracking-wider block">
+                    Quantity
+                  </span>
+                  {totalStock && totalStock.locations > 1 && (
+                    <span className="text-[11px] text-emerald-400/80 font-medium">
+                      {totalStock.total}u across {totalStock.locations} locs.
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setValue('quantity', Math.max(0, quantity - 1))}
+                    className="w-11 h-11 rounded-xl bg-[#161920] border border-[#2A2F36] flex items-center justify-center text-white/80 hover:text-white hover:border-emerald-500/50 active:scale-95 transition-all"
+                  >
+                    <Minus size={18} />
+                  </button>
+
+                  {isEditingQtyDirect ? (
+                    <input
+                      ref={qtyInputRef}
+                      type="number"
+                      value={directQtyVal}
+                      onChange={(e) => setDirectQtyVal(e.target.value)}
+                      onBlur={() => {
+                        const parsed = parseInt(directQtyVal, 10);
+                        if (!isNaN(parsed) && parsed >= 0) setValue('quantity', parsed);
+                        setIsEditingQtyDirect(false);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const parsed = parseInt(directQtyVal, 10);
+                          if (!isNaN(parsed) && parsed >= 0) setValue('quantity', parsed);
+                          setIsEditingQtyDirect(false);
+                        }
+                      }}
+                      className="w-20 text-center text-3xl sm:text-4xl font-bold font-mono text-emerald-400 bg-[#161920] border border-emerald-500/40 rounded-xl py-1 focus:outline-none"
+                      autoFocus
+                    />
+                  ) : (
+                    <span
+                      onClick={() => {
+                        setDirectQtyVal(String(quantity));
+                        setIsEditingQtyDirect(true);
+                      }}
+                      className="text-3xl sm:text-4xl font-bold font-mono text-emerald-400 min-w-[60px] text-center cursor-pointer hover:opacity-80 transition-opacity"
+                    >
+                      {quantity}
+                    </span>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setValue('quantity', quantity + 1)}
+                    className="w-11 h-11 rounded-xl bg-[#161920] border border-[#2A2F36] flex items-center justify-center text-white/80 hover:text-white hover:border-emerald-500/50 active:scale-95 transition-all"
+                  >
+                    <Plus size={18} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* Stock Reservations */}
+        {sku && warehouse && location && (
+          <StockReservationBreakdown sku={sku} warehouse={warehouse} location={location} />
+        )}
 
         {/* Validation feedback */}
         {validationState.status !== 'idle' && (
           <div
-            className={`mx-4 mt-3 flex items-start gap-2 p-3 rounded-xl text-[10px] font-black uppercase tracking-widest animate-in fade-in slide-in-from-top-1 ${
+            className={`flex items-start gap-2 p-3 rounded-xl text-xs font-medium animate-in fade-in ${
               validationState.status === 'error'
-                ? 'bg-red-500/10 border border-red-500/20 text-red-500'
+                ? 'bg-red-500/10 border border-red-500/20 text-red-400'
                 : validationState.status === 'warning'
-                  ? 'bg-amber-500/10 border border-amber-500/20 text-amber-500'
+                  ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
                   : 'bg-blue-500/10 border border-blue-500/20 text-blue-400'
             }`}
           >
             {validationState.status === 'checking' ? (
               <>
-                <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin mt-0.5" />
-                Checking availability...
+                <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin mt-0.5" />
+                Validating availability...
               </>
             ) : (
               <>
-                <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                <AlertCircle size={15} className="shrink-0 mt-0.5" />
                 <span className="leading-relaxed">{validationState.message}</span>
               </>
             )}
           </div>
         )}
 
-        {/* SKU presence info (add mode) */}
-        {isAddMode && foundLocations.length > 0 && (
-          <div className="mx-4 mt-3 bg-blue-500/10 border border-blue-500/20 text-blue-400 p-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-start gap-2 animate-in fade-in slide-in-from-top-1">
-            <CheckCircle2 size={14} className="shrink-0 mt-0.5 text-blue-400" />
-            <span>
-              SKU detected in this warehouse at:{' '}
-              <strong className="text-blue-200">{foundLocations.join(', ')}</strong>
-            </span>
-          </div>
-        )}
+        {/* ── SECTION 2: INFORMATION & LOCATION (GRID 2 COLUMNS) ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* UNIFIED INFORMATION CARD */}
+          <div className="bg-[#161920] border border-[#2A2F36] rounded-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-[#2A2F36] pb-3">
+              <h2 className="text-sm font-semibold text-white/90 uppercase tracking-wider">
+                Product Information
+              </h2>
+              {isEditing && <span className="text-xs text-amber-400 font-medium">Edit Mode</span>}
+            </div>
 
-        {/* Section: Stock */}
-        <div className="bg-card border-b border-subtle mt-4 mx-4 rounded-2xl overflow-hidden">
-          <QuantityControl
-            value={quantity || 0}
-            onChange={(v) => {
-              setValue('quantity', v, { shouldValidate: true });
-            }}
-            totalStock={totalStock}
-          />
-          {!isAddMode && sku && warehouse && location && (
-            <StockReservationBreakdown sku={sku} warehouse={warehouse} location={location} />
-          )}
-        </div>
-
-        {/* Section: Location */}
-        <div className="bg-card border-b border-subtle mt-4 mx-4 rounded-2xl overflow-hidden">
-          {isAddMode ? (
-            <>
-              <div className="px-4 py-2">
-                <span className="text-[11px] font-bold text-accent uppercase tracking-wider block mb-1.5">
-                  Location
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between py-1">
+                <span className="text-white/40 text-xs font-medium uppercase tracking-wider">
+                  Model
                 </span>
-                <AutocompleteInput
-                  id="detail_location"
-                  value={location || ''}
-                  onChange={(v: string) => setValue('location', v, { shouldValidate: true })}
-                  onBlur={(v) => handleLocationBlur(v)}
-                  suggestions={locationSuggestions}
-                  placeholder="Row/Bin..."
-                  minChars={1}
-                  initialKeyboardMode="numeric"
-                />
-              </div>
-              {(location || '').toUpperCase().startsWith('ROW') && (
-                <div className="px-4 py-2 border-t border-subtle">
-                  <span className="text-[11px] font-bold text-accent uppercase tracking-wider block mb-1.5">
-                    Sub-location
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {['A', 'B', 'C', 'D', 'E', 'F'].map((letter) => {
-                      const isSelected = sublocation?.includes(letter);
-                      return (
-                        <button
-                          key={letter}
-                          type="button"
-                          onClick={() => {
-                            const current: string[] = sublocation || [];
-                            const updated = isSelected
-                              ? current.filter((l: string) => l !== letter)
-                              : [...current, letter].sort();
-                            setValue('sublocation', updated.length > 0 ? updated : null);
-                          }}
-                          className={`w-9 h-9 rounded-lg text-xs font-black transition-all ${
-                            isSelected
-                              ? 'bg-accent text-main shadow-lg shadow-accent/20'
-                              : 'bg-surface text-muted border border-subtle hover:border-accent/40'
-                          }`}
-                        >
-                          {letter}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              <TappableField
-                label="Note"
-                value={internalNote || ''}
-                isActive={false}
-                onTap={() => {}}
-                onBlur={() => {}}
-                onChange={(v) => setValue('internal_note', v)}
-                placeholder="e.g. Behind the pole..."
-                forceEdit
-              />
-            </>
-          ) : (
-            <>
-              <TappableField
-                label="Location"
-                value={location || ''}
-                isActive={isActive('location')}
-                onTap={() => setActiveField('location')}
-                onBlur={() => {
-                  handleLocationBlur(location || '');
-                  handleFieldBlur();
-                }}
-                onChange={(v) => setValue('location', v, { shouldValidate: true })}
-                renderEditor={() => (
-                  <AutocompleteInput
-                    id="detail_location"
-                    value={location || ''}
-                    onChange={(v: string) => setValue('location', v, { shouldValidate: true })}
-                    onBlur={(v) => handleLocationBlur(v)}
-                    suggestions={locationSuggestions}
-                    placeholder="Row/Bin..."
-                    minChars={1}
-                    initialKeyboardMode="numeric"
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={modelField || ''}
+                    onChange={(e) => setValue('model', e.target.value)}
+                    className="bg-[#0F1115] border border-[#2A2F36] rounded-lg px-2.5 py-1 text-white text-xs text-right w-44 font-medium focus:outline-none focus:border-emerald-500/40"
                   />
+                ) : (
+                  <span className="text-white font-medium">{displayTitle || '—'}</span>
                 )}
-              />
-              {(location || '').toUpperCase().startsWith('ROW') && (
-                <div className="px-4 py-2 border-t border-subtle">
-                  <span className="text-[11px] font-bold text-muted uppercase tracking-wider block mb-1.5">
-                    Sub-location
+              </div>
+
+              <div className="flex items-center justify-between py-1 border-t border-[#2A2F36]/50">
+                <span className="text-white/40 text-xs font-medium uppercase tracking-wider">
+                  Color
+                </span>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={colorField || ''}
+                    onChange={(e) => setValue('color', e.target.value)}
+                    className="bg-[#0F1115] border border-[#2A2F36] rounded-lg px-2.5 py-1 text-white text-xs text-right w-44 font-medium focus:outline-none focus:border-emerald-500/40"
+                  />
+                ) : (
+                  <span className="text-white font-medium">{displayColor || '—'}</span>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between py-1 border-t border-[#2A2F36]/50">
+                <span className="text-white/40 text-xs font-medium uppercase tracking-wider">
+                  Size
+                </span>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={sizeField || ''}
+                    onChange={(e) => setValue('size', e.target.value)}
+                    placeholder="e.g. 19"
+                    className="bg-[#0F1115] border border-[#2A2F36] rounded-lg px-2.5 py-1 text-white text-xs text-right w-32 font-medium focus:outline-none focus:border-emerald-500/40"
+                  />
+                ) : (
+                  <span className="text-white font-medium">{sizeField || '—'}</span>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between py-1 border-t border-[#2A2F36]/50">
+                <span className="text-white/40 text-xs font-medium uppercase tracking-wider">
+                  Price
+                </span>
+                {isEditing ? (
+                  <input
+                    type="number"
+                    value={priceField ?? ''}
+                    onChange={(e) =>
+                      setValue('price', e.target.value ? Number(e.target.value) : null)
+                    }
+                    placeholder="0.00"
+                    className="bg-[#0F1115] border border-[#2A2F36] rounded-lg px-2.5 py-1 text-white text-xs text-right w-32 font-medium focus:outline-none focus:border-emerald-500/40"
+                  />
+                ) : (
+                  <span className="text-white font-medium font-mono">
+                    {priceField ? `$${priceField.toFixed(2)}` : '—'}
                   </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {['A', 'B', 'C', 'D', 'E', 'F'].map((letter) => {
-                      const isSelected = sublocation?.includes(letter);
-                      return (
-                        <button
-                          key={letter}
-                          type="button"
-                          onClick={() => {
-                            const current: string[] = sublocation || [];
-                            const updated = isSelected
-                              ? current.filter((l: string) => l !== letter)
-                              : [...current, letter].sort();
-                            setValue('sublocation', updated.length > 0 ? updated : null);
-                          }}
-                          className={`w-9 h-9 rounded-lg text-xs font-black transition-all ${
-                            isSelected
-                              ? 'bg-accent text-main shadow-lg shadow-accent/20'
-                              : 'bg-surface text-muted border border-subtle hover:border-accent/40'
-                          }`}
-                        >
-                          {letter}
-                        </button>
-                      );
-                    })}
-                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between py-1 border-t border-[#2A2F36]/50">
+                <span className="text-white/40 text-xs font-medium uppercase tracking-wider">
+                  Serial
+                </span>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={serialNumber || ''}
+                    onChange={(e) => setValue('serial_number', e.target.value)}
+                    placeholder="S/N..."
+                    className="bg-[#0F1115] border border-[#2A2F36] rounded-lg px-2.5 py-1 text-white text-xs text-right w-44 font-mono font-medium focus:outline-none focus:border-emerald-500/40"
+                  />
+                ) : (
+                  <span className="text-white font-mono font-medium">{serialNumber || '—'}</span>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between py-1 border-t border-[#2A2F36]/50">
+                <span className="text-white/40 text-xs font-medium uppercase tracking-wider">
+                  Last update
+                </span>
+                <span className="text-white/70 text-xs font-medium">{displayLastUpdate}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* UNIFIED LOCATION CARD (< 180PX) */}
+          <div className="bg-[#161920] border border-[#2A2F36] rounded-2xl p-5 flex flex-col justify-between space-y-4">
+            <div>
+              <div className="flex items-center justify-between border-b border-[#2A2F36] pb-3 mb-3">
+                <div className="flex items-center gap-2">
+                  <MapPin size={18} className="text-emerald-400" />
+                  <h2 className="text-sm font-semibold text-white/90 uppercase tracking-wider">
+                    Location
+                  </h2>
                 </div>
+                <span className="text-xs text-white/40 font-mono font-medium uppercase">
+                  {warehouse}
+                </span>
+              </div>
+
+              {/* Metric Hero Row */}
+              <div className="flex items-center justify-between bg-[#0F1115] border border-[#2A2F36] rounded-xl p-3 mb-3">
+                <span className="text-xs text-white/40 font-medium uppercase tracking-wider">
+                  Row / Bin
+                </span>
+                {isEditing ? (
+                  <AutocompleteInput
+                    id="location_input"
+                    value={location}
+                    onChange={(v: string) => setValue('location', v)}
+                    suggestions={validLocationNames.map((l) => ({ value: l }))}
+                    placeholder="e.g. Row 6"
+                  />
+                ) : (
+                  <span className="text-lg font-semibold font-mono text-emerald-400">
+                    {displayLocation}
+                  </span>
+                )}
+              </div>
+
+              {/* Sub-locations [A][B][C][D][E][F] */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider block">
+                  Sub-location
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {['A', 'B', 'C', 'D', 'E', 'F'].map((letter) => {
+                    const isSelected = displaySublocations.includes(letter);
+                    return (
+                      <button
+                        key={letter}
+                        type="button"
+                        onClick={() => {
+                          const current: string[] = sublocation || [];
+                          const updated = isSelected
+                            ? current.filter((l) => l !== letter)
+                            : [...current, letter].sort();
+                          setValue('sublocation', updated.length > 0 ? updated : null);
+                        }}
+                        className={`w-8 h-8 rounded-lg text-xs font-semibold font-mono transition-all ${
+                          isSelected
+                            ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
+                            : 'bg-[#0F1115] text-white/60 border border-[#2A2F36] hover:border-emerald-500/40'
+                        }`}
+                      >
+                        {letter}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Note row */}
+            <div className="pt-2 border-t border-[#2A2F36]/50">
+              <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
+                Location note
+              </span>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={internalNote || ''}
+                  onChange={(e) => setValue('internal_note', e.target.value)}
+                  placeholder="Details about shelf or position..."
+                  className="w-full bg-[#0F1115] border border-[#2A2F36] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500/40"
+                />
+              ) : (
+                <p className="text-xs text-white/70 italic truncate">
+                  {displayNote || 'No additional notes.'}
+                </p>
               )}
-              <TappableField
-                label="Note"
-                value={internalNote || ''}
-                isActive={isActive('internal_note')}
-                onTap={() => setActiveField('internal_note')}
-                onBlur={() => handleFieldBlur()}
-                onChange={(v) => setValue('internal_note', v)}
-                placeholder="e.g. Behind the pole..."
-              />
-            </>
-          )}
+            </div>
+          </div>
         </div>
 
-        {/* Section: Distribution — only when there's stock to distribute */}
-        {(quantity || 0) > 0 && (
-          <div className="bg-card border-b border-subtle mt-4 mx-4 rounded-2xl overflow-hidden">
-            <DistributionPreview
-              distribution={distribution}
-              quantity={quantity || 0}
-              onTap={() => setIsDistributionSheetOpen(true)}
-            />
-          </div>
-        )}
+        {/* ── SECTION 3: DISTRIBUTION & DIMENSIONS ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* DISTRIBUTION CARD */}
+          <div className="bg-[#161920] border border-[#2A2F36] rounded-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-[#2A2F36] pb-3">
+              <div className="flex items-center gap-2">
+                <Layers size={18} className="text-emerald-400" />
+                <h2 className="text-sm font-semibold text-white/90 uppercase tracking-wider">
+                  Distribution
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDistributionSheetOpen(true)}
+                className="text-xs font-semibold text-emerald-400 hover:underline"
+              >
+                Edit
+              </button>
+            </div>
 
-        {/* Available in other locations — when this row is qty=0 but the same
-            SKU has stock elsewhere (other location and/or warehouse), surface
-            it so the user knows where to grab it. */}
-        {mode === 'edit' && initialData?.sku && (quantity || 0) === 0 && (
+            {distribution.length > 0 ? (
+              <div className="space-y-2">
+                {distribution.map((d, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between bg-[#0F1115] border border-[#2A2F36] rounded-xl px-3 py-2 text-xs"
+                  >
+                    <span className="font-mono text-white/80">
+                      {d.type} {d.units_each}u
+                    </span>
+                    <span className="font-semibold text-emerald-400">× {d.count}</span>
+                  </div>
+                ))}
+                <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-medium pt-2">
+                  <Check size={14} />
+                  <span>All units accounted for</span>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-[#0F1115] border border-[#2A2F36] rounded-xl p-4 text-center">
+                <p className="text-xs text-white/40">No distribution structure configured.</p>
+              </div>
+            )}
+          </div>
+
+          {/* DIMENSIONS CARD (3 ALIGNED INPUTS) */}
+          <div className="bg-[#161920] border border-[#2A2F36] rounded-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-[#2A2F36] pb-3">
+              <h2 className="text-sm font-semibold text-white/90 uppercase tracking-wider">
+                Dimensions & Weight
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-[#0F1115] border border-[#2A2F36] rounded-xl p-3 text-center">
+                <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
+                  Length
+                </span>
+                {isEditing && isAdmin ? (
+                  <input
+                    type="number"
+                    value={lengthIn ?? ''}
+                    onChange={(e) =>
+                      setValue('length_in', e.target.value ? Number(e.target.value) : undefined)
+                    }
+                    className="w-full bg-[#161920] text-center text-sm font-semibold text-emerald-400 rounded px-1 focus:outline-none"
+                  />
+                ) : (
+                  <span className="text-base font-semibold font-mono text-white">
+                    {lengthIn ? `${lengthIn}"` : '—'}
+                  </span>
+                )}
+              </div>
+
+              <div className="bg-[#0F1115] border border-[#2A2F36] rounded-xl p-3 text-center">
+                <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
+                  Width
+                </span>
+                {isEditing && isAdmin ? (
+                  <input
+                    type="number"
+                    value={widthIn ?? ''}
+                    onChange={(e) =>
+                      setValue('width_in', e.target.value ? Number(e.target.value) : undefined)
+                    }
+                    className="w-full bg-[#161920] text-center text-sm font-semibold text-emerald-400 rounded px-1 focus:outline-none"
+                  />
+                ) : (
+                  <span className="text-base font-semibold font-mono text-white">
+                    {widthIn ? `${widthIn}"` : '—'}
+                  </span>
+                )}
+              </div>
+
+              <div className="bg-[#0F1115] border border-[#2A2F36] rounded-xl p-3 text-center">
+                <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
+                  Height
+                </span>
+                {isEditing && isAdmin ? (
+                  <input
+                    type="number"
+                    value={heightIn ?? ''}
+                    onChange={(e) =>
+                      setValue('height_in', e.target.value ? Number(e.target.value) : undefined)
+                    }
+                    className="w-full bg-[#161920] text-center text-sm font-semibold text-emerald-400 rounded px-1 focus:outline-none"
+                  />
+                ) : (
+                  <span className="text-base font-semibold font-mono text-white">
+                    {heightIn ? `${heightIn}"` : '—'}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {weightLbs && (
+              <div className="text-right text-xs text-white/40 font-mono">
+                Approx weight: <span className="text-white/80 font-semibold">{weightLbs} lbs</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Other Locations Card */}
+        {mode === 'edit' && initialData?.sku && quantity === 0 && (
           <OtherLocationsCard
             sku={initialData.sku}
             currentItemId={initialData.id}
@@ -1508,130 +1358,45 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           />
         )}
 
-        {/* Section: Recent activity — auto-shown for qty=0 items so users can
-            see what happened to the SKU (last DEDUCT, MOVE, ADD, etc.) without
-            opening the history sheet manually. */}
-        {mode === 'edit' && initialData?.sku && (quantity || 0) === 0 && (
-          <InlineItemHistory
-            sku={initialData.sku}
-            limit={5}
-            showOutOfStockBanner
-            onSeeAll={() => setIsHistorySheetOpen(true)}
-          />
-        )}
-
-        {/* Section: Dimensions — always visible, editable only for admin */}
-        <div className="bg-card border-b border-subtle mt-4 mx-4 rounded-2xl overflow-hidden">
-          {isAddMode && isAdmin ? (
-            <div className="px-4 py-3">
-              <span className="text-[11px] font-bold text-accent uppercase tracking-wider block mb-2">
-                Dimensions
-              </span>
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  { field: 'length_in' as const, val: lengthIn, label: 'L' },
-                  { field: 'width_in' as const, val: widthIn, label: 'W' },
-                  { field: 'height_in' as const, val: heightIn, label: 'H' },
-                  { field: 'weight_lbs' as const, val: weightLbs, label: 'LBS' },
-                ].map(({ field, val, label }) => (
-                  <div key={field} className="flex flex-col items-center gap-1">
-                    <input
-                      type="number"
-                      value={val ?? ''}
-                      onChange={(e) =>
-                        setValue(field, e.target.value ? Number(e.target.value) : null)
-                      }
-                      placeholder="—"
-                      step="0.1"
-                      className="w-full bg-main border border-subtle rounded-lg px-2 py-2 text-content text-center text-xs font-mono focus:border-accent focus:outline-none"
-                    />
-                    <span className="text-[9px] font-black text-muted uppercase tracking-widest">
-                      {label}
-                    </span>
-                  </div>
-                ))}
-              </div>
+        {/* ── HISTORY ── */}
+        {mode === 'edit' && initialData?.sku && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-white/80 uppercase tracking-wider flex items-center gap-2">
+                <History size={16} /> Recent Activity
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsHistorySheetOpen(true)}
+                className="text-xs text-emerald-400 font-semibold hover:underline"
+              >
+                View full history
+              </button>
             </div>
-          ) : isAdmin ? (
-            <TappableField
-              label="Dimensions"
-              value={dimensionsString}
-              isActive={isActive('dimensions')}
-              onTap={() => setActiveField('dimensions')}
-              onBlur={() => handleFieldBlur()}
-              onChange={() => {}}
-              renderEditor={() => (
-                <div className="grid grid-cols-4 gap-2">
-                  {[
-                    { field: 'length_in' as const, val: lengthIn, label: 'L' },
-                    { field: 'width_in' as const, val: widthIn, label: 'W' },
-                    { field: 'height_in' as const, val: heightIn, label: 'H' },
-                    { field: 'weight_lbs' as const, val: weightLbs, label: 'LBS' },
-                  ].map(({ field, val, label }) => (
-                    <div key={field} className="flex flex-col items-center gap-1">
-                      <input
-                        type="number"
-                        value={val ?? ''}
-                        onChange={(e) =>
-                          setValue(field, e.target.value ? Number(e.target.value) : null)
-                        }
-                        placeholder="—"
-                        step="0.1"
-                        className="w-full bg-main border border-subtle rounded-lg px-2 py-2 text-content text-center text-xs font-mono focus:border-accent focus:outline-none"
-                      />
-                      <span className="text-[9px] font-black text-muted uppercase tracking-widest">
-                        {label}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <InlineItemHistory
+              sku={initialData.sku}
+              limit={3}
+              onSeeAll={() => setIsHistorySheetOpen(true)}
             />
-          ) : (
-            /* Non-admin: read-only dimensions */
-            <SectionRow label="Dimensions" value={dimensionsString || '—'} />
-          )}
-        </div>
-
-        {/* Validation errors */}
-        {(errors.sku || errors.quantity || errors.location) && (
-          <div className="mx-4 mt-3 space-y-1">
-            {errors.sku && (
-              <p className="text-red-500 text-[10px] font-bold uppercase">
-                {String(errors.sku.message)}
-              </p>
-            )}
-            {errors.quantity && (
-              <p className="text-red-500 text-[10px] font-bold uppercase">
-                {String(errors.quantity.message)}
-              </p>
-            )}
-            {errors.location && (
-              <p className="text-red-500 text-[10px] font-bold uppercase">
-                {String(errors.location.message)}
-              </p>
-            )}
           </div>
         )}
+      </div>
 
-        {/* Save / Create button */}
-        <div className="mx-4 mt-6 mb-8">
+      {/* ── STICKY BOTTOM FOOTER FOR SAVE BUTTON ── */}
+      {(isEditing || hasChanges) && (
+        <div className="fixed bottom-0 inset-x-0 z-40 bg-[#0F1115]/95 backdrop-blur-md border-t border-[#2A2F36] p-4 flex justify-center shadow-2xl">
           <button
             disabled={!canSave}
             onClick={handleSave}
-            className={`w-full font-black uppercase tracking-widest h-14 rounded-2xl flex items-center justify-center gap-2 transition-transform shadow-lg ${
-              !canSave
-                ? 'bg-neutral-800 text-neutral-500 border border-neutral-700 cursor-not-allowed opacity-50'
-                : 'bg-accent hover:opacity-90 text-main active:scale-95 shadow-accent/20'
-            }`}
+            className="w-full max-w-md bg-emerald-500 hover:bg-emerald-400 text-black font-bold uppercase tracking-wider h-13 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-emerald-500/20 disabled:opacity-40"
           >
-            <Save className="w-5 h-5" />
-            {isAddMode ? 'Create' : 'Save'}
+            <Save size={18} />
+            <span>{isAddMode ? 'Create Item' : 'Save Changes'}</span>
           </button>
         </div>
-      </div>
+      )}
 
-      {/* Distribution Bottom Sheet */}
+      {/* Bottom Sheets */}
       <SectionEditorSheet
         isOpen={isDistributionSheetOpen}
         onClose={() => setIsDistributionSheetOpen(false)}
@@ -1642,7 +1407,6 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         onUpdate={updateDistributionRow}
       />
 
-      {/* Item History Bottom Sheet */}
       <ItemHistorySheet
         isOpen={isHistorySheetOpen}
         onClose={() => setIsHistorySheetOpen(false)}

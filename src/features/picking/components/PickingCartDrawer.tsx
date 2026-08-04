@@ -312,6 +312,24 @@ export const PickingCartDrawer: React.FC = () => {
   //    - picking_lists.verified_item_keys: cross-user source of truth.
   //      Debounced so rapid toggles batch into one UPDATE.
   const dbWriteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const checkedItemsRef = useRef(checkedItems);
+  useEffect(() => {
+    checkedItemsRef.current = checkedItems;
+  }, [checkedItems]);
+
+  const flushVerifiedItems = useCallback(async (listId: string, keysToFlush?: string[]) => {
+    const keys = keysToFlush ?? Array.from(checkedItemsRef.current);
+    localStorage.setItem(`double_check_progress_${listId}`, JSON.stringify(keys));
+    try {
+      await supabase
+        .from('picking_lists')
+        .update({ verified_item_keys: keys as unknown as Json } as never)
+        .eq('id', listId);
+    } catch (err) {
+      console.warn('[PickingCartDrawer] Failed to flush verified_item_keys:', err);
+    }
+  }, []);
+
   useEffect(() => {
     if (sessionMode !== 'double_checking' || !activeListId) return;
     const keys = Array.from(checkedItems);
@@ -332,7 +350,15 @@ export const PickingCartDrawer: React.FC = () => {
     }, 500);
 
     return () => {
-      if (dbWriteTimer.current) clearTimeout(dbWriteTimer.current);
+      if (dbWriteTimer.current) {
+        clearTimeout(dbWriteTimer.current);
+        dbWriteTimer.current = null;
+        // Immediate flush on cleanup so progress is not lost when closing/unmounting
+        void supabase
+          .from('picking_lists')
+          .update({ verified_item_keys: keys as unknown as Json } as never)
+          .eq('id', activeListId);
+      }
     };
   }, [checkedItems, activeListId, sessionMode]);
 
@@ -414,6 +440,13 @@ export const PickingCartDrawer: React.FC = () => {
   const handleReleaseOrder = async () => {
     if (activeListId) {
       try {
+        if (sessionMode === 'double_checking') {
+          if (dbWriteTimer.current) {
+            clearTimeout(dbWriteTimer.current);
+            dbWriteTimer.current = null;
+          }
+          await flushVerifiedItems(activeListId);
+        }
         await parkOrder(activeListId);
         if (sessionMode === 'double_checking') {
           toast.success('Order parked — back in lane for anyone to pick up');

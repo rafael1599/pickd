@@ -264,7 +264,13 @@ const OrderCardShell: React.FC<CardProps> = ({
   }, [order.order_number, order.id]);
 
   const progressPercent = React.useMemo(() => {
-    if (order.status === 'completed' || order.is_shipped) return 100;
+    // Orders sent to DS (ready_to_double_check, double_checking, completed) have completed picking 100%
+    if (
+      ['ready_to_double_check', 'double_checking', 'completed'].includes(order.status) ||
+      order.is_shipped
+    ) {
+      return 100;
+    }
     if (!Array.isArray(order.items) || order.items.length === 0) return 0;
 
     const verifiedKeys = new Set(order.verified_item_keys ?? []);
