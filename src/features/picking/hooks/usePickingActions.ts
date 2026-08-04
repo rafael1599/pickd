@@ -269,8 +269,8 @@ export const usePickingActions = ({
         // D. Validate my cart
         for (const myItem of rebasedItems) {
           // Unregistered, unresolved, or ALREADY PICKED items must not block parking or finishing.
-          // If an item is already picked (picked = true), it is physically in the cart/pallet
-          // and should not be blocked by shelf location inventory checks.
+          // If an item is already picked (picked = true) or the order is in double_checking session,
+          // it is physically in the cart/pallet and must not block the operator from continuing.
           if (myItem.sku_not_found || !myItem.warehouse || !myItem.location || myItem.picked) {
             continue;
           }
@@ -278,10 +278,8 @@ export const usePickingActions = ({
           const key = `${myItem.sku}-${myItem.warehouse}-${(myItem.location || '').toUpperCase()}`;
           const entry = stockMap.get(key);
 
-          // If a previously registered inventory-backed item disappeared, fail.
           if (!entry) {
-            toast.error(`Item ${myItem.sku} no longer exists in inventory.`);
-            return null;
+            continue;
           }
 
           const availableForMe = entry.stock - entry.reserved;
@@ -292,13 +290,14 @@ export const usePickingActions = ({
             const reservedInfo = orders ? `is reserved in ${orders}.` : 'is reserved.';
             const availabilityInfo =
               availableForMe > 0
-                ? `There is only ${availableForMe} available.`
-                : 'There are no more items available.';
+                ? `Only ${availableForMe} left on shelf.`
+                : 'No remaining items on shelf.';
 
-            toast.error(`${myItem.sku} ${reservedInfo} ${availabilityInfo} (You need ${myQty}).`, {
-              duration: 6000,
+            // Non-blocking warning: Inform the user but NEVER abort their workflow.
+            toast(`${myItem.sku} ${reservedInfo} ${availabilityInfo}`, {
+              duration: 4000,
+              icon: '⚠️',
             });
-            return null; // Abort
           }
         }
         // --- End Validation ---
