@@ -213,16 +213,22 @@ export const PublicOrderView = () => {
 
   if (error || !merged) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8 text-center">
-        <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4">
-          <span className="text-2xl">?</span>
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8 text-center font-sans">
+        <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-gray-500 font-bold text-2xl">
+          ?
         </div>
         <h1 className="text-xl font-black text-gray-900 mb-2">Order Not Found</h1>
-        <p className="text-sm text-gray-500 max-w-xs">
+        <p className="text-sm text-gray-500 max-w-xs mb-6">
           {routeOrderNumber
             ? `Order #${routeOrderNumber} — this order may have been cancelled or the link is invalid.`
             : 'This link is invalid.'}
         </p>
+        <a
+          href="/ship"
+          className="inline-flex items-center px-4 py-2.5 rounded-xl bg-gray-900 text-white text-xs font-black uppercase tracking-wider hover:bg-gray-800 transition-all shadow-sm active:scale-95"
+        >
+          Go to Ship Dashboard
+        </a>
       </div>
     );
   }

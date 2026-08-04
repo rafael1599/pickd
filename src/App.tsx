@@ -100,8 +100,16 @@ import { StagingBanner } from './components/layout/StagingBanner.tsx';
 // straight to /order/:orderNumber (printOrderDetail.ts).
 const OrderParamRedirect = () => {
   const { orderNumber } = useParams<{ orderNumber: string }>();
-  if (!orderNumber) return <Navigate to="/" replace />;
-  return <Navigate to={`/order/${encodeURIComponent(orderNumber)}`} replace />;
+  if (!orderNumber) return <Navigate to="/ship" replace />;
+  const decoded = decodeURIComponent(orderNumber).trim();
+  // Order numbers in Pickd contain digits (e.g. 880984, 0386a7a3, etc.).
+  // Route typos (e.g., /shipp, /inventry, /settingss) contain NO digits
+  // and must redirect to /ship instead of triggering a false 404.
+  const looksLikeOrderNumber = /\d/.test(decoded);
+  if (!looksLikeOrderNumber) {
+    return <Navigate to="/ship" replace />;
+  }
+  return <Navigate to={`/order/${encodeURIComponent(decoded)}`} replace />;
 };
 
 // Content accessible only after login
@@ -129,6 +137,8 @@ const AuthenticatedContent = () => {
               <Route path="/" element={<InventoryScreen />} />
               <Route path="/history" element={<HistoryScreen />} />
               <Route path="/orders" element={<Navigate to="/ship" replace />} />
+              <Route path="/orders/*" element={<Navigate to="/ship" replace />} />
+              <Route path="/order" element={<Navigate to="/ship" replace />} />
               <Route path="/ship" element={<ShipScreen />} />
               <Route
                 path="/settings"
