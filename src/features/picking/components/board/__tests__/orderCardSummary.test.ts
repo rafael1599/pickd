@@ -75,7 +75,7 @@ describe('effectiveShippingType (purple FedEx accent)', () => {
   });
 
   it('auto-classifies a 5+ bike order as regular when no override', () => {
-    const items = [{ sku: '03-1000BL', pickingQty: 5 }];
+    const items = [{ sku: '03-1000BL', pickingQty: 5, sku_metadata: { is_bike: true } }];
     expect(effectiveShippingType(null, items)).toBe('regular');
   });
 

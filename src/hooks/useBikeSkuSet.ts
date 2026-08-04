@@ -1,11 +1,8 @@
 import { useEffect, useState } from 'react';
-import { inferBikeSkusByPrefix, resolveBikeSkuSet } from '../utils/bikeDetection';
+import { resolveBikeSkuSet } from '../utils/bikeDetection';
 
 /**
- * Resolves the set of bike SKUs for a list of SKUs: seeds synchronously with the
- * "03-" prefix heuristic, then replaces it with the authoritative
- * `sku_metadata.is_bike` result. Lets components compute bike-aware pallets
- * (bikes paginate, parts consolidate into one pallet).
+ * Resolves the canonical set of bike SKUs from `sku_metadata.is_bike = true`.
  */
 export function useBikeSkuSet(skus: string[]): Set<string> {
   const key = Array.from(new Set(skus.filter(Boolean)))
@@ -21,7 +18,6 @@ export function useBikeSkuSet(skus: string[]): Set<string> {
     }
     let cancelled = false;
     const list = key.split(',');
-    setBikeSkuSet(inferBikeSkusByPrefix(list)); // immediate prefix seed before async fetch
     void resolveBikeSkuSet(list).then((set) => {
       if (!cancelled) setBikeSkuSet(set);
     });

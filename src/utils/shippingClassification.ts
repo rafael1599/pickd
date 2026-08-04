@@ -7,14 +7,9 @@ export interface ClassifiableItem {
   source_order?: string | null;
 }
 
-/** is_bike (sku_metadata) is the source of truth; the 03- prefix is only a
- *  fallback for legacy/watchdog items saved without metadata. */
+/** is_bike (sku_metadata) is the canonical source of truth. */
 function isBikeItem(item: ClassifiableItem): boolean {
-  const flag = item.sku_metadata?.is_bike;
-  if (typeof flag === 'boolean') return flag;
-  const sku = item.sku ?? '';
-  const prefix = sku.slice(0, 2);
-  return ['01', '02', '03', '06', '07'].includes(prefix);
+  return item.sku_metadata?.is_bike === true;
 }
 
 /**
