@@ -219,7 +219,10 @@ export function useShipOrdersData() {
 
       if (pendingSelectedCarriers.size === 0 && !pendingIncludeUnassigned) return true;
       const carrier = getCarrierLabel(o);
-      return carrier ? pendingSelectedCarriers.has(carrier) : pendingIncludeUnassigned;
+      if (carrier) {
+        return pendingSelectedCarriers.has(carrier);
+      }
+      return pendingIncludeUnassigned && !isWaiting;
     },
     [pendingSelectedCarriers, pendingIncludeUnassigned, pendingShowWaiting, debouncedSearchQuery]
   );
