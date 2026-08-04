@@ -1,5 +1,6 @@
 import React from 'react';
 import { calculatePalletsWithBikeAwareness } from '../../../utils/pickingLogic';
+import { isBikeSku } from '../../../utils/bikeDetection';
 
 /** Minimal item shape the progress calculation actually reads — looser than
  * `PickingListItem` so lightweight projections (e.g. the Orders board) can
@@ -26,7 +27,7 @@ export const OrderProgressBar: React.FC<OrderProgressBarProps> = ({
   items,
   verifiedKeys,
   totalUnits = 0,
-  className = 'mt-2',
+  className = '',
 }) => {
   const progressPercent = React.useMemo(() => {
     // Orders sent to DS (ready_to_double_check, double_checking, completed) have fully completed picking
@@ -47,8 +48,8 @@ export const OrderProgressBar: React.FC<OrderProgressBarProps> = ({
 
     const bikeSkuSet = new Set<string>();
     for (const item of items) {
-      if (item.sku && item.sku.startsWith('03-')) {
-        bikeSkuSet.add(item.sku);
+      if (isBikeSku(item.sku)) {
+        bikeSkuSet.add(item.sku!);
       }
     }
 

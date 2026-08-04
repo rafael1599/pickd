@@ -23,6 +23,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../lib/supabase';
 import toast from 'react-hot-toast';
 import { useParkedLocations } from '../../hooks/useParkedLocations';
+import { isBikeSku } from '../../../../utils/bikeDetection';
 
 type ShippingType = 'fedex' | 'regular' | 'pickup';
 
@@ -223,14 +224,19 @@ const OrderCardShell: React.FC<CardProps> = ({
     effectiveStatus === 'needs_correction' || effectiveStatus === 'double_checking';
   const when = order.status === 'completed' ? completedAtLabel(order.updated_at, showDate) : null;
 
-  // Calculate bikes and parts counts from order items using the 03- prefix heuristic
+  // Calculate bikes and parts counts from order items using the canonical isBikeSku classifier
   const { bikesCount, partsCount } = React.useMemo(() => {
     let bikes = 0;
     let parts = 0;
     if (Array.isArray(order.items)) {
       for (const item of order.items) {
         const qty = (item.pickingQty as number) || (item.qty as number) || 0;
-        if (item.sku && item.sku.startsWith('03-')) {
+        if (
+          isBikeSku(
+            typeof item.sku === 'string' ? item.sku : null,
+            item.sku_metadata as { is_bike?: boolean | null } | null
+          )
+        ) {
           bikes += qty;
         } else {
           parts += qty;

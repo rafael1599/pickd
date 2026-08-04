@@ -1,18 +1,34 @@
 import { supabase } from '../lib/supabase';
 
 /**
- * Synchronous heuristic: every cataloged "03-" SKU is a bike (`is_bike = true`),
- * so we can seed bike-awareness immediately, before the metadata fetch resolves.
- * Used as the initial value while {@link resolveBikeSkuSet} loads.
+ * Synchronous bike detection helper: checks if `is_bike` flag is true,
+ * or if the SKU prefix belongs to any known bike series ('01', '02', '03', '06', '07').
  */
-export function inferBikeSkusByPrefix(skus: string[]): Set<string> {
-  return new Set(skus.filter((s) => s && s.startsWith('03-')));
+export function isBikeSku(
+  sku?: string | null,
+  skuMetadata?: { is_bike?: boolean | null } | null
+): boolean {
+  if (typeof skuMetadata?.is_bike === 'boolean') {
+    return skuMetadata.is_bike;
+  }
+  if (!sku) return false;
+  const clean = sku.trim().replace(/[^a-zA-Z0-9]/g, '');
+  const prefix = clean.slice(0, 2);
+  return ['01', '02', '03', '06', '07'].includes(prefix);
 }
 
 /**
- * Authoritative bike detection for a list of SKUs: the "03-" prefix seed plus
+ * Synchronous heuristic: every cataloged bike SKU (prefixes 01, 02, 03, 06, 07 or is_bike)
+ * is recognized immediately, before the metadata fetch resolves.
+ */
+export function inferBikeSkusByPrefix(skus: string[]): Set<string> {
+  return new Set(skus.filter((s) => isBikeSku(s)));
+}
+
+/**
+ * Authoritative bike detection for a list of SKUs: the prefix seed plus
  * `sku_metadata.is_bike`. Returns the set of SKUs that are bikes. On fetch
- * failure it falls back to the prefix seed so cataloged "03-" bikes are still
+ * failure it falls back to the prefix seed so cataloged bikes are still
  * recognized.
  *
  * Used so pallet math can tell bikes (paginate by capacity) from parts
@@ -31,7 +47,11 @@ export async function resolveBikeSkuSet(skus: string[]): Promise<Set<string>> {
   if (error || !data) return result;
 
   (data as { sku: string; is_bike: boolean | null }[]).forEach((row) => {
-    if (row.is_bike) result.add(row.sku);
+    if (row.is_bike) {
+      result.add(row.sku);
+    } else if (row.is_bike === false) {
+      result.delete(row.sku); // Explicitly NOT a bike in DB
+    }
   });
   return result;
 }

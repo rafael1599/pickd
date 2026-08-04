@@ -131,17 +131,16 @@ function dayLabel(date: Date): string {
   return date.toLocaleDateString('en-US', opts);
 }
 
+import { isBikeSku } from '../../utils/bikeDetection';
+
 /**
  * Bike vs part classification for an item. sku_metadata.is_bike is the
  * definitive answer once loaded; while it's still loading for a freshly
- * merged/combined item set (skuMeta[sku] entirely undefined, not just
- * false), fall back to the "03-" SKU prefix — the same convention used
- * elsewhere in the app (usePickingSync, classify_picking_list_fedex) — so
- * items don't get misclassified as parts during that race.
+ * merged/combined item set, fall back to the bike SKU prefix helper (01, 02, 03, 06, 07).
  */
 function isLikelyBike(sku: string, meta?: { is_bike: boolean }): boolean {
   if (meta) return meta.is_bike;
-  return sku.startsWith('03-');
+  return isBikeSku(sku);
 }
 
 /**
