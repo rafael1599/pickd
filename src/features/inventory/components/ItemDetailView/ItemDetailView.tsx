@@ -838,9 +838,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         {/* ── SECTION 1: HERO (PRODUCT SHEET / EDIT) ── */}
         <div className="bg-[#161920] border border-[#2A2F36] rounded-2xl p-4 sm:p-6 shadow-xl">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-            {/* Photo Column (Max 320px) */}
-            <div className="md:col-span-5 flex justify-center">
-              <div className="w-full max-w-[280px] sm:max-w-[320px] aspect-square relative bg-[#0F1115] border border-[#2A2F36] rounded-2xl overflow-hidden flex items-center justify-center p-3">
+            {/* Photo Column (Full width on mobile, max-w-[320px] on desktop) */}
+            <div className="md:col-span-5 flex justify-center w-full">
+              <div className="w-full md:max-w-[320px] aspect-square relative bg-[#0F1115] border border-[#2A2F36] rounded-2xl overflow-hidden flex items-center justify-center p-3">
                 <PhotoHero
                   photoUrl={photoPreview}
                   isUploading={isUploadingPhoto}

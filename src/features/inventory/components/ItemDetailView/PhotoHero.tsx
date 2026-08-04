@@ -39,7 +39,7 @@ export const PhotoHero: React.FC<PhotoHeroProps> = ({
   };
 
   return (
-    <div className="relative">
+    <div className="relative w-full h-full flex items-center justify-center">
       {/* Hidden file inputs */}
       <input
         ref={cameraInputRef}
@@ -63,7 +63,7 @@ export const PhotoHero: React.FC<PhotoHeroProps> = ({
           type="button"
           onClick={handleTap}
           disabled={disabled || isUploading}
-          className="w-full relative aspect-[4/3] md:aspect-video bg-neutral-100 dark:bg-neutral-900 overflow-hidden focus:outline-none"
+          className="w-full h-full relative overflow-hidden focus:outline-none flex items-center justify-center"
         >
           {/* Dynamic glow */}
           <div
