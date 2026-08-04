@@ -958,6 +958,8 @@ export const ShipScreen = () => {
     let unassigned = 0;
     for (const o of orders) {
       if (o.status === 'cancelled' || o.is_shipped) continue;
+      // Exclude waiting orders from Pending Ship carrier/unassigned counts unless WAITING filter is active
+      if (o.is_waiting_inventory && !pendingShowWaiting) continue;
       const carrier = getCarrierLabel(o);
       if (carrier) {
         counts.set(carrier, (counts.get(carrier) || 0) + 1);
@@ -971,7 +973,7 @@ export const ShipScreen = () => {
       hasUnassignedOrders: unassigned > 0,
       unassignedCount: unassigned,
     };
-  }, [orders]);
+  }, [orders, pendingShowWaiting]);
 
   const shippedCarrierStats = useMemo(() => {
     const todayStr = dayKey(new Date());
