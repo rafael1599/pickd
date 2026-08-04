@@ -32,6 +32,7 @@ import { OrderActionsMenu } from './OrderActionsMenu';
 import { useUnmarkWaiting } from '../hooks/useWaitingOrders';
 import { QuickGroupModal } from './board/QuickGroupModal';
 import { CarrierFilter } from './board/CarrierFilter';
+import { useBikeSkuSet } from '../../../hooks/useBikeSkuSet';
 
 // Zone IDs (must stay in sync with useBoardDnD)
 // The "Pulling" queue (DB status ready_to_double_check) — the zone id keeps
@@ -94,6 +95,20 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   const { showConfirmation } = useConfirmation();
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  const allSkus = useMemo(() => {
+    const skus: string[] = [];
+    [...orders, ...completedOrders].forEach((o) => {
+      if (Array.isArray(o.items)) {
+        o.items.forEach((i) => {
+          if (typeof i.sku === 'string' && i.sku) skus.push(i.sku);
+        });
+      }
+    });
+    return skus;
+  }, [orders, completedOrders]);
+
+  const bikeSkuSet = useBikeSkuSet(allSkus);
 
   // DnD logic — all zone reclassification, merge, prompts
 
@@ -637,6 +652,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               onSelect={handleOrderSelect}
               onUngroup={handleUngroup}
               onMerge={handleOrderMenuSelect}
+              bikeSkuSet={bikeSkuSet}
             />
           ) : (
             <FedexGroupCard
@@ -846,6 +862,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                     onDelete={handleDelete}
                     onUngroup={handleUngroup}
                     onMerge={handleOrderMenuSelect}
+                    bikeSkuSet={bikeSkuSet}
                   />
                 ))}
               </div>
@@ -937,6 +954,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                             }
                             onSelect={handleOrderSelect}
                             onMerge={handleOrderMenuSelect}
+                            bikeSkuSet={bikeSkuSet}
                           />
                         ) : (
                           <FedexGroupCard
@@ -962,6 +980,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                             onDelete={handleDelete}
                             onUngroup={handleUngroup}
                             onMerge={handleOrderMenuSelect}
+                            bikeSkuSet={bikeSkuSet}
                           />
                         ) : (
                           <SortableOrderCard
@@ -972,6 +991,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                             onDelete={handleDelete}
                             onUngroup={handleUngroup}
                             onMerge={handleOrderMenuSelect}
+                            bikeSkuSet={bikeSkuSet}
                           />
                         );
                       })}

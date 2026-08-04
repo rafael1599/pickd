@@ -36,6 +36,7 @@ export interface CardProps {
   onUngroup?: (order: PickingList) => void;
   onMerge?: (order: PickingList) => void;
   showDate?: boolean;
+  bikeSkuSet?: Set<string>;
 }
 
 /** Sum of pickingQty across the order's items, falling back to total_units. */
@@ -140,6 +141,7 @@ const OrderCardShell: React.FC<CardProps> = ({
   onUngroup,
   onMerge,
   showDate = false,
+  bikeSkuSet,
 }) => {
   const { user } = useAuth();
   const [isCarrierOpen, setIsCarrierOpen] = useState(false);
@@ -224,19 +226,18 @@ const OrderCardShell: React.FC<CardProps> = ({
     effectiveStatus === 'needs_correction' || effectiveStatus === 'double_checking';
   const when = order.status === 'completed' ? completedAtLabel(order.updated_at, showDate) : null;
 
-  // Calculate bikes and parts counts from order items using the canonical isBikeSku classifier
+  // Calculate bikes and parts counts from order items using the canonical isBikeSku classifier + bikeSkuSet
   const { bikesCount, partsCount } = React.useMemo(() => {
     let bikes = 0;
     let parts = 0;
     if (Array.isArray(order.items)) {
       for (const item of order.items) {
         const qty = (item.pickingQty as number) || (item.qty as number) || 0;
-        if (
-          isBikeSku(
-            typeof item.sku === 'string' ? item.sku : null,
-            item.sku_metadata as { is_bike?: boolean | null } | null
-          )
-        ) {
+        const sku = typeof item.sku === 'string' ? item.sku : '';
+        const isBike =
+          (bikeSkuSet && bikeSkuSet.has(sku)) ||
+          isBikeSku(sku, item.sku_metadata as { is_bike?: boolean | null } | null);
+        if (isBike) {
           bikes += qty;
         } else {
           parts += qty;
@@ -244,7 +245,7 @@ const OrderCardShell: React.FC<CardProps> = ({
       }
     }
     return { bikesCount: bikes, partsCount: parts };
-  }, [order.items]);
+  }, [order.items, bikeSkuSet]);
 
   // Split order number. Single orders render muted prefix + yellow 3D last-3.
   // Combined numbers ("880696 / 880669") render ONLY the last 3 of each order,
