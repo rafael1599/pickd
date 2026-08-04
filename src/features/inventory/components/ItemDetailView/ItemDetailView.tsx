@@ -82,7 +82,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   screenType,
 }) => {
   const queryClient = useQueryClient();
-  const { ludlowData, atsData, isAdmin, updateSKUMetadata } = useInventory();
+  const { ludlowData, atsData, updateSKUMetadata } = useInventory();
   const { locations } = useLocationManagement();
   const { showConfirmation } = useConfirmation();
   const { user } = useAuth();
@@ -1043,15 +1043,16 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                 <span className="text-white/40 text-xs font-medium uppercase tracking-wider">
                   Model
                 </span>
-                {isEditing ? (
+                {isEditing || !modelField?.trim() ? (
                   <input
                     type="text"
                     value={modelField || ''}
                     onChange={(e) => setValue('model', e.target.value)}
+                    placeholder="e.g. Explorer A2"
                     className="bg-[#0F1115] border border-[#2A2F36] rounded-lg px-2.5 py-1 text-white text-xs text-right w-44 font-medium focus:outline-none focus:border-emerald-500/40"
                   />
                 ) : (
-                  <span className="text-white font-medium">{displayTitle || '—'}</span>
+                  <span className="text-white font-medium">{displayTitle}</span>
                 )}
               </div>
 
@@ -1059,15 +1060,16 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                 <span className="text-white/40 text-xs font-medium uppercase tracking-wider">
                   Color
                 </span>
-                {isEditing ? (
+                {isEditing || !colorField?.trim() ? (
                   <input
                     type="text"
                     value={colorField || ''}
                     onChange={(e) => setValue('color', e.target.value)}
+                    placeholder="e.g. Deep Blue"
                     className="bg-[#0F1115] border border-[#2A2F36] rounded-lg px-2.5 py-1 text-white text-xs text-right w-44 font-medium focus:outline-none focus:border-emerald-500/40"
                   />
                 ) : (
-                  <span className="text-white font-medium">{displayColor || '—'}</span>
+                  <span className="text-white font-medium">{displayColor}</span>
                 )}
               </div>
 
@@ -1075,7 +1077,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                 <span className="text-white/40 text-xs font-medium uppercase tracking-wider">
                   Size
                 </span>
-                {isEditing ? (
+                {isEditing || !sizeField?.trim() ? (
                   <input
                     type="text"
                     value={sizeField || ''}
@@ -1084,7 +1086,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                     className="bg-[#0F1115] border border-[#2A2F36] rounded-lg px-2.5 py-1 text-white text-xs text-right w-32 font-medium focus:outline-none focus:border-emerald-500/40"
                   />
                 ) : (
-                  <span className="text-white font-medium">{sizeField || '—'}</span>
+                  <span className="text-white font-medium">{sizeField}</span>
                 )}
               </div>
 
@@ -1092,7 +1094,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                 <span className="text-white/40 text-xs font-medium uppercase tracking-wider">
                   Price
                 </span>
-                {isEditing ? (
+                {isEditing || priceField == null ? (
                   <input
                     type="number"
                     value={priceField ?? ''}
@@ -1103,9 +1105,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                     className="bg-[#0F1115] border border-[#2A2F36] rounded-lg px-2.5 py-1 text-white text-xs text-right w-32 font-medium focus:outline-none focus:border-emerald-500/40"
                   />
                 ) : (
-                  <span className="text-white font-medium font-mono">
-                    {priceField ? `$${priceField.toFixed(2)}` : '—'}
-                  </span>
+                  <span className="text-white font-medium font-mono">${priceField.toFixed(2)}</span>
                 )}
               </div>
 
@@ -1113,7 +1113,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                 <span className="text-white/40 text-xs font-medium uppercase tracking-wider">
                   Serial
                 </span>
-                {isEditing ? (
+                {isEditing || !serialNumber?.trim() ? (
                   <input
                     type="text"
                     value={serialNumber || ''}
@@ -1122,7 +1122,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                     className="bg-[#0F1115] border border-[#2A2F36] rounded-lg px-2.5 py-1 text-white text-xs text-right w-44 font-mono font-medium focus:outline-none focus:border-emerald-500/40"
                   />
                 ) : (
-                  <span className="text-white font-mono font-medium">{serialNumber || '—'}</span>
+                  <span className="text-white font-mono font-medium">{serialNumber}</span>
                 )}
               </div>
 
@@ -1208,7 +1208,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
               <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
                 Location note
               </span>
-              {isEditing ? (
+              {isEditing || !internalNote?.trim() ? (
                 <input
                   type="text"
                   value={internalNote || ''}
@@ -1217,9 +1217,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                   className="w-full bg-[#0F1115] border border-[#2A2F36] rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500/40"
                 />
               ) : (
-                <p className="text-xs text-white/70 italic truncate">
-                  {displayNote || 'No additional notes.'}
-                </p>
+                <p className="text-xs text-white/70 italic truncate">{displayNote}</p>
               )}
             </div>
           </div>
@@ -1283,19 +1281,18 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                 <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
                   Length
                 </span>
-                {isEditing && isAdmin ? (
+                {isEditing || !lengthIn ? (
                   <input
                     type="number"
                     value={lengthIn ?? ''}
                     onChange={(e) =>
                       setValue('length_in', e.target.value ? Number(e.target.value) : undefined)
                     }
+                    placeholder="—"
                     className="w-full bg-[#161920] text-center text-sm font-semibold text-emerald-400 rounded px-1 focus:outline-none"
                   />
                 ) : (
-                  <span className="text-base font-semibold font-mono text-white">
-                    {lengthIn ? `${lengthIn}"` : '—'}
-                  </span>
+                  <span className="text-base font-semibold font-mono text-white">{lengthIn}"</span>
                 )}
               </div>
 
@@ -1303,19 +1300,18 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                 <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
                   Width
                 </span>
-                {isEditing && isAdmin ? (
+                {isEditing || !widthIn ? (
                   <input
                     type="number"
                     value={widthIn ?? ''}
                     onChange={(e) =>
                       setValue('width_in', e.target.value ? Number(e.target.value) : undefined)
                     }
+                    placeholder="—"
                     className="w-full bg-[#161920] text-center text-sm font-semibold text-emerald-400 rounded px-1 focus:outline-none"
                   />
                 ) : (
-                  <span className="text-base font-semibold font-mono text-white">
-                    {widthIn ? `${widthIn}"` : '—'}
-                  </span>
+                  <span className="text-base font-semibold font-mono text-white">{widthIn}"</span>
                 )}
               </div>
 
@@ -1323,19 +1319,18 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                 <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
                   Height
                 </span>
-                {isEditing && isAdmin ? (
+                {isEditing || !heightIn ? (
                   <input
                     type="number"
                     value={heightIn ?? ''}
                     onChange={(e) =>
                       setValue('height_in', e.target.value ? Number(e.target.value) : undefined)
                     }
+                    placeholder="—"
                     className="w-full bg-[#161920] text-center text-sm font-semibold text-emerald-400 rounded px-1 focus:outline-none"
                   />
                 ) : (
-                  <span className="text-base font-semibold font-mono text-white">
-                    {heightIn ? `${heightIn}"` : '—'}
-                  </span>
+                  <span className="text-base font-semibold font-mono text-white">{heightIn}"</span>
                 )}
               </div>
             </div>
