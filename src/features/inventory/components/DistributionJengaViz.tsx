@@ -343,99 +343,114 @@ function DistributionMenu({
         )}
       </button>
 
-      <MenuOverlay anchorRef={btnRef} open={open} onClose={() => setOpen(false)} align="right">
-        <div className="min-w-[220px] bg-card border border-subtle rounded-xl shadow-2xl py-1 text-content">
+      <MenuOverlay
+        anchorRef={btnRef}
+        open={open}
+        onClose={() => setOpen(false)}
+        align="right"
+        title={sku ? `SKU: ${sku}` : 'Stock Options'}
+      >
+        <div className="min-w-[240px] divide-y divide-subtle/50 text-content">
+          {/* Section 1: Quick Jenga Stack */}
           {sku && (
-            <div className="px-3 py-2 border-b border-subtle/50 space-y-1.5 bg-surface/30">
+            <div className="px-3 py-2 space-y-2 bg-surface/30 rounded-t-xl">
               <span className="text-[9px] font-black uppercase tracking-widest text-muted block">
-                Quick Jenga Stack
+                Quick Stack Adjustment
               </span>
               <div className="flex items-center justify-between text-xs font-bold">
-                <span className="text-content">🏰 Tower (3u)</span>
-                <div className="flex items-center gap-1">
+                <span className="text-content flex items-center gap-1.5">🏰 Tower (3u)</span>
+                <div className="flex items-center gap-1.5">
                   <button
                     type="button"
                     onClick={(e) => handleQuickDist(e, 'TOWER', -1)}
-                    className="w-6 h-6 rounded bg-surface border border-subtle flex items-center justify-center text-content hover:bg-surface/80 active:scale-95"
+                    className="w-7 h-7 rounded-lg bg-surface border border-subtle flex items-center justify-center text-content hover:bg-surface/80 active:scale-95 transition-all"
                     title="Remove 1 Tower"
                   >
-                    <Minus size={12} />
+                    <Minus size={13} />
                   </button>
                   <button
                     type="button"
                     onClick={(e) => handleQuickDist(e, 'TOWER', 1)}
-                    className="w-6 h-6 rounded bg-accent text-white flex items-center justify-center active:scale-95 shadow-sm shadow-accent/20"
+                    className="w-7 h-7 rounded-lg bg-accent text-white flex items-center justify-center active:scale-95 shadow-sm shadow-accent/20 transition-all"
                     title="Add 1 Tower"
                   >
-                    <Plus size={12} />
+                    <Plus size={13} />
                   </button>
                 </div>
               </div>
 
               <div className="flex items-center justify-between text-xs font-bold">
-                <span className="text-content">📦 Line (1u)</span>
-                <div className="flex items-center gap-1">
+                <span className="text-content flex items-center gap-1.5">📦 Line (1u)</span>
+                <div className="flex items-center gap-1.5">
                   <button
                     type="button"
                     onClick={(e) => handleQuickDist(e, 'LINE', -1)}
-                    className="w-6 h-6 rounded bg-surface border border-subtle flex items-center justify-center text-content hover:bg-surface/80 active:scale-95"
+                    className="w-7 h-7 rounded-lg bg-surface border border-subtle flex items-center justify-center text-content hover:bg-surface/80 active:scale-95 transition-all"
                     title="Remove 1 Line"
                   >
-                    <Minus size={12} />
+                    <Minus size={13} />
                   </button>
                   <button
                     type="button"
                     onClick={(e) => handleQuickDist(e, 'LINE', 1)}
-                    className="w-6 h-6 rounded bg-accent text-white flex items-center justify-center active:scale-95 shadow-sm shadow-accent/20"
+                    className="w-7 h-7 rounded-lg bg-accent text-white flex items-center justify-center active:scale-95 shadow-sm shadow-accent/20 transition-all"
                     title="Add 1 Line"
                   >
-                    <Plus size={12} />
+                    <Plus size={13} />
                   </button>
                 </div>
               </div>
             </div>
           )}
 
-          <button
-            type="button"
-            role="menuitem"
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen(false);
-              onAdjust();
-            }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface"
-          >
-            <Edit3 size={14} className="text-amber-400" />
-            {isEmpty ? 'Set distribution' : 'Full distribution editor...'}
-          </button>
+          {/* Section 2: Distribution & Printing */}
+          <div className="py-1">
+            <button
+              type="button"
+              role="menuitem"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(false);
+                onAdjust();
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface transition-colors"
+            >
+              <Edit3 size={15} className="text-amber-400" />
+              <span>{isEmpty ? 'Set distribution' : 'Full distribution editor...'}</span>
+            </button>
 
+            {sku && (
+              <>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleFlashPrint}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-amber-400 hover:bg-amber-500/10 active:bg-amber-500/20 transition-colors"
+                >
+                  <Zap size={15} className="text-amber-400 fill-amber-400/20" />
+                  <span>Print 1 Label (Flash 1-Tap)</span>
+                </button>
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpen(false);
+                    setPrintOpen(true);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface transition-colors"
+                >
+                  <Printer size={15} className="text-blue-400" />
+                  <span>Print options...</span>
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Section 3: Photos & History */}
           {sku && (
-            <>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={handleFlashPrint}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-amber-400 hover:bg-amber-500/10 active:bg-amber-500/20"
-              >
-                <Zap size={14} className="text-amber-400 fill-amber-400/20" />
-                Print 1 Label (Flash 1-Tap)
-              </button>
-
-              <button
-                type="button"
-                role="menuitem"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setOpen(false);
-                  setPrintOpen(true);
-                }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface"
-              >
-                <Printer size={14} className="text-blue-400" />
-                Print options...
-              </button>
-
+            <div className="py-1">
               <button
                 type="button"
                 role="menuitem"
@@ -444,10 +459,10 @@ function DistributionMenu({
                   setOpen(false);
                   setCameraModalOpen(true);
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface transition-colors"
               >
-                <Camera size={14} className="text-emerald-400" />
-                Take Photo (Camera)
+                <Camera size={15} className="text-emerald-400" />
+                <span>Take Photo (Camera)</span>
               </button>
 
               <button
@@ -458,10 +473,10 @@ function DistributionMenu({
                   setOpen(false);
                   cameraInputRef.current?.click();
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface text-muted"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface text-muted transition-colors"
               >
-                <ImagePlus size={14} className="text-muted" />
-                Choose from Gallery
+                <ImagePlus size={15} className="text-muted" />
+                <span>Choose from Gallery</span>
               </button>
 
               <button
@@ -472,27 +487,32 @@ function DistributionMenu({
                   setOpen(false);
                   setHistoryOpen(true);
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface transition-colors"
               >
-                <History size={14} className="text-purple-400" />
-                Movement history
+                <History size={15} className="text-purple-400" />
+                <span>Movement history</span>
               </button>
+            </div>
+          )}
 
+          {/* Section 4: Utilities & Consolidation */}
+          {sku && (
+            <div className="py-1">
               <button
                 type="button"
                 role="menuitem"
                 onClick={handleCopySku}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface border-t border-subtle/50"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface transition-colors"
               >
                 {copied ? (
                   <>
-                    <Check size={14} className="text-emerald-400" />
+                    <Check size={15} className="text-emerald-400" />
                     <span className="text-emerald-400">Copied to Clipboard!</span>
                   </>
                 ) : (
                   <>
-                    <Copy size={14} className="text-muted" />
-                    Copy SKU
+                    <Copy size={15} className="text-muted" />
+                    <span>Copy SKU</span>
                   </>
                 )}
               </button>
@@ -501,12 +521,12 @@ function DistributionMenu({
                 type="button"
                 role="menuitem"
                 onClick={handleConsolidate}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-emerald-400 hover:bg-emerald-500/10 active:bg-emerald-500/20"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-emerald-400 hover:bg-emerald-500/10 active:bg-emerald-500/20 transition-colors"
               >
-                <Boxes size={14} className="text-emerald-400" />
-                Consolidate SKU
+                <Boxes size={15} className="text-emerald-400" />
+                <span>Consolidate SKU</span>
               </button>
-            </>
+            </div>
           )}
         </div>
       </MenuOverlay>
