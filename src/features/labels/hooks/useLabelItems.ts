@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
+import { isBikeSku } from '../../../utils/bikeDetection';
 
 export interface LabelInventoryItem {
   sku: string;
@@ -27,7 +28,7 @@ interface RawRow {
   quantity: number;
   sku_metadata: {
     image_url: string | null;
-    is_bike: boolean;
+    is_bike: boolean | null;
     upc: string | null;
     color: string | null;
     model: string | null;
@@ -50,7 +51,7 @@ function flattenRow(row: RawRow): LabelInventoryItem {
     location: row.location,
     quantity: row.quantity,
     image_url: row.sku_metadata?.image_url ?? null,
-    is_bike: row.sku_metadata?.is_bike ?? false,
+    is_bike: isBikeSku(row.sku, row.sku_metadata),
     upc: row.sku_metadata?.upc ?? null,
     color: row.sku_metadata?.color ?? null,
     model: row.sku_metadata?.model ?? null,

@@ -489,14 +489,17 @@ export const ShipScreen = () => {
       .then(({ data }) => {
         const map: Record<string, { weight_lbs: number | null; is_bike: boolean }> = {};
         skus.forEach((s) => {
-          map[s] = { weight_lbs: null, is_bike: false };
+          map[s] = { weight_lbs: null, is_bike: isBikeSku(s) };
         });
         (
           data as unknown as
             | { sku: string; weight_lbs: number | null; is_bike: boolean | null }[]
             | null
         )?.forEach((row) => {
-          map[row.sku] = { weight_lbs: row.weight_lbs, is_bike: row.is_bike ?? false };
+          map[row.sku] = {
+            weight_lbs: row.weight_lbs,
+            is_bike: isBikeSku(row.sku, row),
+          };
         });
         setSkuMeta(map);
         setWeightsReady(true);

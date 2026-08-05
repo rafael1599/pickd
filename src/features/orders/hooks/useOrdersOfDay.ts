@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { withSupabaseRetry } from '../../../lib/supabaseRetry';
+import { isBikeSku } from '../../../utils/bikeDetection';
 import { isFedexOrder as isFedexOrderShared } from '../../../utils/shippingClassification';
 
 /**
@@ -184,7 +185,7 @@ export function useOrdersOfDay(searchQuery: string = ''): UseOrdersOfDayResult {
         if (metaError) throw metaError;
         const map: Record<string, boolean> = {};
         (metaData as { sku: string; is_bike: boolean | null }[] | null)?.forEach((row) => {
-          map[row.sku] = row.is_bike ?? false;
+          map[row.sku] = isBikeSku(row.sku, row);
         });
         setSkuIsBike(map);
       } else {
