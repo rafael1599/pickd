@@ -100,6 +100,10 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [typeIsBike, setTypeIsBike] = useState(true);
 
+  // Custom Sublocation State
+  const [isAddingSubletter, setIsAddingSubletter] = useState(false);
+  const [customSubInput, setCustomSubInput] = useState('');
+
   // Direct Quantity Edit State
   const [isEditingQtyDirect, setIsEditingQtyDirect] = useState(false);
   const [directQtyVal, setDirectQtyVal] = useState('');
@@ -346,19 +350,24 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     [location, validLocationNames]
   );
 
-  const currentInventory = warehouse === 'ATS' ? atsData : ludlowData;
+  const currentInventory = ludlowData;
 
   const totalStock = useMemo(() => {
     const currentSKU = (sku || '').trim();
     if (!currentSKU) return null;
-    const allItems = [...ludlowData, ...atsData];
-    const matches = allItems.filter((i) => (i.sku || '').trim() === currentSKU);
+    const matches = ludlowData.filter((i) => (i.sku || '').trim() === currentSKU);
     if (matches.length <= 1) return null;
     return {
       total: matches.reduce((sum, i) => sum + (i.quantity || 0), 0),
       locations: new Set(matches.map((i) => i.location)).size,
     };
-  }, [sku, ludlowData, atsData]);
+  }, [sku, ludlowData]);
+
+  const availableSubletters = useMemo(() => {
+    const defaults = ['A', 'B', 'C', 'D', 'E', 'F'];
+    const custom = (sublocation || []).filter((l) => !defaults.includes(l));
+    return Array.from(new Set([...defaults, ...custom])).sort();
+  }, [sublocation]);
 
   // Validation Check Effect
   const MIN_SKU_CHARS = 7;
@@ -1145,9 +1154,6 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                     Location
                   </h2>
                 </div>
-                <span className="text-xs text-white/40 font-mono font-medium uppercase">
-                  {warehouse}
-                </span>
               </div>
 
               {/* Metric Hero Row */}
@@ -1170,37 +1176,98 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                 )}
               </div>
 
-              {/* Sub-locations [A][B][C][D][E][F] */}
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider block">
-                  Sub-location
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {['A', 'B', 'C', 'D', 'E', 'F'].map((letter) => {
-                    const isSelected = displaySublocations.includes(letter);
-                    return (
+              {/* Sub-locations [A][B][C][D][E][F] + Custom letter (Bikes only) */}
+              {typeIsBike && (
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider block">
+                    Sub-location
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 items-center">
+                    {availableSubletters.map((letter) => {
+                      const isSelected = displaySublocations.includes(letter);
+                      return (
+                        <button
+                          key={letter}
+                          type="button"
+                          onClick={() => {
+                            const current: string[] = sublocation || [];
+                            const updated = isSelected
+                              ? current.filter((l) => l !== letter)
+                              : [...current, letter].sort();
+                            setValue('sublocation', updated.length > 0 ? updated : null);
+                          }}
+                          className={`w-8 h-8 rounded-lg text-xs font-semibold font-mono transition-all ${
+                            isSelected
+                              ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
+                              : 'bg-[#0F1115] text-white/60 border border-[#2A2F36] hover:border-emerald-500/40'
+                          }`}
+                        >
+                          {letter}
+                        </button>
+                      );
+                    })}
+
+                    {isAddingSubletter ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          maxLength={1}
+                          autoFocus
+                          value={customSubInput}
+                          onChange={(e) => {
+                            const val = e.target.value.toUpperCase();
+                            if (val === '' || /^[A-Z]$/.test(val)) {
+                              setCustomSubInput(val);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && customSubInput) {
+                              e.preventDefault();
+                              const letter = customSubInput.toUpperCase();
+                              const current: string[] = sublocation || [];
+                              if (!current.includes(letter)) {
+                                setValue('sublocation', [...current, letter].sort());
+                              }
+                              setCustomSubInput('');
+                              setIsAddingSubletter(false);
+                            } else if (e.key === 'Escape') {
+                              setIsAddingSubletter(false);
+                              setCustomSubInput('');
+                            }
+                          }}
+                          placeholder="G"
+                          className="w-8 h-8 rounded-lg text-xs font-semibold font-mono text-center bg-[#0F1115] text-emerald-400 border border-emerald-500/60 focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (customSubInput) {
+                              const letter = customSubInput.toUpperCase();
+                              const current: string[] = sublocation || [];
+                              if (!current.includes(letter)) {
+                                setValue('sublocation', [...current, letter].sort());
+                              }
+                            }
+                            setCustomSubInput('');
+                            setIsAddingSubletter(false);
+                          }}
+                          className="px-2 h-8 rounded-lg text-[10px] font-bold bg-emerald-500 text-black uppercase"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    ) : (
                       <button
-                        key={letter}
                         type="button"
-                        onClick={() => {
-                          const current: string[] = sublocation || [];
-                          const updated = isSelected
-                            ? current.filter((l) => l !== letter)
-                            : [...current, letter].sort();
-                          setValue('sublocation', updated.length > 0 ? updated : null);
-                        }}
-                        className={`w-8 h-8 rounded-lg text-xs font-semibold font-mono transition-all ${
-                          isSelected
-                            ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
-                            : 'bg-[#0F1115] text-white/60 border border-[#2A2F36] hover:border-emerald-500/40'
-                        }`}
+                        onClick={() => setIsAddingSubletter(true)}
+                        className="px-2.5 h-8 rounded-lg text-xs font-semibold font-mono transition-all bg-[#0F1115] text-emerald-400 border border-dashed border-emerald-500/40 hover:border-emerald-500/80 flex items-center gap-1"
                       >
-                        {letter}
+                        <Plus size={12} /> Other
                       </button>
-                    );
-                  })}
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Note row */}
@@ -1223,121 +1290,156 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           </div>
         </div>
 
-        {/* ── SECTION 3: DISTRIBUTION & DIMENSIONS ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* DISTRIBUTION CARD */}
-          <div className="bg-[#161920] border border-[#2A2F36] rounded-2xl p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-[#2A2F36] pb-3">
-              <div className="flex items-center gap-2">
-                <Layers size={18} className="text-emerald-400" />
-                <h2 className="text-sm font-semibold text-white/90 uppercase tracking-wider">
-                  Distribution
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsDistributionSheetOpen(true)}
-                className="text-xs font-semibold text-emerald-400 hover:underline"
-              >
-                Edit
-              </button>
-            </div>
-
-            {distribution.length > 0 ? (
-              <div className="space-y-2">
-                {distribution.map((d, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between bg-[#0F1115] border border-[#2A2F36] rounded-xl px-3 py-2 text-xs"
-                  >
-                    <span className="font-mono text-white/80">
-                      {d.type} {d.units_each}u
-                    </span>
-                    <span className="font-semibold text-emerald-400">× {d.count}</span>
-                  </div>
-                ))}
-                <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-medium pt-2">
-                  <Check size={14} />
-                  <span>All units accounted for</span>
+        {/* ── SECTION 3: DISTRIBUTION & DIMENSIONS / WEIGHT ── */}
+        <div className={`grid grid-cols-1 ${typeIsBike ? 'md:grid-cols-2' : ''} gap-6`}>
+          {/* DISTRIBUTION CARD (Bikes Only) */}
+          {typeIsBike && (
+            <div className="bg-[#161920] border border-[#2A2F36] rounded-2xl p-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-[#2A2F36] pb-3">
+                <div className="flex items-center gap-2">
+                  <Layers size={18} className="text-emerald-400" />
+                  <h2 className="text-sm font-semibold text-white/90 uppercase tracking-wider">
+                    Distribution
+                  </h2>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setIsDistributionSheetOpen(true)}
+                  className="text-xs font-semibold text-emerald-400 hover:underline"
+                >
+                  Edit
+                </button>
               </div>
-            ) : (
-              <div className="bg-[#0F1115] border border-[#2A2F36] rounded-xl p-4 text-center">
-                <p className="text-xs text-white/40">No distribution structure configured.</p>
-              </div>
-            )}
-          </div>
 
-          {/* DIMENSIONS CARD (3 ALIGNED INPUTS) */}
+              {distribution.length > 0 ? (
+                <div className="space-y-2">
+                  {distribution.map((d, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between bg-[#0F1115] border border-[#2A2F36] rounded-xl px-3 py-2 text-xs"
+                    >
+                      <span className="font-mono text-white/80">
+                        {d.type} {d.units_each}u
+                      </span>
+                      <span className="font-semibold text-emerald-400">× {d.count}</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-medium pt-2">
+                    <Check size={14} />
+                    <span>All units accounted for</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-[#0F1115] border border-[#2A2F36] rounded-xl p-4 text-center">
+                  <p className="text-xs text-white/40">No distribution structure configured.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* DIMENSIONS & WEIGHT CARD (Bikes: Dimensions + Weight; Parts: Weight only) */}
           <div className="bg-[#161920] border border-[#2A2F36] rounded-2xl p-5 space-y-4">
             <div className="flex items-center justify-between border-b border-[#2A2F36] pb-3">
               <h2 className="text-sm font-semibold text-white/90 uppercase tracking-wider">
-                Dimensions & Weight
+                {typeIsBike ? 'Dimensions & Weight' : 'Weight Specification'}
               </h2>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div className="bg-[#0F1115] border border-[#2A2F36] rounded-xl p-3 text-center">
-                <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
-                  Length
-                </span>
-                {isEditing || !lengthIn ? (
+            {typeIsBike ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-[#0F1115] border border-[#2A2F36] rounded-xl p-3 text-center">
+                  <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
+                    Length
+                  </span>
+                  {isEditing || !lengthIn ? (
+                    <input
+                      type="number"
+                      value={lengthIn ?? ''}
+                      onChange={(e) =>
+                        setValue('length_in', e.target.value ? Number(e.target.value) : undefined)
+                      }
+                      placeholder="—"
+                      className="w-full bg-[#161920] text-center text-sm font-semibold text-emerald-400 rounded px-1 focus:outline-none"
+                    />
+                  ) : (
+                    <span className="text-base font-semibold font-mono text-white">
+                      {lengthIn}"
+                    </span>
+                  )}
+                </div>
+
+                <div className="bg-[#0F1115] border border-[#2A2F36] rounded-xl p-3 text-center">
+                  <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
+                    Width
+                  </span>
+                  {isEditing || !widthIn ? (
+                    <input
+                      type="number"
+                      value={widthIn ?? ''}
+                      onChange={(e) =>
+                        setValue('width_in', e.target.value ? Number(e.target.value) : undefined)
+                      }
+                      placeholder="—"
+                      className="w-full bg-[#161920] text-center text-sm font-semibold text-emerald-400 rounded px-1 focus:outline-none"
+                    />
+                  ) : (
+                    <span className="text-base font-semibold font-mono text-white">{widthIn}"</span>
+                  )}
+                </div>
+
+                <div className="bg-[#0F1115] border border-[#2A2F36] rounded-xl p-3 text-center">
+                  <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
+                    Height
+                  </span>
+                  {isEditing || !heightIn ? (
+                    <input
+                      type="number"
+                      value={heightIn ?? ''}
+                      onChange={(e) =>
+                        setValue('height_in', e.target.value ? Number(e.target.value) : undefined)
+                      }
+                      placeholder="—"
+                      className="w-full bg-[#161920] text-center text-sm font-semibold text-emerald-400 rounded px-1 focus:outline-none"
+                    />
+                  ) : (
+                    <span className="text-base font-semibold font-mono text-white">
+                      {heightIn}"
+                    </span>
+                  )}
+                </div>
+
+                <div className="bg-[#0F1115] border border-[#2A2F36] rounded-xl p-3 text-center">
+                  <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
+                    Weight (lbs)
+                  </span>
                   <input
                     type="number"
-                    value={lengthIn ?? ''}
+                    step="0.1"
+                    value={weightLbs ?? ''}
                     onChange={(e) =>
-                      setValue('length_in', e.target.value ? Number(e.target.value) : undefined)
+                      setValue('weight_lbs', e.target.value ? Number(e.target.value) : undefined)
                     }
                     placeholder="—"
-                    className="w-full bg-[#161920] text-center text-sm font-semibold text-emerald-400 rounded px-1 focus:outline-none"
+                    className="w-full bg-[#161920] text-center text-sm font-semibold text-emerald-400 rounded px-1 py-0.5 border border-[#2A2F36] focus:outline-none focus:border-emerald-500/50"
                   />
-                ) : (
-                  <span className="text-base font-semibold font-mono text-white">{lengthIn}"</span>
-                )}
+                </div>
               </div>
-
-              <div className="bg-[#0F1115] border border-[#2A2F36] rounded-xl p-3 text-center">
-                <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
-                  Width
+            ) : (
+              /* Parts Mode: Weight only (Always editable) */
+              <div className="max-w-xs bg-[#0F1115] border border-[#2A2F36] rounded-xl p-4 flex items-center justify-between">
+                <span className="text-xs font-medium text-white/50 uppercase tracking-wider">
+                  Weight (lbs)
                 </span>
-                {isEditing || !widthIn ? (
-                  <input
-                    type="number"
-                    value={widthIn ?? ''}
-                    onChange={(e) =>
-                      setValue('width_in', e.target.value ? Number(e.target.value) : undefined)
-                    }
-                    placeholder="—"
-                    className="w-full bg-[#161920] text-center text-sm font-semibold text-emerald-400 rounded px-1 focus:outline-none"
-                  />
-                ) : (
-                  <span className="text-base font-semibold font-mono text-white">{widthIn}"</span>
-                )}
-              </div>
-
-              <div className="bg-[#0F1115] border border-[#2A2F36] rounded-xl p-3 text-center">
-                <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
-                  Height
-                </span>
-                {isEditing || !heightIn ? (
-                  <input
-                    type="number"
-                    value={heightIn ?? ''}
-                    onChange={(e) =>
-                      setValue('height_in', e.target.value ? Number(e.target.value) : undefined)
-                    }
-                    placeholder="—"
-                    className="w-full bg-[#161920] text-center text-sm font-semibold text-emerald-400 rounded px-1 focus:outline-none"
-                  />
-                ) : (
-                  <span className="text-base font-semibold font-mono text-white">{heightIn}"</span>
-                )}
-              </div>
-            </div>
-
-            {weightLbs && (
-              <div className="text-right text-xs text-white/40 font-mono">
-                Approx weight: <span className="text-white/80 font-semibold">{weightLbs} lbs</span>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={weightLbs ?? ''}
+                  onChange={(e) =>
+                    setValue('weight_lbs', e.target.value ? Number(e.target.value) : undefined)
+                  }
+                  placeholder="e.g. 2.5"
+                  className="w-32 bg-[#161920] text-right text-base font-semibold text-emerald-400 rounded px-2 py-1 border border-[#2A2F36] focus:outline-none focus:border-emerald-500/50"
+                />
               </div>
             )}
           </div>
@@ -1379,13 +1481,13 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
 
       {/* ── STICKY BOTTOM FOOTER FOR SAVE BUTTON ── */}
       {(isEditing || hasChanges) && (
-        <div className="fixed bottom-0 inset-x-0 z-40 bg-[#0F1115]/95 backdrop-blur-md border-t border-[#2A2F36] p-4 flex justify-center shadow-2xl">
+        <div className="fixed bottom-0 inset-x-0 z-50 bg-[#0F1115]/95 backdrop-blur-md border-t border-[#2A2F36] p-4 flex justify-center shadow-2xl">
           <button
             disabled={!canSave}
             onClick={handleSave}
-            className="w-full max-w-md bg-emerald-500 hover:bg-emerald-400 text-black font-bold uppercase tracking-wider h-13 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-emerald-500/20 disabled:opacity-40"
+            className="w-full max-w-md bg-emerald-500 hover:bg-emerald-400 text-black font-bold uppercase tracking-wider h-[78px] md:h-13 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-emerald-500/20 disabled:opacity-40"
           >
-            <Save size={18} />
+            <Save size={20} />
             <span>{isAddMode ? 'Create Item' : 'Save Changes'}</span>
           </button>
         </div>
