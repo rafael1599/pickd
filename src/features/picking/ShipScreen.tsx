@@ -2467,7 +2467,7 @@ export const ShipScreen = () => {
                             unassignedCount={pendingCarrierStats.unassignedCount}
                             onCarrierToggle={handlePendingCarrierToggle}
                             onUnassignedToggle={setPendingIncludeUnassigned}
-                            showWaitingFilter={true}
+                            showWaitingFilter={waitingCount > 0}
                             isWaitingFilterActive={pendingShowWaiting}
                             waitingCount={waitingCount}
                             onWaitingToggle={() => setPendingShowWaiting((prev) => !prev)}

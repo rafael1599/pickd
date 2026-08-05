@@ -68,8 +68,8 @@ export const CarrierFilter: React.FC<CarrierFilterProps> = ({
       </div>
 
       <div className="flex flex-wrap gap-1">
-        {/* Waiting filter option */}
-        {showWaitingFilter && (
+        {/* Waiting filter option - only show if there are waiting orders */}
+        {showWaitingFilter && (waitingCount ?? 0) > 0 && (
           <button
             onClick={onWaitingToggle}
             className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border transition-all ${
