@@ -83,7 +83,7 @@ export const PhotoHero: React.FC<PhotoHeroProps> = ({
           <img
             src={photoUrl}
             alt="Item photo"
-            className="relative z-10 w-full h-full object-contain p-5"
+            className="relative z-10 w-full h-full object-contain p-0 md:p-5"
           />
           {/* Bottom fade to main */}
           <div className="absolute inset-x-0 bottom-0 h-1/3 z-10 bg-gradient-to-t from-main/90 to-transparent" />

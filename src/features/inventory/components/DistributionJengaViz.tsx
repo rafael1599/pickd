@@ -1,13 +1,37 @@
 import { memo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal';
 import Edit3 from 'lucide-react/dist/esm/icons/edit-3';
-import type { DistributionItem } from '../../../schemas/inventory.schema';
+import Printer from 'lucide-react/dist/esm/icons/printer';
+import Camera from 'lucide-react/dist/esm/icons/camera';
+import History from 'lucide-react/dist/esm/icons/history';
+import Copy from 'lucide-react/dist/esm/icons/copy';
+import Boxes from 'lucide-react/dist/esm/icons/boxes';
+import type {
+  DistributionItem,
+  InventoryItemWithMetadata,
+} from '../../../schemas/inventory.schema';
+import type { SKUMetadata } from '../../../schemas/skuMetadata.schema';
 import { MenuOverlay } from '../../../components/ui/MenuOverlay';
+import {
+  LabelPrintOptionsModal,
+  type LabelPrintResult,
+} from '../../labels/components/LabelPrintOptionsModal';
+import { ItemHistorySheet } from './ItemDetailView/ItemHistorySheet';
+import { uploadPhoto } from '../../../services/photoUpload.service';
+import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from '../hooks/useInventoryRealtime';
+import { useGenerateLabels } from '../../labels/hooks/useGenerateLabels';
 import jamisLogo from './jamis-bikes.webp';
 
 interface DistributionJengaVizProps {
   distribution: DistributionItem[];
   onAdjust: () => void;
+  sku?: string;
+  quantity?: number;
+  location?: string | null;
+  sku_metadata?: SKUMetadata | null;
 }
 
 /**
@@ -20,7 +44,14 @@ interface DistributionJengaVizProps {
  *             not yet categorized".
  */
 export const DistributionJengaViz = memo(
-  ({ distribution, onAdjust }: DistributionJengaVizProps) => {
+  ({
+    distribution,
+    onAdjust,
+    sku,
+    quantity,
+    location,
+    sku_metadata,
+  }: DistributionJengaVizProps) => {
     const isEmpty = !distribution || distribution.length === 0;
 
     return (
@@ -54,22 +85,133 @@ export const DistributionJengaViz = memo(
             ))
           )}
         </div>
-        <DistributionMenu isEmpty={isEmpty} onAdjust={onAdjust} />
+        <DistributionMenu
+          isEmpty={isEmpty}
+          onAdjust={onAdjust}
+          sku={sku}
+          quantity={quantity}
+          location={location}
+          sku_metadata={sku_metadata}
+        />
       </div>
     );
   }
 );
 DistributionJengaViz.displayName = 'DistributionJengaViz';
 
-/** "..." menu next to the Jenga strip. Single item for now (Edit) but the
- *  structure leaves room for future actions (Quick add tower, Quick add line,
- *  Clear, etc.) without restructuring the button. */
-function DistributionMenu({ isEmpty, onAdjust }: { isEmpty: boolean; onAdjust: () => void }) {
+interface DistributionMenuProps {
+  isEmpty: boolean;
+  onAdjust: () => void;
+  sku?: string;
+  quantity?: number;
+  location?: string | null;
+  sku_metadata?: SKUMetadata | null;
+}
+
+/** "..." menu next to the Jenga strip. Provides quick card actions (Edit distribution, Print label, Photo, History, Copy SKU, Consolidate). */
+function DistributionMenu({
+  isEmpty,
+  onAdjust,
+  sku,
+  quantity,
+  location,
+  sku_metadata,
+}: DistributionMenuProps) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { generate, isGenerating } = useGenerateLabels();
   const [open, setOpen] = useState(false);
+  const [printOpen, setPrintOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCopySku = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setOpen(false);
+    if (!sku) return;
+    navigator.clipboard.writeText(sku);
+    toast.success(`SKU ${sku} copied to clipboard`);
+  };
+
+  const handleConsolidate = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setOpen(false);
+    if (!sku) return;
+    navigate(`/consolidation?mode=place-sku&sku=${encodeURIComponent(sku)}`);
+  };
+
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !sku) return;
+    setIsUploadingPhoto(true);
+    try {
+      const url = await uploadPhoto(sku, file);
+      const bustUrl = `${url}?v=${Date.now()}`;
+      const updater = (old: InventoryItemWithMetadata[] | undefined) =>
+        old?.map((item) =>
+          item.sku === sku
+            ? {
+                ...item,
+                sku_metadata: { ...(item.sku_metadata ?? { sku }), image_url: bustUrl },
+              }
+            : item
+        );
+      queryClient.setQueryData(INVENTORY_ROOT_KEY, updater);
+      queryClient.setQueryData(PARTS_BINS_KEY, updater);
+      queryClient.invalidateQueries({ queryKey: INVENTORY_ROOT_KEY });
+      toast.success(`Photo updated for ${sku}`);
+    } catch {
+      toast.error('Photo upload failed');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const handleGenerateLabels = async (result: LabelPrintResult) => {
+    if (!sku) return;
+    try {
+      await generate([
+        {
+          sku,
+          itemName: null,
+          location: location ?? null,
+          stock: quantity ?? 0,
+          tagged: 0,
+          qty: result.quantity,
+          layout: result.orientation,
+          prefix: null,
+          extra: null,
+          upc: sku_metadata?.upc ?? null,
+          color: sku_metadata?.color ?? null,
+          model: sku_metadata?.model ?? null,
+          size: sku_metadata?.size ?? null,
+          poNumber: null,
+          cNumber: null,
+          serialNumber: sku_metadata?.serial_number ?? null,
+          madeIn: null,
+          otherNotes: null,
+          withQr: result.withQr,
+          withBarcode: result.withBarcode,
+        },
+      ]);
+      setPrintOpen(false);
+    } catch {
+      toast.error('Failed to generate labels');
+    }
+  };
 
   return (
     <div className="shrink-0">
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handlePhotoCapture}
+        className="hidden"
+      />
+
       <button
         ref={btnRef}
         type="button"
@@ -80,13 +222,18 @@ function DistributionMenu({ isEmpty, onAdjust }: { isEmpty: boolean; onAdjust: (
         aria-label="Distribution options"
         aria-haspopup="menu"
         aria-expanded={open}
-        title={isEmpty ? 'Set distribution' : 'Distribution options'}
+        title={isEmpty ? 'Set distribution' : 'Card actions'}
         className="h-7 w-7 rounded-md bg-accent/15 hover:bg-accent/25 text-accent border border-accent/40 flex items-center justify-center active:scale-90 transition-transform"
       >
-        <MoreHorizontal size={16} strokeWidth={3} />
+        {isUploadingPhoto ? (
+          <div className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <MoreHorizontal size={16} strokeWidth={3} />
+        )}
       </button>
+
       <MenuOverlay anchorRef={btnRef} open={open} onClose={() => setOpen(false)} align="right">
-        <div className="min-w-[180px] bg-card border border-subtle rounded-md shadow-xl py-1">
+        <div className="min-w-[200px] bg-card border border-subtle rounded-xl shadow-2xl py-1 text-content">
           <button
             type="button"
             role="menuitem"
@@ -95,13 +242,97 @@ function DistributionMenu({ isEmpty, onAdjust }: { isEmpty: boolean; onAdjust: (
               setOpen(false);
               onAdjust();
             }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-content hover:bg-surface/70 active:bg-surface"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface"
           >
-            <Edit3 size={13} />
+            <Edit3 size={14} className="text-amber-400" />
             {isEmpty ? 'Set distribution' : 'Edit distribution'}
           </button>
+
+          {sku && (
+            <>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpen(false);
+                  setPrintOpen(true);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface"
+              >
+                <Printer size={14} className="text-blue-400" />
+                Print labels
+              </button>
+
+              <button
+                type="button"
+                role="menuitem"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpen(false);
+                  cameraInputRef.current?.click();
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface"
+              >
+                <Camera size={14} className="text-emerald-400" />
+                {sku_metadata?.image_url ? 'Change photo' : 'Add photo'}
+              </button>
+
+              <button
+                type="button"
+                role="menuitem"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpen(false);
+                  setHistoryOpen(true);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface"
+              >
+                <History size={14} className="text-purple-400" />
+                Movement history
+              </button>
+
+              <button
+                type="button"
+                role="menuitem"
+                onClick={handleCopySku}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface border-t border-subtle/50"
+              >
+                <Copy size={14} className="text-muted" />
+                Copy SKU
+              </button>
+
+              <button
+                type="button"
+                role="menuitem"
+                onClick={handleConsolidate}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-emerald-400 hover:bg-emerald-500/10 active:bg-emerald-500/20"
+              >
+                <Boxes size={14} className="text-emerald-400" />
+                Consolidate SKU
+              </button>
+            </>
+          )}
         </div>
       </MenuOverlay>
+
+      {/* Modals */}
+      {printOpen && sku && (
+        <LabelPrintOptionsModal
+          title={`Print labels — ${sku}`}
+          showOrientation
+          showQuantity
+          initialQuantity={1}
+          allQuantity={quantity ?? undefined}
+          isBusy={isGenerating}
+          onClose={() => setPrintOpen(false)}
+          onConfirm={handleGenerateLabels}
+        />
+      )}
+
+      {historyOpen && sku && (
+        <ItemHistorySheet isOpen={historyOpen} onClose={() => setHistoryOpen(false)} sku={sku} />
+      )}
     </div>
   );
 }

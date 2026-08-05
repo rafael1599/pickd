@@ -62,7 +62,7 @@ export const SplitOrderModal: React.FC<SplitOrderModalProps> = ({
         await supabase.from('picking_lists').insert({
           user_id: order.user_id!,
           order_number: orderNum,
-          status: 'ready_to_double_check',
+          status: order.status ?? 'active',
           source: order.source ?? 'pdf_import',
           is_addon: false,
           items: items as unknown as Json,

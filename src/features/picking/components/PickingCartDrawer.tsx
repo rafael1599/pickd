@@ -125,9 +125,10 @@ export const PickingCartDrawer: React.FC = () => {
         .select('verified_item_keys')
         .eq('id', listId)
         .maybeSingle()) as unknown as { data: { verified_item_keys: string[] | null } | null };
-      const dbKeys = data?.verified_item_keys ?? [];
-      if (dbKeys.length > 0) {
+      if (data && Array.isArray(data.verified_item_keys)) {
+        const dbKeys = data.verified_item_keys as string[];
         setCheckedItems(new Set(dbKeys));
+        localStorage.setItem(`double_check_progress_${listId}`, JSON.stringify(dbKeys));
         return;
       }
     } catch {
@@ -321,10 +322,23 @@ export const PickingCartDrawer: React.FC = () => {
     const keys = keysToFlush ?? Array.from(checkedItemsRef.current);
     localStorage.setItem(`double_check_progress_${listId}`, JSON.stringify(keys));
     try {
-      await supabase
+      const { data: row } = await supabase
         .from('picking_lists')
-        .update({ verified_item_keys: keys as unknown as Json } as never)
-        .eq('id', listId);
+        .select('group_id')
+        .eq('id', listId)
+        .maybeSingle();
+
+      if (row?.group_id) {
+        await supabase
+          .from('picking_lists')
+          .update({ verified_item_keys: keys as unknown as Json } as never)
+          .eq('group_id', row.group_id);
+      } else {
+        await supabase
+          .from('picking_lists')
+          .update({ verified_item_keys: keys as unknown as Json } as never)
+          .eq('id', listId);
+      }
     } catch (err) {
       console.warn('[PickingCartDrawer] Failed to flush verified_item_keys:', err);
     }
@@ -337,27 +351,58 @@ export const PickingCartDrawer: React.FC = () => {
 
     if (dbWriteTimer.current) clearTimeout(dbWriteTimer.current);
     dbWriteTimer.current = setTimeout(() => {
-      // Cast: types not regenerated post-migration yet (idea-105 phase 1).
-      void supabase
-        .from('picking_lists')
-        .update({ verified_item_keys: keys as unknown as Json } as never)
-        .eq('id', activeListId)
-        .then(({ error }) => {
-          if (error) {
-            console.warn('[PickingCartDrawer] Failed to persist verified_item_keys:', error);
+      void (async () => {
+        try {
+          const { data: row } = await supabase
+            .from('picking_lists')
+            .select('group_id')
+            .eq('id', activeListId)
+            .maybeSingle();
+
+          if (row?.group_id) {
+            await supabase
+              .from('picking_lists')
+              .update({ verified_item_keys: keys as unknown as Json } as never)
+              .eq('group_id', row.group_id);
+          } else {
+            await supabase
+              .from('picking_lists')
+              .update({ verified_item_keys: keys as unknown as Json } as never)
+              .eq('id', activeListId);
           }
-        });
-    }, 500);
+        } catch (error) {
+          console.warn('[PickingCartDrawer] Failed to persist verified_item_keys:', error);
+        }
+      })();
+    }, 300);
 
     return () => {
       if (dbWriteTimer.current) {
         clearTimeout(dbWriteTimer.current);
         dbWriteTimer.current = null;
-        // Immediate flush on cleanup so progress is not lost when closing/unmounting
-        void supabase
-          .from('picking_lists')
-          .update({ verified_item_keys: keys as unknown as Json } as never)
-          .eq('id', activeListId);
+        void (async () => {
+          try {
+            const { data: row } = await supabase
+              .from('picking_lists')
+              .select('group_id')
+              .eq('id', activeListId)
+              .maybeSingle();
+
+            if (row?.group_id) {
+              await supabase
+                .from('picking_lists')
+                .update({ verified_item_keys: keys as unknown as Json } as never)
+                .eq('group_id', row.group_id);
+            } else {
+              await supabase
+                .from('picking_lists')
+                .update({ verified_item_keys: keys as unknown as Json } as never)
+                .eq('id', activeListId);
+            }
+          } catch {
+            /* ignore cleanup error */
+          }
+        })();
       }
     };
   }, [checkedItems, activeListId, sessionMode]);

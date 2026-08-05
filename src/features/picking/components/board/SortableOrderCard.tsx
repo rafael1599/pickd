@@ -271,26 +271,51 @@ const OrderCardShell: React.FC<CardProps> = ({
   }, [order.order_number, order.id]);
 
   const progressPercent = React.useMemo(() => {
-    // Orders sent to DS (ready_to_double_check, double_checking, completed) have completed picking 100%
-    if (
-      ['ready_to_double_check', 'double_checking', 'completed'].includes(order.status) ||
-      order.is_shipped
-    ) {
+    // Only completed or shipped orders are guaranteed 100% finished
+    if (order.status === 'completed' || order.is_shipped) {
       return 100;
+    }
+    // Un-checked queue orders (ready_to_double_check or active) have 0% double-check progress
+    if (order.status === 'ready_to_double_check' || order.status === 'active') {
+      return 0;
     }
     if (!Array.isArray(order.items) || order.items.length === 0) return 0;
 
     const verifiedKeys = new Set(order.verified_item_keys ?? []);
     if (verifiedKeys.size === 0) return 0;
 
-    const bikeSkuSet = new Set<string>();
+    const currentBikeSkuSet = new Set<string>();
     for (const item of order.items) {
-      if (item.sku && item.sku.startsWith('03-')) {
-        bikeSkuSet.add(item.sku);
+      const sku = typeof item.sku === 'string' ? item.sku : '';
+      const isBike =
+        (bikeSkuSet && bikeSkuSet.has(sku)) ||
+        isBikeSku(sku, item.sku_metadata as { is_bike?: boolean | null } | null);
+      if (isBike && sku) {
+        currentBikeSkuSet.add(sku);
       }
     }
-    const allItems = (order.items ?? []) as unknown as PickingItem[];
-    const pallets = calculatePalletsWithBikeAwareness(allItems, bikeSkuSet);
+    const allItems = (order.items ?? []).map((i) => {
+      const rawQty =
+        (i as { pickingQty?: number }).pickingQty ??
+        (i as { qty?: number }).qty ??
+        (i as { quantity?: number | string }).quantity;
+      return {
+        ...i,
+        sku: typeof i.sku === 'string' ? i.sku : '',
+        pickingQty: typeof rawQty === 'string' ? Number(rawQty) || 0 : rawQty || 0,
+        location: i.location ?? null,
+      };
+    }) as unknown as PickingItem[];
+    const pallets = calculatePalletsWithBikeAwareness(allItems, currentBikeSkuSet);
+
+    const verifiedSuffixCounts = new Map<string, number>();
+    for (const vk of verifiedKeys) {
+      const dashIdx = vk.indexOf('-');
+      if (dashIdx !== -1) {
+        const suffix = vk.slice(dashIdx);
+        verifiedSuffixCounts.set(suffix, (verifiedSuffixCounts.get(suffix) ?? 0) + 1);
+      }
+    }
 
     let totalUnits = 0;
     let verifiedUnits = 0;
@@ -300,15 +325,27 @@ const OrderCardShell: React.FC<CardProps> = ({
         const qty = item.pickingQty || 0;
         totalUnits += qty;
         const key = `${pallet.id}-${item.sku}-${item.location}`;
-        if (verifiedKeys.has(key)) {
+        const suffix = `-${item.sku}-${item.location}`;
+
+        let isMatched = verifiedKeys.has(key);
+        if (!isMatched) {
+          const count = verifiedSuffixCounts.get(suffix) ?? 0;
+          if (count > 0) {
+            isMatched = true;
+            verifiedSuffixCounts.set(suffix, count - 1);
+          }
+        }
+
+        if (isMatched) {
           verifiedUnits += qty;
         }
       }
     }
 
     if (totalUnits === 0) return 0;
-    return Math.min(100, Math.round((verifiedUnits / totalUnits) * 100));
-  }, [order.status, order.is_shipped, order.items, order.verified_item_keys]);
+    if (verifiedUnits >= totalUnits) return 100;
+    return Math.min(95, Math.round((verifiedUnits / totalUnits) * 100));
+  }, [order.status, order.is_shipped, order.items, order.verified_item_keys, bikeSkuSet]);
 
   return (
     <div

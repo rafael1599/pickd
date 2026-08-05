@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
@@ -203,13 +203,22 @@ export const ConsolidationScreen: React.FC = () => {
   // (PlaceSkuTab unmounts when another mode is active).
   const [placeSkuQuery, setPlaceSkuQuery] = useState(persisted.placeSkuQuery ?? '');
   const [placeSkuConfirmed, setPlaceSkuConfirmed] = useState(persisted.placeSkuConfirmed ?? false);
-  // idea-127: deferred destFor restoration. The persisted blob only carries
-  // the candidate's inventory_id; we resolve to the full Candidate once the
-  // RPC returns its list. Cleared after the first resolution attempt so we
-  // don't keep overwriting a user-initiated dismissal.
   const [pendingDestForId, setPendingDestForId] = useState<number | null>(
     persisted.destForId ?? null
   );
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const paramMode = searchParams.get('mode') as ScreenMode | null;
+    const paramSku = searchParams.get('sku');
+    if (paramMode === 'place-sku' || paramSku) {
+      setMode('place-sku');
+      if (paramSku) {
+        setPlaceSkuQuery(paramSku);
+        setPlaceSkuConfirmed(true);
+      }
+    }
+  }, [searchParams]);
 
   // idea-127: write-through persistence. Stringifies the relevant slice of
   // state to localStorage every time anything inside changes. Filters that

@@ -112,6 +112,10 @@ export const InventoryCard = memo(
         <DistributionJengaViz
           distribution={distribution}
           onAdjust={() => (onAdjust ?? onClick)()}
+          sku={sku}
+          quantity={quantity}
+          location={location}
+          sku_metadata={sku_metadata}
         />
 
         <div className="flex gap-2">

@@ -106,8 +106,8 @@ export const useDoubleCheckList = () => {
         (o) => o.status === 'active' || (o.items && Array.isArray(o.items) && o.items.length > 0)
       );
     },
-    staleTime: 5_000,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const { data: completedOrders, isLoading: completedLoading } = useQuery<PickingList[]>({
@@ -126,8 +126,8 @@ export const useDoubleCheckList = () => {
       if (error) throw error;
       return (data as PickingList[]) || [];
     },
-    staleTime: 5_000,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   // Realtime subscription — invalidate queries on changes

@@ -1,5 +1,7 @@
 import type { PickingList } from '../../hooks/useDoubleCheckList';
-import { isActivelyChecking } from './SortableOrderCard';
+export function isActivelyChecking(order: PickingList): boolean {
+  return order.status === 'double_checking' && !!order.checked_by;
+}
 
 /**
  * Collapse the members of a combined order (same group_id) into one pseudo
@@ -12,19 +14,35 @@ export function mergeGroupOrders(groupOrders: PickingList[]): PickingList {
   const first = groupOrders[0];
   if (groupOrders.length === 1) return first;
 
-  // Worst status wins so the border/icon surface "needs attention" first.
-  // Parked members (double_checking without a checker) don't count as
-  // "checking" — the pseudo order should render as a plain card then.
+  // Worst status wins so the card correctly reflects open/active work:
+  // 1. needs_correction
+  // 2. double_checking
+  // 3. ready_to_double_check
+  // 4. active
+  // 5. completed (only if all members are completed)
+  const hasCorrection = groupOrders.some((o) => o.status === 'needs_correction');
   const activeChecker = groupOrders.find(isActivelyChecking);
-  const status = groupOrders.some((o) => o.status === 'needs_correction')
-    ? 'needs_correction'
-    : activeChecker
-      ? 'double_checking'
-      : first.status;
+  const hasChecking = groupOrders.some((o) => o.status === 'double_checking');
+  const hasReady = groupOrders.some((o) => o.status === 'ready_to_double_check');
+  const hasActive = groupOrders.some((o) => o.status === 'active');
 
-  // Show whoever is actually on the order: the active checker if any member
-  // is being double-checked, else the first member with a picker profile.
+  const status = hasCorrection
+    ? 'needs_correction'
+    : activeChecker || hasChecking
+      ? 'double_checking'
+      : hasReady
+        ? 'ready_to_double_check'
+        : hasActive
+          ? 'active'
+          : first.status;
+
   const workerSource = activeChecker ?? groupOrders.find((o) => o.profiles?.full_name) ?? first;
+
+  // Un-checked orders (ready_to_double_check / active) must NOT inherit verified keys from completed/sibling orders
+  const isUncheckedStatus = status === 'ready_to_double_check' || status === 'active';
+  const verified_item_keys = isUncheckedStatus
+    ? []
+    : Array.from(new Set(groupOrders.flatMap((o) => o.verified_item_keys ?? [])));
 
   return {
     ...first,
@@ -33,7 +51,7 @@ export function mergeGroupOrders(groupOrders: PickingList[]): PickingList {
       .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
       .join(' / '),
     items: groupOrders.flatMap((o) => (Array.isArray(o.items) ? o.items : [])),
-    verified_item_keys: groupOrders.flatMap((o) => o.verified_item_keys ?? []),
+    verified_item_keys,
     pallets_qty: groupOrders.reduce((s, o) => s + (o.pallets_qty ?? 0), 0),
     status,
     checked_by: workerSource.checked_by,

@@ -163,7 +163,7 @@ export const usePickingActions = ({
 
       setIsSaving(true);
       try {
-        // Enforcement: Release any other list this user might be checking
+        // Enforcement: Release any other list this user might be double-checking
         const { error: releaseError } = await supabase
           .from('picking_lists')
           .update({
@@ -171,8 +171,7 @@ export const usePickingActions = ({
             checked_by: null,
           })
           .eq('checked_by', user.id)
-          .neq('status', 'completed')
-          .neq('status', 'cancelled')
+          .eq('status', 'double_checking')
           .neq('id', activeListId); // Don't release the one we are about to lock
 
         if (releaseError) console.error('Error releasing previous locks:', releaseError);
@@ -410,24 +409,13 @@ export const usePickingActions = ({
   const lockForCheck = useCallback(
     async (listId: string) => {
       if (!user) return;
-      const { error: releaseError } = await supabase
-        .from('picking_lists')
-        .update({
-          status: 'ready_to_double_check',
-          checked_by: null,
-        })
-        .eq('checked_by', user.id)
-        .neq('status', 'completed')
-        .neq('status', 'cancelled')
-        .neq('id', listId);
 
-      if (releaseError) console.error('Error releasing previous locks:', releaseError);
-
-      // Query order metadata to check group and owner
+      // Query order metadata to check status, group and owner
       const { data: order } = await supabase
         .from('picking_lists')
         .select(
           `
+          status,
           group_id,
           user_id,
           profiles!user_id (full_name)
@@ -436,14 +424,39 @@ export const usePickingActions = ({
         .eq('id', listId)
         .maybeSingle();
 
+      if (!order) return;
+
+      // Only release previous double-check locks for this user (NEVER touch active picking orders)
+      const { error: releaseError } = await supabase
+        .from('picking_lists')
+        .update({
+          status: 'ready_to_double_check',
+          checked_by: null,
+        })
+        .eq('checked_by', user.id)
+        .eq('status', 'double_checking')
+        .neq('id', listId);
+
+      if (releaseError) console.error('Error releasing previous locks:', releaseError);
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const shouldClaim = (order as any)?.profiles?.full_name === 'Warehouse Team';
 
-      // Lock the main order
       const updateFields: Record<string, unknown> = {
-        status: 'double_checking',
         checked_by: user.id,
       };
+
+      // CRITICAL DIRECTIVE: ready_to_double_check / double_checking must ONLY be assigned when pressing 'Ready to DC'.
+      // Opening an active order MUST NOT change its status to double_checking or ready_to_double_check!
+      const DOUBLE_CHECK_STATUSES = [
+        'ready_to_double_check',
+        'double_checking',
+        'needs_correction',
+      ];
+      if (order.status && DOUBLE_CHECK_STATUSES.includes(order.status)) {
+        updateFields.status = 'double_checking';
+      }
+
       if (shouldClaim) {
         updateFields.user_id = user.id;
       }
@@ -455,8 +468,8 @@ export const usePickingActions = ({
         .neq('status', 'completed');
       if (error) throw error;
 
-      // If order belongs to a group, also lock all siblings
-      if (order?.group_id) {
+      // If order belongs to a group and is in double check phase, lock siblings as well
+      if (order?.group_id && order.status && DOUBLE_CHECK_STATUSES.includes(order.status)) {
         await supabase
           .from('picking_lists')
           .update({
@@ -465,8 +478,7 @@ export const usePickingActions = ({
           })
           .eq('group_id', order.group_id)
           .neq('id', listId)
-          .neq('status', 'completed')
-          .neq('status', 'cancelled');
+          .in('status', DOUBLE_CHECK_STATUSES);
 
         // Claim any group sibling still owned by Warehouse Team (Warehouse Team Profile ID: 38f493d0-1385-4d12-940c-56dffe10de7e)
         await supabase
@@ -519,18 +531,27 @@ export const usePickingActions = ({
   const releaseCheck = useCallback(
     async (listId: string) => {
       // Check if order belongs to a group — release all siblings too
+      // Check current status before releasing
       const { data: order } = await supabase
         .from('picking_lists')
-        .select('group_id')
+        .select('status, group_id')
         .eq('id', listId)
-        .single();
+        .maybeSingle();
+
+      if (!order) {
+        resetSession();
+        return;
+      }
+
+      // Preserve active status if order was in active picking phase!
+      const targetStatus = order.status === 'active' ? 'active' : 'ready_to_double_check';
 
       const { error } = await supabase
         .from('picking_lists')
         .update({
-          status: 'ready_to_double_check',
+          status: targetStatus,
           checked_by: null,
-          verified_item_keys: [],
+          verified_item_keys: targetStatus === 'ready_to_double_check' ? [] : undefined,
         })
         .eq('id', listId)
         .neq('status', 'completed');
@@ -540,9 +561,9 @@ export const usePickingActions = ({
         await supabase
           .from('picking_lists')
           .update({
-            status: 'ready_to_double_check',
+            status: targetStatus,
             checked_by: null,
-            verified_item_keys: [],
+            verified_item_keys: targetStatus === 'ready_to_double_check' ? [] : undefined,
           })
           .eq('group_id', order.group_id)
           .neq('id', listId)
@@ -575,7 +596,7 @@ export const usePickingActions = ({
 
         if (listError) throw listError;
 
-        // 2. Release group siblings so they go back to the queue
+        // 2. Release group siblings so they go back to the queue for correction
         const { data: order } = await supabase
           .from('picking_lists')
           .select('group_id')
@@ -586,7 +607,7 @@ export const usePickingActions = ({
           await supabase
             .from('picking_lists')
             .update({
-              status: 'ready_to_double_check',
+              status: 'needs_correction',
               checked_by: null,
             })
             .eq('group_id', order.group_id)

@@ -843,13 +843,13 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       )}
 
       {/* ── MAIN CONTENT ── */}
-      <div className="max-w-5xl mx-auto p-4 sm:p-6 pb-28 space-y-6">
+      <div className="max-w-5xl mx-auto p-0 sm:p-6 pb-28 space-y-4 sm:space-y-6">
         {/* ── SECTION 1: HERO (PRODUCT SHEET / EDIT) ── */}
-        <div className="bg-[#161920] border border-[#2A2F36] rounded-2xl p-4 sm:p-6 shadow-xl">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+        <div className="bg-[#161920] border-y sm:border border-[#2A2F36] sm:rounded-2xl shadow-xl overflow-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-0 md:gap-6 items-center">
             {/* Photo Column (Full width on mobile, max-w-[320px] on desktop) */}
             <div className="md:col-span-5 flex justify-center w-full">
-              <div className="w-full md:max-w-[320px] aspect-square relative bg-[#0F1115] border border-[#2A2F36] rounded-2xl overflow-hidden flex items-center justify-center p-3">
+              <div className="w-full aspect-square relative bg-[#0F1115] md:border md:border-[#2A2F36] md:rounded-2xl overflow-hidden flex items-center justify-center p-0 md:p-3 md:max-w-[320px]">
                 <PhotoHero
                   photoUrl={photoPreview}
                   isUploading={isUploadingPhoto}
@@ -861,7 +861,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
             </div>
 
             {/* Primary Info + Metrics */}
-            <div className="md:col-span-7 flex flex-col justify-between space-y-4">
+            <div className="md:col-span-7 flex flex-col justify-between space-y-4 p-4 sm:p-6">
               <div>
                 {/* Category / Badges */}
                 <div className="flex items-center gap-2 mb-2">
@@ -1008,36 +1008,40 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
 
         {/* Stock Reservations */}
         {sku && warehouse && location && (
-          <StockReservationBreakdown sku={sku} warehouse={warehouse} location={location} />
+          <div className="px-4 sm:px-0">
+            <StockReservationBreakdown sku={sku} warehouse={warehouse} location={location} />
+          </div>
         )}
 
         {/* Validation feedback */}
         {validationState.status !== 'idle' && (
-          <div
-            className={`flex items-start gap-2 p-3 rounded-xl text-xs font-medium animate-in fade-in ${
-              validationState.status === 'error'
-                ? 'bg-red-500/10 border border-red-500/20 text-red-400'
-                : validationState.status === 'warning'
-                  ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
-                  : 'bg-blue-500/10 border border-blue-500/20 text-blue-400'
-            }`}
-          >
-            {validationState.status === 'checking' ? (
-              <>
-                <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin mt-0.5" />
-                Validating availability...
-              </>
-            ) : (
-              <>
-                <AlertCircle size={15} className="shrink-0 mt-0.5" />
-                <span className="leading-relaxed">{validationState.message}</span>
-              </>
-            )}
+          <div className="px-4 sm:px-0">
+            <div
+              className={`flex items-start gap-2 p-3 rounded-xl text-xs font-medium animate-in fade-in ${
+                validationState.status === 'error'
+                  ? 'bg-red-500/10 border border-red-500/20 text-red-400'
+                  : validationState.status === 'warning'
+                    ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
+                    : 'bg-blue-500/10 border border-blue-500/20 text-blue-400'
+              }`}
+            >
+              {validationState.status === 'checking' ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin mt-0.5" />
+                  Validating availability...
+                </>
+              ) : (
+                <>
+                  <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                  <span className="leading-relaxed">{validationState.message}</span>
+                </>
+              )}
+            </div>
           </div>
         )}
 
         {/* ── SECTION 2: INFORMATION & LOCATION (GRID 2 COLUMNS) ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 px-4 sm:px-0">
           {/* UNIFIED INFORMATION CARD */}
           <div className="bg-[#161920] border border-[#2A2F36] rounded-2xl p-5 space-y-4">
             <div className="flex items-center justify-between border-b border-[#2A2F36] pb-3">
@@ -1291,7 +1295,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         </div>
 
         {/* ── SECTION 3: DISTRIBUTION & DIMENSIONS / WEIGHT ── */}
-        <div className={`grid grid-cols-1 ${typeIsBike ? 'md:grid-cols-2' : ''} gap-6`}>
+        <div
+          className={`grid grid-cols-1 ${typeIsBike ? 'md:grid-cols-2' : ''} gap-4 sm:gap-6 px-4 sm:px-0`}
+        >
           {/* DISTRIBUTION CARD (Bikes Only) */}
           {typeIsBike && (
             <div className="bg-[#161920] border border-[#2A2F36] rounded-2xl p-5 space-y-4">
@@ -1447,17 +1453,19 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
 
         {/* Other Locations Card */}
         {mode === 'edit' && initialData?.sku && quantity === 0 && (
-          <OtherLocationsCard
-            sku={initialData.sku}
-            currentItemId={initialData.id}
-            ludlowData={ludlowData}
-            atsData={atsData}
-          />
+          <div className="px-4 sm:px-0">
+            <OtherLocationsCard
+              sku={initialData.sku}
+              currentItemId={initialData.id}
+              ludlowData={ludlowData}
+              atsData={atsData}
+            />
+          </div>
         )}
 
         {/* ── HISTORY ── */}
         {mode === 'edit' && initialData?.sku && (
-          <div className="space-y-4">
+          <div className="space-y-4 px-4 sm:px-0">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-white/80 uppercase tracking-wider flex items-center gap-2">
                 <History size={16} /> Recent Activity

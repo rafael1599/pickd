@@ -1,12 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../integrations/supabase/types';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Supabase URL and Anon Key must be provided in environment variables');
-}
+const env =
+  (typeof import.meta !== 'undefined' && import.meta.env) ||
+  (typeof process !== 'undefined' && process.env) ||
+  {};
+const supabaseUrl =
+  env.VITE_SUPABASE_URL ||
+  (typeof process !== 'undefined' && process.env.VITE_SUPABASE_URL) ||
+  'http://127.0.0.1:54321';
+const supabaseAnonKey =
+  env.VITE_SUPABASE_ANON_KEY ||
+  (typeof process !== 'undefined' && process.env.VITE_SUPABASE_ANON_KEY) ||
+  'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH';
 
 /**
  * Unified Singleton Supabase client instance.
