@@ -49,8 +49,13 @@ function adjustQuickStack(
 ): DistributionItem[] {
   const defaultUnitsEach = targetType === 'TOWER' ? 3 : 1;
   const list = [...(current || [])];
-  // Match on targetType first, fallback to units_each match
-  const existingIdx = list.findIndex((d) => d.type === targetType);
+  // Match exact standard units_each first, fallback to any row of targetType
+  let existingIdx = list.findIndex(
+    (d) => d.type === targetType && d.units_each === defaultUnitsEach
+  );
+  if (existingIdx === -1) {
+    existingIdx = list.findIndex((d) => d.type === targetType);
+  }
 
   if (existingIdx >= 0) {
     const updatedCount = list[existingIdx].count + delta;
