@@ -208,11 +208,11 @@ export function useShipOrdersData() {
       }
 
       // Waiting filter rule:
-      // By default (pendingShowWaiting = false), orders in WAITING are hidden.
-      // When pendingShowWaiting = true, ONLY show orders in WAITING.
+      // When pendingShowWaiting is true -> show ONLY waiting orders.
+      // When pendingShowWaiting is false -> show ONLY non-waiting orders.
       const isWaiting = !!o.is_waiting_inventory;
       if (pendingShowWaiting) {
-        if (!isWaiting) return false;
+        return isWaiting;
       } else {
         if (isWaiting) return false;
       }
@@ -222,7 +222,7 @@ export function useShipOrdersData() {
       if (carrier) {
         return pendingSelectedCarriers.has(carrier);
       }
-      return pendingIncludeUnassigned && !isWaiting;
+      return pendingIncludeUnassigned;
     },
     [pendingSelectedCarriers, pendingIncludeUnassigned, pendingShowWaiting, debouncedSearchQuery]
   );

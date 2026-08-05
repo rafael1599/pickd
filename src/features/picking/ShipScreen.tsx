@@ -980,14 +980,9 @@ export const ShipScreen = () => {
     const counts = new Map<string, number>();
     let unassigned = 0;
     for (const o of collapsedPendingOrders) {
-      // Waiting orders are NEVER counted as unassigned under any circumstances
+      // Waiting orders belong strictly to the WAITING category.
+      // They are NEVER counted under FedEx, RIST, R+L, Pick Up, or Unassigned!
       if (o.is_waiting_inventory) {
-        if (pendingShowWaiting) {
-          const carrier = getCarrierLabel(o);
-          if (carrier) {
-            counts.set(carrier, (counts.get(carrier) || 0) + 1);
-          }
-        }
         continue;
       }
       const carrier = getCarrierLabel(o);
@@ -1003,7 +998,7 @@ export const ShipScreen = () => {
       hasUnassignedOrders: unassigned > 0,
       unassignedCount: unassigned,
     };
-  }, [collapsedPendingOrders, pendingShowWaiting]);
+  }, [collapsedPendingOrders]);
 
   const shippedCarrierStats = useMemo(() => {
     const todayStr = dayKey(new Date());
