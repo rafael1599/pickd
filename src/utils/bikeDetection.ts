@@ -2,12 +2,26 @@ import { supabase } from '../lib/supabase';
 
 /**
  * Canonical bike detection helper: checks if `is_bike` flag is true in `sku_metadata`.
- * Pure source of truth — prefix heuristics are eliminated.
+ * Pure source of truth — prefix heuristics are eliminated. Accepts any combination:
+ *   - isBikeSku(item)
+ *   - isBikeSku(sku, skuMetadata)
+ *   - isBikeSku(skuMetadata)
  */
 export function isBikeSku(
-  _sku?: string | null,
+  skuOrObj?:
+    | string
+    | { is_bike?: boolean | null; sku_metadata?: { is_bike?: boolean | null } | null }
+    | null,
   skuMetadata?: { is_bike?: boolean | null } | null
 ): boolean {
+  if (skuOrObj && typeof skuOrObj === 'object') {
+    if ('sku_metadata' in skuOrObj && skuOrObj.sku_metadata) {
+      return skuOrObj.sku_metadata.is_bike === true;
+    }
+    if ('is_bike' in skuOrObj) {
+      return skuOrObj.is_bike === true;
+    }
+  }
   return skuMetadata?.is_bike === true;
 }
 

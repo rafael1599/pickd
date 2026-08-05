@@ -10,6 +10,7 @@ interface ProgressItem {
   location?: string | null;
   pickingQty?: number;
   checked?: boolean;
+  sku_metadata?: { is_bike?: boolean | null } | null;
 }
 
 interface OrderProgressBarProps {
@@ -48,8 +49,8 @@ export const OrderProgressBar: React.FC<OrderProgressBarProps> = ({
 
     const bikeSkuSet = new Set<string>();
     for (const item of items) {
-      if (isBikeSku(item.sku)) {
-        bikeSkuSet.add(item.sku!);
+      if (isBikeSku(item.sku, item.sku_metadata)) {
+        if (item.sku) bikeSkuSet.add(item.sku);
       }
     }
 

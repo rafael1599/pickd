@@ -134,13 +134,12 @@ function dayLabel(date: Date): string {
 import { isBikeSku } from '../../utils/bikeDetection';
 
 /**
- * Bike vs part classification for an item. sku_metadata.is_bike is the
- * definitive answer once loaded; while it's still loading for a freshly
- * merged/combined item set, fall back to the bike SKU prefix helper (01, 02, 03, 06, 07).
+ * Bike vs part classification for an item: `sku_metadata.is_bike === true` is the
+ * canonical source of truth in DB.
  */
 function isLikelyBike(sku: string, meta?: { is_bike: boolean }): boolean {
-  if (meta) return meta.is_bike;
-  return isBikeSku(sku);
+  if (meta && typeof meta.is_bike === 'boolean') return meta.is_bike;
+  return isBikeSku(sku, meta);
 }
 
 /**

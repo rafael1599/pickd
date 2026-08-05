@@ -192,7 +192,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         setDistribution(Array.isArray(initialData.distribution) ? initialData.distribution : []);
         setUserEditedDistribution(false);
         setPhotoPreview(initialData?.sku_metadata?.image_url || null);
-        setTypeIsBike(initialData.sku_metadata?.is_bike !== false);
+        setTypeIsBike(initialData.sku_metadata?.is_bike === true);
       } else {
         reset({
           sku: initialData?.sku || '',
@@ -211,7 +211,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         setDistribution([]);
         setUserEditedDistribution(false);
         setPhotoPreview(initialData?.sku_metadata?.image_url || null);
-        setTypeIsBike(initialData?.sku_metadata?.is_bike !== false);
+        setTypeIsBike(initialData?.sku_metadata?.is_bike === true);
       }
     }
   }, [isOpen, initialData, mode, screenType, reset]);
