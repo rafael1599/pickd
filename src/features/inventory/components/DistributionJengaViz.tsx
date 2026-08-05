@@ -9,6 +9,10 @@ import Camera from 'lucide-react/dist/esm/icons/camera';
 import History from 'lucide-react/dist/esm/icons/history';
 import Copy from 'lucide-react/dist/esm/icons/copy';
 import Boxes from 'lucide-react/dist/esm/icons/boxes';
+import Zap from 'lucide-react/dist/esm/icons/zap';
+import Plus from 'lucide-react/dist/esm/icons/plus';
+import Minus from 'lucide-react/dist/esm/icons/minus';
+import ImagePlus from 'lucide-react/dist/esm/icons/image-plus';
 import type {
   DistributionItem,
   InventoryItemWithMetadata,
@@ -20,9 +24,12 @@ import {
   type LabelPrintResult,
 } from '../../labels/components/LabelPrintOptionsModal';
 import { ItemHistorySheet } from './ItemDetailView/ItemHistorySheet';
+import { QuickCameraModal } from './QuickCameraModal';
 import { uploadPhoto } from '../../../services/photoUpload.service';
 import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from '../hooks/useInventoryRealtime';
 import { useGenerateLabels } from '../../labels/hooks/useGenerateLabels';
+import { useQuickPrintLabel } from '../../labels/hooks/useQuickPrintLabel';
+import { supabase } from '../../../lib/supabase';
 import jamisLogo from './jamis-bikes.webp';
 
 interface DistributionJengaVizProps {
@@ -32,6 +39,29 @@ interface DistributionJengaVizProps {
   quantity?: number;
   location?: string | null;
   sku_metadata?: SKUMetadata | null;
+}
+
+/** Helper to adjust distribution quick stacks (+1/-1 Tower or Line) */
+function adjustQuickStack(
+  current: DistributionItem[] | undefined,
+  targetType: 'TOWER' | 'LINE',
+  delta: 1 | -1
+): DistributionItem[] {
+  const unitsEach = targetType === 'TOWER' ? 3 : 1;
+  const list = [...(current || [])];
+  const existingIdx = list.findIndex((d) => d.type === targetType && d.units_each === unitsEach);
+
+  if (existingIdx >= 0) {
+    const updatedCount = list[existingIdx].count + delta;
+    if (updatedCount <= 0) {
+      list.splice(existingIdx, 1);
+    } else {
+      list[existingIdx] = { ...list[existingIdx], count: updatedCount };
+    }
+  } else if (delta > 0) {
+    list.push({ type: targetType, count: 1, units_each: unitsEach });
+  }
+  return list;
 }
 
 /**
@@ -92,6 +122,7 @@ export const DistributionJengaViz = memo(
           quantity={quantity}
           location={location}
           sku_metadata={sku_metadata}
+          distribution={distribution}
         />
       </div>
     );
@@ -106,6 +137,7 @@ interface DistributionMenuProps {
   quantity?: number;
   location?: string | null;
   sku_metadata?: SKUMetadata | null;
+  distribution?: DistributionItem[];
 }
 
 /** "..." menu next to the Jenga strip. Provides quick card actions (Edit distribution, Print label, Photo, History, Copy SKU, Consolidate). */
@@ -116,13 +148,17 @@ function DistributionMenu({
   quantity,
   location,
   sku_metadata,
+  distribution,
 }: DistributionMenuProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { generate, isGenerating } = useGenerateLabels();
+  const { quickPrint, isGenerating: isQuickPrinting } = useQuickPrintLabel();
+
   const [open, setOpen] = useState(false);
   const [printOpen, setPrintOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [cameraModalOpen, setCameraModalOpen] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -142,31 +178,77 @@ function DistributionMenu({
     navigate(`/consolidation?mode=place-sku&sku=${encodeURIComponent(sku)}`);
   };
 
+  const handleFlashPrint = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setOpen(false);
+    if (!sku) return;
+    try {
+      await quickPrint(sku, null, location ?? null);
+    } catch {
+      toast.error('Failed to print label');
+    }
+  };
+
+  const handleQuickDist = async (
+    e: React.MouseEvent,
+    targetType: 'TOWER' | 'LINE',
+    delta: 1 | -1
+  ) => {
+    e.stopPropagation();
+    if (!sku) return;
+    const updated = adjustQuickStack(distribution, targetType, delta);
+
+    // Optimistic cache update
+    const updater = (old: InventoryItemWithMetadata[] | undefined) =>
+      old?.map((item) => (item.sku === sku ? { ...item, distribution: updated } : item));
+    queryClient.setQueryData(INVENTORY_ROOT_KEY, updater);
+    queryClient.setQueryData(PARTS_BINS_KEY, updater);
+
+    try {
+      const { error } = await supabase
+        .from('inventory')
+        .update({ distribution: updated })
+        .eq('sku', sku);
+      if (error) throw error;
+      toast.success(
+        `${delta > 0 ? '+1' : '-1'} ${targetType === 'TOWER' ? 'Tower (3u)' : 'Line (1u)'}`
+      );
+      queryClient.invalidateQueries({ queryKey: INVENTORY_ROOT_KEY });
+    } catch {
+      toast.error('Failed to adjust distribution');
+      queryClient.invalidateQueries({ queryKey: INVENTORY_ROOT_KEY });
+    }
+  };
+
   const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !sku) return;
     setIsUploadingPhoto(true);
     try {
       const url = await uploadPhoto(sku, file);
-      const bustUrl = `${url}?v=${Date.now()}`;
-      const updater = (old: InventoryItemWithMetadata[] | undefined) =>
-        old?.map((item) =>
-          item.sku === sku
-            ? {
-                ...item,
-                sku_metadata: { ...(item.sku_metadata ?? { sku }), image_url: bustUrl },
-              }
-            : item
-        );
-      queryClient.setQueryData(INVENTORY_ROOT_KEY, updater);
-      queryClient.setQueryData(PARTS_BINS_KEY, updater);
-      queryClient.invalidateQueries({ queryKey: INVENTORY_ROOT_KEY });
+      handleCameraSuccess(url);
       toast.success(`Photo updated for ${sku}`);
     } catch {
       toast.error('Photo upload failed');
     } finally {
       setIsUploadingPhoto(false);
     }
+  };
+
+  const handleCameraSuccess = (url: string) => {
+    const bustUrl = `${url}?v=${Date.now()}`;
+    const updater = (old: InventoryItemWithMetadata[] | undefined) =>
+      old?.map((item) =>
+        item.sku === sku
+          ? {
+              ...item,
+              sku_metadata: { ...(item.sku_metadata ?? { sku }), image_url: bustUrl },
+            }
+          : item
+      );
+    queryClient.setQueryData(INVENTORY_ROOT_KEY, updater);
+    queryClient.setQueryData(PARTS_BINS_KEY, updater);
+    queryClient.invalidateQueries({ queryKey: INVENTORY_ROOT_KEY });
   };
 
   const handleGenerateLabels = async (result: LabelPrintResult) => {
@@ -225,7 +307,7 @@ function DistributionMenu({
         title={isEmpty ? 'Set distribution' : 'Card actions'}
         className="h-7 w-7 rounded-md bg-accent/15 hover:bg-accent/25 text-accent border border-accent/40 flex items-center justify-center active:scale-90 transition-transform"
       >
-        {isUploadingPhoto ? (
+        {isUploadingPhoto || isQuickPrinting ? (
           <div className="w-3.5 h-3.5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
         ) : (
           <MoreHorizontal size={16} strokeWidth={3} />
@@ -233,7 +315,58 @@ function DistributionMenu({
       </button>
 
       <MenuOverlay anchorRef={btnRef} open={open} onClose={() => setOpen(false)} align="right">
-        <div className="min-w-[200px] bg-card border border-subtle rounded-xl shadow-2xl py-1 text-content">
+        <div className="min-w-[220px] bg-card border border-subtle rounded-xl shadow-2xl py-1 text-content">
+          {sku && (
+            <div className="px-3 py-2 border-b border-subtle/50 space-y-1.5 bg-surface/30">
+              <span className="text-[9px] font-black uppercase tracking-widest text-muted block">
+                Quick Jenga Stack
+              </span>
+              <div className="flex items-center justify-between text-xs font-bold">
+                <span className="text-content">🏰 Tower (3u)</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={(e) => handleQuickDist(e, 'TOWER', -1)}
+                    className="w-6 h-6 rounded bg-surface border border-subtle flex items-center justify-center text-content hover:bg-surface/80 active:scale-95"
+                    title="Remove 1 Tower"
+                  >
+                    <Minus size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleQuickDist(e, 'TOWER', 1)}
+                    className="w-6 h-6 rounded bg-accent text-white flex items-center justify-center active:scale-95 shadow-sm shadow-accent/20"
+                    title="Add 1 Tower"
+                  >
+                    <Plus size={12} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-xs font-bold">
+                <span className="text-content">📦 Line (1u)</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={(e) => handleQuickDist(e, 'LINE', -1)}
+                    className="w-6 h-6 rounded bg-surface border border-subtle flex items-center justify-center text-content hover:bg-surface/80 active:scale-95"
+                    title="Remove 1 Line"
+                  >
+                    <Minus size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleQuickDist(e, 'LINE', 1)}
+                    className="w-6 h-6 rounded bg-accent text-white flex items-center justify-center active:scale-95 shadow-sm shadow-accent/20"
+                    title="Add 1 Line"
+                  >
+                    <Plus size={12} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <button
             type="button"
             role="menuitem"
@@ -245,11 +378,21 @@ function DistributionMenu({
             className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface"
           >
             <Edit3 size={14} className="text-amber-400" />
-            {isEmpty ? 'Set distribution' : 'Edit distribution'}
+            {isEmpty ? 'Set distribution' : 'Full distribution editor...'}
           </button>
 
           {sku && (
             <>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={handleFlashPrint}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-amber-400 hover:bg-amber-500/10 active:bg-amber-500/20"
+              >
+                <Zap size={14} className="text-amber-400 fill-amber-400/20" />
+                Print 1 Label (Flash 1-Tap)
+              </button>
+
               <button
                 type="button"
                 role="menuitem"
@@ -261,7 +404,21 @@ function DistributionMenu({
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface"
               >
                 <Printer size={14} className="text-blue-400" />
-                Print labels
+                Print options...
+              </button>
+
+              <button
+                type="button"
+                role="menuitem"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpen(false);
+                  setCameraModalOpen(true);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface"
+              >
+                <Camera size={14} className="text-emerald-400" />
+                Take Photo (Camera)
               </button>
 
               <button
@@ -272,10 +429,10 @@ function DistributionMenu({
                   setOpen(false);
                   cameraInputRef.current?.click();
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface text-muted"
               >
-                <Camera size={14} className="text-emerald-400" />
-                {sku_metadata?.image_url ? 'Change photo' : 'Add photo'}
+                <ImagePlus size={14} className="text-muted" />
+                Choose from Gallery
               </button>
 
               <button
@@ -317,6 +474,15 @@ function DistributionMenu({
       </MenuOverlay>
 
       {/* Modals */}
+      {cameraModalOpen && sku && (
+        <QuickCameraModal
+          isOpen={cameraModalOpen}
+          onClose={() => setCameraModalOpen(false)}
+          sku={sku}
+          onSuccess={handleCameraSuccess}
+        />
+      )}
+
       {printOpen && sku && (
         <LabelPrintOptionsModal
           title={`Print labels — ${sku}`}
