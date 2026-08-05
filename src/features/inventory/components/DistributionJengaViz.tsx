@@ -8,6 +8,7 @@ import Printer from 'lucide-react/dist/esm/icons/printer';
 import Camera from 'lucide-react/dist/esm/icons/camera';
 import History from 'lucide-react/dist/esm/icons/history';
 import Copy from 'lucide-react/dist/esm/icons/copy';
+import Check from 'lucide-react/dist/esm/icons/check';
 import Boxes from 'lucide-react/dist/esm/icons/boxes';
 import Zap from 'lucide-react/dist/esm/icons/zap';
 import Plus from 'lucide-react/dist/esm/icons/plus';
@@ -29,6 +30,7 @@ import { uploadPhoto } from '../../../services/photoUpload.service';
 import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from '../hooks/useInventoryRealtime';
 import { useGenerateLabels } from '../../labels/hooks/useGenerateLabels';
 import { useQuickPrintLabel } from '../../labels/hooks/useQuickPrintLabel';
+import { feedbackService } from '../../../services/feedback.service';
 import { supabase } from '../../../lib/supabase';
 import jamisLogo from './jamis-bikes.webp';
 
@@ -166,12 +168,12 @@ function DistributionMenu({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [cameraModalOpen, setCameraModalOpen] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [copied, setCopied] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const handleCopySku = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    setOpen(false);
     if (!sku) return;
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -184,9 +186,14 @@ function DistributionMenu({
         document.execCommand('copy');
         document.body.removeChild(textArea);
       }
-      toast.success(`SKU ${sku} copied to clipboard`);
+      feedbackService.success();
+      setCopied(true);
+      setTimeout(() => {
+        setCopied(false);
+        setOpen(false);
+      }, 1200);
     } catch {
-      toast.error('Could not copy SKU');
+      feedbackService.error();
     }
   };
 
@@ -203,8 +210,9 @@ function DistributionMenu({
     if (!sku) return;
     try {
       await quickPrint(sku, null, location ?? null);
+      feedbackService.success();
     } catch {
-      toast.error('Failed to print label');
+      feedbackService.error();
     }
   };
 
@@ -222,6 +230,7 @@ function DistributionMenu({
       old?.map((item) => (item.sku === sku ? { ...item, distribution: updated } : item));
     queryClient.setQueryData(INVENTORY_ROOT_KEY, updater);
     queryClient.setQueryData(PARTS_BINS_KEY, updater);
+    feedbackService.success();
 
     try {
       const { error } = await supabase
@@ -229,12 +238,9 @@ function DistributionMenu({
         .update({ distribution: updated })
         .eq('sku', sku);
       if (error) throw error;
-      toast.success(
-        `${delta > 0 ? '+1' : '-1'} ${targetType === 'TOWER' ? 'Tower (3u)' : 'Line (1u)'}`
-      );
       queryClient.invalidateQueries({ queryKey: INVENTORY_ROOT_KEY });
     } catch {
-      toast.error('Failed to adjust distribution');
+      feedbackService.error();
       queryClient.invalidateQueries({ queryKey: INVENTORY_ROOT_KEY });
     }
   };
@@ -246,9 +252,9 @@ function DistributionMenu({
     try {
       const url = await uploadPhoto(sku, file);
       handleCameraSuccess(url);
-      toast.success(`Photo updated for ${sku}`);
+      feedbackService.success();
     } catch {
-      toast.error('Photo upload failed');
+      feedbackService.error();
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -474,8 +480,17 @@ function DistributionMenu({
                 onClick={handleCopySku}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider hover:bg-surface/70 active:bg-surface border-t border-subtle/50"
               >
-                <Copy size={14} className="text-muted" />
-                Copy SKU
+                {copied ? (
+                  <>
+                    <Check size={14} className="text-emerald-400" />
+                    <span className="text-emerald-400">Copied to Clipboard!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={14} className="text-muted" />
+                    Copy SKU
+                  </>
+                )}
               </button>
 
               <button

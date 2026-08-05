@@ -5,9 +5,9 @@ import RefreshCw from 'lucide-react/dist/esm/icons/refresh-cw';
 import X from 'lucide-react/dist/esm/icons/x';
 import Check from 'lucide-react/dist/esm/icons/check';
 import ImagePlus from 'lucide-react/dist/esm/icons/image-plus';
-import toast from 'react-hot-toast';
 import { uploadPhoto } from '../../../services/photoUpload.service';
 import { useScrollLock } from '../../../hooks/useScrollLock';
+import { feedbackService } from '../../../services/feedback.service';
 
 interface QuickCameraModalProps {
   isOpen: boolean;
@@ -134,11 +134,11 @@ export const QuickCameraModal: React.FC<QuickCameraModalProps> = ({
     try {
       const file = new File([capturedBlob], `${sku}_photo.webp`, { type: 'image/webp' });
       const url = await uploadPhoto(sku, file);
-      toast.success(`Photo saved for SKU ${sku}`);
+      feedbackService.success();
       onSuccess(url);
       handleClose();
     } catch {
-      toast.error('Failed to upload photo');
+      feedbackService.error();
     } finally {
       setIsUploading(false);
     }
@@ -150,11 +150,11 @@ export const QuickCameraModal: React.FC<QuickCameraModalProps> = ({
     setIsUploading(true);
     try {
       const url = await uploadPhoto(sku, file);
-      toast.success(`Photo saved for SKU ${sku}`);
+      feedbackService.success();
       onSuccess(url);
       handleClose();
     } catch {
-      toast.error('Failed to upload photo');
+      feedbackService.error();
     } finally {
       setIsUploading(false);
     }
