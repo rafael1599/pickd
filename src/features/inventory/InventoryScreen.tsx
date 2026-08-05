@@ -727,11 +727,14 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
               const isFirstInWarehouse = index === 0 || locationBlocks[index - 1].wh !== wh;
 
               return (
-                <div key={`${wh}-${location}`} className="space-y-3 max-w-4xl mx-auto px-2 sm:px-4">
+                <div
+                  key={`${wh}-${location}`}
+                  className="space-y-2 max-w-7xl mx-auto px-2 sm:px-4 lg:px-6"
+                >
                   {isFirstInWarehouse && !isSearching && wh !== 'LUDLOW' && (
                     <div className="flex items-center gap-4 pt-8 pb-2">
                       <h2
-                        className="text-[11px] sm:text-xs font-black uppercase tracking-widest text-muted flex items-center gap-2"
+                        className="text-[11px] font-black uppercase tracking-widest text-muted flex items-center gap-2"
                         style={{ fontFamily: 'var(--font-heading)' }}
                       >
                         <Warehouse className="text-accent" size={24} />
@@ -773,7 +776,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
                     {items.map((item) => {
                       const cartItem = cartItems.find(
                         (c) =>
