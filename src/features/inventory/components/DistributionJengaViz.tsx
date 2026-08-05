@@ -47,9 +47,10 @@ function adjustQuickStack(
   targetType: 'TOWER' | 'LINE',
   delta: 1 | -1
 ): DistributionItem[] {
-  const unitsEach = targetType === 'TOWER' ? 3 : 1;
+  const defaultUnitsEach = targetType === 'TOWER' ? 3 : 1;
   const list = [...(current || [])];
-  const existingIdx = list.findIndex((d) => d.type === targetType && d.units_each === unitsEach);
+  // Match on targetType first, fallback to units_each match
+  const existingIdx = list.findIndex((d) => d.type === targetType);
 
   if (existingIdx >= 0) {
     const updatedCount = list[existingIdx].count + delta;
@@ -59,7 +60,7 @@ function adjustQuickStack(
       list[existingIdx] = { ...list[existingIdx], count: updatedCount };
     }
   } else if (delta > 0) {
-    list.push({ type: targetType, count: 1, units_each: unitsEach });
+    list.push({ type: targetType, count: 1, units_each: defaultUnitsEach });
   }
   return list;
 }
@@ -163,12 +164,25 @@ function DistributionMenu({
   const btnRef = useRef<HTMLButtonElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  const handleCopySku = (e: React.MouseEvent) => {
+  const handleCopySku = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setOpen(false);
     if (!sku) return;
-    navigator.clipboard.writeText(sku);
-    toast.success(`SKU ${sku} copied to clipboard`);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(sku);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = sku;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      toast.success(`SKU ${sku} copied to clipboard`);
+    } catch {
+      toast.error('Could not copy SKU');
+    }
   };
 
   const handleConsolidate = (e: React.MouseEvent) => {

@@ -18,6 +18,7 @@ export const PhotoHero: React.FC<PhotoHeroProps> = ({
   onRemove,
 }) => {
   const [showActions, setShowActions] = useState(false);
+  const [hasImageError, setHasImageError] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const dominantColor = useDominantColor(photoUrl);
@@ -58,7 +59,7 @@ export const PhotoHero: React.FC<PhotoHeroProps> = ({
       />
 
       {/* Hero area — only renders the big aspect box when there IS a photo. */}
-      {photoUrl ? (
+      {photoUrl && !hasImageError ? (
         <button
           type="button"
           onClick={handleTap}
@@ -83,6 +84,7 @@ export const PhotoHero: React.FC<PhotoHeroProps> = ({
           <img
             src={photoUrl}
             alt="Item photo"
+            onError={() => setHasImageError(true)}
             className="relative z-10 w-full h-full object-contain p-0 md:p-5"
           />
           {/* Bottom fade to main */}

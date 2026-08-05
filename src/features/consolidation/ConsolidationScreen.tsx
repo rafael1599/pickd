@@ -213,8 +213,8 @@ export const ConsolidationScreen: React.FC = () => {
     const paramSku = searchParams.get('sku');
     if (paramMode === 'place-sku' || paramSku) {
       setMode('place-sku');
-      if (paramSku) {
-        setPlaceSkuQuery(paramSku);
+      if (paramSku && paramSku.trim()) {
+        setPlaceSkuQuery(paramSku.trim().toUpperCase());
         setPlaceSkuConfirmed(true);
       }
     }

@@ -34,6 +34,12 @@ export const QuickCameraModal: React.FC<QuickCameraModalProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
+  const activeRef = useRef(true);
+
+  useEffect(() => {
+    activeRef.current = isOpen;
+  }, [isOpen]);
+
   const stopStream = useCallback(() => {
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
@@ -44,6 +50,7 @@ export const QuickCameraModal: React.FC<QuickCameraModalProps> = ({
   const startCamera = useCallback(
     async (mode: 'environment' | 'user') => {
       setCameraError(null);
+      let isSubscribed = true;
       try {
         if (stream) {
           stream.getTracks().forEach((t) => t.stop());
@@ -55,24 +62,37 @@ export const QuickCameraModal: React.FC<QuickCameraModalProps> = ({
             height: { ideal: 720 },
           },
         });
+        if (!activeRef.current || !isSubscribed) {
+          newStream.getTracks().forEach((t) => t.stop());
+          return;
+        }
         setStream(newStream);
         if (videoRef.current) {
           videoRef.current.srcObject = newStream;
         }
       } catch {
-        setCameraError('Camera access denied or unavailable');
+        if (activeRef.current && isSubscribed) {
+          setCameraError('Camera access denied or unavailable');
+        }
       }
+      return () => {
+        isSubscribed = false;
+      };
     },
     [stream]
   );
 
   useEffect(() => {
+    let cleanup: (() => void) | undefined;
     if (isOpen && !capturedBlob) {
-      startCamera(facingMode);
+      startCamera(facingMode).then((c) => {
+        cleanup = c;
+      });
     } else {
       stopStream();
     }
     return () => {
+      if (cleanup) cleanup();
       stopStream();
     };
   }, [isOpen, facingMode, capturedBlob]);
