@@ -952,11 +952,34 @@ export const ShipScreen = () => {
     // keyed on id only, see comment above
   }, [selectedOrder?.id]);
 
+  // Collapsed pending orders (excluding cancelled and shipped orders, with deliberate groups combined into single cards)
+  const collapsedPendingOrders = useMemo(() => {
+    const notCancelledOrShipped = orders.filter((o) => o.status !== 'cancelled' && !o.is_shipped);
+
+    const byGroup = new Map<string, typeof notCancelledOrShipped>();
+    const ungrouped: typeof notCancelledOrShipped = [];
+    for (const o of notCancelledOrShipped) {
+      const isGeneralGroup = o.group_id && isDeliberateCombineGroupType(o.order_group?.group_type);
+      if (isGeneralGroup) {
+        const arr = byGroup.get(o.group_id!) ?? [];
+        arr.push(o);
+        byGroup.set(o.group_id!, arr);
+      } else {
+        ungrouped.push(o);
+      }
+    }
+
+    const collapsed = [...ungrouped];
+    for (const siblings of byGroup.values()) {
+      collapsed.push(combineGeneralGroupSiblings(siblings));
+    }
+    return collapsed;
+  }, [orders]);
+
   const pendingCarrierStats = useMemo(() => {
     const counts = new Map<string, number>();
     let unassigned = 0;
-    for (const o of orders) {
-      if (o.status === 'cancelled' || o.is_shipped) continue;
+    for (const o of collapsedPendingOrders) {
       // Waiting orders are NEVER counted as unassigned under any circumstances
       if (o.is_waiting_inventory) {
         if (pendingShowWaiting) {
@@ -980,7 +1003,7 @@ export const ShipScreen = () => {
       hasUnassignedOrders: unassigned > 0,
       unassignedCount: unassigned,
     };
-  }, [orders, pendingShowWaiting]);
+  }, [collapsedPendingOrders, pendingShowWaiting]);
 
   const shippedCarrierStats = useMemo(() => {
     const todayStr = dayKey(new Date());
@@ -1012,28 +1035,31 @@ export const ShipScreen = () => {
       const todayStr = dayKey(new Date());
       const query = debouncedSearchQuery.toLowerCase().trim();
 
-      const notCancelled = orders.filter((o) => o.status !== 'cancelled');
-
-      const byGroup = new Map<string, typeof notCancelled>();
-      const ungrouped: typeof notCancelled = [];
-      for (const o of notCancelled) {
-        const isGeneralGroup =
-          o.group_id && isDeliberateCombineGroupType(o.order_group?.group_type);
-        if (isGeneralGroup) {
-          const arr = byGroup.get(o.group_id!) ?? [];
-          arr.push(o);
-          byGroup.set(o.group_id!, arr);
-        } else {
-          ungrouped.push(o);
+      let targetList: OrderWithRelations[];
+      if (tab === 'to_ship') {
+        targetList = collapsedPendingOrders;
+      } else {
+        const shippedOrders = orders.filter((o) => o.status !== 'cancelled' && !!o.is_shipped);
+        const byGroup = new Map<string, typeof shippedOrders>();
+        const ungrouped: typeof shippedOrders = [];
+        for (const o of shippedOrders) {
+          const isGeneralGroup =
+            o.group_id && isDeliberateCombineGroupType(o.order_group?.group_type);
+          if (isGeneralGroup) {
+            const arr = byGroup.get(o.group_id!) ?? [];
+            arr.push(o);
+            byGroup.set(o.group_id!, arr);
+          } else {
+            ungrouped.push(o);
+          }
+        }
+        targetList = [...ungrouped];
+        for (const siblings of byGroup.values()) {
+          targetList.push(combineGeneralGroupSiblings(siblings));
         }
       }
 
-      const collapsed = [...ungrouped];
-      for (const siblings of byGroup.values()) {
-        collapsed.push(combineGeneralGroupSiblings(siblings));
-      }
-
-      const byCarrier = collapsed.filter((o) => {
+      const byCarrier = targetList.filter((o) => {
         if (query) {
           // While searching, route by actual shipped status only — drop the
           // "shipped TODAY" date window so an order shipped last week is
@@ -1069,7 +1095,13 @@ export const ShipScreen = () => {
         return bStartsWith - aStartsWith;
       });
     },
-    [orders, debouncedSearchQuery, matchesPendingCarrierFilter, matchesShippedCarrierFilter]
+    [
+      orders,
+      collapsedPendingOrders,
+      debouncedSearchQuery,
+      matchesPendingCarrierFilter,
+      matchesShippedCarrierFilter,
+    ]
   );
 
   const filteredOrders = useMemo(() => buildOrdersForTab('to_ship'), [buildOrdersForTab]);

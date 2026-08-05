@@ -314,6 +314,42 @@ export function useShipOrdersData() {
         }
       }
 
+      // Enrich order items with canonical sku_metadata (is_bike, weight_lbs)
+      // so shipping classification is 100% accurate before user selection
+      const allSkus = Array.from(
+        new Set(
+          mappedData.flatMap((o) =>
+            (o.items ?? []).map((i) => i.sku).filter((s): s is string => !!s)
+          )
+        )
+      );
+      if (allSkus.length > 0) {
+        const { data: metaRows } = await withSupabaseRetry(
+          () => supabase.from('sku_metadata').select('sku, is_bike, weight_lbs').in('sku', allSkus),
+          { label: 'OrdersScreen.fetchOrders.skuMetadata' }
+        );
+        if (metaRows) {
+          const metaMap = new Map<string, { is_bike: boolean | null; weight_lbs: number | null }>();
+          (
+            metaRows as { sku: string; is_bike: boolean | null; weight_lbs: number | null }[]
+          ).forEach((r) => metaMap.set(r.sku, r));
+          mappedData = mappedData.map((o) => ({
+            ...o,
+            items: (o.items ?? []).map((item) => ({
+              ...item,
+              sku_metadata:
+                metaMap.get(item.sku ?? '') ??
+                (
+                  item as {
+                    sku_metadata?: { is_bike?: boolean | null; weight_lbs?: number | null };
+                  }
+                ).sku_metadata ??
+                null,
+            })),
+          }));
+        }
+      }
+
       setOrders(mappedData);
     } catch (err) {
       console.error('Error fetching orders:', err);
