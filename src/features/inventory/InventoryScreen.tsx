@@ -90,11 +90,6 @@ export const InventoryScreen = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
 
-  // Stock view text scale — baked at 155% per operator dial-in. Buttons inside
-  // InventoryCard counter-scale to 125% of baseline (~0.806 zoom relative to
-  // the 1.55 parent) so they don't dominate the card. See InventoryCard.
-  const STOCK_SCALE = 1.55;
-
   // Auto-load more when sentinel enters viewport (with cooldown to prevent tight loop)
   const loadCooldownRef = useRef(false);
   useEffect(() => {
@@ -732,19 +727,14 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
               const isFirstInWarehouse = index === 0 || locationBlocks[index - 1].wh !== wh;
 
               return (
-                <div key={`${wh}-${location}`} className="space-y-2 max-w-2xl mx-auto">
+                <div
+                  key={`${wh}-${location}`}
+                  className="space-y-2 max-w-7xl mx-auto px-2 sm:px-4 lg:px-6"
+                >
                   {isFirstInWarehouse && !isSearching && wh !== 'LUDLOW' && (
-                    <div
-                      className="flex items-center gap-4 pt-8 pb-2"
-                      style={
-                        viewMode === 'stock'
-                          ? ({ zoom: STOCK_SCALE } as React.CSSProperties)
-                          : undefined
-                      }
-                    >
-                      <div className="h-px flex-1 bg-subtle" />
+                    <div className="flex items-center gap-4 pt-8 pb-2">
                       <h2
-                        className="text-2xl font-black uppercase tracking-tighter text-content bg-surface px-6 py-2 rounded-full border border-subtle shadow-sm flex items-center gap-3"
+                        className="text-[11px] font-black uppercase tracking-widest text-muted flex items-center gap-2"
                         style={{ fontFamily: 'var(--font-heading)' }}
                       >
                         <Warehouse className="text-accent" size={24} />
@@ -758,14 +748,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                     className={`sticky top-[84px] bg-main/95 backdrop-blur-sm z-30 py-3 border-b border-subtle group ${isAdmin && viewMode === 'stock' && !isSearching ? 'cursor-pointer' : ''}`}
                     onClick={() => handleOpenLocationEditor(wh, location, locationId)}
                   >
-                    <div
-                      className="flex items-center gap-4 px-1"
-                      style={
-                        viewMode === 'stock'
-                          ? ({ zoom: STOCK_SCALE } as React.CSSProperties)
-                          : undefined
-                      }
-                    >
+                    <div className="flex items-center gap-4 px-1">
                       <div className="flex-1 min-w-0">
                         <CapacityBar
                           current={
@@ -781,7 +764,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
 
                       <div className="shrink-0">
                         <h3
-                          className={`text-content text-xl font-black uppercase tracking-tighter ${isAdmin && viewMode === 'stock' ? 'hover:text-accent transition-colors' : ''}`}
+                          className={`text-content text-xl sm:text-2xl font-black uppercase tracking-tighter ${isAdmin && viewMode === 'stock' ? 'hover:text-accent transition-colors' : ''}`}
                           style={{ fontFamily: 'var(--font-heading)' }}
                           title={
                             isAdmin && viewMode === 'stock' ? 'Tap to edit location' : location
@@ -793,14 +776,7 @@ Do you want to PERMANENTLY DELETE all these products so the location disappears?
                     </div>
                   </div>
 
-                  <div
-                    className="grid grid-cols-1 gap-1"
-                    style={
-                      viewMode === 'stock'
-                        ? ({ zoom: STOCK_SCALE } as React.CSSProperties)
-                        : undefined
-                    }
-                  >
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
                     {items.map((item) => {
                       const cartItem = cartItems.find(
                         (c) =>
