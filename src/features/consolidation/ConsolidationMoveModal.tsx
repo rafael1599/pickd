@@ -7,6 +7,8 @@ import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { useInventoryMutations } from '../inventory/hooks/useInventoryMutations';
 import type { InventoryItemWithMetadata } from '../../schemas/inventory.schema';
+import { feedbackService } from '../../services/feedback.service';
+import { flashSyncStatus } from '../../components/layout/SyncStatusIndicator';
 
 interface Candidate {
   inventory_id: number;
@@ -247,9 +249,11 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
         targetSublocation: sublocs,
         moveNote: 'Consolidation',
       });
-      toast.success(`Moved ${candidate.sku} → ${effectiveTarget}`);
+      feedbackService.success();
+      flashSyncStatus(`Moved ${candidate.sku} → ${effectiveTarget}`, 1800);
       onMoved(candidate.inventory_id);
     } catch (err) {
+      feedbackService.error();
       const msg = err instanceof Error ? err.message : 'Move failed';
       toast.error(msg);
     } finally {

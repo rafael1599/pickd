@@ -9,6 +9,8 @@ import AlertTriangle from 'lucide-react/dist/esm/icons/alert-triangle';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { useAddFedExReturn } from '../hooks/useFedExReturns';
 import { uploadReturnLabelPhoto } from '../services/returnPhotoUpload.service';
+import { feedbackService } from '../../../services/feedback.service';
+import { flashSyncStatus } from '../../../components/layout/SyncStatusIndicator';
 
 const FEDEX_TRACKING_RE = /^\d{12,15}$/;
 
@@ -131,9 +133,11 @@ export const IntakeBar: React.FC = () => {
         rma: rma.trim() || undefined,
         is_misship: isMisship,
       });
-      toast.success('Return added to queue');
+      feedbackService.success();
+      flashSyncStatus('Return Added', 1800);
       reset();
     } catch (err) {
+      feedbackService.error();
       const message = err instanceof Error ? err.message : 'Failed to add return';
       toast.error(message);
     } finally {
