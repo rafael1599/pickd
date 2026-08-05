@@ -497,3 +497,41 @@ body::before {
     overflow: hidden;
   }
 }
+
+/* Modern Feedback Animations (Glow & Shake) */
+@keyframes feedbackShake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-6px);
+  }
+  40%,
+  80% {
+    transform: translateX(6px);
+  }
+}
+
+.animate-shake {
+  animation: feedbackShake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes greenGlowSuccess {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    border-color: rgba(16, 185, 129, 0.9);
+  }
+  50% {
+    box-shadow: 0 0 20px 4px rgba(16, 185, 129, 0.5);
+    border-color: rgba(16, 185, 129, 1);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.animate-glow-success {
+  animation: greenGlowSuccess 0.6s ease-out both;
+}

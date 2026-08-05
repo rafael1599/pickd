@@ -5,6 +5,8 @@ import ArrowRightLeft from 'lucide-react/dist/esm/icons/arrow-right-left';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import type { DistributionItem } from '../../../schemas/inventory.schema';
 import { DistributionJengaViz } from './DistributionJengaViz';
+import { feedbackService } from '../../../services/feedback.service';
+import { flashSyncStatus } from '../../../components/layout/SyncStatusIndicator';
 
 interface InventoryCardProps {
   sku: string;
@@ -68,22 +70,26 @@ export const InventoryCard = memo(
     fedex_return_status = null,
   }: InventoryCardProps) => {
     const [flash, setFlash] = useState(false);
+    const [glow, setGlow] = useState(false);
     const prevQuantityRef = useRef(quantity);
     const [now] = useState(() => Date.now());
 
     useEffect(() => {
       if (prevQuantityRef.current !== quantity) {
-        // Only flash if the update came from a remote source
-        // Local updates (done by the user themselves) should be silent/smooth
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- glow animation requires synchronous setState
+        setGlow(true);
+        const glowTimer = setTimeout(() => setGlow(false), 600);
         if (lastUpdateSource === 'remote') {
-          // eslint-disable-next-line react-hooks/set-state-in-effect -- flash animation requires synchronous setState
           setFlash(true);
           const timer = setTimeout(() => setFlash(false), 800);
           prevQuantityRef.current = quantity;
-          return () => clearTimeout(timer);
+          return () => {
+            clearTimeout(timer);
+            clearTimeout(glowTimer);
+          };
         } else {
-          // Update the ref without flashing
           prevQuantityRef.current = quantity;
+          return () => clearTimeout(glowTimer);
         }
       }
     }, [quantity, lastUpdateSource]);
@@ -104,7 +110,7 @@ export const InventoryCard = memo(
         className={`bg-card border rounded-xl p-1.5 mb-2 flex flex-col shadow-sm transition-premium origin-center ${
           isDisabled
             ? 'opacity-50 cursor-not-allowed border-red-500/30'
-            : `border-subtle active:scale-[0.98] active:bg-main/50 cursor-pointer ${isZeroStock ? 'opacity-70 border-dashed bg-main/20' : ''} ${flash ? 'animate-flash-update scale-[1.02] border-accent/50 z-10' : ''}`
+            : `border-subtle active:scale-[0.98] active:bg-main/50 cursor-pointer ${isZeroStock ? 'opacity-70 border-dashed bg-main/20' : ''} ${glow ? 'animate-glow-success border-emerald-400 z-10' : ''} ${flash ? 'animate-flash-update scale-[1.02] border-accent/50 z-10' : ''}`
         }`}
       >
         {/* idea-126: always render — empty distribution shows a "messy pile"
@@ -266,6 +272,8 @@ export const InventoryCard = memo(
                   onClick={(e) => {
                     e.stopPropagation();
                     onDecrement();
+                    feedbackService.success();
+                    flashSyncStatus('Stock Saved', 1200);
                   }}
                   className="bg-main text-accent-red flex-1 h-9 rounded-lg flex items-center justify-center active:scale-90 transition-transform"
                   aria-label="Decrease quantity"
@@ -286,6 +294,8 @@ export const InventoryCard = memo(
                   onClick={(e) => {
                     e.stopPropagation();
                     onIncrement();
+                    feedbackService.success();
+                    flashSyncStatus('Stock Saved', 1200);
                   }}
                   className="bg-accent text-white flex-1 h-9 rounded-lg flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-accent/20"
                   aria-label="Increase quantity"

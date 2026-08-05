@@ -228,9 +228,14 @@ export const QuickCameraModal: React.FC<QuickCameraModalProps> = ({
               muted
               className="w-full h-full object-cover"
             />
-            {/* Viewfinder frame overlay */}
-            <div className="absolute inset-8 border-2 border-dashed border-white/40 rounded-2xl pointer-events-none flex items-center justify-center">
-              <span className="text-[10px] uppercase font-bold text-white/50 bg-black/40 px-3 py-1 rounded-full tracking-widest backdrop-blur-sm">
+            {/* HUD AR Viewfinder Reticle Overlay */}
+            <div className="absolute inset-8 pointer-events-none flex items-center justify-center">
+              <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-emerald-400 rounded-tl-xl shadow-sm shadow-emerald-400/50 animate-pulse" />
+              <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-emerald-400 rounded-tr-xl shadow-sm shadow-emerald-400/50 animate-pulse" />
+              <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-emerald-400 rounded-bl-xl shadow-sm shadow-emerald-400/50 animate-pulse" />
+              <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-emerald-400 rounded-br-xl shadow-sm shadow-emerald-400/50 animate-pulse" />
+
+              <span className="text-[10px] uppercase font-bold text-emerald-400 bg-black/60 px-3 py-1 rounded-full tracking-widest backdrop-blur-md border border-emerald-500/30">
                 Center carton or product
               </span>
             </div>

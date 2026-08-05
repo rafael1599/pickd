@@ -60,6 +60,42 @@ class FeedbackService {
     }
   }
 
+  /** Progress chime for picking — pitch scales higher as order completion advances */
+  progress(itemIndex: number, totalItems: number) {
+    if (itemIndex >= totalItems) {
+      this.complete();
+      return;
+    }
+    const ratio = Math.min(1, Math.max(0, itemIndex / Math.max(1, totalItems)));
+    this.vibrate(40);
+    const ctx = this.getAudioContext();
+    if (!ctx) return;
+
+    try {
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      const startFreq = 550 + ratio * 500;
+      const endFreq = startFreq + 250;
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(startFreq, now);
+      osc.frequency.exponentialRampToValueAtTime(endFreq, now + 0.09);
+
+      gain.gain.setValueAtTime(0.16, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.12);
+    } catch {
+      // Audio playback safety catch
+    }
+  }
+
   /** Error buzzer + heavy tactile 100-50-100ms vibration */
   error() {
     this.vibrate([100, 50, 100]);

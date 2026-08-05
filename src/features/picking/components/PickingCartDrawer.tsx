@@ -24,6 +24,7 @@ import { supabase } from '../../../lib/supabase';
 import type { Json } from '../../../lib/database.types';
 import toast from 'react-hot-toast';
 import { useScrollLock } from '../../../hooks/useScrollLock';
+import { feedbackService } from '../../../services/feedback.service';
 
 export const PickingCartDrawer: React.FC = () => {
   const { user } = useAuth();
@@ -432,8 +433,14 @@ export const PickingCartDrawer: React.FC = () => {
     // are exhausted.
     setCheckedItems((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      const isChecking = !next.has(key);
+      if (isChecking) {
+        next.add(key);
+        feedbackService.progress(next.size, Math.max(1, totalItems));
+      } else {
+        next.delete(key);
+        feedbackService.warning();
+      }
       return next;
     });
 
