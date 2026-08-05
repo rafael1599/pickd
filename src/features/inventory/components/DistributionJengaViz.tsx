@@ -31,6 +31,7 @@ import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from '../hooks/useInventoryRealtim
 import { useGenerateLabels } from '../../labels/hooks/useGenerateLabels';
 import { useQuickPrintLabel } from '../../labels/hooks/useQuickPrintLabel';
 import { feedbackService } from '../../../services/feedback.service';
+import { flashSyncStatus } from '../../../components/layout/SyncStatusIndicator';
 import { supabase } from '../../../lib/supabase';
 import jamisLogo from './jamis-bikes.webp';
 
@@ -209,8 +210,10 @@ function DistributionMenu({
     setOpen(false);
     if (!sku) return;
     try {
+      flashSyncStatus('Printing 1 Label...');
       await quickPrint(sku, null, location ?? null);
       feedbackService.success();
+      flashSyncStatus('Label Ready', 1500);
     } catch {
       feedbackService.error();
     }
@@ -231,6 +234,7 @@ function DistributionMenu({
     queryClient.setQueryData(INVENTORY_ROOT_KEY, updater);
     queryClient.setQueryData(PARTS_BINS_KEY, updater);
     feedbackService.success();
+    flashSyncStatus('Stock Saved', 1200);
 
     try {
       const { error } = await supabase

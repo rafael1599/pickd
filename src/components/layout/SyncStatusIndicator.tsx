@@ -8,15 +8,36 @@ import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import toast from 'react-hot-toast';
 import { queryClient } from '../../lib/query-client';
 
+const transientListeners = new Set<(msg: string | null) => void>();
+
+/**
+ * Flash a transient message in the navbar status pill (replaces floating toasts for ambient status).
+ */
+export function flashSyncStatus(message: string, durationMs = 1800) {
+  transientListeners.forEach((fn) => fn(message));
+  setTimeout(() => {
+    transientListeners.forEach((fn) => fn(null));
+  }, durationMs);
+}
+
 /**
  * SyncStatusIndicator Component
  * Provides real-time visual feedback of the offline-first sync engine.
- * Hierarchy: Error (Red) > Offline/Paused (Orange) > Syncing (Blue) > Ready (Green)
+ * Hierarchy: Error (Red) > Offline/Paused (Orange) > Transient Message (Green Glow) > Syncing (Blue) > Ready (Green)
  */
 export const SyncStatusIndicator: React.FC = () => {
   const isMutating = useIsMutating();
   const isFetching = useIsFetching();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [transientMsg, setTransientMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handler = (msg: string | null) => setTransientMsg(msg);
+    transientListeners.add(handler);
+    return () => {
+      transientListeners.delete(handler);
+    };
+  }, []);
 
   // Monitor mutations in error state
   const errorMutations = useMutationState({
@@ -111,7 +132,22 @@ export const SyncStatusIndicator: React.FC = () => {
     );
   }
 
-  // 3. BLUE STATE: Busy (Active transmit)
+  // 3. TRANSIENT ACTIVE MESSAGE: English action feedback in the navbar pill
+  if (transientMsg) {
+    return (
+      <div
+        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 shadow-sm shadow-emerald-500/10 transition-all duration-200"
+        title={transientMsg}
+      >
+        <CheckCircle2 size={16} className="text-emerald-400 animate-pulse" />
+        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+          {transientMsg}
+        </span>
+      </div>
+    );
+  }
+
+  // 4. BLUE STATE: Busy (Active transmit)
   if (isSyncing) {
     return (
       <div
@@ -124,7 +160,7 @@ export const SyncStatusIndicator: React.FC = () => {
     );
   }
 
-  // 4. GREEN STATE: Perfect (Verified)
+  // 5. GREEN STATE: Perfect (Verified)
   return (
     <div
       className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500"
