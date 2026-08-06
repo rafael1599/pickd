@@ -535,6 +535,35 @@ export function assignCandidates(
     take(target, candidate);
   }
 
+  // Pass 2: For single-block layouts, fill any remaining empty slots with the next candidates
+  if (blocks.length === 1) {
+    for (const candidate of leftovers) {
+      const assignedSkus = new Set(
+        [...assigned.values()].flatMap((list) => list.map((c) => c.sku))
+      );
+      if (assignedSkus.has(candidate.sku)) continue;
+
+      const needed = splitIntoPallets(candidate.totalQty, minUnits).pallets.length;
+      if (needed === 0) continue;
+
+      const target = blocks
+        .map((b) => b)
+        .filter(
+          (b) => cellsUsed(assigned.get(b.id) ?? [], minUnits) < blockCapacity(b).cells
+        )[0]?.id;
+
+      if (!target) continue;
+      assigned.get(target)?.push({
+        sku: candidate.sku,
+        totalQty: candidate.totalQty,
+        blockId: target,
+        currentPlacements: candidate.currentPlacements,
+        daysInactive: candidate.daysInactive,
+        ordersCompleted12m: candidate.ordersCompleted,
+      });
+    }
+  }
+
   return assigned;
 }
 
