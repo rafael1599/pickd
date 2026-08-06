@@ -251,40 +251,32 @@ export const InventoryCard = memo(
                 </div>
               </div>
 
-              <div className="flex justify-between items-center mt-1">
-                {detail && (
-                  <div className="px-1.5 py-0.5 rounded bg-main text-muted text-[9px] sm:text-xs font-bold uppercase tracking-tight border border-subtle">
-                    {detail}
-                  </div>
-                )}
-
-                {isPicking && available !== null && (
-                  <div className="flex items-center gap-2 ml-auto">
-                    {available <= 0 ? (
-                      <span className="text-[9px] sm:text-xs font-black uppercase tracking-widest text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">
-                        🚫 Fully Reserved
-                      </span>
-                    ) : (
-                      <>
-                        {hasReservations && (
-                          <span className="text-[9px] sm:text-xs font-black uppercase tracking-widest text-orange-500 bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-500/20">
-                            {reservedByOthers} Res
-                          </span>
-                        )}
-                        <span className="text-[9px] sm:text-xs font-black uppercase tracking-widest text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20">
-                          {available} Avail
+              {isPicking && available !== null && (
+                <div className="flex items-center gap-2 mt-1">
+                  {available <= 0 ? (
+                    <span className="text-[9px] sm:text-xs font-black uppercase tracking-widest text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">
+                      🚫 Fully Reserved
+                    </span>
+                  ) : (
+                    <>
+                      {hasReservations && (
+                        <span className="text-[9px] sm:text-xs font-black uppercase tracking-widest text-orange-500 bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-500/20">
+                          {reservedByOthers} Res
                         </span>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
+                      )}
+                      <span className="text-[9px] sm:text-xs font-black uppercase tracking-widest text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20">
+                        {available} Avail
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Bottom Row: Mobile Thumbnail (52px, bottom left) + Action Buttons (bottom right) */}
-            <div className="flex gap-2 items-center mt-2">
+            {/* Bottom Row: Mobile Thumbnail (52px, bottom left) + Bike Model Tag & Action Buttons (bottom right) */}
+            <div className="flex gap-2 items-end mt-1.5">
               {sku_metadata?.image_url && (
-                <div className="sm:hidden w-[52px] h-[52px] shrink-0 bg-white/5 p-1 flex items-center justify-center rounded-lg overflow-hidden border border-subtle/40">
+                <div className="sm:hidden w-[52px] h-[52px] shrink-0 bg-white/5 p-1 flex items-center justify-center rounded-lg overflow-hidden border border-subtle/40 self-end">
                   <img
                     src={
                       sku_metadata.image_url.includes('/catalog/')
@@ -305,44 +297,53 @@ export const InventoryCard = memo(
                 </div>
               )}
 
-              {mode === 'stock' && (
-                <div className="flex gap-2 flex-1">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDecrement();
-                      feedbackService.success();
-                      flashSyncStatus('Stock Saved', 1200);
-                    }}
-                    className="bg-main text-accent-red flex-1 h-9 sm:h-8 rounded-lg flex items-center justify-center active:scale-95 transition-all hover:bg-red-500/10 border border-subtle"
-                    aria-label="Decrease quantity"
-                  >
-                    <Minus size={15} strokeWidth={3} />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onMove();
-                    }}
-                    className="bg-main text-accent-blue flex-1 h-9 sm:h-8 rounded-lg flex items-center justify-center active:scale-95 transition-all hover:bg-blue-500/10 border border-subtle"
-                    aria-label="Move item"
-                  >
-                    <ArrowRightLeft size={15} strokeWidth={3} />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onIncrement();
-                      feedbackService.success();
-                      flashSyncStatus('Stock Saved', 1200);
-                    }}
-                    className="bg-accent text-white flex-1 h-9 sm:h-8 rounded-lg flex items-center justify-center active:scale-95 transition-all shadow-sm shadow-accent/20 hover:brightness-110"
-                    aria-label="Increase quantity"
-                  >
-                    <Plus size={15} strokeWidth={3} />
-                  </button>
-                </div>
-              )}
+              <div className="flex-1 flex flex-col min-w-0">
+                {/* Bike Model / Detail Tag scoped exclusively to action buttons width */}
+                {detail && (
+                  <div className="mb-1 inline-block self-start max-w-full truncate px-2 py-0.5 rounded bg-main text-muted text-[9px] sm:text-xs font-bold uppercase tracking-tight border border-subtle">
+                    {detail}
+                  </div>
+                )}
+
+                {mode === 'stock' && (
+                  <div className="flex gap-2 w-full">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDecrement();
+                        feedbackService.success();
+                        flashSyncStatus('Stock Saved', 1200);
+                      }}
+                      className="bg-main text-accent-red flex-1 h-9 sm:h-8 rounded-lg flex items-center justify-center active:scale-95 transition-all hover:bg-red-500/10 border border-subtle"
+                      aria-label="Decrease quantity"
+                    >
+                      <Minus size={15} strokeWidth={3} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMove();
+                      }}
+                      className="bg-main text-accent-blue flex-1 h-9 sm:h-8 rounded-lg flex items-center justify-center active:scale-95 transition-all hover:bg-blue-500/10 border border-subtle"
+                      aria-label="Move item"
+                    >
+                      <ArrowRightLeft size={15} strokeWidth={3} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onIncrement();
+                        feedbackService.success();
+                        flashSyncStatus('Stock Saved', 1200);
+                      }}
+                      className="bg-accent text-white flex-1 h-9 sm:h-8 rounded-lg flex items-center justify-center active:scale-95 transition-all shadow-sm shadow-accent/20 hover:brightness-110"
+                      aria-label="Increase quantity"
+                    >
+                      <Plus size={15} strokeWidth={3} />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Cart stepper: visible in picking mode when item is in cart */}
