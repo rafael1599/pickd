@@ -277,11 +277,11 @@ export function planBlock(
       const fullPalletsCount = Math.floor(candidate.totalQty / capacity);
       const sobranteUnits = candidate.totalQty % capacity;
 
-      const palletSlotsAvailable = slots.filter(
+      const freePalletSlots = slots.filter(
         (s) => s.letter !== sobranteLetter && s.usage.kind === 'empty'
       );
 
-      if (fullPalletsCount > 0 && palletSlotsAvailable.length < fullPalletsCount) {
+      if (fullPalletsCount === 0 && freePalletSlots.length === 0 && sobranteUnits === 0) {
         pullFirst.push({
           sku: candidate.sku,
           units: candidate.totalQty,
@@ -291,19 +291,22 @@ export function planBlock(
         continue;
       }
 
+      const palletsToPlace = Math.min(fullPalletsCount, freePalletSlots.length);
+      const unplacedPallets = fullPalletsCount - palletsToPlace;
+
       const assignedPallets: PalletSlot[] = [];
       const isMulti = fullPalletsCount >= 2;
 
-      for (let p = 0; p < fullPalletsCount; p++) {
-        const freeSlots = slots.filter(
+      for (let p = 0; p < palletsToPlace; p++) {
+        const currentFree = slots.filter(
           (s) => s.letter !== sobranteLetter && s.usage.kind === 'empty'
         );
-        if (freeSlots.length === 0) break;
+        if (currentFree.length === 0) break;
 
         const preferLandlocked = isMulti && assignedPallets.length > 0;
 
         const pool = (acc: Accessibility) =>
-          freeSlots
+          currentFree
             .filter((s) => s.accessibility === acc)
             .sort((a, b) => proximityRank(a, letters) - proximityRank(b, letters));
 
@@ -321,6 +324,15 @@ export function planBlock(
           anchored: false,
         };
         assignedPallets.push(target);
+      }
+
+      if (unplacedPallets > 0) {
+        pullFirst.push({
+          sku: candidate.sku,
+          units: unplacedPallets * capacity,
+          total: candidate.totalQty,
+          reason: 'no-space',
+        });
       }
 
       if (sobranteUnits > 0) {

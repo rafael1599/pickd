@@ -231,16 +231,21 @@ export function planSingleBlock(
     const sobranteUnits = candidate.totalQty % capacity;
 
     const availablePalletSlots = slots.filter(isPalletSlotEmpty);
+    const palletsToPlace = Math.max(0, Math.min(neededPallets, availablePalletSlots.length));
+    const unplacedPallets = Math.max(0, neededPallets - palletsToPlace);
 
-    if (neededPallets > 0 && availablePalletSlots.length < neededPallets) {
-      unplacedSkus.push({ sku: candidate.sku, totalQty: candidate.totalQty, reason: 'no-space' });
-      continue;
+    if (unplacedPallets > 0) {
+      unplacedSkus.push({
+        sku: candidate.sku,
+        totalQty: unplacedPallets * capacity,
+        reason: 'no-space',
+      });
     }
 
     const assignedPalletSlots: SingleBlockSlot[] = [...existingAnchors];
     const isMulti = Math.floor(candidate.totalQty / capacity) >= 2;
 
-    for (let p = 0; p < Math.max(0, neededPallets); p++) {
+    for (let p = 0; p < palletsToPlace; p++) {
       const currentAvailable = slots.filter(isPalletSlotEmpty);
       if (currentAvailable.length === 0) break;
 
