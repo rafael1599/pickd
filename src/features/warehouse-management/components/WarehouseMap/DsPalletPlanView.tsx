@@ -40,6 +40,7 @@ interface BlockPanelProps {
   /** Bumped when a SKU is skipped out of *this* block; rebuilds it once. */
   skipToken: number | null;
   rotation: number;
+  skuCapacityOverrides?: Record<string, number>;
   onSelectSku: (selection: SelectedSku) => void;
   onSkuInfo: (info: Map<string, SkuDetailInfo>) => void;
   onGoToNoMovers: () => void;
@@ -55,6 +56,7 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
   skipped,
   skipToken,
   rotation,
+  skuCapacityOverrides,
   onSelectSku,
   onSkuInfo,
   onGoToNoMovers,
@@ -125,7 +127,7 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
   // rather than real — the list is usually edited in the other tab, seconds
   // ago — so it re-reads everything first, then names the one still blocking
   // instead of sitting there disabled.
-  const handleRecalculate = async () => {
+  const handleRecalculate = async (customOverrides?: Record<string, number>) => {
     const { blocker: fresh, candidates: rows, minUnits: fitted } = await revalidate();
 
     if (fresh) {
@@ -142,6 +144,7 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
       candidates: rows,
       minUnits: fitted,
       autoFit: true,
+      skuCapacityOverrides: customOverrides ?? skuCapacityOverrides,
     });
     const placed = plan.slots.filter((s) => s.usage.kind === 'pallet').length;
     const summary = `Block ${block.id}: ${placed} pallets placed, ${plan.pullFirst.length} to Pull First`;
@@ -220,7 +223,7 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
             `shrink-0` over `ml-auto` — pinned to the right it was the first
             thing to slide under the clipped edge of the layout. */}
         <button
-          onClick={handleRecalculate}
+          onClick={() => handleRecalculate()}
           disabled={recalculate.isPending}
           className={`shrink-0 flex items-center gap-1.5 px-3 h-9 rounded-lg border shadow-sm active:scale-95 disabled:opacity-40 transition-all font-semibold text-xs tracking-wide ${
             blocker
@@ -340,6 +343,7 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
   // Which block owes a rebuild, and a token so the same block can be skipped
   // twice in a row and still fire twice.
   const [skipRebuild, setSkipRebuild] = useState<{ blockId: string; token: number } | null>(null);
+  const [skuCapacityOverrides, setSkuCapacityOverrides] = useState<Record<string, number>>({});
 
   const skipSku = React.useCallback((sku: string, blockId: string) => {
     setSkipped((prev) => new Set(prev).add(sku));
@@ -363,6 +367,16 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
       for (const [k, v] of incoming) next.set(k, v);
       return next;
     });
+  }, []);
+
+  const handleCapacityChange = React.useCallback((sku: string, newCapacity: number) => {
+    setSkuCapacityOverrides((prev) => ({ ...prev, [sku]: newCapacity }));
+    toast.success(
+      `Pallet capacity for ${sku} updated to ${newCapacity}u. Press Recalculate to apply.`,
+      {
+        duration: 5000,
+      }
+    );
   }, []);
 
   // One block per print job. Page breaks between the two never survived the
@@ -437,6 +451,7 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
                 skipped={skipped}
                 skipToken={skipRebuild?.blockId === b.id ? skipRebuild.token : null}
                 rotation={rotation}
+                skuCapacityOverrides={skuCapacityOverrides}
                 onSelectSku={setSelectedSku}
                 onSkuInfo={mergeSkuInfo}
                 onGoToNoMovers={onGoToNoMovers}
@@ -450,8 +465,10 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
           <SkuDetailPanel
             selected={selectedSku}
             info={skuInfo.get(selectedSku.sku)}
+            currentCapacity={skuCapacityOverrides[selectedSku.sku] ?? 25}
             onClose={() => setSelectedSku(null)}
             onSkip={skipSku}
+            onCapacityChange={handleCapacityChange}
           />
         )}
       </div>

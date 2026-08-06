@@ -37,16 +37,21 @@ export interface SkuDetailInfo {
 interface SkuDetailPanelProps {
   selected: SelectedSku;
   info?: SkuDetailInfo;
+  currentCapacity?: number;
   onClose: () => void;
   /** Drops the SKU from this plan and lets the next most apt take the cell. */
   onSkip?: (sku: string, blockId: string) => void;
+  /** Updates the custom pallet capacity for this SKU and triggers map recalculation. */
+  onCapacityChange?: (sku: string, newCapacity: number) => void;
 }
 
 export const SkuDetailPanel: React.FC<SkuDetailPanelProps> = ({
   selected,
   info,
+  currentCapacity,
   onClose,
   onSkip,
+  onCapacityChange,
 }) => {
   if (selected.kind === 'empty' || selected.kind === 'reserved') {
     return (
@@ -97,7 +102,16 @@ export const SkuDetailPanel: React.FC<SkuDetailPanelProps> = ({
     );
   }
 
-  return <PalletDetail selected={selected} info={info} onClose={onClose} onSkip={onSkip} />;
+  return (
+    <PalletDetail
+      selected={selected}
+      info={info}
+      currentCapacity={currentCapacity}
+      onClose={onClose}
+      onSkip={onSkip}
+      onCapacityChange={onCapacityChange}
+    />
+  );
 };
 
 /**
@@ -107,10 +121,34 @@ export const SkuDetailPanel: React.FC<SkuDetailPanelProps> = ({
  * screen. None of them redraw the map on their own: the plan is a saved
  * snapshot, so the panel says which block to recalculate.
  */
-const PalletDetail: React.FC<SkuDetailPanelProps> = ({ selected, info, onClose, onSkip }) => {
+const PalletDetail: React.FC<SkuDetailPanelProps> = ({
+  selected,
+  info,
+  currentCapacity = 25,
+  onClose,
+  onSkip,
+  onCapacityChange,
+}) => {
   const color = skuColor(selected.sku);
   // Bound to a const so the guard below narrows it inside the click handler.
   const blockId = selected.blockId;
+
+  const [capacityInput, setCapacityInput] = React.useState<string>(String(currentCapacity));
+
+  React.useEffect(() => {
+    setCapacityInput(String(currentCapacity));
+  }, [currentCapacity]);
+
+  const handleApplyCapacity = () => {
+    const val = parseInt(capacityInput, 10);
+    if (isNaN(val) || val <= 0) {
+      toast.error('Please enter a valid pallet capacity (e.g. 25)');
+      return;
+    }
+    if (onCapacityChange) {
+      onCapacityChange(selected.sku, val);
+    }
+  };
 
   const { data: listed } = useNoMovers();
   const excludeSkus = useExcludeSkus();
@@ -175,6 +213,29 @@ const PalletDetail: React.FC<SkuDetailPanelProps> = ({ selected, info, onClose, 
         <div className="flex items-center justify-between">
           <dt className="text-slate-400">Here ({selected.kind})</dt>
           <dd className="font-semibold text-slate-700">{selected.unitsHere}u</dd>
+        </div>
+        <div className="flex items-center justify-between">
+          <dt className="text-slate-400">Pallet capacity</dt>
+          <dd className="font-semibold text-slate-700 flex items-center gap-1">
+            <input
+              type="number"
+              min="1"
+              max="200"
+              value={capacityInput}
+              onChange={(e) => setCapacityInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleApplyCapacity();
+              }}
+              className="w-14 px-1.5 py-0.5 text-xs text-right font-bold border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            />
+            <span className="text-slate-500">u</span>
+            <button
+              onClick={handleApplyCapacity}
+              className="ml-1 px-2 py-0.5 text-[11px] font-bold bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors"
+            >
+              Set
+            </button>
+          </dd>
         </div>
         <div className="flex items-center justify-between">
           <dt className="text-slate-400">Total stock</dt>

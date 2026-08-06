@@ -158,24 +158,29 @@ export function useRecalculateDsPalletPlan() {
       candidates,
       minUnits,
       autoFit = true,
+      skuCapacityOverrides,
     }: {
       block: BlockConfig;
       candidates: NoMoverCandidate[];
       minUnits: number;
       autoFit?: boolean;
+      skuCapacityOverrides?: Record<string, number>;
     }): Promise<RecalculatedPlan> => {
       const fit = autoFit
         ? fitMinimum(candidates, block, minUnits)
         : { minUnits, pallets: palletsAt(candidates, minUnits), cells: 0, fills: true };
 
-      const plan = planBlock(block, candidates, { minUnits: fit.minUnits });
+      const plan = planBlock(block, candidates, {
+        minUnits: fit.minUnits,
+        skuCapacityOverrides,
+      });
 
       const { error } = await supabase.from('warehouse_overstock_plans').upsert({
         id: planId(block.id),
         block_id: block.id,
         warehouse: 'LUDLOW',
         plan_version: plan.planVersion,
-        plan_data: { slots: plan.slots, minUnits: fit.minUnits } as never,
+        plan_data: { slots: plan.slots, minUnits: fit.minUnits, skuCapacityOverrides } as never,
         pull_first: plan.pullFirst as never,
         // Carried over from the previous model; unused by the DS-Pallet planner.
         ranking_weights: {} as never,
