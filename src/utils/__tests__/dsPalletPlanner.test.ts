@@ -68,16 +68,20 @@ describe('positionLetters', () => {
 });
 
 describe('splitIntoPallets', () => {
-  it('splits 60 into two full pallets and sends the remainder to Pull First', () => {
-    expect(splitIntoPallets(60)).toEqual({ pallets: [25, 25], leftover: 10 });
+  it('splits 90 into three full pallets and sends the remainder to Pull First', () => {
+    expect(splitIntoPallets(90)).toEqual({ pallets: [30, 30, 30], leftover: 0 });
+  });
+
+  it('splits 70 into two pallets with a remainder', () => {
+    expect(splitIntoPallets(70)).toEqual({ pallets: [30, 30], leftover: 10 });
   });
 
   it('gives the remainder its own pallet when it reaches the minimum', () => {
-    expect(splitIntoPallets(45)).toEqual({ pallets: [25, 20], leftover: 0 });
+    expect(splitIntoPallets(50)).toEqual({ pallets: [30, 20], leftover: 0 });
   });
 
   it('drops a remainder below the minimum', () => {
-    expect(splitIntoPallets(38)).toEqual({ pallets: [25], leftover: 13 });
+    expect(splitIntoPallets(45)).toEqual({ pallets: [30], leftover: 15 });
   });
 
   it('sends a whole sub-minimum quantity to Pull First', () => {
@@ -85,7 +89,7 @@ describe('splitIntoPallets', () => {
   });
 
   it('leaves nothing over on exact multiples', () => {
-    expect(splitIntoPallets(50)).toEqual({ pallets: [25, 25], leftover: 0 });
+    expect(splitIntoPallets(60)).toEqual({ pallets: [30, 30], leftover: 0 });
   });
 
   it('treats the minimum itself as a valid pallet', () => {
@@ -94,7 +98,7 @@ describe('splitIntoPallets', () => {
   });
 
   it('honours a user-adjusted minimum', () => {
-    expect(splitIntoPallets(38, 10)).toEqual({ pallets: [25, 13], leftover: 0 });
+    expect(splitIntoPallets(38, 10)).toEqual({ pallets: [30], leftover: 8 });
     expect(splitIntoPallets(19, 15)).toEqual({ pallets: [19], leftover: 0 });
   });
 
@@ -151,16 +155,14 @@ describe('blockCapacity', () => {
 });
 
 describe('planBlock — acceptance criteria', () => {
-  it('places a 60-unit newcomer in two pallets and sends 10 units to Pull First', () => {
-    const candidates: NoMoverCandidate[] = [{ sku: '03-4065BL', totalQty: 60, blockId: 'A' }];
+  it('places a 90-unit newcomer in three pallets', () => {
+    const candidates: NoMoverCandidate[] = [{ sku: '03-4065BL', totalQty: 90, blockId: 'A' }];
     const plan = planBlock(BLOCK_A, candidates);
 
     const placed = pallets(plan.slots);
-    expect(placed).toHaveLength(2);
-    expect(placed.every((p) => p.sku === '03-4065BL' && p.units === 25)).toBe(true);
-    expect(plan.pullFirst).toEqual([
-      { sku: '03-4065BL', units: 10, total: 60, from: undefined, reason: 'partition-remainder' },
-    ]);
+    expect(placed).toHaveLength(3);
+    expect(placed.every((p) => p.sku === '03-4065BL' && p.units === 30)).toBe(true);
+    expect(plan.pullFirst).toEqual([]);
   });
 
   it('keeps an anchored SKU in its exact cell', () => {
@@ -177,12 +179,10 @@ describe('planBlock — acceptance criteria', () => {
     expect(slotAt(plan.slots, '32-C').usage).toEqual({
       kind: 'pallet',
       sku: '06-4638BK',
-      units: 25,
+      units: 30,
       anchored: true,
     });
-    expect(plan.pullFirst).toEqual([
-      { sku: '06-4638BK', units: 5, total: 30, from: 'ROW 32 · C', reason: 'partition-remainder' },
-    ]);
+    expect(plan.pullFirst).toEqual([]);
   });
 
   it('frees the cell of an anchored SKU that falls below the minimum', () => {
@@ -260,14 +260,14 @@ describe('planBlock — conflict rules', () => {
     const tiny: BlockConfig = { ...BLOCK_A, positionsPerRow: 2 }; // 1 usable cell per row
     const candidates: NoMoverCandidate[] = Array.from({ length: 4 }, (_, i) => ({
       sku: `SKU-${i}`,
-      totalQty: 25,
+      totalQty: 30,
       blockId: 'A',
     }));
     const plan = planBlock(tiny, candidates);
 
     expect(pallets(plan.slots)).toHaveLength(3);
     expect(plan.pullFirst).toHaveLength(1);
-    expect(plan.pullFirst[0]).toMatchObject({ units: 25, reason: 'no-space' });
+    expect(plan.pullFirst[0]).toMatchObject({ units: 30, reason: 'no-space' });
   });
 
   it('only anchors a SKU to its fullest cell when it is spread across several', () => {
@@ -286,6 +286,7 @@ describe('planBlock — conflict rules', () => {
 
     expect(slotAt(plan.slots, '31-D').usage).toMatchObject({ sku: 'SPREAD', anchored: true });
     expect(slotAt(plan.slots, '31-B').usage).toEqual({ kind: 'empty' });
+    // 50u at 30 max = 1 full pallet (30u) + 20u remainder pallet = 2 pallets
     expect(pallets(plan.slots)).toHaveLength(2);
   });
 
@@ -301,10 +302,11 @@ describe('planBlock — conflict rules', () => {
     const plan = planBlock(BLOCK_A, candidates);
 
     const placed = pallets(plan.slots);
+    // 32u at 30 max = 1 full pallet (30u) + leftover 2u to Pull First
     expect(placed).toHaveLength(1);
     expect(placed[0].anchored).toBe(false);
     expect(plan.pullFirst).toEqual([
-      { sku: '06-4516KW', units: 7, total: 32, from: 'ROW 24 · B', reason: 'partition-remainder' },
+      { sku: '06-4516KW', units: 2, total: 32, from: 'ROW 24 · B', reason: 'partition-remainder' },
     ]);
   });
 
@@ -343,7 +345,8 @@ describe('planBlock — placement priority', () => {
   });
 
   it('lets a multi-pallet SKU absorb the landlocked reserve once it has an accessible cell', () => {
-    const plan = planBlock(BLOCK_A, [{ sku: 'BULK', totalQty: 125, blockId: 'A' }]);
+    // 150u at 30 max = 5 full pallets → needs both accessible and landlocked cells.
+    const plan = planBlock(BLOCK_A, [{ sku: 'BULK', totalQty: 150, blockId: 'A' }]);
     const placed = pallets(plan.slots);
     expect(placed).toHaveLength(5);
 
@@ -392,10 +395,11 @@ describe('fitMinimum', () => {
   });
 
   it('counts full pallets that a lower minimum cannot change', () => {
-    // 100u is four full pallets whatever the minimum; only the remainder moves.
-    expect(palletsAt([{ totalQty: 100 }], 20)).toBe(4);
+    // 100u at 30 max = 3 full pallets (30+30+30) + 10 leftover below min.
+    expect(palletsAt([{ totalQty: 100 }], 20)).toBe(3);
+    // 110u = 3 full (30+30+30) + 20 leftover = 4 pallets at min=20.
     expect(palletsAt([{ totalQty: 110 }], 20)).toBe(4);
-    expect(palletsAt([{ totalQty: 110 }], 10)).toBe(5);
+    expect(palletsAt([{ totalQty: 110 }], 10)).toBe(4);
   });
 });
 
@@ -445,38 +449,37 @@ describe('assignCandidates', () => {
   });
 
   it('charges a multi-pallet SKU every cell it will occupy', () => {
-    // 100u = 4 pallets. Seven of them exactly fill the 27 cells of one block,
-    // so the eighth has to open the other.
-    const assigned = assignCandidates(pool(8, 100), [BLOCK_A, BLOCK_B], 20);
+    // 100u at 30 max = 3 pallets (30+30+30 + 10 leftover). Nine of them
+    // exactly fill the 27 cells of one block, so the tenth opens the other.
+    const assigned = assignCandidates(pool(10, 100), [BLOCK_A, BLOCK_B], 20);
 
-    expect(counts(assigned).A + counts(assigned).B).toBe(8);
-    expect(counts(assigned).A).toBeLessThanOrEqual(7);
-    expect(counts(assigned).B).toBeLessThanOrEqual(7);
+    expect(counts(assigned).A + counts(assigned).B).toBe(10);
+    expect(counts(assigned).A).toBeLessThanOrEqual(9);
+    expect(counts(assigned).B).toBeLessThanOrEqual(9);
   });
 
   it('stops once both blocks are full rather than assigning the whole warehouse', () => {
-    const assigned = assignCandidates(pool(200, 25), [BLOCK_A, BLOCK_B], 20);
+    const assigned = assignCandidates(pool(200, 30), [BLOCK_A, BLOCK_B], 20);
 
     expect(counts(assigned).A + counts(assigned).B).toBe(54);
   });
 
   it('discards a SKU that cannot fit whole rather than stranding its tail', () => {
-    // 100u is four cells, so six fill a block and leave three standing. The
-    // seventh has nowhere to go whole in either block and is dropped, instead
-    // of taking three cells and reporting its fourth pallet as "no space".
+    // 100u at 30 max = 3 cells per SKU. Nine fill a block (27 cells) exactly.
+    // The tenth has nowhere to go whole in either block and is dropped.
     const assigned = assignCandidates(pool(20, 100), [BLOCK_A, BLOCK_B], 20);
     const all = [...(assigned.get('A') ?? []), ...(assigned.get('B') ?? [])];
 
-    expect(all).toHaveLength(12);
-    expect(assigned.get('A')).toHaveLength(6);
-    expect(assigned.get('B')).toHaveLength(6);
+    expect(all).toHaveLength(18);
+    expect(assigned.get('A')).toHaveLength(9);
+    expect(assigned.get('B')).toHaveLength(9);
   });
 
   it('lets smaller candidates claim the tail the big ones could not use', () => {
-    // Six 100u SKUs per block leave three cells each. Singles must still find
-    // them, or discarding the surplus would cost the block its last cells.
+    // Nine 100u SKUs per block (3 cells each = 27 cells) leave 0 cells.
+    // Use 120u SKUs (4 pallets each) so six fill 24 cells, leaving 3 per block.
     const assigned = assignCandidates(
-      [...pool(20, 100, 'BIG'), ...pool(10, 25, 'SMALL')],
+      [...pool(20, 120, 'BIG'), ...pool(10, 30, 'SMALL')],
       [BLOCK_A, BLOCK_B],
       20
     );
@@ -525,36 +528,33 @@ describe('rankCandidates', () => {
 
   const order = (pool: ReturnType<typeof c>[]) => rankCandidates(pool, criteria).map((x) => x.sku);
 
-  it('puts the preferred band ahead of a much bigger bike outside it', () => {
-    // The whole point: 200 units that ship every week must not outrank 21 that
-    // have never shipped. Size stopped being the first question.
-    expect(order([c('BUSY', 200, 12), c('QUIET', 21, 0)])).toEqual(['QUIET', 'BUSY']);
+  it('ranks by total stock first — biggest pile wins regardless of orders', () => {
+    // A SKU with 200 units is a bigger palletisation priority than 21 units,
+    // even if the smaller one has never shipped.
+    expect(order([c('BUSY', 200, 12), c('QUIET', 21, 0)])).toEqual(['BUSY', 'QUIET']);
   });
 
-  it('ranks by order count before size inside the band', () => {
-    expect(order([c('TWO', 90, 2), c('ZERO', 25, 0), c('ONE', 60, 1)])).toEqual([
-      'ZERO',
-      'ONE',
-      'TWO',
-    ]);
+  it('uses preferred band as tiebreaker when stock is equal', () => {
+    // At equal stock the preferred bike (0 orders, ≥ minStock) wins.
+    expect(order([c('ORDERS', 50, 5), c('QUIET', 50, 0)])).toEqual(['QUIET', 'ORDERS']);
   });
 
-  it('keeps stock as the tiebreaker once orders match', () => {
+  it('ranks larger stock first even inside the preferred band', () => {
     expect(order([c('SMALL', 25, 0), c('BIG', 90, 0)])).toEqual(['BIG', 'SMALL']);
   });
 
-  it('treats an unknown order count as worse than a known one', () => {
-    // A bike we know nothing about is not a first choice; absent must never
-    // read as zero.
-    expect(order([c('UNKNOWN', 90), c('KNOWN', 25, 3)])).toEqual(['KNOWN', 'UNKNOWN']);
+  it('treats an unknown order count as worse than a known one at equal stock', () => {
+    // At equal stock, a bike with known orders is preferred over unknown.
+    expect(order([c('UNKNOWN', 90), c('KNOWN', 90, 3)])).toEqual(['KNOWN', 'UNKNOWN']);
   });
 
   it('breaks exact ties on SKU so the order never wobbles', () => {
     expect(order([c('B-SKU', 40, 1), c('A-SKU', 40, 1)])).toEqual(['A-SKU', 'B-SKU']);
   });
 
-  it('falls below the band on stock alone, however quiet the bike is', () => {
-    // 20 units is under minStock, so it leaves the band even at zero orders.
+  it('still ranks bigger stock above smaller stock even when smaller is preferred', () => {
+    // 20 units is under minStock (not preferred), but it has less stock than
+    // 21 so it ranks lower regardless.
     expect(order([c('THIN', 20, 0), c('DEEP', 21, 0)])).toEqual(['DEEP', 'THIN']);
   });
 
@@ -564,7 +564,7 @@ describe('rankCandidates', () => {
     expect(pool.map((x) => x.sku)).toEqual(['B', 'A']);
   });
 
-  it('feeds the assignment, so the quietest bikes claim cells first', () => {
+  it('feeds the assignment, so the biggest stock claims cells first', () => {
     const assigned = assignCandidates(
       [c('BUSY', 100, 40), c('QUIET', 25, 0), c('MILD', 100, 3)],
       [BLOCK_A],
@@ -572,7 +572,9 @@ describe('rankCandidates', () => {
       criteria
     );
 
-    expect(assigned.get('A')?.map((x) => x.sku)).toEqual(['QUIET', 'MILD', 'BUSY']);
+    // BUSY and MILD are both 100u so they rank first (tie broken by orders:
+    // MILD has 3, BUSY has 40, so MILD first). QUIET (25u) comes last.
+    expect(assigned.get('A')?.map((x) => x.sku)).toEqual(['MILD', 'BUSY', 'QUIET']);
   });
 });
 

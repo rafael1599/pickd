@@ -124,7 +124,7 @@ export const SkuDetailPanel: React.FC<SkuDetailPanelProps> = ({
 const PalletDetail: React.FC<SkuDetailPanelProps> = ({
   selected,
   info,
-  currentCapacity = 25,
+  currentCapacity = 30,
   onClose,
   onSkip,
   onCapacityChange,
@@ -142,7 +142,7 @@ const PalletDetail: React.FC<SkuDetailPanelProps> = ({
   const handleApplyCapacity = () => {
     const val = parseInt(capacityInput, 10);
     if (isNaN(val) || val <= 0) {
-      toast.error('Please enter a valid pallet capacity (e.g. 25)');
+      toast.error('Please enter a valid pallet capacity (e.g. 30)');
       return;
     }
     if (onCapacityChange) {

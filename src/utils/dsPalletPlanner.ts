@@ -3,11 +3,11 @@
 // Rules are documented in docs/prds/warehouse-ds-pallet-blocks.md and unified 4-row layout.
 // Pure calculation — never writes directly to `inventory`.
 
-export const DS_PALLET_MAX = 25;
+export const DS_PALLET_MAX = 30;
 export const DS_PALLET_MIN_DEFAULT = 20;
 
 /** Bumped whenever the persisted plan shape changes; older plans are discarded, not migrated (RNF-004). */
-export const PLAN_VERSION = 5;
+export const PLAN_VERSION = 6;
 
 export type Accessibility = 'accessible' | 'landlocked';
 
@@ -493,19 +493,28 @@ export function rankCandidates<T extends PoolCandidate>(
   criteria: AptitudeCriteria = APTITUDE_DEFAULTS
 ): T[] {
   return [...pool].sort((a, b) => {
+    // Primary: total inventory descending — biggest stock piles fill the block
+    // first.  The overstock block exists to organise the largest warehouse
+    // piles into pallets; a SKU with 272 units is a higher palletisation
+    // priority than one with 25 units, regardless of how many orders it has.
+    if (b.totalQty !== a.totalQty) return b.totalQty - a.totalQty;
+
+    // Secondary: preferred band wins ties among equal quantities.
     const band = Number(isPreferred(b, criteria)) - Number(isPreferred(a, criteria));
     if (band !== 0) return band;
 
+    // Tertiary: most inactive first.
     const daysA = a.daysInactive ?? 9999;
     const daysB = b.daysInactive ?? 9999;
     if (daysB !== daysA) return daysB - daysA;
 
+    // Quaternary: fewest orders first.
     const orders =
       (a.ordersCompleted ?? Number.POSITIVE_INFINITY) -
       (b.ordersCompleted ?? Number.POSITIVE_INFINITY);
     if (orders !== 0) return orders;
 
-    return b.totalQty - a.totalQty || a.sku.localeCompare(b.sku);
+    return a.sku.localeCompare(b.sku);
   });
 }
 
