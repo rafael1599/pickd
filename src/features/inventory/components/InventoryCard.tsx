@@ -145,12 +145,12 @@ export const InventoryCard = memo(
             />
           )}
 
-          <div className="flex-1 min-w-0 flex flex-col justify-between">
+          <div className="flex-1 min-w-0 flex flex-col">
             {fedex_tracking_number && (
               <a
                 href={fedex_return_id ? `/fedex-returns/${fedex_return_id}` : undefined}
                 onClick={(e) => e.stopPropagation()}
-                className={`mb-1 inline-flex items-center gap-1 self-start text-[11px] sm:text-xs font-black uppercase tracking-widest px-1.5 py-0.5 rounded border ${
+                className={`mb-1 inline-flex items-center gap-1 self-start text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border ${
                   fedex_return_status === 'resolved'
                     ? 'bg-muted/10 text-muted border-muted/20'
                     : 'bg-purple-500/15 text-purple-400 border-purple-500/30'
@@ -170,14 +170,14 @@ export const InventoryCard = memo(
                 {location && (
                   <div className="flex items-center gap-1.5">
                     <div
-                      className="text-xs sm:text-sm text-accent font-extrabold uppercase tracking-tighter"
+                      className="text-[10px] text-accent font-extrabold uppercase tracking-tighter"
                       style={{ fontFamily: 'var(--font-heading)' }}
                     >
                       {location}
                     </div>
                     {internal_note && (
                       <span
-                        className="text-[11px] sm:text-xs text-muted font-bold uppercase tracking-tight bg-white/5 px-1.5 py-0.5 rounded border border-white/5 max-w-[140px] md:max-w-none truncate"
+                        className="text-[8px] text-muted font-bold uppercase tracking-tight bg-white/5 px-1 py-0.5 rounded border border-white/5 max-w-[120px] md:max-w-none truncate"
                         title={internal_note}
                       >
                         📍 {internal_note}
@@ -187,18 +187,18 @@ export const InventoryCard = memo(
                 )}
                 <div className="flex items-center gap-2">
                   <div
-                    className={`text-base sm:text-lg lg:text-xl font-black text-content tracking-tighter leading-tight ${!is_active ? 'line-through opacity-60' : ''}`}
+                    className={`text-base font-extrabold text-content tracking-tighter leading-tight ${!is_active ? 'line-through opacity-60' : ''}`}
                     style={{ fontFamily: 'var(--font-heading)' }}
                   >
                     {sku}
                     {sku_metadata?.is_scratch_dent && sku_metadata.serial_number && (
-                      <span className="ml-1.5 text-xs sm:text-sm font-bold text-muted tracking-tight">
+                      <span className="ml-1.5 text-xs font-bold text-muted tracking-tight">
                         ({sku_metadata.serial_number})
                       </span>
                     )}
                   </div>
                   {!is_active && (
-                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-500/20">
+                    <span className="text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-500/20">
                       Del
                     </span>
                   )}
@@ -206,31 +206,36 @@ export const InventoryCard = memo(
               </div>
 
               <div className="flex flex-col items-end gap-0.5">
-                <span className="text-[10px] sm:text-xs text-muted uppercase font-bold tracking-widest leading-none">
+                <span className="text-[9px] text-muted uppercase font-bold tracking-widest leading-none">
                   Stock
                 </span>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-xl sm:text-2xl lg:text-3xl font-black text-accent tabular-nums tracking-tighter leading-none">
+                  <span className="text-xl font-black text-accent tabular-nums tracking-tighter leading-none">
                     {quantity}
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-between items-center mt-1">
+            <div className="flex justify-between items-center">
               <div className="flex items-center gap-2 flex-wrap">
                 {detail && (
                   <div className="flex items-center gap-2">
-                    <div className="px-1.5 py-0.5 rounded-[4px] bg-main text-muted text-[11px] sm:text-xs font-bold uppercase tracking-tight inline-flex items-center border border-subtle">
+                    <div className="px-1.5 py-0.5 rounded-[4px] bg-main text-muted text-[9px] font-bold uppercase tracking-tight inline-flex items-center border border-subtle">
                       {detail}
                     </div>
                   </div>
                 )}
+                {/* idea-126: distribution text rollup replaced by
+                    DistributionJengaViz strip rendered at the top of the
+                    card. */}
               </div>
 
-              {/* Sublocation pinned to a fixed spot at the right edge of the card. */}
+              {/* Sublocation pinned to a fixed spot at the right edge of the
+                  card. Letters sized to match the Stock qty number above so
+                  the spatial cue reads at the same visual weight. */}
               {sublocation && sublocation.length > 0 && (
-                <div className="ml-auto inline-flex px-2 py-0.5 rounded-[4px] bg-amber-500/10 text-amber-500 text-lg sm:text-xl lg:text-2xl font-black uppercase tracking-tighter tabular-nums leading-none border border-amber-500/20 whitespace-nowrap shrink-0">
+                <div className="ml-auto inline-flex px-2 py-0.5 rounded-[4px] bg-amber-500/10 text-amber-500 text-xl font-black uppercase tracking-tighter tabular-nums leading-none border border-amber-500/20 whitespace-nowrap shrink-0">
                   {sublocation.join(',')}
                 </div>
               )}
@@ -238,17 +243,17 @@ export const InventoryCard = memo(
               {isPicking && available !== null && (
                 <div className="flex items-center gap-2">
                   {available <= 0 ? (
-                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-widest text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">
                       🚫 Fully Reserved
                     </span>
                   ) : (
                     <>
                       {hasReservations && (
-                        <span className="text-[11px] sm:text-xs font-black uppercase tracking-widest text-orange-500 bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-500/20">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-orange-500 bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-500/20">
                           {reservedByOthers} Res
                         </span>
                       )}
-                      <span className="text-[11px] sm:text-xs font-black uppercase tracking-widest text-green-600 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-green-600 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20">
                         {available} Avail
                       </span>
                     </>
@@ -258,7 +263,11 @@ export const InventoryCard = memo(
             </div>
 
             {mode === 'stock' && (
-              <div className="flex gap-2 mt-2">
+              // Stock view bakes a 1.55 zoom on the location card so all the
+              // text reads at arm's length. The action buttons would dominate
+              // at that size — counter-scale to 1.25 effective (≈0.806 of the
+              // 1.55 parent) so they stay comfortable but not gigantic.
+              <div className="flex gap-2 mt-0.5" style={{ zoom: 0.806 } as React.CSSProperties}>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -266,20 +275,20 @@ export const InventoryCard = memo(
                     feedbackService.success();
                     flashSyncStatus('Stock Saved', 1200);
                   }}
-                  className="bg-main text-accent-red flex-1 h-10 rounded-xl flex items-center justify-center active:scale-95 transition-all hover:bg-red-500/10 border border-subtle"
+                  className="bg-main text-accent-red flex-1 h-9 rounded-lg flex items-center justify-center active:scale-90 transition-transform"
                   aria-label="Decrease quantity"
                 >
-                  <Minus size={18} strokeWidth={3} />
+                  <Minus size={16} strokeWidth={3} />
                 </button>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     onMove();
                   }}
-                  className="bg-main text-accent-blue flex-1 h-10 rounded-xl flex items-center justify-center active:scale-95 transition-all hover:bg-blue-500/10 border border-subtle"
+                  className="bg-main text-accent-blue flex-1 h-9 rounded-lg flex items-center justify-center active:scale-90 transition-transform"
                   aria-label="Move item"
                 >
-                  <ArrowRightLeft size={18} strokeWidth={3} />
+                  <ArrowRightLeft size={16} strokeWidth={3} />
                 </button>
                 <button
                   onClick={(e) => {
@@ -288,10 +297,10 @@ export const InventoryCard = memo(
                     feedbackService.success();
                     flashSyncStatus('Stock Saved', 1200);
                   }}
-                  className="bg-accent text-white flex-1 h-10 rounded-xl flex items-center justify-center active:scale-95 transition-all shadow-md shadow-accent/20 hover:brightness-110"
+                  className="bg-accent text-white flex-1 h-9 rounded-lg flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-accent/20"
                   aria-label="Increase quantity"
                 >
-                  <Plus size={18} strokeWidth={3} />
+                  <Plus size={16} strokeWidth={3} />
                 </button>
               </div>
             )}
