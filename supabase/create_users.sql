@@ -105,10 +105,22 @@ INSERT INTO auth.users (
  crypt('password123', gen_salt('bf')), now(),
  '{"provider":"email","providers":["email"]}',
  '{"full_name":"Test Staff","is_active":true}',
+ now(), now(), false, '', '', '', '', '', '', '', '', ''),
+('00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000000',
+ 'authenticated', 'authenticated', 'rafaelus1599@gmail.com',
+ crypt('1111', gen_salt('bf')), now(),
+ '{"provider":"email","providers":["email"]}',
+ '{"full_name":"Rafael Lopez","is_active":true}',
  now(), now(), false, '', '', '', '', '', '', '', '', '')
 ON CONFLICT (id) DO UPDATE SET
     encrypted_password = EXCLUDED.encrypted_password,
     email_confirmed_at = EXCLUDED.email_confirmed_at;
+
+-- También actualizar por email si ya existe con otro ID (ej. importado de prod)
+UPDATE auth.users 
+SET encrypted_password = crypt('1111', gen_salt('bf')),
+    email_confirmed_at = COALESCE(email_confirmed_at, now())
+WHERE email = 'rafaelus1599@gmail.com';
 
 -- identities (necesarias para que login funcione)
 INSERT INTO auth.identities (id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at, provider_id)
@@ -118,7 +130,10 @@ VALUES
  'email', now(), now(), now(), '00000000-0000-0000-0000-000000000001'),
 (gen_random_uuid(), '00000000-0000-0000-0000-000000000002',
  '{"sub":"00000000-0000-0000-0000-000000000002","email":"staff@test.com"}',
- 'email', now(), now(), now(), '00000000-0000-0000-0000-000000000002')
+ 'email', now(), now(), now(), '00000000-0000-0000-0000-000000000002'),
+(gen_random_uuid(), '00000000-0000-0000-0000-000000000003',
+ '{"sub":"00000000-0000-0000-0000-000000000003","email":"rafaelus1599@gmail.com"}',
+ 'email', now(), now(), now(), '00000000-0000-0000-0000-000000000003')
 ON CONFLICT DO NOTHING;
 
 -- profiles (después de auth.users por FK)
@@ -127,8 +142,12 @@ ALTER TABLE public.profiles DISABLE TRIGGER profiles_prevent_role_escalation;
 
 INSERT INTO public.profiles (id, email, full_name, role, is_active) VALUES
 ('00000000-0000-0000-0000-000000000001', 'admin@test.com', 'Test Admin', 'admin', true),
-('00000000-0000-0000-0000-000000000002', 'staff@test.com', 'Test Staff', 'staff', true)
+('00000000-0000-0000-0000-000000000002', 'staff@test.com', 'Test Staff', 'staff', true),
+('00000000-0000-0000-0000-000000000003', 'rafaelus1599@gmail.com', 'Rafael Lopez', 'admin', true)
 ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, is_active = EXCLUDED.is_active;
+
+-- Asegurar que cualquier perfil con rafaelus1599@gmail.com esté como admin y activo
+UPDATE public.profiles SET role = 'admin', is_active = true WHERE email = 'rafaelus1599@gmail.com';
 
 ALTER TABLE public.profiles ENABLE TRIGGER profiles_prevent_role_escalation;
 
