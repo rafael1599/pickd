@@ -141,27 +141,11 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
       block,
       candidates: rows,
       minUnits: fitted,
-      autoFit: false,
+      autoFit: true,
     });
     const placed = plan.slots.filter((s) => s.usage.kind === 'pallet').length;
-    const empty = plan.slots.filter((s) => s.usage.kind === 'empty').length;
-
-    // The fitted minimum has to be said out loud: it silently changes what a
-    // pallet means on the floor, and the operator has to be able to veto it.
     const summary = `Block ${block.id}: ${placed} pallets placed, ${plan.pullFirst.length} to Pull First`;
-
-    if (fitted < minUnits) {
-      toast.success(`${summary}. Minimum fitted to ${fitted}u (from ${minUnits}u).`, {
-        duration: 7000,
-      });
-    } else if (empty > 0) {
-      toast(
-        `${summary}. ${empty} cells stay empty — not enough non-mover bikes to fill the block.`,
-        { duration: 7000 }
-      );
-    } else {
-      toast.success(summary);
-    }
+    toast.success(summary);
   };
 
   // A skip rebuilds the block by itself.

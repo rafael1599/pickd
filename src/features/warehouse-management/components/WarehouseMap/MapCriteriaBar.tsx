@@ -52,7 +52,7 @@ export const MapCriteriaBar: React.FC<MapCriteriaBarProps> = ({
   // no control.
   const preview = useMemo(() => {
     const pool = (candidates ?? [])
-      .filter((c) => !c.isMover && !c.excludedReason && c.totalQty > 0)
+      .filter((c) => !c.excludedReason && c.totalQty > 0)
       .map((c) => ({
         sku: c.sku,
         totalQty: c.totalQty,
