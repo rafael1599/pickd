@@ -4,13 +4,9 @@ import { DS_PALLET_MAX } from '../../../../utils/dsPalletPlanner';
 import { skuColor } from '../../utils/skuColor';
 import type { CellSelection } from './SkuDetailPanel';
 
-// The grid transposes instead of rotating, so a cell is always drawn upright
-// and at the size it was laid out. Nothing here counter-rotates.
 interface DsPalletCellProps {
   usage: SlotUsage;
-  /** Units of this SKU stranded in Pull First, if any. */
   strandedUnits?: number;
-  /** Fixed across the grid — every cell now holds exactly one pallet. */
   heightRem: number;
   onSelectSku: (selection: CellSelection) => void;
   borderRight?: boolean;
@@ -18,8 +14,6 @@ interface DsPalletCellProps {
   dashed?: boolean;
 }
 
-// Print gets a bigger SKU code, so the cell grows to match and the taller font
-// never clips or wraps.
 const PRINT_HEIGHT_SCALE = 1.5;
 
 export const DsPalletCell: React.FC<DsPalletCellProps> = ({
@@ -57,18 +51,46 @@ export const DsPalletCell: React.FC<DsPalletCellProps> = ({
     );
   }
 
-  const { sku, units, anchored } = usage;
+  if (usage.kind === 'sobrante') {
+    const { sku, units } = usage;
+    const color = skuColor(sku);
+    return (
+      <div
+        className={`flex flex-col justify-center gap-1 px-3 py-2 print:px-2 print:py-1 border-l-4 border-amber-500 bg-amber-50/60 cursor-pointer hover:bg-amber-100/80 overflow-hidden min-h-0 ${heightClass} ${borderClass}`}
+        style={heightVars}
+        onClick={() => onSelectSku({ sku, unitsHere: units, kind: 'sobrante' })}
+        title={`${sku} — Surplus (${units}u)`}
+      >
+        <div
+          className="font-mono font-extrabold text-xs print:text-lg whitespace-nowrap overflow-hidden text-ellipsis tracking-tight leading-snug"
+          style={{ color: color.text }}
+        >
+          {sku}
+        </div>
+        <div className="flex items-center gap-1.5 text-[11px] print:text-xs text-amber-700 whitespace-nowrap font-bold leading-snug">
+          <span>{units}u</span>
+          <span className="bg-amber-200/80 text-amber-800 px-1 py-0.5 rounded text-[10px] uppercase font-bold">
+            Surplus
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  const { sku, units, capacity = DS_PALLET_MAX, anchored } = usage;
   const color = skuColor(sku);
-  const isFull = units >= DS_PALLET_MAX;
+  const isFull = units >= capacity;
 
   return (
     <div
       className={`flex flex-col justify-center gap-1 px-3 py-2 print:px-2 print:py-1 border-l-4 print:border-l-2 cursor-pointer hover:brightness-95 overflow-hidden min-h-0 ${heightClass} ${borderClass}`}
       style={{ ...heightVars, backgroundColor: color.bg, borderLeftColor: color.border }}
       onClick={() => onSelectSku({ sku, unitsHere: units, kind: 'pallet' })}
-      // Anchoring is the difference between "leave it alone" and "go move it",
-      // so it has to survive being read off a printed sheet.
-      title={anchored ? `${sku} — already in this sublocation` : `${sku} — to be placed here`}
+      title={
+        anchored
+          ? `${sku} — already in this sublocation`
+          : `${sku} — to be placed here (${capacity}u pallet)`
+      }
     >
       <div
         className="font-mono font-extrabold text-xs print:text-lg whitespace-nowrap overflow-hidden text-ellipsis tracking-tight leading-snug"
@@ -79,16 +101,14 @@ export const DsPalletCell: React.FC<DsPalletCellProps> = ({
       <div className="flex items-center gap-1.5 text-[11px] print:text-xs text-slate-500 whitespace-nowrap font-semibold leading-snug">
         <span>{units}u</span>
         <span className={isFull ? 'text-slate-500' : 'text-amber-700'}>
-          {isFull ? '● full' : '◐ partial'}
+          {isFull ? `● ${capacity}u` : `◐ ${units}/${capacity}u`}
         </span>
-        {/* Two marks that survive a photocopy: this pallet is already standing
-            here, and there is more of this SKU still outside the block. */}
         {anchored && (
           <span
             className="font-bold text-slate-600 print:text-black"
             title="Already in this block — leave it where it is"
           >
-            ✗
+            ⚓
           </span>
         )}
         {strandedUnits > 0 && (

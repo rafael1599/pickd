@@ -9,7 +9,7 @@ import { useNoMovers, useRemoveNoMovers, useSetNoMovers } from '../../hooks/useN
 export interface SelectedSku {
   sku: string;
   unitsHere: number;
-  kind: 'tower' | 'line' | 'pallet' | 'empty' | 'reserved';
+  kind: 'tower' | 'line' | 'pallet' | 'sobrante' | 'empty' | 'reserved';
   sublocationLabel?: string;
   /**
    * Which block's grid the cell belongs to — a skip has to rebuild that one.

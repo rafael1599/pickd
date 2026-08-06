@@ -1,39 +1,34 @@
-// DS-Pallet put-away planner.
+// DS-Pallet put-away planner with Unified 4-Row Support, Dynamic Per-SKU Capacity & Accessibility.
 //
-// Replaces the tower/line model of overstockPutaway.ts inside the managed
-// blocks: one sublocation now holds exactly one double-stacked pallet of a
-// single SKU, between DS_PALLET_MIN and DS_PALLET_MAX units. Anything that
-// can't form a pallet goes to Pull First and is resolved by hand on the floor.
-//
-// Rules are documented in docs/prds/warehouse-ds-pallet-blocks.md. This module
-// is pure calculation — it never writes to `inventory`.
-//
-// Two things differ structurally from the old planner:
-//   1. The number of positions per row is configuration, not a constant
-//      (RF-011b) — the floor is being re-labelled manually from ~6 double
-//      slots to ~12 individual ones, and the map has to follow without a
-//      code change.
-//   2. A SKU that already sits inside its block keeps its exact cell
-//      (RF-012). Placement only decides where the newcomers go.
+// Rules are documented in docs/prds/warehouse-ds-pallet-blocks.md and unified 4-row layout.
+// Pure calculation — never writes directly to `inventory`.
 
 export const DS_PALLET_MAX = 25;
 export const DS_PALLET_MIN_DEFAULT = 20;
 
 /** Bumped whenever the persisted plan shape changes; older plans are discarded, not migrated (RNF-004). */
-export const PLAN_VERSION = 2;
+export const PLAN_VERSION = 3;
 
 export type Accessibility = 'accessible' | 'landlocked';
 
 export interface BlockConfig {
   id: string;
   label: string;
-  /** Left-to-right, as they sit on the floor. The middle one is landlocked. */
+  /** Left-to-right, as they sit on the floor. The middle ones may be landlocked. */
   rows: string[];
-  /** RF-011b — read from configuration, never hardcoded downstream. */
   positionsPerRow: number;
-  /** RF-011c — the last position of each row is never assigned. Only inside managed blocks. */
   reserveLastPosition: boolean;
+  sobranteLetter?: string; // e.g. 'A'
 }
+
+export const UNIFIED_FOUR_ROW_BLOCK: BlockConfig = {
+  id: 'MAIN_4ROW',
+  label: 'ROW 33/32/31/30',
+  rows: ['33', '32', '31', '30'],
+  positionsPerRow: 10,
+  reserveLastPosition: false,
+  sobranteLetter: 'A',
+};
 
 export const BLOCK_A: BlockConfig = {
   id: 'A',
@@ -51,13 +46,13 @@ export const BLOCK_B: BlockConfig = {
   reserveLastPosition: true,
 };
 
-export const BLOCKS: BlockConfig[] = [BLOCK_A, BLOCK_B];
+export const BLOCKS: BlockConfig[] = [UNIFIED_FOUR_ROW_BLOCK, BLOCK_A, BLOCK_B];
 
 export type SlotUsage =
   | { kind: 'empty' }
   | { kind: 'reserved' }
-  /** `anchored` distinguishes "was already here" from "the planner put it here" (RNF-002). */
-  | { kind: 'pallet'; sku: string; units: number; anchored: boolean };
+  | { kind: 'sobrante'; sku: string; units: number }
+  | { kind: 'pallet'; sku: string; units: number; capacity?: number; anchored: boolean };
 
 export interface PalletSlot {
   id: string;
@@ -67,7 +62,6 @@ export interface PalletSlot {
   usage: SlotUsage;
 }
 
-/** Where a SKU physically sits today, used to honour its anchor. */
 export interface CurrentPlacement {
   row: string;
   letter: string;
@@ -77,10 +71,10 @@ export interface CurrentPlacement {
 export interface NoMoverCandidate {
   sku: string;
   totalQty: number;
-  /** Which block this SKU belongs to. A SKU belongs to exactly one (RF-004). */
   blockId: string;
-  /** Current physical cells. Only those inside `blockId` produce an anchor. */
   currentPlacements?: CurrentPlacement[];
+  daysInactive?: number;
+  ordersCompleted12m?: number;
 }
 
 export type PullFirstReason = 'below-min' | 'partition-remainder' | 'no-space';
@@ -88,14 +82,7 @@ export type PullFirstReason = 'below-min' | 'partition-remainder' | 'no-space';
 export interface PullFirstEntry {
   sku: string;
   units: number;
-  /**
-   * The SKU's whole stock when the plan was built. Carried on the entry rather
-   * than looked up live: the plan is read long after it was saved, often on
-   * paper, and a total fetched now would describe a different day. Absent on
-   * plans written before it was recorded.
-   */
   total?: number;
-  /** Human-readable origin, e.g. "ROW 31 · B". Absent when the SKU has no current cell. */
   from?: string;
   reason: PullFirstReason;
 }
@@ -108,11 +95,10 @@ export interface BlockPlan {
 }
 
 export interface PlannerOptions {
-  /** RF-010 — user-editable. The max is fixed: it's the pallet's physical capacity. */
   minUnits?: number;
+  skuCapacityOverrides?: Record<string, number>;
 }
 
-/** A, B, C … Z, then AA, AB … for rows longer than 26 positions. */
 export function positionLetters(count: number): string[] {
   const letters: string[] = [];
   for (let i = 0; i < count; i++) {
@@ -127,16 +113,18 @@ export function positionLetters(count: number): string[] {
   return letters;
 }
 
-/**
- * The middle row of a block is sandwiched between the other two, so only its
- * two end positions touch an aisle. Outer rows are reachable along their whole
- * length.
- */
-function accessibilityFor(
+export function accessibilityFor(
   block: BlockConfig,
   rowIndex: number,
   letterIndex: number
 ): Accessibility {
+  if (block.id === 'MAIN_4ROW' || block.rows.length === 4) {
+    const isMiddleRow = rowIndex === 1 || rowIndex === 2;
+    if (!isMiddleRow) return 'accessible';
+    const isEnd = letterIndex === 0 || letterIndex === block.positionsPerRow - 1;
+    return isEnd ? 'accessible' : 'landlocked';
+  }
+
   const isMiddleRow = rowIndex === Math.floor(block.rows.length / 2) && block.rows.length === 3;
   if (!isMiddleRow) return 'accessible';
   const isEnd = letterIndex === 0 || letterIndex === block.positionsPerRow - 1;
@@ -161,23 +149,16 @@ export function buildBlockLayout(block: BlockConfig): PalletSlot[] {
   );
 }
 
-/**
- * Splits a quantity into full pallets plus whatever can't form one (RF-008).
- *
- * The remainder is never spread across the other pallets to top them up — the
- * whole point of the model is that the stacker can trust "a pallet holds 25"
- * without counting. A remainder that reaches the minimum earns its own pallet;
- * below that it leaves the block entirely.
- */
 export function splitIntoPallets(
   qty: number,
-  minUnits: number = DS_PALLET_MIN_DEFAULT
+  minUnits: number = DS_PALLET_MIN_DEFAULT,
+  maxUnits: number = DS_PALLET_MAX
 ): { pallets: number[]; leftover: number } {
   if (!Number.isFinite(qty) || qty <= 0) return { pallets: [], leftover: 0 };
 
-  const fullPallets = Math.floor(qty / DS_PALLET_MAX);
-  const remainder = qty % DS_PALLET_MAX;
-  const pallets = Array(fullPallets).fill(DS_PALLET_MAX) as number[];
+  const fullPallets = Math.floor(qty / maxUnits);
+  const remainder = qty % maxUnits;
+  const pallets = Array(fullPallets).fill(maxUnits) as number[];
 
   if (remainder >= minUnits) {
     return { pallets: [...pallets, remainder], leftover: 0 };
@@ -193,11 +174,6 @@ function formatOrigin(row: string, letter?: string): string {
   return letter ? `ROW ${row} · ${letter}` : `ROW ${row}`;
 }
 
-/**
- * Distance from the far end of the row — 0 = last position. Closest to the end
- * wins, which is how the old planner ordered towers and matches how the block
- * is walked.
- */
 function proximityRank(slot: PalletSlot, letters: string[]): number {
   return letters.length - 1 - letters.indexOf(slot.letter);
 }
@@ -207,7 +183,8 @@ function placePallet(
   letters: string[],
   sku: string,
   units: number,
-  preferLandlocked: boolean
+  preferLandlocked: boolean,
+  capacity: number = DS_PALLET_MAX
 ): PalletSlot | null {
   const pool = (accessibility: Accessibility) =>
     slots
@@ -220,15 +197,10 @@ function placePallet(
   const target = primary[0] ?? fallback[0];
   if (!target) return null;
 
-  target.usage = { kind: 'pallet', sku, units, anchored: false };
+  target.usage = { kind: 'pallet', sku, units, capacity, anchored: false };
   return target;
 }
 
-/**
- * Placement order. Multi-pallet SKUs go first so a crowd of small ones can't
- * grab every accessible cell and leave the landlocked reserve empty — that
- * zone exists precisely to absorb the bulk of a large SKU.
- */
 export function orderForPlacement<T extends NoMoverCandidate>(
   candidates: T[],
   minUnits: number = DS_PALLET_MIN_DEFAULT
@@ -248,22 +220,10 @@ interface ResolvedAnchor {
   placement: CurrentPlacement;
 }
 
-/**
- * Decides which anchors survive (RF-012 + the conflict table in §7 of the PRD):
- *
- *   - Under the minimum → the cell is freed and the units go to Pull First.
- *     The minimum wins over the anchor; a short pallet defeats the model.
- *   - Two SKUs anchored to the same cell → the larger quantity keeps it. This
- *     is a real case: today a cell can hold several SKUs' lines, and the new
- *     model only fits one.
- *   - Anything the anchor doesn't cover is handled as a normal placement.
- */
 function resolveAnchors(
   candidates: NoMoverCandidate[],
   block: BlockConfig,
-  slots: PalletSlot[],
-  minUnits: number,
-  pullFirst: PullFirstEntry[]
+  slots: PalletSlot[]
 ): Map<string, ResolvedAnchor> {
   const byCell = new Map<string, ResolvedAnchor[]>();
 
@@ -283,25 +243,8 @@ function resolveAnchors(
 
   for (const contenders of byCell.values()) {
     const sorted = [...contenders].sort((a, b) => b.placement.units - a.placement.units);
-    const [winner, ...losers] = sorted;
+    const [winner] = sorted;
 
-    // Losers of a cell collision aren't punished — they simply lose the anchor
-    // and get placed as if they came from outside the block.
-    void losers;
-
-    if (winner.candidate.totalQty < minUnits) {
-      pullFirst.push({
-        sku: winner.candidate.sku,
-        units: winner.candidate.totalQty,
-        total: winner.candidate.totalQty,
-        from: formatOrigin(winner.slot.row, winner.slot.letter),
-        reason: 'below-min',
-      });
-      continue;
-    }
-
-    // A SKU with stock spread over several cells only keeps one anchor: the
-    // fullest. The rest of its units are placed normally.
     const existing = winners.get(winner.candidate.sku);
     if (existing && existing.placement.units >= winner.placement.units) continue;
     if (existing) winners.delete(existing.slot.id);
@@ -312,23 +255,102 @@ function resolveAnchors(
   return winners;
 }
 
-/**
- * @param candidates No-movers assigned to this block. Callers should pass them
- * already filtered — this function does not decide who is a no-mover.
- */
 export function planBlock(
   block: BlockConfig,
   candidates: NoMoverCandidate[],
   options: PlannerOptions = {}
 ): BlockPlan {
   const minUnits = options.minUnits ?? DS_PALLET_MIN_DEFAULT;
+  const overrides = options.skuCapacityOverrides ?? {};
   const letters = positionLetters(block.positionsPerRow);
   const slots = buildBlockLayout(block);
   const pullFirst: PullFirstEntry[] = [];
 
   const mine = candidates.filter((c) => c.blockId === block.id);
 
-  // A SKU under the minimum never occupies a cell, anchored or not (RF-009).
+  // If block uses designated sobranteLetter (e.g. 'A' in UNIFIED_FOUR_ROW_BLOCK)
+  const sobranteLetter = block.sobranteLetter;
+
+  if (sobranteLetter) {
+    for (const candidate of mine) {
+      const capacity = overrides[candidate.sku] ?? DS_PALLET_MAX;
+      const fullPalletsCount = Math.floor(candidate.totalQty / capacity);
+      const sobranteUnits = candidate.totalQty % capacity;
+
+      const palletSlotsAvailable = slots.filter(
+        (s) => s.letter !== sobranteLetter && s.usage.kind === 'empty'
+      );
+
+      if (fullPalletsCount > 0 && palletSlotsAvailable.length < fullPalletsCount) {
+        pullFirst.push({
+          sku: candidate.sku,
+          units: candidate.totalQty,
+          total: candidate.totalQty,
+          reason: 'no-space',
+        });
+        continue;
+      }
+
+      const assignedPallets: PalletSlot[] = [];
+      const isMulti = fullPalletsCount >= 2;
+
+      for (let p = 0; p < fullPalletsCount; p++) {
+        const freeSlots = slots.filter(
+          (s) => s.letter !== sobranteLetter && s.usage.kind === 'empty'
+        );
+        if (freeSlots.length === 0) break;
+
+        const preferLandlocked = isMulti && assignedPallets.length > 0;
+
+        const pool = (acc: Accessibility) =>
+          freeSlots
+            .filter((s) => s.accessibility === acc)
+            .sort((a, b) => proximityRank(a, letters) - proximityRank(b, letters));
+
+        const primary = pool(preferLandlocked ? 'landlocked' : 'accessible');
+        const fallback = pool(preferLandlocked ? 'accessible' : 'landlocked');
+
+        const target = primary[0] ?? fallback[0];
+        if (!target) break;
+
+        target.usage = {
+          kind: 'pallet',
+          sku: candidate.sku,
+          units: capacity,
+          capacity,
+          anchored: false,
+        };
+        assignedPallets.push(target);
+      }
+
+      if (sobranteUnits > 0) {
+        const preferredRow = assignedPallets[0]?.row;
+        const freeSobranteSlots = slots.filter(
+          (s) => s.letter === sobranteLetter && s.usage.kind === 'empty'
+        );
+
+        const targetSobrante =
+          freeSobranteSlots.find((s) => s.row === preferredRow) ?? freeSobranteSlots[0];
+        if (targetSobrante) {
+          targetSobrante.usage = {
+            kind: 'sobrante',
+            sku: candidate.sku,
+            units: sobranteUnits,
+          };
+        } else {
+          pullFirst.push({
+            sku: candidate.sku,
+            units: sobranteUnits,
+            total: candidate.totalQty,
+            reason: 'partition-remainder',
+          });
+        }
+      }
+    }
+    return { planVersion: PLAN_VERSION, blockId: block.id, slots, pullFirst };
+  }
+
+  // Classic Block Placement for BLOCK_A / BLOCK_B
   const eligible: NoMoverCandidate[] = [];
   for (const candidate of mine) {
     if (candidate.totalQty < minUnits) {
@@ -345,9 +367,8 @@ export function planBlock(
     eligible.push(candidate);
   }
 
-  const anchors = resolveAnchors(eligible, block, slots, minUnits, pullFirst);
+  const anchors = resolveAnchors(eligible, block, slots);
 
-  // Anchored pallets are written first so placement can't steal their cells.
   const remainingUnits = new Map<string, number>();
   for (const candidate of eligible) {
     const anchor = anchors.get(candidate.sku);
@@ -398,42 +419,30 @@ export function planBlock(
   return { planVersion: PLAN_VERSION, blockId: block.id, slots, pullFirst };
 }
 
-/** Total units a block can hold given its configuration — `3n − 3` cells when the last position is reserved. */
 export function blockCapacity(block: BlockConfig): { cells: number; units: number } {
-  const perRow = block.positionsPerRow - (block.reserveLastPosition ? 1 : 0);
+  const reserved = block.reserveLastPosition ? 1 : 0;
+  const sobrante = block.sobranteLetter ? 1 : 0;
+  const perRow = block.positionsPerRow - reserved - sobrante;
   const cells = perRow * block.rows.length;
   return { cells, units: cells * DS_PALLET_MAX };
 }
 
-/** A bike offered to the blocks, before it belongs to either of them. */
 export interface PoolCandidate {
   sku: string;
   totalQty: number;
-  /** Orders in the last 12 months. Absent counts as unknown, never as zero. */
   ordersCompleted?: number;
-  /** Where its units sit today. A cell inside a block both anchors and assigns it. */
   currentPlacements?: CurrentPlacement[];
-  /** Set when someone put this SKU on a block's list by hand; that decision wins. */
   pinnedBlockId?: string;
+  daysInactive?: number;
 }
 
-/**
- * How apt a candidate is, expressed as the band the operator prefers.
- *
- * These are ranking inputs, not gates. Measured against production, "0 orders
- * and >= 21 units" describes five bikes for 54 cells — as a filter it empties
- * the blocks. Inside the band goes first; outside still gets placed.
- */
 export interface AptitudeCriteria {
-  /** Orders at or below which a bike is preferred. */
   maxOrders: number;
-  /** Units at or above which a bike is preferred. Not a floor. */
   minStock: number;
 }
 
 export const APTITUDE_DEFAULTS: AptitudeCriteria = { maxOrders: 0, minStock: 21 };
 
-/** Inside the preferred band: quiet enough and deep enough to be a first choice. */
 function isPreferred(c: PoolCandidate, criteria: AptitudeCriteria): boolean {
   return (
     (c.ordersCompleted ?? Number.POSITIVE_INFINITY) <= criteria.maxOrders &&
@@ -441,13 +450,6 @@ function isPreferred(c: PoolCandidate, criteria: AptitudeCriteria): boolean {
   );
 }
 
-/**
- * Merit order: the band first, then the quietest, then the deepest stock.
- *
- * Ties break on SKU so the result never depends on which block was
- * recalculated, and an unknown order count sorts last rather than passing for
- * zero — a bike we know nothing about is not a first choice.
- */
 export function rankCandidates<T extends PoolCandidate>(
   pool: T[],
   criteria: AptitudeCriteria = APTITUDE_DEFAULTS
@@ -455,6 +457,10 @@ export function rankCandidates<T extends PoolCandidate>(
   return [...pool].sort((a, b) => {
     const band = Number(isPreferred(b, criteria)) - Number(isPreferred(a, criteria));
     if (band !== 0) return band;
+
+    const daysA = a.daysInactive ?? 9999;
+    const daysB = b.daysInactive ?? 9999;
+    if (daysB !== daysA) return daysB - daysA;
 
     const orders =
       (a.ordersCompleted ?? Number.POSITIVE_INFINITY) -
@@ -465,19 +471,6 @@ export function rankCandidates<T extends PoolCandidate>(
   });
 }
 
-/**
- * Hands every candidate to a block, filling both to capacity.
- *
- * The blocks are meant to end up full: an empty sublocation is wasted floor,
- * and curating two lists by hand to achieve that is work nobody should do. So
- * assignment is automatic, and only two things override it — a SKU pinned to a
- * block by hand, and a SKU already standing in a block's rows, which keeps its
- * cell (RF-012).
- *
- * The rest goes in merit order (see rankCandidates), each to whichever block
- * has the most cells still to fill. Ranking decides who gets offered a cell
- * first; capacity still decides whether they fit.
- */
 export function assignCandidates(
   pool: PoolCandidate[],
   blocks: BlockConfig[],
@@ -498,6 +491,8 @@ export function assignCandidates(
       totalQty: candidate.totalQty,
       blockId,
       currentPlacements: candidate.currentPlacements,
+      daysInactive: candidate.daysInactive,
+      ordersCompleted12m: candidate.ordersCompleted,
     });
     const cells = splitIntoPallets(candidate.totalQty, minUnits).pallets.length;
     remaining.set(blockId, (remaining.get(blockId) ?? 0) - cells);
@@ -515,13 +510,6 @@ export function assignCandidates(
     else leftovers.push(candidate);
   }
 
-  // Then fill, always feeding the emptiest block so neither is left short.
-  //
-  // A candidate is taken whole or not at all. Handing a SKU fewer cells than
-  // its pallets need strands the rest as "no space" — a Pull First row for
-  // stock that never had anywhere to go, which is noise, not a trip. The
-  // surplus is simply discarded, and a smaller candidate can still claim the
-  // tail the big one could not use, so the block still ends up full.
   for (const candidate of leftovers) {
     const needed = splitIntoPallets(candidate.totalQty, minUnits).pallets.length;
     if (needed === 0) continue;
@@ -538,7 +526,6 @@ export function assignCandidates(
   return assigned;
 }
 
-/** Cells a block's assignment actually claims. */
 function cellsUsed(assigned: NoMoverCandidate[], minUnits: number): number {
   return assigned.reduce(
     (sum, c) => sum + splitIntoPallets(c.totalQty, minUnits).pallets.length,
@@ -549,22 +536,9 @@ function cellsUsed(assigned: NoMoverCandidate[], minUnits: number): number {
 export interface FilledAssignment {
   byBlock: Map<string, NoMoverCandidate[]>;
   minUnits: number;
-  /** False when no minimum down to 1 fills every block. */
   fills: boolean;
 }
 
-/**
- * Assigns at the highest minimum that actually fills the blocks.
- *
- * fitMinimum answers a weaker question: whether enough pallets *exist*. It
- * cannot see whether they pack. Since a candidate is taken whole or not at all,
- * a pool with 54 pallets can still leave cells standing — the tail needs three
- * cells and two are free. Ranking made that visible: with merit order the big
- * multi-pallet SKUs no longer happen to go first and tidy the packing up.
- *
- * So the fit is verified against the assignment itself, stepping the minimum
- * down only as far as it takes to leave nothing empty.
- */
 export function assignToFill(
   pool: PoolCandidate[],
   blocks: BlockConfig[],
@@ -579,8 +553,6 @@ export function assignToFill(
     if (full(byBlock, min)) return { byBlock, minUnits: min, fills: true };
   }
 
-  // Nothing fills: keep the preferred minimum so the shortfall stays visible
-  // rather than being buried under one-unit pallets.
   return {
     byBlock: assignCandidates(pool, blocks, preferredMin, criteria),
     minUnits: preferredMin,
@@ -588,7 +560,6 @@ export function assignToFill(
   };
 }
 
-/** How many pallets a set of candidates yields at a given minimum. */
 export function palletsAt(candidates: { totalQty: number }[], minUnits: number): number {
   return candidates.reduce(
     (sum, c) => sum + splitIntoPallets(c.totalQty, minUnits).pallets.length,
@@ -597,35 +568,17 @@ export function palletsAt(candidates: { totalQty: number }[], minUnits: number):
 }
 
 export interface MinimumFit {
-  /** The minimum to plan with. */
   minUnits: number;
-  /** Pallets it yields. Below `cells` when even a minimum of 1 cannot fill the block. */
   pallets: number;
   cells: number;
-  /** False when the candidate list cannot fill the block at any minimum. */
   fills: boolean;
 }
 
-/**
- * The largest minimum that still fills every assignable cell.
- *
- * Lowering the minimum only ever adds pallets — it lets a remainder that would
- * have gone to Pull First claim a cell of its own — so the fullest possible
- * pallets come from the *highest* minimum that still reaches capacity, not the
- * lowest. Going lower than that trades units per pallet for nothing.
- *
- * When no minimum fills the block the preferred one is returned untouched:
- * a half-empty block is a signal to widen the list, and quietly planning
- * three-unit pallets would hide it.
- */
 export function fitMinimum(
   candidates: { totalQty: number }[],
   blocks: BlockConfig | BlockConfig[],
   preferred: number = DS_PALLET_MIN_DEFAULT
 ): MinimumFit {
-  // Fitting is global when both blocks are filled from one pool: lowering the
-  // minimum for A while B stays short would leave the floor half empty and
-  // call it a fit.
   const cells = (Array.isArray(blocks) ? blocks : [blocks]).reduce(
     (sum, b) => sum + blockCapacity(b).cells,
     0
