@@ -518,7 +518,9 @@ export function assignCandidates(
   for (const candidate of ordered) {
     const home =
       candidate.pinnedBlockId ??
-      candidate.currentPlacements?.map((p) => rowOwner.get(p.row)).find(Boolean);
+      (blocks.length > 1
+        ? candidate.currentPlacements?.map((p) => rowOwner.get(p.row)).find(Boolean)
+        : undefined);
 
     if (home && assigned.has(home)) take(home, candidate);
     else leftovers.push(candidate);
