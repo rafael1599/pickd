@@ -48,9 +48,9 @@ export const PullFirstPanel: React.FC<PullFirstPanelProps> = ({ blockId, entries
       {/* Always rendered so it prints, whatever the fold is doing on screen. */}
       <div className={`px-3 pb-3 print:block print:px-2 print:pb-2 ${open ? 'block' : 'hidden'}`}>
         <ul className="rounded-lg border border-white/70 bg-white divide-y divide-amber-100 print:border-gray-300">
-          {sorted.map((entry) => (
+          {sorted.map((entry, index) => (
             <li
-              key={`${entry.sku}-${entry.reason}`}
+              key={`${entry.sku}-${entry.reason}-${index}`}
               className="flex items-center gap-3 px-3 py-1.5 text-xs print:py-0.5 print:break-inside-avoid"
             >
               <span className="font-mono font-bold text-slate-800 w-28 shrink-0">{entry.sku}</span>

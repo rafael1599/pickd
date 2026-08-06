@@ -396,12 +396,6 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
         });
         return next;
       });
-      toast.success(
-        `Pallet capacity for ${sku} updated to ${newCapacity}u. Press Recalculate to apply.`,
-        {
-          duration: 5000,
-        }
-      );
     },
     [selectedSku]
   );
