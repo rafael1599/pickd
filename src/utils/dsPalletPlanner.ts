@@ -46,7 +46,7 @@ export const BLOCK_B: BlockConfig = {
   reserveLastPosition: true,
 };
 
-export const BLOCKS: BlockConfig[] = [UNIFIED_FOUR_ROW_BLOCK, BLOCK_A, BLOCK_B];
+export const BLOCKS: BlockConfig[] = [UNIFIED_FOUR_ROW_BLOCK];
 
 export type SlotUsage =
   | { kind: 'empty' }
