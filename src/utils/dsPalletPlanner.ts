@@ -7,7 +7,7 @@ export const DS_PALLET_MAX = 25;
 export const DS_PALLET_MIN_DEFAULT = 20;
 
 /** Bumped whenever the persisted plan shape changes; older plans are discarded, not migrated (RNF-004). */
-export const PLAN_VERSION = 3;
+export const PLAN_VERSION = 5;
 
 export type Accessibility = 'accessible' | 'landlocked';
 
