@@ -11,6 +11,7 @@ import { type Location } from '../../../schemas/location.schema';
 import { type InventoryLogInput } from '../../../schemas/log.schema';
 import { type Database } from '../../../integrations/supabase/types';
 import { type z } from 'zod';
+import { sanitizeItemName } from '../../../utils/sanitizeItemName';
 
 /** DB-level Update type for the inventory table */
 type InventoryUpdate = Database['public']['Tables']['inventory']['Update'];
@@ -276,10 +277,11 @@ class InventoryService extends BaseService<
       // Concatenated Description Merge: Join with ' | ' if both exist
       const incomingNote = validatedInput.item_name?.trim();
       const existingNote = existingItem.item_name?.trim();
-      const updatedNote =
+      const updatedNote = sanitizeItemName(
         incomingNote && existingNote && incomingNote !== existingNote
           ? `${existingNote} | ${incomingNote}`
-          : incomingNote || existingNote;
+          : incomingNote || existingNote
+      );
 
       if (!existingItem.id || isNaN(Number(existingItem.id))) {
         console.error('Critical Error: Invalid ID on existing item during merge', { existingItem });
@@ -477,10 +479,11 @@ class InventoryService extends BaseService<
         // Concatenated Description Merge: Join with ' | ' if both exist
         const incomingNote = validatedInput.item_name?.trim();
         const existingNote = targetItem.item_name?.trim();
-        const updatedNote =
+        const updatedNote = sanitizeItemName(
           incomingNote && existingNote && incomingNote !== existingNote
             ? `${existingNote} | ${incomingNote}`
-            : incomingNote || existingNote;
+            : incomingNote || existingNote
+        );
 
         if (!targetItem.id || isNaN(Number(targetItem.id))) {
           console.error('Critical Error: Invalid Target ID during collision merge', { targetItem });

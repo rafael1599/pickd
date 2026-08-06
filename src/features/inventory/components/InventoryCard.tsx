@@ -8,6 +8,7 @@ import type { DistributionItem } from '../../../schemas/inventory.schema';
 import { DistributionJengaViz } from './DistributionJengaViz';
 import { feedbackService } from '../../../services/feedback.service';
 import { flashSyncStatus } from '../../../components/layout/SyncStatusIndicator';
+import { sanitizeItemName } from '../../../utils/sanitizeItemName';
 
 interface InventoryCardProps {
   sku: string;
@@ -299,11 +300,14 @@ export const InventoryCard = memo(
 
               <div className="flex-1 flex flex-col min-w-0">
                 {/* Bike Model / Detail Tag scoped exclusively to action buttons width */}
-                {detail && (
-                  <div className="mb-1 inline-block self-start max-w-full truncate px-2 py-0.5 rounded bg-main text-muted text-[9px] sm:text-xs font-bold uppercase tracking-tight border border-subtle">
-                    {detail}
-                  </div>
-                )}
+                {(() => {
+                  const cleanDetail = sanitizeItemName(detail);
+                  return cleanDetail ? (
+                    <div className="mb-1 inline-block self-start max-w-full truncate px-2 py-0.5 rounded bg-main text-muted text-[9px] sm:text-xs font-bold uppercase tracking-tight border border-subtle">
+                      {cleanDetail}
+                    </div>
+                  ) : null;
+                })()}
 
                 {mode === 'stock' && (
                   <div className="flex gap-2 w-full">
