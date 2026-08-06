@@ -39,6 +39,8 @@ interface BlockPanelProps {
   skipped: ReadonlySet<string>;
   /** Bumped when a SKU is skipped out of *this* block; rebuilds it once. */
   skipToken: number | null;
+  /** Bumped when pallet capacity is updated for a SKU; rebuilds it instantly. */
+  capacityToken: { token: number; overrides: Record<string, number> } | null;
   rotation: number;
   skuCapacityOverrides?: Record<string, number>;
   onSelectSku: (selection: SelectedSku) => void;
@@ -55,6 +57,7 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
   criteria,
   skipped,
   skipToken,
+  capacityToken,
   rotation,
   skuCapacityOverrides,
   onSelectSku,
@@ -172,6 +175,13 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
     firedToken.current = skipToken;
     void latestRecalculate.current();
   }, [skipToken]);
+
+  const firedCapacityToken = React.useRef<number | null>(null);
+  React.useEffect(() => {
+    if (capacityToken === null || capacityToken.token === firedCapacityToken.current) return;
+    firedCapacityToken.current = capacityToken.token;
+    void latestRecalculate.current(capacityToken.overrides);
+  }, [capacityToken]);
 
   // The cell knows its position, not its block — that is this panel's to add.
   const handleSelectSku = React.useCallback(
@@ -344,6 +354,11 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
   // twice in a row and still fire twice.
   const [skipRebuild, setSkipRebuild] = useState<{ blockId: string; token: number } | null>(null);
   const [skuCapacityOverrides, setSkuCapacityOverrides] = useState<Record<string, number>>({});
+  const [capacityToken, setCapacityToken] = useState<{
+    blockId: string;
+    token: number;
+    overrides: Record<string, number>;
+  } | null>(null);
 
   const skipSku = React.useCallback((sku: string, blockId: string) => {
     setSkipped((prev) => new Set(prev).add(sku));
@@ -369,15 +384,27 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
     });
   }, []);
 
-  const handleCapacityChange = React.useCallback((sku: string, newCapacity: number) => {
-    setSkuCapacityOverrides((prev) => ({ ...prev, [sku]: newCapacity }));
-    toast.success(
-      `Pallet capacity for ${sku} updated to ${newCapacity}u. Press Recalculate to apply.`,
-      {
-        duration: 5000,
-      }
-    );
-  }, []);
+  const handleCapacityChange = React.useCallback(
+    (sku: string, newCapacity: number) => {
+      setSkuCapacityOverrides((prev) => {
+        const next = { ...prev, [sku]: newCapacity };
+        const blockId = selectedSku?.blockId ?? 'MAIN_4ROW';
+        setCapacityToken({
+          blockId,
+          token: Date.now(),
+          overrides: next,
+        });
+        return next;
+      });
+      toast.success(
+        `Pallet capacity for ${sku} updated to ${newCapacity}u. Press Recalculate to apply.`,
+        {
+          duration: 5000,
+        }
+      );
+    },
+    [selectedSku]
+  );
 
   // One block per print job. Page breaks between the two never survived the
   // scrolling ancestors — a scroll container is not fragmented, so every
@@ -450,6 +477,7 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
                 criteria={criteria}
                 skipped={skipped}
                 skipToken={skipRebuild?.blockId === b.id ? skipRebuild.token : null}
+                capacityToken={capacityToken?.blockId === b.id ? capacityToken : null}
                 rotation={rotation}
                 skuCapacityOverrides={skuCapacityOverrides}
                 onSelectSku={setSelectedSku}

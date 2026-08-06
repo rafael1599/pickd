@@ -199,18 +199,27 @@ function placePallet(
   const target = primary[0] ?? fallback[0];
   if (!target) return null;
 
-  target.usage = { kind: 'pallet', sku, units, capacity, anchored: false };
+  const usage: Extract<PalletSlot['usage'], { kind: 'pallet' }> = {
+    kind: 'pallet',
+    sku,
+    units,
+    anchored: false,
+  };
+  if (capacity !== DS_PALLET_MAX) usage.capacity = capacity;
+  target.usage = usage;
   return target;
 }
 
 export function orderForPlacement<T extends NoMoverCandidate>(
   candidates: T[],
-  minUnits: number = DS_PALLET_MIN_DEFAULT
+  minUnits: number = DS_PALLET_MIN_DEFAULT,
+  overrides: Record<string, number> = {}
 ): T[] {
   const multi: T[] = [];
   const rest: T[] = [];
   for (const c of candidates) {
-    const { pallets } = splitIntoPallets(c.totalQty, minUnits);
+    const cap = overrides[c.sku] ?? DS_PALLET_MAX;
+    const { pallets } = splitIntoPallets(c.totalQty, minUnits, cap);
     (pallets.length >= 2 ? multi : rest).push(c);
   }
   return [...multi, ...rest];
@@ -391,27 +400,36 @@ export function planBlock(
 
   const remainingUnits = new Map<string, number>();
   for (const candidate of eligible) {
+    const cap = overrides[candidate.sku] ?? DS_PALLET_MAX;
     const anchor = anchors.get(candidate.sku);
     if (!anchor) {
       remainingUnits.set(candidate.sku, candidate.totalQty);
       continue;
     }
-    const units = Math.min(candidate.totalQty, DS_PALLET_MAX);
-    anchor.slot.usage = { kind: 'pallet', sku: candidate.sku, units, anchored: true };
+    const units = Math.min(candidate.totalQty, cap);
+    const usage: Extract<PalletSlot['usage'], { kind: 'pallet' }> = {
+      kind: 'pallet',
+      sku: candidate.sku,
+      units,
+      anchored: true,
+    };
+    if (cap !== DS_PALLET_MAX) usage.capacity = cap;
+    anchor.slot.usage = usage;
     remainingUnits.set(candidate.sku, candidate.totalQty - units);
   }
 
-  for (const candidate of orderForPlacement(eligible, minUnits)) {
+  for (const candidate of orderForPlacement(eligible, minUnits, overrides)) {
+    const cap = overrides[candidate.sku] ?? DS_PALLET_MAX;
     const left = remainingUnits.get(candidate.sku) ?? 0;
     if (left <= 0) continue;
 
-    const { pallets, leftover } = splitIntoPallets(left, minUnits);
+    const { pallets, leftover } = splitIntoPallets(left, minUnits, cap);
     const origin = (candidate.currentPlacements ?? [])[0];
     const from = origin ? formatOrigin(origin.row, origin.letter) : undefined;
 
     let hasAccessible = anchors.has(candidate.sku);
     for (const units of pallets) {
-      const placed = placePallet(slots, letters, candidate.sku, units, hasAccessible);
+      const placed = placePallet(slots, letters, candidate.sku, units, hasAccessible, cap);
       if (!placed) {
         pullFirst.push({
           sku: candidate.sku,
