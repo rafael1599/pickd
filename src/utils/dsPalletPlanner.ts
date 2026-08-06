@@ -267,12 +267,14 @@ export function planBlock(
   const pullFirst: PullFirstEntry[] = [];
 
   const mine = candidates.filter((c) => c.blockId === block.id);
+  const extraPool = candidates.filter((c) => c.blockId !== block.id);
+  const orderedCandidates = [...mine, ...extraPool];
 
   // If block uses designated sobranteLetter (e.g. 'A' in UNIFIED_FOUR_ROW_BLOCK)
   const sobranteLetter = block.sobranteLetter;
 
   if (sobranteLetter) {
-    for (const candidate of mine) {
+    for (const candidate of orderedCandidates) {
       const capacity = overrides[candidate.sku] ?? DS_PALLET_MAX;
       const fullPalletsCount = Math.floor(candidate.totalQty / capacity);
       const sobranteUnits = candidate.totalQty % capacity;
