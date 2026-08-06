@@ -126,10 +126,10 @@ export const InventoryCard = memo(
           />
         </div>
 
-        <div className="flex gap-2 sm:gap-3 flex-col sm:flex-row items-stretch sm:min-h-[120px]">
+        <div className="flex gap-2 sm:gap-3 flex-row items-stretch sm:min-h-[120px]">
           {/* Left Column: Compact thumbnail on mobile, full-height tile on desktop */}
           {sku_metadata?.image_url ? (
-            <div className="w-[70px] h-[70px] sm:w-36 sm:h-auto shrink-0 bg-white/5 sm:border-r border-subtle/50 p-1 sm:p-3 flex items-center justify-center rounded-lg sm:rounded-none sm:rounded-l-xl self-start sm:self-stretch overflow-hidden">
+            <div className="w-[70px] h-[70px] sm:w-36 sm:h-auto shrink-0 bg-white/5 sm:border-r border-subtle/50 p-1 sm:p-3 flex items-center justify-center rounded-lg sm:rounded-none sm:rounded-l-xl self-center sm:self-stretch overflow-hidden">
               <img
                 src={
                   sku_metadata.image_url.includes('/catalog/')
