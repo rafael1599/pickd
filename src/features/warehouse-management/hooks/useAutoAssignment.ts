@@ -56,15 +56,21 @@ export function buildAssignment(
   const pinned = new Map((listed ?? []).map((n) => [n.sku, n.block_id]));
 
   const pool: PoolCandidate[] = (candidates ?? [])
-    // A mover is never a candidate, and an excluded bike never enters a block
-    // whatever its stock says. A skipped one is out of this plan only.
-    .filter((c) => !c.isMover && !c.excludedReason && c.totalQty > 0 && !skipped.has(c.sku))
+    // Excluded bikes and 0-qty bikes never enter a block.
+    // Ranked by inactivity so slowest movers fill the block first.
+    .filter((c) => !c.excludedReason && c.totalQty > 0 && !skipped.has(c.sku))
     .map((c) => ({
       sku: c.sku,
       totalQty: c.totalQty,
       ordersCompleted: c.ordersCompleted,
       currentPlacements: placementOf(c),
       pinnedBlockId: pinned.get(c.sku),
+      daysInactive: c.lastShipped
+        ? Math.max(
+            0,
+            Math.floor((Date.now() - new Date(c.lastShipped).getTime()) / (1000 * 60 * 60 * 24))
+          )
+        : 9999,
     }));
 
   // fitMinimum only proves the pallets exist; assignToFill proves they pack.
