@@ -367,8 +367,9 @@ export function planBlock(
   }
 
   // Classic Block Placement for BLOCK_A / BLOCK_B
+  const poolToUse = block.id === 'MAIN_4ROW' ? [...mine, ...extraPool] : mine;
   const eligible: NoMoverCandidate[] = [];
-  for (const candidate of mine) {
+  for (const candidate of poolToUse) {
     if (candidate.totalQty < minUnits) {
       const first = (candidate.currentPlacements ?? []).find((p) => block.rows.includes(p.row));
       pullFirst.push({
@@ -383,7 +384,10 @@ export function planBlock(
     eligible.push(candidate);
   }
 
-  const anchors = resolveAnchors(eligible, block, slots);
+  const anchors =
+    block.id === 'MAIN_4ROW'
+      ? new Map<string, ResolvedAnchor>()
+      : resolveAnchors(eligible, block, slots);
 
   const remainingUnits = new Map<string, number>();
   for (const candidate of eligible) {
@@ -457,7 +461,7 @@ export interface AptitudeCriteria {
   minStock: number;
 }
 
-export const APTITUDE_DEFAULTS: AptitudeCriteria = { maxOrders: 0, minStock: 21 };
+export const APTITUDE_DEFAULTS: AptitudeCriteria = { maxOrders: 50, minStock: 21 };
 
 function isPreferred(c: PoolCandidate, criteria: AptitudeCriteria): boolean {
   return (
