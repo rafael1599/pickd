@@ -108,27 +108,28 @@ export const InventoryCard = memo(
     return (
       <div
         onClick={isDisabled ? undefined : onClick}
-        className={`bg-card border rounded-xl p-1.5 mb-2 flex flex-col shadow-sm transition-premium origin-center ${
+        className={`bg-card border rounded-xl p-1.5 sm:p-0 mb-2 flex flex-col shadow-sm transition-premium origin-center overflow-hidden ${
           isDisabled
             ? 'opacity-50 cursor-not-allowed border-red-500/30'
             : `border-subtle active:scale-[0.98] active:bg-main/50 cursor-pointer ${isZeroStock ? 'opacity-70 border-dashed bg-main/20' : ''} ${glow ? 'animate-glow-success border-emerald-400 z-10' : ''} ${flash ? 'animate-flash-update scale-[1.02] border-accent/50 z-10' : ''}`
         }`}
       >
-        {/* idea-126: always render — empty distribution shows a "messy pile"
-            so the operator can fix it via the + button. */}
-        <DistributionJengaViz
-          distribution={distribution}
-          onAdjust={() => (onAdjust ?? onClick)()}
-          sku={sku}
-          quantity={quantity}
-          location={location}
-          sku_metadata={sku_metadata}
-        />
+        {/* Mobile-only DistributionJengaViz header */}
+        <div className="sm:hidden">
+          <DistributionJengaViz
+            distribution={distribution}
+            onAdjust={() => (onAdjust ?? onClick)()}
+            sku={sku}
+            quantity={quantity}
+            location={location}
+            sku_metadata={sku_metadata}
+          />
+        </div>
 
-        <div className="flex gap-2 sm:gap-3 flex-col sm:flex-row items-stretch sm:min-h-[110px]">
+        <div className="flex gap-2 sm:gap-3 flex-col sm:flex-row items-stretch sm:min-h-[120px]">
           {/* Left Column: Compact thumbnail on mobile, full-height tile on desktop */}
           {sku_metadata?.image_url ? (
-            <div className="w-[70px] h-[70px] sm:w-32 sm:h-auto shrink-0 bg-white/5 sm:border-r border-subtle/50 p-1 sm:p-2 flex items-center justify-center rounded-lg sm:rounded-l-xl self-start sm:self-stretch overflow-hidden">
+            <div className="w-[70px] h-[70px] sm:w-36 sm:h-auto shrink-0 bg-white/5 sm:border-r border-subtle/50 p-1 sm:p-3 flex items-center justify-center rounded-lg sm:rounded-none sm:rounded-l-xl self-start sm:self-stretch overflow-hidden">
               <img
                 src={
                   sku_metadata.image_url.includes('/catalog/')
@@ -144,17 +145,28 @@ export const InventoryCard = memo(
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = 'none';
                 }}
-                className="w-full h-full object-contain max-h-[70px] sm:max-h-[100px] rounded"
+                className="w-full h-full object-contain max-h-[70px] sm:max-h-[110px] rounded"
               />
             </div>
           ) : (
-            <div className="hidden sm:flex w-16 sm:w-20 shrink-0 bg-white/5 border-r border-subtle/50 p-2 items-center justify-center rounded-l-xl self-stretch">
+            <div className="hidden sm:flex w-16 sm:w-24 shrink-0 bg-white/5 border-r border-subtle/50 p-2 items-center justify-center rounded-l-xl self-stretch">
               <Package size={24} className="text-muted/40" />
             </div>
           )}
 
-          {/* Right Column: Compact mobile data on top, Amazon desktop data layout on sm+ */}
-          <div className="flex-1 min-w-0 flex flex-col justify-between sm:py-1.5 sm:pr-2">
+          {/* Right Column: DistributionJengaViz on desktop + data + action buttons */}
+          <div className="flex-1 min-w-0 flex flex-col justify-between sm:py-2 sm:pr-3">
+            {/* Desktop-only DistributionJengaViz header */}
+            <div className="hidden sm:block mb-1">
+              <DistributionJengaViz
+                distribution={distribution}
+                onAdjust={() => (onAdjust ?? onClick)()}
+                sku={sku}
+                quantity={quantity}
+                location={location}
+                sku_metadata={sku_metadata}
+              />
+            </div>
             <div>
               {fedex_tracking_number && (
                 <a
