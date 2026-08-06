@@ -531,11 +531,11 @@ describe('rankCandidates', () => {
     expect(order([c('BUSY', 200, 12), c('QUIET', 21, 0)])).toEqual(['QUIET', 'BUSY']);
   });
 
-  it('ranks by totalQty descending inside the band', () => {
+  it('ranks by order count before size inside the band', () => {
     expect(order([c('TWO', 90, 2), c('ZERO', 25, 0), c('ONE', 60, 1)])).toEqual([
-      'TWO',
-      'ONE',
       'ZERO',
+      'ONE',
+      'TWO',
     ]);
   });
 
@@ -543,8 +543,10 @@ describe('rankCandidates', () => {
     expect(order([c('SMALL', 25, 0), c('BIG', 90, 0)])).toEqual(['BIG', 'SMALL']);
   });
 
-  it('ranks preferred candidates by stock volume', () => {
-    expect(order([c('UNKNOWN', 90), c('KNOWN', 25, 3)])).toEqual(['UNKNOWN', 'KNOWN']);
+  it('treats an unknown order count as worse than a known one', () => {
+    // A bike we know nothing about is not a first choice; absent must never
+    // read as zero.
+    expect(order([c('UNKNOWN', 90), c('KNOWN', 25, 3)])).toEqual(['KNOWN', 'UNKNOWN']);
   });
 
   it('breaks exact ties on SKU so the order never wobbles', () => {
@@ -562,7 +564,7 @@ describe('rankCandidates', () => {
     expect(pool.map((x) => x.sku)).toEqual(['B', 'A']);
   });
 
-  it('feeds the assignment, so the largest overstock bikes claim cells first', () => {
+  it('feeds the assignment, so the quietest bikes claim cells first', () => {
     const assigned = assignCandidates(
       [c('BUSY', 100, 40), c('QUIET', 25, 0), c('MILD', 100, 3)],
       [BLOCK_A],
@@ -570,7 +572,7 @@ describe('rankCandidates', () => {
       criteria
     );
 
-    expect(assigned.get('A')?.map((x) => x.sku)).toEqual(['BUSY', 'MILD', 'QUIET']);
+    expect(assigned.get('A')?.map((x) => x.sku)).toEqual(['QUIET', 'MILD', 'BUSY']);
   });
 });
 

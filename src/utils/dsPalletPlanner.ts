@@ -496,6 +496,15 @@ export function rankCandidates<T extends PoolCandidate>(
     const band = Number(isPreferred(b, criteria)) - Number(isPreferred(a, criteria));
     if (band !== 0) return band;
 
+    const daysA = a.daysInactive ?? 9999;
+    const daysB = b.daysInactive ?? 9999;
+    if (daysB !== daysA) return daysB - daysA;
+
+    const orders =
+      (a.ordersCompleted ?? Number.POSITIVE_INFINITY) -
+      (b.ordersCompleted ?? Number.POSITIVE_INFINITY);
+    if (orders !== 0) return orders;
+
     return b.totalQty - a.totalQty || a.sku.localeCompare(b.sku);
   });
 }
