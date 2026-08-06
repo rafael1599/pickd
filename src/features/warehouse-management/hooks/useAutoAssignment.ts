@@ -90,7 +90,8 @@ export function useAutoAssignment(
   criteria: AptitudeCriteria = APTITUDE_DEFAULTS,
   skipped: ReadonlySet<string> = EMPTY_SKIPS
 ): AutoAssignment {
-  const { data: candidates } = useBikeCandidates(recencyDays);
+  // Fetch full bike candidate pool so ranking can fill 100% of cells automatically
+  const { data: candidates } = useBikeCandidates(Math.max(recencyDays, 3650));
   const { data: listed } = useNoMovers();
 
   return useMemo(
