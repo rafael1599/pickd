@@ -550,9 +550,13 @@ export function assignCandidates(
 
       const target = blocks
         .map((b) => b)
-        .filter(
-          (b) => cellsUsed(assigned.get(b.id) ?? [], minUnits) < blockCapacity(b).cells
-        )[0]?.id;
+        .filter((b) => {
+          const fullPalletsPlaced = (assigned.get(b.id) ?? []).reduce(
+            (sum, c) => sum + Math.floor(c.totalQty / DS_PALLET_MAX),
+            0
+          );
+          return fullPalletsPlaced < blockCapacity(b).cells;
+        })[0]?.id;
 
       if (!target) continue;
       assigned.get(target)?.push({
