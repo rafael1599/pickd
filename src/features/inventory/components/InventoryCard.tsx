@@ -211,12 +211,12 @@ export const InventoryCard = memo(
 
                   <div className="flex items-center gap-2">
                     <div
-                      className={`text-base sm:text-lg font-black text-content tracking-tighter leading-tight ${!is_active ? 'line-through opacity-60' : ''}`}
+                      className={`text-base sm:text-2xl md:text-3xl font-black text-content tracking-tighter leading-tight ${!is_active ? 'line-through opacity-60' : ''}`}
                       style={{ fontFamily: 'var(--font-heading)' }}
                     >
                       {sku}
                       {sku_metadata?.is_scratch_dent && sku_metadata.serial_number && (
-                        <span className="ml-1.5 text-xs font-bold text-muted tracking-tight">
+                        <span className="ml-1.5 text-xs sm:text-sm font-bold text-muted tracking-tight">
                           ({sku_metadata.serial_number})
                         </span>
                       )}
