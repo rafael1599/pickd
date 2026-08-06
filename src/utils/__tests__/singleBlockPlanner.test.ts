@@ -14,11 +14,11 @@ describe('singleBlockPlanner - Final Unified Logic', () => {
     expect(accessibilityFor('33', 3, UNIFIED_FOUR_ROW_BLOCK)).toBe('accessible');
     expect(accessibilityFor('30', 3, UNIFIED_FOUR_ROW_BLOCK)).toBe('accessible');
 
-    // Row 32 & 31 are landlocked in positions B..I (indices 1..8)
-    expect(accessibilityFor('32', 0, UNIFIED_FOUR_ROW_BLOCK)).toBe('accessible'); // A
-    expect(accessibilityFor('32', 9, UNIFIED_FOUR_ROW_BLOCK)).toBe('accessible'); // J
-    expect(accessibilityFor('32', 4, UNIFIED_FOUR_ROW_BLOCK)).toBe('landlocked'); // E
-    expect(accessibilityFor('31', 4, UNIFIED_FOUR_ROW_BLOCK)).toBe('landlocked'); // E
+    // Row 32 & 31 are landlocked in positions C..I (indices 1..7)
+    expect(accessibilityFor('32', 0, UNIFIED_FOUR_ROW_BLOCK)).toBe('accessible'); // B
+    expect(accessibilityFor('32', 8, UNIFIED_FOUR_ROW_BLOCK)).toBe('accessible'); // J
+    expect(accessibilityFor('32', 4, UNIFIED_FOUR_ROW_BLOCK)).toBe('landlocked'); // F
+    expect(accessibilityFor('31', 4, UNIFIED_FOUR_ROW_BLOCK)).toBe('landlocked'); // F
   });
 
   it('preserves physical anchoring for candidate already standing in the block', () => {

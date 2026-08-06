@@ -19,15 +19,16 @@ export interface BlockConfig {
   positionsPerRow: number;
   reserveLastPosition: boolean;
   sobranteLetter?: string; // e.g. 'A'
+  startLetter?: string; // e.g. 'B'
 }
 
 export const UNIFIED_FOUR_ROW_BLOCK: BlockConfig = {
   id: 'MAIN_4ROW',
   label: 'ROW 33/32/31/30',
   rows: ['33', '32', '31', '30'],
-  positionsPerRow: 10,
+  positionsPerRow: 9,
   reserveLastPosition: false,
-  sobranteLetter: 'A',
+  startLetter: 'B',
 };
 
 export const BLOCK_A: BlockConfig = {
@@ -99,10 +100,11 @@ export interface PlannerOptions {
   skuCapacityOverrides?: Record<string, number>;
 }
 
-export function positionLetters(count: number): string[] {
+export function positionLetters(count: number, startLetter = 'A'): string[] {
+  const startIndex = startLetter.charCodeAt(0) - 65;
   const letters: string[] = [];
   for (let i = 0; i < count; i++) {
-    let n = i;
+    let n = startIndex + i;
     let label = '';
     do {
       label = String.fromCharCode(65 + (n % 26)) + label;
@@ -132,7 +134,7 @@ export function accessibilityFor(
 }
 
 export function buildBlockLayout(block: BlockConfig): PalletSlot[] {
-  const letters = positionLetters(block.positionsPerRow);
+  const letters = positionLetters(block.positionsPerRow, block.startLetter ?? 'A');
   const lastIndex = block.positionsPerRow - 1;
 
   return block.rows.flatMap((row, rowIndex) =>
@@ -262,7 +264,7 @@ export function planBlock(
 ): BlockPlan {
   const minUnits = options.minUnits ?? DS_PALLET_MIN_DEFAULT;
   const overrides = options.skuCapacityOverrides ?? {};
-  const letters = positionLetters(block.positionsPerRow);
+  const letters = positionLetters(block.positionsPerRow, block.startLetter ?? 'A');
   const slots = buildBlockLayout(block);
   const pullFirst: PullFirstEntry[] = [];
 

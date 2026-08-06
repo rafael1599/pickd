@@ -17,8 +17,9 @@ export interface SingleBlockConfig {
   id: string;
   label: string;
   rows: string[]; // ['33', '32', '31', '30']
-  positionsPerRow: number; // 10
-  sobranteLetter: string; // 'A'
+  positionsPerRow: number; // 9
+  sobranteLetter?: string;
+  startLetter?: string; // 'B'
   defaultPalletCapacity: number; // 25
 }
 
@@ -26,8 +27,8 @@ export const UNIFIED_FOUR_ROW_BLOCK: SingleBlockConfig = {
   id: 'LUDLOW_UNIFIED_4ROW_BLOCK',
   label: 'ROW 33/32/31/30',
   rows: ['33', '32', '31', '30'],
-  positionsPerRow: 10,
-  sobranteLetter: 'A',
+  positionsPerRow: 9,
+  startLetter: 'B',
   defaultPalletCapacity: 25,
 };
 
@@ -97,10 +98,17 @@ export interface SingleBlockPlanResult {
   };
 }
 
-export function positionLetters(count: number): string[] {
+export function positionLetters(count: number, startLetter = 'A'): string[] {
+  const startIndex = startLetter.charCodeAt(0) - 65;
   const letters: string[] = [];
   for (let i = 0; i < count; i++) {
-    letters.push(String.fromCharCode(65 + i));
+    let n = startIndex + i;
+    let label = '';
+    do {
+      label = String.fromCharCode(65 + (n % 26)) + label;
+      n = Math.floor(n / 26) - 1;
+    } while (n >= 0);
+    letters.push(label);
   }
   return letters;
 }
@@ -117,7 +125,7 @@ export function accessibilityFor(
 }
 
 export function buildSingleBlockLayout(config: SingleBlockConfig): SingleBlockSlot[] {
-  const letters = positionLetters(config.positionsPerRow);
+  const letters = positionLetters(config.positionsPerRow, config.startLetter ?? 'A');
   return config.rows.flatMap((row) =>
     letters.map((letter, letterIndex) => ({
       id: `${row}-${letter}`,
@@ -164,7 +172,7 @@ export function planSingleBlock(
   overrides: SkuCapacityOverrides = {},
   config: SingleBlockConfig = UNIFIED_FOUR_ROW_BLOCK
 ): SingleBlockPlanResult {
-  const letters = positionLetters(config.positionsPerRow);
+  const letters = positionLetters(config.positionsPerRow, config.startLetter ?? 'A');
   const slots = buildSingleBlockLayout(config);
   const orderedCandidates = sortCandidatesByInactivity(candidates);
 
