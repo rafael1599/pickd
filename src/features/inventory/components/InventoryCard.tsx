@@ -125,10 +125,10 @@ export const InventoryCard = memo(
           sku_metadata={sku_metadata}
         />
 
-        <div className="flex gap-3 items-stretch min-h-[110px]">
-          {/* Amazon-style Left Column: Image occupying full height of the card */}
+        <div className="flex gap-2 sm:gap-3 flex-col sm:flex-row items-stretch sm:min-h-[110px]">
+          {/* Left Column: Compact thumbnail on mobile, full-height tile on desktop */}
           {sku_metadata?.image_url ? (
-            <div className="w-24 sm:w-32 shrink-0 bg-white/5 border-r border-subtle/50 p-2 flex items-center justify-center rounded-l-xl self-stretch overflow-hidden">
+            <div className="w-[70px] h-[70px] sm:w-32 sm:h-auto shrink-0 bg-white/5 sm:border-r border-subtle/50 p-1 sm:p-2 flex items-center justify-center rounded-lg sm:rounded-l-xl self-start sm:self-stretch overflow-hidden">
               <img
                 src={
                   sku_metadata.image_url.includes('/catalog/')
@@ -144,23 +144,23 @@ export const InventoryCard = memo(
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = 'none';
                 }}
-                className="w-full h-full object-contain max-h-[100px] rounded-lg"
+                className="w-full h-full object-contain max-h-[70px] sm:max-h-[100px] rounded"
               />
             </div>
           ) : (
-            <div className="w-16 sm:w-20 shrink-0 bg-white/5 border-r border-subtle/50 p-2 flex items-center justify-center rounded-l-xl self-stretch">
+            <div className="hidden sm:flex w-16 sm:w-20 shrink-0 bg-white/5 border-r border-subtle/50 p-2 items-center justify-center rounded-l-xl self-stretch">
               <Package size={24} className="text-muted/40" />
             </div>
           )}
 
-          {/* Right Column: Data on top, Action buttons underneath */}
-          <div className="flex-1 min-w-0 flex flex-col justify-between py-1.5 pr-2">
+          {/* Right Column: Compact mobile data on top, Amazon desktop data layout on sm+ */}
+          <div className="flex-1 min-w-0 flex flex-col justify-between sm:py-1.5 sm:pr-2">
             <div>
               {fedex_tracking_number && (
                 <a
                   href={fedex_return_id ? `/fedex-returns/${fedex_return_id}` : undefined}
                   onClick={(e) => e.stopPropagation()}
-                  className={`mb-1 inline-flex items-center gap-1 self-start text-[10px] sm:text-xs font-black uppercase tracking-widest px-1.5 py-0.5 rounded border ${
+                  className={`mb-1 inline-flex items-center gap-1 self-start text-[9px] sm:text-xs font-black uppercase tracking-widest px-1.5 py-0.5 rounded border ${
                     fedex_return_status === 'resolved'
                       ? 'bg-muted/10 text-muted border-muted/20'
                       : 'bg-purple-500/15 text-purple-400 border-purple-500/30'
@@ -181,14 +181,14 @@ export const InventoryCard = memo(
                   {location && (
                     <div className="flex items-center gap-1.5">
                       <div
-                        className="text-[11px] sm:text-xs text-accent font-extrabold uppercase tracking-tighter"
+                        className="text-[10px] sm:text-xs text-accent font-extrabold uppercase tracking-tighter"
                         style={{ fontFamily: 'var(--font-heading)' }}
                       >
                         {location}
                       </div>
                       {internal_note && (
                         <span
-                          className="text-[10px] sm:text-xs text-muted font-bold uppercase tracking-tight bg-white/5 px-1.5 py-0.5 rounded border border-white/5 max-w-[130px] sm:max-w-none truncate"
+                          className="text-[8px] sm:text-xs text-muted font-bold uppercase tracking-tight bg-white/5 px-1 py-0.5 rounded border border-white/5 max-w-[120px] sm:max-w-none truncate"
                           title={internal_note}
                         >
                           📍 {internal_note}
@@ -210,7 +210,7 @@ export const InventoryCard = memo(
                       )}
                     </div>
                     {!is_active && (
-                      <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-500/20">
+                      <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-500/20">
                         Del
                       </span>
                     )}
@@ -220,7 +220,7 @@ export const InventoryCard = memo(
                 <div className="flex items-center gap-2 shrink-0">
                   {/* Sublocation Badge */}
                   {sublocation && sublocation.length > 0 && (
-                    <div className="inline-flex px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 text-base sm:text-lg font-black uppercase tracking-tighter tabular-nums leading-none border border-amber-500/20 whitespace-nowrap">
+                    <div className="inline-flex px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 text-lg sm:text-lg font-black uppercase tracking-tighter tabular-nums leading-none border border-amber-500/20 whitespace-nowrap">
                       {sublocation.join(',')}
                     </div>
                   )}
@@ -239,7 +239,7 @@ export const InventoryCard = memo(
 
               <div className="flex justify-between items-center mt-1">
                 {detail && (
-                  <div className="px-1.5 py-0.5 rounded bg-main text-muted text-[10px] sm:text-xs font-bold uppercase tracking-tight border border-subtle">
+                  <div className="px-1.5 py-0.5 rounded bg-main text-muted text-[9px] sm:text-xs font-bold uppercase tracking-tight border border-subtle">
                     {detail}
                   </div>
                 )}
@@ -247,17 +247,17 @@ export const InventoryCard = memo(
                 {isPicking && available !== null && (
                   <div className="flex items-center gap-2 ml-auto">
                     {available <= 0 ? (
-                      <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">
+                      <span className="text-[9px] sm:text-xs font-black uppercase tracking-widest text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">
                         🚫 Fully Reserved
                       </span>
                     ) : (
                       <>
                         {hasReservations && (
-                          <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-orange-500 bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-500/20">
+                          <span className="text-[9px] sm:text-xs font-black uppercase tracking-widest text-orange-500 bg-orange-500/10 px-1.5 py-0.5 rounded border border-orange-500/20">
                             {reservedByOthers} Res
                           </span>
                         )}
-                        <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20">
+                        <span className="text-[9px] sm:text-xs font-black uppercase tracking-widest text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20">
                           {available} Avail
                         </span>
                       </>
@@ -267,9 +267,9 @@ export const InventoryCard = memo(
               </div>
             </div>
 
-            {/* Bottom Section: Quick Action Buttons underneath the data */}
+            {/* Quick Action Buttons: compact on mobile, underneath data on sm+ */}
             {mode === 'stock' && (
-              <div className="flex gap-2 mt-2">
+              <div className="flex gap-2 mt-1 sm:mt-2">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -277,7 +277,7 @@ export const InventoryCard = memo(
                     feedbackService.success();
                     flashSyncStatus('Stock Saved', 1200);
                   }}
-                  className="bg-main text-accent-red flex-1 h-8 rounded-lg flex items-center justify-center active:scale-95 transition-all hover:bg-red-500/10 border border-subtle"
+                  className="bg-main text-accent-red flex-1 h-9 sm:h-8 rounded-lg flex items-center justify-center active:scale-95 transition-all hover:bg-red-500/10 border border-subtle"
                   aria-label="Decrease quantity"
                 >
                   <Minus size={15} strokeWidth={3} />
@@ -287,7 +287,7 @@ export const InventoryCard = memo(
                     e.stopPropagation();
                     onMove();
                   }}
-                  className="bg-main text-accent-blue flex-1 h-8 rounded-lg flex items-center justify-center active:scale-95 transition-all hover:bg-blue-500/10 border border-subtle"
+                  className="bg-main text-accent-blue flex-1 h-9 sm:h-8 rounded-lg flex items-center justify-center active:scale-95 transition-all hover:bg-blue-500/10 border border-subtle"
                   aria-label="Move item"
                 >
                   <ArrowRightLeft size={15} strokeWidth={3} />
@@ -299,7 +299,7 @@ export const InventoryCard = memo(
                     feedbackService.success();
                     flashSyncStatus('Stock Saved', 1200);
                   }}
-                  className="bg-accent text-white flex-1 h-8 rounded-lg flex items-center justify-center active:scale-95 transition-all shadow-sm shadow-accent/20 hover:brightness-110"
+                  className="bg-accent text-white flex-1 h-9 sm:h-8 rounded-lg flex items-center justify-center active:scale-95 transition-all shadow-sm shadow-accent/20 hover:brightness-110"
                   aria-label="Increase quantity"
                 >
                   <Plus size={15} strokeWidth={3} />
