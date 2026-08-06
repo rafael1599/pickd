@@ -127,9 +127,9 @@ export const InventoryCard = memo(
         </div>
 
         <div className="flex gap-2 sm:gap-3 flex-row items-stretch sm:min-h-[120px]">
-          {/* Left Column: Compact thumbnail on mobile, full-height tile on desktop */}
+          {/* Left Column: 25% smaller thumbnail aligned to bottom on mobile, full-height tile on desktop */}
           {sku_metadata?.image_url ? (
-            <div className="w-[70px] h-[70px] sm:w-36 sm:h-auto shrink-0 bg-white/5 sm:border-r border-subtle/50 p-1 sm:p-3 flex items-center justify-center rounded-lg sm:rounded-none sm:rounded-l-xl self-center sm:self-stretch overflow-hidden">
+            <div className="w-[52px] h-[52px] sm:w-36 sm:h-auto shrink-0 bg-white/5 sm:border-r border-subtle/50 p-1 sm:p-3 flex items-center justify-center rounded-lg sm:rounded-none sm:rounded-l-xl self-end sm:self-stretch mb-1 sm:mb-0 overflow-hidden">
               <img
                 src={
                   sku_metadata.image_url.includes('/catalog/')
@@ -145,7 +145,7 @@ export const InventoryCard = memo(
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = 'none';
                 }}
-                className="w-full h-full object-contain max-h-[70px] sm:max-h-[110px] rounded"
+                className="w-full h-full object-contain max-h-[50px] sm:max-h-[110px] rounded"
               />
             </div>
           ) : (
