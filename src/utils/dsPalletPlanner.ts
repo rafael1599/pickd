@@ -202,11 +202,32 @@ function placePallet(
   preferLandlocked: boolean,
   capacity: number = DS_PALLET_MAX
 ): PalletSlot | null {
+  const existingSlots = slots.filter((s) => s.usage.kind === 'pallet' && s.usage.sku === sku);
+
+  const slotDist = (s: PalletSlot, p: PalletSlot): number => {
+    const rA = parseInt(s.row, 10);
+    const rB = parseInt(p.row, 10);
+    const rDiff = !isNaN(rA) && !isNaN(rB) ? Math.abs(rA - rB) : 0;
+    const lDiff = Math.abs(letters.indexOf(s.letter) - letters.indexOf(p.letter));
+    return rDiff * 2 + lDiff;
+  };
+
+  const minClusterDist = (s: PalletSlot): number => {
+    if (existingSlots.length === 0) return 0;
+    return Math.min(...existingSlots.map((p) => slotDist(s, p)));
+  };
+
   const pool = (accessibility: Accessibility) =>
     slots
       .filter(isEmpty)
       .filter((s) => s.accessibility === accessibility)
-      .sort((a, b) => proximityRank(a, letters) - proximityRank(b, letters));
+      .sort((a, b) => {
+        if (existingSlots.length > 0) {
+          const dDiff = minClusterDist(a) - minClusterDist(b);
+          if (dDiff !== 0) return dDiff;
+        }
+        return proximityRank(a, letters) - proximityRank(b, letters);
+      });
 
   const primary = pool(preferLandlocked ? 'landlocked' : 'accessible');
   const fallback = pool(preferLandlocked ? 'accessible' : 'landlocked');

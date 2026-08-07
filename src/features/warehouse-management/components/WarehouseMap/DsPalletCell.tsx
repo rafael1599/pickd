@@ -16,7 +16,7 @@ interface DsPalletCellProps {
   onMoveTarget?: () => void;
 }
 
-const PRINT_HEIGHT_SCALE = 1.5;
+const PRINT_HEIGHT_SCALE = 1.8;
 
 export const DsPalletCell: React.FC<DsPalletCellProps> = ({
   usage,
@@ -33,7 +33,7 @@ export const DsPalletCell: React.FC<DsPalletCellProps> = ({
     '--cell-h': `${heightRem}rem`,
     '--cell-h-print': `${heightRem * PRINT_HEIGHT_SCALE}rem`,
   } as React.CSSProperties;
-  const heightClass = 'h-[var(--cell-h)] print:h-auto';
+  const heightClass = 'h-[var(--cell-h)] print:h-[var(--cell-h-print)]';
   const borderClass = `${borderRight ? 'border-r' : ''} ${borderBottom ? 'border-b' : ''} border-gray-300`;
 
   let moveClass = '';
@@ -51,7 +51,7 @@ export const DsPalletCell: React.FC<DsPalletCellProps> = ({
     const isReserved = usage.kind === 'reserved';
     return (
       <div
-        className={`flex items-center justify-center bg-slate-50/80 hover:bg-slate-100 text-slate-400 text-xs font-semibold italic cursor-pointer transition-colors ${heightClass} ${borderClass} ${
+        className={`flex items-center justify-center bg-slate-50/80 hover:bg-slate-100 text-slate-400 text-xs print:text-sm font-semibold italic cursor-pointer transition-colors ${heightClass} ${borderClass} ${
           dashed
             ? 'relative z-10 outline outline-2 outline-dashed outline-slate-300 outline-offset-[-2px]'
             : ''
@@ -63,7 +63,7 @@ export const DsPalletCell: React.FC<DsPalletCellProps> = ({
             : onSelectSku({ sku: 'EMPTY', unitsHere: 0, kind: isReserved ? 'reserved' : 'empty' })
         }
       >
-        <span>{isReserved ? 'reserved' : 'empty'}</span>
+        <span className="print:text-slate-400">{isReserved ? 'reserved' : 'empty'}</span>
       </div>
     );
   }
@@ -73,7 +73,7 @@ export const DsPalletCell: React.FC<DsPalletCellProps> = ({
     const color = skuColor(sku);
     return (
       <div
-        className={`flex flex-col justify-center gap-1 px-3 py-2 print:px-2 print:py-1 border-l-4 border-amber-500 bg-amber-50/60 cursor-pointer hover:bg-amber-100/80 overflow-hidden min-h-0 ${heightClass} ${borderClass} ${moveClass}`}
+        className={`flex flex-col justify-center gap-1.5 px-3 py-2 print:px-3 print:py-2 border-l-4 border-amber-500 bg-amber-50/60 cursor-pointer hover:bg-amber-100/80 overflow-hidden min-h-0 ${heightClass} ${borderClass} ${moveClass}`}
         style={heightVars}
         onClick={() =>
           moveMode ? onMoveTarget?.() : onSelectSku({ sku, unitsHere: units, kind: 'sobrante' })
@@ -81,14 +81,14 @@ export const DsPalletCell: React.FC<DsPalletCellProps> = ({
         title={`${sku} — Surplus (${units}u)`}
       >
         <div
-          className="font-mono font-extrabold text-xs print:text-lg whitespace-nowrap overflow-hidden text-ellipsis tracking-tight leading-snug"
+          className="font-mono font-extrabold text-xs print:text-xl print:font-black whitespace-nowrap overflow-hidden text-ellipsis tracking-tight leading-tight"
           style={{ color: color.text }}
         >
           {sku}
         </div>
-        <div className="flex items-center gap-1.5 text-[11px] print:text-xs text-amber-700 whitespace-nowrap font-bold leading-snug">
+        <div className="flex items-center gap-2 text-[11px] print:text-sm print:font-bold text-amber-700 whitespace-nowrap leading-tight">
           <span>{units}u</span>
-          <span className="bg-amber-200/80 text-amber-800 px-1 py-0.5 rounded text-[10px] uppercase font-bold">
+          <span className="bg-amber-200/80 text-amber-800 px-1 py-0.5 rounded text-[10px] print:text-xs print:font-black uppercase font-bold">
             Surplus
           </span>
         </div>
@@ -103,7 +103,7 @@ export const DsPalletCell: React.FC<DsPalletCellProps> = ({
 
   return (
     <div
-      className={`flex flex-col justify-center gap-1 px-3 py-2 print:px-2 print:py-1 border-l-4 print:border-l-2 cursor-pointer hover:brightness-95 overflow-hidden min-h-0 ${heightClass} ${borderClass} ${moveClass}`}
+      className={`flex flex-col justify-center gap-1.5 px-3 py-2 print:px-3 print:py-2 border-l-4 print:border-l-4 cursor-pointer hover:brightness-95 overflow-hidden min-h-0 ${heightClass} ${borderClass} ${moveClass}`}
       style={{ ...heightVars, backgroundColor: color.bg, borderLeftColor: color.border }}
       onClick={() =>
         moveMode ? onMoveTarget?.() : onSelectSku({ sku, unitsHere: units, kind: 'pallet' })
@@ -115,19 +115,21 @@ export const DsPalletCell: React.FC<DsPalletCellProps> = ({
       }
     >
       <div
-        className="font-mono font-extrabold text-xs print:text-lg whitespace-nowrap overflow-hidden text-ellipsis tracking-tight leading-snug"
+        className="font-mono font-extrabold text-xs print:text-xl print:font-black whitespace-nowrap overflow-hidden text-ellipsis tracking-tight leading-tight"
         style={{ color: color.text }}
       >
         {sku}
       </div>
-      <div className="flex items-center gap-1.5 text-[11px] print:text-xs text-slate-500 whitespace-nowrap font-semibold leading-snug">
+      <div className="flex items-center gap-2 text-[11px] print:text-sm print:font-extrabold text-slate-500 print:text-black whitespace-nowrap leading-tight">
         <span>{units}u</span>
-        <span className={isFull ? 'text-slate-500' : 'text-amber-700'}>
+        <span
+          className={isFull ? 'text-slate-500 print:text-black' : 'text-amber-700 print:text-black'}
+        >
           {isFull ? `● ${capacity}u` : `◐ ${units}/${capacity}u`}
         </span>
         {anchored && (
           <span
-            className="font-bold text-slate-600 print:text-black"
+            className="font-bold text-slate-600 print:text-black print:text-base"
             title="Already in this block — leave it where it is"
           >
             ⚓
@@ -135,7 +137,7 @@ export const DsPalletCell: React.FC<DsPalletCellProps> = ({
         )}
         {isPinned && !anchored && (
           <span
-            className="font-bold text-slate-600 print:text-black"
+            className="font-bold text-slate-600 print:text-black print:text-base"
             title="Manually pinned to this sublocation"
           >
             📌
@@ -143,7 +145,7 @@ export const DsPalletCell: React.FC<DsPalletCellProps> = ({
         )}
         {strandedUnits > 0 && (
           <span
-            className="font-bold text-amber-700 print:text-black"
+            className="font-bold text-amber-700 print:text-black print:text-base"
             title={`${strandedUnits}u of this SKU are in Pull First`}
           >
             ★{strandedUnits}

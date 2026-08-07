@@ -719,4 +719,28 @@ describe('planBlock — manual pins', () => {
     const slot = plan.slots.find((s) => s.id === '31-J')!;
     expect(slot.usage.kind).toBe('reserved');
   });
+
+  it('supports multiple pins for the SAME SKU in different cells', () => {
+    const candidates: NoMoverCandidate[] = [{ sku: 'MULTI', totalQty: 90, blockId: 'A' }];
+    const pins: ManualPin[] = [
+      { sku: 'MULTI', row: '31', letter: 'I' },
+      { sku: 'MULTI', row: '32', letter: 'I' },
+    ];
+    const plan = planBlock(BLOCK_A, candidates, { manualPins: pins });
+
+    expect(plan.slots.find((s) => s.id === '31-I')!.usage).toMatchObject({
+      sku: 'MULTI',
+      pinned: true,
+    });
+    expect(plan.slots.find((s) => s.id === '32-I')!.usage).toMatchObject({
+      sku: 'MULTI',
+      pinned: true,
+    });
+    // The 3rd pallet should be auto-placed near the pinned ones (e.g. 33-I or 31-H)
+    const thirdPallet = plan.slots.find(
+      (s) => s.usage.kind === 'pallet' && s.usage.sku === 'MULTI' && !(s.usage as any).pinned
+    );
+    expect(thirdPallet).toBeDefined();
+    expect(['33-I', '30-I', '31-H', '32-H', '33-H']).toContain(thirdPallet!.id);
+  });
 });

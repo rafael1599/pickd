@@ -21,6 +21,8 @@ export interface SelectedSku {
   unitsHere: number;
   kind: 'tower' | 'line' | 'pallet' | 'sobrante' | 'empty' | 'reserved';
   sublocationLabel?: string;
+  row?: string;
+  letter?: string;
   /**
    * Which block's grid the cell belongs to — a skip has to rebuild that one.
    * Only the DS-Pallet plan is block-scoped; the live and legacy maps span the
@@ -53,8 +55,8 @@ interface SkuDetailPanelProps {
   onSkip?: (sku: string, blockId: string) => void;
   /** Updates the custom pallet capacity for this SKU and triggers map recalculation. */
   onCapacityChange?: (sku: string, newCapacity: number) => void;
-  onMove?: (sku: string) => void;
-  onUnpin?: (sku: string) => void;
+  onMove?: (sku: string, row?: string, letter?: string) => void;
+  onUnpin?: (sku: string, row?: string, letter?: string) => void;
   isPinned?: boolean;
 }
 
@@ -322,7 +324,7 @@ const PalletDetail: React.FC<SkuDetailPanelProps> = ({
           {onMove && blockId && selected.kind === 'pallet' && (
             <button
               onClick={() => {
-                onMove(selected.sku);
+                onMove(selected.sku, selected.row, selected.letter);
                 onClose();
               }}
               disabled={busy}
@@ -336,7 +338,7 @@ const PalletDetail: React.FC<SkuDetailPanelProps> = ({
           {onUnpin && isPinned && (
             <button
               onClick={() => {
-                onUnpin(selected.sku);
+                onUnpin(selected.sku, selected.row, selected.letter);
                 onClose();
               }}
               disabled={busy}

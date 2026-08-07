@@ -398,22 +398,27 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
   } | null>(null);
 
   const [manualPins, setManualPins] = useState<ManualPin[]>([]);
-  const [moveMode, setMoveMode] = useState<{ sku: string; blockId: string } | null>(null);
+  const [moveMode, setMoveMode] = useState<{
+    sku: string;
+    blockId: string;
+    fromRow?: string;
+    fromLetter?: string;
+  } | null>(null);
   const [pinToken, setPinToken] = useState<{ blockId: string; token: number } | null>(null);
 
   const handlePinsLoaded = React.useCallback((pins: ManualPin[]) => {
     setManualPins((prev) => {
-      const map = new Map(prev.map((p) => [p.sku, p]));
-      for (const p of pins) map.set(p.sku, p);
+      const map = new Map(prev.map((p) => [`${p.sku}-${p.row}-${p.letter}`, p]));
+      for (const p of pins) map.set(`${p.sku}-${p.row}-${p.letter}`, p);
       return Array.from(map.values());
     });
   }, []);
 
   const handleMove = React.useCallback(
-    (sku: string) => {
+    (sku: string, row?: string, letter?: string) => {
       const blockId = selectedSku?.blockId;
       if (!blockId) return;
-      setMoveMode({ sku, blockId });
+      setMoveMode({ sku, blockId, fromRow: row, fromLetter: letter });
       setSelectedSku(null);
     },
     [selectedSku]
@@ -423,9 +428,16 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
     (row: string, letter: string) => {
       if (!moveMode) return;
       setManualPins((prev) => {
-        const filtered = prev.filter(
-          (p) => p.sku !== moveMode.sku && !(p.row === row && p.letter === letter)
-        );
+        // Remove pin if the clicked source cell was pinned, or if target cell was pinned
+        const filtered = prev.filter((p) => {
+          const isFromPin =
+            moveMode.fromRow &&
+            moveMode.fromLetter &&
+            p.row === moveMode.fromRow &&
+            p.letter === moveMode.fromLetter;
+          const isTargetPin = p.row === row && p.letter === letter;
+          return !isFromPin && !isTargetPin;
+        });
         return [...filtered, { sku: moveMode.sku, row, letter }];
       });
       const bid = moveMode.blockId;
@@ -436,10 +448,16 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
   );
 
   const handleUnpin = React.useCallback(
-    (sku: string) => {
+    (sku: string, row?: string, letter?: string) => {
       const blockId = selectedSku?.blockId;
       if (!blockId) return;
-      setManualPins((prev) => prev.filter((p) => p.sku !== sku));
+      setManualPins((prev) =>
+        prev.filter((p) => {
+          if (p.sku !== sku) return true;
+          if (row && letter) return !(p.row === row && p.letter === letter);
+          return false;
+        })
+      );
       setPinToken({ blockId, token: Date.now() });
     },
     [selectedSku]
@@ -497,7 +515,8 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
 
     const style = document.createElement('style');
     style.id = 'print-portrait-override';
-    style.innerHTML = '@page { size: A4 portrait !important; margin: 8mm !important; }';
+    style.innerHTML =
+      '@page { size: A4 portrait !important; margin: 4mm !important; } html, body, #root, html.dark, body.dark, .dark { background-color: #ffffff !important; background: #ffffff !important; color: #000000 !important; color-scheme: light !important; }';
     document.head.appendChild(style);
 
     // Runs after the commit that hid the other block, so the printer sees it.
@@ -594,7 +613,12 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
             onCapacityChange={handleCapacityChange}
             onMove={handleMove}
             onUnpin={handleUnpin}
-            isPinned={manualPins.some((p) => p.sku === selectedSku.sku)}
+            isPinned={manualPins.some(
+              (p) =>
+                p.sku === selectedSku.sku &&
+                (!selectedSku.row || p.row === selectedSku.row) &&
+                (!selectedSku.letter || p.letter === selectedSku.letter)
+            )}
           />
         )}
       </div>

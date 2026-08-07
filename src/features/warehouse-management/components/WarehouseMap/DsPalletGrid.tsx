@@ -45,13 +45,13 @@ export const DsPalletGrid: React.FC<DsPalletGridProps> = ({
   const axisLabel = (label: string, axis: 'rows' | 'letters', borders: string) =>
     axis === 'rows' ? (
       <div
-        className={`flex items-center justify-center bg-slate-800 text-white text-center py-2 font-bold tracking-widest text-sm print:text-base ${borders}`}
+        className={`flex items-center justify-center bg-slate-800 text-white text-center py-2 font-bold tracking-widest text-sm print:text-lg print:font-black ${borders}`}
       >
         {label}
       </div>
     ) : (
       <div
-        className={`flex items-center justify-center bg-slate-100 text-slate-500 font-mono font-bold text-xs print:text-sm ${borders}`}
+        className={`flex items-center justify-center bg-slate-100 text-slate-500 font-mono font-bold text-xs print:text-base print:font-black print:text-black ${borders}`}
       >
         {label}
       </div>
@@ -128,6 +128,8 @@ export const DsPalletGrid: React.FC<DsPalletGridProps> = ({
                       onSelectSku({
                         ...selection,
                         sublocationLabel: selection.sublocationLabel ?? `ROW ${row} (${letter})`,
+                        row,
+                        letter,
                       })
                     }
                     borderRight
