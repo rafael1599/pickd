@@ -34,7 +34,7 @@ export const DsPalletGrid: React.FC<DsPalletGridProps> = ({
 }) => {
   // Positions come from the block's configuration, never a constant — the floor
   // is being re-labelled by hand and the map has to follow without a deploy.
-  const letters = positionLetters(block.positionsPerRow);
+  const letters = positionLetters(block.positionsPerRow, block.startLetter ?? 'A');
   const lastLetter = letters[letters.length - 1];
 
   const slotAt = (row: string, letter: string) =>
