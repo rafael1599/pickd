@@ -53,7 +53,14 @@ export type SlotUsage =
   | { kind: 'empty' }
   | { kind: 'reserved' }
   | { kind: 'sobrante'; sku: string; units: number }
-  | { kind: 'pallet'; sku: string; units: number; capacity?: number; anchored: boolean };
+  | {
+      kind: 'pallet';
+      sku: string;
+      units: number;
+      capacity?: number;
+      anchored: boolean;
+      pinned?: boolean;
+    };
 
 export interface PalletSlot {
   id: string;
@@ -95,9 +102,16 @@ export interface BlockPlan {
   pullFirst: PullFirstEntry[];
 }
 
+export interface ManualPin {
+  sku: string;
+  row: string;
+  letter: string;
+}
+
 export interface PlannerOptions {
   minUnits?: number;
   skuCapacityOverrides?: Record<string, number>;
+  manualPins?: ManualPin[];
 }
 
 export function positionLetters(count: number, startLetter = 'A'): string[] {
@@ -273,6 +287,7 @@ export function planBlock(
 ): BlockPlan {
   const minUnits = options.minUnits ?? DS_PALLET_MIN_DEFAULT;
   const overrides = options.skuCapacityOverrides ?? {};
+  const pins = options.manualPins ?? [];
   const letters = positionLetters(block.positionsPerRow, block.startLetter ?? 'A');
   const slots = buildBlockLayout(block);
   const pullFirst: PullFirstEntry[] = [];
@@ -393,6 +408,34 @@ export function planBlock(
     eligible.push(candidate);
   }
 
+  // ── Phase 0: Manual Pins ──────────────────────────────────────────────
+  // Pins are placed first and marked as pinned so the normal placement
+  // phases (anchors → orderForPlacement) skip them.  Only one pallet of a
+  // SKU is pinned; the rest of the SKU's pallets are placed normally.
+  const pinnedSkuUnits = new Map<string, number>();
+  for (const pin of pins) {
+    const slot = slots.find((s) => s.row === pin.row && s.letter === pin.letter);
+    if (!slot || slot.usage.kind === 'reserved') continue;
+
+    const candidate = eligible.find((c) => c.sku === pin.sku);
+    if (!candidate) continue; // stale pin — SKU no longer in pool
+
+    const cap = overrides[pin.sku] ?? DS_PALLET_MAX;
+    const units = Math.min(candidate.totalQty - (pinnedSkuUnits.get(pin.sku) ?? 0), cap);
+    if (units <= 0) continue;
+
+    const usage: Extract<PalletSlot['usage'], { kind: 'pallet' }> = {
+      kind: 'pallet',
+      sku: pin.sku,
+      units,
+      anchored: false,
+      pinned: true,
+    };
+    if (cap !== DS_PALLET_MAX) usage.capacity = cap;
+    slot.usage = usage;
+    pinnedSkuUnits.set(pin.sku, (pinnedSkuUnits.get(pin.sku) ?? 0) + units);
+  }
+
   const anchors =
     block.id === 'MAIN_4ROW'
       ? new Map<string, ResolvedAnchor>()
@@ -401,12 +444,18 @@ export function planBlock(
   const remainingUnits = new Map<string, number>();
   for (const candidate of eligible) {
     const cap = overrides[candidate.sku] ?? DS_PALLET_MAX;
+    // Subtract units already consumed by manual pins.
+    const startQty = candidate.totalQty - (pinnedSkuUnits.get(candidate.sku) ?? 0);
     const anchor = anchors.get(candidate.sku);
     if (!anchor) {
-      remainingUnits.set(candidate.sku, candidate.totalQty);
+      remainingUnits.set(candidate.sku, startQty);
       continue;
     }
-    const units = Math.min(candidate.totalQty, cap);
+    const units = Math.min(startQty, cap);
+    if (units <= 0) {
+      remainingUnits.set(candidate.sku, 0);
+      continue;
+    }
     const usage: Extract<PalletSlot['usage'], { kind: 'pallet' }> = {
       kind: 'pallet',
       sku: candidate.sku,
@@ -415,7 +464,7 @@ export function planBlock(
     };
     if (cap !== DS_PALLET_MAX) usage.capacity = cap;
     anchor.slot.usage = usage;
-    remainingUnits.set(candidate.sku, candidate.totalQty - units);
+    remainingUnits.set(candidate.sku, startQty - units);
   }
 
   for (const candidate of orderForPlacement(eligible, minUnits, overrides)) {

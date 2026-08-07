@@ -15,6 +15,8 @@ interface DsPalletGridProps {
   strandedBySku: Map<string, number>;
   rotation: number;
   onSelectSku: (selection: CellSelection) => void;
+  moveMode?: { sku: string } | null;
+  onMoveTarget?: (row: string, letter: string) => void;
 }
 
 // Every cell holds one pallet, so unlike the tower/line grid there is nothing
@@ -27,6 +29,8 @@ export const DsPalletGrid: React.FC<DsPalletGridProps> = ({
   strandedBySku,
   rotation,
   onSelectSku,
+  moveMode,
+  onMoveTarget,
 }) => {
   // Positions come from the block's configuration, never a constant — the floor
   // is being re-labelled by hand and the map has to follow without a deploy.
@@ -128,6 +132,8 @@ export const DsPalletGrid: React.FC<DsPalletGridProps> = ({
                     }
                     borderRight
                     borderBottom={notLastBand}
+                    moveMode={moveMode ?? undefined}
+                    onMoveTarget={() => onMoveTarget?.(row, letter)}
                   />
                 );
               })}

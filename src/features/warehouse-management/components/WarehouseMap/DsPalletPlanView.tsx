@@ -22,8 +22,10 @@ import {
   APTITUDE_DEFAULTS,
   BLOCKS,
   DS_PALLET_MIN_DEFAULT,
+  DS_PALLET_MAX,
   type AptitudeCriteria,
   type BlockConfig,
+  type ManualPin,
 } from '../../../../utils/dsPalletPlanner';
 import { blockWithSettings, useBlockSettings } from '../../hooks/useNoMoverList';
 import { useBlockReadiness } from '../../hooks/useBlockReadiness';
@@ -48,6 +50,11 @@ interface BlockPanelProps {
   onGoToNoMovers: () => void;
   /** True while the *other* block is the one being sent to the printer. */
   hiddenForPrint: boolean;
+  moveMode: { sku: string; blockId: string } | null;
+  onMoveTarget: (row: string, letter: string) => void;
+  manualPins: ManualPin[];
+  onPinsLoaded: (pins: ManualPin[]) => void;
+  pinToken: number | null;
 }
 
 const BlockPanel: React.FC<BlockPanelProps> = ({
@@ -64,6 +71,11 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
   onSkuInfo,
   onGoToNoMovers,
   hiddenForPrint,
+  moveMode,
+  onMoveTarget,
+  manualPins,
+  onPinsLoaded,
+  pinToken,
 }) => {
   const { data: planResult, isLoading, isError, error } = useDsPalletPlan(block.id);
   const { checks, blocker, candidates, revalidate } = useBlockReadiness(
@@ -79,6 +91,21 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
   const staleVersion = planResult?.staleVersion ?? null;
   const slots = useMemo(() => saved?.plan_data?.slots ?? [], [saved]);
   const pullFirstCount = saved?.pull_first?.length ?? 0;
+
+  const savedPins = useMemo(() => (saved?.plan_data as any)?.manualPins ?? [], [saved]);
+
+  const loadedRef = React.useRef(false);
+  const onPinsLoadedRef = React.useRef(onPinsLoaded);
+  React.useEffect(() => {
+    onPinsLoadedRef.current = onPinsLoaded;
+  }, [onPinsLoaded]);
+
+  React.useEffect(() => {
+    if (saved && !loadedRef.current) {
+      loadedRef.current = true;
+      onPinsLoadedRef.current(savedPins);
+    }
+  }, [saved, savedPins]);
 
   // Pull First shows a leftover against the SKU's whole stock, which the plan
   // does not record — the live candidates do.
@@ -148,6 +175,7 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
       minUnits: fitted,
       autoFit: true,
       skuCapacityOverrides: customOverrides ?? skuCapacityOverrides,
+      manualPins,
     });
     const placed = plan.slots.filter((s) => s.usage.kind === 'pallet').length;
     const summary = `Block ${block.id}: ${placed} pallets placed, ${plan.pullFirst.length} to Pull First`;
@@ -182,6 +210,13 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
     firedCapacityToken.current = capacityToken.token;
     void latestRecalculate.current(capacityToken.overrides);
   }, [capacityToken]);
+
+  const firedPinToken = React.useRef<number | null>(null);
+  React.useEffect(() => {
+    if (pinToken === null || pinToken === firedPinToken.current) return;
+    firedPinToken.current = pinToken;
+    void latestRecalculate.current();
+  }, [pinToken]);
 
   // The cell knows its position, not its block — that is this panel's to add.
   const handleSelectSku = React.useCallback(
@@ -316,6 +351,8 @@ const BlockPanel: React.FC<BlockPanelProps> = ({
               strandedBySku={strandedBySku}
               rotation={rotation}
               onSelectSku={handleSelectSku}
+              moveMode={moveMode?.blockId === block.id ? moveMode : null}
+              onMoveTarget={(row, letter) => onMoveTarget(row, letter)}
             />
             {recalculate.isPending && (
               <div className="print:hidden absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-lg bg-white/75 backdrop-blur-[1px] text-sm font-semibold text-slate-600">
@@ -359,6 +396,54 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
     token: number;
     overrides: Record<string, number>;
   } | null>(null);
+
+  const [manualPins, setManualPins] = useState<ManualPin[]>([]);
+  const [moveMode, setMoveMode] = useState<{ sku: string; blockId: string } | null>(null);
+  const [pinToken, setPinToken] = useState<{ blockId: string; token: number } | null>(null);
+
+  const handlePinsLoaded = React.useCallback((pins: ManualPin[]) => {
+    setManualPins((prev) => {
+      const map = new Map(prev.map((p) => [p.sku, p]));
+      for (const p of pins) map.set(p.sku, p);
+      return Array.from(map.values());
+    });
+  }, []);
+
+  const handleMove = React.useCallback(
+    (sku: string) => {
+      const blockId = selectedSku?.blockId;
+      if (!blockId) return;
+      setMoveMode({ sku, blockId });
+      setSelectedSku(null);
+    },
+    [selectedSku]
+  );
+
+  const handleMoveTarget = React.useCallback(
+    (row: string, letter: string) => {
+      if (!moveMode) return;
+      setManualPins((prev) => {
+        const filtered = prev.filter(
+          (p) => p.sku !== moveMode.sku && !(p.row === row && p.letter === letter)
+        );
+        return [...filtered, { sku: moveMode.sku, row, letter }];
+      });
+      const bid = moveMode.blockId;
+      setMoveMode(null);
+      setPinToken({ blockId: bid, token: Date.now() });
+    },
+    [moveMode]
+  );
+
+  const handleUnpin = React.useCallback(
+    (sku: string) => {
+      const blockId = selectedSku?.blockId;
+      if (!blockId) return;
+      setManualPins((prev) => prev.filter((p) => p.sku !== sku));
+      setPinToken({ blockId, token: Date.now() });
+    },
+    [selectedSku]
+  );
 
   const skipSku = React.useCallback((sku: string, blockId: string) => {
     setSkipped((prev) => new Set(prev).add(sku));
@@ -425,6 +510,17 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
   return (
     <div className="w-full h-full overflow-auto bg-white print:h-auto print:overflow-visible">
       <div className="p-6 pb-32 print:p-0">
+        {moveMode && (
+          <div className="sticky top-0 z-50 flex items-center justify-between gap-3 px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg mb-3 shadow-lg">
+            <span>📌 Moving {moveMode.sku} — click a cell to place it</span>
+            <button
+              onClick={() => setMoveMode(null)}
+              className="px-3 py-1 rounded bg-white/20 hover:bg-white/30 text-xs font-bold"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
         <div className="print:hidden flex flex-wrap justify-between items-center gap-3 mb-5">
           <h2 className="text-2xl font-bold text-slate-800 min-w-0">Warehouse Top View</h2>
 
@@ -478,6 +574,11 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
                 onSkuInfo={mergeSkuInfo}
                 onGoToNoMovers={onGoToNoMovers}
                 hiddenForPrint={printing !== null && printing !== b.id}
+                moveMode={moveMode}
+                onMoveTarget={(row, letter) => handleMoveTarget(row, letter)}
+                manualPins={manualPins}
+                onPinsLoaded={handlePinsLoaded}
+                pinToken={pinToken?.blockId === b.id ? pinToken.token : null}
               />
             );
           })}
@@ -487,10 +588,13 @@ export const DsPalletPlanView: React.FC<DsPalletPlanViewProps> = ({ onGoToNoMove
           <SkuDetailPanel
             selected={selectedSku}
             info={skuInfo.get(selectedSku.sku)}
-            currentCapacity={skuCapacityOverrides[selectedSku.sku] ?? 25}
+            currentCapacity={skuCapacityOverrides[selectedSku.sku] ?? DS_PALLET_MAX}
             onClose={() => setSelectedSku(null)}
             onSkip={skipSku}
             onCapacityChange={handleCapacityChange}
+            onMove={handleMove}
+            onUnpin={handleUnpin}
+            isPinned={manualPins.some((p) => p.sku === selectedSku.sku)}
           />
         )}
       </div>

@@ -15,6 +15,7 @@ import {
   positionLetters,
   splitIntoPallets,
   type BlockConfig,
+  type ManualPin,
   type NoMoverCandidate,
   type PalletSlot,
 } from '../dsPalletPlanner';
@@ -621,5 +622,101 @@ describe('assignToFill', () => {
     const result = assignToFill([{ sku: 'ONLY', totalQty: 25 }], [BLOCK_A, BLOCK_B], 20, criteria);
 
     expect(result).toMatchObject({ fills: false, minUnits: 20 });
+  });
+});
+
+describe('planBlock — manual pins', () => {
+  it('places a pinned SKU in the exact designated cell', () => {
+    const candidates: NoMoverCandidate[] = [
+      { sku: 'PINNED', totalQty: 60, blockId: 'A' },
+      { sku: 'FREE', totalQty: 30, blockId: 'A' },
+    ];
+    const pins: ManualPin[] = [{ sku: 'PINNED', row: '33', letter: 'C' }];
+    const plan = planBlock(BLOCK_A, candidates, { manualPins: pins });
+
+    const slot = plan.slots.find((s) => s.id === '33-C')!;
+    expect(slot.usage).toMatchObject({
+      kind: 'pallet',
+      sku: 'PINNED',
+      pinned: true,
+    });
+  });
+
+  it('does not reassign a pinned cell during normal placement', () => {
+    const candidates: NoMoverCandidate[] = [
+      { sku: 'PINNED', totalQty: 30, blockId: 'A' },
+      { sku: 'OTHER', totalQty: 30, blockId: 'A' },
+    ];
+    const pins: ManualPin[] = [{ sku: 'PINNED', row: '31', letter: 'E' }];
+    const plan = planBlock(BLOCK_A, candidates, { manualPins: pins });
+
+    // The pinned cell is never overwritten.
+    const pinnedSlot = plan.slots.find((s) => s.id === '31-E')!;
+    expect(pinnedSlot.usage).toMatchObject({ sku: 'PINNED', pinned: true });
+
+    // The other SKU is placed somewhere else.
+    const otherPallets = pallets(plan.slots).filter((p) => p.sku === 'OTHER');
+    expect(otherPallets).toHaveLength(1);
+    expect(otherPallets[0].id).not.toBe('31-E');
+  });
+
+  it('ignores a stale pin whose SKU is no longer in the pool', () => {
+    const candidates: NoMoverCandidate[] = [{ sku: 'REAL', totalQty: 30, blockId: 'A' }];
+    const pins: ManualPin[] = [{ sku: 'GONE', row: '31', letter: 'B' }];
+    const plan = planBlock(BLOCK_A, candidates, { manualPins: pins });
+
+    // The cell is empty or taken by REAL — not by GONE.
+    const slot = plan.slots.find((s) => s.id === '31-B')!;
+    expect(slot.usage.kind !== 'pallet' || (slot.usage as { sku: string }).sku !== 'GONE').toBe(
+      true
+    );
+  });
+
+  it('subtracts pinned units so the SKU is not double-placed', () => {
+    // 60u → 2 pallets at 30u max. Pin one, the other should be auto-placed.
+    const candidates: NoMoverCandidate[] = [{ sku: 'SPLIT', totalQty: 60, blockId: 'A' }];
+    const pins: ManualPin[] = [{ sku: 'SPLIT', row: '32', letter: 'D' }];
+    const plan = planBlock(BLOCK_A, candidates, { manualPins: pins });
+
+    const placed = pallets(plan.slots).filter((p) => p.sku === 'SPLIT');
+    expect(placed).toHaveLength(2);
+
+    const pinned = placed.find((p) => p.id === '32-D');
+    expect(pinned).toBeDefined();
+
+    const auto = placed.find((p) => p.id !== '32-D');
+    expect(auto).toBeDefined();
+    expect(auto!.anchored).toBe(false);
+  });
+
+  it('supports multiple pins for different SKUs', () => {
+    const candidates: NoMoverCandidate[] = [
+      { sku: 'A-SKU', totalQty: 30, blockId: 'A' },
+      { sku: 'B-SKU', totalQty: 30, blockId: 'A' },
+    ];
+    const pins: ManualPin[] = [
+      { sku: 'A-SKU', row: '31', letter: 'B' },
+      { sku: 'B-SKU', row: '33', letter: 'F' },
+    ];
+    const plan = planBlock(BLOCK_A, candidates, { manualPins: pins });
+
+    expect(plan.slots.find((s) => s.id === '31-B')!.usage).toMatchObject({
+      sku: 'A-SKU',
+      pinned: true,
+    });
+    expect(plan.slots.find((s) => s.id === '33-F')!.usage).toMatchObject({
+      sku: 'B-SKU',
+      pinned: true,
+    });
+  });
+
+  it('skips a pin targeting a reserved cell', () => {
+    const candidates: NoMoverCandidate[] = [{ sku: 'WANT-RESERVED', totalQty: 30, blockId: 'A' }];
+    // J is reserved in BLOCK_A
+    const pins: ManualPin[] = [{ sku: 'WANT-RESERVED', row: '31', letter: 'J' }];
+    const plan = planBlock(BLOCK_A, candidates, { manualPins: pins });
+
+    const slot = plan.slots.find((s) => s.id === '31-J')!;
+    expect(slot.usage.kind).toBe('reserved');
   });
 });

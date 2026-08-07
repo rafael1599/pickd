@@ -20,6 +20,7 @@ import {
   type NoMoverCandidate,
   type PalletSlot,
   type PullFirstEntry,
+  type ManualPin,
 } from '../../../utils/dsPalletPlanner';
 import { useNoMovers, type NoMoverEntry } from './useNoMoverList';
 
@@ -159,12 +160,14 @@ export function useRecalculateDsPalletPlan() {
       minUnits,
       autoFit = true,
       skuCapacityOverrides,
+      manualPins,
     }: {
       block: BlockConfig;
       candidates: NoMoverCandidate[];
       minUnits: number;
       autoFit?: boolean;
       skuCapacityOverrides?: Record<string, number>;
+      manualPins?: ManualPin[];
     }): Promise<RecalculatedPlan> => {
       const fit = autoFit
         ? fitMinimum(candidates, block, minUnits)
@@ -173,6 +176,7 @@ export function useRecalculateDsPalletPlan() {
       const plan = planBlock(block, candidates, {
         minUnits: fit.minUnits,
         skuCapacityOverrides,
+        manualPins,
       });
 
       const { error } = await supabase.from('warehouse_overstock_plans').upsert({
@@ -180,7 +184,12 @@ export function useRecalculateDsPalletPlan() {
         block_id: block.id,
         warehouse: 'LUDLOW',
         plan_version: plan.planVersion,
-        plan_data: { slots: plan.slots, minUnits: fit.minUnits, skuCapacityOverrides } as never,
+        plan_data: {
+          slots: plan.slots,
+          minUnits: fit.minUnits,
+          skuCapacityOverrides,
+          manualPins,
+        } as never,
         pull_first: plan.pullFirst as never,
         // Carried over from the previous model; unused by the DS-Pallet planner.
         ranking_weights: {} as never,

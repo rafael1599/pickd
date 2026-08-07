@@ -12,6 +12,8 @@ interface DsPalletCellProps {
   borderRight?: boolean;
   borderBottom?: boolean;
   dashed?: boolean;
+  moveMode?: { sku: string };
+  onMoveTarget?: () => void;
 }
 
 const PRINT_HEIGHT_SCALE = 1.5;
@@ -24,6 +26,8 @@ export const DsPalletCell: React.FC<DsPalletCellProps> = ({
   borderRight,
   borderBottom,
   dashed,
+  moveMode,
+  onMoveTarget,
 }) => {
   const heightVars = {
     '--cell-h': `${heightRem}rem`,
@@ -31,6 +35,17 @@ export const DsPalletCell: React.FC<DsPalletCellProps> = ({
   } as React.CSSProperties;
   const heightClass = 'h-[var(--cell-h)] print:h-auto';
   const borderClass = `${borderRight ? 'border-r' : ''} ${borderBottom ? 'border-b' : ''} border-gray-300`;
+
+  let moveClass = '';
+  if (moveMode) {
+    if (usage.kind === 'empty' || usage.kind === 'reserved') {
+      moveClass = 'ring-2 ring-blue-400 animate-pulse relative z-20';
+    } else if (usage.kind === 'pallet' && usage.sku === moveMode.sku) {
+      moveClass = 'outline-2 outline-orange-400 relative z-20';
+    } else {
+      moveClass = 'ring-1 ring-blue-300 relative z-10';
+    }
+  }
 
   if (usage.kind === 'reserved' || usage.kind === 'empty') {
     const isReserved = usage.kind === 'reserved';
@@ -40,10 +55,12 @@ export const DsPalletCell: React.FC<DsPalletCellProps> = ({
           dashed
             ? 'relative z-10 outline outline-2 outline-dashed outline-slate-300 outline-offset-[-2px]'
             : ''
-        }`}
+        } ${moveClass}`}
         style={heightVars}
         onClick={() =>
-          onSelectSku({ sku: 'EMPTY', unitsHere: 0, kind: isReserved ? 'reserved' : 'empty' })
+          moveMode
+            ? onMoveTarget?.()
+            : onSelectSku({ sku: 'EMPTY', unitsHere: 0, kind: isReserved ? 'reserved' : 'empty' })
         }
       >
         <span>{isReserved ? 'reserved' : 'empty'}</span>
@@ -56,9 +73,11 @@ export const DsPalletCell: React.FC<DsPalletCellProps> = ({
     const color = skuColor(sku);
     return (
       <div
-        className={`flex flex-col justify-center gap-1 px-3 py-2 print:px-2 print:py-1 border-l-4 border-amber-500 bg-amber-50/60 cursor-pointer hover:bg-amber-100/80 overflow-hidden min-h-0 ${heightClass} ${borderClass}`}
+        className={`flex flex-col justify-center gap-1 px-3 py-2 print:px-2 print:py-1 border-l-4 border-amber-500 bg-amber-50/60 cursor-pointer hover:bg-amber-100/80 overflow-hidden min-h-0 ${heightClass} ${borderClass} ${moveClass}`}
         style={heightVars}
-        onClick={() => onSelectSku({ sku, unitsHere: units, kind: 'sobrante' })}
+        onClick={() =>
+          moveMode ? onMoveTarget?.() : onSelectSku({ sku, unitsHere: units, kind: 'sobrante' })
+        }
         title={`${sku} — Surplus (${units}u)`}
       >
         <div
@@ -78,14 +97,17 @@ export const DsPalletCell: React.FC<DsPalletCellProps> = ({
   }
 
   const { sku, units, capacity = DS_PALLET_MAX, anchored } = usage;
+  const isPinned = (usage as any).pinned === true;
   const color = skuColor(sku);
   const isFull = units >= capacity;
 
   return (
     <div
-      className={`flex flex-col justify-center gap-1 px-3 py-2 print:px-2 print:py-1 border-l-4 print:border-l-2 cursor-pointer hover:brightness-95 overflow-hidden min-h-0 ${heightClass} ${borderClass}`}
+      className={`flex flex-col justify-center gap-1 px-3 py-2 print:px-2 print:py-1 border-l-4 print:border-l-2 cursor-pointer hover:brightness-95 overflow-hidden min-h-0 ${heightClass} ${borderClass} ${moveClass}`}
       style={{ ...heightVars, backgroundColor: color.bg, borderLeftColor: color.border }}
-      onClick={() => onSelectSku({ sku, unitsHere: units, kind: 'pallet' })}
+      onClick={() =>
+        moveMode ? onMoveTarget?.() : onSelectSku({ sku, unitsHere: units, kind: 'pallet' })
+      }
       title={
         anchored
           ? `${sku} — already in this sublocation`
@@ -109,6 +131,14 @@ export const DsPalletCell: React.FC<DsPalletCellProps> = ({
             title="Already in this block — leave it where it is"
           >
             ⚓
+          </span>
+        )}
+        {isPinned && !anchored && (
+          <span
+            className="font-bold text-slate-600 print:text-black"
+            title="Manually pinned to this sublocation"
+          >
+            📌
           </span>
         )}
         {strandedUnits > 0 && (

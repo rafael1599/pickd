@@ -1,5 +1,15 @@
 import React from 'react';
-import { X, CheckCircle, Ban, ArrowLeftRight, Trash2, Loader2, SkipForward } from 'lucide-react';
+import {
+  X,
+  CheckCircle,
+  Ban,
+  ArrowLeftRight,
+  Trash2,
+  Loader2,
+  SkipForward,
+  Move,
+  PinOff,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { skuColor } from '../../utils/skuColor';
 import { BLOCKS } from '../../../../utils/dsPalletPlanner';
@@ -43,6 +53,9 @@ interface SkuDetailPanelProps {
   onSkip?: (sku: string, blockId: string) => void;
   /** Updates the custom pallet capacity for this SKU and triggers map recalculation. */
   onCapacityChange?: (sku: string, newCapacity: number) => void;
+  onMove?: (sku: string) => void;
+  onUnpin?: (sku: string) => void;
+  isPinned?: boolean;
 }
 
 export const SkuDetailPanel: React.FC<SkuDetailPanelProps> = ({
@@ -52,6 +65,9 @@ export const SkuDetailPanel: React.FC<SkuDetailPanelProps> = ({
   onClose,
   onSkip,
   onCapacityChange,
+  onMove,
+  onUnpin,
+  isPinned,
 }) => {
   if (selected.kind === 'empty' || selected.kind === 'reserved') {
     return (
@@ -110,6 +126,9 @@ export const SkuDetailPanel: React.FC<SkuDetailPanelProps> = ({
       onClose={onClose}
       onSkip={onSkip}
       onCapacityChange={onCapacityChange}
+      onMove={onMove}
+      onUnpin={onUnpin}
+      isPinned={isPinned}
     />
   );
 };
@@ -128,6 +147,9 @@ const PalletDetail: React.FC<SkuDetailPanelProps> = ({
   onClose,
   onSkip,
   onCapacityChange,
+  onMove,
+  onUnpin,
+  isPinned,
 }) => {
   const color = skuColor(selected.sku);
   // Bound to a const so the guard below narrows it inside the click handler.
@@ -294,6 +316,34 @@ const PalletDetail: React.FC<SkuDetailPanelProps> = ({
             >
               <ArrowLeftRight className="w-3.5 h-3.5 text-slate-500" />
               Move to block {otherBlock.id}
+            </button>
+          )}
+
+          {onMove && blockId && selected.kind === 'pallet' && (
+            <button
+              onClick={() => {
+                onMove(selected.sku);
+                onClose();
+              }}
+              disabled={busy}
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 disabled:opacity-40 transition-colors"
+            >
+              <Move className="w-3.5 h-3.5 text-slate-500" />
+              Move — pick a different cell for it
+            </button>
+          )}
+
+          {onUnpin && isPinned && (
+            <button
+              onClick={() => {
+                onUnpin(selected.sku);
+                onClose();
+              }}
+              disabled={busy}
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 disabled:opacity-40 transition-colors"
+            >
+              <PinOff className="w-3.5 h-3.5 text-slate-500" />
+              Unpin — let the planner place it
             </button>
           )}
 
