@@ -85,6 +85,7 @@ interface ShipOrderCardProps {
     pickedCustomerId?: string | null
   ) => Promise<boolean>;
   onSplitOrder?: () => void;
+  onUncombineGroup?: (groupId: string) => void;
   onViewOrder?: () => void;
   onShowPickingSummary?: () => void;
   onReopenOrder?: () => void;
@@ -228,6 +229,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   onDelete,
   onAutoSave,
   onSplitOrder,
+  onUncombineGroup,
   onViewOrder,
   onShowPickingSummary,
   onReopenOrder,
@@ -744,7 +746,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
         </div>
 
         {/* Pallet Photos Block — sits next to Customer/Address only */}
-        {(selectedOrder.pallet_photos ?? []).length > 0 && (
+        {((selectedOrder.pallet_photos ?? []).length > 0 || onAddPhoto) && (
           <div className="w-full sm:w-auto shrink-0 flex items-start justify-end ml-auto">
             <PalletPhotosBlock
               photos={selectedOrder.pallet_photos ?? []}
@@ -1015,6 +1017,17 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
             >
               <Scissors size={12} />
               <span>Split Orders</span>
+            </button>
+          )}
+
+          {onUncombineGroup && selectedOrder.status !== 'completed' && selectedOrder.group_id && (
+            <button
+              onClick={() => onUncombineGroup(selectedOrder.group_id!)}
+              className="w-full mt-2 flex items-center justify-center gap-2 h-10 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-xl text-[10px] font-black uppercase tracking-widest text-amber-400 hover:text-amber-300 transition-all active:scale-95"
+              title="Uncombine group into separate orders"
+            >
+              <Scissors size={12} />
+              <span>Uncombine Group (Separar Órdenes)</span>
             </button>
           )}
         </div>

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { PhotoLightbox } from '../ui/PhotoLightbox';
+import Camera from 'lucide-react/dist/esm/icons/camera';
+import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 
 interface PalletPhotosBlockProps {
   photos: string[];
@@ -13,9 +15,12 @@ interface PalletPhotosBlockProps {
 /**
  * Derives a thumbnail URL from a full-size gallery photo URL.
  * Pattern: `.../photos/gallery/{id}.webp` → `.../photos/gallery/thumbs/{id}.webp`
- * Falls back to the original URL when the pattern doesn't match.
+ * Falls back to the original URL when the pattern doesn't match or is a blob/data URL.
  */
 function toThumbUrl(url: string): string {
+  if (url.startsWith('blob:') || url.startsWith('data:')) {
+    return url;
+  }
   return url.replace(/(photos\/gallery\/)([^/]+\.webp)$/, '$1thumbs/$2');
 }
 
@@ -31,13 +36,13 @@ export const PalletPhotosBlock: React.FC<PalletPhotosBlockProps> = ({
 }) => {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
-  if (photos.length === 0) return null;
+  if (photos.length === 0 && !onAddPhoto) return null;
 
   const wrapperClass = compact
     ? `w-full flex items-start justify-end ${className}`
     : `w-full px-1 md:px-4 ${className}`;
   const gridClass = compact
-    ? 'flex flex-col gap-2 items-end animate-soft-in'
+    ? 'flex flex-row flex-wrap gap-2 items-center justify-end animate-soft-in'
     : 'flex flex-wrap gap-2 animate-soft-in';
   const thumbClass = compact
     ? 'w-8 h-8 sm:w-10 sm:h-10 shrink-0 aspect-square rounded-xl overflow-hidden border border-subtle hover:border-accent transition-colors active:scale-95 bg-surface'
@@ -73,17 +78,23 @@ export const PalletPhotosBlock: React.FC<PalletPhotosBlockProps> = ({
             type="button"
             onClick={onAddPhoto}
             disabled={isAddingPhoto}
-            className={`${thumbClass} flex items-center justify-center text-content/60 hover:text-accent bg-card disabled:opacity-50`}
-            title="Take another photo"
-            aria-label="Take another photo"
+            className={`${thumbClass} flex items-center justify-center text-content/60 hover:text-accent bg-card disabled:opacity-50 border border-dashed border-subtle hover:border-accent transition-all`}
+            title={photos.length === 0 ? 'Take photo' : 'Take another photo'}
+            aria-label={photos.length === 0 ? 'Take photo' : 'Take another photo'}
           >
-            <span
-              className={
-                compact ? 'text-base font-light leading-none' : 'text-2xl font-light leading-none'
-              }
-            >
-              +
-            </span>
+            {isAddingPhoto ? (
+              <Loader2 size={compact ? 14 : 20} className="animate-spin text-accent" />
+            ) : photos.length === 0 ? (
+              <Camera size={compact ? 16 : 20} className="text-muted hover:text-accent" />
+            ) : (
+              <span
+                className={
+                  compact ? 'text-base font-light leading-none' : 'text-2xl font-light leading-none'
+                }
+              >
+                +
+              </span>
+            )}
           </button>
         )}
       </div>

@@ -331,7 +331,8 @@ export const ShipScreen = () => {
   const { user } = useAuth();
   const { open: openModal } = useModal();
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
-  const { createGroup, addToGroup, removeFromGroup, resolveMixedShippingType } = useOrderGroups();
+  const { createGroup, addToGroup, removeFromGroup, dissolveGroup, resolveMixedShippingType } =
+    useOrderGroups();
   const [pendingShippingResolutionGroupId, setPendingShippingResolutionGroupId] = useState<
     string | null
   >(null);
@@ -415,6 +416,7 @@ export const ShipScreen = () => {
   const [restoreReasonModal, setRestoreReasonModal] = useState(false);
   const [restoreReason, setRestoreReason] = useState('');
   const [pendingShipmentOrder, setPendingShipmentOrder] = useState<OrderWithRelations | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const shipCameraInputRef = useRef<HTMLInputElement>(null);
   const [showShippingPreview, setShowShippingPreview] = useState(false);
   const [isShippingBatch, setIsShippingBatch] = useState(false);
@@ -1241,6 +1243,18 @@ export const ShipScreen = () => {
     [removeFromGroup, fetchOrders]
   );
 
+  const handleUncombineGroup = useCallback(
+    async (groupId: string) => {
+      const confirmUncombine = window.confirm(
+        'Are you sure you want to uncombine this group into separate orders?'
+      );
+      if (!confirmUncombine) return;
+      const ok = await dissolveGroup(groupId);
+      if (ok) fetchOrders();
+    },
+    [dissolveGroup, fetchOrders]
+  );
+
   // Handle external selections (e.g. from DoubleCheckHeader or VerificationBoard)
   useEffect(() => {
     if (!externalOrderId) return;
@@ -2015,10 +2029,11 @@ export const ShipScreen = () => {
 
   const handleShipCameraChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !pendingShipmentOrder) return;
-    e.target.value = ''; // reset
+    const targetOrder = pendingShipmentOrder || selectedOrder;
+    if (!file || !targetOrder) return;
+    e.target.value = ''; // reset so re-selecting same photo triggers onChange again
 
-    const toastId = toast.loading('Compressing and uploading photo...');
+    setIsUploadingPhoto(true);
     const previousOrders = [...orders];
     const previousSelectedOrder = selectedOrder;
 
@@ -2027,6 +2042,71 @@ export const ShipScreen = () => {
       const photoId = crypto.randomUUID();
       const isLocal = window.location.hostname === 'localhost';
 
+      // 1. Immediate local thumbnail blob URL for optimistic instant UI feedback
+      const localThumbBlobUrl = base64ToBlobUrl(thumbnail);
+
+      // Fetch existing photos from database (or targetOrder.pallet_photos)
+      const { data: current } = await supabase
+        .from('picking_lists')
+        .select('pallet_photos')
+        .eq('id', targetOrder.id)
+        .single();
+
+      const existing = Array.isArray(current?.pallet_photos)
+        ? (current.pallet_photos as string[])
+        : (targetOrder.pallet_photos ?? []);
+
+      // 2. Optimistic update with local thumbnail so the thumbnail appears INSTANTLY
+      const optimisticPhotos = [...existing, localThumbBlobUrl];
+      const isShipping = !!pendingShipmentOrder;
+      const idsToUpdate =
+        targetOrder.combined_member_ids ??
+        (targetOrder.group_id
+          ? orders.filter((o) => o.group_id === targetOrder.group_id).map((o) => o.id)
+          : [targetOrder.id]);
+      const siblingIds = idsToUpdate.filter((id) => id !== targetOrder.id);
+
+      const shippedAt = new Date().toISOString();
+
+      setOrders((prev) =>
+        prev.map((o) =>
+          idsToUpdate.includes(o.id)
+            ? {
+                ...o,
+                ...(isShipping
+                  ? {
+                      status: 'completed',
+                      is_shipped: true,
+                      is_waiting_inventory: false,
+                      updated_at: shippedAt,
+                    }
+                  : {}),
+                ...(o.id === targetOrder.id ? { pallet_photos: optimisticPhotos } : {}),
+              }
+            : o
+        )
+      );
+
+      if (selectedOrder && idsToUpdate.includes(selectedOrder.id)) {
+        setSelectedOrder((prev) =>
+          prev
+            ? {
+                ...prev,
+                ...(isShipping
+                  ? {
+                      status: 'completed',
+                      is_shipped: true,
+                      is_waiting_inventory: false,
+                      updated_at: shippedAt,
+                    }
+                  : {}),
+                pallet_photos: optimisticPhotos,
+              }
+            : null
+        );
+      }
+
+      // 3. Upload photo to backend
       let photoUrl: string | null = null;
       try {
         const { data: uploadResult, error: uploadErr } = await supabase.functions.invoke(
@@ -2043,82 +2123,55 @@ export const ShipScreen = () => {
       }
 
       if (!photoUrl && isLocal) {
-        photoUrl = base64ToBlobUrl(image);
+        photoUrl = localThumbBlobUrl;
       }
 
       if (!photoUrl) throw new Error('Failed to generate photo URL');
 
-      // Get existing photos from order, append the new photo
-      const { data: current } = await supabase
-        .from('picking_lists')
-        .select('pallet_photos')
-        .eq('id', pendingShipmentOrder.id)
-        .single();
+      // 4. Replace local blob URL with permanent uploaded photoUrl in state
+      const finalPhotos = [...existing, photoUrl];
 
-      const existing = Array.isArray(current?.pallet_photos)
-        ? (current.pallet_photos as string[])
-        : [];
-      const updatedPhotos = [...existing, photoUrl];
-
-      // Combined orders ship as one unit — every member behind this card
-      // (group siblings or same-customer FedEx cluster) needs to flip to
-      // shipped, not just the anchor the photo was attached to.
-      const idsToUpdate =
-        pendingShipmentOrder.combined_member_ids ??
-        (pendingShipmentOrder.group_id
-          ? orders.filter((o) => o.group_id === pendingShipmentOrder.group_id).map((o) => o.id)
-          : [pendingShipmentOrder.id]);
-      const siblingIds = idsToUpdate.filter((id) => id !== pendingShipmentOrder.id);
-
-      // Optimistic update — see handleBatchShip for why updated_at is
-      // bumped locally alongside is_shipped.
-      const shippedAt = new Date().toISOString();
       setOrders((prev) =>
         prev.map((o) =>
           idsToUpdate.includes(o.id)
             ? {
                 ...o,
-                status: 'completed',
-                is_shipped: true,
-                is_waiting_inventory: false,
-                updated_at: shippedAt,
-                ...(o.id === pendingShipmentOrder.id ? { pallet_photos: updatedPhotos } : {}),
+                ...(o.id === targetOrder.id ? { pallet_photos: finalPhotos } : {}),
               }
             : o
         )
       );
+
       if (selectedOrder && idsToUpdate.includes(selectedOrder.id)) {
         setSelectedOrder((prev) =>
           prev
             ? {
                 ...prev,
-                status: 'completed',
-                is_shipped: true,
-                is_waiting_inventory: false,
-                updated_at: shippedAt,
-                pallet_photos: updatedPhotos,
+                pallet_photos: finalPhotos,
               }
             : null
         );
       }
 
-      // Update Database — anchor gets the photo, siblings just flip status.
-      // updated_at is set explicitly — see handleBatchShip for why.
+      // 5. Update Database — anchor gets the photo, siblings update status if shipping
+      const updateData: Record<string, any> = {
+        pallet_photos: finalPhotos,
+      };
+      if (isShipping) {
+        updateData.status = 'completed';
+        updateData.is_shipped = true;
+        updateData.is_waiting_inventory = false;
+        updateData.updated_at = shippedAt;
+      }
+
       const { error } = await supabase
         .from('picking_lists')
-        .update({
-          status: 'completed',
-          is_shipped: true,
-          is_waiting_inventory: false,
-          updated_at: shippedAt,
-          pallet_photos: updatedPhotos,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } as any)
-        .eq('id', pendingShipmentOrder.id);
+        .update(updateData as any)
+        .eq('id', targetOrder.id);
 
       if (error) throw error;
 
-      if (siblingIds.length > 0) {
+      if (isShipping && siblingIds.length > 0) {
         const { error: siblingError } = await supabase
           .from('picking_lists')
           .update({
@@ -2126,22 +2179,19 @@ export const ShipScreen = () => {
             is_shipped: true,
             is_waiting_inventory: false,
             updated_at: shippedAt,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
           } as any)
           .in('id', siblingIds);
         if (siblingError) throw siblingError;
       }
 
-      toast.success(`Order #${pendingShipmentOrder.order_number} marked as Shipped!`, {
-        id: toastId,
-      });
+      // No notifications per user request ("no quiero ver notificaciones, solo la foto")
     } catch (err) {
-      console.error('Failed to ship order with photo:', err);
-      toast.error('Failed to upload photo & ship order', { id: toastId });
-      // Rollback
+      console.error('Failed to upload photo:', err);
+      // Rollback on error
       setOrders(previousOrders);
       setSelectedOrder(previousSelectedOrder);
     } finally {
+      setIsUploadingPhoto(false);
       setPendingShipmentOrder(null);
     }
   };
@@ -2330,11 +2380,12 @@ export const ShipScreen = () => {
                     }}
                     onShowPickingSummary={() => setIsShowingPickingSummary(true)}
                     onSplitOrder={() => setIsShowingSplitModal(true)}
+                    onUncombineGroup={handleUncombineGroup}
                     onReopenOrder={handleReopenOrder}
                     onRestoreOrder={handleRestoreOrder}
                     onContinueEditing={handleContinueEditing}
                     onAddPhoto={() => shipCameraInputRef.current?.click()}
-                    isAddingPhoto={false}
+                    isAddingPhoto={isUploadingPhoto}
                     autoBikeCount={autoBikeCount}
                     autoPartCount={autoPartCount}
                     autoWeight={totalWeight}

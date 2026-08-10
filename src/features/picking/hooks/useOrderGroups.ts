@@ -223,5 +223,22 @@ export const useOrderGroups = () => {
     return true;
   }, []);
 
-  return { createGroup, addToGroup, removeFromGroup, resolveMixedShippingType };
+  const dissolveGroup = useCallback(async (groupId: string) => {
+    const { error } = await supabase
+      .from('picking_lists')
+      .update({ group_id: null })
+      .eq('group_id', groupId);
+
+    if (error) {
+      console.error('Failed to dissolve group:', error);
+      toast.error('Failed to uncombine group');
+      return false;
+    }
+
+    await supabase.from('order_groups').delete().eq('id', groupId);
+    toast.success('Group uncombined into separate orders');
+    return true;
+  }, []);
+
+  return { createGroup, addToGroup, removeFromGroup, dissolveGroup, resolveMixedShippingType };
 };
