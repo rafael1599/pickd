@@ -62,17 +62,16 @@ export function isBikeSku(
     }
   }
 
-  // 1. Explicit DB flag true
+  // 1. Explicit DB flag in sku_metadata is the CANONICAL source of truth
   if (isBikeFlag === true) return true;
+  if (isBikeFlag === false) return false;
 
-  // 2. SKU pattern match (e.g. 03-4664YL)
+  // 2. Fallbacks for uncataloged SKUs (when is_bike is null/undefined in DB):
+  // SKU pattern match (e.g. 03-4664YL)
   if (skuStr && isBikeSkuPattern(skuStr)) return true;
 
-  // 3. Weight heuristic (boxed bikes weigh 15-50+ lbs, parts are small/light)
+  // Weight heuristic (boxed bikes weigh 15-50+ lbs, parts are small/light)
   if (typeof weightLbs === 'number' && weightLbs >= 15) return true;
-
-  // 4. If explicitly marked as false and no pattern/weight match
-  if (isBikeFlag === false) return false;
 
   return false;
 }

@@ -474,14 +474,22 @@ export const ShipScreen = () => {
   >({});
   const [weightsReady, setWeightsReady] = useState(false);
 
+  const selectedOrderSkusKey = useMemo(() => {
+    if (!selectedOrder?.items || !Array.isArray(selectedOrder.items)) return '';
+    return selectedOrder.items
+      .map((i: PickingListItem) => i.sku)
+      .sort()
+      .join(',');
+  }, [selectedOrder?.items]);
+
   // Fetch sku_metadata (weights + is_bike) when selected order changes
   useEffect(() => {
     setWeightsReady(false);
-    if (!selectedOrder?.items || !Array.isArray(selectedOrder.items)) {
+    if (!selectedOrderSkusKey) {
       setSkuMeta({});
       return;
     }
-    const skus = [...new Set(selectedOrder.items.map((i: PickingListItem) => i.sku))] as string[];
+    const skus = [...new Set(selectedOrderSkusKey.split(','))] as string[];
     if (skus.length === 0) return;
 
     supabase
@@ -506,7 +514,7 @@ export const ShipScreen = () => {
         setSkuMeta(map);
         setWeightsReady(true);
       });
-  }, [selectedOrder?.id, selectedOrder?.items]);
+  }, [selectedOrder?.id, selectedOrderSkusKey]);
 
   // Items missing weight
   const itemsMissingWeight = useMemo(() => {

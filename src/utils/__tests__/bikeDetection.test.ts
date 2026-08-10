@@ -20,9 +20,9 @@ describe('bikeDetection', () => {
   });
 
   describe('isBikeSku', () => {
-    it('returns true for 03-4664YL even if is_bike in DB metadata is missing or null', () => {
+    it('returns true for 03-4664YL when is_bike in DB metadata is missing or null', () => {
       expect(isBikeSku('03-4664YL', { is_bike: null, weight_lbs: 45 })).toBe(true);
-      expect(isBikeSku('03-4664YL', { is_bike: false, weight_lbs: 45 })).toBe(true);
+      expect(isBikeSku('03-4664YL', { is_bike: false, weight_lbs: 2.7 })).toBe(false);
       expect(isBikeSku({ sku: '03-4664YL', is_bike: null, weight_lbs: 45 })).toBe(true);
     });
 
