@@ -40,6 +40,7 @@ export function RegistrarContainerScreen() {
 
   const [step, setStep] = useState<Step>('upload');
   const [itemType, setItemType] = useState<'bike' | 'part' | null>(null);
+  const [itemTypesBySku, setItemTypesBySku] = useState<Record<string, 'bike' | 'part'>>({});
   const [fileName, setFileName] = useState<string>('');
   const [sheets, setSheets] = useState<ParsedSheet[]>([]);
   const [selectedSheet, setSelectedSheet] = useState<string>('');
@@ -63,6 +64,11 @@ export function RegistrarContainerScreen() {
         warehouse: WAREHOUSE,
       });
       setResolved(data);
+      const typesMap: Record<string, 'bike' | 'part'> = {};
+      data.forEach((r) => {
+        typesMap[r.canonical_sku] = r.is_bike ? 'bike' : 'part';
+      });
+      setItemTypesBySku(typesMap);
       setStep('preview');
     },
     [resolve]
@@ -82,8 +88,6 @@ export function RegistrarContainerScreen() {
           return;
         }
         setSelectedSheet(withItems[0].name);
-        // Single sheet → analyze automatically. Multiple → let the user pick
-        // (picking a sheet triggers the analysis; still no button).
         if (withItems.length === 1) {
           await analyzeSheet(withItems[0]);
         }
@@ -105,30 +109,52 @@ export function RegistrarContainerScreen() {
     [sheets, analyzeSheet]
   );
 
+  const handleSetAllTypes = useCallback(
+    (type: 'bike' | 'part') => {
+      setItemType(type);
+      const updated: Record<string, 'bike' | 'part'> = {};
+      resolved.forEach((r) => {
+        updated[r.canonical_sku] = type;
+      });
+      setItemTypesBySku(updated);
+    },
+    [resolved]
+  );
+
+  const handleToggleRowType = useCallback((sku: string, type: 'bike' | 'part') => {
+    setItemTypesBySku((prev) => ({
+      ...prev,
+      [sku]: type,
+    }));
+  }, []);
+
   const handleRegister = useCallback(async () => {
-    if (!itemType) {
-      toast.error('Debes seleccionar si el contenedor contiene BICICLETAS o PARTES / ACCESORIOS');
-      return;
-    }
     if (!activeSheet) return;
     if (!location.trim()) {
       toast.error('Enter the location name (e.g. FLORIDA).');
       return;
     }
+    const missingType = resolved.some((r) => !itemTypesBySku[r.canonical_sku]);
+    if (missingType) {
+      toast.error('Debes asignar si cada ítem es Bicicleta o Parte antes de registrar');
+      return;
+    }
+
     const result = await register.mutateAsync({
       location: location.trim(),
       items: toInputItems(activeSheet),
       warehouse: WAREHOUSE,
       orderNumber: null,
-      isBike: itemType === 'bike',
+      itemTypesBySku,
     });
     setSummary(result);
     setStep('done');
-  }, [activeSheet, itemType, location, register]);
+  }, [activeSheet, itemTypesBySku, location, register, resolved]);
 
   const reset = useCallback(() => {
     setStep('upload');
     setItemType(null);
+    setItemTypesBySku({});
     setFileName('');
     setSheets([]);
     setSelectedSheet('');
@@ -224,9 +250,9 @@ export function RegistrarContainerScreen() {
           <div className="rounded-2xl border border-gray-200 p-4 bg-gray-50/50">
             <RegisterTypeSelector
               value={itemType}
-              onChange={setItemType}
-              title="Tipo de Carga del Contenedor *"
-              subtitle="Selección obligatoria: elige si la carga corresponde a Bicicletas o Partes / Accesorios"
+              onChange={handleSetAllTypes}
+              title="Clasificación General del Contenedor"
+              subtitle="Presiona para asignar TODO el contenedor a Bicicletas o Partes, o ajusta ítem por ítem individualmente en la lista de abajo:"
             />
           </div>
 
@@ -260,49 +286,117 @@ export function RegistrarContainerScreen() {
                 <tr>
                   <th className="px-3 py-2">Canonical SKU</th>
                   <th className="px-3 py-2">Description</th>
+                  <th className="px-3 py-2 text-center">Tipo (Designación)</th>
                   <th className="px-3 py-2 text-right">Qty</th>
                   <th className="px-3 py-2">Towers/Lines</th>
                   <th className="px-3 py-2">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {resolved.map((r) => (
-                  <tr key={r.canonical_sku} className="border-t border-gray-100">
-                    <td className="px-3 py-2 font-mono">{r.canonical_sku}</td>
-                    <td className="px-3 py-2 text-gray-600">{r.item_name}</td>
-                    <td className="px-3 py-2 text-right font-medium">{r.qty}</td>
-                    <td className="px-3 py-2">{r.is_bike ? formatTowersLines(r.qty) : '—'}</td>
-                    <td className="px-3 py-2 space-x-1">
-                      <StatusBadges r={r} />
-                    </td>
-                  </tr>
-                ))}
+                {resolved.map((r) => {
+                  const currentType =
+                    itemTypesBySku[r.canonical_sku] ?? (r.is_bike ? 'bike' : 'part');
+                  return (
+                    <tr key={r.canonical_sku} className="border-t border-gray-100">
+                      <td className="px-3 py-2 font-mono font-medium">{r.canonical_sku}</td>
+                      <td className="px-3 py-2 text-gray-600">{r.item_name}</td>
+                      <td className="px-3 py-2 text-center">
+                        <div className="inline-flex items-center p-0.5 bg-gray-100 rounded-lg border border-gray-200">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleRowType(r.canonical_sku, 'bike')}
+                            className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
+                              currentType === 'bike'
+                                ? 'bg-blue-600 text-white shadow-sm'
+                                : 'text-gray-500 hover:text-gray-900'
+                            }`}
+                          >
+                            🚲 Bike
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleRowType(r.canonical_sku, 'part')}
+                            className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
+                              currentType === 'part'
+                                ? 'bg-amber-500 text-white shadow-sm'
+                                : 'text-gray-500 hover:text-gray-900'
+                            }`}
+                          >
+                            📦 Part
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-right font-medium">{r.qty}</td>
+                      <td className="px-3 py-2">
+                        {currentType === 'bike' ? formatTowersLines(r.qty) : '—'}
+                      </td>
+                      <td className="px-3 py-2 space-x-1">
+                        <StatusBadges r={r} />
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
 
           {/* Mobile cards */}
           <div className="sm:hidden space-y-2">
-            {resolved.map((r) => (
-              <div key={r.canonical_sku} className="rounded-xl border border-gray-200 p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <span className="font-mono text-sm">{r.canonical_sku}</span>
-                  <span className="text-sm font-semibold whitespace-nowrap">
-                    {r.qty}
-                    {r.is_bike && (
-                      <span className="text-gray-400 font-normal">
-                        {' '}
-                        · {formatTowersLines(r.qty)}
-                      </span>
-                    )}
-                  </span>
+            {resolved.map((r) => {
+              const currentType = itemTypesBySku[r.canonical_sku] ?? (r.is_bike ? 'bike' : 'part');
+              return (
+                <div
+                  key={r.canonical_sku}
+                  className="rounded-xl border border-gray-200 p-3 space-y-2"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-mono text-sm font-semibold">{r.canonical_sku}</span>
+                    <span className="text-sm font-semibold whitespace-nowrap">
+                      {r.qty}
+                      {currentType === 'bike' && (
+                        <span className="text-gray-400 font-normal">
+                          {' '}
+                          · {formatTowersLines(r.qty)}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-gray-600">{r.item_name}</p>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-gray-100">
+                    <div className="inline-flex items-center p-0.5 bg-gray-100 rounded-lg border border-gray-200">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleRowType(r.canonical_sku, 'bike')}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
+                          currentType === 'bike'
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'text-gray-500 hover:text-gray-900'
+                        }`}
+                      >
+                        🚲 Bike
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleRowType(r.canonical_sku, 'part')}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
+                          currentType === 'part'
+                            ? 'bg-amber-500 text-white shadow-sm'
+                            : 'text-gray-500 hover:text-gray-900'
+                        }`}
+                      >
+                        📦 Part
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1">
+                      <StatusBadges r={r} />
+                    </div>
+                  </div>
                 </div>
-                <p className="mt-0.5 text-xs text-gray-600">{r.item_name}</p>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  <StatusBadges r={r} />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Actions — float ABOVE the app's bottom nav, always visible (no need

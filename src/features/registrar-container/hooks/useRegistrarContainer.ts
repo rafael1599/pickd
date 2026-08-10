@@ -27,6 +27,7 @@ export function useRegistrarContainer() {
       warehouse: string;
       orderNumber?: string | null;
       isBike?: boolean;
+      itemTypesBySku?: Record<string, 'bike' | 'part'>;
     }) => {
       const args: RegisterContainerArgs = {
         ...vars,

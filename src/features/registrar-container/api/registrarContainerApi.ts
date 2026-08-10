@@ -29,6 +29,7 @@ export interface RegisterContainerArgs {
   warehouse: string;
   orderNumber?: string | null;
   isBike?: boolean;
+  itemTypesBySku?: Record<string, 'bike' | 'part'>;
 }
 
 export async function registerContainer(args: RegisterContainerArgs): Promise<RegisterSummary> {
@@ -42,7 +43,13 @@ export async function registerContainer(args: RegisterContainerArgs): Promise<Re
   });
   if (error) throw new Error(error.message);
 
-  if (typeof args.isBike === 'boolean') {
+  if (args.itemTypesBySku && Object.keys(args.itemTypesBySku).length > 0) {
+    const rows = Object.entries(args.itemTypesBySku).map(([sku, type]) => ({
+      sku: sku.trim().toUpperCase(),
+      is_bike: type === 'bike',
+    }));
+    await supabase.from('sku_metadata').upsert(rows, { onConflict: 'sku' });
+  } else if (typeof args.isBike === 'boolean') {
     const uniqueSkus = [...new Set(args.items.map((i) => i.sku.trim().toUpperCase()))].filter(
       Boolean
     );
