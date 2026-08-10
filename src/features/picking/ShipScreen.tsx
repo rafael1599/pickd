@@ -29,6 +29,7 @@ import { mergeSiblingPalletPhotos } from '../../utils/mergeSiblingPalletPhotos';
 import { skuDefaultsFor } from '../../utils/skuDefaults';
 import { fetchGroupSiblings } from './utils/fetchGroupSiblings';
 import { useCombinedOrderFilter } from '../../hooks/useCombinedOrderFilter';
+import { inventorySkuCandidates } from '../../utils/skuNormalize';
 import { ActiveFilterPill } from '../../components/orders/CombinedOrderNumbers';
 
 import { ShipHeader } from './ship/components/header/ShipHeader';
@@ -492,23 +493,35 @@ export const ShipScreen = () => {
     const skus = [...new Set(selectedOrderSkusKey.split(','))] as string[];
     if (skus.length === 0) return;
 
+    const allCandidates = [...new Set(skus.flatMap((s) => inventorySkuCandidates(s)))];
+
     supabase
       .from('sku_metadata')
       .select('sku, weight_lbs, is_bike')
-      .in('sku', skus)
+      .in('sku', allCandidates)
       .then(({ data }) => {
-        const map: Record<string, { weight_lbs: number | null; is_bike: boolean }> = {};
-        skus.forEach((s) => {
-          map[s] = { weight_lbs: null, is_bike: isBikeSku(s) };
-        });
+        const metaBySku = new Map<string, { weight_lbs: number | null; is_bike: boolean | null }>();
         (
           data as unknown as
             | { sku: string; weight_lbs: number | null; is_bike: boolean | null }[]
             | null
         )?.forEach((row) => {
-          map[row.sku] = {
-            weight_lbs: row.weight_lbs,
-            is_bike: isBikeSku(row.sku, row),
+          metaBySku.set(row.sku, row);
+        });
+
+        const map: Record<string, { weight_lbs: number | null; is_bike: boolean }> = {};
+        skus.forEach((s) => {
+          const candidates = inventorySkuCandidates(s);
+          let matchedMeta: { weight_lbs: number | null; is_bike: boolean | null } | undefined;
+          for (const cand of candidates) {
+            if (metaBySku.has(cand)) {
+              matchedMeta = metaBySku.get(cand);
+              break;
+            }
+          }
+          map[s] = {
+            weight_lbs: matchedMeta?.weight_lbs ?? null,
+            is_bike: isBikeSku(s, matchedMeta),
           };
         });
         setSkuMeta(map);
