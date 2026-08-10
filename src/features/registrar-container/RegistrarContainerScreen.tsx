@@ -64,9 +64,13 @@ export function RegistrarContainerScreen() {
         warehouse: WAREHOUSE,
       });
       setResolved(data);
+      // Auto-assign type only for known SKUs (already in sku_metadata).
+      // New/unknown SKUs are left unset — the user must designate them.
       const typesMap: Record<string, 'bike' | 'part'> = {};
       data.forEach((r) => {
-        typesMap[r.canonical_sku] = r.is_bike ? 'bike' : 'part';
+        if (!r.is_new) {
+          typesMap[r.canonical_sku] = r.is_bike ? 'bike' : 'part';
+        }
       });
       setItemTypesBySku(typesMap);
       setStep('preview');
@@ -294,14 +298,26 @@ export function RegistrarContainerScreen() {
               </thead>
               <tbody>
                 {resolved.map((r) => {
-                  const currentType =
-                    itemTypesBySku[r.canonical_sku] ?? (r.is_bike ? 'bike' : 'part');
+                  const currentType = itemTypesBySku[r.canonical_sku] as
+                    | 'bike'
+                    | 'part'
+                    | undefined;
+                  const unassigned = !currentType;
                   return (
-                    <tr key={r.canonical_sku} className="border-t border-gray-100">
+                    <tr
+                      key={r.canonical_sku}
+                      className={`border-t ${unassigned ? 'border-red-200 bg-red-50/40' : 'border-gray-100'}`}
+                    >
                       <td className="px-3 py-2 font-mono font-medium">{r.canonical_sku}</td>
                       <td className="px-3 py-2 text-gray-600">{r.item_name}</td>
                       <td className="px-3 py-2 text-center">
-                        <div className="inline-flex items-center p-0.5 bg-gray-100 rounded-lg border border-gray-200">
+                        <div
+                          className={`inline-flex items-center p-0.5 rounded-lg border ${
+                            unassigned
+                              ? 'bg-red-50 border-red-300 animate-pulse'
+                              : 'bg-gray-100 border-gray-200'
+                          }`}
+                        >
                           <button
                             type="button"
                             onClick={() => handleToggleRowType(r.canonical_sku, 'bike')}
@@ -343,11 +359,14 @@ export function RegistrarContainerScreen() {
           {/* Mobile cards */}
           <div className="sm:hidden space-y-2">
             {resolved.map((r) => {
-              const currentType = itemTypesBySku[r.canonical_sku] ?? (r.is_bike ? 'bike' : 'part');
+              const currentType = itemTypesBySku[r.canonical_sku] as 'bike' | 'part' | undefined;
+              const unassigned = !currentType;
               return (
                 <div
                   key={r.canonical_sku}
-                  className="rounded-xl border border-gray-200 p-3 space-y-2"
+                  className={`rounded-xl border p-3 space-y-2 ${
+                    unassigned ? 'border-red-300 bg-red-50/40' : 'border-gray-200'
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <span className="font-mono text-sm font-semibold">{r.canonical_sku}</span>
@@ -365,7 +384,13 @@ export function RegistrarContainerScreen() {
                   <p className="text-xs text-gray-600">{r.item_name}</p>
 
                   <div className="flex items-center justify-between pt-1 border-t border-gray-100">
-                    <div className="inline-flex items-center p-0.5 bg-gray-100 rounded-lg border border-gray-200">
+                    <div
+                      className={`inline-flex items-center p-0.5 rounded-lg border ${
+                        unassigned
+                          ? 'bg-red-50 border-red-300 animate-pulse'
+                          : 'bg-gray-100 border-gray-200'
+                      }`}
+                    >
                       <button
                         type="button"
                         onClick={() => handleToggleRowType(r.canonical_sku, 'bike')}
