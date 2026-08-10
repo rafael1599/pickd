@@ -28,6 +28,7 @@ export interface RegisterContainerArgs {
   performedBy: string;
   warehouse: string;
   orderNumber?: string | null;
+  isBike?: boolean;
 }
 
 export async function registerContainer(args: RegisterContainerArgs): Promise<RegisterSummary> {
@@ -40,5 +41,16 @@ export async function registerContainer(args: RegisterContainerArgs): Promise<Re
     p_order_number: args.orderNumber ?? null,
   });
   if (error) throw new Error(error.message);
+
+  if (typeof args.isBike === 'boolean') {
+    const uniqueSkus = [...new Set(args.items.map((i) => i.sku.trim().toUpperCase()))].filter(
+      Boolean
+    );
+    if (uniqueSkus.length > 0) {
+      const rows = uniqueSkus.map((sku) => ({ sku, is_bike: args.isBike }));
+      await supabase.from('sku_metadata').upsert(rows, { onConflict: 'sku' });
+    }
+  }
+
   return data as RegisterSummary;
 }

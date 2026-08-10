@@ -24,6 +24,7 @@ import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from '../../hooks/useInventoryReal
 import { useLocationManagement } from '../../hooks/useLocationManagement.ts';
 import { useConfirmation } from '../../../../context/ConfirmationContext.tsx';
 import AutocompleteInput from '../../../../components/ui/AutocompleteInput.tsx';
+import { RegisterTypeSelector } from '../../../../components/ui/RegisterTypeSelector';
 import {
   InventoryItemWithMetadata,
   InventoryItemInput,
@@ -864,21 +865,31 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
             <div className="md:col-span-7 flex flex-col justify-between space-y-4 p-4 sm:p-6">
               <div>
                 {/* Category / Badges */}
-                <div className="flex items-center gap-2 mb-2">
-                  <span
-                    onClick={() => isEditing && setTypeIsBike(!typeIsBike)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider ${
-                      typeIsBike
-                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                        : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                    } ${isEditing ? 'cursor-pointer hover:opacity-80' : ''}`}
-                  >
-                    {typeIsBike ? 'Bike' : 'Part'}
-                  </span>
-                  <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg text-xs font-semibold uppercase tracking-wider">
-                    New
-                  </span>
-                </div>
+                {isEditing ? (
+                  <div className="mb-4 bg-[#0F1115] border border-[#2A2F36] p-3.5 rounded-2xl">
+                    <RegisterTypeSelector
+                      value={typeIsBike ? 'bike' : 'part'}
+                      onChange={(t) => setTypeIsBike(t === 'bike')}
+                      title="Tipo de Registro *"
+                      subtitle="Selección obligatoria de clasificación"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 mb-2">
+                    <span
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider ${
+                        typeIsBike
+                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                      }`}
+                    >
+                      {typeIsBike ? 'Bike' : 'Part'}
+                    </span>
+                    <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg text-xs font-semibold uppercase tracking-wider">
+                      New
+                    </span>
+                  </div>
+                )}
 
                 {/* Model & Color */}
                 {isEditing ? (

@@ -26,6 +26,7 @@ export function useRegistrarContainer() {
       items: ContainerInputItem[];
       warehouse: string;
       orderNumber?: string | null;
+      isBike?: boolean;
     }) => {
       const args: RegisterContainerArgs = {
         ...vars,

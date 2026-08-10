@@ -12,6 +12,7 @@ import { useAddReturnItem } from '../hooks/useFedExReturns';
 import { useLocationManagement } from '../../inventory/hooks/useLocationManagement';
 import { inventoryApi } from '../../inventory/api/inventoryApi';
 import AutocompleteInput from '../../../components/ui/AutocompleteInput';
+import { RegisterTypeSelector } from '../../../components/ui/RegisterTypeSelector';
 import type { ItemCondition } from '../types';
 
 const TARGET_WAREHOUSE = 'LUDLOW';
@@ -70,6 +71,7 @@ export const ReturnToStockSheet: React.FC<ReturnToStockSheetProps> = ({
   const [quantity, setQuantity] = useState(1);
   const [condition, setCondition] = useState<ItemCondition>('good');
   const [targetLocation, setTargetLocation] = useState('');
+  const [registerType, setRegisterType] = useState<'bike' | 'part' | null>(null);
   const [creatingNew, setCreatingNew] = useState(false);
   const [newSku, setNewSku] = useState('');
   const [newModel, setNewModel] = useState('');
@@ -192,6 +194,10 @@ export const ReturnToStockSheet: React.FC<ReturnToStockSheetProps> = ({
   }, [debouncedQuery, results, searching]);
 
   const handleRegister = async () => {
+    if (!registerType) {
+      toast.error('Debes elegir si el nuevo ítem es una BICICLETA o una PARTE / ACCESORIO');
+      return;
+    }
     const sku = newSku.trim().toUpperCase();
     if (!sku) {
       toast.error('SKU is required');
@@ -216,9 +222,9 @@ export const ReturnToStockSheet: React.FC<ReturnToStockSheetProps> = ({
       });
       if (error) throw error;
 
-      // Update metadata
       await inventoryApi.upsertMetadata({
         sku,
+        is_bike: registerType === 'bike',
         model: newModel.trim(),
         size: newSize.trim() || null,
         color: newColor.trim() || null,
@@ -372,7 +378,13 @@ export const ReturnToStockSheet: React.FC<ReturnToStockSheetProps> = ({
         )}
 
         {creatingNew && (
-          <div className="space-y-3">
+          <div className="space-y-4">
+            <RegisterTypeSelector
+              value={registerType}
+              onChange={setRegisterType}
+              title="Tipo de Ítem a Registrar *"
+              subtitle="Selección obligatoria para el nuevo SKU"
+            />
             <div>
               <label className="text-xs text-muted uppercase tracking-widest">SKU</label>
               <input

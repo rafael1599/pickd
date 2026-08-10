@@ -5,6 +5,7 @@ import { parseShipmentXlsx } from './lib/parseShipmentXlsx';
 import { parseShipmentPdf } from './lib/parseShipmentPdf';
 import { formatTowersLines } from '../../utils/containerDistribution';
 import { useRegistrarContainer } from './hooks/useRegistrarContainer';
+import { RegisterTypeSelector } from '../../components/ui/RegisterTypeSelector';
 import type { ContainerInputItem, ParsedSheet, RegisterSummary, ResolvedItem } from './lib/types';
 
 type Step = 'upload' | 'preview' | 'done';
@@ -38,6 +39,7 @@ export function RegistrarContainerScreen() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [step, setStep] = useState<Step>('upload');
+  const [itemType, setItemType] = useState<'bike' | 'part' | null>(null);
   const [fileName, setFileName] = useState<string>('');
   const [sheets, setSheets] = useState<ParsedSheet[]>([]);
   const [selectedSheet, setSelectedSheet] = useState<string>('');
@@ -104,6 +106,10 @@ export function RegistrarContainerScreen() {
   );
 
   const handleRegister = useCallback(async () => {
+    if (!itemType) {
+      toast.error('Debes seleccionar si el contenedor contiene BICICLETAS o PARTES / ACCESORIOS');
+      return;
+    }
     if (!activeSheet) return;
     if (!location.trim()) {
       toast.error('Enter the location name (e.g. FLORIDA).');
@@ -114,13 +120,15 @@ export function RegistrarContainerScreen() {
       items: toInputItems(activeSheet),
       warehouse: WAREHOUSE,
       orderNumber: null,
+      isBike: itemType === 'bike',
     });
     setSummary(result);
     setStep('done');
-  }, [activeSheet, location, register]);
+  }, [activeSheet, itemType, location, register]);
 
   const reset = useCallback(() => {
     setStep('upload');
+    setItemType(null);
     setFileName('');
     setSheets([]);
     setSelectedSheet('');
@@ -213,7 +221,16 @@ export function RegistrarContainerScreen() {
       {/* ───────── STEP 2: PREVIEW ───────── */}
       {step === 'preview' && (
         <div className="space-y-4">
-          {/* The only thing the user enters: the destination location name. */}
+          <div className="rounded-2xl border border-gray-200 p-4 bg-gray-50/50">
+            <RegisterTypeSelector
+              value={itemType}
+              onChange={setItemType}
+              title="Tipo de Carga del Contenedor *"
+              subtitle="Selección obligatoria: elige si la carga corresponde a Bicicletas o Partes / Accesorios"
+            />
+          </div>
+
+          {/* Destination location name */}
           <div className="rounded-2xl border border-gray-200 p-4">
             <label className="block">
               <span className="text-xs text-gray-500">

@@ -12,6 +12,8 @@ import { uploadReturnLabelPhoto } from '../services/returnPhotoUpload.service';
 import { feedbackService } from '../../../services/feedback.service';
 import { flashSyncStatus } from '../../../components/layout/SyncStatusIndicator';
 
+import { RegisterTypeSelector } from '../../../components/ui/RegisterTypeSelector';
+
 const FEDEX_TRACKING_RE = /^\d{12,15}$/;
 
 /**
@@ -41,6 +43,7 @@ function extractCandidates(rawResults: string[]): string[] {
 }
 
 export const IntakeBar: React.FC = () => {
+  const [itemType, setItemType] = useState<'bike' | 'part' | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [trackingNumber, setTrackingNumber] = useState('');
@@ -48,11 +51,7 @@ export const IntakeBar: React.FC = () => {
   const [candidatesOpen, setCandidatesOpen] = useState(false);
   const [notes, setNotes] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
-  // RMA — optional Return Merchandise Authorization issued by the
-  // manufacturer/vendor. Captured at intake; surfaced on the daily report.
   const [rma, setRma] = useState('');
-  // Misship — alternative categorization for returns that came back due to
-  // a wrong-recipient/wrong-address ship rather than an RMA.
   const [isMisship, setIsMisship] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -68,6 +67,7 @@ export const IntakeBar: React.FC = () => {
 
   const reset = () => {
     if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+    setItemType(null);
     setPhotoFile(null);
     setPhotoPreviewUrl(null);
     setTrackingNumber('');
@@ -113,6 +113,10 @@ export const IntakeBar: React.FC = () => {
   };
 
   const submit = async () => {
+    if (!itemType) {
+      toast.error('Debes elegir si el retorno es una BICICLETA o una PARTE / ACCESORIO');
+      return;
+    }
     const tracking = trackingNumber.trim();
     if (!tracking) {
       toast.error('Tracking number is required');
@@ -126,10 +130,17 @@ export const IntakeBar: React.FC = () => {
     setIsUploading(true);
     try {
       const photoUrl = await uploadReturnLabelPhoto(tracking, photoFile);
+      const fullNotes = [
+        itemType === 'bike' ? '[TIPO: BICICLETA]' : '[TIPO: PARTE/ACCESORIO]',
+        notes.trim(),
+      ]
+        .filter(Boolean)
+        .join(' ');
+
       await addReturn.mutateAsync({
         tracking_number: tracking,
         label_photo_url: photoUrl,
-        notes: notes.trim() || undefined,
+        notes: fullNotes,
         rma: rma.trim() || undefined,
         is_misship: isMisship,
       });
@@ -150,7 +161,14 @@ export const IntakeBar: React.FC = () => {
   const busy = isScanning || isUploading || addReturn.isPending;
 
   return (
-    <div className="bg-card border border-subtle rounded-2xl p-3 mb-4 space-y-3">
+    <div className="bg-card border border-subtle rounded-2xl p-4 mb-4 space-y-4">
+      <RegisterTypeSelector
+        value={itemType}
+        onChange={setItemType}
+        title="Tipo de Carga FedEx *"
+        subtitle="Selección obligatoria de clasificación"
+      />
+
       <input
         ref={fileInputRef}
         type="file"
