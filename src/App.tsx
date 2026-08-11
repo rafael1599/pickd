@@ -92,6 +92,7 @@ import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import { ThemeProvider } from './context/ThemeContext.tsx';
 import { Suspense } from 'react';
 import { StagingBanner } from './components/layout/StagingBanner.tsx';
+import { SessionHealthBanner } from './components/layout/SessionHealthBanner.tsx';
 
 // Backward-compat for already-printed labels whose QR still encodes the old
 // bare /<orderNumber> URL (single order numbers only — a combined order's
@@ -229,6 +230,7 @@ const AuthGuard = () => {
   // Only load data if user is authenticated
   return (
     <>
+      <SessionHealthBanner />
       <InventoryProvider>
         <PickingProvider>
           <AuthenticatedContent />

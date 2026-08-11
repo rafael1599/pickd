@@ -5,11 +5,11 @@ const env =
   (typeof import.meta !== 'undefined' && import.meta.env) ||
   (typeof process !== 'undefined' && process.env) ||
   {};
-const supabaseUrl =
+export const supabaseUrl =
   env.VITE_SUPABASE_URL ||
   (typeof process !== 'undefined' && process.env.VITE_SUPABASE_URL) ||
   'http://127.0.0.1:54321';
-const supabaseAnonKey =
+export const supabaseAnonKey =
   env.VITE_SUPABASE_ANON_KEY ||
   (typeof process !== 'undefined' && process.env.VITE_SUPABASE_ANON_KEY) ||
   'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH';
