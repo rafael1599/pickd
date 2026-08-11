@@ -58,7 +58,7 @@ const BACKOFF_CAP_MS = 30_000;
  * reliable signal, same one `query-client.ts`'s QueryCache/MutationCache
  * `onError` checks.
  */
-function isAuthError(error: SupabaseLikeResult<unknown>['error']): boolean {
+export function isAuthError(error: SupabaseLikeResult<unknown>['error']): boolean {
   if (!error) return false;
   const status = (error as { status?: number }).status;
   const code = (error as { code?: string }).code;

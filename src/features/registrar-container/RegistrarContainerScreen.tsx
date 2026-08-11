@@ -59,10 +59,18 @@ export function RegistrarContainerScreen() {
   // Resolve a sheet and move straight to the preview — no manual "Analyze" step.
   const analyzeSheet = useCallback(
     async (sheet: ParsedSheet) => {
-      const data = await resolve.mutateAsync({
-        items: toInputItems(sheet),
-        warehouse: WAREHOUSE,
-      });
+      let data: ResolvedItem[];
+      try {
+        data = await resolve.mutateAsync({
+          items: toInputItems(sheet),
+          warehouse: WAREHOUSE,
+        });
+      } catch {
+        // `resolve.onError` already toasts the real reason. Returning here
+        // keeps the failure from bubbling into handleFile's catch, which
+        // would blame the file ("Could not read the file: JWT expired").
+        return;
+      }
       setResolved(data);
       // Auto-assign type only for known SKUs (already in sku_metadata).
       // New/unknown SKUs are left unset — the user must designate them.
@@ -144,15 +152,21 @@ export function RegistrarContainerScreen() {
       return;
     }
 
-    const result = await register.mutateAsync({
-      location: location.trim(),
-      items: toInputItems(activeSheet),
-      warehouse: WAREHOUSE,
-      orderNumber: null,
-      itemTypesBySku,
-    });
-    setSummary(result);
-    setStep('done');
+    try {
+      const result = await register.mutateAsync({
+        location: location.trim(),
+        items: toInputItems(activeSheet),
+        warehouse: WAREHOUSE,
+        orderNumber: null,
+        itemTypesBySku,
+      });
+      setSummary(result);
+      setStep('done');
+    } catch {
+      // The mutation's onError already toasts. Swallow here so a failed
+      // register doesn't surface as an unhandled promise rejection, and so
+      // the user stays on the preview with their typed data intact.
+    }
   }, [activeSheet, itemTypesBySku, location, register, resolved]);
 
   const reset = useCallback(() => {
