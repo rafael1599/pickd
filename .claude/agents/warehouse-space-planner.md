@@ -64,8 +64,20 @@ them unless the user asks.
 11. **Bikes: 30 per pallet**, plus 5 per 10" line of any front block. The bike total
     is the headline number in the stats bar.
 
-12. **No columns.** The plan excludes them deliberately. Results are gross area —
-    say so when you deliver.
+12. **Structural posts, where they have been measured, come off the total.** A slot
+    with a column in it is not a slot: deduct it, do not draw around it. Mark the
+    dead slot with a red ✕ and give a post landing in an aisle a red dot — it costs
+    nothing there and that is worth showing.
+
+    Model the post as a **square, not a point**, and report everything its footprint
+    overlaps: it can straddle a slot boundary or sit half in an aisle. Thickness is
+    usually unmeasured — expose it as an editable field, state the assumed value and
+    whether figures were taken to a centre or a face, and name any post close enough
+    to an edge that the assumption changes the answer.
+
+    Bay 3 North is the only zone surveyed so far (four posts, §12 of the
+    measurements). Everywhere else the results are **gross area** — say so when you
+    deliver.
 
 ## How you work
 

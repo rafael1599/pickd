@@ -115,6 +115,14 @@ const M = {
     // in section 5). If it turns out not to touch, this width shrinks and a strip
     // of free floor appears against the divider.
     bay3OfficeWidth:   ft(61, 6),     // E-W length of the Bay 3 office block
+
+    // Bay 3 SOUTH/EAST north-south chain, measured 12 Aug 2026 off the SOUTH wall.
+    // Independent of the north chain, so the two together check the 116' depth.
+    bay3SEDepth:       ft(44, 2),     // south wall -> south edge of the main aisle
+    bay3SERackDepth:   ft(0, 55),     // rack against the south wall, N-S
+    bay3SERackWidth:   ft(0, 202),    // that same rack, E-W along the wall
+    bay3SERackAisle:   ft(0, 54),     // the aisle it needs before usable floor starts
+
     bay3KitchenWidth:  ft(14),        // given as 13' 12"
     bay3KitchenRecess: ft(6, 1),      // the kitchen is RECESSED 6' 1" -> more free space
     bay1OfficeBlock:   ft(63, 10),    // showroom -> restroom #1 (Mrs Z + Sales + CAFYT)
@@ -453,6 +461,11 @@ h += check('Bay 3: depth via offices vs measured',
            M.bay3NorthToOffice + M.bay3OfficeDepth, M.bay3Depth);
 h += check('Bay 3: aisle from the south, Bay 2 stretch vs Bay 3 stretch',
            SOUTH_Y - hall23Top, SOUTH_Y - hall3Top);
+// The south-east band was measured off the SOUTH wall on 12 Aug 2026, while
+// everything else in Bay 3 hangs off the NORTH wall. The two chains meet at the
+// main aisle, so this is the one check that closes the 116' depth from both ends.
+h += check('Bay 3 SE: band south of the aisle, measured vs the north chain',
+           M.bay3SEDepth, SOUTH_Y - hall3Bot);
 // Not a check but a warning: the Bay 3 office width is the one figure in this
 // bay that nobody measured. It is whatever is left after the measured east gap,
 // so it cannot disagree with anything and no check would ever catch it.

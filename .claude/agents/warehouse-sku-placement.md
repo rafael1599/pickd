@@ -21,15 +21,19 @@ pallets. As of 11 Aug 2026:
 
 | Zone                           | Layout                                     | Pallets  | Bikes |
 | ------------------------------ | ------------------------------------------ | -------- | ----- |
-| Bay 3 North                    | 14 rows N-S, 5 blocks (4·4·2·2·2), 10 deep | 140      | 4,200 |
-| Bay 3 North · west strip freed | 15 rows, 6 blocks (4·4·2·2·2·1), 10 deep   | 150      | 4,500 |
+| Bay 3 North                    | 14 rows N-S, 5 blocks (4·4·2·2·2), 10 deep | 138      | 4,140 |
+| Bay 3 North · west strip freed | 15 rows, 6 blocks (4·4·2·2·2·1), 10 deep   | 146      | 4,380 |
 | Bay 2 North                    | 5 rows N-S, 8 pairs E-W                    | 40 pairs | —     |
 
 Bay 3 South / East is being measured; it will be modelled with the same logic as
 Bay 3 North but without the WEST FREED scenario.
 
-Pallet: **62" × 60"**. **30 bikes per pallet.** Fast picking in Bay 3 North: 108 of
-the 140 pallets touch open floor.
+Pallet: **62" × 60"**. **30 bikes per pallet.** Fast picking in Bay 3 North: 106 of
+the 138 pallets touch open floor.
+
+The grid is 14 rows × 10 slots = 140, but **slots 22-E and 30-E do not exist**: a
+structural post stands in each. With the west strip freed the grid is 150 and four
+slots are lost — 19-E, 22-E, 26-E and 30-E. Never assign stock to those.
 
 The speed classification comes from the building itself and is the natural starting
 point: **Bay 1 = fast moving**, **Bay 2 = movers**, **Bay 3 = non-movers**.

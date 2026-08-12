@@ -8,7 +8,7 @@ assumptions taken as good in order to draw the plan.
 - **Every measurement is INTERIOR.** Not one was taken from outside the building.
 - **Accepted tolerance:** 1' 0". Two measurements that ought to agree and differ by
   less than a foot are considered correct; beyond that, go back and re-measure.
-- **Last updated:** 11 August 2026
+- **Last updated:** 12 August 2026
 
 The `M` table inside `warehouse_blueprint.html` is the source of truth for the
 drawing. No coordinate in the plan is written by hand: they all derive from it.
@@ -117,9 +117,29 @@ the office block. Total **52' 4" (628")**, of which only 33' 1" is open floor.
 | N-S aisle, west end                    | 4' 0" (48")            | Runs north-south like the one opposite                 |
 | Rack against the west end              | 4' 11" (59")           | Already in place, eats space                           |
 
-Still to measure: the north-south depth of the zone, whether the two aisles and the
-two racks run the full depth, and whether the existing racks stay and hold pallets
-that should be counted.
+### Bay 3 South/East — north-south chain (12 Aug 2026)
+
+Measured off the **south wall**, the opposite end from every other Bay 3 figure. The
+two chains meet at the main aisle, which is what makes this the one measurement that
+closes the 116' depth of the bay from both directions.
+
+| Segment                             | Depth              | What it is                                     |
+| ----------------------------------- | ------------------ | ---------------------------------------------- |
+| South wall → south edge of the aisle | **44' 2" (530")** | Measured. The whole band                       |
+| Rack against the south wall          | 55"                | Already in place. 202" long E-W along that wall |
+| Aisle in front of that rack          | 54" minimum        | Required to reach it                            |
+| **Usable open floor, N-S**          | **421" (35' 1")**  | 530 − 55 − 54                                   |
+
+Cross-check: the north chain derives this band as 43' 10.5" (116' − 62' 1.5" − 10' of
+aisle). Measured 44' 2". **Δ 3.5"** — the blueprint prints it as a passing check.
+
+Note the rack is 202" wide against a zone 628" wide, so the 55" it eats does **not**
+run the full width; but the 54" aisle in front of it does have to, since that is how
+the rest of the wall is reached.
+
+Still to measure: whether the two north-south aisles and the two racks from the
+east-west chain run the full depth, and whether the existing racks stay and hold
+pallets that should be counted.
 
 ### The aisle is not straight
 
@@ -214,9 +234,12 @@ measurement contradicts them:
 
 ### Deliberately excluded
 
-- **Structural columns and pillars.** An explicit decision, to keep the plan simple.
-  Consequence: the free square footage is **gross area**. If there is a column grid,
-  what is really rackable is less.
+- **Structural columns and pillars.** ~~An explicit decision, to keep the plan
+  simple.~~ **Reversed on 12 Aug 2026 for Bay 3 North**, where the four columns are
+  now measured and drawn — see §12. The exclusion still stands everywhere else, so
+  the free square footage in Bay 1, Bay 2 and Bay 3 South/East remains **gross
+  area**: whatever column grid runs through them has not been surveyed, and what is
+  really rackable there is less.
 
 ---
 
@@ -353,8 +376,14 @@ Nothing missing moves the free area. The envelope is closed.
   blocks. Applies to Mrs Z / Sales / CAFYT in Bay 1, to restroom #1 + Credit Dept in
   Bay 2, and to kitchen / restroom #2 / offices in Bay 3.
 - **N-S depth of the Bay 3 kitchen** inside its block.
-- **Bay 3 South / East, north-south depth.** The east-west chain is closed (§3); the
-  depth is not. Blocks the pallet layout for that zone.
+- **Bay 3 South / East: do the aisles and racks run the full depth?** Both chains are
+  now closed (§3), but the layout still needs to know whether the two north-south
+  aisles and the two racks of the east-west chain run the whole 421", and whether the
+  existing racks stay and hold pallets that should be counted.
+- **Post thickness, and what each post figure was taken to.** The plan assumes 8"
+  square and centre-to-centre. Only matters where a post lands near an edge (§12).
+- **Columns outside Bay 3 North.** Bay 1, Bay 2 and Bay 3 South/East are still gross
+  area (§5).
 - **Bay 3 offices: divider → west face of the block.** One short measurement that would
   turn the derived 61' 6" width into a measured one, or find free floor there (§4).
 - **Columns.** Deliberately excluded (§5).
@@ -419,12 +448,14 @@ when there are any, count separately at 5 bikes per 10" line.
 
 ### Figures with the default pallet
 
-| Scenario                                   | Rows             | Depth | Pallets | Bikes | Fast picking | Aisles        |
-| ------------------------------------------ | ---------------- | ----- | ------- | ----- | ------------ | ------------- |
-| **CURRENT** — 13 ft kept clear at the west | 14 (4·4·2·2·2)   | 10    | 140     | 4,200 | 108          | 68.5" / 55.5" |
-| **WEST FREED** — strip reclaimed           | 15 (4·4·2·2·2·1) | 10    | 150     | 4,500 | 118          | 76.2" / 63.2" |
+| Scenario                                   | Rows             | Depth | Pallets      | Bikes | Fast picking | Aisles        |
+| ------------------------------------------ | ---------------- | ----- | ------------ | ----- | ------------ | ------------- |
+| **CURRENT** — 13 ft kept clear at the west | 14 (4·4·2·2·2)   | 10    | **138** (−2) | 4,140 | 106          | 68.5" / 55.5" |
+| **WEST FREED** — strip reclaimed           | 15 (4·4·2·2·2·1) | 10    | **146** (−4) | 4,380 | 114          | 76.2" / 63.2" |
 
-They change on their own as soon as the pallet size is touched in the UI.
+The deduction is the structural posts (§12), which came in on 12 Aug 2026 and cost
+slots the earlier figures of 140 and 150 counted. They change on their own as soon as
+the pallet size is touched in the UI.
 
 ### Why the aisle is not eaten into
 
@@ -434,3 +465,81 @@ re-measured depth only 0.5" — at that scale it stopped being a decision about 
 and became one about the tape measure. It was settled by taking the half inch out of
 the north clearance, and **the aisle keeps its full 120"**. The aisle-eating feature
 was removed from the UI.
+
+---
+
+## 12. Structural posts in Bay 3 North (12 Aug 2026)
+
+Four columns on a single line across the bay. Numbered **east to west**, the order
+they were measured in.
+
+### North-south — each measured on its own
+
+| Post   | North of the main aisle |
+| ------ | ----------------------- |
+| **P1** | 23' 0" (276")           |
+| **P2** | 23' 2.5" (278.5")       |
+| **P3** | 22' 11" (275")          |
+| **P4** | 22' 11.5" (275.5")      |
+
+They spread over 3.5", which is tape noise on a line of columns, not a jog in the
+structure. Every one of them lands in **slot E** — the fifth pallet back from the
+main aisle — and the nearest one is still 21.5" clear of a slot edge. No re-cutting
+of the grid saves those slots.
+
+### East-west — one chain, anchored at the west wall
+
+| Segment          | Distance         | Running total from the west wall |
+| ---------------- | ---------------- | -------------------------------- |
+| West wall → P4   | 18"              | 18"                              |
+| P4 → P3          | 27' 11" (335")   | 353"                             |
+| P3 → P2          | 27' 10" (334")   | 687"                             |
+| P2 → P1          | 28' 2" (338")    | 1025"                            |
+| _P1 → east wall_ | _341" (28' 5")_  | _1366" = bay width_              |
+
+The chain closes on the bay width with a remainder of 341" — one full column bay. So
+the structural grid is **five lines at roughly 28' centres and the fifth is the east
+wall itself**. Nothing is drawn there: that strip is the 107" east clearance already.
+
+### Where they land
+
+| Post   | CURRENT                              | WEST FREED                     |
+| ------ | ------------------------------------ | ------------------------------ |
+| **P1** | kills **30-E**, 14" into the row     | kills **30-E**                 |
+| **P2** | free — lands in a 55.5" aisle        | kills **26-E**, 0.2" into it   |
+| **P3** | kills **22-E**, 17.5" into the row   | kills **22-E**, 40.6" into it  |
+| **P4** | free — lands in the 13 ft west strip | kills **19-E**, 18" into it    |
+
+**Cost: 2 slots (60 bikes) today, 4 slots (120 bikes) if the west strip is reclaimed.**
+Reclaiming the strip is still worth it — net +8 pallets — but it buys 10 slots and
+gives 2 straight back to the columns.
+
+### Cross-check from the tape
+
+P1 was also measured at **19" east of the centre aisle**, the one splitting the two
+blocks of four rows. The model puts that aisle's east edge at 1011", so the reading
+lands P1 at 1030"; the chain off the west wall puts it at 1025". **Δ 5"**, well inside
+tolerance, and both readings fall in the same slot. The blueprint prints this check
+live.
+
+### What is assumed
+
+Post **thickness** was not measured, and neither was it recorded whether each figure
+runs to the centre of a post or to its near face. The plan assumes **8" square,
+centre-to-centre**, and the page exposes the thickness as an editable field so the
+real number can be dropped in later.
+
+It only changes the answer where a post sits near an edge, and the page names those
+cases as it draws them. There is one today: in WEST FREED, **P2 falls 0.2" inside row
+26** — for practical purposes, exactly on the line between the aisle and the row. If
+that post is thicker than assumed, or the figure was taken to a face rather than a
+centre, P2 may sit in the aisle instead and WEST FREED costs 3 slots, not 4.
+
+### Not yet placed: the south-east post
+
+A fifth post was measured, **38' 5" from P1**, described as the south-east post. If
+it lies on the same north-south line as P1 — the natural reading, and consistent with
+a column grid — it sits 461" south of P1, which is 65" south of the main aisle, in
+the Bay 3 South/East zone. **Not drawn**, because whether it is on that line has not
+been confirmed and a diagonal cannot be decomposed. Confirm before modelling that
+zone; it lands in the middle of the floor being planned there.

@@ -59,9 +59,16 @@ it.
 
 ## Current state of Bay 3 North
 
-140 pallets, 10 deep, in 5 blocks of 14 rows; 4,200 bikes at 30 per pallet; 108 of the
-140 touch open floor. Reclaiming the 13 ft strip along the west wall would take it to
-150 pallets — that is the CURRENT / WEST FREED toggle in the page.
+138 pallets, 10 deep, in 5 blocks of 14 rows; 4,140 bikes at 30 per pallet; 106 of the
+138 touch open floor. Reclaiming the 13 ft strip along the west wall would take it to
+146 — that is the CURRENT / WEST FREED toggle in the page.
+
+The grid is 140 and 150; the difference is the four structural posts measured on
+12 Aug 2026. All four sit on one line 23 ft north of the main aisle, which puts every
+one of them mid-slot in row E — too far from any slot edge for a re-cut of the grid to
+help. Two land in pallet slots today, four once the west strip is reclaimed. The page
+marks a dead slot with a red ✕ and a post that lands in an aisle with a red dot, and
+prints what it assumes about them: 8" square, centre-to-centre, neither measured.
 
 Rows run north-south. The east-west variant holds more, because aisles are what eat
 the floor, but it buries the middle rows of a five-deep block, which changes how the
@@ -69,7 +76,9 @@ warehouse is operated rather than just where pallets go. It is parked as a long-
 improvement and its page is frozen on the old pallet size — re-run it before comparing
 anything.
 
-Bay 3 South/East is next. Its east-west chain is measured; the depth is not.
+Bay 3 South/East is next. Both chains are now measured — 628" wide, 421" of usable
+depth once the south-wall rack and its aisle come off. What is still open is whether
+the north-south aisles and racks run the full depth, and where the fifth post goes.
 
 ## Relationship to `src/features/warehouse-management/`
 
