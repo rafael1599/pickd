@@ -1,0 +1,636 @@
+<title>JAMIS Bikes — Warehouse Layout</title>
+
+<style>
+/* ── Ops-console palette. Single dark theme by choice: this is a floor
+      tool, read on a warehouse screen, and the bay accents only hold
+      against a dark ground. Every color is painted explicitly.        ── */
+:root{
+    --ground:   #070b14;
+    --panel:    #0d1524;
+    --sunken:   #0a1120;
+    --line:     #1e293b;
+    --line-lit: #334155;
+    --ink:      #e2e8f0;
+    --ink-dim:  #94a3b8;
+    --ink-mute: #64748b;
+    --ink-far:  #475569;
+
+    --bay1:     #f59e0b;
+    --bay2:     #22d3ee;
+    --bay3:     #a78bfa;
+    --gain:     #34d399;
+
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+*{ box-sizing:border-box; margin:0; padding:0; }
+
+body{
+    background:var(--ground);
+    color:var(--ink);
+    font-family:var(--sans);
+    min-height:100vh;
+    overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+}
+
+/* ── top bar ── */
+.bar{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:24px; flex-wrap:wrap;
+    padding:20px 30px 16px;
+    border-bottom:1px solid var(--line);
+}
+.brand h1{ font-size:14px; font-weight:800; letter-spacing:.22em; }
+.brand p{
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.15em;
+    color:var(--ink-far); margin-top:6px;
+}
+
+.tabs{ display:flex; border:1px solid var(--line); border-radius:7px; overflow:hidden; }
+.tabs button{
+    padding:10px 18px; border:0; background:transparent; color:var(--ink-mute);
+    font-family:var(--mono); font-size:11px; letter-spacing:.12em; font-weight:700;
+    cursor:pointer; transition:background .18s, color .18s; white-space:nowrap;
+}
+.tabs button:hover{ color:var(--ink); background:rgba(148,163,184,.07); }
+.tabs button:focus-visible{ outline:2px solid var(--ink-dim); outline-offset:-2px; }
+.tabs button[data-bay="overview"].on{ background:var(--ink); color:var(--ground); }
+.tabs button[data-bay="bay2"].on    { background:var(--bay2); color:var(--ground); }
+.tabs button[data-bay="bay3"].on    { background:var(--bay3); color:var(--ground); }
+
+/* ── stat strip ── */
+.stats{ display:flex; gap:30px; flex-wrap:wrap; padding:18px 30px 0; }
+.stats .k{
+    font-family:var(--mono); font-size:9.5px; letter-spacing:.15em; color:var(--ink-far);
+}
+.stats .v{
+    font-family:var(--mono); font-size:20px; font-weight:800; margin-top:4px;
+    font-variant-numeric:tabular-nums; color:var(--ink);
+}
+.stats .v small{ font-size:10.5px; font-weight:600; color:var(--ink-mute); }
+
+.stage{ padding:16px 30px 8px; }
+svg{ display:block; width:100%; height:auto; }
+.view{ display:none; }
+.view.on{ display:block; }
+
+.notes{
+    padding:6px 30px 40px; font-family:var(--mono); font-size:11px;
+    color:var(--ink-mute); line-height:1.95; max-width:105ch;
+}
+.notes b{ font-weight:700; }
+.notes .warn{ color:var(--bay1); font-weight:700; }
+.notes .gn{ color:var(--gain); font-weight:700; }
+
+/* ── overview map ── */
+#overview svg{ max-height:none; }
+.bay{ cursor:pointer; transition:opacity .28s ease; }
+.bay-shell{ transition:filter .28s ease; }
+#omap[data-active] .bay{ opacity:.26; }
+#omap[data-active] .bay.on{ opacity:1; }
+.bay.on .bay-shell{ filter:url(#glow); }
+.brackets{ opacity:0; transition:opacity .22s ease; }
+.bay.on .brackets{ opacity:1; }
+.lbl,.lbl-sub{ font-family:var(--mono); text-anchor:middle; pointer-events:none; }
+.lbl{ font-weight:800; }
+.lbl-sub{ font-weight:600; }
+
+.hud{
+    position:fixed; bottom:28px; right:26px; width:286px; z-index:10;
+    background:rgba(10,16,28,.94); border:1px solid var(--line); border-radius:12px;
+    padding:18px; backdrop-filter:blur(14px); pointer-events:none;
+    opacity:0; transform:translateY(10px);
+    transition:opacity .22s ease, transform .22s ease;
+}
+.hud.show{ opacity:1; transform:none; }
+.hud .accent{ height:3px; border-radius:2px; margin-bottom:14px; }
+.hud h2{ font-size:16px; font-weight:800; letter-spacing:.1em; }
+.hud .sub{ font-family:var(--mono); font-size:10px; letter-spacing:.13em; color:var(--ink-mute); margin-top:4px; }
+.hud .row{ margin-top:15px; }
+.hud .row .k{ font-family:var(--mono); font-size:9.5px; letter-spacing:.15em; color:var(--ink-mute); }
+.hud .row .v{ font-family:var(--mono); font-size:24px; font-weight:800; margin-top:2px; font-variant-numeric:tabular-nums; }
+.hud .row .v small{ font-size:11px; color:var(--ink-mute); font-weight:600; }
+.hud .bar-t{ height:6px; background:#111a2b; border-radius:3px; margin-top:9px; overflow:hidden; }
+.hud .bar-t i{ display:block; height:100%; border-radius:3px; transition:width .4s ease; }
+.hud .foot{
+    margin-top:15px; padding-top:12px; border-top:1px solid var(--line);
+    font-family:var(--mono); font-size:10px; letter-spacing:.1em; color:var(--ink-far);
+}
+
+/* ── bay 2 side-by-side ── */
+.cols{ display:grid; grid-template-columns:repeat(auto-fit,minmax(420px,1fr)); gap:26px; }
+.card{ border:1px solid var(--line); border-radius:10px; padding:20px; background:rgba(13,21,36,.55); }
+.card h3{ font-size:13px; font-weight:800; letter-spacing:.1em; margin-bottom:16px; }
+.card .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.card .grid2 .k{ font-family:var(--mono); font-size:9.5px; letter-spacing:.13em; color:var(--ink-far); }
+.card .grid2 .v{ font-family:var(--mono); font-size:17px; font-weight:800; margin-top:3px; font-variant-numeric:tabular-nums; }
+.card .math{
+    font-family:var(--mono); font-size:10.5px; color:var(--ink-mute);
+    line-height:1.85; margin:16px 0 4px;
+}
+.pick{ display:inline-block; padding:2px 8px; border-radius:4px; font-family:var(--mono);
+       font-size:9.5px; font-weight:800; letter-spacing:.1em; margin-left:8px; vertical-align:2px; }
+
+/* ── bay 3 ── */
+.cell:hover rect{ fill-opacity:.6; }
+#bay3 svg{ max-height:calc(100vh - 300px); }
+
+@media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{ transition:none !important; animation:none !important; }
+}
+</style>
+
+<div class="bar">
+    <div class="brand">
+        <h1>JAMIS BIKES — WAREHOUSE</h1>
+        <p id="crumb">SCALE 10 PX = 1 FT · GROSS AREA, COLUMNS NOT DEDUCTED</p>
+    </div>
+    <div class="tabs" id="tabs">
+        <button data-bay="overview" class="on">OVERVIEW</button>
+        <button data-bay="bay2">BAY 2 NORTH</button>
+        <button data-bay="bay3">BAY 3 NORTH</button>
+    </div>
+</div>
+
+<!-- ══════════ OVERVIEW ══════════ -->
+<section class="view on" id="overview">
+    <div class="stats">
+        <div><div class="k">TOTAL AREA</div><div class="v" id="oTotal">—</div></div>
+        <div><div class="k">FREE SPACE</div><div class="v" id="oFree">—</div></div>
+        <div><div class="k">UTILIZATION</div><div class="v" id="oPct">—</div></div>
+    </div>
+    <div class="stage"><svg id="omap"><defs>
+        <filter id="glow" x="-25%" y="-25%" width="150%" height="150%">
+            <feGaussianBlur stdDeviation="9" result="b"/>
+            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter></defs><g id="oscene"></g></svg></div>
+    <div class="notes">
+        Hover a bay for its numbers. Bay&nbsp;2 and Bay&nbsp;3 open a modelled pallet
+        layout — click through, or use the tabs above. Bay&nbsp;1 has no layout yet.
+        <br>The three strips north of the main aisle hold <b>17,572&nbsp;sq&nbsp;ft, 74%
+        of everything available</b>. That is where the warehouse really is.
+    </div>
+</section>
+
+<!-- ══════════ BAY 2 ══════════ -->
+<section class="view" id="bay2">
+    <div class="stage"><div class="cols">
+        <div class="card">
+            <h3 style="color:var(--bay2)">OPTION A — PAIRS RUN EAST–WEST
+                <span class="pick" style="background:var(--bay2);color:var(--ground)">CHOSEN</span></h3>
+            <div class="grid2">
+                <div><div class="k">PAIRS E–W</div><div class="v" style="color:var(--bay2)">8</div></div>
+                <div><div class="k">ROWS N–S</div><div class="v" style="color:var(--bay2)">5</div></div>
+                <div><div class="k">TOTAL PAIRS</div><div class="v" style="color:var(--bay2)">40</div></div>
+                <div><div class="k">CAPACITY</div><div class="v" style="color:var(--bay2)">80 pallets</div></div>
+            </div>
+            <p class="math">
+                E–W &nbsp; 8 pairs × 120" flush = 960" / 1016"<br>
+                N–S &nbsp; 5 × 40" + 4 × 70" = 480" / 497"<br>
+                Aisles &nbsp; 70", north–south only
+            </p>
+            <svg id="b2a" viewBox="0 0 1100 560"></svg>
+        </div>
+        <div class="card">
+            <h3 style="color:var(--ink-mute)">OPTION B — PAIRS RUN NORTH–SOUTH</h3>
+            <div class="grid2">
+                <div><div class="k">ROWS E–W</div><div class="v" style="color:var(--ink-dim)">5</div></div>
+                <div><div class="k">PAIRS N–S</div><div class="v" style="color:var(--ink-dim)">4</div></div>
+                <div><div class="k">TOTAL PAIRS</div><div class="v" style="color:var(--ink-dim)">20</div></div>
+                <div><div class="k">CAPACITY</div><div class="v" style="color:var(--ink-dim)">40 pallets</div></div>
+            </div>
+            <p class="math">
+                E–W &nbsp; 5 rows × 120" + 4 × 70" = 880" / 1016"<br>
+                N–S &nbsp; 4 pairs × 120" flush = 480" / 497"<br>
+                Aisles &nbsp; 70", east–west only
+            </p>
+            <svg id="b2b" viewBox="0 0 1100 560"></svg>
+        </div>
+    </div></div>
+    <div class="notes">
+        Option A holds twice as much, so that is the one we kept.
+        <br><span class="warn">Worth knowing</span> &nbsp; Bay&nbsp;2 was modelled before we had
+        real pallet dimensions — it assumes 120" pairs and 40" units, not the
+        <b>62" × 60"</b> pallet that Bay&nbsp;3 uses. The block structure holds;
+        the counts will shift once we re-run it on the real footprint.
+    </div>
+</section>
+
+<!-- ══════════ BAY 3 ══════════ -->
+<section class="view" id="bay3">
+    <div class="stats">
+        <div><div class="k">ROWS</div><div class="v" id="tRows">—</div></div>
+        <div><div class="k">PALLETS</div><div class="v" id="tPallets">—</div></div>
+        <div><div class="k">BLOCKS</div><div class="v" id="tBlocks">—</div></div>
+        <div><div class="k">DEPTH</div><div class="v" id="tDeep">—</div></div>
+        <div><div class="k">CENTER AISLE</div><div class="v" id="tHallBig">—</div></div>
+        <div><div class="k">OTHER AISLES</div><div class="v" id="tHall">—</div></div>
+        <div><div class="k">FAST PICKING</div><div class="v" id="tFast">—</div></div>
+        <div><div class="k">VS CURRENT</div><div class="v" id="tGain">—</div></div>
+        <div style="align-self:end">
+            <div class="tabs" id="scen" style="margin-bottom:2px">
+                <button data-k="current" class="on">CURRENT</button>
+                <button data-k="freed">WEST FREED</button>
+            </div>
+        </div>
+    </div>
+    <div class="stage"><svg id="b3map"></svg></div>
+    <div class="notes" id="b3notes"></div>
+</section>
+
+<div class="hud" id="hud">
+    <div class="accent" id="hAccent"></div>
+    <h2 id="hName">—</h2>
+    <div class="sub" id="hSub">—</div>
+    <div class="row"><div class="k">FREE SPACE</div><div class="v" id="hFree">—</div>
+        <div class="bar-t"><i id="hBar"></i></div></div>
+    <div class="row"><div class="k">BAY AREA</div><div class="v" id="hTotal">—</div></div>
+    <div class="row"><div class="k">UTILIZATION</div><div class="v" id="hPct">—</div></div>
+    <div class="foot" id="hFoot">CLICK TO OPEN LAYOUT</div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const fmt = n => Math.round(n).toLocaleString('en-US');
+const n1  = x => Math.round(x * 10) / 10;
+
+const C = { bay1:'#f59e0b', bay2:'#22d3ee', bay3:'#a78bfa', gain:'#34d399',
+            mute:'#64748b', far:'#475569', dim:'#94a3b8', line:'#1e293b', lit:'#334155' };
+
+/* ════════════════════════════════════════════════════════════
+   1 · OVERVIEW — geometry from WAREHOUSE-MEASUREMENTS.md, 10 px = 1 ft
+   ════════════════════════════════════════════════════════════ */
+(function overview(){
+    const P = 10, ft = (f,i=0) => (f + i/12) * P;
+    const M = {
+        hallwayWidth:ft(10), bay1NorthToShowroom:ft(52,5), bay2NorthEmpty:ft(43,9),
+        officeGap:ft(14,11.5), bay2SouthBand:ft(44,3), bathCreditDepth:ft(44,3),
+        shippingWidth:ft(41), shippingDepth:ft(46), cageWidth:ft(20), cageDepth:ft(56),
+        showroomWidth:ft(38.2), showroomDepth:ft(45,4), bathCreditWidth:ft(34,5),
+        bay3OfficeDepth:ft(38,7), bay3NorthToOffice:ft(77), bay3OfficeWidth:ft(61,6),
+        // Bay 3 measured off its north wall, 11 Aug 2026: overrides the 77' figure
+        bay3Depth:ft(116), bay3RowsEnd:ft(62,1.5),
+        bay3KitchenWidth:ft(14), bay3KitchenRecess:ft(6,1),
+        bay1Width:ft(162,4), divider12:ft(0,8), bay2Width:ft(84,8),
+        divider23:ft(1), bay3Width:ft(113,10)
+    };
+    const SOUTH = 1250, WEST = 100;
+
+    const h1B = SOUTH - M.shippingDepth,  h1T = h1B - M.hallwayWidth;
+    const h23B = SOUTH - M.bay2SouthBand, h23T = h23B - M.hallwayWidth;
+    const cageTop = SOUTH - M.cageDepth, showTop = SOUTH - M.showroomDepth;
+    const b1N = h1B - M.bay1NorthToShowroom, offT = h1B + M.officeGap;
+    const b2N = h23T - M.bay2NorthEmpty;
+    const cageR = WEST + M.cageWidth, shipR = cageR + M.shippingWidth;
+    const showR = shipR + M.showroomWidth, b1E = WEST + M.bay1Width;
+    const b2W = b1E + M.divider12, bcR = b2W + M.bathCreditWidth;
+    const b2E = b2W + M.bay2Width, b3W = b2E + M.divider23, b3E = b3W + M.bay3Width;
+    const b3oR = b3W + M.bay3OfficeWidth, b3BT = SOUTH - M.bay3OfficeDepth;
+    const b3KT = b3BT + M.bay3KitchenRecess, b3N = SOUTH - M.bay3Depth;
+    const kR = b3W + M.bay3KitchenWidth;
+    // The Bay 3 aisle starts where the rows end, 4.5" south of the Bay 2 stretch
+    const h3T = b3N + M.bay3RowsEnd, h3B = h3T + M.hallwayWidth;
+    const sq = (w,hh) => (w/P) * (hh/P);
+
+    const BAYS = [
+        { id:'bay1', name:'BAY 1', sub:'AREA #1 · FAST MOVING · WHITE ROOF', color:C.bay1,
+          x0:WEST, x1:b1E, north:b1N, hallTop:h1T, hallBot:h1B,
+          free:[['NORTH ZONE',WEST,b1N,b1E-WEST,h1T-b1N],
+                ['OFFICE GAP',showR,h1B,b1E-showR,offT-h1B]],
+          used:[['CAGE',WEST,cageTop,M.cageWidth,M.cageDepth],
+                ['SHIPPING',cageR,h1B,M.shippingWidth,M.shippingDepth],
+                ['SHOWROOM',shipR,showTop,M.showroomWidth,M.showroomDepth],
+                ['OFFICES',showR,offT,b1E-showR,SOUTH-offT]] },
+        { id:'bay2', name:'BAY 2', sub:'MOVERS · WHITE ROOF', color:C.bay2,
+          x0:b2W, x1:b2E, north:b2N, hallTop:h23T, hallBot:h23B,
+          free:[['NORTH ZONE',b2W,b2N,b2E-b2W,h23T-b2N],
+                ['SOUTH ZONE',bcR,h23B,b2E-bcR,SOUTH-h23B]],
+          used:[['RESTROOM + CREDIT',b2W,h23B,M.bathCreditWidth,M.bathCreditDepth]] },
+        { id:'bay3', name:'BAY 3', sub:'AREA #2 · NON-MOVERS · BLACK ROOF', color:C.bay3,
+          x0:b3W, x1:b3E, north:b3N, hallTop:h3T, hallBot:h3B,
+          free:[['NORTH ZONE',b3W,b3N,b3E-b3W,h3T-b3N],
+                ['EAST ZONE',b3oR,h3B,b3E-b3oR,SOUTH-h3B],
+                ['PRE-KITCHEN',b3W,h3B,kR-b3W,b3KT-h3B],
+                ['PRE-RESTROOM',kR,h3B,b3oR-kR,b3BT-h3B]],
+          usedPath:`M ${b3W},${b3KT} L ${kR},${b3KT} L ${kR},${b3BT} L ${b3oR},${b3BT}
+                    L ${b3oR},${SOUTH} L ${b3W},${SOUTH} Z`,
+          usedLabel:['OFFICES', b3W + (b3oR-b3W)/2, (b3KT+SOUTH)/2] }
+    ];
+
+    for (const b of BAYS){
+        b.freeArea  = b.free.reduce((s,z)=> s + sq(z[3],z[4]), 0);
+        b.totalArea = sq(b.x1-b.x0, SOUTH-b.north);
+        b.pct = b.freeArea / b.totalArea * 100;
+    }
+
+    let h = '';
+    for (const b of BAYS){
+        const w = b.x1-b.x0, hh = SOUTH-b.north;
+        h += `<g class="bay" id="o-${b.id}" tabindex="0" role="button" aria-label="${b.name}">`;
+        h += `<g class="bay-shell"><rect x="${b.x0}" y="${b.north}" width="${w}" height="${hh}" rx="4"
+                fill="${b.color}" fill-opacity=".05" stroke="${b.color}" stroke-opacity=".5" stroke-width="3"/></g>`;
+        for (const [nm,x,y,zw,zh] of b.free){
+            h += `<rect x="${x}" y="${y}" width="${zw}" height="${zh}" rx="3" fill="${b.color}"
+                    fill-opacity=".2" stroke="${b.color}" stroke-opacity=".55" stroke-width="1.5"/>`;
+            if (zw > 170 && zh > 70){
+                h += `<text class="lbl" x="${x+zw/2}" y="${y+zh/2-4}" font-size="17" fill="${b.color}">${nm}</text>`;
+                h += `<text class="lbl-sub" x="${x+zw/2}" y="${y+zh/2+17}" font-size="14" fill="${b.color}" opacity=".75">${fmt(sq(zw,zh))} sq ft</text>`;
+            }
+        }
+        for (const [nm,x,y,zw,zh] of (b.used||[])){
+            h += `<rect x="${x}" y="${y}" width="${zw}" height="${zh}" rx="3" fill="#131c2e" stroke="#2b3a52" stroke-width="1.5"/>`;
+            if (zw > 130 && zh > 60)
+                h += `<text class="lbl" x="${x+zw/2}" y="${y+zh/2+5}" font-size="13" fill="${C.mute}">${nm}</text>`;
+        }
+        if (b.usedPath){
+            h += `<path d="${b.usedPath}" fill="#131c2e" stroke="#2b3a52" stroke-width="1.5"/>`;
+            h += `<text class="lbl" x="${b.usedLabel[1]}" y="${b.usedLabel[2]}" font-size="13" fill="${C.mute}">${b.usedLabel[0]}</text>`;
+        }
+        h += `<rect x="${b.x0}" y="${b.hallTop}" width="${w}" height="${M.hallwayWidth}" fill="#0c1322" stroke="${C.line}" stroke-width="1.5"/>`;
+        h += `<line x1="${b.x0+14}" y1="${b.hallTop+M.hallwayWidth/2}" x2="${b.x1-14}" y2="${b.hallTop+M.hallwayWidth/2}" stroke="${C.lit}" stroke-width="2" stroke-dasharray="16 14"/>`;
+        h += `<text class="lbl" x="${b.x0+w/2}" y="${b.north-30}" font-size="26" fill="${b.color}" letter-spacing="7">${b.name}</text>`;
+        const L = 44, o = 13;
+        h += `<g class="brackets" stroke="${b.color}" stroke-width="3.5" fill="none" stroke-linecap="round">
+                <path d="M ${b.x0-o},${b.north-o+L} V ${b.north-o} H ${b.x0-o+L}"/>
+                <path d="M ${b.x1+o-L},${b.north-o} H ${b.x1+o} V ${b.north-o+L}"/>
+                <path d="M ${b.x1+o},${SOUTH+o-L} V ${SOUTH+o} H ${b.x1+o-L}"/>
+                <path d="M ${b.x0-o+L},${SOUTH+o} H ${b.x0-o} V ${SOUTH+o-L}"/></g>`;
+        h += `<rect x="${b.x0}" y="${b.north}" width="${w}" height="${hh}" fill="transparent"/></g>`;
+    }
+
+    const svg = $('omap'), PAD = 90;
+    const minY = Math.min(...BAYS.map(b=>b.north)) - PAD - 34;
+    svg.setAttribute('viewBox', `${WEST-PAD} ${minY} ${b3E-WEST+PAD*2} ${SOUTH-minY+PAD}`);
+    $('oscene').innerHTML = h;
+
+    const tFree = BAYS.reduce((s,b)=>s+b.freeArea,0);
+    const tArea = BAYS.reduce((s,b)=>s+b.totalArea,0);
+    $('oTotal').innerHTML = fmt(tArea) + ' <small>sq ft</small>';
+    $('oFree').innerHTML  = fmt(tFree) + ' <small>sq ft</small>';
+    $('oPct').innerHTML   = Math.round(tFree/tArea*100) + '<small>% free</small>';
+
+    const hud = $('hud');
+    const HAS_LAYOUT = { bay2:true, bay3:true };
+
+    function paint(b){
+        $('hAccent').style.background = b.color;
+        $('hName').textContent = b.name;  $('hName').style.color = b.color;
+        $('hSub').textContent  = b.sub;
+        $('hFree').innerHTML   = fmt(b.freeArea) + ' <small>sq ft</small>';
+        $('hFree').style.color = b.color;
+        $('hTotal').innerHTML  = fmt(b.totalArea) + ' <small>sq ft</small>';
+        $('hPct').innerHTML    = Math.round(b.pct) + '<small>% free</small>';
+        $('hPct').style.color  = b.color;
+        const bar = $('hBar'); bar.style.width = b.pct + '%'; bar.style.background = b.color;
+        $('hFoot').textContent = HAS_LAYOUT[b.id] ? 'CLICK TO OPEN LAYOUT' : 'NO LAYOUT MODELLED YET';
+        hud.classList.add('show');
+    }
+    function activate(id){
+        svg.setAttribute('data-active', id);
+        BAYS.forEach(b => $('o-'+b.id).classList.toggle('on', b.id===id));
+        paint(BAYS.find(b=>b.id===id));
+    }
+    function clear(){
+        svg.removeAttribute('data-active');
+        BAYS.forEach(b => $('o-'+b.id).classList.remove('on'));
+        hud.classList.remove('show');
+    }
+    for (const b of BAYS){
+        const el = $('o-'+b.id);
+        el.addEventListener('mouseenter', ()=>activate(b.id));
+        el.addEventListener('mouseleave', clear);
+        el.addEventListener('focus',      ()=>activate(b.id));
+        el.addEventListener('blur',       clear);
+        const go = () => { if (HAS_LAYOUT[b.id]) window.showView(b.id); };
+        el.addEventListener('click', go);
+        el.addEventListener('keydown', e => { if (e.key==='Enter'||e.key===' '){ e.preventDefault(); go(); } });
+    }
+    window.__clearHud = clear;
+})();
+
+/* ════════════════════════════════════════════════════════════
+   2 · BAY 2 — the two options we compared
+   ════════════════════════════════════════════════════════════ */
+(function bay2(){
+    const W = 1016, D = 497, PAD = 56;      // usable inches
+    const s = 0.95;
+
+    function draw(id, color, cols, rows, cw, ch, gapX, gapY){
+        let h = `<rect x="${PAD}" y="${PAD}" width="${W*s}" height="${D*s}" fill="#131c2e" stroke="${C.lit}" stroke-width="2"/>`;
+        h += `<text x="${PAD-14}" y="${PAD+D*s/2}" font-size="13" fill="${C.far}" text-anchor="end"
+                    font-family="ui-monospace,monospace" transform="rotate(-90 ${PAD-14} ${PAD+D*s/2})">NORTH</text>`;
+        h += `<text x="${PAD+W*s/2}" y="${PAD-16}" font-size="13" fill="${C.far}" text-anchor="middle"
+                    font-family="ui-monospace,monospace">WEST ←→ EAST</text>`;
+        let n = 0;
+        for (let c=0;c<cols;c++) for (let r=0;r<rows;r++){
+            const x = PAD + c*(cw+gapX)*s, y = PAD + r*(ch+gapY)*s;
+            h += `<rect x="${x}" y="${y}" width="${cw*s}" height="${ch*s}" rx="3"
+                        fill="${color}" fill-opacity=".32" stroke="${color}" stroke-width="1.4"/>`;
+            h += `<text x="${x+cw*s/2}" y="${y+ch*s/2+4}" font-size="11" fill="${color}"
+                        text-anchor="middle" font-weight="700" font-family="ui-monospace,monospace">${++n}</text>`;
+        }
+        $(id).innerHTML = h;
+        $(id).setAttribute('viewBox', `0 0 ${W*s+PAD*2} ${D*s+PAD*2}`);
+    }
+    // A: 8 pairs flush E-W, 5 rows N-S with 70" aisles
+    draw('b2a', C.bay2, 8, 5, 120, 40, 0, 70);
+    // B: 5 rows E-W with 70" aisles, 4 pairs flush N-S
+    draw('b2b', C.dim, 5, 4, 120, 120, 70, 0);
+})();
+
+/* ════════════════════════════════════════════════════════════
+   3 · BAY 3 NORTH — pallet layout
+   Rows sit flush inside a block; the only gap is between pallets
+   within a row. Everything left over widens the aisles.
+   ════════════════════════════════════════════════════════════ */
+const BAY3 = (function bay3(){
+    const EO = (113*12) + 10;    // 1366"
+    const NS = (62*12) + 1.5;    // 745.5" — measured 11 Aug 2026
+    const MARGIN_EAST = 107, MARGIN_NORTH = 145.5, MARGIN_SOUTH = 0;   // see bay3_pallet_layout.html
+    const PW = 62, PD = 60;                      // pallet 62" × 60"
+    const HALL_BIG_MIN = 67, HALL_MIN = 54;      // aisle minimums
+    const ROW_EAST = 33;
+
+    const SCEN = {
+        current:{ note:'13 ft kept clear along the west wall', west:13*12, blocks:[2,2,2,4,4] },
+        freed:  { note:'assuming the 13 ft west strip is reclaimed', west:0, blocks:[1,2,2,2,4,4] }
+    };
+    const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const usableNS = NS - MARGIN_NORTH - MARGIN_SOUTH;
+    const deep     = Math.floor(usableNS / PD);
+    const gapNS    = (usableNS - deep*PD) / (deep - 1);
+
+    function build(sc){
+        const usableEO = EO - sc.west - MARGIN_EAST;
+        const nRows  = sc.blocks.reduce((a,b)=>a+b,0);
+        const nHalls = sc.blocks.length - 1;
+        const baseHalls = HALL_BIG_MIN + (sc.blocks.length-2)*HALL_MIN;
+        const surplus = usableEO - nRows*PW - baseHalls;
+        const extra   = surplus / nHalls;
+        const hallBig = HALL_BIG_MIN + extra, hall = HALL_MIN + extra;
+
+        const strip = []; let cx = sc.west, num = ROW_EAST - nRows + 1;
+        let pallets = 0, fast = 0;
+        sc.blocks.forEach((count, bi) => {
+            const isBig = count === 4, rows = [];
+            for (let i=0;i<count;i++){
+                rows.push({ num:num++, x:cx });
+                cx += PW;                         // flush, no gap between rows
+                pallets += deep;
+                if (isBig) fast++;
+            }
+            strip.push({ type:'block', rows, isBig, x0:rows[0].x, x1:cx });
+            if (bi < sc.blocks.length-1){
+                const big = sc.blocks[bi]===4 && sc.blocks[bi+1]===4;
+                const w = big ? hallBig : hall;
+                strip.push({ type:'hall', x:cx, w, big });
+                cx += w;
+            }
+        });
+        return { sc, usableEO, nRows, nHalls, surplus, extra, hallBig, hall, strip,
+                 pallets, fast, usedEO:cx-sc.west,
+                 drift:+(usableEO-(cx-sc.west)).toFixed(4),
+                 numWest:ROW_EAST-nRows+1 };
+    }
+
+    const MODELS = { current:build(SCEN.current), freed:build(SCEN.freed) };
+    const PADD = 96, V = C.bay3, F = C.bay1;
+    const svg = $('b3map');
+    svg.setAttribute('viewBox', `0 0 ${EO+PADD*2} ${NS+PADD*2}`);
+    const NORTH_Y = PADD + MARGIN_NORTH, SOUTH_Y = PADD + NS - MARGIN_SOUTH;
+
+    function strip_(x,y,w,hh,label,vert){
+        const mx = x+w/2, my = y+hh/2;
+        return `<rect x="${x}" y="${y}" width="${w}" height="${hh}" fill="#111c2f" fill-opacity=".7"/>
+                <text x="${mx}" y="${my+6}" font-size="18" fill="${C.mute}" text-anchor="middle"
+                      font-family="ui-monospace,monospace"
+                      ${vert?`transform="rotate(-90 ${mx} ${my})"`:''}>${label}</text>`;
+    }
+
+    function render(key){
+        const m = MODELS[key], sc = m.sc;
+        let h = `<rect x="${PADD}" y="${PADD}" width="${EO}" height="${NS}" fill="#0d1524" stroke="${C.lit}" stroke-width="3"/>`;
+        h += strip_(PADD, PADD, EO, MARGIN_NORTH, `${MARGIN_NORTH}" CLEAR FROM NORTH WALL`, false);
+
+        if (sc.west > 0){
+            h += strip_(PADD, NORTH_Y, sc.west, NS-MARGIN_NORTH, `${sc.west}" (13 FT) CLEAR`, true);
+        } else {
+            const fw = 13*12;
+            h += `<rect x="${PADD}" y="${NORTH_Y}" width="${fw}" height="${NS-MARGIN_NORTH}"
+                        fill="${C.gain}" fill-opacity=".05" stroke="${C.gain}" stroke-opacity=".55"
+                        stroke-width="2.5" stroke-dasharray="16 12"/>
+                  <text x="${PADD+fw/2}" y="${NORTH_Y-46}" font-size="17" fill="${C.gain}"
+                        text-anchor="middle" font-family="ui-monospace,monospace">RECLAIMED STRIP · ${fw}"</text>`;
+        }
+        h += strip_(PADD+EO-MARGIN_EAST, NORTH_Y, MARGIN_EAST, NS-MARGIN_NORTH, `${MARGIN_EAST}" CLEAR`, true);
+
+        for (const seg of m.strip){
+            if (seg.type === 'hall'){
+                h += `<rect x="${PADD+seg.x}" y="${NORTH_Y}" width="${seg.w}" height="${SOUTH_Y-NORTH_Y}"
+                            fill="#0a1120" stroke="${seg.big?C.far:C.line}" stroke-width="${seg.big?2:1.2}"/>
+                      <line x1="${PADD+seg.x+seg.w/2}" y1="${NORTH_Y+10}" x2="${PADD+seg.x+seg.w/2}" y2="${SOUTH_Y-10}"
+                            stroke="${seg.big?C.mute:C.lit}" stroke-width="2" stroke-dasharray="14 12"/>
+                      <text x="${PADD+seg.x+seg.w/2}" y="${NORTH_Y-14}" font-size="16"
+                            fill="${seg.big?C.dim:C.mute}" text-anchor="middle"
+                            font-family="ui-monospace,monospace">${n1(seg.w)}"</text>`;
+                continue;
+            }
+            for (const row of seg.rows){
+                for (let d=0; d<deep; d++){
+                    const letter = LETTERS[deep-1-d];               // A sits on the main aisle
+                    const isFast = seg.isBig && letter === 'A';
+                    const y = NORTH_Y + d*(PD+gapNS);
+                    const col = isFast ? F : V;
+                    h += `<g class="cell"><title>${row.num}-${letter}</title>
+                          <rect x="${PADD+row.x}" y="${y}" width="${PW}" height="${PD}" rx="3"
+                                fill="${col}" fill-opacity="${isFast?.4:.2}" stroke="${col}"
+                                stroke-opacity=".75" stroke-width="1.5"/>
+                          <text x="${PADD+row.x+PW/2}" y="${y+PD/2+6}" font-size="17" fill="${col}"
+                                text-anchor="middle" font-weight="700" opacity=".9"
+                                font-family="ui-monospace,monospace">${letter}</text></g>`;
+                }
+                for (const yy of [NORTH_Y-14, SOUTH_Y+32])
+                    h += `<text x="${PADD+row.x+PW/2}" y="${yy}" font-size="21" fill="${V}"
+                                text-anchor="middle" font-weight="800"
+                                font-family="ui-monospace,monospace">${row.num}</text>`;
+            }
+            h += `<rect x="${PADD+seg.x0-5}" y="${NORTH_Y-5}" width="${seg.x1-seg.x0+10}"
+                        height="${SOUTH_Y-NORTH_Y+10}" fill="none" rx="4"
+                        stroke="${seg.isBig?V:C.far}" stroke-width="${seg.isBig?3:2}"
+                        stroke-opacity="${seg.isBig?.9:.5}"/>`;
+        }
+        h += `<text x="${PADD+EO/2}" y="${SOUTH_Y+66}" font-size="19" fill="${C.mute}" text-anchor="middle"
+                    font-family="ui-monospace,monospace" letter-spacing="3">MAIN AISLE · ENTRY</text>
+              <text x="${PADD-22}" y="${NORTH_Y+26}" font-size="17" fill="${C.far}" text-anchor="end"
+                    font-family="ui-monospace,monospace">N</text>`;
+        svg.innerHTML = h;
+
+        const base = MODELS.current, delta = m.pallets - base.pallets;
+        $('tRows').innerHTML    = m.nRows + ` <small>${ROW_EAST}→${m.numWest}</small>`;
+        $('tPallets').innerHTML = m.pallets;
+        $('tBlocks').innerHTML  = sc.blocks.length + ' <small>' + sc.blocks.slice().reverse().join('·') + '</small>';
+        $('tDeep').innerHTML    = deep + ' <small>A→' + LETTERS[deep-1] + '</small>';
+        $('tHallBig').innerHTML = n1(m.hallBig) + '<small>"</small>';
+        $('tHall').innerHTML    = n1(m.hall) + '<small>"</small>';
+        $('tFast').innerHTML    = m.fast + ' <small>row A</small>';
+        $('tGain').innerHTML    = delta === 0 ? '—' : `+${delta} <small>pallets</small>`;
+        $('tGain').style.color  = delta ? C.gain : '';
+        $('tHallBig').style.color = V; $('tHall').style.color = V;
+        $('tFast').style.color  = F;
+
+        $('b3notes').innerHTML = `
+          <b>East–west</b> &nbsp; ${m.nRows} rows × ${PW}" = ${m.nRows*PW}" (flush, no gap between rows)
+          &nbsp;+&nbsp; aisles ${n1(m.hallBig)}" + ${sc.blocks.length-2} × ${n1(m.hall)}"
+          &nbsp;=&nbsp; <b>${n1(m.usedEO)}" / ${m.usableEO}"</b>${m.drift===0?' — exact fit':` — off by ${m.drift}"`}
+          <br>
+          <b>Surplus</b> &nbsp; ${m.surplus}" above the ${HALL_BIG_MIN}" / ${HALL_MIN}" minimums,
+          split across the ${m.nHalls} aisles: <b>+${n1(m.extra)}" each</b>
+          <br>
+          <b>North–south</b> &nbsp; ${MARGIN_NORTH}" clear + ${deep} pallets × ${PD}"
+          + ${deep-1} gaps of <b>${gapNS.toFixed(2)}"</b> inside the row = ${NS}", flush to the main aisle
+          <br>
+          <b>Location code</b> &nbsp; row-letter, e.g. <b>${ROW_EAST}-A</b>. Row ${ROW_EAST} is the
+          easternmost, ${m.numWest} the westernmost. Letter A sits on the main aisle. Hover a slot to read its code.
+          <br>
+          <span class="warn">Fast picking</span> &nbsp; row A of both large blocks: ${m.fast} slots.
+          ${delta ? `<br><span class="gn">West freed</span> &nbsp; reclaiming the 13 ft strip adds
+            <span class="gn">${delta} pallets</span> (${base.pallets} → ${m.pallets}): one more two-row
+            block fits, and the aisles go from ${n1(base.hallBig)}"/${n1(base.hall)}"
+            to ${n1(m.hallBig)}"/${n1(m.hall)}".` : ''}`;
+
+        $('crumb').textContent =
+            `BAY 3 NORTH · ROWS ${ROW_EAST}→${m.numWest} EAST TO WEST · ${sc.note.toUpperCase()}`;
+    }
+
+    $('scen').addEventListener('click', e => {
+        const b = e.target.closest('button'); if (!b) return;
+        [...e.currentTarget.children].forEach(x => x.classList.toggle('on', x===b));
+        render(b.dataset.k);
+    });
+    return { render };
+})();
+
+/* ════════════════════════════════════════════════════════════
+   4 · view switching
+   ════════════════════════════════════════════════════════════ */
+const CRUMB = {
+    overview:'SCALE 10 PX = 1 FT · GROSS AREA, COLUMNS NOT DEDUCTED',
+    bay2:'BAY 2 NORTH · 84′ 8″ × 43′ 9″ · TWO LAYOUTS COMPARED'
+};
+window.showView = function(id){
+    document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === id));
+    [...$('tabs').children].forEach(b => b.classList.toggle('on', b.dataset.bay === id));
+    if (window.__clearHud) window.__clearHud();
+    if (id === 'bay3') BAY3.render('current');
+    else $('crumb').textContent = CRUMB[id];
+    window.scrollTo({ top:0, behavior:'instant' });
+};
+$('tabs').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (b) window.showView(b.dataset.bay);
+});
+BAY3.render('current');
+window.showView('overview');
+</script>

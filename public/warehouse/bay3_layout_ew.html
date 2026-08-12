@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bay 3 North — Pallet Layout (E–W rows)</title>
+<style>
+    :root{
+        --ground:#070b14; --line:#1e293b; --line-lit:#334155;
+        --ink:#e2e8f0; --ink-dim:#94a3b8; --ink-mute:#64748b; --ink-far:#475569;
+        --bay3:#a78bfa; --fast:#f59e0b; --bike:#39ff14; --gain:#34d399; --bad:#f87171;
+        --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+        --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    body{
+        background:var(--ground); color:var(--ink); font-family:var(--sans);
+        min-height:100vh; overflow-x:hidden; -webkit-font-smoothing:antialiased;
+    }
+    header{ padding:20px 30px 4px; display:flex; justify-content:space-between;
+            align-items:flex-start; gap:20px; flex-wrap:wrap; }
+    h1{ font-size:15px; font-weight:800; letter-spacing:.22em; }
+    .tagline{ font-family:var(--mono); font-size:11px; letter-spacing:.15em;
+              color:var(--ink-far); margin-top:6px; }
+    .actions{ display:flex; gap:10px; align-items:center; }
+
+    .btn{
+        padding:9px 16px; border:1px solid var(--line); border-radius:6px;
+        background:rgba(15,23,42,.8); color:var(--ink); cursor:pointer;
+        font-family:var(--mono); font-size:11px; letter-spacing:.1em; font-weight:600;
+        transition:border-color .2s, background .2s; white-space:nowrap;
+    }
+    .btn:hover{ border-color:var(--ink-mute); background:rgba(30,41,59,.9); }
+    .btn:focus-visible{ outline:2px solid var(--ink-dim); outline-offset:2px; }
+    .btn[hidden]{ display:none; }
+
+    .switch{ display:flex; border:1px solid var(--line); border-radius:6px; overflow:hidden; }
+    .switch button{
+        padding:9px 15px; border:0; background:transparent; color:var(--ink-mute);
+        font-family:var(--mono); font-size:11px; letter-spacing:.1em; font-weight:700;
+        cursor:pointer; transition:background .2s, color .2s; white-space:nowrap;
+    }
+    .switch button:hover{ color:var(--ink); }
+    .switch button:focus-visible{ outline:2px solid var(--ink-dim); outline-offset:-2px; }
+    .switch button.on{ background:var(--bay3); color:var(--ground); }
+
+    .totals{ display:flex; gap:28px; padding:16px 30px 0; flex-wrap:wrap; align-items:flex-start; }
+    .totals .k{ font-family:var(--mono); font-size:9.5px; letter-spacing:.14em; color:var(--ink-far); }
+    .totals .v{ font-family:var(--mono); font-size:20px; font-weight:800; margin-top:4px;
+                color:var(--bay3); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .totals .v small{ font-size:10.5px; color:var(--ink-mute); font-weight:600; }
+    .totals .fast .v{ color:var(--fast); }
+    .totals .bike .k{ color:var(--bike); }
+    .totals .bike .v{ color:var(--bike); }
+    .totals .gain .v{ color:var(--gain); }
+
+    .edit .k{ color:var(--fast); }
+    .totals input{
+        width:2.6em; padding:0 1px; border:0; border-bottom:2px solid var(--line);
+        background:transparent; color:var(--fast); font:inherit; text-align:center;
+        font-variant-numeric:tabular-nums; -moz-appearance:textfield;
+    }
+    .totals input::-webkit-outer-spin-button,
+    .totals input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+    .totals input:hover{ border-bottom-color:var(--ink-mute); }
+    .totals input:focus{ outline:none; border-bottom-color:var(--fast); }
+
+    .alert{
+        margin:16px 30px 0; padding:12px 16px; border-radius:7px;
+        border:1px solid var(--bad); background:rgba(248,113,113,.08);
+        color:var(--bad); font-family:var(--mono); font-size:11px; line-height:1.7;
+    }
+    .alert[hidden]{ display:none; }
+
+    .parked{
+        margin:16px 30px 0; padding:12px 16px; border-radius:7px;
+        border:1px solid var(--fast); background:rgba(245,158,11,.07);
+        color:var(--fast); font-family:var(--mono); font-size:11px; line-height:1.8;
+    }
+    .parked b{ letter-spacing:.1em; }
+
+    .legend{
+        display:flex; gap:22px; flex-wrap:wrap; padding:14px 30px 0;
+        font-family:var(--mono); font-size:10px; letter-spacing:.1em; color:var(--ink-far);
+    }
+    .legend span{ display:flex; align-items:center; gap:7px; }
+    .legend i{ width:13px; height:13px; border-radius:3px; border:1.5px solid; }
+
+    .stage{ padding:12px 30px 40px; }
+    svg{ display:block; width:100%; height:auto; max-height:calc(100vh - 250px); }
+    .cell:hover rect{ fill-opacity:.65; }
+
+    @media (prefers-reduced-motion:reduce){ *{ transition:none !important; } }
+</style>
+</head>
+<body>
+
+<header>
+    <div>
+        <h1>BAY 3 NORTH — PALLET LAYOUT · EAST–WEST ROWS</h1>
+        <p class="tagline" id="tagline">—</p>
+    </div>
+    <div class="actions">
+        <button class="btn" id="reset" hidden>↺ RESET 54 × 56</button>
+        <button class="btn" onclick="location.href='bay3_pallet_layout.html'">← N–S LAYOUT</button>
+        <button class="btn" onclick="location.href='warehouse_map.html'">← MAP</button>
+    </div>
+</header>
+
+<div class="parked">
+    <b>LONG-TERM IMPROVEMENT — NOT THE CURRENT PLAN.</b><br>
+    East–west rows hold more because aisles are what eat the floor, but the north block
+    runs five deep and its middle rows cannot be reached without moving what is in front.
+    That changes how the warehouse is operated, not just where pallets go, so it is parked.
+    Work is on the north–south layout. This page is frozen on the old 56" × 54" footprint
+    (54" along the row, 56" across) and does not carry the front bike lines — re-run it on
+    the current 62" × 60" pallet before comparing anything.
+</div>
+
+<div class="totals">
+    <div class="edit">
+        <div class="k">PALLET SIZE · EDITABLE</div>
+        <div class="v">
+            <input id="pw" type="number" min="6" max="400" step="0.5" aria-label="Pallet size east to west">×<input
+                   id="pd" type="number" min="6" max="400" step="0.5" aria-label="Pallet size north to south"><small>" E–W×N–S</small>
+        </div>
+    </div>
+    <div><div class="k">ROWS</div><div class="v" id="tRows">—</div></div>
+    <div><div class="k">PALLETS PER ROW</div><div class="v" id="tPerRow">—</div></div>
+    <div><div class="k">PALLETS</div><div class="v" id="tPallets">—</div></div>
+    <div class="fast"><div class="k">FAST PICKING</div><div class="v" id="tFast">—</div></div>
+    <div class="bike"><div class="k">BIKE LINES</div><div class="v" id="tLines">—</div></div>
+    <div class="bike"><div class="k">BIKES</div><div class="v" id="tBikes">—</div></div>
+    <div><div class="k">CENTER AISLE</div><div class="v" id="tAisle">—</div></div>
+    <div><div class="k">WEST AISLE</div><div class="v" id="tWest">—</div></div>
+</div>
+
+<div class="legend">
+    <span><i style="background:rgba(245,158,11,.4);border-color:#f59e0b"></i>FAST PICKING — TOUCHES OPEN FLOOR</span>
+    <span><i style="background:rgba(167,139,250,.2);border-color:#a78bfa"></i>BURIED — NEEDS THE FRONT MOVED</span>
+    <span><i style="background:rgba(57,255,20,.3);border-color:#39ff14"></i>BIKE LINE — GAP OF 10&Prime; OR MORE, 5 BIKES</span>
+</div>
+
+<div class="alert" id="alert" hidden></div>
+<div class="stage"><svg id="map"></svg></div>
+
+<script>
+"use strict";
+/* ════════════════════════════════════════════════════════════════
+   BAY 3 · NORTH ZONE — rows running EAST–WEST. All values in inches.
+   Envelope from WAREHOUSE-MEASUREMENTS.md: 113' 10" E–W × 61' 4" N–S.
+
+   Rules:
+   · rows sit flush inside a block, no gap between them
+   · leftover along the row is pooled into gaps of 10" or more —
+     each one is a bike line holding 5 units; anything under 10"
+     widens the west aisle instead of being smeared around
+   · fast picking = every pallet whose edge touches open floor
+   ════════════════════════════════════════════════════════════════ */
+const EO = (113 * 12) + 10;      // 1366"
+const NS = (61 * 12) + 4;        // 736"
+
+const MARGIN_EAST  = 107;
+const MARGIN_NORTH = 146;
+const MARGIN_SOUTH = 0;          // rows run flush to the main aisle
+const AISLE_MIN    = 67;
+
+const BIKE_GAP   = 10;           // a gap this wide or more becomes a bike line
+const BIKES_LINE = 5;
+
+const DEFAULT_PITCH = 54;        // along the row, east–west
+const DEFAULT_ROW_T = 56;        // across the row, north–south
+let PITCH = DEFAULT_PITCH, ROW_T = DEFAULT_ROW_T;
+
+const ROW_SOUTH = 33;
+const usableNS  = NS - MARGIN_NORTH - MARGIN_SOUTH;      // 590"
+
+const $  = id => document.getElementById(id);
+const n1 = x => Math.round(x * 100) / 100;
+
+function slotName(i){
+    let s = '', n = i + 1;
+    while (n > 0){ const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); }
+    return s;
+}
+/* spread nGaps bike lines evenly across nSlots positions */
+function spread(nSlots, nGaps){
+    const out = [];
+    for (let i = 0; i < nSlots; i++)
+        out.push(Math.floor((i + 1) * nGaps / nSlots) > Math.floor(i * nGaps / nSlots));
+    return out;
+}
+/* cells on the edge of a block touch open floor on at least one side */
+const perimeter = (rows, deep) => (rows <= 1 || deep <= 1) ? rows * deep : 2 * rows + 2 * deep - 4;
+
+const SCEN = {
+    current:{ note:'13 ft kept clear along the west wall', west: 13 * 12, westAisle:false },
+    freed:  { note:'13 ft strip reclaimed, west aisle added', west: 0,    westAisle:true  }
+};
+
+let BLOCKS, nRows, aisle, MODELS;
+
+function fitRows(){
+    const R = Math.floor((usableNS - AISLE_MIN) / ROW_T);
+    if (R < 2) return null;
+    return [Math.ceil(R / 2), Math.floor(R / 2)];   // deeper half to the north
+}
+
+function build(sc){
+    const wAisleBase = sc.westAisle ? AISLE_MIN : 0;
+    const run = EO - sc.west - MARGIN_EAST - wAisleBase;
+    const perRow = Math.floor(run / PITCH);
+    if (perRow < 1) return null;
+
+    const rest     = run - perRow * PITCH;
+    const nLines   = Math.min(Math.floor(rest / BIKE_GAP), perRow - 1);
+    const gapW     = nLines > 0 ? rest / nLines : 0;
+    const residual = nLines > 0 ? 0 : rest;
+    const westAisle = wAisleBase + residual;         // sub-10" leftover widens the aisle
+    const gapAt = spread(Math.max(perRow - 1, 0), nLines);
+
+    // offsets measured westward from the east end of the run
+    const offs = []; let off = 0;
+    for (let i = 0; i < perRow; i++){
+        offs.push(off);
+        off += PITCH;
+        if (i < perRow - 1 && gapAt[i]) off += gapW;
+    }
+
+    const bands = []; let cy = MARGIN_NORTH;
+    BLOCKS.forEach((count, bi) => {
+        const rows = [];
+        for (let i = 0; i < count; i++){ rows.push({ y: cy, idx: i, of: count }); cy += ROW_T; }
+        bands.push({ type:'block', rows, y0:rows[0].y, y1:cy, size:count });
+        if (bi < BLOCKS.length - 1){ bands.push({ type:'aisle', y:cy, h:aisle }); cy += aisle; }
+    });
+    const flat = bands.filter(b => b.type === 'block').flatMap(b => b.rows);
+    flat.forEach((r, i) => { r.num = ROW_SOUTH - (flat.length - 1 - i); });
+
+    const accessible = BLOCKS.reduce((a, c) => a + perimeter(c, perRow), 0);
+
+    return { sc, run, perRow, gapW, nLines, westAisle, gapAt, offs, bands,
+             pallets: perRow * nRows, accessible,
+             lines: nLines * nRows, bikes: nLines * nRows * BIKES_LINE };
+}
+
+function recompute(){
+    BLOCKS = fitRows();
+    if (!BLOCKS){ MODELS = null; return; }
+    nRows = BLOCKS.reduce((a, b) => a + b, 0);
+    aisle = AISLE_MIN + (usableNS - nRows * ROW_T - AISLE_MIN) / (BLOCKS.length - 1);
+    const c = build(SCEN.current), f = build(SCEN.freed);
+    MODELS = (c && f) ? { current:c, freed:f } : null;
+}
+
+/* ---------- drawing ---------- */
+const V='#a78bfa', F='#f59e0b', BIKE='#39ff14', G='#34d399';
+const MUTE='#64748b', FAR='#475569', DIM='#94a3b8', LIT='#334155';
+const PAD = 96;
+const svg = $('map');
+svg.setAttribute('viewBox', `0 0 ${EO + PAD * 2} ${NS + PAD * 2}`);
+const NORTH_Y = PAD + MARGIN_NORTH;
+const SOUTH_Y = PAD + NS - MARGIN_SOUTH;
+const EAST_X  = PAD + EO - MARGIN_EAST;
+
+function clearStrip(x, y, w, h, label, vertical){
+    const mx = x + w / 2, my = y + h / 2;
+    return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#111c2f" fill-opacity=".7"/>
+            <text x="${mx}" y="${my + 6}" font-size="18" fill="${MUTE}" text-anchor="middle"
+                  font-family="ui-monospace,monospace"
+                  ${vertical ? `transform="rotate(-90 ${mx} ${my})"` : ''}>${label}</text>`;
+}
+
+let currentKey = 'freed';
+
+function render(key){
+    currentKey = key;
+    $('alert').hidden = MODELS !== null;
+    if (!MODELS){
+        $('alert').textContent =
+            `A ${PITCH}" × ${ROW_T}" pallet does not fit: the zone is ${usableNS}" deep and needs ` +
+            `at least two rows plus a ${AISLE_MIN}" aisle. Try a smaller pallet.`;
+        svg.innerHTML = '';
+        ['tRows','tPerRow','tPallets','tFast','tLines','tBikes','tAisle','tWest']
+            .forEach(id => $(id).innerHTML = '—');
+        return;
+    }
+
+    const m = MODELS[key], sc = m.sc;
+    let h = `<rect x="${PAD}" y="${PAD}" width="${EO}" height="${NS}" fill="#0d1524" stroke="${LIT}" stroke-width="3"/>`;
+    h += clearStrip(PAD, PAD, EO, MARGIN_NORTH, `${MARGIN_NORTH}" CLEAR FROM NORTH WALL`, false);
+
+    if (sc.west > 0)
+        h += clearStrip(PAD, NORTH_Y, sc.west, NS - MARGIN_NORTH, `${sc.west}" (13 FT) CLEAR`, true);
+    else {
+        const fw = 13 * 12;
+        h += `<rect x="${PAD}" y="${NORTH_Y}" width="${fw}" height="${NS - MARGIN_NORTH}"
+                    fill="${G}" fill-opacity=".05" stroke="${G}" stroke-opacity=".5"
+                    stroke-width="2.5" stroke-dasharray="16 12"/>
+              <text x="${PAD + fw / 2}" y="${NORTH_Y - 46}" font-size="17" fill="${G}"
+                    text-anchor="middle" font-family="ui-monospace,monospace">RECLAIMED STRIP · ${fw}"</text>`;
+    }
+    h += clearStrip(EAST_X, NORTH_Y, MARGIN_EAST, NS - MARGIN_NORTH, `${MARGIN_EAST}" CLEAR`, true);
+
+    // aisle down the west wall
+    if (m.westAisle > 0){
+        const wx = PAD + sc.west;
+        h += `<rect x="${wx}" y="${NORTH_Y}" width="${m.westAisle}" height="${SOUTH_Y - NORTH_Y}"
+                    fill="#0a1120" stroke="${FAR}" stroke-width="2"/>
+              <line x1="${wx + m.westAisle / 2}" y1="${NORTH_Y + 12}"
+                    x2="${wx + m.westAisle / 2}" y2="${SOUTH_Y - 12}"
+                    stroke="${MUTE}" stroke-width="2" stroke-dasharray="16 14"/>
+              <text x="${wx + m.westAisle / 2}" y="${NORTH_Y - 14}" font-size="16" fill="${DIM}"
+                    text-anchor="middle" font-family="ui-monospace,monospace">${n1(m.westAisle)}"</text>`;
+    }
+
+    const fontCell = Math.max(9, Math.min(18, PITCH * 0.3));
+
+    for (const band of m.bands){
+        if (band.type === 'aisle'){
+            const ay = PAD + band.y;
+            h += `<rect x="${EAST_X - m.run}" y="${ay}" width="${m.run}" height="${band.h}"
+                        fill="#0a1120" stroke="${FAR}" stroke-width="2"/>
+                  <line x1="${EAST_X - m.run + 12}" y1="${ay + band.h / 2}"
+                        x2="${EAST_X - 12}" y2="${ay + band.h / 2}"
+                        stroke="${MUTE}" stroke-width="2" stroke-dasharray="16 14"/>
+                  <text x="${EAST_X - m.run / 2}" y="${ay + band.h / 2 + 6}" font-size="18" fill="${DIM}"
+                        text-anchor="middle" font-family="ui-monospace,monospace"
+                        style="paint-order:stroke" stroke="#0a1120" stroke-width="6">${n1(band.h)}" AISLE</text>`;
+            continue;
+        }
+
+        for (const row of band.rows){
+            const ry = PAD + row.y;
+            const edgeRow = row.idx === 0 || row.idx === row.of - 1;
+
+            for (let i = 0; i < m.perRow; i++){
+                const label  = slotName(i);
+                const isFast = edgeRow || i === 0 || i === m.perRow - 1;
+                const px  = EAST_X - m.offs[i] - PITCH;
+                const col = isFast ? F : V;
+                h += `<g class="cell"><title>${row.num}-${label}${isFast ? ' · fast picking' : ' · buried'}</title>
+                      <rect x="${px}" y="${ry}" width="${PITCH}" height="${ROW_T}" rx="3"
+                            fill="${col}" fill-opacity="${isFast ? .4 : .2}"
+                            stroke="${col}" stroke-opacity=".75" stroke-width="1.5"/>
+                      <text x="${px + PITCH / 2}" y="${ry + ROW_T / 2 + fontCell * .35}" font-size="${fontCell}"
+                            fill="${col}" text-anchor="middle" font-weight="700" opacity=".9"
+                            font-family="ui-monospace,monospace">${label}</text></g>`;
+
+                // bike line sitting in the gap west of this pallet
+                if (i < m.perRow - 1 && m.gapAt[i]){
+                    const gx = px - m.gapW;
+                    h += `<g class="cell"><title>Bike line · ${n1(m.gapW)}" · ${BIKES_LINE} bikes</title>
+                          <rect x="${gx}" y="${ry}" width="${m.gapW}" height="${ROW_T}" rx="2"
+                                fill="${BIKE}" fill-opacity=".28" stroke="${BIKE}" stroke-opacity=".9" stroke-width="1.5"/>`;
+                    for (let b = 1; b < BIKES_LINE; b++)
+                        h += `<line x1="${gx + 2}" y1="${ry + b * ROW_T / BIKES_LINE}"
+                                    x2="${gx + m.gapW - 2}" y2="${ry + b * ROW_T / BIKES_LINE}"
+                                    stroke="${BIKE}" stroke-opacity=".5" stroke-width="1"/>`;
+                    h += `</g>`;
+                }
+            }
+            for (const [tx, anchor] of [[EAST_X - m.run - 16, 'end'], [EAST_X + 16, 'start']])
+                h += `<text x="${tx}" y="${ry + ROW_T / 2 + 7}" font-size="21" fill="${V}"
+                            text-anchor="${anchor}" font-weight="800"
+                            font-family="ui-monospace,monospace">${row.num}</text>`;
+        }
+        h += `<rect x="${EAST_X - m.run - 5}" y="${PAD + band.y0 - 5}" width="${m.run + 10}"
+                    height="${band.y1 - band.y0 + 10}" fill="none" rx="4"
+                    stroke="${V}" stroke-width="3" stroke-opacity=".9"/>`;
+    }
+
+    h += `<text x="${PAD + EO / 2}" y="${SOUTH_Y + 62}" font-size="19" fill="${MUTE}" text-anchor="middle"
+                font-family="ui-monospace,monospace" letter-spacing="3">MAIN AISLE · ENTRY</text>
+          <text x="${PAD - 22}" y="${NORTH_Y + 26}" font-size="17" fill="${FAR}" text-anchor="end"
+                font-family="ui-monospace,monospace">N</text>`;
+    svg.innerHTML = h;
+
+    const put = (id, v) => $(id).innerHTML = v;
+
+    $('tagline').textContent =
+        `ROWS ${ROW_SOUTH - nRows + 1}→${ROW_SOUTH} NORTH TO SOUTH · SLOTS A→${slotName(m.perRow - 1)} EAST TO WEST · ${sc.note.toUpperCase()}`;
+
+    put('tRows',    nRows + ` <small>${ROW_SOUTH - nRows + 1}→${ROW_SOUTH}</small>`);
+    put('tPerRow',  m.perRow + ` <small>A→${slotName(m.perRow - 1)}</small>`);
+    put('tPallets', m.pallets);
+    put('tFast',    m.accessible + ` <small>of ${m.pallets}</small>`);
+    put('tLines',   m.lines + (m.nLines ? ` <small>${n1(m.gapW)}" each</small>` : ' <small>no gap ≥10"</small>'));
+    put('tBikes',   m.bikes);
+    put('tAisle',   n1(aisle) + '<small>"</small>');
+    put('tWest',    m.westAisle > 0 ? n1(m.westAisle) + '<small>"</small>' : '—');
+}
+
+/* ---------- editing ---------- */
+function apply(){
+    const w = parseFloat($('pw').value), d = parseFloat($('pd').value);
+    if (!(w > 0) || !(d > 0)) return;
+    PITCH = w; ROW_T = d;
+    $('reset').hidden = (PITCH === DEFAULT_PITCH && ROW_T === DEFAULT_ROW_T);
+    recompute();
+    render(currentKey);
+}
+$('pw').value = DEFAULT_PITCH;
+$('pd').value = DEFAULT_ROW_T;
+$('pw').addEventListener('input', apply);
+$('pd').addEventListener('input', apply);
+$('reset').addEventListener('click', () => {
+    $('pw').value = DEFAULT_PITCH; $('pd').value = DEFAULT_ROW_T; apply();
+});
+
+recompute();
+render('freed');
+</script>
+</body>
+</html>

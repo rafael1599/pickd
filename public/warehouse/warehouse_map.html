@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Warehouse Map — JAMIS Bikes</title>
+<style>
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    body{
+        background:#070b14;
+        color:#e2e8f0;
+        font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+        min-height:100vh;
+        overflow-x:hidden;
+        user-select:none;
+    }
+    /* Background grid, pure atmosphere */
+    body::before{
+        content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+        background-image:linear-gradient(rgba(56,189,248,.05) 1px,transparent 1px),
+                         linear-gradient(90deg,rgba(56,189,248,.05) 1px,transparent 1px);
+        background-size:44px 44px;
+        mask-image:radial-gradient(ellipse at 50% 40%,#000 20%,transparent 78%);
+    }
+
+    header{ position:relative; z-index:2; padding:22px 30px 6px; }
+    h1{ font-size:15px; font-weight:800; letter-spacing:.22em; color:#f8fafc; }
+    .tagline{ font-size:11px; letter-spacing:.16em; color:#475569; margin-top:5px; font-family:ui-monospace,monospace; }
+
+    .totals{ display:flex; gap:34px; margin-top:16px; }
+    .totals div{ font-family:ui-monospace,monospace; }
+    .totals .k{ font-size:10px; letter-spacing:.14em; color:#475569; }
+    .totals .v{ font-size:21px; font-weight:800; color:#f1f5f9; margin-top:3px; }
+    .totals .v small{ font-size:11px; color:#64748b; font-weight:600; }
+
+    .stage{ position:relative; z-index:1; padding:8px 30px 40px; }
+    svg{ width:100%; height:auto; overflow:visible; }
+
+    /* ---- bay interaction ---- */
+    .bay{ cursor:pointer; transition:opacity .28s ease; }
+    .bay-shell{ transition:filter .28s ease; }
+    .map[data-active] .bay{ opacity:.26; }
+    .map[data-active] .bay.on{ opacity:1; }
+    .bay.on .bay-shell{ filter:url(#glow); }
+    .brackets{ opacity:0; transition:opacity .22s ease; }
+    .bay.on .brackets{ opacity:1; }
+
+    .free{ transition:opacity .28s ease; }
+    .bay.on .free{ opacity:1; }
+
+    .lbl{ font-family:ui-monospace,monospace; font-weight:800; text-anchor:middle; pointer-events:none; }
+    .lbl-sub{ font-family:ui-monospace,monospace; font-weight:600; text-anchor:middle; pointer-events:none; }
+
+    /* ---- stats panel ---- */
+    .hud{
+        position:fixed; bottom:28px; right:26px; width:286px; z-index:10;
+        background:rgba(10,16,28,.93);
+        border:1px solid #1e293b; border-radius:12px; padding:18px 18px 16px;
+        backdrop-filter:blur(14px);
+        opacity:0; transform:translateY(10px); transition:opacity .22s ease, transform .22s ease;
+        pointer-events:none;
+    }
+    .hud.show{ opacity:1; transform:none; }
+    .hud .accent{ height:3px; border-radius:2px; margin-bottom:14px; }
+    .hud h2{ font-size:16px; font-weight:800; letter-spacing:.1em; }
+    .hud .sub{ font-size:10px; letter-spacing:.13em; color:#64748b; margin-top:4px; font-family:ui-monospace,monospace; }
+
+    .stat{ margin-top:15px; }
+    .stat .k{ font-size:9.5px; letter-spacing:.15em; color:#64748b; font-family:ui-monospace,monospace; }
+    .stat .v{ font-size:24px; font-weight:800; font-family:ui-monospace,monospace; margin-top:2px; }
+    .stat .v small{ font-size:11px; color:#64748b; font-weight:600; }
+
+    .bar{ height:6px; background:#111a2b; border-radius:3px; margin-top:9px; overflow:hidden; }
+    .bar i{ display:block; height:100%; border-radius:3px; transition:width .4s ease; }
+
+    .pin{ margin-top:15px; padding-top:12px; border-top:1px solid #1e293b;
+          font-size:10px; letter-spacing:.1em; color:#475569; font-family:ui-monospace,monospace; }
+
+    footer{ position:relative; z-index:2; padding:0 30px 30px;
+            font-size:10.5px; letter-spacing:.1em; color:#334155; font-family:ui-monospace,monospace; }
+</style>
+</head>
+<body>
+
+<header>
+    <h1>WAREHOUSE MAP — JAMIS BIKES</h1>
+    <p class="tagline">HOVER A BAY · CLICK TO PIN</p>
+    <div class="totals">
+        <div><div class="k">TOTAL AREA</div><div class="v" id="tTotal">—</div></div>
+        <div><div class="k">FREE SPACE</div><div class="v" id="tFree">—</div></div>
+        <div><div class="k">UTILIZATION</div><div class="v" id="tPct">—</div></div>
+    </div>
+</header>
+
+<div class="stage">
+    <svg id="map" class="map" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <filter id="glow" x="-25%" y="-25%" width="150%" height="150%">
+                <feGaussianBlur stdDeviation="9" result="b"/>
+                <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+        </defs>
+        <g id="scene"></g>
+    </svg>
+</div>
+
+<footer id="foot">—</footer>
+
+<div class="hud" id="hud">
+    <div class="accent" id="hAccent"></div>
+    <h2 id="hName">—</h2>
+    <div class="sub" id="hSub">—</div>
+
+    <div class="stat">
+        <div class="k">FREE SPACE</div>
+        <div class="v" id="hFree">—</div>
+        <div class="bar"><i id="hBar"></i></div>
+    </div>
+    <div class="stat">
+        <div class="k">BAY AREA</div>
+        <div class="v" id="hTotal">—</div>
+    </div>
+    <div class="stat">
+        <div class="k">UTILIZATION</div>
+        <div class="v" id="hPct">—</div>
+    </div>
+
+    <div class="pin" id="hPin">CLICK TO PIN</div>
+</div>
+
+<script>
+/* ================================================================
+   Misma tabla de medidas que warehouse_blueprint.html.
+   10 px = 1 ft. If a measurement changes there, change it here too.
+   ================================================================ */
+const PX_PER_FT = 10;
+const ft = (f, i = 0) => (f + i / 12) * PX_PER_FT;
+
+const M = {
+    hallwayWidth: ft(10),
+    bay1NorthToShowroom: ft(52, 5),
+    bay2NorthEmpty: ft(43, 9),
+    officeGap: ft(14, 11.5),
+    bay2SouthBand: ft(44, 3),
+    bathCreditDepth: ft(44, 3),
+    shippingWidth: ft(41), shippingDepth: ft(46),
+    cageWidth: ft(20), cageDepth: ft(56),
+    showroomWidth: ft(38.2), showroomDepth: ft(45, 4),
+    bathCreditWidth: ft(34, 5),
+    bay3OfficeDepth: ft(38, 7), bay3NorthToOffice: ft(77),
+    // Bay 3 chain measured off its north wall, 11 Aug 2026 (overrides the 77' figure)
+    bay3Depth: ft(116), bay3RowsEnd: ft(62, 1.5),
+    // bay3OfficeWidth is DERIVED: bay width - the measured east gap (52' 4")
+    bay3OfficeWidth: ft(61, 6),
+    bay3KitchenWidth: ft(14), bay3KitchenRecess: ft(6, 1),
+    bay1Width: ft(162, 4), divider12: ft(0, 8),
+    bay2Width: ft(84, 8), divider23: ft(1), bay3Width: ft(113, 10)
+};
+
+const SOUTH_Y = 1250, WEST_X = 100;
+
+/* ---------- geometry (identical to the technical blueprint) ---------- */
+const hall1Bot  = SOUTH_Y - M.shippingDepth;
+const hall1Top  = hall1Bot - M.hallwayWidth;
+const hall23Bot = SOUTH_Y - M.bay2SouthBand;
+const hall23Top = hall23Bot - M.hallwayWidth;
+
+const cageTop     = SOUTH_Y - M.cageDepth;
+const showroomTop = SOUTH_Y - M.showroomDepth;
+const bay1North   = hall1Bot - M.bay1NorthToShowroom;
+const officeTop   = hall1Bot + M.officeGap;
+const bay2North   = hall23Top - M.bay2NorthEmpty;
+
+const cageR       = WEST_X + M.cageWidth;
+const shippingR   = cageR + M.shippingWidth;
+const showroomR   = shippingR + M.showroomWidth;
+const bay1East    = WEST_X + M.bay1Width;
+const bay2West    = bay1East + M.divider12;
+const bathCreditR = bay2West + M.bathCreditWidth;
+const bay2East    = bay2West + M.bay2Width;
+const bay3West    = bay2East + M.divider23;
+const bay3East    = bay3West + M.bay3Width;
+const bay3OfficeR = bay3West + M.bay3OfficeWidth;
+
+const bay3BathTop    = SOUTH_Y - M.bay3OfficeDepth;
+const bay3KitchenTop = bay3BathTop + M.bay3KitchenRecess;
+const bay3North      = SOUTH_Y - M.bay3Depth;            // medido, no derivado
+const kitchenR       = bay3West + M.bay3KitchenWidth;
+
+// In Bay 3 the aisle hangs off the north-wall chain: it starts where the rows
+// end, 4.5" further south than the Bay 2 stretch (within tolerance).
+const hall3Top = bay3North + M.bay3RowsEnd;
+const hall3Bot = hall3Top + M.hallwayWidth;
+
+/* ---------- per-bay data ---------- */
+const sqft = (w, h) => (w / PX_PER_FT) * (h / PX_PER_FT);
+const fmt  = n => Math.round(n).toLocaleString('en-US');
+
+const BAYS = [
+    {
+        id: 'bay1', name: 'BAY 1', sub: 'AREA #1 · FAST MOVING · WHITE ROOF',
+        color: '#f59e0b', x0: WEST_X, x1: bay1East, north: bay1North,
+        hallTop: hall1Top, hallBot: hall1Bot,
+        free: [
+            ['NORTH ZONE',   WEST_X,    bay1North, bay1East - WEST_X,    hall1Top - bay1North],
+            ['OFFICE GAP',   showroomR, hall1Bot,  bay1East - showroomR, officeTop - hall1Bot]
+        ],
+        used: [
+            ['CAGE',       WEST_X,    cageTop,     M.cageWidth,          M.cageDepth],
+            ['SHIPPING',   cageR,     hall1Bot,    M.shippingWidth,      M.shippingDepth],
+            ['SHOWROOM',   shippingR, showroomTop, M.showroomWidth,      M.showroomDepth],
+            ['OFFICES',    showroomR, officeTop,   bay1East - showroomR, SOUTH_Y - officeTop]
+        ]
+    },
+    {
+        id: 'bay2', name: 'BAY 2', sub: 'MOVERS · WHITE ROOF',
+        color: '#22d3ee', x0: bay2West, x1: bay2East, north: bay2North,
+        hallTop: hall23Top, hallBot: hall23Bot,
+        free: [
+            ['NORTH ZONE', bay2West,    bay2North, bay2East - bay2West,    hall23Top - bay2North],
+            ['SOUTH ZONE', bathCreditR, hall23Bot, bay2East - bathCreditR, SOUTH_Y - hall23Bot]
+        ],
+        used: [
+            ['RESTROOM + CREDIT', bay2West, hall23Bot, M.bathCreditWidth, M.bathCreditDepth]
+        ]
+    },
+    {
+        id: 'bay3', name: 'BAY 3', sub: 'AREA #2 · NON-MOVERS · BLACK ROOF',
+        color: '#a78bfa', x0: bay3West, x1: bay3East, north: bay3North,
+        hallTop: hall3Top, hallBot: hall3Bot,
+        free: [
+            ['NORTH ZONE',   bay3West,    bay3North, bay3East - bay3West,    hall3Top - bay3North],
+            ['EAST ZONE',    bay3OfficeR, hall3Bot,  bay3East - bay3OfficeR, SOUTH_Y - hall3Bot],
+            ['PRE-KITCHEN',  bay3West,    hall3Bot,  kitchenR - bay3West,    bay3KitchenTop - hall3Bot],
+            ['PRE-RESTROOM', kitchenR,    hall3Bot,  bay3OfficeR - kitchenR, bay3BathTop - hall3Bot]
+        ],
+        // The Bay 3 block is not rectangular: the kitchen is recessed 6' 1"
+        usedPath: `M ${bay3West},${bay3KitchenTop} L ${kitchenR},${bay3KitchenTop}
+                   L ${kitchenR},${bay3BathTop} L ${bay3OfficeR},${bay3BathTop}
+                   L ${bay3OfficeR},${SOUTH_Y} L ${bay3West},${SOUTH_Y} Z`,
+        usedLabel: ['OFFICES', bay3West + (bay3OfficeR - bay3West) / 2, (bay3KitchenTop + SOUTH_Y) / 2]
+    }
+];
+
+for (const b of BAYS) {
+    b.freeArea  = b.free.reduce((s, z) => s + sqft(z[3], z[4]), 0);
+    b.totalArea = sqft(b.x1 - b.x0, SOUTH_Y - b.north);
+    b.pct       = b.freeArea / b.totalArea * 100;
+}
+
+/* ---------- drawing ---------- */
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+let h = '';
+
+for (const b of BAYS) {
+    const w = b.x1 - b.x0, hh = SOUTH_Y - b.north;
+    h += `<g class="bay" id="${b.id}">`;
+
+    // bay shell
+    h += `<g class="bay-shell">
+            <rect x="${b.x0}" y="${b.north}" width="${w}" height="${hh}" rx="4"
+                  fill="${b.color}" fill-opacity=".05" stroke="${b.color}" stroke-opacity=".5" stroke-width="3"/>
+          </g>`;
+
+    // free zones
+    for (const [name, x, y, zw, zh] of b.free) {
+        h += `<rect class="free" x="${x}" y="${y}" width="${zw}" height="${zh}" rx="3"
+                    fill="${b.color}" fill-opacity=".2" stroke="${b.color}" stroke-opacity=".55" stroke-width="1.5"/>`;
+        if (zw > 170 && zh > 70) {
+            h += `<text class="lbl" x="${x + zw / 2}" y="${y + zh / 2 - 4}" font-size="17" fill="${b.color}">${esc(name)}</text>`;
+            h += `<text class="lbl-sub" x="${x + zw / 2}" y="${y + zh / 2 + 17}" font-size="14" fill="${b.color}" opacity=".75">${fmt(sqft(zw, zh))} sq ft</text>`;
+        }
+    }
+
+    // occupied blocks
+    for (const [name, x, y, zw, zh] of (b.used || [])) {
+        h += `<rect x="${x}" y="${y}" width="${zw}" height="${zh}" rx="3"
+                    fill="#131c2e" stroke="#2b3a52" stroke-width="1.5"/>`;
+        if (zw > 130 && zh > 60)
+            h += `<text class="lbl" x="${x + zw / 2}" y="${y + zh / 2 + 5}" font-size="14" fill="#64748b">${esc(name)}</text>`;
+    }
+    if (b.usedPath) {
+        h += `<path d="${b.usedPath}" fill="#131c2e" stroke="#2b3a52" stroke-width="1.5"/>`;
+        h += `<text class="lbl" x="${b.usedLabel[1]}" y="${b.usedLabel[2]}" font-size="14" fill="#64748b">${esc(b.usedLabel[0])}</text>`;
+    }
+
+    // main aisle
+    h += `<rect x="${b.x0}" y="${b.hallTop}" width="${w}" height="${M.hallwayWidth}"
+                fill="#0c1322" stroke="#1e293b" stroke-width="1.5"/>`;
+    h += `<line x1="${b.x0 + 14}" y1="${b.hallTop + M.hallwayWidth / 2}" x2="${b.x1 - 14}" y2="${b.hallTop + M.hallwayWidth / 2}"
+                stroke="#334155" stroke-width="2" stroke-dasharray="16 14"/>`;
+
+    // bay label
+    h += `<text class="lbl" x="${b.x0 + w / 2}" y="${b.north - 30}" font-size="26" fill="${b.color}" letter-spacing="7">${esc(b.name)}</text>`;
+
+    // corner brackets (appear on activation)
+    const L = 44, o = 13;
+    h += `<g class="brackets" stroke="${b.color}" stroke-width="3.5" fill="none" stroke-linecap="round">
+        <path d="M ${b.x0 - o},${b.north - o + L} V ${b.north - o} H ${b.x0 - o + L}"/>
+        <path d="M ${b.x1 + o - L},${b.north - o} H ${b.x1 + o} V ${b.north - o + L}"/>
+        <path d="M ${b.x1 + o},${SOUTH_Y + o - L} V ${SOUTH_Y + o} H ${b.x1 + o - L}"/>
+        <path d="M ${b.x0 - o + L},${SOUTH_Y + o} H ${b.x0 - o} V ${SOUTH_Y + o - L}"/>
+      </g>`;
+
+    // mouse capture area, above everything else in this bay
+    h += `<rect x="${b.x0}" y="${b.north}" width="${w}" height="${hh}" fill="transparent"/>`;
+    h += `</g>`;
+}
+
+const svg = document.getElementById('map');
+const PAD = 90;
+const minY = Math.min(...BAYS.map(b => b.north)) - PAD - 34;
+svg.setAttribute('viewBox', `${WEST_X - PAD} ${minY} ${bay3East - WEST_X + PAD * 2} ${SOUTH_Y - minY + PAD}`);
+document.getElementById('scene').innerHTML = h;
+
+/* ---------- totals ---------- */
+const totalFree  = BAYS.reduce((s, b) => s + b.freeArea, 0);
+const totalArea  = BAYS.reduce((s, b) => s + b.totalArea, 0);
+document.getElementById('tTotal').innerHTML = fmt(totalArea) + ' <small>sq ft</small>';
+document.getElementById('tFree').innerHTML  = fmt(totalFree) + ' <small>sq ft</small>';
+document.getElementById('tPct').innerHTML   = Math.round(totalFree / totalArea * 100) + '<small>% free</small>';
+document.getElementById('foot').textContent =
+    'SCALE 10 PX = 1 FT · MEASUREMENTS IN WAREHOUSE-MEASUREMENTS.MD · GROSS AREA, COLUMNS NOT DEDUCTED';
+
+/* ---------- interaction ---------- */
+const hud = document.getElementById('hud');
+const map = document.getElementById('map');
+let pinned = null;
+
+function paint(b) {
+    document.getElementById('hAccent').style.background = b.color;
+    document.getElementById('hName').textContent = b.name;
+    document.getElementById('hName').style.color  = b.color;
+    document.getElementById('hSub').textContent   = b.sub;
+    document.getElementById('hFree').innerHTML    = fmt(b.freeArea) + ' <small>sq ft</small>';
+    document.getElementById('hTotal').innerHTML   = fmt(b.totalArea) + ' <small>sq ft</small>';
+    document.getElementById('hPct').innerHTML     = Math.round(b.pct) + '<small>% free</small>';
+    document.getElementById('hPct').style.color   = b.color;
+    document.getElementById('hFree').style.color  = b.color;
+    const bar = document.getElementById('hBar');
+    bar.style.width = b.pct + '%';
+    bar.style.background = b.color;
+    document.getElementById('hPin').textContent = pinned === b.id ? '◆ PINNED · CLICK TO RELEASE' : 'CLICK TO PIN';
+    hud.classList.add('show');
+}
+
+function activate(id) {
+    map.setAttribute('data-active', id);
+    for (const b of BAYS) document.getElementById(b.id).classList.toggle('on', b.id === id);
+    paint(BAYS.find(b => b.id === id));
+}
+
+function clear() {
+    map.removeAttribute('data-active');
+    for (const b of BAYS) document.getElementById(b.id).classList.remove('on');
+    hud.classList.remove('show');
+}
+
+for (const b of BAYS) {
+    const el = document.getElementById(b.id);
+    el.addEventListener('mouseenter', () => { if (!pinned) activate(b.id); });
+    el.addEventListener('mouseleave', () => { if (!pinned) clear(); });
+    el.addEventListener('click', () => {
+        // Bays that already have a modelled pallet layout
+        const LAYOUTS = { bay2: 'bay2_pallet_layout.html', bay3: 'bay3_pallet_layout.html' };
+        if (LAYOUTS[b.id]) {
+            window.location.href = LAYOUTS[b.id];
+            return;
+        }
+        // Other bays: pin/unpin the selection
+        pinned = pinned === b.id ? null : b.id;
+        pinned ? activate(b.id) : clear();
+    });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JAMIS Bikes — Warehouse</title>
+<style>
+    :root{
+        --ground:#070b14; --panel:#0d1524; --line:#1e293b; --line-lit:#334155;
+        --ink:#e2e8f0; --ink-dim:#94a3b8; --ink-mute:#64748b; --ink-far:#475569;
+        --bay1:#f59e0b; --bay2:#22d3ee; --bay3:#a78bfa;
+        --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+        --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    body{
+        background:var(--ground); color:var(--ink); font-family:var(--sans);
+        min-height:100vh; -webkit-font-smoothing:antialiased;
+        display:flex; justify-content:center; padding:56px 28px 80px;
+    }
+    .wrap{ width:100%; max-width:900px; }
+
+    h1{ font-size:15px; font-weight:800; letter-spacing:.22em; }
+    .sub{ font-family:var(--mono); font-size:11px; letter-spacing:.15em;
+          color:var(--ink-far); margin-top:8px; }
+
+    .figures{
+        display:flex; gap:34px; flex-wrap:wrap;
+        margin:30px 0 38px; padding-bottom:28px; border-bottom:1px solid var(--line);
+    }
+    .figures .k{ font-family:var(--mono); font-size:9.5px; letter-spacing:.14em; color:var(--ink-far); }
+    .figures .v{ font-family:var(--mono); font-size:22px; font-weight:800; margin-top:4px;
+                 font-variant-numeric:tabular-nums; }
+    .figures .v small{ font-size:10.5px; color:var(--ink-mute); font-weight:600; }
+
+    .grid{ display:grid; gap:14px; }
+
+    a.card{
+        display:block; text-decoration:none; color:inherit;
+        border:1px solid var(--line); border-left-width:3px; border-radius:9px;
+        padding:20px 22px; background:rgba(13,21,36,.5);
+        transition:border-color .18s, background .18s, transform .18s;
+    }
+    a.card:hover{ background:rgba(30,41,59,.5); transform:translateX(3px); }
+    a.card:focus-visible{ outline:2px solid var(--ink-dim); outline-offset:3px; }
+
+    .card h2{ font-size:14px; font-weight:800; letter-spacing:.09em; }
+    .card p{ font-family:var(--mono); font-size:11px; color:var(--ink-mute);
+             line-height:1.8; margin-top:9px; max-width:70ch; }
+    .card .nums{ font-family:var(--mono); font-size:10.5px; color:var(--ink-far);
+                 margin-top:11px; letter-spacing:.06em; }
+    .card .nums b{ color:var(--ink-dim); font-weight:700; }
+
+    .c1{ border-left-color:var(--ink-dim); } .c1 h2{ color:var(--ink); }
+    .c2{ border-left-color:var(--bay2);    } .c2 h2{ color:var(--bay2); }
+    .c3{ border-left-color:var(--bay3);    } .c3 h2{ color:var(--bay3); }
+
+    .foot{ margin-top:34px; padding-top:24px; border-top:1px solid var(--line);
+           font-family:var(--mono); font-size:10.5px; color:var(--ink-far); line-height:1.95; }
+    .foot a{ color:var(--ink-mute); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+    <h1>JAMIS BIKES — WAREHOUSE</h1>
+    <p class="sub">362 FT END TO END · THREE BAYS · MEASURED FROM THE INSIDE</p>
+
+    <div class="figures">
+        <div><div class="k">TOTAL AREA</div><div class="v">37,478 <small>sq ft</small></div></div>
+        <div><div class="k">FREE SPACE</div><div class="v">23,536 <small>sq ft</small></div></div>
+        <div><div class="k">UTILIZATION</div><div class="v">63<small>% free</small></div></div>
+        <div><div class="k">PALLET</div><div class="v">62&times;60<small>" footprint</small></div></div>
+    </div>
+
+    <div class="grid">
+
+        <a class="card c1" href="warehouse_map.html">
+            <h2>WAREHOUSE MAP</h2>
+            <p>Start here. All three bays to scale, free space per zone. Hover a bay
+               for its numbers; Bay&nbsp;2 and Bay&nbsp;3 open their pallet layouts.</p>
+            <div class="nums">BAY 1 <b>7,830</b> · BAY 2 <b>5,928</b> · BAY 3 <b>9,779</b> sq ft free</div>
+        </a>
+
+        <a class="card c3" href="bay3_pallet_layout.html">
+            <h2>BAY 3 NORTH — ROWS RUNNING NORTH–SOUTH</h2>
+            <p>The layout we are working on. Five blocks, four aisles; every row sits
+               one aisle away, so the whole zone stays reachable. Leftover depth is
+               pulled to the front of each row, on the main aisle, as one bike block.
+               Toggle between keeping and reclaiming the 13&nbsp;ft west strip.</p>
+            <div class="nums">ROWS <b>14</b> · PALLETS <b>140</b> → <b>150</b> west freed · BIKES <b>4,200</b> → <b>4,500</b> · AISLES <b>68.5" / 55.5"</b></div>
+        </a>
+
+        <a class="card c2" href="bay2_pallet_layout.html">
+            <h2>BAY 2 NORTH</h2>
+            <p>The two orientations we compared before settling on east–west pairs.
+               Modelled before we had real pallet dimensions, so the counts will move
+               once it is re-run on the 62"&nbsp;×&nbsp;60" footprint.</p>
+            <div class="nums">OPTION A <b>80 pallets</b> · OPTION B <b>40 pallets</b></div>
+        </a>
+
+    </div>
+
+    <p class="foot">
+        Bay 3 is being worked north–south. The east–west version holds more but buries the
+        middle rows of a five-deep block, so it is parked as a long-term improvement —
+        <b>bay3_layout_ew.html</b> is still on disk, frozen on the old 56" × 54" pallet, and
+        no longer linked from here.<br>
+        Scale 10 px = 1 ft. Areas are gross — structural columns are deliberately left out,
+        so real rackable space is somewhat less.<br>
+        Every measurement, assumption and cross-check lives in
+        <a href="WAREHOUSE-MEASUREMENTS.md">WAREHOUSE-MEASUREMENTS.md</a>.
+    </p>
+
+</div>
+</body>
+</html>

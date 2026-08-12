@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bay 3 North — Pallet Layout (N–S rows)</title>
+<style>
+    :root{
+        --ground:#070b14; --line:#1e293b; --line-lit:#334155;
+        --ink:#e2e8f0; --ink-dim:#94a3b8; --ink-mute:#64748b; --ink-far:#475569;
+        --bay3:#a78bfa; --fast:#f59e0b; --bike:#39ff14; --gain:#34d399; --bad:#f87171;
+        --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+        --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    body{
+        background:var(--ground); color:var(--ink); font-family:var(--sans);
+        min-height:100vh; overflow-x:hidden; -webkit-font-smoothing:antialiased;
+    }
+    header{ padding:20px 30px 4px; display:flex; justify-content:space-between;
+            align-items:flex-start; gap:20px; flex-wrap:wrap; }
+    h1{ font-size:15px; font-weight:800; letter-spacing:.22em; }
+    .tagline{ font-family:var(--mono); font-size:11px; letter-spacing:.15em;
+              color:var(--ink-far); margin-top:6px; }
+    .actions{ display:flex; gap:10px; align-items:center; }
+
+    .btn{
+        padding:9px 16px; border:1px solid var(--line); border-radius:6px;
+        background:rgba(15,23,42,.8); color:var(--ink); cursor:pointer;
+        font-family:var(--mono); font-size:11px; letter-spacing:.1em; font-weight:600;
+        transition:border-color .2s, background .2s; white-space:nowrap;
+    }
+    .btn:hover{ border-color:var(--ink-mute); background:rgba(30,41,59,.9); }
+    .btn:focus-visible{ outline:2px solid var(--ink-dim); outline-offset:2px; }
+    .btn[hidden]{ display:none; }
+
+    .switch{ display:flex; border:1px solid var(--line); border-radius:6px; overflow:hidden; }
+    .switch button{
+        padding:9px 15px; border:0; background:transparent; color:var(--ink-mute);
+        font-family:var(--mono); font-size:11px; letter-spacing:.1em; font-weight:700;
+        cursor:pointer; transition:background .2s, color .2s; white-space:nowrap;
+    }
+    .switch button:hover{ color:var(--ink); }
+    .switch button:focus-visible{ outline:2px solid var(--ink-dim); outline-offset:-2px; }
+    .switch button.on{ background:var(--bay3); color:var(--ground); }
+
+    .totals{ display:flex; gap:28px; padding:16px 30px 0; flex-wrap:wrap; align-items:flex-start; }
+    .totals .k{ font-family:var(--mono); font-size:9.5px; letter-spacing:.14em; color:var(--ink-far); }
+    .totals .v{ font-family:var(--mono); font-size:20px; font-weight:800; margin-top:4px;
+                color:var(--bay3); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .totals .v small{ font-size:10.5px; color:var(--ink-mute); font-weight:600; }
+    .totals .fast .v{ color:var(--fast); }
+    .totals .bike .k{ color:var(--bike); }
+    .totals .bike .v{ color:var(--bike); }
+    .totals .gain .v{ color:var(--gain); }
+    .totals .big .v{ font-size:30px; }
+    .totals .big .v small{ font-size:13px; }
+
+    .edit .k{ color:var(--fast); }
+    .totals input{
+        width:2.6em; padding:0 1px; border:0; border-bottom:2px solid var(--line);
+        background:transparent; color:var(--fast); font:inherit; text-align:center;
+        font-variant-numeric:tabular-nums; -moz-appearance:textfield;
+    }
+    .totals input::-webkit-outer-spin-button,
+    .totals input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+    .totals input:hover{ border-bottom-color:var(--ink-mute); }
+    .totals input:focus{ outline:none; border-bottom-color:var(--fast); }
+
+    .alert{
+        margin:16px 30px 0; padding:12px 16px; border-radius:7px;
+        border:1px solid var(--bad); background:rgba(248,113,113,.08);
+        color:var(--bad); font-family:var(--mono); font-size:11px; line-height:1.7;
+    }
+    .alert[hidden]{ display:none; }
+
+    .legend{
+        display:flex; gap:22px; flex-wrap:wrap; padding:14px 30px 0;
+        font-family:var(--mono); font-size:10px; letter-spacing:.1em; color:var(--ink-far);
+    }
+    .legend span{ display:flex; align-items:center; gap:7px; }
+    .legend i{ width:13px; height:13px; border-radius:3px; border:1.5px solid; }
+
+    .stage{ padding:12px 30px 40px; }
+    svg{ display:block; width:100%; height:auto; max-height:calc(100vh - 250px); }
+    .cell:hover rect{ fill-opacity:.65; }
+
+    @media (prefers-reduced-motion:reduce){ *{ transition:none !important; } }
+</style>
+</head>
+<body>
+
+<header>
+    <div>
+        <h1>BAY 3 NORTH — PALLET LAYOUT · NORTH–SOUTH ROWS</h1>
+        <p class="tagline" id="tagline">—</p>
+    </div>
+    <div class="actions">
+        <button class="btn" id="reset" hidden>↺ RESET 62 × 60</button>
+        <div class="switch" id="scen">
+            <button data-k="current" class="on" aria-pressed="true">CURRENT</button>
+            <button data-k="freed" aria-pressed="false">WEST FREED</button>
+        </div>
+        <button class="btn" onclick="location.href='warehouse_map.html'">← MAP</button>
+    </div>
+</header>
+
+<div class="totals">
+    <div class="edit">
+        <div class="k">PALLET SIZE · EDITABLE</div>
+        <div class="v">
+            <input id="pw" type="number" min="6" max="400" step="0.5" aria-label="Pallet size east to west">×<input
+                   id="pd" type="number" min="6" max="400" step="0.5" aria-label="Pallet size north to south"><small>" E–W×N–S</small>
+        </div>
+    </div>
+    <div><div class="k">ROWS</div><div class="v" id="tRows">—</div></div>
+    <div><div class="k">DEPTH</div><div class="v" id="tDeep">—</div></div>
+    <div><div class="k">PALLETS</div><div class="v" id="tPallets">—</div></div>
+    <div class="bike big"><div class="k">BIKES</div><div class="v" id="tBikesTotal">—</div></div>
+    <div class="fast"><div class="k">FAST PICKING</div><div class="v" id="tFast">—</div></div>
+    <div class="bike"><div class="k">FRONT BLOCKS</div><div class="v" id="tLines">—</div></div>
+    <div class="bike"><div class="k">BLOCK BIKES</div><div class="v" id="tBikes">—</div></div>
+    <div><div class="k">BLOCKS</div><div class="v" id="tBlocks">—</div></div>
+    <div><div class="k">CENTER AISLE</div><div class="v" id="tHallBig">—</div></div>
+    <div><div class="k">OTHER AISLES</div><div class="v" id="tHall">—</div></div>
+</div>
+
+<div class="legend">
+    <span><i style="background:rgba(245,158,11,.4);border-color:#f59e0b"></i>FAST PICKING — TOUCHES OPEN FLOOR</span>
+    <span><i style="background:rgba(167,139,250,.2);border-color:#a78bfa"></i>BURIED — NEEDS THE FRONT MOVED</span>
+    <span><i style="background:rgba(57,255,20,.3);border-color:#39ff14"></i>BIKE BLOCK — ONE PER ROW, ALL THE LEFTOVER AT THE FRONT (SOUTH)</span>
+</div>
+
+<div class="alert" id="alert" hidden></div>
+<div class="stage"><svg id="map"></svg></div>
+
+<script>
+"use strict";
+/* ════════════════════════════════════════════════════════════════
+   BAY 3 · NORTH ZONE — rows running NORTH–SOUTH. All values in inches.
+   Envelope from WAREHOUSE-MEASUREMENTS.md: 113' 10" E–W × 62' 1.5" N–S.
+   The N–S figure is measured off the north wall: 12' 2" of clearance,
+   then the rows, ending at 62' 1.5" where the main aisle starts.
+
+   Rules:
+   · rows sit flush inside a block, no gap between them
+   · pallets sit flush too: everything left over down the row is pulled
+     to the FRONT of the row, the south end on the main aisle, and drawn
+     as ONE bike block per row. Its capacity is still counted in lines of
+     10" at 5 bikes each, but the lines are not laid out separately
+   · leftover across the bay widens the aisles
+   · fast picking = every pallet whose edge touches open floor
+   · bikes = 30 per pallet, plus whatever the front block holds
+   ════════════════════════════════════════════════════════════════ */
+const EO = (113 * 12) + 10;     // 1366"
+const NS = (62 * 12) + 1.5;     // 745.5" — measured 11 Aug 2026, north wall to the aisle
+
+const MARGIN_EAST  = 107;
+const MARGIN_NORTH = 145.5;     // 146" of clearance minus the half inch the tenth
+                                // pallet was short of — taken here, not off the aisle
+const MARGIN_SOUTH = 0;         // blocks run flush to the main aisle
+
+const HALL_BIG_MIN = 67;
+const HALL_MIN     = 54;
+
+const BIKE_GAP     = 10;
+const BIKES_LINE   = 5;
+const BIKES_PALLET = 30;
+
+const DEFAULT_PW = 62, DEFAULT_PD = 60;
+let PW = DEFAULT_PW, PD = DEFAULT_PD;
+
+const ROW_EAST = 33;
+const usableNS = NS - MARGIN_NORTH - MARGIN_SOUTH;      // 600"
+
+const $   = id => document.getElementById(id);
+const n1  = x => Math.round(x * 100) / 100;
+const fmt = n => Math.round(n).toLocaleString('en-US');
+
+function slotName(i){
+    let s = '', n = i + 1;
+    while (n > 0){ const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); }
+    return s;
+}
+const perimeter = (rows, deep) => (rows <= 1 || deep <= 1) ? rows * deep : 2 * rows + 2 * deep - 4;
+
+const SCEN = {
+    current:{ note:'13 ft kept clear along the west wall', west: 13 * 12 },
+    freed:  { note:'assuming the 13 ft west strip is reclaimed', west: 0 }
+};
+
+let deep, nLines, gapW, front, offs, MODELS;
+
+/* depth of a row: pallets flush, all the leftover as bike lines at the front */
+function fitDepth(){
+    deep = Math.floor(usableNS / PD + 1e-9);
+    if (deep < 2) return false;
+    const rest = Math.max(0, usableNS - deep * PD);
+    nLines = Math.floor(rest / BIKE_GAP);
+    gapW   = nLines > 0 ? rest / nLines : 0;
+    front  = nLines * gapW;                 // the whole leftover, on the main aisle
+    offs = [];                              // offset of each slot from the south wall
+    for (let i = 0; i < deep; i++) offs.push(front + i * PD);
+    return true;
+}
+
+/* two big blocks at the east, then blocks of two westward while they fit */
+function autoBlocks(usableEO){
+    const base = bs => HALL_BIG_MIN + (bs.length - 2) * HALL_MIN;
+    const fits = bs => bs.reduce((a, b) => a + b, 0) * PW + base(bs) <= usableEO;
+    let big = 4, blocks = null;
+    while (big >= 1){ if (fits([big, big])){ blocks = [big, big]; break; } big--; }
+    if (!blocks) return null;
+    while (fits([2, ...blocks])) blocks = [2, ...blocks];
+    if (fits([1, ...blocks])) blocks = [1, ...blocks];
+    return blocks;
+}
+
+function build(sc){
+    const usableEO = EO - sc.west - MARGIN_EAST;
+    const blocks = autoBlocks(usableEO);
+    if (!blocks) return null;
+
+    const nRows  = blocks.reduce((a, b) => a + b, 0);
+    const nHalls = blocks.length - 1;
+    const extra  = (usableEO - nRows * PW - HALL_BIG_MIN - (blocks.length - 2) * HALL_MIN) / nHalls;
+    const hallBig = HALL_BIG_MIN + extra, hall = HALL_MIN + extra;
+
+    const strip = []; let cx = sc.west, num = ROW_EAST - nRows + 1;
+    blocks.forEach((count, bi) => {
+        const rows = [];
+        for (let i = 0; i < count; i++){ rows.push({ num: num++, x: cx, idx: i, of: count }); cx += PW; }
+        strip.push({ type:'block', rows, x0:rows[0].x, x1:cx, size:count });
+        if (bi < blocks.length - 1){
+            const big = bi === blocks.length - 2;
+            strip.push({ type:'hall', x:cx, w: big ? hallBig : hall, big });
+            cx += big ? hallBig : hall;
+        }
+    });
+
+    const accessible = blocks.reduce((a, c) => a + perimeter(c, deep), 0);
+
+    const pallets = nRows * deep;
+
+    return { sc, blocks, usableEO, nRows, nHalls, extra, hallBig, hall, strip,
+             pallets, accessible, palletBikes: pallets * BIKES_PALLET,
+             lines: nLines * nRows, bikes: nLines * nRows * BIKES_LINE,
+             numWest: ROW_EAST - nRows + 1 };
+}
+
+function recompute(){
+    if (!fitDepth()){ MODELS = null; return; }
+    const c = build(SCEN.current), f = build(SCEN.freed);
+    MODELS = (c && f) ? { current:c, freed:f } : null;
+}
+
+/* ---------- drawing ---------- */
+const V='#a78bfa', F='#f59e0b', BIKE='#39ff14', G='#34d399';
+const MUTE='#64748b', FAR='#475569', DIM='#94a3b8', LINE='#1e293b', LIT='#334155';
+const M = 96;
+const svg = $('map');
+svg.setAttribute('viewBox', `0 0 ${EO + M * 2} ${NS + M * 2}`);
+const NORTH_Y = M + MARGIN_NORTH;
+const SOUTH_Y = M + NS - MARGIN_SOUTH;   // front of the rows, on the main aisle
+
+function clearStrip(x, y, w, hh, label, vertical){
+    const mx = x + w / 2, my = y + hh / 2;
+    return `<rect x="${x}" y="${y}" width="${w}" height="${hh}" fill="#111c2f" fill-opacity=".7"/>
+            <text x="${mx}" y="${my + 6}" font-size="18" fill="${MUTE}" text-anchor="middle"
+                  font-family="ui-monospace,monospace"
+                  ${vertical ? `transform="rotate(-90 ${mx} ${my})"` : ''}>${label}</text>`;
+}
+
+let currentKey = 'current';
+
+function render(key){
+    currentKey = key;
+    $('alert').hidden = MODELS !== null;
+    if (!MODELS){
+        $('alert').textContent =
+            `A ${PW}" × ${PD}" pallet does not fit: the zone is ${usableNS}" deep and ` +
+            `${EO - MARGIN_EAST}" wide, and needs at least two pallets of depth plus two rows ` +
+            `with their ${HALL_BIG_MIN}" aisle. Try a smaller pallet.`;
+        svg.innerHTML = '';
+        ['tRows','tDeep','tPallets','tBikesTotal','tFast','tLines','tBikes','tBlocks','tHallBig','tHall']
+            .forEach(id => $(id).innerHTML = '—');
+        return;
+    }
+
+    const m = MODELS[key], sc = m.sc;
+    let h = `<rect x="${M}" y="${M}" width="${EO}" height="${NS}" fill="#0d1524" stroke="${LIT}" stroke-width="3"/>`;
+    h += clearStrip(M, M, EO, MARGIN_NORTH, `${MARGIN_NORTH}" CLEAR FROM NORTH WALL`, false);
+
+    if (sc.west > 0)
+        h += clearStrip(M, NORTH_Y, sc.west, NS - MARGIN_NORTH, `${sc.west}" (13 FT) CLEAR`, true);
+    else {
+        const fw = 13 * 12;
+        h += `<rect x="${M}" y="${NORTH_Y}" width="${fw}" height="${NS - MARGIN_NORTH}"
+                    fill="${G}" fill-opacity=".05" stroke="${G}" stroke-opacity=".5"
+                    stroke-width="2.5" stroke-dasharray="16 12"/>
+              <text x="${M + fw / 2}" y="${NORTH_Y - 46}" font-size="17" fill="${G}"
+                    text-anchor="middle" font-family="ui-monospace,monospace">RECLAIMED STRIP · ${fw}"</text>`;
+    }
+    h += clearStrip(M + EO - MARGIN_EAST, NORTH_Y, MARGIN_EAST, NS - MARGIN_NORTH, `${MARGIN_EAST}" CLEAR`, true);
+
+    const fontCell = Math.max(9, Math.min(18, PW * 0.3));
+
+    for (const seg of m.strip){
+        if (seg.type === 'hall'){
+            h += `<rect x="${M + seg.x}" y="${NORTH_Y}" width="${seg.w}" height="${SOUTH_Y - NORTH_Y}"
+                        fill="#0a1120" stroke="${seg.big ? FAR : LINE}" stroke-width="${seg.big ? 2 : 1.2}"/>
+                  <line x1="${M + seg.x + seg.w / 2}" y1="${NORTH_Y + 10}"
+                        x2="${M + seg.x + seg.w / 2}" y2="${SOUTH_Y - 10}"
+                        stroke="${seg.big ? MUTE : LIT}" stroke-width="2" stroke-dasharray="14 12"/>
+                  <text x="${M + seg.x + seg.w / 2}" y="${NORTH_Y - 14}" font-size="16"
+                        fill="${seg.big ? DIM : MUTE}" text-anchor="middle"
+                        font-family="ui-monospace,monospace">${n1(seg.w)}"</text>`;
+            continue;
+        }
+
+        for (const row of seg.rows){
+            const edgeRow = row.idx === 0 || row.idx === row.of - 1;
+            const rx = M + row.x;
+
+            for (let d = 0; d < deep; d++){
+                const label  = slotName(d);                       // A on the main aisle, going north
+                const isFast = edgeRow || d === 0 || d === deep - 1;
+                const py  = SOUTH_Y - offs[d] - PD;
+                const col = isFast ? F : V;
+                h += `<g class="cell"><title>${row.num}-${label}${isFast ? ' · fast picking' : ' · buried'}</title>
+                      <rect x="${rx}" y="${py}" width="${PW}" height="${PD}" rx="3"
+                            fill="${col}" fill-opacity="${isFast ? .4 : .2}"
+                            stroke="${col}" stroke-opacity=".75" stroke-width="1.5"/>
+                      <text x="${rx + PW / 2}" y="${py + PD / 2 + fontCell * .35}" font-size="${fontCell}"
+                            fill="${col}" text-anchor="middle" font-weight="700" opacity=".9"
+                            font-family="ui-monospace,monospace">${label}</text></g>`;
+            }
+
+            // the whole leftover of this row as one bike block, at the front on the main aisle
+            if (front > 0){
+                const by = SOUTH_Y - front, rowBikes = nLines * BIKES_LINE;
+                const fontBike = Math.max(8, Math.min(fontCell, front * .5));
+                h += `<g class="cell"><title>Row ${row.num} bike block · ${n1(front)}" · ${rowBikes} bikes</title>
+                      <rect x="${rx}" y="${by}" width="${PW}" height="${front}" rx="3"
+                            fill="${BIKE}" fill-opacity=".28" stroke="${BIKE}"
+                            stroke-opacity=".9" stroke-width="1.5"/>
+                      <text x="${rx + PW / 2}" y="${by + front / 2 + fontBike * .35}" font-size="${fontBike}"
+                            fill="${BIKE}" text-anchor="middle" font-weight="700" opacity=".95"
+                            font-family="ui-monospace,monospace">${rowBikes}</text></g>`;
+            }
+            for (const yy of [NORTH_Y - 14, SOUTH_Y + 32])
+                h += `<text x="${rx + PW / 2}" y="${yy}" font-size="21" fill="${V}"
+                            text-anchor="middle" font-weight="800"
+                            font-family="ui-monospace,monospace">${row.num}</text>`;
+        }
+        h += `<rect x="${M + seg.x0 - 5}" y="${NORTH_Y - 5}" width="${seg.x1 - seg.x0 + 10}"
+                    height="${SOUTH_Y - NORTH_Y + 10}" fill="none" rx="4"
+                    stroke="${V}" stroke-width="${seg.size >= 4 ? 3 : 2}"
+                    stroke-opacity="${seg.size >= 4 ? .9 : .5}"/>`;
+    }
+
+    h += `<text x="${M + EO / 2}" y="${SOUTH_Y + 66}" font-size="19" fill="${MUTE}" text-anchor="middle"
+                font-family="ui-monospace,monospace" letter-spacing="3">MAIN AISLE · ENTRY</text>
+          <text x="${M - 22}" y="${NORTH_Y + 26}" font-size="17" fill="${FAR}" text-anchor="end"
+                font-family="ui-monospace,monospace">N</text>`;
+    svg.innerHTML = h;
+
+    const put = (id, v) => $(id).innerHTML = v;
+
+    $('tagline').textContent =
+        `ROWS ${ROW_EAST}→${m.numWest} EAST TO WEST · SLOTS A→${slotName(deep - 1)} FROM THE MAIN AISLE · ${sc.note.toUpperCase()}`;
+
+    put('tRows',    m.nRows + ` <small>${ROW_EAST}→${m.numWest}</small>`);
+    put('tDeep',    deep + ` <small>A→${slotName(deep - 1)}</small>`);
+    put('tPallets', m.pallets);
+    put('tBikesTotal', fmt(m.palletBikes) + ` <small>${BIKES_PALLET} per pallet</small>`);
+    put('tFast',    m.accessible + ` <small>of ${m.pallets}</small>`);
+    put('tLines',   nLines ? m.nRows + ` <small>${n1(front)}" · ${nLines * BIKES_LINE} bikes each</small>`
+                           : '0 <small>nothing left over</small>');
+    put('tBikes',   fmt(m.bikes));
+    put('tBlocks',  m.blocks.length + ' <small>' + m.blocks.slice().reverse().join('·') + ' E→W</small>');
+    put('tHallBig', n1(m.hallBig) + '<small>"</small>');
+    put('tHall',    n1(m.hall) + '<small>"</small>');
+}
+
+/* ---------- scenario switch: 13 ft west strip kept vs reclaimed ---------- */
+const scen = $('scen');
+scen.addEventListener('click', e => {
+    const b = e.target.closest('button[data-k]');
+    if (!b || b.classList.contains('on')) return;
+    for (const x of scen.children){
+        const on = x === b;
+        x.classList.toggle('on', on);
+        x.setAttribute('aria-pressed', on);
+    }
+    render(b.dataset.k);
+});
+
+/* ---------- editing ---------- */
+function apply(){
+    const w = parseFloat($('pw').value), d = parseFloat($('pd').value);
+    if (!(w > 0) || !(d > 0)) return;
+    PW = w; PD = d;
+    $('reset').hidden = (PW === DEFAULT_PW && PD === DEFAULT_PD);
+    recompute();
+    render(currentKey);
+}
+$('pw').value = DEFAULT_PW;
+$('pd').value = DEFAULT_PD;
+$('pw').addEventListener('input', apply);
+$('pd').addEventListener('input', apply);
+$('reset').addEventListener('click', () => {
+    $('pw').value = DEFAULT_PW; $('pd').value = DEFAULT_PD; apply();
+});
+
+recompute();
+render(currentKey);
+</script>
+</body>
+</html>

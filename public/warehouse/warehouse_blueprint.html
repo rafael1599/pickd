@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouse Blueprint — JAMIS Bikes</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 24px;
+            background: #f1f5f9;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #0f172a;
+        }
+        h1 { font-size: 18px; font-weight: 800; letter-spacing: -.02em; margin: 0 0 2px; }
+        .sub { font-size: 12px; color: #64748b; font-family: monospace; margin: 0 0 16px; }
+
+        /* Natural width = 1:1 (10 px = 1 ft). If it does not fit it scales
+           down so the whole plan shows; Cmd/Ctrl + zooms back in. */
+        svg { background: #fff; border: 1px solid #cbd5e1; display: block; max-width: 100%; height: auto; }
+
+        .wall-outer   { stroke: #000; stroke-width: 4; fill: none; }
+        .wall-inner   { stroke: #000; stroke-width: 2; fill: none; }
+        .bay-divider  { stroke: #64748b; stroke-width: 2; stroke-dasharray: 6, 6; }
+        .room-hatch   { fill: #e2e8f0; fill-opacity: .7; }
+        .room-pending { fill: #fef3c7; fill-opacity: .8; stroke: #f59e0b; stroke-width: 2; stroke-dasharray: 8, 4; }
+        .door-marker  { fill: #fff; stroke: #000; stroke-width: 1.5; }
+
+        .text-title { font-size: 16px; font-weight: 800; fill: #000; text-anchor: middle; font-family: monospace; }
+        .text-label { font-size: 14px; font-weight: 700; fill: #000; text-anchor: middle; font-family: monospace; }
+        .text-dim   { font-size: 12px; font-weight: 600; fill: #475569; text-anchor: middle; font-family: monospace; }
+        .text-meas  { font-size: 12px; font-weight: 700; fill: #0369a1; text-anchor: middle; font-family: monospace; }
+
+        .area-free  { fill: #d1fae5; fill-opacity: .6; stroke: #10b981; stroke-width: 1.5; }
+        .text-area  { font-size: 15px; font-weight: 800; fill: #047857; text-anchor: middle; font-family: monospace; }
+        .text-area-sm { font-size: 11px; font-weight: 700; fill: #047857; text-anchor: middle; font-family: monospace; }
+
+        .dim-confirmed { stroke: #dc2626; stroke-width: 2; }
+        .dim-derived   { stroke: #0369a1; stroke-width: 2; stroke-dasharray: 5, 3; }
+        .dim-pending   { stroke: #f59e0b; stroke-width: 2; stroke-dasharray: 8, 4; }
+
+        @media print { body { padding: 0; background: #fff; } .noprint { display: none; } }
+    </style>
+</head>
+<body>
+    <h1 class="noprint">WAREHOUSE BLUEPRINT — JAMIS BIKES</h1>
+    <p class="sub noprint">Scale 1:1 &nbsp;·&nbsp; 10 px = 1 ft &nbsp;·&nbsp; red = measured on site &nbsp;·&nbsp; blue = derived &nbsp;·&nbsp; amber = estimated</p>
+
+    <svg id="plano" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <marker id="arrowRed" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#dc2626" />
+            </marker>
+            <marker id="arrowBlue" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#0369a1" />
+            </marker>
+            <marker id="arrowAmber" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#f59e0b" />
+            </marker>
+        </defs>
+        <g id="scene"></g>
+    </svg>
+
+<script>
+/* ================================================================
+   SOURCE OF TRUTH — every measurement in FEET.  10 px = 1 ft.
+   No coordinate in the drawing is a magic number: they all come
+   from this table. To fix the plan, fix it here.
+   ================================================================ */
+const PX_PER_FT = 10;
+const ft = (feet, inches = 0) => (feet + inches / 12) * PX_PER_FT;
+
+const M = {
+    // ---- CONFIRMED (physically measured on site) ----
+    hallwayWidth:      ft(10),
+
+    // Bay 1 north-south chain, all of it measured off the SAME north wall.
+    // The 52' 5" reach the SHOWROOM (south edge of the aisle), not the north
+    // edge: that settles the doubt we had been dragging along.
+    bay1NorthToHall:     ft(42, 3),   // -> north edge of the aisle
+    bay1NorthToShowroom: ft(52, 5),   // -> showroom = south edge of the aisle
+    bay1NorthToOffices:  ft(67, 6),   // -> north wall of the Bay 1 offices
+
+    // The aisle is NOT a straight line: in Bay 1 it runs 1' 2" further north
+    // than in Bay 2/3. That figure is only used as a check, because each
+    // stretch is anchored to the south wall by its own direct measurement.
+    hallOffsetBay1:    ft(1, 2),
+    bay2SouthBand:     ft(44, 3),     // south wall -> aisle, in Bay 2
+    bathCreditDepth:   ft(44, 3),     // same depth: the block fills the whole band
+
+    bay2NorthEmpty:    ft(43, 9),
+    officeGap:         ft(14, 11.5),  // aisle -> north wall of the Bay 1 offices
+                                      // (replaces the old, wrong 13' 6")
+    shippingWidth:     ft(41),
+    shippingDepth:     ft(46),
+    cageWidth:         ft(20),
+    cageDepth:         ft(56),        // = 46' + 10' of aisle
+    showroomWidth:     ft(38.2),
+    showroomDepth:     ft(45, 4),
+    bathCreditWidth:   ft(34, 5),     // 413 in = restroom #1 + credit dept
+    bay3OfficeDepth:   ft(38, 7),
+    bay3NorthToOffice: ft(77),        // no longer drives anything: now a cross-check
+
+    // Bay 3 north-south chain, measured 11 Aug 2026 off the SAME north wall.
+    // It overrides the 77' + 38' 7" that used to be accumulated, on the same
+    // grounds as in Bay 1: a chain off one wall beats a sum of rooms.
+    bay3Depth:         ft(116),       // north wall -> south wall
+    bay3NorthClear:    ft(12, 2),     // north wall -> where the rows start
+    bay3RowsEnd:       ft(62, 1.5),   // north wall -> where they end = north edge of the aisle
+    bay3EmptyEast:     ft(52, 4),     // measured 11 Aug 2026: east face of the offices
+                                      // -> east wall. Replaces the old 56' 6"
+    // DERIVED, not measured: bay width (113' 10") minus the measured east gap.
+    // Rests on the office block touching the Bay 2/3 divider (see the assumption
+    // in section 5). If it turns out not to touch, this width shrinks and a strip
+    // of free floor appears against the divider.
+    bay3OfficeWidth:   ft(61, 6),     // E-W length of the Bay 3 office block
+    bay3KitchenWidth:  ft(14),        // given as 13' 12"
+    bay3KitchenRecess: ft(6, 1),      // the kitchen is RECESSED 6' 1" -> more free space
+    bay1OfficeBlock:   ft(63, 10),    // showroom -> restroom #1 (Mrs Z + Sales + CAFYT)
+
+    // E-W envelope, measured bay by bay + the thickness of the dividing walls
+    bay1Width:         ft(162, 4),
+    divider12:         ft(0, 8),
+    bay2Width:         ft(84, 8),
+    divider23:         ft(1),
+    bay3Width:         ft(113, 10),
+    totalWidth:        ft(362),       // total length of the warehouse (user's re-measure)
+
+};
+
+/* Offices and restrooms are drawn as OPAQUE BLOCKS: how they are split
+   inside does not matter. What matters is the floor they take and what is left. */
+
+const SOUTH_Y = 1250;   // south wall (straight across all three bays)
+const WEST_X  = 100;    // west wall
+
+// Rounds to the half inch: some measurements come at that precision (14' 11.5")
+const toFtIn = (px) => {
+    const halves = Math.round((px / PX_PER_FT) * 24);
+    const f = Math.floor(halves / 24), i = (halves % 24) / 2;
+    return i === 0 ? `${f}'` : `${f}' ${i}"`;
+};
+
+/* ---------- derived geometry ---------- */
+// Anchor: the south wall, which is straight across all three bays.
+// The aisle runs at TWO heights: in Bay 1 it sits 1' 2" north of Bay 2/3.
+const hall1Bot  = SOUTH_Y - M.shippingDepth;             // 790  (shipping: 46' from the south)
+const hall1Top  = hall1Bot - M.hallwayWidth;             // 690
+const hall23Bot = SOUTH_Y - M.bay2SouthBand;             // 44' 3" from the south
+const hall23Top = hall23Bot - M.hallwayWidth;
+
+const cageTop     = SOUTH_Y - M.cageDepth;               // = hall1Top: the cage crosses the aisle
+const showroomTop = SOUTH_Y - M.showroomDepth;
+
+// The whole Bay 1 chain hangs off its north wall
+const bay1North = hall1Bot - M.bay1NorthToShowroom;
+const officeTop = hall1Bot + M.officeGap;                 // top of the Bay 1 offices
+const bay2North = hall23Top - M.bay2NorthEmpty;
+
+// X axis, west to east
+const cageR       = WEST_X + M.cageWidth;
+const shippingR   = cageR + M.shippingWidth;
+const showroomR   = shippingR + M.showroomWidth;
+// The envelope rules: each bay is anchored to its measured width and to the
+// real dividing walls (8" and 1'). The Bay 1 office block absorbs the gap
+// between the sum of rooms (163' 0") and the measured width (162' 4").
+const bay1East    = WEST_X + M.bay1Width;                // west face of the 1/2 divider
+const bay2West    = bay1East + M.divider12;              // Bay 2 starts at restroom #1
+const bathCreditR = bay2West + M.bathCreditWidth;
+const bay2East    = bay2West + M.bay2Width;
+const bay3West    = bay2East + M.divider23;
+const bay3East    = bay3West + M.bay3Width;
+const bay3OfficeR = bay3West + M.bay3OfficeWidth;
+
+// Bay 3: the block is anchored to the south wall. Its north face is the RESTROOM
+// face. The kitchen is RECESSED 6' 1" from it, leaving more free space.
+const bay3BathTop    = SOUTH_Y - M.bay3OfficeDepth;
+const bay3KitchenTop = bay3BathTop + M.bay3KitchenRecess;
+const bay3North      = SOUTH_Y - M.bay3Depth;            // measured, no longer derived from the 77'
+const kitchenR       = bay3West + M.bay3KitchenWidth;
+
+// The Bay 3 aisle hangs off its north-wall chain, not off the Bay 2 south band:
+// the rows end 62' 1.5" from the north wall and that is where it starts. It lands
+// 4.5" south of the Bay 2 stretch — within tolerance, see the cross-checks.
+const hall3Top = bay3North + M.bay3RowsEnd;
+const hall3Bot = hall3Top + M.hallwayWidth;
+
+/* ---------- primitives ---------- */
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const rect = (x, y, w, h, cls) =>
+    `<rect x="${x}" y="${y}" width="${Math.max(0, w)}" height="${Math.max(0, h)}" class="${cls}" />`;
+const text = (x, y, t, cls = 'text-label', extra = '') =>
+    `<text x="${x}" y="${y}" class="${cls}" ${extra}>${esc(t)}</text>`;
+const line = (x1, y1, x2, y2, cls) =>
+    `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="${cls}" />`;
+
+function room(x, y, w, h, name, kind = 'confirmed', sub = null) {
+    const cx = x + w / 2, cy = y + h / 2;
+    let g = rect(x, y, w, h, kind === 'pending' ? 'room-pending' : 'room-hatch')
+          + rect(x, y, w, h, 'wall-inner')
+          + text(cx, cy - 6, name, 'text-label')
+          + text(cx, cy + 12, `${toFtIn(w)} × ${toFtIn(h)}`, 'text-meas');
+    if (sub) g += text(cx, cy + 28, sub, 'text-dim');
+    return g;
+}
+
+// En celdas angostas gira la etiqueta 90° para que no se pise con la vecina
+function cellLabel(cx, cy, w, name, dims) {
+    if (w < ft(9))
+        return text(cx, cy, `${name} · ${dims}`, 'text-label', `font-size="10" transform="rotate(-90 ${cx} ${cy})"`);
+    return text(cx, cy - 4, name, 'text-label', 'font-size="10"')
+         + text(cx, cy + 11, dims, 'text-meas', 'font-size="9"');
+}
+
+const COLOR = { confirmed: '#dc2626', derived: '#0369a1', pending: '#b45309' };
+const MARK  = { confirmed: 'arrowRed', derived: 'arrowBlue', pending: 'arrowAmber' };
+
+function dimH(x1, x2, y, label, kind = 'confirmed') {
+    return `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" class="dim-${kind}" marker-start="url(#${MARK[kind]})" marker-end="url(#${MARK[kind]})" />`
+         + `<text x="${(x1 + x2) / 2}" y="${y - 8}" fill="${COLOR[kind]}" font-size="14" font-weight="bold" text-anchor="middle" font-family="monospace">${esc(label)}</text>`;
+}
+
+function dimV(y1, y2, x, label, kind = 'confirmed', anchor = 'start') {
+    const dx = anchor === 'start' ? 10 : -10;
+    return `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" class="dim-${kind}" marker-start="url(#${MARK[kind]})" marker-end="url(#${MARK[kind]})" />`
+         + `<text x="${x + dx}" y="${(y1 + y2) / 2}" fill="${COLOR[kind]}" font-size="14" font-weight="bold" text-anchor="${anchor}" dominant-baseline="middle" font-family="monospace">${esc(label)}</text>`;
+}
+
+/* ---------- the drawing ---------- */
+let h = '';
+
+/* OUTER PERIMETER — with the two steps of the north facade */
+h += `<path d="M ${WEST_X},${bay1North}
+               L ${bay1East},${bay1North}
+               L ${bay2West},${bay2North}
+               L ${bay2East},${bay2North}
+               L ${bay3West},${bay3North}
+               L ${bay3East},${bay3North}
+               L ${bay3East},${SOUTH_Y}
+               L ${WEST_X},${SOUTH_Y} Z" class="wall-outer" />`;
+
+/* DIVIDING WALLS — at their real thickness (8" and 1'). They are split at the
+   aisle, because the aisle crosses them without interruption. */
+const divider = (x1, x2, yTop, openTop, openBot) => {
+    const w = x2 - x1;
+    return rect(x1, yTop, w, openTop - yTop, 'room-hatch') + rect(x1, yTop, w, openTop - yTop, 'wall-inner')
+         + rect(x1, openBot, w, SOUTH_Y - openBot, 'room-hatch') + rect(x1, openBot, w, SOUTH_Y - openBot, 'wall-inner');
+};
+// The aisle crosses the 1/2 divider at both heights, so the opening is the union
+const DIVIDERS = [[bay1East, bay2West, Math.min(bay1North, bay2North), hall1Top,  hall23Bot],
+                  [bay2East, bay3West, Math.min(bay2North, bay3North),
+                   Math.min(hall23Top, hall3Top), Math.max(hall23Bot, hall3Bot)]];
+
+/* ================================================================
+   REAL FREE SPACE — what is genuinely available.
+   Only areas with no assigned use: no aisle, no offices, no cage,
+   no shipping (that one is counted apart, being operational).
+   ================================================================ */
+const sqft = (w, hh) => (w / PX_PER_FT) * (hh / PX_PER_FT);
+const fmt  = (n) => Math.round(n).toLocaleString('en-US');
+
+const FREE = [
+    ['BAY 1 NORTH',      WEST_X,      bay1North,  bay1East - WEST_X,      hall1Top - bay1North],
+    ['OFFICE GAP',       showroomR,   hall1Bot,   bay1East - showroomR,   officeTop - hall1Bot],
+    ['BAY 2 NORTH',      bay2West,    bay2North,  bay2East - bay2West,    hall23Top - bay2North],
+    ['BAY 3 NORTH',      bay3West,    bay3North,  bay3East - bay3West,    hall3Top - bay3North],
+    ['BAY 2 SOUTH',      bathCreditR, hall23Bot,  bay2East - bathCreditR, SOUTH_Y - hall23Bot],
+    ['BAY 3 SOUTH/EAST', bay3OfficeR, hall3Bot,   bay3East - bay3OfficeR, SOUTH_Y - hall3Bot],
+    ['PRE-KITCHEN',      bay3West,    hall3Bot,   kitchenR - bay3West,    bay3KitchenTop - hall3Bot],
+    ['PRE-RESTROOM #2',  kitchenR,    hall3Bot,   bay3OfficeR - kitchenR, bay3BathTop - hall3Bot]
+];
+
+for (const [name, x, y, w, hh] of FREE) {
+    h += rect(x, y, w, hh, 'area-free');
+    const cx = x + w / 2, cy = y + hh / 2;
+    if (hh > 55 && w > 120) {
+        h += text(cx, cy - 8, name, 'text-area');
+        h += text(cx, cy + 12, `${fmt(sqft(w, hh))} sq ft`, 'text-area');
+    } else if (w > 120) {
+        h += text(cx, cy + 4, `${name} — ${fmt(sqft(w, hh))} sq ft`, 'text-area-sm');
+    }
+}
+
+/* ZONE LABELS */
+const zone = (x1, x2, y, label) =>
+    `<rect x="${x1}" y="${y + 5}" width="${x2 - x1}" height="30" fill="#f1f5f9" stroke="#cbd5e1" />`
+    + text((x1 + x2) / 2, y + 25, label, 'text-title', 'font-size="14"');
+h += zone(WEST_X, bay1East, bay1North, 'BAY 1 — AREA #1 (FAST MOVING) — WHITE ROOF');
+h += zone(bay2West, bay2East, bay2North, 'BAY 2 — MOVERS — WHITE ROOF');
+h += zone(bay3West, bay3East, bay3North, 'BAY 3 — AREA #2 (NON-MOVERS) — BLACK ROOF');
+
+/* MAIN AISLE — starts at the east face of the Cage and crosses all 3 bays */
+// The aisle is NOT straight: at the Bay 1 / Bay 2 divider it steps 1' 2",
+// because in Bay 1 it runs further north. Drawn as one continuous polygon.
+const hallPath = `M ${cageR},${hall1Top}
+                  L ${bay1East},${hall1Top}
+                  L ${bay1East},${hall23Top}
+                  L ${bay3West},${hall23Top}
+                  L ${bay3West},${hall3Top}
+                  L ${bay3East},${hall3Top}
+                  L ${bay3East},${hall3Bot}
+                  L ${bay3West},${hall3Bot}
+                  L ${bay3West},${hall23Bot}
+                  L ${bay1East},${hall23Bot}
+                  L ${bay1East},${hall1Bot}
+                  L ${cageR},${hall1Bot} Z`;
+h += `<path d="${hallPath}" class="room-hatch" />`;
+h += `<path d="${hallPath}" class="wall-inner" />`;
+const hallMidX = (bay1East + bay3East) / 2;
+const hallLblY = (hallMidX >= bay3West ? hall3Top : hall23Top);   // the label falls in the Bay 3 stretch
+h += `<rect x="${hallMidX - 220}" y="${hallLblY + 32}" width="440" height="24" fill="#fff" />`;
+h += text(hallMidX, hallLblY + 50, `MAIN AISLE / HALLWAY — ${toFtIn(M.hallwayWidth)} (NOT USABLE)`, 'text-title');
+h += dimV(hall1Top, hall23Top, bay1East - 150, toFtIn(M.hallOffsetBay1), 'confirmed', 'end');
+
+/* BAY 1 — south band */
+h += room(WEST_X, cageTop, M.cageWidth, M.cageDepth, 'CAGE');   // crosses the aisle
+
+h += rect(cageR, hall1Bot, M.shippingWidth, M.shippingDepth, 'room-hatch');
+h += line(cageR, hall1Bot, cageR, SOUTH_Y, 'wall-inner');
+h += line(shippingR, hall1Bot, shippingR, SOUTH_Y, 'wall-inner');
+h += text(cageR + M.shippingWidth / 2, hall1Bot + 200, 'SHIPPING AREA', 'text-title');
+h += text(cageR + M.shippingWidth / 2, hall1Bot + 222, `${toFtIn(M.shippingWidth)} × ${toFtIn(M.shippingDepth)}`, 'text-meas');
+
+h += room(shippingR, showroomTop, M.showroomWidth, M.showroomDepth, 'SHOWROOM', 'confirmed', '(EXHIBITION AREA)');
+h += `<line x1="${shippingR}" y1="${hall1Bot}" x2="${showroomR}" y2="${hall1Bot}" class="wall-inner" stroke-dasharray="3,3" />`;
+
+const officeH = SOUTH_Y - officeTop;
+h += room(showroomR, officeTop, bay1East - showroomR, officeH,
+          'BAY 1 OFFICES', 'confirmed', '(MRS Z / SALES / CAFYT)');
+h += rect(showroomR, hall1Bot, bay1East - showroomR, officeTop - hall1Bot, 'wall-inner');
+h += dimV(hall1Bot, officeTop, showroomR + 25, `${toFtIn(M.officeGap)} GAP`, 'confirmed');
+
+/* BAY 2 — restroom #1 and Credit Dept start at the aisle and at the divider */
+h += room(bay2West, hall23Bot, M.bathCreditWidth, M.bathCreditDepth,
+          'RESTROOM #1 + CREDIT DEPT', 'confirmed');
+
+/* BAY 3 — office block. The kitchen is RECESSED 6' 1" from the restrooms, which
+   is why the north face of the block has a notch at its NW corner. */
+const b3oW = bay3OfficeR - bay3West;
+const outline = `M ${bay3West},${bay3KitchenTop}
+                 L ${kitchenR},${bay3KitchenTop}
+                 L ${kitchenR},${bay3BathTop}
+                 L ${bay3OfficeR},${bay3BathTop}
+                 L ${bay3OfficeR},${SOUTH_Y}
+                 L ${bay3West},${SOUTH_Y} Z`;
+h += `<path d="${outline}" class="room-hatch" />`;
+h += `<path d="${outline}" class="wall-inner" />`;
+// Opaque block: the internal split (kitchen / restroom / offices) does not matter.
+// Its WIDTH is not measured: it is derived from the block touching the divider,
+// which has not been confirmed. That is why it is drawn in amber.
+h += text(bay3West + b3oW / 2, (bay3KitchenTop + SOUTH_Y) / 2 - 10, 'BAY 3 OFFICES', 'text-label');
+h += text(bay3West + b3oW / 2, (bay3KitchenTop + SOUTH_Y) / 2 + 8,
+          `${toFtIn(b3oW)} × ${toFtIn(M.bay3OfficeDepth)}`, 'text-meas');
+h += text(bay3West + b3oW / 2, (bay3KitchenTop + SOUTH_Y) / 2 + 26,
+          '(KITCHEN / RESTROOM #2 / OFFICES)', 'text-dim');
+
+h += dimV(bay3BathTop, bay3KitchenTop, kitchenR + 12, toFtIn(M.bay3KitchenRecess), 'confirmed');
+
+/* The dividing walls go last so they sit above everything else */
+for (const d of DIVIDERS) h += divider(...d);
+
+/* DIMENSIONS */
+h += dimV(bay1North, hall1Top, WEST_X + 55, `${toFtIn(M.bay1NorthToHall)} TO AISLE`, 'confirmed');
+h += dimV(bay1North, hall1Bot, WEST_X + 300, `${toFtIn(M.bay1NorthToShowroom)} TO SHOWROOM`, 'confirmed');
+h += dimV(bay1North, officeTop, WEST_X + 620, `${toFtIn(M.bay1NorthToOffices)} TO OFFICES`, 'confirmed');
+h += dimV(bay2North, hall23Top, bay2West + 55, `${toFtIn(M.bay2NorthEmpty)} EMPTY`, 'confirmed');
+h += dimV(bay3North, bay3BathTop, bay3West + 55, `${toFtIn(bay3BathTop - bay3North)} (INCL. AISLE)`, 'derived');
+h += dimV(bay3North, hall3Top, bay3West + 170, `${toFtIn(hall3Top - bay3North)} USABLE`, 'confirmed');
+h += dimV(hall3Bot, bay3KitchenTop, bay3West + 170, `${toFtIn(bay3KitchenTop - hall3Bot)} FREE`, 'derived');
+h += dimH(bay3OfficeR, bay3East, bay3BathTop - 45, `${toFtIn(bay3East - bay3OfficeR)} EMPTY SPACE`, 'derived');
+
+h += dimH(WEST_X, cageR, SOUTH_Y + 55, toFtIn(M.cageWidth), 'confirmed');
+h += dimH(cageR, shippingR, SOUTH_Y + 55, toFtIn(M.shippingWidth), 'confirmed');
+h += dimH(shippingR, showroomR, SOUTH_Y + 55, toFtIn(M.showroomWidth), 'confirmed');
+h += dimH(showroomR, bay1East, SOUTH_Y + 55, `${toFtIn(M.bay1OfficeBlock)} (SHOWROOM → RESTROOM #1)`, 'confirmed');
+h += dimH(bay2West, bathCreditR, SOUTH_Y + 55, `${toFtIn(M.bathCreditWidth)} = 413"`, 'confirmed');
+
+h += dimH(WEST_X, bay1East, SOUTH_Y + 110, `BAY 1 — ${toFtIn(bay1East - WEST_X)}`, 'derived');
+h += dimH(bay2West, bay2East, SOUTH_Y + 110, `BAY 2 — ${toFtIn(M.bay2Width)}`, 'confirmed');
+h += dimH(bay3West, bay3East, SOUTH_Y + 110, `BAY 3 — ${toFtIn(M.bay3Width)}`, 'confirmed');
+
+h += dimV(bay1North, SOUTH_Y, WEST_X - 45, toFtIn(SOUTH_Y - bay1North), 'derived', 'end');
+h += dimV(bay3North, SOUTH_Y, bay3East + 45, toFtIn(SOUTH_Y - bay3North), 'derived', 'start');
+
+/* DOORS */
+const door = (cx, label) =>
+    rect(cx - 30, SOUTH_Y - 10, 60, 20, 'door-marker') + text(cx, SOUTH_Y + 32, label, 'text-dim');
+h += door(WEST_X + M.cageWidth / 2, 'BAY #5');
+h += door(cageR + M.shippingWidth / 2, 'BAY #4');
+h += door(shippingR + M.showroomWidth / 2, 'SHOWROOM ENTRANCE');
+h += door((showroomR + bay1East) / 2, 'SALES ENTRANCE');
+h += door((bathCreditR + bay2East) / 2, 'EXIT #2');
+
+/* AREA TABLE */
+const tblX = WEST_X, tblY = SOUTH_Y + 175;
+let ty = tblY;
+const row = (label, val, bold = false) => {
+    const w = bold ? '800' : '600', c = bold ? '#047857' : '#334155';
+    const r = `<text x="${tblX}" y="${ty}" font-size="14" font-weight="${w}" fill="${c}" font-family="monospace">${esc(label)}</text>`
+            + `<text x="${tblX + 460}" y="${ty}" font-size="14" font-weight="${w}" fill="${c}" font-family="monospace" text-anchor="end">${esc(val)}</text>`;
+    ty += 22;
+    return r;
+};
+
+h += `<text x="${tblX}" y="${ty}" font-size="15" font-weight="800" fill="#0f172a" font-family="monospace">FREE SPACE AVAILABLE</text>`;
+ty += 26;
+let totalFree = 0;
+for (const [name, , , w, hh] of FREE) {
+    const a = sqft(w, hh);
+    totalFree += a;
+    h += row(name, `${fmt(a)} sq ft`);
+}
+h += `<line x1="${tblX}" y1="${ty - 15}" x2="${tblX + 460}" y2="${ty - 15}" stroke="#94a3b8" stroke-width="1.5" />`;
+h += row('TOTAL FREE', `${fmt(totalFree)} sq ft`, true);
+ty += 10;
+h += row('Shipping (operational, not free)', `${fmt(sqft(M.shippingWidth, M.shippingDepth))} sq ft`);
+h += row('Cage (enclosed)', `${fmt(sqft(M.cageWidth, M.cageDepth))} sq ft`);
+h += row('Main aisle (not usable)', `${fmt(sqft(bay3East - cageR, M.hallwayWidth))} sq ft`);
+ty += 12;
+/* CROSS-CHECKS — where the measurements disagree with each other */
+const note = (t, color = '#b45309') => {
+    const r = `<text x="${tblX}" y="${ty}" font-size="12" font-weight="600" fill="${color}" font-family="monospace">${esc(t)}</text>`;
+    ty += 19;
+    return r;
+};
+// Taping a 362-foot warehouse accumulates error. Up to 1' of deviation between
+// measurements that should agree is accepted; beyond that it is a real fault
+// and has to be re-measured on site.
+const TOLERANCE = ft(1);
+const check = (label, a, b) => {
+    const d = Math.abs(a - b), ok = d <= TOLERANCE;
+    return note(`${ok ? '✓' : '✗'} ${label}: ${toFtIn(a)} vs ${toFtIn(b)} → ${toFtIn(d)}`
+                + (ok ? '  (within tolerance)' : '  ⚠ OUT OF TOLERANCE — RE-MEASURE'),
+                ok ? '#047857' : '#b91c1c');
+};
+
+const sumBays  = M.bay1Width + M.divider12 + M.bay2Width + M.divider23 + M.bay3Width;
+const sumRooms = M.cageWidth + M.shippingWidth + M.showroomWidth + M.bay1OfficeBlock;
+
+h += `<text x="${tblX}" y="${ty}" font-size="14" font-weight="800" fill="#0f172a" font-family="monospace">CROSS-CHECKS  ·  tolerance accepted ${toFtIn(TOLERANCE)}</text>`;
+ty += 24;
+h += check('Bays + dividers sum vs total length', sumBays, M.totalWidth);
+h += check('Bay 1: rooms sum vs bay width', sumRooms, M.bay1Width);
+h += check('Bay 1: aisle width per the chain', M.bay1NorthToShowroom - M.bay1NorthToHall, M.hallwayWidth);
+h += check('Bay 1: depth via shipping vs via showroom',
+           M.bay1NorthToShowroom + M.shippingDepth, M.bay1NorthToShowroom + M.showroomDepth + ft(0, 8));
+h += check('Bay 1: office wall via gap vs via chain',
+           officeTop - bay1North, M.bay1NorthToOffices);
+h += check('North wall Bay 1 vs Bay 2 (alignment)', bay1North, bay2North);
+h += check('Aisle step: derived vs measured', hall23Bot - hall1Bot, M.hallOffsetBay1);
+h += check('Bay 3: depth via offices vs measured',
+           M.bay3NorthToOffice + M.bay3OfficeDepth, M.bay3Depth);
+h += check('Bay 3: aisle from the south, Bay 2 stretch vs Bay 3 stretch',
+           SOUTH_Y - hall23Top, SOUTH_Y - hall3Top);
+// Not a check but a warning: the Bay 3 office width is the one figure in this
+// bay that nobody measured. It is whatever is left after the measured east gap,
+// so it cannot disagree with anything and no check would ever catch it.
+h += note(`! Bay 3 offices ${toFtIn(M.bay3OfficeWidth)} = bay width - measured east gap, `
+        + `NOT measured. Assumes the block touches the Bay 2/3 divider (section 5).`);
+
+/* COMPASS ROSE */
+const nx = bay3East + 130, ny = bay3North + 80;
+h += `<circle cx="${nx}" cy="${ny}" r="38" fill="none" stroke="#94a3b8" stroke-width="2" />`;
+h += `<path d="M ${nx},${ny - 34} L ${nx - 10},${ny + 8} L ${nx},${ny} L ${nx + 10},${ny + 8} Z" fill="#0f172a" />`;
+h += text(nx, ny - 46, 'N', 'text-title');
+h += text(nx, ny + 58, 'LAKE / REAR', 'text-dim', 'font-size="10"');
+
+/* ---------- assembly: the SVG sizes itself to the content, at 1:1 ---------- */
+const minX = WEST_X - 110;
+const maxX = bay3East + 240;
+const minY = Math.min(bay1North, bay2North, bay3North) - 70;
+const maxY = SOUTH_Y + 700;   // room for the area table and the cross-checks
+
+const svg = document.getElementById('plano');
+svg.setAttribute('viewBox', `${minX} ${minY} ${maxX - minX} ${maxY - minY}`);
+svg.setAttribute('width', maxX - minX);
+svg.setAttribute('height', maxY - minY);
+document.getElementById('scene').innerHTML = h;
+</script>
+</body>
+</html>
