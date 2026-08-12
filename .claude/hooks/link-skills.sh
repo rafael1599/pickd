@@ -8,6 +8,10 @@
 # Solo corre en Claude Code on the web (CLAUDE_CODE_REMOTE=true). Requiere que
 # el repo `rafael1599/skills` esté agregado al environment: queda clonado como
 # directorio hermano del proyecto. En local (Mac) no hace nada.
+#
+# Desde el 11 ago 2026 los skills están VERSIONADOS en .claude/skills (ver
+# docs/claude-agents-and-skills.md). Este hook solo rellena huecos: si el destino
+# ya es un directorio real, lo respeta y no lo pisa.
 set -euo pipefail
 
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then

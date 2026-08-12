@@ -1,0 +1,56 @@
+/* layout.css — Contenedor, encabezado y metadatos */
+
+.report-container {
+    max-width: 850px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* --- ENCABEZADO --- */
+header {
+    text-align: center;
+    margin-bottom: 0px;
+}
+
+header img {
+    height: 100px;
+    margin-bottom: 15px;
+}
+
+header h1 {
+    font-size: 24pt;
+    margin: 10px 0;
+    text-align: center;
+}
+
+header p {
+    text-align: center;
+}
+
+header .integrantes-list {
+    list-style: none;
+    padding: 0;
+    margin: 5px auto 10px auto;
+    text-align: center;
+    display: inline-block;
+}
+
+header .integrantes-list li {
+    margin: 2px 0;
+    font-size: 11pt;
+    text-align: center;
+}
+
+header hr {
+    border: none;
+    height: 2px;
+    background-color: #000000;
+    margin-top: 20px;
+}
+
+/* --- METADATOS --- */
+.meta-info {
+    text-align: center;
+    margin-bottom: 10px;
+    line-height: 1.6;
+}

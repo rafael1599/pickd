@@ -19,6 +19,12 @@ PWA de gestión de inventario y warehouse operations. Multi-usuario con sync en 
 - `supabase/migrations/` — Migraciones PostgreSQL
 - `supabase/functions/` — Edge functions (snapshots, reportes, auto-cancel)
 - `.agent/management/BACKLOG.md` — Source of truth del backlog
+- `public/warehouse/` — Planos del almacén: HTML autónomos, sin build ni routing, se
+  sirven en `/warehouse/index.html`. Miden el edificio real; **no** son la vista in-app
+  (esa es `src/features/warehouse-management/`). Ver `docs/warehouse-floor-plans.md`
+- `.claude/agents/` y `.claude/skills/` — Versionados en el repo desde el 11 ago 2026.
+  Los skills eran symlinks a un repo central y se rompieron al moverse. Ver
+  `docs/claude-agents-and-skills.md`
 
 ## Convenciones
 
@@ -165,22 +171,38 @@ El edge function valida el JWT internamente con `supabase.auth.getUser(token)`. 
 
 `useUploadGalleryPhoto` tiene fallback a blob URLs **solo en localhost**. En producción/staging, si el edge function falla, lanza el error al usuario en vez de guardar URLs inservibles. Ver `src/features/projects/hooks/useGalleryPhotos.ts`.
 
-## Skills
+## Skills y agentes
 
-Los skills viven en el repo central `rafael1599/skills`. Claude Code solo descubre skills en `.claude/skills/<nombre>/SKILL.md` (un nivel de profundidad), así que se conectan con un symlink **por skill** — un symlink al root del repo no expone los skills anidados.
+**Viven en este repo, versionados** (`.claude/skills/`, `.claude/agents/`). Un clone
+recién hecho los tiene todos; no dependen de que exista otro directorio en la máquina.
+Ver `docs/claude-agents-and-skills.md`.
 
-- **Local (Mac):** symlinks hacia `~/Documents/Projects/skills`. Para actualizar: `git pull` en ese repo.
-- **Claude Code web:** el hook SessionStart `.claude/hooks/link-skills.sh` crea los symlinks automáticamente al iniciar cada sesión (bash determinístico, `reloadSkills` + `suppressOutput` = sin demoras ni tokens). Requiere que el repo `skills` esté agregado al environment (queda clonado como hermano del proyecto). Para habilitar/quitar skills, editar la lista `SKILLS` de ese script.
+Eran symlinks al repo central `rafael1599/skills` y se rompieron los once de golpe el
+día que ese repo se movió de sitio en disco — en silencio, porque un symlink muerto se
+ve igual que un skill ausente. Por eso ahora son copias reales (11 ago 2026).
 
-### Skills disponibles para este proyecto
+- **Actualizar un skill global:** copiarlo otra vez desde el repo central. No hay
+  automatización a propósito: la automatización es lo que falló.
+- **Claude Code web:** el hook SessionStart `.claude/hooks/link-skills.sh` sigue ahí,
+  pero solo rellena huecos — si el destino ya es un directorio real, lo respeta.
+- **Formato:** `.claude/skills/` está en `.prettierignore`. Formatearlos los haría
+  divergir de su origen.
 
-- `commit-craft` — commits convencionales automáticos
-- `daily-report` — reportes diarios de progreso (project-skill)
-- `supabase` — operaciones de base de datos Supabase (project-skill)
-- `ui-rules` — reglas de UI para pantallas nuevas (project-skill)
-- `catalog-images` — imágenes del catálogo JAMIS → R2 (project-skill)
-- `supabase-postgres-best-practices` — best practices de Postgres (external)
+### Skills en el repo
 
-### Preferencias de conexión
+Project: `catalog-images`, `daily-report`, `supabase`, `ui-rules`.
+Global: `commit-craft`, `compact-backlog`, `fabrica-de-skills`, `image-cors-cache-bust`,
+`prod-data`, `project-setup`, `report-gen`, `web-scraper`.
+External: `supabase-postgres-best-practices`.
 
-- Siempre usar **symlink** para conectar skills (nunca git clone dentro del proyecto)
+Son trece, heredados de lo que había enlazado localmente. La lista curada del hook son
+seis, con la nota de que **cada descripción de skill ocupa contexto en cada sesión**.
+Si alguno no se usa, borrarlo.
+
+### Agentes
+
+- `qa-auditor` — pasadas de QA sobre la app
+- `warehouse-space-planner` — distribuye pallets en una zona libre. Ver
+  `docs/warehouse-floor-plans.md`
+- `warehouse-sku-placement` — decide qué va en cada hueco. Borrador: sus reglas siguen
+  siendo preguntas abiertas

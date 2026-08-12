@@ -44,9 +44,9 @@ test_db.*
 .agents/skills/
 claude-skills/
 
-# Claude skills (symlink, not tracked)
-.claude/skills
-.claude/skills/
+# Claude skills live IN the repo (vendored 11 Aug 2026). They used to be symlinks
+# into a central skills repo, which broke the day that repo moved on disk. Keeping
+# real copies here makes a clone self-sufficient — see docs/claude-agents-and-skills.md
 
 # Claude local worktrees + per-user tooling config
 .claude/worktrees/

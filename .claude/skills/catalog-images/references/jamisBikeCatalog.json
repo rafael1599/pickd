@@ -1,0 +1,212 @@
+[
+  {
+    "name": "Hardline 3VO",
+    "category": "mountain",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hardlinec1_gloss_black_600px.png"
+  },
+  {
+    "name": "Portal 3VO",
+    "category": "mountain",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_portalc1_sandstone_600px.png"
+  },
+  {
+    "name": "Defcon eMTB",
+    "category": "mountain",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2026/01/26-defcon-e1-galactic-2.png"
+  },
+  {
+    "name": "Faultline MPX",
+    "category": "mountain",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2026/01/26-faultline-a1-600-gloss-black.png"
+  },
+  {
+    "name": "Faultline MP2",
+    "category": "mountain",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2024/01/24_faultlinea2_blackvenom-600x352.png"
+  },
+  {
+    "name": "Kromo",
+    "category": "mountain",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2026/01/24-kromo-600-midnight-blue-1.png"
+  },
+  {
+    "name": "Dragon",
+    "category": "mountain",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_dragon_midnight_blue-1.png"
+  },
+  {
+    "name": "Komodo",
+    "category": "mountain",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2020/08/21_komodo_rhino_600px.png"
+  },
+  {
+    "name": "Highpoint V2",
+    "category": "mountain",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-highpoint-a1-puttyv3.png"
+  },
+  {
+    "name": "Highpoint",
+    "category": "mountain",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2025/07/26-highpoint-a2-commando-2000px-600x339.png"
+  },
+  {
+    "name": "Durango",
+    "category": "mountain",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_durangoa1_garnet-1-600x332.png"
+  },
+  {
+    "name": "Trail X",
+    "category": "mountain",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2021/10/21_trailxa1_charcoal_600px.png"
+  },
+  {
+    "name": "Helix",
+    "category": "mountain",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2021/10/21_helixa1_slate_600px.png"
+  },
+  {
+    "name": "Divide",
+    "category": "mountain",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_divide_oxblood-1-600x333.png"
+  },
+  {
+    "name": "Carbon Renegade",
+    "category": "gravel",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25-renegadec1-gloss-matte-black-600px.png"
+  },
+  {
+    "name": "Steel Renegade",
+    "category": "gravel",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2026/03/26-renegades1-adobe-clay-menu.png"
+  },
+  {
+    "name": "Aluminum Renegade",
+    "category": "gravel",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2025/05/25_renegadea1_mash_rendering-600px.png"
+  },
+  {
+    "name": "Ventura All-Road",
+    "category": "gravel",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2026/02/26-ventura-a1-cerulean-600px-600x359.png"
+  },
+  {
+    "name": "Ventura",
+    "category": "road",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_venturaa1_midnight_blue-1.png"
+  },
+  {
+    "name": "Sequel",
+    "category": "road",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2025/08/25_SEQUEL_s2_rootbeer-600x346.png"
+  },
+  {
+    "name": "Hudson E2",
+    "category": "commuter",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2021/06/21_hudsone2_stepthru_menu.png"
+  },
+  {
+    "name": "Coda",
+    "category": "commuter",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_codas1_palladium-1.png"
+  },
+  {
+    "name": "Allegro",
+    "category": "commuter",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_allegroa1_storm_grey-1.png"
+  },
+  {
+    "name": "DXT",
+    "category": "commuter",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_dxta1_monterey_grey-1.png"
+  },
+  {
+    "name": "Beatnik",
+    "category": "commuter",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2022/01/22_beatnik_mash.png"
+  },
+  {
+    "name": "Hudson",
+    "category": "commuter",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_hudsondisc_stepthru_flat_ink_600px.png"
+  },
+  {
+    "name": "Citizen",
+    "category": "commuter",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_citizen_nickel-1.png"
+  },
+  {
+    "name": "Explorer",
+    "category": "commuter",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2020/08/21_explorera1_riptide-600x410.png"
+  },
+  {
+    "name": "Trail XR",
+    "category": "commuter",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_trailxr_ano_nickel_600px.png"
+  },
+  {
+    "name": "Earth Cruiser",
+    "category": "cruiser",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_earthcruiser2_blood_red_600px-280x180.png"
+  },
+  {
+    "name": "Boss Cruiser",
+    "category": "cruiser",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_bosscruiser7_stepover_blue_lagoon_600px.png"
+  },
+  {
+    "name": "Taxi",
+    "category": "kids",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2020/05/20_menu_taxi26_kiwi-280x180.png"
+  },
+  {
+    "name": "Taxi Trike",
+    "category": "kids",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2021/08/22_taxitrike_yellow_cab-600x352.png"
+  },
+  {
+    "name": "XR26",
+    "category": "kids",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_xr26_smoke_600px.png"
+  },
+  {
+    "name": "X24 Disc",
+    "category": "kids",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_x24disc_ano_midnight_sky_600px.png"
+  },
+  {
+    "name": "XR24",
+    "category": "kids",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_xr24_sky_blue_600px.png"
+  },
+  {
+    "name": "Capri 24",
+    "category": "kids",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2020/05/20_menu_capri24_vanilla-600x368.png"
+  },
+  {
+    "name": "XR20",
+    "category": "kids",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_xr20_ano_limelight_600px.png"
+  },
+  {
+    "name": "Laser 20",
+    "category": "kids",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2020/07/20_laser20_smoke_600px.png"
+  },
+  {
+    "name": "Starlite",
+    "category": "kids",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_starlite_blue_lagoon_600px.png"
+  },
+  {
+    "name": "Laser 16",
+    "category": "kids",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_laser16_ano_deep_blue_600px.png"
+  },
+  {
+    "name": "Miss Daisy",
+    "category": "kids",
+    "imageUrl": "https://www.jamisbikes.com/wp-content/uploads/2020/07/21_missdaisy_hot_pink_600px.png"
+  }
+]

@@ -1,0 +1,58 @@
+/* print.css — Reglas especificas para impresion (A4, PDF) */
+
+@media print {
+    body {
+        font-size: 12pt;
+    }
+
+    .report-container {
+        max-width: 100%;
+        padding: 0;
+        box-shadow: none;
+    }
+
+    /* Portada en su propia pagina */
+    header {
+        page-break-after: always;
+    }
+
+    /* Cada seccion empieza en pagina nueva */
+    section {
+        page-break-before: always;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+        page-break-after: avoid;
+    }
+
+    .table-wrapper {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    .table-caption {
+        page-break-after: avoid;
+    }
+
+    figure {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    pre {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    a {
+        text-decoration: none;
+        color: #000000;
+    }
+
+    @page {
+        margin: 2.54cm;
+    }
+}

@@ -32,3 +32,10 @@ scripts/
 *.webp
 *.svg
 *.ico
+
+# Vendored Claude skills: copies of the central `skills` repo. Formatting them
+# here would make every file drift from its source. See docs/claude-agents-and-skills.md
+.claude/skills/
+
+# Warehouse floor plans: hand-tuned standalone HTML, see docs/warehouse-floor-plans.md
+public/warehouse/
