@@ -229,7 +229,7 @@ function render() {
     $('tSpecs').innerHTML = specs;
 
     const svg = $('svg');
-    svg.setAttribute('viewBox', \`0 0 \${config.width + 192} \${config.height + 192}\`);
+    svg.setAttribute('viewBox', `0 0 ${config.width + 192} ${config.height + 192}`);
     svg.innerHTML = engine.renderSVG(m);
 }
 
