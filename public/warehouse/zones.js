@@ -26,8 +26,8 @@ export const ZONES = {
         id: "bay3_north",
         name: "BAY 3 NORTH",
         width: 1366,
-        height: 745.5,
-        margins: { top: 145.5, right: 107, bottom: 0, left: 156 }, // west is 156 if kept, 0 if freed
+        height: 820.5,
+        margins: { top: 145.5, right: 107, bottom: 75, left: 156 }, // west is 156 if kept, 0 if freed
         startRowNumber: 33,
         rowNumberingDir: -1, // decreases going west
         mainAccess: "south",
@@ -35,7 +35,8 @@ export const ZONES = {
         obstacles: [
             { id: "west_aisle", x: 0, y: 0, w: 156, h: 745.5, type: "aisle", label: "WEST AISLE (156\")", toggleable: "west" },
             { id: "east_rack", x: 1259, y: 0, w: 107, h: 745.5, type: "rack", label: "EAST CLEARANCE (107\")" },
-            { id: "north_clearance", x: 0, y: 0, w: 1366, h: 145.5, type: "rack", label: "NORTH CLEARANCE (145.5\")" }
+            { id: "north_clearance", x: 0, y: 0, w: 1366, h: 145.5, type: "rack", label: "NORTH CLEARANCE (145.5\")" },
+            { id: "main_aisle", x: 0, y: 745.5, w: 1366, h: 75, type: "aisle", label: "MAIN AISLE (75\")" }
         ],
         posts: [
             { id: 4, x: 18, y: 470, size: 8, note: "P4" },
