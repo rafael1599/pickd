@@ -3,23 +3,24 @@ export const ZONES = {
         id: "bay3_se",
         name: "BAY 3 SOUTH/EAST",
         width: 628,
-        height: 530,
-        margins: { top: 0, right: 124, bottom: 109, left: 107 }, // top=north, right=east, bottom=south, left=west
+        height: 605,
+        margins: { top: 75, right: 124, bottom: 109, left: 107 }, // top=north, right=east, bottom=south, left=west
         startRowNumber: 34,
         obstacles: [
-            { id: "east_rack", x: 0, y: 0, w: 52, h: 530, type: "rack", label: "EAST RACK (52\")" },
-            { id: "east_aisle", x: 52, y: 0, w: 72, h: 530, type: "aisle", label: "EAST AISLE (72\")" },
-            { id: "west_aisle", x: 521, y: 0, w: 48, h: 530, type: "aisle", label: "WEST AISLE (48\")" },
-            { id: "west_rack", x: 569, y: 0, w: 59, h: 530, type: "rack", label: "WEST RACK (59\")" },
-            { id: "south_rack", x: 213, y: 475, w: 202, h: 55, type: "rack", label: "SOUTH WALL RACK (55\" × 202\")" },
-            { id: "south_aisle", x: 0, y: 421, w: 628, h: 54, type: "aisle", label: "SOUTH AISLE (54\")" }
+            { id: "main_aisle", x: 0, y: 0, w: 628, h: 75, type: "aisle", label: "MAIN AISLE (75\")" },
+            { id: "east_rack", x: 0, y: 75, w: 52, h: 530, type: "rack", label: "EAST RACK (52\")" },
+            { id: "east_aisle", x: 52, y: 75, w: 72, h: 530, type: "aisle", label: "EAST AISLE (72\")" },
+            { id: "west_aisle", x: 521, y: 75, w: 48, h: 530, type: "aisle", label: "WEST AISLE (48\")" },
+            { id: "west_rack", x: 569, y: 75, w: 59, h: 530, type: "rack", label: "WEST RACK (59\")" },
+            { id: "south_rack", x: 213, y: 550, w: 202, h: 55, type: "rack", label: "SOUTH WALL RACK (55\" × 202\")" },
+            { id: "south_aisle", x: 0, y: 496, w: 628, h: 54, type: "aisle", label: "SOUTH AISLE (54\")" }
         ],
         posts: [],
         labels: [
             { text: "MAIN AISLE · NORTH", x: 314, y: -20, anchor: "middle", rotate: 0 },
-            { text: "SOUTH WALL", x: 314, y: 570, anchor: "middle", rotate: 0 },
-            { text: "OFFICES (WEST)", x: -22, y: 265, anchor: "end", rotate: -90 },
-            { text: "EAST WALL", x: 650, y: 265, anchor: "start", rotate: 90 }
+            { text: "SOUTH WALL", x: 314, y: 645, anchor: "middle", rotate: 0 },
+            { text: "OFFICES (WEST)", x: -22, y: 340, anchor: "end", rotate: -90 },
+            { text: "EAST WALL", x: 650, y: 340, anchor: "start", rotate: 90 }
         ]
     },
     bay3_north: {
