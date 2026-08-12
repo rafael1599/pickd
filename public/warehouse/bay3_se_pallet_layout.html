@@ -558,30 +558,26 @@ function render(){
     const slotFrom = isEW ? 'FROM THE EAST AISLE' : 'FROM THE MAIN AISLE';
     const frontDir = isEW ? 'EAST' : 'NORTH';
 
-    $('heading').textContent = isEW
-        ? 'BAY 3 SOUTH/EAST — PALLET LAYOUT · EAST–WEST ROWS'
-        : 'BAY 3 SOUTH/EAST — PALLET LAYOUT · NORTH–SOUTH ROWS';
+    $('heading').innerHTML = isEW
+        ? 'BAY 3 SOUTH/EAST — PALLET LAYOUT <span style="color:var(--ink-mute)">· EAST–WEST ROWS</span>'
+        : 'BAY 3 SOUTH/EAST — PALLET LAYOUT <span style="color:var(--ink-mute)">· NORTH–SOUTH ROWS</span>';
     $('pageTitle').textContent = isEW
         ? 'Bay 3 South/East — Pallet Layout (E–W rows)'
         : 'Bay 3 South/East — Pallet Layout (N–S rows)';
 
-    $('tagline').textContent =
-        `ROWS ${ROW_EAST}→${m.numEnd} ${rowDir} · SLOTS A→${slotName(deep - 1)} ${slotFrom} · `
-      + `${rSpan()}" ACROSS · ${dSpan()}" DEEP`;
-
     $('bikeLegend').innerHTML =
         `<i style="background:rgba(57,255,20,.3);border-color:#39ff14"></i>BIKE BLOCK — ONE PER ROW, ALL THE LEFTOVER AT THE FRONT (${frontDir})`;
 
-    put('tRows',    m.nRows + ` <small>${ROW_EAST}→${m.numEnd}</small>`);
-    put('tDeep',    deep + ` <small>A→${slotName(deep - 1)}</small>`);
     put('tPallets', m.pallets);
-    put('tBikesTotal', fmt(m.palletBikes) + ` <small>${BIKES_PALLET} per pallet</small>`);
-    put('tFast',    m.accessible + ` <small>of ${m.pallets}</small>`);
-    put('tLines',   nLines ? m.nRows + ` <small>${n1(front)}" · ${nLines * BIKES_LINE} bikes each</small>`
-                           : '0 <small>nothing left over</small>');
-    put('tBikes',   fmt(m.bikes));
-    put('tBlocks',  m.blocks.length + ' <small>' + m.blocks.slice().reverse().join('·') + ` ${rowDirS}</small>`);
-    put('tHall',    m.nHalls > 0 ? n1(m.hall) + '<small>" uniform</small>' : '— <small>no aisles</small>');
+    put('tBikesTotal', fmt(m.palletBikes + m.bikes));
+    put('tFast',    m.accessible + ' <small>of ' + m.pallets + '</small>');
+
+    let specs = `<span>${m.nRows}</span> ROWS (${isEW ? 34 : ROW_EAST + m.nRows - 1}→${isEW ? 34 + m.nRows - 1 : 34} ${isEW ? 'NORTH TO SOUTH' : 'EAST TO WEST'}) &middot; `;
+    specs += `<span>${deep}</span> SLOTS DEEP (A→${slotName(deep - 1)} FROM MAIN AISLE) &middot; `;
+    specs += `<span>${m.blocks.length}</span> BLOCKS (${m.blocks.slice().reverse().join('·')} ${rowDirS}) &middot; `;
+    if (m.lines > 0) specs += `<span>${m.lines}</span> BIKE LINES FRONT &middot; `;
+    specs += `<span>${m.nHalls > 0 ? n1(m.hall) + '"' : 'NO'}</span> AISLES`;
+    $('tSpecs').innerHTML = specs;
 
     /* ---- note ---- */
     const modeLabel = isEW ? 'E–W' : 'N–S';

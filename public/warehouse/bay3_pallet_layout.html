@@ -404,9 +404,9 @@ function render(key){
         $('alert').textContent =
             `A ${PW}" × ${PD}" pallet does not fit.`;
         svg.innerHTML = '';
-        ['tRows','tDeep','tPallets','tBikesTotal','tFast','tLines','tBikes','tPosts','tBlocks','tHall']
+        ['tPallets','tBikesTotal','tFast','tLost']
             .forEach(id => $(id).innerHTML = '—');
-        $('note').textContent = '—';
+        $('tSpecs').innerHTML = '—';
         return;
     }
 
@@ -524,22 +524,18 @@ function render(key){
 
     const put = (id, v) => $(id).innerHTML = v;
 
-    $('tagline').textContent =
-        `ROWS ${ROW_EAST}→${m.numWest} EAST TO WEST · SLOTS A→${slotName(deep - 1)} FROM THE MAIN AISLE · ${sc.note.toUpperCase()}`;
+    put('tPallets', m.pallets);
+    put('tBikesTotal', fmt(m.palletBikes + m.bikes));
+    put('tFast',    m.accessible + ' <small>of ' + m.pallets + '</small>');
+    put('tLost',    m.hits.length > 0 ? m.hits.length + ' <small>slots</small>' : '0 <small>clear</small>');
 
-    put('tRows',    m.nRows + ` <small>${ROW_EAST}→${m.numWest}</small>`);
-    put('tDeep',    deep + ` <small>A→${slotName(deep - 1)}</small>`);
-    put('tPallets', m.pallets + (m.lost.length ? ` <small>${m.gross} − ${m.lost.length} on posts</small>` : ''));
-    put('tPosts',   POSTS.length + ' <small>' +
-                    (m.lost.length ? m.lost.map(c => `${c.row.num}-${c.letter}`).join(' ')
-                                   : 'none in a slot') + '</small>');
-    put('tBikesTotal', fmt(m.palletBikes) + ` <small>${BIKES_PALLET} per pallet</small>`);
-    put('tFast',    m.accessible + ` <small>of ${m.pallets}</small>`);
-    put('tLines',   nLines ? m.nRows + ` <small>${n1(front)}" · ${nLines * BIKES_LINE} bikes each</small>`
-                           : '0 <small>nothing left over</small>');
-    put('tBikes',   fmt(m.bikes));
-    put('tBlocks',  m.blocks.length + ' <small>' + m.blocks.slice().reverse().join('·') + ' E→W</small>');
-    put('tHall',    m.nHalls > 0 ? n1(m.hall) + '<small>" uniform</small>' : '— <small>no aisles</small>');
+    let specs = `<span>${m.nRows}</span> ROWS (33→${33 - m.nRows + 1} EAST TO WEST) &middot; `;
+    specs += `<span>${deep}</span> SLOTS DEEP (A→${slotName(deep - 1)} FROM MAIN AISLE) &middot; `;
+    specs += `<span>${m.blocks.length}</span> BLOCKS (${m.blocks.slice().reverse().join('·')} E→W) &middot; `;
+    if (m.lines > 0) specs += `<span>${m.lines}</span> BIKE LINES FRONT &middot; `;
+    specs += `<span>${m.nHalls > 0 ? n1(m.hall) + '"' : 'NO'}</span> AISLES &middot; `;
+    specs += `<span>4</span> POSTS (<span class="${m.hits.length > 0 ? 'bad' : ''}">${m.hits.length}</span> OBSTRUCT)`;
+    $('tSpecs').innerHTML = specs;
 
     /* ---- what the posts cost, and what is assumed about them ---- */
     const p1 = POSTS.find(p => p.id === 1);
