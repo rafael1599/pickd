@@ -159,6 +159,7 @@ export class PalletEngine {
     }
 
     autoBlocks(span, rW) {
+        const c = this.config;
         let best = null;
         let maxRows = 0;
         let minExtra = Infinity;
