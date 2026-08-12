@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bay 3 South/East — Pallet Layout (N–S rows)</title>
+<style>
+    :root{
+        --ground:#070b14; --line:#1e293b; --line-lit:#334155;
+        --ink:#e2e8f0; --ink-dim:#94a3b8; --ink-mute:#64748b; --ink-far:#475569;
+        --bay3:#a78bfa; --fast:#f59e0b; --bike:#39ff14; --gain:#34d399; --bad:#f87171;
+        --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+        --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    body{
+        background:var(--ground); color:var(--ink); font-family:var(--sans);
+        min-height:100vh; overflow-x:hidden; -webkit-font-smoothing:antialiased;
+    }
+    header{ padding:20px 30px 4px; display:flex; justify-content:space-between;
+            align-items:flex-start; gap:20px; flex-wrap:wrap; }
+    h1{ font-size:15px; font-weight:800; letter-spacing:.22em; }
+    .tagline{ font-family:var(--mono); font-size:11px; letter-spacing:.15em;
+              color:var(--ink-far); margin-top:6px; }
+    .actions{ display:flex; gap:10px; align-items:center; }
+
+    .btn{
+        padding:9px 16px; border:1px solid var(--line); border-radius:6px;
+        background:rgba(15,23,42,.8); color:var(--ink); cursor:pointer;
+        font-family:var(--mono); font-size:11px; letter-spacing:.1em; font-weight:600;
+        transition:border-color .2s, background .2s; white-space:nowrap;
+    }
+    .btn:hover{ border-color:var(--ink-mute); background:rgba(30,41,59,.9); }
+    .btn:focus-visible{ outline:2px solid var(--ink-dim); outline-offset:2px; }
+    .btn[hidden]{ display:none; }
+
+    .totals{ display:flex; gap:28px; padding:16px 30px 0; flex-wrap:wrap; align-items:flex-start; }
+    .totals .k{ font-family:var(--mono); font-size:9.5px; letter-spacing:.14em; color:var(--ink-far); }
+    .totals .v{ font-family:var(--mono); font-size:20px; font-weight:800; margin-top:4px;
+                color:var(--bay3); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .totals .v small{ font-size:10.5px; color:var(--ink-mute); font-weight:600; }
+    .totals .fast .v{ color:var(--fast); }
+    .totals .bike .k{ color:var(--bike); }
+    .totals .bike .v{ color:var(--bike); }
+    .totals .gain .v{ color:var(--gain); }
+    .totals .big .v{ font-size:30px; }
+    .totals .big .v small{ font-size:13px; }
+
+    .edit .k{ color:var(--fast); }
+    .totals input{
+        width:2.6em; padding:0 1px; border:0; border-bottom:2px solid var(--line);
+        background:transparent; color:var(--fast); font:inherit; text-align:center;
+        font-variant-numeric:tabular-nums; -moz-appearance:textfield;
+    }
+    .totals input::-webkit-outer-spin-button,
+    .totals input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+    .totals input:hover{ border-bottom-color:var(--ink-mute); }
+    .totals input:focus{ outline:none; border-bottom-color:var(--fast); }
+
+    .alert{
+        margin:16px 30px 0; padding:12px 16px; border-radius:7px;
+        border:1px solid var(--bad); background:rgba(248,113,113,.08);
+        color:var(--bad); font-family:var(--mono); font-size:11px; line-height:1.7;
+    }
+    .alert[hidden]{ display:none; }
+
+    .legend{
+        display:flex; gap:22px; flex-wrap:wrap; padding:14px 30px 0;
+        font-family:var(--mono); font-size:10px; letter-spacing:.1em; color:var(--ink-far);
+    }
+    .legend span{ display:flex; align-items:center; gap:7px; }
+    .legend i{ width:13px; height:13px; border-radius:3px; border:1.5px solid; }
+
+    .note{
+        margin:12px 30px 0; padding:10px 14px; border-radius:7px;
+        border:1px solid var(--line); background:rgba(15,23,42,.55);
+        color:var(--ink-mute); font-family:var(--mono); font-size:10.5px; line-height:1.8;
+    }
+    .note b{ color:var(--bad); font-weight:700; }
+    .note em{ color:var(--ink-dim); font-style:normal; }
+
+    .stage{ padding:12px 30px 40px; }
+    svg{ display:block; width:100%; height:auto; max-height:calc(100vh - 250px); }
+    .cell:hover rect{ fill-opacity:.65; }
+
+    @media (prefers-reduced-motion:reduce){ *{ transition:none !important; } }
+</style>
+</head>
+<body>
+
+<header>
+    <div>
+        <h1>BAY 3 SOUTH/EAST — PALLET LAYOUT · NORTH–SOUTH ROWS</h1>
+        <p class="tagline" id="tagline">—</p>
+    </div>
+    <div class="actions">
+        <button class="btn" id="reset" hidden>↺ RESET 62 × 60</button>
+        <button class="btn" onclick="location.href='warehouse_map.html'">← MAP</button>
+    </div>
+</header>
+
+<div class="totals">
+    <div class="edit">
+        <div class="k">PALLET SIZE · EDITABLE</div>
+        <div class="v">
+            <input id="pw" type="number" min="6" max="400" step="0.5" aria-label="Pallet size east to west">×<input
+                   id="pd" type="number" min="6" max="400" step="0.5" aria-label="Pallet size north to south"><small>" E–W×N–S</small>
+        </div>
+    </div>
+    <div><div class="k">ROWS</div><div class="v" id="tRows">—</div></div>
+    <div><div class="k">DEPTH</div><div class="v" id="tDeep">—</div></div>
+    <div><div class="k">PALLETS</div><div class="v" id="tPallets">—</div></div>
+    <div class="bike big"><div class="k">BIKES</div><div class="v" id="tBikesTotal">—</div></div>
+    <div class="fast"><div class="k">FAST PICKING</div><div class="v" id="tFast">—</div></div>
+    <div class="bike"><div class="k">FRONT BLOCKS</div><div class="v" id="tLines">—</div></div>
+    <div class="bike"><div class="k">BLOCK BIKES</div><div class="v" id="tBikes">—</div></div>
+    <div><div class="k">BLOCKS</div><div class="v" id="tBlocks">—</div></div>
+    <div><div class="k">CENTER AISLE</div><div class="v" id="tHallBig">—</div></div>
+    <div><div class="k">OTHER AISLES</div><div class="v" id="tHall">—</div></div>
+</div>
+
+<div class="legend">
+    <span><i style="background:rgba(245,158,11,.4);border-color:#f59e0b"></i>FAST PICKING — TOUCHES OPEN FLOOR</span>
+    <span><i style="background:rgba(167,139,250,.2);border-color:#a78bfa"></i>BURIED — NEEDS THE FRONT MOVED</span>
+    <span><i style="background:rgba(57,255,20,.3);border-color:#39ff14"></i>BIKE BLOCK — ONE PER ROW, ALL THE LEFTOVER AT THE FRONT (NORTH)
+</span>
+    <span><i style="background:#ef4444;border-color:#ef4444;border-radius:50%"></i>EXISTING RACK / DEAD ZONE</span>
+</div>
+
+<p class="note" id="note">—</p>
+
+<div class="alert" id="alert" hidden></div>
+<div class="stage"><svg id="map"></svg></div>
+
+<script>
+"use strict";
+/* ════════════════════════════════════════════════════════════════
+   BAY 3 · SOUTH/EAST ZONE — rows running NORTH–SOUTH. All values in inches.
+   Envelope from WAREHOUSE-MEASUREMENTS.md: 52' 4" E–W × 44' 2" N–S
+   (south wall to south edge of the main aisle).
+
+   The zone sits SOUTH of the main aisle, so the main aisle is at the
+   NORTH edge. Pallets grow southward from the aisle.
+
+   E-W chain (11 Aug 2026):
+     East wall → existing rack end:  ~52" (4'3"–4'5")
+     N-S aisle east:                 ~72" (derived: 124" cumulative − 52" rack)
+     Usable open floor:              397" (33' 1")
+     N-S aisle west:                 48" (4' 0")
+     Rack against west end:          59" (4' 11")
+     Total:                          628" (52' 4")
+
+   N-S chain (12 Aug 2026):
+     South wall → main aisle south edge: 530" (44' 2")
+     Rack against south wall:            55" (202" wide E-W, not full zone)
+     Aisle in front of that rack:        54" minimum
+     Usable open floor:                  421" (35' 1")
+
+   Rules:
+   · rows sit flush inside a block, no gap between them
+   · pallets sit flush too: everything left over down the row is pulled
+     to the FRONT of the row, the north end on the main aisle, and drawn
+     as ONE bike block per row. Its capacity is still counted in lines of
+     10" at 5 bikes each, but the lines are not laid out separately
+   · leftover across the bay widens the aisles
+   · fast picking = every pallet whose edge touches open floor
+   · bikes = 30 per pallet, plus whatever the front block holds
+   · rows begin at 34 (east) and increase going west, continuing Bay 3
+     North's numbering which ends at 33
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── full zone envelope ── */
+const ZONE_EW = (52 * 12) + 4;     // 628"
+const ZONE_NS = (44 * 12) + 2;     // 530"
+
+/* ── dead zones: existing racks and their aisles ── */
+const MARGIN_EAST  = 124;           // rack (~52") + aisle (~72") on the east end
+const MARGIN_WEST  = 107;           // aisle (48") + rack (59") on the west end
+const MARGIN_SOUTH = 109;           // rack (55") + aisle (54") against south wall
+const MARGIN_NORTH = 0;             // flush to the main aisle
+
+/* south wall rack dimensions, for drawing */
+const SOUTH_RACK_NS  = 55;
+const SOUTH_RACK_EW  = 202;
+const SOUTH_RACK_AISLE = 54;
+
+/* east rack */
+const EAST_RACK_EW    = 52;         // average of 51–53"
+const EAST_AISLE_EW   = 72;         // derived: 124 − 52
+
+/* west rack */
+const WEST_AISLE_EW   = 48;
+const WEST_RACK_EW    = 59;
+
+const HALL_BIG_MIN = 67;
+const HALL_MIN     = 54;
+
+const BIKE_GAP     = 10;
+const BIKES_LINE   = 5;
+const BIKES_PALLET = 30;
+
+const DEFAULT_PW = 62, DEFAULT_PD = 60;
+let PW = DEFAULT_PW, PD = DEFAULT_PD;
+
+/* rows start at 34 continuing from Bay 3 North (33) */
+const ROW_EAST = 34;
+
+const usableEW = ZONE_EW - MARGIN_EAST - MARGIN_WEST;   // 397"
+const usableNS = ZONE_NS - MARGIN_SOUTH - MARGIN_NORTH; // 421"
+
+const $   = id => document.getElementById(id);
+const n1  = x => Math.round(x * 100) / 100;
+const fmt = n => Math.round(n).toLocaleString('en-US');
+
+function slotName(i){
+    let s = '', n = i + 1;
+    while (n > 0){ const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); }
+    return s;
+}
+const perimeter = (rows, deep) => (rows <= 1 || deep <= 1) ? rows * deep : 2 * rows + 2 * deep - 4;
+
+let deep, nLines, gapW, front, offs, MODEL;
+
+/* depth of a row: pallets flush, all the leftover as bike lines at the front (north) */
+function fitDepth(){
+    deep = Math.floor(usableNS / PD + 1e-9);
+    if (deep < 2) return false;
+    const rest = Math.max(0, usableNS - deep * PD);
+    nLines = Math.floor(rest / BIKE_GAP);
+    gapW   = nLines > 0 ? rest / nLines : 0;
+    front  = nLines * gapW;                 // the whole leftover, on the main aisle
+    offs = [];                              // offset of each slot from the north edge (main aisle)
+    for (let i = 0; i < deep; i++) offs.push(front + i * PD);
+    return true;
+}
+
+/* blocks of 2 (paired), trying to fit as many as possible.
+   Same logic as Bay 3 North but starting with pairs since the zone is narrower. */
+function autoBlocks(available){
+    const base = bs => HALL_BIG_MIN + (bs.length - 2) * HALL_MIN;
+    const fits = bs => bs.reduce((a, b) => a + b, 0) * PW + base(bs) <= available;
+    /* start with the largest pair blocks that fit, then keep adding pairs of 2 */
+    let big = 4, blocks = null;
+    while (big >= 1){ if (fits([big, big])){ blocks = [big, big]; break; } big--; }
+    if (!blocks) return null;
+    while (fits([2, ...blocks])) blocks = [2, ...blocks];
+    if (fits([1, ...blocks])) blocks = [1, ...blocks];
+    return blocks;
+}
+
+function build(){
+    const blocks = autoBlocks(usableEW);
+    if (!blocks) return null;
+
+    const nRows  = blocks.reduce((a, b) => a + b, 0);
+    const nHalls = blocks.length - 1;
+    const extra  = nHalls > 0
+        ? (usableEW - nRows * PW - HALL_BIG_MIN - (blocks.length - 2) * HALL_MIN) / nHalls
+        : 0;
+    const hallBig = HALL_BIG_MIN + extra, hall = HALL_MIN + extra;
+
+    /* rows laid out west-to-east inside the usable strip, but numbered EAST-first
+       (34 at the east, increasing west). So the westernmost physical row gets the
+       highest number. We assign numbers in reverse as we iterate west→east. */
+    const strip = [];
+    let cx = 0;                              // relative to usable start (MARGIN_EAST)
+    let num = ROW_EAST + nRows - 1;          // start at the highest (westernmost)
+    blocks.forEach((count, bi) => {
+        const rows = [];
+        for (let i = 0; i < count; i++){
+            rows.push({ num: num--, x: cx, idx: i, of: count });
+            cx += PW;
+        }
+        strip.push({ type:'block', rows, x0:rows[0].x, x1:cx, size:count });
+        if (bi < blocks.length - 1){
+            const big = bi === blocks.length - 2;
+            strip.push({ type:'hall', x:cx, w: big ? hallBig : hall, big });
+            cx += big ? hallBig : hall;
+        }
+    });
+
+    const gross      = nRows * deep;
+    const pallets    = gross;                // no posts measured yet in SE
+    const accessible = blocks.reduce((a, c) => a + perimeter(c, deep), 0);
+    const numWest    = ROW_EAST + nRows - 1;
+
+    return { blocks, nRows, nHalls, extra, hallBig, hall, strip,
+             gross, pallets, accessible, palletBikes: pallets * BIKES_PALLET,
+             lines: nLines * nRows, bikes: nLines * nRows * BIKES_LINE,
+             numWest };
+}
+
+function recompute(){
+    if (!fitDepth()){ MODEL = null; return; }
+    MODEL = build();
+}
+
+/* ---------- drawing ---------- */
+const V='#a78bfa', F='#f59e0b', BIKE='#39ff14', G='#34d399';
+const MUTE='#64748b', FAR='#475569', DIM='#94a3b8', LINE='#1e293b', LIT='#334155';
+const DEAD = '#ef4444';
+const M = 96;                        // drawing margin around the SVG
+const svg = $('map');
+svg.setAttribute('viewBox', `0 0 ${ZONE_EW + M * 2} ${ZONE_NS + M * 2}`);
+
+/* In the drawing, NORTH is at the TOP (main aisle) and SOUTH is at the BOTTOM (back wall).
+   Y=M is the top (north, main aisle side).
+   Y=M+ZONE_NS is the bottom (south wall). */
+const NORTH_Y = M + MARGIN_NORTH;                     // where usable floor starts (top)
+const SOUTH_Y = M + ZONE_NS - MARGIN_SOUTH;           // where usable floor ends (bottom)
+const USABLE_X0 = M + MARGIN_EAST;                     // left edge of usable floor in SVG
+const USABLE_X1 = M + ZONE_EW - MARGIN_WEST;           // right edge of usable floor in SVG
+
+function clearStrip(x, y, w, hh, label, vertical){
+    const mx = x + w / 2, my = y + hh / 2;
+    return `<rect x="${x}" y="${y}" width="${w}" height="${hh}" fill="#111c2f" fill-opacity=".7"/>
+            <text x="${mx}" y="${my + 6}" font-size="18" fill="${MUTE}" text-anchor="middle"
+                  font-family="ui-monospace,monospace"
+                  ${vertical ? `transform="rotate(-90 ${mx} ${my})"` : ''}>${label}</text>`;
+}
+
+function drawDeadRack(x, y, w, h, label){
+    return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${DEAD}" fill-opacity=".08"
+                  stroke="${DEAD}" stroke-width="2" stroke-opacity=".5"/>
+            <text x="${x + w / 2}" y="${y + h / 2 + 5}" font-size="13" fill="${DEAD}"
+                  text-anchor="middle" font-weight="700" opacity=".7"
+                  font-family="ui-monospace,monospace">${label}</text>`;
+}
+
+function render(){
+    $('alert').hidden = MODEL !== null;
+    if (!MODEL){
+        $('alert').textContent =
+            `A ${PW}" × ${PD}" pallet does not fit: the zone is ${usableNS}" deep and ` +
+            `${usableEW}" wide, and needs at least two pallets of depth plus two rows ` +
+            `with their ${HALL_BIG_MIN}" aisle. Try a smaller pallet.`;
+        svg.innerHTML = '';
+        ['tRows','tDeep','tPallets','tBikesTotal','tFast','tLines','tBikes','tBlocks','tHallBig','tHall']
+            .forEach(id => $(id).innerHTML = '—');
+        $('note').textContent = '—';
+        return;
+    }
+
+    const m = MODEL;
+    /* outer envelope of the full zone */
+    let h = `<rect x="${M}" y="${M}" width="${ZONE_EW}" height="${ZONE_NS}" fill="#0d1524" stroke="${LIT}" stroke-width="3"/>`;
+
+    /* ---- dead zones: racks and their aisles ---- */
+    /* east: rack then aisle */
+    h += drawDeadRack(M, M, EAST_RACK_EW, ZONE_NS, `RACK ${EAST_RACK_EW}"`);
+    h += `<rect x="${M + EAST_RACK_EW}" y="${M}" width="${EAST_AISLE_EW}" height="${ZONE_NS}"
+                fill="#0a1120" stroke="${LINE}" stroke-width="1"/>
+          <text x="${M + EAST_RACK_EW + EAST_AISLE_EW / 2}" y="${M + ZONE_NS / 2 + 6}"
+                font-size="14" fill="${MUTE}" text-anchor="middle"
+                font-family="ui-monospace,monospace"
+                transform="rotate(-90 ${M + EAST_RACK_EW + EAST_AISLE_EW / 2} ${M + ZONE_NS / 2})">AISLE ${EAST_AISLE_EW}"</text>`;
+
+    /* west: aisle then rack */
+    h += `<rect x="${M + ZONE_EW - MARGIN_WEST}" y="${M}" width="${WEST_AISLE_EW}" height="${ZONE_NS}"
+                fill="#0a1120" stroke="${LINE}" stroke-width="1"/>
+          <text x="${M + ZONE_EW - MARGIN_WEST + WEST_AISLE_EW / 2}" y="${M + ZONE_NS / 2 + 6}"
+                font-size="14" fill="${MUTE}" text-anchor="middle"
+                font-family="ui-monospace,monospace"
+                transform="rotate(-90 ${M + ZONE_EW - MARGIN_WEST + WEST_AISLE_EW / 2} ${M + ZONE_NS / 2})">AISLE ${WEST_AISLE_EW}"</text>`;
+    h += drawDeadRack(M + ZONE_EW - WEST_RACK_EW, M, WEST_RACK_EW, ZONE_NS, `RACK ${WEST_RACK_EW}"`);
+
+    /* south: rack (partial width) then aisle (full width) */
+    const southRackX = M + (ZONE_EW - SOUTH_RACK_EW) / 2; // centered for now
+    h += drawDeadRack(southRackX, M + ZONE_NS - SOUTH_RACK_NS, SOUTH_RACK_EW, SOUTH_RACK_NS,
+                      `RACK ${SOUTH_RACK_NS}" × ${SOUTH_RACK_EW}"`);
+    h += `<rect x="${M}" y="${M + ZONE_NS - MARGIN_SOUTH}" width="${ZONE_EW}" height="${SOUTH_RACK_AISLE}"
+                fill="#0a1120" stroke="${LINE}" stroke-width="1"/>
+          <text x="${M + ZONE_EW / 2}" y="${M + ZONE_NS - MARGIN_SOUTH + SOUTH_RACK_AISLE / 2 + 5}"
+                font-size="14" fill="${MUTE}" text-anchor="middle"
+                font-family="ui-monospace,monospace">AISLE ${SOUTH_RACK_AISLE}" (SOUTH WALL ACCESS)</text>`;
+
+    const fontCell = Math.max(9, Math.min(18, PW * 0.3));
+
+    /* ---- pallet grid: rows run N-S, arranged E-W across the usable strip ---- */
+    for (const seg of m.strip){
+        if (seg.type === 'hall'){
+            const sx = USABLE_X0 + seg.x;
+            h += `<rect x="${sx}" y="${NORTH_Y}" width="${seg.w}" height="${SOUTH_Y - NORTH_Y}"
+                        fill="#0a1120" stroke="${seg.big ? FAR : LINE}" stroke-width="${seg.big ? 2 : 1.2}"/>
+                  <line x1="${sx + seg.w / 2}" y1="${NORTH_Y + 10}"
+                        x2="${sx + seg.w / 2}" y2="${SOUTH_Y - 10}"
+                        stroke="${seg.big ? MUTE : LIT}" stroke-width="2" stroke-dasharray="14 12"/>
+                  <text x="${sx + seg.w / 2}" y="${NORTH_Y - 14}" font-size="16"
+                        fill="${seg.big ? DIM : MUTE}" text-anchor="middle"
+                        font-family="ui-monospace,monospace">${n1(seg.w)}"</text>`;
+            continue;
+        }
+
+        for (const row of seg.rows){
+            const edgeRow = row.idx === 0 || row.idx === row.of - 1;
+            const rx = USABLE_X0 + row.x;
+
+            for (let d = 0; d < deep; d++){
+                const label  = slotName(d);                       // A at the main aisle (north), going south
+                const isFast = edgeRow || d === 0 || d === deep - 1;
+                /* Y: slot 0 (A) is at the north (top), so py = NORTH_Y + offs[d] */
+                const py  = NORTH_Y + offs[d];
+                const col = isFast ? F : V;
+                h += `<g class="cell"><title>${row.num}-${label}${isFast ? ' · fast picking' : ' · buried'}</title>
+                      <rect x="${rx}" y="${py}" width="${PW}" height="${PD}" rx="3"
+                            fill="${col}" fill-opacity="${isFast ? .4 : .2}"
+                            stroke="${col}" stroke-opacity=".75" stroke-width="1.5"/>
+                      <text x="${rx + PW / 2}" y="${py + PD / 2 + fontCell * .35}" font-size="${fontCell}"
+                            fill="${col}" text-anchor="middle" font-weight="700" opacity=".9"
+                            font-family="ui-monospace,monospace">${label}</text></g>`;
+            }
+
+            /* the whole leftover of this row as one bike block, at the front on the main aisle (north) */
+            if (front > 0){
+                const by = NORTH_Y, rowBikes = nLines * BIKES_LINE;
+                const fontBike = Math.max(8, Math.min(fontCell, front * .5));
+                h += `<g class="cell"><title>Row ${row.num} bike block · ${n1(front)}" · ${rowBikes} bikes</title>
+                      <rect x="${rx}" y="${by}" width="${PW}" height="${front}" rx="3"
+                            fill="${BIKE}" fill-opacity=".28" stroke="${BIKE}"
+                            stroke-opacity=".9" stroke-width="1.5"/>
+                      <text x="${rx + PW / 2}" y="${by + front / 2 + fontBike * .35}" font-size="${fontBike}"
+                            fill="${BIKE}" text-anchor="middle" font-weight="700" opacity=".95"
+                            font-family="ui-monospace,monospace">${rowBikes}</text></g>`;
+            }
+            /* row numbers above (north/main aisle side) and below (south side) */
+            for (const yy of [NORTH_Y - 14, SOUTH_Y + 32])
+                h += `<text x="${rx + PW / 2}" y="${yy}" font-size="21" fill="${V}"
+                            text-anchor="middle" font-weight="800"
+                            font-family="ui-monospace,monospace">${row.num}</text>`;
+        }
+        /* block outline */
+        h += `<rect x="${USABLE_X0 + seg.x0 - 5}" y="${NORTH_Y - 5}" width="${seg.x1 - seg.x0 + 10}"
+                    height="${SOUTH_Y - NORTH_Y + 10}" fill="none" rx="4"
+                    stroke="${V}" stroke-width="${seg.size >= 4 ? 3 : 2}"
+                    stroke-opacity="${seg.size >= 4 ? .9 : .5}"/>`;
+    }
+
+    /* labels */
+    h += `<text x="${M + ZONE_EW / 2}" y="${M - 20}" font-size="19" fill="${MUTE}" text-anchor="middle"
+                font-family="ui-monospace,monospace" letter-spacing="3">MAIN AISLE · NORTH</text>
+          <text x="${M + ZONE_EW / 2}" y="${M + ZONE_NS + 40}" font-size="17" fill="${FAR}" text-anchor="middle"
+                font-family="ui-monospace,monospace">SOUTH WALL</text>
+          <text x="${M - 22}" y="${M + ZONE_NS / 2 + 6}" font-size="17" fill="${FAR}" text-anchor="end"
+                font-family="ui-monospace,monospace"
+                transform="rotate(-90 ${M - 22} ${M + ZONE_NS / 2})">OFFICES (WEST)</text>
+          <text x="${M + ZONE_EW + 22}" y="${M + ZONE_NS / 2 + 6}" font-size="17" fill="${FAR}" text-anchor="start"
+                font-family="ui-monospace,monospace"
+                transform="rotate(90 ${M + ZONE_EW + 22} ${M + ZONE_NS / 2})">EAST WALL</text>`;
+
+    svg.innerHTML = h;
+
+    const put = (id, v) => $(id).innerHTML = v;
+
+    const numWest = m.numWest;
+    $('tagline').textContent =
+        `ROWS ${ROW_EAST}→${numWest} EAST TO WEST · SLOTS A→${slotName(deep - 1)} FROM THE MAIN AISLE · `
+      + `${usableEW}" USABLE E-W · ${usableNS}" USABLE N-S`;
+
+    put('tRows',    m.nRows + ` <small>${ROW_EAST}→${numWest}</small>`);
+    put('tDeep',    deep + ` <small>A→${slotName(deep - 1)}</small>`);
+    put('tPallets', m.pallets);
+    put('tBikesTotal', fmt(m.palletBikes) + ` <small>${BIKES_PALLET} per pallet</small>`);
+    put('tFast',    m.accessible + ` <small>of ${m.pallets}</small>`);
+    put('tLines',   nLines ? m.nRows + ` <small>${n1(front)}" · ${nLines * BIKES_LINE} bikes each</small>`
+                           : '0 <small>nothing left over</small>');
+    put('tBikes',   fmt(m.bikes));
+    put('tBlocks',  m.blocks.length + ' <small>' + m.blocks.slice().reverse().join('·') + ' E→W</small>');
+    put('tHallBig', n1(m.hallBig) + '<small>"</small>');
+    put('tHall',    m.nHalls > 1 ? n1(m.hall) + '<small>"</small>' : '— <small>only one aisle</small>');
+
+    /* ---- note about the zone ---- */
+    $('note').innerHTML =
+        `<b>BAY 3 SOUTH/EAST</b> — ${ZONE_EW}" (${Math.floor(ZONE_EW / 12)}' ${ZONE_EW % 12}") east-west, `
+      + `${ZONE_NS}" (${Math.floor(ZONE_NS / 12)}' ${ZONE_NS % 12}") south wall to main aisle. `
+      + `After the existing racks and their aisles: <b>${usableEW}" × ${usableNS}"</b> of open floor. `
+      + `<br>Fits <b>${m.nRows} rows</b> of ${deep} pallets each, paired in ${m.blocks.length} blocks `
+      + `(${m.blocks.slice().reverse().join('·')} E→W). `
+      + `${front > 0 ? `Each row has ${n1(front)}" left over at the front (${nLines} bike lines, ${nLines * BIKES_LINE} bikes per row). ` : 'No leftover for bike blocks at this pallet size. '}`
+      + `<br><em>NO STRUCTURAL POSTS measured in this zone yet.</em> The SE post (38' 5" from P1) `
+      + `is noted but not drawn — its alignment has not been confirmed. `
+      + `Once it is, it will be added here like the four in Bay 3 North.`
+      + `<br><em>South wall rack:</em> ${SOUTH_RACK_NS}" deep × ${SOUTH_RACK_EW}" wide — does NOT run the full `
+      + `${ZONE_EW}" width, but the ${SOUTH_RACK_AISLE}" aisle in front of it does, since that is how `
+      + `the rest of the wall is reached.`;
+}
+
+/* ---------- editing ---------- */
+function apply(){
+    const w = parseFloat($('pw').value), d = parseFloat($('pd').value);
+    if (!(w > 0) || !(d > 0)) return;
+    PW = w; PD = d;
+    $('reset').hidden = (PW === DEFAULT_PW && PD === DEFAULT_PD);
+    recompute();
+    render();
+}
+$('pw').value = DEFAULT_PW;
+$('pd').value = DEFAULT_PD;
+$('pw').addEventListener('input', apply);
+$('pd').addEventListener('input', apply);
+$('reset').addEventListener('click', () => {
+    $('pw').value = DEFAULT_PW; $('pd').value = DEFAULT_PD; apply();
+});
+
+recompute();
+render();
+</script>
+</body>
+</html>
