@@ -25,25 +25,28 @@ export const ZONES = {
     bay3_north: {
         id: "bay3_north",
         name: "BAY 3 NORTH",
-        width: 706,
-        height: 887,
-        margins: { top: 75, right: 45, bottom: 0, left: 104 }, // west is 104 if kept, 0 if freed (handled by UI state)
+        width: 1366,
+        height: 745.5,
+        margins: { top: 145.5, right: 107, bottom: 0, left: 156 }, // west is 156 if kept, 0 if freed
         startRowNumber: 33,
         rowNumberingDir: -1, // decreases going west
+        mainAccess: "south",
         obstacles: [
-            { id: "west_aisle", x: 0, y: 0, w: 104, h: 887, type: "aisle", label: "WEST AISLE (104\")", toggleable: "west" },
-            { id: "east_rack", x: 661, y: 0, w: 45, h: 887, type: "rack", label: "EAST RACK (45\")" },
-            { id: "main_aisle", x: 0, y: 0, w: 706, h: 75, type: "aisle", label: "MAIN AISLE ENTRY (75\")" }
+            { id: "west_aisle", x: 0, y: 0, w: 156, h: 745.5, type: "aisle", label: "WEST AISLE (156\")", toggleable: "west" },
+            { id: "east_rack", x: 1259, y: 0, w: 107, h: 745.5, type: "rack", label: "EAST CLEARANCE (107\")" },
+            { id: "north_clearance", x: 0, y: 0, w: 1366, h: 145.5, type: "rack", label: "NORTH CLEARANCE (145.5\")" }
         ],
         posts: [
-            { id: 1, x: 247, y: 231.5, size: 8, note: "P1" },
-            { id: 2, x: 247, y: 692.5, size: 8, note: "P2" },
-            { id: 3, x: 708.5, y: 231.5, size: 8, note: "P3 (hits East Rack)" },
-            { id: 4, x: 708.5, y: 692.5, size: 8, note: "P4 (hits East Rack)" }
+            { id: 4, x: 18, y: 470, size: 8, note: "P4" },
+            { id: 3, x: 353, y: 470.5, size: 8, note: "P3" },
+            { id: 2, x: 687, y: 467, size: 8, note: "P2" },
+            { id: 1, x: 1025, y: 469.5, size: 8, note: "P1" }
         ],
         labels: [
-            { text: "MAIN AISLE · ENTRY", x: 353, y: -20, anchor: "middle", rotate: 0 },
-            { text: "N", x: -22, y: 26, anchor: "end", rotate: 0 }
+            { text: "MAIN AISLE · SOUTH", x: 683, y: 770, anchor: "middle", rotate: 0 },
+            { text: "NORTH WALL", x: 683, y: -20, anchor: "middle", rotate: 0 },
+            { text: "EAST WALL", x: 1400, y: 372, anchor: "middle", rotate: 90 },
+            { text: "WEST WALL", x: -22, y: 372, anchor: "middle", rotate: -90 }
         ]
     }
 };

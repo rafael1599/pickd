@@ -49,7 +49,17 @@ export class PalletEngine {
         const nLines = Math.floor(front / 10 + 1e-9); // 10" per bike line
         const gapW = nLines * 10;
         const offs = [];
-        for (let i = 0; i < deep; i++) offs.push(gapW + i * sD);
+        const isReverse = c.mainAccess === 'south' || c.mainAccess === 'east';
+        
+        for (let i = 0; i < deep; i++) {
+            if (isReverse) {
+                // Slot A (i=0) is at the far end, going backwards
+                offs.push(dSpan - gapW - (i + 1) * sD);
+            } else {
+                // Slot A (i=0) is at the near end, going forwards
+                offs.push(gapW + i * sD);
+            }
+        }
 
         const build = () => {
             const minW = rW * 2 + this.HALL_MIN;
@@ -252,13 +262,20 @@ export class PalletEngine {
 
         // Bike blocks
         if (m.front > 0) {
+            const isReverse = c.mainAccess === 'south' || c.mainAccess === 'east';
             for (const seg of m.strip) {
                 if (seg.type !== 'block') continue;
                 for (const row of seg.rows) {
-                    const bx = s.isEW ? USABLE_X0        : USABLE_X0 + row.x;
-                    const by = s.isEW ? NORTH_Y + row.x  : NORTH_Y;
-                    const bw = s.isEW ? m.front : m.rW;
-                    const bh = s.isEW ? m.rW    : m.front;
+                    let bx = s.isEW ? USABLE_X0 : USABLE_X0 + row.x;
+                    let by = s.isEW ? NORTH_Y + row.x : NORTH_Y;
+                    let bw = s.isEW ? m.front : m.rW;
+                    let bh = s.isEW ? m.rW : m.front;
+                    
+                    if (isReverse) {
+                        if (s.isEW) bx += usableEW - m.front;
+                        else by += (SOUTH_Y - NORTH_Y) - m.front;
+                    }
+                    
                     h += `<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="3" fill="#39ff14" fill-opacity=".28" stroke="#39ff14" stroke-opacity=".9" stroke-width="1.5" data-hover="Bike Block &middot; ${Math.round(bw)}&quot;&times;${Math.round(bh)}&quot; &middot; ${m.lines * this.BIKES_LINE} bikes"/>`;
                 }
             }
