@@ -31,6 +31,7 @@ export const ZONES = {
         startRowNumber: 33,
         rowNumberingDir: -1, // decreases going west
         mainAccess: "south",
+        allowedBlocks: [4, 2],
         obstacles: [
             { id: "west_aisle", x: 0, y: 0, w: 156, h: 745.5, type: "aisle", label: "WEST AISLE (156\")", toggleable: "west" },
             { id: "east_rack", x: 1259, y: 0, w: 107, h: 745.5, type: "rack", label: "EAST CLEARANCE (107\")" },

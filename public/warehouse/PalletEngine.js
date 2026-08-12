@@ -179,7 +179,8 @@ export class PalletEngine {
             
             const minBlockSpan = 2 * rW + this.HALL_MIN;
             if (extra >= minBlockSpan) {
-                for (const b of [2, 3]) {
+                const sizes = c.allowedBlocks || [2, 3];
+                for (const b of sizes) {
                     bList.push(b);
                     search(bList, used + b * rW);
                     bList.pop();
@@ -187,7 +188,8 @@ export class PalletEngine {
             }
         };
 
-        for (const b of [2, 3]) {
+        const initialSizes = c.allowedBlocks || [2, 3];
+        for (const b of initialSizes) {
             search([b], b * rW);
         }
         return best;
