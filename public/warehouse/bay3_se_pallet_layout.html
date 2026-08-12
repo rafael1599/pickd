@@ -129,8 +129,7 @@
     <div class="bike"><div class="k">FRONT BLOCKS</div><div class="v" id="tLines">—</div></div>
     <div class="bike"><div class="k">BLOCK BIKES</div><div class="v" id="tBikes">—</div></div>
     <div><div class="k">BLOCKS</div><div class="v" id="tBlocks">—</div></div>
-    <div><div class="k">CENTER AISLE</div><div class="v" id="tHallBig">—</div></div>
-    <div><div class="k">OTHER AISLES</div><div class="v" id="tHall">—</div></div>
+    <div><div class="k">AISLES</div><div class="v" id="tHall">—</div></div>
 </div>
 
 <div class="legend">
@@ -208,7 +207,6 @@ const EAST_AISLE_EW   = 72;
 const WEST_AISLE_EW   = 48;
 const WEST_RACK_EW    = 59;
 
-const HALL_BIG_MIN = 67;
 const HALL_MIN     = 54;
 
 const BIKE_GAP     = 10;
@@ -264,14 +262,30 @@ function fitDepth(){
 
 function autoBlocks(available){
     const rw = rW();
-    const base = bs => HALL_BIG_MIN + (bs.length - 2) * HALL_MIN;
+    const base = bs => (bs.length - 1) * HALL_MIN;
     const fits = bs => bs.reduce((a, b) => a + b, 0) * rw + base(bs) <= available;
-    let big = 4, blocks = null;
-    while (big >= 1){ if (fits([big, big])){ blocks = [big, big]; break; } big--; }
-    if (!blocks) return null;
-    while (fits([2, ...blocks])) blocks = [2, ...blocks];
-    if (fits([1, ...blocks])) blocks = [1, ...blocks];
-    return blocks;
+    
+    let bestBlocks = null;
+    let maxRows = 0;
+    
+    function search(currentBlocks) {
+        if (!fits(currentBlocks)) return;
+        const rows = currentBlocks.reduce((a, b) => a + b, 0);
+        if (rows > maxRows) {
+            maxRows = rows;
+            bestBlocks = [...currentBlocks];
+        } else if (rows === maxRows && maxRows > 0) {
+            if (currentBlocks.length < bestBlocks.length) {
+                bestBlocks = [...currentBlocks];
+            }
+        }
+        search([...currentBlocks, 3]);
+        search([...currentBlocks, 2]);
+    }
+    
+    search([3]);
+    search([2]);
+    return bestBlocks;
 }
 
 function build(){
@@ -282,9 +296,9 @@ function build(){
     const nRows  = blocks.reduce((a, b) => a + b, 0);
     const nHalls = blocks.length - 1;
     const extra  = nHalls > 0
-        ? (span - nRows * rw - HALL_BIG_MIN - (blocks.length - 2) * HALL_MIN) / nHalls
+        ? (span - nRows * rw - (blocks.length - 1) * HALL_MIN) / nHalls
         : 0;
-    const hallBig = HALL_BIG_MIN + extra, hall = HALL_MIN + extra;
+    const hall = HALL_MIN + extra;
 
     /* N-S: iterate west→east (cx goes left→right), numbers descend so 34 lands east.
        E-W: iterate north→south (cx goes top→bottom), numbers ascend so 34 lands north. */
@@ -302,9 +316,8 @@ function build(){
         }
         strip.push({ type:'block', rows, x0:rows[0].x, x1:cx, size:count });
         if (bi < blocks.length - 1){
-            const big = bi === blocks.length - 2;
-            strip.push({ type:'hall', x:cx, w: big ? hallBig : hall, big });
-            cx += big ? hallBig : hall;
+            strip.push({ type:'hall', x:cx, w: hall });
+            cx += hall;
         }
     });
 
@@ -313,7 +326,7 @@ function build(){
     const accessible = blocks.reduce((a, c) => a + perimeter(c, deep), 0);
     const numEnd     = ROW_EAST + nRows - 1;
 
-    return { blocks, nRows, nHalls, extra, hallBig, hall, strip, rw, sd,
+    return { blocks, nRows, nHalls, extra, hall, strip, rw, sd,
              gross, pallets, accessible, palletBikes: pallets * BIKES_PALLET,
              lines: nLines * nRows, bikes: nLines * nRows * BIKES_LINE,
              numEnd };
@@ -359,9 +372,9 @@ function render(){
         $('alert').textContent =
             `A ${PW}" × ${PD}" pallet does not fit: the zone is ${dSpan()}" deep and ` +
             `${rSpan()}" wide for row arrangement, and needs at least two pallets of ` +
-            `depth plus two rows with their ${HALL_BIG_MIN}" aisle. Try a smaller pallet.`;
+            `depth plus two rows with their ${HALL_MIN}" aisle. Try a smaller pallet.`;
         svg.innerHTML = '';
-        ['tRows','tDeep','tPallets','tBikesTotal','tFast','tLines','tBikes','tBlocks','tHallBig','tHall']
+        ['tRows','tDeep','tPallets','tBikesTotal','tFast','tLines','tBikes','tBlocks','tHall']
             .forEach(id => $(id).innerHTML = '—');
         $('note').textContent = '—';
         return;
@@ -412,23 +425,23 @@ function render(){
                 /* horizontal aisle band */
                 const ay = NORTH_Y + seg.x;
                 h += `<rect x="${USABLE_X0}" y="${ay}" width="${usableEW}" height="${seg.w}"
-                            fill="#0a1120" stroke="${seg.big ? FAR : LINE}" stroke-width="${seg.big ? 2 : 1.2}"/>
+                            fill="#0a1120" stroke="${LINE}" stroke-width="1.2"/>
                       <line x1="${USABLE_X0 + 10}" y1="${ay + seg.w / 2}"
                             x2="${USABLE_X1 - 10}" y2="${ay + seg.w / 2}"
-                            stroke="${seg.big ? MUTE : LIT}" stroke-width="2" stroke-dasharray="14 12"/>
+                            stroke="${LIT}" stroke-width="2" stroke-dasharray="14 12"/>
                       <text x="${USABLE_X0 - 16}" y="${ay + seg.w / 2 + 6}" font-size="16"
-                            fill="${seg.big ? DIM : MUTE}" text-anchor="end"
+                            fill="${MUTE}" text-anchor="end"
                             font-family="ui-monospace,monospace">${n1(seg.w)}"</text>`;
             } else {
                 /* vertical aisle strip */
                 const sx = USABLE_X0 + seg.x;
                 h += `<rect x="${sx}" y="${NORTH_Y}" width="${seg.w}" height="${SOUTH_Y - NORTH_Y}"
-                            fill="#0a1120" stroke="${seg.big ? FAR : LINE}" stroke-width="${seg.big ? 2 : 1.2}"/>
+                            fill="#0a1120" stroke="${LINE}" stroke-width="1.2"/>
                       <line x1="${sx + seg.w / 2}" y1="${NORTH_Y + 10}"
                             x2="${sx + seg.w / 2}" y2="${SOUTH_Y - 10}"
-                            stroke="${seg.big ? MUTE : LIT}" stroke-width="2" stroke-dasharray="14 12"/>
+                            stroke="${LIT}" stroke-width="2" stroke-dasharray="14 12"/>
                       <text x="${sx + seg.w / 2}" y="${NORTH_Y - 14}" font-size="16"
-                            fill="${seg.big ? DIM : MUTE}" text-anchor="middle"
+                            fill="${MUTE}" text-anchor="middle"
                             font-family="ui-monospace,monospace">${n1(seg.w)}"</text>`;
             }
             continue;
@@ -547,8 +560,7 @@ function render(){
                            : '0 <small>nothing left over</small>');
     put('tBikes',   fmt(m.bikes));
     put('tBlocks',  m.blocks.length + ' <small>' + m.blocks.slice().reverse().join('·') + ` ${rowDirS}</small>`);
-    put('tHallBig', n1(m.hallBig) + '<small>"</small>');
-    put('tHall',    m.nHalls > 1 ? n1(m.hall) + '<small>"</small>' : '— <small>only one aisle</small>');
+    put('tHall',    m.nHalls > 0 ? n1(m.hall) + '<small>" uniform</small>' : '— <small>no aisles</small>');
 
     /* ---- note ---- */
     const modeLabel = isEW ? 'E–W' : 'N–S';

@@ -138,8 +138,7 @@
     <div class="bike"><div class="k">BLOCK BIKES</div><div class="v" id="tBikes">—</div></div>
     <div class="post"><div class="k">POSTS</div><div class="v" id="tPosts">—</div></div>
     <div><div class="k">BLOCKS</div><div class="v" id="tBlocks">—</div></div>
-    <div><div class="k">CENTER AISLE</div><div class="v" id="tHallBig">—</div></div>
-    <div><div class="k">OTHER AISLES</div><div class="v" id="tHall">—</div></div>
+    <div><div class="k">AISLES</div><div class="v" id="tHall">—</div></div>
 </div>
 
 <div class="legend">
@@ -180,7 +179,6 @@ const MARGIN_NORTH = 145.5;     // 146" of clearance minus the half inch the ten
                                 // pallet was short of — taken here, not off the aisle
 const MARGIN_SOUTH = 0;         // blocks run flush to the main aisle
 
-const HALL_BIG_MIN = 67;
 const HALL_MIN     = 54;
 
 const BIKE_GAP     = 10;
@@ -247,34 +245,45 @@ const SCEN = {
 
 let deep, nLines, gapW, front, offs, MODELS;
 
-/* depth of a row: pallets flush, all the leftover as bike lines at the front */
 function fitDepth(){
     deep = Math.floor(usableNS / PD + 1e-9);
     if (deep < 2) return false;
     const rest = Math.max(0, usableNS - deep * PD);
     nLines = Math.floor(rest / BIKE_GAP);
     gapW   = nLines > 0 ? rest / nLines : 0;
-    front  = nLines * gapW;                 // the whole leftover, on the main aisle
-    offs = [];                              // offset of each slot from the south wall
+    front  = nLines * gapW;
+    offs = [];
     for (let i = 0; i < deep; i++) offs.push(front + i * PD);
     return true;
 }
 
-/* two big blocks at the east, then blocks of two westward while they fit */
-function autoBlocks(usableEO){
-    const base = bs => HALL_BIG_MIN + (bs.length - 2) * HALL_MIN;
-    const fits = bs => bs.reduce((a, b) => a + b, 0) * PW + base(bs) <= usableEO;
-    let big = 4, blocks = null;
-    while (big >= 1){ if (fits([big, big])){ blocks = [big, big]; break; } big--; }
-    if (!blocks) return null;
-    while (fits([2, ...blocks])) blocks = [2, ...blocks];
-    if (fits([1, ...blocks])) blocks = [1, ...blocks];
-    return blocks;
+function autoBlocks(available){
+    const base = bs => (bs.length - 1) * HALL_MIN;
+    const fits = bs => bs.reduce((a, b) => a + b, 0) * PW + base(bs) <= available;
+    
+    let bestBlocks = null;
+    let maxRows = 0;
+    
+    function search(currentBlocks) {
+        if (!fits(currentBlocks)) return;
+        const rows = currentBlocks.reduce((a, b) => a + b, 0);
+        if (rows > maxRows) {
+            maxRows = rows;
+            bestBlocks = [...currentBlocks];
+        } else if (rows === maxRows && maxRows > 0) {
+            if (currentBlocks.length < bestBlocks.length) {
+                bestBlocks = [...currentBlocks];
+            }
+        }
+        search([...currentBlocks, 3]);
+        search([...currentBlocks, 2]);
+    }
+    
+    search([3]);
+    search([2]);
+    return bestBlocks;
 }
 
-/* Where does a post land? The post is a square, not a point, so this asks
-   what it OVERLAPS — it can straddle a slot boundary, or sit half in an
-   aisle and half in a row. Everything it touches is reported. */
 function locatePost(p, strip, west){
     const x0 = p.x - POST / 2, x1 = p.x + POST / 2;
     const o0 = p.fromAisle - POST / 2, o1 = p.fromAisle + POST / 2;
@@ -305,29 +314,26 @@ function locatePost(p, strip, west){
 }
 
 function build(sc){
-    const usableEO = EO - sc.west - MARGIN_EAST;
-    const blocks = autoBlocks(usableEO);
+    const usableEW = EO - sc.west - MARGIN_EAST;
+    const blocks = autoBlocks(usableEW);
     if (!blocks) return null;
 
     const nRows  = blocks.reduce((a, b) => a + b, 0);
     const nHalls = blocks.length - 1;
-    const extra  = (usableEO - nRows * PW - HALL_BIG_MIN - (blocks.length - 2) * HALL_MIN) / nHalls;
-    const hallBig = HALL_BIG_MIN + extra, hall = HALL_MIN + extra;
+    const extra  = nHalls > 0 ? (usableEW - nRows * PW - (blocks.length - 1) * HALL_MIN) / nHalls : 0;
+    const hall = HALL_MIN + extra;
 
-    const strip = []; let cx = sc.west, num = ROW_EAST - nRows + 1;
+    const strip = []; let cx = 0, num = ROW_EAST + nRows - 1;
     blocks.forEach((count, bi) => {
         const rows = [];
-        for (let i = 0; i < count; i++){ rows.push({ num: num++, x: cx, idx: i, of: count }); cx += PW; }
+        for (let i = 0; i < count; i++){ rows.push({ num: num--, x: cx, idx: i, of: count }); cx += PW; }
         strip.push({ type:'block', rows, x0:rows[0].x, x1:cx, size:count });
         if (bi < blocks.length - 1){
-            const big = bi === blocks.length - 2;
-            strip.push({ type:'hall', x:cx, w: big ? hallBig : hall, big });
-            cx += big ? hallBig : hall;
+            strip.push({ type:'hall', x:cx, w: hall });
+            cx += hall;
         }
     });
 
-    /* the posts are real and the pallets are not: a slot with a column in
-       it is not a slot. Take them off the total instead of drawing around them */
     const hits  = POSTS.map(p => locatePost(p, strip, sc.west));
     const lost  = [];
     for (const h of hits)
@@ -339,13 +345,9 @@ function build(sc){
     const pallets    = gross - lost.length;
     const accessible = blocks.reduce((a, c) => a + perimeter(c, deep), 0) - lostFast;
 
-    /* where the model puts the east edge of the centre aisle, for the tape check */
-    const bigAisle = strip.find(s => s.type === 'hall' && s.big);
-
-    return { sc, blocks, usableEO, nRows, nHalls, extra, hallBig, hall, strip,
+    return { sc, blocks, nRows, nHalls, extra, hall, strip,
              gross, pallets, accessible, palletBikes: pallets * BIKES_PALLET,
-             hits, lost, bigAisleEast: bigAisle ? bigAisle.x + bigAisle.w : null,
-             lines: nLines * nRows, bikes: nLines * nRows * BIKES_LINE,
+             hits, lost, lines: nLines * nRows, bikes: nLines * nRows * BIKES_LINE,
              numWest: ROW_EAST - nRows + 1 };
 }
 
@@ -355,14 +357,14 @@ function recompute(){
     MODELS = (c && f) ? { current:c, freed:f } : null;
 }
 
-/* ---------- drawing ---------- */
 const V='#a78bfa', F='#f59e0b', BIKE='#39ff14', G='#34d399', POSTC='#ef4444';
 const MUTE='#64748b', FAR='#475569', DIM='#94a3b8', LINE='#1e293b', LIT='#334155';
 const M = 96;
 const svg = $('map');
 svg.setAttribute('viewBox', `0 0 ${EO + M * 2} ${NS + M * 2}`);
 const NORTH_Y = M + MARGIN_NORTH;
-const SOUTH_Y = M + NS - MARGIN_SOUTH;   // front of the rows, on the main aisle
+const SOUTH_Y = M + NS - MARGIN_SOUTH;
+const USABLE_X0 = M;
 
 function clearStrip(x, y, w, hh, label, vertical){
     const mx = x + w / 2, my = y + hh / 2;
@@ -379,11 +381,9 @@ function render(key){
     $('alert').hidden = MODELS !== null;
     if (!MODELS){
         $('alert').textContent =
-            `A ${PW}" × ${PD}" pallet does not fit: the zone is ${usableNS}" deep and ` +
-            `${EO - MARGIN_EAST}" wide, and needs at least two pallets of depth plus two rows ` +
-            `with their ${HALL_BIG_MIN}" aisle. Try a smaller pallet.`;
+            `A ${PW}" × ${PD}" pallet does not fit.`;
         svg.innerHTML = '';
-        ['tRows','tDeep','tPallets','tBikesTotal','tFast','tLines','tBikes','tPosts','tBlocks','tHallBig','tHall']
+        ['tRows','tDeep','tPallets','tBikesTotal','tFast','tLines','tBikes','tPosts','tBlocks','tHall']
             .forEach(id => $(id).innerHTML = '—');
         $('note').textContent = '—';
         return;
@@ -409,13 +409,14 @@ function render(key){
 
     for (const seg of m.strip){
         if (seg.type === 'hall'){
-            h += `<rect x="${M + seg.x}" y="${NORTH_Y}" width="${seg.w}" height="${SOUTH_Y - NORTH_Y}"
-                        fill="#0a1120" stroke="${seg.big ? FAR : LINE}" stroke-width="${seg.big ? 2 : 1.2}"/>
-                  <line x1="${M + seg.x + seg.w / 2}" y1="${NORTH_Y + 10}"
-                        x2="${M + seg.x + seg.w / 2}" y2="${SOUTH_Y - 10}"
-                        stroke="${seg.big ? MUTE : LIT}" stroke-width="2" stroke-dasharray="14 12"/>
-                  <text x="${M + seg.x + seg.w / 2}" y="${NORTH_Y - 14}" font-size="16"
-                        fill="${seg.big ? DIM : MUTE}" text-anchor="middle"
+            const sx = USABLE_X0 + sc.west + seg.x;
+            h += `<rect x="${sx}" y="${NORTH_Y}" width="${seg.w}" height="${SOUTH_Y - NORTH_Y}"
+                        fill="#0a1120" stroke="${LINE}" stroke-width="1.2"/>
+                  <line x1="${sx + seg.w / 2}" y1="${NORTH_Y + 10}"
+                        x2="${sx + seg.w / 2}" y2="${SOUTH_Y - 10}"
+                        stroke="${LIT}" stroke-width="2" stroke-dasharray="14 12"/>
+                  <text x="${sx + seg.w / 2}" y="${NORTH_Y - 14}" font-size="16"
+                        fill="${MUTE}" text-anchor="middle"
                         font-family="ui-monospace,monospace">${n1(seg.w)}"</text>`;
             continue;
         }
@@ -517,8 +518,7 @@ function render(key){
                            : '0 <small>nothing left over</small>');
     put('tBikes',   fmt(m.bikes));
     put('tBlocks',  m.blocks.length + ' <small>' + m.blocks.slice().reverse().join('·') + ' E→W</small>');
-    put('tHallBig', n1(m.hallBig) + '<small>"</small>');
-    put('tHall',    n1(m.hall) + '<small>"</small>');
+    put('tHall',    m.nHalls > 0 ? n1(m.hall) + '<small>" uniform</small>' : '— <small>no aisles</small>');
 
     /* ---- what the posts cost, and what is assumed about them ---- */
     const p1 = POSTS.find(p => p.id === 1);
