@@ -88,6 +88,13 @@
     
     .map-area { flex:1; position:relative; padding:20px; overflow:hidden; display:flex; align-items:center; justify-content:center; }
     svg { width:100%; max-height:calc(100vh - 200px); object-fit:contain; }
+    svg rect[data-hover] { cursor:crosshair; transition:all 0.1s ease; }
+    svg rect[data-hover]:hover {
+        fill: rgba(0, 238, 255, 0.4) !important;
+        stroke: #00eeff !important;
+        stroke-width: 2.5 !important;
+        stroke-dasharray: none !important;
+    }
 
     #tooltip {
         position:absolute; background:var(--ink); color:var(--ground);

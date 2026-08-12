@@ -216,11 +216,11 @@ export class PalletEngine {
             if (seg.type === 'hall') {
                 if (s.isEW) {
                     const ay = NORTH_Y + seg.x;
-                    h += `<rect x="${USABLE_X0}" y="${ay}" width="${usableEW}" height="${seg.w}" fill="#0a1120" stroke="#1e293b" stroke-width="1.2" data-hover="AISLE (${(Math.round(seg.w*100)/100)}&quot;)"/>`;
+                    h += `<rect x="${USABLE_X0}" y="${ay}" width="${usableEW}" height="${seg.w}" fill="#0a1120" stroke="#1e293b" stroke-width="1.2" data-hover="AISLE &middot; ${Math.round(usableEW)}&quot; &times; ${Math.round(seg.w)}&quot;"/>`;
                     h += `<line x1="${USABLE_X0 + 10}" y1="${ay + seg.w / 2}" x2="${USABLE_X0 + usableEW - 10}" y2="${ay + seg.w / 2}" stroke="#334155" stroke-width="2" stroke-dasharray="14 12" pointer-events="none"/>`;
                 } else {
                     const sx = USABLE_X0 + seg.x;
-                    h += `<rect x="${sx}" y="${NORTH_Y}" width="${seg.w}" height="${SOUTH_Y - NORTH_Y}" fill="#0a1120" stroke="#1e293b" stroke-width="1.2" data-hover="AISLE (${(Math.round(seg.w*100)/100)}&quot;)"/>`;
+                    h += `<rect x="${sx}" y="${NORTH_Y}" width="${seg.w}" height="${SOUTH_Y - NORTH_Y}" fill="#0a1120" stroke="#1e293b" stroke-width="1.2" data-hover="AISLE &middot; ${Math.round(seg.w)}&quot; &times; ${Math.round(SOUTH_Y - NORTH_Y)}&quot;"/>`;
                     h += `<line x1="${sx + seg.w / 2}" y1="${NORTH_Y + 10}" x2="${sx + seg.w / 2}" y2="${SOUTH_Y - 10}" stroke="#334155" stroke-width="2" stroke-dasharray="14 12" pointer-events="none"/>`;
                 }
             } else if (seg.type === 'block') {
@@ -247,7 +247,7 @@ export class PalletEngine {
         // Pallets
         m.validCells.forEach(cl => {
             const col = cl.isFast ? '#f59e0b' : '#a78bfa';
-            h += `<rect x="${M + cl.cx}" y="${M + cl.cy}" width="${cl.cw}" height="${cl.ch}" rx="3" fill="${col}" fill-opacity="${cl.isFast ? .4 : .2}" stroke="${col}" stroke-opacity=".75" stroke-width="1.5" data-hover="Row ${cl.row.num} &middot; Slot ${cl.letter}${cl.isFast ? ' (Fast Picking)' : ' (Buried)'}"/>`;
+            h += `<rect x="${M + cl.cx}" y="${M + cl.cy}" width="${cl.cw}" height="${cl.ch}" rx="3" fill="${col}" fill-opacity="${cl.isFast ? .4 : .2}" stroke="${col}" stroke-opacity=".75" stroke-width="1.5" data-hover="Row ${cl.row.num} &middot; Slot ${cl.letter} &middot; ${cl.cw}&quot;&times;${cl.ch}&quot;${cl.isFast ? ' &middot; Fast Picking' : ' &middot; Buried'}"/>`;
         });
 
         // Bike blocks
@@ -259,7 +259,7 @@ export class PalletEngine {
                     const by = s.isEW ? NORTH_Y + row.x  : NORTH_Y;
                     const bw = s.isEW ? m.front : m.rW;
                     const bh = s.isEW ? m.rW    : m.front;
-                    h += `<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="3" fill="#39ff14" fill-opacity=".28" stroke="#39ff14" stroke-opacity=".9" stroke-width="1.5" data-hover="Bike Block (${m.lines * this.BIKES_LINE} bikes)"/>`;
+                    h += `<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="3" fill="#39ff14" fill-opacity=".28" stroke="#39ff14" stroke-opacity=".9" stroke-width="1.5" data-hover="Bike Block &middot; ${Math.round(bw)}&quot;&times;${Math.round(bh)}&quot; &middot; ${m.lines * this.BIKES_LINE} bikes"/>`;
                 }
             }
         }
