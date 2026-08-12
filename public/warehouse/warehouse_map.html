@@ -45,8 +45,11 @@
     .brackets{ opacity:0; transition:opacity .22s ease; }
     .bay.on .brackets{ opacity:1; }
 
-    .free{ transition:opacity .28s ease; }
+    .free{ transition:opacity .28s ease, fill-opacity .18s ease, stroke-opacity .18s ease; }
     .bay.on .free{ opacity:1; }
+    /* A zone hovered on its own reads brighter than the bay around it. */
+    .free.on{ fill-opacity:.45; stroke-opacity:1; stroke-width:3; }
+    .zone-hit{ cursor:pointer; }
 
     .lbl{ font-family:ui-monospace,monospace; font-weight:800; text-anchor:middle; pointer-events:none; }
     .lbl-sub{ font-family:ui-monospace,monospace; font-weight:600; text-anchor:middle; pointer-events:none; }
@@ -263,14 +266,14 @@ for (const b of BAYS) {
           </g>`;
 
     // free zones
-    for (const [name, x, y, zw, zh] of b.free) {
-        h += `<rect class="free" x="${x}" y="${y}" width="${zw}" height="${zh}" rx="3"
+    b.free.forEach(([name, x, y, zw, zh], zi) => {
+        h += `<rect class="free" id="z-${b.id}-${zi}" x="${x}" y="${y}" width="${zw}" height="${zh}" rx="3"
                     fill="${b.color}" fill-opacity=".2" stroke="${b.color}" stroke-opacity=".55" stroke-width="1.5"/>`;
         if (zw > 170 && zh > 70) {
             h += `<text class="lbl" x="${x + zw / 2}" y="${y + zh / 2 - 4}" font-size="17" fill="${b.color}">${esc(name)}</text>`;
             h += `<text class="lbl-sub" x="${x + zw / 2}" y="${y + zh / 2 + 17}" font-size="14" fill="${b.color}" opacity=".75">${fmt(sqft(zw, zh))} sq ft</text>`;
         }
-    }
+    });
 
     // occupied blocks
     for (const [name, x, y, zw, zh] of (b.used || [])) {
@@ -304,6 +307,13 @@ for (const b of BAYS) {
 
     // mouse capture area, above everything else in this bay
     h += `<rect x="${b.x0}" y="${b.north}" width="${w}" height="${hh}" fill="transparent"/>`;
+
+    // ...and one per free zone ON TOP of that, so a zone can be picked out of the
+    // bay instead of the whole bay swallowing every click.
+    b.free.forEach(([name, x, y, zw, zh], zi) => {
+        h += `<rect class="zone-hit" data-bay="${b.id}" data-zi="${zi}"
+                    x="${x}" y="${y}" width="${zw}" height="${zh}" fill="transparent"/>`;
+    });
     h += `</g>`;
 }
 
@@ -356,21 +366,95 @@ function clear() {
     hud.classList.remove('show');
 }
 
+// Zones that already have a modelled pallet layout. Keyed by bay and zone name,
+// because a bay can hold several zones and only some of them are modelled.
+const ZONE_LAYOUTS = {
+    'bay2/NORTH ZONE': 'bay2_pallet_layout.html',
+    'bay3/NORTH ZONE': 'bay3_pallet_layout.html'
+};
+// Clicking anywhere else in a bay falls back to its main layout, if it has one.
+const BAY_LAYOUTS = { bay2: 'bay2_pallet_layout.html', bay3: 'bay3_pallet_layout.html' };
+
+const toFtIn = px => {
+    const halves = Math.round((px / PX_PER_FT) * 24);
+    const f = Math.floor(halves / 24), i = (halves % 24) / 2;
+    return i === 0 ? `${f}'` : `${f}' ${i}"`;
+};
+
+// The zone under the cursor, if any. Kept as state because the bay's own
+// mouseenter fires AFTER the zone's mouseover (spec order: mouseover on the
+// target, then mouseenter on its ancestors) and would otherwise repaint the
+// HUD with the bay's numbers on top of the zone's.
+let lit = null;
+function litOff() {
+    if (lit) { lit.el.classList.remove('on'); lit = null; }
+}
+
+/* One zone of a bay, rather than the bay as a whole. */
+function paintZone(b, zi) {
+    const [name, x, y, zw, zh] = b.free[zi];
+    const area = sqft(zw, zh), share = area / b.totalArea * 100;
+    const layout = ZONE_LAYOUTS[`${b.id}/${name}`];
+
+    document.getElementById('hAccent').style.background = b.color;
+    document.getElementById('hName').textContent = name;
+    document.getElementById('hName').style.color  = b.color;
+    document.getElementById('hSub').textContent   = `${b.name} · ${toFtIn(zw)} × ${toFtIn(zh)}`;
+    document.getElementById('hFree').innerHTML    = fmt(area) + ' <small>sq ft</small>';
+    document.getElementById('hFree').style.color  = b.color;
+    document.getElementById('hTotal').innerHTML   = fmt(b.totalArea) + ' <small>sq ft</small>';
+    document.getElementById('hPct').innerHTML     = Math.round(share) + '<small>% of bay</small>';
+    document.getElementById('hPct').style.color   = b.color;
+    const bar = document.getElementById('hBar');
+    bar.style.width = share + '%';
+    bar.style.background = b.color;
+    document.getElementById('hPin').textContent =
+        layout ? 'CLICK TO OPEN LAYOUT' : 'NO LAYOUT MODELLED YET';
+    hud.classList.add('show');
+}
+
 for (const b of BAYS) {
     const el = document.getElementById(b.id);
-    el.addEventListener('mouseenter', () => { if (!pinned) activate(b.id); });
-    el.addEventListener('mouseleave', () => { if (!pinned) clear(); });
+    el.addEventListener('mouseenter', () => {
+        if (pinned) return;
+        activate(b.id);
+        if (lit && lit.bay === b.id) paintZone(b, lit.zi);   // the zone keeps the HUD
+    });
+    el.addEventListener('mouseleave', () => { if (!pinned) { litOff(); clear(); } });
     el.addEventListener('click', () => {
-        // Bays that already have a modelled pallet layout
-        const LAYOUTS = { bay2: 'bay2_pallet_layout.html', bay3: 'bay3_pallet_layout.html' };
-        if (LAYOUTS[b.id]) {
-            window.location.href = LAYOUTS[b.id];
-            return;
-        }
-        // Other bays: pin/unpin the selection
+        if (BAY_LAYOUTS[b.id]) { window.location.href = BAY_LAYOUTS[b.id]; return; }
         pinned = pinned === b.id ? null : b.id;
         pinned ? activate(b.id) : clear();
     });
+
+    // Zone handlers go on the elements themselves, not delegated: they have to run
+    // before the click reaches the bay, or the bay would navigate away underneath.
+    for (const hit of el.querySelectorAll('.zone-hit')) {
+        const zi = +hit.dataset.zi;
+        const name = b.free[zi][0];
+
+        hit.addEventListener('mouseover', () => {
+            if (pinned && pinned !== b.id) return;
+            litOff();
+            lit = { bay: b.id, zi, el: document.getElementById(`z-${b.id}-${zi}`) };
+            lit.el.classList.add('on');
+            if (!pinned) activate(b.id);
+            paintZone(b, zi);
+        });
+        hit.addEventListener('mouseout', () => {
+            litOff();
+            if (!pinned) paint(b);          // back to the bay's own numbers
+        });
+        hit.addEventListener('click', ev => {
+            ev.stopPropagation();
+            const layout = ZONE_LAYOUTS[`${b.id}/${name}`];
+            if (layout) { window.location.href = layout; return; }
+            // Not modelled yet: pin it so the numbers stay on screen.
+            pinned = pinned === b.id ? null : b.id;
+            pinned ? activate(b.id) : clear();
+            if (pinned) paintZone(b, zi);
+        });
+    }
 }
 </script>
 </body>
