@@ -247,7 +247,7 @@ export class PalletEngine {
         // Pallets
         m.validCells.forEach(cl => {
             const col = cl.isFast ? '#f59e0b' : '#a78bfa';
-            h += `<rect x="${cl.cx}" y="${cl.cy}" width="${cl.cw}" height="${cl.ch}" rx="3" fill="${col}" fill-opacity="${cl.isFast ? .4 : .2}" stroke="${col}" stroke-opacity=".75" stroke-width="1.5" data-hover="Row ${cl.row.num} &middot; Slot ${cl.letter}${cl.isFast ? ' (Fast Picking)' : ' (Buried)'}"/>`;
+            h += `<rect x="${M + cl.cx}" y="${M + cl.cy}" width="${cl.cw}" height="${cl.ch}" rx="3" fill="${col}" fill-opacity="${cl.isFast ? .4 : .2}" stroke="${col}" stroke-opacity=".75" stroke-width="1.5" data-hover="Row ${cl.row.num} &middot; Slot ${cl.letter}${cl.isFast ? ' (Fast Picking)' : ' (Buried)'}"/>`;
         });
 
         // Bike blocks
