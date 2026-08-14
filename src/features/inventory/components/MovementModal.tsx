@@ -16,6 +16,7 @@ import {
 } from '../hooks/useLocationSuggestions.ts';
 import AutocompleteInput from '../../../components/ui/AutocompleteInput.tsx';
 import { CapacityBar } from '../../../components/ui/CapacityBar.tsx';
+import { SublocationPicker } from '../../../components/ui/SublocationPicker.tsx';
 import { useLocationManagement } from '../hooks/useLocationManagement.ts';
 import { predictLocation } from '../../../utils/locationPredictor.ts';
 import { useAutoSelect } from '../../../hooks/useAutoSelect.ts';
@@ -542,31 +543,10 @@ export const MovementModal: React.FC<MovementModalProps> = ({
                 <label className="block text-[10px] font-black text-muted uppercase tracking-widest mb-1.5">
                   Sub-location <span className="text-red-500">*</span>
                 </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {['A', 'B', 'C', 'D', 'E', 'F'].map((letter) => {
-                    const isSelected = formData.targetSublocation?.includes(letter);
-                    return (
-                      <button
-                        key={letter}
-                        type="button"
-                        onClick={() => {
-                          const current = formData.targetSublocation || [];
-                          const updated = isSelected
-                            ? current.filter((l) => l !== letter)
-                            : [...current, letter].sort();
-                          setField('targetSublocation', updated.length > 0 ? updated : null);
-                        }}
-                        className={`w-9 h-9 rounded-lg text-xs font-black transition-all ${
-                          isSelected
-                            ? 'bg-accent text-main shadow-lg shadow-accent/20'
-                            : 'bg-surface text-muted border border-subtle hover:border-accent/40'
-                        }`}
-                      >
-                        {letter}
-                      </button>
-                    );
-                  })}
-                </div>
+                <SublocationPicker
+                  value={formData.targetSublocation ?? null}
+                  onChange={(next) => setField('targetSublocation', next)}
+                />
                 {needsSublocation && (
                   <p className="text-[10px] font-bold text-red-500 mt-1.5">
                     Select a sub-location to move into a ROW.

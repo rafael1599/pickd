@@ -9,6 +9,7 @@ import { useInventoryMutations } from '../inventory/hooks/useInventoryMutations'
 import type { InventoryItemWithMetadata } from '../../schemas/inventory.schema';
 import { feedbackService } from '../../services/feedback.service';
 import { flashSyncStatus } from '../../components/layout/SyncStatusIndicator';
+import { SublocationPicker } from '../../components/ui/SublocationPicker';
 
 interface Candidate {
   inventory_id: number;
@@ -418,29 +419,10 @@ export const ConsolidationMoveModal: React.FC<Props> = ({
               <label className="text-[10px] text-muted font-bold uppercase tracking-widest mb-2 block">
                 Sublocation <span className="text-red-500">*</span>
               </label>
-              <div className="flex flex-wrap gap-1.5">
-                {['A', 'B', 'C', 'D', 'E', 'F'].map((letter) => {
-                  const isSelected = sublocLetters.includes(letter);
-                  return (
-                    <button
-                      key={letter}
-                      type="button"
-                      onClick={() => {
-                        setSublocLetters((prev) =>
-                          isSelected ? prev.filter((l) => l !== letter) : [...prev, letter].sort()
-                        );
-                      }}
-                      className={`w-9 h-9 rounded-lg text-xs font-black transition-all ${
-                        isSelected
-                          ? 'bg-accent text-main shadow-lg shadow-accent/20'
-                          : 'bg-surface text-muted border border-subtle hover:border-accent/40'
-                      }`}
-                    >
-                      {letter}
-                    </button>
-                  );
-                })}
-              </div>
+              <SublocationPicker
+                value={sublocLetters}
+                onChange={(next) => setSublocLetters(next ?? [])}
+              />
               {needsSubloc && (
                 <p className="text-[10px] font-bold text-red-500 mt-1.5">
                   Select a sub-location to move into a ROW.
