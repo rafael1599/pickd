@@ -169,6 +169,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   const serialNumber = watch('serial_number');
   const colorField = watch('color');
   const priceField = watch('price');
+  const conditionField = watch('condition');
+  const conditionDescField = watch('condition_description');
+  const pdfLinkField = watch('pdf_link');
 
   const colorBaselineRef = useRef('');
   const modelBaselineRef = useRef('');
@@ -313,7 +316,10 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       n(sizeField) !== n(sizeBaselineRef.current) ||
       n(serialNumber) !== n(meta?.serial_number) ||
       n(colorField) !== n(colorBaselineRef.current) ||
-      num(priceField) !== num(meta?.sd_price);
+      num(priceField) !== num(meta?.sd_price) ||
+      n(conditionField) !== n(meta?.condition) ||
+      n(conditionDescField) !== n(meta?.condition_description) ||
+      n(pdfLinkField) !== n(meta?.pdf_link);
     if (detailsChanged) return true;
 
     const initDist = Array.isArray(initialData.distribution) ? initialData.distribution : [];
@@ -342,6 +348,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     serialNumber,
     colorField,
     priceField,
+    conditionField,
+    conditionDescField,
+    pdfLinkField,
     typeChoice,
     sdChoice,
   ]);
@@ -1066,10 +1075,10 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                       value={sku}
                       onChange={(e) => setValue('sku', e.target.value)}
                       placeholder="03-4069BL"
-                      className="bg-transparent text-sm sm:text-base font-mono font-medium text-emerald-400 focus:outline-none w-36"
+                      className="bg-transparent text-lg sm:text-xl font-mono font-semibold text-emerald-400 focus:outline-none w-44"
                     />
                   ) : (
-                    <span className="text-sm sm:text-base font-mono font-medium text-emerald-400">
+                    <span className="text-lg sm:text-xl font-mono font-semibold text-emerald-400">
                       {displaySku}
                     </span>
                   )}
