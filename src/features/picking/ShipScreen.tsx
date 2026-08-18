@@ -537,7 +537,11 @@ export const ShipScreen = () => {
     return items.filter((item: PickingListItem) => {
       if (seen.has(item.sku)) return false;
       seen.add(item.sku);
-      return skuMeta[item.sku]?.weight_lbs == null;
+      // Only SKUs the fetch actually resolved count as missing. When the order
+      // changes, this memo runs against the previous order's map — absent keys
+      // here meant "missing weight" and every SKU of the new order got a
+      // default upserted over its real weight.
+      return item.sku in skuMeta && skuMeta[item.sku].weight_lbs == null;
     });
   }, [selectedOrder?.items, skuMeta]);
 
