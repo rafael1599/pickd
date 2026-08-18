@@ -58,7 +58,8 @@ type WarehouseType = 'LUDLOW' | 'ATS' | 'DELETED ITEMS';
 const DEFAULT_UNITS: Record<string, number> = { TOWER: 30, LINE: 5, PALLET: 10, OTHER: 1 };
 
 function dimensionDefaults(isBike?: boolean | null) {
-  return skuDefaultsFor(isBike);
+  const { weight_lbs: _w, ...dims } = skuDefaultsFor(isBike);
+  return dims;
 }
 
 interface ItemDetailViewProps {
