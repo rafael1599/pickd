@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { supabase } from '../../../../lib/supabase';
 import { useAuth } from '../../../../context/AuthContext';
 import { useDebounce } from '../../../../hooks/useDebounce';
+import { useBikeSkuSet } from '../../../../hooks/useBikeSkuSet';
 import { withSupabaseRetry } from '../../../../lib/supabaseRetry';
 import {
   isFedexOrder as isFedexOrderShared,
@@ -67,12 +68,15 @@ export function dayLabel(date: Date): string {
   return date.toLocaleDateString('en-US', opts);
 }
 
-export function isFedexLane(order: OrderWithRelations): boolean {
-  return isFedexOrderShared(order);
+export function isFedexLane(order: OrderWithRelations, bikeSkus?: ReadonlySet<string>): boolean {
+  return isFedexOrderShared(order, {}, bikeSkus);
 }
 
-export function getCarrierLabel(order: OrderWithRelations): string | null {
-  return getCarrierLabelShared(order.transport_company, isFedexLane(order));
+export function getCarrierLabel(
+  order: OrderWithRelations,
+  bikeSkus?: ReadonlySet<string>
+): string | null {
+  return getCarrierLabelShared(order.transport_company, isFedexLane(order, bikeSkus));
 }
 
 export interface DayGroup {
@@ -154,6 +158,20 @@ export const ORDER_LIST_SELECT = `
 export function useShipOrdersData() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<OrderWithRelations[]>([]);
+
+  // Canonical bike SKUs (sku_metadata.is_bike) for every order on screen.
+  // Order items are raw watchdog JSONB with no embedded metadata, so the
+  // FedEx/Regular classification is wrong without this lookup.
+  const allSkus = useMemo(() => {
+    const skus: string[] = [];
+    orders.forEach((o) => {
+      (o.items ?? []).forEach((i) => {
+        if (typeof i.sku === 'string' && i.sku) skus.push(i.sku);
+      });
+    });
+    return skus;
+  }, [orders]);
+  const bikeSkuSet = useBikeSkuSet(allSkus);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -203,7 +221,7 @@ export function useShipOrdersData() {
       // Active text search query overrides waiting filter so any searched order is findable
       if (debouncedSearchQuery.trim()) {
         if (pendingSelectedCarriers.size === 0 && !pendingIncludeUnassigned) return true;
-        const carrier = getCarrierLabel(o);
+        const carrier = getCarrierLabel(o, bikeSkuSet);
         return carrier ? pendingSelectedCarriers.has(carrier) : pendingIncludeUnassigned;
       }
 
@@ -218,22 +236,28 @@ export function useShipOrdersData() {
       }
 
       if (pendingSelectedCarriers.size === 0 && !pendingIncludeUnassigned) return true;
-      const carrier = getCarrierLabel(o);
+      const carrier = getCarrierLabel(o, bikeSkuSet);
       if (carrier) {
         return pendingSelectedCarriers.has(carrier);
       }
       return pendingIncludeUnassigned;
     },
-    [pendingSelectedCarriers, pendingIncludeUnassigned, pendingShowWaiting, debouncedSearchQuery]
+    [
+      pendingSelectedCarriers,
+      pendingIncludeUnassigned,
+      pendingShowWaiting,
+      debouncedSearchQuery,
+      bikeSkuSet,
+    ]
   );
 
   const matchesShippedCarrierFilter = useCallback(
     (o: OrderWithRelations) => {
       if (shippedSelectedCarriers.size === 0 && !shippedIncludeUnassigned) return true;
-      const carrier = getCarrierLabel(o);
+      const carrier = getCarrierLabel(o, bikeSkuSet);
       return carrier ? shippedSelectedCarriers.has(carrier) : shippedIncludeUnassigned;
     },
-    [shippedSelectedCarriers, shippedIncludeUnassigned]
+    [shippedSelectedCarriers, shippedIncludeUnassigned, bikeSkuSet]
   );
 
   const fetchOrders = useCallback(async () => {
@@ -366,6 +390,7 @@ export function useShipOrdersData() {
   return {
     orders,
     setOrders,
+    bikeSkuSet,
     loading,
     setLoading,
     searchQuery,

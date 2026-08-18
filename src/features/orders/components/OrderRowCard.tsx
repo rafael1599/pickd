@@ -99,7 +99,7 @@ export const OrderRowCard: React.FC<OrderRowCardProps> = ({
   onEditLabel,
 }) => {
   const units = getOrderUnits(order);
-  const fedex = isFedexOrder(order);
+  const fedex = isFedexOrder(order, skuIsBike);
   const statusVisual = getStatusVisual(order);
   const pallets = order.pallets_qty ?? 0;
   let displayNumber = order.order_number || order.id.slice(-6);

@@ -150,8 +150,8 @@ function isLikelyBike(sku: string, meta?: { is_bike: boolean }): boolean {
  * checked group_type/transport_company, missing the shipping_type + item
  * auto-classify signals the Live Board already used to decide FedEx).
  */
-function isFedexLane(order: OrderWithRelations): boolean {
-  return isFedexOrderShared(order);
+function isFedexLane(order: OrderWithRelations, bikeSkus?: ReadonlySet<string>): boolean {
+  return isFedexOrderShared(order, {}, bikeSkus);
 }
 
 /**
@@ -274,8 +274,8 @@ const ORDER_LIST_SELECT = `
 
 /** Thin wrapper over the shared carrier-label classifier (shared with
  *  Orders and the Live Board), typed to this screen's OrderWithRelations. */
-function getCarrierLabel(order: OrderWithRelations): string | null {
-  return getCarrierLabelShared(order.transport_company, isFedexLane(order));
+function getCarrierLabel(order: OrderWithRelations, bikeSkus?: ReadonlySet<string>): string | null {
+  return getCarrierLabelShared(order.transport_company, isFedexLane(order, bikeSkus));
 }
 
 interface DayGroup {
@@ -356,6 +356,7 @@ export const ShipScreen = () => {
     orders,
     setOrders,
     loading,
+    bikeSkuSet,
     searchQuery,
     debouncedSearchQuery,
     setSearchQuery,
@@ -578,7 +579,7 @@ export const ShipScreen = () => {
   // FedEx orders don't use pallets — skip pallet weight. Previously only
   // checked group_type, missing orders classified FedEx via shipping_type
   // or transport_company alone.
-  const isFedexOrder = !!selectedOrder && isFedexLane(selectedOrder);
+  const isFedexOrder = !!selectedOrder && isFedexLane(selectedOrder, bikeSkuSet);
 
   // Calculate total weight live from the Pallets/Bikes/Parts fields shown in
   // this view — not just the raw item list — so overriding Bikes or Parts
@@ -968,7 +969,8 @@ export const ShipScreen = () => {
         // weight/bike-count, or a 'fedex' group) — default the selector to
         // FEDEX instead of making the user pick what the system already knows.
         transportCompany:
-          selectedOrder.transport_company || (isFedexLane(selectedOrder) ? 'FEDEX' : ''),
+          selectedOrder.transport_company ||
+          (isFedexLane(selectedOrder, bikeSkuSet) ? 'FEDEX' : ''),
         bikes: '',
         parts: '',
         // Weight stays blank by default — placeholder shows the auto-calculated
@@ -1015,7 +1017,7 @@ export const ShipScreen = () => {
       if (o.is_waiting_inventory) {
         continue;
       }
-      const carrier = getCarrierLabel(o);
+      const carrier = getCarrierLabel(o, bikeSkuSet);
       if (carrier) {
         counts.set(carrier, (counts.get(carrier) || 0) + 1);
       } else {
@@ -1028,7 +1030,7 @@ export const ShipScreen = () => {
       hasUnassignedOrders: unassigned > 0,
       unassignedCount: unassigned,
     };
-  }, [collapsedPendingOrders]);
+  }, [collapsedPendingOrders, bikeSkuSet]);
 
   const shippedCarrierStats = useMemo(() => {
     const todayStr = dayKey(new Date());
@@ -1037,7 +1039,7 @@ export const ShipScreen = () => {
     for (const o of orders) {
       if (o.status === 'cancelled' || !o.is_shipped) continue;
       if (dayKey(new Date(o.updated_at)) !== todayStr) continue;
-      const carrier = getCarrierLabel(o);
+      const carrier = getCarrierLabel(o, bikeSkuSet);
       if (carrier) {
         counts.set(carrier, (counts.get(carrier) || 0) + 1);
       } else {
@@ -1050,7 +1052,7 @@ export const ShipScreen = () => {
       hasUnassignedOrders: unassigned > 0,
       unassignedCount: unassigned,
     };
-  }, [orders]);
+  }, [orders, bikeSkuSet]);
 
   // Shared pipeline behind both columns — To Ship and Shipped are always
   // built independently (never one replacing the other) so the split view
@@ -1398,14 +1400,15 @@ export const ShipScreen = () => {
           id: order.id,
           orderNumber: order.order_number,
           customerName: order.customer?.name ?? null,
-          transportCompany: order.transport_company ?? (isFedexLane(order) ? 'FEDEX' : null),
+          transportCompany:
+            order.transport_company ?? (isFedexLane(order, bikeSkuSet) ? 'FEDEX' : null),
           palletsQty: order.pallets_qty,
           totalUnits: order.total_units,
           createdAt: order.created_at,
           delayedDays,
         };
       }),
-    [eligibleShippingOrders]
+    [eligibleShippingOrders, bikeSkuSet]
   );
 
   const handleBatchShip = async (idsToShip: string[]) => {
@@ -2467,7 +2470,7 @@ export const ShipScreen = () => {
                     order={order}
                     isSelected={selectedOrder?.id === order.id}
                     isShippedColumn={isShippedColumn}
-                    isFedex={isFedexLane(order)}
+                    isFedex={isFedexLane(order, bikeSkuSet)}
                     userId={user?.id}
                     onSelect={setSelectedOrder}
                     onSelectSubOrder={handleSelectSubOrder}

@@ -106,6 +106,53 @@ describe('autoClassifyShippingType', () => {
   });
 });
 
+describe('autoClassifyShippingType with a bikeSkus lookup (raw watchdog items)', () => {
+  // Watchdog-created orders store items WITHOUT embedded sku_metadata — the
+  // fetched lookup is the only bike signal for them.
+  it('counts bikes via a Set lookup when items carry no metadata', () => {
+    const items = [
+      { sku: '06-4438BK', pickingQty: 2 },
+      { sku: '06-4454BK', pickingQty: 2 },
+      { sku: '07-3689WH', pickingQty: 2 },
+    ];
+    expect(
+      autoClassifyShippingType(items, {}, new Set(['06-4438BK', '06-4454BK', '07-3689WH']))
+    ).toBe('regular');
+  });
+
+  it('counts bikes via a sku→is_bike record lookup', () => {
+    const items = [{ sku: '03-4635MN', pickingQty: 5 }];
+    expect(autoClassifyShippingType(items, {}, { '03-4635MN': true })).toBe('regular');
+    expect(autoClassifyShippingType(items, {}, { '03-4635MN': false })).toBe('fedex');
+  });
+
+  it('without a lookup, metadata-less items still count as parts', () => {
+    const items = [{ sku: '06-4438BK', pickingQty: 10 }];
+    expect(autoClassifyShippingType(items, {})).toBe('fedex');
+  });
+
+  it('embedded is_bike=false wins over Set membership', () => {
+    const items = [{ sku: '03-9999XX', pickingQty: 50, sku_metadata: { is_bike: false } }];
+    expect(autoClassifyShippingType(items, {}, new Set(['03-9999XX']))).toBe('fedex');
+  });
+
+  it('embedded is_bike=true works without the SKU being in the lookup', () => {
+    const items = [{ sku: 'CUSTOM-BIKE', pickingQty: 5, sku_metadata: { is_bike: true } }];
+    expect(autoClassifyShippingType(items, {}, new Set())).toBe('regular');
+  });
+
+  it('isFedexOrder auto-classifies raw items through the lookup', () => {
+    const order = {
+      shipping_type: null,
+      transport_company: null,
+      order_group: null,
+      items: [{ sku: '06-4438BK', pickingQty: 10 }],
+    };
+    expect(isFedexOrder(order, {}, new Set(['06-4438BK']))).toBe(false);
+    expect(isFedexOrder(order, {}, new Set())).toBe(true);
+  });
+});
+
 describe('isFedexOrder with explicit transport companies', () => {
   it('returns true when transport_company is FEDEX', () => {
     expect(

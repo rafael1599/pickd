@@ -70,13 +70,17 @@ function toClassifiableItems(items: PickingList['items']): ClassifiableItem[] {
 /** Carrier chip/filter label — same canonical classifier Orders and Ship
  *  use, so a FedEx order without an explicit transport_company can't read
  *  as "Unassigned" here while showing correctly as FedEx everywhere else. */
-function classifyOrderCarrier(order: PickingList): string | null {
-  const fedex = isFedexOrderShared({
-    shipping_type: order.shipping_type,
-    transport_company: order.transport_company,
-    order_group: order.order_group,
-    items: toClassifiableItems(order.items),
-  });
+function classifyOrderCarrier(order: PickingList, bikeSkus: ReadonlySet<string>): string | null {
+  const fedex = isFedexOrderShared(
+    {
+      shipping_type: order.shipping_type,
+      transport_company: order.transport_company,
+      order_group: order.order_group,
+      items: toClassifiableItems(order.items),
+    },
+    {},
+    bikeSkus
+  );
   return getCarrierLabelShared(order.transport_company, fedex);
 }
 
@@ -157,16 +161,20 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   // the same canonical classifier as Orders/Ship (classifyOrderCarrier),
   // not the raw transport_company column, so a FedEx order without an
   // explicit carrier assigned doesn't show up here as "Unassigned".
-  const hasUnassignedOrders = completedOrders.some((o) => !classifyOrderCarrier(o));
+  const hasUnassignedOrders = completedOrders.some((o) => !classifyOrderCarrier(o, bikeSkuSet));
   const availableCarriers = Array.from(
-    new Set(completedOrders.map(classifyOrderCarrier).filter((c): c is string => !!c))
+    new Set(
+      completedOrders
+        .map((o) => classifyOrderCarrier(o, bikeSkuSet))
+        .filter((c): c is string => !!c)
+    )
   ).sort();
 
   // Count orders by carrier type
   const carrierCounts = new Map<string, number>();
   let unassignedCount = 0;
   completedOrders.forEach((order) => {
-    const carrier = classifyOrderCarrier(order);
+    const carrier = classifyOrderCarrier(order, bikeSkuSet);
     if (carrier) {
       carrierCounts.set(carrier, (carrierCounts.get(carrier) ?? 0) + 1);
     } else {
@@ -176,7 +184,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
 
   // Filter completed orders by carrier
   const filteredCompletedOrders = completedOrders.filter((order) => {
-    const normalizedCarrier = classifyOrderCarrier(order);
+    const normalizedCarrier = classifyOrderCarrier(order, bikeSkuSet);
     const isUnassigned = normalizedCarrier === null;
     const isSelectedCarrier = normalizedCarrier && selectedCarriers.has(normalizedCarrier);
 
@@ -309,12 +317,16 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     // here can't read as Regular/unassigned once it lands on either screen.
     const orderShippingTypes = new Map<string, 'fedex' | 'regular'>();
     for (const order of allForGrouping) {
-      const fedex = isFedexOrderShared({
-        shipping_type: order.shipping_type,
-        transport_company: order.transport_company,
-        order_group: order.order_group,
-        items: toClassifiableItems(order.items),
-      });
+      const fedex = isFedexOrderShared(
+        {
+          shipping_type: order.shipping_type,
+          transport_company: order.transport_company,
+          order_group: order.order_group,
+          items: toClassifiableItems(order.items),
+        },
+        {},
+        bikeSkuSet
+      );
       orderShippingTypes.set(order.id, fedex ? 'fedex' : 'regular');
     }
 
@@ -487,7 +499,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       completedShowsDates: true,
       priorityShippingTypes: priorityShipTypes,
     };
-  }, [orders, filteredCompletedOrders, searchQuery]);
+  }, [orders, filteredCompletedOrders, searchQuery, bikeSkuSet]);
 
   const activeTotal =
     priorityOrders.length + fedexOrders.length + regularOrders.length + pullingOrders.length;

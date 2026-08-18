@@ -7,9 +7,26 @@ export interface ClassifiableItem {
   source_order?: string | null;
 }
 
-/** is_bike (sku_metadata) is the canonical source of truth. */
-function isBikeItem(item: ClassifiableItem): boolean {
-  return item.sku_metadata?.is_bike === true;
+/**
+ * Canonical is_bike data fetched from sku_metadata, in either of the shapes
+ * callers already build: a Set of bike SKUs (useBikeSkuSet) or a
+ * sku → is_bike record (useOrdersOfDay). Watchdog-created orders store their
+ * items WITHOUT embedded sku_metadata, so a caller that classifies raw JSONB
+ * items MUST pass this lookup — otherwise every item counts as a part and a
+ * 10-bike order reads as FedEx.
+ */
+export type BikeSkuLookup = ReadonlySet<string> | Readonly<Record<string, boolean>>;
+
+/** is_bike (sku_metadata) is the canonical source of truth: the flag embedded
+ *  on the item wins when present (including an explicit false); otherwise the
+ *  fetched lookup decides. No lookup and no embedded flag → part. */
+function isBikeItem(item: ClassifiableItem, bikeSkus?: BikeSkuLookup): boolean {
+  const flag = item.sku_metadata?.is_bike;
+  if (typeof flag === 'boolean') return flag;
+  if (!bikeSkus) return false;
+  if (bikeSkus instanceof Set) return bikeSkus.has(item.sku);
+  // instanceof can't exclude the ReadonlySet interface from the union for TS
+  return (bikeSkus as Readonly<Record<string, boolean>>)[item.sku] === true;
 }
 
 /**
@@ -25,14 +42,18 @@ function isBikeItem(item: ClassifiableItem): boolean {
  */
 function classifySingleOrder(
   items: ClassifiableItem[],
-  skuWeights: Record<string, number>
+  skuWeights: Record<string, number>,
+  bikeSkus?: BikeSkuLookup
 ): 'fedex' | 'regular' {
   // Rule 1: any item > 50 lbs
   const hasHeavyItem = items.some((item) => (skuWeights[item.sku] ?? 0) > 50);
   if (hasHeavyItem) return 'regular';
 
   // Rule 2: >= 5 bikes (parts don't count toward the threshold)
-  const totalBikes = items.reduce((sum, i) => sum + (isBikeItem(i) ? i.pickingQty || 0 : 0), 0);
+  const totalBikes = items.reduce(
+    (sum, i) => sum + (isBikeItem(i, bikeSkus) ? i.pickingQty || 0 : 0),
+    0
+  );
   if (totalBikes >= 5) return 'regular';
 
   return 'fedex';
@@ -40,7 +61,8 @@ function classifySingleOrder(
 
 export function autoClassifyShippingType(
   items: ClassifiableItem[],
-  skuWeights: Record<string, number> // sku → weight_lbs
+  skuWeights: Record<string, number>, // sku → weight_lbs
+  bikeSkus?: BikeSkuLookup
 ): 'fedex' | 'regular' {
   // Combined orders: a group of FedEx orders is still a FedEx order. Classify
   // each source order separately (items are tagged with source_order when
@@ -56,12 +78,12 @@ export function autoClassifyShippingType(
       bySource.set(key, arr);
     }
     for (const group of bySource.values()) {
-      if (classifySingleOrder(group, skuWeights) === 'regular') return 'regular';
+      if (classifySingleOrder(group, skuWeights, bikeSkus) === 'regular') return 'regular';
     }
     return 'fedex';
   }
 
-  return classifySingleOrder(items, skuWeights);
+  return classifySingleOrder(items, skuWeights, bikeSkus);
 }
 
 /**
@@ -96,7 +118,8 @@ export interface FedexClassifiableOrder {
  */
 export function isFedexOrder(
   order: FedexClassifiableOrder,
-  skuWeights: Record<string, number> = {}
+  skuWeights: Record<string, number> = {},
+  bikeSkus?: BikeSkuLookup
 ): boolean {
   const transport = String(order.transport_company ?? '')
     .trim()
@@ -108,7 +131,7 @@ export function isFedexOrder(
   if (order.order_group?.group_type === 'fedex') return true;
   if (order.shipping_type === 'fedex') return true;
   if (order.shipping_type) return false;
-  return autoClassifyShippingType(order.items ?? [], skuWeights) === 'fedex';
+  return autoClassifyShippingType(order.items ?? [], skuWeights, bikeSkus) === 'fedex';
 }
 
 /**
