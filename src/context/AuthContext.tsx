@@ -202,8 +202,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { data, error };
     };
 
+    const profilePromise = fetchProfile();
+
+    // A cold connection (fresh local Docker/OrbStack stack, or an occasional
+    // latency spike in prod) can take longer than timeoutMs even though the
+    // query eventually succeeds. Promise.race below abandons that result if
+    // the timeout wins, which used to leave `profile` stuck at null for the
+    // rest of the session (UserMenu then shows the 'Unknown' fallback
+    // forever). Keep listening independently so a late success still lands.
+    profilePromise
+      .then(({ data, error }) => {
+        if (!error && data) {
+          const profileData = data as AuthProfile;
+          setRole(profileData.role);
+          setProfile(profileData);
+          localStorage.setItem(`role_${userId}`, profileData.role);
+        }
+      })
+      .catch(() => {});
+
     try {
-      const result = await Promise.race([fetchProfile(), timeout]);
+      const result = await Promise.race([profilePromise, timeout]);
 
       if (result === 'timeout') {
         if (!isBackground) setRole('staff');
