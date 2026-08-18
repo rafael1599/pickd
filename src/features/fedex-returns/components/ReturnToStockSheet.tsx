@@ -12,7 +12,7 @@ import { useAddReturnItem } from '../hooks/useFedExReturns';
 import { useLocationManagement } from '../../inventory/hooks/useLocationManagement';
 import { inventoryApi } from '../../inventory/api/inventoryApi';
 import AutocompleteInput from '../../../components/ui/AutocompleteInput';
-import { RegisterTypeSelector } from '../../../components/ui/RegisterTypeSelector';
+import { RegisterTypeSegmented } from '../../../components/ui/RegisterTypeSelector';
 import type { ItemCondition } from '../types';
 
 const TARGET_WAREHOUSE = 'LUDLOW';
@@ -195,7 +195,7 @@ export const ReturnToStockSheet: React.FC<ReturnToStockSheetProps> = ({
 
   const handleRegister = async () => {
     if (!registerType) {
-      toast.error('Debes elegir si el nuevo ítem es una BICICLETA o una PARTE / ACCESORIO');
+      toast.error('Select whether the new SKU is a Bike or a Part / Accessory');
       return;
     }
     const sku = newSku.trim().toUpperCase();
@@ -379,11 +379,10 @@ export const ReturnToStockSheet: React.FC<ReturnToStockSheetProps> = ({
 
         {creatingNew && (
           <div className="space-y-4">
-            <RegisterTypeSelector
+            <RegisterTypeSegmented
               value={registerType}
               onChange={setRegisterType}
-              title="Tipo de Ítem a Registrar *"
-              subtitle="Selección obligatoria para el nuevo SKU"
+              label="Item type"
             />
             <div>
               <label className="text-xs text-muted uppercase tracking-widest">SKU</label>

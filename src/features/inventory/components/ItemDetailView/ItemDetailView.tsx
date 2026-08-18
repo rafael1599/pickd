@@ -24,7 +24,7 @@ import { INVENTORY_ROOT_KEY, PARTS_BINS_KEY } from '../../hooks/useInventoryReal
 import { useLocationManagement } from '../../hooks/useLocationManagement.ts';
 import { useConfirmation } from '../../../../context/ConfirmationContext.tsx';
 import AutocompleteInput from '../../../../components/ui/AutocompleteInput.tsx';
-import { RegisterTypeSelector } from '../../../../components/ui/RegisterTypeSelector';
+import { RegisterTypeGate, TypeChip } from '../../../../components/ui/RegisterTypeSelector';
 import {
   InventoryItemWithMetadata,
   InventoryItemInput,
@@ -100,7 +100,18 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   const [userEditedDistribution, setUserEditedDistribution] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
-  const [typeIsBike, setTypeIsBike] = useState(true);
+  // Bike/Part classification. `null` = not chosen yet — the full-screen type
+  // gate blocks the add form until the user makes a deliberate choice (no
+  // pre-selected default: a wrong default silently corrupts is_bike).
+  const [typeChoice, setTypeChoice] = useState<'bike' | 'part' | null>(null);
+  const [typeGateOpen, setTypeGateOpen] = useState(false);
+  const typeIsBike = typeChoice === 'bike';
+  // NEW ↔ S/D flag (sku_metadata.is_scratch_dent). Flipping it is purely a
+  // label change — quantities, locations and the SD-companion fields (serial,
+  // price, condition) are left untouched so the switch is always reversible.
+  // S/D units are single serialized units, so switching to S/D requires a
+  // serial and warns when the SKU holds more than one unit.
+  const [sdChoice, setSdChoice] = useState(false);
 
   // Custom Sublocation State
   const [isAddingSubletter, setIsAddingSubletter] = useState(false);
@@ -198,7 +209,8 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         setDistribution(Array.isArray(initialData.distribution) ? initialData.distribution : []);
         setUserEditedDistribution(false);
         setPhotoPreview(initialData?.sku_metadata?.image_url || null);
-        setTypeIsBike(initialData.sku_metadata?.is_bike === true);
+        setTypeChoice(initialData.sku_metadata?.is_bike === true ? 'bike' : 'part');
+        setSdChoice(initialData.sku_metadata?.is_scratch_dent === true);
       } else {
         reset({
           sku: initialData?.sku || '',
@@ -217,8 +229,18 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         setDistribution([]);
         setUserEditedDistribution(false);
         setPhotoPreview(initialData?.sku_metadata?.image_url || null);
-        setTypeIsBike(initialData?.sku_metadata?.is_bike === true);
+        // Known SKU → don't ask what the system already knows. Brand-new SKU
+        // → null, which opens the type gate before the form.
+        setTypeChoice(
+          initialData?.sku_metadata
+            ? initialData.sku_metadata.is_bike === true
+              ? 'bike'
+              : 'part'
+            : null
+        );
+        setSdChoice(initialData?.sku_metadata?.is_scratch_dent === true);
       }
+      setTypeGateOpen(false);
     }
   }, [isOpen, initialData, mode, screenType, reset]);
 
@@ -252,11 +274,11 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
   useEffect(() => {
     if (!isOpen || mode !== 'add' || userEditedDistribution) return;
     if (!sku || !quantity || quantity <= 0) return;
-    const isBike = initialData?.sku_metadata?.is_bike ?? true;
+    const isBike = initialData?.sku_metadata?.is_bike ?? typeChoice === 'bike';
     if (isBike) {
       setDistribution(calculateBikeDistribution(quantity));
     }
-  }, [isOpen, mode, sku, quantity, userEditedDistribution, initialData]);
+  }, [isOpen, mode, sku, quantity, userEditedDistribution, initialData, typeChoice]);
 
   // Dirty check
   const hasChanges = useMemo(() => {
@@ -275,6 +297,10 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     if (formChanged) return true;
 
     const meta = initialData.sku_metadata;
+    if (typeChoice !== null && (meta?.is_bike === true ? 'bike' : 'part') !== typeChoice) {
+      return true;
+    }
+    if (sdChoice !== (meta?.is_scratch_dent === true)) return true;
     const metaChanged =
       num(lengthIn) !== num(meta?.length_in) ||
       num(widthIn) !== num(meta?.width_in) ||
@@ -316,6 +342,8 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     serialNumber,
     colorField,
     priceField,
+    typeChoice,
+    sdChoice,
   ]);
 
   const hasChangesRef = useRef(hasChanges);
@@ -580,6 +608,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       updateSKUMetadata({
         sku: data.sku,
         is_bike: typeIsBike,
+        is_scratch_dent: sdChoice,
         length_in: data.length_in,
         width_in: data.width_in,
         height_in: data.height_in,
@@ -609,7 +638,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       setIsEditing(false);
       onClose();
     },
-    [distribution, onSave, onClose, updateSKUMetadata, typeIsBike]
+    [distribution, onSave, onClose, updateSKUMetadata, typeIsBike, sdChoice]
   );
 
   const handleSave = useCallback(() => {
@@ -660,6 +689,29 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       onClose();
     });
   }, [onDelete, showConfirmation, onClose]);
+
+  const handleSdToggle = useCallback(
+    (next: boolean) => {
+      if (next === sdChoice) return;
+      if (next) {
+        const totalUnits = totalStock?.total ?? Number(quantity || 0);
+        if (totalUnits > 1) {
+          showConfirmation(
+            'Mark as S/D',
+            `This SKU holds ${totalUnits} units. An S/D unit is one serialized unit with its own unique SKU. Mark it S/D anyway?`,
+            () => setSdChoice(true),
+            undefined,
+            'Mark S/D',
+            'Cancel',
+            'warning'
+          );
+          return;
+        }
+      }
+      setSdChoice(next);
+    },
+    [sdChoice, totalStock, quantity, showConfirmation]
+  );
 
   // Labels printing
   const [printOpen, setPrintOpen] = useState(false);
@@ -738,11 +790,17 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       })
     : 'Jul 8, 2026';
 
+  // S/D units are serialized — block Save until the serial is filled in
+  // (the chip row shows a "Serial required" hint while this is the blocker).
+  const sdMissingSerial = sdChoice && !serialNumber?.trim();
+
   const canSave =
     sku?.trim() &&
     location?.trim() &&
     quantity != null &&
     quantity >= 0 &&
+    typeChoice !== null &&
+    !sdMissingSerial &&
     validationState.status !== 'error' &&
     validationState.status !== 'checking' &&
     (isAddMode || hasChanges);
@@ -830,6 +888,21 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         </div>
       </div>
 
+      {/* Type gate — full-screen, shown once before the add form (mandatory
+          while nothing is chosen), reopened on demand from the TypeChip. */}
+      {isEditing && (typeChoice === null || typeGateOpen) && (
+        <RegisterTypeGate
+          value={typeChoice}
+          onSelect={(t) => {
+            setTypeChoice(t);
+            setTypeGateOpen(false);
+          }}
+          // First time (nothing chosen, nothing typed yet) X abandons the
+          // registration; reopened from the chip it just keeps the choice.
+          onClose={typeChoice !== null ? () => setTypeGateOpen(false) : onClose}
+        />
+      )}
+
       {/* Print modal */}
       {printOpen && (
         <LabelPrintOptionsModal
@@ -867,32 +940,69 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
               <div>
                 {/* Category / Badges */}
                 {isEditing ? (
-                  <div className="mb-4 bg-[#0F1115] border border-[#2A2F36] p-3.5 rounded-2xl">
-                    <RegisterTypeSelector
-                      value={typeIsBike ? 'bike' : 'part'}
-                      onChange={(t) => setTypeIsBike(t === 'bike')}
-                      title="Tipo de Registro *"
-                      subtitle="Selección obligatoria de clasificación"
-                    />
+                  <div className="mb-4 space-y-1.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {typeChoice !== null ? (
+                        <TypeChip type={typeChoice} onEdit={() => setTypeGateOpen(true)} />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setTypeGateOpen(true)}
+                          className="px-2.5 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider border bg-red-500/10 text-red-400 border-red-500/30 animate-pulse"
+                        >
+                          Choose type
+                        </button>
+                      )}
+                      {/* NEW ↔ S/D — label flip only, no quantity/location side effects */}
+                      <div className="inline-flex items-center p-0.5 rounded-lg border border-[#2A2F36] bg-[#0F1115]">
+                        <button
+                          type="button"
+                          onClick={() => handleSdToggle(false)}
+                          className={`px-2.5 py-1 text-xs font-semibold uppercase tracking-wider rounded-md transition-all ${
+                            !sdChoice
+                              ? 'bg-emerald-500 text-black shadow-sm'
+                              : 'text-white/50 hover:text-white'
+                          }`}
+                        >
+                          New
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSdToggle(true)}
+                          className={`px-2.5 py-1 text-xs font-semibold uppercase tracking-wider rounded-md transition-all ${
+                            sdChoice
+                              ? 'bg-violet-500 text-white shadow-sm'
+                              : 'text-white/50 hover:text-white'
+                          }`}
+                        >
+                          S/D
+                        </button>
+                      </div>
+                      <span className="text-[10px] text-white/30 font-medium">Tap to change</span>
+                    </div>
+                    {sdMissingSerial && (
+                      <p className="text-[10px] text-red-400 font-medium">
+                        S/D units need a serial number — add it under Product Information.
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 mb-2">
+                    <TypeChip type={typeIsBike ? 'bike' : 'part'} />
                     <span
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider ${
-                        typeIsBike
-                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                          : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider border ${
+                        sdChoice
+                          ? 'bg-violet-500/10 text-violet-400 border-violet-500/20'
+                          : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                       }`}
                     >
-                      {typeIsBike ? 'Bike' : 'Part'}
-                    </span>
-                    <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg text-xs font-semibold uppercase tracking-wider">
-                      New
+                      {sdChoice ? 'S/D' : 'New'}
                     </span>
                   </div>
                 )}
 
-                {/* Model & Color */}
+                {/* Model, Color & Size — the identity trio lives here only;
+                    the Product Information card below keeps price/serial. */}
                 {isEditing ? (
                   <div className="space-y-2 mb-3">
                     <div>
@@ -907,17 +1017,31 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                         className="w-full bg-[#0F1115] border border-[#2A2F36] rounded-xl px-3 py-2 text-sm text-white font-semibold focus:outline-none focus:border-emerald-500/50"
                       />
                     </div>
-                    <div>
-                      <label className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
-                        Color
-                      </label>
-                      <input
-                        type="text"
-                        value={colorField || ''}
-                        onChange={(e) => setValue('color', e.target.value)}
-                        placeholder="e.g. Deep Blue"
-                        className="w-full bg-[#0F1115] border border-[#2A2F36] rounded-xl px-3 py-2 text-sm text-white font-semibold focus:outline-none focus:border-emerald-500/50"
-                      />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
+                          Color
+                        </label>
+                        <input
+                          type="text"
+                          value={colorField || ''}
+                          onChange={(e) => setValue('color', e.target.value)}
+                          placeholder="e.g. Deep Blue"
+                          className="w-full bg-[#0F1115] border border-[#2A2F36] rounded-xl px-3 py-2 text-sm text-white font-semibold focus:outline-none focus:border-emerald-500/50"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-medium text-white/40 uppercase tracking-wider block mb-1">
+                          Size
+                        </label>
+                        <input
+                          type="text"
+                          value={sizeField || ''}
+                          onChange={(e) => setValue('size', e.target.value)}
+                          placeholder='e.g. 19"'
+                          className="w-full bg-[#0F1115] border border-[#2A2F36] rounded-xl px-3 py-2 text-sm text-white font-semibold focus:outline-none focus:border-emerald-500/50"
+                        />
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -925,7 +1049,9 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
                     <h1 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
                       {displayTitle}
                     </h1>
-                    <p className="text-base text-white/60 font-medium">{displayColor}</p>
+                    <p className="text-base text-white/60 font-medium">
+                      {[displayColor, sizeField?.trim()].filter(Boolean).join(' · ')}
+                    </p>
                   </div>
                 )}
 
@@ -1065,57 +1191,6 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
 
             <div className="space-y-3 text-sm">
               <div className="flex items-center justify-between py-1">
-                <span className="text-white/40 text-xs font-medium uppercase tracking-wider">
-                  Model
-                </span>
-                {isEditing || !modelField?.trim() ? (
-                  <input
-                    type="text"
-                    value={modelField || ''}
-                    onChange={(e) => setValue('model', e.target.value)}
-                    placeholder="e.g. Explorer A2"
-                    className="bg-[#0F1115] border border-[#2A2F36] rounded-lg px-2.5 py-1 text-white text-xs text-right w-44 font-medium focus:outline-none focus:border-emerald-500/40"
-                  />
-                ) : (
-                  <span className="text-white font-medium">{displayTitle}</span>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between py-1 border-t border-[#2A2F36]/50">
-                <span className="text-white/40 text-xs font-medium uppercase tracking-wider">
-                  Color
-                </span>
-                {isEditing || !colorField?.trim() ? (
-                  <input
-                    type="text"
-                    value={colorField || ''}
-                    onChange={(e) => setValue('color', e.target.value)}
-                    placeholder="e.g. Deep Blue"
-                    className="bg-[#0F1115] border border-[#2A2F36] rounded-lg px-2.5 py-1 text-white text-xs text-right w-44 font-medium focus:outline-none focus:border-emerald-500/40"
-                  />
-                ) : (
-                  <span className="text-white font-medium">{displayColor}</span>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between py-1 border-t border-[#2A2F36]/50">
-                <span className="text-white/40 text-xs font-medium uppercase tracking-wider">
-                  Size
-                </span>
-                {isEditing || !sizeField?.trim() ? (
-                  <input
-                    type="text"
-                    value={sizeField || ''}
-                    onChange={(e) => setValue('size', e.target.value)}
-                    placeholder="e.g. 19"
-                    className="bg-[#0F1115] border border-[#2A2F36] rounded-lg px-2.5 py-1 text-white text-xs text-right w-32 font-medium focus:outline-none focus:border-emerald-500/40"
-                  />
-                ) : (
-                  <span className="text-white font-medium">{sizeField}</span>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between py-1 border-t border-[#2A2F36]/50">
                 <span className="text-white/40 text-xs font-medium uppercase tracking-wider">
                   Price
                 </span>

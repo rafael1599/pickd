@@ -12,7 +12,7 @@ import { uploadReturnLabelPhoto } from '../services/returnPhotoUpload.service';
 import { feedbackService } from '../../../services/feedback.service';
 import { flashSyncStatus } from '../../../components/layout/SyncStatusIndicator';
 
-import { RegisterTypeSelector } from '../../../components/ui/RegisterTypeSelector';
+import { RegisterTypeSegmented } from '../../../components/ui/RegisterTypeSelector';
 
 const FEDEX_TRACKING_RE = /^\d{12,15}$/;
 
@@ -114,7 +114,7 @@ export const IntakeBar: React.FC = () => {
 
   const submit = async () => {
     if (!itemType) {
-      toast.error('Debes elegir si el retorno es una BICICLETA o una PARTE / ACCESORIO');
+      toast.error('Select whether this return is a Bike or a Part / Accessory');
       return;
     }
     const tracking = trackingNumber.trim();
@@ -131,7 +131,7 @@ export const IntakeBar: React.FC = () => {
     try {
       const photoUrl = await uploadReturnLabelPhoto(tracking, photoFile);
       const fullNotes = [
-        itemType === 'bike' ? '[TIPO: BICICLETA]' : '[TIPO: PARTE/ACCESORIO]',
+        itemType === 'bike' ? '[TYPE: BIKE]' : '[TYPE: PART/ACCESSORY]',
         notes.trim(),
       ]
         .filter(Boolean)
@@ -162,12 +162,9 @@ export const IntakeBar: React.FC = () => {
 
   return (
     <div className="bg-card border border-subtle rounded-2xl p-4 mb-4 space-y-4">
-      <RegisterTypeSelector
-        value={itemType}
-        onChange={setItemType}
-        title="Tipo de Carga FedEx *"
-        subtitle="Selección obligatoria de clasificación"
-      />
+      {/* Compact on purpose: intake is a repetitive scan-scan-scan flow — a
+          full-screen gate per label would slow the operator down. */}
+      <RegisterTypeSegmented value={itemType} onChange={setItemType} label="Load type" />
 
       <input
         ref={fileInputRef}

@@ -8,7 +8,7 @@ import { useRegistrarContainer } from './hooks/useRegistrarContainer';
 import { RegisterTypeSelector } from '../../components/ui/RegisterTypeSelector';
 import type { ContainerInputItem, ParsedSheet, RegisterSummary, ResolvedItem } from './lib/types';
 
-type Step = 'upload' | 'preview' | 'done';
+type Step = 'upload' | 'classify' | 'preview' | 'done';
 
 // Stock from these container imports always lands in the LUDLOW warehouse.
 const WAREHOUSE = 'LUDLOW';
@@ -73,7 +73,10 @@ export function RegistrarContainerScreen() {
         }
       });
       setItemTypesBySku(typesMap);
-      setStep('preview');
+      // Only ask the classification question when there is something to
+      // classify — known SKUs already carry their type from the DB.
+      const hasUnassigned = data.some((r) => !typesMap[r.canonical_sku]);
+      setStep(hasUnassigned ? 'classify' : 'preview');
     },
     [resolve]
   );
@@ -125,6 +128,24 @@ export function RegistrarContainerScreen() {
     [resolved]
   );
 
+  // Classification step: one tap fills only the UNASSIGNED lines — SKUs whose
+  // type is already known from the DB keep it. Explicit override for
+  // everything lives in the preview's "Set all" control.
+  const handleClassifyDefault = useCallback(
+    (type: 'bike' | 'part') => {
+      setItemType(type);
+      setItemTypesBySku((prev) => {
+        const updated = { ...prev };
+        resolved.forEach((r) => {
+          if (!updated[r.canonical_sku]) updated[r.canonical_sku] = type;
+        });
+        return updated;
+      });
+      setStep('preview');
+    },
+    [resolved]
+  );
+
   const handleToggleRowType = useCallback((sku: string, type: 'bike' | 'part') => {
     setItemTypesBySku((prev) => ({
       ...prev,
@@ -140,7 +161,7 @@ export function RegistrarContainerScreen() {
     }
     const missingType = resolved.some((r) => !itemTypesBySku[r.canonical_sku]);
     if (missingType) {
-      toast.error('Debes asignar si cada ítem es Bicicleta o Parte antes de registrar');
+      toast.error('Assign Bike or Part to every item before registering.');
       return;
     }
 
@@ -177,6 +198,10 @@ export function RegistrarContainerScreen() {
 
   const consolidations = useMemo(() => resolved.filter((r) => r.existing_qty > 0), [resolved]);
   const newPlacements = useMemo(() => resolved.filter((r) => r.existing_qty <= 0), [resolved]);
+  const unassignedCount = useMemo(
+    () => resolved.filter((r) => !itemTypesBySku[r.canonical_sku]).length,
+    [resolved, itemTypesBySku]
+  );
 
   const analyzing = resolve.isPending;
 
@@ -248,16 +273,75 @@ export function RegistrarContainerScreen() {
         </div>
       )}
 
-      {/* ───────── STEP 2: PREVIEW ───────── */}
+      {/* ───────── STEP 2: CLASSIFY (only when the file brings new SKUs) ───────── */}
+      {step === 'classify' && (
+        <div className="min-h-[60vh] flex items-center justify-center">
+          <div className="w-full max-w-lg space-y-6">
+            <div className="rounded-2xl border border-gray-200 p-5 sm:p-6">
+              <RegisterTypeSelector
+                value={itemType}
+                onChange={handleClassifyDefault}
+                title="Container classification"
+                subtitle={`One tap classifies the ${unassignedCount} new SKU${unassignedCount === 1 ? '' : 's'} in this file. SKUs already in the system keep their saved type. You can adjust each SKU on the next screen.`}
+                large
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <button
+                onClick={reset}
+                className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 active:bg-gray-50"
+              >
+                <ArrowLeft className="w-4 h-4" /> Back
+              </button>
+              <button
+                onClick={() => setStep('preview')}
+                className="text-sm text-gray-500 underline underline-offset-2 active:text-gray-700"
+              >
+                Skip — classify each SKU individually
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ───────── STEP 3: PREVIEW ───────── */}
       {step === 'preview' && (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-gray-200 p-4 bg-gray-50/50">
-            <RegisterTypeSelector
-              value={itemType}
-              onChange={handleSetAllTypes}
-              title="Clasificación General del Contenedor"
-              subtitle="Presiona para asignar TODO el contenedor a Bicicletas o Partes, o ajusta ítem por ítem individualmente en la lista de abajo:"
-            />
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-gray-200 bg-gray-50/50 px-4 py-2.5">
+            <span
+              className={`text-xs font-medium ${unassignedCount > 0 ? 'text-red-600' : 'text-gray-500'}`}
+            >
+              {unassignedCount > 0
+                ? `${unassignedCount} SKU${unassignedCount === 1 ? '' : 's'} still need${unassignedCount === 1 ? 's' : ''} a type`
+                : 'All SKUs classified'}
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] uppercase tracking-wider text-gray-400">Set all:</span>
+              <div className="inline-flex items-center p-0.5 rounded-lg border bg-gray-100 border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => handleSetAllTypes('bike')}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
+                    itemType === 'bike'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-gray-500 hover:text-gray-900'
+                  }`}
+                >
+                  🚲 Bike
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetAllTypes('part')}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
+                    itemType === 'part'
+                      ? 'bg-amber-500 text-white shadow-sm'
+                      : 'text-gray-500 hover:text-gray-900'
+                  }`}
+                >
+                  📦 Part
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Destination location name */}
@@ -290,7 +374,7 @@ export function RegistrarContainerScreen() {
                 <tr>
                   <th className="px-3 py-2">Canonical SKU</th>
                   <th className="px-3 py-2">Description</th>
-                  <th className="px-3 py-2 text-center">Tipo (Designación)</th>
+                  <th className="px-3 py-2 text-center">Type</th>
                   <th className="px-3 py-2 text-right">Qty</th>
                   <th className="px-3 py-2">Towers/Lines</th>
                   <th className="px-3 py-2">Status</th>
@@ -451,7 +535,7 @@ export function RegistrarContainerScreen() {
         </div>
       )}
 
-      {/* ───────── STEP 3: DONE / REPORT ───────── */}
+      {/* ───────── STEP 4: DONE / REPORT ───────── */}
       {step === 'done' && summary && (
         <div className="space-y-5">
           <div className="rounded-2xl border border-green-200 bg-green-50 p-4 flex items-center gap-3">
@@ -650,8 +734,9 @@ function SummaryBar({
 function StepBadge({ step }: { step: Step }) {
   const map: Record<Step, string> = {
     upload: '1 · Upload',
-    preview: '2 · Review',
-    done: '3 · Report',
+    classify: '2 · Classify',
+    preview: '3 · Review',
+    done: '4 · Report',
   };
   return (
     <span className="ml-auto text-xs rounded-full bg-gray-100 px-3 py-1 text-gray-600 whitespace-nowrap">
