@@ -16,8 +16,27 @@
     body{
         background:var(--ground); color:var(--ink); font-family:var(--sans);
         min-height:100vh; overflow-x:hidden; -webkit-font-smoothing:antialiased;
-        display:flex; flex-direction:column;
+        display:flex; flex-direction:column; padding-left: 240px;
     }
+    
+    .sidebar {
+        position:fixed; left:0; top:0; bottom:0; width:240px; background:#04070d;
+        border-right:1px solid var(--line); padding:20px; z-index:100;
+        display:flex; flex-direction:column; gap:15px; overflow-y:auto;
+    }
+    .sidebar h2 { font-size:11px; font-weight:800; letter-spacing:.2em; color:var(--ink-mute); margin-bottom:10px; }
+    .sidebar .saved-item { 
+        background:rgba(15,23,42,.8); border:1px solid var(--line); border-radius:6px;
+        padding:10px; font-family:var(--mono); font-size:11px; cursor:pointer;
+        transition: border-color .2s;
+    }
+    .sidebar .saved-item:hover { border-color:var(--ink-dim); }
+    .sidebar .saved-item-title { font-weight:700; color:var(--ink); margin-bottom:6px; font-size:12px; }
+    .sidebar .saved-item-info { color:var(--ink-mute); font-size:9.5px; }
+    .sidebar .saved-item-del {
+        float:right; color:var(--bad); border:none; background:none; cursor:pointer; font-weight:bold;
+    }
+    
     header{ padding:20px 30px; display:flex; justify-content:space-between;
             align-items:center; gap:20px; flex-wrap:wrap; border-bottom:1px solid rgba(255,255,255,0.05); }
     h1{ font-size:15px; font-weight:800; letter-spacing:.22em; margin:0; }
@@ -88,14 +107,6 @@
     
     .map-area { flex:1; position:relative; padding:20px; overflow:hidden; display:flex; align-items:center; justify-content:center; }
     svg { width:100%; max-height:calc(100vh - 200px); object-fit:contain; }
-    svg rect[data-hover] { cursor:crosshair; transition:all 0.1s ease; }
-    svg rect[data-hover]:hover {
-        fill: rgba(0, 238, 255, 0.4) !important;
-        stroke: #00eeff !important;
-        stroke-width: 2.5 !important;
-        stroke-dasharray: none !important;
-    }
-
     #tooltip {
         position:absolute; background:var(--ink); color:var(--ground);
         font-family:var(--mono); font-size:11px; font-weight:700; padding:6px 10px;
@@ -103,19 +114,117 @@
         transform:translate(-50%, -120%); white-space:nowrap; z-index:200;
         box-shadow:0 4px 12px rgba(0,0,0,0.5);
     }
+    .pinned-slot {
+        stroke: #f59e0b !important;
+        stroke-width: 2.5px !important;
+        stroke-dasharray: 4 2 !important;
+    }
+    .moving-active {
+        stroke: #38bdf8 !important;
+        stroke-width: 3px !important;
+        animation: pulse-move 0.8s infinite alternate !important;
+    }
+    @keyframes pulse-move {
+        from { filter: drop-shadow(0 0 2px #38bdf8); }
+        to { filter: drop-shadow(0 0 10px #38bdf8); }
+    }
+
+    /* Velocity Heatmap Styles */
+    .heatmap-mode rect[data-vel="dormant"] {
+        fill: #64748b !important;
+        fill-opacity: 0.75 !important;
+        stroke: #94a3b8 !important;
+    }
+    .heatmap-mode rect[data-vel="slow"] {
+        fill: #0284c7 !important;
+        fill-opacity: 0.85 !important;
+        stroke: #38bdf8 !important;
+    }
+    .heatmap-mode rect[data-vel="medium"] {
+        fill: #d97706 !important;
+        fill-opacity: 0.85 !important;
+        stroke: #fbbf24 !important;
+    }
+    .heatmap-mode rect[data-vel="fast"] {
+        fill: #16a34a !important;
+        fill-opacity: 0.90 !important;
+        stroke: #4ade80 !important;
+    }
+
+    /* SKU Spotlight & Dimming on Hover */
+    rect[data-slot] {
+        transition: opacity 0.2s ease, filter 0.2s ease, stroke 0.15s ease, stroke-width 0.15s ease;
+    }
+    svg.sku-dim-mode rect[data-slot]:not(.sku-highlight) {
+        opacity: 0.15 !important;
+        filter: grayscale(60%) !important;
+    }
+    svg.sku-dim-mode text {
+        opacity: 0.35 !important;
+        transition: opacity 0.2s ease;
+    }
+    .sku-highlight {
+        opacity: 1 !important;
+        stroke: #ffffff !important;
+        stroke-width: 2.8px !important;
+        filter: drop-shadow(0 0 10px rgba(0, 238, 255, 0.95)) !important;
+    }
+    svg:not(.heatmap-mode) .sku-highlight {
+        fill: #00eeff !important;
+        fill-opacity: 0.95 !important;
+    }
 </style>
 </head>
 <body>
 
+<div class="sidebar">
+    <h2>SAVED CONFIGS</h2>
+    <button class="btn" style="width:100%; text-align:center; margin-bottom:10px;" onclick="saveConfig()">+ SAVE CURRENT</button>
+    <div id="savedList" style="display:flex; flex-direction:column; gap:10px;"></div>
+</div>
+
 <header>
-    <div>
+    <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
         <h1 id="heading">LOADING...</h1>
+        <div style="display:flex; background:#0f172a; border:1.5px solid #334155; border-radius:6px; padding:2px;">
+            <button id="btnModeSlotting" style="background:#38bdf8; color:#04070d; border:none; padding:5px 12px; border-radius:4px; font-weight:800; font-size:11px; cursor:pointer;">🗺️ SLOTTING VIEW</button>
+            <button id="btnModeEditor" style="background:transparent; color:#94a3b8; border:none; padding:5px 12px; border-radius:4px; font-weight:800; font-size:11px; cursor:pointer;">🛠️ EDIT FLOORPLAN</button>
+        </div>
     </div>
     <div class="actions">
+        <div id="layoutPresetGroup" style="display:flex; background:#0f172a; border:1.5px solid #334155; border-radius:6px; padding:2px; gap:2px;">
+            <button id="btnLayoutStandard" class="layout-btn active" style="background:#38bdf8; color:#04070d; border:none; padding:4px 9px; border-radius:4px; font-weight:800; font-size:11px; cursor:pointer; font-family:var(--mono);" title="Standard: 4 Blocks with 3 Halls">📦 3 HALLS</button>
+            <button id="btnLayoutCenterHall" class="layout-btn" style="background:transparent; color:#94a3b8; border:none; padding:4px 9px; border-radius:4px; font-weight:800; font-size:11px; cursor:pointer; font-family:var(--mono);" title="Center Hall: 2 Big Blocks with 1 Wide Center Hall">🏛️ 1 CENTER HALL</button>
+            <button id="btnLayoutSolid" class="layout-btn" style="background:transparent; color:#94a3b8; border:none; padding:4px 9px; border-radius:4px; font-weight:800; font-size:11px; cursor:pointer; font-family:var(--mono);" title="Solid: 1 Mass Block with 0 Halls">🧱 0 HALLS</button>
+        </div>
+        <label id="palletDimControls" style="font-size:11px; font-family:var(--mono); color:var(--ink-mute); display:flex; align-items:center; gap:6px;">
+            PALLET
+            <input type="range" id="inpPD" min="55" max="65" value="60" style="width:80px; accent-color:#00eeff; cursor:pointer;"> <span id="valPD" style="color:#00eeff; font-weight:bold;">60"</span> D &times;
+            <input type="range" id="inpPW" min="57" max="67" value="62" style="width:80px; accent-color:#00eeff; cursor:pointer;"> <span id="valPW" style="color:#00eeff; font-weight:bold;">62"</span> W
+        </label>
         <div class="switch" id="toggles"></div>
         <button class="btn" onclick="location.href='warehouse_map.html'">← MAP</button>
     </div>
 </header>
+
+<div id="editorToolbar" style="padding: 10px 20px; background: #0b1329; text-align: center; border-bottom: 1.5px solid #0284c7; display: none; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap;">
+    <span style="color:#38bdf8; font-family:monospace; font-weight:900; font-size:12px; letter-spacing:0.5px;">🛠️ FLOORPLAN & RACKS EDITOR</span>
+    <button id="btnAddNonBikeRack" style="background:rgba(99,102,241,0.2); border:1px solid #6366f1; color:#a5b4fc; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; font-size: 12px; display:flex; align-items:center; gap:6px;">
+        <span>🗄️</span> + NON-BIKE RACK
+    </button>
+    <button id="btnAddRestricted" style="background:rgba(239,68,68,0.2); border:1px solid #ef4444; color:#fca5a5; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; font-size: 12px; display:flex; align-items:center; gap:6px;">
+        <span>⚠️</span> + RESTRICTED ZONE
+    </button>
+    <button id="btnAddStaging" style="background:rgba(2,132,199,0.2); border:1px solid #0284c7; color:#7dd3fc; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; font-size: 12px; display:flex; align-items:center; gap:6px;">
+        <span>📦</span> + STAGING AREA
+    </button>
+    <button id="btnSaveFloorplan" style="background:#10b981; color:#04070d; border:none; padding:6px 14px; border-radius:4px; font-weight:900; cursor:pointer; font-size: 12px; display:flex; align-items:center; gap:6px;">
+        <span>💾</span> SAVE & APPLY TO SLOTTING
+    </button>
+    <button id="btnResetFloorplan" style="background:transparent; border:1px solid #64748b; color:#cbd5e1; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; font-size: 12px;">
+        <span>↩️</span> RESET
+    </button>
+</div>
 
 <div class="totals">
     <div class="big"><div class="k">PALLETS</div><div class="v" id="tPallets">—</div></div>
@@ -133,18 +242,139 @@
     <span><i style="background:rgba(167,139,250,.2);border-color:#a78bfa"></i>BURIED — NEEDS THE FRONT MOVED</span>
     <span><i style="background:rgba(57,255,20,.3);border-color:#39ff14"></i>BIKE BLOCK — LEFTOVER AT THE FRONT</span>
     <span id="legPostHit" style="display:none"><i style="background:#ef4444;border-color:#ef4444"></i>STRUCTURAL POST (HITS SLOT)</span>
-    <span id="legPostClear" style="display:none"><i style="background:#34d399;border-color:#34d399"></i>STRUCTURAL POST (IN AISLE)</span>
+    <span id="legPostClear" style="display:none"><i style="background:#34d399;border-color:#34d399"></i>STRUCTURAL POST (IN HALL)</span>
     <span><i style="background:#0a1120;border-color:var(--line-lit)"></i>EXISTING RACK / DEAD ZONE</span>
 </div>
 </details>
 
 <div class="alert" id="alert" hidden></div>
+<div style="padding: 10px 20px; background: #1e293b; text-align: center; border-bottom: 1px solid #334155; display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap;" id="enginePanel" hidden>
+    <div style="color: #94a3b8; font-family: monospace; font-size: 12px; font-weight:700;">Halls:</div>
+    <div style="display:flex; background:#0f172a; border:1px solid #475569; border-radius:5px; padding:2px; gap:2px;">
+        <button id="btnEngineStd" style="background:#38bdf8; color:#04070d; border:none; padding:4px 8px; border-radius:3px; font-weight:bold; font-size:11px; cursor:pointer;">3 Halls</button>
+        <button id="btnEngineCenter" style="background:transparent; color:#94a3b8; border:none; padding:4px 8px; border-radius:3px; font-weight:bold; font-size:11px; cursor:pointer;">1 Center Hall</button>
+        <button id="btnEngineSolid" style="background:transparent; color:#94a3b8; border:none; padding:4px 8px; border-radius:3px; font-weight:bold; font-size:11px; cursor:pointer;">0 Halls (Solid)</button>
+    </div>
+    <button id="btnRunEngine" style="background:#00eeff; color:black; padding:6px 12px; border:none; border-radius:4px; font-weight:bold; cursor:pointer; font-size: 12px;">RE-RUN ENGINE</button>
+    <button id="btnToggleHeatmap" style="background:rgba(56,189,248,0.15); border:1px solid #38bdf8; color:#38bdf8; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; font-size: 12px; display:flex; align-items:center; gap:6px;">
+        <span>🎨</span> <span id="txtHeatmapBtn">HEATMAP: OFF</span>
+    </button>
+    <button id="btnExportMoveList" style="background:rgba(16,185,129,0.15); border:1px solid #10b981; color:#10b981; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; font-size: 12px; display:flex; align-items:center; gap:6px;">
+        <span>📄</span> <span>EXPORT MOVE LIST</span>
+    </button>
+    <button id="btnClearPins" style="background:rgba(245,158,11,0.15); border:1px solid #f59e0b; color:#f59e0b; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; font-size: 12px; display:none;">CLEAR PINS (0)</button>
+    
+    <div id="heatmapLegend" style="display:none; align-items:center; gap:10px; font-family:var(--mono); font-size:11px; margin-left:8px; padding-left:14px; border-left:1px solid #475569;">
+        <span style="color:#94a3b8; font-weight:700;">⚪ Dormant (0.0)</span>
+        <div style="width:180px; height:11px; border-radius:4px; background:linear-gradient(to right, #64748b 0%, #0284c7 15%, #0ea5e9 30%, #f59e0b 50%, #10b981 70%, #22c55e 85%, #4ade80 100%); border:1px solid rgba(255,255,255,0.25); box-shadow:0 0 10px rgba(56,189,248,0.25);"></div>
+        <span style="color:#86efac; font-weight:700;">🟢 Fast (6.8+)</span>
+    </div>
+</div>
 <div class="map-area" id="mapArea">
-    <div id="tooltip"></div>
-    <svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
+    <svg id="svg" xmlns="http://www.w3.org/2000/svg" style="cursor:default;"></svg>
+</div>
+
+<!-- Forklift Move Order Modal -->
+<div id="modalMoveList" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:20000; align-items:center; justify-content:center; backdrop-filter:blur(4px); padding:20px;">
+    <div style="background:#0f172a; border:1px solid #334155; border-radius:12px; width:100%; max-width:1080px; max-height:88vh; display:flex; flex-direction:column; box-shadow:0 25px 50px -12px rgba(0,0,0,0.85);">
+        <!-- Modal Header -->
+        <div style="padding:16px 22px; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center; background:#1e293b; border-radius:12px 12px 0 0; flex-wrap:wrap; gap:12px;">
+            <div>
+                <div style="font-size:15.5px; font-weight:900; color:#f8fafc; display:flex; align-items:center; gap:8px; font-family:var(--mono);">
+                    <span>📋</span> <span>BAY 3 FORKLIFT MOVE ORDER & SLOTTING MANIFEST</span>
+                </div>
+                <div style="font-size:11.5px; color:#94a3b8; margin-top:3px; font-family:var(--mono);" id="modalMoveSummary">
+                    Calculating relocation tasks...
+                </div>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <button id="btnDownloadCSV" style="background:#10b981; color:#04070d; border:none; padding:7px 15px; border-radius:6px; font-weight:800; font-size:11.5px; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                    <span>📥</span> DOWNLOAD CSV
+                </button>
+                <button id="btnPrintWorkOrder" style="background:#38bdf8; color:#04070d; border:none; padding:7px 15px; border-radius:6px; font-weight:800; font-size:11.5px; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                    <span>🖨️</span> PRINT MANIFEST
+                </button>
+                <button id="btnCloseModal" style="background:transparent; border:1px solid #475569; color:#cbd5e1; padding:7px 14px; border-radius:6px; font-weight:bold; font-size:11.5px; cursor:pointer;">
+                    ✕ CLOSE
+                </button>
+            </div>
+        </div>
+
+        <!-- Modal Table Body -->
+        <div style="flex:1; overflow-y:auto; padding:16px 22px;">
+            <table style="width:100%; border-collapse:collapse; font-family:ui-monospace, monospace; font-size:11.5px; color:#f8fafc;">
+                <thead>
+                    <tr style="border-bottom:2px solid #475569; color:#94a3b8; text-align:left; font-size:11px;">
+                        <th style="padding:10px 8px; width:40px;">#</th>
+                        <th style="padding:10px 8px; width:110px;">SKU</th>
+                        <th style="padding:10px 8px; width:100px;">FROM</th>
+                        <th style="padding:10px 8px; width:95px;">TO</th>
+                        <th style="padding:10px 8px; text-align:center; width:65px;">QTY</th>
+                        <th style="padding:10px 8px;">ITEM DESCRIPTION</th>
+                        <th style="padding:10px 8px; width:110px;">VELOCITY</th>
+                        <th style="padding:10px 8px; width:90px;">PALLET</th>
+                        <th style="padding:10px 8px; width:100px;">TYPE</th>
+                    </tr>
+                </thead>
+                <tbody id="moveTableBody">
+                    <!-- Dynamic rows inserted here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Obstacle Inspector / Popover -->
+<div id="obstacleInspector" style="position:fixed; bottom:24px; right:24px; background:#0f172a; border:1.5px solid #38bdf8; border-radius:10px; padding:16px 20px; color:#f8fafc; font-family:var(--mono); font-size:12px; z-index:10000; box-shadow:0 14px 35px rgba(0,0,0,0.8); display:none; flex-direction:column; gap:10px; width:320px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:8px;">
+        <span style="font-weight:900; color:#38bdf8; font-size:13px;" id="inspTitle">⚙️ Edit Obstacle</span>
+        <button id="btnCloseInspector" style="background:transparent; border:none; color:#94a3b8; font-weight:bold; font-size:14px; cursor:pointer;">✕</button>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:4px;">
+        <label style="font-size:10.5px; color:#94a3b8;">NAME / LABEL</label>
+        <input type="text" id="inspLabel" style="background:#1e293b; border:1px solid #475569; color:#fff; padding:6px 8px; border-radius:4px; font-size:12px; font-family:monospace; font-weight:bold;"/>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:4px;">
+        <label style="font-size:10.5px; color:#94a3b8;">CATEGORY TYPE</label>
+        <select id="inspType" style="background:#1e293b; border:1px solid #475569; color:#fff; padding:6px 8px; border-radius:4px; font-size:12px; font-family:monospace;">
+            <option value="non_bike_rack">🗄️ Non-Bike Rack (Parts / Accessories)</option>
+            <option value="restricted">⚠️ Restricted / Safety Hazard (No Bicycles)</option>
+            <option value="staging">📦 Inbound Staging / Staging Area</option>
+        </select>
+    </div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+        <div>
+            <label style="font-size:10.5px; color:#94a3b8;">WIDTH (INCHES)</label>
+            <input type="number" id="inspW" min="12" max="1500" style="width:100%; box-sizing:border-box; background:#1e293b; border:1px solid #475569; color:#38bdf8; padding:5px 8px; border-radius:4px; font-size:12px; font-weight:bold;"/>
+        </div>
+        <div>
+            <label style="font-size:10.5px; color:#94a3b8;">DEPTH (INCHES)</label>
+            <input type="number" id="inspH" min="12" max="1500" style="width:100%; box-sizing:border-box; background:#1e293b; border:1px solid #475569; color:#38bdf8; padding:5px 8px; border-radius:4px; font-size:12px; font-weight:bold;"/>
+        </div>
+    </div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+        <div>
+            <label style="font-size:10.5px; color:#94a3b8;">X POSITION</label>
+            <input type="number" id="inspX" style="width:100%; box-sizing:border-box; background:#1e293b; border:1px solid #475569; color:#cbd5e1; padding:5px 8px; border-radius:4px; font-size:11px;"/>
+        </div>
+        <div>
+            <label style="font-size:10.5px; color:#94a3b8;">Y POSITION</label>
+            <input type="number" id="inspY" style="width:100%; box-sizing:border-box; background:#1e293b; border:1px solid #475569; color:#cbd5e1; padding:5px 8px; border-radius:4px; font-size:11px;"/>
+        </div>
+    </div>
+    <div style="display:flex; justify-content:space-between; margin-top:6px; border-top:1px solid #334155; padding-top:10px;">
+        <button id="btnDeleteObstacle" style="background:rgba(239,68,68,0.2); border:1px solid #ef4444; color:#ef4444; padding:6px 12px; border-radius:4px; font-weight:bold; font-size:11px; cursor:pointer;">🗑️ DELETE</button>
+        <button id="btnApplyInspector" style="background:#38bdf8; color:#04070d; border:none; padding:6px 14px; border-radius:4px; font-weight:900; font-size:11px; cursor:pointer;">APPLY</button>
+    </div>
+</div>
+
+<div id="moveBanner" style="position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#0f172a; border:1.5px solid #38bdf8; border-radius:30px; padding:10px 24px; color:#f8fafc; font-family:var(--mono); font-size:12px; z-index:10000; box-shadow:0 12px 30px rgba(0,0,0,0.7); display:none; align-items:center; gap:16px;">
+    <span id="moveBannerText">📌 Moving SKU...</span>
+    <button class="btn" style="padding:4px 12px; font-size:10.5px; border-color:#f87171; color:#f87171;" id="btnCancelMove">CANCEL</button>
 </div>
 
 <script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 import { ZONES } from './zones.js';
 import { PalletEngine } from './PalletEngine.js';
 
@@ -160,6 +390,11 @@ if (!config) {
 
 $('pageTitle').textContent = config.name + ' Layout';
 document.title = $('pageTitle').textContent;
+
+if (zoneId.startsWith('bay3')) {
+    $('enginePanel').hidden = false;
+}
+
 if (config.posts && config.posts.length > 0) {
     $('tLostWrap').style.display = 'block';
     $('legPostHit').style.display = 'flex';
@@ -170,12 +405,95 @@ const state = {
     pw: 62,
     pd: 60,
     isEW: false,
-    toggles: { west: true }
+    layoutPreset: 'standard', // 'standard' (3 halls) | 'center_hall' (1 center hall) | 'solid' (0 halls)
+    solidBlock: false,
+    centerHall: false,
+    toggles: { west: true },
+    hallOverrides: {}
+};
+
+$('inpPD').addEventListener('input', e => { 
+    state.pd = parseFloat(e.target.value) || 60; 
+    $('valPD').textContent = state.pd + '"';
+    render(); 
+});
+$('inpPW').addEventListener('input', e => { 
+    state.pw = parseFloat(e.target.value) || 62; 
+    $('valPW').textContent = state.pw + '"';
+    render(); 
+});
+
+window.openHallSlider = (e, idx, currentSize) => {
+    let popup = document.getElementById('hall-slider-popup');
+    if (!popup) {
+        popup = document.createElement('div');
+        popup.id = 'hall-slider-popup';
+        popup.style.cssText = "position:absolute; background:#1e293b; color:#e2e8f0; padding:12px; border-radius:8px; box-shadow:0 10px 25px rgba(0,0,0,0.5); z-index:1000; border:1px solid #334155; display:flex; flex-direction:column; gap:8px; font-family:var(--mono, ui-monospace, monospace); font-size:12px;";
+        document.body.appendChild(popup);
+    }
+    
+    let val = state.hallOverrides[idx] || currentSize;
+    
+    popup.innerHTML = `
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+            <strong>Hall ${idx + 1} Width</strong>
+            <button id="hallSliderReset" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:10px;">RESET</button>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <input type="range" id="hallSliderInp" min="${Math.max(54, currentSize - 20)}" max="${currentSize + 20}" value="${val}" style="width:120px; accent-color:#00eeff; cursor:pointer;">
+            <span id="hallSliderVal" style="color:#00eeff; font-weight:bold; min-width:30px;">${val}"</span>
+        </div>
+        <button onclick="document.getElementById('hall-slider-popup').style.display='none'" style="margin-top:4px; background:rgba(255,255,255,0.1); border:none; color:white; padding:4px; border-radius:4px; cursor:pointer;">Close</button>
+    `;
+    
+    popup.style.display = 'flex';
+    popup.style.left = (e.pageX + 15) + 'px';
+    popup.style.top = (e.pageY + 15) + 'px';
+    
+    document.getElementById('hallSliderReset').onclick = () => {
+        popup.style.display='none'; 
+        delete state.hallOverrides[idx]; 
+        render();
+    };
+    
+    document.getElementById('hallSliderInp').addEventListener('input', (ev) => {
+        const v = parseInt(ev.target.value);
+        document.getElementById('hallSliderVal').textContent = v + '"';
+        state.hallOverrides[idx] = v;
+        render();
+    });
 };
 
 // UI Toggles Setup
 const togglesDiv = $('toggles');
-if (zoneId === 'bay3_se') {
+if (zoneId === 'bay3_north') {
+    togglesDiv.innerHTML = `
+        <label id="btnToggleWest" class="on"><input type="checkbox" id="chkWest" checked> WEST HALL</label>
+    `;
+    $('chkWest').addEventListener('change', e => {
+        state.toggles.west = e.target.checked;
+        $('btnToggleWest').classList.toggle('on', state.toggles.west);
+        render();
+    });
+} else if (zoneId === 'bay2_south') {
+    togglesDiv.innerHTML = `
+        <label id="btnToggleWest" class="on"><input type="checkbox" id="chkWest" checked> WEST HALL</label>
+        <label id="btnToggleEast" class="on"><input type="checkbox" id="chkEast" checked> EAST HALL</label>
+    `;
+    state.toggles.west = true;
+    state.toggles.east = true;
+    $('chkWest').addEventListener('change', e => {
+        state.toggles.west = e.target.checked;
+        $('btnToggleWest').classList.toggle('on', state.toggles.west);
+        render();
+    });
+    $('chkEast').addEventListener('change', e => {
+        state.toggles.east = e.target.checked;
+        $('btnToggleEast').classList.toggle('on', state.toggles.east);
+        render();
+    });
+} else {
+    // Default orientation toggles for bay3_se, bay1_north, bay1_office_gap
     togglesDiv.innerHTML = `
         <button data-k="ns" class="on">N–S ROWS</button>
         <button data-k="ew">E–W ROWS</button>
@@ -188,18 +506,128 @@ if (zoneId === 'bay3_se') {
             render();
         });
     });
-} else if (zoneId === 'bay3_north') {
-    togglesDiv.innerHTML = `
-        <label id="btnToggleWest" class="on"><input type="checkbox" id="chkWest" checked> WEST AISLE</label>
-    `;
-    $('chkWest').addEventListener('change', e => {
-        state.toggles.west = e.target.checked;
-        $('btnToggleWest').classList.toggle('on', state.toggles.west);
-        render();
+}
+
+// Layout Preset Handler (Standard 3 Halls | 1 Center Hall | 0 Halls Solid)
+function setLayoutPreset(preset) {
+    state.layoutPreset = preset;
+    state.solidBlock = (preset === 'solid');
+    state.centerHall = (preset === 'center_hall');
+
+    const updateBtns = (stdId, centerId, solidId) => {
+        const btns = { standard: $(stdId), center_hall: $(centerId), solid: $(solidId) };
+        Object.entries(btns).forEach(([k, btn]) => {
+            if (!btn) return;
+            if (k === preset) {
+                btn.style.background = '#38bdf8';
+                btn.style.color = '#04070d';
+            } else {
+                btn.style.background = 'transparent';
+                btn.style.color = '#94a3b8';
+            }
+        });
+    };
+
+    updateBtns('btnLayoutStandard', 'btnLayoutCenterHall', 'btnLayoutSolid');
+    updateBtns('btnEngineStd', 'btnEngineCenter', 'btnEngineSolid');
+
+    render();
+    if (zoneId.startsWith('bay3')) {
+        setTimeout(executeSlottingEngine, 60);
+    }
+}
+
+$('btnLayoutStandard')?.addEventListener('click', () => setLayoutPreset('standard'));
+$('btnLayoutCenterHall')?.addEventListener('click', () => setLayoutPreset('center_hall'));
+$('btnLayoutSolid')?.addEventListener('click', () => setLayoutPreset('solid'));
+
+$('btnEngineStd')?.addEventListener('click', () => setLayoutPreset('standard'));
+$('btnEngineCenter')?.addEventListener('click', () => setLayoutPreset('center_hall'));
+$('btnEngineSolid')?.addEventListener('click', () => setLayoutPreset('solid'));
+
+// Saved Configs Logic
+const getSavedKey = () => `pickd_layout_configs_${zoneId}`;
+let savedConfigs = JSON.parse(localStorage.getItem(getSavedKey()) || '[]');
+
+function renderSavedList() {
+    const list = $('savedList');
+    list.innerHTML = '';
+    savedConfigs.forEach((cfg, idx) => {
+        const item = document.createElement('div');
+        item.className = 'saved-item';
+        item.innerHTML = `
+            <button class="saved-item-del" onclick="event.stopPropagation(); deleteConfig(${idx})">X</button>
+            <div class="saved-item-title">${cfg.name}</div>
+            <div class="saved-item-info">PD:${cfg.state.pd}" PW:${cfg.state.pw}" Overrides:${Object.keys(cfg.state.hallOverrides).length}</div>
+        `;
+        item.onclick = () => loadConfig(idx);
+        list.appendChild(item);
     });
 }
 
+window.saveConfig = () => {
+    const name = prompt("Configuration name:", `Layout ${new Date().toLocaleTimeString()}`);
+    if (!name) return;
+    savedConfigs.push({
+        name,
+        state: JSON.parse(JSON.stringify(state))
+    });
+    localStorage.setItem(getSavedKey(), JSON.stringify(savedConfigs));
+    renderSavedList();
+};
+
+window.loadConfig = (idx) => {
+    const cfg = savedConfigs[idx];
+    if (!cfg) return;
+    Object.assign(state, JSON.parse(JSON.stringify(cfg.state)));
+    $('inpPD').value = state.pd;
+    $('valPD').textContent = state.pd + '"';
+    $('inpPW').value = state.pw;
+    $('valPW').textContent = state.pw + '"';
+    // update toggles
+    Object.keys(state.toggles).forEach(k => {
+        const chk = $(`chk${k.charAt(0).toUpperCase() + k.slice(1)}`);
+        if (chk) {
+            chk.checked = state.toggles[k];
+            chk.parentElement.className = state.toggles[k] ? 'on' : '';
+        }
+    });
+    render();
+};
+
+window.deleteConfig = (idx) => {
+    if (!confirm("Delete configuration?")) return;
+    savedConfigs.splice(idx, 1);
+    localStorage.setItem(getSavedKey(), JSON.stringify(savedConfigs));
+    renderSavedList();
+};
+
+// Mode & Custom Obstacles State
+let currentMode = 'slotting'; // 'slotting' | 'editor'
+const getObstaclesKey = () => `pickd_custom_obstacles_${zoneId}`;
+let customObstacles = JSON.parse(localStorage.getItem(getObstaclesKey()) || '[]');
+let selectedObstacleId = null;
+let editorInteraction = null; // { mode: 'drag'|'resize', obsId, startX, startY, initialX, initialY, initialW, initialH, handle }
+
+function syncInspectorFields() {
+    const obs = customObstacles.find(o => o.id === selectedObstacleId);
+    const insp = $('obstacleInspector');
+    if (!obs || currentMode !== 'editor') {
+        insp.style.display = 'none';
+        return;
+    }
+    insp.style.display = 'flex';
+    $('inspTitle').textContent = `⚙️ Edit: ${obs.label || 'Obstacle'}`;
+    $('inspLabel').value = obs.label || '';
+    $('inspType').value = obs.type || 'non_bike_rack';
+    $('inspW').value = Math.round(obs.w);
+    $('inspH').value = Math.round(obs.h);
+    $('inspX').value = Math.round(obs.x);
+    $('inspY').value = Math.round(obs.y);
+}
+
 function render() {
+    state.customObstacles = customObstacles;
     const engine = new PalletEngine(zoneId, config, state);
     const m = engine.calculate();
 
@@ -214,50 +642,1093 @@ function render() {
     }
     
     $('alert').hidden = true;
-    const rowDirS = state.isEW ? 'N→S' : 'E→W';
-
-    $('heading').innerHTML = config.name + ' — PALLET LAYOUT <span style="color:var(--ink-mute)">· ' + (state.isEW ? 'EAST–WEST' : 'NORTH–SOUTH') + ' ROWS</span>';
-
-    $('tPallets').innerHTML = m.pallets + (m.lost.length ? ` <small>(${m.gross} gross &minus; ${m.lost.length} hit)</small>` : '');
-    $('tBikesTotal').innerHTML = new Intl.NumberFormat().format(m.palletBikes + m.bikes) + (m.bikes > 0 ? ` <small>(${m.palletBikes} + ${m.bikes} block)</small>` : '');
-    $('tFast').innerHTML = m.accessible + ' <small>of ' + m.pallets + '</small>';
-    if ($('tLost')) {
-        $('tLost').innerHTML = m.hits.length > 0 ? m.hits.length + ' <small>slots</small>' : '0 <small>clear</small>';
-    }
-
-    let specs = `<span>${m.nRows}</span> ROWS &middot; `;
-    specs += `<span>${m.deep}</span> SLOTS DEEP &middot; `;
-    specs += `<span>${m.blocks.length}</span> BLOCKS (${m.blocks.slice().reverse().join('·')} ${rowDirS}) &middot; `;
-    if (m.lines > 0) specs += `<span>${m.lines}</span> BIKE LINES FRONT &middot; `;
-    specs += `<span>${m.nHalls > 0 ? Math.round(m.hall*100)/100 + '"' : 'NO'}</span> AISLES`;
-    if (m.activePosts.length > 0) {
-        specs += ` &middot; <span>${m.activePosts.length}</span> POSTS (<span class="${m.hits.length > 0 ? 'bad' : ''}">${m.hits.length}</span> OBSTRUCT)`;
-    }
-    $('tSpecs').innerHTML = specs;
-
     const svg = $('svg');
     svg.setAttribute('viewBox', `0 0 ${config.width + 192} ${config.height + 192}`);
-    svg.innerHTML = engine.renderSVG(m);
+    window.currentLayoutMap = m;
+
+    if (currentMode === 'editor') {
+        // EDITOR MODE: Architectural view without pallets
+        $('editorToolbar').style.display = 'flex';
+        $('enginePanel').hidden = true;
+        document.querySelector('.totals').style.display = 'none';
+        document.querySelector('.specs').style.display = 'none';
+        document.querySelector('.math-rules').style.display = 'none';
+        $('palletDimControls').style.display = 'none';
+        $('heading').innerHTML = `${config.name} — <span style="color:#38bdf8;">FLOORPLAN EDITOR</span>`;
+
+        svg.innerHTML = engine.renderEditorSVG(m, customObstacles, selectedObstacleId);
+        syncInspectorFields();
+    } else {
+        // SLOTTING MODE: Full operational pallet view
+        $('editorToolbar').style.display = 'none';
+        if (zoneId.startsWith('bay3')) $('enginePanel').hidden = false;
+        document.querySelector('.totals').style.display = 'grid';
+        document.querySelector('.specs').style.display = 'block';
+        document.querySelector('.math-rules').style.display = 'block';
+        $('palletDimControls').style.display = 'flex';
+        $('obstacleInspector').style.display = 'none';
+
+        const rowDirS = state.isEW ? 'N→S' : 'E→W';
+        $('heading').innerHTML = config.name + ' — PALLET LAYOUT <span style="color:var(--ink-mute)">· ' + (state.isEW ? 'EAST–WEST' : 'NORTH–SOUTH') + ' ROWS</span>';
+
+        $('tPallets').innerHTML = m.pallets + (m.lost.length ? ` <small>(${m.gross} gross &minus; ${m.lost.length} hit)</small>` : '');
+        $('tBikesTotal').innerHTML = new Intl.NumberFormat().format(m.palletBikes + m.bikes) + (m.bikes > 0 ? ` <small>(${m.palletBikes} + ${m.bikes} block)</small>` : '');
+        $('tFast').innerHTML = m.accessible + ' <small>of ' + m.pallets + '</small>';
+        if ($('tLost')) {
+            $('tLost').innerHTML = m.hits.length > 0 ? m.hits.length + ' <small>slots</small>' : '0 <small>clear</small>';
+        }
+
+        let specs = `<span>${m.nRows}</span> ROWS &middot; `;
+        specs += `<span>${m.deep}</span> SLOTS DEEP &middot; `;
+        specs += `<span>${m.blocks.length}</span> BLOCKS (${m.blocks.slice().reverse().join('·')} ${rowDirS}) &middot; `;
+        if (m.lines > 0) specs += `<span>${m.lines}</span> BIKE LINES FRONT &middot; `;
+        specs += `<span>${m.nHalls > 0 ? Math.round(m.hall * 100) / 100 + '"' : 'NO'}</span> HALLS`;
+        if (m.activePosts.length > 0) {
+            specs += ` &middot; <span>${m.activePosts.length}</span> POSTS (<span class="${m.hits.length > 0 ? 'bad' : ''}">${m.hits.length}</span> OBSTRUCT)`;
+        }
+        $('tSpecs').innerHTML = specs;
+
+        svg.innerHTML = engine.renderSVG(m);
+    }
 }
 
-// Tooltip logic
-const mapArea = $('mapArea');
-const tooltip = $('tooltip');
-mapArea.addEventListener('mousemove', e => {
-    const target = e.target.closest('[data-hover]');
-    if (target) {
-        tooltip.innerHTML = target.getAttribute('data-hover');
-        tooltip.style.opacity = 1;
-        const rect = mapArea.getBoundingClientRect();
-        tooltip.style.left = (e.clientX - rect.left) + 'px';
-        tooltip.style.top = (e.clientY - rect.top - 10) + 'px';
+let pinnedSlots = {}; // { '33-J': skuObj }
+let movingState = null; // { sku: '...', skuObj: {...}, fromSlot: '33-J' }
+let cachedCandidates = null;
+
+function getHeatmapGradient(score) {
+    const s = Math.max(0, parseFloat(score) || 0);
+    const stops = [
+        { val: 0.0, r: 100, g: 116, b: 139 }, // Slate gray (Dormant)
+        { val: 0.25, r: 2,   g: 132, b: 199 }, // Sky blue (Slow low)
+        { val: 0.55, r: 14,  g: 165, b: 233 }, // Light cyan/blue (Slow mid)
+        { val: 1.10, r: 245, g: 158, b: 11  }, // Amber (Medium)
+        { val: 2.20, r: 16,  g: 185, b: 129 }, // Emerald (Fast low)
+        { val: 4.50, r: 34,  g: 197, b: 94  }, // Vibrant Green (Fast mid)
+        { val: 6.80, r: 74,  g: 222, b: 128 }  // Bright Mint / Lime (Fast high)
+    ];
+
+    let r, g, b;
+    if (s <= stops[0].val) {
+        r = stops[0].r; g = stops[0].g; b = stops[0].b;
+    } else if (s >= stops[stops.length - 1].val) {
+        const last = stops[stops.length - 1];
+        r = last.r; g = last.g; b = last.b;
     } else {
-        tooltip.style.opacity = 0;
+        for (let i = 0; i < stops.length - 1; i++) {
+            const c0 = stops[i];
+            const c1 = stops[i + 1];
+            if (s >= c0.val && s <= c1.val) {
+                const t = (s - c0.val) / (c1.val - c0.val);
+                r = Math.round(c0.r + t * (c1.r - c0.r));
+                g = Math.round(c0.g + t * (c1.g - c0.g));
+                b = Math.round(c0.b + t * (c1.b - c0.b));
+                break;
+            }
+        }
+    }
+
+    return {
+        fill: `rgb(${r}, ${g}, ${b})`,
+        stroke: `rgb(${Math.min(255, r + 35)}, ${Math.min(255, g + 35)}, ${Math.min(255, b + 35)})`
+    };
+}
+
+function getVelocityBadge(score) {
+    const s = parseFloat(score) || 0;
+    const grad = getHeatmapGradient(s);
+    let label = 'Dormant';
+    let labelColor = '#475569';
+    if (s >= 2.0) { label = 'Fast'; labelColor = '#15803d'; }
+    else if (s >= 0.5) { label = 'Medium'; labelColor = '#b45309'; }
+    else if (s > 0) { label = 'Slow'; labelColor = '#0369a1'; }
+
+    const scoreStr = s > 0 ? ` (${s.toFixed(2)})` : '';
+    return `<span style="display:inline-flex; align-items:center; gap:5px; background:#f8fafc; color:#0f172a; border:1px solid #cbd5e1; padding:2px 7px; border-radius:4px; font-weight:800; font-size:10.5px;">
+        <i style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${grad.fill}; border:1px solid ${grad.stroke};"></i>
+        <span style="color:${labelColor};">${label}</span>${scoreStr}
+    </span>`;
+}
+
+function updateClearPinsButton() {
+    const btn = $('btnClearPins');
+    if (!btn) return;
+    const count = Object.keys(pinnedSlots).length;
+    if (count > 0) {
+        btn.style.display = 'inline-block';
+        btn.textContent = `CLEAR PINS (${count})`;
+    } else {
+        btn.style.display = 'none';
+    }
+}
+
+function cancelMove() {
+    if (movingState) {
+        const svg = $('svg');
+        const prevRect = svg ? svg.querySelector(`rect[data-slot="${movingState.fromSlot}"]`) : null;
+        if (prevRect) prevRect.classList.remove('moving-active');
+        movingState = null;
+    }
+    const banner = $('moveBanner');
+    if (banner) banner.style.display = 'none';
+}
+
+$('btnCancelMove')?.addEventListener('click', cancelMove);
+
+$('btnClearPins')?.addEventListener('click', () => {
+    pinnedSlots = {};
+    cancelMove();
+    executeSlottingEngine();
+});
+
+async function executeSlottingEngine() {
+    if (!window.currentLayoutMap) return;
+    const m = window.currentLayoutMap;
+    
+    $('btnRunEngine').textContent = 'RUNNING...';
+    
+    if (!m.validCells) {
+        alert("Please update PalletEngine to export validCells!");
+        return;
+    }
+
+    if (!cachedCandidates) {
+        const supabase = createClient('http://127.0.0.1:54321', 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH');
+        const { data, error } = await supabase.rpc('get_bay3_fill_candidates', { 
+            p_limit: 1000 // Fetch all bike SKUs ordered by velocity ASC, qty DESC
+        });
+
+        if (error) {
+            console.error(error);
+            alert("Error: " + error.message);
+            $('btnRunEngine').textContent = 'RE-RUN ENGINE';
+            return;
+        }
+
+        if (!data || data.length === 0) {
+            console.log("No candidates found.");
+            $('btnRunEngine').textContent = 'RE-RUN ENGINE';
+            return;
+        }
+        cachedCandidates = data;
+    }
+
+    $('btnRunEngine').textContent = 'RE-RUN ENGINE';
+    const svg = $('svg');
+    if (isHeatmapActive) svg.classList.add('heatmap-mode');
+    else svg.classList.remove('heatmap-mode');
+
+    // Reset previous slot engine attributes on all rects
+    svg.querySelectorAll('rect[data-slot]').forEach(rect => {
+        rect.removeAttribute('data-sku');
+        rect.removeAttribute('data-pinned');
+        rect.removeAttribute('data-vel');
+        rect.removeAttribute('data-heat-fill');
+        rect.removeAttribute('data-heat-stroke');
+        rect.style.fill = '';
+        rect.style.stroke = '';
+        rect.classList.remove('pinned-slot', 'moving-active', 'sku-highlight');
+        const defaultTitle = `Row ${rect.getAttribute('data-slot')} · Pallet Slot`;
+        rect.setAttribute('data-hover', defaultTitle);
+    });
+
+    const payloadBlocks = [];
+    const layoutBlocks = m.strip.filter(s => s.type === 'block');
+    for (const b of layoutBlocks) {
+        const blockCells = m.validCells.filter(c => b.rows.includes(c.row));
+        if (blockCells.length === 0) continue;
+        
+        const rowNums = b.rows.map(r => r.num).filter(n => n !== '?');
+        const blockId = `BAY3_BLOCK_${rowNums.join('_')}`;
+        
+        payloadBlocks.push({
+            block_id: blockId,
+            size: b.rows.length,
+            rows: rowNums,
+            x1: b.x1, // Physical East position in inches
+            deepCells: blockCells.filter(c => c.letter !== 'A').sort((a, b) => b.distance - a.distance),
+            fastCells: blockCells.filter(c => c.letter === 'A')
+        });
+    }
+
+    // Sort blocks EAST → WEST (highest X coordinate first = closest to east wall)
+    payloadBlocks.sort((a, b) => b.x1 - a.x1);
+
+    const usedCells = new Set();
+    const skuLocations = {}; // sku -> array of { slot, qty, isPinned, type }
+    const cellAssignments = []; // list of { cell, skuObj, type, isFast, isPinned, leftovers }
+
+    // 1. Pre-assign and LOCK all Pinned Slots
+    for (const [slotKey, pinObj] of Object.entries(pinnedSlots)) {
+        const cell = m.validCells.find(c => `${c.row.num}-${c.letter}` === slotKey);
+        if (cell) {
+            usedCells.add(cell);
+            skuLocations[pinObj.sku] = skuLocations[pinObj.sku] || [];
+            skuLocations[pinObj.sku].push({ slot: slotKey, qty: m.bikesPerPallet, isPinned: true, type: 'PINNED 📌' });
+            cellAssignments.push({ cell, skuObj: pinObj, type: 'PINNED PALLET 📌', isFast: cell.letter === 'A', isPinned: true });
+        }
+    }
+
+    // 2. Prepare SKU pool with remaining unpinned inventory
+    const skusWithPallets = cachedCandidates.map(s => {
+        const totP = Math.floor(s.current_qty / m.bikesPerPallet);
+        const totLo = s.current_qty % m.bikesPerPallet;
+        const countPinned = Object.values(pinnedSlots).filter(p => p.sku === s.sku).length;
+        return {
+            ...s,
+            total_pallets: totP,
+            pallets: Math.max(0, totP - countPinned),
+            leftover: totLo,
+            assigned_block: null
+        };
+    }).filter(s => s.pallets > 0 || s.leftover > 0);
+
+    const bulkPool = skusWithPallets.filter(s => s.current_qty >= 90)
+        .sort((a, b) => b.current_qty - a.current_qty || a.velocity_score - b.velocity_score);
+
+    const midPool = skusWithPallets.filter(s => s.current_qty < 90)
+        .sort((a, b) => (b.pallets - a.pallets) || (a.velocity_score - b.velocity_score));
+
+    // 3. Block bin-packing for remaining unpinned slots
+    const assignedSkusByBlock = {};
+
+    for (const block of payloadBlocks) {
+        assignedSkusByBlock[block.block_id] = [];
+        const availableDeep = block.deepCells.filter(c => !usedCells.has(c));
+        const deepCap = availableDeep.length;
+        let usedPallets = 0;
+
+        const pool = block.size === 4 ? [...bulkPool, ...midPool] : [...midPool, ...bulkPool];
+
+        for (const sku of pool) {
+            if (sku.assigned_block) continue;
+            if (sku.pallets <= 0) continue;
+
+            if (usedPallets + sku.pallets <= deepCap) {
+                sku.assigned_block = block.block_id;
+                usedPallets += sku.pallets;
+                assignedSkusByBlock[block.block_id].push(sku);
+            }
+        }
+
+        if (usedPallets < deepCap) {
+            for (const sku of pool) {
+                if (sku.assigned_block) continue;
+                if (sku.pallets > 0 && usedPallets + sku.pallets <= deepCap) {
+                    sku.assigned_block = block.block_id;
+                    usedPallets += sku.pallets;
+                    assignedSkusByBlock[block.block_id].push(sku);
+                }
+            }
+        }
+    }
+
+    // 4. Fill unpinned deep slots and fast picking
+    for (const block of payloadBlocks) {
+        const blockSkus = assignedSkusByBlock[block.block_id] || [];
+        const availableDeep = block.deepCells.filter(c => !usedCells.has(c));
+        const deepCellsDeepToFront = [...availableDeep].sort((a, b) => b.distance - a.distance); // J -> B
+        const deepCellsFrontToDeep = [...availableDeep].sort((a, b) => a.distance - b.distance); // B -> J
+
+        const multiPallets = blockSkus.filter(s => s.pallets >= 2);
+        const singlePallets = blockSkus.filter(s => s.pallets === 1);
+
+        for (const sku of multiPallets) {
+            for (let p = 0; p < sku.pallets; p++) {
+                const cell = deepCellsDeepToFront.find(c => !usedCells.has(c));
+                if (!cell) break;
+                usedCells.add(cell);
+
+                const slotKey = `${cell.row.num}-${cell.letter}`;
+                skuLocations[sku.sku] = skuLocations[sku.sku] || [];
+                skuLocations[sku.sku].push({ slot: slotKey, qty: m.bikesPerPallet, isPinned: false, type: 'Full Pallet' });
+                cellAssignments.push({ cell, skuObj: sku, type: 'FULL PALLET (BULK)', isFast: false, isPinned: false });
+            }
+        }
+
+        for (const sku of singlePallets) {
+            const cell = deepCellsFrontToDeep.find(c => !usedCells.has(c));
+            if (!cell) break;
+            usedCells.add(cell);
+
+            const slotKey = `${cell.row.num}-${cell.letter}`;
+            skuLocations[sku.sku] = skuLocations[sku.sku] || [];
+            skuLocations[sku.sku].push({ slot: slotKey, qty: m.bikesPerPallet, isPinned: false, type: 'Full Pallet' });
+            cellAssignments.push({ cell, skuObj: sku, type: 'FULL PALLET (ACCESSIBLE)', isFast: false, isPinned: false });
+        }
+
+        // Fast picking slots
+        const availableFast = block.fastCells.filter(c => !usedCells.has(c));
+        const fastState = availableFast.map(fc => ({ cell: fc, leftovers: [], used: 0 }));
+        for (const sku of blockSkus) {
+            if (sku.leftover > 0) {
+                for (const fs of fastState) {
+                    if (fs.used + sku.leftover <= m.bikesPerPallet) {
+                        fs.used += sku.leftover;
+                        fs.leftovers.push({ sku: sku.sku, name: sku.item_name, qty: sku.leftover, vel: sku.velocity_score });
+                        const slotKey = `${fs.cell.row.num}-${fs.cell.letter}`;
+                        skuLocations[sku.sku] = skuLocations[sku.sku] || [];
+                        skuLocations[sku.sku].push({ slot: slotKey, qty: sku.leftover, isPinned: false, type: 'Fast Picking' });
+                        sku.leftover = 0;
+                        break;
+                    }
+                }
+            }
+        }
+
+        const remainingSmall = skusWithPallets.filter(s => !s.assigned_block && s.leftover > 0);
+        for (const sku of remainingSmall) {
+            if (!fastState.some(f => f.used < m.bikesPerPallet)) break;
+            for (const fs of fastState) {
+                if (fs.used + sku.leftover <= m.bikesPerPallet) {
+                    fs.used += sku.leftover;
+                    fs.leftovers.push({ sku: sku.sku, name: sku.item_name, qty: sku.leftover, vel: sku.velocity_score });
+                    const slotKey = `${fs.cell.row.num}-${fs.cell.letter}`;
+                    skuLocations[sku.sku] = skuLocations[sku.sku] || [];
+                    skuLocations[sku.sku].push({ slot: slotKey, qty: sku.leftover, isPinned: false, type: 'Fast Picking' });
+                    sku.leftover = 0;
+                    break;
+                }
+            }
+        }
+
+        for (const fs of fastState) {
+            if (fs.leftovers.length > 0) {
+                cellAssignments.push({ cell: fs.cell, isFast: true, isPinned: false, used: fs.used, leftovers: fs.leftovers });
+            }
+        }
+    }
+
+    // 5. Render DOM attributes and Hover Tooltips
+    for (const ca of cellAssignments) {
+        const c = ca.cell;
+        const rect = svg.querySelector(`rect[data-slot="${c.row.num}-${c.letter}"]`);
+        if (!rect) continue;
+
+        if (ca.isPinned) {
+            rect.classList.add('pinned-slot');
+            rect.setAttribute('data-pinned', 'true');
+        }
+
+        // Continuous Heatmap Gradient Mapping
+        const rawVel = parseFloat(ca.skuObj?.velocity_score || (ca.leftovers && ca.leftovers[0]?.vel) || 0);
+        const grad = getHeatmapGradient(rawVel);
+        rect.setAttribute('data-heat-fill', grad.fill);
+        rect.setAttribute('data-heat-stroke', grad.stroke);
+
+        if (isHeatmapActive) {
+            rect.style.fill = grad.fill;
+            rect.style.stroke = grad.stroke;
+            rect.style.fillOpacity = '0.90';
+            rect.style.strokeOpacity = '1';
+        } else {
+            rect.style.fill = '';
+            rect.style.stroke = '';
+            rect.style.fillOpacity = '';
+            rect.style.strokeOpacity = '';
+        }
+
+        const baseTitle = `Row ${c.row.num} &middot; Slot ${c.letter} &middot; ${c.cw}"&times;${c.ch}" &middot; ${c.isFast ? 'Fast Picking' : 'Buried'}`;
+
+        if (!ca.isFast) {
+            const skuObj = ca.skuObj;
+            rect.setAttribute("data-sku", skuObj.sku);
+            const myLocs = skuLocations[skuObj.sku] || [];
+            const locChips = myLocs.map(l => {
+                const pinTag = l.isPinned ? ` <span style="color:#d97706;">📌</span>` : '';
+                return `<span style="display:inline-block; background:${l.isPinned ? '#fef3c7' : '#f1f5f9'}; color:#0f172a; border:1px solid ${l.isPinned ? '#f59e0b' : '#cbd5e1'}; padding:2px 6px; border-radius:4px; font-weight:800; font-size:10.5px; margin:2px 2px;">${l.slot} <b style="color:#0284c7;">(${l.qty}u)</b>${pinTag}</span>`;
+            }).join('');
+
+            const pinNotice = ca.isPinned ? `<div style="font-size:11px; font-weight:800; color:#b45309; background:#fef3c7; border:1px solid #fde68a; border-radius:4px; padding:3px 6px; margin-bottom:6px;">📌 PINNED LOCATION &bull; Click to Move / Unpin</div>` : '';
+
+            const hoverHTML = `
+                <div style="color:#0f172a; font-family:ui-monospace, monospace; font-size:12px; line-height:1.45;">
+                    ${pinNotice}
+                    <div style="font-size:11px; color:#64748b; font-weight:700; border-bottom:1px solid #e2e8f0; padding-bottom:4px; margin-bottom:6px;">${baseTitle}</div>
+                    <div style="font-size:14px; font-weight:900; color:#000000;">📦 ${skuObj.sku}</div>
+                    <div style="font-size:11.5px; color:#334155; font-weight:700; margin-top:2px;">${skuObj.item_name}</div>
+                    <div style="font-size:11px; color:#475569; margin-top:5px; display:flex; align-items:center; gap:6px;">
+                        <span>Velocity: ${getVelocityBadge(skuObj.velocity_score)}</span>
+                        <span>&bull;</span>
+                        <span>Total: <b style="color:#000;">${skuObj.current_qty}u</b></span>
+                    </div>
+                    <div style="margin-top:8px; padding-top:6px; border-top:1px solid #e2e8f0;">
+                        <div style="font-weight:800; font-size:11px; color:#0f172a; margin-bottom:4px;">📍 Sublocations for this SKU (${myLocs.length}):</div>
+                        <div style="display:flex; flex-wrap:wrap; max-width:320px;">
+                            ${locChips}
+                        </div>
+                    </div>
+                </div>
+            `;
+            rect.setAttribute("data-hover", hoverHTML);
+        } else {
+            if (ca.leftovers && ca.leftovers.length === 1) {
+                rect.setAttribute("data-sku", ca.leftovers[0].sku);
+            }
+
+            const itemsHTML = (ca.leftovers || []).map((lo, idx) => {
+                const myLocs = skuLocations[lo.sku] || [];
+                const locChips = myLocs.map(l => 
+                    `<span style="display:inline-block; background:${idx % 2 === 0 ? '#f8fafc' : '#ffffff'}; color:#0f172a; border:1px solid #cbd5e1; padding:2px 6px; border-radius:4px; font-weight:800; font-size:10px; margin:1px 2px;">${l.slot} <b style="color:#0284c7;">(${l.qty}u)</b></span>`
+                ).join('');
+
+                const bg = idx % 2 === 0 ? '#ffffff' : '#f1f5f9';
+                const borderCol = idx % 2 === 0 ? '#e2e8f0' : '#cbd5e1';
+
+                return `
+                    <div style="background:${bg}; border:1px solid ${borderCol}; border-radius:6px; padding:8px 10px; margin-top:6px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div style="font-size:14px; font-weight:900; color:#000000; letter-spacing:0.3px;">📦 ${lo.sku}</div>
+                            <div style="font-size:11.5px; font-weight:900; color:#b91c1c; background:#fee2e2; border:1px solid #fecaca; border-radius:4px; padding:1px 6px;">${lo.qty}u in slot</div>
+                        </div>
+                        <div style="font-size:11.5px; color:#334155; font-weight:700; margin-top:3px;">${lo.name}</div>
+                        <div style="font-size:10.5px; color:#475569; margin-top:4px; display:flex; align-items:center; gap:6px;">
+                            <span>Velocity: ${getVelocityBadge(lo.vel)}</span>
+                        </div>
+                        <div style="margin-top:6px; padding-top:4px; border-top:1px dashed ${borderCol};">
+                            <div style="font-size:10px; color:#64748b; font-weight:800; margin-bottom:2px;">📍 Sublocations (${myLocs.length}):</div>
+                            <div style="display:flex; flex-wrap:wrap; max-width:330px;">
+                                ${locChips}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const hoverHTML = `
+                <div style="color:#0f172a; font-family:ui-monospace, monospace; font-size:12px; line-height:1.45;">
+                    <div style="font-size:11px; color:#64748b; font-weight:700; border-bottom:1px solid #e2e8f0; padding-bottom:4px; margin-bottom:6px;">${baseTitle}</div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <div style="font-size:13.5px; font-weight:900; color:#b45309;">🛒 MIXED FAST PICKING</div>
+                        <div style="font-size:11px; background:#fef3c7; color:#b45309; border:1px solid #fde68a; border-radius:4px; padding:2px 6px; font-weight:800;">${ca.used} / ${m.bikesPerPallet}u total</div>
+                    </div>
+                    ${itemsHTML}
+                </div>
+            `;
+            rect.setAttribute("data-hover", hoverHTML);
+        }
+    }
+
+    window.currentSlotAssignments = cellAssignments;
+    window.currentSkuLocations = skuLocations;
+    window.currentMapConfig = m;
+
+    updateClearPinsButton();
+}
+
+let isHeatmapActive = false;
+
+$('btnToggleHeatmap')?.addEventListener('click', () => {
+    isHeatmapActive = !isHeatmapActive;
+    const svg = $('svg');
+    const txt = $('txtHeatmapBtn');
+    const btn = $('btnToggleHeatmap');
+    const legend = $('heatmapLegend');
+
+    svg.querySelectorAll('rect[data-slot]').forEach(rect => {
+        if (isHeatmapActive) {
+            const hf = rect.getAttribute('data-heat-fill');
+            const hs = rect.getAttribute('data-heat-stroke');
+            if (hf) {
+                rect.style.fill = hf;
+                rect.style.stroke = hs;
+                rect.style.fillOpacity = '0.90';
+                rect.style.strokeOpacity = '1';
+            }
+        } else {
+            rect.style.fill = '';
+            rect.style.stroke = '';
+            rect.style.fillOpacity = '';
+            rect.style.strokeOpacity = '';
+        }
+    });
+
+    if (isHeatmapActive) {
+        if (txt) txt.textContent = 'HEATMAP: ON';
+        if (btn) {
+            btn.style.background = 'rgba(56,189,248,0.9)';
+            btn.style.color = '#04070d';
+        }
+        if (legend) legend.style.display = 'flex';
+    } else {
+        if (txt) txt.textContent = 'HEATMAP: OFF';
+        if (btn) {
+            btn.style.background = 'rgba(56,189,248,0.15)';
+            btn.style.color = '#38bdf8';
+        }
+        if (legend) legend.style.display = 'none';
     }
 });
-mapArea.addEventListener('mouseleave', () => tooltip.style.opacity = 0);
+
+// --- FORKLIFT MOVE ORDER / MANIFEST GENERATOR ---
+function generateMoveTasks() {
+    if (!window.currentSlotAssignments || window.currentSlotAssignments.length === 0) return [];
+    
+    const tasks = [];
+    const skuPalletCounter = {};
+
+    for (const ca of window.currentSlotAssignments) {
+        const c = ca.cell;
+        const targetSlot = `${c.row.num}-${c.letter}`;
+        const rowNum = parseInt(c.row.num) || 0;
+        const letter = c.letter;
+
+        if (!ca.isFast) {
+            const skuObj = ca.skuObj;
+            if (!skuObj) continue;
+            skuPalletCounter[skuObj.sku] = (skuPalletCounter[skuObj.sku] || 0) + 1;
+            const myLocs = (window.currentSkuLocations && window.currentSkuLocations[skuObj.sku]) || [];
+            const totalPalletsForSku = myLocs.length;
+
+            tasks.push({
+                targetSlot,
+                rowNum,
+                letter,
+                sku: skuObj.sku,
+                itemName: skuObj.item_name,
+                origin: skuObj.current_row || 'WAREHOUSE FLOOR',
+                qty: ca.qty || (window.currentMapConfig ? window.currentMapConfig.bikesPerPallet : 30),
+                palletSeq: `${skuPalletCounter[skuObj.sku]} of ${totalPalletsForSku}`,
+                velocityScore: parseFloat(skuObj.velocity_score) || 0,
+                isFast: false,
+                isPinned: ca.isPinned || false,
+                slotType: 'Deep Storage'
+            });
+        } else {
+            for (const lo of (ca.leftovers || [])) {
+                skuPalletCounter[lo.sku] = (skuPalletCounter[lo.sku] || 0) + 1;
+                const myLocs = (window.currentSkuLocations && window.currentSkuLocations[lo.sku]) || [];
+                const totalPalletsForSku = myLocs.length;
+
+                tasks.push({
+                    targetSlot,
+                    rowNum,
+                    letter,
+                    sku: lo.sku,
+                    itemName: lo.name,
+                    origin: 'FLOOR / INBOUND',
+                    qty: lo.qty,
+                    palletSeq: `Pick Slot (${lo.qty}u)`,
+                    velocityScore: parseFloat(lo.vel) || 0,
+                    isFast: true,
+                    isPinned: false,
+                    slotType: 'Fast Picking'
+                });
+            }
+        }
+    }
+
+    // Sort tasks in logical physical relocation order:
+    // 1. Farthest rows first: Row 33 -> 32 -> 31 -> ... -> 20
+    // 2. Deepest slots first: J -> I -> H -> ... -> B -> A
+    tasks.sort((a, b) => {
+        if (b.rowNum !== a.rowNum) return b.rowNum - a.rowNum;
+        return b.letter.localeCompare(a.letter);
+    });
+
+    tasks.forEach((t, i) => t.taskNum = i + 1);
+    return tasks;
+}
+
+function downloadMoveTasksCSV(tasks) {
+    const headers = ["Task #", "SKU", "FROM", "TO", "Units", "Item Description", "Velocity Tier", "Velocity Score", "Pallet Sequence", "Slot Type", "Manual Pin"];
+    const rows = tasks.map(t => {
+        let velTier = 'Dormant';
+        if (t.velocityScore >= 2.0) velTier = 'Fast';
+        else if (t.velocityScore >= 0.5) velTier = 'Medium';
+        else if (t.velocityScore > 0) velTier = 'Slow';
+
+        return [
+            t.taskNum,
+            `"${t.sku}"`,
+            `"${t.origin}"`,
+            `"${t.targetSlot}"`,
+            t.qty,
+            `"${t.itemName.replace(/"/g, '""')}"`,
+            `"${velTier}"`,
+            t.velocityScore.toFixed(2),
+            `"${t.palletSeq}"`,
+            `"${t.slotType}"`,
+            t.isPinned ? "YES (Pinned)" : "NO"
+        ].join(',');
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    const dateStr = new Date().toISOString().slice(0, 10);
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `pickd_bay3_forklift_move_tasks_${dateStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function printMoveWorkOrder(tasks) {
+    const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const totalUnits = tasks.reduce((sum, t) => sum + t.qty, 0);
+    const uniqueSkus = new Set(tasks.map(t => t.sku)).size;
+    const totalPallets = tasks.length;
+
+    const tableRows = tasks.map(t => {
+        const pinTag = t.isPinned ? ' 📌' : '';
+
+        return `
+            <tr style="border-bottom:1.5px solid #cbd5e1;">
+                <td style="padding:6px 4px; font-weight:900; font-size:15px; font-family:ui-monospace, monospace; color:#000; letter-spacing:0.4px;">${t.sku}</td>
+                <td style="padding:6px 4px; font-size:14px; font-weight:700; color:#334155;">${t.origin}</td>
+                <td style="padding:6px 4px; font-weight:900; font-size:16px; color:#000;">
+                    <span style="background:#f1f5f9; border:1px solid #cbd5e1; padding:2px 8px; border-radius:4px;">${t.targetSlot}${pinTag}</span>
+                </td>
+                <td style="padding:6px 4px; text-align:right; font-weight:900; font-size:16px; color:#000;">${t.qty}u</td>
+            </tr>
+        `;
+    }).join('');
+
+    const printWin = window.open('', '_blank');
+    if (!printWin) {
+        alert("Please allow popups to open the printable work order.");
+        return;
+    }
+
+    printWin.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>PICKD - Move Ticket 6x4 Landscape</title>
+            <style>
+                @page {
+                    size: 6in 4in landscape;
+                    margin: 0.2in 0.25in;
+                }
+                * { box-sizing: border-box; }
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+                    margin: 0;
+                    padding: 0;
+                    color: #000;
+                    background: #fff;
+                }
+                @media print {
+                    button { display: none !important; }
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-family: ui-monospace, monospace;
+                    margin-top: 8px;
+                }
+                th {
+                    border-bottom: 2.5px solid #000;
+                    padding: 6px 4px;
+                    font-size: 13px;
+                    font-weight: 900;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+                tr {
+                    page-break-inside: avoid;
+                }
+            </style>
+        </head>
+        <body>
+            <div style="border-bottom:2.5px solid #000; padding-bottom:6px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:flex-end;">
+                <div>
+                    <div style="font-size:16px; font-weight:900; letter-spacing:0.5px;">PICKD &bull; FORKLIFT MOVE MANIFEST</div>
+                    <div style="font-size:11px; color:#475569; margin-top:2px; font-weight:600;">ZONE: BAY 3 COLD SLOTTING &bull; ${dateStr}</div>
+                </div>
+                <div style="text-align:right;">
+                    <button onclick="window.print()" style="background:#000; color:#fff; border:none; padding:6px 14px; border-radius:4px; font-weight:900; font-size:11px; cursor:pointer; margin-bottom:3px;">🖨️ PRINT NOW</button>
+                    <div style="font-size:11.5px; font-weight:800; color:#0f172a;"><b>${totalPallets}</b> Moves &bull; <b>${totalUnits}u</b></div>
+                </div>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th style="text-align:left; width:34%;">SKU</th>
+                        <th style="text-align:left; width:28%;">FROM</th>
+                        <th style="text-align:left; width:22%;">TO</th>
+                        <th style="text-align:right; width:16%;">QTY</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tableRows}
+                </tbody>
+            </table>
+        </body>
+        </html>
+    `);
+    printWin.document.close();
+}
+
+function openMoveListModal() {
+    const tasks = generateMoveTasks();
+    if (tasks.length === 0) {
+        alert("Please run the Slotting Engine first to calculate pallet assignments.");
+        return;
+    }
+
+    const totalUnits = tasks.reduce((sum, t) => sum + t.qty, 0);
+    const uniqueSkus = new Set(tasks.map(t => t.sku)).size;
+    const totalPallets = tasks.length;
+
+    $('modalMoveSummary').innerHTML = `Total Tasks: <b style="color:#38bdf8;">${totalPallets}</b> &bull; Total Bikes to Move: <b style="color:#10b981;">${totalUnits}u</b> &bull; Unique SKUs: <b style="color:#fbbf24;">${uniqueSkus}</b> &bull; Putaway: <b style="color:#f8fafc;">Deepest East (Row 33) &rarr; West</b>`;
+
+    const rowsHTML = tasks.map((t, idx) => {
+        const bg = idx % 2 === 0 ? 'rgba(30, 41, 59, 0.4)' : 'rgba(15, 23, 42, 0.6)';
+        const pinBadge = t.isPinned ? `<span style="color:#f59e0b; margin-left:4px;" title="Manually Pinned">📌</span>` : '';
+        const velBadge = getVelocityBadge(t.velocityScore);
+
+        return `
+            <tr style="background:${bg}; border-bottom:1px solid #334155;">
+                <td style="padding:8px 6px; font-weight:bold; color:#64748b;">${t.taskNum}</td>
+                <td style="padding:8px 6px; font-weight:900; color:#ffffff;">📦 ${t.sku}</td>
+                <td style="padding:8px 6px; color:#cbd5e1; font-weight:700;">${t.origin}</td>
+                <td style="padding:8px 6px; font-weight:900; color:#38bdf8;">${t.targetSlot}${pinBadge}</td>
+                <td style="padding:8px 6px; text-align:center; font-weight:900; color:#10b981;">${t.qty}u</td>
+                <td style="padding:8px 6px; color:#cbd5e1; font-weight:600;">${t.itemName}</td>
+                <td style="padding:8px 6px;">${velBadge}</td>
+                <td style="padding:8px 6px; color:#cbd5e1;">${t.palletSeq}</td>
+                <td style="padding:8px 6px; font-size:10.5px; color:#94a3b8;">${t.slotType}</td>
+            </tr>
+        `;
+    }).join('');
+
+    $('moveTableBody').innerHTML = rowsHTML;
+    $('modalMoveList').style.display = 'flex';
+}
+
+$('btnExportMoveList')?.addEventListener('click', openMoveListModal);
+$('btnCloseModal')?.addEventListener('click', () => { $('modalMoveList').style.display = 'none'; });
+$('modalMoveList')?.addEventListener('click', e => { if (e.target.id === 'modalMoveList') $('modalMoveList').style.display = 'none'; });
+
+$('btnDownloadCSV')?.addEventListener('click', () => {
+    const tasks = generateMoveTasks();
+    if (tasks.length > 0) downloadMoveTasksCSV(tasks);
+});
+
+$('btnPrintWorkOrder')?.addEventListener('click', () => {
+    const tasks = generateMoveTasks();
+    if (tasks.length > 0) printMoveWorkOrder(tasks);
+});
+
+$('btnRunEngine')?.addEventListener('click', executeSlottingEngine);
+
+// Coordinate Converter for SVG Drag/Resize
+function getSVGCoords(e) {
+    const svg = $('svg');
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+    return { x: svgP.x - 96, y: svgP.y - 96 }; // Subtract margin M=96
+}
+
+// Mode Buttons Switch
+$('btnModeSlotting')?.addEventListener('click', () => {
+    currentMode = 'slotting';
+    $('btnModeSlotting').style.background = '#38bdf8';
+    $('btnModeSlotting').style.color = '#04070d';
+    $('btnModeEditor').style.background = 'transparent';
+    $('btnModeEditor').style.color = '#94a3b8';
+    $('obstacleInspector').style.display = 'none';
+    render();
+    if (zoneId.startsWith('bay3')) executeSlottingEngine();
+});
+
+$('btnModeEditor')?.addEventListener('click', () => {
+    currentMode = 'editor';
+    $('btnModeEditor').style.background = '#38bdf8';
+    $('btnModeEditor').style.color = '#04070d';
+    $('btnModeSlotting').style.background = 'transparent';
+    $('btnModeSlotting').style.color = '#94a3b8';
+    render();
+});
+
+// Editor Toolbar Add Buttons
+$('btnAddNonBikeRack')?.addEventListener('click', () => {
+    const newObs = {
+        id: 'obs_' + Date.now(),
+        type: 'non_bike_rack',
+        label: 'PARTS RACK',
+        x: Math.round(config.width / 2 - 60),
+        y: Math.round(config.height / 2 - 30),
+        w: 120,
+        h: 60
+    };
+    customObstacles.push(newObs);
+    selectedObstacleId = newObs.id;
+    localStorage.setItem(getObstaclesKey(), JSON.stringify(customObstacles));
+    render();
+});
+
+$('btnAddRestricted')?.addEventListener('click', () => {
+    const newObs = {
+        id: 'obs_' + Date.now(),
+        type: 'restricted',
+        label: 'RESTRICTED / NO BIKES',
+        x: Math.round(config.width / 2 - 50),
+        y: Math.round(config.height / 2 - 50),
+        w: 100,
+        h: 100
+    };
+    customObstacles.push(newObs);
+    selectedObstacleId = newObs.id;
+    localStorage.setItem(getObstaclesKey(), JSON.stringify(customObstacles));
+    render();
+});
+
+$('btnAddStaging')?.addEventListener('click', () => {
+    const newObs = {
+        id: 'obs_' + Date.now(),
+        type: 'staging',
+        label: 'INBOUND STAGING',
+        x: Math.round(config.width / 2 - 75),
+        y: Math.round(config.height / 2 - 40),
+        w: 150,
+        h: 80
+    };
+    customObstacles.push(newObs);
+    selectedObstacleId = newObs.id;
+    localStorage.setItem(getObstaclesKey(), JSON.stringify(customObstacles));
+    render();
+});
+
+$('btnSaveFloorplan')?.addEventListener('click', () => {
+    localStorage.setItem(getObstaclesKey(), JSON.stringify(customObstacles));
+    alert("Floorplan obstacles saved! Returning to slotting view.");
+    $('btnModeSlotting').click();
+});
+
+$('btnResetFloorplan')?.addEventListener('click', () => {
+    if (!confirm("Are you sure you want to remove all custom obstacles/racks for this zone?")) return;
+    customObstacles = [];
+    selectedObstacleId = null;
+    localStorage.removeItem(getObstaclesKey());
+    render();
+});
+
+// Inspector Actions
+$('btnApplyInspector')?.addEventListener('click', () => {
+    const obs = customObstacles.find(o => o.id === selectedObstacleId);
+    if (!obs) return;
+    obs.label = $('inspLabel').value.trim() || 'Obstacle';
+    obs.type = $('inspType').value;
+    obs.w = Math.max(12, parseFloat($('inspW').value) || 60);
+    obs.h = Math.max(12, parseFloat($('inspH').value) || 60);
+    obs.x = Math.max(0, parseFloat($('inspX').value) || 0);
+    obs.y = Math.max(0, parseFloat($('inspY').value) || 0);
+    localStorage.setItem(getObstaclesKey(), JSON.stringify(customObstacles));
+    render();
+});
+
+$('btnDeleteObstacle')?.addEventListener('click', () => {
+    if (!selectedObstacleId) return;
+    customObstacles = customObstacles.filter(o => o.id !== selectedObstacleId);
+    selectedObstacleId = null;
+    localStorage.setItem(getObstaclesKey(), JSON.stringify(customObstacles));
+    $('obstacleInspector').style.display = 'none';
+    render();
+});
+
+$('btnCloseInspector')?.addEventListener('click', () => {
+    $('obstacleInspector').style.display = 'none';
+    selectedObstacleId = null;
+    render();
+});
+
+// SVG Canvas Interactive Pointer Drag & Resize Handling
+$('svg')?.addEventListener('pointerdown', e => {
+    if (currentMode !== 'editor') return;
+
+    const handle = e.target.closest('.resize-handle');
+    if (handle) {
+        e.preventDefault();
+        const obsId = handle.getAttribute('data-obs-id');
+        const dir = handle.getAttribute('data-handle');
+        const obs = customObstacles.find(o => o.id === obsId);
+        if (!obs) return;
+        
+        selectedObstacleId = obsId;
+        const pt = getSVGCoords(e);
+        editorInteraction = {
+            mode: 'resize',
+            handle: dir,
+            obsId,
+            startX: pt.x,
+            startY: pt.y,
+            initialX: obs.x,
+            initialY: obs.y,
+            initialW: obs.w,
+            initialH: obs.h
+        };
+        return;
+    }
+
+    const obsRect = e.target.closest('.editor-obs-rect');
+    if (obsRect) {
+        e.preventDefault();
+        const obsId = obsRect.getAttribute('data-obs-id');
+        const obs = customObstacles.find(o => o.id === obsId);
+        if (!obs) return;
+
+        selectedObstacleId = obsId;
+        const pt = getSVGCoords(e);
+        editorInteraction = {
+            mode: 'drag',
+            obsId,
+            startX: pt.x,
+            startY: pt.y,
+            initialX: obs.x,
+            initialY: obs.y,
+            initialW: obs.w,
+            initialH: obs.h
+        };
+        render();
+        return;
+    }
+
+    // Clicked empty canvas
+    if (selectedObstacleId) {
+        selectedObstacleId = null;
+        $('obstacleInspector').style.display = 'none';
+        render();
+    }
+});
+
+window.addEventListener('pointermove', e => {
+    if (currentMode !== 'editor' || !editorInteraction) return;
+    const obs = customObstacles.find(o => o.id === editorInteraction.obsId);
+    if (!obs) return;
+
+    const pt = getSVGCoords(e);
+    const dx = pt.x - editorInteraction.startX;
+    const dy = pt.y - editorInteraction.startY;
+
+    if (editorInteraction.mode === 'drag') {
+        obs.x = Math.max(0, Math.min(config.width - obs.w, editorInteraction.initialX + dx));
+        obs.y = Math.max(0, Math.min(config.height - obs.h, editorInteraction.initialY + dy));
+    } else if (editorInteraction.mode === 'resize') {
+        const h = editorInteraction.handle;
+        const minSz = 12;
+
+        if (h.includes('e')) {
+            obs.w = Math.max(minSz, editorInteraction.initialW + dx);
+        }
+        if (h.includes('s')) {
+            obs.h = Math.max(minSz, editorInteraction.initialH + dy);
+        }
+        if (h.includes('w')) {
+            const newW = Math.max(minSz, editorInteraction.initialW - dx);
+            obs.x = editorInteraction.initialX + (editorInteraction.initialW - newW);
+            obs.w = newW;
+        }
+        if (h.includes('n')) {
+            const newH = Math.max(minSz, editorInteraction.initialH - dy);
+            obs.y = editorInteraction.initialY + (editorInteraction.initialH - newH);
+            obs.h = newH;
+        }
+    }
+
+    render();
+});
+
+window.addEventListener('pointerup', e => {
+    if (currentMode !== 'editor' || !editorInteraction) return;
+    const obs = customObstacles.find(o => o.id === editorInteraction.obsId);
+    if (obs) {
+        obs.x = Math.round(obs.x);
+        obs.y = Math.round(obs.y);
+        obs.w = Math.round(obs.w);
+        obs.h = Math.round(obs.h);
+        localStorage.setItem(getObstaclesKey(), JSON.stringify(customObstacles));
+        syncInspectorFields();
+    }
+    editorInteraction = null;
+    render();
+});
+
+renderSavedList();
+PalletEngine.attachTooltip($('svg'));
 
 render();
+
+// SVG Click Handler for Interactive Moving & Pinning
+$('svg')?.addEventListener('click', e => {
+    if (currentMode === 'editor') return; // Handled separately in editor mode
+    const rect = e.target.closest('rect[data-slot]');
+    if (!rect) return;
+    const slotKey = rect.getAttribute('data-slot');
+
+    if (movingState) {
+        // Case 1: Clicked same slot as source -> Unpin if pinned, cancel move
+        if (slotKey === movingState.fromSlot) {
+            if (pinnedSlots[slotKey]) {
+                delete pinnedSlots[slotKey];
+            }
+            cancelMove();
+            executeSlottingEngine();
+            return;
+        }
+
+        // Case 2: Clicked target destination slot -> PIN IT!
+        pinnedSlots[slotKey] = movingState.skuObj;
+        if (pinnedSlots[movingState.fromSlot]) {
+            delete pinnedSlots[movingState.fromSlot];
+        }
+
+        cancelMove();
+        executeSlottingEngine();
+        return;
+    }
+
+    // Normal Click Mode: Click on an assigned slot to start move/pin
+    const sku = rect.getAttribute('data-sku');
+    if (sku && cachedCandidates) {
+        const skuObj = cachedCandidates.find(s => s.sku === sku);
+        if (skuObj) {
+            movingState = { sku, skuObj, fromSlot: slotKey };
+            rect.classList.add('moving-active');
+            const banner = $('moveBanner');
+            if (banner) {
+                banner.style.display = 'flex';
+                $('moveBannerText').innerHTML = `📌 Moving <b>${sku}</b> from <b>${slotKey}</b> &mdash; Click destination slot to PIN (or click <b>${slotKey}</b> to unpin/cancel)`;
+            }
+        }
+    }
+});
+
+// SKU Spotlight & Dimming on Hover
+document.addEventListener('mouseover', e => {
+    const rect = e.target.closest('rect[data-sku]');
+    const sku = rect ? rect.getAttribute('data-sku') : null;
+    const svg = $('svg');
+    if (sku && svg) {
+        svg.classList.add('sku-dim-mode');
+        document.querySelectorAll(`rect[data-sku="${sku}"]`).forEach(el => el.classList.add('sku-highlight'));
+    }
+});
+
+document.addEventListener('mouseout', e => {
+    const rect = e.target.closest('rect[data-sku]');
+    const sku = rect ? rect.getAttribute('data-sku') : null;
+    const svg = $('svg');
+    if (sku && svg) {
+        const related = e.relatedTarget ? e.relatedTarget.closest('rect[data-sku]') : null;
+        if (!related || related.getAttribute('data-sku') !== sku) {
+            svg.classList.remove('sku-dim-mode');
+            document.querySelectorAll(`rect[data-sku="${sku}"]`).forEach(el => el.classList.remove('sku-highlight'));
+        }
+    }
+});
+
+// Auto-run engine on page load for Bay 3
+if (zoneId.startsWith('bay3')) {
+    setTimeout(() => {
+        executeSlottingEngine();
+    }, 120);
+}
 </script>
 </body>
 </html>

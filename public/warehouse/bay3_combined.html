@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bay 3 — Integrated Floorplan (North + South) | Jamis Bikes</title>
+<style>
+    :root {
+        --ground: #030712;
+        --panel: #0b1222;
+        --panel-lit: #111c38;
+        --line: #1e293b;
+        --line-lit: #334155;
+        --ink: #f8fafc;
+        --ink-dim: #94a3b8;
+        --ink-mute: #64748b;
+        
+        --bay3: #a78bfa;
+        --bay3-glow: rgba(167, 139, 250, 0.2);
+        --bike: #39ff14;
+        --cyan: #38bdf8;
+        --rack: #1e293b;
+
+        --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        background: var(--ground);
+        color: var(--ink);
+        font-family: var(--sans);
+        -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── APP LAYOUT (SIDEBAR ON LEFT, FULL-HEIGHT MAP ON RIGHT) ── */
+    .app-layout {
+        display: flex;
+        flex-direction: row;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    /* ── LEFT SIDEBAR (EXPANDED & HIGH LEGIBILITY) ── */
+    .sidebar {
+        width: 365px;
+        height: 100vh;
+        background: var(--panel);
+        border-right: 1px solid var(--line);
+        padding: 26px 22px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        overflow-y: auto;
+        flex-shrink: 0;
+        z-index: 10;
+        box-shadow: 10px 0 30px rgba(0, 0, 0, 0.6);
+    }
+
+    .brand-section {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .brand-section h1 {
+        font-size: 18px;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        color: var(--ink);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .brand-section .tag {
+        font-size: 11.5px;
+        font-weight: 800;
+        padding: 3px 8px;
+        background: var(--bay3-glow);
+        border: 1.5px solid var(--bay3);
+        color: var(--bay3);
+        border-radius: 5px;
+        letter-spacing: 0.06em;
+    }
+
+    .brand-section p {
+        font-family: var(--mono);
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--ink-dim);
+        letter-spacing: 0.02em;
+        line-height: 1.4;
+    }
+
+    /* Section Headers */
+    .section-title {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        font-weight: 900;
+        letter-spacing: 0.16em;
+        color: #cbd5e1;
+        text-transform: uppercase;
+        margin-bottom: -10px;
+    }
+
+    /* Version Switcher */
+    .version-switch {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .version-btn {
+        width: 100%;
+        padding: 13px 15px;
+        border: 1.5px solid var(--line-lit);
+        border-radius: 8px;
+        background: var(--ground);
+        color: var(--ink-dim);
+        font-family: var(--mono);
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .version-btn:hover {
+        color: var(--ink);
+        border-color: var(--cyan);
+        background: rgba(56, 189, 248, 0.08);
+    }
+
+    .version-btn.active {
+        background: rgba(56, 189, 248, 0.18);
+        border-color: var(--cyan);
+        color: var(--cyan);
+        font-weight: 900;
+        box-shadow: 0 0 16px rgba(56, 189, 248, 0.3);
+    }
+
+    .version-btn .badge-pill {
+        background: var(--cyan);
+        color: #04070d;
+        font-size: 12.5px;
+        font-weight: 900;
+        padding: 3px 8px;
+        border-radius: 5px;
+    }
+
+    /* Quick View Zoom Focus */
+    .view-focus-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 6px;
+    }
+
+    .focus-btn {
+        padding: 10px 6px;
+        background: var(--ground);
+        border: 1.5px solid var(--line-lit);
+        border-radius: 7px;
+        color: var(--ink-dim);
+        font-family: var(--mono);
+        font-size: 12px;
+        font-weight: 800;
+        cursor: pointer;
+        transition: all 0.15s;
+        text-align: center;
+    }
+
+    .focus-btn:hover {
+        border-color: var(--cyan);
+        color: var(--ink);
+        background: var(--panel-lit);
+    }
+
+    .focus-btn.active {
+        background: var(--cyan);
+        color: #04070d;
+        border-color: var(--cyan);
+        font-weight: 900;
+    }
+
+    /* ── STATS CARD ── */
+    .stats-card {
+        background: linear-gradient(180deg, #0d1a38 0%, #060c18 100%);
+        border: 1.5px solid #334155;
+        border-radius: 10px;
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+
+    .stat-hero {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .stat-hero .lbl {
+        font-family: var(--mono);
+        font-size: 12.5px;
+        font-weight: 900;
+        color: #94a3b8;
+        letter-spacing: 0.16em;
+    }
+
+    .stat-hero .val {
+        font-family: var(--mono);
+        font-size: 52px;
+        font-weight: 900;
+        color: var(--bike);
+        letter-spacing: -0.03em;
+        line-height: 1;
+        text-shadow: 0 0 25px rgba(57, 255, 20, 0.4);
+    }
+
+    .stat-sub {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        font-family: var(--mono);
+        font-size: 13.5px;
+        color: var(--ink-dim);
+        border-top: 1px solid var(--line-lit);
+        padding-top: 12px;
+    }
+
+    .stat-sub-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .stat-sub-row b {
+        color: var(--ink);
+        font-weight: 900;
+        font-size: 14.5px;
+    }
+
+    /* ── LEGEND ── */
+    .legend-box {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        font-family: var(--mono);
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--ink-dim);
+        background: rgba(15, 23, 42, 0.5);
+        border: 1px solid var(--line-lit);
+        border-radius: 8px;
+        padding: 14px;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .legend-dot {
+        width: 15px;
+        height: 15px;
+        border-radius: 4px;
+        border: 1.5px solid;
+        flex-shrink: 0;
+    }
+
+    /* ── BOTTOM ACTIONS ── */
+    .actions-box {
+        margin-top: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding-top: 16px;
+        border-top: 1px solid var(--line);
+    }
+
+    .nav-btn {
+        width: 100%;
+        padding: 12px 16px;
+        background: rgba(15, 23, 42, 0.9);
+        border: 1.5px solid var(--line-lit);
+        border-radius: 7px;
+        color: var(--ink-dim);
+        font-family: var(--mono);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .nav-btn:hover {
+        border-color: var(--cyan);
+        color: var(--ink);
+        background: var(--panel-lit);
+    }
+
+    /* ── RIGHT MAP CANVAS (100% SCREEN HEIGHT) ── */
+    .map-container {
+        flex: 1;
+        height: 100vh;
+        padding: 10px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #020409;
+        min-width: 0;
+        position: relative;
+        overflow: hidden;
+    }
+
+    svg {
+        width: 100%;
+        height: 100%;
+        max-height: 100vh;
+        object-fit: contain;
+        display: block;
+        background: #040813;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9);
+        transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* ── SVG STYLES ── */
+    .wall-outer { stroke: #e2e8f0; stroke-width: 3.5; fill: none; }
+    
+    .zone-bg-north { fill: #060b17; }
+    .zone-bg-south { fill: #070d1c; }
+
+    .main-aisle-bg {
+        fill: #0c1c38;
+        stroke: #3b82f6;
+        stroke-width: 2;
+    }
+
+    .aisle-rect {
+        fill: rgba(14, 165, 233, 0.08);
+        stroke: rgba(56, 189, 248, 0.35);
+        stroke-width: 1.5;
+        stroke-dasharray: 6 4;
+    }
+
+    .sd-zone {
+        fill: rgba(245, 158, 11, 0.16);
+        stroke: #f59e0b;
+        stroke-width: 2;
+        stroke-dasharray: 8 5;
+    }
+
+    .rack-deadzone {
+        fill: #111827;
+        stroke: #334155;
+        stroke-width: 1.5;
+    }
+
+    /* Block Container Enclosures (Matching Blueprint Style) */
+    .block-pod-outline {
+        fill: rgba(167, 139, 250, 0.05);
+        stroke: rgba(167, 139, 250, 0.35);
+        stroke-width: 1.8;
+        stroke-dasharray: 8 5;
+        rx: 8px;
+    }
+
+    /* Solid Row Column Styling (Chunky Widescreen Cards) */
+    .row-solid-rect {
+        fill: rgba(167, 139, 250, 0.22);
+        stroke: #7c3aed;
+        stroke-width: 1.8;
+        cursor: pointer;
+        transition: fill 0.15s, stroke 0.15s;
+    }
+
+    .row-solid-rect:hover {
+        fill: rgba(56, 189, 248, 0.45) !important;
+        stroke: #38bdf8 !important;
+        stroke-width: 2.5 !important;
+    }
+
+    /* Green Highlight for Newly Added Capacity Rows (Rows 18, 19) */
+    .row-solid-rect.row-added-green {
+        fill: rgba(34, 197, 94, 0.3) !important;
+        stroke: #22c55e !important;
+        stroke-width: 2.4 !important;
+        filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.4));
+    }
+
+    .row-solid-rect.row-added-green:hover {
+        fill: rgba(57, 255, 20, 0.55) !important;
+        stroke: #39ff14 !important;
+        stroke-width: 3 !important;
+    }
+
+    /* ── TOOLTIP ── */
+    #tooltip {
+        position: fixed;
+        background: #0f172a;
+        color: #f8fafc;
+        border: 1.5px solid #38bdf8;
+        padding: 7px 14px;
+        border-radius: 6px;
+        font-family: var(--mono);
+        font-size: 12px;
+        font-weight: 700;
+        pointer-events: none;
+        opacity: 0;
+        transform: translate(-50%, -130%);
+        transition: opacity 0.15s;
+        z-index: 1000;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.85);
+        white-space: nowrap;
+    }
+</style>
+</head>
+<body>
+
+<div class="app-layout">
+    <!-- LEFT SIDEBAR: CONTROLS & STATS -->
+    <aside class="sidebar">
+        <div class="brand-section">
+            <h1>BAY 3 INTEGRATED <span class="tag">NORTH + SOUTH</span></h1>
+            <p>113' 10" WIDTH &times; 116' 0" DEPTH · FULL WAREHOUSE FLOORPLAN</p>
+        </div>
+
+        <div class="section-title">CONFIGURATION</div>
+        <div class="version-switch">
+            <button class="version-btn active" id="btnVersion1" onclick="switchVersion('with_rack')">
+                <span>📦 WITH WEST RACK</span>
+                <span class="badge-pill">5,280</span>
+            </button>
+            <button class="version-btn" id="btnVersion2" onclick="switchVersion('no_rack')">
+                <span>🚀 WITHOUT WEST RACK</span>
+                <span class="badge-pill">5,880</span>
+            </button>
+        </div>
+
+        <div class="section-title">VIEW FOCUS</div>
+        <div class="view-focus-grid">
+            <button class="focus-btn active" id="btnFocusAll" onclick="setFocusView('all')">🌐 FULL</button>
+            <button class="focus-btn" id="btnFocusNorth" onclick="setFocusView('north')">⬆ NORTH</button>
+            <button class="focus-btn" id="btnFocusSouth" onclick="setFocusView('south')">⬇ SOUTH</button>
+        </div>
+
+        <div class="stats-card">
+            <div class="stat-hero">
+                <span class="lbl">TOTAL BIKES</span>
+                <span class="val" id="statBikes">5,280</span>
+            </div>
+            <div class="stat-sub">
+                <div class="stat-sub-row">
+                    <span>NORTH:</span>
+                    <b id="statNorthRows">14 ROWS</b>
+                </div>
+                <div class="stat-sub-row">
+                    <span>SOUTH:</span>
+                    <b id="statSouthRows">6 ROWS</b>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-title">FLOORPLAN LEGEND</div>
+        <div class="legend-box">
+            <div class="legend-item">
+                <i class="legend-dot" style="background:rgba(167,139,250,0.3); border-color:#a78bfa;"></i>
+                <span>STORAGE ROWS (30 BIKES / PALLET)</span>
+            </div>
+            <div class="legend-item" id="legendAddedItem" style="display: none;">
+                <i class="legend-dot" style="background:rgba(34,197,94,0.4); border-color:#22c55e;"></i>
+                <span style="color:#4ade80;">ADDED CAPACITY (ROW 18, 19 · +600 BIKES)</span>
+            </div>
+            <div class="legend-item" id="legendSDItem" style="display: none;">
+                <i class="legend-dot" style="background:rgba(245,158,11,0.16); border-color:#f59e0b;"></i>
+                <span style="color:#fbbf24;">SCRATCH &amp; DENTS (WEST AISLE &middot; NO SLOTS USED)</span>
+            </div>
+            <div class="legend-item">
+                <i class="legend-dot" style="background:#0c1c38; border-color:#3b82f6;"></i>
+                <span>MAIN HALLWAY (120" CLEARANCE)</span>
+            </div>
+            <div class="legend-item">
+                <i class="legend-dot" style="background:#091122; border-color:#334155;"></i>
+                <span>OFFICE & FACILITIES BLOCK</span>
+            </div>
+            <div class="legend-item">
+                <i class="legend-dot" style="background:#111827; border-color:#475569;"></i>
+                <span>EXISTING RACKS (4' DEPTH)</span>
+            </div>
+        </div>
+
+        <div class="actions-box">
+            <a class="nav-btn" href="warehouse_map.html">← BACK TO MAP</a>
+            <a class="nav-btn" href="index.html">INDEX</a>
+        </div>
+    </aside>
+
+    <!-- RIGHT: FULL SCREEN SCHEMATIC MAP (100% HEIGHT) -->
+    <main class="map-container" id="mapWrapper">
+        <svg id="blueprintSvg" viewBox="0 0 1560 1020" xmlns="http://www.w3.org/2000/svg">
+            <!-- Rendered Dynamically -->
+        </svg>
+    </main>
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+// VERSION STATE
+let currentVersion = 'with_rack'; // 'with_rack' (5200) | 'no_rack' (5900)
+let currentFocus = 'all'; // 'all' | 'north' | 'south'
+
+// SCHEMATIC WIDESCREEN COORDINATE SYSTEM (Balanced for optimal readability)
+const CANVAS_W = 1560;
+const CANVAS_H = 1020;
+
+const BAY_LEFT = 40;
+const BAY_RIGHT = 1520;
+const BAY_TOTAL_W = BAY_RIGHT - BAY_LEFT; // 1480 units
+
+// Vertical Bands
+const NORTH_WALL_Y = 35;
+const NORTH_RACK_H = 45; // Represents 4' (48") rack
+const NORTH_AISLE_H = 55; // Represents 97.5" North Aisle
+const NORTH_STORAGE_TOP = NORTH_WALL_Y + NORTH_RACK_H + NORTH_AISLE_H; // 135
+const NORTH_ROW_H = 400; // 400px height for solid row columns
+const NORTH_STORAGE_BOT = NORTH_STORAGE_TOP + NORTH_ROW_H; // 535
+
+const MAIN_HALL_TOP = NORTH_STORAGE_BOT; // 535
+const MAIN_HALL_H = 90; // 90px height (represents 120" / 10' 0" Hallway)
+const MAIN_HALL_BOT = MAIN_HALL_TOP + MAIN_HALL_H; // 625
+
+const SOUTH_STORAGE_TOP = MAIN_HALL_BOT; // 625
+const SOUTH_ROW_H = 260; // 260px height for South 6x6 grid rows
+const SOUTH_AISLE_H = 50; // 50px for South Aisle (54")
+const SOUTH_RACK_H = 45; // 45px for South Wall Rack (55")
+const SOUTH_WALL_Y = SOUTH_STORAGE_TOP + SOUTH_ROW_H + SOUTH_AISLE_H + SOUTH_RACK_H; // 980
+
+function switchVersion(v) {
+    currentVersion = v;
+    document.getElementById('btnVersion1').classList.toggle('active', v === 'with_rack');
+    document.getElementById('btnVersion2').classList.toggle('active', v === 'no_rack');
+    
+    if (v === 'with_rack') {
+        document.getElementById('statBikes').textContent = '5,280';
+        document.getElementById('statNorthRows').textContent = '14 ROWS';
+        document.getElementById('statSouthRows').textContent = '6 ROWS';
+        const legendAdded = document.getElementById('legendAddedItem');
+        if (legendAdded) legendAdded.style.display = 'none';
+        const legendSD = document.getElementById('legendSDItem');
+        if (legendSD) legendSD.style.display = 'none';
+    } else {
+        document.getElementById('statBikes').textContent = '5,880';
+        document.getElementById('statNorthRows').textContent = '16 ROWS';
+        document.getElementById('statSouthRows').textContent = '6 ROWS';
+        const legendAdded = document.getElementById('legendAddedItem');
+        if (legendAdded) legendAdded.style.display = 'flex';
+        const legendSD = document.getElementById('legendSDItem');
+        if (legendSD) legendSD.style.display = 'flex';
+    }
+    
+    renderFloorplan();
+}
+
+function setFocusView(focus) {
+    currentFocus = focus;
+    document.getElementById('btnFocusAll').classList.toggle('active', focus === 'all');
+    document.getElementById('btnFocusNorth').classList.toggle('active', focus === 'north');
+    document.getElementById('btnFocusSouth').classList.toggle('active', focus === 'south');
+
+    const svg = document.getElementById('blueprintSvg');
+    if (focus === 'north') {
+        svg.setAttribute('viewBox', `0 0 1560 640`);
+    } else if (focus === 'south') {
+        svg.setAttribute('viewBox', `0 520 1560 500`);
+    } else {
+        svg.setAttribute('viewBox', `0 0 1560 1020`);
+    }
+}
+
+function renderFloorplan() {
+    const svg = document.getElementById('blueprintSvg');
+    let out = '';
+
+    // Patterns & Definitions
+    out += `
+    <defs>
+        <pattern id="hatchOffice" width="20" height="20" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+            <line x1="0" y1="0" x2="0" y2="20" stroke="#1e293b" stroke-width="2" />
+        </pattern>
+        <pattern id="hatchRack" width="12" height="12" patternTransform="rotate(-45 0 0)" patternUnits="userSpaceOnUse">
+            <line x1="0" y1="0" x2="0" y2="12" stroke="#334155" stroke-width="2" />
+        </pattern>
+        <filter id="glowBadge" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000000" flood-opacity="0.8"/>
+        </filter>
+    </defs>
+    `;
+
+    out += `<g>`;
+
+    // 1. Zone Backgrounds
+    out += `<rect x="${BAY_LEFT}" y="${NORTH_WALL_Y}" width="${BAY_TOTAL_W}" height="${MAIN_HALL_TOP - NORTH_WALL_Y}" class="zone-bg-north" />`;
+    out += `<rect x="${BAY_LEFT}" y="${MAIN_HALL_TOP}" width="${BAY_TOTAL_W}" height="${MAIN_HALL_H}" class="main-aisle-bg" />`;
+    out += `<rect x="${BAY_LEFT}" y="${MAIN_HALL_BOT}" width="${BAY_TOTAL_W}" height="${SOUTH_WALL_Y - MAIN_HALL_BOT}" class="zone-bg-south" />`;
+
+    // 2. North Wall Strip (North Wall Rack 4' + North Aisle 97.5")
+    // 2A. North Wall Rack (4 feet = 48" deep)
+    out += `<rect x="${BAY_LEFT}" y="${NORTH_WALL_Y}" width="${BAY_TOTAL_W}" height="${NORTH_RACK_H}" class="rack-deadzone" />`;
+    out += `<rect x="${BAY_LEFT}" y="${NORTH_WALL_Y}" width="${BAY_TOTAL_W}" height="${NORTH_RACK_H}" fill="url(#hatchRack)" opacity="0.45"/>`;
+    out += `<text x="${BAY_LEFT + BAY_TOTAL_W / 2}" y="${NORTH_WALL_Y + 28}" font-family="var(--mono)" font-size="16px" fill="#cbd5e1" font-weight="900" letter-spacing="4px" text-anchor="middle">NORTH WALL RACK (4')</text>`;
+
+    // 2B. North Aisle (97.5" deep)
+    const northAisleY = NORTH_WALL_Y + NORTH_RACK_H;
+    out += `<rect x="${BAY_LEFT}" y="${northAisleY}" width="${BAY_TOTAL_W}" height="${NORTH_AISLE_H}" class="aisle-rect" />`;
+    out += `<line x1="${BAY_LEFT}" y1="${NORTH_STORAGE_TOP}" x2="${BAY_RIGHT}" y2="${NORTH_STORAGE_TOP}" stroke="#334155" stroke-width="2" stroke-dasharray="6 4" />`;
+    out += `<text x="${BAY_LEFT + BAY_TOTAL_W / 2}" y="${northAisleY + 34}" font-family="var(--mono)" font-size="18px" font-weight="900" fill="#38bdf8" letter-spacing="3px" text-anchor="middle" filter="url(#glowBadge)">NORTH AISLE (97.5")</text>`;
+
+    // 3. Main Hallway (113' 10" L x 10' 0" W / 120")
+    out += `<rect x="${BAY_LEFT}" y="${MAIN_HALL_TOP}" width="${BAY_TOTAL_W}" height="${MAIN_HALL_H}" fill="#0c1c38" stroke="#3b82f6" stroke-width="2.5" />`;
+    
+    // Main Hallway Runway Center Markings
+    for (let rx = BAY_LEFT + 60; rx < BAY_RIGHT - 60; rx += 140) {
+        out += `<line x1="${rx}" y1="${MAIN_HALL_TOP + MAIN_HALL_H / 2}" x2="${rx + 60}" y2="${MAIN_HALL_TOP + MAIN_HALL_H / 2}" stroke="#60a5fa" stroke-width="4" stroke-linecap="round" stroke-dasharray="14 14" opacity="0.4"/>`;
+    }
+
+    // Direct High-Visibility Main Hallway Text
+    out += `<text x="${BAY_LEFT + BAY_TOTAL_W / 2}" y="${MAIN_HALL_TOP + MAIN_HALL_H / 2 + 8}" font-family="var(--mono)" font-size="22px" font-weight="900" fill="#60a5fa" letter-spacing="4px" text-anchor="middle" filter="url(#glowBadge)">MAIN HALLWAY — 113' 10" L &times; 10' 0" W (1,366" &times; 120")</text>`;
+
+    // 4. North Pallet Rows Layout
+    let northAisleCounter = 1;
+
+    if (currentVersion === 'with_rack') {
+        // Option 1 (WITH WEST RACK): 14 rows, 4 blocks (3·3·4·4)
+        // Aisles: Aisle 1 (108"), Aisle 2 (72"), Aisle 3 (78"), Aisle 4 (78"), East Aisle (66")
+        const westRackW = 45; // 4 feet rack
+        const westAisleW = 100; // 108" aisle
+        const rowW = 70; // 70px wide row card (expanded from 32px, +118% width!)
+        const eastRackW = 45; // 4 feet rack
+        const eastRackX = BAY_RIGHT - eastRackW;
+
+        // 1. Draw West Rack (4')
+        out += `<rect x="${BAY_LEFT}" y="${NORTH_STORAGE_TOP}" width="${westRackW}" height="${NORTH_ROW_H}" class="rack-deadzone" />`;
+        out += `<rect x="${BAY_LEFT}" y="${NORTH_STORAGE_TOP}" width="${westRackW}" height="${NORTH_ROW_H}" fill="url(#hatchRack)" opacity="0.45"/>`;
+        out += `<text x="${BAY_LEFT + westRackW / 2}" y="${NORTH_STORAGE_TOP + NORTH_ROW_H / 2}" font-family="var(--mono)" font-size="14px" fill="#cbd5e1" font-weight="900" transform="rotate(-90, ${BAY_LEFT + westRackW / 2}, ${NORTH_STORAGE_TOP + NORTH_ROW_H / 2})" text-anchor="middle">WEST RACK (4')</text>`;
+
+        // 2. Draw Aisle #1 (108")
+        const a1X = BAY_LEFT + westRackW;
+        out += `<rect x="${a1X}" y="${NORTH_STORAGE_TOP}" width="${westAisleW}" height="${NORTH_ROW_H}" class="aisle-rect" />`;
+        drawAisleBadge(a1X + westAisleW / 2, NORTH_STORAGE_TOP + NORTH_ROW_H / 2, `AISLE #${northAisleCounter++} (108")`, true);
+
+        // Blocks: [3 rows (20,21,22)] -- 72" -- [3 rows (23,24,25)] -- 78" -- [4 rows (26,27,28,29)] -- 78" -- [4 rows (30,31,32,33)]
+        const b1X = a1X + westAisleW;
+        const b1W = 3 * rowW; // 210
+        const a2W = 68; // 72" aisle
+
+        const b2X = b1X + b1W + a2W;
+        const b2W = 3 * rowW; // 210
+        const a3W = 74; // 78" aisle
+
+        const b3X = b2X + b2W + a3W;
+        const b3W = 4 * rowW; // 280
+        const a4W = 74; // 78" aisle
+
+        const b4X = b3X + b3W + a4W;
+        const b4W = 4 * rowW; // 280
+
+        const eastAisleX = b4X + b4W;
+        const eastAisleW = eastRackX - eastAisleX;
+
+        const blocks = [
+            { rows: [20, 21, 22], x: b1X, w: b1W },
+            { rows: [23, 24, 25], x: b2X, w: b2W },
+            { rows: [26, 27, 28, 29], x: b3X, w: b3W },
+            { rows: [30, 31, 32, 33], x: b4X, w: b4W }
+        ];
+
+        // Draw Block Pod Outlines (Matching Blueprint Rounded Enclosures)
+        blocks.forEach(b => {
+            out += `<rect x="${b.x - 3}" y="${NORTH_STORAGE_TOP - 4}" width="${b.w + 6}" height="${NORTH_ROW_H + 8}" class="block-pod-outline" />`;
+        });
+
+        // Draw Aisles Between Blocks
+        // Aisle #2 (72")
+        out += `<rect x="${b1X + b1W}" y="${NORTH_STORAGE_TOP}" width="${a2W}" height="${NORTH_ROW_H}" class="aisle-rect" />`;
+        drawAisleBadge(b1X + b1W + a2W / 2, NORTH_STORAGE_TOP + NORTH_ROW_H / 2, `AISLE #${northAisleCounter++} (72")`, true);
+
+        // Aisle #3 (78")
+        out += `<rect x="${b2X + b2W}" y="${NORTH_STORAGE_TOP}" width="${a3W}" height="${NORTH_ROW_H}" class="aisle-rect" />`;
+        drawAisleBadge(b2X + b2W + a3W / 2, NORTH_STORAGE_TOP + NORTH_ROW_H / 2, `AISLE #${northAisleCounter++} (78")`, true);
+
+        // Aisle #4 (78")
+        out += `<rect x="${b3X + b3W}" y="${NORTH_STORAGE_TOP}" width="${a4W}" height="${NORTH_ROW_H}" class="aisle-rect" />`;
+        drawAisleBadge(b3X + b3W + a4W / 2, NORTH_STORAGE_TOP + NORTH_ROW_H / 2, `AISLE #${northAisleCounter++} (78")`, true);
+
+        // Aisle #5 (East Aisle 66")
+        out += `<rect x="${eastAisleX}" y="${NORTH_STORAGE_TOP}" width="${eastAisleW}" height="${NORTH_ROW_H}" class="aisle-rect" />`;
+        drawAisleBadge(eastAisleX + eastAisleW / 2, NORTH_STORAGE_TOP + NORTH_ROW_H / 2, `AISLE #${northAisleCounter++} (66")`, true);
+
+        // East Rack (4')
+        out += `<rect x="${eastRackX}" y="${NORTH_STORAGE_TOP}" width="${eastRackW}" height="${NORTH_ROW_H}" class="rack-deadzone" />`;
+        out += `<rect x="${eastRackX}" y="${NORTH_STORAGE_TOP}" width="${eastRackW}" height="${NORTH_ROW_H}" fill="url(#hatchRack)" opacity="0.45"/>`;
+        out += `<text x="${eastRackX + eastRackW / 2}" y="${NORTH_STORAGE_TOP + NORTH_ROW_H / 2}" font-family="var(--mono)" font-size="14px" fill="#cbd5e1" font-weight="900" transform="rotate(90, ${eastRackX + eastRackW / 2}, ${NORTH_STORAGE_TOP + NORTH_ROW_H / 2})" text-anchor="middle">EAST RACK (4')</text>`;
+
+        // Draw North Pallet Rows (Solid Uniform Columns)
+        blocks.forEach(b => {
+            b.rows.forEach((rowNum, rIdx) => {
+                const rx = b.x + rIdx * rowW;
+                drawRowRect(rx, NORTH_STORAGE_TOP, rowW, NORTH_ROW_H, rowNum, 10, 'north');
+            });
+        });
+
+    } else {
+        // Option 2 (WITHOUT WEST RACK): 16 rows, 5 blocks (2·3·3·4·4)
+        // Aisles: uniform 67" aisles between all 5 blocks (18-19, 20-21-22, 23-24-25, 26-27-28-29, 30-31-32-33)
+        const rowW = 67; // 67px wide row card
+        const aisleW = 64; // 67" aisle
+        const eastRackW = 45;
+        const eastRackX = BAY_RIGHT - eastRackW;
+
+        const b1X = BAY_LEFT;
+        const b1W = 2 * rowW; // 134
+
+        const b2X = b1X + b1W + aisleW;
+        const b2W = 3 * rowW; // 201
+
+        const b3X = b2X + b2W + aisleW;
+        const b3W = 3 * rowW; // 201
+
+        const b4X = b3X + b3W + aisleW;
+        const b4W = 4 * rowW; // 268
+
+        const b5X = b4X + b4W + aisleW;
+        const b5W = 4 * rowW; // 268
+
+        const eastAisleX = b5X + b5W;
+        const eastAisleW = eastRackX - eastAisleX;
+
+        const blocks = [
+            { rows: [18, 19], x: b1X, w: b1W },
+            { rows: [20, 21, 22], x: b2X, w: b2W },
+            { rows: [23, 24, 25], x: b3X, w: b3W },
+            { rows: [26, 27, 28, 29], x: b4X, w: b4W },
+            { rows: [30, 31, 32, 33], x: b5X, w: b5W }
+        ];
+
+        // Draw Block Pod Outlines (Matching Blueprint Rounded Enclosures)
+        blocks.forEach(b => {
+            out += `<rect x="${b.x - 3}" y="${NORTH_STORAGE_TOP - 4}" width="${b.w + 6}" height="${NORTH_ROW_H + 8}" class="block-pod-outline" />`;
+        });
+
+        // Draw 4 Inner Aisles (67" each). The westernmost one doubles as the
+        // scratch & dents staging lane - it is aisle floor, so it costs no slots.
+        for (let i = 0; i < blocks.length - 1; i++) {
+            const aX = blocks[i].x + blocks[i].w;
+            const isSD = (i === 0);
+            out += `<rect x="${aX}" y="${NORTH_STORAGE_TOP}" width="${aisleW}" height="${NORTH_ROW_H}" class="${isSD ? 'sd-zone' : 'aisle-rect'}" />`;
+            if (isSD) {
+                drawZoneBadge(aX + aisleW / 2, NORTH_STORAGE_TOP + NORTH_ROW_H * 0.26, 'SCRATCH & DENTS', '#f59e0b');
+                drawZoneBadge(aX + aisleW / 2, NORTH_STORAGE_TOP + NORTH_ROW_H * 0.74, `AISLE #${northAisleCounter++}`, '#f59e0b');
+            } else {
+                drawAisleBadge(aX + aisleW / 2, NORTH_STORAGE_TOP + NORTH_ROW_H / 2, `AISLE #${northAisleCounter++} (67")`, true);
+            }
+        }
+
+        // East Aisle (58")
+        out += `<rect x="${eastAisleX}" y="${NORTH_STORAGE_TOP}" width="${eastAisleW}" height="${NORTH_ROW_H}" class="aisle-rect" />`;
+        drawAisleBadge(eastAisleX + eastAisleW / 2, NORTH_STORAGE_TOP + NORTH_ROW_H / 2, `AISLE #${northAisleCounter++} (58")`, true);
+
+        // Brace over rows 18-19: these two rows only exist because the rack left.
+        // It sits in the north aisle band at the west end, clear of the centred aisle label.
+        {
+            const x1 = blocks[0].x, x2 = blocks[0].x + blocks[0].w, mid = (x1 + x2) / 2;
+            const armY = NORTH_STORAGE_TOP - 8, dip = 8, tip = 13, r = 8, RED = '#ef4444';
+            out += `<path d="M ${x1},${armY + dip}
+                             Q ${x1},${armY} ${x1 + r},${armY}
+                             L ${mid - r},${armY}
+                             Q ${mid},${armY} ${mid},${armY - tip}
+                             Q ${mid},${armY} ${mid + r},${armY}
+                             L ${x2 - r},${armY}
+                             Q ${x2},${armY} ${x2},${armY + dip}"
+                          fill="none" stroke="${RED}" stroke-width="2.5" stroke-linecap="round"/>`;
+            // Left-aligned, not centred: the block sits hard against the west wall and a
+            // centred label runs off the edge of the drawing.
+            out += `<text x="${x1 + 2}" y="${armY - tip - 8}" text-anchor="start" fill="${RED}"
+                          font-family="var(--mono)" font-size="15" font-weight="900"
+                          letter-spacing="1.5">RACK WAS HERE</text>`;
+        }
+
+        // East Rack (4')
+        out += `<rect x="${eastRackX}" y="${NORTH_STORAGE_TOP}" width="${eastRackW}" height="${NORTH_ROW_H}" class="rack-deadzone" />`;
+        out += `<rect x="${eastRackX}" y="${NORTH_STORAGE_TOP}" width="${eastRackW}" height="${NORTH_ROW_H}" fill="url(#hatchRack)" opacity="0.45"/>`;
+        out += `<text x="${eastRackX + eastRackW / 2}" y="${NORTH_STORAGE_TOP + NORTH_ROW_H / 2}" font-family="var(--mono)" font-size="14px" fill="#cbd5e1" font-weight="900" transform="rotate(90, ${eastRackX + eastRackW / 2}, ${NORTH_STORAGE_TOP + NORTH_ROW_H / 2})" text-anchor="middle">EAST RACK (4')</text>`;
+
+        // Draw North Pallet Rows (Solid Uniform Columns)
+        blocks.forEach(b => {
+            b.rows.forEach((rowNum, rIdx) => {
+                const rx = b.x + rIdx * rowW;
+                drawRowRect(rx, NORTH_STORAGE_TOP, rowW, NORTH_ROW_H, rowNum, 10, 'north');
+            });
+        });
+    }
+
+    // 5. South Section (Offices West + 6x6 Grid East)
+    const southSplitX = BAY_LEFT + Math.round(BAY_TOTAL_W * 0.54); // Split at ~54% (61' 6" / 113' 10")
+    const southOfficeW = southSplitX - BAY_LEFT;
+    const southStorageW = BAY_RIGHT - southSplitX;
+
+    // 5A. Offices (West Half)
+    out += `<rect x="${BAY_LEFT}" y="${MAIN_HALL_BOT}" width="${southOfficeW}" height="${SOUTH_WALL_Y - MAIN_HALL_BOT}" fill="#091122" stroke="#1e2c4a" stroke-width="2.5" />`;
+    out += `<rect x="${BAY_LEFT}" y="${MAIN_HALL_BOT}" width="${southOfficeW}" height="${SOUTH_WALL_Y - MAIN_HALL_BOT}" fill="url(#hatchOffice)" opacity="0.25"/>`;
+    
+    // Kitchen Recess
+    const kitchenW = 160;
+    const kitchenH = 140;
+    out += `<rect x="${BAY_LEFT}" y="${MAIN_HALL_BOT + 60}" width="${kitchenW}" height="${kitchenH}" fill="#0e1b36" stroke="#334155" stroke-width="2" />`;
+    out += `<text x="${BAY_LEFT + kitchenW / 2}" y="${MAIN_HALL_BOT + 125}" font-family="var(--mono)" font-size="14px" fill="#94a3b8" font-weight="bold" text-anchor="middle">KITCHEN</text>`;
+    out += `<text x="${BAY_LEFT + kitchenW / 2}" y="${MAIN_HALL_BOT + 145}" font-family="var(--mono)" font-size="11px" fill="#64748b" text-anchor="middle">(6' 1" RECESS)</text>`;
+
+    // Restroom / Office labels
+    out += `<text x="${BAY_LEFT + southOfficeW / 2 + 50}" y="${MAIN_HALL_BOT + 140}" font-family="var(--mono)" font-size="18px" fill="#cbd5e1" font-weight="900" letter-spacing="3px" text-anchor="middle">ADMINISTRATIVE OFFICES</text>`;
+    out += `<text x="${BAY_LEFT + southOfficeW / 2 + 50}" y="${MAIN_HALL_BOT + 175}" font-family="var(--mono)" font-size="13px" fill="#64748b" font-weight="700" letter-spacing="1px" text-anchor="middle">FACILITIES BLOCK (61' 6" &times; 38' 7")</text>`;
+    out += `<line x1="${southSplitX}" y1="${MAIN_HALL_BOT}" x2="${southSplitX}" y2="${SOUTH_WALL_Y}" stroke="#64748b" stroke-width="3.5" />`;
+
+    // 5B. South Storage Floor (East Half) — FIXED 6×6 GRID (NO CHANGE ON TOGGLE)
+    // South Wall Rack (55" deep, 202" wide)
+    const southRackW = 200;
+    const southRackX = southSplitX + (southStorageW - southRackW) / 2;
+    const southRackY = SOUTH_WALL_Y - SOUTH_RACK_H;
+    out += `<rect x="${southRackX}" y="${southRackY}" width="${southRackW}" height="${SOUTH_RACK_H}" class="rack-deadzone" />`;
+    out += `<rect x="${southRackX}" y="${southRackY}" width="${southRackW}" height="${SOUTH_RACK_H}" fill="url(#hatchRack)" opacity="0.45"/>`;
+    out += `<text x="${southRackX + southRackW / 2}" y="${southRackY + 28}" font-family="var(--mono)" font-size="12px" fill="#cbd5e1" font-weight="bold" text-anchor="middle">SOUTH WALL RACK (55" &times; 202")</text>`;
+
+    // South Aisle (54" in front of south rack)
+    const southAisleY = southRackY - SOUTH_AISLE_H;
+    out += `<rect x="${southSplitX}" y="${southAisleY}" width="${southStorageW}" height="${SOUTH_AISLE_H}" class="aisle-rect" />`;
+    out += `<text x="${southSplitX + southStorageW / 2}" y="${southAisleY + 32}" font-family="var(--mono)" font-size="18px" font-weight="900" fill="#38bdf8" letter-spacing="2px" text-anchor="middle" filter="url(#glowBadge)">SOUTH AISLE (54")</text>`;
+
+    // West Rack (59" wide) in South
+    const southWestRackW = 45;
+    out += `<rect x="${southSplitX}" y="${MAIN_HALL_BOT}" width="${southWestRackW}" height="${SOUTH_WALL_Y - MAIN_HALL_BOT}" class="rack-deadzone" />`;
+    out += `<rect x="${southSplitX}" y="${MAIN_HALL_BOT}" width="${southWestRackW}" height="${SOUTH_WALL_Y - MAIN_HALL_BOT}" fill="url(#hatchRack)" opacity="0.45"/>`;
+    out += `<text x="${southSplitX + southWestRackW / 2}" y="${MAIN_HALL_BOT + 160}" font-family="var(--mono)" font-size="13px" fill="#cbd5e1" transform="rotate(-90, ${southSplitX + southWestRackW / 2}, ${MAIN_HALL_BOT + 160})" font-weight="900" text-anchor="middle">WEST RACK (59")</text>`;
+
+    // East Rack (4') in South
+    const southEastRackW = 45;
+    const southEastRackX = BAY_RIGHT - southEastRackW;
+    out += `<rect x="${southEastRackX}" y="${MAIN_HALL_BOT}" width="${southEastRackW}" height="${SOUTH_WALL_Y - MAIN_HALL_BOT}" class="rack-deadzone" />`;
+    out += `<rect x="${southEastRackX}" y="${MAIN_HALL_BOT}" width="${southEastRackW}" height="${SOUTH_WALL_Y - MAIN_HALL_BOT}" fill="url(#hatchRack)" opacity="0.45"/>`;
+    out += `<text x="${southEastRackX + southEastRackW / 2}" y="${MAIN_HALL_BOT + 160}" font-family="var(--mono)" font-size="13px" fill="#cbd5e1" transform="rotate(90, ${southEastRackX + southEastRackW / 2}, ${MAIN_HALL_BOT + 160})" font-weight="900" text-anchor="middle">EAST RACK (4')</text>`;
+
+    // FIXED 6×6 GRID: 6 Rows (R34 to R39) × 6 Slots Deep = 36 Slots (1,080 Bikes)
+    const southGridAvailW = southStorageW - southWestRackW - southEastRackW;
+    const southRowW = 78; // 78px per row card
+    const southGridW = 6 * southRowW;
+    const southStartX = southSplitX + southWestRackW + (southGridAvailW - southGridW) / 2;
+
+    // Outline for South 6x6 Pod
+    out += `<rect x="${southStartX - 3}" y="${SOUTH_STORAGE_TOP - 4}" width="${southGridW + 6}" height="${SOUTH_ROW_H + 8}" class="block-pod-outline" />`;
+
+    const southRows = [34, 35, 36, 37, 38, 39];
+    southRows.forEach((rowNum, rIdx) => {
+        drawRowRect(southStartX + rIdx * southRowW, SOUTH_STORAGE_TOP, southRowW, SOUTH_ROW_H, rowNum, 6, 'south');
+    });
+
+    // 6. Perimeter Walls & Outer Dimensions
+    out += `<rect x="${BAY_LEFT}" y="${NORTH_WALL_Y}" width="${BAY_TOTAL_W}" height="${SOUTH_WALL_Y - NORTH_WALL_Y}" class="wall-outer" />`;
+
+    // High Visibility Perimeter Dimension Annotations
+    out += `<text x="${BAY_LEFT + BAY_TOTAL_W / 2}" y="${NORTH_WALL_Y - 12}" font-family="var(--mono)" font-size="15px" fill="#94a3b8" font-weight="900" letter-spacing="2px" text-anchor="middle">NORTH WALL · 113' 10" (1,366") OVERALL</text>`;
+    out += `<text x="${BAY_LEFT + BAY_TOTAL_W / 2}" y="${SOUTH_WALL_Y + 24}" font-family="var(--mono)" font-size="15px" fill="#94a3b8" font-weight="900" letter-spacing="2px" text-anchor="middle">SOUTH EXTERIOR WALL</text>`;
+    out += `<text x="${BAY_LEFT - 16}" y="${NORTH_WALL_Y + (SOUTH_WALL_Y - NORTH_WALL_Y) / 2}" font-family="var(--mono)" font-size="15px" fill="#94a3b8" font-weight="900" transform="rotate(-90, ${BAY_LEFT - 16}, ${NORTH_WALL_Y + (SOUTH_WALL_Y - NORTH_WALL_Y) / 2})" text-anchor="middle">BAY 2 / 3 DIVIDER WALL (116' 0")</text>`;
+    out += `<text x="${BAY_RIGHT + 20}" y="${NORTH_WALL_Y + (SOUTH_WALL_Y - NORTH_WALL_Y) / 2}" font-family="var(--mono)" font-size="15px" fill="#94a3b8" font-weight="900" transform="rotate(90, ${BAY_RIGHT + 20}, ${NORTH_WALL_Y + (SOUTH_WALL_Y - NORTH_WALL_Y) / 2})" text-anchor="middle">EAST WALL (116' 0")</text>`;
+
+    out += `</g>`;
+
+    svg.innerHTML = out;
+    attachTooltipHandlers();
+
+    function drawAisleBadge(cx, cy, text, isVertical) {
+        const rot = isVertical ? `transform="rotate(-90, ${cx}, ${cy})"` : '';
+        out += `<text x="${cx}" y="${cy + 6}" ${rot} font-family="var(--mono)" font-size="17px" font-weight="900" fill="#38bdf8" letter-spacing="2px" text-anchor="middle" filter="url(#glowBadge)">${text}</text>`;
+    }
+
+    function drawZoneBadge(cx, cy, text, colour) {
+        out += `<text x="${cx}" y="${cy + 6}" transform="rotate(-90, ${cx}, ${cy})" font-family="var(--mono)" font-size="17px" font-weight="900" fill="${colour}" letter-spacing="2px" text-anchor="middle" filter="url(#glowBadge)">${text}</text>`;
+    }
+
+    function drawRowRect(rx, startY, w, h, rowNum, deepCount, zoneType) {
+        const totalBikesInRow = deepCount * 30;
+        const cx = rx + w / 2;
+        const cy = startY + h / 2;
+        const isAddedRow = (currentVersion === 'no_rack' && (rowNum === 18 || rowNum === 19));
+        const rectClass = isAddedRow ? 'row-solid-rect row-added-green' : 'row-solid-rect';
+
+        // 1. Single Solid Uniform Rectangle (Expanded Width for High Legibility)
+        out += `<rect x="${rx + 1}" y="${startY}" width="${w - 2}" height="${h}" class="${rectClass}" 
+                data-row="${rowNum}" data-bikes="${totalBikesInRow}" data-pallets="${deepCount}" data-added="${isAddedRow}" rx="4" />`;
+
+        // 2. Vertical Text Running Down the Center of Each Row Rectangle
+        out += `<text x="${cx}" y="${cy + 6}" transform="rotate(-90, ${cx}, ${cy})" font-family="var(--mono)" font-size="17px" font-weight="900" fill="#ffffff" letter-spacing="2px" text-anchor="middle" pointer-events="none">ROW ${rowNum} &mdash; ${totalBikesInRow} BIKES</text>`;
+    }
+}
+
+function attachTooltipHandlers() {
+    const tip = document.getElementById('tooltip');
+    document.querySelectorAll('.row-solid-rect').forEach(el => {
+        el.addEventListener('mouseenter', e => {
+            const row = el.dataset.row;
+            const bikes = el.dataset.bikes;
+            const pallets = el.dataset.pallets;
+            const isAdded = el.dataset.added === 'true';
+            const addedTag = isAdded ? ` &nbsp;·&nbsp; <span style="color:#22c55e; font-weight:900;">✨ NEW ADDED CAPACITY (+300 BIKES)</span>` : '';
+            tip.innerHTML = `<strong>ROW ${row}</strong> &nbsp;·&nbsp; <span style="color:#38bdf8">📦 ${bikes} BIKES (${pallets} Pallets · 30 bikes/pallet)</span>${addedTag}`;
+            tip.style.opacity = '1';
+        });
+
+        el.addEventListener('mousemove', e => {
+            tip.style.left = e.clientX + 'px';
+            tip.style.top = e.clientY + 'px';
+        });
+
+        el.addEventListener('mouseleave', () => {
+            tip.style.opacity = '0';
+        });
+    });
+}
+
+// Initialize
+window.addEventListener('DOMContentLoaded', () => {
+    switchVersion('with_rack');
+});
+</script>
+</body>
+</html>

@@ -48,243 +48,244 @@
 </head>
 <body>
 
+<div class="sidebar">
+    <h2>SAVED CONFIGS</h2>
+    <button class="btn" style="width:100%; text-align:center; margin-bottom:10px;" onclick="saveConfig()">+ SAVE CURRENT</button>
+    <div id="savedList" style="display:flex; flex-direction:column; gap:10px;"></div>
+</div>
+
 <header>
-    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:20px; flex-wrap:wrap;">
         <div>
             <h1>BAY 2 NORTE — PALLET LAYOUT</h1>
-            <p class="tagline">COMPARISON: E-W VS N-S VERSION</p>
+            <p class="tagline" id="taglineDesc">ROWS RUNNING N-S (HALLS N-S)</p>
         </div>
-        <button id="backBtn" style="
-            padding:8px 16px; border:1px solid #1e293b; border-radius:6px;
-            background:rgba(15,23,42,.8); color:#e2e8f0; cursor:pointer;
-            font-size:11px; letter-spacing:.1em; font-weight:600;
-            transition:all .2s; font-family:ui-monospace,monospace;
-        " onmouseover="this.style.borderColor='#64748b'; this.style.background='rgba(30,41,59,.8)'"
-           onmouseout="this.style.borderColor='#1e293b'; this.style.background='rgba(15,23,42,.8)'">
-            ← VOLVER AL MAPA
-        </button>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <label style="font-size:11px; font-family:ui-monospace,monospace; color:#64748b; display:flex; align-items:center; gap:6px;">
+                PALLET
+                <input type="range" id="inpPD" min="55" max="65" value="60" style="width:80px; accent-color:#00eeff; cursor:pointer;"> <span id="valPD" style="color:#00eeff; font-weight:bold;">60"</span> D &times;
+                <input type="range" id="inpPW" min="57" max="67" value="62" style="width:80px; accent-color:#00eeff; cursor:pointer;"> <span id="valPW" style="color:#00eeff; font-weight:bold;">62"</span> W
+            </label>
+            <div id="toggles" style="display:none;"></div>
+            <button id="backBtn" style="
+                padding:9px 16px; border:1px solid #1e293b; border-radius:6px;
+                background:rgba(15,23,42,.8); color:#e2e8f0; cursor:pointer;
+                font-size:11px; letter-spacing:.1em; font-weight:600;
+                transition:all .2s; font-family:ui-monospace,monospace; display:inline-block;
+            " onmouseover="this.style.borderColor='#64748b'; this.style.background='rgba(30,41,59,.8)'"
+               onmouseout="this.style.borderColor='#1e293b'; this.style.background='rgba(15,23,42,.8)'">
+                ← MAP
+            </button>
+        </div>
     </div>
 </header>
 
-<div class="stage">
-    <!-- VERSION A -->
+<div class="stage" style="display:block;">
     <div class="layout-box">
-        <h2 class="v-a">VERSION A: PAIRS RUNNING E-W</h2>
-
-        <div class="stats">
-            <div class="stat-item v-a">
-                <div class="k">PAIRS E-W</div>
-                <div class="v">8</div>
-            </div>
-            <div class="stat-item v-a">
-                <div class="k">ROWS N-S</div>
-                <div class="v">5</div>
-            </div>
-            <div class="stat-item v-a">
-                <div class="k">TOTAL PAIRS</div>
-                <div class="v">40</div>
-            </div>
-            <div class="stat-item v-a">
-                <div class="k">CAPACIDAD</div>
-                <div class="v">80 pallets*</div>
-            </div>
+        <div class="stats" id="stats-box" style="display:flex; gap:28px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.05); margin-bottom:20px;">
+            <!-- Dynamically populated by engine -->
+            <div class="stat-item"><div class="k">LOADING...</div></div>
         </div>
-
-        <div class="config-text">
-            E-W: 8 pairs × 120" (flush) = 960" / 1016" <br>
-            N-S: 40" × 5 + 70" × 4 = 480" / 497" <br>
-            Aisles: 70" (N-S only)
+        
+        <div class="config-text" id="config-text" style="display:flex; justify-content:space-between;"></div>
+        
+        <div style="position:relative; width:100%; display:flex; justify-content:center; margin-top:20px;">
+            <svg id="layout-svg" style="max-height: calc(100vh - 280px); object-fit: contain;"></svg>
         </div>
-
-        <svg id="layout-a" viewBox="0 0 1100 550"></svg>
-    </div>
-
-    <!-- VERSION B -->
-    <div class="layout-box">
-        <h2 class="v-b">VERSION B: PAIRS RUNNING N-S</h2>
-
-        <div class="stats">
-            <div class="stat-item v-b">
-                <div class="k">ROWS E-O</div>
-                <div class="v">5</div>
-            </div>
-            <div class="stat-item v-b">
-                <div class="k">PAIRS N-S</div>
-                <div class="v">4</div>
-            </div>
-            <div class="stat-item v-b">
-                <div class="k">TOTAL PAIRS</div>
-                <div class="v">20</div>
-            </div>
-            <div class="stat-item v-b">
-                <div class="k">CAPACIDAD</div>
-                <div class="v">40 pallets*</div>
-            </div>
-        </div>
-
-        <div class="config-text">
-            E-O: 5 rows × 120" + 4 aisles × 70" = 880" / 1016" <br>
-            N-S: 4 pairs × 120" (flush) = 480" / 497" <br>
-            Aisles: 70" (E-W only)
-        </div>
-
-        <svg id="layout-b" viewBox="0 0 1100 550"></svg>
     </div>
 </div>
 
 <footer>
-* Estimate: 2 pallets per "pair" (1 up, 1 down across levels). Use WAREHOUSE-MEASUREMENTS.md to confirm the real width of Bay 2 North.
+* Estimate: 2 pallets per "slot" (1 up, 1 down across levels). Uses exact math from PalletEngine.
 </footer>
 
-<script>
-const PX_PER_FT = 10;
-const ft = (f, i = 0) => (f + i / 12) * PX_PER_FT;
-
-// Bay 2 Norte en PX
-const bay2Width = ft(84, 8);    // E-O
-const bay2Depth = ft(43, 9);    // N-S
-const bufferN = ft(0, 28);      // 28"
-
-console.log(`Bay 2 Norte: ${bay2Width}px × ${bay2Depth}px`);
-
-// ========== VERSION A: PAIRS E-W ==========
-const generateLayoutA = () => {
-    const svg = document.getElementById('layout-a');
-    const margin = 60;
-
-    // Escala: reducir para que quepa en la vista
-    const scale = (bay2Width + 40) / 1016;  // 1016" = bay2 E-O width
-
-    let h = `<defs><filter id="glowA" x="-10%" y="-10%" width="120%" height="120%">
-                <feGaussianBlur stdDeviation="2" result="b"/>
-                <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-            </filter></defs>`;
-
-    // Background (bay2 norte)
-    const w_scaled = bay2Width * scale;
-    const h_scaled = (bay2Depth - bufferN) * scale;
-
-    h += `<rect x="${margin}" y="${margin}" width="${w_scaled}" height="${h_scaled}"
-               fill="#1a2332" stroke="#334155" stroke-width="2"/>`;
-
-    // Walls
-    h += `<text x="${margin - 20}" y="${margin + h_scaled/2}" font-size="11" fill="#475569" text-anchor="end">NORTH</text>`;
-    h += `<text x="${margin - 20}" y="${margin + h_scaled + 30}" font-size="11" fill="#475569" text-anchor="end">MAIN AISLE</text>`;
-    h += `<text x="${margin + w_scaled/2}" y="${margin - 20}" font-size="11" fill="#475569" text-anchor="middle">WEST ← → EAST</text>`;
-
-    // Version A: 8 pairs flush E-W, 5 rows N-S
-    // Layout: 8 pairs × 120" flush along E-W = 960"
-    // Pair positions E-W (flush, no aisles)
-    const pairXs_A = [];
-    for (let i = 0; i < 8; i++) {
-        pairXs_A.push(i * 120);
+<style>
+    .switch button {
+        padding:9px 15px; border:0; background:rgba(15,23,42,.5); color:#64748b;
+        font-family:ui-monospace,monospace; font-size:11px; letter-spacing:.1em; font-weight:700;
+        cursor:pointer; transition:background .2s, color .2s; white-space:nowrap;
     }
+    .switch button:hover { color:#e2e8f0; }
+    .switch button.on { background:#34d399; color:#070b14; }
+    
+    .stats .stat-item { font-family:ui-monospace,monospace; }
+    .stats .stat-item .k { font-size:9.5px; letter-spacing:.14em; color:#64748b; }
+    .stats .stat-item .v { font-size:28px; font-weight:800; margin-top:6px; color:#22d3ee; font-variant-numeric:tabular-nums; line-height:1; }
+</style>
 
-    // Rows N-S: 5 rows with 66" aisles
-    const rowHeights = [40, 66, 40, 66, 40, 66, 40, 66, 40];  // palet + aisle
-    const rowYs = [];
-    let y = 0;
-    for (const h of rowHeights) {
-        if (rowYs.length < 5) rowYs.push(y);
-        y += h;
-        if (rowYs.length >= 5) break;
+<script type="module">
+import { ZONES } from './zones.js';
+import { PalletEngine } from './PalletEngine.js';
+
+const config = ZONES['bay2_north'];
+const isEW = false; // Locked to N-S rows
+let pw = 62;
+let pd = 60;
+let hallOverrides = {};
+
+const valPD = document.getElementById('valPD');
+const valPW = document.getElementById('valPW');
+
+document.getElementById('inpPD').addEventListener('input', e => { 
+    pd = parseFloat(e.target.value) || 60; 
+    valPD.textContent = pd + '"';
+    render(); 
+});
+document.getElementById('inpPW').addEventListener('input', e => { 
+    pw = parseFloat(e.target.value) || 62; 
+    valPW.textContent = pw + '"';
+    render(); 
+});
+
+window.openHallSlider = (e, idx, currentSize) => {
+    let popup = document.getElementById('hall-slider-popup');
+    if (!popup) {
+        popup = document.createElement('div');
+        popup.id = 'hall-slider-popup';
+        popup.style.cssText = "position:absolute; background:#1e293b; color:#e2e8f0; padding:12px; border-radius:8px; box-shadow:0 10px 25px rgba(0,0,0,0.5); z-index:1000; border:1px solid #334155; display:flex; flex-direction:column; gap:8px; font-family:var(--mono, ui-monospace, monospace); font-size:12px;";
+        document.body.appendChild(popup);
     }
-
-    // Draw the pairs: 8 × 5
-    let pairIdx = 0;
-    for (let pairCol = 0; pairCol < 8; pairCol++) {
-        const px = pairXs_A[pairCol];
-        const pw = 120;  // width E-O
-
-        for (let pairRow = 0; pairRow < 5; pairRow++) {
-            const py = rowYs[pairRow];
-            const ph = 40;  // palet depth N-S
-
-            const x1 = margin + px * scale;
-            const y1 = margin + py * scale;
-            const w1 = pw * scale;
-            const h1 = ph * scale;
-
-            h += `<rect class="pallet" x="${x1}" y="${y1}" width="${w1}" height="${h1}"
-                       rx="2" fill="#f59e0b" fill-opacity=".4" stroke="#f59e0b" stroke-width="1.5"/>`;
-
-            if (w1 > 20 && h1 > 15) {
-                h += `<text x="${x1 + w1/2}" y="${y1 + h1/2 + 3}" font-size="9" fill="#f59e0b"
-                            text-anchor="middle" font-weight="600">${pairIdx + 1}</text>`;
-            }
-            pairIdx++;
-        }
-    }
-
-    svg.innerHTML = h;
+    
+    let val = hallOverrides[idx] || currentSize;
+    
+    popup.innerHTML = `
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+            <strong>Hall ${idx + 1} Width</strong>
+            <button id="hallSliderReset" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:10px;">RESET</button>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <input type="range" id="hallSliderInp" min="${Math.max(54, currentSize - 20)}" max="${currentSize + 20}" value="${val}" style="width:120px; accent-color:#00eeff; cursor:pointer;">
+            <span id="hallSliderVal" style="color:#00eeff; font-weight:bold; min-width:30px;">${val}"</span>
+        </div>
+        <button onclick="document.getElementById('hall-slider-popup').style.display='none'" style="margin-top:4px; background:rgba(255,255,255,0.1); border:none; color:white; padding:4px; border-radius:4px; cursor:pointer;">Close</button>
+    `;
+    
+    popup.style.display = 'flex';
+    popup.style.left = (e.pageX + 15) + 'px';
+    popup.style.top = (e.pageY + 15) + 'px';
+    
+    document.getElementById('hallSliderReset').onclick = () => {
+        popup.style.display='none'; 
+        delete hallOverrides[idx]; 
+        render();
+    };
+    
+    document.getElementById('hallSliderInp').addEventListener('input', (ev) => {
+        const v = parseInt(ev.target.value);
+        document.getElementById('hallSliderVal').textContent = v + '"';
+        hallOverrides[idx] = v;
+        render();
+    });
 };
 
-// ========== VERSION B: PAIRS N-S ==========
-const generateLayoutB = () => {
-    const svg = document.getElementById('layout-b');
-    const margin = 60;
+// Saved Configs Logic
+const getSavedKey = () => `pickd_layout_configs_bay2_north`;
+let savedConfigs = JSON.parse(localStorage.getItem(getSavedKey()) || '[]');
 
-    const scale = (bay2Width + 40) / 1016;
+function renderSavedList() {
+    const list = document.getElementById('savedList');
+    list.innerHTML = '';
+    savedConfigs.forEach((cfg, idx) => {
+        const item = document.createElement('div');
+        item.className = 'saved-item';
+        item.innerHTML = `
+            <button class="saved-item-del" onclick="event.stopPropagation(); deleteConfig(${idx})">X</button>
+            <div class="saved-item-title">${cfg.name}</div>
+            <div class="saved-item-info">PD:${cfg.state.pd}" PW:${cfg.state.pw}" Overrides:${Object.keys(cfg.state.hallOverrides).length}</div>
+        `;
+        item.onclick = () => loadConfig(idx);
+        list.appendChild(item);
+    });
+}
 
-    let h = `<defs><filter id="glowB" x="-10%" y="-10%" width="120%" height="120%">
-                <feGaussianBlur stdDeviation="2" result="b"/>
-                <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-            </filter></defs>`;
-
-    const w_scaled = bay2Width * scale;
-    const h_scaled = (bay2Depth - bufferN) * scale;
-
-    h += `<rect x="${margin}" y="${margin}" width="${w_scaled}" height="${h_scaled}"
-               fill="#1a2332" stroke="#334155" stroke-width="2"/>`;
-
-    h += `<text x="${margin - 20}" y="${margin + h_scaled/2}" font-size="11" fill="#475569" text-anchor="end">NORTH</text>`;
-    h += `<text x="${margin - 20}" y="${margin + h_scaled + 30}" font-size="11" fill="#475569" text-anchor="end">MAIN AISLE</text>`;
-    h += `<text x="${margin + w_scaled/2}" y="${margin - 20}" font-size="11" fill="#475569" text-anchor="middle">WEST ← → EAST</text>`;
-
-    // Version B: 5 rows E-W, 4 pairs flush N-S
-    // Pairs N-S: 4 pairs × 120" flush = 480"
-    const pairYs_B = [];
-    for (let i = 0; i < 4; i++) {
-        pairYs_B.push(i * 120);
-    }
-
-    // Rows E-O: 5 rows con aisle de 70" entre ellas
-    const rowXs = [];
-    let x = 0;
-    for (let i = 0; i < 5; i++) {
-        rowXs.push(x);
-        x += 120 + 70;
-    }
-
-    // Draw the pairs: 5 × 4
-    let pairIdx = 0;
-    for (let pairRow = 0; pairRow < 4; pairRow++) {
-        const py = pairYs_B[pairRow];
-
-        for (let pairCol = 0; pairCol < 5; pairCol++) {
-            const px = rowXs[pairCol];
-
-            const x1 = margin + px * scale;
-            const y1 = margin + py * scale;
-            const w1 = 120 * scale;
-            const h1 = 120 * scale;  // N-S depth
-
-            h += `<rect class="pallet" x="${x1}" y="${y1}" width="${w1}" height="${h1}"
-                       rx="2" fill="#a78bfa" fill-opacity=".4" stroke="#a78bfa" stroke-width="1.5"/>`;
-
-            if (w1 > 20 && h1 > 15) {
-                h += `<text x="${x1 + w1/2}" y="${y1 + h1/2 + 3}" font-size="9" fill="#a78bfa"
-                            text-anchor="middle" font-weight="600">${pairIdx + 1}</text>`;
-            }
-            pairIdx++;
-        }
-    }
-
-    svg.innerHTML = h;
+window.saveConfig = () => {
+    const name = prompt("Configuration name:", `Layout ${new Date().toLocaleTimeString()}`);
+    if (!name) return;
+    savedConfigs.push({
+        name,
+        state: { pw, pd, isEW, hallOverrides: JSON.parse(JSON.stringify(hallOverrides)) }
+    });
+    localStorage.setItem(getSavedKey(), JSON.stringify(savedConfigs));
+    renderSavedList();
 };
 
-generateLayoutA();
-generateLayoutB();
+window.loadConfig = (idx) => {
+    const cfg = savedConfigs[idx];
+    if (!cfg) return;
+    pw = cfg.state.pw;
+    pd = cfg.state.pd;
+    hallOverrides = JSON.parse(JSON.stringify(cfg.state.hallOverrides || {}));
+    
+    document.getElementById('inpPD').value = pd;
+    valPD.textContent = pd + '"';
+    document.getElementById('inpPW').value = pw;
+    valPW.textContent = pw + '"';
+    
+    render();
+};
+
+window.deleteConfig = (idx) => {
+    if (!confirm("Delete configuration?")) return;
+    savedConfigs.splice(idx, 1);
+    localStorage.setItem(getSavedKey(), JSON.stringify(savedConfigs));
+    renderSavedList();
+};
+
+function render() {
+    const engine = new PalletEngine('bay2_north', config, { pw, pd, isEW, hallOverrides });
+    const m = engine.calculate();
+    
+    const svg = document.getElementById('layout-svg');
+    const stats = document.getElementById('stats-box');
+    const text = document.getElementById('config-text');
+    const tagline = document.getElementById('taglineDesc');
+    
+    tagline.textContent = "ROWS RUNNING N-S (HALLS N-S)";
+    
+    if (!m) {
+        stats.innerHTML = `<div class="stat-item"><div class="k">ERROR</div><div class="v" style="color:#ef4444">NO FITS</div></div>`;
+        return;
+    }
+    
+    // Update SVG
+    svg.setAttribute('viewBox', `0 0 ${config.width + 192} ${config.height + 192}`);
+    svg.innerHTML = engine.renderSVG(m);
+    
+    // Update Stats
+    stats.innerHTML = `
+        <div class="stat-item">
+            <div class="k">ROWS</div>
+            <div class="v">${m.nRows}</div>
+        </div>
+        <div class="stat-item">
+            <div class="k">SLOTS DEEP</div>
+            <div class="v">${m.deep}</div>
+        </div>
+        <div class="stat-item">
+            <div class="k">TOTAL SLOTS</div>
+            <div class="v">${m.pallets}</div>
+        </div>
+        <div class="stat-item">
+            <div class="k">CAPACIDAD APROX*</div>
+            <div class="v" style="color:#34d399">${m.pallets * 2} <span style="font-size:12px;color:#64748b">pallets</span></div>
+        </div>
+        <div class="stat-item">
+            <div class="k">TOTAL BIKES</div>
+            <div class="v" style="color:#39ff14">${new Intl.NumberFormat().format(m.palletBikes + m.bikes)}</div>
+        </div>
+    `;
+    
+    // Update Config Text
+    text.innerHTML = `
+        <span><strong>Halls:</strong> ${m.nHalls > 0 ? Math.round(54 + m.extra / m.nHalls) + '"' : 'None'} (${m.nHalls} halls)</span>
+        <span><strong>Blocks:</strong> ${m.blocks.join(' + ')} rows per block</span>
+        <span><strong>Posts hit:</strong> ${m.hits.length > 0 ? '<span style="color:#ef4444;font-weight:bold">' + m.hits.length + '</span>' : 'None'}</span>
+    `;
+}
+
+render();
+renderSavedList();
+PalletEngine.attachTooltip(document.getElementById('layout-svg'));
 
 // Back button
 document.getElementById('backBtn').addEventListener('click', () => {

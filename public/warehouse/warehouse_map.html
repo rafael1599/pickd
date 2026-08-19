@@ -23,7 +23,7 @@
         mask-image:radial-gradient(ellipse at 50% 40%,#000 20%,transparent 78%);
     }
 
-    header{ position:relative; z-index:2; padding:22px 30px 6px; }
+    header{ position:relative; z-index:2; padding:22px 30px 6px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px; }
     h1{ font-size:15px; font-weight:800; letter-spacing:.22em; color:#f8fafc; }
     .tagline{ font-size:11px; letter-spacing:.16em; color:#475569; margin-top:5px; font-family:ui-monospace,monospace; }
 
@@ -86,12 +86,22 @@
 <body>
 
 <header>
-    <h1>WAREHOUSE MAP — JAMIS BIKES</h1>
-    <p class="tagline">HOVER A BAY · CLICK TO PIN</p>
-    <div class="totals">
-        <div><div class="k">TOTAL AREA</div><div class="v" id="tTotal">—</div></div>
-        <div><div class="k">FREE SPACE</div><div class="v" id="tFree">—</div></div>
-        <div><div class="k">UTILIZATION</div><div class="v" id="tPct">—</div></div>
+    <div>
+        <h1>WAREHOUSE MAP — JAMIS BIKES</h1>
+        <p class="tagline">HOVER A BAY · CLICK TO PIN</p>
+        <div class="totals">
+            <div><div class="k">TOTAL AREA</div><div class="v" id="tTotal">—</div></div>
+            <div><div class="k">FREE SPACE</div><div class="v" id="tFree">—</div></div>
+            <div><div class="k">UTILIZATION</div><div class="v" id="tPct">—</div></div>
+        </div>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center;">
+        <a href="bay3_combined.html" style="padding:10px 18px; background:rgba(56,189,248,0.15); border:1.5px solid #38bdf8; border-radius:6px; color:#38bdf8; text-decoration:none; font-family:ui-monospace,monospace; font-size:12px; font-weight:800; letter-spacing:0.06em; display:flex; align-items:center; gap:8px;">
+            <span>🗺️</span> BAY 3 COMBINED (5,280 / 5,880)
+        </a>
+        <a href="index.html" style="padding:10px 14px; background:rgba(15,23,42,0.8); border:1px solid #334155; border-radius:6px; color:#94a3b8; text-decoration:none; font-family:ui-monospace,monospace; font-size:12px; font-weight:700;">
+            INDEX
+        </a>
     </div>
 </header>
 
@@ -317,10 +327,77 @@ for (const b of BAYS) {
     h += `</g>`;
 }
 
+/* ---------- rack relocation overlay (?move=rack) ----------------------------
+   The west rack does not move in one piece: part of it stays in Bay 3, south of the
+   main hallway, and part goes to the south wall of Bay 2. Off by default - the map is
+   a survey of the building, and this is the one annotation that argues for something. */
+const MOVE = new URLSearchParams(location.search).get('move');
+
+// Where it stands now: a 4' strip on the west wall, running the depth of the north zone.
+const FROM = { x: bay3West, y: bay3North, w: ft(4), h: hall3Top - bay3North };
+// Part 1 stays in Bay 3, in the south-west corner past the main hallway. South of the
+// hallway means it is outside the storage grid, so rows 18-19 are unaffected.
+const P1   = { x: bay3West, y: hall3Bot + ft(0, 8), w: ft(12), h: ft(9) };
+// Part 2 goes to Bay 2 south, laid along the south wall against the east end.
+const P2   = { x: bay2East - ft(23), y: SOUTH_Y - ft(4), w: ft(23), h: ft(4) };
+
+if (MOVE === 'rack') {
+    const RED = '#ef4444';
+    const label = (x, y, txt, anchor) =>
+        `<text x="${x}" y="${y}" text-anchor="${anchor}" fill="${RED}"
+               font-family="var(--mono)" font-size="17" font-weight="800"
+               letter-spacing="2.5">${txt}</text>`;
+    const arrow = (x1, y1, x2, y2) =>
+        `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${RED}" stroke-width="4"
+               stroke-linecap="round" marker-end="url(#mvArrow)"/>`;
+    const box = (b, dash) =>
+        `<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="${RED}"
+               fill-opacity="${dash ? '.16' : '.30'}" stroke="${RED}" stroke-width="3"
+               ${dash ? 'stroke-dasharray="13 8"' : ''}/>`;
+
+    h += `<g class="rack-move" pointer-events="none">
+        <defs>
+          <marker id="mvArrow" viewBox="0 0 12 12" refX="10" refY="6"
+                  markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 12 6 L 0 12 z" fill="${RED}"/>
+          </marker>
+        </defs>
+
+        ${box(FROM, false)}
+        ${label(FROM.x + FROM.w + 16, FROM.y + FROM.h * 0.5, 'WEST RACK &mdash; TODAY', 'start')}
+
+        ${box(P1, true)}
+        ${label(P1.x + P1.w / 2, P1.y + P1.h + 26, 'PART 1', 'middle')}
+
+        ${box(P2, true)}
+        ${label(P2.x + P2.w / 2, P2.y - 16, 'PART 2', 'middle')}
+
+        ${arrow(FROM.x + FROM.w / 2, FROM.y + FROM.h + 2, P1.x + P1.w / 2, P1.y - 10)}
+        ${arrow(FROM.x, FROM.y + FROM.h - 8, P2.x + P2.w * 0.72, P2.y - 12)}
+      </g>`;
+}
+
 const svg = document.getElementById('map');
 const PAD = 90;
 const minY = Math.min(...BAYS.map(b => b.north)) - PAD - 34;
-svg.setAttribute('viewBox', `${WEST_X - PAD} ${minY} ${bay3East - WEST_X + PAD * 2} ${SOUTH_Y - minY + PAD}`);
+if (MOVE === 'rack') {
+    // Frame only the two bays the move touches.
+    const x0 = bay2West - 22, y0 = Math.min(bay2North, bay3North) - 54;
+    svg.setAttribute('viewBox', `${x0} ${y0} ${bay3East + 40 - x0} ${SOUTH_Y + 34 - y0}`);
+    // svg{height:auto} would make the taller two-bay frame overflow the window; cap it
+    // and let preserveAspectRatio scale the drawing to fit.
+    document.querySelector('header').style.display = 'none';
+    svg.style.height = 'calc(100vh - 30px)';
+    svg.style.overflow = 'hidden';
+    // Bay 1 still catches the frame edge once the drawing is letterboxed. Keep it
+    // visible so the geography stays honest, but out of the way.
+    requestAnimationFrame(() => {
+        const b1 = document.getElementById('bay1');
+        if (b1) b1.style.opacity = '.16';
+    });
+} else {
+    svg.setAttribute('viewBox', `${WEST_X - PAD} ${minY} ${bay3East - WEST_X + PAD * 2} ${SOUTH_Y - minY + PAD}`);
+}
 document.getElementById('scene').innerHTML = h;
 
 /* ---------- totals ---------- */
@@ -369,12 +446,15 @@ function clear() {
 // Zones that already have a modelled pallet layout. Keyed by bay and zone name,
 // because a bay can hold several zones and only some of them are modelled.
 const ZONE_LAYOUTS = {
-    'bay2/NORTH ZONE': 'bay2_pallet_layout.html',
+    'bay1/NORTH ZONE': 'zone.html?id=bay1_north',
+    'bay1/OFFICE GAP': 'zone.html?id=bay1_office_gap',
+    'bay2/NORTH ZONE': 'zone.html?id=bay2_north',
+    'bay2/SOUTH ZONE': 'zone.html?id=bay2_south',
     'bay3/NORTH ZONE': 'zone.html?id=bay3_north',
     'bay3/EAST ZONE':  'zone.html?id=bay3_se'
 };
 // Clicking anywhere else in a bay falls back to its main layout, if it has one.
-const BAY_LAYOUTS = { bay2: 'bay2_pallet_layout.html', bay3: 'zone.html?id=bay3_north' };
+const BAY_LAYOUTS = { bay1: 'zone.html?id=bay1_north', bay2: 'zone.html?id=bay2_north', bay3: 'bay3_combined.html' };
 
 const toFtIn = px => {
     const halves = Math.round((px / PX_PER_FT) * 24);
