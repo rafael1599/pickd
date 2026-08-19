@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Bay 3 capacity optimization plan for JAMIS Bikes: 4,400 to 5,880 bikes on the same floor.">
+<title>Bay 3 Capacity Optimization Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap">
+
+<style>
+  :root{
+    --paper:#EEF1F5; --surface:#FFFFFF; --sunk:#E4E9EF;
+    --ink:#0F1722; --ink-2:#46536A; --ink-3:#7C889C;
+    --rule:#D2D9E3; --rule-firm:#B4BFCE;
+    --steel:#1B4C88; --gain:#157F52; --amber:#8A5A0B;
+    --plan-bg:#080D16; --plan-edge:#1E2B3D;
+
+    --f-display:'IBM Plex Sans Condensed',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    --f-body:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    --f-mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#0A1017; --surface:#121B26; --sunk:#0E1620;
+      --ink:#E7EDF5; --ink-2:#9CAABF; --ink-3:#6A798F;
+      --rule:#22303F; --rule-firm:#31445A;
+      --steel:#74ADEC; --gain:#3FC086; --amber:#E0A340;
+      --plan-bg:#060A11; --plan-edge:#1B2736;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0A1017; --surface:#121B26; --sunk:#0E1620;
+    --ink:#E7EDF5; --ink-2:#9CAABF; --ink-3:#6A798F;
+    --rule:#22303F; --rule-firm:#31445A;
+    --steel:#74ADEC; --gain:#3FC086; --amber:#E0A340;
+    --plan-bg:#060A11; --plan-edge:#1B2736;
+  }
+
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:var(--f-body); font-size:16px; line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  .sheet{ max-width:1080px; margin:0 auto; padding:0 32px 96px; }
+
+  .masthead{ padding:64px 0 30px; border-bottom:2px solid var(--ink); }
+  .org{
+    font-family:var(--f-mono); font-size:11px; font-weight:500;
+    letter-spacing:.2em; text-transform:uppercase; color:var(--steel);
+  }
+  h1{
+    font-family:var(--f-display); font-weight:700;
+    font-size:clamp(34px,6vw,60px); line-height:1.02; letter-spacing:-.015em;
+    margin:14px 0 0; text-wrap:balance;
+  }
+  .standfirst{ margin:16px 0 0; max-width:62ch; font-size:17px; color:var(--ink-2); }
+
+  .progression{
+    display:grid; grid-template-columns:1fr auto 1fr auto 1fr;
+    align-items:stretch; margin:40px 0 8px;
+    border:1px solid var(--rule); border-radius:3px;
+    background:var(--surface); overflow:hidden;
+  }
+  .step{ padding:24px 26px; display:flex; flex-direction:column; gap:6px; }
+  .step .k{
+    font-family:var(--f-mono); font-size:10px; letter-spacing:.16em;
+    text-transform:uppercase; color:var(--ink-3);
+  }
+  .step .n{
+    font-family:var(--f-display); font-weight:700; font-size:44px; line-height:1;
+    font-variant-numeric:tabular-nums; letter-spacing:-.02em;
+  }
+  .step .u{ font-family:var(--f-mono); font-size:11px; color:var(--ink-3); letter-spacing:.08em; }
+  .step.superseded{ background:var(--sunk); }
+  .step.superseded .n{ color:var(--ink-3); }
+  .step.target .n{ color:var(--gain); }
+  .arrow{
+    display:flex; align-items:center; color:var(--rule-firm);
+    font-family:var(--f-mono); font-size:18px;
+    border-left:1px solid var(--rule); border-right:1px solid var(--rule);
+    background:var(--sunk);
+  }
+  .arrow span{ padding:0 10px; }
+  .delta{
+    display:flex; flex-wrap:wrap; gap:26px; padding:14px 2px 0;
+    font-family:var(--f-mono); font-size:11.5px; letter-spacing:.06em;
+    color:var(--ink-3); text-transform:uppercase;
+  }
+  .delta b{ color:var(--gain); font-weight:600; }
+
+  .part{
+    display:flex; align-items:baseline; gap:16px;
+    margin:72px 0 0; padding-bottom:10px; border-bottom:1px solid var(--rule-firm);
+  }
+  .part .num{
+    font-family:var(--f-mono); font-size:11px; font-weight:600;
+    letter-spacing:.16em; color:var(--steel);
+  }
+  .part h2{
+    font-family:var(--f-display); font-weight:600; font-size:15px;
+    letter-spacing:.14em; text-transform:uppercase; margin:0; color:var(--ink-2);
+  }
+
+  section{ padding-top:44px; }
+  .eyebrow{
+    font-family:var(--f-mono); font-size:10.5px; font-weight:500;
+    letter-spacing:.18em; text-transform:uppercase; color:var(--ink-3);
+  }
+  h3{
+    font-family:var(--f-display); font-weight:700;
+    font-size:clamp(23px,3.2vw,31px); line-height:1.18; letter-spacing:-.008em;
+    margin:9px 0 0; text-wrap:balance;
+  }
+  .lead{ margin:10px 0 0; max-width:64ch; color:var(--ink-2); font-size:16.5px; }
+  section p.body{ margin:14px 0 0; max-width:64ch; }
+
+  figure{ margin:26px 0 0; }
+  .plan{
+    background:var(--plan-bg); border:1px solid var(--plan-edge);
+    border-radius:3px; overflow:hidden; line-height:0;
+  }
+  .plan img{ width:100%; height:auto; display:block; }
+  .photo{ border:1px solid var(--rule-firm); border-radius:3px; overflow:hidden; line-height:0; }
+  .photo img{ width:100%; height:auto; display:block; }
+  figcaption{
+    font-family:var(--f-mono); font-size:11px; line-height:1.7;
+    letter-spacing:.05em; color:var(--ink-3); margin-top:10px;
+    display:flex; flex-wrap:wrap; gap:6px 18px;
+  }
+  figcaption b{ color:var(--ink-2); font-weight:500; }
+
+  .nodrawing{
+    display:grid; grid-template-columns:auto 1fr;
+    margin-top:26px; border:1px solid var(--rule); border-radius:3px;
+    background:var(--surface); overflow:hidden;
+  }
+  .nodrawing .big{
+    padding:30px 34px; background:var(--sunk); border-right:1px solid var(--rule);
+    display:flex; flex-direction:column; justify-content:center; gap:4px;
+  }
+  .nodrawing .big .n{
+    font-family:var(--f-display); font-weight:700; font-size:52px; line-height:1;
+    font-variant-numeric:tabular-nums; letter-spacing:-.02em; color:var(--ink-2);
+  }
+  .nodrawing .big .u{
+    font-family:var(--f-mono); font-size:10.5px; letter-spacing:.15em;
+    text-transform:uppercase; color:var(--ink-3);
+  }
+  .nodrawing .body{ padding:26px 30px; display:flex; flex-direction:column; gap:12px; }
+  .nodrawing .body p{ margin:0; font-size:15.5px; color:var(--ink-2); }
+  .nodrawing .body .why{
+    font-family:var(--f-mono); font-size:11px; letter-spacing:.05em;
+    color:var(--ink-3); line-height:1.75; padding-top:12px; border-top:1px solid var(--rule);
+  }
+
+  .figures{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:1px; margin-top:24px; background:var(--rule);
+    border:1px solid var(--rule); border-radius:3px; overflow:hidden;
+  }
+  .figures div{ background:var(--surface); padding:16px 18px; }
+  .figures .k{
+    font-family:var(--f-mono); font-size:9.5px; letter-spacing:.15em;
+    text-transform:uppercase; color:var(--ink-3);
+  }
+  .figures .v{
+    font-family:var(--f-display); font-weight:700; font-size:26px; line-height:1.15;
+    margin-top:3px; font-variant-numeric:tabular-nums;
+  }
+  .figures .v small{
+    font-family:var(--f-mono); font-size:10.5px; font-weight:400;
+    color:var(--ink-3); letter-spacing:.05em;
+  }
+
+  .callout{
+    margin-top:26px; padding:22px 26px; border-radius:3px;
+    background:var(--surface); border:1px solid var(--rule);
+    border-left:3px solid var(--amber);
+  }
+  .callout .k{
+    font-family:var(--f-mono); font-size:10.5px; font-weight:600;
+    letter-spacing:.16em; text-transform:uppercase; color:var(--amber);
+  }
+  .callout p{ margin:8px 0 0; max-width:62ch; color:var(--ink-2); font-size:15.5px; }
+
+  .steps{ margin-top:26px; display:flex; flex-direction:column; gap:1px; background:var(--rule);
+          border:1px solid var(--rule); border-radius:3px; overflow:hidden; }
+  .steps li{ list-style:none; background:var(--surface); padding:18px 24px;
+             display:flex; gap:20px; align-items:baseline; }
+  .steps .ord{
+    font-family:var(--f-mono); font-size:11px; font-weight:600; letter-spacing:.14em;
+    color:var(--steel); white-space:nowrap; min-width:5.5em;
+  }
+  .steps .what{ font-family:var(--f-display); font-weight:700; font-size:19px; }
+  .steps .note{ color:var(--ink-3); font-size:14.5px; margin-left:auto; text-align:right; }
+  .steps li.done{ background:var(--sunk); }
+  .steps li.done .ord{ color:var(--gain); }
+
+  /* Plain flex rows. A fixed tag column and a flexible text column with min-width:0 -
+     no shared grid tracks to negotiate and nothing painted outside its own box. */
+  .status{ margin-top:26px; display:flex; flex-direction:column;
+           border:1px solid var(--rule); border-radius:3px; overflow:hidden; }
+  .status li{ list-style:none; background:var(--surface); padding:18px 24px;
+              display:flex; gap:22px; align-items:flex-start; }
+  .status li + li{ border-top:1px solid var(--rule); }
+  /* Both columns use the same 26px line box, so the label lines up with the first line
+     of text by construction. No baseline negotiation between 10px and 16px type. */
+  .status .tag{
+    flex:0 0 7.5em; font-family:var(--f-mono); font-size:10px; font-weight:600;
+    letter-spacing:.14em; text-transform:uppercase; white-space:nowrap; line-height:26px;
+  }
+  .status .what{ flex:1 1 auto; min-width:0; color:var(--ink-2); line-height:26px; }
+  .status .what b{ color:var(--ink); font-weight:600; }
+  .status .done .tag{ color:var(--gain); }
+  .status .now  .tag{ color:var(--amber); }
+  .status .plan .tag{ color:var(--steel); }
+
+  .objective{
+    margin-top:56px; padding:44px 46px; border-radius:3px;
+    background:var(--ink); color:var(--paper);
+  }
+  .objective .k{
+    font-family:var(--f-mono); font-size:10.5px; letter-spacing:.2em;
+    text-transform:uppercase; opacity:.62;
+  }
+  .objective p{
+    font-family:var(--f-display); font-weight:600;
+    font-size:clamp(22px,3.4vw,32px); line-height:1.25; letter-spacing:-.01em;
+    margin:14px 0 0; max-width:26ch; text-wrap:balance;
+  }
+  .objective .sub{
+    font-family:var(--f-body); font-weight:400; font-size:16px; line-height:1.65;
+    letter-spacing:0; margin-top:16px; max-width:56ch; opacity:.78;
+  }
+
+  .notes{
+    margin-top:52px; padding-top:22px; border-top:1px solid var(--rule);
+    font-family:var(--f-mono); font-size:11px; line-height:1.95;
+    letter-spacing:.04em; color:var(--ink-3);
+  }
+  .notes b{ color:var(--ink-2); font-weight:500; }
+
+  @media (max-width:860px){
+    .sheet{ padding:0 20px 72px; }
+    .progression{ grid-template-columns:1fr; }
+    .arrow{ border-left:0; border-right:0; border-top:1px solid var(--rule);
+            border-bottom:1px solid var(--rule); justify-content:center; padding:5px; }
+    .arrow span{ transform:rotate(90deg); display:inline-block; }
+    .nodrawing{ grid-template-columns:1fr; }
+    .nodrawing .big{ border-right:0; border-bottom:1px solid var(--rule); }
+    .steps li{ flex-wrap:wrap; gap:6px 20px; }
+    .status li{ flex-direction:column; gap:7px; align-items:stretch; }
+    .status .tag{ flex:0 0 auto; }
+    .steps .note{ margin-left:0; text-align:left; flex-basis:100%; }
+    .objective{ padding:32px 26px; }
+  }
+  @media print{
+    body{ background:#fff; }
+    .sheet{ max-width:none; padding:0 12mm 12mm; }
+    section, .objective{ break-inside:avoid; }
+    .part{ break-after:avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header class="masthead">
+    <div class="org">JAMIS Bikes &middot; Warehouse Operations</div>
+    <h1>Bay 3 Capacity Optimization Plan</h1>
+    <p class="standfirst">
+      Bay&nbsp;3 was laid out for 4,400 bikes. Rebuilt around one repeating unit, with fewer and
+      wider aisles and one rack moved out of the bay, the same floor holds 5,880.
+    </p>
+  </header>
+
+  <div class="progression">
+    <div class="step">
+      <div class="k">Original layout</div>
+      <div class="n">4,400</div>
+      <div class="u">bikes &middot; as laid out</div>
+    </div>
+    <div class="arrow"><span>&rarr;</span></div>
+    <div class="step superseded">
+      <div class="k">First pass</div>
+      <div class="n">5,200</div>
+      <div class="u">bikes &middot; superseded</div>
+    </div>
+    <div class="arrow"><span>&rarr;</span></div>
+    <div class="step target">
+      <div class="k">Proposed</div>
+      <div class="n">5,880</div>
+      <div class="u">bikes &middot; this plan</div>
+    </div>
+  </div>
+  <div class="delta">
+    <div>Gain <b>+1,480 bikes &middot; +34%</b></div>
+    <div>Added floor <b>none</b></div>
+    <div>Construction <b>none</b></div>
+  </div>
+
+  <!-- ============ PART 1 ============ -->
+  <div class="part"><span class="num">PART 1</span><h2>Bay 3</h2></div>
+
+  <section>
+    <div class="eyebrow">Summary</div>
+    <h3>Where We Are</h3>
+    <p class="lead">
+      Part of this is already on the floor. The rest is what we are asking for.
+    </p>
+    <p class="body">
+      Bay&nbsp;3 was laid out to hold 4,400 bikes. Reworking the grid around a single repeating
+      unit, running fewer aisles, and moving one rack out of the bay takes it to 5,880 &mdash;
+      on the same floor, with aisles wide enough that our equipment clears the bikes.
+    </p>
+
+    <ul class="status">
+      <li class="done">
+        <span class="tag">Done</span>
+        <span class="what"><b>Platforms replaced ladders</b> for building at height.</span>
+      </li>
+      <li class="now">
+        <span class="tag">Underway</span>
+        <span class="what"><b>Palletizing the high-quantity SKUs.</b> First 4&times;10 block
+          filling now, strapped and double stacked.</span>
+      </li>
+      <li class="plan">
+        <span class="tag">Proposed</span>
+        <span class="what"><b>Rework the grid and relocate the west rack.</b> Two 4&times;10
+          blocks, two 3&times;10, and the 2&times;10 it stands on today.</span>
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="eyebrow">The proposal</div>
+    <h3>The Proposal</h3>
+    <p class="lead">
+      Fewer aisles, and every one of them wider. Bay&nbsp;3 still gains 1,480 bikes.
+    </p>
+    <p class="body">
+      The whole grid is built from one repeating unit &mdash; a 60&Prime;&nbsp;&times;&nbsp;62&Prime;
+      sublocation. Measured against that unit, the floor north of the main hallway takes
+      16&nbsp;rows: two blocks of four, two blocks of three, and the block of two that the west
+      rack is standing on today.
+    </p>
+    <p class="body">
+      Getting there means running fewer aisles than the original layout had. The floor that
+      gives back is not turned into more storage &mdash; it is averaged across the aisles that
+      remain, so each one comes out wider. That width is what carries our equipment through
+      cleanly, and it is why the aisles are the size they are in this plan.
+    </p>
+
+    <figure>
+      <div class="plan"><img src="bay3-proposed-layout.jpg" alt="Bay 3 integrated floorplan, proposed layout: 22 rows totalling 5,880 bikes, with rows 18 and 19 shown in green and the west aisle marked as the scratch and dents lane."></div>
+      <figcaption>
+        <span><b>Bay 3 &mdash; proposed layout</b> &middot; north + south</span>
+        <span>22 rows &middot; 196 pallets &middot; 30 bikes per pallet</span>
+        <span>113&prime;&nbsp;10&Prime; &times; 116&prime;&nbsp;0&Prime;</span>
+      </figcaption>
+    </figure>
+
+    <div class="figures">
+      <div><div class="k">Total rows</div><div class="v">22</div></div>
+      <div><div class="k">North storage</div><div class="v">4,800 <small>bikes</small></div></div>
+      <div><div class="k">South grid</div><div class="v">1,080 <small>bikes</small></div></div>
+      <div><div class="k">Main hallway</div><div class="v">120<small>&Prime; clear</small></div></div>
+    </div>
+
+    <div class="callout">
+      <div class="k">West aisle &mdash; scratch &amp; dents</div>
+      <p>
+        The aisle along the west side is marked as the scratch &amp; dents lane. It is aisle
+        floor, so nothing is stored there and no pallet slot is given up for it &mdash; the
+        5,880 stands.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">How the bikes are handled</div>
+    <h3>Handling and Storage</h3>
+    <p class="lead">Same floor space either way &mdash; so it should be the way that is safer to work.</p>
+    <p class="body">
+      A tower built on the ground and a strapped, double-stacked pallet take up the same floor.
+      Since the space is the same, the question is only which one is better to live with, and the
+      pallet wins on every count: it can be parked closer to its neighbour, it is easy to get to,
+      and our power jacks and manual jacks move a double-stacked pallet easily, at any moment,
+      instead of the floor being handled bike by bike. That is where the high-quantity SKUs go,
+      and the first block is filling now.
+    </p>
+    <p class="body">
+      Handling bikes at height and driving equipment past them both carry risk. A stable platform
+      to build from and an aisle wide enough to pass through reduce it on both counts. The
+      platforms are already in place; the aisle widths come with this layout.
+    </p>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <div class="part"><span class="num">PART 2</span><h2>Bay 2 South</h2></div>
+
+  <section>
+    <div class="eyebrow">Where the rack goes</div>
+    <h3>The Rack</h3>
+    <p class="lead">Moving it out of Bay 3 is what frees the floor for rows 18 and 19.</p>
+    <p class="body">
+      It does not move in one piece. Part of it stays in Bay&nbsp;3, resited past the main
+      hallway where it is clear of the storage grid, and part goes across to the south wall of
+      Bay&nbsp;2. Either way the west strip comes free, which is all rows 18 and 19 need.
+    </p>
+    <p class="body">
+      How the rest of Bay&nbsp;2 gets laid out around it is a separate job, and it has not been
+      done yet &mdash; it is the next thing we take on.
+    </p>
+
+    <figure>
+      <div class="plan"><img src="rack-relocation.jpg" alt="Bay 2 and Bay 3 drawn to scale side by side. The west rack's current position is a solid red strip along the west wall of Bay 3 north. Two red arrows lead from it: one down to Part 1, resited in Bay 3 south of the main hallway, and one across to Part 2, along the south wall of Bay 2."></div>
+      <figcaption>
+        <span><b>Bay 2 and Bay 3</b> &middot; the move, to scale</span>
+        <span><b>Part 1</b> stays in Bay&nbsp;3, south of the main hallway</span>
+        <span><b>Part 2</b> goes to the south wall of Bay&nbsp;2</span>
+      </figcaption>
+    </figure>
+
+    <figure>
+      <div class="photo"><img src="bay2-south-ceiling-pipes.jpg" alt="Sprinkler pipes running below the roof deck in Bay 2 south, above location marker 17, with JAMIS Bikes cartons stacked against the block wall beneath."></div>
+      <figcaption>
+        <span><b>Bay 2 south &mdash; ceiling pipes above location 17</b></span>
+        <span>They cap stack height beneath them &mdash; they do not obstruct the rack</span>
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- ============ PART 3 ============ -->
+  <div class="part"><span class="num">PART 3</span><h2>What comes after</h2></div>
+
+  <section>
+    <div class="eyebrow">Sequence</div>
+    <h3>What Comes Next</h3>
+    <p class="lead">
+      Bay 3 is the one that is worked out. The other two follow, in that order.
+    </p>
+
+    <ul class="steps">
+      <li class="done">
+        <span class="ord">Now</span>
+        <span class="what">Bay 3</span>
+        <span class="note">Measured and planned &mdash; this document</span>
+      </li>
+      <li>
+        <span class="ord">Next</span>
+        <span class="what">Bay 2</span>
+        <span class="note">Figure out the full bay once the rack is in</span>
+      </li>
+      <li>
+        <span class="ord">After</span>
+        <span class="what">Bay 1</span>
+        <span class="note">Last to be worked out</span>
+      </li>
+    </ul>
+
+    <p class="body">
+      The extra room in Bay&nbsp;3 is what we need for incoming containers and for the models
+      we carry in the highest counts. Bay&nbsp;2 and Bay&nbsp;1 get the same treatment once
+      Bay&nbsp;3 is standing.
+    </p>
+  </section>
+
+  <div class="objective">
+    <div class="k">Core objective</div>
+    <p>Maximize every square foot.</p>
+    <div class="sub">
+      Simple movement, high impact: more bikes, better readiness. One rack changes rooms, the
+      grid is rebuilt around the unit we actually store in, and Bay&nbsp;3 holds 1,480 more bikes
+      &mdash; no walls moved, no floor added, no capital spent.
+    </div>
+  </div>
+
+  <div class="notes">
+    <b>Sources.</b> Every plan on this page is rendered from the warehouse floor model, built from
+    measurements taken on site with a tape measure. The model stays with us: any other way of
+    arranging the floor can be laid out and costed against it without measuring the building again.<br>
+    <b>Pallet basis.</b> 62&Prime; &times; 60&Prime; footprint, 30 bikes per pallet.<br>
+    <b>Structural posts</b> are measured and deducted; a slot a post lands in is not counted.<br>
+    <b>Areas</b> are gross except where posts are noted, so real rackable space is somewhat less.
+  </div>
+
+</div>
+</body>
+</html>
