@@ -42,22 +42,22 @@
   *{ box-sizing:border-box; }
   body{
     margin:0; background:var(--paper); color:var(--ink);
-    font-family:var(--f-body); font-size:16px; line-height:1.65;
+    font-family:var(--f-body); font-size:20px; line-height:1.65;
     -webkit-font-smoothing:antialiased;
   }
   .sheet{ max-width:1080px; margin:0 auto; padding:0 32px 96px; }
 
   .masthead{ padding:64px 0 30px; border-bottom:2px solid var(--ink); }
   .org{
-    font-family:var(--f-mono); font-size:11px; font-weight:500;
+    font-family:var(--f-mono); font-size:13.75px; font-weight:500;
     letter-spacing:.2em; text-transform:uppercase; color:var(--steel);
   }
   h1{
     font-family:var(--f-display); font-weight:700;
-    font-size:clamp(34px,6vw,60px); line-height:1.02; letter-spacing:-.015em;
+    font-size:clamp(42.5px,6vw,75px); line-height:1.02; letter-spacing:-.015em;
     margin:14px 0 0; text-wrap:balance;
   }
-  .standfirst{ margin:16px 0 0; max-width:62ch; font-size:17px; color:var(--ink-2); }
+  .standfirst{ margin:16px 0 0; max-width:62ch; font-size:21.25px; color:var(--ink-2); }
 
   .progression{
     display:grid; grid-template-columns:1fr auto 1fr auto 1fr;
@@ -67,27 +67,27 @@
   }
   .step{ padding:24px 26px; display:flex; flex-direction:column; gap:6px; }
   .step .k{
-    font-family:var(--f-mono); font-size:10px; letter-spacing:.16em;
+    font-family:var(--f-mono); font-size:12.5px; letter-spacing:.16em;
     text-transform:uppercase; color:var(--ink-3);
   }
   .step .n{
-    font-family:var(--f-display); font-weight:700; font-size:44px; line-height:1;
+    font-family:var(--f-display); font-weight:700; font-size:55px; line-height:1;
     font-variant-numeric:tabular-nums; letter-spacing:-.02em;
   }
-  .step .u{ font-family:var(--f-mono); font-size:11px; color:var(--ink-3); letter-spacing:.08em; }
+  .step .u{ font-family:var(--f-mono); font-size:13.75px; color:var(--ink-3); letter-spacing:.08em; }
   .step.superseded{ background:var(--sunk); }
   .step.superseded .n{ color:var(--ink-3); }
   .step.target .n{ color:var(--gain); }
   .arrow{
     display:flex; align-items:center; color:var(--rule-firm);
-    font-family:var(--f-mono); font-size:18px;
+    font-family:var(--f-mono); font-size:22.5px;
     border-left:1px solid var(--rule); border-right:1px solid var(--rule);
     background:var(--sunk);
   }
   .arrow span{ padding:0 10px; }
   .delta{
     display:flex; flex-wrap:wrap; gap:26px; padding:14px 2px 0;
-    font-family:var(--f-mono); font-size:11.5px; letter-spacing:.06em;
+    font-family:var(--f-mono); font-size:14.38px; letter-spacing:.06em;
     color:var(--ink-3); text-transform:uppercase;
   }
   .delta b{ color:var(--gain); font-weight:600; }
@@ -97,25 +97,25 @@
     margin:72px 0 0; padding-bottom:10px; border-bottom:1px solid var(--rule-firm);
   }
   .part .num{
-    font-family:var(--f-mono); font-size:11px; font-weight:600;
+    font-family:var(--f-mono); font-size:13.75px; font-weight:600;
     letter-spacing:.16em; color:var(--steel);
   }
   .part h2{
-    font-family:var(--f-display); font-weight:600; font-size:15px;
+    font-family:var(--f-display); font-weight:600; font-size:18.75px;
     letter-spacing:.14em; text-transform:uppercase; margin:0; color:var(--ink-2);
   }
 
   section{ padding-top:44px; }
   .eyebrow{
-    font-family:var(--f-mono); font-size:10.5px; font-weight:500;
+    font-family:var(--f-mono); font-size:13.12px; font-weight:500;
     letter-spacing:.18em; text-transform:uppercase; color:var(--ink-3);
   }
   h3{
     font-family:var(--f-display); font-weight:700;
-    font-size:clamp(23px,3.2vw,31px); line-height:1.18; letter-spacing:-.008em;
+    font-size:clamp(28.75px,3.2vw,38.75px); line-height:1.18; letter-spacing:-.008em;
     margin:9px 0 0; text-wrap:balance;
   }
-  .lead{ margin:10px 0 0; max-width:64ch; color:var(--ink-2); font-size:16.5px; }
+  .lead{ margin:10px 0 0; max-width:64ch; color:var(--ink-2); font-size:20.62px; }
   section p.body{ margin:14px 0 0; max-width:64ch; }
 
   figure{ margin:26px 0 0; }
@@ -127,7 +127,7 @@
   .photo{ border:1px solid var(--rule-firm); border-radius:3px; overflow:hidden; line-height:0; }
   .photo img{ width:100%; height:auto; display:block; }
   figcaption{
-    font-family:var(--f-mono); font-size:11px; line-height:1.7;
+    font-family:var(--f-mono); font-size:13.75px; line-height:1.7;
     letter-spacing:.05em; color:var(--ink-3); margin-top:10px;
     display:flex; flex-wrap:wrap; gap:6px 18px;
   }
@@ -143,17 +143,17 @@
     display:flex; flex-direction:column; justify-content:center; gap:4px;
   }
   .nodrawing .big .n{
-    font-family:var(--f-display); font-weight:700; font-size:52px; line-height:1;
+    font-family:var(--f-display); font-weight:700; font-size:65px; line-height:1;
     font-variant-numeric:tabular-nums; letter-spacing:-.02em; color:var(--ink-2);
   }
   .nodrawing .big .u{
-    font-family:var(--f-mono); font-size:10.5px; letter-spacing:.15em;
+    font-family:var(--f-mono); font-size:13.12px; letter-spacing:.15em;
     text-transform:uppercase; color:var(--ink-3);
   }
   .nodrawing .body{ padding:26px 30px; display:flex; flex-direction:column; gap:12px; }
-  .nodrawing .body p{ margin:0; font-size:15.5px; color:var(--ink-2); }
+  .nodrawing .body p{ margin:0; font-size:19.38px; color:var(--ink-2); }
   .nodrawing .body .why{
-    font-family:var(--f-mono); font-size:11px; letter-spacing:.05em;
+    font-family:var(--f-mono); font-size:13.75px; letter-spacing:.05em;
     color:var(--ink-3); line-height:1.75; padding-top:12px; border-top:1px solid var(--rule);
   }
 
@@ -164,15 +164,15 @@
   }
   .figures div{ background:var(--surface); padding:16px 18px; }
   .figures .k{
-    font-family:var(--f-mono); font-size:9.5px; letter-spacing:.15em;
+    font-family:var(--f-mono); font-size:11.88px; letter-spacing:.15em;
     text-transform:uppercase; color:var(--ink-3);
   }
   .figures .v{
-    font-family:var(--f-display); font-weight:700; font-size:26px; line-height:1.15;
+    font-family:var(--f-display); font-weight:700; font-size:32.5px; line-height:1.15;
     margin-top:3px; font-variant-numeric:tabular-nums;
   }
   .figures .v small{
-    font-family:var(--f-mono); font-size:10.5px; font-weight:400;
+    font-family:var(--f-mono); font-size:13.12px; font-weight:400;
     color:var(--ink-3); letter-spacing:.05em;
   }
 
@@ -182,21 +182,21 @@
     border-left:3px solid var(--amber);
   }
   .callout .k{
-    font-family:var(--f-mono); font-size:10.5px; font-weight:600;
+    font-family:var(--f-mono); font-size:13.12px; font-weight:600;
     letter-spacing:.16em; text-transform:uppercase; color:var(--amber);
   }
-  .callout p{ margin:8px 0 0; max-width:62ch; color:var(--ink-2); font-size:15.5px; }
+  .callout p{ margin:8px 0 0; max-width:62ch; color:var(--ink-2); font-size:19.38px; }
 
   .steps{ margin-top:26px; display:flex; flex-direction:column; gap:1px; background:var(--rule);
           border:1px solid var(--rule); border-radius:3px; overflow:hidden; }
   .steps li{ list-style:none; background:var(--surface); padding:18px 24px;
              display:flex; gap:20px; align-items:baseline; }
   .steps .ord{
-    font-family:var(--f-mono); font-size:11px; font-weight:600; letter-spacing:.14em;
+    font-family:var(--f-mono); font-size:13.75px; font-weight:600; letter-spacing:.14em;
     color:var(--steel); white-space:nowrap; min-width:5.5em;
   }
-  .steps .what{ font-family:var(--f-display); font-weight:700; font-size:19px; }
-  .steps .note{ color:var(--ink-3); font-size:14.5px; margin-left:auto; text-align:right; }
+  .steps .what{ font-family:var(--f-display); font-weight:700; font-size:23.75px; }
+  .steps .note{ color:var(--ink-3); font-size:18.12px; margin-left:auto; text-align:right; }
   .steps li.done{ background:var(--sunk); }
   .steps li.done .ord{ color:var(--gain); }
 
@@ -210,10 +210,10 @@
   /* Both columns use the same 26px line box, so the label lines up with the first line
      of text by construction. No baseline negotiation between 10px and 16px type. */
   .status .tag{
-    flex:0 0 7.5em; font-family:var(--f-mono); font-size:10px; font-weight:600;
-    letter-spacing:.14em; text-transform:uppercase; white-space:nowrap; line-height:26px;
+    flex:0 0 7.5em; font-family:var(--f-mono); font-size:12.5px; font-weight:600;
+    letter-spacing:.14em; text-transform:uppercase; white-space:nowrap; line-height:32px;
   }
-  .status .what{ flex:1 1 auto; min-width:0; color:var(--ink-2); line-height:26px; }
+  .status .what{ flex:1 1 auto; min-width:0; color:var(--ink-2); line-height:32px; }
   .status .what b{ color:var(--ink); font-weight:600; }
   .status .done .tag{ color:var(--gain); }
   .status .now  .tag{ color:var(--amber); }
@@ -224,22 +224,22 @@
     background:var(--ink); color:var(--paper);
   }
   .objective .k{
-    font-family:var(--f-mono); font-size:10.5px; letter-spacing:.2em;
+    font-family:var(--f-mono); font-size:13.12px; letter-spacing:.2em;
     text-transform:uppercase; opacity:.62;
   }
   .objective p{
     font-family:var(--f-display); font-weight:600;
-    font-size:clamp(22px,3.4vw,32px); line-height:1.25; letter-spacing:-.01em;
+    font-size:clamp(27.5px,3.4vw,40px); line-height:1.25; letter-spacing:-.01em;
     margin:14px 0 0; max-width:26ch; text-wrap:balance;
   }
   .objective .sub{
-    font-family:var(--f-body); font-weight:400; font-size:16px; line-height:1.65;
+    font-family:var(--f-body); font-weight:400; font-size:20px; line-height:1.65;
     letter-spacing:0; margin-top:16px; max-width:56ch; opacity:.78;
   }
 
   .notes{
     margin-top:52px; padding-top:22px; border-top:1px solid var(--rule);
-    font-family:var(--f-mono); font-size:11px; line-height:1.95;
+    font-family:var(--f-mono); font-size:13.75px; line-height:1.95;
     letter-spacing:.04em; color:var(--ink-3);
   }
   .notes b{ color:var(--ink-2); font-weight:500; }
@@ -314,24 +314,28 @@
     </p>
     <p class="body">
       Bay&nbsp;3 was laid out to hold 4,400 bikes. Reworking the grid around a single repeating
-      unit, running fewer aisles, and moving one rack out of the bay takes it to 5,880 &mdash;
-      on the same floor, with aisles wide enough that our equipment clears the bikes.
+      unit &mdash; 60&Prime;&nbsp;&times;&nbsp;62&Prime;, which takes a tower or a strapped,
+      double-stacked pallet equally well &mdash; running fewer aisles, and moving one rack out of
+      the bay takes it to 5,880: same floor, aisles wide enough that our equipment clears the bikes.
     </p>
 
     <ul class="status">
       <li class="done">
         <span class="tag">Done</span>
-        <span class="what"><b>Platforms replaced ladders</b> for building at height.</span>
+        <span class="what"><b>Platforms replaced ladders</b> for building at height &mdash; safer
+          to work from, and less handling damage to the bikes.</span>
       </li>
       <li class="now">
         <span class="tag">Underway</span>
         <span class="what"><b>Palletizing the high-quantity SKUs.</b> First 4&times;10 block
-          filling now, strapped and double stacked.</span>
+          filling now, strapped and double stacked, going in where an aisle used to run &mdash;
+          that floor turns straight into bike capacity.</span>
       </li>
       <li class="plan">
         <span class="tag">Proposed</span>
         <span class="what"><b>Rework the grid and relocate the west rack.</b> Two 4&times;10
-          blocks, two 3&times;10, and the 2&times;10 it stands on today.</span>
+          blocks, two 3&times;10, and a final 2&times;10 &mdash; that last block is the floor the
+          rack gives back.</span>
       </li>
     </ul>
   </section>
@@ -371,6 +375,14 @@
       <div><div class="k">Main hallway</div><div class="v">120<small>&Prime; clear</small></div></div>
     </div>
 
+    <div class="callout" style="border-left-color:var(--gain);">
+      <div class="k" style="color:var(--gain);">Trike friendly</div>
+      <p>
+        The layout takes trikes as readily as it takes bikes &mdash; put in ahead of the Florida
+        inventory coming our way, so nothing has to be rearranged again when it lands.
+      </p>
+    </div>
+
     <div class="callout">
       <div class="k">West aisle &mdash; scratch &amp; dents</div>
       <p>
@@ -408,7 +420,7 @@
     <h3>The Rack</h3>
     <p class="lead">Moving it out of Bay 3 is what frees the floor for rows 18 and 19.</p>
     <p class="body">
-      It does not move in one piece. Part of it stays in Bay&nbsp;3, resited past the main
+      It does not move in one piece. Part of it stays in Bay&nbsp;3, tucked past the main
       hallway where it is clear of the storage grid, and part goes across to the south wall of
       Bay&nbsp;2. Either way the west strip comes free, which is all rows 18 and 19 need.
     </p>
