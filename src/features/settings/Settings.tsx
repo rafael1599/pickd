@@ -4,9 +4,6 @@ import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
 import { IntegratedMapManager } from '../warehouse-management/components/IntegratedMapManager';
 import { useTheme } from '../../context/ThemeContext';
 import { ShipSmsSettings } from './ShipSmsSettings';
-// Composed here the same way IntegratedMapManager is: Settings is where feature
-// sections are assembled, so the section itself lives with its feature.
-import { FedexDimensionsExportCard } from '../reports/components/FedexDimensionsExportCard';
 import { useModal } from '../../context/ModalContext';
 import { useNotifications } from '../../lib/notificationHistory';
 
@@ -89,9 +86,6 @@ export default function Settings() {
 
         {/* Ship-Out SMS — per-user prefilled SMS at Double-Check complete */}
         <ShipSmsSettings />
-
-        {/* Exports — FedEx Ship Manager dimensions database */}
-        <FedexDimensionsExportCard />
 
         {/* Integrated Warehouse Management (Zones, Map, Reports) */}
         <IntegratedMapManager />

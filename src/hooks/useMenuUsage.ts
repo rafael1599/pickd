@@ -12,6 +12,7 @@ import PackageOpen from 'lucide-react/dist/esm/icons/package-open';
 import Kanban from 'lucide-react/dist/esm/icons/kanban';
 import History from 'lucide-react/dist/esm/icons/history';
 import FileSearch from 'lucide-react/dist/esm/icons/file-search';
+import Download from 'lucide-react/dist/esm/icons/download';
 
 export interface MenuItemSpec {
   id: string;
@@ -126,12 +127,26 @@ export const ALL_MENU_ITEMS: MenuItemSpec[] = [
   },
   {
     id: 'reports',
+    // Singular. The plural typo matched no route, fell through to /:orderNumber,
+    // and OrderParamRedirect sent it to /ship because it carries no digit — so
+    // the tile never 404'd and the bug stayed invisible. Its usage counter is
+    // fed by the Activity Report entry in UserMenu, which pushed the broken
+    // tile up the ranking every time someone opened the working screen.
     label: 'Reports',
-    path: '/activity-reports',
+    path: '/activity-report',
     icon: FileSearch,
     colorBg: 'bg-cyan-500/10',
     colorText: 'text-cyan-500',
     defaultRank: 12,
+  },
+  {
+    id: 'export',
+    label: 'Export',
+    path: '/export',
+    icon: Download,
+    colorBg: 'bg-violet-500/10',
+    colorText: 'text-violet-500',
+    defaultRank: 13,
   },
 ];
 

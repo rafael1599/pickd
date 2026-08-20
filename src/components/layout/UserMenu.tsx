@@ -11,6 +11,7 @@ import Settings from 'lucide-react/dist/esm/icons/settings';
 import History from 'lucide-react/dist/esm/icons/history';
 import ClipboardList from 'lucide-react/dist/esm/icons/clipboard-list';
 import FileSearch from 'lucide-react/dist/esm/icons/file-search';
+import Download from 'lucide-react/dist/esm/icons/download';
 import Kanban from 'lucide-react/dist/esm/icons/kanban';
 import ChevronLeft from 'lucide-react/dist/esm/icons/chevron-left';
 import Printer from 'lucide-react/dist/esm/icons/printer';
@@ -436,6 +437,24 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
                       Activity Report
                     </p>
                     <p className="text-[9px] text-muted font-bold uppercase">Daily team summary</p>
+                  </div>
+                </div>
+                <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
+              </button>
+
+              <button
+                onClick={() => navTo('/export', 'export')}
+                className="flex items-center justify-between w-full group text-left mb-3"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-surface border border-subtle rounded-xl text-violet-500">
+                    <Download size={16} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-content uppercase tracking-tight">
+                      Export
+                    </p>
+                    <p className="text-[9px] text-muted font-bold uppercase">FedEx dimensions</p>
                   </div>
                 </div>
                 <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>

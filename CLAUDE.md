@@ -70,6 +70,52 @@ completed → reopened (via Reopen Order — requires reason)
 
 **Activity Report layout:** Editor panel on the left (desktop) with: selectable greeting toggle ("Hi Carine!"), Win of the Day, PickD Updates (collapsible dropdown, closed by default), On the Floor routine checklist (editable items via gear icon, persisted in localStorage), and Notes (multiline textarea, one per line). Preview on the right updates with green highlight flash on each edit. "Save & Copy Report" button at bottom saves + copies to clipboard in one action. Report section order: Win → PickD Updates → Done Today → On the Floor → In Progress → Coming Up Next → Inventory Accuracy → Waiting. Footer shows date only (no timestamp). `/pickd-report` public route shows the HTML daily report for the current date with date navigation.
 
+## Export de dimensiones a FedEx Ship Manager
+
+Botón en Settings → Exports (`FedexDimensionsExportCard`, gate por `isAdmin`). Genera la tabla
+Dimensions que FSM v3313 importa en `Databases → File Maintenance → Import`, template
+`DIMENTIONS1`, modo **Replace current data**. Lógica pura en
+`src/features/reports/utils/fedexDimensions.ts` (con tests); la query y el log viven en
+`useFedexDimensionsExport.ts`.
+
+**Replace vacía la tabla antes de cargar**, y de ahí salen casi todas las decisiones:
+
+- **Siempre el catálogo completo, nunca un delta** — lo que falte en el CSV queda borrado en FedEx.
+- **La lectura pagina explícitamente** en vez de confiar en el tope de filas de PostgREST: una query
+  truncada en silencio no falla, borra los cartones que faltaron.
+- **Solo filas con `dimensions_verified`**, o se pisa una medida real con una que nadie tomó.
+- **Se registra cada corrida** en `fedex_dimension_exports` (append-only, sin políticas de UPDATE ni
+  DELETE, RLS por `is_admin()`). Se guardan los conteos y no el archivo, porque el conteo es lo que
+  después identifica un catálogo parcial.
+
+**Los ejes NO son los mismos de los dos lados.** Pickd guarda length/width/height como
+longest/thinnest/middle — las hojas de piso se escriben L × H × W, por eso `20260814120000` mete la
+tercera lectura en `width_in`. FSM quiere Length, Width, Height como longest, middle, thinnest. O sea
+**Width sale de `height_in` y Height de `width_in`**. Al revés el archivo importa limpio y cotiza mal
+todos los envíos.
+
+**Las tres reglas que no se ven en la salida:**
+
+- **Un cartón por model+size, máximo por eje.** Colores de la misma talla se miden aparte y redondean
+  distinto (8.25 y 8.00 → 9 y 8); declarar un cartón más chico de lo real es lo que FedEx re-factura.
+- **Los lados tienen que ordenar longest ≥ middle ≥ thinnest.** Es lo que atrapa un decimal perdido:
+  `03-4046MN` tenía `width_in` en 875 por 8.75, y 875 son tres caracteres, así que el chequeo de
+  ancho de campo lo deja pasar tal cual a FedEx. No usa umbrales, así que los cartones legítimamente
+  chicos siguen entrando (un Hot Rod en 30/17/8, un framekit en 48/24/8).
+- **El rango de tallas solo si son de la misma forma.** `L14''-L16''` sobre L14, 15 y L16 esconde el
+  15 plano que hay en medio; un grupo mezclado se lista entero (`L14''/15''/L16''`).
+
+**Formato, estricto:** orden `Description, ID, Height, Length, Width`; cada campo entre comillas
+dobles; **sin fila de encabezado**; CRLF; ASCII sin BOM; ningún `"` dentro de los datos (se usa `''`
+para las pulgadas); Description ≤140, ID ≤30 alfanumérico en mayúscula, cada dimensión 1-3 dígitos.
+Nombre: `DIMENSIONS_FEDEX_YYYYMMDD.csv`. El ID se genera al vuelo de forma determinista (no está
+persistido — decisión abierta); si truncar a 30 provocara choque, desempata un hash FNV-1a de la
+propia clave, no un contador, para que no se mueva cuando aparece otro registro.
+
+**Al 2026-08-20:** 703 filas leídas → 124 registros, 532 excepciones (531 sin medir, 1 sin modelo).
+Verificado en prod y en el navegador. **Nadie lo ha importado todavía en FSM** — ese es el único
+criterio de aceptación sin comprobar.
+
 ## Base de datos
 
 pickd es dueño único de toda la DB de Supabase. Existió un consumidor externo (**pickd-2d**,
@@ -77,9 +123,51 @@ dashboard de visualizacion 2D/3D) que leía `inventory`, `sku_metadata` y `locat
 eliminó (confirmado 2026-08-14, ya no existe en disco) y con él el contrato `JAMIS/SHARED-DB-CONTRACT.md`.
 Ya no hay que coordinar cambios de schema con nadie más.
 
-- **`sku_metadata` columns (prod):** `sku`, `length_in`, `width_in`, `height_in`, `length_ft`, `weight_lbs`, `image_url`, `is_bike`, `upc`, `created_at` — NO tiene columna `name`
+- **`sku_metadata` columns (prod):** `sku`, `length_in`, `width_in`, `height_in`, `length_ft`, `weight_lbs`, `image_url`, `is_bike`, `upc`, `created_at`, `dimensions_verified`, más las de Scratch & Dent (`20260417100000`): `is_scratch_dent`, `model`, `size`, `color`, `category`, `serial_number`, `condition`, `condition_description`, `sd_category`, `msrp`, `standard_price`, `sd_price`, `pdf_link` — NO tiene columna `name`
+- **`model` y `size` ya no son solo de Scratch & Dent.** Nacieron ahí, y hasta `20260717200000` (`register_new_sku` estructurado) nada más los llenaba, así que el catálogo viejo guardaba el item_name entero en `model` (`"DXT A3 19 BLUE"`) con `size` en NULL. `20260820160000` los separó para los 171 SKUs de bike con medida real. **Son la llave de agrupación del export a FedEx**, así que basura ahí sale del almacén — ver `bug-018`, que mete texto de notas de picking dentro de `model`. Los 531 SKUs sobre defaults siguen sin separar a propósito: no vale la pena partir un nombre cuyo número no es real.
 - **`inventory.sublocation`** (idea-024): posición dentro de un ROW (A-F). CHECK constraints: `^[A-Z]{1,3}$` y solo para `location ILIKE 'ROW%'`. Se auto-limpia a NULL al mover a non-ROW. UI: chips en ItemDetailView/MovementModal, badge en InventoryCard/DoubleCheckView.
 - **Invariante qty=0 → is_active=false:** `adjust_inventory_quantity` y `undo_inventory_action` mantienen `is_active = (quantity > 0)` bidireccionalmente. **Excepción:** `register_new_sku` crea placeholders con `qty=0, is_active=true` para onboarding de bikes nuevos — NO modificar este comportamiento. Ghost trail en búsqueda usa `includeInactive: true` para seguir mostrando items sin stock con su último movimiento.
+
+### `picking_list_notes`: no toda nota la escribió una persona
+
+Un cuarto de la tabla (95 de 389 filas al 20 ago 2026) nunca fue prosa: son datos estructurados
+metidos en texto libre con un prefijo entre corchetes — `[Waiting]: …` (44), `[AUTO] Stale pick
+location: …` (20), `[Parked]: 14D` (20), `[Resumed from waiting]` (11), más `[Cancelled from
+waiting]` y `[Daylight]: …`. Cinco escritores habían inventado cinco formatos (`[AUTO]` se salta
+los dos puntos que usan los demás) y cada lector se hacía su propio parser.
+
+**`20260820190000` cerró eso.** `kind` (text) y `metadata` (jsonb) los rellena el trigger
+`tr_picking_list_notes_set_kind` desde el mensaje, vía `classify_picking_note(text)`. Igual que
+`tr_sku_metadata_set_is_bike`: **solo rellena lo que viene NULL, así que un valor explícito siempre
+gana**. `kind IS NULL` ⇒ lo escribió una persona.
+
+- **El trigger clasifica, no los RPCs.** Las cuatro funciones SQL que escriben notas
+  (`mark_picking_list_waiting`, `unmark_picking_list_waiting`, `add_parked_location_note` y las de
+  quick-group) quedaron **sin tocar** a propósito: sus cuerpos no pueden divergir de la regla si no
+  la contienen. Añadir un séptimo tag es una rama en `classify_picking_note` y una línea en
+  `SYSTEM_NOTE_TAGS`, en ningún otro sitio.
+- **El cliente inserta solo `message`.** Nunca nombra `kind` ni `metadata` en un write, y por eso el
+  frontend puede desplegarse antes o después de la migración sin la ventana de 400 que describe el
+  checklist post-merge de más abajo. Los reads usan `select('*')`, que tolera columnas ausentes.
+- **Espejo en TS: `src/utils/systemNotes.ts`.** La DB es la autoridad; el TS existe para que la UI
+  ramifique sin round-trip y para clasificar la nota optimista antes de que vuelva del servidor.
+  **Mantener ambos en sync**, igual que `skuDefaults.ts` y `classify_picking_list_fedex`.
+- **Los lectores preguntan `isSystemNote()` / `noteKind()` / `noteMetadata*()` — nunca hacen match
+  de prefijos a mano.** `noteKind` lee la columna y cae al prefijo solo para filas anteriores a la
+  migración. Si te encuentras escribiendo `.ilike('message', '[Algo]:%')` o `startsWith('[…')`, es
+  el bug que esta sección existe para evitar.
+- **Regla del preview de una línea (`OrderNotesInline`):** gana la nota **humana** más reciente. Lo
+  que escribió PickD vive en el historial. Antes ganaba la más reciente a secas, así que un pedido
+  con `DO NOT SHIP BEFORE 8/25` podía previsualizarse como `[Waiting]: waiting for james`. Ese
+  componente es compartido con el Live Board (`SortableOrderCard`).
+- **`usePickingNotes` es TanStack Query**, una entrada de caché por `list_id`, y el realtime es
+  **una sola** suscripción montada en `LayoutMain` (`usePickingNotesRealtime`). Antes abría un canal
+  **por instancia** — y el hook se monta por card, así que un board lleno abría un canal por card,
+  cada uno sin filtro server-side, recibiendo todos los inserts del sistema. No añadas
+  `supabase.channel` para esta tabla.
+- **`isFetched`, no `!isLoading`.** Quien no pueda actuar sobre "no hay notas" antes de saberlo (el
+  dedup de `[AUTO]`, el aviso de Daylight) tiene que usar `isFetched`: `isLoading` también es
+  `false` en el frame anterior a que arranque el fetch.
 
 ### `locations`: el nombre no es único, y no toda ubicación es almacenamiento
 
@@ -127,6 +215,12 @@ Usar "no está en un ROW" como **detector** de sospechosos es útil; usarlo como
 - **`inventory.service.ts` ya no manda dimensiones** al crear el shell de un SKU no registrado: mandaba las de bici y pisaba el default que la DB habría acertado.
 - Sin efecto en shipping: `classify_picking_list_fedex` rutea a Regular con `weight_lbs > 50`, y tanto 45 como 1 están por debajo.
 - **Pendiente:** 144 SKUs (55 parts, 89 bikes) conservan las dimensiones basura `5×6`. El backfill de peso no las tocó porque algunas podrían estar medidas.
+
+**`dimensions_verified`** (`20260820170000`): distingue una caja medida de una que rellenó el trigger. Existe porque **hay cuatro defaults, no uno** — `55×8.5×30.5` (el del trigger vivo, 144 SKUs), `54×8×30` (uno legacy, 474), `5×6` (los de columna ya muertos, 63) y `0×0×0` (el de parts, en 3 bikes) — y comparar por valor falla en la dirección cara: una caja que mide justo `54×8×30` es indistinguible de una que nadie tocó.
+
+- Lo pone solo: trigger `tr_sku_metadata_dimensions_verified` (BEFORE UPDATE) lo marca `true` cuando **cambia el valor** de una dimensión, y `set_is_bike_on_insert` hace lo mismo en INSERT cuando el caller mandó las tres. Nunca lo pone en `false`.
+- **Por qué no un centinela** (guardar `55.0001` para reconocer el default): `ItemDetailView.executeSave` reescribe la fila entera de metadata en cada guardado, incluidas dimensiones que nadie tocó, y el form carga el valor guardado. O el operador ve `55.0001` en el campo, o se redondea al mostrar y el siguiente guardado por cualquier motivo — un cambio de cantidad, una nota — escribe `55` de vuelta y asciende en silencio un SKU sin medir. `PublicTagView` y `StockCountScreen` además interpolan el número crudo.
+- **Al 2026-08-20:** 172 verificados, 531 bikes non-S&D sobre defaults (313 SKUs / 6.417 unidades **con stock**).
 
 **Detector, no regla:** "está fuera de un ROW" sirve para _encontrar_ sospechosos — así apareció E47 —, pero nunca para clasificar. `01-` y `02-` son prefijos de bike legítimos (139 y 20 SKUs, con 107 y 13 que vivieron en un ROW), así que sacarlos del trigger para atrapar cinco pedales misclasificaría ~120 bikes reales. La decisión la tiene que tomar una persona en el registro, no un patrón.
 
