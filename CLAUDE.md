@@ -2,6 +2,10 @@
 
 PWA de gestión de inventario y warehouse operations. Multi-usuario con sync en tiempo real.
 
+> **Credenciales**: este proyecto usa su propia cuenta de Supabase. El token lo carga `.envrc`
+> vía `secret_get supabase-pickd` al entrar en el directorio. **No ejecutar `supabase login`**:
+> cambiaría el estado global y rompería `mecanica/erick` y `drivly`. Ver `~/dev/CLAUDE.md`.
+
 ## Tech Stack
 
 - **Frontend:** React 19 + TypeScript + Vite + Tailwind CSS
@@ -21,7 +25,8 @@ PWA de gestión de inventario y warehouse operations. Multi-usuario con sync en 
 - `.agent/management/BACKLOG.md` — Source of truth del backlog
 - `public/warehouse/` — Planos del almacén: HTML autónomos, sin build ni routing, se
   sirven en `/warehouse/index.html`. Miden el edificio real; **no** son la vista in-app
-  (esa es `src/features/warehouse-management/`). Ver `docs/warehouse-floor-plans.md`
+  (esa es `src/features/warehouse-management/`). Ver `docs/warehouse-floor-plans.md`.
+  **CRÍTICO:** Todos los layouts deben cumplir estrictamente las reglas en `public/warehouse/WAREHOUSE-UI-RULES.md` (ej. inputs de pallet dimensions `60x62` globales) y guiarse por `public/warehouse/WAREHOUSE-MEASUREMENTS.md`.
 - `.claude/agents/` y `.claude/skills/` — Versionados en el repo desde el 11 ago 2026.
   Los skills eran symlinks a un repo central y se rompieron al moverse. Ver
   `docs/claude-agents-and-skills.md`
@@ -65,20 +70,24 @@ completed → reopened (via Reopen Order — requires reason)
 
 **Activity Report layout:** Editor panel on the left (desktop) with: selectable greeting toggle ("Hi Carine!"), Win of the Day, PickD Updates (collapsible dropdown, closed by default), On the Floor routine checklist (editable items via gear icon, persisted in localStorage), and Notes (multiline textarea, one per line). Preview on the right updates with green highlight flash on each edit. "Save & Copy Report" button at bottom saves + copies to clipboard in one action. Report section order: Win → PickD Updates → Done Today → On the Floor → In Progress → Coming Up Next → Inventory Accuracy → Waiting. Footer shows date only (no timestamp). `/pickd-report` public route shows the HTML daily report for the current date with date navigation.
 
-## Base de datos compartida
+## Base de datos
 
-Esta app comparte la misma DB Supabase con **pickd-2d** (dashboard de visualizacion 2D/3D).
-Ver `JAMIS/SHARED-DB-CONTRACT.md` para ownership de tablas, RPCs, y reglas de migracion.
+pickd es dueño único de toda la DB de Supabase. Existió un consumidor externo (**pickd-2d**,
+dashboard de visualizacion 2D/3D) que leía `inventory`, `sku_metadata` y `locations`; el repo se
+eliminó (confirmado 2026-08-14, ya no existe en disco) y con él el contrato `JAMIS/SHARED-DB-CONTRACT.md`.
+Ya no hay que coordinar cambios de schema con nadie más.
 
-- pickd es owner de: `picking_lists`, `profiles`, `customers`, `order_groups`, `picking_list_notes`
-- pickd-2d lee: `inventory`, `sku_metadata`, `locations` y escribe solo via consolidation RPCs
 - **`sku_metadata` columns (prod):** `sku`, `length_in`, `width_in`, `height_in`, `length_ft`, `weight_lbs`, `image_url`, `is_bike`, `upc`, `created_at` — NO tiene columna `name`
 - **`inventory.sublocation`** (idea-024): posición dentro de un ROW (A-F). CHECK constraints: `^[A-Z]{1,3}$` y solo para `location ILIKE 'ROW%'`. Se auto-limpia a NULL al mover a non-ROW. UI: chips en ItemDetailView/MovementModal, badge en InventoryCard/DoubleCheckView.
 - **Invariante qty=0 → is_active=false:** `adjust_inventory_quantity` y `undo_inventory_action` mantienen `is_active = (quantity > 0)` bidireccionalmente. **Excepción:** `register_new_sku` crea placeholders con `qty=0, is_active=true` para onboarding de bikes nuevos — NO modificar este comportamiento. Ghost trail en búsqueda usa `includeInactive: true` para seguir mostrando items sin stock con su último movimiento.
 
 ### `locations`: el nombre no es único, y no toda ubicación es almacenamiento
 
-Una ubicación se identifica por **(warehouse, location)**, nunca por el nombre solo. ATS tiene su propio `PALLETIZED`, distinto del de LUDLOW y con otro ranking; indexar por nombre hace que una pise a la otra. Vale para código (`toPickingOrderMap`) y para SQL — cualquier `UPDATE locations` o rename tiene que filtrar por warehouse.
+Una ubicación se identifica por **(warehouse, location)**, nunca por el nombre solo — sigue siendo la regla para código (`toPickingOrderMap`) y SQL, cualquier `UPDATE locations` o rename tiene que filtrar por warehouse.
+
+**ATS está muerto operativamente desde 2026-04-15** (0 inventario activo, sus 28 filas quedaron en `qty=0, is_active=false` en una sola desactivación masiva, ninguna desde entonces) pero sus 132 `locations` siguen existiendo — no se pueden borrar (mismo motivo que las de staging: FKs `ON DELETE NO ACTION` en `inventory_logs`/`daily_inventory_snapshots`/`asset_tags` las usan de ancla histórica). 15 de esas 132 compartían nombre bare con una location LUDLOW viva (`E1-E7`, `D1-D6`, `H3`, `H6`, `ROW 1`), cada una con su propio `max_capacity`/`picking_order` — el ejemplo real que motivaba la regla de arriba.
+
+**Migración `20260814020000`:** las 132 se renombraron con prefijo `ATS-` (`E1` → `ATS-E1`, etc.), reescribiendo el mismo texto denormalizado en las 5 tablas (igual que `20260731180000`). Elimina la colisión de nombres de forma permanente sin tocar la columna `warehouse` ni sus 33 funciones RPC — esa dimensión del schema se queda igual, solo dejó de ser una trampa al leer `locations` por nombre.
 
 **Renames aplicados** (`20260731180000`): LUDLOW `42 BURIED` → `ROW 42 BURIED` y `PALLETIZED` → `ROW X EP`. Son filas de bikes y el nombre ahora lo dice. `location` es texto denormalizado en 5 tablas (`locations`, `inventory`, `inventory_logs` ×2, `daily_inventory_snapshots`, `asset_tags`), así que renombrar es migración de datos, no cambio de etiqueta — y hay que reescribir el historial o el ghost trail queda apuntando a un nombre inexistente. El `PALLETIZED` de ATS quedó intacto. Efecto secundario buscado: al empezar con `ROW`, ahora admiten sublocation (el CHECK es `location ILIKE 'ROW%'`), entran al mapa y a la auditoría — y también se vuelven elegibles para sugerencias de put-away, donde su `picking_order` 9999/9995 es lo único que las mantiene al final.
 
@@ -143,6 +152,7 @@ El stack local de Supabase corre como contenedores Docker dentro de **OrbStack**
 - **Si `supabase start` se cuelga descargando `imgproxy`:** esta app nunca usa las transformaciones de imagen de Supabase Storage (las fotos van directo a R2, ver sección de Fotos abajo), así que ese servicio no hace falta. Arrancar con `npx supabase start --exclude imgproxy` lo salta por completo — más rápido y evita depender de que `public.ecr.aws` esté disponible. `supabase/config.toml` tiene `[storage.image_transformation] enabled = false`, pero eso solo desactiva la feature — el flag `--exclude` es lo que evita el pull.
 - **Migraciones pendientes en local:** `npx supabase start` no aplica migraciones nuevas si el volumen es de una sesión vieja. Verificar con `npx supabase migration list --local` (columna `remote` vacía = pendiente) y aplicar con `npx supabase migration up --include-all`.
 - **Mismatch de historial de migraciones** (mismo síntoma que en prod — versión `20260717` sin match): `npx supabase migration repair --local --status reverted 20260717` y despues `npx supabase migration up --include-all`.
+- **Nunca exportar `SUPABASE_PROJECT_ID`.** El CLI la trata como override de `project_id` de `config.toml`, que es el identificador **local** con el que nombra los contenedores. Con esa variable puesta al ref remoto, `supabase start/status/stop` buscan `supabase_db_<ref>` mientras el stack real corre como `supabase_*_pickd`: no lo encuentran, intentan levantar uno nuevo y chocan con "port 54322 already allocated". Estuvo así en `.envrc` hasta el 14 ago 2026; ahora el ref remoto se exporta como `PICKD_SUPABASE_PROJECT_REF`, que el CLI ignora. El ref para `--linked` sale de `supabase/.temp/project-ref` (lo escribe `supabase link`, y está en gitignore — en un clone nuevo hay que re-linkear).
 - **Límite de recursos de OrbStack:** configurado a 4 CPUs / 2GB RAM (`orbctl config show`) para no acaparar toda la Mac — antes estaba en 8 CPUs/4GB (el 100%/50% de una Mac de 8 cores/8GB). Cambios de `orbctl config set` requieren `orbctl stop` para aplicarse (mata cualquier contenedor vivo, incluidos MCP servers de sesiones activas — no correrlo con sesiones en curso).
 
 ## Servicios externos

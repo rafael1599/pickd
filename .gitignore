@@ -63,3 +63,7 @@ reports/performance/*.txt
 
 scripts/.sync-progress
 .env.bak-*
+
+# Per-machine Claude Code permissions/hooks — paths and container names are
+# local to one checkout, so this file must not travel with the repo.
+.claude/settings.local.json

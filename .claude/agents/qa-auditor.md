@@ -53,14 +53,11 @@ When the user asks for an audit, pick the relevant subset. When asked to "do a g
 7. **Dead code paths after feature removal**:
    - For each completed/discarded item in `BACKLOG-ARCHIVE.md`, grep `src/` for stale references (component names, route paths, RPC names). Removed features that linger in code = fragile imports waiting to break.
 
-8. **Cross-app DB contract drift** (PickD ↔ pickd-2d):
-   - Verify `JAMIS/SHARED-DB-CONTRACT.md` (in sibling repo) against actual writes to shared tables. Tables `inventory`, `sku_metadata`, `locations` are pickd-2d's read territory; pickd shouldn't be writing schemas there without coordination.
-
-9. **Realtime subscription health**:
+8. **Realtime subscription health**:
    - Grep for `.channel(` and `.on(` calls across `src/`. Flag duplicate subscriptions or orphaned channels (created in `useEffect` without cleanup).
 
-10. **Auth + RLS coverage**:
-    - For each table referenced by frontend, verify a RLS policy exists for SELECT, INSERT, UPDATE, DELETE. Missing policies = either security gap or bypass via `service_role` somewhere unexpected.
+9. **Auth + RLS coverage**:
+   - For each table referenced by frontend, verify a RLS policy exists for SELECT, INSERT, UPDATE, DELETE. Missing policies = either security gap or bypass via `service_role` somewhere unexpected.
 
 ## Your output format — strict
 

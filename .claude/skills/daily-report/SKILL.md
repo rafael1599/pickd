@@ -29,7 +29,6 @@ Run in parallel:
 
 Look for today's commits in related repos that share the same DB:
 - `../watchdog-pickd/` — `git log --since="$(date +%Y-%m-%d)" --format="%ai %s"` (if the directory exists)
-- `../pickd-2d/` — `git log --since="$(date +%Y-%m-%d)" --format="%ai %s"` (if the directory exists)
 
 Include these changes in the report if relevant. Do not fail if the directories don't exist.
 

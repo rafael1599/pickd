@@ -4,7 +4,7 @@
 
 ## Overview
 
-PickD (Roman Inv) is a multi-user inventory management and warehouse operations PWA. Built with React 19, TypeScript, and Supabase. Follows **Feature-Sliced Design (FSD)** for modularity. Shares its production database with **pickd-2d** (see `JAMIS/SHARED-DB-CONTRACT.md`).
+PickD (Roman Inv) is a multi-user inventory management and warehouse operations PWA. Built with React 19, TypeScript, and Supabase. Follows **Feature-Sliced Design (FSD)** for modularity. Sole owner of its production database (the former `pickd-2d` consumer was decommissioned 2026-08-14).
 
 ## Directory Structure
 
