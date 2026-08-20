@@ -925,11 +925,16 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                     </span>
                     <MessageSquareWarning size={18} className="shrink-0 text-red-500" />
                     <div className="min-w-0">
+                      {/* The pallet count IS the message, so it goes in the headline.
+                          Quoting the full sentence here truncated to "2 pallets to
+                          pick u…" in the Ship panel's width — the Send button fills
+                          the wording in anyway. */}
                       <p className="text-xs font-black uppercase tracking-tight text-red-500">
-                        Text {DAYLIGHT_CONTACT_NAME} the pallet count
+                        Text {DAYLIGHT_CONTACT_NAME} &mdash; {daylightPallets}{' '}
+                        {daylightPallets === 1 ? 'pallet' : 'pallets'}
                       </p>
-                      <p className="text-[11px] font-semibold text-red-500/70 truncate">
-                        {DAYLIGHT_CONTACT_PHONE_DISPLAY} &middot; &ldquo;{daylightSmsBody}&rdquo;
+                      <p className="text-[11px] font-semibold text-red-500/70">
+                        {DAYLIGHT_CONTACT_PHONE_DISPLAY}
                       </p>
                     </div>
                   </div>
