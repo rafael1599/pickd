@@ -259,8 +259,17 @@ export function buildFedexDimensions(rows: DimensionSourceRow[]): FedexDimension
 
   const records: FedexDimensionRecord[] = [...byBox.values()].map((b) => {
     const sizes = [...b.sizes].sort((x, y) => sizeOrder(x) - sizeOrder(y) || x.localeCompare(y));
-    // A span reads as first-to-last; FSM only ever shows this to a human.
-    const label = sizes.length > 1 ? `${sizes[0]}-${sizes[sizes.length - 1]}` : (sizes[0] ?? '');
+    // A span is only honest when the sizes read as one run. "L14''-L16''" over
+    // L14, 15, L16 hides the plain 15 sitting between two low-step frames, so a
+    // mixed group is listed in full instead. Same reason a 700C wheel size never
+    // spans with a frame size.
+    const forms = new Set(sizes.map((s) => s.replace(/[0-9.]/g, '')));
+    const label =
+      sizes.length > 1
+        ? forms.size === 1
+          ? `${sizes[0]}-${sizes[sizes.length - 1]}`
+          : sizes.join('/')
+        : (sizes[0] ?? '');
     const description = toAscii([b.model, label].filter(Boolean).join(' ')).slice(0, MAX_DESCRIPTION);
 
     const natural = `${b.model}${sizes.join('')}`.toUpperCase().replace(/[^A-Z0-9]/g, '');

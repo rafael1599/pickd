@@ -131,6 +131,26 @@ describe('buildFedexDimensions — grouping', () => {
     expect(records[0].description).toBe("ALLEGRO A3 9''-23''");
   });
 
+  it('spans sizes that read as one run', () => {
+    const { records } = buildFedexDimensions([
+      row({ sku: 'A', size: '15', length_in: 54, width_in: 8, height_in: 30 }),
+      row({ sku: 'B', size: '17', length_in: 54, width_in: 8, height_in: 30 }),
+      row({ sku: 'C', size: '19', length_in: 54, width_in: 8, height_in: 30 }),
+    ]);
+    expect(records[0].description).toBe("ALLEGRO A3 15''-19''");
+  });
+
+  it('lists sizes in full when the group mixes size forms', () => {
+    // L14''-L16'' would hide the plain 15'' sitting between two low-step frames.
+    const { records } = buildFedexDimensions([
+      row({ sku: 'A', model: 'ALLEGRO A2', size: 'L14', length_in: 54, width_in: 8, height_in: 30 }),
+      row({ sku: 'B', model: 'ALLEGRO A2', size: '15', length_in: 54, width_in: 8, height_in: 30 }),
+      row({ sku: 'C', model: 'ALLEGRO A2', size: 'L16', length_in: 54, width_in: 8, height_in: 30 }),
+    ]);
+    expect(records).toHaveLength(1);
+    expect(records[0].description).toBe("ALLEGRO A2 L14''/15''/L16''");
+  });
+
   it('describes a sizeless model by its name alone', () => {
     const { records } = buildFedexDimensions([
       row({ sku: '07-3529BL', model: 'JAMIS HOT ROD', size: null }),
