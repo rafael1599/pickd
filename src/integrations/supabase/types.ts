@@ -466,6 +466,41 @@ export type Database = {
           },
         ];
       };
+      fedex_dimension_exports: {
+        Row: {
+          exception_count: number;
+          exported_at: string;
+          exported_by: string | null;
+          filename: string;
+          id: string;
+          record_count: number;
+        };
+        Insert: {
+          exception_count: number;
+          exported_at?: string;
+          exported_by?: string | null;
+          filename: string;
+          id?: string;
+          record_count: number;
+        };
+        Update: {
+          exception_count?: number;
+          exported_at?: string;
+          exported_by?: string | null;
+          filename?: string;
+          id?: string;
+          record_count?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'fedex_dimension_exports_exported_by_fkey';
+            columns: ['exported_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       fedex_return_items: {
         Row: {
           condition: string;
@@ -1385,6 +1420,7 @@ export type Database = {
           condition: string | null;
           condition_description: string | null;
           created_at: string;
+          dimensions_verified: boolean;
           height_in: number | null;
           image_url: string | null;
           is_bike: boolean | null;
@@ -1410,6 +1446,7 @@ export type Database = {
           condition?: string | null;
           condition_description?: string | null;
           created_at?: string;
+          dimensions_verified?: boolean;
           height_in?: number | null;
           image_url?: string | null;
           is_bike?: boolean | null;
@@ -1435,6 +1472,7 @@ export type Database = {
           condition?: string | null;
           condition_description?: string | null;
           created_at?: string;
+          dimensions_verified?: boolean;
           height_in?: number | null;
           image_url?: string | null;
           is_bike?: boolean | null;

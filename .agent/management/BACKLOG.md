@@ -284,7 +284,29 @@ Implementado en pickd **#113** y watchdog-pickd **#32/#33** (todo en main):
 
 ## Bugs pendientes
 
-_(ninguno abierto al 2026-04-28 — bug-013 archivado)_
+### 1. Texto de nota de picking se concatena dentro de `sku_metadata.model` <!-- id: bug-018 --> — input: 2026-08-20 NY
+- **Síntoma:** 14 filas de `sku_metadata` tienen el nombre del modelo con una nota pegada al final:
+  `ALLEGRO A1 23 THUNDER GREY | Auto-cancel verification timeout | auto-restore on cancel`.
+  12 son bikes, 2 estaban dentro del set del export a FedEx — esa frase habría viajado como
+  descripción de un registro de FSM.
+- **Notas observadas:** `Auto-cancel verification timeout`, `auto-restore on cancel`,
+  `Reopen delta #1`, `Reopen new item #1`. Todas provienen del flujo de picking/reopen,
+  no del registro de SKUs — algo escribe el `item_name` con la nota ya adjunta y de ahí
+  se copia a `model`.
+- **SKUs afectados:** `03-3768BLD`, `03-3769BLD`, `03-3853GY`, `03-3986TL`, `03-3988TL`,
+  `03-4037BK`, `03-4040BK`, `03-4068BK`, `03-4516BL`, `03-4531GY`, `03-4533BL`,
+  `03-4620GN`, `12-8338BK`, `128338BK`.
+- **Limpieza ya aplicada:** la migración `20260820160000_backfill_bike_model_size.sql` borra
+  el texto existente (`split_part(model, ' | ', 1)`). **No arregla el origen** — va a volver
+  a pasar en la próxima orden que genere una de esas notas.
+- **Plan al diagnosticar:** buscar el write path que arma `item_name` concatenando la nota
+  y de ahí llega a `upsertMetadata`. Sospechosos: `reopen_completed_orders` / auto-cancel en
+  SQL, y `inventory.service.ts` al crear el shell de un SKU. Reproducir dejando una orden
+  llegar al timeout de auto-cancel y observar si `model` cambia.
+- **Por qué importa más que antes:** `model` dejó de ser un campo de adorno de Scratch & Dent
+  — ahora es la llave de agrupación del export a FedEx (`fedexDimensions.ts`), así que
+  cualquier basura ahí sale del almacén.
+- **Origen:** sesión 2026-08-20, al construir el export de dimensiones FedEx.
 
 ---
 

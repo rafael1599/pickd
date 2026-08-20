@@ -25,6 +25,10 @@ export const SKUMetadataSchema = z.object({
   height_in: z.number().nullish().optional(),
   length_ft: z.number().nullish().optional(),
   weight_lbs: z.number().nullish().optional(),
+  // Set by the DB whenever a dimension changes value, so callers never send it.
+  // Distinguishes a measured carton from one the defaults trigger filled in —
+  // the FedEx export ships only verified rows. See 20260820170000.
+  dimensions_verified: z.boolean().optional(),
   // S/D extension columns (all NULL for non-S/D items)
   model: z.string().nullable().optional(),
   size: z.string().nullable().optional(),
