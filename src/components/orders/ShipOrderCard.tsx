@@ -11,6 +11,8 @@ import Truck from 'lucide-react/dist/esm/icons/truck';
 import Wand2 from 'lucide-react/dist/esm/icons/wand-2';
 import Copy from 'lucide-react/dist/esm/icons/copy';
 import Check from 'lucide-react/dist/esm/icons/check';
+import MessageSquareWarning from 'lucide-react/dist/esm/icons/message-square-warning';
+import Send from 'lucide-react/dist/esm/icons/send';
 import Eye from 'lucide-react/dist/esm/icons/eye';
 import X from 'lucide-react/dist/esm/icons/x';
 import toast from 'react-hot-toast';
@@ -23,7 +25,14 @@ import { useCustomerAddresses } from '../../hooks/useCustomerAddresses';
 import { getPavExpressZone } from '../../utils/pavExpressZones';
 import { OrderStatusPill } from './OrderStatusPill';
 import { TransportLogo } from './TransportLogo';
-import { getCarrierBrandColors } from './transportLogos';
+import { getCarrierBrandColors, normalizeCompany } from './transportLogos';
+import { detectSmsPlatform } from '../../utils/shipOutSms';
+import {
+  DAYLIGHT_CONTACT_NAME,
+  DAYLIGHT_CONTACT_PHONE_DISPLAY,
+  buildDaylightPickupSmsBody,
+  buildDaylightPickupSmsUrl,
+} from '../../utils/daylightPickupSms';
 import { OrderProgressBar } from '../../features/picking/components/OrderProgressBar';
 import type { CustomerAddress } from '../../lib/customerAddresses';
 import type { CombineMeta, PickingList, PickingListItem } from '../../schemas/picking.schema';
@@ -250,6 +259,11 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   const [isUpdatingCarrier, setIsUpdatingCarrier] = useState(false);
   const [justSavedField, setJustSavedField] = useState<string | null>(null);
   const [isPavBannerDismissed, setIsPavBannerDismissed] = useState(false);
+  // Pallet count the operator confirmed they texted to Luis, or null while
+  // the Daylight reminder is still outstanding. We keep the NUMBER rather
+  // than a boolean so editing the pallet count after confirming re-arms the
+  // reminder — otherwise Luis shows up for a truckload that changed size.
+  const [daylightTextedPallets, setDaylightTextedPallets] = useState<number | null>(null);
   const editRef = useRef<HTMLDivElement>(null);
   const clearSaveRef = useRef<NodeJS.Timeout | null>(null);
   const { deleteList } = usePickingSession();
@@ -281,6 +295,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   useEffect(() => {
     setEditingField(null);
     setIsPavBannerDismissed(false);
+    setDaylightTextedPallets(null);
   }, [selectedOrder?.id]);
 
   const isPavOutOfZone = React.useMemo(() => {
@@ -290,6 +305,25 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
 
   const showPavWarningBanner =
     !isPavBannerDismissed && !formData.transportCompany && !isFedexOrder && isPavOutOfZone;
+
+  // Daylight only rolls a truck once someone texts the dispatcher how many
+  // pallets to come get, so the carrier picker nags until the operator says
+  // they sent it. Same shape as the PAV banner above: pure front-end state,
+  // no persistence — picking DAYLIGHT is what arms it. Already-shipped orders
+  // are skipped: the truck has been and gone.
+  const daylightPallets = parseInt(formData.pallets, 10) || 1;
+  const showDaylightSmsReminder =
+    normalizeCompany(formData.transportCompany) === 'DAYLIGHT' &&
+    !selectedOrder?.is_shipped &&
+    daylightTextedPallets !== daylightPallets;
+  const daylightSmsBody = buildDaylightPickupSmsBody(daylightPallets);
+
+  // Opening Messages is NOT the same as having sent the text, so this
+  // deliberately leaves the reminder up — only "I sent it" clears it.
+  const handleSendDaylightSms = useCallback(() => {
+    const platform = detectSmsPlatform(navigator.userAgent || '');
+    window.location.href = buildDaylightPickupSmsUrl(daylightSmsBody, platform);
+  }, [daylightSmsBody]);
 
   // Close the active field on outside click — same pattern already used
   // elsewhere in this app for dropdowns (mousedown so it fires before the
@@ -840,6 +874,47 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                   >
                     <X size={14} />
                   </button>
+                </div>
+              )}
+
+              {showDaylightSmsReminder && (
+                <div
+                  role="alert"
+                  className="flex flex-col gap-3 px-3 py-2.5 bg-red-500/10 border border-red-500/40 rounded-2xl w-full sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="relative flex shrink-0 h-2.5 w-2.5">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-600" />
+                    </span>
+                    <MessageSquareWarning size={18} className="shrink-0 text-red-500" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-black uppercase tracking-tight text-red-500">
+                        Text {DAYLIGHT_CONTACT_NAME} the pallet count
+                      </p>
+                      <p className="text-[11px] font-semibold text-red-500/70 truncate">
+                        {DAYLIGHT_CONTACT_PHONE_DISPLAY} &middot; &ldquo;{daylightSmsBody}&rdquo;
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleSendDaylightSms}
+                      className="px-3 h-9 inline-flex items-center gap-1.5 rounded-xl bg-red-600 text-white text-[10px] font-black uppercase tracking-widest shadow-sm hover:bg-red-500 active:scale-95 transition-all"
+                    >
+                      <Send size={12} />
+                      Send text
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDaylightTextedPallets(daylightPallets)}
+                      className="px-3 h-9 inline-flex items-center gap-1.5 rounded-xl border border-red-500/40 text-red-500 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/10 active:scale-95 transition-all"
+                    >
+                      <Check size={12} />I sent it
+                    </button>
+                  </div>
                 </div>
               )}
 
