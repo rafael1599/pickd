@@ -3,6 +3,11 @@ import { getOrderUnits } from '../SortableOrderCard';
 import type { PickingList } from '../../../hooks/useDoubleCheckList';
 import { autoClassifyShippingType } from '../../../../../utils/shippingClassification';
 
+/** These cases pin the embedded-metadata path, so they opt out of the lookup
+ *  explicitly. The argument is required precisely so that opting out is a
+ *  visible choice and never an omission. */
+const EMPTY_LOOKUP: ReadonlySet<string> = new Set();
+
 // Minimal PickingList factory — only the fields the helpers read matter.
 const makeOrder = (partial: Partial<PickingList>): PickingList =>
   ({
@@ -59,7 +64,7 @@ function effectiveShippingType(
 ): 'fedex' | 'regular' {
   return override === 'fedex' || override === 'regular'
     ? override
-    : autoClassifyShippingType(items, {});
+    : autoClassifyShippingType(items, {}, EMPTY_LOOKUP);
 }
 
 describe('effectiveShippingType (purple FedEx accent)', () => {
