@@ -8,6 +8,7 @@ import {
   PARTS_BINS_KEY,
   SD_BINS_KEY,
   FDX_BINS_KEY,
+  SEARCH_ROOT_KEY,
 } from './useInventoryRealtime';
 import { useInventoryMutations } from './useInventoryMutations';
 import { useInventoryLogs } from './useInventoryLogs';
@@ -181,58 +182,22 @@ export const useInventory = () => {
     items: InventoryItemWithMetadata[];
     total: number;
   }>({
-    queryKey: ['inventory', 'search', searchQuery],
+    queryKey: [...SEARCH_ROOT_KEY, searchQuery],
     queryFn: async () => {
       // Search always returns ALL items (bikes + parts + S/D + FedEx Returns)
-      // Ignore all checkboxes when searching — show everything
-      const [bikesRes, partsRes, sdRes, fdxRes] = await Promise.all([
-        inventoryApi.fetchInventoryWithMetadata({
-          includeInactive: true,
-          showParts: false,
-          onlyScratchDent: false,
-          onlyFedexReturns: false,
-          search: searchQuery,
-          warehouse: 'LUDLOW',
-          limit: SEARCH_LIMIT,
-        }),
-        inventoryApi.fetchInventoryWithMetadata({
-          includeInactive: true,
-          showParts: true,
-          onlyScratchDent: false,
-          onlyFedexReturns: false,
-          search: searchQuery,
-          warehouse: 'LUDLOW',
-          limit: SEARCH_LIMIT,
-        }),
-        inventoryApi.fetchInventoryWithMetadata({
-          includeInactive: true,
-          onlyScratchDent: true,
-          search: searchQuery,
-          warehouse: 'LUDLOW',
-          limit: SEARCH_LIMIT,
-        }),
-        inventoryApi.fetchInventoryWithMetadata({
-          includeInactive: true,
-          onlyFedexReturns: true,
-          search: searchQuery,
-          warehouse: 'LUDLOW',
-          limit: SEARCH_LIMIT,
-        }),
-      ]);
+      // Ignore all checkboxes when searching — show everything. `showParts:
+      // null` is what makes that a single call: one exact total, one offset.
+      const { data, count } = await inventoryApi.fetchInventoryWithMetadata({
+        includeInactive: true,
+        showParts: null,
+        onlyScratchDent: false,
+        onlyFedexReturns: false,
+        search: searchQuery,
+        warehouse: 'LUDLOW',
+        limit: SEARCH_LIMIT,
+      });
 
-      const total =
-        (bikesRes.count ?? 0) + (partsRes.count ?? 0) + (sdRes.count ?? 0) + (fdxRes.count ?? 0);
-      const combined = [...bikesRes.data, ...partsRes.data, ...sdRes.data, ...fdxRes.data];
-      const seen = new Set<number>();
-      const items = combined
-        .filter((item) => {
-          const id = item.id as number;
-          if (seen.has(id)) return false;
-          seen.add(id);
-          return true;
-        })
-        .map(mapItem);
-      return { items, total };
+      return { items: data.map(mapItem), total: count ?? 0 };
     },
     staleTime: 1000 * 60 * 2,
     enabled: searchQuery.length > 0,
@@ -302,30 +267,20 @@ export const useInventory = () => {
       const currentItems = searchData?.items ?? [];
       const nextOffset = currentItems.length;
 
-      const [bikesRes, partsRes] = await Promise.all([
-        inventoryApi.fetchInventoryWithMetadata({
-          includeInactive: true,
-          showParts: false,
-          search: searchQuery,
-          warehouse: 'LUDLOW',
-          offset: nextOffset,
-          limit: LOAD_MORE_SIZE,
-        }),
-        inventoryApi.fetchInventoryWithMetadata({
-          includeInactive: true,
-          showParts: true,
-          search: searchQuery,
-          warehouse: 'LUDLOW',
-          offset: nextOffset,
-          limit: LOAD_MORE_SIZE,
-        }),
-      ]);
+      const { data, count } = await inventoryApi.fetchInventoryWithMetadata({
+        includeInactive: true,
+        showParts: null,
+        search: searchQuery,
+        warehouse: 'LUDLOW',
+        offset: nextOffset,
+        limit: LOAD_MORE_SIZE,
+      });
 
-      const total = (bikesRes.count ?? 0) + (partsRes.count ?? 0);
-      const newItems = [...bikesRes.data, ...partsRes.data].map(mapItem);
+      const total = count ?? 0;
+      const newItems = data.map(mapItem);
 
       queryClient.setQueryData(
-        ['inventory', 'search', searchQuery],
+        [...SEARCH_ROOT_KEY, searchQuery],
         (old: { items: InventoryItemWithMetadata[]; total: number } | undefined) => {
           if (!old) return { items: newItems, total };
           const existingIds = new Set(old.items.map((i) => i.id));

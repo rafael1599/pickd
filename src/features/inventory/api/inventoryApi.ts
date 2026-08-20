@@ -30,6 +30,10 @@ export const inventoryApi = {
    * across inventory + sku_metadata columns with normalized matching.
    * Keeps the { data, count } shape and re-nests sku_metadata so callers are
    * unchanged.
+   *
+   * `showParts: null` means "bikes and parts together" — one call that covers
+   * the whole catalogue, with an exact `count`. Used by search, where splitting
+   * into per-bucket calls made the totals overlap and the offsets skip rows.
    */
   async fetchInventoryWithMetadata({
     includeInactive = false,
@@ -42,7 +46,7 @@ export const inventoryApi = {
     warehouse,
   }: {
     includeInactive?: boolean;
-    showParts?: boolean;
+    showParts?: boolean | null;
     onlyScratchDent?: boolean;
     onlyFedexReturns?: boolean;
     search?: string;

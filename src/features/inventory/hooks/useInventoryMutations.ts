@@ -8,7 +8,7 @@ import {
 import { useAuth } from '../../../context/AuthContext';
 import { useLocationManagement } from './useLocationManagement';
 import { useInventoryLogs } from './useInventoryLogs';
-import { INVENTORY_ROOT_KEY } from './useInventoryRealtime';
+import { INVENTORY_ROOT_KEY, invalidateInventorySearch } from './useInventoryRealtime';
 import { supabase } from '../../../lib/supabase';
 import toast from 'react-hot-toast';
 import { celebrateSuccess } from '../../../lib/successPulse';
@@ -20,6 +20,12 @@ export function useInventoryMutations() {
   const { trackLog } = useInventoryLogs();
 
   const userName = profile?.full_name || user?.email || 'Warehouse Team';
+
+  // The optimistic updates below only patch INVENTORY_ROOT_KEY. When a search
+  // is open the screen renders the search cache instead, which no mutation
+  // touches — so it has to be refetched, or the list keeps showing the
+  // quantities the item had before the edit.
+  const refreshSearch = () => invalidateInventorySearch(queryClient);
 
   const getServiceContext = () => ({
     isAdmin: profile?.role === 'admin' || profile?.role === 'manager',
@@ -85,6 +91,7 @@ export function useInventoryMutations() {
     },
     onSettled: () => {
       // Let realtime Websocket handle the actual sync to avoid full refetch
+      refreshSearch();
     },
   });
 
@@ -130,6 +137,7 @@ export function useInventoryMutations() {
       if (context?.previousData) queryClient.setQueryData(INVENTORY_ROOT_KEY, context.previousData);
       toast.error(`Error adding item: ${err.message}`);
     },
+    onSettled: refreshSearch,
   });
 
   const updateItem = useMutation({
@@ -171,6 +179,7 @@ export function useInventoryMutations() {
       if (context?.previousData) queryClient.setQueryData(INVENTORY_ROOT_KEY, context.previousData);
       toast.error(`Error updating item: ${err.message}`);
     },
+    onSettled: refreshSearch,
   });
 
   const deleteItem = useMutation({
@@ -230,6 +239,7 @@ export function useInventoryMutations() {
       if (context?.previousData) queryClient.setQueryData(INVENTORY_ROOT_KEY, context.previousData);
       toast.error(`Error deleting item: ${err.message}`);
     },
+    onSettled: refreshSearch,
   });
 
   const moveItem = useMutation({
@@ -343,6 +353,7 @@ export function useInventoryMutations() {
     onSuccess: () => {
       toast.success('Item moved successfully');
     },
+    onSettled: refreshSearch,
   });
 
   const processPickingList = useMutation({

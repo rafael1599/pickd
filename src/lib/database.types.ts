@@ -2215,7 +2215,8 @@ export type Database = {
           p_only_fedex_returns?: boolean;
           p_only_scratch_dent?: boolean;
           p_search?: string;
-          p_show_parts?: boolean;
+          /** null = bikes and parts together */
+          p_show_parts?: boolean | null;
           p_warehouse?: string;
         };
         Returns: {

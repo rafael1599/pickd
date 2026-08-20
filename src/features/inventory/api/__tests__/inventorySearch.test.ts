@@ -41,6 +41,19 @@ describe('inventoryApi.fetchInventoryWithMetadata', () => {
     });
   });
 
+  it('forwards showParts=null as SQL NULL so the RPC returns bikes and parts together', async () => {
+    await inventoryApi.fetchInventoryWithMetadata({
+      search: 'ROW 33',
+      showParts: null,
+      includeInactive: true,
+    });
+
+    const call = (mockSupabase.rpc as ReturnType<typeof vi.fn>).mock.calls[0];
+    // Must stay null, not undefined: undefined is dropped when the params are
+    // serialized and the RPC would fall back to its FALSE default (bikes only).
+    expect(call[1].p_show_parts).toBeNull();
+  });
+
   it('passes an empty search term verbatim (RPC handles empty on the server)', async () => {
     await inventoryApi.fetchInventoryWithMetadata({ search: '' });
 
