@@ -4,7 +4,7 @@ export const ZONES = {
         name: "BAY 3 SOUTH/EAST",
         width: 628,
         height: 650, // 605 + 45
-        margins: { top: 120, right: 100, bottom: 109, left: 131 }, // top=north(120), right=east(100), bottom=south(109), left=west(131)
+        margins: { top: 120, right: 100, bottom: 169, left: 131 }, // top=north(120), right=east(100), bottom=south(169 = 114" hall + 55" rack), left=west(131)
         rowRange: { start: 34, end: 40, origin: 'east' },
         obstacles: [
             { id: "main_aisle", x: 0, y: 0, w: 628, h: 120, type: "aisle", label: "MAIN HALL (120\")" },
@@ -13,7 +13,7 @@ export const ZONES = {
             { id: "east_aisle", x: 528, y: 120, w: 48, h: 530, type: "aisle", label: "EAST HALL (48\")" },
             { id: "east_rack", x: 576, y: 120, w: 52, h: 530, type: "rack", label: "EAST RACK (52\")" },
             { id: "south_rack", x: 213, y: 595, w: 202, h: 55, type: "rack", label: "SOUTH WALL RACK (55\" × 202\")" },
-            { id: "south_aisle", x: 0, y: 541, w: 628, h: 54, type: "aisle", label: "SOUTH HALL (54\")" }
+            { id: "south_aisle", x: 59, y: 481, w: 469, h: 114, type: "aisle", label: "SOUTH HALL", showLabel: true, labelDy: 24 } // spans west hall to east hall; the side racks run past it to the wall
         ],
         posts: [
             { id: "se_1", x: 287, y: 185, size: 8, note: "Poste Sureste (Bay 3)" } // 65" south of main aisle (120)

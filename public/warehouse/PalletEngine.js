@@ -707,6 +707,21 @@ export class PalletEngine {
                     const fontSize = Math.min(18, Math.max(10, Math.min(obs.w, obs.h) * 0.25));
                     h += `<text x="${cx}" y="${cy + fontSize * 0.35}" font-size="${fontSize}" fill="#ffffff" text-anchor="middle" font-weight="900" font-family="ui-monospace,monospace" pointer-events="none" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.8))">${icon} ${obs.label || 'RESTRICTED'}</text>`;
                 }
+
+                // Opt-in name + live measurement for perimeter halls/racks.
+                // Opt-in because the west band already carries the A-F slot letters
+                // and the main hall carries a zone label; both would collide.
+                if (obs.showLabel && (obs.type === 'aisle' || obs.type === 'rack')) {
+                    const horiz = obs.w >= obs.h;
+                    const thick = Math.round(horiz ? obs.h : obs.w);
+                    const name = obs.name || (obs.label || '').replace(/\s*\(.*\)\s*$/, '') || 'HALL';
+                    const lx = M + obs.x + obs.w / 2;
+                    const ly = M + obs.y + obs.h / 2 + (obs.labelDy || 0);
+                    const fs = Math.max(11, Math.min(17, Math.min(obs.w, obs.h) * 0.22));
+                    const col = obs.type === 'rack' ? '#fca5a5' : '#64748b';
+                    const rot = horiz ? '' : ` transform="rotate(-90, ${lx}, ${ly})"`;
+                    h += `<text x="${lx}" y="${ly + fs * 0.35}"${rot} font-size="${fs}" fill="${col}" text-anchor="middle" font-weight="800" letter-spacing="2" font-family="ui-monospace,monospace" pointer-events="none">${name} &middot; ${thick}&quot;</text>`;
+                }
             });
         }
 
