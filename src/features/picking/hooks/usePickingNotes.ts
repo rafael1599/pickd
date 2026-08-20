@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useCallback, useMemo } from 'react';
+import { useMutation, useQueries, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 import { withSupabaseRetry } from '../../../lib/supabaseRetry';
+import { deriveSystemNoteKind } from '../../../utils/systemNotes';
 
 export interface PickingNote {
   id: string;
@@ -9,6 +10,10 @@ export interface PickingNote {
   user_id: string;
   message: string;
   created_at: string;
+  /** Set by the DB trigger: which system note this is, NULL when a person wrote it. */
+  kind?: string | null;
+  /** Whatever that kind carried — parked location, waiting reason, pallet count. */
+  metadata?: NoteMetadata | null;
   user_display_name?: string;
   order_number?: string;
   /**
@@ -18,147 +23,101 @@ export interface PickingNote {
   pending?: boolean;
 }
 
+/** What we ever put in `metadata` — jsonb accepts more, we don't need more. */
+export type NoteMetadata = Record<string, string | number | boolean | null>;
+
 const PENDING_ID_PREFIX = 'pending-';
 
+/** One cache entry per list. A combined order asks for several and merges them. */
+export const pickingNotesKey = (listId: string) => ['picking-notes', listId] as const;
+
+/**
+ * `select('*')` on purpose: it keeps working against a database that has not run
+ * migration 20260820190000 yet, where `kind`/`metadata` do not exist. Naming them
+ * explicitly would make PostgREST 400 the whole query.
+ */
+async function fetchNotesForList(listId: string): Promise<PickingNote[]> {
+  const { data, error } = await withSupabaseRetry(
+    () =>
+      supabase
+        .from('picking_list_notes')
+        .select('*, profiles (email, full_name), picking_lists (order_number)')
+        .eq('list_id', listId)
+        .order('created_at', { ascending: true }),
+    { label: 'usePickingNotes.fetch' }
+  );
+  if (error) throw error;
+
+  return (data ?? []).map((note) => {
+    const profile = note.profiles as { full_name?: string; email?: string } | null;
+    return {
+      ...note,
+      order_number:
+        (note.picking_lists as { order_number?: string } | null)?.order_number || undefined,
+      user_display_name: profile?.full_name || profile?.email || 'Unknown User',
+    } as PickingNote;
+  });
+}
+
+/**
+ * Invalidate one list's notes. Exported so the single app-wide realtime
+ * subscription can reach the cache without importing the hook.
+ */
+export function invalidatePickingNotes(queryClient: QueryClient, listId: string) {
+  return queryClient.invalidateQueries({ queryKey: pickingNotesKey(listId) });
+}
+
+/**
+ * Notes for one order, or for every member of a combined one.
+ *
+ * Backed by TanStack Query with a cache entry per list id, so the several places
+ * that show the same order's notes at once — the Ship detail card, the one-line
+ * preview inside it, the board card — share a single fetch instead of each firing
+ * their own. Live updates come from ONE app-wide subscription mounted in
+ * LayoutMain (`usePickingNotesRealtime`), not one channel per mounted component:
+ * this hook renders per card, so that used to mean a channel per card, each of
+ * them receiving every note insert in the system and discarding the ones that
+ * weren't theirs.
+ */
 export const usePickingNotes = (listIdInput: string | string[] | null) => {
-  const [notes, setNotes] = useState<PickingNote[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
 
   const listIds = useMemo(() => {
     if (!listIdInput) return [];
-    if (Array.isArray(listIdInput)) return listIdInput.filter(Boolean);
-    return [listIdInput];
+    const ids = Array.isArray(listIdInput) ? listIdInput.filter(Boolean) : [listIdInput];
+    // Sorted so two components asking for the same combined order produce the
+    // same query set regardless of the order they list the members in.
+    return [...new Set(ids)].sort();
   }, [listIdInput]);
 
-  const listIdsKey = listIds.sort().join(',');
+  const { notes, isLoading, isFetched } = useQueries({
+    queries: listIds.map((listId) => ({
+      queryKey: pickingNotesKey(listId),
+      queryFn: () => fetchNotesForList(listId),
+      staleTime: 30_000,
+    })),
+    combine: (results) => ({
+      notes: results
+        .flatMap((r) => r.data ?? [])
+        .sort((a, b) => a.created_at.localeCompare(b.created_at)),
+      isLoading: results.some((r) => r.isLoading),
+      // True once every list has come back at least once. Callers that must not
+      // act on "no notes" before the answer is in (the Daylight reminder) key
+      // off this rather than off `!isLoading`, which is also false in the frame
+      // before the fetch starts.
+      isFetched: results.length > 0 && results.every((r) => r.isFetched),
+    }),
+  });
 
-  const notesRef = useRef<PickingNote[]>(notes);
-  notesRef.current = notes;
+  const primaryId = listIds[0] ?? null;
 
-  const fetchNotes = useCallback(async () => {
-    if (listIds.length === 0) {
-      setNotes([]);
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const query = supabase.from('picking_list_notes').select(`
-            *,
-            profiles (email, full_name),
-            picking_lists (order_number)
-          `);
-
-      const finalQuery =
-        listIds.length === 1 ? query.eq('list_id', listIds[0]) : query.in('list_id', listIds);
-
-      const { data, error } = await withSupabaseRetry(
-        () => finalQuery.order('created_at', { ascending: true }),
-        { label: 'usePickingNotes.fetch' }
-      );
-
-      if (error) throw error;
-
-      const formattedNotes: PickingNote[] = (data || []).map((note) => {
-        const orderNum = (note.picking_lists as { order_number?: string } | null)?.order_number;
-        return {
-          ...note,
-          order_number: orderNum || undefined,
-          user_display_name:
-            (note.profiles as { full_name?: string; email?: string } | null)?.full_name ||
-            (note.profiles as { full_name?: string; email?: string } | null)?.email ||
-            'Unknown User',
-        };
-      });
-
-      setNotes(formattedNotes);
-    } catch (err) {
-      console.error('Failed to fetch notes:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [listIdsKey]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Initial fetch
-  useEffect(() => {
-    fetchNotes();
-  }, [fetchNotes]);
-
-  // Real-time subscription for single or combined sibling list IDs
-  useEffect(() => {
-    if (listIds.length === 0) return;
-
-    const channel = supabase
-      .channel(`picking_notes_${listIdsKey}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'picking_list_notes',
-        },
-        async (payload) => {
-          const newNote = payload.new as PickingNote;
-          if (!listIds.includes(newNote.list_id)) return;
-
-          // Fetch profile and picking_list for order_number
-          const [{ data: profile }, { data: pickingList }] = await Promise.all([
-            withSupabaseRetry(
-              () =>
-                supabase
-                  .from('profiles')
-                  .select('email, full_name')
-                  .eq('id', newNote.user_id)
-                  .single(),
-              { label: 'usePickingNotes.realtimeProfile', maxAttempts: 2 }
-            ),
-            withSupabaseRetry(
-              () =>
-                supabase
-                  .from('picking_lists')
-                  .select('order_number')
-                  .eq('id', newNote.list_id)
-                  .single(),
-              { label: 'usePickingNotes.realtimeOrderNum', maxAttempts: 2 }
-            ),
-          ]);
-
-          const resolved: PickingNote = {
-            ...newNote,
-            order_number: pickingList?.order_number || undefined,
-            user_display_name: profile?.full_name || profile?.email || 'Unknown User',
-          };
-
-          setNotes((prev) => {
-            const pendingIdx = prev.findIndex(
-              (n) => n.pending && n.user_id === resolved.user_id && n.message === resolved.message
-            );
-            if (pendingIdx !== -1) {
-              const copy = prev.slice();
-              copy[pendingIdx] = resolved;
-              return copy;
-            }
-            if (prev.some((n) => n.id === resolved.id)) return prev;
-            return [...prev, resolved];
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [listIdsKey]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  /**
-   * Add a note with optimistic insert.
-   * Inserts into primary list ID (listIds[0]).
-   */
   const addNoteMutation = useMutation({
-    mutationKey: ['add-picking-note', listIdsKey],
+    mutationKey: ['add-picking-note', primaryId],
     mutationFn: async (vars: { userId: string; message: string }) => {
-      const primaryId = listIds[0];
       if (!primaryId) throw new Error('No list selected');
+      // Only `message` goes over the wire. The DB trigger derives kind/metadata
+      // from it, so an insert never names a column that a not-yet-migrated
+      // database lacks — which is what lets this deploy in either order.
       const { error } = await supabase.from('picking_list_notes').insert({
         list_id: primaryId,
         user_id: vars.userId,
@@ -166,9 +125,12 @@ export const usePickingNotes = (listIdInput: string | string[] | null) => {
       });
       if (error) throw error;
     },
-    onMutate: (vars): { tempId: string } | undefined => {
-      const primaryId = listIds[0];
+    onMutate: async (vars) => {
       if (!primaryId) return undefined;
+      const key = pickingNotesKey(primaryId);
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<PickingNote[]>(key);
+
       const tempId = `${PENDING_ID_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       const tentative: PickingNote = {
         id: tempId,
@@ -176,29 +138,41 @@ export const usePickingNotes = (listIdInput: string | string[] | null) => {
         user_id: vars.userId,
         message: vars.message.trim(),
         created_at: new Date().toISOString(),
+        // Classified locally with the TS mirror of the DB trigger, so a system
+        // note never spends a round trip looking like a human one — long enough
+        // to flash in the card's one-line preview.
+        kind: deriveSystemNoteKind(vars.message),
+        metadata: null,
         user_display_name: 'You',
         pending: true,
       };
-      setNotes((prev) => [...prev, tentative]);
-      return { tempId };
+      queryClient.setQueryData<PickingNote[]>(key, [...(previous ?? []), tentative]);
+      return { key, previous };
     },
     onError: (err, _vars, context) => {
       console.error('Failed to add note:', err);
-      if (context?.tempId) {
-        setNotes((prev) => prev.filter((n) => n.id !== context.tempId));
-      }
+      if (context?.key) queryClient.setQueryData(context.key, context.previous);
+    },
+    onSettled: () => {
+      // Pull the real row (id, author, and the kind/metadata the trigger filled).
+      if (primaryId) void invalidatePickingNotes(queryClient, primaryId);
     },
   });
 
-  const addNote = async (userId: string, message: string) => {
-    if (listIds.length === 0 || !message.trim()) return;
-    await addNoteMutation.mutateAsync({ userId, message });
-  };
+  const { mutateAsync } = addNoteMutation;
 
-  return {
-    notes,
-    isLoading,
-    fetchNotes,
-    addNote,
-  };
+  /** Add a note to the primary list. */
+  const addNote = useCallback(
+    async (userId: string, message: string) => {
+      if (!message.trim()) return;
+      await mutateAsync({ userId, message });
+    },
+    [mutateAsync]
+  );
+
+  const fetchNotes = useCallback(() => {
+    return Promise.all(listIds.map((id) => invalidatePickingNotes(queryClient, id)));
+  }, [listIds, queryClient]);
+
+  return { notes, isLoading, isFetched, fetchNotes, addNote };
 };

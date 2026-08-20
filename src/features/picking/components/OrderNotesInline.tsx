@@ -1,4 +1,5 @@
 import { usePickingNotes } from '../hooks/usePickingNotes';
+import { isHumanNote } from '../../../utils/systemNotes';
 import { useModal } from '../../../context/ModalContext';
 import { getUserColor } from '../../../utils/userUtils';
 
@@ -31,7 +32,14 @@ export const OrderNotesInline: React.FC<OrderNotesInlineProps> = ({
   const { open } = useModal();
 
   const isCombined = Array.isArray(listId) && listId.length > 1;
-  const mostRecentUserNote = notes.length > 0 ? notes[notes.length - 1] : null;
+  // One rule for the preview: a person's note beats anything PickD wrote itself.
+  // System notes are bookkeeping — "[Waiting]: waiting for james", "[Parked]: 14D",
+  // "[Daylight]: Texted Luis" — and letting the newest one win meant an order whose
+  // real instruction says "DO NOT SHIP BEFORE 8/25" previewed as something else.
+  // They all stay in the drill-down history.
+  const previewableNotes = notes.filter(isHumanNote);
+  const mostRecentUserNote =
+    previewableNotes.length > 0 ? previewableNotes[previewableNotes.length - 1] : null;
   const rawText = mostRecentUserNote?.message ?? watcherNote ?? null;
   if (!rawText) return null;
 

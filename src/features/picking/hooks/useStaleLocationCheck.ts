@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { SYSTEM_NOTE_TAGS, noteKind, type NoteLike } from '../../../utils/systemNotes';
 import { supabase } from '../../../lib/supabase';
 import {
   byPickPreference,
@@ -53,11 +54,9 @@ export interface StaleInventoryRow {
   sublocation?: string[] | null;
 }
 
-interface NoteLike {
-  message: string;
-}
-
-export const AUTO_NOTE_PREFIX = '[AUTO] Stale pick location';
+/** What this note is written as. `[AUTO]` alone is what classifies it — see
+ *  src/utils/systemNotes.ts and the classify_picking_note trigger. */
+export const AUTO_NOTE_PREFIX = `${SYSTEM_NOTE_TAGS.auto_stale_location} Stale pick location`;
 
 const norm = (s: string | null | undefined): string => (s || '').trim().toUpperCase();
 
@@ -339,7 +338,7 @@ export function useStaleLocationCheck(
 
       // Instrumentation — persist once per list, deduped against existing notes.
       const listKey = activeListId ?? null;
-      const alreadyNoted = notes.some((n) => n.message?.startsWith(AUTO_NOTE_PREFIX));
+      const alreadyNoted = notes.some((n) => noteKind(n) === 'auto_stale_location');
       if (
         result.length > 0 &&
         onAddNote &&

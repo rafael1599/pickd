@@ -147,6 +147,9 @@ interface DoubleCheckViewProps {
   isOwner?: boolean;
   notes?: Note[];
   isNotesLoading?: boolean;
+  /** True once notes have loaded at least once — gates the [AUTO] dedup, which
+   *  would otherwise write a duplicate note off an empty list. */
+  isNotesFetched?: boolean;
   onAddNote: (note: string) => Promise<void> | void;
   customer?: { name: string } | null;
   onSelectAll?: (keys: string[]) => void;
@@ -187,6 +190,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   onReturnToPicker,
   notes = [],
   isNotesLoading = false,
+  isNotesFetched = false,
   customer,
   onAddNote,
   onSelectAll,
@@ -378,7 +382,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     cartItems,
     activeListId ?? null,
     notes,
-    !isNotesLoading,
+    isNotesFetched,
     onAddNote
   );
   // Resolve items whose SKU has a spurious extra trailing letter (e.g. watcher

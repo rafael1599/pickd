@@ -12,6 +12,7 @@ import { SyncStatusIndicator } from './SyncStatusIndicator';
 import { PickingCartDrawer } from '../../features/picking/components/PickingCartDrawer';
 import { PullToRefresh } from '../ui/PullToRefresh';
 import { usePickingOverlayOpen } from '../../lib/pickingOverlayStore';
+import { usePickingNotesRealtime } from '../../features/picking/hooks/usePickingNotesRealtime';
 
 interface LayoutMainProps {
   children: ReactNode;
@@ -28,6 +29,9 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
   // (it has its own fixed action bar and the nav's z-100 would poke through the
   // z-60 overlay). Keyed on the drawer's real open state via the overlay store.
   const isPickingOverlayOpen = usePickingOverlayOpen();
+  // The app's single subscription to order notes — see the hook for why it
+  // lives here and not inside usePickingNotes.
+  usePickingNotesRealtime();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const pbClass = isStockCountPage ? 'pb-0' : isSearching ? 'pb-12' : 'pb-24';

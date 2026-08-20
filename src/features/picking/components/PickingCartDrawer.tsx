@@ -59,6 +59,7 @@ export const PickingCartDrawer: React.FC = () => {
     ownerId,
     notes,
     isNotesLoading,
+    isNotesFetched,
     addNote,
     deleteList: _deleteList,
     resetSession,
@@ -867,6 +868,7 @@ export const PickingCartDrawer: React.FC = () => {
               isOwner={isOwner}
               notes={notes}
               isNotesLoading={isNotesLoading}
+              isNotesFetched={isNotesFetched}
               onAddNote={addNote}
               onSelectAll={handleSelectAll}
               onPalletCountChange={(count) => {

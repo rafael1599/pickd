@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { noteMetadataString } from '../../../utils/systemNotes';
 
 const DEFAULT_LOCATIONS = ['BAY 1', 'BAY 2', 'SHIPPING AREA', 'ROW 43', 'ROW 42'];
 
@@ -16,11 +17,13 @@ export const useParkedLocations = () => {
     const fetchParkedStats = async () => {
       setIsLoading(true);
       try {
-        // Query all notes that start with [Parked]:
+        // The parked location is a first-class field on the note now — no
+        // scanning the whole table with ILIKE and no re-parsing the prose.
+        // Requires migration 20260820190000; see src/utils/systemNotes.ts.
         const { data: notes, error } = await supabase
           .from('picking_list_notes')
-          .select('message')
-          .ilike('message', '[Parked]:%');
+          .select('message, kind, metadata')
+          .eq('kind', 'parked');
 
         if (error) throw error;
 
@@ -29,9 +32,9 @@ export const useParkedLocations = () => {
         const customLocations = new Set<string>();
 
         notes?.forEach((note) => {
-          const match = note.message.match(/\[Parked\]:\s*(.+?)$/);
-          if (match) {
-            const location = match[1].trim().toUpperCase();
+          const parked = noteMetadataString(note, 'location');
+          if (parked) {
+            const location = parked.toUpperCase();
             const count = (locationCounts.get(location) || 0) + 1;
             locationCounts.set(location, count);
 

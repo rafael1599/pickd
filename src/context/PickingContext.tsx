@@ -46,6 +46,9 @@ interface PickingContextType {
   correctionNotes: string | null;
   notes: PickingNote[];
   isNotesLoading: boolean;
+  /** True once the notes have come back at least once. Callers that must not
+   *  act on "no notes yet" (the [AUTO] stale-location dedup) key off this. */
+  isNotesFetched: boolean;
   addNote: (message: string) => Promise<void>;
   sessionMode: 'idle' | 'picking' | 'double_checking' | 'reopened';
   setSessionMode: (mode: 'idle' | 'picking' | 'double_checking' | 'reopened') => void;
@@ -315,7 +318,12 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
     isInWorkflowRef,
   });
 
-  const { notes, isLoading: isNotesLoading, addNote: addNoteRaw } = usePickingNotes(activeListId);
+  const {
+    notes,
+    isLoading: isNotesLoading,
+    isFetched: isNotesFetched,
+    addNote: addNoteRaw,
+  } = usePickingNotes(activeListId);
 
   const addNote = useCallback(
     async (message: string) => {
@@ -467,6 +475,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       correctionNotes,
       notes,
       isNotesLoading,
+      isNotesFetched,
       addNote,
       sessionMode,
       setSessionMode,
@@ -531,6 +540,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       correctionNotes,
       notes,
       isNotesLoading,
+      isNotesFetched,
       addNote,
       sessionMode,
       setSessionMode,

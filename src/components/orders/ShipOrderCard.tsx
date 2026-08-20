@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { orderColorFor } from '../../utils/orderColors';
 import { CombinedOrderNumbers } from './CombinedOrderNumbers';
 import MapPin from 'lucide-react/dist/esm/icons/map-pin';
@@ -25,14 +25,18 @@ import { useCustomerAddresses } from '../../hooks/useCustomerAddresses';
 import { getPavExpressZone } from '../../utils/pavExpressZones';
 import { OrderStatusPill } from './OrderStatusPill';
 import { TransportLogo } from './TransportLogo';
-import { getCarrierBrandColors, normalizeCompany } from './transportLogos';
+import { getCarrierBrandColors } from './transportLogos';
 import { detectSmsPlatform } from '../../utils/shipOutSms';
 import {
   DAYLIGHT_CONTACT_NAME,
   DAYLIGHT_CONTACT_PHONE_DISPLAY,
   buildDaylightPickupSmsBody,
   buildDaylightPickupSmsUrl,
+  buildDaylightSentNote,
+  daylightNotePallets,
+  shouldRemindDaylightPickup,
 } from '../../utils/daylightPickupSms';
+import { usePickingNotes } from '../../features/picking/hooks/usePickingNotes';
 import { OrderProgressBar } from '../../features/picking/components/OrderProgressBar';
 import type { CustomerAddress } from '../../lib/customerAddresses';
 import type { CombineMeta, PickingList, PickingListItem } from '../../schemas/picking.schema';
@@ -74,6 +78,9 @@ interface SelectedOrder extends PickingList {
   is_waiting_inventory?: boolean | null;
   is_shipped?: boolean | null;
   order_group?: { group_type: string | null } | null;
+  /** Present only on the pseudo-order ShipScreen builds for a combined
+   *  group — notes are read across every member, written on the anchor. */
+  combined_member_ids?: string[];
 }
 
 interface ShipOrderCardProps {
@@ -259,11 +266,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   const [isUpdatingCarrier, setIsUpdatingCarrier] = useState(false);
   const [justSavedField, setJustSavedField] = useState<string | null>(null);
   const [isPavBannerDismissed, setIsPavBannerDismissed] = useState(false);
-  // Pallet count the operator confirmed they texted to Luis, or null while
-  // the Daylight reminder is still outstanding. We keep the NUMBER rather
-  // than a boolean so editing the pallet count after confirming re-arms the
-  // reminder — otherwise Luis shows up for a truckload that changed size.
-  const [daylightTextedPallets, setDaylightTextedPallets] = useState<number | null>(null);
+  const [isConfirmingDaylight, setIsConfirmingDaylight] = useState(false);
   const editRef = useRef<HTMLDivElement>(null);
   const clearSaveRef = useRef<NodeJS.Timeout | null>(null);
   const { deleteList } = usePickingSession();
@@ -295,7 +298,6 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   useEffect(() => {
     setEditingField(null);
     setIsPavBannerDismissed(false);
-    setDaylightTextedPallets(null);
   }, [selectedOrder?.id]);
 
   const isPavOutOfZone = React.useMemo(() => {
@@ -307,16 +309,35 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
     !isPavBannerDismissed && !formData.transportCompany && !isFedexOrder && isPavOutOfZone;
 
   // Daylight only rolls a truck once someone texts the dispatcher how many
-  // pallets to come get, so the carrier picker nags until the operator says
-  // they sent it. Same shape as the PAV banner above: pure front-end state,
-  // no persistence — picking DAYLIGHT is what arms it. Already-shipped orders
-  // are skipped: the truck has been and gone.
+  // pallets to come get, so the carrier picker nags until that's done. The
+  // record of "done" is a `[Daylight]` note on the order, not local state:
+  // it survives switching orders, a reload, a different device and a
+  // different operator, and it doubles as the audit trail of who sent what.
+  const notesListId = selectedOrder?.combined_member_ids ?? selectedOrder?.id ?? null;
+  const { notes: orderNotes, isFetched: areNotesFetched, addNote } = usePickingNotes(notesListId);
+
   const daylightPallets = parseInt(formData.pallets, 10) || 1;
-  const showDaylightSmsReminder =
-    normalizeCompany(formData.transportCompany) === 'DAYLIGHT' &&
-    !selectedOrder?.is_shipped &&
-    daylightTextedPallets !== daylightPallets;
   const daylightSmsBody = buildDaylightPickupSmsBody(daylightPallets);
+
+  // Last count anyone confirmed texting for this order. A note saying 4 stops
+  // covering an order that now ships 6, so editing pallets re-arms the
+  // reminder and the next confirmation appends a fresh note.
+  const daylightConfirmedPallets = useMemo(() => {
+    let latest: number | null = null;
+    for (const note of orderNotes) {
+      const pallets = daylightNotePallets(note);
+      if (pallets !== null) latest = pallets;
+    }
+    return latest;
+  }, [orderNotes]);
+
+  const showDaylightSmsReminder = shouldRemindDaylightPickup({
+    transportCompany: formData.transportCompany,
+    isShipped: selectedOrder?.is_shipped,
+    notesSettled: areNotesFetched,
+    pallets: daylightPallets,
+    confirmedPallets: daylightConfirmedPallets,
+  });
 
   // Opening Messages is NOT the same as having sent the text, so this
   // deliberately leaves the reminder up — only "I sent it" clears it.
@@ -324,6 +345,21 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
     const platform = detectSmsPlatform(navigator.userAgent || '');
     window.location.href = buildDaylightPickupSmsUrl(daylightSmsBody, platform);
   }, [daylightSmsBody]);
+
+  const handleConfirmDaylightSms = useCallback(async () => {
+    if (!user?.id || isConfirmingDaylight) return;
+    setIsConfirmingDaylight(true);
+    try {
+      await addNote(user.id, buildDaylightSentNote(daylightPallets));
+    } catch (err) {
+      console.error('Failed to record the Daylight text:', err);
+      // The note is the only record — if it didn't land, the reminder has to
+      // stay up rather than pretend the dispatcher was told.
+      toast.error('Could not save the confirmation — the reminder stays up');
+    } finally {
+      setIsConfirmingDaylight(false);
+    }
+  }, [user?.id, isConfirmingDaylight, addNote, daylightPallets]);
 
   // Close the active field on outside click — same pattern already used
   // elsewhere in this app for dropdowns (mousedown so it fires before the
@@ -909,10 +945,12 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                     </button>
                     <button
                       type="button"
-                      onClick={() => setDaylightTextedPallets(daylightPallets)}
-                      className="px-3 h-9 inline-flex items-center gap-1.5 rounded-xl border border-red-500/40 text-red-500 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/10 active:scale-95 transition-all"
+                      onClick={handleConfirmDaylightSms}
+                      disabled={isConfirmingDaylight}
+                      className="px-3 h-9 inline-flex items-center gap-1.5 rounded-xl border border-red-500/40 text-red-500 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Check size={12} />I sent it
+                      <Check size={12} />
+                      {isConfirmingDaylight ? 'Saving…' : 'I sent it'}
                     </button>
                   </div>
                 </div>
