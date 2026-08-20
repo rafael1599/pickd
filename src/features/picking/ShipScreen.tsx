@@ -150,7 +150,7 @@ function isLikelyBike(sku: string, meta?: { is_bike: boolean }): boolean {
  * checked group_type/transport_company, missing the shipping_type + item
  * auto-classify signals the Live Board already used to decide FedEx).
  */
-function isFedexLane(order: OrderWithRelations, bikeSkus?: ReadonlySet<string>): boolean {
+function isFedexLane(order: OrderWithRelations, bikeSkus: ReadonlySet<string>): boolean {
   return isFedexOrderShared(order, {}, bikeSkus);
 }
 
@@ -274,7 +274,7 @@ const ORDER_LIST_SELECT = `
 
 /** Thin wrapper over the shared carrier-label classifier (shared with
  *  Orders and the Live Board), typed to this screen's OrderWithRelations. */
-function getCarrierLabel(order: OrderWithRelations, bikeSkus?: ReadonlySet<string>): string | null {
+function getCarrierLabel(order: OrderWithRelations, bikeSkus: ReadonlySet<string>): string | null {
   return getCarrierLabelShared(order.transport_company, isFedexLane(order, bikeSkus));
 }
 

@@ -68,13 +68,13 @@ export function dayLabel(date: Date): string {
   return date.toLocaleDateString('en-US', opts);
 }
 
-export function isFedexLane(order: OrderWithRelations, bikeSkus?: ReadonlySet<string>): boolean {
+export function isFedexLane(order: OrderWithRelations, bikeSkus: ReadonlySet<string>): boolean {
   return isFedexOrderShared(order, {}, bikeSkus);
 }
 
 export function getCarrierLabel(
   order: OrderWithRelations,
-  bikeSkus?: ReadonlySet<string>
+  bikeSkus: ReadonlySet<string>
 ): string | null {
   return getCarrierLabelShared(order.transport_company, isFedexLane(order, bikeSkus));
 }

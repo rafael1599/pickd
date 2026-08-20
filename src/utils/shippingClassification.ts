@@ -10,20 +10,26 @@ export interface ClassifiableItem {
 /**
  * Canonical is_bike data fetched from sku_metadata, in either of the shapes
  * callers already build: a Set of bike SKUs (useBikeSkuSet) or a
- * sku → is_bike record (useOrdersOfDay). Watchdog-created orders store their
- * items WITHOUT embedded sku_metadata, so a caller that classifies raw JSONB
- * items MUST pass this lookup — otherwise every item counts as a part and a
- * 10-bike order reads as FedEx.
+ * sku → is_bike record (useOrdersOfDay).
+ *
+ * Since 20260820150000 a DB trigger seals is_bike into every
+ * picking_lists.items element, so the embedded flag normally answers this on
+ * its own. The lookup stays REQUIRED (pass an empty Set to opt out
+ * deliberately) for the two cases the stamp can't cover: an item built in
+ * memory before it has ever been written, and a SKU whose is_bike was flipped
+ * after the order was stamped — a waiting order can sit unstamped-stale for
+ * months. Required and not optional because the failure is silent: omit it on
+ * an unstamped cart and every item counts as a part, so a 13-bike order reads
+ * as FedEx (DoubleCheckView did exactly this until 2026-08-20).
  */
 export type BikeSkuLookup = ReadonlySet<string> | Readonly<Record<string, boolean>>;
 
 /** is_bike (sku_metadata) is the canonical source of truth: the flag embedded
  *  on the item wins when present (including an explicit false); otherwise the
  *  fetched lookup decides. No lookup and no embedded flag → part. */
-function isBikeItem(item: ClassifiableItem, bikeSkus?: BikeSkuLookup): boolean {
+function isBikeItem(item: ClassifiableItem, bikeSkus: BikeSkuLookup): boolean {
   const flag = item.sku_metadata?.is_bike;
   if (typeof flag === 'boolean') return flag;
-  if (!bikeSkus) return false;
   if (bikeSkus instanceof Set) return bikeSkus.has(item.sku);
   // instanceof can't exclude the ReadonlySet interface from the union for TS
   return (bikeSkus as Readonly<Record<string, boolean>>)[item.sku] === true;
@@ -43,7 +49,7 @@ function isBikeItem(item: ClassifiableItem, bikeSkus?: BikeSkuLookup): boolean {
 function classifySingleOrder(
   items: ClassifiableItem[],
   skuWeights: Record<string, number>,
-  bikeSkus?: BikeSkuLookup
+  bikeSkus: BikeSkuLookup
 ): 'fedex' | 'regular' {
   // Rule 1: any item > 50 lbs
   const hasHeavyItem = items.some((item) => (skuWeights[item.sku] ?? 0) > 50);
@@ -62,7 +68,7 @@ function classifySingleOrder(
 export function autoClassifyShippingType(
   items: ClassifiableItem[],
   skuWeights: Record<string, number>, // sku → weight_lbs
-  bikeSkus?: BikeSkuLookup
+  bikeSkus: BikeSkuLookup
 ): 'fedex' | 'regular' {
   // Combined orders: a group of FedEx orders is still a FedEx order. Classify
   // each source order separately (items are tagged with source_order when
@@ -118,8 +124,8 @@ export interface FedexClassifiableOrder {
  */
 export function isFedexOrder(
   order: FedexClassifiableOrder,
-  skuWeights: Record<string, number> = {},
-  bikeSkus?: BikeSkuLookup
+  skuWeights: Record<string, number>,
+  bikeSkus: BikeSkuLookup
 ): boolean {
   const transport = String(order.transport_company ?? '')
     .trim()

@@ -67,7 +67,7 @@ export interface OrderRow {
  * classifier (shared with Ship and the Live Board) typed to this hook's
  * OrderRow shape.
  */
-export function isFedexOrder(o: OrderRow, skuIsBike?: Record<string, boolean>): boolean {
+export function isFedexOrder(o: OrderRow, skuIsBike: Record<string, boolean>): boolean {
   return isFedexOrderShared(
     {
       shipping_type: o.shipping_type,

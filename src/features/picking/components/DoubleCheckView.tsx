@@ -329,23 +329,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     },
   });
 
-  // Effective shipping type: persisted override, else auto-classify from the
-  // cart (count-only — no weight map here, mirroring VerificationBoard). Drives
-  // the purple FedEx accent on the header + pallet badges.
-  const effectiveShippingType: 'fedex' | 'regular' =
-    activeListMeta?.shipping_type === 'fedex' || activeListMeta?.shipping_type === 'regular'
-      ? activeListMeta.shipping_type
-      : autoClassifyShippingType(
-          cartItems.map((i) => ({
-            sku: i.sku,
-            pickingQty: i.pickingQty || 0,
-            source_order: i.source_order,
-            sku_metadata: i.sku_metadata,
-          })),
-          {}
-        );
-  const isFedexOrder = effectiveShippingType === 'fedex';
-
   // Watcher-origin note: the import daemon stores the AS400 "Order Comments"
   // (e.g. "FREE FREIGHT") in picking_lists.notes. Manual notes live elsewhere
   // (correction_notes / picking_list_notes), so this column is the watcher's —
@@ -649,6 +632,32 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       cancelled = true;
     };
   }, [cartSkusKey]);
+
+  // Effective shipping type: persisted override, else auto-classify from the
+  // cart (count-only — no weight map here, mirroring VerificationBoard). Drives
+  // the purple FedEx accent on the pallet badges.
+  //
+  // Declared here, below bikeSkuSet, and not up by activeListMeta where it
+  // reads more naturally: the classifier needs the canonical is_bike lookup,
+  // and reaching for it earlier would hit the temporal dead zone. Passing it is
+  // what the order actually buys. Watchdog orders written before the
+  // 20260820150000 stamp carry no sku_metadata on their items, and without the
+  // lookup every one of them counted as a part — a 13-bike order painted FedEx
+  // here while the Board showed Regular.
+  const effectiveShippingType: 'fedex' | 'regular' =
+    activeListMeta?.shipping_type === 'fedex' || activeListMeta?.shipping_type === 'regular'
+      ? activeListMeta.shipping_type
+      : autoClassifyShippingType(
+          cartItems.map((i) => ({
+            sku: i.sku,
+            pickingQty: i.pickingQty || 0,
+            source_order: i.source_order,
+            sku_metadata: i.sku_metadata,
+          })),
+          {},
+          bikeSkuSet
+        );
+  const isFedexOrder = effectiveShippingType === 'fedex';
 
   // Compute display pallets. When bikes are present, pallet count is sized by
   // BIKE units only and parts stack on top of the last bike pallet. When no
