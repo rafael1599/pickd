@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
@@ -22,6 +22,9 @@ import Container from 'lucide-react/dist/esm/icons/container';
 import Scan from 'lucide-react/dist/esm/icons/scan';
 import Map from 'lucide-react/dist/esm/icons/map';
 import Sparkles from 'lucide-react/dist/esm/icons/sparkles';
+import BookOpen from 'lucide-react/dist/esm/icons/book-open';
+import FileText from 'lucide-react/dist/esm/icons/file-text';
+import { MANUALS } from '../../content/manuals';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import { useModal } from '../../context/ModalContext';
 import { useViewMode } from '../../context/ViewModeContext';
@@ -359,6 +362,64 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
               </div>
               <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
             </button>
+          </div>
+
+          {/* Manuals — the index, then a row per procedure that has been written.
+              Each row renders only once its manual exists, so writing one is
+              what puts it here; no code change, no deploy. */}
+          <div className="p-4 bg-card border border-subtle rounded-2xl">
+            <label className="text-[10px] text-muted font-black uppercase tracking-widest mb-3 block">
+              Manuals
+            </label>
+
+            <button
+              onClick={() => navTo('/manuals', 'manuals')}
+              className="flex items-center justify-between w-full group text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-surface border border-subtle rounded-xl text-sky-500">
+                  <BookOpen size={16} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-content uppercase tracking-tight">
+                    All Manuals
+                  </p>
+                  <p className="text-[9px] text-muted font-bold uppercase">Warehouse procedures</p>
+                </div>
+              </div>
+              <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
+            </button>
+
+            {/* One row per manual that exists, straight off the static library —
+                no curated list to keep in step. Writing a manual is what puts
+                it here, and its own title and summary are what it says, so the
+                row can't promise something the page doesn't. */}
+            {MANUALS.map((manual) => (
+              <React.Fragment key={manual.slug}>
+                <div className="h-px bg-subtle my-2" />
+                <button
+                  onClick={() => navTo(`/manuals/${manual.slug}`)}
+                  className="flex items-center justify-between w-full group text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-surface border border-subtle rounded-xl text-amber-500">
+                      <FileText size={16} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-content uppercase tracking-tight">
+                        {manual.title}
+                      </p>
+                      <p className="text-[9px] text-muted font-bold uppercase line-clamp-2">
+                        {manual.summary}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-accent group-hover:translate-x-1 transition-transform">
+                    →
+                  </div>
+                </button>
+              </React.Fragment>
+            ))}
           </div>
 
           {/* Admin & Management Tools */}
