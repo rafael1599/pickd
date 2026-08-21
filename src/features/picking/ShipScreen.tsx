@@ -30,6 +30,7 @@ import { skuDefaultsFor } from '../../utils/skuDefaults';
 import { fetchGroupSiblings } from './utils/fetchGroupSiblings';
 import { useCombinedOrderFilter } from '../../hooks/useCombinedOrderFilter';
 import { inventorySkuCandidates } from '../../utils/skuNormalize';
+import { collectElectricBikeLines } from '../../utils/electricBikes';
 import { ActiveFilterPill } from '../../components/orders/CombinedOrderNumbers';
 
 import { ShipHeader } from './ship/components/header/ShipHeader';
@@ -678,6 +679,25 @@ export const ShipScreen = () => {
     });
     return { autoBikeCount: bikes, autoPartCount: parts };
   }, [filteredItems, skuMeta]);
+
+  // Electric bikes on this order. Same `filteredItems` the counts above use, so
+  // it follows the active sub-order filter: an operator shipping only the half
+  // of a combined order that has no e-bike in it should not be told to label
+  // one. `skuMeta` is what keeps the E2 diagnostic tool out — see
+  // `electricBikes.ts` for why nothing else in the row can be trusted for that.
+  const electricBikeLines = useMemo(
+    () =>
+      collectElectricBikeLines(
+        filteredItems.map((item: PickingListItem) => ({
+          sku: item.sku,
+          item_name: item.item_name,
+          isBike: skuMeta[item.sku]?.is_bike,
+          units: item.pickingQty || 0,
+        })),
+        (item) => item.units
+      ),
+    [filteredItems, skuMeta]
+  );
 
   // Effective counts: manual override takes priority over auto-calculated,
   // but only when unfiltered — see filteredItems comment above.
@@ -2420,6 +2440,7 @@ export const ShipScreen = () => {
                     activeOrderFilter={selectedOrderFilter}
                     onToggleOrderFilter={toggleSelectedOrderFilter}
                     isFedexOrder={isFedexOrder}
+                    electricBikeLines={electricBikeLines}
                   />
 
                   <PartsWeightEditor

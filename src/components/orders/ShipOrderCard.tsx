@@ -23,6 +23,7 @@ import { useConfirmation } from '../../context/ConfirmationContext';
 import { parseUSAddress } from '../../utils/parseUSAddress';
 import { useCustomerAddresses } from '../../hooks/useCustomerAddresses';
 import { getPavExpressZone } from '../../utils/pavExpressZones';
+import type { ElectricBikeLine } from '../../utils/electricBikes';
 import { OrderStatusPill } from './OrderStatusPill';
 import { TransportLogo } from './TransportLogo';
 import { getCarrierBrandColors } from './transportLogos';
@@ -41,6 +42,7 @@ import { OrderProgressBar } from '../../features/picking/components/OrderProgres
 import type { CustomerAddress } from '../../lib/customerAddresses';
 import type { CombineMeta, PickingList, PickingListItem } from '../../schemas/picking.schema';
 import { PalletPhotosBlock } from './PalletPhotosBlock';
+import { ElectricBikeWarning } from './ElectricBikeWarning';
 import type { Customer } from '../../types/schema';
 import type { User } from '@supabase/supabase-js';
 import { isDeliberateCombineGroupType } from '../../utils/shippingClassification';
@@ -122,7 +124,14 @@ interface ShipOrderCardProps {
    *  purple/green board treatment) — gates the "you sure?" prompt when
    *  switching away from FedEx below. */
   isFedexOrder?: boolean;
+  /** Electric bikes on this order, already deduped and filtered to the active
+   *  sub-order by ShipScreen. Non-empty means the cartons need a lithium-ion
+   *  mark before the carrier takes them. */
+  electricBikeLines?: ElectricBikeLine[];
 }
+
+/** Stable default so the prop's identity doesn't change on every render. */
+const EMPTY_ELECTRIC_LINES: ElectricBikeLine[] = [];
 
 type EditableField =
   | 'customer'
@@ -259,6 +268,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   activeOrderFilter = null,
   onToggleOrderFilter,
   isFedexOrder = false,
+  electricBikeLines = EMPTY_ELECTRIC_LINES,
 }) => {
   const [editingField, setEditingField] = useState<EditableField>(null);
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
@@ -266,6 +276,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   const [isUpdatingCarrier, setIsUpdatingCarrier] = useState(false);
   const [justSavedField, setJustSavedField] = useState<string | null>(null);
   const [isPavBannerDismissed, setIsPavBannerDismissed] = useState(false);
+  const [isEbikeBannerDismissed, setIsEbikeBannerDismissed] = useState(false);
   const [isConfirmingDaylight, setIsConfirmingDaylight] = useState(false);
   const editRef = useRef<HTMLDivElement>(null);
   const clearSaveRef = useRef<NodeJS.Timeout | null>(null);
@@ -298,6 +309,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   useEffect(() => {
     setEditingField(null);
     setIsPavBannerDismissed(false);
+    setIsEbikeBannerDismissed(false);
   }, [selectedOrder?.id]);
 
   const isPavOutOfZone = React.useMemo(() => {
@@ -307,6 +319,13 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
 
   const showPavWarningBanner =
     !isPavBannerDismissed && !formData.transportCompany && !isFedexOrder && isPavOutOfZone;
+
+  // A battery only needs marking while the order is still in the building.
+  // Dismissal is deliberately session-only — it resets on the next order and on
+  // reload, because the cost of showing it twice is a glance and the cost of
+  // hiding it once is a carton refused at the dock.
+  const showElectricBikeWarning =
+    !isEbikeBannerDismissed && electricBikeLines.length > 0 && !selectedOrder?.is_shipped;
 
   // Daylight only rolls a truck once someone texts the dispatcher how many
   // pallets to come get, so the carrier picker nags until that's done. The
@@ -911,6 +930,13 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                     <X size={14} />
                   </button>
                 </div>
+              )}
+
+              {showElectricBikeWarning && (
+                <ElectricBikeWarning
+                  lines={electricBikeLines}
+                  onDismiss={() => setIsEbikeBannerDismissed(true)}
+                />
               )}
 
               {showDaylightSmsReminder && (
