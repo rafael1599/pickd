@@ -55,6 +55,11 @@ import { useAuth } from '../../../context/AuthContext';
 import { useUnmarkWaiting, useTakeOverSku } from '../hooks/useWaitingOrders';
 import { withSupabaseRetry } from '../../../lib/supabaseRetry';
 import { autoClassifyShippingType } from '../../../utils/shippingClassification';
+import {
+  fedexCartonGap,
+  FEDEX_CARTON_GAP_LABELS,
+  type FedexCartonGap,
+} from '../../../utils/fedexCarton';
 import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingConflicts';
 import { useStockReservations, buildReservationKey } from '../hooks/useStockReservations';
 import { useStaleLocationCheck } from '../hooks/useStaleLocationCheck';
@@ -72,6 +77,28 @@ import { supabase as supabaseClient } from '../../../lib/supabase';
 
 /** Priority: lower number = pick first. Pallets are overstock we want gone ASAP. */
 const DISTRIBUTION_PRIORITY: Record<string, number> = { PALLET: 0, LINE: 1, TOWER: 2, OTHER: 3 };
+
+/** The sku_metadata columns this view reads for the cart, in one query. */
+interface SkuMetaRow {
+  sku: string;
+  is_bike: boolean | null;
+  is_scratch_dent: boolean | null;
+  serial_number: string | null;
+  model: string | null;
+  size: string | null;
+  length_in: number | null;
+  width_in: number | null;
+  height_in: number | null;
+  dimensions_verified: boolean | null;
+}
+
+/** A cart SKU FedEx Ship Manager cannot rate, and why. */
+interface UnratedCarton {
+  sku: string;
+  model: string | null;
+  size: string | null;
+  gap: FedexCartonGap;
+}
 
 // Define PickingItem Interface
 export interface PickingItem {
@@ -597,10 +624,15 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   // the big item header we display the serial instead of the SKU so pickers
   // can match the tag visually. Scanning still uses the SKU.
   const [sdSerialMap, setSdSerialMap] = useState<Map<string, string>>(new Map());
+  // Cart SKUs FedEx Ship Manager has no carton for. Same gate the Dimensions
+  // export applies, so a SKU it silently held back is named here instead --
+  // while the box is still in front of someone and can be measured.
+  const [unratedCartons, setUnratedCartons] = useState<UnratedCarton[]>([]);
   useEffect(() => {
     if (!cartSkusKey) {
       setBikeSkuSet(new Set());
       setSdSerialMap(new Map());
+      setUnratedCartons([]);
       return;
     }
     let cancelled = false;
@@ -611,26 +643,33 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     (async () => {
       const { data } = await supabase
         .from('sku_metadata')
-        .select('sku, is_bike, is_scratch_dent, serial_number')
+        .select(
+          'sku, is_bike, is_scratch_dent, serial_number, model, size, length_in, width_in, height_in, dimensions_verified'
+        )
         .in('sku', skus);
       if (cancelled) return;
       const next = new Set<string>(prefixInferred);
       const serials = new Map<string, string>();
-      (
-        data as
-          | {
-              sku: string;
-              is_bike: boolean | null;
-              is_scratch_dent: boolean | null;
-              serial_number: string | null;
-            }[]
-          | null
-      )?.forEach((row) => {
+      const gaps: UnratedCarton[] = [];
+      (data as SkuMetaRow[] | null)?.forEach((row) => {
         if (row.is_bike) next.add(row.sku);
         if (row.is_scratch_dent && row.serial_number) serials.set(row.sku, row.serial_number);
+        // Scope matches the export's own row filter: it ships bikes and skips
+        // Scratch & Dent, so a used one-off has no FSM record by design and
+        // warning about it would be noise on every order that carries one.
+        if (!row.is_bike || row.is_scratch_dent) return;
+        const gap = fedexCartonGap({
+          model: row.model,
+          length_in: row.length_in,
+          width_in: row.width_in,
+          height_in: row.height_in,
+          dimensions_verified: row.dimensions_verified ?? false,
+        });
+        if (gap) gaps.push({ sku: row.sku, model: row.model, size: row.size, gap });
       });
       setBikeSkuSet(next);
       setSdSerialMap(serials);
+      setUnratedCartons(gaps.sort((a, b) => a.sku.localeCompare(b.sku)));
     })();
     return () => {
       cancelled = true;
@@ -2019,6 +2058,47 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                     )}
                     {s.shortfall > 0 && (
                       <span className="text-rose-400 font-black"> · {s.shortfall} short</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/*
+          FedEx cannot rate a carton it has no record of. The Dimensions export
+          ships only SKUs that pass utils/fedexCarton, so anything it held back
+          is missing on the FedEx side -- and nobody finds out until the rate
+          comes back wrong and someone has to go dig up the box. Surfaced here
+          because this is the last screen where the box is still in front of a
+          person. Regular orders are not warned: the record only matters when
+          FedEx is quoting it.
+        */}
+        {isFedexOrder && unratedCartons.length > 0 && (
+          <div className="mb-4 p-4 bg-amber-500/5 border border-amber-500/20 rounded-2xl flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0">
+              <AlertCircle size={18} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-black text-amber-500/80 uppercase tracking-widest mb-1">
+                Not in FedEx Ship Manager
+              </p>
+              <p className="text-[11px] font-medium text-muted mb-2 leading-relaxed">
+                {unratedCartons.length > 1 ? 'These cartons have' : 'This carton has'} no dimensions
+                on the FedEx side. Measure {unratedCartons.length > 1 ? 'them' : 'it'} and save the
+                sides on the item before the label goes out — otherwise the rate is whatever gets
+                typed in by hand.
+              </p>
+              <ul className="space-y-1">
+                {unratedCartons.map((c) => (
+                  <li key={c.sku} className="text-sm font-medium text-content">
+                    <span className="font-black">{c.sku}</span>{' '}
+                    <span className="text-muted">
+                      {[c.model, c.size].filter(Boolean).join(' ') || 'no model on the record'}
+                    </span>
+                    {c.gap !== 'unverified' && (
+                      <span className="text-amber-500/80"> · {FEDEX_CARTON_GAP_LABELS[c.gap]}</span>
                     )}
                   </li>
                 ))}

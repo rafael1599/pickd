@@ -20,6 +20,13 @@
  *    in FSM with one nobody took.
  */
 
+import {
+  fedexCartonGap,
+  toAscii,
+  FEDEX_CARTON_GAP_LABELS,
+  type FedexCartonGap,
+} from '../../../utils/fedexCarton';
+
 /** A SKU as the export reads it. Mirrors the selected columns, nothing more. */
 export interface DimensionSourceRow {
   sku: string;
@@ -45,15 +52,13 @@ export interface FedexDimensionRecord {
   skus: string[];
 }
 
-export type ExceptionReason =
-  /** Dimensions are still whatever the defaults trigger wrote. */
-  | 'unverified'
-  /** Measured, but there is no model to name the record after. */
-  | 'no_model'
-  /** A dimension is missing, or too large to fit the 3-character field. */
-  | 'unusable_dimensions'
-  /** The three sides do not order as longest ≥ middle ≥ thinnest. */
-  | 'implausible_dimensions';
+/**
+ * Why a row was held back. The list lives in utils/fedexCarton because
+ * DoubleCheckView warns on the same set before a FedEx order ships, and two
+ * copies of this rule would mean the export quietly drops a SKU nobody on the
+ * floor was ever told about.
+ */
+export type ExceptionReason = FedexCartonGap;
 
 export interface FedexDimensionException {
   sku: string;
@@ -80,8 +85,6 @@ const KEY_SEP = '\u0000';
 
 const MAX_DESCRIPTION = 140;
 const MAX_ID = 30;
-/** Three characters, so 999 is the largest dimension the format can carry. */
-const MAX_DIMENSION = 999;
 
 /**
  * How a stored size is written in a description.
@@ -137,15 +140,6 @@ function shortHash(input: string): string {
   return h.toString(36).toUpperCase().padStart(4, '0').slice(0, 4);
 }
 
-/** ASCII only, no double quotes, collapsed whitespace. */
-function toAscii(text: string): string {
-  return text
-    .replace(/["‘’“”]/g, "'")
-    .replace(/[^\x20-\x7E]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 /**
  * Groups measured SKUs into FSM records and returns everything it could not
  * place, with the reason.
@@ -180,41 +174,18 @@ export function buildFedexDimensions(rows: DimensionSourceRow[]): FedexDimension
   const bySize = new Map<string, SizeBucket>();
 
   for (const row of rows) {
-    if (!row.dimensions_verified) {
-      except(row, 'unverified');
+    // The gate itself is shared with DoubleCheckView's pre-ship warning; see
+    // utils/fedexCarton for the reasons and the axis swap they both apply.
+    const gap = fedexCartonGap(row);
+    if (gap) {
+      except(row, gap);
       continue;
     }
     const model = toAscii(row.model ?? '').toUpperCase();
-    if (!model) {
-      except(row, 'no_model');
-      continue;
-    }
-    const { length_in: l, width_in: w, height_in: h } = row;
-    if (l == null || w == null || h == null) {
-      except(row, 'unusable_dimensions');
-      continue;
-    }
-    // Whole inches, rounded up: a carton is never smaller than measured.
-    const length = Math.ceil(l);
-    const width = Math.ceil(h);
-    const height = Math.ceil(w);
-    if (
-      [length, width, height].some((d) => !Number.isFinite(d) || d <= 0 || d > MAX_DIMENSION)
-    ) {
-      except(row, 'unusable_dimensions');
-      continue;
-    }
-    // A carton's sides order as longest ≥ middle ≥ thinnest. Breaking that order
-    // means a value is in the wrong magnitude for its axis, which is what a lost
-    // decimal looks like: 03-4046MN sat at width_in 875 for 8.75, and 875 is
-    // three characters, so the field-width check above passes it straight to
-    // FedEx. This catches the class rather than that one row — and it needs no
-    // threshold, so the genuinely small cartons stay in: a Hot Rod at 30/17/8
-    // and a framekit at 48/24/8 both order correctly.
-    if (!(length >= width && width >= height)) {
-      except(row, 'implausible_dimensions');
-      continue;
-    }
+    // Non-null past the gate, which already rejected missing and out-of-range.
+    const length = Math.ceil(row.length_in as number);
+    const width = Math.ceil(row.height_in as number);
+    const height = Math.ceil(row.width_in as number);
 
     const size = renderSize(row.size);
     const key = `${model}${KEY_SEP}${size ?? ''}`;
@@ -319,12 +290,7 @@ export function toFsmCsv(records: FedexDimensionRecord[]): string {
 }
 
 /** Why a SKU was held back, in the words the exceptions report uses. */
-export const EXCEPTION_LABELS: Record<ExceptionReason, string> = {
-  unverified: 'Dimensions never measured',
-  no_model: 'No model on the record',
-  unusable_dimensions: 'Dimension missing or out of range',
-  implausible_dimensions: 'Sides do not order as a carton',
-};
+export const EXCEPTION_LABELS = FEDEX_CARTON_GAP_LABELS;
 
 /**
  * The companion file. Unlike the FSM export this one is for a person, so it
