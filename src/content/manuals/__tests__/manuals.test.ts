@@ -2,7 +2,37 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { MANUALS, getManualBySlug, manualRoute, manualTitleFor, manualsByCategory } from '../index';
-import { manualContentSchema, manualSearchText } from '../types';
+import { manualContentSchema, manualSearchText, type ManualContent } from '../types';
+
+/**
+ * Every labelled value a reader can actually see, wherever it is drawn.
+ *
+ * The values that matter moved out of `fields` and into the figures when the
+ * windows were drawn — a picture is the instruction, and repeating it under the
+ * picture is how a procedure stops being read. A check that only walked
+ * `fields` would have gone green while the page still showed them, and stayed
+ * green the day somebody deleted them. What has to hold is that the operator
+ * can see CHEMTREC, not which array it sits in.
+ */
+function visibleValues(content: ManualContent): { label: string; value: string }[] {
+  const out: { label: string; value: string }[] = [];
+  for (const step of content.steps) {
+    for (const field of step.fields) out.push({ label: field.label, value: field.value });
+    for (const figure of step.figures) {
+      for (const row of figure.rows) {
+        if (row.kind === 'field') out.push({ label: row.label, value: row.value });
+        // A table's label is its header and its value is the cell underneath —
+        // which is where the commodity row lives now that FSM fills it in.
+        if (row.kind === 'table') {
+          for (const cells of row.rows) {
+            row.headers.forEach((header, i) => out.push({ label: header, value: cells[i] ?? '' }));
+          }
+        }
+      }
+    }
+  }
+  return out;
+}
 
 // Manuals used to be rows, and a migration was the gate they passed through.
 // Now they ship with the build, so this file is that gate: TypeScript catches a
@@ -78,8 +108,8 @@ describe('lookup', () => {
 
 describe('the FedEx Hazmat manual', () => {
   const manual = getManualBySlug('fedex-hazmat-ebikes');
-  const fields = manual!.content.steps.flatMap((s) => s.fields);
-  const valueOf = (label: string) => fields.find((f) => f.label === label);
+  const shown = visibleValues(manual!.content);
+  const valueOf = (label: string) => shown.find((f) => f.label === label);
 
   it('keeps all nine steps from the printed sheet', () => {
     expect(manual!.content.steps).toHaveLength(9);
@@ -95,7 +125,7 @@ describe('the FedEx Hazmat manual', () => {
     // The paper original prints 61 lbs, which is one sample shipment. A field
     // that shows a number invites copying it; a field that says what to enter
     // does not.
-    expect(fields.some((f) => f.value.includes('61'))).toBe(false);
+    expect(shown.some((f) => f.value.includes('61'))).toBe(false);
     expect(valueOf('Weight')?.value).toContain('this bike');
     expect(valueOf('Commodity Weight')?.value).toContain('the package');
   });
