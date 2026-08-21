@@ -1419,6 +1419,7 @@ export type Database = {
           condition_description: string | null;
           created_at: string;
           dimensions_verified: boolean;
+          dimensions_measured_at: string | null;
           height_in: number | null;
           image_url: string | null;
           is_bike: boolean | null;
@@ -1445,6 +1446,7 @@ export type Database = {
           condition_description?: string | null;
           created_at?: string;
           dimensions_verified?: boolean;
+          dimensions_measured_at?: string | null;
           height_in?: number | null;
           image_url?: string | null;
           is_bike?: boolean | null;
@@ -1471,6 +1473,7 @@ export type Database = {
           condition_description?: string | null;
           created_at?: string;
           dimensions_verified?: boolean;
+          dimensions_measured_at?: string | null;
           height_in?: number | null;
           image_url?: string | null;
           is_bike?: boolean | null;
@@ -1819,6 +1822,10 @@ export type Database = {
       };
     };
     Functions: {
+      fedex_dimensions_exported_at: {
+        Args: Record<PropertyKey, never>;
+        Returns: string | null;
+      };
       adjust_distribution: {
         Args: { p_item_id: number; p_qty_to_deduct: number };
         Returns: Json;

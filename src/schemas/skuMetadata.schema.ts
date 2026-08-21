@@ -29,6 +29,8 @@ export const SKUMetadataSchema = z.object({
   // Distinguishes a measured carton from one the defaults trigger filled in —
   // the FedEx export ships only verified rows. See 20260820170000.
   dimensions_verified: z.boolean().optional(),
+  /** When a dimension last changed value; compared against the last FedEx export. */
+  dimensions_measured_at: z.string().nullish(),
   // S/D extension columns (all NULL for non-S/D items)
   model: z.string().nullable().optional(),
   size: z.string().nullable().optional(),

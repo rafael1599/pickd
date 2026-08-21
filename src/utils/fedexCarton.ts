@@ -93,3 +93,71 @@ export const FEDEX_CARTON_GAP_LABELS: Record<FedexCartonGap, string> = {
   unusable_dimensions: 'Dimension missing or out of range',
   implausible_dimensions: 'Sides do not order as a carton',
 };
+
+/**
+ * What FedEx actually has for this SKU.
+ *
+ * `unmeasured` -- nothing usable to send. Somebody has to measure the box.
+ * `pending_export` -- measured, but measured after the last export ran, so Ship
+ *   Manager is still quoting the old carton or none at all. An admin has to run
+ *   the export and import it.
+ * `synced` -- measured no later than the last export. FedEx has it.
+ */
+export type FedexCartonState = 'unmeasured' | 'pending_export' | 'synced';
+
+export interface FedexCartonSyncRow extends FedexCartonRow {
+  /** When a dimension last changed value. NULL means never measured. */
+  dimensions_measured_at: string | null;
+}
+
+/**
+ * The one question the export and the double-check warning both ask, so they
+ * cannot answer it differently.
+ *
+ * They used to. The export decides what may go in the file, which is
+ * {@link fedexCartonGap} alone; the warning asked the same thing and therefore
+ * went quiet the instant a box was measured -- while Ship Manager still held
+ * the old number, because nothing had been exported since. 20260821120000
+ * corrected 33 cartons forty minutes after the last export and not one of them
+ * warned. Measured and "FedEx knows" are separate facts, and this returns which
+ * one you have.
+ *
+ * `exportedAt` is the most recent export, from `fedex_dimensions_exported_at()`.
+ * A null one means no export has ever run, so nothing measured has reached
+ * FedEx yet.
+ */
+export function fedexCartonState(
+  row: FedexCartonSyncRow,
+  exportedAt: string | Date | null
+): FedexCartonState {
+  if (fedexCartonGap(row) !== null) return 'unmeasured';
+  if (!row.dimensions_measured_at) return 'unmeasured';
+  if (!exportedAt) return 'pending_export';
+
+  const measured = new Date(row.dimensions_measured_at).getTime();
+  const exported = new Date(exportedAt).getTime();
+  if (!Number.isFinite(measured) || !Number.isFinite(exported)) return 'pending_export';
+
+  // Measured at or before the export that carried it. Equal counts as carried:
+  // the export reads the row it is exporting, so a same-instant stamp is the
+  // one that went into the file.
+  return measured <= exported ? 'synced' : 'pending_export';
+}
+
+/**
+ * The three sides of a box, in Pickd's column order, whatever order they were
+ * read off the tape in.
+ *
+ * Which side is "length" is a property of the box, not of the person measuring
+ * it: the longest is the longest whichever way the tape went round. So the form
+ * takes three numbers and this decides where they belong, rather than asking
+ * somebody kneeling next to a pallet to sort them first.
+ */
+export function sidesToColumns(sides: [number, number, number]): {
+  length_in: number;
+  width_in: number;
+  height_in: number;
+} {
+  const [thinnest, middle, longest] = [...sides].sort((x, y) => x - y);
+  return { length_in: longest, width_in: thinnest, height_in: middle };
+}

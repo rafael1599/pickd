@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { fedexCartonGap, toAscii, type FedexCartonRow } from '../fedexCarton';
+import {
+  fedexCartonGap,
+  fedexCartonState,
+  sidesToColumns,
+  toAscii,
+  type FedexCartonRow,
+} from '../fedexCarton';
 
 /** A carton that passes every check, so each test can break exactly one thing. */
 const good = (over: Partial<FedexCartonRow> = {}): FedexCartonRow => ({
@@ -93,5 +99,94 @@ describe('toAscii', () => {
   it('drops non-ASCII and collapses whitespace', () => {
     expect(toAscii('  HUDSON   E2  ')).toBe('HUDSON E2');
     expect(toAscii('CITIZEN 3\u2013S/T')).toBe('CITIZEN 3S/T');
+  });
+});
+
+describe('sidesToColumns', () => {
+  it('puts the longest in length, the thinnest in width, the middle in height', () => {
+    expect(sidesToColumns([54, 8, 30])).toEqual({ length_in: 54, width_in: 8, height_in: 30 });
+  });
+
+  it('gives the same answer for every order the sides can be read in', () => {
+    const expected = { length_in: 54, width_in: 8, height_in: 30 };
+    for (const sides of [
+      [54, 8, 30],
+      [54, 30, 8],
+      [8, 54, 30],
+      [8, 30, 54],
+      [30, 54, 8],
+      [30, 8, 54],
+    ] as [number, number, number][]) {
+      expect(sidesToColumns(sides)).toEqual(expected);
+    }
+  });
+
+  it('always produces a carton the export accepts', () => {
+    // Sorting is what makes implausible_dimensions structurally impossible on
+    // this path, which is why the form stopped asking for a particular order.
+    for (const sides of [
+      [8, 30, 54],
+      [17, 8, 30],
+      [24, 48, 8],
+      [30.5, 8.5, 55],
+    ] as [number, number, number][]) {
+      expect(
+        fedexCartonGap({ model: 'X', ...sidesToColumns(sides), dimensions_verified: true })
+      ).toBeNull();
+    }
+  });
+});
+
+describe('fedexCartonState', () => {
+  const measured = (at: string | null): Parameters<typeof fedexCartonState>[0] => ({
+    model: 'ALLEGRO A3',
+    length_in: 54,
+    width_in: 8,
+    height_in: 30,
+    dimensions_verified: true,
+    dimensions_measured_at: at,
+  });
+
+  it('is unmeasured when the carton cannot be exported at all', () => {
+    expect(
+      fedexCartonState({ ...measured('2026-08-01T00:00:00Z'), dimensions_verified: false }, null)
+    ).toBe('unmeasured');
+    expect(fedexCartonState({ ...measured('2026-08-01T00:00:00Z'), model: null }, null)).toBe(
+      'unmeasured'
+    );
+  });
+
+  it('is unmeasured when it is verified but carries no timestamp', () => {
+    // Pre-backfill rows. Warning rather than assuming FedEx has it is the safe
+    // direction: it costs a second look, not a re-billed shipment.
+    expect(fedexCartonState(measured(null), '2026-08-20T20:22:29Z')).toBe('unmeasured');
+  });
+
+  it('is synced when the measurement predates the last export', () => {
+    expect(fedexCartonState(measured('2026-08-19T10:00:00Z'), '2026-08-20T20:22:29Z')).toBe(
+      'synced'
+    );
+  });
+
+  it('counts a same-instant stamp as carried', () => {
+    expect(fedexCartonState(measured('2026-08-20T20:22:29Z'), '2026-08-20T20:22:29Z')).toBe(
+      'synced'
+    );
+  });
+
+  it('is pending when the box was measured after the last export', () => {
+    // The real case: 20260821120000 corrected 33 cartons forty minutes after
+    // the export that was live at the time.
+    expect(fedexCartonState(measured('2026-08-21T16:41:00Z'), '2026-08-21T16:02:47Z')).toBe(
+      'pending_export'
+    );
+  });
+
+  it('is pending when no export has ever run', () => {
+    expect(fedexCartonState(measured('2026-08-21T16:41:00Z'), null)).toBe('pending_export');
+  });
+
+  it('is pending rather than synced when a timestamp is unreadable', () => {
+    expect(fedexCartonState(measured('not a date'), '2026-08-20T20:22:29Z')).toBe('pending_export');
   });
 });

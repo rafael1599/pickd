@@ -24,10 +24,11 @@ import type { ManualContent } from './types.ts';
  *    truncated import looks exactly like a successful one otherwise.
  *
  * Written from the export as built (see the FedEx section of CLAUDE.md) plus
- * the floor's own instruction to use Firefox on the FedEx machine. The reason
- * for Firefox is not recorded here because it was not given — if it turns out
- * to be "the other browser blocks the download", that belongs in step 2, since
- * a rule with a reason is the one people follow.
+ * the floor's own account of that machine: it is old, and Internet Explorer on
+ * it cannot open Pickd at all. Step 2 says so rather than just naming Firefox,
+ * because a rule with a reason is the one people follow — and somebody who only
+ * reads "use Firefox" will try the browser already on screen first, watch Pickd
+ * fail to load, and conclude the export is broken.
  */
 export const fedexDimensionsImport: ManualContent = {
   intro:
@@ -45,7 +46,10 @@ export const fedexDimensionsImport: ManualContent = {
     },
     {
       title: 'Open Pickd in Firefox',
-      body: 'Use Firefox on this machine, not whatever browser is already open.',
+      body:
+        'That machine is old and Internet Explorer cannot open Pickd on it — the page will not ' +
+        'load, which looks like Pickd being down rather than the browser being wrong. Use ' +
+        'Firefox, even if Explorer is the one already on screen.',
       fields: [
         { label: 'Address', value: 'pickd.pages.dev', kind: 'exact' },
         {

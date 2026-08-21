@@ -55,11 +55,8 @@ import { useAuth } from '../../../context/AuthContext';
 import { useUnmarkWaiting, useTakeOverSku } from '../hooks/useWaitingOrders';
 import { withSupabaseRetry } from '../../../lib/supabaseRetry';
 import { autoClassifyShippingType } from '../../../utils/shippingClassification';
-import {
-  fedexCartonGap,
-  FEDEX_CARTON_GAP_LABELS,
-  type FedexCartonGap,
-} from '../../../utils/fedexCarton';
+import { fedexCartonGap, fedexCartonState } from '../../../utils/fedexCarton';
+import { UnratedCartonsBanner, type UnratedCarton } from './UnratedCartonsBanner';
 import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingConflicts';
 import { useStockReservations, buildReservationKey } from '../hooks/useStockReservations';
 import { useStaleLocationCheck } from '../hooks/useStaleLocationCheck';
@@ -90,14 +87,7 @@ interface SkuMetaRow {
   width_in: number | null;
   height_in: number | null;
   dimensions_verified: boolean | null;
-}
-
-/** A cart SKU FedEx Ship Manager cannot rate, and why. */
-interface UnratedCarton {
-  sku: string;
-  model: string | null;
-  size: string | null;
-  gap: FedexCartonGap;
+  dimensions_measured_at: string | null;
 }
 
 // Define PickingItem Interface
@@ -620,6 +610,24 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     [cartItems]
   );
   const [bikeSkuSet, setBikeSkuSet] = useState<Set<string>>(new Set());
+  // When the FedEx Dimensions table was last refreshed from Pickd. A measurement
+  // newer than this has not reached Ship Manager, however verified it looks --
+  // which is the difference the warning below exists to show. Read through an
+  // RPC because fedex_dimension_exports is admin-only and this screen is not.
+  const { data: exportedAt = null } = useQuery({
+    queryKey: ['fedex-dimensions', 'exported-at'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('fedex_dimensions_exported_at');
+      // Not deployed yet, or unreachable: treat as "no export has run", which
+      // over-warns rather than under-warns. A broken lookup must not be the
+      // reason a wrong carton ships quietly.
+      if (error) return null;
+      return (data as string | null) ?? null;
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
   // idea-079: S/D (scratch-and-dent) SKUs carry a physical serial number. In
   // the big item header we display the serial instead of the SKU so pickers
   // can match the tag visually. Scanning still uses the SKU.
@@ -644,7 +652,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       const { data } = await supabase
         .from('sku_metadata')
         .select(
-          'sku, is_bike, is_scratch_dent, serial_number, model, size, length_in, width_in, height_in, dimensions_verified'
+          'sku, is_bike, is_scratch_dent, serial_number, model, size, length_in, width_in, height_in, dimensions_verified, dimensions_measured_at'
         )
         .in('sku', skus);
       if (cancelled) return;
@@ -658,14 +666,24 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         // Scratch & Dent, so a used one-off has no FSM record by design and
         // warning about it would be noise on every order that carries one.
         if (!row.is_bike || row.is_scratch_dent) return;
-        const gap = fedexCartonGap({
+        const carton = {
           model: row.model,
           length_in: row.length_in,
           width_in: row.width_in,
           height_in: row.height_in,
           dimensions_verified: row.dimensions_verified ?? false,
+          dimensions_measured_at: row.dimensions_measured_at,
+        };
+        const state = fedexCartonState(carton, exportedAt);
+        if (state === 'synced') return;
+        gaps.push({
+          sku: row.sku,
+          model: row.model,
+          size: row.size,
+          state,
+          gap: fedexCartonGap(carton),
+          stored: { length: row.length_in, width: row.width_in, height: row.height_in },
         });
-        if (gap) gaps.push({ sku: row.sku, model: row.model, size: row.size, gap });
       });
       setBikeSkuSet(next);
       setSdSerialMap(serials);
@@ -674,7 +692,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [cartSkusKey]);
+  }, [cartSkusKey, exportedAt]);
 
   // Effective shipping type: persisted override, else auto-classify from the
   // cart (count-only — no weight map here, mirroring VerificationBoard). Drives
@@ -2075,36 +2093,17 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           person. Regular orders are not warned: the record only matters when
           FedEx is quoting it.
         */}
-        {isFedexOrder && unratedCartons.length > 0 && (
-          <div className="mb-4 p-4 bg-amber-500/5 border border-amber-500/20 rounded-2xl flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0">
-              <AlertCircle size={18} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-black text-amber-500/80 uppercase tracking-widest mb-1">
-                Not in FedEx Ship Manager
-              </p>
-              <p className="text-[11px] font-medium text-muted mb-2 leading-relaxed">
-                {unratedCartons.length > 1 ? 'These cartons have' : 'This carton has'} no dimensions
-                on the FedEx side. Measure {unratedCartons.length > 1 ? 'them' : 'it'} and save the
-                sides on the item before the label goes out — otherwise the rate is whatever gets
-                typed in by hand.
-              </p>
-              <ul className="space-y-1">
-                {unratedCartons.map((c) => (
-                  <li key={c.sku} className="text-sm font-medium text-content">
-                    <span className="font-black">{c.sku}</span>{' '}
-                    <span className="text-muted">
-                      {[c.model, c.size].filter(Boolean).join(' ') || 'no model on the record'}
-                    </span>
-                    {c.gap !== 'unverified' && (
-                      <span className="text-amber-500/80"> · {FEDEX_CARTON_GAP_LABELS[c.gap]}</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+        {isFedexOrder && (
+          <UnratedCartonsBanner
+            cartons={unratedCartons}
+            onMeasured={(sku) =>
+              setUnratedCartons((prev) =>
+                prev.map((c) =>
+                  c.sku === sku ? { ...c, state: 'pending_export' as const, gap: null } : c
+                )
+              )
+            }
+          />
         )}
 
         {pallets.map((pallet: Pallet) => {
