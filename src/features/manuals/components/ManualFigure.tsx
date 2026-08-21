@@ -26,10 +26,16 @@ const RING = 'ring-2 ring-[#e8730c] ring-offset-0';
 
 /** The "◄ ❶ do this" that hangs off a control. */
 const Mark: React.FC<{ mark: FigureMark }> = ({ mark }) => (
-  <span className={`inline-flex items-baseline gap-1 ${ORANGE} text-[10px] font-bold shrink-0`}>
-    <span aria-hidden="true">◄</span>
+  // `min-w-0` rather than `shrink-0`: the pane no longer scrolls, so a mark
+  // that cannot shrink is a mark whose text gets clipped by the window frame.
+  // The arrow and the number keep their own `shrink-0` so only the sentence
+  // wraps.
+  <span className={`inline-flex items-baseline gap-1 min-w-0 ${ORANGE} text-[10px] font-bold`}>
+    <span aria-hidden="true" className="shrink-0">
+      ◄
+    </span>
     {mark.n !== undefined && (
-      <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-[#e8730c] text-white text-[8px] font-black not-italic self-center">
+      <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0 rounded-full bg-[#e8730c] text-white text-[8px] font-black not-italic self-center">
         {mark.n}
       </span>
     )}
@@ -95,7 +101,10 @@ const Row: React.FC<{ row: FigureRow }> = ({ row }) => {
 
     case 'menu':
       return (
-        <div className="flex items-start gap-1.5" style={{ paddingLeft: `${row.indent * 1.5}rem` }}>
+        <div
+          className="flex flex-wrap items-start gap-1.5"
+          style={{ paddingLeft: `${row.indent * 1.5}rem` }}
+        >
           <span className="inline-block bg-white border border-[#8a8a8a] py-0.5 min-w-[8rem]">
             {row.items.map((item) => {
               const isActive = item === row.active;
@@ -194,7 +203,10 @@ const Row: React.FC<{ row: FigureRow }> = ({ row }) => {
     case 'table':
       return (
         <div>
-          <div className="overflow-x-auto">
+          {/* The only scroller in a figure. `overscroll-x-contain` so reaching
+              the last column stops there instead of handing the gesture to
+              whatever is behind it. */}
+          <div className="overflow-x-auto overscroll-x-contain">
             <table className="border-collapse">
               <thead>
                 <tr>
@@ -241,19 +253,30 @@ export const ManualFigure: React.FC<{ figure: Figure }> = ({ figure }) => (
         {figure.caption}
       </figcaption>
     )}
-    {/* The window itself. `overflow-x-auto` because a reproduced desktop dialog
-        is wider than a phone and must scroll inside its own box, never push the
-        page sideways (ui-rules §responsive). */}
+    {/* The window itself.
+    
+        The panel does not scroll. It used to: `overflow-x-auto` here with
+        `min-w-min` inside, so the widest row -- always a table -- stretched the
+        whole pane and dragged every other row sideways with it. Scrolling to
+        read `Hazard class` slid `Hazardous materials ID:` off to the left and
+        left it truncated to `ID:`, which is the label the reader was matching
+        against. A window pane that moves as one is only right if the whole
+        window moves as one, and this is a picture, not a viewport.
+    
+        So the rule is per-row: every row either wraps to fit (they are all
+        `flex-wrap`, and a mark's text now wraps with them) or owns its own
+        scroller. Only `table` needs one, because its cells are `whitespace-
+        nowrap` on purpose -- a wrapped column header stops looking like the
+        header on screen. Nothing here may push the page sideways
+        (ui-rules §responsive). */}
     <div className="border border-[#9a9a9a] rounded-sm overflow-hidden bg-[#ededed]">
       <div className="bg-[#4c2a85] px-2 py-1">
         <span className="text-[10px] font-bold text-white">{figure.title}</span>
       </div>
-      <div className="overflow-x-auto">
-        <div className="p-2.5 space-y-2 min-w-min">
-          {figure.rows.map((row, i) => (
-            <Row key={i} row={row} />
-          ))}
-        </div>
+      <div className="p-2.5 space-y-2">
+        {figure.rows.map((row, i) => (
+          <Row key={i} row={row} />
+        ))}
       </div>
     </div>
   </figure>
