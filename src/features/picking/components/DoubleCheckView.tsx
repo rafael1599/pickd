@@ -2096,10 +2096,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         {isFedexOrder && (
           <UnratedCartonsBanner
             cartons={unratedCartons}
-            onMeasured={(sku) =>
+            onMeasured={(sku, stored) =>
               setUnratedCartons((prev) =>
                 prev.map((c) =>
-                  c.sku === sku ? { ...c, state: 'pending_export' as const, gap: null } : c
+                  c.sku === sku ? { ...c, state: 'pending_export' as const, gap: null, stored } : c
                 )
               )
             }

@@ -49,8 +49,15 @@ export interface UnratedCarton {
 
 interface UnratedCartonsBannerProps {
   cartons: UnratedCarton[];
-  /** Called when a SKU has been measured, so the row can move to pending. */
-  onMeasured: (sku: string) => void;
+  /**
+   * Called when a SKU has been measured, so the row can move to pending.
+   *
+   * It carries the saved sides, not just the SKU. The parent owns the list and
+   * would otherwise keep rendering the numbers the save just replaced — which
+   * reads as the save not having worked, on the one line whose whole job is to
+   * say what FedEx is missing.
+   */
+  onMeasured: (sku: string, stored: UnratedCarton['stored']) => void;
 }
 
 const describeCarton = (c: UnratedCarton) =>
@@ -86,9 +93,13 @@ export const UnratedCartonsBanner: React.FC<UnratedCartonsBannerProps> = ({
     if (!sides || draftProblem(draft)) return;
     setPendingSku(carton.sku);
     try {
-      await update.mutateAsync({ sku: carton.sku, sides });
+      const saved = await update.mutateAsync({ sku: carton.sku, sides });
       toast.success(`${carton.sku} measured`);
-      onMeasured(carton.sku);
+      onMeasured(carton.sku, {
+        length: saved.length_in,
+        width: saved.width_in,
+        height: saved.height_in,
+      });
     } catch {
       // useUpdateCartonDimensions already surfaced it; the row stays editable so
       // the numbers just read off the tape are not thrown away.
