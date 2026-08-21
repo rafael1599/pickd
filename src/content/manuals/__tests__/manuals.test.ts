@@ -130,9 +130,10 @@ describe('manuals stay out of the database', () => {
   // migration that reaches for a `manuals` table fails the suite instead of
   // reaching production, where it would abort against a table that is gone.
   //
-  // If manuals ever go back to being rows -- the trigger is somebody on the
-  // floor needing to edit one inside the app -- delete this test in the same
-  // commit that creates the table, deliberately.
+  // This is not a temporary guard awaiting a better answer, and it has no
+  // agreed exception. Manuals are static, permanently. If you are reading this
+  // because it blocked you, the migration is the thing that is wrong: move the
+  // content into a module in src/content/manuals and delete the SQL.
   const MIGRATIONS = join(process.cwd(), 'supabase', 'migrations');
 
   it('has no migration that touches a manuals table', () => {

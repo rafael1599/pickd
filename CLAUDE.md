@@ -143,8 +143,14 @@ una migración como único escritor** — un archivo estático disfrazado de bas
 había que defender ahí (un jsonb malformado llegando al renderer, contenido y código desplegándose
 desincronizados, un valor cambiado en Studio sin diff que revisar) deja de existir cuando es un
 módulo: `git push` lleva el manual y la pantalla que lo pinta en el mismo commit, y el compilador
-comprueba la forma. **Si algún día alguien del almacén tiene que editar un manual desde la app, esto
-vuelve a ser tabla** — la forma del contenido no cambiaría, solo de dónde se lee.
+comprueba la forma.
+
+**Decisión cerrada del operador (21 ago 2026): los manuales no vuelven a la base de datos, nunca.**
+No es "estático por ahora": una tabla `manuals` no es el plan B de ningún requisito, incluido que
+alguien quiera editarlos desde la app. Está **verificado, no solo escrito aquí** — cualquier
+migración que mencione una tabla `manuals` rompe la suite de tests
+(`src/content/manuals/__tests__/manuals.test.ts`). Se documentó dos veces y se escribió la migración
+igual, así que la regla dejó de vivir solo en prosa.
 
 **`ManualSlug` es la razón de que los enlaces no se rompan en silencio.** Es el union de los slugs que
 existen, así que un `ManualLinkButton` que apunte a un manual inexistente **no compila**. La versión

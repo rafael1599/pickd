@@ -13,9 +13,11 @@ import { fedexDimensionsImport } from './fedexDimensionsImport.ts';
  * when the content is a module: `git push` ships the manual and the screen that
  * renders it in the same commit, and the compiler checks the shape.
  *
- * The day someone on the floor needs to edit a manual from inside the app, this
- * goes back to a table. The content shape would not change -- only where it is
- * read from.
+ * This is settled: manuals are static, permanently. Not "static for now" -- a
+ * `manuals` table is not the fallback for any requirement, including someone
+ * wanting to edit one from inside the app. A migration that creates one fails
+ * the test suite (see __tests__/manuals.test.ts), and that test is not a
+ * placeholder to be removed when it becomes inconvenient.
  */
 export interface Manual {
   /** Stable id and URL segment. Rename the title freely; never change this. */
