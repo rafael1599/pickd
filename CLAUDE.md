@@ -112,9 +112,66 @@ Nombre: `DIMENSIONS_FEDEX_YYYYMMDD.csv`. El ID se genera al vuelo de forma deter
 persistido — decisión abierta); si truncar a 30 provocara choque, desempata un hash FNV-1a de la
 propia clave, no un contador, para que no se mueva cuando aparece otro registro.
 
-**Al 2026-08-20:** 703 filas leídas → 124 registros, 532 excepciones (531 sin medir, 1 sin modelo).
-Verificado en prod y en el navegador. **Nadie lo ha importado todavía en FSM** — ese es el único
-criterio de aceptación sin comprobar.
+**Redondeo de una lectura de cinta:** `.5` y por debajo baja a la pulgada entera menor, de `.6`
+para arriba sube. Es lo que aplica la propia hoja de piso (55.5 → 55, 57.5 → 57, 53.5 → 53) y va en
+la **columna**, no en el export: `buildFedexDimensions` siempre hace `ceil`, así que un cartón nunca
+se declara más chico de lo que dice el dato guardado.
+
+**Al 2026-08-21:** 703 filas leídas → 122 registros, 530 excepciones (529 sin medir, 1 sin modelo).
+`20260821120000` corrigió 24 cartones re-medidos en piso y añadió SEQUEL S3 15''; casi todas las
+correcciones bajan, que es la dirección que se paga en silencio (un `8.25` viejo en un solo color
+declaraba cartón de 9 para toda la talla). Cuatro tallas se fusionaron con su vecina al caer en el
+mismo cartón y RENEGADE S1 56 dejó de viajar en el de 58. Verificado en prod contra el propio
+`buildFedexDimensions`. **Nadie lo ha importado todavía en FSM** — ese es el único criterio de
+aceptación sin comprobar.
+
+## Manuales de procedimiento
+
+Biblioteca de **solo lectura**: `/manuals` (lista, buscador, filtro por categoría) y `/manuals/:slug`
+(documento). Son SOPs para el personal — cómo etiquetar una e-bike para FedEx, cómo pasar las medidas
+a Ship Manager —, **no** manuales de usuario de las bicis: esos tienen otra audiencia y colgarían de
+un SKU.
+
+**Son contenido estático, no filas.** Viven en `src/content/manuals/`, fuera de `features/`, porque
+los leen dos consumidores que no deben importarse entre sí: la vista (`src/features/manuals/`) y los
+botones "ver el procedimiento" de otras pantallas. Cada manual es un módulo TypeScript; `index.ts`
+tiene el registro (`MANUALS`), el tipo `ManualSlug`, `getManualBySlug`, `manualRoute` y
+`manualTitleFor`.
+
+Estuvieron un día en una tabla `manuals`. Esa tabla tenía **una fila, ninguna política de escritura y
+una migración como único escritor** — un archivo estático disfrazado de base de datos. Todo lo que
+había que defender ahí (un jsonb malformado llegando al renderer, contenido y código desplegándose
+desincronizados, un valor cambiado en Studio sin diff que revisar) deja de existir cuando es un
+módulo: `git push` lleva el manual y la pantalla que lo pinta en el mismo commit, y el compilador
+comprueba la forma. **Si algún día alguien del almacén tiene que editar un manual desde la app, esto
+vuelve a ser tabla** — la forma del contenido no cambiaría, solo de dónde se lee.
+
+**`ManualSlug` es la razón de que los enlaces no se rompan en silencio.** Es el union de los slugs que
+existen, así que un `ManualLinkButton` que apunte a un manual inexistente **no compila**. La versión
+anterior emparejaba por título contra una lista de grafías aceptadas y, al fallar, dejaba al operador
+en el índice sin decir nada. El slug es el contrato; el título se puede reescribir libremente.
+
+**`kind: 'exact' | 'example'` es la razón de que esto sea dato y no prosa.** En la hoja de papel
+original `UN 3481` y `61 lbs` se ven idénticos —mismo formulario de FedEx, misma captura—, pero el
+primero se teclea carácter por carácter siempre y el segundo era el peso de **un envío de muestra**
+que cambia con cada bici. Pintarlos igual es exactamente cómo alguien acaba declarando 61 lbs para
+una bici de 40.
+
+Código de color, explicado en la leyenda del propio documento: **verde** = teclear exacto,
+**punteado** = varía, **azul** = clic, **rojo** = aviso.
+
+**La compuerta del contenido son los tests**, ahora que no hay migración entre escribir un manual y
+publicarlo: `src/content/manuals/__tests__/manuals.test.ts` valida cada manual contra
+`manualContentSchema`, exige slugs únicos y url-safe, y rechaza un paso sin cuerpo ni campos ni
+acción — un paso que solo tiene título no le dice nada a nadie.
+
+**Los dos manuales actuales** se transcribieron de hojas impresas del ship station. Las capturas del
+FedEx Ship Manager **no** se reproducen: son fotos de una impresión arrugada, ilegibles en un móvil, y
+cada valor que contienen está como campo. Dos huecos conocidos, ambos anotados en el propio contenido:
+el paso 6 del manual de Hazmat remite a **dos vídeos que no están en PickD** (se mantiene, con aviso,
+porque quitarlo renumeraría un procedimiento que la gente ya se sabe), y el de dimensiones manda usar
+**Firefox en la máquina de FedEx sin motivo registrado** — si resulta ser "el otro navegador bloquea
+la descarga", eso pertenece al paso 2, porque una regla con motivo es la que la gente sigue.
 
 ## Base de datos
 
@@ -220,7 +277,7 @@ Usar "no está en un ROW" como **detector** de sospechosos es útil; usarlo como
 
 - Lo pone solo: trigger `tr_sku_metadata_dimensions_verified` (BEFORE UPDATE) lo marca `true` cuando **cambia el valor** de una dimensión, y `set_is_bike_on_insert` hace lo mismo en INSERT cuando el caller mandó las tres. Nunca lo pone en `false`.
 - **Por qué no un centinela** (guardar `55.0001` para reconocer el default): `ItemDetailView.executeSave` reescribe la fila entera de metadata en cada guardado, incluidas dimensiones que nadie tocó, y el form carga el valor guardado. O el operador ve `55.0001` en el campo, o se redondea al mostrar y el siguiente guardado por cualquier motivo — un cambio de cantidad, una nota — escribe `55` de vuelta y asciende en silencio un SKU sin medir. `PublicTagView` y `StockCountScreen` además interpolan el número crudo.
-- **Al 2026-08-20:** 172 verificados, 531 bikes non-S&D sobre defaults (313 SKUs / 6.417 unidades **con stock**).
+- **Al 2026-08-21:** 175 verificados, 529 bikes non-S&D sobre defaults.
 
 **Detector, no regla:** "está fuera de un ROW" sirve para _encontrar_ sospechosos — así apareció E47 —, pero nunca para clasificar. `01-` y `02-` son prefijos de bike legítimos (139 y 20 SKUs, con 107 y 13 que vivieron en un ROW), así que sacarlos del trigger para atrapar cinco pedales misclasificaría ~120 bikes reales. La decisión la tiene que tomar una persona en el registro, no un patrón.
 
