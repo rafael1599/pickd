@@ -40,7 +40,8 @@ describe('the manual library', () => {
     // the point of transcribing into a shape instead of into prose.
     for (const manual of MANUALS) {
       manual.content.steps.forEach((step, i) => {
-        const hasSubstance = !!step.body || step.fields.length > 0 || !!step.action;
+        const hasSubstance =
+          !!step.body || step.fields.length > 0 || !!step.action || step.figures.length > 0;
         expect(hasSubstance, `${manual.slug} step ${i + 1}: "${step.title}"`).toBe(true);
       });
     }
@@ -84,30 +85,33 @@ describe('the FedEx Hazmat manual', () => {
     expect(manual!.content.steps).toHaveLength(9);
   });
 
-  it('marks the values that must be typed character for character', () => {
-    // These are the ones that send the bikes back when they are wrong.
-    expect(valueOf('Offeror Name')).toMatchObject({ value: 'CHEMTREC', kind: 'exact' });
-    expect(valueOf('DOT Identification number')).toMatchObject({
-      value: 'UN 3481',
-      kind: 'exact',
-    });
-    expect(valueOf('Number and Type of Packaging')).toMatchObject({
-      value: '1 BOX',
-      kind: 'exact',
-    });
+  it('carries the values that send the bikes back when they are wrong', () => {
+    expect(valueOf('Offeror Name')?.value).toBe('CHEMTREC');
+    expect(valueOf('DOT Identification number')?.value).toBe('UN 3481');
+    expect(valueOf('Number and Type of Packaging')?.value).toBe('1 BOX');
   });
 
-  it('marks the weights as varying, so nobody types 61 lbs for every bike', () => {
-    const weights = fields.filter((f) => f.value === '61 lbs');
-    expect(weights).toHaveLength(2);
-    for (const weight of weights) expect(weight.kind).toBe('example');
+  it('describes the weights instead of reprinting one shipment’s number', () => {
+    // The paper original prints 61 lbs, which is one sample shipment. A field
+    // that shows a number invites copying it; a field that says what to enter
+    // does not.
+    expect(fields.some((f) => f.value.includes('61'))).toBe(false);
+    expect(valueOf('Weight')?.value).toContain('this bike');
+    expect(valueOf('Commodity Weight')?.value).toContain('the package');
   });
 
-  it('warns about the two stickers and about spelling', () => {
+  it('keeps the sticker rule global, since it belongs to no single step', () => {
     const warnings = manual!.content.warnings.join(' ');
     expect(warnings).toContain('UN3481');
     expect(warnings).toContain('Class 9');
-    expect(warnings.toLowerCase()).toContain('spelling');
+  });
+
+  it('warns about spelling on the step where it is typed, and only there', () => {
+    // It used to be said twice — once here and once again in the closing
+    // warnings. A rule repeated is a rule skimmed.
+    const packageStep = manual!.content.steps[3];
+    expect(packageStep.warning?.toLowerCase()).toContain('misspell');
+    expect(manual!.content.warnings.join(' ').toLowerCase()).not.toContain('spelling');
   });
 
   it('says out loud that the step 6 videos are not in PickD', () => {

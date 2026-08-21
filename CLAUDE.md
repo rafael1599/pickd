@@ -157,11 +157,17 @@ existen, así que un `ManualLinkButton` que apunte a un manual inexistente **no 
 anterior emparejaba por título contra una lista de grafías aceptadas y, al fallar, dejaba al operador
 en el índice sin decir nada. El slug es el contrato; el título se puede reescribir libremente.
 
-**`kind: 'exact' | 'example'` es la razón de que esto sea dato y no prosa.** En la hoja de papel
-original `UN 3481` y `61 lbs` se ven idénticos —mismo formulario de FedEx, misma captura—, pero el
-primero se teclea carácter por carácter siempre y el segundo era el peso de **un envío de muestra**
-que cambia con cada bici. Pintarlos igual es exactamente cómo alguien acaba declarando 61 lbs para
-una bici de 40.
+**Donde un paso tiene figura, la figura es la instrucción.** Ninguna tabla de campos repite lo que la
+ventana ya enseña, y cada regla se dice **una sola vez**, en el paso donde equivocarse cuesta algo. Un
+borrador anterior decía "siempre Replace" cinco veces —en los avisos, en los campos, en la marca, en
+el paso y en la referencia—: un procedimiento que nadie termina de leer no es más seguro.
+
+**Un campo dice qué va en la casilla**, así que su `value` es o el texto literal (`CHEMTREC`,
+`UN 3481`) o su descripción (`the weight of this bike`). Hubo un `kind: 'exact' | 'example'` para
+marcar los valores de muestra, porque la hoja de papel imprime el `61 lbs` de un envío concreto con la
+misma tipografía que las constantes de al lado. Etiquetar cada uno como "varies" llenaba la página de
+esa palabra y **seguía dejando un número ahí para copiarlo**. Describir el valor resuelve las dos
+cosas: nadie teclea "the weight of this bike" literalmente.
 
 **Un paso puede llevar una `figure`: una reproducción simplificada de la ventana del otro sistema**,
 con sus controles y las llamadas naranjas numeradas (`ManualFigure.tsx`). No son capturas — son datos

@@ -16,18 +16,9 @@ import { ManualFigure } from './ManualFigure.tsx';
 //   sky      something to click
 //   red      what goes wrong if you get it wrong
 
-const ExactValue: React.FC<{ field: ManualField }> = ({ field }) => (
+const Value: React.FC<{ field: ManualField }> = ({ field }) => (
   <span className="inline-block font-mono text-xs font-bold text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded-md px-2 py-1 break-words">
     {field.value}
-  </span>
-);
-
-const ExampleValue: React.FC<{ field: ManualField }> = ({ field }) => (
-  <span className="inline-flex items-center gap-1.5 flex-wrap">
-    <span className="inline-block font-mono text-xs text-slate-300 bg-surface border border-dashed border-slate-500/50 rounded-md px-2 py-1 break-words">
-      {field.value}
-    </span>
-    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">varies</span>
   </span>
 );
 
@@ -38,7 +29,7 @@ const FieldRow: React.FC<{ field: ManualField }> = ({ field }) => (
         {field.label}
       </span>
       <span className="min-w-0">
-        {field.kind === 'exact' ? <ExactValue field={field} /> : <ExampleValue field={field} />}
+        <Value field={field} />
       </span>
     </div>
     {field.note && <p className="text-[11px] text-muted mt-1.5 sm:ml-[11.75rem]">{field.note}</p>}
@@ -88,7 +79,9 @@ const StepBlock: React.FC<{ step: ManualStep; index: number; isLast: boolean }> 
         </div>
       )}
 
-      {step.figure && <ManualFigure figure={step.figure} />}
+      {step.figures.map((figure, i) => (
+        <ManualFigure key={i} figure={figure} />
+      ))}
 
       {step.action && (
         <div className="flex items-center gap-2 mt-3">
@@ -105,27 +98,6 @@ const StepBlock: React.FC<{ step: ManualStep; index: number; isLast: boolean }> 
         </div>
       )}
     </div>
-  </div>
-);
-
-const Legend: React.FC = () => (
-  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 bg-card border border-subtle rounded-xl px-3 py-2.5 mb-5">
-    <span className="flex items-center gap-1.5">
-      <span className="w-3 h-3 rounded bg-emerald-500/20 border border-emerald-500/40" />
-      <span className="text-[10px] font-bold uppercase tracking-wide text-muted">Type exactly</span>
-    </span>
-    <span className="flex items-center gap-1.5">
-      <span className="w-3 h-3 rounded bg-surface border border-dashed border-slate-500/60" />
-      <span className="text-[10px] font-bold uppercase tracking-wide text-muted">Varies</span>
-    </span>
-    <span className="flex items-center gap-1.5">
-      <span className="w-3 h-3 rounded bg-sky-500/20 border border-sky-500/40" />
-      <span className="text-[10px] font-bold uppercase tracking-wide text-muted">Click</span>
-    </span>
-    <span className="flex items-center gap-1.5">
-      <span className="w-3 h-3 rounded bg-red-500/20 border border-red-500/40" />
-      <span className="text-[10px] font-bold uppercase tracking-wide text-muted">Warning</span>
-    </span>
   </div>
 );
 
@@ -183,8 +155,6 @@ const ReferenceBlock: React.FC<{ section: ManualSection }> = ({ section }) => (
 );
 
 export const ManualDocument: React.FC<{ content: ManualContent }> = ({ content }) => {
-  const hasFields = content.steps.some((s) => s.fields.length > 0);
-
   if (
     content.steps.length === 0 &&
     content.warnings.length === 0 &&
@@ -198,9 +168,6 @@ export const ManualDocument: React.FC<{ content: ManualContent }> = ({ content }
       {content.intro && (
         <p className="text-sm text-content/85 leading-relaxed mb-5">{content.intro}</p>
       )}
-
-      {/* Only worth the space once there are values whose colour carries meaning. */}
-      {hasFields && <Legend />}
 
       <div>
         {content.steps.map((step, i) => (

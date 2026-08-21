@@ -12,18 +12,19 @@ import { z } from 'zod';
 /**
  * A value the operator has to put into another system.
  *
- * `exact` vs `example` is the whole reason this is structured data. On the
- * paper original both look identical -- typed into the same FedEx form, printed
- * in the same screenshot -- but `UN 3481` must be entered character for
- * character every single time, while the `61 lbs` beside it came from one
- * sample shipment and changes with every bike. Rendering them the same way is
- * how someone ends up declaring 61 lbs for a 40 lb bike.
+ * `value` says what goes in the box, so it is either the literal text
+ * (`CHEMTREC`, `UN 3481`) or a description of it (`the weight of this bike`).
+ *
+ * There used to be a `kind` marking a value as a sample, because the paper
+ * original prints one shipment's `61 lbs` in the same typeface as the constants
+ * around it. Tagging each one "varies" put that word all over the page and
+ * still left a specific number sitting there to be copied. Describing the value
+ * removes both problems: nobody types "the weight of this bike" literally.
  */
 export const manualFieldSchema = z.object({
   label: z.string().min(1),
   value: z.string().min(1),
-  kind: z.enum(['exact', 'example']).default('exact'),
-  /** Short qualifier shown under the value, e.g. where the number comes from. */
+  /** Only when the value alone would be ambiguous. Most fields need none. */
   note: z.string().optional(),
 });
 
@@ -142,8 +143,8 @@ export const manualStepSchema = z.object({
   action: z.string().optional(),
   /** Consequence of getting this step wrong. Rendered loud, on purpose. */
   warning: z.string().optional(),
-  /** A picture of the window this step happens in. */
-  figure: figureSchema.optional(),
+  /** Pictures of the windows this step happens in — the path, then the dialog. */
+  figures: z.array(figureSchema).default([]),
 });
 
 export const manualContentSchema = z.object({
@@ -188,10 +189,10 @@ export function manualSearchText(content: ManualContent): string {
     // Figures carry values that appear nowhere else -- the template name, the
     // menu path, the button. Leaving them out would make the search box quietly
     // wrong about content the reader can plainly see.
-    if (step.figure) {
-      parts.push(step.figure.title);
-      if (step.figure.caption) parts.push(step.figure.caption);
-      for (const row of step.figure.rows) {
+    for (const figure of step.figures) {
+      parts.push(figure.title);
+      if (figure.caption) parts.push(figure.caption);
+      for (const row of figure.rows) {
         switch (row.kind) {
           case 'menubar':
           case 'menu':
