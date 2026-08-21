@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { MANUALS, getManualBySlug, manualRoute, manualTitleFor, manualsByCategory } from '../index';
 import { manualContentSchema, manualSearchText } from '../types';
 
@@ -118,5 +120,30 @@ describe('the FedEx Hazmat manual', () => {
     expect(text).toContain('chemtrec');
     expect(text).toContain('3481');
     expect(text).toContain('op950');
+  });
+});
+
+describe('manuals stay out of the database', () => {
+  // Documented once and written anyway, twice, by different sessions working in
+  // this repo at the same time. A rule that only lives in CLAUDE.md is a rule
+  // that holds until someone does not read it, so this is the enforcement: a
+  // migration that reaches for a `manuals` table fails the suite instead of
+  // reaching production, where it would abort against a table that is gone.
+  //
+  // If manuals ever go back to being rows -- the trigger is somebody on the
+  // floor needing to edit one inside the app -- delete this test in the same
+  // commit that creates the table, deliberately.
+  const MIGRATIONS = join(process.cwd(), 'supabase', 'migrations');
+
+  it('has no migration that touches a manuals table', () => {
+    const offenders = readdirSync(MIGRATIONS)
+      .filter((file) => file.endsWith('.sql'))
+      .filter((file) => /\bmanuals\b/i.test(readFileSync(join(MIGRATIONS, file), 'utf8')));
+
+    expect(
+      offenders,
+      `Manuals are static content in src/content/manuals — they do not live in the database. ` +
+        `Move the content into a module there and delete the migration.`
+    ).toEqual([]);
   });
 });
