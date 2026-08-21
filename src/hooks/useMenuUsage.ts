@@ -13,6 +13,7 @@ import Kanban from 'lucide-react/dist/esm/icons/kanban';
 import History from 'lucide-react/dist/esm/icons/history';
 import FileSearch from 'lucide-react/dist/esm/icons/file-search';
 import Download from 'lucide-react/dist/esm/icons/download';
+import BookOpen from 'lucide-react/dist/esm/icons/book-open';
 
 export interface MenuItemSpec {
   id: string;
@@ -140,13 +141,22 @@ export const ALL_MENU_ITEMS: MenuItemSpec[] = [
     defaultRank: 12,
   },
   {
+    id: 'manuals',
+    label: 'Manuals',
+    path: '/manuals',
+    icon: BookOpen,
+    colorBg: 'bg-sky-500/10',
+    colorText: 'text-sky-500',
+    defaultRank: 13,
+  },
+  {
     id: 'export',
     label: 'Export',
     path: '/export',
     icon: Download,
     colorBg: 'bg-violet-500/10',
     colorText: 'text-violet-500',
-    defaultRank: 13,
+    defaultRank: 14,
   },
 ];
 

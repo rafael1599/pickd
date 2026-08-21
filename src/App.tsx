@@ -82,6 +82,15 @@ const ConsolidationScreen = lazyWithRetry(() =>
   }))
 );
 
+const ManualsScreen = lazyWithRetry(() =>
+  import('./features/manuals/ManualsScreen.tsx').then((m) => ({ default: m.ManualsScreen }))
+);
+const ManualDetailScreen = lazyWithRetry(() =>
+  import('./features/manuals/ManualDetailScreen.tsx').then((m) => ({
+    default: m.ManualDetailScreen,
+  }))
+);
+
 const WarehouseMapScreen = lazyWithRetry(() =>
   import('./features/warehouse-management/WarehouseMapScreen.tsx').then((m) => ({
     default: m.WarehouseMapScreen,
@@ -176,6 +185,8 @@ const AuthenticatedContent = () => {
                 path="/registrar-container"
                 element={isAdmin ? <RegistrarContainerScreen /> : <Navigate to="/" replace />}
               />
+              <Route path="/manuals" element={<ManualsScreen />} />
+              <Route path="/manuals/:slug" element={<ManualDetailScreen />} />
               <Route path="/warehouse-map" element={<WarehouseMapScreen />} />
               <Route path="/:orderNumber" element={<OrderParamRedirect />} />
               {/* Catch-all for unknown routes */}
