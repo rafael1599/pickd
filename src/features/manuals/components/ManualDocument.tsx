@@ -2,7 +2,13 @@ import React from 'react';
 import AlertTriangle from 'lucide-react/dist/esm/icons/alert-triangle';
 import MousePointerClick from 'lucide-react/dist/esm/icons/mouse-pointer-click';
 import Monitor from 'lucide-react/dist/esm/icons/monitor';
-import type { ManualContent, ManualField, ManualStep } from '../../../content/manuals/types.ts';
+import type {
+  ManualContent,
+  ManualField,
+  ManualSection,
+  ManualStep,
+} from '../../../content/manuals/types.ts';
+import { ManualFigure } from './ManualFigure.tsx';
 
 // The colour language, used consistently and explained by the legend:
 //   emerald  a value to type character for character
@@ -82,6 +88,8 @@ const StepBlock: React.FC<{ step: ManualStep; index: number; isLast: boolean }> 
         </div>
       )}
 
+      {step.figure && <ManualFigure figure={step.figure} />}
+
       {step.action && (
         <div className="flex items-center gap-2 mt-3">
           <MousePointerClick size={13} className="text-sky-400 shrink-0" />
@@ -121,10 +129,67 @@ const Legend: React.FC = () => (
   </div>
 );
 
+/**
+ * Reference: the rules and lookup tables at the back of a manual. Kept visually
+ * quieter than the steps and placed after them, because it is read when
+ * something has already gone wrong, not while walking the procedure.
+ */
+const ReferenceBlock: React.FC<{ section: ManualSection }> = ({ section }) => (
+  <div className="mb-5 last:mb-0">
+    <h3 className="text-sm font-bold text-content mb-2">{section.title}</h3>
+    {section.body && <p className="text-sm text-content/85 leading-relaxed mb-2">{section.body}</p>}
+    {section.bullets.length > 0 && (
+      <ul className="mb-2 pl-5 space-y-1.5 list-disc marker:text-muted">
+        {section.bullets.map((bullet, i) => (
+          <li key={i} className="text-sm text-content/85 leading-relaxed">
+            {bullet}
+          </li>
+        ))}
+      </ul>
+    )}
+    {section.table && (
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr>
+              {section.table.headers.map((header) => (
+                <th
+                  key={header}
+                  className="text-left text-[10px] font-black uppercase tracking-widest text-muted border-b border-subtle pb-1.5 pr-3 last:pr-0 align-bottom"
+                >
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {section.table.rows.map((cells, i) => (
+              <tr key={i}>
+                {cells.map((cell, j) => (
+                  <td
+                    key={j}
+                    className="text-xs text-content/85 leading-relaxed border-b border-subtle/60 py-2 pr-3 last:pr-0 align-top"
+                  >
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+);
+
 export const ManualDocument: React.FC<{ content: ManualContent }> = ({ content }) => {
   const hasFields = content.steps.some((s) => s.fields.length > 0);
 
-  if (content.steps.length === 0 && content.warnings.length === 0) {
+  if (
+    content.steps.length === 0 &&
+    content.warnings.length === 0 &&
+    content.reference.length === 0
+  ) {
     return <p className="text-sm text-muted italic">This manual has no steps recorded yet.</p>;
   }
 
@@ -142,6 +207,17 @@ export const ManualDocument: React.FC<{ content: ManualContent }> = ({ content }
           <StepBlock key={i} step={step} index={i} isLast={i === content.steps.length - 1} />
         ))}
       </div>
+
+      {content.reference.length > 0 && (
+        <div className="mt-6 pt-5 border-t border-subtle">
+          <p className="text-[10px] font-black uppercase tracking-widest text-muted mb-3">
+            Reference
+          </p>
+          {content.reference.map((section, i) => (
+            <ReferenceBlock key={i} section={section} />
+          ))}
+        </div>
+      )}
 
       {content.warnings.length > 0 && (
         <div className="mt-6 pt-5 border-t border-subtle space-y-2">

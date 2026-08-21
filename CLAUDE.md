@@ -163,6 +163,15 @@ primero se teclea carácter por carácter siempre y el segundo era el peso de **
 que cambia con cada bici. Pintarlos igual es exactamente cómo alguien acaba declarando 61 lbs para
 una bici de 40.
 
+**Un paso puede llevar una `figure`: una reproducción simplificada de la ventana del otro sistema**,
+con sus controles y las llamadas naranjas numeradas (`ManualFigure.tsx`). No son capturas — son datos
+validados por el mismo esquema, así que buscan, escalan en móvil y no envejecen como un PNG. El
+control marcado se **rodea**, no solo se describe, porque quien compara el papel con la pantalla busca
+la forma, no el nombre del campo. Es el único sitio de la app con superficie clara sobre root `dark`,
+así que **todo texto ahí lleva color explícito** (regla 10 de `ui-rules`); heredar es blanco sobre
+blanco. Los colores son los de FSM a propósito: es una foto del software ajeno, y se ve igual en modo
+oscuro porque el software se ve igual.
+
 Código de color, explicado en la leyenda del propio documento: **verde** = teclear exacto,
 **punteado** = varía, **azul** = clic, **rojo** = aviso.
 

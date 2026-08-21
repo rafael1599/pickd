@@ -1,122 +1,327 @@
 import type { ManualContent } from './types.ts';
 
 /**
- * Getting Pickd's measurements into Ship Manager's Dimensions table.
+ * Loading the box catalogue into Ship Manager's Dimensions database.
  *
- * It exists because the double-check screen asks for it by name: when a FedEx
- * order carries a carton Ship Manager has no dimensions for, that screen offers
- * the measurements form and then asks whether the import has been done, and
- * "Show me how" links here. That link is `slug: 'fedex-dimensions-import'` in
- * `./index.ts` — the slug is the contract, so the title above can be reworded
- * freely without sending anyone to the index.
+ * Transcribed from "FedEx Ship Manager — Dimensions Import", the quick guide
+ * kept at the station (FSM v3313, station 869191, Aug 2026). Its page 2 is a
+ * set of simplified pictures of each window, which is where the `figure` blocks
+ * below come from — an operator matches the picture against the screen rather
+ * than reading field names, so the marked control is ringed the same way.
  *
- * Three things this procedure exists to stop, all of them silent:
- *
- * 1. **Saving in Pickd is not shipping in FedEx.** The measurement lands in
- *    `sku_metadata` immediately and reaches Ship Manager only when someone runs
- *    this. Between the two, the rate is still wrong and nothing says so.
- * 2. **Replace current data empties the table first.** So a stale file does not
- *    merely fail to add the new boxes, it deletes every carton measured since it
- *    was downloaded. That is why step 3 says download it now, on that machine,
- *    and why the whole catalogue is in every export.
- * 3. **The counts are the only proof.** Ship Manager reports Processed and
- *    Errors; the export card already prints the number they have to match. A
- *    truncated import looks exactly like a successful one otherwise.
- *
- * Written from the export as built (see the FedEx section of CLAUDE.md) plus
- * the floor's own account of that machine: it is old, and Internet Explorer on
- * it cannot open Pickd at all. Step 2 says so rather than just naming Firefox,
- * because a rule with a reason is the one people follow — and somebody who only
- * reads "use Firefox" will try the browser already on screen first, watch Pickd
- * fail to load, and conclude the export is broken.
+ * ⚠️ One thing this manual does NOT reconcile: step 1 has the operator editing a
+ * master CSV by hand on the Desktop, while PickD has a Settings → Exports button
+ * that generates this exact file, in this exact format, from `sku_metadata`
+ * (see the FedEx section of CLAUDE.md). Both produce "the full catalogue", which
+ * is what Replace requires. Nobody has imported the PickD export into FSM yet,
+ * so the hand-edited master is still the procedure of record and is what is
+ * written here. Deciding which one wins is an operations call, not a
+ * transcription one — until it is made, the risk is two catalogues drifting
+ * apart with Replace overwriting whichever ran last.
  */
 export const fedexDimensionsImport: ManualContent = {
   intro:
-    'Measuring a box in Pickd does not tell FedEx anything. Ship Manager quotes from its own ' +
-    'Dimensions table, and that table only changes when someone imports the file below. ' +
-    'Until then FedEx is rating the old carton, or asking somebody to type one in by hand.',
+    'Ship Manager rates a shipment from the box sizes in its own Dimensions database. ' +
+    'Wrong or missing sizes are what cause FedEx re-measurement adjustment charges, and the ' +
+    'only way to change them in bulk is the import below.',
   steps: [
     {
-      title: 'Go to the FedEx machine',
+      title: 'Update the master CSV',
       body:
-        'Ship Manager imports a file from the computer it runs on, so the file has to be ' +
-        'downloaded on that computer. Downloading it on a tablet or at the office desk does not ' +
-        'put it anywhere Ship Manager can reach.',
-      fields: [],
-    },
-    {
-      title: 'Open Pickd in Firefox',
-      body:
-        'That machine is old and Internet Explorer cannot open Pickd on it — the page will not ' +
-        'load, which looks like Pickd being down rather than the browser being wrong. Use ' +
-        'Firefox, even if Explorer is the one already on screen.',
-      fields: [
-        { label: 'Address', value: 'pickd.pages.dev', kind: 'exact' },
-        {
-          label: 'Sign in as',
-          value: 'an admin account',
-          kind: 'example',
-          note: 'The Exports page does not open for anyone else.',
-        },
-      ],
-    },
-    {
-      title: 'Download the dimensions file',
-      body:
-        'Do it now rather than reusing one from earlier. The file always carries the whole ' +
-        'catalogue, so a fresh one is the only one that has every box measured since.',
-      screen: 'Pickd → Settings → Exports',
-      action: 'Export FedEx Dimensions (CSV)',
+        'On the Desktop, update the rows that changed and add any new models. Keep the format ' +
+        'exactly — the rules are at the end of this manual. Never delete a row unless that box ' +
+        'genuinely no longer ships.',
       fields: [
         {
-          label: 'File name',
-          value: 'DIMENSIONS_FEDEX_20260821.csv',
+          label: 'File',
+          value: 'C:\\Users\\FedEx\\Desktop\\MASTER-DIMENSIONS.csv',
           kind: 'example',
-          note: 'The date is the day you export.',
-        },
-        {
-          label: 'Records',
-          value: '122',
-          kind: 'example',
-          note: 'Pickd prints this number on the card. Write it down — Ship Manager has to report the same one.',
+          note: 'Wherever the master is kept on that machine.',
         },
       ],
       warning:
-        'If Settings has no Exports section, the account is not an admin. Get one that is. Do not ' +
-        'import an older file that happens to be on the desktop.',
+        'The file has to hold the FULL catalogue, not just what changed. Replace deletes ' +
+        'everything already in Dimensions and loads only what is in the file.',
     },
     {
-      title: 'Import it into Ship Manager',
-      screen: 'FedEx Ship Manager → Databases → File Maintenance → Import',
-      action: 'Import',
+      title: 'Close the day — only if anything shipped today',
+      body:
+        'Open the Close tab in the top bar and run both the FedEx Express and the Ground close. ' +
+        'If nothing was shipped today, skip this step entirely.',
+      screen: 'FedEx Ship Manager → Close',
+      fields: [],
+    },
+    {
+      title: 'Back up before importing',
+      body:
+        'Select the databases to save — at minimum Dimensions — Browse to the backup folder and ' +
+        'run it. This backup is what a restore uses if the import goes wrong.',
+      screen: 'Databases → File Maintenance → Backup',
+      fields: [],
+      figure: {
+        title: 'FedEx Ship Manager',
+        caption: 'Getting to File Maintenance — used again in steps 4 and 6',
+        rows: [
+          {
+            kind: 'menubar',
+            items: [
+              'File',
+              'Databases',
+              'Customize',
+              'Utilities',
+              'Integration',
+              'Inbound',
+              'fedex.com',
+              'Help',
+            ],
+            active: 'Databases',
+            mark: { n: 1, text: 'click the Databases menu' },
+          },
+          {
+            kind: 'menu',
+            items: ['Address Book', 'File Maintenance ►', '…'],
+            active: 'File Maintenance ►',
+            indent: 1,
+            mark: { n: 2, text: 'File Maintenance' },
+          },
+          {
+            kind: 'menu',
+            items: ['Import', 'Export', 'Templates', 'Backup', 'Restore'],
+            active: 'Backup',
+            indent: 2,
+            mark: { n: 3, text: 'pick Backup, Import or Restore' },
+          },
+        ],
+      },
+    },
+    {
+      title: 'Run the backup',
+      screen: 'File Maintenance – Backup',
       fields: [
         {
-          label: 'Template',
+          label: 'Destination',
+          value: 'D:\\FSM-Backups\\2026-08-20\\',
+          kind: 'example',
+          note: 'A folder for today. Keep the pre-import copy separate from the post-import one.',
+        },
+      ],
+      figure: {
+        title: 'File Maintenance - Backup',
+        rows: [
+          {
+            kind: 'choice',
+            options: [
+              { label: 'All databases', selected: false },
+              {
+                label: 'Backup selected databases',
+                selected: true,
+                mark: { n: 1, text: 'select, then tick at least ☑ Dimensions' },
+              },
+            ],
+          },
+          {
+            kind: 'field',
+            label: 'Destination',
+            value: 'D:\\FSM-Backups\\2026-08-20\\',
+            input: 'text',
+            button: 'Browse',
+            mark: { n: 2, text: 'backup folder' },
+          },
+          {
+            kind: 'buttons',
+            items: [{ label: 'OK', mark: { n: 3, text: 'run the backup' } }, { label: 'Cancel' }],
+          },
+        ],
+      },
+    },
+    {
+      title: 'Import the CSV',
+      body:
+        'Pick the saved template, browse to the master CSV, and set the import behavior before ' +
+        'running it. If .csv files do not show up in the Browse window, change its file-type ' +
+        'dropdown.',
+      screen: 'Databases → File Maintenance → Import',
+      fields: [
+        {
+          label: 'Template name',
           value: 'DIMENTIONS1',
           kind: 'exact',
           note: 'Spelled that way in Ship Manager. It is not a typo on this page.',
         },
-        { label: 'Mode', value: 'Replace current data', kind: 'exact' },
+        { label: 'Import behavior', value: 'Replace current data', kind: 'exact' },
+        { label: 'Auto-assign IDs', value: 'unchecked', kind: 'exact' },
       ],
+      figure: {
+        title: 'File Maintenance - Import',
+        rows: [
+          {
+            kind: 'field',
+            label: 'Template name',
+            value: 'DIMENTIONS1',
+            input: 'dropdown',
+            mark: { n: 1, text: 'pick the saved template' },
+          },
+          {
+            kind: 'field',
+            label: 'File name',
+            value: 'C:\\Users\\FedEx\\Desktop\\MASTER-DIMENSIONS.csv',
+            input: 'text',
+            button: 'Browse',
+            mark: { n: 2, text: 'your CSV' },
+          },
+          {
+            kind: 'choice',
+            label: 'Import behavior',
+            options: [
+              { label: 'Append to current data', selected: false },
+              {
+                label: 'Replace current data',
+                selected: true,
+                mark: { n: 3, text: 'ALWAYS this one' },
+              },
+              { label: 'Merge data', selected: false },
+            ],
+          },
+          {
+            kind: 'checkbox',
+            label: 'Auto-assign IDs',
+            checked: false,
+            mark: { text: 'leave unchecked' },
+          },
+          {
+            kind: 'readout',
+            label: 'Record count',
+            items: [
+              { label: 'Processed', value: '93' },
+              { label: 'Errors', value: '0' },
+            ],
+            mark: { n: 5, text: 'check after import' },
+          },
+          {
+            kind: 'buttons',
+            items: [{ label: 'OK', mark: { n: 4, text: 'run the import' } }, { label: 'Cancel' }],
+          },
+        ],
+      },
       warning:
-        'Replace current data empties the Dimensions table before it loads anything. That is safe ' +
-        'with the file you just downloaded, because it holds every carton. With any other file it ' +
-        'deletes the ones that file is missing.',
+        'Always Replace. In this version Merge only adds new IDs and silently skips the ones ' +
+        'that already exist, so edits never land; Append duplicates or errors on existing IDs.',
     },
     {
-      title: 'Check the two numbers before you close it',
+      title: 'Verify before you close the window',
       body:
-        'Ship Manager reports Processed and Errors when it finishes. Processed has to equal the ' +
-        'record count Pickd showed, and Errors has to be 0. If they do not match, the table is now ' +
-        'short by the difference — export again and import again before shipping.',
+        'Record count has to show Processed equal to the number of rows in the file, and Errors ' +
+        'at zero. Then open View Dimensions: "Number of items" must equal the same row count, ' +
+        'and spot-check one record you changed.',
+      screen: 'Databases → File Maintenance → View Dimensions',
       fields: [
         { label: 'Errors', value: '0', kind: 'exact' },
-        { label: 'Processed', value: 'the number Pickd showed', kind: 'example' },
+        {
+          label: 'Processed',
+          value: 'the number of rows in the CSV',
+          kind: 'example',
+        },
       ],
+      figure: {
+        title: 'View Dimensions',
+        rows: [
+          {
+            kind: 'table',
+            headers: ['Dimension ID', 'Description', 'Dimensions'],
+            rows: [
+              ['ALLEGROA315', "ALLEGRO A3 15''", '54x31x8'],
+              ['DEFCONE117', "DEFCON E1 17''", '56x34x12'],
+            ],
+          },
+          {
+            kind: 'field',
+            label: 'Number of items',
+            value: '93',
+            input: 'text',
+            mark: { text: 'must equal the rows in your CSV' },
+          },
+        ],
+      },
+    },
+    {
+      title: 'Back up again, and write it down',
+      body:
+        'Run the same backup as step 3 so the newest good state is saved, and record the run in ' +
+        'the change log.',
+      screen: 'Databases → File Maintenance → Backup',
+      fields: [],
+    },
+  ],
+  reference: [
+    {
+      title: 'If something went wrong',
+      body:
+        'Restore the pre-import backup: Databases → File Maintenance → Restore, pick the backup ' +
+        'taken in step 3, and set the mode to Replace. Append would mix the old data with the ' +
+        'new. Check View Dimensions afterwards.',
+      bullets: [],
+    },
+    {
+      title: 'How it works',
+      bullets: [
+        'Ship Manager stores box presets in its Dimensions database. When a tracking number is rated, the declared box size comes from there — wrong or missing sizes are what cause the re-measurement adjustment charges.',
+        'Bulk updates go in through Databases → File Maintenance → Import with the saved template DIMENTIONS1: field order Description, ID, Height, Length, Width; double-quote delimiter; comma separator; no header row.',
+        'Replace loads the file exactly as it is, which is why the master CSV must always be the complete catalogue.',
+      ],
+    },
+    {
+      title: 'Master CSV — format rules',
+      body: 'One line looks like this: "ALLEGRO A3 19\'\'-21\'\'","ALLEGROA31921","8","55","31"',
+      bullets: [
+        "Grouping: sizes of the same model that ship in an identical carton go in ONE record, with the sizes listed in the description (e.g. DXT A3 15''-19''). Never combine different models.",
+        'Measuring: if several cartons of a SKU are on hand, measure more than one and record the largest, rounded up to whole inches. Carriers bill against the biggest measurement.',
+        'Save as plain-text .csv — Notepad, or "CSV" in Excel. Not .xlsx.',
+      ],
+      table: {
+        headers: ['#', 'Field', 'Rule'],
+        rows: [
+          ['1', 'Description', "Max 140 chars. Never use the \" character — write inches as ''"],
+          [
+            '2',
+            'Dimension ID',
+            'Max 30 chars, uppercase letters and numbers, unique. Model + size(s), e.g. DEFCONE117, RENEGADES154',
+          ],
+          ['3', 'Height', 'Thinnest dimension (typically 8–13), whole inches, max 3 digits'],
+          ['4', 'Length', 'Longest dimension, whole inches, max 3 digits'],
+          ['5', 'Width', 'Middle dimension (typically ~30), whole inches, max 3 digits'],
+        ],
+      },
+    },
+    {
+      title: 'New models arriving in containers',
+      body:
+        'When a container brings a model that is not in the system: measure the carton on the ' +
+        'floor, add the row to the master CSV, and run this procedure. Do it as the stock ' +
+        'arrives — shipping with missing or default dimensions is what triggers the charges.',
+      bullets: [],
+    },
+    {
+      title: 'Troubleshooting',
+      bullets: [],
+      table: {
+        headers: ['Symptom', 'Fix'],
+        rows: [
+          [
+            'Errors > 0 on import',
+            'A format problem: missing quote, a " inside a description, wrong field order, a dimension over 3 characters, or a duplicate ID. Fix the CSV and run it again — Replace is safe to repeat.',
+          ],
+          ['A change did not apply', 'The import ran with Merge. Import again with Replace.'],
+          ['CSV not visible in Browse', 'Change the file-type dropdown in the Browse window.'],
+          [
+            'Bad data loaded, need to undo',
+            'Databases → File Maintenance → Restore → pick the pre-import backup → mode Replace. Verify View Dimensions after.',
+          ],
+        ],
+      },
     },
   ],
   warnings: [
-    'A measurement saved in Pickd has not reached FedEx. Until this import runs, Ship Manager is quoting the old carton or none at all.',
-    'Never import a file downloaded earlier. Replace current data will delete every box measured after it.',
+    'Always import with Replace current data. Merge does not update existing records.',
+    'The CSV must always contain the full catalogue — every dimension, not only the changed ones.',
   ],
 };

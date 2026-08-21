@@ -125,6 +125,7 @@ export const fedexHazmatEbikes: ManualContent = {
       ],
     },
   ],
+  reference: [],
   warnings: [
     'Every box needs both stickers: the black & white UN3481 label and the Class 9 Freight sticker. Do not cover the serial numbers with them.',
     'Check the spelling on every document and every label. This one matters more than it sounds — anything wrong comes back to us.',
