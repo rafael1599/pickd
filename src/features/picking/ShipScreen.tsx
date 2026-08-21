@@ -683,20 +683,31 @@ export const ShipScreen = () => {
   // Electric bikes on this order. Same `filteredItems` the counts above use, so
   // it follows the active sub-order filter: an operator shipping only the half
   // of a combined order that has no e-bike in it should not be told to label
-  // one. `skuMeta` is what keeps the E2 diagnostic tool out — see
-  // `electricBikes.ts` for why nothing else in the row can be trusted for that.
+  // one.
+  //
+  // `weightsReady` gates it for the same reason `notesSettled` gates the
+  // Daylight reminder below: until sku_metadata lands, `is_bike` is undefined
+  // for every item, and `isElectricBikeItem` treats undefined as "keep warning"
+  // — which is right for a caller that will never know, and wrong here, where
+  // knowing is one fetch away. Ungated, the first frames of every order listed
+  // `99-3604 TOOL HYENA DIAGNOSTIC (E2)` as a fourth e-bike: the service tool
+  // for the E2, named like one, and the exact row `is_bike === false` exists to
+  // exclude. Naming a carton that must not get a lithium label is worse than
+  // showing the banner a beat later.
   const electricBikeLines = useMemo(
     () =>
-      collectElectricBikeLines(
-        filteredItems.map((item: PickingListItem) => ({
-          sku: item.sku,
-          item_name: item.item_name,
-          isBike: skuMeta[item.sku]?.is_bike,
-          units: item.pickingQty || 0,
-        })),
-        (item) => item.units
-      ),
-    [filteredItems, skuMeta]
+      weightsReady
+        ? collectElectricBikeLines(
+            filteredItems.map((item: PickingListItem) => ({
+              sku: item.sku,
+              item_name: item.item_name,
+              isBike: skuMeta[item.sku]?.is_bike,
+              units: item.pickingQty || 0,
+            })),
+            (item) => item.units
+          )
+        : [],
+    [filteredItems, skuMeta, weightsReady]
   );
 
   // Effective counts: manual override takes priority over auto-calculated,
