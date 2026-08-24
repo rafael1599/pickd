@@ -58,7 +58,7 @@ export interface FedexDimensionRecord {
  * copies of this rule would mean the export quietly drops a SKU nobody on the
  * floor was ever told about.
  */
-export type ExceptionReason = FedexCartonGap;
+export type ExceptionReason = FedexCartonGap | 'dimension_conflict';
 
 export interface FedexDimensionException {
   sku: string;
@@ -68,6 +68,7 @@ export interface FedexDimensionException {
   width_in: number | null;
   height_in: number | null;
   reason: ExceptionReason;
+  location?: string | null;
 }
 
 export interface FedexDimensionsResult {
@@ -169,11 +170,16 @@ export function buildFedexDimensions(rows: DimensionSourceRow[]): FedexDimension
     length: number;
     width: number;
     height: number;
+    minL: number;
+    minW: number;
+    minH: number;
     skus: string[];
   };
   const bySize = new Map<string, SizeBucket>();
+  const rowBySku = new Map<string, DimensionSourceRow>();
 
   for (const row of rows) {
+    rowBySku.set(row.sku, row);
     // The gate itself is shared with DoubleCheckView's pre-ship warning; see
     // utils/fedexCarton for the reasons and the axis swap they both apply.
     const gap = fedexCartonGap(row);
@@ -191,12 +197,25 @@ export function buildFedexDimensions(rows: DimensionSourceRow[]): FedexDimension
     const key = `${model}${KEY_SEP}${size ?? ''}`;
     const bucket = bySize.get(key);
     if (!bucket) {
-      bySize.set(key, { model, size, length, width, height, skus: [row.sku] });
+      bySize.set(key, { model, size, length, width, height, minL: length, minW: width, minH: height, skus: [row.sku] });
     } else {
       bucket.length = Math.max(bucket.length, length);
       bucket.width = Math.max(bucket.width, width);
       bucket.height = Math.max(bucket.height, height);
+      bucket.minL = Math.min(bucket.minL, length);
+      bucket.minW = Math.min(bucket.minW, width);
+      bucket.minH = Math.min(bucket.minH, height);
       bucket.skus.push(row.sku);
+    }
+  }
+
+  for (const [key, b] of bySize.entries()) {
+    if (b.length - b.minL > 1 || b.width - b.minW > 1 || b.height - b.minH > 1) {
+      for (const sku of b.skus) {
+        const row = rowBySku.get(sku);
+        if (row) except(row, 'dimension_conflict');
+      }
+      bySize.delete(key);
     }
   }
 
@@ -228,7 +247,7 @@ export function buildFedexDimensions(rows: DimensionSourceRow[]): FedexDimension
     }
   }
 
-  const records: FedexDimensionRecord[] = [...byBox.values()].map((b) => {
+  const initialRecords: FedexDimensionRecord[] = [...byBox.values()].map((b) => {
     const sizes = [...b.sizes].sort((x, y) => sizeOrder(x) - sizeOrder(y) || x.localeCompare(y));
     // A span is only honest when the sizes read as one run. "L14''-L16''" over
     // L14, 15, L16 hides the plain 15 sitting between two low-step frames, so a
@@ -258,6 +277,44 @@ export function buildFedexDimensions(rows: DimensionSourceRow[]): FedexDimension
       skus: [...b.skus].sort(),
     };
   });
+
+  const byId = new Map<string, FedexDimensionRecord[]>();
+  for (const r of initialRecords) {
+    const group = byId.get(r.id) ?? [];
+    group.push(r);
+    byId.set(r.id, group);
+  }
+
+  const records: FedexDimensionRecord[] = [];
+
+  for (const group of byId.values()) {
+    if (group.length === 1) {
+      records.push(group[0]);
+    } else {
+      const minL = Math.min(...group.map((r) => r.length));
+      const maxL = Math.max(...group.map((r) => r.length));
+      const minW = Math.min(...group.map((r) => r.width));
+      const maxW = Math.max(...group.map((r) => r.width));
+      const minH = Math.min(...group.map((r) => r.height));
+      const maxH = Math.max(...group.map((r) => r.height));
+
+      if (maxL - minL <= 1 && maxW - minW <= 1 && maxH - minH <= 1) {
+        const merged = { ...group[0] };
+        merged.length = maxL;
+        merged.width = maxW;
+        merged.height = maxH;
+        merged.skus = [...new Set(group.flatMap((r) => r.skus))].sort();
+        records.push(merged);
+      } else {
+        for (const r of group) {
+          for (const sku of r.skus) {
+            const row = rowBySku.get(sku);
+            if (row) except(row, 'dimension_conflict');
+          }
+        }
+      }
+    }
+  }
 
   // Deterministic order, so unchanged data produces a byte-identical file.
   records.sort((a, b) => a.description.localeCompare(b.description) || a.id.localeCompare(b.id));
@@ -290,7 +347,10 @@ export function toFsmCsv(records: FedexDimensionRecord[]): string {
 }
 
 /** Why a SKU was held back, in the words the exceptions report uses. */
-export const EXCEPTION_LABELS = FEDEX_CARTON_GAP_LABELS;
+export const EXCEPTION_LABELS: Record<ExceptionReason, string> = {
+  ...FEDEX_CARTON_GAP_LABELS,
+  dimension_conflict: 'Duplicate ID with different dimensions',
+};
 
 /**
  * The companion file. Unlike the FSM export this one is for a person, so it

@@ -80,6 +80,22 @@ export function useFedexDimensionsExport() {
         throw new Error('No verified dimensions to export — nothing was downloaded.');
       }
 
+      const exceptionSkus = exceptions.map((e) => e.sku);
+      if (exceptionSkus.length > 0) {
+        const { data: invData } = await supabase
+          .from('inventory')
+          .select('sku, location')
+          .in('sku', exceptionSkus);
+        
+        if (invData) {
+          for (const ex of exceptions) {
+            const matches = invData.filter((i) => i.sku === ex.sku && i.location);
+            // Grab the first valid location we find for this SKU
+            ex.location = matches[0]?.location ?? null;
+          }
+        }
+      }
+
       const csv = toFsmCsv(records);
       const filename = fedexDimensionsFilename();
       downloadCsv(csv, filename);
