@@ -118,7 +118,25 @@ export const PickingCartDrawer: React.FC = () => {
   // no-network) fall back to the local browser cache. The DB column is the
   // cross-user source of truth so a Park Order on one device shows up to
   // the next picker.
+  //
+  // Which list holds edits made on THIS device that the column has not been
+  // told about yet. It is the only thing the persist effect below may write,
+  // and the one thing a hydration must not overwrite. Hydration used to land
+  // in checkedItems like any other change and get mirrored straight back to
+  // the DB: on re-open the pre-hydration empty Set was scheduled for writing,
+  // the effect cleanup flushed it the moment the first read came back, the
+  // second read (after lockForCheck) picked that [] up as truth, and a parked
+  // order came up with every check gone.
+  const dirtyListIdRef = useRef<string | null>(null);
+
   const hydrateVerifiedItems = useCallback(async (listId: string) => {
+    // What the DB says becomes local state only if nothing was toggled here
+    // while the read was in flight — a toggle is newer than what it read.
+    const apply = (keys: string[], cache: boolean) => {
+      if (dirtyListIdRef.current === listId) return;
+      setCheckedItems(new Set(keys));
+      if (cache) localStorage.setItem(`double_check_progress_${listId}`, JSON.stringify(keys));
+    };
     try {
       // Column was added in migration 20260505140000 (idea-105 phase 1).
       // Supabase types haven't been regenerated yet — cast through unknown.
@@ -128,9 +146,7 @@ export const PickingCartDrawer: React.FC = () => {
         .eq('id', listId)
         .maybeSingle()) as unknown as { data: { verified_item_keys: string[] | null } | null };
       if (data && Array.isArray(data.verified_item_keys)) {
-        const dbKeys = data.verified_item_keys as string[];
-        setCheckedItems(new Set(dbKeys));
-        localStorage.setItem(`double_check_progress_${listId}`, JSON.stringify(dbKeys));
+        apply(data.verified_item_keys as string[], true);
         return;
       }
     } catch {
@@ -139,13 +155,13 @@ export const PickingCartDrawer: React.FC = () => {
     const saved = localStorage.getItem(`double_check_progress_${listId}`);
     if (saved) {
       try {
-        setCheckedItems(new Set(JSON.parse(saved)));
+        apply(JSON.parse(saved), false);
         return;
       } catch {
         /* corrupt, reset */
       }
     }
-    setCheckedItems(new Set());
+    apply([], false);
   }, []);
 
   // 0. Restore checked items on load if in double-check session.
@@ -153,6 +169,7 @@ export const PickingCartDrawer: React.FC = () => {
     if (sessionMode === 'double_checking' && activeListId) {
       void hydrateVerifiedItems(activeListId);
     } else {
+      dirtyListIdRef.current = null;
       setCheckedItems(new Set());
     }
   }, [sessionMode, activeListId, hydrateVerifiedItems]);
@@ -348,6 +365,10 @@ export const PickingCartDrawer: React.FC = () => {
 
   useEffect(() => {
     if (sessionMode !== 'double_checking' || !activeListId) return;
+    // Only edits made here go out (see dirtyListIdRef). Returning before the
+    // cleanup is registered also means the cleanup below can only ever flush
+    // keys the operator actually changed, for the list they belong to.
+    if (dirtyListIdRef.current !== activeListId) return;
     const keys = Array.from(checkedItems);
     localStorage.setItem(`double_check_progress_${activeListId}`, JSON.stringify(keys));
 
@@ -428,6 +449,7 @@ export const PickingCartDrawer: React.FC = () => {
 
   const toggleCheck = (item: PickingItem, palletId: number | string) => {
     const key = `${palletId}-${item.sku}-${item.location}`;
+    dirtyListIdRef.current = activeListId ?? null;
 
     // Instant local toggle so the UI never feels laggy. The mutation
     // runs in the background and only rolls this back if all retries
@@ -452,6 +474,7 @@ export const PickingCartDrawer: React.FC = () => {
   };
 
   const handleSelectAll = (keys?: string[]) => {
+    dirtyListIdRef.current = activeListId ?? null;
     if (keys) {
       setCheckedItems(new Set(keys));
       return;
