@@ -1,6 +1,7 @@
 import type { ManualContent } from './types.ts';
 import { fedexHazmatEbikes } from './fedexHazmatEbikes.ts';
 import { fedexDimensionsImport } from './fedexDimensionsImport.ts';
+import { pickdExportFedexCatalogue } from './pickdExportFedexCatalogue.ts';
 
 /**
  * The manual library. Static content that ships with the build.
@@ -33,6 +34,14 @@ export interface Manual {
 
 export const MANUALS = [
   {
+    slug: 'pickd-export-fedex-catalogue',
+    title: 'PickD to FedEx (Paso 1: Exportar)',
+    category: 'Shipping',
+    summary: 'Descargar el catálogo maestro actualizado de medidas de cajas desde PickD.',
+    order: 15,
+    content: pickdExportFedexCatalogue,
+  },
+  {
     slug: 'fedex-hazmat-ebikes',
     title: 'FedEx Hazmat labels — E-Bikes',
     category: 'Shipping',
@@ -42,7 +51,7 @@ export const MANUALS = [
   },
   {
     slug: 'fedex-dimensions-import',
-    title: 'FedEx dimensions import',
+    title: 'FedEx dimensions import (Paso 2: Importar)',
     category: 'Shipping',
     summary: 'Moving the carton measurements from Pickd into Ship Manager, on the FedEx machine.',
     order: 20,

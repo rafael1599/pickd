@@ -136,6 +136,8 @@ export const manualSectionSchema = z.object({
 export const manualStepSchema = z.object({
   title: z.string().min(1),
   body: z.string().optional(),
+  imageUrl: z.string().optional(),
+  videoUrl: z.string().optional(),
   /** Where in the other system this happens, e.g. "Shipment details → Shortcuts". */
   screen: z.string().optional(),
   fields: z.array(manualFieldSchema).default([]),
@@ -147,6 +149,11 @@ export const manualStepSchema = z.object({
   figures: z.array(figureSchema).default([]),
 });
 
+export const faqItemSchema = z.object({
+  question: z.string().min(1),
+  answer: z.string().min(1),
+});
+
 export const manualContentSchema = z.object({
   intro: z.string().optional(),
   steps: z.array(manualStepSchema).default([]),
@@ -154,6 +161,7 @@ export const manualContentSchema = z.object({
   warnings: z.array(z.string()).default([]),
   /** Rules and lookup tables that are read, not walked through. */
   reference: z.array(manualSectionSchema).default([]),
+  faqs: z.array(faqItemSchema).default([]),
 });
 
 export type FigureMark = z.infer<typeof figureMarkSchema>;
@@ -162,10 +170,11 @@ export type Figure = z.infer<typeof figureSchema>;
 export type ManualSection = z.infer<typeof manualSectionSchema>;
 export type ManualField = z.infer<typeof manualFieldSchema>;
 export type ManualStep = z.infer<typeof manualStepSchema>;
+export type FaqItem = z.infer<typeof faqItemSchema>;
 export type ManualContent = z.infer<typeof manualContentSchema>;
 
 /** Empty but valid — the neutral value for a manual with nothing written yet. */
-export const EMPTY_CONTENT: ManualContent = { steps: [], warnings: [], reference: [] };
+export const EMPTY_CONTENT: ManualContent = { steps: [], warnings: [], reference: [], faqs: [] };
 
 /**
  * Everything a reader can see, flattened for search. A procedure is found by a
@@ -228,6 +237,12 @@ export function manualSearchText(content: ManualContent): string {
     if (section.body) parts.push(section.body);
     parts.push(...section.bullets);
     if (section.table) parts.push(...section.table.headers, ...section.table.rows.flat());
+  }
+
+  if (content.faqs) {
+    for (const faq of content.faqs) {
+      parts.push(faq.question, faq.answer);
+    }
   }
 
   parts.push(...content.warnings);

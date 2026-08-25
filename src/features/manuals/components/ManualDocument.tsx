@@ -7,6 +7,7 @@ import type {
   ManualField,
   ManualSection,
   ManualStep,
+  FaqItem,
 } from '../../../content/manuals/types.ts';
 import { ManualFigure } from './ManualFigure.tsx';
 
@@ -70,6 +71,25 @@ const StepBlock: React.FC<{ step: ManualStep; index: number; isLast: boolean }> 
       )}
 
       {step.body && <p className="text-sm text-content/85 leading-relaxed mt-2">{step.body}</p>}
+
+      {step.imageUrl && (
+        <div className="mt-3 overflow-hidden rounded-xl border border-subtle">
+          <img src={step.imageUrl} alt={step.title} className="w-full object-cover" />
+        </div>
+      )}
+
+      {step.videoUrl && (
+        <div className="mt-3 overflow-hidden rounded-xl border border-subtle bg-black">
+          <video
+            src={step.videoUrl}
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full object-cover"
+          />
+        </div>
+      )}
 
       {step.fields.length > 0 && (
         <div className="mt-3 bg-card border border-subtle rounded-xl px-3 py-2">
@@ -154,11 +174,19 @@ const ReferenceBlock: React.FC<{ section: ManualSection }> = ({ section }) => (
   </div>
 );
 
+const FaqBlock: React.FC<{ faq: FaqItem }> = ({ faq }) => (
+  <div className="mb-4 last:mb-0">
+    <h4 className="text-sm font-bold text-content mb-1">{faq.question}</h4>
+    <p className="text-sm text-content/85 leading-relaxed">{faq.answer}</p>
+  </div>
+);
+
 export const ManualDocument: React.FC<{ content: ManualContent }> = ({ content }) => {
   if (
     content.steps.length === 0 &&
     content.warnings.length === 0 &&
-    content.reference.length === 0
+    content.reference.length === 0 &&
+    (!content.faqs || content.faqs.length === 0)
   ) {
     return <p className="text-sm text-muted italic">This manual has no steps recorded yet.</p>;
   }
@@ -174,6 +202,17 @@ export const ManualDocument: React.FC<{ content: ManualContent }> = ({ content }
           <StepBlock key={i} step={step} index={i} isLast={i === content.steps.length - 1} />
         ))}
       </div>
+
+      {content.faqs && content.faqs.length > 0 && (
+        <div className="mt-6 pt-5 border-t border-subtle">
+          <p className="text-[10px] font-black uppercase tracking-widest text-muted mb-3">
+            Preguntas Frecuentes
+          </p>
+          {content.faqs.map((faq, i) => (
+            <FaqBlock key={i} faq={faq} />
+          ))}
+        </div>
+      )}
 
       {content.reference.length > 0 && (
         <div className="mt-6 pt-5 border-t border-subtle">
