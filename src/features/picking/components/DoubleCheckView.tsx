@@ -924,48 +924,40 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const longPressTriggered = useRef(false);
 
   const handlePointerDown = useCallback(
-    (item: PickingItem) => {
+    (item: PickingItem, location: string | null) => {
       longPressTriggered.current = false;
-      longPressTimer.current = setTimeout(async () => {
+      longPressTimer.current = setTimeout(() => {
         longPressTriggered.current = true;
         if (navigator.vibrate) navigator.vibrate(100);
 
-        // Fetch directly from DB — inventoryData is paginated and filtered
-        // (LUDLOW-only, ROW locations only, max 50 items) so items in parts
-        // bins or beyond page 1 won't be found there.
-        const { data } = await supabase
-          .from('inventory')
-          .select('*, sku_metadata(*)')
-          .eq('sku', item.sku)
-          .order('quantity', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (data) {
-          const itemData = data as unknown as InventoryItemWithMetadata;
+        // Every row this SKU is stocked in, the order's own address marked —
+        // not one row chosen by a rule. A SKU stocked in two places
+        // (03-4066BK: ROW 6 A ×4, ROW 41 F ×78) had the card saying ROW 6 and
+        // the detail opening ROW 41, and the picker read that as the card
+        // being wrong. Editing is a second, deliberate tap on the row to
+        // change; the modal replaces itself with the editor (single-slot
+        // Modal Manager), and the editor's callbacks go through the ref so
+        // they stay fresh if this view unmounts underneath it.
+        const editRow = (row: InventoryItemWithMetadata) =>
           openModal({
             type: 'item-detail',
-            item: itemData,
+            item: row,
             mode: 'edit',
-            screenType: itemData.warehouse,
+            screenType: row.warehouse,
             onSave: async (formData) => {
-              await editCallbacksRef.current.updateItem(itemData, formData);
+              await editCallbacksRef.current.updateItem(row, formData);
               await editCallbacksRef.current.fetchDistributions();
-              toast.success(`Updated ${itemData.sku}`);
+              toast.success(`Updated ${row.sku}`);
             },
             onDelete: () => {
-              editCallbacksRef.current.deleteItem(
-                itemData.warehouse,
-                itemData.sku,
-                itemData.location
-              );
-              toast.success(`Deleted ${itemData.sku}`);
+              editCallbacksRef.current.deleteItem(row.warehouse, row.sku, row.location);
+              toast.success(`Deleted ${row.sku}`);
             },
           });
-        } else {
-          // Not in the DB inventory (typically an `sku_not_found` / UNREG
-          // item the picker found on the floor). Open New Item pre-filled with
-          // what the order already knows so they only enter the missing bits.
+        // Not in the DB inventory (typically an `sku_not_found` / UNREG item
+        // the picker found on the floor). Open New Item pre-filled with what
+        // the order already knows so they only enter the missing bits.
+        const registerSku = () => {
           const prefill = {
             sku: item.sku,
             item_name: item.item_name ?? '',
@@ -982,7 +974,16 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
               toast.success(`Registered ${formData.sku}`);
             },
           });
-        }
+        };
+        openModal({
+          type: 'sku-locations',
+          sku: item.sku,
+          itemName: item.item_name ?? null,
+          pickLocation: location,
+          pickWarehouse: item.warehouse ?? null,
+          onEdit: editRow,
+          onRegister: registerSku,
+        });
       }, 500);
     },
     [openModal]
@@ -2277,7 +2278,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                         </div>
                       )}
                       <div
-                        onPointerDown={() => handlePointerDown(item)}
+                        onPointerDown={() => handlePointerDown(item, displayLocation)}
                         onPointerUp={handlePointerUp}
                         onPointerCancel={handlePointerUp}
                         onClick={() => {

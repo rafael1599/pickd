@@ -17,6 +17,7 @@ import { ItemDetailView } from '../features/inventory/components/ItemDetailView'
 import { PickingSummaryModalById } from '../components/orders/PickingSummaryModalById';
 import { NotificationHistoryModal } from '../components/ui/NotificationHistoryModal';
 import { OrderNotesModal } from '../features/picking/components/OrderNotesModal';
+import { SkuLocationsModal } from '../features/inventory/components/SkuLocationsModal';
 import type { InventoryItemWithMetadata, InventoryItemInput } from '../schemas/inventory.schema';
 
 type ItemDetailSavePayload = InventoryItemInput & {
@@ -37,6 +38,16 @@ export type ModalState =
     }
   | { type: 'picking-summary'; listId: string }
   | { type: 'notification-history' }
+  | {
+      /** Every row a SKU is stocked in, the order's own address marked. */
+      type: 'sku-locations';
+      sku: string;
+      itemName?: string | null;
+      pickLocation?: string | null;
+      pickWarehouse?: string | null;
+      onEdit: (row: InventoryItemWithMetadata) => void;
+      onRegister: () => void;
+    }
   | {
       type: 'order-notes';
       listId: string | string[];
@@ -73,6 +84,18 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
       )}
 
       {modal?.type === 'notification-history' && <NotificationHistoryModal onClose={close} />}
+
+      {modal?.type === 'sku-locations' && (
+        <SkuLocationsModal
+          sku={modal.sku}
+          itemName={modal.itemName}
+          pickLocation={modal.pickLocation}
+          pickWarehouse={modal.pickWarehouse}
+          onEdit={modal.onEdit}
+          onRegister={modal.onRegister}
+          onClose={close}
+        />
+      )}
 
       {modal?.type === 'order-notes' && (
         <OrderNotesModal
