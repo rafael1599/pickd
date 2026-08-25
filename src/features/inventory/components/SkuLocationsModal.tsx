@@ -2,13 +2,14 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import X from 'lucide-react/dist/esm/icons/x';
 import Pencil from 'lucide-react/dist/esm/icons/pencil';
-import Plus from 'lucide-react/dist/esm/icons/plus';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import { ModalOverlay } from '../../../components/ui/ModalOverlay';
+import { RegisterTypeSelector } from '../../../components/ui/RegisterTypeSelector';
 import { supabase } from '../../../lib/supabase';
 import type { InventoryItemWithMetadata } from '../../../schemas/inventory.schema';
 import { DistributionGlyph } from './DistributionJengaViz';
 import { arrangeSkuLocations } from '../utils/skuLocations';
+import { buildNewSkuPrefill } from '../utils/newSkuPrefill';
 
 export interface SkuLocationsModalProps {
   sku: string;
@@ -19,8 +20,12 @@ export interface SkuLocationsModalProps {
   pickWarehouse?: string | null;
   /** Open the editor on one specific row. */
   onEdit: (row: InventoryItemWithMetadata) => void;
-  /** The SKU is not in inventory at all: open New Item. */
-  onRegister: () => void;
+  /**
+   * The SKU is not in inventory at all and the operator chose bike or part:
+   * open New Item on this prefilled row (name, model/size/colour, the type's
+   * default box) so only location and quantity are left to type.
+   */
+  onRegister: (prefill: InventoryItemWithMetadata) => void;
   onClose: () => void;
 }
 
@@ -97,16 +102,19 @@ export const SkuLocationsModal: React.FC<SkuLocationsModalProps> = ({
         ) : isError ? (
           <p className="text-center text-sm text-red-400 py-8">Couldn&apos;t load locations.</p>
         ) : rows.length === 0 ? (
-          <div className="text-center py-8 space-y-3">
-            <p className="text-sm text-muted">Not in inventory.</p>
-            <button
-              type="button"
-              onClick={onRegister}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 text-black text-xs font-black uppercase tracking-wider active:scale-95 transition-transform"
-            >
-              <Plus size={14} strokeWidth={3} />
-              Register {sku}
-            </button>
+          // The type question is asked here, where the operator already is,
+          // instead of behind another full-screen gate inside the form.
+          // Choosing is registering: the form opens with everything the order
+          // knew filled in, and the type sets the default weight and box.
+          <div className="py-3">
+            <RegisterTypeSelector
+              value={null}
+              onChange={(kind) =>
+                onRegister(buildNewSkuPrefill({ sku, itemName, warehouse: pickWarehouse }, kind))
+              }
+              title="Not in PickD yet — register it as"
+              subtitle="Name, model and defaults are filled in from the order. You only add where it is and how many."
+            />
           </div>
         ) : (
           <>

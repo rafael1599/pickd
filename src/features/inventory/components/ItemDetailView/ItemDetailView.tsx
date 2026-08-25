@@ -215,19 +215,28 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         setTypeChoice(initialData.sku_metadata?.is_bike === true ? 'bike' : 'part');
         setSdChoice(initialData.sku_metadata?.is_scratch_dent === true);
       } else {
+        // A caller can hand over everything it already knows (type, name,
+        // model/size/colour, the type's default box) so the operator is left
+        // with location and quantity — see buildNewSkuPrefill. Anything not
+        // supplied falls to the same defaults as before.
+        const meta = initialData?.sku_metadata ?? null;
+        const dims = dimensionDefaults(meta?.is_bike ?? null);
         reset({
           sku: initialData?.sku || '',
           location: initialData?.location || '',
           quantity: initialData?.quantity ? Number(initialData.quantity) : 0,
           item_name: initialData?.item_name || '',
           warehouse: initialData?.warehouse || (screenType as WarehouseType) || 'LUDLOW',
-          ...dimensionDefaults(null),
+          length_in: meta?.length_in ?? dims.length_in,
+          width_in: meta?.width_in ?? dims.width_in,
+          height_in: meta?.height_in ?? dims.height_in,
+          weight_lbs: meta?.weight_lbs ?? null,
           internal_note: '',
           sublocation: null,
-          model: initialData?.sku_metadata?.model || '',
-          size: initialData?.sku_metadata?.size || '',
-          serial_number: initialData?.sku_metadata?.serial_number || '',
-          color: '',
+          model: meta?.model || '',
+          size: meta?.size || '',
+          serial_number: meta?.serial_number || '',
+          color: meta?.color || '',
         });
         setDistribution([]);
         setUserEditedDistribution(false);
@@ -614,13 +623,30 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
           .filter(Boolean)
           .join(' ') || null;
       const finalName = derivedName || data.item_name || null;
+      // A carton nobody measured must not be filed as measured. On a new SKU
+      // the form shows the type's default box, and sending those three
+      // numbers makes set_is_bike_on_insert stamp dimensions_verified = true
+      // — the FedEx export then ships a default carton as a real one (every
+      // SKU registered here on 21 Aug 2026 came out verified at 55×8.5×30.5).
+      // Left NULL, the trigger fills the same numbers and the flag stays
+      // false until someone brings a tape.
+      // Either type's box counts as untouched: switching bike → part in the
+      // form keeps the bike numbers in the fields, and they are no more a
+      // measurement for having the wrong type next to them.
+      const isDefaultBox = (d: { length_in: number; width_in: number; height_in: number }) =>
+        Number(data.length_in) === d.length_in &&
+        Number(data.width_in) === d.width_in &&
+        Number(data.height_in) === d.height_in;
+      const dimsUntouched =
+        mode === 'add' &&
+        (isDefaultBox(skuDefaultsFor(true)) || isDefaultBox(skuDefaultsFor(false)));
       updateSKUMetadata({
         sku: data.sku,
         is_bike: typeIsBike,
         is_scratch_dent: sdChoice,
-        length_in: data.length_in,
-        width_in: data.width_in,
-        height_in: data.height_in,
+        length_in: dimsUntouched ? undefined : data.length_in,
+        width_in: dimsUntouched ? undefined : data.width_in,
+        height_in: dimsUntouched ? undefined : data.height_in,
         weight_lbs: data.weight_lbs,
         model: data.model || null,
         size: data.size || null,
@@ -647,7 +673,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       setIsEditing(false);
       onClose();
     },
-    [distribution, onSave, onClose, updateSKUMetadata, typeIsBike, sdChoice]
+    [distribution, onSave, onClose, updateSKUMetadata, typeIsBike, sdChoice, mode]
   );
 
   const handleSave = useCallback(() => {

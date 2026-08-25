@@ -957,28 +957,24 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         // Not in the DB inventory (typically an `sku_not_found` / UNREG item
         // the picker found on the floor). Open New Item pre-filled with what
         // the order already knows so they only enter the missing bits.
-        const registerSku = () => {
-          const prefill = {
-            sku: item.sku,
-            item_name: item.item_name ?? '',
-            warehouse: 'LUDLOW',
-          } as unknown as InventoryItemWithMetadata;
+        const registerSku = (prefill: InventoryItemWithMetadata) =>
           openModal({
             type: 'item-detail',
             item: prefill,
             mode: 'add',
-            screenType: 'LUDLOW',
+            screenType: prefill.warehouse,
             onSave: async (formData) => {
               await editCallbacksRef.current.addItem(formData.warehouse, formData);
               await editCallbacksRef.current.fetchDistributions();
               toast.success(`Registered ${formData.sku}`);
             },
           });
-        };
         openModal({
           type: 'sku-locations',
           sku: item.sku,
-          itemName: item.item_name ?? null,
+          // A watchdog item the catalogue could not match carries the AS400
+          // description; it is the only name there is to register it under.
+          itemName: item.item_name || item.description || null,
           pickLocation: location,
           pickWarehouse: item.warehouse ?? null,
           onEdit: editRow,

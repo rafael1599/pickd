@@ -46,7 +46,8 @@ export type ModalState =
       pickLocation?: string | null;
       pickWarehouse?: string | null;
       onEdit: (row: InventoryItemWithMetadata) => void;
-      onRegister: () => void;
+      /** The SKU is not in inventory: the operator chose bike/part and this is the prefilled item to add. */
+      onRegister: (prefill: InventoryItemWithMetadata) => void;
     }
   | {
       type: 'order-notes';

@@ -81,7 +81,11 @@ recogido que no toca inventario ni la barra de avance.
 marcada, y un botón Editar por fila que abre `item-detail` sobre esa fila concreta. Antes abría el
 detalle de la fila con más stock: con `03-4066BK` en ROW 6 A (4) y ROW 41 F (78) la tarjeta decía ROW 6
 y el detalle ROW 41, y el picker leía que la tarjeta mentía. Ver no lleva a un formulario; editar es un
-segundo toque deliberado.
+segundo toque deliberado. **Si el SKU no existe, el mismo modal pregunta Bici o Parte** y elegir ya es
+registrar: `buildNewSkuPrefill` (`src/features/inventory/utils/newSkuPrefill.ts`) abre `item-detail` con
+nombre, modelo/talla/color partidos de la descripción AS400 (`parseBikeName`, sin el año — el catálogo
+nombra "Modelo Talla Color"), tipo y los defaults de peso y caja; al operador le quedan ubicación y
+cantidad. Un nombre de bici que no parte no va a `model` (sería la basura legacy de `bug-018`).
 
 **Verification Board (idea-055):** La Verification Queue es un overlay full-screen con zonas: Priority (auto-populated por status), FedEx/Regular lanes (drag-reclasificar `shipping_type`), In Progress Projects (read-only), Recently Completed (drag=reopen), Waiting (colapsable). Auto-clasificación: item >50 lbs o ≥5 BIKES (prefijo 03-) → Regular, else → FedEx; las partes nunca fuerzan Regular (50 partes = FedEx). Regla duplicada en DB (`classify_picking_list_fedex`) — mantener ambas en sync. La regla de bikes depende de `sku_metadata.is_bike`, que el item no trae por sí solo: el trigger `a_stamp_item_sku_metadata` (migración `20260820150000`) lo sella dentro de cada elemento de `picking_lists.items` en cada write, así que **todo consumidor lee la misma verdad sin buscarla**. Antes cada pantalla traía su propio lookup y pasarlo era opcional — DoubleCheckView no lo pasaba y pintaba de FedEx órdenes de 13 bicis. El parámetro `bikeSkus` de `autoClassifyShippingType`/`isFedexOrder` es ahora **obligatorio** (pasar un Set vacío para renunciar a él a propósito): cubre el ítem que aún no se ha escrito y el SKU cuyo `is_bike` cambió después del sellado. `shipping_type` columna en `picking_lists` (NULL = auto). DnD usa `@dnd-kit/sortable` con `useBoardDnD` hook. Componentes en `src/features/picking/components/board/`.
 
@@ -318,6 +322,7 @@ Usar "no está en un ROW" como **detector** de sospechosos es útil; usarlo como
 - **Al 2026-08-21:** 175 verificados, 529 bikes non-S&D sobre defaults.
 
 **Detector, no regla:** "está fuera de un ROW" sirve para _encontrar_ sospechosos — así apareció E47 —, pero nunca para clasificar. `01-` y `02-` son prefijos de bike legítimos (139 y 20 SKUs, con 107 y 13 que vivieron en un ROW), así que sacarlos del trigger para atrapar cinco pedales misclasificaría ~120 bikes reales. La decisión la tiene que tomar una persona en el registro, no un patrón.
+- **El formulario de alta no manda las dimensiones si siguen siendo las del tipo** (`ItemDetailView.executeSave`, modo `add`, desde el 25 ago 2026): mandarlas hacía que cada SKU registrado a mano saliera `verified` en `55×8.5×30.5` sin que nadie midiera (los del 21 ago están así), y el export a FedEx los declara como cartón real. En NULL el trigger rellena los mismos números y la bandera se queda en `false`.
 
 ## Branching & Deployment
 
