@@ -20,6 +20,42 @@ export function canonicalBikeSku(sku: string | null | undefined): string {
 }
 
 /**
+ * Bike catalog SKU with at most ONE trailing finish/variant letter beyond the
+ * 2-letter color: `03-3768BL`, `03-3768BLD`. Group 1 is the family base.
+ */
+const VARIANT_SIBLING_RE = /^(\d{2}-\d{4}[A-Z]{2})[A-Z]?$/;
+
+/**
+ * Family base of a bike SKU — dept + number + 2-letter color — or null when
+ * the SKU is not that shape (parts, UPCs, longer codes, mangled input).
+ *
+ * `03-3768BL` and `03-3768BLD` are the SAME bike. The AS400 PDF prints the
+ * finish letter on some lines, and the catalog keeps both names alive because
+ * the operator renames the inventory row between them (3 times in 2026) and
+ * the old `sku_metadata` row cannot be deleted — qty-0 inventory rows
+ * reference it. So "which name holds the stock" is a fact about this month,
+ * not about the SKU: anything that has to find that bike's stock must look at
+ * the whole family and let stock decide. {@link isVariantSibling} is the
+ * membership test; the watcher applies the same rule at intake.
+ * Case-sensitive on purpose, like every other catalog match in this module.
+ */
+export function variantSiblingBase(sku: string | null | undefined): string | null {
+  const m = VARIANT_SIBLING_RE.exec((sku || '').trim());
+  return m ? m[1] : null;
+}
+
+/** True when `a` and `b` are two different catalog names of the same bike. */
+export function isVariantSibling(
+  a: string | null | undefined,
+  b: string | null | undefined
+): boolean {
+  const sa = (a || '').trim();
+  const sb = (b || '').trim();
+  const base = variantSiblingBase(sa);
+  return base !== null && sa !== sb && variantSiblingBase(sb) === base;
+}
+
+/**
  * Explicit AS400 → inventory SKU aliases. AS400 catalogs a handful of SKUs
  * under a different color code than the one the physical inventory uses
  * (e.g. AS400 sells 03-4070BL but the bike PickD stocks is 03-4070BK), so the
@@ -67,36 +103,36 @@ export function inventorySkuCandidates(sku: string | null | undefined): string[]
 }
 
 /**
- * Out-of-stock SUBSTITUTES — hardcoded equivalences where an ordered SKU should
- * be REPLACED by a different, genuinely distinct SKU when the ordered one runs
- * dry. This is a different relationship from {@link AS400_SKU_ALIASES}:
+ * Out-of-stock SUBSTITUTES — hand-written equivalences where an ordered SKU
+ * should be REPLACED by a different, genuinely distinct product when the
+ * ordered one runs dry (e.g. a prior model year accepted as a stand-in). This
+ * is a different relationship from {@link AS400_SKU_ALIASES} and from variant
+ * siblings ({@link variantSiblingBase}):
  *
- *  - AS400 alias  → SAME physical bike under a different AS400 code. Keep the
- *    order SKU, just point the UI at where the stock lives (warning chip).
- *  - Substitute   → a DIFFERENT product accepted as a stand-in (e.g. the prior
- *    model year). The order SKU is actually swapped so the paperwork/labels
- *    reflect what physically ships.
+ *  - AS400 alias     → SAME bike under a different AS400 code. Keep the order
+ *    SKU, just point the UI at where the stock lives (warning chip).
+ *  - Variant sibling → SAME bike under two catalog names that differ only by a
+ *    trailing finish letter (03-3768BL / 03-3768BLD). Resolved by STOCK, in
+ *    both directions, never listed here — see below.
+ *  - Substitute      → a DIFFERENT product. The order SKU is swapped so the
+ *    paperwork/labels reflect what physically ships.
  *
- * Directional: key = ordered SKU that runs dry, value = preferred replacement
- * that holds the stock. Grow this map as equivalences are discovered in the
- * field. Edit Order auto-applies the swap when the replacement has enough stock
- * (see CorrectionModeView), and offers Undo.
+ * Directional: key = ordered SKU that runs dry, value = preferred replacement.
+ * Edit Order auto-applies the swap when the replacement has enough stock
+ * (tier 1 in CorrectionModeView) and offers Undo. Kept by hand on purpose: an
+ * entry is a standing product decision, not something read off inventory.
  *
- * Seed: 03-3768BL (DIVIDE S/O 12X27 2026 RIPTIDE, routinely 0 stock) →
- *       03-3768BLD (DIVIDE S/O 12X27 2025 RIPTIDE, where the units actually are).
- *
- * Deliberately kept by hand rather than derived from stock. Tier 1 swaps without
- * asking, so an entry here is a standing decision that the prior model year is
- * an acceptable substitute for this bike — a product call, not an inference. A
- * rule read off inventory would make a SKU auto-substitutable the moment it hit
- * zero and stop the moment it was restocked. Anything not listed here is not
- * lost: findSimilarSkus surfaces the same-model sibling as a one-tap suggestion
- * (tier 2, in CorrectionModeView), which keeps a human on the model-year call.
+ * Why the map is empty today: it held 03-3768BL → 03-3768BLD and
+ * 03-3769BL → 03-3769BLD, written when the stock sat under the BLD rows. Those
+ * pairs are the same bike, and which row holds the stock flips every time the
+ * operator renames the inventory row (last 2026-08-25, which turned the 3768
+ * entry backwards overnight). A map entry also made tier 2 skip the item
+ * ("tier 1 owns these"), so a stale entry left the picker with the LOW STOCK
+ * flag and no suggestion at all while 145 units sat on ROW 43. A stock-derived
+ * rule is exactly right for siblings — it is one bike — and exactly wrong for
+ * real substitutes, which is why the two live apart.
  */
-export const SKU_SUBSTITUTES: Record<string, string> = {
-  '03-3768BL': '03-3768BLD',
-  '03-3769BL': '03-3769BLD',
-};
+export const SKU_SUBSTITUTES: Record<string, string> = {};
 
 /**
  * Returns the hardcoded substitute for an out-of-stock order SKU, or null when

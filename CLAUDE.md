@@ -324,6 +324,34 @@ Usar "no está en un ROW" como **detector** de sospechosos es útil; usarlo como
 **Detector, no regla:** "está fuera de un ROW" sirve para _encontrar_ sospechosos — así apareció E47 —, pero nunca para clasificar. `01-` y `02-` son prefijos de bike legítimos (139 y 20 SKUs, con 107 y 13 que vivieron en un ROW), así que sacarlos del trigger para atrapar cinco pedales misclasificaría ~120 bikes reales. La decisión la tiene que tomar una persona en el registro, no un patrón.
 - **El formulario de alta no manda las dimensiones si siguen siendo las del tipo** (`ItemDetailView.executeSave`, modo `add`, desde el 25 ago 2026): mandarlas hacía que cada SKU registrado a mano saliera `verified` en `55×8.5×30.5` sin que nadie midiera (los del 21 ago están así), y el export a FedEx los declara como cartón real. En NULL el trigger rellena los mismos números y la bandera se queda en `false`.
 
+### Hermanos de variante: `03-3768BL` y `03-3768BLD` son la misma bici
+
+Un SKU de bici puede llevar **una letra extra de acabado** detrás del color de dos letras (`03 3768
+BLD` en el PDF de AS400). No es otro modelo: `03-3768BL`/`03-3768BLD` y `03-3769BL`/`03-3769BLD`
+tienen el mismo modelo, talla y color, y las cajas son las mismas. El catálogo mantiene **los dos
+nombres vivos** porque el operador renombra la fila de inventario entre ellos (tres veces en 2026, la
+última el 25 ago) y la fila vieja de `sku_metadata` no se puede borrar (FK desde filas con qty 0).
+Así que "qué nombre tiene el stock" es un hecho de este mes, no del SKU.
+
+**Regla (26 ago 2026): entre hermanos de variante gana el que tiene stock, en las dos direcciones.**
+Vive en dos sitios que hay que mantener alineados:
+
+- **Watchdog, al resolver la línea** (`_to_cart_items` → `_pick_by_stock`, `supabase_client.py`):
+  candidatos = grafía del PDF, canónico de dos letras y el resto de la familia; elige el que cubre
+  la cantidad, si no el que más tiene, si no la grafía del PDF (queda marcado bajo el nombre que
+  dijo el papel). Antes elegía **el primero que existiera en el catálogo**, que era el muerto: la
+  orden 881288 nació `LOW STOCK` con 145 unidades en ROW 43.
+- **App, tier 1 de Edit Order** (`CorrectionModeView` → `pickVariantSiblingRow`;
+  `variantSiblingBase`/`isVariantSibling` en `src/utils/skuNormalize.ts`): un ítem sin stock cuyo
+  hermano cubre la cantidad se intercambia solo, con Undo, igual que un sustituto de mano.
+
+`SKU_SUBSTITUTES` **quedó vacío** y es solo para productos distintos de verdad (otro año de modelo):
+tenía `03-3768BL → BLD` y amaneció al revés tras el rename. Una entrada ahí además hacía que el tier
+2 saltara el ítem, así que un mapa caducado dejaba la bandera **sin ninguna sugerencia**; hay un test
+que prohíbe listar hermanos en él. La familia es estricta: misma base `dd-dddd` + color de dos letras
+y **una** letra más. `BK`/`BL` no son hermanos (eso es `AS400_SKU_ALIASES`), ni un part number con
+sufijo, ni `03-3666Bl` con la ele minúscula.
+
 ## Branching & Deployment
 
 - **`main`** — Producción. Despliega automáticamente a `pickd.pages.dev` (Cloudflare Pages).

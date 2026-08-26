@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pickBestStockRow, type StockRow } from '../stockSubstitute';
+import { pickBestStockRow, pickVariantSiblingRow, type StockRow } from '../stockSubstitute';
 import { toPickingOrderMap } from '../pickLocation';
 
 const row = (over: Partial<StockRow>): StockRow => ({
@@ -108,5 +108,79 @@ describe('pickBestStockRow', () => {
       ];
       expect(pickBestStockRow(rows, '03-3768BLD', 'LUDLOW', order, 20)?.location).toBe('ROW 43');
     });
+  });
+});
+
+describe('pickVariantSiblingRow', () => {
+  // 2026-08-26, order 881288: '03-3768BLD' ordered, 0 under that name, 145 on
+  // ROW 43 under '03-3768BL' — the same bike, renamed the day before.
+  const family = [
+    row({ sku: '03-3768BLD', quantity: 0, location: 'FLORIDA' }),
+    row({ sku: '03-3768BLD', quantity: 0, location: 'ROW 41' }),
+    row({ sku: '03-3768BL', quantity: 145, location: 'ROW 43' }),
+    row({ sku: '03-3768BL', quantity: 0, location: 'ROW 34' }),
+  ];
+
+  it('finds the sibling that holds the stock, in either direction', () => {
+    const best = pickVariantSiblingRow(family, '03-3768BLD', 'LUDLOW', undefined, 1);
+    expect(best?.sku).toBe('03-3768BL');
+    expect(best?.location).toBe('ROW 43');
+
+    const flipped = family.map((r) => ({
+      ...r,
+      sku: r.sku === '03-3768BL' ? '03-3768BLD' : '03-3768BL',
+    }));
+    expect(pickVariantSiblingRow(flipped, '03-3768BL', 'LUDLOW', undefined, 1)?.sku).toBe(
+      '03-3768BLD'
+    );
+  });
+
+  it('never returns the ordered SKU itself', () => {
+    const rows = [row({ sku: '03-3768BLD', quantity: 50, location: 'ROW 43' })];
+    expect(pickVariantSiblingRow(rows, '03-3768BLD', 'LUDLOW')).toBeNull();
+  });
+
+  it('returns null when no sibling has stock, or when the SKU has no family', () => {
+    const dry = family.map((r) => ({ ...r, quantity: 0 }));
+    expect(pickVariantSiblingRow(dry, '03-3768BLD', 'LUDLOW')).toBeNull();
+    const part = [row({ sku: '01-522A', quantity: 9, location: 'ROW 23' })];
+    expect(pickVariantSiblingRow(part, '01-522', 'LUDLOW')).toBeNull();
+  });
+
+  it('ignores other colors and other warehouses', () => {
+    const rows = [
+      row({ sku: '03-3768BK', quantity: 40, location: 'ROW 43' }),
+      row({ sku: '03-3768BL', quantity: 40, location: 'ROW 43', warehouse: 'ATS' }),
+    ];
+    expect(pickVariantSiblingRow(rows, '03-3768BLD', 'LUDLOW')).toBeNull();
+  });
+
+  it('takes the sibling whose shelf covers the order, else the fullest', () => {
+    const rows = [
+      row({ sku: '03-3768BLD', quantity: 2, location: 'ROW 41' }),
+      row({ sku: '03-3768BLT', quantity: 10, location: 'ROW 43' }),
+    ];
+    expect(pickVariantSiblingRow(rows, '03-3768BL', 'LUDLOW', undefined, 3)?.sku).toBe(
+      '03-3768BLT'
+    );
+    expect(pickVariantSiblingRow(rows, '03-3768BL', 'LUDLOW', undefined, 20)?.sku).toBe(
+      '03-3768BLT'
+    );
+  });
+
+  it('keeps a buried pallet out of the running while a normal shelf covers the order', () => {
+    const order = toPickingOrderMap([
+      { warehouse: 'LUDLOW', location: 'ROW 42 BURIED', picking_order: 9999 },
+      { warehouse: 'LUDLOW', location: 'ROW 43', picking_order: 43 },
+    ]);
+    const rows = [
+      row({ sku: '03-3768BLD', quantity: 100, location: 'ROW 42 BURIED' }),
+      row({ sku: '03-3768BLT', quantity: 5, location: 'ROW 43' }),
+    ];
+    expect(pickVariantSiblingRow(rows, '03-3768BL', 'LUDLOW', order, 3)?.location).toBe('ROW 43');
+    // …but it is still reached for when it is the only thing that can finish the job.
+    expect(pickVariantSiblingRow(rows, '03-3768BL', 'LUDLOW', order, 50)?.location).toBe(
+      'ROW 42 BURIED'
+    );
   });
 });

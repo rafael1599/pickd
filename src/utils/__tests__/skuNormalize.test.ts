@@ -1,9 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import {
   canonicalBikeSku,
   resolveInventorySku,
   getSubstituteSku,
   normalizeSkuOnRegister,
+  SKU_SUBSTITUTES,
+  variantSiblingBase,
+  isVariantSibling,
 } from '../skuNormalize';
 
 describe('canonicalBikeSku', () => {
@@ -60,8 +63,18 @@ describe('resolveInventorySku', () => {
 });
 
 describe('getSubstituteSku', () => {
+  // The shipped map is empty — variant siblings are resolved by stock, see
+  // SKU_SUBSTITUTES — so seed a genuine "different product" entry to exercise
+  // the contract, and take it out again.
+  beforeAll(() => {
+    SKU_SUBSTITUTES['03-9001BK'] = '03-8001BK';
+  });
+  afterAll(() => {
+    delete SKU_SUBSTITUTES['03-9001BK'];
+  });
+
   it('returns the hardcoded substitute for an out-of-stock SKU', () => {
-    expect(getSubstituteSku('03-3768BL')).toBe('03-3768BLD');
+    expect(getSubstituteSku('03-9001BK')).toBe('03-8001BK');
   });
 
   it('returns null for a SKU with no substitute', () => {
@@ -70,20 +83,77 @@ describe('getSubstituteSku', () => {
   });
 
   it('de-mangles a spurious trailing letter before looking up the map', () => {
-    // A watcher-mangled "03-3768BLX" canonicalizes to 03-3768BL → substitute applies.
-    expect(getSubstituteSku('03-3768BLX')).toBe('03-3768BLD');
+    // A watcher-mangled "03-9001BKX" canonicalizes to 03-9001BK → substitute applies.
+    expect(getSubstituteSku('03-9001BKX')).toBe('03-8001BK');
   });
 
   it('never returns the input SKU itself (no self-substitution)', () => {
-    // 03-3768BLD canonicalizes to 03-3768BL whose substitute IS 03-3768BLD —
-    // that must resolve to null, not a no-op swap onto itself.
+    SKU_SUBSTITUTES['03-9002BK'] = '03-9002BKD';
+    try {
+      // 03-9002BKD canonicalizes to 03-9002BK whose substitute IS 03-9002BKD —
+      // that must resolve to null, not a no-op swap onto itself.
+      expect(getSubstituteSku('03-9002BKD')).toBeNull();
+    } finally {
+      delete SKU_SUBSTITUTES['03-9002BK'];
+    }
+  });
+
+  it('never pairs variant siblings: 03-3768BL/BLD and 03-3769BL/BLD are resolved by stock', () => {
+    // They were in this map, and the entry went backwards the morning after the
+    // operator renamed the inventory row (2026-08-25). A sibling entry here is
+    // a bug by definition — the same bike does not need a "substitute".
+    for (const [from, to] of Object.entries(SKU_SUBSTITUTES)) {
+      expect(isVariantSibling(from, to)).toBe(false);
+    }
+    expect(getSubstituteSku('03-3768BL')).toBeNull();
     expect(getSubstituteSku('03-3768BLD')).toBeNull();
+    expect(getSubstituteSku('03-3769BL')).toBeNull();
   });
 
   it('handles null/empty/whitespace safely', () => {
     expect(getSubstituteSku(null)).toBeNull();
     expect(getSubstituteSku(undefined)).toBeNull();
     expect(getSubstituteSku('   ')).toBeNull();
+  });
+});
+
+describe('variantSiblingBase / isVariantSibling', () => {
+  it('returns the dept-number-color base for a bike SKU with or without a finish letter', () => {
+    expect(variantSiblingBase('03-3768BL')).toBe('03-3768BL');
+    expect(variantSiblingBase('03-3768BLD')).toBe('03-3768BL');
+    expect(variantSiblingBase(' 03-3769BLT ')).toBe('03-3769BL');
+  });
+
+  it('returns null for parts, UPCs, dashless, over-long and empty input', () => {
+    expect(variantSiblingBase('01-522')).toBeNull();
+    expect(variantSiblingBase('128353')).toBeNull();
+    expect(variantSiblingBase('033768BLD')).toBeNull();
+    expect(variantSiblingBase('03-3768BLDX')).toBeNull();
+    expect(variantSiblingBase('03-3768')).toBeNull();
+    expect(variantSiblingBase(null)).toBeNull();
+    expect(variantSiblingBase(undefined)).toBeNull();
+    expect(variantSiblingBase('')).toBeNull();
+  });
+
+  it('is case-sensitive like the rest of the catalog matching', () => {
+    // 03-3666Bl (lower-case L) is a known bad record, not a family member.
+    expect(variantSiblingBase('03-3666Bl')).toBeNull();
+  });
+
+  it('is symmetric and never pairs a SKU with itself', () => {
+    expect(isVariantSibling('03-3768BL', '03-3768BLD')).toBe(true);
+    expect(isVariantSibling('03-3768BLD', '03-3768BL')).toBe(true);
+    expect(isVariantSibling('03-3768BLD', '03-3768BLT')).toBe(true);
+    expect(isVariantSibling('03-3768BL', '03-3768BL')).toBe(false);
+    expect(isVariantSibling('03-3768BL', ' 03-3768BL ')).toBe(false);
+  });
+
+  it('does not pair different colors, different models or non-bike codes', () => {
+    expect(isVariantSibling('03-4070BL', '03-4070BK')).toBe(false); // AS400 alias territory
+    expect(isVariantSibling('03-3768BL', '03-3769BL')).toBe(false);
+    expect(isVariantSibling('03-3768BL', '01-522')).toBe(false);
+    expect(isVariantSibling('01-522', '01-522A')).toBe(false);
+    expect(isVariantSibling(null, '03-3768BL')).toBe(false);
   });
 });
 

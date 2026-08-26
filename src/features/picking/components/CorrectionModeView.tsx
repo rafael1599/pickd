@@ -9,9 +9,9 @@ import X from 'lucide-react/dist/esm/icons/x';
 import Plus from 'lucide-react/dist/esm/icons/plus';
 import Loader from 'lucide-react/dist/esm/icons/loader';
 import { findSimilarSkus, type SimilarSku } from '../utils/findSimilarSkus';
-import { pickBestStockRow } from '../utils/stockSubstitute';
+import { pickBestStockRow, pickVariantSiblingRow } from '../utils/stockSubstitute';
 import { toPickingOrderMap } from '../utils/pickLocation';
-import { getSubstituteSku } from '../../../utils/skuNormalize';
+import { getSubstituteSku, variantSiblingBase } from '../../../utils/skuNormalize';
 import { inventoryApi } from '../../inventory/api/inventoryApi';
 import { supabase } from '../../../lib/supabase';
 import type { PickingItem, CorrectionAction } from './DoubleCheckView';
@@ -305,11 +305,13 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
     return findSimilarSkus(item.sku, item.warehouse || 'LUDLOW', inventoryData, 5);
   }, [activePanel, allItems, inventoryData]);
 
-  // ── Tier 1: auto-resolve out-of-stock items with a hardcoded substitute ──
-  // On open, any insufficient_stock problem item whose SKU has a hardcoded
-  // substitute (SKU_SUBSTITUTES) is swapped automatically — but only when the
-  // substitute carries enough LIVE stock — and surfaced with an Undo. We read
-  // live stock for the substitute SKU because inventoryData is paginated.
+  // ── Tier 1: auto-resolve out-of-stock items that have an equivalent ──
+  // On open, any insufficient_stock problem item is swapped automatically —
+  // and surfaced with an Undo — when an equivalent carries enough LIVE stock:
+  // either its hardcoded substitute (SKU_SUBSTITUTES, a different product) or
+  // a variant sibling (the SAME bike under another catalog name, 03-3768BLD ↔
+  // 03-3768BL — whichever holds the stock this month). We read live stock
+  // because inventoryData is paginated.
   const mountedRef = useRef(true);
   const autoTriedRef = useRef<Set<string>>(new Set());
   const [autoResolved, setAutoResolved] = useState<
@@ -333,7 +335,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
       (i) =>
         i.insufficient_stock &&
         !i.sku_not_found &&
-        getSubstituteSku(i.sku) &&
+        (getSubstituteSku(i.sku) || variantSiblingBase(i.sku)) &&
         !autoTriedRef.current.has(i.sku)
     );
     if (candidates.length === 0) return;
@@ -341,25 +343,34 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
     candidates.forEach(async (item) => {
       autoTriedRef.current.add(item.sku); // process each SKU once per mount
       const subSku = getSubstituteSku(item.sku);
-      if (!subSku) return;
+      // Searching by the family base ("03-3768BL") returns every sibling's rows
+      // in one query — the search RPC matches on the normalized SKU.
+      const searchTerm = subSku ?? variantSiblingBase(item.sku);
+      if (!searchTerm) return;
       const warehouse = item.warehouse || 'LUDLOW';
       try {
         const [bikes, parts, locationRows] = await Promise.all([
-          inventoryApi.fetchInventoryWithMetadata({ search: subSku, showParts: false, limit: 10 }),
-          inventoryApi.fetchInventoryWithMetadata({ search: subSku, showParts: true, limit: 10 }),
+          inventoryApi.fetchInventoryWithMetadata({
+            search: searchTerm,
+            showParts: false,
+            limit: 20,
+          }),
+          inventoryApi.fetchInventoryWithMetadata({
+            search: searchTerm,
+            showParts: true,
+            limit: 20,
+          }),
           supabase.from('locations').select('warehouse, location, picking_order'),
         ]);
-        // The substitute is chosen the same way every other pick is: a buried
+        // The replacement is chosen the same way every other pick is: a buried
         // pallet is not offered while a normal shelf still has the bike. Without
         // this the auto-swap was the one chooser that still ranked on quantity
         // alone, and it silently sent the picker to the pallet.
-        const best = pickBestStockRow(
-          [...bikes.data, ...parts.data],
-          subSku,
-          warehouse,
-          toPickingOrderMap(locationRows.data),
-          item.pickingQty
-        );
+        const rows = [...bikes.data, ...parts.data];
+        const pickingOrder = toPickingOrderMap(locationRows.data);
+        const best = subSku
+          ? pickBestStockRow(rows, subSku, warehouse, pickingOrder, item.pickingQty)
+          : pickVariantSiblingRow(rows, item.sku, warehouse, pickingOrder, item.pickingQty);
         // Only auto-swap when the substitute fully covers the order. Partial
         // stock is a judgment call — leave it flagged for the picker.
         if (!best || best.quantity < item.pickingQty) return;

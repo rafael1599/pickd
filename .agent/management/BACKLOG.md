@@ -307,6 +307,18 @@ Implementado en pickd **#113** y watchdog-pickd **#32/#33** (todo en main):
   — ahora es la llave de agrupación del export a FedEx (`fedexDimensions.ts`), así que
   cualquier basura ahí sale del almacén.
 - **Origen:** sesión 2026-08-20, al construir el export de dimensiones FedEx.
+### ~~2. LOW STOCK con stock en piso: el mismo SKU bajo dos nombres (`03-3768BL`/`BLD`)~~ <!-- id: bug-019 --> ✅ 2026-08-26
+- **Síntoma:** orden 881288 (26 ago) entra con `03-3768BLD` y `03-3769BL` marcados LOW STOCK y sin
+  ubicación, con 145 bicis en ROW 43 (`03-3768BL`) y 76 en ROW 41 (`03-3769BLD`). Recurrente desde
+  junio: 880985, 881139, 881156, 881164, 881263, 881274 — 24 notas `Replaced` entre hermanos en dos
+  semanas, incluido un `Undo auto-resolve`.
+- **Causa:** la misma bici existe bajo dos SKUs que difieren en una letra de acabado; el stock cambia
+  de nombre con cada rename del operador (25 ago: `BLD → BL`) y la fila vieja de `sku_metadata` se
+  queda. El watchdog elegía el primer nombre que existiera en el catálogo (el muerto) y
+  `SKU_SUBSTITUTES` en la app apuntaba a mano en la dirección que ya no era.
+- **Fix:** regla "gana el hermano con stock" en watchdog (`_pick_by_stock`) y en tier 1 de Edit Order
+  (`pickVariantSiblingRow`); `SKU_SUBSTITUTES` vacío y con test que prohíbe hermanos. Ver CLAUDE.md
+  → "Hermanos de variante". **Pendiente: desplegar el watchdog en la MacBook de Bay 2.**
 
 ---
 

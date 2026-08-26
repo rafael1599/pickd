@@ -2,12 +2,14 @@
  * Stock-aware substitution helpers for Edit Order.
  *
  * When an ordered SKU runs out of stock, PickD can resolve it to an equivalent
- * SKU that DOES have stock — either a hardcoded substitute (see SKU_SUBSTITUTES
- * in utils/skuNormalize) auto-applied on open, or a same-model sibling surfaced
- * as a one-tap suggestion (see findSimilarSkus). This module holds the pure,
- * testable piece: choosing the best in-stock row for a target SKU.
+ * SKU that DOES have stock — a variant sibling (the same bike under another
+ * catalog name, see pickVariantSiblingRow) or a hardcoded substitute (see
+ * SKU_SUBSTITUTES in utils/skuNormalize), both auto-applied on open, or a
+ * same-model sibling surfaced as a one-tap suggestion (see findSimilarSkus).
+ * This module holds the pure, testable piece: choosing the best in-stock row.
  */
 
+import { isVariantSibling } from '../../../utils/skuNormalize';
 import { byPickPreference, type PickingOrderMap } from './pickLocation';
 
 /** Minimal shape needed to rank a candidate inventory row. */
@@ -57,5 +59,40 @@ export function pickBestStockRow<T extends StockRow>(
     if (covers) return covers;
   }
 
+  return ranked[0];
+}
+
+/**
+ * Best in-stock row among the VARIANT SIBLINGS of `sku` — the other catalog
+ * names of the same bike (`03-3768BLD` → `03-3768BL`, and back). Returns null
+ * when no sibling in `warehouse` carries stock. Never returns a row of `sku`
+ * itself: the caller already knows that one is dry.
+ *
+ * Ranking is the one every other pick uses ({@link pickBestStockRow}): each
+ * sibling's best shelf is found first, then a shelf that covers `requiredQty`
+ * wins in pick-preference order, else the fullest reachable one. Which name
+ * holds the stock changes with operator renames, so this is derived from
+ * inventory on purpose — see SKU_SUBSTITUTES in utils/skuNormalize for why the
+ * hand map is not.
+ */
+export function pickVariantSiblingRow<T extends StockRow>(
+  rows: T[],
+  sku: string,
+  warehouse: string,
+  pickingOrder?: PickingOrderMap,
+  requiredQty?: number
+): T | null {
+  const siblings = [...new Set(rows.filter((r) => isVariantSibling(sku, r.sku)).map((r) => r.sku))];
+  const bests = siblings
+    .map((s) => pickBestStockRow(rows, s, warehouse, pickingOrder, requiredQty))
+    .filter((r): r is T => r !== null);
+  if (bests.length === 0) return null;
+
+  const ranked = bests.sort(byPickPreference(pickingOrder));
+  const needed = Math.max(0, Math.trunc(Number(requiredQty) || 0));
+  if (needed > 0) {
+    const covers = ranked.find((r) => (r.quantity ?? 0) >= needed);
+    if (covers) return covers;
+  }
   return ranked[0];
 }
