@@ -87,10 +87,6 @@ nombre, modelo/talla/color partidos de la descripción AS400 (`parseBikeName`, s
 nombra "Modelo Talla Color"), tipo y los defaults de peso y caja; al operador le quedan ubicación y
 cantidad. Un nombre de bici que no parte no va a `model` (sería la basura legacy de `bug-018`).
 
-**Verification Board (idea-055):** La Verification Queue es un overlay full-screen con zonas: Priority (auto-populated por status), FedEx/Regular lanes (drag-reclasificar `shipping_type`), In Progress Projects (read-only), Recently Completed (drag=reopen), Waiting (colapsable). Auto-clasificación: item >50 lbs o ≥5 BIKES (prefijo 03-) → Regular, else → FedEx; las partes nunca fuerzan Regular (50 partes = FedEx). Regla duplicada en DB (`classify_picking_list_fedex`) — mantener ambas en sync. La regla de bikes depende de `sku_metadata.is_bike`, que el item no trae por sí solo: el trigger `a_stamp_item_sku_metadata` (migración `20260820150000`) lo sella dentro de cada elemento de `picking_lists.items` en cada write, así que **todo consumidor lee la misma verdad sin buscarla**. Antes cada pantalla traía su propio lookup y pasarlo era opcional — DoubleCheckView no lo pasaba y pintaba de FedEx órdenes de 13 bicis. El parámetro `bikeSkus` de `autoClassifyShippingType`/`isFedexOrder` es ahora **obligatorio** (pasar un Set vacío para renunciar a él a propósito): cubre el ítem que aún no se ha escrito y el SKU cuyo `is_bike` cambió después del sellado. `shipping_type` columna en `picking_lists` (NULL = auto). DnD usa `@dnd-kit/sortable` con `useBoardDnD` hook. Componentes en `src/features/picking/components/board/`.
-
-**Activity Report layout:** Editor panel on the left (desktop) with: selectable greeting toggle ("Hi Carine!"), Win of the Day, PickD Updates (collapsible dropdown, closed by default), On the Floor routine checklist (editable items via gear icon, persisted in localStorage), and Notes (multiline textarea, one per line). Preview on the right updates with green highlight flash on each edit. "Save & Copy Report" button at bottom saves + copies to clipboard in one action. Report section order: Win → PickD Updates → Done Today → On the Floor → In Progress → Coming Up Next → Inventory Accuracy → Waiting. Footer shows date only (no timestamp). `/pickd-report` public route shows the HTML daily report for the current date with date navigation.
-
 **`sku_not_found` es derivada, no almacenada (`20260826180000`, bug-020).** Significa una sola cosa,
 la misma que ya usan `process_picking_list` y `compensate_picking_list_changes`: *no hay fila en
 `sku_metadata` con ese sku exacto*. La deriva `a_stamp_item_sku_metadata` en cada write de `items`
@@ -107,10 +103,6 @@ después** (`ItemDetailView.executeSave`, modo `add`): el orden inverso, sin esp
 de `sku_metadata` sin inventario, y con la bandera derivada una fantasma "registra" el SKU para
 todas las órdenes abiertas.
 
-**Verification Board (idea-055):** La Verification Queue es un overlay full-screen con zonas: Priority (auto-populated por status), FedEx/Regular lanes (drag-reclasificar `shipping_type`), In Progress Projects (read-only), Recently Completed (drag=reopen), Waiting (colapsable). Auto-clasificación: item >50 lbs o ≥5 BIKES (prefijo 03-) → Regular, else → FedEx; las partes nunca fuerzan Regular (50 partes = FedEx). Regla duplicada en DB (`classify_picking_list_fedex`) — mantener ambas en sync. La regla de bikes depende de `sku_metadata.is_bike`, que el item no trae por sí solo: el trigger `a_stamp_item_sku_metadata` (migración `20260820150000`) lo sella dentro de cada elemento de `picking_lists.items` en cada write, así que **todo consumidor lee la misma verdad sin buscarla**. Antes cada pantalla traía su propio lookup y pasarlo era opcional — DoubleCheckView no lo pasaba y pintaba de FedEx órdenes de 13 bicis. El parámetro `bikeSkus` de `autoClassifyShippingType`/`isFedexOrder` es ahora **obligatorio** (pasar un Set vacío para renunciar a él a propósito): cubre el ítem que aún no se ha escrito y el SKU cuyo `is_bike` cambió después del sellado. `shipping_type` columna en `picking_lists` (NULL = auto). DnD usa `@dnd-kit/sortable` con `useBoardDnD` hook. Componentes en `src/features/picking/components/board/`.
-
-**Activity Report layout:** Editor panel on the left (desktop) with: selectable greeting toggle ("Hi Carine!"), Win of the Day, PickD Updates (collapsible dropdown, closed by default), On the Floor routine checklist (editable items via gear icon, persisted in localStorage), and Notes (multiline textarea, one per line). Preview on the right updates with green highlight flash on each edit. "Save & Copy Report" button at bottom saves + copies to clipboard in one action. Report section order: Win → PickD Updates → Done Today → On the Floor → In Progress → Coming Up Next → Inventory Accuracy → Waiting. Footer shows date only (no timestamp). `/pickd-report` public route shows the HTML daily report for the current date with date navigation.
-
 **Huérfanas de `sku_metadata` (`20260826200000`):** una fila de catálogo sin fila de inventario. La
 historia (`inventory_logs`, `daily_inventory_snapshots`, `asset_tags`, conteos, returns) es texto
 denormalizado sin FK al catálogo, así que **borrar una fila de catálogo nunca toca la historia**; lo
@@ -125,6 +117,21 @@ el sku de un ítem sin registrar era un INSERT). `zz_touch_open_orders_for_sku` 
 DELETE y en rename, así que quitar un nombre del catálogo devuelve a `UNREG` las órdenes abiertas
 que lo nombran. Si `select count(*) from v_sku_metadata_orphans where not has_history` deja de ser
 ~1, algo volvió a abrir el grifo.
+
+**LOW STOCK / UNREG se diagnostican y resuelven en Double Check, no en Edit Order (26 ago 2026):**
+`diagnoseStockIssue` (`src/features/picking/utils/stockIssue.ts`, puro, con tests) convierte lo que
+la vista ya carga (filas de inventario del SKU, reservas de otras órdenes abiertas, la familia de
+hermanos de variante, el SKU parecido) en **un caso con nombre**: `auto_swap` (el hermano cubre la
+línea → se intercambia solo, toast + **Undo**, misma regla que tenía el tier 1 de Edit Order),
+`unregistered`, `no_stock`, `reserved` (dice qué órdenes lo tienen) y `partial` (dice cuánto hay y
+dónde). `StockIssuePanel` lo pinta bajo la tarjeta con la frase exacta y **solo las acciones que
+tienen sentido para ese caso y esa línea**: Take N, Use X, Register (misma modal que el long-press),
+Replace (abre Edit Order ya en el buscador de esa línea, `initialPanel`) y Remove. Todo pasa por
+`onCorrectItem` con razón (`ReasonPicker` inline, idea-043), así que las notas quedan igual que
+desde Edit Order; el panel para eventos para que la tarjeta no marque el check. El tier 1 de
+`CorrectionModeView` sigue existiendo por si alguien entra directo, pero ya no debería encontrar
+nada. `fetchDistributions` guarda ahora `location`/`warehouse` por fila, que es lo que alimenta el
+diagnóstico sin otra consulta.
 
 **Verification Board (idea-055):** La Verification Queue es un overlay full-screen con zonas: Priority (auto-populated por status), FedEx/Regular lanes (drag-reclasificar `shipping_type`), In Progress Projects (read-only), Recently Completed (drag=reopen), Waiting (colapsable). Auto-clasificación: item >50 lbs o ≥5 BIKES (prefijo 03-) → Regular, else → FedEx; las partes nunca fuerzan Regular (50 partes = FedEx). Regla duplicada en DB (`classify_picking_list_fedex`) — mantener ambas en sync. La regla de bikes depende de `sku_metadata.is_bike`, que el item no trae por sí solo: el trigger `a_stamp_item_sku_metadata` (migración `20260820150000`) lo sella dentro de cada elemento de `picking_lists.items` en cada write, así que **todo consumidor lee la misma verdad sin buscarla**. Antes cada pantalla traía su propio lookup y pasarlo era opcional — DoubleCheckView no lo pasaba y pintaba de FedEx órdenes de 13 bicis. El parámetro `bikeSkus` de `autoClassifyShippingType`/`isFedexOrder` es ahora **obligatorio** (pasar un Set vacío para renunciar a él a propósito): cubre el ítem que aún no se ha escrito y el SKU cuyo `is_bike` cambió después del sellado. `shipping_type` columna en `picking_lists` (NULL = auto). DnD usa `@dnd-kit/sortable` con `useBoardDnD` hook. Componentes en `src/features/picking/components/board/`.
 

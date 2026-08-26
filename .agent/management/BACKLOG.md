@@ -9,6 +9,16 @@
 
 ## P1 — Alto (operación diaria)
 
+### ~~89. LOW STOCK se resuelve solo en Double Check, con el caso exacto y acciones por línea~~ <!-- id: idea-156 --> ✅ 2026-08-26 (input: 2026-08-26 NY)
+- **Pedido (Rafael):** que el sistema no espere a Edit Order: al detectar LOW STOCK que intente
+  resolverlo y, si no puede, diga exactamente qué encontró (casos distintos) y ofrezca eliminar /
+  cambiar / etc. en la misma vista, solo para ese ítem.
+- **Hecho:** `diagnoseStockIssue` (puro, 9 tests) → `auto_swap` / `unregistered` / `no_stock` /
+  `reserved` / `partial`; `StockIssuePanel` bajo la tarjeta con la frase y las acciones del caso
+  (Take N · Use X · Register · Replace → Edit Order en el buscador de esa línea · Remove), todas con
+  razón; auto-swap de hermanos al abrir la orden con toast y Undo. Ver CLAUDE.md → picking workflow.
+- **Origen:** sesión 2026-08-26 (captura de la orden 881288 en Edit Order).
+
 ### 88. Assist mode en Double Check View — dos personas en una orden con varios pallets <!-- id: idea-155 --> — input: 2026-08-26 NY
 - **Idea (Rafael):** solo cuando la orden tiene más de un pallet, que una segunda persona pueda
   entrar a la misma orden y verificar un pallet mientras la primera verifica otro — trabajar juntos
