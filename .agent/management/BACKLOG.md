@@ -9,6 +9,21 @@
 
 ## P1 — Alto (operación diaria)
 
+### 88. Assist mode en Double Check View — dos personas en una orden con varios pallets <!-- id: idea-155 --> — input: 2026-08-26 NY
+- **Idea (Rafael):** solo cuando la orden tiene más de un pallet, que una segunda persona pueda
+  entrar a la misma orden y verificar un pallet mientras la primera verifica otro — trabajar juntos
+  en una sola orden en vez de esperar a que termine.
+- **Hoy:** una orden tiene un solo verificador (`checked_by`); si otro usuario la abre,
+  `usePickingSync` dispara la alerta de takeover y el primero pierde la sesión. El progreso
+  (`verified_item_keys`) se persiste solo con los cambios del propio dispositivo (`dirtyListIdRef`),
+  así que dos dispositivos se pisarían. Los pallets ya están agrupados en la vista (`pallets` en
+  `DoubleCheckView`).
+- **Boceto:** un "assistant" se une a la orden sin desplazar al verificador (rol aparte de
+  `checked_by`); cada uno toma un pallet; los checks se fusionan por **unión** de llaves, nunca por
+  reemplazo, y la tarjeta muestra quién verificó qué; el botón de cierre lo tiene solo el
+  verificador principal. Gate: `pallets.length > 1`.
+- **Origen:** sesión 2026-08-26.
+
 ### ~~87. Identidad única del SKU: guion + cero, impuestos al escribir~~ <!-- id: idea-154 --> ✅ 2026-08-26 (canónico = AS400; migración `20260826220000`, watchdog `918160d`)
 - **Problema:** el mismo SKU vive con tres grafías (`01 0530` en AS400, `01-0530` en el catálogo
   heredado, `01-530`/`010530` a mano o del watchdog) y nadie la impone al escribir: de 14 vías que

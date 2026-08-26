@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>PickD — What changed today (August 26, 2026)</title>
+<style>
+  @page { size: Letter; margin: 0.7in 0.75in; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: #1a1a1a; font-size: 11.5pt; line-height: 1.45; margin: 0; }
+  h1 { font-size: 22pt; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: #555; margin: 0 0 18px; font-size: 10.5pt; }
+  h2 { font-size: 14pt; margin: 22px 0 8px; padding-bottom: 4px; border-bottom: 2px solid #1a1a1a; page-break-after: avoid; }
+  h3 { font-size: 12pt; margin: 14px 0 4px; page-break-after: avoid; }
+  p { margin: 6px 0; }
+  ul { margin: 4px 0 8px 20px; padding: 0; }
+  li { margin: 3px 0; }
+  .short { background: #f3f4f6; border-left: 5px solid #16a34a; padding: 10px 14px; margin: 10px 0 6px; }
+  .short p { margin: 4px 0; }
+  .ba { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 6px 0 10px; }
+  .ba div { border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; }
+  .ba .before { background: #fff7ed; border-color: #fdba74; }
+  .ba .after { background: #f0fdf4; border-color: #86efac; }
+  .ba .lbl { display: block; font-size: 9.5pt; text-transform: uppercase; letter-spacing: 0.06em; color: #666; margin-bottom: 4px; font-weight: 700; }
+  table { border-collapse: collapse; width: 100%; font-size: 10pt; margin: 6px 0 10px; }
+  th, td { border: 1px solid #d1d5db; padding: 3px 6px; text-align: left; vertical-align: top; }
+  th { background: #f3f4f6; font-size: 9.5pt; text-transform: uppercase; letter-spacing: 0.04em; }
+  td.mono, th.mono { font-family: Menlo, Consolas, monospace; font-size: 9.5pt; white-space: nowrap; }
+  .note { color: #555; font-size: 10pt; }
+  .todo { background: #fefce8; border: 1px solid #fde047; border-radius: 6px; padding: 8px 12px; margin: 8px 0; }
+  .brief li { color: #333; }
+  .foot { margin-top: 26px; color: #777; font-size: 9.5pt; border-top: 1px solid #ddd; padding-top: 8px; }
+  .pb { page-break-before: always; }
+</style>
+</head>
+<body>
+
+<h1>PickD — What changed today</h1>
+<p class="sub">Wednesday, August 26, 2026 · for everyone on the Ludlow floor</p>
+
+<div class="short">
+  <p><b>The short version</b></p>
+  <p>1. Orders no longer say <b>LOW STOCK</b> for a bike that is sitting on the shelf under its "other" name.</p>
+  <p>2. Registering a new SKU from Double Check now clears the red badge right away — and it never offers to register the same SKU twice.</p>
+  <p>3. Every SKU now has <b>one</b> way to be written: the AS400 way, with the zero (<b>01-0530</b>). You can keep typing it short — the app finds it and saves it right.</p>
+</div>
+
+<h2>What you will notice</h2>
+
+<h3>1. "LOW STOCK" on a bike that is right there</h3>
+<div class="ba">
+  <div class="before"><span class="lbl">Before</span>Some bikes exist under two names in the system — for example <span class="mono">03-3768BL</span> and <span class="mono">03-3768BLD</span> are the same Riptide. When an order asked for one name and the stock was filed under the other, the order came in as LOW STOCK with no location, and someone had to swap it by hand. It happened again this morning on order 881288 with 145 bikes on ROW 43.</div>
+  <div class="after"><span class="lbl">Now</span>The system checks both names and picks the one that actually has stock — when the order is created, and again when you open Edit Order. If a bike still shows LOW STOCK after this, it really is not on the shelf.</div>
+</div>
+
+<h3>2. Registering a SKU from Double Check</h3>
+<div class="ba">
+  <div class="before"><span class="lbl">Before</span>Long-press → "Bike or Part" → save… and the card stayed red ("UNREG"). Long-pressing again offered to register it a second time, which created duplicates. Behind the curtain, 96 half-registered SKUs had piled up with nothing on any shelf.</div>
+  <div class="after"><span class="lbl">Now</span>The moment you save, the card turns normal. If you saved it with 0 units, long-press shows that row with an <b>Edit</b> button — add the quantity there, don't register again. The 96 leftovers were cleaned up (the ones with real history were kept).</div>
+</div>
+
+<h3>3. One way to write a SKU</h3>
+<p>AS400 always writes the number with four digits: <span class="mono">01 0288</span>. Over time we ended up with three spellings of the same thing — <span class="mono">01-0288</span>, <span class="mono">01-288</span>, <span class="mono">010288</span> — and the same part could be counted under two of them. From today the system saves every SKU the AS400 way, no matter how it is typed:</p>
+<table>
+  <tr><th>You type</th><th>PickD saves</th><th class="mono"></th></tr>
+  <tr><td class="mono">01-530</td><td class="mono">01-0530</td><td class="note">zero added</td></tr>
+  <tr><td class="mono">033768BLD</td><td class="mono">03-3768BLD</td><td class="note">dash added</td></tr>
+  <tr><td class="mono">03 3768 BLD</td><td class="mono">03-3768BLD</td><td class="note">spaces become the dash</td></tr>
+  <tr><td class="mono">700106BK</td><td class="mono">70-0106BK</td><td class="note">dash added</td></tr>
+  <tr><td class="mono">PKD-252HEX &nbsp;·&nbsp; 792282670112 &nbsp;·&nbsp; Y22B010415</td><td class="mono">unchanged</td><td class="note">internal codes, barcodes and serial numbers stay as they are</td></tr>
+</table>
+<p>Searching works the same way: type <span class="mono">31-75</span> and you get <span class="mono">31-0075</span>. Today 108 existing names were corrected, and the full history of each one moved with it — nothing was lost. Twenty-two of them were the <b>same part filed under two names</b>; those two counts are now under one name. <b>The shelves did not change.</b> That is the list on the next page.</p>
+
+<div class="todo">
+  <b>What we need from the floor:</b> for the 22 parts on the next page, confirm that the two spots really hold the same part. If one of them is something different, tell Rafael and it gets its own name.
+</div>
+
+<h2>Mentioned only, so you know it happened</h2>
+<ul class="brief">
+  <li>These changes are locked in place: the system itself now refuses a second spelling of a SKU, keeps the LOW STOCK / UNREG status up to date on its own, and won't create half-registered SKUs anymore.</li>
+  <li>The order scanner on the Bay 2 laptop needs its update installed (Rafael) — until then, new orders may still arrive with the old spelling, and Edit Order fixes them on open.</li>
+  <li>Every renamed SKU shows its old name in History as "Was: …", and there is a full list of what was renamed.</li>
+</ul>
+
+<h2>Coming up</h2>
+<ul>
+  <li><b>Assist mode in Double Check</b> (new idea logged today): when an order has several pallets, a second person can join the same order and verify a pallet while the first person verifies another — one order, two people, no waiting.</li>
+  <li>The physical check of the 22 merged parts (next page).</li>
+</ul>
+
+<div class="pb"></div>
+<h2>Please check on the floor — 22 parts that were filed under two names</h2>
+<p class="note">"Old name" no longer exists in PickD; both counts now live under "Name now". Most of these came in with the original inventory list back in March already under both names, and none has ever appeared on an AS400 order — which is why nobody caught it until now. Confirm each pair is the same part.</p>
+<table>
+  <tr><th class="mono">Old name</th><th class="mono">Name now</th><th>Where it is counted now (units)</th><th>Description in PickD</th></tr>
+  <tr><td class="mono">01-077</td><td class="mono">01-0077</td><td>ROW 20 (1)</td><td>Hudson 17" Gloss Black</td></tr>
+  <tr><td class="mono">01-145</td><td class="mono">01-0145</td><td>ROW 20 (1)</td><td>Hudson St 14" Blue Lagoon</td></tr>
+  <tr><td class="mono">01-288</td><td class="mono">01-0288</td><td>— (0 units)</td><td>Explorer A1 ST 16" Teal</td></tr>
+  <tr><td class="mono">01-293</td><td class="mono">01-0293</td><td>ROW 20 (1)</td><td>Hudson St 14" Sugar Grape</td></tr>
+  <tr><td class="mono">01-429</td><td class="mono">01-0429</td><td>ROW 20 (1)</td><td>Hudson St 14" Vanilla Mint</td></tr>
+  <tr><td class="mono">01-513</td><td class="mono">01-0513</td><td>SD (1)</td><td>Explorer A2 19" Gloss Black</td></tr>
+  <tr><td class="mono">12-850</td><td class="mono">12-0850</td><td>D3 (99), D9 (22)</td><td>JRP pivot S-stay Dakar XCR 07-08</td></tr>
+  <tr><td class="mono">128338BK</td><td class="mono">12-8338BK</td><td>H19 (22)</td><td>Taxi part chainguard 2019+</td></tr>
+  <tr><td class="mono">23-400BK</td><td class="mono">23-0400BK</td><td>E14 (120), D1 (33), E3 (27)</td><td>Stem ATB cromo 1x40x115mm w/ hole, black</td></tr>
+  <tr><td class="mono">23-400SL</td><td class="mono">23-0400SL</td><td>E14 (150), E9 (10)</td><td>Stem ATB cromo 1x40x115mm, silver</td></tr>
+  <tr><td class="mono">23-404</td><td class="mono">23-0404</td><td>D6 (840), E14 (60)</td><td>Stem w/o logo 22.3mm black</td></tr>
+  <tr><td class="mono">29-200</td><td class="mono">29-0200</td><td>E76 (300), D21 (25)</td><td>Brake part center-pull cable holder, steel</td></tr>
+  <tr><td class="mono">31-75</td><td class="mono">31-0075</td><td>E71 (1350), E81 (900)</td><td>White cable / brake cable inner-outer front — <b>two different descriptions, please check</b></td></tr>
+  <tr><td class="mono">31-250BL</td><td class="mono">31-0250BL</td><td>E71 (16), E76 (16)</td><td>Violet bicycle cables</td></tr>
+  <tr><td class="mono">36-305</td><td class="mono">36-0305</td><td>D26 (95)</td><td>Brake Changstar drum band 12 white — <b>both counts were in D26, now one row of 95</b></td></tr>
+  <tr><td class="mono">650022</td><td class="mono">65-0022</td><td>FDX STATION (40)</td><td>JRP hanger Renegade S3/S4 (1.5)</td></tr>
+  <tr><td class="mono">66-109BK</td><td class="mono">66-0109BK</td><td>D11 (100), D16 (100), D17 (100), E16 (96), E20 (96)</td><td>Cyclerite stem BK</td></tr>
+  <tr><td class="mono">66-110BK</td><td class="mono">66-0110BK</td><td>E11 (514), D11 (65), D16 (65), D17 (65)</td><td>Cyclerite stem black</td></tr>
+  <tr><td class="mono">66-110SL</td><td class="mono">66-0110SL</td><td>E12 (132), E20 (131), D11 (35), D16 (35), D17 (35)</td><td>Cyclerite stem SL</td></tr>
+  <tr><td class="mono">66-377SL</td><td class="mono">66-0377SL</td><td>E47 (79)</td><td>Cyclerite 1/2 DX style pedal — <b>both counts were in E47, now one row of 79</b></td></tr>
+  <tr><td class="mono">66-517</td><td class="mono">66-0517</td><td>E20 (22), D1 (15)</td><td>Cyclerite 4-bolt stem</td></tr>
+  <tr><td class="mono">66-525</td><td class="mono">66-0525</td><td>D11 (100), E9 (8)</td><td>Stem Cyclerite threadless 1 1/8 90mm</td></tr>
+</table>
+
+<p class="foot">PickD · August 26, 2026 · Questions: Rafael</p>
+</body>
+</html>
