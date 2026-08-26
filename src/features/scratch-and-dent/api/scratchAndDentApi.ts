@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase';
+import { normalizeSkuOnRegister } from '../../../utils/skuNormalize';
 import {
   BikeUnitWithCatalogSchema,
   type BikeUnit,
@@ -220,8 +221,11 @@ export const scratchAndDentApi = {
    *      legacy stock view + picking flow keep working unchanged.
    */
   async createUnit(input: SDUnitInput): Promise<BikeUnit> {
+    // One spelling (idea-154): the DB trigger canonicalizes the writes, and
+    // the reads below have to look for the same name it stored.
+    const sku = normalizeSkuOnRegister(input.sku);
     const skuRow = {
-      sku: input.sku,
+      sku: sku,
       model: input.model ?? null,
       size: input.size ?? null,
       color: input.color ?? null,
@@ -246,7 +250,7 @@ export const scratchAndDentApi = {
     const { data: existingInv } = await supabase
       .from('inventory')
       .select('id')
-      .eq('sku', input.sku)
+      .eq('sku', sku)
       .eq('warehouse', 'LUDLOW')
       .eq('location', 'ROW 33')
       .maybeSingle();
@@ -258,12 +262,12 @@ export const scratchAndDentApi = {
         .from('inventory')
         .insert([
           {
-            sku: input.sku,
+            sku: sku,
             warehouse: 'LUDLOW',
             location: 'ROW 33',
             quantity: 1,
             is_active: true,
-            item_name: itemName || input.sku,
+            item_name: itemName || sku,
           },
         ])
         .select('id')
@@ -273,9 +277,9 @@ export const scratchAndDentApi = {
     }
 
     return {
-      id: input.sku,
-      variant_id: input.sku,
-      sku: input.sku,
+      id: sku,
+      variant_id: sku,
+      sku: sku,
       serial_number: skuRow.serial_number,
       condition: skuRow.condition,
       condition_description: skuRow.condition_description,

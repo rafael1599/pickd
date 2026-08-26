@@ -290,3 +290,27 @@ teclea lo que ve, y las etiquetas impresas dirían una cosa y la búsqueda otra.
 **A**, con una sola condición previa: confirmar qué dice la etiqueta física / la pantalla de AS400
 para un `01-0288`. Números: ~110 renames contra 1.662; cero colisiones contra al menos una; el
 watchdog y S&D ya la hablan; el coste humano se absorbe en la lectura tolerante, no en la mano.
+
+---
+
+## 4. Implementación (26 ago 2026, noche)
+
+Rafael confirmó A con la fuente: en AS400, `01-0288` es "S/D EXPLORER A1…" (0 en stock) y `01-288`
+no encuentra nada.
+
+- **Migración `20260826220000_canonical_sku.sql`**, validada en prod dentro de una transacción con
+  rollback antes de aplicarse: 108 nombres respelled, 22 fusionados en un nombre existente, 2 sumados
+  en el mismo bin, 111 órdenes más con líneas respelled (las `010491` del watchdog sin fila de
+  catálogo); stock total 190.194 → 190.194, snapshots 28.677.027 → 28.677.027, 5.922 líneas →
+  5.922, +132 logs `EDIT` de rename, 0 nombres no canónicos restantes, 0 inventario sin catálogo,
+  0 órdenes cerradas con `last_activity_at` movido. `search('01-530')` → `01-0530`, `search('03-37')`
+  → 34 filas como antes, `register_new_sku('86 0099')` → `86-0099`, un segundo INSERT con otra
+  grafía → rechazado por `ux_sku_metadata_sku_key`.
+- **App:** `normalizeSkuOnRegister` es el espejo (misma tabla de 19 casos que el SQL y el watchdog);
+  se aplica al guardar en `ItemDetailView` (alta o cambio de sku), en el prefill desde picking, en
+  `createUnit` de Scratch & Dent, en Return-to-Stock y en los dos parsers de contenedor (rellenan el
+  cero que Excel pierde). `InlineSkuCreate` ya no normaliza por tecla. `sku_key` en los tipos.
+- **Watchdog `918160d`:** `parser.canonical_sku`; las líneas no encontradas se escriben en la grafía
+  canónica de lo que dijo el papel (`03-3768BLD`, `01-0530`), así que al registrarlas la orden las
+  encuentra por igualdad exacta. El matching (`normalize_sku`) no cambia.
+- **Queda en piso:** el conteo de las 22 fusiones (`sku_canonical_renames where merged`).

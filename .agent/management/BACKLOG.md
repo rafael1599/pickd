@@ -9,7 +9,7 @@
 
 ## P1 — Alto (operación diaria)
 
-### 87. Identidad única del SKU: guion + cero, impuestos al escribir <!-- id: idea-154 --> — input: 2026-08-26 NY
+### ~~87. Identidad única del SKU: guion + cero, impuestos al escribir~~ <!-- id: idea-154 --> ✅ 2026-08-26 (canónico = AS400; migración `20260826220000`, watchdog `918160d`)
 - **Problema:** el mismo SKU vive con tres grafías (`01 0530` en AS400, `01-0530` en el catálogo
   heredado, `01-530`/`010530` a mano o del watchdog) y nadie la impone al escribir: de 14 vías que
   crean SKUs solo Label Studio pone el guion (`normalizeSkuOnRegister`), la DB acepta cualquier string
@@ -17,9 +17,13 @@
   guion (12 creados en los últimos 30 d), 10 familias duplicadas por clave normalizada
   (`12-8338BK`/`128338BK`), 97 cortos sin el cero y **26 parejas del mismo part con stock partido**
   (`66-0110BK` 514 / `66-110BK` 195). 67/67 ítems `SKU not found` en 90 d llegaron sin guion.
-- **Decisión pendiente (Rafael):** forma canónica. Propuesta: la de AS400, `DD-NNNN[CC(C)]` (4
-  dígitos con ceros, mayúsculas); UPC/`PKD-`/seriales se guardan `upper(trim)`. Implica
-  `01-429 → 01-0429`, lo contrario de los renames del 18 ago.
+- **Decisión (Rafael, 26 ago):** la de AS400, `DD-NNNN[CC(C)]` — AS400 muestra `01-0288` y no
+  encuentra `01-288`. Hecho: `canonical_sku()` + 4 triggers + RPCs; 108 renames (22 fusiones, 2
+  sumas en el mismo bin) con auditoría en `sku_canonical_renames`; `sku_key` único; espejos TS y
+  Python con la misma tabla de casos; watchdog escribe canónico en líneas no encontradas.
+- **Pendiente (piso, no código):** conteo físico de las 22 fusiones —
+  `select * from sku_canonical_renames where merged` — y, si alguna resulta ser otra parte,
+  registrarla con nombre propio. Ver CLAUDE.md → "Forma canónica del SKU".
 - **Plan (4 piezas, en orden):** (1) decidir; (2) `canonical_sku()` SQL + trigger BEFORE
   INSERT/UPDATE en `sku_metadata` e `inventory` — patrón `set_is_bike_on_insert` — con espejo TS y
   test de paridad, aditivo; (3) columna generada `sku_key` + índice único; (4) migración de datos

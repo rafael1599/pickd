@@ -12,6 +12,7 @@
 
 import * as XLSX from 'xlsx';
 import type { ParsedLine, ParsedSheet } from './types';
+import { normalizeSkuOnRegister } from '../../../utils/skuNormalize';
 
 type Cell = string | number | boolean | null | undefined;
 type Row = Cell[];
@@ -22,7 +23,9 @@ function buildSku(prefix: Cell, number: Cell, color: Cell): string {
     .padStart(2, '0');
   const n = String(number ?? '').replace(/\D/g, '');
   const c = color == null ? '' : String(color).trim().toUpperCase();
-  return `${p}-${n}${c}`;
+  // Excel drops the leading zero of a numeric cell (0077 → 77); the canonical
+  // rule pads it back (idea-154).
+  return normalizeSkuOnRegister(`${p}-${n}${c}`);
 }
 
 function toQty(value: Cell): number | null {

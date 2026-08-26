@@ -56,3 +56,14 @@ describe('buildNewSkuPrefill', () => {
     expect(p.sku_metadata?.model).toBeNull();
   });
 });
+
+describe('buildNewSkuPrefill · canonical spelling', () => {
+  it("registers the watcher's dashless spelling under the canonical SKU", () => {
+    const prefill = buildNewSkuPrefill(
+      { sku: '010530', itemName: null, warehouse: 'LUDLOW' },
+      'part'
+    );
+    expect(prefill.sku).toBe('01-0530');
+    expect(prefill.sku_metadata?.sku).toBe('01-0530');
+  });
+});

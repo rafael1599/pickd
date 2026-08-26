@@ -12,6 +12,7 @@
 // parseShipmentPdf supplies the text via pdfjs.
 
 import type { ParsedLine, ParsedSheet } from './types';
+import { normalizeSkuOnRegister } from '../../../utils/skuNormalize';
 
 const PO_RE = /PO\s*#?\s*:?\s*([0-9]{3,5}[A-Z]?)/i;
 
@@ -24,7 +25,7 @@ function buildSku(prefix: string, number: string, color: string | undefined): st
   const p = prefix.replace(/\D/g, '').padStart(2, '0');
   const n = number.replace(/\D/g, '');
   const c = (color ?? '').trim().toUpperCase();
-  return `${p}-${n}${c}`;
+  return normalizeSkuOnRegister(`${p}-${n}${c}`); // pads the number (idea-154)
 }
 
 /** Parse the worksheet's extracted text into the same ParsedSheet shape the

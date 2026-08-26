@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { normalizeSkuOnRegister } from '../../../utils/skuNormalize';
 import toast from 'react-hot-toast';
 import X from 'lucide-react/dist/esm/icons/x';
 import Search from 'lucide-react/dist/esm/icons/search';
@@ -198,7 +199,7 @@ export const ReturnToStockSheet: React.FC<ReturnToStockSheetProps> = ({
       toast.error('Select whether the new SKU is a Bike or a Part / Accessory');
       return;
     }
-    const sku = newSku.trim().toUpperCase();
+    const sku = normalizeSkuOnRegister(newSku);
     if (!sku) {
       toast.error('SKU is required');
       return;

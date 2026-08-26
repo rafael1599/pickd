@@ -34,8 +34,8 @@ describe('inventorySkuCandidates', () => {
     expect(candidates).toContain('03-3769BL');
   });
 
-  it('leaves pure-numeric codes alone', () => {
-    expect(inventorySkuCandidates('651000')).toEqual(['651000']);
+  it('offers the canonical AS400 form for a glued 6-digit number, exact first', () => {
+    expect(inventorySkuCandidates('651000')).toEqual(['651000', '65-1000']);
   });
 
   it('returns no candidates for an empty SKU', () => {

@@ -158,34 +158,49 @@ describe('variantSiblingBase / isVariantSibling', () => {
 });
 
 describe('normalizeSkuOnRegister', () => {
-  it('inserts the dash after the 2-digit department code (bike-style SKUs)', () => {
-    expect(normalizeSkuOnRegister('033768BLD')).toBe('03-3768BLD');
+  // The SAME table lives in the SQL migration 20260826220000 (validated
+  // against prod) and in the watcher's tests/test_canonical_sku.py. Change
+  // one, change all three.
+  const CASES: [string, string][] = [
+    ['01-530', '01-0530'],
+    ['01 0530', '01-0530'],
+    ['033768BLD', '03-3768BLD'],
+    ['03 3768 BLD', '03-3768BLD'],
+    ['700106BK', '70-0106BK'],
+    ['128353', '12-8353'],
+    ['  033768bld ', '03-3768BLD'],
+    ['03-3768BL', '03-3768BL'],
+    ['01-0530', '01-0530'],
+    ['PKD-252HEX', 'PKD-252HEX'],
+    ['23-00146A', '23-00146A'],
+    ['792282670112', '792282670112'],
+    ['Y22B010415', 'Y22B010415'],
+    ['brakes', 'BRAKES'],
+    ['03', '03'],
+    ['ABC123', 'ABC123'],
+    ['01-093]', '01-093]'],
+    ['S/D03-3826GY', 'S/D03-3826GY'],
+    ['', ''],
+  ];
+
+  it.each(CASES)('canonical_sku(%j) = %j', (input, expected) => {
+    expect(normalizeSkuOnRegister(input)).toBe(expected);
+  });
+
+  it('is idempotent', () => {
+    for (const [, out] of CASES) expect(normalizeSkuOnRegister(out)).toBe(out);
+  });
+
+  it('pads the number to four digits and drops the separator, in either order', () => {
+    expect(normalizeSkuOnRegister('31-75')).toBe('31-0075');
+    expect(normalizeSkuOnRegister('86-4BK')).toBe('86-0004BK');
     expect(normalizeSkuOnRegister('034099BK')).toBe('03-4099BK');
-    expect(normalizeSkuOnRegister('700106SK')).toBe('70-0106SK');
   });
 
-  it('leaves pure-numeric codes (UPCs / part numbers) untouched', () => {
-    expect(normalizeSkuOnRegister('128353')).toBe('128353');
-    expect(normalizeSkuOnRegister('496942473266')).toBe('496942473266');
-  });
-
-  it('leaves an already-dashed SKU unchanged (idempotent)', () => {
-    expect(normalizeSkuOnRegister('03-3768BL')).toBe('03-3768BL');
-    expect(normalizeSkuOnRegister(normalizeSkuOnRegister('033768BL'))).toBe('03-3768BL');
-  });
-
-  it('trims, uppercases and strips internal spaces', () => {
-    expect(normalizeSkuOnRegister('  033768bld ')).toBe('03-3768BLD');
-    expect(normalizeSkuOnRegister('03 3768 BLD')).toBe('03-3768BLD');
-  });
-
-  it('does not touch SKUs that do not start with two digits', () => {
-    expect(normalizeSkuOnRegister('ABC123')).toBe('ABC123');
-    expect(normalizeSkuOnRegister('A1B2')).toBe('A1B2');
-  });
-
-  it('does not dash a bare 2-digit code (nothing after it)', () => {
-    expect(normalizeSkuOnRegister('03')).toBe('03');
+  it('never strips a zero and never touches a 5-digit number', () => {
+    expect(normalizeSkuOnRegister('01-0077')).toBe('01-0077');
+    expect(normalizeSkuOnRegister('23-00146A')).toBe('23-00146A');
+    expect(normalizeSkuOnRegister('01530')).toBe('01530'); // 5 glued digits: which split? leave it
   });
 
   it('handles null/empty safely', () => {

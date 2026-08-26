@@ -261,7 +261,7 @@ dashboard de visualizacion 2D/3D) que leía `inventory`, `sku_metadata` y `locat
 eliminó (confirmado 2026-08-14, ya no existe en disco) y con él el contrato `JAMIS/SHARED-DB-CONTRACT.md`.
 Ya no hay que coordinar cambios de schema con nadie más.
 
-- **`sku_metadata` columns (prod):** `sku`, `length_in`, `width_in`, `height_in`, `length_ft`, `weight_lbs`, `image_url`, `is_bike`, `upc`, `created_at`, `dimensions_verified`, más las de Scratch & Dent (`20260417100000`): `is_scratch_dent`, `model`, `size`, `color`, `category`, `serial_number`, `condition`, `condition_description`, `sd_category`, `msrp`, `standard_price`, `sd_price`, `pdf_link` — NO tiene columna `name`
+- **`sku_metadata` columns (prod):** `sku`, `length_in`, `width_in`, `height_in`, `length_ft`, `weight_lbs`, `image_url`, `is_bike`, `upc`, `created_at`, `dimensions_verified`, más las de Scratch & Dent (`20260417100000`): `is_scratch_dent`, `model`, `size`, `color`, `category`, `serial_number`, `condition`, `condition_description`, `sd_category`, `msrp`, `standard_price`, `sd_price`, `pdf_link`, y `sku_key` (`20260826220000`, generada: `upper(sku)` sin nada que no sea A-Z0-9, **índice único**, solo lectura) — NO tiene columna `name`
 - **`model` y `size` ya no son solo de Scratch & Dent.** Nacieron ahí, y hasta `20260717200000` (`register_new_sku` estructurado) nada más los llenaba, así que el catálogo viejo guardaba el item_name entero en `model` (`"DXT A3 19 BLUE"`) con `size` en NULL. `20260820160000` los separó para los 171 SKUs de bike con medida real. **Son la llave de agrupación del export a FedEx**, así que basura ahí sale del almacén — ver `bug-018`, que mete texto de notas de picking dentro de `model`. Los 531 SKUs sobre defaults siguen sin separar a propósito: no vale la pena partir un nombre cuyo número no es real.
 - **`inventory.sublocation`** (idea-024): posición dentro de un ROW (A-F). CHECK constraints: `^[A-Z]{1,3}$` y solo para `location ILIKE 'ROW%'`. Se auto-limpia a NULL al mover a non-ROW. UI: chips en ItemDetailView/MovementModal, badge en InventoryCard/DoubleCheckView.
 - **Invariante qty=0 → is_active=false:** `adjust_inventory_quantity` y `undo_inventory_action` mantienen `is_active = (quantity > 0)` bidireccionalmente. **Excepción:** `register_new_sku` crea placeholders con `qty=0, is_active=true` para onboarding de bikes nuevos — NO modificar este comportamiento. Ghost trail en búsqueda usa `includeInactive: true` para seguir mostrando items sin stock con su último movimiento.
@@ -343,7 +343,7 @@ Además hay **86 SKUs cuyo `is_bike` contradice la regla viva** — corregidos a
 
 Usar "no está en un ROW" como **detector** de sospechosos es útil; usarlo como **regla de clasificación** corrompe datos.
 
-**Registros basura conocidos, sin resolver:** `01-$&;%` ("Bike example", qty 0, en FDX), `00-0000` ("Faultline A1 Frame" — un cuadro, no una bike, en CAGE), `01-513/518/525/526/528` (sin `item_name`, `length_in = 5`, qty 1 en SD — marcados bike, sin nombre no se puede decidir qué son), y `03-3666Bl` con la L final en minúscula. Todos entraron por el mismo agujero: registro sin elegir el tipo.
+**Registros basura conocidos, sin resolver:** `01-$&;%` ("Bike example", qty 0, en FDX), `00-0000` ("Faultline A1 Frame" — un cuadro, no una bike, en CAGE), `01-0513/0518/0525/0526/0528` (antes `01-513`…; sin `item_name`, `length_in = 5`, qty 1 en SD — marcados bike, sin nombre no se puede decidir qué son). `03-3666Bl` con la L minúscula lo corrigió la pasada canónica (`03-3666BL`). Todos entraron por el mismo agujero: registro sin elegir el tipo.
 
 **Defaults de peso y dimensiones** (`20260731190000`): los pone el **trigger** `tr_sku_metadata_set_is_bike` según el tipo resuelto — bike 45 lbs / 55×8.5×30.5", part **1 lb** / 0×0×0. Solo rellena lo que viene NULL, así que un valor explícito siempre gana (verificado: un SKU con prefijo `03-` registrado explícitamente como part sale con 1 lb).
 
@@ -362,6 +362,46 @@ Usar "no está en un ROW" como **detector** de sospechosos es útil; usarlo como
 
 **Detector, no regla:** "está fuera de un ROW" sirve para _encontrar_ sospechosos — así apareció E47 —, pero nunca para clasificar. `01-` y `02-` son prefijos de bike legítimos (139 y 20 SKUs, con 107 y 13 que vivieron en un ROW), así que sacarlos del trigger para atrapar cinco pedales misclasificaría ~120 bikes reales. La decisión la tiene que tomar una persona en el registro, no un patrón.
 - **El formulario de alta no manda las dimensiones si siguen siendo las del tipo** (`ItemDetailView.executeSave`, modo `add`, desde el 25 ago 2026): mandarlas hacía que cada SKU registrado a mano saliera `verified` en `55×8.5×30.5` sin que nadie midiera (los del 21 ago están así), y el export a FedEx los declara como cartón real. En NULL el trigger rellena los mismos números y la bandera se queda en `false`.
+
+### Forma canónica del SKU: `DD-NNNN[CCC]`, impuesta al escribir (`20260826220000`, idea-154)
+
+**Decisión de Rafael (26 ago 2026): la grafía canónica es la de AS400** — departamento de 2
+dígitos, guion, número de **4 dígitos con ceros**, 0-3 letras de color en mayúscula. AS400 no tiene
+otra: `01-0288` es "S/D EXPLORER A1…" allí y `01-288` no encuentra nada. Lo que no encaje en esa
+forma (`PKD-…`, UPC de 12 dígitos, seriales `Y22B010415`, tracking, `23-00146A` con número de 5
+dígitos) se guarda `upper(trim)` y no se toca.
+
+**Una sola regla, tres espejos:** `canonical_sku(text)` en SQL es la autoridad —la aplican los
+triggers `a_canonical_sku` en `sku_metadata`, `inventory`, `inventory_logs` y `cycle_count_items`
+(solo en INSERT o cuando cambia `sku`: editar cantidad nunca mueve una fila de nombre), y la usan
+`register_new_sku`, `lookup_canonical_sku`, `search_inventory_with_metadata` (un término completo
+en cualquier grafía encuentra la fila; `03-37` sigue siendo búsqueda por prefijo) y
+`_container_base_sku` (Excel pierde el cero de `0077`). `normalizeSkuOnRegister` (TS) y
+`parser.canonical_sku` (watchdog) son espejos; **la misma tabla de casos** vive en
+`skuNormalize.test.ts`, `tests/test_canonical_sku.py` y en el validador de la migración — cambiar
+uno es cambiar los tres. En la app se aplica **al guardar**, no por tecla (rellenar `01-5` a
+`01-0005` mientras alguien escribe no es ayuda).
+
+**La pasada de datos** renombró 108 nombres (72 cortos `31-75`, 33 sin guion `700106BK`, 3
+raros), 22 de ellos fusionados en un nombre que ya existía y 2 sumados en el mismo bin
+(`36-305`+`36-0305` en D26, `66-377SL`+`66-0377SL` en E47), reescribiendo `inventory`,
+`inventory_logs` (×2), `daily_inventory_snapshots`, `asset_tags`, `cycle_count_items`,
+`fedex_return_items` y `picking_lists.items` de **todas** las órdenes (el papel de AS400 decía 4
+dígitos de todas formas) con los triggers de actividad y compensación apagados. Stock y snapshots
+idénticos antes y después; cada rename/fusión quedó en **`sku_canonical_renames`** (append-only,
+lectura admin) con un log `EDIT` por fila (`performed_by = 'system: canonical-sku'`,
+`previous_sku` = nombre viejo). **Las 22 fusiones son la lista para el conteo físico**: en varias
+los dos nombres tenían descripciones distintas (`31-0075` "WHITE CABLE" / `31-75` "BRAKE CABLE
+INNER/OUTER FRONT") y ninguno aparece en ningún PDF; si en piso resultan ser partes distintas, el
+que no es AS400 se registra con un nombre propio.
+
+**`sku_key` único cierra la puerta:** un INSERT con una segunda grafía se rechaza; un `upsert ON
+CONFLICT (sku)` cae en la fila existente porque el trigger canoniza antes de comprobar el conflicto.
+**No añadir más lectores tolerantes** (`inventorySkuCandidates`, `lookup_canonical_sku` y el search
+ya existen y son suficientes): si un SKU no se encuentra, la respuesta es la grafía, no otra capa.
+Para fusionar nombres a mano (p. ej. una familia `BL`/`BLD` cuando la caja lo diga) existe
+`rename_sku_everywhere(old, new)` — `service_role` solamente, escribe la auditoría — nunca el
+rename del formulario, que deja al nombre viejo como huérfana con historial.
 
 ### Hermanos de variante: `03-3768BL` y `03-3768BLD` son la misma bici
 
@@ -389,7 +429,8 @@ tenía `03-3768BL → BLD` y amaneció al revés tras el rename. Una entrada ah�
 2 saltara el ítem, así que un mapa caducado dejaba la bandera **sin ninguna sugerencia**; hay un test
 que prohíbe listar hermanos en él. La familia es estricta: misma base `dd-dddd` + color de dos letras
 y **una** letra más. `BK`/`BL` no son hermanos (eso es `AS400_SKU_ALIASES`), ni un part number con
-sufijo, ni `03-3666Bl` con la ele minúscula.
+sufijo. Desde `918160d` el watchdog escribe las líneas no encontradas con la grafía canónica
+(`03-3768BLD`, `01-0530`), así que al registrarlas la orden las encuentra por igualdad exacta.
 
 ## Branching & Deployment
 

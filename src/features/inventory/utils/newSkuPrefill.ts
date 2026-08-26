@@ -9,6 +9,7 @@
  * hand — for someone who wants to register the thing and get back to picking.
  */
 import type { RegisterType } from '../../../components/ui/RegisterTypeSelector';
+import { normalizeSkuOnRegister } from '../../../utils/skuNormalize';
 import type { InventoryItemWithMetadata } from '../../../schemas/inventory.schema';
 import { skuDefaultsFor } from '../../../utils/skuDefaults';
 import { parseBikeName } from './parseBikeName';
@@ -49,8 +50,12 @@ export function buildNewSkuPrefill(
     model = name;
   }
 
+  // The order line may still carry the watcher's spelling of a SKU nobody
+  // registered ('010530'); the row is registered under the canonical one.
+  const sku = normalizeSkuOnRegister(source.sku);
+
   return {
-    sku: source.sku,
+    sku: sku,
     item_name: name || null,
     warehouse: source.warehouse === 'ATS' ? 'ATS' : 'LUDLOW',
     location: null,
@@ -58,7 +63,7 @@ export function buildNewSkuPrefill(
     is_active: true,
     distribution: [],
     sku_metadata: {
-      sku: source.sku,
+      sku: sku,
       is_bike: isBike,
       length_in: defaults.length_in,
       width_in: defaults.width_in,

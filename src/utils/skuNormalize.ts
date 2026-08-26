@@ -85,12 +85,11 @@ export function resolveInventorySku(sku: string | null | undefined): string {
  * so the picker fixes it by hand — a quarter of every replacement logged in
  * five months is someone re-typing a SKU that differs only by that character.
  *
- * It cannot simply be inserted: eight SKUs really are stored without one, four
- * of them holding live stock (700106BK, 860005BK…), and dashing those would
- * break picks that work today. So this keeps the fallback contract the rest of
- * the module follows — the exact SKU is always first, the dashed form is only
- * ever a later guess, and the caller takes the first candidate that actually
- * has stock.
+ * Since idea-154 (2026-08-26) every live row is spelled canonically, so the
+ * canonical form is the candidate that matches; the exact string still goes
+ * first to keep the fallback contract the rest of the module follows — the
+ * caller takes the first candidate that actually has stock — and to serve an
+ * old order line that still carries a spelling from before the pass.
  */
 export function inventorySkuCandidates(sku: string | null | undefined): string[] {
   const exact = (sku || '').trim();
@@ -148,18 +147,31 @@ export function getSubstituteSku(sku: string | null | undefined): string | null 
 }
 
 /**
- * Registration-time SKU normalizer. Operators never have to type the dash that
- * separates the 2-digit department code from the rest — it is inserted
- * automatically when a new SKU is registered from the UI ("033768BLD" →
- * "03-3768BLD"). Also trims, uppercases and strips internal whitespace.
+ * Canonical SKU spelling — the ONE rule, mirrored from SQL `canonical_sku()`
+ * (migration 20260826220000) and by the watcher's `parser.canonical_sku`.
+ * Keep the three case tables identical (see the test).
  *
- * Scoped to bike-style catalog SKUs: it only acts when the SKU starts with two
- * digits, has no dash right after them, AND contains at least one letter (the
- * color/finish code). Pure-numeric codes — UPCs and numeric part numbers like
- * "128353" — are left untouched, as are SKUs that already carry the dash or
- * don't start with two digits.
+ * Anything that parses as an AS400 stock number becomes `DD-NNNN[CCC]`:
+ * 2-digit department, dash, number zero-padded to 4, 0-3 upper-case letters.
+ * "01-530" → "01-0530", "03 3768 BLD" → "03-3768BLD", "033768BLD" →
+ * "03-3768BLD", "128353" → "12-8353". AS400 has no other spelling — '01-0288'
+ * is a bike there and '01-288' finds nothing (2026-08-26) — while the catalog
+ * held 1,662 rows in that form next to 72 short ones and 33 dashless ones,
+ * with 22 parts split across two names. Everything else (PKD-…, 12-digit
+ * UPCs, serials like Y22B010415, '23-00146A' with a 5-digit number) is
+ * upper(trim) and otherwise left alone.
+ *
+ * The database applies the same rule on every write (a_canonical_sku), so
+ * this is for the client to show and compare the name the row will actually
+ * get — never the only line of defence. Apply it at save time, not on every
+ * keystroke: padding "01-5" to "01-0005" while someone is still typing is
+ * exactly the kind of help nobody asked for.
  */
 export function normalizeSkuOnRegister(raw: string | null | undefined): string {
-  const s = (raw || '').trim().toUpperCase().replace(/\s+/g, '');
-  return /^\d{2}[^-]/.test(s) && /[A-Z]/.test(s) ? `${s.slice(0, 2)}-${s.slice(2)}` : s;
+  const v = (raw || '').trim().toUpperCase().replace(/\s+/g, ' ');
+  const sep = /^(\d{2})[-\s]+(\d{1,4})\s*([A-Z]{0,3})$/.exec(v);
+  if (sep) return `${sep[1]}-${sep[2].padStart(4, '0')}${sep[3]}`;
+  const glued = /^(\d{2})(\d{4})([A-Z]{0,3})$/.exec(v);
+  if (glued) return `${glued[1]}-${glued[2]}${glued[3]}`;
+  return v;
 }

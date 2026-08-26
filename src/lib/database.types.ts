@@ -1420,6 +1420,7 @@ export type Database = {
           created_at: string;
           dimensions_verified: boolean;
           dimensions_measured_at: string | null;
+          sku_key: string;
           height_in: number | null;
           image_url: string | null;
           is_bike: boolean | null;

@@ -135,7 +135,7 @@ export function InlineSkuCreate({
         <input
           type="text"
           value={sku}
-          onChange={(e) => setSku(normalizeSkuOnRegister(e.target.value))}
+          onChange={(e) => setSku(e.target.value.toUpperCase())} // canonical at submit, not per keystroke
           placeholder="e.g. 03-4099BK"
           className="w-full h-10 px-3 bg-surface border border-subtle rounded-xl text-sm text-content placeholder:text-muted focus:outline-none focus:border-accent/40"
         />

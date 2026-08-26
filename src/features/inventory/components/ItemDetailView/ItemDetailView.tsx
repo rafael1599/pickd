@@ -35,6 +35,7 @@ import {
 import { predictLocation } from '../../../../utils/locationPredictor.ts';
 import { calculateBikeDistribution } from '../../../../utils/distributionCalculator.ts';
 import { skuDefaultsFor } from '../../../../utils/skuDefaults';
+import { normalizeSkuOnRegister } from '../../../../utils/skuNormalize';
 import { inventoryService } from '../../api/inventory.service.ts';
 import { uploadPhoto, deletePhoto } from '../../../../services/photoUpload.service';
 import { useScrollLock } from '../../../../hooks/useScrollLock';
@@ -725,6 +726,14 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
     if (prediction.bestGuess && prediction.bestGuess !== data.location) {
       data.location = prediction.bestGuess;
       setValue('location', prediction.bestGuess);
+    }
+    // Canonical spelling before anything compares or stores it (idea-154):
+    // '01-530' → '01-0530'. The DB trigger would do it anyway; doing it here
+    // keeps the rename question, the optimistic row and the metadata upsert
+    // on the name the row will actually get.
+    if (mode === 'add' || data.sku !== initialData?.sku) {
+      data.sku = normalizeSkuOnRegister(data.sku);
+      setValue('sku', data.sku);
     }
     if (mode === 'edit' && initialData && data.sku !== initialData.sku) {
       showConfirmation(
