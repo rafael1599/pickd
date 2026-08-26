@@ -63,10 +63,16 @@ export const SkuLocationsModal: React.FC<SkuLocationsModalProps> = ({
     },
   });
 
-  const { rows, pickRowMissing } = arrangeSkuLocations(data ?? [], {
-    location: pickLocation,
-    warehouse: pickWarehouse,
-  });
+  const all = data ?? [];
+  const pick = { location: pickLocation, warehouse: pickWarehouse };
+  const { rows: stocked, pickRowMissing } = arrangeSkuLocations(all, pick);
+  // Registered but empty everywhere: list the rows at 0 with their Edit
+  // button. The register offer is only for a SKU with NO inventory row — the
+  // second long-press after registering used to land here and offer to create
+  // the SKU again, because a row saved with quantity 0 was filtered out as
+  // history (2026-08-26). Editing that row is how the stock goes in.
+  const dormant = stocked.length === 0 && all.length > 0;
+  const rows = dormant ? arrangeSkuLocations(all, pick, { keepEmpty: true }).rows : stocked;
   const name = itemName || rows.find((r) => r.row.item_name)?.row.item_name || null;
   const totalUnits = rows.reduce((sum, r) => sum + (r.row.quantity ?? 0), 0);
 
@@ -101,7 +107,7 @@ export const SkuLocationsModal: React.FC<SkuLocationsModalProps> = ({
           </div>
         ) : isError ? (
           <p className="text-center text-sm text-red-400 py-8">Couldn&apos;t load locations.</p>
-        ) : rows.length === 0 ? (
+        ) : all.length === 0 ? (
           // The type question is asked here, where the operator already is,
           // instead of behind another full-screen gate inside the form.
           // Choosing is registering: the form opens with everything the order
@@ -118,10 +124,16 @@ export const SkuLocationsModal: React.FC<SkuLocationsModalProps> = ({
           </div>
         ) : (
           <>
-            {pickRowMissing && (
-              <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-3 py-2 text-xs font-bold text-red-400">
-                The order points to {pickLocation}, but there is no stock recorded there.
+            {dormant ? (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs font-bold text-amber-400">
+                Registered, but no stock recorded yet — edit a row to add how many and where.
               </div>
+            ) : (
+              pickRowMissing && (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-3 py-2 text-xs font-bold text-red-400">
+                  The order points to {pickLocation}, but there is no stock recorded there.
+                </div>
+              )
             )}
             {rows.map(({ row, isPick }) => {
               const qty = row.quantity ?? 0;

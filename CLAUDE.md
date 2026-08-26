@@ -91,6 +91,26 @@ cantidad. Un nombre de bici que no parte no va a `model` (sería la basura legac
 
 **Activity Report layout:** Editor panel on the left (desktop) with: selectable greeting toggle ("Hi Carine!"), Win of the Day, PickD Updates (collapsible dropdown, closed by default), On the Floor routine checklist (editable items via gear icon, persisted in localStorage), and Notes (multiline textarea, one per line). Preview on the right updates with green highlight flash on each edit. "Save & Copy Report" button at bottom saves + copies to clipboard in one action. Report section order: Win → PickD Updates → Done Today → On the Floor → In Progress → Coming Up Next → Inventory Accuracy → Waiting. Footer shows date only (no timestamp). `/pickd-report` public route shows the HTML daily report for the current date with date navigation.
 
+**`sku_not_found` es derivada, no almacenada (`20260826180000`, bug-020).** Significa una sola cosa,
+la misma que ya usan `process_picking_list` y `compensate_picking_list_changes`: *no hay fila en
+`sku_metadata` con ese sku exacto*. La deriva `a_stamp_item_sku_metadata` en cada write de `items`
+(**siempre sobrescribe** — es un hecho del catálogo, no un input; a diferencia de `is_bike` y `kind`,
+que solo rellenan NULL) y `zz_touch_open_orders_for_sku` re-sella las órdenes no terminales cuando
+un SKU entra al catálogo, así que registrar desde Double Check cura la orden sin que nadie la abra.
+El cliente toma la bandera del row por realtime/polling (`mergeDerivedItemFlags`, solo esa bandera,
+nunca `items` entero) y `DoubleCheckView` la pinta en vivo desde las filas que ya carga
+`fetchDistributions` (`registeredStock`). Una grafía distinta (`010530` vs `01-0530`) sigue siendo
+*not found* a propósito: eso es idea-154. Consecuencia visible: un ítem añadido a mano con un SKU
+sin registrar ahora sale `UNREG` en vez de decir `false` y hacer que `process_picking_list` busque
+una fila que no existe. **El alta desde el formulario escribe inventario primero y metadata
+después** (`ItemDetailView.executeSave`, modo `add`): el orden inverso, sin esperar, dejó 96 filas
+de `sku_metadata` sin inventario, y con la bandera derivada una fantasma "registra" el SKU para
+todas las órdenes abiertas.
+
+**Verification Board (idea-055):** La Verification Queue es un overlay full-screen con zonas: Priority (auto-populated por status), FedEx/Regular lanes (drag-reclasificar `shipping_type`), In Progress Projects (read-only), Recently Completed (drag=reopen), Waiting (colapsable). Auto-clasificación: item >50 lbs o ≥5 BIKES (prefijo 03-) → Regular, else → FedEx; las partes nunca fuerzan Regular (50 partes = FedEx). Regla duplicada en DB (`classify_picking_list_fedex`) — mantener ambas en sync. La regla de bikes depende de `sku_metadata.is_bike`, que el item no trae por sí solo: el trigger `a_stamp_item_sku_metadata` (migración `20260820150000`) lo sella dentro de cada elemento de `picking_lists.items` en cada write, así que **todo consumidor lee la misma verdad sin buscarla**. Antes cada pantalla traía su propio lookup y pasarlo era opcional — DoubleCheckView no lo pasaba y pintaba de FedEx órdenes de 13 bicis. El parámetro `bikeSkus` de `autoClassifyShippingType`/`isFedexOrder` es ahora **obligatorio** (pasar un Set vacío para renunciar a él a propósito): cubre el ítem que aún no se ha escrito y el SKU cuyo `is_bike` cambió después del sellado. `shipping_type` columna en `picking_lists` (NULL = auto). DnD usa `@dnd-kit/sortable` con `useBoardDnD` hook. Componentes en `src/features/picking/components/board/`.
+
+**Activity Report layout:** Editor panel on the left (desktop) with: selectable greeting toggle ("Hi Carine!"), Win of the Day, PickD Updates (collapsible dropdown, closed by default), On the Floor routine checklist (editable items via gear icon, persisted in localStorage), and Notes (multiline textarea, one per line). Preview on the right updates with green highlight flash on each edit. "Save & Copy Report" button at bottom saves + copies to clipboard in one action. Report section order: Win → PickD Updates → Done Today → On the Floor → In Progress → Coming Up Next → Inventory Accuracy → Waiting. Footer shows date only (no timestamp). `/pickd-report` public route shows the HTML daily report for the current date with date navigation.
+
 ## Export de dimensiones a FedEx Ship Manager
 
 Botón en Settings → Exports (`FedexDimensionsExportCard`, gate por `isAdmin`). Genera la tabla

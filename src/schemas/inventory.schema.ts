@@ -93,6 +93,10 @@ export const InventoryItemInputSchema = z.object({
   // Internal/System fields
   force_id: z.coerce.number().int().positive().optional(),
   isReversal: z.boolean().optional(),
+  // Not an inventory column: the type chosen on a New Item form, handed to the
+  // sku_metadata shell so the DB trigger picks the right weight and box
+  // defaults. Stripped before the inventory insert (inventory.service addItem).
+  is_bike: z.boolean().nullish(),
 });
 
 // Type exports

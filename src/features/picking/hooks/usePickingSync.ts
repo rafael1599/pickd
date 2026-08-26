@@ -7,6 +7,7 @@ import { fetchGroupSiblings } from '../utils/fetchGroupSiblings';
 import { isCombinedOrderNumber, isUnsafeToWriteItems } from '../utils/mergedGroupState';
 import toast from 'react-hot-toast';
 import type { CartItem } from './usePickingCart';
+import { mergeDerivedItemFlags } from '../utils/derivedItemFlags';
 import type { Customer } from '../../../types/schema';
 import type { Json } from '../../../integrations/supabase/types';
 
@@ -97,6 +98,7 @@ export const usePickingSync = ({
   const correctionNotesRef = useRef(correctionNotes);
   const checkedByRef = useRef(checkedBy);
   const ownerIdRef = useRef(ownerId);
+  const cartItemsRef = useRef(cartItems);
 
   useEffect(() => {
     sessionModeRef.current = sessionMode;
@@ -104,7 +106,8 @@ export const usePickingSync = ({
     correctionNotesRef.current = correctionNotes;
     checkedByRef.current = checkedBy;
     ownerIdRef.current = ownerId;
-  }, [sessionMode, listStatus, correctionNotes, checkedBy, ownerId]);
+    cartItemsRef.current = cartItems;
+  }, [sessionMode, listStatus, correctionNotes, checkedBy, ownerId, cartItems]);
 
   // 1. Initial Load Logic
   useEffect(() => {
@@ -318,13 +321,15 @@ export const usePickingSync = ({
           supabase
             .from('picking_lists')
             .select(
-              'status, user_id, checked_by, correction_notes, shipping_type, is_waiting_inventory'
+              'status, user_id, checked_by, correction_notes, shipping_type, is_waiting_inventory, items'
             )
             .eq('id', activeListId)
             .maybeSingle(),
         { label: 'usePickingSync.pollFallback', maxAttempts: 2 }
       );
       if (error || !data) return;
+      const restampedByPoll = mergeDerivedItemFlags(cartItemsRef.current, data.items);
+      if (restampedByPoll) setCartItems(restampedByPoll);
 
       // Same fan-out as the realtime UPDATE handler below, but reusing
       // the refs to avoid double-firing on unchanged values.
@@ -470,6 +475,13 @@ export const usePickingSync = ({
               setCheckedBy(newData.checked_by as string | null);
             if (newData.user_id !== ownerIdRef.current)
               setOwnerId(newData.user_id as string | null);
+
+            // The DB derives sku_not_found on every write of items and
+            // re-stamps the open orders when a SKU is registered; this row is
+            // how the open session hears about it. Only that flag is taken —
+            // see mergeDerivedItemFlags for why the rest of items is not.
+            const restamped = mergeDerivedItemFlags(cartItemsRef.current, newData.items);
+            if (restamped) setCartItems(restamped);
 
             if (
               sessionModeRef.current === 'double_checking' &&

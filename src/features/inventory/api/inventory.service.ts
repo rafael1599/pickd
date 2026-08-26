@@ -332,7 +332,12 @@ class InventoryService extends BaseService<
     }
 
     // 4. Prepare Cleanup
-    const { isReversal: _IS_REV, force_id: _FORCE_ID, ...cleanInput } = validatedInput;
+    const {
+      isReversal: _IS_REV,
+      force_id: _FORCE_ID,
+      is_bike: _IS_BIKE,
+      ...cleanInput
+    } = validatedInput;
 
     const itemToInsert: InventoryItemInput & { id?: string | number; is_active?: boolean } = {
       ...cleanInput,
@@ -367,9 +372,20 @@ class InventoryService extends BaseService<
         // here is what stamped 45 lbs onto every part that arrived this way —
         // the shell row overrode a default the database would have got right.
         // e-bikes and children's bikes still need adjusting by hand after ingest.
-        await this.supabase
-          .from('sku_metadata')
-          .upsert([{ sku: itemToInsert.sku }], { onConflict: 'sku' });
+        // The type, when the form chose one, does travel: it is what the
+        // trigger resolves the defaults from, and the prefix rule it falls back
+        // to is wrong for a part filed under a bike prefix (the E47 pedals).
+        await this.supabase.from('sku_metadata').upsert(
+          [
+            {
+              sku: itemToInsert.sku,
+              ...(typeof validatedInput.is_bike === 'boolean'
+                ? { is_bike: validatedInput.is_bike }
+                : {}),
+            },
+          ],
+          { onConflict: 'sku' }
+        );
       }
     } catch (metaErr) {
       console.warn(

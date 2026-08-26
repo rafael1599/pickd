@@ -67,7 +67,7 @@ interface ItemDetailViewProps {
   onClose: () => void;
   onSave: (
     data: InventoryItemInput & { length_in?: number; width_in?: number; height_in?: number }
-  ) => void;
+  ) => void | Promise<void>;
   onDelete?: () => void;
   initialData?: InventoryItemWithMetadata | null;
   mode?: 'add' | 'edit';
@@ -640,7 +640,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       const dimsUntouched =
         mode === 'add' &&
         (isDefaultBox(skuDefaultsFor(true)) || isDefaultBox(skuDefaultsFor(false)));
-      updateSKUMetadata({
+      const metadata = {
         sku: data.sku,
         is_bike: typeIsBike,
         is_scratch_dent: sdChoice,
@@ -653,23 +653,46 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         serial_number: data.serial_number || null,
         color: data.color || null,
         sd_price: data.price ?? null,
-      }).catch((e: unknown) => console.error('Metadata update failed:', e));
-      colorBaselineRef.current = data.color || '';
-      modelBaselineRef.current = data.model || '';
-      sizeBaselineRef.current = data.size || '';
+      };
       const payload = {
         ...data,
         item_name: finalName,
         internal_note: data.internal_note || null,
         distribution: distribution.filter((d) => d.count > 0 && d.units_each > 0),
+      } as InventoryItemInput & {
+        length_in?: number;
+        width_in?: number;
+        height_in?: number;
       };
-      onSave(
-        payload as InventoryItemInput & {
-          length_in?: number;
-          width_in?: number;
-          height_in?: number;
+
+      if (mode === 'add') {
+        // Inventory first, metadata second — and nothing until the row is in.
+        // This used to fire the metadata upsert before, and independently of,
+        // the inventory write: when that write failed (a prefilled New Item
+        // saved without a location), the SKU was left in the catalog with no
+        // inventory row — 96 such ghosts in prod on 26 Aug 2026, most born on
+        // the register-from-Double-Check path — and the DB now derives an
+        // order's sku_not_found from exactly that catalog row, so a ghost reads
+        // as "registered" to every open order. The service creates the
+        // metadata shell itself right before the insert, with the type the
+        // form chose; the upsert below only fills in what the form knows.
+        try {
+          await onSave({ ...payload, is_bike: typeIsBike });
+        } catch {
+          return; // the mutation already toasted; the form stays open to fix it
         }
-      );
+        await updateSKUMetadata(metadata).catch((e: unknown) =>
+          console.error('Metadata update failed:', e)
+        );
+      } else {
+        updateSKUMetadata(metadata).catch((e: unknown) =>
+          console.error('Metadata update failed:', e)
+        );
+        onSave(payload);
+      }
+      colorBaselineRef.current = data.color || '';
+      modelBaselineRef.current = data.model || '';
+      sizeBaselineRef.current = data.size || '';
       setIsEditing(false);
       onClose();
     },

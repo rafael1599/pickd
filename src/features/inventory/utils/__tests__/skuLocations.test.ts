@@ -62,3 +62,29 @@ describe('arrangeSkuLocations', () => {
     expect(rows.map((r) => r.row.location)).toEqual(['ROW 1', 'ROW 2', 'ROW 10']);
   });
 });
+
+describe('arrangeSkuLocations · keepEmpty', () => {
+  // A SKU registered from Double Check and saved with 0 units has rows but no
+  // stock; hiding them made the modal offer to register it a second time.
+  const dormant = [row('ROW 41', 0), row('FLORIDA', 0, { is_active: false })];
+
+  it('hides empty rows by default', () => {
+    expect(arrangeSkuLocations(dormant, null).rows).toEqual([]);
+  });
+
+  it('keeps them when asked, so the operator can edit one to put stock in', () => {
+    const { rows } = arrangeSkuLocations(dormant, null, { keepEmpty: true });
+    expect(rows.map((r) => r.row.location)).toEqual(['FLORIDA', 'ROW 41']);
+  });
+
+  it("still marks the order's own address first", () => {
+    const { rows, pickRowMissing } = arrangeSkuLocations(
+      dormant,
+      { location: 'ROW 41' },
+      { keepEmpty: true }
+    );
+    expect(rows[0].row.location).toBe('ROW 41');
+    expect(rows[0].isPick).toBe(true);
+    expect(pickRowMissing).toBe(false);
+  });
+});

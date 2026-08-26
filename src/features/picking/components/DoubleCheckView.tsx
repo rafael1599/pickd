@@ -1051,6 +1051,21 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   >({});
   const [skuLocationsMap, setSkuLocationsMap] = useState<Record<string, string>>({});
 
+  // A registered SKU is one with an inventory row, whatever its quantity — the
+  // same test the DB applies when it derives sku_not_found (migration
+  // 20260826180000). Read from the rows fetchDistributions already loads for
+  // every cart SKU, so the card heals the moment the register form closes
+  // instead of waiting for the re-stamped row to round-trip through realtime.
+  // Returns the units those rows hold, or undefined when there is no row.
+  const registeredStock = useCallback(
+    (sku: string): number | undefined => {
+      const rows = skuInventoryMap[sku];
+      if (!rows || rows.length === 0) return undefined;
+      return rows.reduce((sum, r) => sum + (r.quantity ?? 0), 0);
+    },
+    [skuInventoryMap]
+  );
+
   const fetchDistributions = useCallback(async () => {
     const skus = [...new Set(cartItems.map((i) => i.sku))];
     if (skus.length === 0) return;
@@ -1122,6 +1137,14 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       const newItem = { ...item };
       let changed = false;
 
+      // 0. Registered since intake. The DB derives this on every write of
+      // items, but the local copy only learns it from the round-trip — and
+      // this effect's own write is a round-trip.
+      if (newItem.sku_not_found && registeredStock(newItem.sku) !== undefined) {
+        newItem.sku_not_found = false;
+        changed = true;
+      }
+
       // 1. If location is null but we resolved it dynamically
       if (!newItem.location && skuLocationsMap[newItem.sku]) {
         newItem.location = skuLocationsMap[newItem.sku];
@@ -1136,7 +1159,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
       // 2. If insufficient_stock is true but we now have enough stock in vivo
       if (newItem.insufficient_stock) {
-        const totalStock = stockMap[newItem.sku] ?? 0;
+        // stockMap is only fetched for items that were not UNREG; a SKU
+        // registered mid-session reads its stock from the rows just loaded.
+        const totalStock =
+          stockMap[newItem.sku] ??
+          (item.sku_not_found ? registeredStock(newItem.sku) : undefined) ??
+          0;
         const totalReservedElsewhere = Array.from(reservationsMap?.entries() || [])
           .filter(([key]) => key.startsWith(`${newItem.sku}::${newItem.warehouse || 'LUDLOW'}::`))
           .reduce((sum, [, info]) => sum + info.reserved, 0);
@@ -1190,6 +1218,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     sublocationMap,
     activeListId,
     isReadOnly,
+    registeredStock,
   ]);
 
   // Keep edit-callbacks ref fresh — see editCallbacksRef declaration above
@@ -1294,13 +1323,13 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
       insufficient_stock?: boolean;
       warehouse?: string;
     }) => {
-      if (i.sku_not_found) return true;
+      if (i.sku_not_found && registeredStock(i.sku) === undefined) return true;
       if (!i.insufficient_stock) return false;
 
       const resolved = AS400_SKU_ALIASES[i.sku] ? canonicalResolution.get(i.sku) : undefined;
       if (resolved && resolved.quantity >= (i.pickingQty || 0)) return false;
 
-      const totalStock = stockMap[i.sku];
+      const totalStock = stockMap[i.sku] ?? (i.sku_not_found ? registeredStock(i.sku) : undefined);
       if (totalStock !== undefined) {
         const totalReservedElsewhere = Array.from(reservationsMap?.entries() || [])
           .filter(([key]) => key.startsWith(`${i.sku}::${i.warehouse || 'LUDLOW'}::`))
@@ -1310,7 +1339,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
       return !!i.insufficient_stock;
     },
-    [canonicalResolution, stockMap, reservationsMap]
+    [canonicalResolution, stockMap, reservationsMap, registeredStock]
   );
 
   const problemItems = useMemo(
@@ -2202,7 +2231,12 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                   // Canonical-SKU fallback: if a not-found item resolves via its
                   // canonical SKU, treat it as found and show its location.
                   const canonResolved = canonicalResolution.get(item.sku);
-                  const skuNotFound = !!item.sku_not_found && !canonResolved;
+                  // ...and a SKU registered since intake is found, whatever the
+                  // stored flag still says (registeredStock, above).
+                  const skuNotFound =
+                    !!item.sku_not_found &&
+                    !canonResolved &&
+                    registeredStock(item.sku) === undefined;
                   // AS400 alias (e.g. 03-4070BL stocked as 03-4070BK): when the
                   // alias SKU covers the qty, drop the out-of-stock alarm — the
                   // small AS400 chip next to the SKU is the only reminder.
@@ -2211,7 +2245,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                     !!aliasTarget &&
                     !!canonResolved &&
                     canonResolved.quantity >= (item.pickingQty || 0);
-                  const totalStock = stockMap[item.sku];
+                  const totalStock =
+                    stockMap[item.sku] ??
+                    (item.sku_not_found ? registeredStock(item.sku) : undefined);
                   const totalReservedElsewhere = Array.from(reservationsMap?.entries() || [])
                     .filter(([key]) =>
                       key.startsWith(`${item.sku}::${item.warehouse || 'LUDLOW'}::`)

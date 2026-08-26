@@ -43,13 +43,26 @@ export function isPickRow(row: LocatedStockRow, pick: PickAddress | null | undef
   return !pick.warehouse || norm(row.warehouse) === norm(pick.warehouse);
 }
 
+export interface ArrangeOptions {
+  /**
+   * Keep rows that hold nothing. Off by default — a row the SKU left is
+   * history, not a stop — but a SKU that is registered and empty everywhere
+   * has only such rows, and they are what the operator edits to put stock in.
+   */
+  keepEmpty?: boolean;
+}
+
 export function arrangeSkuLocations<T extends LocatedStockRow>(
   rows: T[],
-  pick: PickAddress | null | undefined
+  pick: PickAddress | null | undefined,
+  options: ArrangeOptions = {}
 ): ArrangedSkuLocations<T> {
   const arranged = rows
     .map((row) => ({ row, isPick: isPickRow(row, pick) }))
-    .filter(({ row, isPick }) => isPick || (row.is_active !== false && (row.quantity ?? 0) > 0))
+    .filter(
+      ({ row, isPick }) =>
+        isPick || options.keepEmpty || (row.is_active !== false && (row.quantity ?? 0) > 0)
+    )
     .sort(
       (a, b) =>
         Number(b.isPick) - Number(a.isPick) ||
