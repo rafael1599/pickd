@@ -9,6 +9,27 @@
 
 ## P1 — Alto (operación diaria)
 
+### 87. Identidad única del SKU: guion + cero, impuestos al escribir <!-- id: idea-154 --> — input: 2026-08-26 NY
+- **Problema:** el mismo SKU vive con tres grafías (`01 0530` en AS400, `01-0530` en el catálogo
+  heredado, `01-530`/`010530` a mano o del watchdog) y nadie la impone al escribir: de 14 vías que
+  crean SKUs solo Label Studio pone el guion (`normalizeSkuOnRegister`), la DB acepta cualquier string
+  (sin trigger que asigne `NEW.sku`, sin CHECK, sin índice único normalizado). Prod: 99 SKUs sin
+  guion (12 creados en los últimos 30 d), 10 familias duplicadas por clave normalizada
+  (`12-8338BK`/`128338BK`), 97 cortos sin el cero y **26 parejas del mismo part con stock partido**
+  (`66-0110BK` 514 / `66-110BK` 195). 67/67 ítems `SKU not found` en 90 d llegaron sin guion.
+- **Decisión pendiente (Rafael):** forma canónica. Propuesta: la de AS400, `DD-NNNN[CC(C)]` (4
+  dígitos con ceros, mayúsculas); UPC/`PKD-`/seriales se guardan `upper(trim)`. Implica
+  `01-429 → 01-0429`, lo contrario de los renames del 18 ago.
+- **Plan (4 piezas, en orden):** (1) decidir; (2) `canonical_sku()` SQL + trigger BEFORE
+  INSERT/UPDATE en `sku_metadata` e `inventory` — patrón `set_is_bike_on_insert` — con espejo TS y
+  test de paridad, aditivo; (3) columna generada `sku_key` + índice único; (4) migración de datos
+  como `20260814020000` (5 tablas + `picking_lists.items` jsonb), fusionar familias, borrar las 96
+  fantasma, confirmar las 26 parejas fila a fila.
+- **Depende de:** bug-020 (hecho): `sku_not_found` ya se deriva en DB por igualdad exacta, así que
+  al reescribir `items` a la grafía canónica las banderas se recalculan solas.
+- **Documentación completa:** [`docs/sku-identity-analysis.md`](../../docs/sku-identity-analysis.md).
+- **Origen:** sesión 2026-08-26.
+
 ### 85. Register Container v2 — sesión de receiving activa <!-- id: idea-152 --> — input: 2026-07-03 NY
 - **Problema:** el flujo actual (`upload → preview → done`) no soporta descarga física real. No hay checklist para tachar SKUs conforme se sacan del truck, no se pueden agregar SKUs que no venían en el manifest, solo muestra 1 location (`existing_locations[0]` en `RegistrarContainerScreen.tsx:28, 375, 417`), sin time-in/time-out, sin notas ni fotos, no se puede pausar y volver si se cierra el navegador.
 - **Solución:** insertar step `receiving` entre `preview` y `done` con 2 tablas nuevas (`container_receiving_sessions` + `container_receiving_items`), 5 RPCs, y `ReceivingSessionView.tsx` estilo DoubleCheckView pero más rápido. El registro de inventario ocurre solo al finalizar sobre items confirmados. Popover multi-loc reemplaza el `+N more` texto muerto tanto en receiving como en done.
@@ -319,6 +340,21 @@ Implementado en pickd **#113** y watchdog-pickd **#32/#33** (todo en main):
 - **Fix:** regla "gana el hermano con stock" en watchdog (`_pick_by_stock`) y en tier 1 de Edit Order
   (`pickVariantSiblingRow`); `SKU_SUBSTITUTES` vacío y con test que prohíbe hermanos. Ver CLAUDE.md
   → "Hermanos de variante". **Pendiente: desplegar el watchdog en la MacBook de Bay 2.**
+
+### ~~3. Registrar un SKU desde Double Check lo deja en `UNREG` y ofrece duplicarlo~~ <!-- id: bug-020 --> ✅ 2026-08-26
+- **Síntoma:** tras long-press → "Bici o Parte" → guardar, la tarjeta sigue en rojo (`UNREG`, LOC
+  `-`) y otro long-press vuelve a ofrecer registrarlo.
+- **Causa:** `sku_not_found` era una bandera escrita una vez en el intake y nadie la recalculaba
+  (el auto-resolve de DoubleCheckView cura `location` e `insufficient_stock`, nunca esta); el modal
+  ofrecía registrar cuando no había filas **con stock**, y el prefill siembra `quantity: 0`; además
+  `executeSave` en `add` escribía `sku_metadata` antes y sin esperar al inventario → 96 filas
+  fantasma sin inventario en prod.
+- **Fix:** migración `20260826180000`: el trigger `a_stamp_item_sku_metadata` deriva
+  `sku_not_found` (= no hay `sku_metadata` con ese sku exacto) en cada write de `items`, y
+  `zz_touch_open_orders_for_sku` re-sella las órdenes abiertas cuando un SKU entra al catálogo;
+  el cliente toma la bandera del row (`mergeDerivedItemFlags` en `usePickingSync`) y la tarjeta la
+  cura en vivo (`registeredStock`); el modal solo ofrece registrar si no existe **ninguna** fila y
+  lista las de 0 con Editar; el alta hace inventario primero y metadata después.
 
 ---
 
