@@ -559,9 +559,13 @@ export const ShipScreen = () => {
     Promise.all(
       skusToFix.map((sku: string) => {
         const defaultWeight = skuDefaultsFor(skuMeta[sku]?.is_bike).weight_lbs;
-        return supabase
-          .from('sku_metadata')
-          .upsert({ sku, weight_lbs: defaultWeight }, { onConflict: 'sku' });
+        // UPDATE, never upsert: for a SKU that is not in the catalog (an
+        // unregistered picking item) an upsert INSERTED a catalog row with a
+        // guessed weight and nothing behind it — one of the three ways the 96
+        // orphan sku_metadata rows of 2026-08-26 were minted, and an orphan
+        // now "registers" its SKU for every open order (sku_not_found is
+        // derived from that table). A missing row keeps the local default.
+        return supabase.from('sku_metadata').update({ weight_lbs: defaultWeight }).eq('sku', sku);
       })
     ).then(() => {
       setSkuMeta((prev) => {

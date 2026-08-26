@@ -40,9 +40,12 @@ export const PartsWeightEditor: React.FC<PartsWeightEditorProps> = ({
                   const val = parseFloat(e.target.value);
                   if (isNaN(val) || val < 0) return;
                   onWeightChange(part.sku, val);
+                  // UPDATE, never upsert — an unregistered part must not be
+                  // minted into the catalog by typing a weight (see ShipScreen).
                   void supabase
                     .from('sku_metadata')
-                    .upsert({ sku: part.sku, weight_lbs: val }, { onConflict: 'sku' });
+                    .update({ weight_lbs: val })
+                    .eq('sku', part.sku);
                 }}
                 step="0.1"
                 min="0"

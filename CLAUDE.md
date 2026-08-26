@@ -111,6 +111,25 @@ todas las órdenes abiertas.
 
 **Activity Report layout:** Editor panel on the left (desktop) with: selectable greeting toggle ("Hi Carine!"), Win of the Day, PickD Updates (collapsible dropdown, closed by default), On the Floor routine checklist (editable items via gear icon, persisted in localStorage), and Notes (multiline textarea, one per line). Preview on the right updates with green highlight flash on each edit. "Save & Copy Report" button at bottom saves + copies to clipboard in one action. Report section order: Win → PickD Updates → Done Today → On the Floor → In Progress → Coming Up Next → Inventory Accuracy → Waiting. Footer shows date only (no timestamp). `/pickd-report` public route shows the HTML daily report for the current date with date navigation.
 
+**Huérfanas de `sku_metadata` (`20260826200000`):** una fila de catálogo sin fila de inventario. La
+historia (`inventory_logs`, `daily_inventory_snapshots`, `asset_tags`, conteos, returns) es texto
+denormalizado sin FK al catálogo, así que **borrar una fila de catálogo nunca toca la historia**; lo
+que sí la rompería es borrar logs o renombrar sin reescribir el texto (como hizo `20260814020000`).
+La regla vive en la vista **`v_sku_metadata_orphans`** (`has_history`, `in_open_order`,
+`has_image`): con historial se queda (es la memoria de un nombre que tuvo stock — `Y22B010415 →
+01-288`, `128338BK → 12-8338BK` — y idea-154 los fusiona a mano); sin nada, es ruido y se borra; una
+foto se mueve al hermano canónico si no tiene y, si no hay hermano, la fila se queda
+(`TEKTR0R-340`). El 26 ago se borraron 81 y quedaron 15. Ya nadie las fabrica: el alta escribe
+inventario primero, y Ship/PartsWeightEditor hacen `update` de peso, nunca `upsert` (un upsert bajo
+el sku de un ítem sin registrar era un INSERT). `zz_touch_open_orders_for_sku` también corre en
+DELETE y en rename, así que quitar un nombre del catálogo devuelve a `UNREG` las órdenes abiertas
+que lo nombran. Si `select count(*) from v_sku_metadata_orphans where not has_history` deja de ser
+~1, algo volvió a abrir el grifo.
+
+**Verification Board (idea-055):** La Verification Queue es un overlay full-screen con zonas: Priority (auto-populated por status), FedEx/Regular lanes (drag-reclasificar `shipping_type`), In Progress Projects (read-only), Recently Completed (drag=reopen), Waiting (colapsable). Auto-clasificación: item >50 lbs o ≥5 BIKES (prefijo 03-) → Regular, else → FedEx; las partes nunca fuerzan Regular (50 partes = FedEx). Regla duplicada en DB (`classify_picking_list_fedex`) — mantener ambas en sync. La regla de bikes depende de `sku_metadata.is_bike`, que el item no trae por sí solo: el trigger `a_stamp_item_sku_metadata` (migración `20260820150000`) lo sella dentro de cada elemento de `picking_lists.items` en cada write, así que **todo consumidor lee la misma verdad sin buscarla**. Antes cada pantalla traía su propio lookup y pasarlo era opcional — DoubleCheckView no lo pasaba y pintaba de FedEx órdenes de 13 bicis. El parámetro `bikeSkus` de `autoClassifyShippingType`/`isFedexOrder` es ahora **obligatorio** (pasar un Set vacío para renunciar a él a propósito): cubre el ítem que aún no se ha escrito y el SKU cuyo `is_bike` cambió después del sellado. `shipping_type` columna en `picking_lists` (NULL = auto). DnD usa `@dnd-kit/sortable` con `useBoardDnD` hook. Componentes en `src/features/picking/components/board/`.
+
+**Activity Report layout:** Editor panel on the left (desktop) with: selectable greeting toggle ("Hi Carine!"), Win of the Day, PickD Updates (collapsible dropdown, closed by default), On the Floor routine checklist (editable items via gear icon, persisted in localStorage), and Notes (multiline textarea, one per line). Preview on the right updates with green highlight flash on each edit. "Save & Copy Report" button at bottom saves + copies to clipboard in one action. Report section order: Win → PickD Updates → Done Today → On the Floor → In Progress → Coming Up Next → Inventory Accuracy → Waiting. Footer shows date only (no timestamp). `/pickd-report` public route shows the HTML daily report for the current date with date navigation.
+
 ## Export de dimensiones a FedEx Ship Manager
 
 Botón en Settings → Exports (`FedexDimensionsExportCard`, gate por `isAdmin`). Genera la tabla

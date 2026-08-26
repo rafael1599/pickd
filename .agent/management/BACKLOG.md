@@ -355,6 +355,10 @@ Implementado en pickd **#113** y watchdog-pickd **#32/#33** (todo en main):
   el cliente toma la bandera del row (`mergeDerivedItemFlags` en `usePickingSync`) y la tarjeta la
   cura en vivo (`registeredStock`); el modal solo ofrece registrar si no existe **ninguna** fila y
   lista las de 0 con Editar; el alta hace inventario primero y metadata después.
+- **Limpieza (`20260826200000`):** vista `v_sku_metadata_orphans`; 81 huérfanas sin historial
+  borradas, 2 fotos movidas al hermano canónico (`650009 → 65-0009`, `860023BK → 86-0023BK`), 15
+  se quedan (14 con historial de renames + `TEKTR0R-340` con foto). Ship/PartsWeightEditor pasan
+  de `upsert` a `update` de peso; el trigger de re-sellado cubre DELETE y rename.
 
 ---
 
