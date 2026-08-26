@@ -30,6 +30,11 @@
   .brief li { color: #333; }
   .foot { margin-top: 26px; color: #777; font-size: 9.5pt; border-top: 1px solid #ddd; padding-top: 8px; }
   .pb { page-break-before: always; }
+  .shot { margin: 6px 0 10px; display: flex; gap: 14px; align-items: flex-start; page-break-inside: avoid; }
+  .shot img { width: 150px; height: 215px; object-fit: cover; object-position: top; border: 1px solid #ddd; border-radius: 8px; flex-shrink: 0; }
+  .shot figcaption { font-size: 10pt; color: #555; padding-top: 6px; }
+  table.small { page-break-inside: avoid; }
+  tr { page-break-inside: avoid; }
 </style>
 </head>
 <body>
@@ -42,6 +47,7 @@
   <p>1. Orders no longer say <b>LOW STOCK</b> for a bike that is sitting on the shelf under its "other" name.</p>
   <p>2. Registering a new SKU from Double Check now clears the red badge right away — and it never offers to register the same SKU twice.</p>
   <p>3. Every SKU now has <b>one</b> way to be written: the AS400 way, with the zero (<b>01-0530</b>). You can keep typing it short — the app finds it and saves it right.</p>
+  <p>4. Double Check now handles a LOW STOCK line <b>by itself</b>: it swaps the bike when it can, and when it can't it tells you exactly what it found and gives you the buttons right there — no Edit Order needed.</p>
 </div>
 
 <h2>What you will notice</h2>
@@ -52,6 +58,11 @@
   <div class="after"><span class="lbl">Now</span>The system checks both names and picks the one that actually has stock — when the order is created, and again when you open Edit Order. If a bike still shows LOW STOCK after this, it really is not on the shelf.</div>
 </div>
 
+<figure class="shot">
+  <img src="img/2026-08-26-edit-order-low-stock.jpg" alt="Edit Order showing two Riptide bikes flagged LOW STOCK with no location" />
+  <figcaption>This morning, order 881288 in Edit Order: both Riptides flagged LOW STOCK with no location, while 145 and 76 of them sat on ROW 43 and ROW 41 under their other names. From today this resolves itself before anyone opens Edit Order (see point 4).</figcaption>
+</figure>
+
 <h3>2. Registering a SKU from Double Check</h3>
 <div class="ba">
   <div class="before"><span class="lbl">Before</span>Long-press → "Bike or Part" → save… and the card stayed red ("UNREG"). Long-pressing again offered to register it a second time, which created duplicates. Behind the curtain, 96 half-registered SKUs had piled up with nothing on any shelf.</div>
@@ -60,7 +71,7 @@
 
 <h3>3. One way to write a SKU</h3>
 <p>AS400 always writes the number with four digits: <span class="mono">01 0288</span>. Over time we ended up with three spellings of the same thing — <span class="mono">01-0288</span>, <span class="mono">01-288</span>, <span class="mono">010288</span> — and the same part could be counted under two of them. From today the system saves every SKU the AS400 way, no matter how it is typed:</p>
-<table>
+<table class="small">
   <tr><th>You type</th><th>PickD saves</th><th class="mono"></th></tr>
   <tr><td class="mono">01-530</td><td class="mono">01-0530</td><td class="note">zero added</td></tr>
   <tr><td class="mono">033768BLD</td><td class="mono">03-3768BLD</td><td class="note">dash added</td></tr>
@@ -73,6 +84,21 @@
 <div class="todo">
   <b>What we need from the floor:</b> for the 22 parts on the next page, confirm that the two spots really hold the same part. If one of them is something different, tell Rafael and it gets its own name.
 </div>
+
+<h3>4. LOW STOCK no longer waits for Edit Order</h3>
+<div class="ba">
+  <div class="before"><span class="lbl">Before</span>Double Check showed the yellow LOW STOCK or red UNREG badge and nothing else. To find out <i>why</i> — and to do anything about it — you had to open Edit Order, where the automatic swap and the suggestions lived.</div>
+  <div class="after"><span class="lbl">Now</span>The moment the order is on screen, Double Check checks the stock itself. If the same bike has enough units under its other name, it swaps it for you and says so (with an <b>Undo</b>). If not, a note under the card says exactly what it found, and the buttons for that one line are right there.</div>
+</div>
+<table class="small">
+  <tr><th>What the note says</th><th>What it means</th><th>Buttons you get</th></tr>
+  <tr><td>Swapped from 03-3768BLD — same bike, this name has the stock</td><td>Solved on its own</td><td>Undo</td></tr>
+  <tr><td>Only 2 available of 5 — ROW 43 (2)</td><td>There is some, not enough</td><td>Take 2 · Replace · Remove</td></tr>
+  <tr><td>3 on the shelf — ROW 41 (3) — but 3 already reserved by 881290</td><td>Units exist but another open order has them</td><td>Replace · Remove</td></tr>
+  <tr><td>Registered, but 0 units in any location</td><td>Known SKU, nothing on any shelf</td><td>Use (closest match) · Replace · Remove</td></tr>
+  <tr><td>Not in PickD — this SKU has no catalog entry</td><td>Nobody has registered it yet</td><td>Register · Replace · Remove</td></tr>
+</table>
+<p class="note">Every button asks for a reason, same as Edit Order, and writes the same note on the order. "Replace" opens Edit Order already on the search for that line.</p>
 
 <h2>Mentioned only, so you know it happened</h2>
 <ul class="brief">

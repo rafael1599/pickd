@@ -42,9 +42,14 @@ interface CorrectionModeViewProps {
   sourceOrderMap?: Map<string, string>;
   isReopened?: boolean;
   onCancelReopen?: () => void;
+  /**
+   * Open straight on one panel — Double Check's inline "Replace" lands the
+   * picker on the search for that SKU instead of the list of problems.
+   */
+  initialPanel?: ActivePanel;
 }
 
-type ActivePanel =
+export type ActivePanel =
   | { type: 'replace'; sku: string }
   | { type: 'adjust_qty'; sku: string; availableStock: number }
   | { type: 'remove'; sku: string }
@@ -256,6 +261,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
   sourceOrderMap = new Map(),
   isReopened = false,
   onCancelReopen,
+  initialPanel,
 }) => {
   const isGroupEdit = sourceOrderMap.size > 0;
   const [addTargetOrder, setAddTargetOrder] = useState<string | null>(null);
@@ -269,7 +275,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
     initialSnapshot !== null &&
     initialSnapshot !== JSON.stringify(allItems.map((i) => ({ sku: i.sku, qty: i.pickingQty })));
 
-  const [activePanel, setActivePanel] = useState<ActivePanel>(null);
+  const [activePanel, setActivePanel] = useState<ActivePanel>(initialPanel ?? null);
   const [searchQuery, setSearchQuery] = useState('');
   const [replaceQty, setReplaceQty] = useState(1);
   const [adjustQty, setAdjustQty] = useState(1);

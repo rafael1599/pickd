@@ -58,6 +58,13 @@ import { autoClassifyShippingType } from '../../../utils/shippingClassification'
 import { fedexCartonGap, fedexCartonState } from '../../../utils/fedexCarton';
 import { UnratedCartonsBanner, type UnratedCarton } from './UnratedCartonsBanner';
 import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingConflicts';
+import { StockIssuePanel } from './StockIssuePanel';
+import { toPickingOrderMap, type PickingOrderMap } from '../utils/pickLocation';
+import { diagnoseStockIssue, type StockIssue } from '../utils/stockIssue';
+import { findSimilarSkus } from '../utils/findSimilarSkus';
+import { variantSiblingBase } from '../../../utils/skuNormalize';
+import type { StockRow } from '../utils/stockSubstitute';
+import type { ActivePanel as CorrectionPanel } from './CorrectionModeView';
 import { useStockReservations, buildReservationKey } from '../hooks/useStockReservations';
 import { useStaleLocationCheck } from '../hooks/useStaleLocationCheck';
 import { useCanonicalSkuResolution } from '../hooks/useCanonicalSkuResolution';
@@ -923,6 +930,58 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   }, [cartItems.length]);
   const longPressTriggered = useRef(false);
 
+  // "Where is it, really?" — every row the SKU is stocked in, the order's
+  // address first, Edit per row, and the Bike/Part register flow when the
+  // SKU has no row at all. Reached by a long-press on the card and by the
+  // Register button of the stock-issue panel.
+  const openSkuLocations = useCallback(
+    (item: PickingItem, location: string | null) => {
+      const editRow = (row: InventoryItemWithMetadata) =>
+        openModal({
+          type: 'item-detail',
+          item: row,
+          mode: 'edit',
+          screenType: row.warehouse,
+          onSave: async (formData) => {
+            await editCallbacksRef.current.updateItem(row, formData);
+            await editCallbacksRef.current.fetchDistributions();
+            toast.success(`Updated ${row.sku}`);
+          },
+          onDelete: () => {
+            editCallbacksRef.current.deleteItem(row.warehouse, row.sku, row.location);
+            toast.success(`Deleted ${row.sku}`);
+          },
+        });
+      // Not in the DB inventory (typically an `sku_not_found` / UNREG item
+      // the picker found on the floor). Open New Item pre-filled with what
+      // the order already knows so they only enter the missing bits.
+      const registerSku = (prefill: InventoryItemWithMetadata) =>
+        openModal({
+          type: 'item-detail',
+          item: prefill,
+          mode: 'add',
+          screenType: prefill.warehouse,
+          onSave: async (formData) => {
+            await editCallbacksRef.current.addItem(formData.warehouse, formData);
+            await editCallbacksRef.current.fetchDistributions();
+            toast.success(`Registered ${formData.sku}`);
+          },
+        });
+      openModal({
+        type: 'sku-locations',
+        sku: item.sku,
+        // A watchdog item the catalogue could not match carries the AS400
+        // description; it is the only name there is to register it under.
+        itemName: item.item_name || item.description || null,
+        pickLocation: location,
+        pickWarehouse: item.warehouse ?? null,
+        onEdit: editRow,
+        onRegister: registerSku,
+      });
+    },
+    [openModal]
+  );
+
   const handlePointerDown = useCallback(
     (item: PickingItem, location: string | null) => {
       longPressTriggered.current = false;
@@ -938,51 +997,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         // change; the modal replaces itself with the editor (single-slot
         // Modal Manager), and the editor's callbacks go through the ref so
         // they stay fresh if this view unmounts underneath it.
-        const editRow = (row: InventoryItemWithMetadata) =>
-          openModal({
-            type: 'item-detail',
-            item: row,
-            mode: 'edit',
-            screenType: row.warehouse,
-            onSave: async (formData) => {
-              await editCallbacksRef.current.updateItem(row, formData);
-              await editCallbacksRef.current.fetchDistributions();
-              toast.success(`Updated ${row.sku}`);
-            },
-            onDelete: () => {
-              editCallbacksRef.current.deleteItem(row.warehouse, row.sku, row.location);
-              toast.success(`Deleted ${row.sku}`);
-            },
-          });
-        // Not in the DB inventory (typically an `sku_not_found` / UNREG item
-        // the picker found on the floor). Open New Item pre-filled with what
-        // the order already knows so they only enter the missing bits.
-        const registerSku = (prefill: InventoryItemWithMetadata) =>
-          openModal({
-            type: 'item-detail',
-            item: prefill,
-            mode: 'add',
-            screenType: prefill.warehouse,
-            onSave: async (formData) => {
-              await editCallbacksRef.current.addItem(formData.warehouse, formData);
-              await editCallbacksRef.current.fetchDistributions();
-              toast.success(`Registered ${formData.sku}`);
-            },
-          });
-        openModal({
-          type: 'sku-locations',
-          sku: item.sku,
-          // A watchdog item the catalogue could not match carries the AS400
-          // description; it is the only name there is to register it under.
-          itemName: item.item_name || item.description || null,
-          pickLocation: location,
-          pickWarehouse: item.warehouse ?? null,
-          onEdit: editRow,
-          onRegister: registerSku,
-        });
+        openSkuLocations(item, location);
       }, 500);
     },
-    [openModal]
+    [openSkuLocations]
   );
 
   const handlePointerUp = useCallback(() => {
@@ -1047,7 +1065,15 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   // This is the single source of truth — works regardless of where the SKU came from
   // (picking, watchdog, Edit Order). Replaces dependency on paginated inventoryData.
   const [skuInventoryMap, setSkuInventoryMap] = useState<
-    Record<string, { distribution: DistributionItem[]; quantity: number }[]>
+    Record<
+      string,
+      {
+        distribution: DistributionItem[];
+        quantity: number;
+        location: string | null;
+        warehouse: string;
+      }[]
+    >
   >({});
   const [skuLocationsMap, setSkuLocationsMap] = useState<Record<string, string>>({});
 
@@ -1072,10 +1098,18 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
 
     const { data } = await supabase
       .from('inventory')
-      .select('sku, quantity, distribution, location, sublocation')
+      .select('sku, quantity, distribution, location, sublocation, warehouse')
       .in('sku', skus);
 
-    const map: Record<string, { distribution: DistributionItem[]; quantity: number }[]> = {};
+    const map: Record<
+      string,
+      {
+        distribution: DistributionItem[];
+        quantity: number;
+        location: string | null;
+        warehouse: string;
+      }[]
+    > = {};
     const subMap: Record<string, string[]> = {};
     const locRows: Record<string, { location: string; quantity: number }[]> = {};
 
@@ -1086,11 +1120,14 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         distribution: DistributionItem[] | null;
         location: string | null;
         sublocation: string[] | null;
+        warehouse: string;
       };
       if (!map[r.sku]) map[r.sku] = [];
       map[r.sku].push({
         distribution: Array.isArray(r.distribution) ? r.distribution : [],
         quantity: r.quantity ?? 0,
+        location: r.location ?? null,
+        warehouse: r.warehouse ?? 'LUDLOW',
       });
       if (r.sublocation && r.sublocation.length > 0 && r.location) {
         subMap[`${r.sku}-${r.location.toUpperCase()}`] = r.sublocation;
@@ -1445,6 +1482,255 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     setSubOrders(options);
     setSubOrderPickerMode('edit');
   }, [activeListId, orderNumber, isCombined, fetchSubOrderOptions, openEditDirectly]);
+
+  // ── Stock issues: diagnose every LOW STOCK / UNREG line right here ──────
+  // Edit Order used to own the auto-swap and the suggestions, so the picker
+  // saw a badge and had to open it to learn which of five situations they
+  // were in. The facts are all loaded by this view already; the variant
+  // family and the shelf ranking are fetched once per problem SKU.
+  const [siblingRowsMap, setSiblingRowsMap] = useState<Record<string, StockRow[]>>({});
+  const [pickingOrderMap, setPickingOrderMap] = useState<PickingOrderMap | undefined>(undefined);
+  const siblingFetchRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const pending = problemItems.filter(
+      (i) => variantSiblingBase(i.sku) && !siblingFetchRef.current.has(i.sku)
+    );
+    if (pending.length === 0) return;
+    pending.forEach((i) => siblingFetchRef.current.add(i.sku));
+    void (async () => {
+      try {
+        if (!pickingOrderMap) {
+          const { data } = await supabase
+            .from('locations')
+            .select('warehouse, location, picking_order');
+          if (data) setPickingOrderMap(toPickingOrderMap(data));
+        }
+        const families = await Promise.all(
+          pending.map(async (i) => {
+            const base = variantSiblingBase(i.sku) as string;
+            const [bikes, parts] = await Promise.all([
+              inventoryApi.fetchInventoryWithMetadata({
+                search: base,
+                showParts: false,
+                limit: 20,
+              }),
+              inventoryApi.fetchInventoryWithMetadata({ search: base, showParts: true, limit: 20 }),
+            ]);
+            return [i.sku, [...bikes.data, ...parts.data] as StockRow[]] as const;
+          })
+        );
+        setSiblingRowsMap((prev) => {
+          const next = { ...prev };
+          for (const [sku, rows] of families) next[sku] = rows;
+          return next;
+        });
+      } catch {
+        // The diagnosis degrades to the exact-SKU facts; nothing to surface.
+      }
+    })();
+  }, [problemItems, pickingOrderMap]);
+
+  const stockIssues = useMemo(() => {
+    const out = new Map<string, StockIssue>();
+    for (const item of problemItems) {
+      const wh = item.warehouse || 'LUDLOW';
+      const rows = (skuInventoryMap[item.sku] ?? []).map((e) => ({
+        location: e.location ?? null,
+        warehouse: e.warehouse ?? wh,
+        quantity: e.quantity,
+      }));
+      let reserved = 0;
+      const orders: string[] = [];
+      for (const [key, info] of reservationsMap?.entries() ?? []) {
+        if (!key.startsWith(`${item.sku}::${wh}::`)) continue;
+        reserved += info.reserved;
+        for (const o of info.reservingOrders ?? []) {
+          if (o.orderNumber && !orders.includes(o.orderNumber)) orders.push(o.orderNumber);
+        }
+      }
+      const [similar] = findSimilarSkus(item.sku, wh, inventoryData, 1);
+      out.set(
+        item.sku,
+        diagnoseStockIssue({
+          sku: item.sku,
+          pickingQty: item.pickingQty || 0,
+          warehouse: wh,
+          registered: !item.sku_not_found || registeredStock(item.sku) !== undefined,
+          rows,
+          reservedElsewhere: reserved,
+          reservingOrders: orders,
+          siblingRows: siblingRowsMap[item.sku],
+          pickingOrder: pickingOrderMap,
+          similar: similar
+            ? {
+                sku: similar.sku,
+                location: similar.location,
+                quantity: similar.quantity,
+                item_name: similar.item_name,
+              }
+            : null,
+        })
+      );
+    }
+    return out;
+  }, [
+    problemItems,
+    skuInventoryMap,
+    reservationsMap,
+    inventoryData,
+    registeredStock,
+    siblingRowsMap,
+    pickingOrderMap,
+  ]);
+
+  const canCorrect =
+    !!onCorrectItem &&
+    !isReadOnly &&
+    !isReviewMode &&
+    status !== 'completed' &&
+    status !== 'cancelled';
+  const targetListFor = useCallback(
+    (item: PickingItem) => item.source_list_id ?? activeListId ?? undefined,
+    [activeListId]
+  );
+  const [issueBusySku, setIssueBusySku] = useState<string | null>(null);
+  const [autoSwapped, setAutoSwapped] = useState<
+    Map<
+      string,
+      {
+        from: string;
+        original: { location: string | null; warehouse: string; item_name: string | null };
+      }
+    >
+  >(new Map());
+  const autoSwapTriedRef = useRef<Set<string>>(new Set());
+
+  // The one case that resolves itself: the same bike under its other catalog
+  // name, with enough on a reachable shelf. Same rule Edit Order applied on
+  // open — now it runs the moment the order is on screen. Once per SKU per
+  // mount, and Undo puts the line back exactly as it was.
+  useEffect(() => {
+    if (!canCorrect || !onCorrectItem) return;
+    for (const item of problemItems) {
+      const issue = stockIssues.get(item.sku);
+      if (!issue || issue.kind !== 'auto_swap' || autoSwapTriedRef.current.has(item.sku)) continue;
+      autoSwapTriedRef.current.add(item.sku);
+      const to = issue.to;
+      const original = {
+        location: item.location,
+        warehouse: item.warehouse || 'LUDLOW',
+        item_name: item.item_name ?? null,
+      };
+      void onCorrectItem(
+        {
+          type: 'swap',
+          originalSku: item.sku,
+          replacement: {
+            sku: to.sku,
+            location: to.location,
+            warehouse: to.warehouse,
+            item_name: to.item_name ?? null,
+          },
+          reason: 'Auto-resolved: out-of-stock equivalent',
+        },
+        targetListFor(item)
+      )
+        .then(() => {
+          setAutoSwapped((prev) => new Map(prev).set(to.sku, { from: item.sku, original }));
+          toast.success(`Swapped ${item.sku} → ${to.sku} · ${to.location ?? '?'} (${to.quantity})`);
+        })
+        .catch(() => toast.error(`Could not swap ${item.sku}`));
+    }
+  }, [problemItems, stockIssues, canCorrect, onCorrectItem, targetListFor]);
+
+  const runIssueAction = useCallback(async (sku: string, fn: () => Promise<void>) => {
+    setIssueBusySku(sku);
+    try {
+      await fn();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not update the order');
+    } finally {
+      setIssueBusySku(null);
+    }
+  }, []);
+  const handleUndoAutoSwap = useCallback(
+    (toSku: string) => {
+      const entry = autoSwapped.get(toSku);
+      if (!entry || !onCorrectItem) return;
+      const item = cartItems.find((i) => i.sku === toSku);
+      void runIssueAction(toSku, async () => {
+        await onCorrectItem(
+          {
+            type: 'swap',
+            originalSku: toSku,
+            replacement: {
+              sku: entry.from,
+              location: entry.original.location,
+              warehouse: entry.original.warehouse,
+              item_name: entry.original.item_name,
+            },
+            flags: { insufficient_stock: true },
+            reason: 'Undo auto-resolve',
+          },
+          item ? targetListFor(item) : undefined
+        );
+        setAutoSwapped((prev) => {
+          const next = new Map(prev);
+          next.delete(toSku);
+          return next;
+        });
+      });
+    },
+    [autoSwapped, onCorrectItem, cartItems, targetListFor, runIssueAction]
+  );
+  const handleIssueTake = useCallback(
+    (item: PickingItem, qty: number, reason: string) =>
+      runIssueAction(item.sku, async () => {
+        await onCorrectItem?.(
+          { type: 'adjust_qty', sku: item.sku, newQty: qty, reason },
+          targetListFor(item)
+        );
+      }),
+    [onCorrectItem, runIssueAction, targetListFor]
+  );
+  const handleIssueRemove = useCallback(
+    (item: PickingItem, reason: string) =>
+      runIssueAction(item.sku, async () => {
+        await onCorrectItem?.({ type: 'remove', sku: item.sku, reason }, targetListFor(item));
+      }),
+    [onCorrectItem, runIssueAction, targetListFor]
+  );
+  const handleIssueSwap = useCallback(
+    (item: PickingItem, row: StockRow, qty: number, reason: string) =>
+      runIssueAction(item.sku, async () => {
+        await onCorrectItem?.(
+          {
+            type: 'swap',
+            originalSku: item.sku,
+            replacement: {
+              sku: row.sku,
+              location: row.location,
+              warehouse: row.warehouse,
+              item_name: row.item_name ?? null,
+            },
+            newQty: qty,
+            reason,
+          },
+          targetListFor(item)
+        );
+      }),
+    [onCorrectItem, runIssueAction, targetListFor]
+  );
+  // "Replace" needs a search; Edit Order already has one — open it straight
+  // on this SKU's replace panel instead of the list of problems.
+  const [correctionInitialPanel, setCorrectionInitialPanel] = useState<CorrectionPanel>(null);
+  const handleIssueReplace = useCallback(
+    (item: PickingItem) => {
+      setCorrectionInitialPanel({ type: 'replace', sku: item.sku });
+      void openEditFlow();
+    },
+    [openEditFlow]
+  );
 
   const confirmCancelOrder = useCallback(
     (listId: string, orderNum: string | null) => {
@@ -2629,6 +2915,50 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                           </div>
                         </div>
                       </div>
+                      {!hideDetails &&
+                        !isReviewMode &&
+                        (() => {
+                          const swapped = autoSwapped.get(item.sku);
+                          if (swapped) {
+                            return (
+                              <div className="-mt-1 mb-1 px-3 py-1.5 rounded-b-2xl bg-emerald-500/10 border border-t-0 border-emerald-500/25 flex items-center justify-between gap-2 text-[11px]">
+                                <span className="text-emerald-400 font-bold leading-snug">
+                                  Swapped from <span className="font-mono">{swapped.from}</span> —
+                                  same bike, this name has the stock
+                                </span>
+                                {canCorrect && (
+                                  <button
+                                    type="button"
+                                    disabled={issueBusySku === item.sku}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleUndoAutoSwap(item.sku);
+                                    }}
+                                    className="font-black uppercase tracking-wider text-muted hover:text-content disabled:opacity-40"
+                                  >
+                                    Undo
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          }
+                          const issue = stockIssues.get(item.sku);
+                          if (!issue || issue.kind === 'ok' || issue.kind === 'auto_swap')
+                            return null;
+                          return (
+                            <StockIssuePanel
+                              issue={issue}
+                              busy={issueBusySku === item.sku}
+                              readOnly={!canCorrect}
+                              onTake={(qty, reason) => handleIssueTake(item, qty, reason)}
+                              onRemove={(reason) => handleIssueRemove(item, reason)}
+                              onSwap={(row, qty, reason) => handleIssueSwap(item, row, qty, reason)}
+                              onReplace={() => handleIssueReplace(item)}
+                              onRegister={() => openSkuLocations(item, displayLocation)}
+                            />
+                          );
+                        })()}
                     </React.Fragment>
                   );
                 })}
@@ -3012,7 +3342,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             setEditingListId(null);
             setEditingOrderNumber(null);
             setSourceOrderMap(new Map());
+            setCorrectionInitialPanel(null);
           }}
+          initialPanel={correctionInitialPanel}
           orderNumber={editingOrderNumber ?? orderNumber}
           editingListId={editingListId}
           sourceOrderMap={sourceOrderMap}
