@@ -6,6 +6,30 @@ you don't re-ask settled questions. Keep it tight; remove contradictions.
 
 ---
 
+## Standing rules — every warehouse report (Rafael, 2026-08-27)
+
+Shared by the daily update, What's new and the weekly; the `warehouse-report-writer` agent
+reads this file before writing anything. Written as _wrong → right_.
+
+- **Every improvement carries its pain story** — where, who, what it cost, what goes wrong
+  downstream — then the change. "necesitamos hacer historias de dolor para cada mejora".
+  An invented story is allowed only marked `<!-- pain story: invented, to confirm -->` in the
+  source **and** listed in the chat for him to confirm. Never invent a process or a number.
+- **Dates from the data, not from memory.** "Yesterday order 881303…" → it happened _today_
+  (the group was created 2026-08-27 18:29Z). Read `created_at` / git before writing a day.
+- **Ship is about four numbers.** Pallets, bikes, parts, weight are what the station copies into
+  **Audit Source** or **FedEx**; that is the pain when they are wrong (calculator, by hand).
+  Never a Ship story about a location: "a location looked wrong" → never happened. The SKU tap
+  exists because "to know a SKU's stock, dimensions, weight or any detail you had to leave Ship;
+  now one click".
+- **Carrier row shows only what the order can use** (FedEx alone on FedEx orders; R+L / RIST on
+  regular ones, FedEx under "…").
+- **Small things get half a line**, not a Before / Now box: "el 5 de verified solo menciónalo en
+  media línea".
+- **"In the FedEx system"**, not "at the FedEx station".
+- **Print glyphs:** "…" renders, "⋯" does not.
+- **Say what was recorded.** After a correction, answer with the rule you wrote and where.
+
 ## Standing preferences (current)
 
 - **Audience:** Roman (warehouse operations lead) and the floor team. Non-technical.
@@ -55,3 +79,17 @@ you don't re-ask settled questions. Keep it tight; remove contradictions.
 - The seven wins covered this round: customer integrity · instant search/2-tap
   capture · Bay 2 daemon fix (Thu 18) · order completeness + SKU translation ·
   labels · AS400 report redesign · verification board clarity.
+
+### 2026-08-27 — What's new (Rafael reviewing)
+
+- First What's new with a pain story per item. Three rounds of corrections in one sitting —
+  the reason the `warehouse-report-writer` agent and the standing rules above exist.
+- Corrected: "yesterday" → today (read the DB); Ship stories reframed around the four numbers
+  → Audit Source / FedEx; the SKU-tap story (never about locations); Verified → half a line;
+  "at the station" → "in the FedEx system"; carrier row per order type (new rule he asked for
+  and got built the same day).
+- Real stories that landed: 881303 into 881301 (calculator, one pallet); 881288 Riptides
+  under the other name (24 "Replaced" notes since June); names ending in "| auto-restore on
+  cancel" heading for the FedEx file.
+- Still invented, awaiting his word: combined order reopened from Shipped; pallet photo tiles;
+  Recipient ID (address book duplicates); Ship-to on the watcher card; Maintenance backfill.

@@ -544,6 +544,9 @@ Si alguno no se usa, borrarlo.
 ### Agentes
 
 - `qa-auditor` — pasadas de QA sobre la app
+- `warehouse-report-writer` — escribe el daily, el What's new y el weekly; cada corrección
+  de Rafael se vuelve regla en `docs/weekly-report/LESSONS.md` y los flujos viven en
+  `docs/warehouse-user-flows.md` (creado 27 ago 2026: "no quiero volver a corregir una y otra vez")
 - `warehouse-space-planner` — distribuye pallets en una zona libre. Ver
   `docs/warehouse-floor-plans.md`
 - `warehouse-sku-placement` — decide qué va en cada hueco. Borrador: sus reglas siguen

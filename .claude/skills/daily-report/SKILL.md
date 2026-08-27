@@ -11,6 +11,10 @@ description: >
 
 # /daily-report — Daily progress report
 
+> Before Step 1, read `docs/weekly-report/LESSONS.md` (standing rules for every warehouse
+> report) and `docs/warehouse-user-flows.md`. Shared with the `warehouse-report-writer` agent;
+> a correction Rafael made there applies here.
+
 ## Step 1: Gather today's data
 
 Run in parallel:

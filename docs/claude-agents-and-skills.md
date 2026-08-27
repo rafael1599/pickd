@@ -10,11 +10,12 @@ needs; nothing depends on another directory existing on the machine.
 
 Plain markdown, tracked, always have been.
 
-| Agent                     | What it does                                                               |
-| ------------------------- | -------------------------------------------------------------------------- |
-| `qa-auditor`              | QA passes over the app                                                     |
-| `warehouse-space-planner` | Lays pallets out inside a free zone. See `docs/warehouse-floor-plans.md`   |
-| `warehouse-sku-placement` | Decides what goes in each slot. Draft — its rules are still open questions |
+| Agent                     | What it does                                                                                                |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `qa-auditor`              | QA passes over the app                                                                                      |
+| `warehouse-report-writer` | Writes the daily / What's new / weekly reports; learns from corrections via `docs/weekly-report/LESSONS.md` |
+| `warehouse-space-planner` | Lays pallets out inside a free zone. See `docs/warehouse-floor-plans.md`                                    |
+| `warehouse-sku-placement` | Decides what goes in each slot. Draft — its rules are still open questions                                  |
 
 ## Skills — `.claude/skills/`
 
