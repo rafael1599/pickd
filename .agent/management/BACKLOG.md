@@ -37,14 +37,14 @@
   — confirmar.
 - **Origen:** operador, sesión 2026-08-27.
 
-### 94. Ship: selector de carrier con 3 opciones + "…" para el resto <!-- id: idea-162 --> — input: 2026-08-27 NY
+### ~~94. Ship: selector de carrier con 3 opciones + "…" para el resto~~ <!-- id: idea-162 --> ✅ 2026-08-27 (R+L · FEDEX · RIST + el elegido; "…" despliega el resto)
 - **Pedido:** "Cuando se elige el carrier reducir las opciones a 3 más tres puntitos para expandir".
 - **Propuesta con datos (90 d):** ver conteo de `transport_company` en la sesión 2026-08-27; los 3
   visibles serían los 3 más usados, el resto detrás de "…". Si el operador prefiere una terna fija
   (p. ej. FEDEX · R+L · PICK UP), es un cambio de una línea.
 - **Origen:** operador, sesión 2026-08-27.
 
-### 95. Ship: fotos — máximo 2 visibles + botón de acciones (agregar / ver todas) <!-- id: idea-163 --> — input: 2026-08-27 NY
+### ~~95. Ship: fotos — máximo 2 visibles + botón de acciones (agregar / ver todas)~~ <!-- id: idea-163 --> ✅ 2026-08-27 (`PalletPhotosBlock`: 2 miniaturas + tile `+N`/`⋯` con "Take photo" y "View all")
 - **Pedido:** "Imágenes solo mostrar 2 máximo y un botón de acciones para agregar o ver todas las
   imágenes". Galería de `pallet_photos` en `ShipOrderCard`; `PhotoLightbox` ya existe para "ver todas".
 - **Origen:** operador, sesión 2026-08-27.

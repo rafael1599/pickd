@@ -5,6 +5,7 @@ import MapPin from 'lucide-react/dist/esm/icons/map-pin';
 import Hash from 'lucide-react/dist/esm/icons/hash';
 import HandMetal from 'lucide-react/dist/esm/icons/hand-metal';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
+import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal';
 import Scissors from 'lucide-react/dist/esm/icons/scissors';
 import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
 import Truck from 'lucide-react/dist/esm/icons/truck';
@@ -74,6 +75,11 @@ const TRANSPORT_COMPANIES = [
   'FEDEX',
   'PICK UP',
 ] as const;
+
+// The three the picker shows before "…" (idea-162). By use, last 90 days to
+// 2026-08-27: R+L 128 orders, FEDEX 37, RIST 27 — then PICK UP 23, DAYLIGHT 22.
+// The selected carrier is always shown, whichever it is.
+const PRIMARY_CARRIERS: ReadonlySet<string> = new Set(['R+L', 'FEDEX', 'RIST']);
 
 interface SelectedOrder extends PickingList {
   user?: { full_name?: string } | null;
@@ -251,6 +257,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [isUpdatingCarrier, setIsUpdatingCarrier] = useState(false);
+  const [showAllCarriers, setShowAllCarriers] = useState(false);
   const [justSavedField, setJustSavedField] = useState<string | null>(null);
   const [isPavBannerDismissed, setIsPavBannerDismissed] = useState(false);
   const [isEbikeBannerDismissed, setIsEbikeBannerDismissed] = useState(false);
@@ -969,7 +976,12 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
               )}
 
               <div className="w-full flex flex-wrap items-center gap-2">
-                {TRANSPORT_COMPANIES.map((company) => {
+                {TRANSPORT_COMPANIES.filter(
+                  (company) =>
+                    showAllCarriers ||
+                    PRIMARY_CARRIERS.has(company) ||
+                    formData.transportCompany === company
+                ).map((company) => {
                   const isSelected = formData.transportCompany === company;
                   const hasSelection = Boolean(formData.transportCompany);
                   const brand = getCarrierBrandColors(company);
@@ -1012,6 +1024,21 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                     </button>
                   );
                 })}
+                <button
+                  type="button"
+                  onClick={() => setShowAllCarriers((v) => !v)}
+                  title={showAllCarriers ? 'Fewer carriers' : 'More carriers'}
+                  aria-label={showAllCarriers ? 'Show fewer carriers' : 'Show all carriers'}
+                  aria-expanded={showAllCarriers}
+                  className="shrink-0 px-3 h-11 rounded-2xl border border-subtle bg-main text-muted hover:text-content hover:border-content/30 inline-flex items-center justify-center transition-all active:scale-95"
+                >
+                  <MoreHorizontal size={18} />
+                  {showAllCarriers && (
+                    <span className="ml-1 text-[10px] font-black uppercase tracking-widest">
+                      Less
+                    </span>
+                  )}
+                </button>
               </div>
             </div>
           </div>

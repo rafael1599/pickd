@@ -2,6 +2,11 @@ import React, { useState } from 'react';
 import { PhotoLightbox } from '../ui/PhotoLightbox';
 import Camera from 'lucide-react/dist/esm/icons/camera';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
+import Images from 'lucide-react/dist/esm/icons/images';
+import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal';
+
+/** Thumbnails shown inline before the actions tile takes over (idea-163). */
+const MAX_INLINE_PHOTOS = 2;
 
 interface PalletPhotosBlockProps {
   photos: string[];
@@ -35,8 +40,15 @@ export const PalletPhotosBlock: React.FC<PalletPhotosBlockProps> = ({
   isAddingPhoto = false,
 }) => {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   if (photos.length === 0 && !onAddPhoto) return null;
+
+  // Two thumbnails at most; everything else — take another, see them all —
+  // lives behind one actions tile so the header stays one row (idea-163).
+  const inlinePhotos = photos.slice(0, MAX_INLINE_PHOTOS);
+  const hiddenCount = photos.length - inlinePhotos.length;
+  const showActions = !!onAddPhoto || hiddenCount > 0;
 
   const wrapperClass = compact
     ? `w-full flex items-start justify-end ${className}`
@@ -50,8 +62,8 @@ export const PalletPhotosBlock: React.FC<PalletPhotosBlockProps> = ({
 
   return (
     <div className={wrapperClass}>
-      <div className={gridClass}>
-        {photos.map((url, i) => {
+      <div className={`${gridClass} relative`}>
+        {inlinePhotos.map((url, i) => {
           const thumb = toThumbUrl(url);
           return (
             <button
@@ -73,29 +85,66 @@ export const PalletPhotosBlock: React.FC<PalletPhotosBlockProps> = ({
           );
         })}
 
-        {onAddPhoto && (
-          <button
-            type="button"
-            onClick={onAddPhoto}
-            disabled={isAddingPhoto}
-            className={`${thumbClass} flex items-center justify-center text-content/60 hover:text-accent bg-card disabled:opacity-50 border border-dashed border-subtle hover:border-accent transition-all`}
-            title={photos.length === 0 ? 'Take photo' : 'Take another photo'}
-            aria-label={photos.length === 0 ? 'Take photo' : 'Take another photo'}
-          >
-            {isAddingPhoto ? (
-              <Loader2 size={compact ? 14 : 20} className="animate-spin text-accent" />
-            ) : photos.length === 0 ? (
-              <Camera size={compact ? 16 : 20} className="text-muted hover:text-accent" />
-            ) : (
-              <span
-                className={
-                  compact ? 'text-base font-light leading-none' : 'text-2xl font-light leading-none'
-                }
+        {showActions && (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              disabled={isAddingPhoto}
+              className={`${thumbClass} flex items-center justify-center text-content/70 hover:text-accent bg-card disabled:opacity-50 border border-dashed border-subtle hover:border-accent transition-all`}
+              title="Photo actions"
+              aria-label="Photo actions"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+            >
+              {isAddingPhoto ? (
+                <Loader2 size={compact ? 14 : 20} className="animate-spin text-accent" />
+              ) : hiddenCount > 0 ? (
+                <span className={compact ? 'text-[11px] font-black' : 'text-sm font-black'}>
+                  +{hiddenCount}
+                </span>
+              ) : photos.length === 0 ? (
+                <Camera size={compact ? 16 : 20} />
+              ) : (
+                <MoreHorizontal size={compact ? 16 : 20} />
+              )}
+            </button>
+            {menuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 top-full mt-1 z-30 min-w-[11rem] rounded-xl border border-subtle bg-surface shadow-xl p-1 animate-soft-in"
               >
-                +
-              </span>
+                {onAddPhoto && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onAddPhoto();
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-xs font-bold text-content hover:bg-card"
+                  >
+                    <Camera size={14} className="text-accent" />
+                    {photos.length === 0 ? 'Take photo' : 'Take another photo'}
+                  </button>
+                )}
+                {photos.length > 0 && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setLightboxIndex(0);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-xs font-bold text-content hover:bg-card"
+                  >
+                    <Images size={14} className="text-accent" />
+                    View all ({photos.length})
+                  </button>
+                )}
+              </div>
             )}
-          </button>
+          </div>
         )}
       </div>
 
