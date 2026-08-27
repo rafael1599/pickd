@@ -33,6 +33,9 @@ const ShipScreen = lazyWithRetry(() =>
 const SnapshotViewer = lazyWithRetry(() =>
   import('./features/inventory/SnapshotViewer.tsx').then((m) => ({ default: m.SnapshotViewer }))
 );
+const WhatsNewViewer = lazyWithRetry(() =>
+  import('./features/reports/WhatsNewViewer.tsx').then((m) => ({ default: m.WhatsNewViewer }))
+);
 const PickdReportViewer = lazyWithRetry(() =>
   import('./features/reports/PickdReportViewer.tsx').then((m) => ({ default: m.PickdReportViewer }))
 );
@@ -356,6 +359,23 @@ function App() {
                         }
                       >
                         <PublicOrderView />
+                      </Suspense>
+                    </ErrorBoundary>
+                  }
+                />
+
+                <Route
+                  path="/whats-new"
+                  element={
+                    <ErrorBoundary>
+                      <Suspense
+                        fallback={
+                          <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center">
+                            <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
+                          </div>
+                        }
+                      >
+                        <WhatsNewViewer />
                       </Suspense>
                     </ErrorBoundary>
                   }

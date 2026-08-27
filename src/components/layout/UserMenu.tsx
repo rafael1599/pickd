@@ -466,6 +466,26 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
               </button>
 
               <button
+                onClick={() => navTo('/whats-new')}
+                className="flex items-center justify-between w-full group text-left mb-3"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-surface border border-subtle rounded-xl text-emerald-500">
+                    <Sparkles size={16} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-content uppercase tracking-tight">
+                      What&apos;s new
+                    </p>
+                    <p className="text-[9px] text-muted font-bold uppercase">
+                      Latest changes · printable
+                    </p>
+                  </div>
+                </div>
+                <div className="text-accent group-hover:translate-x-1 transition-transform">→</div>
+              </button>
+
+              <button
                 onClick={() => navTo('/labels')}
                 className="flex items-center justify-between w-full group text-left mb-3"
               >

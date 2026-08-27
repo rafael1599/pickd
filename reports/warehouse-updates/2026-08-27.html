@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>PickD — What's new (August 27, 2026)</title>
+<style>
+  @page { size: Letter; margin: 0.7in 0.75in; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: #1a1a1a; font-size: 11.5pt; line-height: 1.45; margin: 0; padding: 0 0 24px; background: #fff; }
+  h1 { font-size: 22pt; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: #555; margin: 0 0 18px; font-size: 10.5pt; }
+  h2 { font-size: 14pt; margin: 22px 0 8px; padding-bottom: 4px; border-bottom: 2px solid #1a1a1a; page-break-after: avoid; }
+  h3 { font-size: 12pt; margin: 14px 0 4px; page-break-after: avoid; }
+  p { margin: 6px 0; }
+  ul { margin: 4px 0 8px 20px; padding: 0; }
+  li { margin: 3px 0; }
+  .short { background: #f3f4f6; border-left: 5px solid #16a34a; padding: 10px 14px; margin: 10px 0 6px; }
+  .short p { margin: 4px 0; }
+  .ba { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 6px 0 10px; page-break-inside: avoid; }
+  .ba div { border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; }
+  .ba .before { background: #fff7ed; border-color: #fdba74; }
+  .ba .after { background: #f0fdf4; border-color: #86efac; }
+  .ba .lbl { display: block; font-size: 9.5pt; text-transform: uppercase; letter-spacing: 0.06em; color: #666; margin-bottom: 4px; font-weight: 700; }
+  table { border-collapse: collapse; width: 100%; font-size: 10pt; margin: 6px 0 10px; page-break-inside: avoid; }
+  th, td { border: 1px solid #d1d5db; padding: 3px 6px; text-align: left; vertical-align: top; }
+  th { background: #f3f4f6; font-size: 9.5pt; text-transform: uppercase; letter-spacing: 0.04em; }
+  .mono { font-family: Menlo, Consolas, monospace; font-size: 9.5pt; }
+  .note { color: #555; font-size: 10pt; }
+  .todo { background: #fefce8; border: 1px solid #fde047; border-radius: 6px; padding: 8px 12px; margin: 8px 0; }
+  .brief li { color: #333; }
+  .foot { margin-top: 26px; color: #777; font-size: 9.5pt; border-top: 1px solid #ddd; padding-top: 8px; }
+  @media screen { body { max-width: 860px; margin: 0 auto; padding: 24px 20px 40px; } }
+</style>
+</head>
+<body>
+
+<h1>PickD — What's new</h1>
+<p class="sub">Thursday, August 27, 2026 · everything since the August 26 update · for everyone on the Ludlow floor</p>
+
+<div class="short">
+  <p><b>The short version</b></p>
+  <p>1. Ship: adding a bike to a completed order no longer turns it into a "part" — and every line now shows its <b>weight</b>.</p>
+  <p>2. Ship: tap a SKU to open it, carriers show 3 + "…", photos show 2 + a menu, and the "Verified" pill is gone.</p>
+  <p>3. FedEx orders show the <b>Recipient ID</b> to paste into Ship Manager, in Ship and in Double Check.</p>
+</div>
+
+<h2>What you will notice</h2>
+
+<h3>1. Ship — a combined bike counts as a bike, and weights are on every line</h3>
+<div class="ba">
+  <div class="before"><span class="lbl">Before</span>Yesterday order 881303 (one Riptide, registered since February) was combined into completed order 881301. Ship counted it as a <i>part</i>, asked for its weight, and saved "8 bikes + 1 part" with a total that made no sense.</div>
+  <div class="after"><span class="lbl">Now</span>Ship reads each line's bike/part and weight from the order itself the moment it opens, so the count is right from the first second. The <b>Order Items</b> table has a new <b>Lbs</b> column: what each line weighs (unit × quantity). A <b>?</b> in orange means no weight is on file yet.</div>
+</div>
+
+<h3>2. Ship — four small things you asked for</h3>
+<table>
+  <tr><th>Where</th><th>Now</th></tr>
+  <tr><td>Order Items</td><td><b>Tap a SKU</b> to open its item detail. If the SKU sits in more than one place, you get the same list of locations as the long-press in Double Check, with Edit on each row.</td></tr>
+  <tr><td>Carrier picker</td><td>Shows <b>R+L, FedEx, RIST</b> (the three most used) plus whichever is selected; <b>…</b> shows the rest.</td></tr>
+  <tr><td>Pallet photos</td><td>Two thumbnails at most; the <b>+N</b> tile opens <i>Take photo</i> / <i>View all</i>.</td></tr>
+  <tr><td>Order card</td><td>The green <b>Verified</b> label is gone — every order in Ship is already verified. <i>Waiting</i> and <i>Editing</i> still show.</td></tr>
+</table>
+
+<h3>3. FedEx Recipient ID, right where you ship</h3>
+<p>The number the ship station types into FedEx Ship Manager is the customer's AS400 account plus the two-digit ship-to (<span class="mono">0010495 00 → 1049500</span>). PickD now keeps it and shows it as a chip on the Ship card and in Double Check, <b>only on FedEx orders</b>, with a copy button and the one instruction for Ship Manager. Orders captured before this get their number filled in by the new <b>Maintenance</b> button on the Bay 2 watcher (preview first, then apply).</p>
+
+<h3>4. On the Bay 2 watcher</h3>
+<ul>
+  <li>Every card shows the <b>Ship-to</b> name next to the Bill-to — for a consumer-direct or warranty order the Bill-to is the channel, not the person.</li>
+  <li>New <b>⋯ → Maintenance</b> panel: one card per action with a one-line explanation, <i>Preview</i> (nothing written) and <i>Apply</i>. First action: the AS400 account backfill.</li>
+  <li>A line the catalog does not know is now written the way the box says it (<span class="mono">03-3768BL</span>, not <span class="mono">03-3768BLD</span>), so registering it makes the order match right away.</li>
+</ul>
+<p class="note">These need the watcher update installed on the Bay 2 Mac.</p>
+
+<h2>Mentioned only, so you know it happened</h2>
+<ul class="brief">
+  <li>Stock moves no longer glue notes onto item names ("… | auto-restore on cancel") — the note goes to the item's note field; the three names that still carried one were cleaned.</li>
+  <li>The AS400 "D" spellings (<span class="mono">03-3768BLD</span>, <span class="mono">03-3769BLD</span>, <span class="mono">03-3779RDD</span>) were merged into the 2-letter names the boxes use. Stock unchanged.</li>
+  <li>Safeguards on the code side (tests run on every push) and a tidier backlog.</li>
+</ul>
+
+<div class="todo">
+  <b>Still from the floor:</b> the physical check of the merged parts (now 25 — the 22 from yesterday plus the three above), and a real order with LOW STOCK opened in Double Check to see the new panel in action.
+</div>
+
+<h2>Coming up</h2>
+<ul>
+  <li>Ship: one pulsing button for the lithium / carton alerts instead of three banners (waiting on wording).</li>
+  <li>Opening a completed order from the Board goes straight to its Picking Summary.</li>
+  <li>Assist mode in Double Check: two people on one multi-pallet order.</li>
+</ul>
+
+<p class="foot">PickD · August 27, 2026 · Questions: Rafael · Menu → What's new to print this page</p>
+</body>
+</html>

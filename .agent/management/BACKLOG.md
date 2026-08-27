@@ -11,6 +11,17 @@
 
 ## P1 — Alto (operación diaria)
 
+### ~~98. Apartado "What's new" imprimible en PickD~~ <!-- id: idea-166 --> ✅ 2026-08-27 (input: 2026-08-27 NY)
+- **Pedido:** un apartado de lo nuevo de PickD que se pueda imprimir, con lo hecho desde el último informe,
+  guiado por el informe del 26 ago.
+- **Hecho:** ruta `/whats-new` (`WhatsNewViewer`, mismo patrón que `/pickd-report`): lista las
+  actualizaciones de `reports/warehouse-updates/` (el `prebuild` las copia a `public/` y escribe
+  `index.json`), muestra la más reciente con ← → y botón Print (imprime el iframe; el HTML lleva CSS de
+  impresión). Enlace en el menú de usuario → Operations & Logistics → "What's new". Primera entrada
+  nueva: `2026-08-27.html` (lo hecho desde el informe del 26). Cada informe nuevo es un HTML más en esa
+  carpeta.
+- **Origen:** operador, sesión 2026-08-27.
+
 ### 91. Ship: pesos por línea visibles, y bici/parte desde el sello del ítem <!-- id: idea-159 --> — input: 2026-08-27 NY
 - **Pedido:** "quiero ver los pesos en order items de ahora en adelante, para cada bicicleta, en todas las
   órdenes". Va junto con bug-021 (misma causa): la tabla de ítems de Ship muestra el peso de cada línea

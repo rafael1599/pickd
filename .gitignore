@@ -57,6 +57,7 @@ supabase/seed.sql
 supabase/snippets/
 pickd.db
 public/reports/daily/
+public/reports/warehouse-updates/
 
 # Performance reports
 reports/performance/*.txt
