@@ -9,7 +9,6 @@ import Scissors from 'lucide-react/dist/esm/icons/scissors';
 import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
 import Truck from 'lucide-react/dist/esm/icons/truck';
 import Wand2 from 'lucide-react/dist/esm/icons/wand-2';
-import Copy from 'lucide-react/dist/esm/icons/copy';
 import Check from 'lucide-react/dist/esm/icons/check';
 import MessageSquareWarning from 'lucide-react/dist/esm/icons/message-square-warning';
 import Send from 'lucide-react/dist/esm/icons/send';
@@ -25,6 +24,8 @@ import { useCustomerAddresses } from '../../hooks/useCustomerAddresses';
 import { getPavExpressZone } from '../../utils/pavExpressZones';
 import type { ElectricBikeLine } from '../../utils/electricBikes';
 import { OrderStatusPill } from './OrderStatusPill';
+import { CopyButton } from '../ui/CopyButton';
+import { FedexRecipientChip } from '../../features/picking/components/FedexRecipientChip';
 import { TransportLogo } from './TransportLogo';
 import { getCarrierBrandColors } from './transportLogos';
 import { detectSmsPlatform } from '../../utils/shipOutSms';
@@ -143,30 +144,6 @@ type EditableField =
   | 'pallets'
   | 'weight'
   | null;
-
-const CopyButton: React.FC<{ value: string; label: string }> = ({ value, label }) => {
-  const handleCopy = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!value.trim()) return;
-    try {
-      await navigator.clipboard.writeText(value);
-      toast.success(`${label} copied`);
-    } catch {
-      toast.error('Could not copy');
-    }
-  };
-  return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      title={`Copy ${label}`}
-      aria-label={`Copy ${label}`}
-      className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-accent transition-colors duration-150 active:scale-90"
-    >
-      <Copy size={13} />
-    </button>
-  );
-};
 
 // Fixed-size wrapper always in the layout (opacity toggle, not mount/unmount)
 // so appearing after a save never shifts the neighboring copy button or text.
@@ -630,6 +607,9 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
               </div>
             </div>
           )}
+
+          {/* FedEx Recipient ID — what to paste in Ship Manager (idea-153) */}
+          <FedexRecipientChip listId={selectedOrder?.id ?? null} />
 
           {/* Customer name — click to edit */}
           <div

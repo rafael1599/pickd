@@ -134,39 +134,54 @@ export type Database = {
       };
       customer_addresses: {
         Row: {
+          as400_ship_to: string | null;
           city: string | null;
+          contact_name: string | null;
           created_at: string | null;
           customer_id: string;
+          fedex_recipient_id: string | null;
+          fedex_synced_at: string | null;
           id: string;
           is_default: boolean | null;
           label: string | null;
           normalized_address: string | null;
+          residential: boolean;
           state: string | null;
           street: string;
           updated_at: string | null;
           zip_code: string | null;
         };
         Insert: {
+          as400_ship_to?: string | null;
           city?: string | null;
+          contact_name?: string | null;
           created_at?: string | null;
           customer_id: string;
+          fedex_recipient_id?: string | null;
+          fedex_synced_at?: string | null;
           id?: string;
           is_default?: boolean | null;
           label?: string | null;
           normalized_address?: string | null;
+          residential?: boolean;
           state?: string | null;
           street: string;
           updated_at?: string | null;
           zip_code?: string | null;
         };
         Update: {
+          as400_ship_to?: string | null;
           city?: string | null;
+          contact_name?: string | null;
           created_at?: string | null;
           customer_id?: string;
+          fedex_recipient_id?: string | null;
+          fedex_synced_at?: string | null;
           id?: string;
           is_default?: boolean | null;
           label?: string | null;
           normalized_address?: string | null;
+          residential?: boolean;
           state?: string | null;
           street?: string;
           updated_at?: string | null;
@@ -184,36 +199,42 @@ export type Database = {
       };
       customers: {
         Row: {
+          as400_account: string | null;
           city: string | null;
           created_at: string | null;
           email: string | null;
           id: string;
           name: string;
           phone: string | null;
+          ship_to_varies: boolean;
           state: string | null;
           street: string | null;
           updated_at: string | null;
           zip_code: string | null;
         };
         Insert: {
+          as400_account?: string | null;
           city?: string | null;
           created_at?: string | null;
           email?: string | null;
           id?: string;
           name: string;
           phone?: string | null;
+          ship_to_varies?: boolean;
           state?: string | null;
           street?: string | null;
           updated_at?: string | null;
           zip_code?: string | null;
         };
         Update: {
+          as400_account?: string | null;
           city?: string | null;
           created_at?: string | null;
           email?: string | null;
           id?: string;
           name?: string;
           phone?: string | null;
+          ship_to_varies?: boolean;
           state?: string | null;
           street?: string | null;
           updated_at?: string | null;
@@ -1036,6 +1057,7 @@ export type Database = {
       };
       picking_lists: {
         Row: {
+          as400_account_number: string | null;
           checked_by: string | null;
           combine_meta: Json | null;
           completed_snapshot: Json | null;
@@ -1057,6 +1079,7 @@ export type Database = {
           reopen_count: number | null;
           reopened_at: string | null;
           reopened_by: string | null;
+          ship_to_address_id: string | null;
           shipping_type: string | null;
           source: string | null;
           source_order_date: string | null;
@@ -1071,6 +1094,7 @@ export type Database = {
           waiting_since: string | null;
         };
         Insert: {
+          as400_account_number?: string | null;
           checked_by?: string | null;
           combine_meta?: Json | null;
           completed_snapshot?: Json | null;
@@ -1092,6 +1116,7 @@ export type Database = {
           reopen_count?: number | null;
           reopened_at?: string | null;
           reopened_by?: string | null;
+          ship_to_address_id?: string | null;
           shipping_type?: string | null;
           source?: string | null;
           source_order_date?: string | null;
@@ -1106,6 +1131,7 @@ export type Database = {
           waiting_since?: string | null;
         };
         Update: {
+          as400_account_number?: string | null;
           checked_by?: string | null;
           combine_meta?: Json | null;
           completed_snapshot?: Json | null;
@@ -1127,6 +1153,7 @@ export type Database = {
           reopen_count?: number | null;
           reopened_at?: string | null;
           reopened_by?: string | null;
+          ship_to_address_id?: string | null;
           shipping_type?: string | null;
           source?: string | null;
           source_order_date?: string | null;
@@ -1153,6 +1180,13 @@ export type Database = {
             columns: ['customer_id'];
             isOneToOne: false;
             referencedRelation: 'customers';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'picking_lists_ship_to_address_id_fkey';
+            columns: ['ship_to_address_id'];
+            isOneToOne: false;
+            referencedRelation: 'customer_addresses';
             referencedColumns: ['id'];
           },
           {

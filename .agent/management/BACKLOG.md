@@ -59,6 +59,13 @@
 - **Documentación completa:** [`docs/sku-identity-analysis.md`](../../docs/sku-identity-analysis.md).
 - **Origen:** sesión 2026-08-26.
 
+### 86. Una sola llave AS400 → watcher → Pickd → FedEx (Recipient ID) <!-- id: idea-153 --> — input: 2026-08-24 17:29 NY
+- **Problema:** el jefe pide exportar clientes de Pickd a FedEx Ship Manager. El análisis del export de recipients de FSM (5.206 filas) muestra que el 85 % de los 614 clientes de Pickd ya está en FSM y que el delta inverso son ~86 registros; el valor real es compartir la llave. **El Recipient ID numérico de FSM ya es la cuenta AS400 + sufijo ship-to** (`0010495 00` → `1049500`, verificado con TUCKER CYCLES y BOULEVARD BIKES), y Pickd es el único que la tira: el watcher parsea `Account Number` y no lo persiste.
+- **Solución:** persistir la cuenta y el sufijo (`customers.as400_account`, `customer_addresses.as400_ship_to` + `fedex_recipient_id` único, `picking_lists.as400_account_number` + `ship_to_address_id`), chip con ID copiable y estado en Ship/DoubleCheck, import del export de FSM (`fedex_recipients`: teléfonos para ~500 clientes), export incremental Pickd → FSM en *Append* (mismo patrón que Dimensions), y tracking de vuelta (`shipments`) vía export de FSM o watcher en la máquina de FedEx. Canales con destinatario variable (`JAMIS CONSUMER ALL ACCESS` ×25 direcciones, Facebook, garantías) se marcan `ship_to_varies` y no reciben ID. Fase 1b fusiona los `customers` duplicados por nombre (15× consumer, 13× Sports Basement) que ShipScreen crea al cambiar la dirección.
+- **Documentación completa:** [`docs/fedex-customer-id-integration.md`](../../docs/fedex-customer-id-integration.md) — esquema, watcher, UI, fases 0–5 con criterio de hecho y tabla de seguimiento. Análisis de origen: [`docs/fedex-recipients-analysis.md`](../../docs/fedex-recipients-analysis.md).
+- **Requiere:** fase 0 en la máquina de FedEx (comportamiento de *Append* con ID existente, template `RECIPIENTS1`, menú Integration) antes de escribir código.
+- **Origen:** sesión 2026-08-24.
+
 ### 85. Register Container v2 — sesión de receiving activa <!-- id: idea-152 --> — input: 2026-07-03 NY
 - **Problema:** el flujo actual (`upload → preview → done`) no soporta descarga física real. No hay checklist para tachar SKUs conforme se sacan del truck, no se pueden agregar SKUs que no venían en el manifest, solo muestra 1 location (`existing_locations[0]` en `RegistrarContainerScreen.tsx:28, 375, 417`), sin time-in/time-out, sin notas ni fotos, no se puede pausar y volver si se cierra el navegador.
 - **Solución:** insertar step `receiving` entre `preview` y `done` con 2 tablas nuevas (`container_receiving_sessions` + `container_receiving_items`), 5 RPCs, y `ReceivingSessionView.tsx` estilo DoubleCheckView pero más rápido. El registro de inventario ocurre solo al finalizar sobre items confirmados. Popover multi-loc reemplaza el `+N more` texto muerto tanto en receiving como en done.
@@ -357,6 +364,7 @@ Implementado en pickd **#113** y watchdog-pickd **#32/#33** (todo en main):
   — ahora es la llave de agrupación del export a FedEx (`fedexDimensions.ts`), así que
   cualquier basura ahí sale del almacén.
 - **Origen:** sesión 2026-08-20, al construir el export de dimensiones FedEx.
+
 ### ~~2. LOW STOCK con stock en piso: el mismo SKU bajo dos nombres (`03-3768BL`/`BLD`)~~ <!-- id: bug-019 --> ✅ 2026-08-26
 - **Síntoma:** orden 881288 (26 ago) entra con `03-3768BLD` y `03-3769BL` marcados LOW STOCK y sin
   ubicación, con 145 bicis en ROW 43 (`03-3768BL`) y 76 en ROW 41 (`03-3769BLD`). Recurrente desde

@@ -31,6 +31,7 @@ import {
   type PhotoOwnerRow,
 } from '../../../utils/mergeSiblingPalletPhotos';
 import { OrderActionsMenu } from './OrderActionsMenu';
+import { FedexRecipientChip } from './FedexRecipientChip';
 import { meaningfulNote } from '../utils/meaningfulNote.ts';
 import {
   type DistributionItem,
@@ -2070,6 +2071,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                   />
                 );
               })()}
+              <FedexRecipientChip listId={activeListId ?? null} compact />
               {activeListId && (
                 <ShippingTypeToggle listId={activeListId} autoType={effectiveShippingType} />
               )}

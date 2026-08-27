@@ -60,6 +60,10 @@ export const PickingListSchema = z.object({
   source: z.string().nullable().optional(),
   // AS400 document "Order Date" (ISO yyyy-mm-dd) written by watchdog-pickd.
   source_order_date: z.string().nullable().optional(),
+  // AS400 header "Account Number" verbatim ("0010495 00"), kept for audit (idea-153).
+  as400_account_number: z.string().nullable().optional(),
+  // The customer_addresses row this order ships to; the FedEx Recipient ID lives there.
+  ship_to_address_id: z.string().uuid().nullable().optional(),
   is_addon: z.boolean().nullable().optional(),
   group_id: z.string().uuid().nullable().optional(),
   total_weight_lbs: z.number().nonnegative().nullable().optional(),

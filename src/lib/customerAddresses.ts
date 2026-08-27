@@ -9,6 +9,14 @@ export interface CustomerAddress {
   state: string | null;
   zip_code: string | null;
   is_default: boolean;
+  /** Two-digit AS400 ship-to suffix ("00"); the DB mints fedex_recipient_id from it. */
+  as400_ship_to: string | null;
+  /** What the ship station types into FedEx Ship Manager's Recipient ID. */
+  fedex_recipient_id: string | null;
+  contact_name: string | null;
+  residential: boolean;
+  /** Last time FSM and Pickd agreed on this row; NULL = not known to be in FSM. */
+  fedex_synced_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -17,7 +25,7 @@ export async function fetchCustomerAddresses(customerId: string): Promise<Custom
   const { data, error } = await supabase
     .from('customer_addresses')
     .select(
-      'id, customer_id, label, street, city, state, zip_code, is_default, created_at, updated_at'
+      'id, customer_id, label, street, city, state, zip_code, is_default, as400_ship_to, fedex_recipient_id, contact_name, residential, fedex_synced_at, created_at, updated_at'
     )
     .eq('customer_id', customerId)
     .order('is_default', { ascending: false })

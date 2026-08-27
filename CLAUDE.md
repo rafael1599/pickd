@@ -88,15 +88,15 @@ nombra "Modelo Talla Color"), tipo y los defaults de peso y caja; al operador le
 cantidad. Un nombre de bici que no parte no va a `model` (sería la basura legacy de `bug-018`).
 
 **`sku_not_found` es derivada, no almacenada (`20260826180000`, bug-020).** Significa una sola cosa,
-la misma que ya usan `process_picking_list` y `compensate_picking_list_changes`: *no hay fila en
-`sku_metadata` con ese sku exacto*. La deriva `a_stamp_item_sku_metadata` en cada write de `items`
+la misma que ya usan `process_picking_list` y `compensate_picking_list_changes`: _no hay fila en
+`sku_metadata` con ese sku exacto_. La deriva `a_stamp_item_sku_metadata` en cada write de `items`
 (**siempre sobrescribe** — es un hecho del catálogo, no un input; a diferencia de `is_bike` y `kind`,
 que solo rellenan NULL) y `zz_touch_open_orders_for_sku` re-sella las órdenes no terminales cuando
 un SKU entra al catálogo, así que registrar desde Double Check cura la orden sin que nadie la abra.
 El cliente toma la bandera del row por realtime/polling (`mergeDerivedItemFlags`, solo esa bandera,
 nunca `items` entero) y `DoubleCheckView` la pinta en vivo desde las filas que ya carga
 `fetchDistributions` (`registeredStock`). Una grafía distinta (`010530` vs `01-0530`) sigue siendo
-*not found* a propósito: eso es idea-154. Consecuencia visible: un ítem añadido a mano con un SKU
+_not found_ a propósito: eso es idea-154. Consecuencia visible: un ítem añadido a mano con un SKU
 sin registrar ahora sale `UNREG` en vez de decir `false` y hacer que `process_picking_list` busque
 una fila que no existe. **El alta desde el formulario escribe inventario primero y metadata
 después** (`ItemDetailView.executeSave`, modo `add`): el orden inverso, sin esperar, dejó 96 filas
@@ -191,6 +191,10 @@ declaraba cartón de 9 para toda la talla). Cuatro tallas se fusionaron con su v
 mismo cartón y RENEGADE S1 56 dejó de viajar en el de 58. Verificado en prod contra el propio
 `buildFedexDimensions`. **Nadie lo ha importado todavía en FSM** — ese es el único criterio de
 aceptación sin comprobar.
+
+**Clientes ↔ FSM (idea-153, 24 ago 2026):** el Recipient ID numérico de FSM es la cuenta AS400 +
+sufijo ship-to (`0010495 00` → `1049500`); Pickd todavía no la persiste. Análisis en
+`docs/fedex-recipients-analysis.md`, diseño y fases en `docs/fedex-customer-id-integration.md`.
 
 ## Manuales de procedimiento
 
@@ -364,11 +368,11 @@ Usar "no está en un ROW" como **detector** de sospechosos es útil; usarlo como
 **`dimensions_verified`** (`20260820170000`): distingue una caja medida de una que rellenó el trigger. Existe porque **hay cuatro defaults, no uno** — `55×8.5×30.5` (el del trigger vivo, 144 SKUs), `54×8×30` (uno legacy, 474), `5×6` (los de columna ya muertos, 63) y `0×0×0` (el de parts, en 3 bikes) — y comparar por valor falla en la dirección cara: una caja que mide justo `54×8×30` es indistinguible de una que nadie tocó.
 
 - Lo pone solo: trigger `tr_sku_metadata_dimensions_verified` (BEFORE UPDATE) lo marca `true` cuando **cambia el valor** de una dimensión, y `set_is_bike_on_insert` hace lo mismo en INSERT cuando el caller mandó las tres. Nunca lo pone en `false`.
+- **El formulario de alta no manda las dimensiones si siguen siendo las del tipo** (`ItemDetailView.executeSave`, modo `add`, desde el 25 ago 2026): mandarlas hacía que cada SKU registrado a mano saliera `verified` en `55×8.5×30.5` sin que nadie midiera (los del 21 ago están así), y el export a FedEx los declara como cartón real. En NULL el trigger rellena los mismos números y la bandera se queda en `false`.
 - **Por qué no un centinela** (guardar `55.0001` para reconocer el default): `ItemDetailView.executeSave` reescribe la fila entera de metadata en cada guardado, incluidas dimensiones que nadie tocó, y el form carga el valor guardado. O el operador ve `55.0001` en el campo, o se redondea al mostrar y el siguiente guardado por cualquier motivo — un cambio de cantidad, una nota — escribe `55` de vuelta y asciende en silencio un SKU sin medir. `PublicTagView` y `StockCountScreen` además interpolan el número crudo.
 - **Al 2026-08-21:** 175 verificados, 529 bikes non-S&D sobre defaults.
 
 **Detector, no regla:** "está fuera de un ROW" sirve para _encontrar_ sospechosos — así apareció E47 —, pero nunca para clasificar. `01-` y `02-` son prefijos de bike legítimos (139 y 20 SKUs, con 107 y 13 que vivieron en un ROW), así que sacarlos del trigger para atrapar cinco pedales misclasificaría ~120 bikes reales. La decisión la tiene que tomar una persona en el registro, no un patrón.
-- **El formulario de alta no manda las dimensiones si siguen siendo las del tipo** (`ItemDetailView.executeSave`, modo `add`, desde el 25 ago 2026): mandarlas hacía que cada SKU registrado a mano saliera `verified` en `55×8.5×30.5` sin que nadie midiera (los del 21 ago están así), y el export a FedEx los declara como cartón real. En NULL el trigger rellena los mismos números y la bandera se queda en `false`.
 
 ### Forma canónica del SKU: `DD-NNNN[CCC]`, impuesta al escribir (`20260826220000`, idea-154)
 
