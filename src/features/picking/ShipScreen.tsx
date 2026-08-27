@@ -853,6 +853,23 @@ export const ShipScreen = () => {
     }
   }, []);
 
+  // One rule for "this row is now the selected order": a member of a
+  // deliberate combine group never stands in for the group. The raw row
+  // carries only its own items but the DB total_units of the whole group,
+  // so the preview read "9 units" over 8 lines, counted 8 bikes, and the
+  // sibling's bike was nowhere (881303 / 881301, 2026-08-27). The details
+  // effect and the realtime handler both resolve through here.
+  const resolveSelectedOrder = useCallback(
+    async (details: OrderWithRelations): Promise<OrderWithRelations> => {
+      const isGeneralGroup =
+        !!details.group_id && isDeliberateCombineGroupType(details.order_group?.group_type);
+      if (!isGeneralGroup) return details;
+      const siblings = await fetchOrderGroupSiblings(details.group_id as string);
+      return siblings.length > 0 ? combineGeneralGroupSiblings(siblings) : details;
+    },
+    [fetchOrderGroupSiblings]
+  );
+
   const fetchSingleLightweightOrder = useCallback(async (id: string) => {
     try {
       const query = supabase.from('picking_lists').select(ORDER_LIST_SELECT).eq('id', id).single();
@@ -890,7 +907,8 @@ export const ShipScreen = () => {
       const details = await fetchOrderDetails(selectedOrder.id);
       if (details && active) {
         lastFetchedDetailIdRef.current = details.id;
-        setSelectedOrder(details);
+        const resolved = await resolveSelectedOrder(details);
+        if (active) setSelectedOrder(resolved);
       }
       if (active) setIsLoadingDetails(false);
     };
@@ -899,7 +917,7 @@ export const ShipScreen = () => {
     return () => {
       active = false;
     };
-  }, [selectedOrder?.id, fetchOrderDetails]);
+  }, [selectedOrder?.id, fetchOrderDetails, resolveSelectedOrder]);
 
   useEffect(() => {
     fetchOrders();
@@ -963,22 +981,13 @@ export const ShipScreen = () => {
                   const details = await fetchOrderDetails(updated.id);
                   if (details && selectedOrderRef.current?.id === updated.id) {
                     lastFetchedDetailIdRef.current = details.id;
-                    const isGeneralGroup =
-                      details.group_id &&
-                      isDeliberateCombineGroupType(details.order_group?.group_type);
-                    if (isGeneralGroup) {
-                      // Resolve straight to the combined pseudo-order — don't
-                      // set the raw lone sibling even momentarily, that's
-                      // exactly what let one field's save flash the others
-                      // back to a single sibling's numbers.
-                      const siblings = await fetchOrderGroupSiblings(details.group_id as string);
-                      if (selectedOrderRef.current?.id === updated.id) {
-                        setSelectedOrder(
-                          siblings.length > 0 ? combineGeneralGroupSiblings(siblings) : details
-                        );
-                      }
-                    } else {
-                      setSelectedOrder(details);
+                    // Resolve straight to the combined pseudo-order — don't
+                    // set the raw lone sibling even momentarily, that's
+                    // exactly what let one field's save flash the others
+                    // back to a single sibling's numbers.
+                    const resolved = await resolveSelectedOrder(details);
+                    if (selectedOrderRef.current?.id === updated.id) {
+                      setSelectedOrder(resolved);
                     }
                   }
                 } else {
@@ -1203,12 +1212,16 @@ export const ShipScreen = () => {
   // sibling's numbers. combine_meta.is_combined is only ever true on our own
   // merged pseudo-order (real DB rows always have combine_meta null here), so
   // its absence is a reliable signal to re-resolve from filteredOrders.
+  // Looks at every loaded sibling, not at filteredOrders: that list is the
+  // To Ship column only, so a Shipped combined order never healed here.
   useEffect(() => {
     if (!selectedOrder?.group_id || selectedOrder.combine_meta?.is_combined) return;
     if (!isDeliberateCombineGroupType(selectedOrder.order_group?.group_type)) return;
-    const combined = filteredOrders.find((o) => o.group_id === selectedOrder.group_id);
-    if (combined) setSelectedOrder(combined);
-  }, [selectedOrder, filteredOrders]);
+    const siblings = orders.filter(
+      (o) => o.group_id === selectedOrder.group_id && o.status !== 'cancelled'
+    );
+    if (siblings.length > 0) setSelectedOrder(combineGeneralGroupSiblings(siblings));
+  }, [selectedOrder, orders]);
 
   // Combining is manual/suggested, never automatic: when the open order's
   // customer has another completed, unshipped order that isn't already in

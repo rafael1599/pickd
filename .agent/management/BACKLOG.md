@@ -314,7 +314,7 @@
 
 ## Bugs pendientes
 
-### 4. Ship: al combinar una orden con una bici en una orden completada, la bici cuenta como parte y pide peso <!-- id: bug-021 --> — input: 2026-08-27 NY
+### ~~4. Ship: al combinar una orden con una bici en una orden completada, la bici cuenta como parte y pide peso~~ <!-- id: bug-021 --> ✅ 2026-08-27 `9886206` (input: 2026-08-27 NY)
 - **Síntoma (operador):** "al agregar una nueva orden con una bicicleta a una orden completada en ship me
   pide peso para la supuesta nueva parte agregada, aunque sea una bicicleta que ya tenía peso
   registrado; me muestra 2 pallets, 8 bicicletas, una parte y un total de peso que no tiene sentido".
@@ -330,6 +330,21 @@
 - **Fix:** leer bici/parte y peso del sello del ítem primero (síncrono, por línea) y del mapa vivo solo
   como refresco; mostrar el peso de cada línea en la tabla (idea-159).
 - **Origen:** operador, sesión 2026-08-27.
+
+### 5. Ship: una orden combinada en la columna Shipped se muestra como su orden ancla sola <!-- id: bug-022 --> — input: 2026-08-27 NY
+- **Síntoma:** al abrir `#881303 / 881301` desde **Shipped today**, la vista dice `ORDER #881301 · 9 UNITS`
+  pero Order Items lista 7 líneas / 8 unidades, cuenta 8 bicis / 0 partes y 435 lb: la Riptide de 881303
+  (`03-3845BR`) no aparece en ningún lado, mientras el `9` sale de `total_units` de la fila cruda.
+  Visto al capturar pantallas para el What's new del 27 ago, no reportado por el operador.
+- **Causa:** al seleccionar, el efecto de detalles reemplaza la pseudo-orden combinada por la fila cruda
+  del ancla (`fetchOrderDetails` → `setSelectedOrder(details)`), y el "self-heal" que la vuelve a
+  combinar busca en `filteredOrders`, que es **solo la columna To Ship**. Pendiente de envío se curaba;
+  enviada, nunca. El handler de realtime ya resolvía bien (`fetchOrderGroupSiblings` +
+  `combineGeneralGroupSiblings`) — dos caminos, una sola regla.
+- **Fix:** `resolveSelectedOrder(details)` en `ShipScreen`, usado por el efecto de detalles y por
+  realtime; el self-heal mira `orders` entero. Verificar en prod: `#881303 / 881301` → 9 unidades,
+  8 líneas, 9 bicis, 480 lb.
+- **Origen:** sesión 2026-08-27, revisión de capturas.
 
 ### ~~1. Texto de nota de picking se concatena dentro de `sku_metadata.model`~~ <!-- id: bug-018 --> ✅ 2026-08-26 (input: 2026-08-20 NY)
 - **Síntoma:** 14 filas de `sku_metadata` tienen el nombre del modelo con una nota pegada al final:
