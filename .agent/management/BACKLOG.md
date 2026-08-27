@@ -135,7 +135,10 @@
 
 ### ~~53. SKU normalization at intake — close idea-092 path 1~~ — COMPLETADO `2026-06-10` watchdog #35 <!-- id: idea-101 -->
 
-### 55. New orders never auto-route to Ready to Double-Check <!-- id: idea-103 -->
+### ~~55. New orders never auto-route to Ready to Double-Check~~ <!-- id: idea-103 --> ✅ 2026-08-27 (no reproduce)
+- **Resolución 2026-08-27:** la query del plan (`status = 'ready_to_double_check' AND created_at = updated_at`,
+  30 días) devuelve **0** órdenes; las 236 creadas en ese periodo están completadas o canceladas y ninguna
+  nació en ese estado. Sin caso reproducible no hay fix; se reabre con número de orden si vuelve a verse.
 - **Contexto:** Reportado en sesión 2026-05-01: una orden recién creada apareció directamente en la zona "Ready to Double-Check" del Verification Board en lugar de en su lane FedEx/Regular.
 - **Hipótesis (sin diagnóstico aún):** alguna creación de orden setea `status='ready_to_double_check'` en vez de `active`. Posibles caminos:
   - Watchdog intake con default status incorrecto.

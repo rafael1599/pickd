@@ -450,15 +450,29 @@ son sufijo D y se quedan. La regla de hermanos por stock sigue como red por si r
 
 ## Branching & Deployment
 
-- **`main`** — Producción. Despliega automáticamente a `pickd.pages.dev` (Cloudflare Pages).
-- **`develop`** — Staging/preview. Despliega automáticamente a una preview de Cloudflare Pages. Misma DB de producción (Supabase compartida).
-- **Flujo:** feature branches → PR a `develop` → testing en staging → PR a `main` → producción.
-- **Regla de migraciones:** Como staging y producción comparten la misma DB, los cambios de esquema deben ser **aditivos** (agregar columnas/funciones OK, renombrar/eliminar NO hasta que producción también se actualice).
-- **⚠️ Aplicar migraciones a prod después del merge:** `git push` NO aplica migraciones a la DB compartida. Mergear un PR con archivos en `supabase/migrations/` solo despliega el frontend — si el código llama a una RPC/columna nueva antes de aplicar la migración, prod tira `404 Not Found` o `column does not exist`. Checklist post-merge para PRs con cambios de DB:
-  1. `npx supabase migration list --linked` — confirma cuáles están pending (columna Remote vacía).
-  2. `npx supabase db push --linked` — aplica todas las pending. Pide confirmación.
-  3. Verifica con un query: `npx supabase db query --linked "SELECT ..."`.
+- **`main` = producción** (`pickd.pages.dev`, Cloudflare Pages). **Se despliega empujando directo a
+  `main`** (desde el 18 ago 2026): sin PRs ni `develop` — esa rama sigue en el remoto pero no se usa ni
+  se despliega como staging. La sección anterior describía el flujo por PRs; quedó obsoleta.
+- **La compuerta es local, no GitHub (operador, 26 ago 2026):** `.husky/pre-commit` (lint-staged +
+  `tsc` cuando hay TS staged) y `.husky/pre-push` (`tsc --noEmit` + `vitest run`, ~15 s). `pnpm ci` lo
+  lanza a mano; `git push --no-verify` solo en emergencia. El workflow `ci-tests.yml` no dispara en
+  `main` y **no debe extenderse a `main`**.
+- **Solo lo propio a `main`:** si un archivo tiene hunks ajenos sin commitear, el staged se construye
+  como HEAD + reemplazos exactos — nunca "bloque hasta ancla", que el 26 ago duplicó párrafos de este
+  archivo tres veces.
+- **Regla de migraciones:** la DB es una sola, así que los cambios de esquema deben ser **aditivos**
+  (agregar columnas/funciones OK; renombrar/eliminar solo cuando ningún frontend vivo lo use).
+- **⚠️ Aplicar migraciones a prod después del push:** `git push` NO aplica migraciones. Empujar
+  archivos en `supabase/migrations/` solo despliega el frontend — si el código llama a una RPC/columna
+  nueva antes de aplicar la migración, prod tira `404 Not Found` o `column does not exist`. Checklist:
+  1. `npx supabase migration list --linked` — confirma cuáles están pending (columna Remote vacía) y
+     que **el número de versión no exista ya en remoto**: el 26 ago dos sesiones eligieron
+     `20260826230000` y la segunda hizo rollback. Nombrar con la hora real (`date -u +%Y%m%d%H%M%S`).
+  2. `npx supabase db push --linked --yes` — aplica todas las pending.
+  3. Verifica con una query directa (`PROD_DB_URL` + `postgres`, o `npx supabase db query --linked`).
   4. Refrescar la app en prod (Ctrl+R) — los 404 desaparecen.
+- **Validar antes de aplicar:** correr el cuerpo de la migración dentro de una transacción con rollback
+  contra prod (`sql.begin` + `throw`) y leer el estado resultante; es como se validaron las de idea-154.
 - **Banner de staging:** `StagingBanner.tsx` muestra un banner amarillo "STAGING" automáticamente cuando el hostname no es producción ni localhost.
 - **Reports prebuild:** `pnpm prebuild` copies `reports/daily/*.html` to `public/reports/daily/` for static serving. Runs automatically before `pnpm build`. The `/pickd-report` route serves these via iframe.
 
