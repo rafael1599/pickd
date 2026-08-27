@@ -276,6 +276,15 @@ convención del proyecto.
 
 **Hecho cuando:** ninguna cuenta tiene más de una fila en `customers`.
 
+### Fase 1c — Ship-to por defecto en Pickd (idea-157) y vista "What's new" en el watcher (idea-158)
+
+Pedidas por el operador el 26 ago, van con la fase 1b porque tocan lo mismo: `customers` pasa a
+ser el Bill-to con su propia dirección, `customer_addresses` los Ship-tos con nombre, y cada
+orden enseña por defecto **su** Ship-to (nombre + dirección de la fila enlazada por
+`ship_to_address_id`) con el Bill-to como línea secundaria. En el watcher, el backfill y las
+acciones que vengan se ejecutan desde un botón con su explicación, no desde la terminal.
+Detalle en el backlog.
+
 ### Fase 2 — FSM entra en Pickd (2 días)
 
 - Tabla `fedex_recipients` y pantalla admin "Importar libreta de FedEx": sube el export de FSM
@@ -364,14 +373,15 @@ como gesto diario: se teclea la orden y sale todo. Se evalúa después de ver la
 
 ## Seguimiento
 
-| fase | entregable                                                          | criterio de hecho                           | estado                                                                                                                                                                                                              |
-| ---- | ------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0    | checklist FSM anotado aquí                                          | 5 puntos respondidos                        | **1 ✔, 2 ✔ (26 ago)**; 4 y 5 a medias (faltan perfil de integración, Reference, SO/red); 3 aplazado                                                                                                                 |
-| 1    | migración + watcher + backfill + chip                               | orden AS400 nueva trae ID y FSM lo reconoce | **desplegada el 26 ago** — migración en prod, chip en `main` (`590bb85`), watcher en `origin/main` (`30d8a9e`). Falta en la MacBook de Bay 2: ⏳ Update app y `scripts/backfill_account_numbers.py --apply` una vez |
-| 1b   | migración de fusión                                                 | una fila por cuenta                         | pendiente — después del backfill, cuando `as400_account` esté sellado                                                                                                                                               |
-| 2    | `fedex_recipients` + import + enlaces + teléfonos                   | chip "en FedEx" correcto; ~500 teléfonos    | pendiente                                                                                                                                                                                                           |
-| 3    | template `RECIPIENTS1` + export Append (solo nuevos) + log + manual | cliente nuevo en FSM sin teclear            | **desbloqueada** (va después de 2)                                                                                                                                                                                  |
-| 4    | `shipments` + import de envíos (A) o watcher (B)                    | tracking visible en la orden                | espera capturas (fase 0.4–0.5)                                                                                                                                                                                      |
-| 5    | import por orden en FSM                                             | teclear orden rellena envío                 | sin decidir                                                                                                                                                                                                         |
+| fase | entregable                                                                                             | criterio de hecho                                                           | estado                                                                                                                                                                                                              |
+| ---- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | checklist FSM anotado aquí                                                                             | 5 puntos respondidos                                                        | **1 ✔, 2 ✔ (26 ago)**; 4 y 5 a medias (faltan perfil de integración, Reference, SO/red); 3 aplazado                                                                                                                 |
+| 1    | migración + watcher + backfill + chip                                                                  | orden AS400 nueva trae ID y FSM lo reconoce                                 | **desplegada el 26 ago** — migración en prod, chip en `main` (`590bb85`), watcher en `origin/main` (`30d8a9e`). Falta en la MacBook de Bay 2: ⏳ Update app y `scripts/backfill_account_numbers.py --apply` una vez |
+| 1b   | migración de fusión                                                                                    | una fila por cuenta                                                         | pendiente — después del backfill, cuando `as400_account` esté sellado                                                                                                                                               |
+| 1c   | Ship-to por defecto en Pickd (idea-157); vista What's new + botón de backfill en el watcher (idea-158) | la tarjeta enseña el Ship-to de esa orden; el backfill se corre desde la UI | pendiente — sesión del 27 ago                                                                                                                                                                                       |
+| 2    | `fedex_recipients` + import + enlaces + teléfonos                                                      | chip "en FedEx" correcto; ~500 teléfonos                                    | pendiente                                                                                                                                                                                                           |
+| 3    | template `RECIPIENTS1` + export Append (solo nuevos) + log + manual                                    | cliente nuevo en FSM sin teclear                                            | **desbloqueada** (va después de 2)                                                                                                                                                                                  |
+| 4    | `shipments` + import de envíos (A) o watcher (B)                                                       | tracking visible en la orden                                                | espera capturas (fase 0.4–0.5)                                                                                                                                                                                      |
+| 5    | import por orden en FSM                                                                                | teclear orden rellena envío                                                 | sin decidir                                                                                                                                                                                                         |
 
 Registrado en el backlog como `idea-153`.
