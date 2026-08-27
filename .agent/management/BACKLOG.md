@@ -275,7 +275,7 @@ Implementado en pickd **#113** y watchdog-pickd **#32/#33** (todo en main):
   5. Aplicar migración a prod tras el merge (checklist de migraciones del CLAUDE.md).
 - **Origen:** sesión 2026-06-09 (follow-up de idea-138).
 
-### 72. DoubleCheckView: últimos 3 dígitos de cada orden mergeada, separados por "/" <!-- id: idea-139 --> ✅ 2026-06-09 (#109)
+### ~~72. DoubleCheckView: últimos 3 dígitos de cada orden mergeada, separados por "/"~~ <!-- id: idea-139 --> ✅ 2026-06-09 (#109)
 - **Decisión operador:** cuando son **exactamente 2** mergeadas, mostrar los **últimos 3 dígitos de cada una separados por "/"** (ej. `083 / 121`). Cuando son **más de 2**, dejar como hoy (lista completa).
 - **Hecho:** helper puro `orderHeaderLabel` + render en DoubleCheckView. 
 - **Origen:** sesión 2026-06-09.
@@ -341,7 +341,7 @@ Implementado en pickd **#113** y watchdog-pickd **#32/#33** (todo en main):
 
 ## Bugs pendientes
 
-### 1. Texto de nota de picking se concatena dentro de `sku_metadata.model` <!-- id: bug-018 --> — input: 2026-08-20 NY
+### ~~1. Texto de nota de picking se concatena dentro de `sku_metadata.model`~~ <!-- id: bug-018 --> ✅ 2026-08-26 (input: 2026-08-20 NY)
 - **Síntoma:** 14 filas de `sku_metadata` tienen el nombre del modelo con una nota pegada al final:
   `ALLEGRO A1 23 THUNDER GREY | Auto-cancel verification timeout | auto-restore on cancel`.
   12 son bikes, 2 estaban dentro del set del export a FedEx — esa frase habría viajado como
@@ -364,6 +364,11 @@ Implementado en pickd **#113** y watchdog-pickd **#32/#33** (todo en main):
   — ahora es la llave de agrupación del export a FedEx (`fedexDimensions.ts`), así que
   cualquier basura ahí sale del almacén.
 - **Origen:** sesión 2026-08-20, al construir el export de dimensiones FedEx.
+- **Causa y fix (26 ago):** `adjust_inventory_quantity` escribía `p_merge_note` (`auto-restore on
+  cancel`, `Reopen delta #1`…) **dentro de `item_name`** — como nombre al crear la fila, concatenado
+  con ` | ` al actualizarla — y de ahí lo copiaba todo lo que deriva `model` del nombre. Migración
+  `20260826233000`: la nota va a `internal_note` (una vez por nota distinta), una fila nueva se nombra
+  como las otras filas del SKU, y se limpiaron las 2 filas + 1 `model` que quedaban.
 
 ### ~~2. LOW STOCK con stock en piso: el mismo SKU bajo dos nombres (`03-3768BL`/`BLD`)~~ <!-- id: bug-019 --> ✅ 2026-08-26
 - **Síntoma:** orden 881288 (26 ago) entra con `03-3768BLD` y `03-3769BL` marcados LOW STOCK y sin

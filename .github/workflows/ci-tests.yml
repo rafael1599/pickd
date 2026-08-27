@@ -4,7 +4,9 @@ on:
   pull_request:
     branches: [main, develop]
   push:
-    branches: [develop]
+    # main too: deploys go straight to main since 2026-08-18 and the PR path
+    # is not used, so without this the required 'test' check never ran.
+    branches: [develop, main]
 
 jobs:
   test:
