@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "ci": "tsc --noEmit && vitest run",
+    "check": "tsc --noEmit && vitest run",
     "dev": "vite",
     "migrate": "node scripts/migrate.js",
     "setup:db": "node scripts/apply-migration.js",

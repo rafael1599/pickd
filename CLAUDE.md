@@ -42,7 +42,7 @@ PWA de gestión de inventario y warehouse operations. Multi-usuario con sync en 
 - **Scripts temporales:** no agregar scripts one-time al proyecto. Usar `/tmp` o guardarlos en la skill correspondiente (`.claude/skills/`).
 - **PostgREST selects:** Al cambiar un `.select()` de `table(*)` a columnas explícitas `table(col1, col2)`, verificar que TODAS las columnas existan en la tabla real de producción. PostgREST retorna HTTP 400 si se referencia una columna inexistente, rompiendo el query completo. Los schemas Zod (`src/schemas/`) pueden tener campos que no existen en DB (nullish/optional) — la fuente de verdad son las migraciones en `supabase/migrations/`.
 - **Nuevas columnas DB:** Al agregar una columna a una tabla, actualizar **4 lugares**: (1) migración SQL, (2) schema Zod en `src/schemas/`, (3) tipos Supabase en `src/integrations/supabase/types.ts` y `src/lib/database.types.ts`, (4) queries con select explícito (ej. `inventoryApi.ts`). Si falta alguno, PostgREST ignora silenciosamente la columna en reads/writes.
-- **Tests:** Correr `pnpm vitest run` antes de cada deploy. Los tests corren local sin necesidad de DB (mocks de Supabase). **El CI es local (26 ago 2026):** el hook `pre-push` de husky corre `tsc --noEmit` + `vitest run` antes de cualquier push (`pnpm ci` para lanzarlo a mano; `git push --no-verify` solo en emergencia). El workflow de GitHub `ci-tests.yml` **no** es la compuerta y no debe extenderse a `main`.
+- **Tests:** Correr `pnpm vitest run` antes de cada deploy. Los tests corren local sin necesidad de DB (mocks de Supabase). **El CI es local (26 ago 2026):** el hook `pre-push` de husky corre `tsc --noEmit` + `vitest run` antes de cualquier push (`pnpm check` para lanzarlo a mano — **no `pnpm ci`**: pnpm reserva ese nombre para su propio comando, imprime `CI_NOT_IMPLEMENTED` y sale con 0 sin correr nada, un gate que aprueba siempre; `git push --no-verify` solo en emergencia). El workflow de GitHub `ci-tests.yml` **no** es la compuerta y no debe extenderse a `main`.
 - **Modals/Sheets:** SIEMPRE usar el Modal Manager (`useModal()` + `ModalProvider` en LayoutMain). Ningún modal crítico debe vivir dentro del componente que lo abre. Ver `docs/modal-pattern.md`. Excepciones: tooltips, dropdowns, popovers efímeros.
 
 ## Picking workflow
@@ -454,7 +454,7 @@ son sufijo D y se quedan. La regla de hermanos por stock sigue como red por si r
   `main`** (desde el 18 ago 2026): sin PRs ni `develop` — esa rama sigue en el remoto pero no se usa ni
   se despliega como staging. La sección anterior describía el flujo por PRs; quedó obsoleta.
 - **La compuerta es local, no GitHub (operador, 26 ago 2026):** `.husky/pre-commit` (lint-staged +
-  `tsc` cuando hay TS staged) y `.husky/pre-push` (`tsc --noEmit` + `vitest run`, ~15 s). `pnpm ci` lo
+  `tsc` cuando hay TS staged) y `.husky/pre-push` (`tsc --noEmit` + `vitest run`, ~15 s). `pnpm check` lo
   lanza a mano; `git push --no-verify` solo en emergencia. El workflow `ci-tests.yml` no dispara en
   `main` y **no debe extenderse a `main`**.
 - **Solo lo propio a `main`:** si un archivo tiene hunks ajenos sin commitear, el staged se construye
