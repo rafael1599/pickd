@@ -1,13 +1,67 @@
 # PickD — Backlog
 
 > Pendientes por impacto. Completados en `BACKLOG-ARCHIVE.md`.
-> Actualizado: 2026-05-21 (compactado — 30+ items archivados desde la última pasada).
+> Actualizado: 2026-08-27 (compactado — 37 items comprimidos; detalle en `BACKLOG-ARCHIVE.md`).
 > **Convención (operador, 2026-06-10):** cada idea nueva se registra con **fecha y hora**
 > del input del operador (hora NY). Ideas previas a la convención llevan solo fecha.
+> **Orden de trabajo (operador, 2026-08-27):** los bugs van antes que los quick wins. **❓** marca lo que
+> necesita una aclaración del operador (un caso de uso que el código no puede responder) antes de empezar.
 
 ---
 
 ## P1 — Alto (operación diaria)
+
+### 91. Ship: pesos por línea visibles, y bici/parte desde el sello del ítem <!-- id: idea-159 --> — input: 2026-08-27 NY
+- **Pedido:** "quiero ver los pesos en order items de ahora en adelante, para cada bicicleta, en todas las
+  órdenes". Va junto con bug-021 (misma causa): la tabla de ítems de Ship muestra el peso de cada línea
+  (unitario × cantidad) leído del `sku_metadata` sellado en el ítem, no de un mapa asíncrono.
+- **Origen:** operador, sesión 2026-08-27.
+
+### 92. Ship: quitar "Verified" de la vista <!-- id: idea-160 --> — input: 2026-08-27 NY
+- **Pedido:** "Quitemos verified de la vista ship".
+- **❓ Aclarar:** en Ship hay dos cosas que dicen "verified": el pill de estado de `OrderStatusPill`
+  (`completed → 'Verified'`, en cada tarjeta del feed) y el contador de ítems verificados
+  (`verifiedKeys` en `ShipFeedCard`). ¿Se quitan las dos o solo el pill? En Ship todas las órdenes
+  están completadas, así que el pill no distingue nada.
+- **Origen:** operador, sesión 2026-08-27.
+
+### 93. Ship: alertas (litio y otras) en un solo botón pulsante de una o dos palabras <!-- id: idea-161 --> — input: 2026-08-27 NY
+- **Pedido:** "Juntemos lithium battery y otras alertas a un botón pulsante que diga en una palabra,
+  máximo 2, lo que contiene".
+- **Hoy:** `ElectricBikeWarning` ("Lithium battery label — N e-bikes") dentro de `ShipOrderCard`,
+  `CombineSuggestionBanner` (misma cliente con orden abierta) y `UnratedCartonsBanner` (cartones FedEx
+  sin medida) — tres banners de tamaño completo.
+- **❓ Aclarar:** (1) ¿el botón reemplaza a los tres o solo a los avisos de contenido (litio, cartones) y
+  la sugerencia de combinar sigue aparte? (2) ¿tocar el botón despliega el detalle actual o va a la
+  acción (imprimir etiqueta / medir cartón)? (3) Palabras propuestas: `LITHIUM`, `CARTONS`, `COMBINE`
+  — confirmar.
+- **Origen:** operador, sesión 2026-08-27.
+
+### 94. Ship: selector de carrier con 3 opciones + "…" para el resto <!-- id: idea-162 --> — input: 2026-08-27 NY
+- **Pedido:** "Cuando se elige el carrier reducir las opciones a 3 más tres puntitos para expandir".
+- **Propuesta con datos (90 d):** ver conteo de `transport_company` en la sesión 2026-08-27; los 3
+  visibles serían los 3 más usados, el resto detrás de "…". Si el operador prefiere una terna fija
+  (p. ej. FEDEX · R+L · PICK UP), es un cambio de una línea.
+- **Origen:** operador, sesión 2026-08-27.
+
+### 95. Ship: fotos — máximo 2 visibles + botón de acciones (agregar / ver todas) <!-- id: idea-163 --> — input: 2026-08-27 NY
+- **Pedido:** "Imágenes solo mostrar 2 máximo y un botón de acciones para agregar o ver todas las
+  imágenes". Galería de `pallet_photos` en `ShipOrderCard`; `PhotoLightbox` ya existe para "ver todas".
+- **Origen:** operador, sesión 2026-08-27.
+
+### 96. Cart de órdenes completadas: mostrar el picking summary <!-- id: idea-164 --> — input: 2026-08-27 NY
+- **Pedido:** "El cart en órdenes completadas debe mostrar picking summary".
+- **❓ Aclarar:** ¿qué "cart"? Candidatos: el `PickingCartDrawer` al abrir una orden completada desde el
+  Board (hoy entra en review de Double Check), o el icono de carrito en Ship (hoy `onShowPickingSummary`
+  ya abre `PickingSummaryModal` desde el menú). ¿Y "mostrar" = abrir el summary directamente en vez
+  de la vista de verificación?
+- **Origen:** operador, sesión 2026-08-27.
+
+### 97. Ship: clickear un SKU abre siempre el detalle del ítem <!-- id: idea-165 --> — input: 2026-08-27 NY
+- **Pedido:** "En la vista ship, clickear un sku que siempre abra item detail". Hoy `OrderItemsTable`
+  no tiene click. Con una sola fila de inventario abre `item-detail` directo; con varias, el mismo
+  selector de ubicaciones que el long-press de Double Check (Editar por fila).
+- **Origen:** operador, sesión 2026-08-27.
 
 ### 89. Pickd guarda Bill-to y Ship-to completos, y muestra el Ship-to por defecto <!-- id: idea-157 --> — input: 2026-08-26 21:30 NY
 - **Problema:** hoy `customers.name` es el **Bill-to** y la dirección que se ve es el **Ship-to** — mezcla de dos entidades en una fila. Además el watcher sobreescribe la dirección "principal" del cliente con cada orden (`_save_shipping_address`), así que en un canal como `JAMIS CONSUMER ALL ACCESS` una orden vieja enseña la dirección de la orden más reciente. El nombre del Ship-to (`customer_addresses.label`) existe pero ninguna pantalla lo pinta. El watcher ya parsea la dirección Bill-to (`parse_customer_address`) y la tira.
@@ -62,13 +116,7 @@
 - **Pendiente (piso, no código):** conteo físico de las 22 fusiones —
   `select * from sku_canonical_renames where merged` — y, si alguna resulta ser otra parte,
   registrarla con nombre propio. Ver CLAUDE.md → "Forma canónica del SKU".
-- **Plan (4 piezas, en orden):** (1) decidir; (2) `canonical_sku()` SQL + trigger BEFORE
-  INSERT/UPDATE en `sku_metadata` e `inventory` — patrón `set_is_bike_on_insert` — con espejo TS y
-  test de paridad, aditivo; (3) columna generada `sku_key` + índice único; (4) migración de datos
-  como `20260814020000` (5 tablas + `picking_lists.items` jsonb), fusionar familias, borrar las 96
-  fantasma, confirmar las 26 parejas fila a fila.
-- **Depende de:** bug-020 (hecho): `sku_not_found` ya se deriva en DB por igualdad exacta, así que
-  al reescribir `items` a la grafía canónica las banderas se recalculan solas.
+
 - **Documentación completa:** [`docs/sku-identity-analysis.md`](../../docs/sku-identity-analysis.md).
 - **Origen:** sesión 2026-08-26.
 
@@ -85,14 +133,7 @@
 - **Documentación completa:** [`docs/register-container-receiving-session.md`](../../docs/register-container-receiving-session.md) — tablas, RPCs, hooks, layout, verification E2E.
 - **Origen:** sesión 2026-07-03.
 
-### ~~53. SKU normalization at intake — close idea-092 path 1~~ <!-- id: idea-101 --> ✅ 2026-06-10 (watchdog #35 — premisa verificada como ya cubierta)
-- **Resolución 2026-06-10:** verificado con tests que `_to_cart_items` del watchdog **ya matchea normalizado desde su commit inicial** (`034664BR` ↔ `03-4664BR` resuelve al canónico en el intake; no llega UNREG). El incidente que originó la idea fue un **typo de dígito** (4664 vs 4666) — correctamente manual, la normalización no adivina dígitos. Lo único que faltaba era la nota de riesgo del propio spec: **colisiones** (dos SKUs canónicos con la misma forma normalizada) se elegían en silencio; ahora se dejan sin resolver para que el picker decida (watchdog #35, equivale al contrato LIMIT-2 de `lookup_canonical_sku`). No hace falta llamar al RPC: la lógica local es equivalente y batched.
-- **Hallazgo verificado 2026-05-01:** la flag `sku_not_found` se setea EN watchdog al ingestar el PDF (vive como campo dentro del JSONB `picking_lists.items`). Pickd la lee, nunca la escribe — confirmado en migraciones (`process_picking_list`, `reopen_completed_orders` solo leen) y en src/ (todas las refs en DoubleCheckView/CorrectionModeView son lecturas). Conclusión: **no hay un fallback client-side viable** para auto-corregir el guion. El item JSON es inmutable post-intake.
-- **Síntoma operativo:** `034664BR` desde el PDF queda como UNREG en DoubleCheckView aunque `03-4664BR` exista en `sku_metadata`. El picker tiene que hacer click en "Use 03-4666BR instead" (botón ya entregado en idea-092 path 2). 100% determinístico, no debería requerir intervención manual.
-- **Solución única:** path (1) de idea-092 — watchdog (otro repo `watchdog-pickd`) llama `lookup_canonical_sku(p_raw)` (RPC ya disponible en migración `20260430160000`) antes de armar `picking_lists.items`. Si match único, sustituye el SKU + registra la sustitución en `combine_meta` o `notes` para auditar. Si match múltiple, deja el original (ambiguous → manual).
-- **Riesgo:** falsos positivos teóricos si dos SKUs canónicos comparten forma normalizada (ej. `034-666-BR` y `03-4666BR`). `register_new_sku` no normaliza al guardar y no hay CHECK constraint en `sku_metadata.sku`. La RPC ya tiene `LIMIT 2` y solo un `=` exacto sobre normalizados — devuelve >1 row si hay ambigüedad real, watchdog no auto-corrige en ese caso.
-- **Fuera de scope:** auto-corrección en pickd. La flag viene del intake — no podemos modificar el item JSON sin un correction.
-- **Origen:** sesión 2026-05-01.
+### ~~53. SKU normalization at intake — close idea-092 path 1~~ — COMPLETADO `2026-06-10` watchdog #35 <!-- id: idea-101 -->
 
 ### 55. New orders never auto-route to Ready to Double-Check <!-- id: idea-103 -->
 - **Contexto:** Reportado en sesión 2026-05-01: una orden recién creada apareció directamente en la zona "Ready to Double-Check" del Verification Board en lugar de en su lane FedEx/Regular.
@@ -104,37 +145,13 @@
 - **Datos pendientes para diagnóstico:** order_number observado + día/hora + si fue de watchdog o creación manual / reopen.
 - **Origen:** sesión 2026-05-01.
 
-### ~~48. Auto-mover órdenes idle a Waiting (en vez de borrarlas)~~ <!-- id: idea-099 --> ✅ 2026-04-30
-- **Contexto:** El 2026-04-30 desapareció la orden `879469` que se dejó pendiente la noche anterior por falta de un item. Causa raíz: `usePickingSync.ts` borraba con DELETE las órdenes `active|needs_correction|reopened` cuyo `updated_at` fuera mayor a 5h cuando el user reabre la app.
-- **Resuelto en commits:**
-  - `1645bff` — quitar el DELETE: ahora solo libera la sesión local, la orden sobrevive.
-  - `37c2060` — auto-flag idle `needs_correction` como `is_waiting_inventory` via `mark_picking_list_waiting`. Aterriza en la Waiting zone del Verification Board (UI ya existente desde idea-053/idea-055). RPC admin-only: si el caller no es admin, warn y queda en `needs_correction`.
-  - Migración `20260430140000_picking_lists_delete_audit.sql` — trigger `BEFORE DELETE` que captura row + auth.uid() en tabla `picking_lists_deleted_audit`. Cualquier delete futuro deja rastro forensic.
-- **Threshold actual:** 5h (heredado del código previo). Si en uso real resulta corto/largo, ajustar a "del día NY anterior" (TODO menor).
+### ~~48. Auto-mover órdenes idle a Waiting (en vez de borrarlas)~~ — COMPLETADO `2026-04-30` `1645bff` `37c2060` `5c6fe9d` <!-- id: idea-099 -->
 
-### ~~47. Reactivación de SKU al cambiar qty~~ <!-- id: idea-098 --> ✅ 2026-04-30 (no requiere código)
-- **Investigación 2026-04-30:** `adjust_inventory_quantity` en prod ya hace el flip bidireccional automático (`is_active = (v_new_qty > 0)` — comentario explícito *"Bidirectional: activate when stock arrives, deactivate when depleted"*). Cliente la usa en `useInventoryMutations.ts:38`. Resultado: subir qty desde 0 reactiva el row sin cambio adicional.
-- **`register_new_sku`** sigue creando placeholders con qty=0/is_active=true, no se ve afectado.
-- **No se requiere botón "Reactivate"** — descartado.
+### ~~47. Reactivación de SKU al cambiar qty~~ — COMPLETADO `2026-04-30` — (sin código) <!-- id: idea-098 -->
 
-### ~~46. Auto-resolver SKU format mismatches en intake / pick-time~~ <!-- id: idea-092 --> ✅ 2026-06-10 (cerrado junto con idea-101)
-- **Estado parcial 2026-04-30:** ✅ entregado el path (2) — RPC `lookup_canonical_sku(p_raw)` en `supabase/migrations/20260430160000_lookup_canonical_sku.sql` + hook `useSkuSuggestion` + botón "Use {canonical} instead" en `CorrectionModeView` cuando el item está `sku_not_found`. **Path (1) cerrado 2026-06-10:** el intake del watchdog ya normalizaba desde siempre (ver idea-101); se agregó la guarda de ambigüedad (watchdog #35).
-- **Contexto:** Las órdenes llegan con SKUs que no coinciden con `sku_metadata` solo por formato (guion/espacios faltantes). Ej: catalog tiene `09-4802BK` pero el PDF/sistema upstream pone `094802BK`. El picker hoy resuelve manualmente con un `Replaced X → Y` correction y razón "Sku def" / "Wrong name". En las últimas 2 semanas: `094802BK→09-4802BK` (2 órdenes, 2 customers el mismo día) y `033769BLD→03-3769BLD` (1 orden). Detección: la versión normalizada (lowercase + strip `[-\s]`) de ambos SKUs es idéntica → no es variant real, es ruido de formato.
-- **Problema:** trabajo manual recurrente del picker para algo que la DB puede resolver sola. Cada caso suma ~30s + un correction note que infla el dashboard cross-team.
-- **Solución propuesta — dos puntos de entrada que ya tocan la DB:**
-  1. **Watchdog (intake):** al parsear el PDF, antes de crear `picking_lists.items`, normalizar cada SKU y hacer lookup contra `sku_metadata`. Si el SKU literal no existe pero el normalizado coincide con un único SKU canónico, sustituir y registrar la sustitución en `picking_lists.notes` o `combine_meta` (`{ sku_normalized: { from, to, reason: 'format' } }`). Si el normalizado coincide con múltiples canónicos, dejar el original y que el picker resuelva (ambiguous).
-  2. **DoubleCheckView (pick-time, fallback):** al renderizar un item cuyo SKU no matchee `sku_metadata`, hacer la misma búsqueda normalizada. Si hay match único, ofrecer auto-resolución con un botón "Use 03-4070BK instead" (sin generar `Replaced` correction — porque no es un fix real). Si hay >1 match, mostrar selector. Reusa la normalización de la stock search RPC (idea-074) — `regexp_replace(sku, '[-\s]', '', 'g')`.
-- **Out of scope:** variants reales (color/size distinto). Esos siguen requiriendo decisión manual del picker — son señal cross-team legítima para sales.
-- **Impacto medible:** el reporte cross-team de 2 weeks (2026-04-13→2026-04-27) bajó de 5 mismatches a 3 al excluir los format-only. Esperado: ~40% menos correction notes "Sku def" / "Wrong name".
-- **Riesgo:** falso positivo si un SKU `094802BK` existe POR SI MISMO en el catálogo (no debería pasar — todos los SKUs en `sku_metadata` tienen el formato canónico — pero la lookup `WHERE LOWER(REPLACE(sku, '-', '')) = $1` debe protegerse con `LIMIT 2` y rechazar match si retorna >1).
-- **Origen:** sesión 2026-04-27.
+### ~~46. Auto-resolver SKU format mismatches en intake / pick-time~~ — COMPLETADO `2026-06-10` migración `20260430160000` + watchdog #35 <!-- id: idea-092 -->
 
-### ~~45. FedEx Returns en el Activity Report~~ <!-- id: idea-091 --> ✅ 2026-05-06
-- **Resuelto en commit `9051a9d`:** sección "FedEx Returns — N" dentro de la card de Inventory Accuracy. Muestra tracking number, status, item count, total units por return — sin nombres, sin timestamps, según pedido del operador. Hidden cuando no hay returns en el día.
-- **Cambios:**
-  - `useActivityReport`: nuevo `FedExReturnSummary` type + query paralela a `fedex_returns` (joined con `fedex_return_items`) en la ventana NY-day.
-  - `ActivityReportView`: `FedExReturnsBlock` con tabla 4-col + total summary line. Color AMBER para diferenciar de Moved/Consolidated.
-- **Out of scope (descartado del spec original):** Viernes acumulado semanal, agrupación walk-in returns, top-5. El user prefirió listado simple full-day, no top.
+### ~~45. FedEx Returns en el Activity Report~~ — COMPLETADO `2026-05-06` `9051a9d` `069ae0d` <!-- id: idea-091 -->
 
 ### 43. Orders view — UX/UI rework <!-- id: idea-065 -->
 - **Problema:** La vista `/orders` tiene varios pain points:
@@ -184,99 +201,43 @@
 
 > 12 ítems reportados por el operador. Refinados con sus respuestas el 2026-06-09. Repo indicado donde no sea pickd.
 
-### ~~61. Separar (un-merge) órdenes combinadas~~ <!-- id: idea-128 --> ❌ descartado 2026-06-09
-- Descartado por el operador ("olvida 128").
+### ~~62. Botón "Stock" desde DoubleCheckView no oculta la vista~~ — COMPLETADO `2026-06-11` `6180bd6` (#120) <!-- id: idea-129 -->
 
-### ~~62. Botón "Stock" desde DoubleCheckView no oculta la vista~~ <!-- id: idea-129 --> ✅ 2026-06-11 (#120)
-- **Causa raíz:** el efecto de cierre del drawer saltaba deliberadamente las órdenes abiertas externamente (Verification Board) — el camino típico del double-check.
-- **Fix:** `requestStockView()` en ViewModeContext emite una señal explícita; el botón STOCK la usa y `PickingCartDrawer` ejecuta exactamente lo de la X (`handleReleaseOrder`: claim + release + cerrar), puenteando el keep-alive solo para esa petición explícita.
-- **Origen:** sesión 2026-06-09; implementado 2026-06-11.
+### ~~78. Sublocation igual al número de ubicación~~ — COMPLETADO `2026-06-11` #119 <!-- id: idea-145 -->
 
-### ~~78. Sublocation igual al número de ubicación~~ <!-- id: idea-145 --> ✅ 2026-06-11 (#119) — input: 2026-06-11 ~09:00 NY
-- En DoubleCheckView la sublocation era un chip chiquito; ahora hereda el estilo exacto del número grande (mismo ámbar, mono/black, 3xl/6xl, sin contenedor) — se lee como parte de la ubicación.
+### ~~63. Verification Board → reabrir orden: misma sin fricción, distinta con confirmar~~ — COMPLETADO `2026-06-11` `a62996f` (#123) <!-- id: idea-130 -->
 
-### ~~63. Verification Board → reabrir orden: misma sin fricción, distinta con confirmar~~ <!-- id: idea-130 --> ✅ 2026-06-11
-- **Causa:** `handleOrderSelect` (VerificationBoard) bloqueaba con toast "Finish or clear your active picking session first" siempre que hubiera sesión de picking activa — incluso para la misma orden.
-- **Fix:** misma orden → reentrada directa a DoubleCheckView; orden distinta → `showConfirmation` ("Switch order") en vez de bloqueo. La anterior conserva su status y queda en el board (nada se elimina); take-over intacto (corre en el external-load path, no se tocó).
-- **Origen:** sesión 2026-06-09; implementado 2026-06-11.
+### ~~79. Double-check: colapsar detalle de items marcados~~ — COMPLETADO `2026-06-11` #122 <!-- id: idea-146 -->
 
-### ~~79. Double-check: colapsar detalle de items marcados~~ <!-- id: idea-146 --> ✅ 2026-06-11 (#122) — input: 2026-06-11 ~09:20 NY
-- Al marcar un item desaparecen nombre, distribution y sublocation — la fila se encoge y los pendientes dominan la pantalla. SKU/cantidad/ubicación se mantienen (tinte verde + check). Review mode muestra todo.
+### ~~80. Watchdog: SKU con sufijo truncado (03-3769BLD → 03-3769BL)~~ — COMPLETADO `2026-06-11` watchdog #40 <!-- id: idea-147 -->
 
-### ~~80. Watchdog: SKU con sufijo truncado (03-3769BLD → 03-3769BL)~~ <!-- id: idea-147 --> ✅ 2026-06-11 (watchdog #40) — input: 2026-06-11 ~09:45 NY
-- **Clase distinta al matching de guiones (idea-101):** el parser asumía color de 2 letras y descartaba la 3ª como finish suffix ANTES del matching. Pero el catálogo es inconsistente: `03-3769BLD` existe con la D, `03-3768BL` no.
-- **Fix:** el catálogo decide — `_to_cart_items` prueba primero el raw SKU completo normalizado (con sufijo) y solo cae al truncado si no existe; con ambos en catálogo gana el específico. Comportamiento histórico (`3768 BLD`→`BL`) intacto.
+### ~~81. Watchdog: VOID que cae en 'ADDITIONAL MESSAGE INFORMATION'~~ — COMPLETADO `2026-06-11` watchdog #41 #42 <!-- id: idea-148 -->
 
-### ~~81. Watchdog: VOID que cae en 'ADDITIONAL MESSAGE INFORMATION'~~ <!-- id: idea-148 --> ✅ 2026-06-11 (watchdog #41) — input: 2026-06-11 ~10:55 NY
-- **Segunda variante de VOID** (la otra, pantalla completa 0 items, es #33): tras el F5 la orden caía en la pantalla de detalle de mensaje del AS400 (BAS-5065, "No matching key", prompt `Option:`); el loop seguía con ENTER, nunca END OF ORDER, y el scanner reintentaba el mismo número.
-- **Fix v1 (#41):** `_is_message_info_screen` detecta "ADDITIONAL MESSAGE INFORMATION"; `capture_order` presiona **F6** y lanza `OrderVoidSkip` → scanner `empty_skipped`. Captura manual → 422 claro.
-- **Fix v2 / PREVENCIÓN (#42, input ~11:25 NY):** el operador confirmó que en esa pantalla **ninguna tecla funciona** (requiere re-login), así que la recuperación post-entrada no es confiable. Causa: presionar **F5** en una orden VOID es lo que enruta ahí. Ahora `_is_void_order` detecta el VOID en el **header** (`Account Number: VOID` / `Bill VOID VOID…`) y se salta **antes del F5** — nunca se entra a la pantalla muerta. La detección de la pantalla de mensaje queda como defensa en profundidad.
+### ~~82. Register Container acepta PDF (no solo XLSX)~~ — COMPLETADO `2026-06-11` #130 <!-- id: idea-149 -->
 
-### ~~82. Register Container acepta PDF (no solo XLSX)~~ <!-- id: idea-149 --> ✅ 2026-06-11 (#130) — input: 2026-06-11 ~11:55 NY
-- Las hojas de recepción llegan en PDF (ej. PO worksheet de Oyama Factory). `parseWorksheetText` (puro, testeado) + `parseShipmentPdf` (pdfjs-dist extrae texto, reensambla líneas por Y/X) producen el mismo `ParsedSheet` que el XLSX. La pantalla enruta `.pdf` → parseShipmentPdf; flujo aguas abajo (resolve/register_container, PO, audit) intacto. Validado end-to-end contra el PDF real del PO 6430N (19 SKUs, 2065 unidades). Nueva dep `pdfjs-dist` (chunk lazy). Layout soportado: worksheet tipo Oyama; otros formatos se extienden si aparecen.
+### ~~83. Double-check: auto-hide del header + filtro de notas ruido~~ — COMPLETADO `2026-06-11` #132 <!-- id: idea-150 -->
 
-### ~~83. Double-check: auto-hide del header + filtro de notas ruido~~ <!-- id: idea-150 --> ✅ 2026-06-11 (#132) — input: 2026-06-11 ~12:25 NY
-- **Auto-hide:** el contexto del header (orden #, FedEx, toggle shipping, fecha) aparece al abrir y con cualquier scroll/tap de la lista, se desvanece 5s después del último scroll. Siempre visibles: botón salir, línea de progreso "X/Y Pickd", y la nota significativa. Lista + títulos de pallet nunca se mueven. `showHeaderInfo` + `bumpHeaderInfo` (timer); re-revela en onScroll/onPointerDown (cubre órdenes cortas).
-- **Filtro de notas (`meaningfulNote`):** descarta boilerplate de flete (`FREE FREIGHT`, `FREIGHT $65.00`, PREPAID, FOB) salvo que la nota lleve una instrucción real (ship/not/wait/hold/cancel/call/before/…); desconocidas se conservan (no perder info). La nota conservada queda siempre visible. Aplica a `picking_lists.notes` (watcherNote en DCV).
+### ~~84. Drag-to-group siempre con confirmación + waiting fuera del auto-combine~~ — COMPLETADO `2026-06-11` #134 · watchdog #43 #46 · `32948b0` (`20260612150000`) <!-- id: idea-151 -->
 
-### ~~84. Drag-to-group siempre con confirmación + waiting fuera del auto-combine~~ <!-- id: idea-151 --> ✅ 2026-06-11 (#134 + watchdog #43) — input: 2026-06-11 ~14:30 NY
-- **PickD (#134):** soltar una orden sobre otra agrupaba en silencio en la misma zona. Ahora TODA agrupación por drag pasa por `GroupOrderModal`: grupo existente → botón único "Add to group"; grupo nuevo → picker FedEx/General; si alguna orden está waiting → advertencia ámbar "⚠ #X is waiting for inventory".
-- **Watchdog (#43):** `find_combinable_order_by_customer` excluye `is_waiting_inventory=true` — una orden nueva del mismo customer ya no puede auto-combinarse dentro de una waiting (era posible: viven en `needs_correction`, status combinable). Unirse a una waiting = solo manual + confirmado en PickD.
-- **Bonus (#43):** el filtro de notas ruido (idea-150) portado a la tarjeta del watcher (`pipeline.meaningful_note`, display-only — el order_comments completo sigue yendo a PickD).
-- **Follow-up (2026-06-12, watchdog #46):** quedaba un path abierto — la re-emisión del MISMO número con SKUs nuevos auto-appendeaba dentro de una waiting (paso 3 del pipeline; `needs_correction` es appendable). Ahora retorna `waiting_locked` sin escribir: la UI responde 409 (tarjeta queda pending) y el watcher PDF manda el archivo a `errors/`.
-- **Follow-up (2026-06-12, guard en DB):** trigger `trg_waiting_write_guard` en `picking_lists` (migración `20260612150000`): mientras una orden esté waiting (`needs_correction` + flag), requests `service_role` NO pueden tocar `items`/`order_number`/`combine_meta` — protege producción aunque Bay 2 corra un build viejo. Acciones manuales (authenticated) y sesiones directas de DB siguen permitidas. ⚠ Requiere `npx supabase db push --linked` post-merge.
+### ~~64. Búsqueda de consolidation~~ — COMPLETADO `2026-06-11` `8fe9646` (#107) <!-- id: idea-131 -->
 
-### ~~64. Búsqueda de consolidation~~ <!-- id: idea-131 --> ✅ 2026-06-11
-- **Dash-insensitive:** ✅ resuelto antes (#107, `searchCandidates.ts`).
-- **Fallback a todo el stock de bikes (2026-06-11):** cuando hay query y CERO candidatos, `searchBikeStock` (`stockFallback.ts`) consulta el RPC compartido `search_inventory_with_metadata` (idea-074, bikes only, limit 15) y muestra los hits — SKU, nombre, LOC+sublocation en ámbar, qty — bajo el mensaje "No candidates match". Si tampoco hay en stock: "Not found in the bike stock either". La búsqueda nunca es un callejón sin salida.
-- **Origen:** sesión 2026-06-09; implementado 2026-06-11.
+### ~~65. Overlays/menus con blur + scroll-lock~~ — COMPLETADO `2026-06-09` `090f999` (#107) <!-- id: idea-132 -->
 
-### ~~65. Overlays/menus con blur + scroll-lock~~ <!-- id: idea-132 --> ✅ ya aplicado (#107, 2026-06-09)
-- El operador confirma que ya se aplica ("ya la aplicamos"). Commit `090f999` añadió *blur/scroll-lock overlay menus*.
+### ~~67. Formatear Order Date de AS400 (060826 → 06/08/2026)~~ — COMPLETADO `2026-06-10` #113 · watchdog #32 (`20260610120000`) <!-- id: idea-134 -->
 
-### ~~66. Bug de dirección (imagen de Roman)~~ <!-- id: idea-133 --> ❌ retirado 2026-06-10 (operador: quitar del backlog)
+### ~~75. Watcher: "2 pallets · 20 units" en vez de item count~~ — COMPLETADO `2026-06-10` watchdog #34 <!-- id: idea-142 -->
 
-### ~~67. Formatear Order Date de AS400 (060826 → 06/08/2026)~~ <!-- id: idea-134 --> ✅ 2026-06-10 (#113 + watchdog #32)
-- **Hecho:** watchdog extrae `Order Date:` (MMDDYY → ISO) con `parser.parse_order_date` y la escribe en la columna nueva `picking_lists.source_order_date date` (migración `20260610120000`, aplicada a prod; 4 lugares actualizados). pickd la muestra formateada ("Order date: Jun 8, 2026") en el header de DoubleCheckView y en el board card; el watcher la muestra en su tarjeta local.
-- **Bonus:** el watcher ahora aplica sus migraciones de esquema solo (`migrations.py` vía `SUPABASE_DB_URL`, paso [3/6] del botón ⟳ Update) — PostgREST descarta columnas desconocidas en silencio, así que la columna queda garantizada desde el update.
-- **Origen:** sesión 2026-06-09; implementado 2026-06-10.
+### ~~76. Watcher: dot AS400 gris aunque todo funcione~~ — COMPLETADO `2026-06-10` watchdog #36 <!-- id: idea-143 -->
 
-### ~~75. Watcher: "2 pallets · 20 units" en vez de item count~~ <!-- id: idea-142 --> ✅ 2026-06-10 (watchdog #34) — input: 2026-06-10 ~14:45 NY
-- La tarjeta del watcher mostraba "10 items · 20 units"; ahora estima pallets con el port de la regla de PickD (parts-only = 1; bikes = ceil/12, parts apilan) usando el catálogo de bikes cacheado 1 h. Fail-open a "items · units" sin DB.
+### ~~77. Watcher: carriles FedEx (izq) / Truck (der) con colores de fondo~~ — COMPLETADO `2026-06-10` watchdog #37 <!-- id: idea-144 -->
 
-### ~~76. Watcher: dot AS400 gris aunque todo funcione~~ <!-- id: idea-143 --> ✅ 2026-06-10 (watchdog #36) — input: 2026-06-10 ~15:05 NY
-- El círculo solo se coloreaba con Connect/Check manual. Ahora un health beacon alimentado por cada interacción real (scanner, capturas, connect) lo pone verde/rojo vía `GET /api/as400` en el poll de 8 s; señal >30 min sin actividad degrada a gris.
+### ~~74. Batch de mejoras double-check + watcher (lista del operador 2026-06-10)~~ — COMPLETADO `2026-06-10` #113 · watchdog #32 #33 <!-- id: idea-141 -->
 
-### ~~77. Watcher: carriles FedEx (izq) / Truck (der) con colores de fondo~~ <!-- id: idea-144 --> ✅ 2026-06-10 (watchdog #37) — input: 2026-06-10 ~15:45 NY
-- La lista activa es ahora una grilla de dos carriles: FedEx a la izquierda (fondo púrpura) y Truck a la derecha (fondo esmeralda) — paleta FDX/TRK del Verification Board. Conteos en vivo por carril; se apilan en pantallas angostas. Already-in-PickD/Sent/Archived siguen full-width abajo.
+### ~~68. Al reiniciar la MacBook: Safari (UI) derecha + AS400 izquierda, 50/50~~ — COMPLETADO `2026-06-10` — (confirmado por el operador) <!-- id: idea-135 -->
 
-### ~~74. Batch de mejoras double-check + watcher (lista del operador 2026-06-10)~~ <!-- id: idea-141 --> ✅ 2026-06-10
-Implementado en pickd **#113** y watchdog-pickd **#32/#33** (todo en main):
-- **Pallet X/Y** en DoubleCheckView (Y = total de pallets de la orden).
-- **Resúmenes con pallets + unidades** (sin "N items"): board card (`getOrderUnits`) y footer de PickingSummaryModal.
-- **Última nota en ROJO en la vista principal** (board card, sin abrir la orden) — batched: una query para todos los list_ids visibles (`useLatestNotesByList` + `LatestNotesProvider`; staleTime 10s, sin realtime dedicado por ahora).
-- **FedEx púrpura:** en pickd DoubleCheckView (badge FDX + tinte, `shipping_type ?? autoClassifyShippingType`); en el watcher con **ambas** fuentes (`Ship Via` AS400 autoritativo + heurística ≥5 unidades, `pipeline.classify_shipping`) — clasificación local-only, no se escribe a PickD.
-- **Watcher: nota roja** (`order_comments`) prominente en la tarjeta principal.
-- **Watcher: auto-archivado** de candidatas sin enviar >8 días (`AUTO_ARCHIVE_DAYS`, recuperables del archivo local).
-- **Watcher: toast verde** prominente al enviar a PickD.
-- **Watcher: Verification Board espejo (fase 1)** — `GET /api/verification` (TTL 30s, fail-safe), botón con contador rojo en vivo (sube al enviar, baja al completar), modal read-only agrupado por status. Posible fase 2: zonas completas estilo board.
-- **Watcher: skip de órdenes VOID/vacías (#33)** — pantalla completa (END OF ORDER) + 0 items → el cursor avanza (`scanned_store.skip`) sin crear tarjeta; la captura manual devuelve 422 claro. Antes el scanner reintentaba la misma VOID cada 20 min para siempre (reportado con la #880138).
-- **Origen:** lista del operador, sesión 2026-06-10.
+### ~~70. Número de cantidad de distribución: grande, al costado (fuera del gráfico)~~ — COMPLETADO `2026-06-10` `0abcd45` (#115) <!-- id: idea-137 -->
 
-### ~~68. Al reiniciar la MacBook: Safari (UI) derecha + AS400 izquierda, 50/50~~ <!-- id: idea-135 --> ✅ 2026-06-10 (confirmado operador: ya está)
-
-### ~~69. Auto-captura/envío de órdenes — refinar~~ <!-- id: idea-136 --> ❌ retirado 2026-06-10 (operador: quitar del backlog)
-
-### ~~70. Número de cantidad de distribución: grande, al costado (fuera del gráfico)~~ <!-- id: idea-137 --> ✅ 2026-06-10 (#115)
-- **Problema:** el número de cantidad de cada distribución debe verse mucho más grande.
-- **Decisión operador:** **mantener** la representación gráfica, pero **quitar el número de adentro** del gráfico y **colocarlo al costado** (LINE/TOWER/unassigned) para aprovechar el espacio y que se vea **muchísimo más grande**, reconocible de lejos como los otros números.
-- **Plan:** en DoubleCheckView, mover el valor de `.dist .tile` fuera del tile, a un número grande adyacente a la etiqueta de ubicación.
-- **Origen:** sesión 2026-06-09.
-
-### ~~71. Notas del watcher en rojo~~ <!-- id: idea-138 --> ✅ 2026-06-09 (interino)
-- **Hecho (#110):** se muestra `picking_lists.notes` en **rojo** bajo el header en DoubleCheckView y PickingSummaryModal (Orders). Display-only, sin migración. Las notas pasadas con contenido aparecen automáticamente.
-- **Limitación aceptada por el operador:** `picking_lists.notes` está **mezclado** — además de los Order Comments del watcher (`FREE FREIGHT`, `FREIGHT $65.00`…) contiene mensajes de sistema/cancelación (`User Cancelled`, `[System: Auto-cancelled…]`, `[User Cancelled — manual fix…]`). Por ahora se muestran todos (el operador prefiere verlos a no verlos). La separación limpia queda en idea-140.
-- **Origen:** sesión 2026-06-09.
+### ~~71. Notas del watcher en rojo~~ — COMPLETADO `2026-06-09` `3da86ea` (#110) <!-- id: idea-138 -->
 
 ### 73. Columna dedicada `watcher_notes` (separar notas del watcher de sistema/manual) <!-- id: idea-140 --> ⏸ en pausa (operador 2026-06-10: "deja las notas como están por ahora")
 - **Problema:** `picking_lists.notes` es un cajón mezclado (watcher Order Comments + appends de sistema/cancel). La UI roja (idea-138) hoy muestra todo. Para mostrar **solo** las del watcher hace falta separar el origen.
@@ -288,24 +249,21 @@ Implementado en pickd **#113** y watchdog-pickd **#32/#33** (todo en main):
   5. Aplicar migración a prod tras el merge (checklist de migraciones del CLAUDE.md).
 - **Origen:** sesión 2026-06-09 (follow-up de idea-138).
 
-### ~~72. DoubleCheckView: últimos 3 dígitos de cada orden mergeada, separados por "/"~~ <!-- id: idea-139 --> ✅ 2026-06-09 (#109)
-- **Decisión operador:** cuando son **exactamente 2** mergeadas, mostrar los **últimos 3 dígitos de cada una separados por "/"** (ej. `083 / 121`). Cuando son **más de 2**, dejar como hoy (lista completa).
-- **Hecho:** helper puro `orderHeaderLabel` + render en DoubleCheckView. 
-- **Origen:** sesión 2026-06-09.
+### ~~72. DoubleCheckView: últimos 3 dígitos de cada orden mergeada, separados por "/"~~ — COMPLETADO `2026-06-09` `6366544` (#109) <!-- id: idea-139 -->
 
 ---
 
 ## P2 — Medio (conveniencia)
 
-- [x] ~~**Orders PDF preview full-width mobile**~~ ✅ 2026-05-27 — Implementado: sublocation inline a la derecha del SKU en ConsolidationCard + sticky header sub-agrupado por sublocation. PlaceSkuTab tile con chip. Commits aea31b5, 95ab3bb. <!-- id: idea-113 -->
+- [x] ~~**Orders PDF preview full-width mobile**~~ ✅ 2026-05-27 `5584273` `aea31b5` <!-- id: idea-113 -->
 
-- [x] ~~**SMS Ship-Out — quitar dirección + ocultar Parts/Bikes con qty=0**~~ ✅ 2026-05-27 — Implementado: dirección eliminada del SMS + Parts/Bikes ocultos si qty=0. Tests actualizados (20/20). Commit aea31b5. <!-- id: idea-114 -->
+- [x] ~~**SMS Ship-Out — quitar dirección + ocultar Parts/Bikes con qty=0**~~ ✅ 2026-05-27 `aea31b5` <!-- id: idea-114 -->
 
-- [x] ~~**Consolidation — ocultar toggle "Bikes only" de la UI (mantener default ON)**~~ ✅ 2026-05-27 — Implementado: toggle "Bikes only" eliminado de la UI, onlyBikes hardcodeado a true. Commit aea31b5. <!-- id: idea-115 -->
+- [x] ~~**Consolidation — ocultar toggle "Bikes only" de la UI (mantener default ON)**~~ ✅ 2026-05-27 `aea31b5` <!-- id: idea-115 -->
 
-- [x] ~~**ConsolidationMoveModal — sublocation seleccionable (chips A-F) en vez de input libre**~~ ✅ 2026-05-27 — Implementado: input free-text reemplazado por chips A-F en ConsolidationMoveModal (mismo patrón que MovementModal). Commit aea31b5. <!-- id: idea-116 -->
+- [x] ~~**ConsolidationMoveModal — sublocation seleccionable (chips A-F) en vez de input libre**~~ ✅ 2026-05-27 `aea31b5` <!-- id: idea-116 -->
 
-- [x] ~~**Consolidation — filtro "Hide rows" por tab (persistido en localStorage)**~~ ✅ 2026-05-27 (MVP) — Implementado: nuevo hook `useHiddenRows(modeKey, defaults)` con persistencia por modo en `localStorage` clave `consolidation_hidden_rows_{modeKey}`. Nuevo componente `HiddenRowsPicker` (botón "Hidden: N" → popover con chips A-F-style por ROW + presets opcionales). Aplicado a: Send to slow / Bring to active / Clear a row (filtra `source_row` de candidatos) y Where to put? (filtra `location` de suggestions). El viejo toggle binario "Exclude ROW 20-34" eliminado; su comportamiento queda preservado vía default seed `DEEP_SLOW_ROWS` en consolidate mode + preset "Deep slow 20-34" en el popover. **Out of scope (queda para follow-up si surge demanda):** filtros adicionales hide-full-rows, hide-empty-rows, only-ROW-prefix, velocity-match-only. Investigación encontrada: ROW 21-27 no salían en Send to slow porque estaban en `DEEP_SLOW_ROWS` y ese set estaba hardcoded ON via toggle — ahora son seteables individualmente vía picker.
+- [x] ~~**Consolidation — filtro "Hide rows" por tab (persistido en localStorage)**~~ ✅ 2026-05-27 `600f2ea` `a2a68f1` <!-- id: idea-117 -->
 
 - [ ] **Consolidation — filtros adicionales recomendados** — Follow-up de idea-117 (MVP). Filtros opcionales que el operador puede activar/desactivar por tab (mismo patrón localStorage):
   - **Hide full rows** — esconde rows con `free_units = 0` (útil en Where to put + Send to slow para reducir ruido de destinos sin capacidad).
@@ -314,35 +272,23 @@ Implementado en pickd **#113** y watchdog-pickd **#32/#33** (todo en main):
   - **Velocity match only** — en Where to put?, esconde destinos cuya `zone` no matchea el `sku_velocity_tier` del SKU activo.
   **Decisión 2026-05-28:** los 4 filtros propuestos quedaron DESCARTADOS — ninguno aporta en este warehouse. Only-ROW ya está hardcoded en el RPC (idea-118); Velocity-match quedó obsoleto tras el rework a picking_order (el ranking ya encode la velocidad); Hide-empty es contraproducente (rows vacías son buenos destinos); Hide-full (idea-124, revertido) no sirve porque con todo en movimiento `free_units = 0` casi nunca ocurre. El lever real de reducción de ruido es el **Hide rows manual** (idea-117) que ya existe + el "show top 12". No se necesitan más filtros automáticos. <!-- id: idea-120 -->
 
-- [x] ~~**"Where to put?" logic al marcar SKU en Send to slow / Bring to active**~~ ✅ 2026-05-28 — Extraído `DestinationList` (componente compartido: corre `suggest_locations_for_sku`, lista rankeada + HiddenRowsPicker propio + expander "show all"). PlaceSkuTab refactorizado para usarlo (comparte queryKey `['suggest-locations', sku]` → una sola llamada RPC, sin duplicar). En Send to slow / Bring to active, tocar "Move" en una card expande la lista de destinos inline debajo (toggle); elegir un destino abre el ConsolidationMoveModal pre-targeteado a esa row (vía `placeTargetRow`, que ahora alimenta `suggestedRow` y se inyecta en `targetRows` para que aparezca como chip aunque esté fuera de las listas hardcoded). Cada tab persiste su propio filtro hidden-rows con key `dest_{mode}`. **Bonus en el mismo cambio:** la búsqueda de place-sku (query + confirmed) se elevó a ConsolidationScreen para que no se pierda al cambiar de tab. <!-- id: idea-122 -->
+- [x] ~~**"Where to put?" logic al marcar SKU en Send to slow / Bring to active**~~ ✅ 2026-05-28 `a04f57c` <!-- id: idea-122 -->
 
-  - **Hide full rows** (free_units = 0) — útil en Where to put + Send to slow para reducir ruido.
-  - **Hide empty rows** (current_units = 0) — útil en Clear a row.
-  - **Only ROW prefix** (excluir M-slots, shipping areas, FDX RETURNS) — debería ser hardcoded en `suggest_locations_for_sku` directamente (ver idea-118). En otras tabs, toggle opcional.
-  - **Velocity match only** (zone == sku_tier) — útil en Where to put para soluciones aspiracionales.
-  Reset rápido "clear hidden" en cada tab. ~3-4h. <!-- id: idea-117 -->
+- [x] ~~**Where to put? — rediseño completo (autocomplete + solo ROW + panel velocidad)**~~ ✅ 2026-05-28 `5584273` · migración `20260528083212` <!-- id: idea-118 -->
 
-- [x] ~~**Where to put? — rediseño completo (autocomplete + solo ROW + panel velocidad)**~~ ✅ 2026-05-27/28 — Entregado en 4 capas a lo largo de 2 commits:
-  1. **Autocomplete** (commit 5584273): input con `useDebounce(200)` → query `ilike` sobre `inventory` (no `sku_metadata`, así solo aparece stock que ya tenemos), dedupe por SKU, sort exact/prefix/qty-desc, top 8. Dropdown con `SKU · nombre · Xu · N loc`. Enter toma top match; botón "Change" resetea. Las queries pesadas (currentRows + RPC) solo corren post-confirmación.
-  2. **Inventario obligatorio:** el autocomplete solo busca `inventory` activo con `quantity > 0`, así que SKUs sin stock nunca aparecen. Mensaje explícito "No active stock matches X. Register the SKU first via Stock → New Item."
-  3. **Solo ROW como targets** (migración `20260528083212_suggest_locations_row_only.sql`, aplicada a prod): `AND l.location ILIKE 'ROW%'` en el CTE `loc_summary`. Excluye M-slots, FDX RETURNS, shipping areas. Verificado: `suggest_locations_for_sku('0344')` ahora solo devuelve ROWs.
-  4. **Panel SKU context:** header muestra velocity tier coloreado (HOT/WARM/COLD), orders 30d/90d, total stock, y **última orden** (nueva query a `picking_lists` con `contains('items', [{sku}])` + `status='completed'` order by updated_at desc limit 1, formateada "today/Nd ago/Nmo ago"). **Nota:** el panel depende de que la RPC devuelva ≥1 suggestion (la data de velocity viene de ahí); si un SKU no tiene ROW destinos válidos el panel no aparece — edge raro, aceptable.
-  No se creó la RPC `search_skus` planeada — el `ilike` directo sobre inventory cubre el caso sin viaje extra. <!-- id: idea-118 -->
+- [x] ~~**Consolidation — filtro qty-bucket (Singles / Lines / 1 Tower / 1 Tower+)**~~ ✅ 2026-06-01 `1081286` <!-- id: idea-125 -->
 
-- [x] ~~**Consolidation — filtro qty-bucket (Singles / Lines / 1 Tower / 1 Tower+)**~~ ✅ 2026-06-01 — Nuevo hook `useQtyBucketFilter(modeKey)` con persistencia por modo en `localStorage` clave `consolidation_qty_bucket_{mode}` (mismo patrón que `consolidation_hidden_rows_{mode}`). Single-select, sin default seed: clickear el bucket activo lo desactiva (vuelve a "sin filtro"). Buckets: Singles (1-2), Lines (3-15), 1 Tower (16-30), 1 Tower+ (>30). Chips horizontales junto al HiddenRowsPicker en la barra de filtros, mismo estilo visual que Max/Min orders. Aplicado client-side en el memo `preSearch` después del filtro hidden-rows. Visible en Send to slow / Bring to active / Clear a row; oculto en place-sku (esa tab lista destinos, no candidatos con qty). 100% client-side, no toca DestinationList ni RPCs. <!-- id: idea-125 -->
+- [x] ~~**Consolidation — persistir avance al salir (filtros, búsqueda, selección)**~~ ✅ 2026-06-01 `c023d21` <!-- id: idea-127 -->
 
-- [x] ~~**Consolidation — persistir avance al salir (filtros, búsqueda, selección)**~~ ✅ 2026-06-01 — ConsolidationScreen ahora hidrata todo el state relevante desde `localStorage` (clave `consolidation_state_v1`) al montar y lo re-serializa en cada cambio via `useEffect`. Cubre: `mode`, `maxOrders`, `minOrders`, `searchQuery`, `placeSkuQuery`, `placeSkuConfirmed`, `clearRow`, `movedIds` (Set→number[]), `selectedIds` (Set→number[]) y `destForId` (solo el id; el `destFor` Candidate completo se re-resuelve via un useEffect diferido cuando el `useQuery` de candidates devuelve resultados — si ya no existe se descarta sin ruido). Los filtros que ya tenían su propio localStorage (`useHiddenRows`, `useQtyBucketFilter`) no se duplican; mantienen sus claves `consolidation_hidden_rows_{mode}` y `consolidation_qty_bucket_{mode}`. Por usuario implícitamente (localStorage del dispositivo). <!-- id: idea-127 -->
+- [x] ~~**Stock view — visualización Jenga de la distribución encima de cada card**~~ ✅ 2026-06-01 `f98f70c` `78285d1` <!-- id: idea-126 -->
 
-- [x] ~~**Stock view — visualización Jenga de la distribución encima de cada card**~~ ✅ 2026-06-01 — Nuevo componente `DistributionJengaViz` (franja horizontal a full-width arriba de location+SKU+stock) que renderiza un glyph por DistributionItem respetando exactamente `inventory.distribution` (no deriva de quantity total). LINE → palito horizontal con `units_each` al centro; TOWER → stack vertical de mini-rungs; PALLET/OTHER → chip neutro (TODO: visuales dedicados). Botón "+" al borde derecho de la franja abre el ItemDetailView (mismo flujo que click en la card). El rollup en texto ("2 Towers · 1 Line") eliminado del bottom row. Si `distribution` está vacío, la franja no aparece. `Stock: N` del lado derecho intacto. <!-- id: idea-126 -->
-
-- [x] ~~**Combined orders — suprimir warnings cruzados con órdenes del mismo grupo**~~ ✅ 2026-05-27 — Bug confirmado en dos hooks raíz, no solo uno: `useWaitingConflicts.ts` (waiting orders cross-customer) Y `useStockReservations.ts` (active orders reservation visibility — más grave, alimenta el badge "🔒 N elsewhere" en DoubleCheckView y los tooltips "Reserved by other orders" en InventoryCard). Ambos consultaban `picking_lists` sin filtrar por `group_id`, así que las hermanas de una combined order aparecían como conflictos externos. **Fix entregado:** (a) ambos hooks ahora aceptan parámetro opcional `myGroupId` / `excludeGroupId`; cuando set, filtran rows con `group_id === excludeGroupId` (skip silent siblings). (b) Ambos hooks incluyen `group_id` en su `.select()`. (c) `DoubleCheckView` añade `useQuery(['picking_list_group_id', activeListId])` (staleTime 60s) y pasa el resultado a ambos hooks. (d) `StockReservationBreakdown` (ItemDetailView) NO recibe groupId — correcto, vive fuera del flujo de picking y debe mostrar todas las reservas globales. Test manual pendiente: combinar 2 órdenes con SKU compartido, confirmar que no aparece "needed in another order" ni "reserved elsewhere" para items propios de la combinada. <!-- id: idea-119 -->
+- [x] ~~**Combined orders — suprimir warnings cruzados con órdenes del mismo grupo**~~ ✅ 2026-05-27 `502871f` <!-- id: idea-119 -->
 
 ---
 
 ## P1 — Refinados pendientes
 
-### ~~40. Notas de proyecto siempre visibles (quitar line-clamp)~~ <!-- id: idea-062 --> ✅ 2026-04-27
-- `line-clamp-2` removido del `TaskCard` en `src/features/projects/ProjectsScreen.tsx`. Verificado: no quedan refs a `line-clamp` en el archivo. PR #43 (bundle).
+### ~~40. Notas de proyecto siempre visibles (quitar line-clamp)~~ — COMPLETADO `2026-04-27` `feaf688` (PR #43) <!-- id: idea-062 -->
 
 ---
 
@@ -354,28 +300,28 @@ Implementado en pickd **#113** y watchdog-pickd **#32/#33** (todo en main):
 
 ## Bugs pendientes
 
+### 4. Ship: al combinar una orden con una bici en una orden completada, la bici cuenta como parte y pide peso <!-- id: bug-021 --> — input: 2026-08-27 NY
+- **Síntoma (operador):** "al agregar una nueva orden con una bicicleta a una orden completada en ship me
+  pide peso para la supuesta nueva parte agregada, aunque sea una bicicleta que ya tenía peso
+  registrado; me muestra 2 pallets, 8 bicicletas, una parte y un total de peso que no tiene sentido".
+  Caso: 881303 (`03-3845BR`, bici registrada desde febrero, 45 lb) combinada con la completada 881301
+  el 27 ago 18:35 → 881301 quedó con `total_units = 9` (8 bicis + "1 parte") y 470 lb.
+- **Causa:** en `ShipScreen` bici/parte y peso salen de `skuMeta`, un mapa que se consulta
+  **asíncronamente** al cambiar la orden; hasta que llega, `isBikeSku(sku, undefined)` devuelve `false`
+  (sin metadata no hay regla de prefijo), así que la bici recién combinada cuenta como parte, entra en
+  `partsWithWeights` (el editor de pesos la pide) y el autosave congela `bikes + parts`. El ítem ya trae
+  `sku_metadata` sellado por `a_stamp_item_sku_metadata` (`is_bike`, `weight_lbs`) y la vista lo ignora.
+  Los "2 pallets" son la suma de `pallets_qty` de las dos órdenes (1 + la estimación del intake de la
+  nueva), no un error de cálculo.
+- **Fix:** leer bici/parte y peso del sello del ítem primero (síncrono, por línea) y del mapa vivo solo
+  como refresco; mostrar el peso de cada línea en la tabla (idea-159).
+- **Origen:** operador, sesión 2026-08-27.
+
 ### ~~1. Texto de nota de picking se concatena dentro de `sku_metadata.model`~~ <!-- id: bug-018 --> ✅ 2026-08-26 (input: 2026-08-20 NY)
 - **Síntoma:** 14 filas de `sku_metadata` tienen el nombre del modelo con una nota pegada al final:
   `ALLEGRO A1 23 THUNDER GREY | Auto-cancel verification timeout | auto-restore on cancel`.
   12 son bikes, 2 estaban dentro del set del export a FedEx — esa frase habría viajado como
   descripción de un registro de FSM.
-- **Notas observadas:** `Auto-cancel verification timeout`, `auto-restore on cancel`,
-  `Reopen delta #1`, `Reopen new item #1`. Todas provienen del flujo de picking/reopen,
-  no del registro de SKUs — algo escribe el `item_name` con la nota ya adjunta y de ahí
-  se copia a `model`.
-- **SKUs afectados:** `03-3768BLD`, `03-3769BLD`, `03-3853GY`, `03-3986TL`, `03-3988TL`,
-  `03-4037BK`, `03-4040BK`, `03-4068BK`, `03-4516BL`, `03-4531GY`, `03-4533BL`,
-  `03-4620GN`, `12-8338BK`, `128338BK`.
-- **Limpieza ya aplicada:** la migración `20260820160000_backfill_bike_model_size.sql` borra
-  el texto existente (`split_part(model, ' | ', 1)`). **No arregla el origen** — va a volver
-  a pasar en la próxima orden que genere una de esas notas.
-- **Plan al diagnosticar:** buscar el write path que arma `item_name` concatenando la nota
-  y de ahí llega a `upsertMetadata`. Sospechosos: `reopen_completed_orders` / auto-cancel en
-  SQL, y `inventory.service.ts` al crear el shell de un SKU. Reproducir dejando una orden
-  llegar al timeout de auto-cancel y observar si `model` cambia.
-- **Por qué importa más que antes:** `model` dejó de ser un campo de adorno de Scratch & Dent
-  — ahora es la llave de agrupación del export a FedEx (`fedexDimensions.ts`), así que
-  cualquier basura ahí sale del almacén.
 - **Origen:** sesión 2026-08-20, al construir el export de dimensiones FedEx.
 - **Causa y fix (26 ago):** `adjust_inventory_quantity` escribía `p_merge_note` (`auto-restore on
   cancel`, `Reopen delta #1`…) **dentro de `item_name`** — como nombre al crear la fila, concatenado
@@ -432,3 +378,6 @@ Implementado en pickd **#113** y watchdog-pickd **#32/#33** (todo en main):
 | Resumen diario soft per-user (ID original idea-041, conflicto con `/activity-report`) | Brainstorm orphan, sin commits. El team detail de `/activity-report` cubre el caso. |
 | Auto-cancel → expiración (idea-031) | Nada expira; liberación manual. La rama verification 24h fue eliminada en idea-053. |
 | Automatic Inventory Email (idea-007) | 2026-04-22 — `send-daily-report` nunca se usó en operación; eliminada del runtime para cerrar endpoint sin auth. Snapshot R2 sigue activo vía `daily-snapshot`. `0d85fc2`. |
+| Separar (un-merge) órdenes combinadas (idea-128) | descartado por el operador 2026-06-09 ("olvida 128") |
+| Bug de dirección (imagen de Roman) (idea-133) | retirado 2026-06-10 (operador: quitar del backlog) |
+| Auto-captura/envío de órdenes — refinar (idea-136) | retirado 2026-06-10 (operador: quitar del backlog) |
