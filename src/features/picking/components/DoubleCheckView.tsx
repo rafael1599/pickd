@@ -2071,7 +2071,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                   />
                 );
               })()}
-              <FedexRecipientChip listId={activeListId ?? null} compact />
+              {isFedexOrder && <FedexRecipientChip listId={activeListId ?? null} compact />}
               {activeListId && (
                 <ShippingTypeToggle listId={activeListId} autoType={effectiveShippingType} />
               )}

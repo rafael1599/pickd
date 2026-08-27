@@ -608,8 +608,9 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
             </div>
           )}
 
-          {/* FedEx Recipient ID — what to paste in Ship Manager (idea-153) */}
-          <FedexRecipientChip listId={selectedOrder?.id ?? null} />
+          {/* FedEx Recipient ID — what to paste in Ship Manager (idea-153). Only on
+              FedEx orders: a freight carrier or PICK UP has no recipient book. */}
+          {isFedexOrder && <FedexRecipientChip listId={selectedOrder?.id ?? null} />}
 
           {/* Customer name — click to edit */}
           <div
