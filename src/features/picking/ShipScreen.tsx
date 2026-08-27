@@ -134,12 +134,16 @@ function dayLabel(date: Date): string {
 }
 
 import { isBikeSku } from '../../utils/bikeDetection';
+import { resolveLineMeta, stampedMeta, type LineMeta } from './ship/lib/lineMeta';
 
 /**
  * Bike vs part classification for an item: `sku_metadata.is_bike === true` is the
  * canonical source of truth in DB.
  */
-function isLikelyBike(sku: string, meta?: { is_bike: boolean }): boolean {
+function isLikelyBike(
+  sku: string,
+  meta?: { is_bike: boolean; weight_lbs?: number | null }
+): boolean {
   if (meta && typeof meta.is_bike === 'boolean') return meta.is_bike;
   return isBikeSku(sku, meta);
 }
@@ -531,6 +535,13 @@ export const ShipScreen = () => {
       });
   }, [selectedOrder?.id, selectedOrderSkusKey]);
 
+  // Bike/part and weight for one line: the live map first, the stamp the DB
+  // seals into the item as the synchronous fallback (bug-021 — see lineMeta).
+  const metaForItem = useCallback(
+    (item: PickingListItem): LineMeta =>
+      resolveLineMeta(item.sku, skuMeta[item.sku], stampedMeta(item)),
+    [skuMeta]
+  );
   // Items missing weight
   const itemsMissingWeight = useMemo(() => {
     const items = selectedOrder?.items;
@@ -542,10 +553,11 @@ export const ShipScreen = () => {
       // Only SKUs the fetch actually resolved count as missing. When the order
       // changes, this memo runs against the previous order's map — absent keys
       // here meant "missing weight" and every SKU of the new order got a
-      // default upserted over its real weight.
-      return item.sku in skuMeta && skuMeta[item.sku].weight_lbs == null;
+      // default upserted over its real weight. A weight the item carries in
+      // its own stamp is not missing either.
+      return item.sku in skuMeta && metaForItem(item).missingWeight;
     });
-  }, [selectedOrder?.items, skuMeta]);
+  }, [selectedOrder?.items, skuMeta, metaForItem]);
 
   // Auto-assign default weight to SKUs missing weight in sku_metadata.
   // Bikes → 45 lbs, Parts → 1 lb, from the shared table that mirrors the
@@ -627,8 +639,9 @@ export const ShipScreen = () => {
     let partWeightTotal = 0;
     items.forEach((item: PickingListItem) => {
       const qty = item.pickingQty || 0;
-      const weight = skuMeta[item.sku]?.weight_lbs ?? 0;
-      if (isLikelyBike(item.sku, skuMeta[item.sku])) {
+      const meta = metaForItem(item);
+      const weight = meta.weight_lbs ?? 0;
+      if (isLikelyBike(item.sku, meta)) {
         bikeUnits += qty;
         bikeWeightTotal += weight * qty;
       } else {
@@ -649,7 +662,7 @@ export const ShipScreen = () => {
     return Math.round(productWeight + palletWeight);
   }, [
     filteredItems,
-    skuMeta,
+    metaForItem,
     formData.pallets,
     formData.bikes,
     formData.parts,
@@ -678,11 +691,11 @@ export const ShipScreen = () => {
       parts = 0;
     filteredItems.forEach((item: PickingListItem) => {
       const qty = item.pickingQty || 0;
-      if (isLikelyBike(item.sku, skuMeta[item.sku])) bikes += qty;
+      if (isLikelyBike(item.sku, metaForItem(item))) bikes += qty;
       else parts += qty;
     });
     return { autoBikeCount: bikes, autoPartCount: parts };
-  }, [filteredItems, skuMeta]);
+  }, [filteredItems, metaForItem]);
 
   // Electric bikes on this order. Same `filteredItems` the counts above use, so
   // it follows the active sub-order filter: an operator shipping only the half
@@ -745,16 +758,16 @@ export const ShipScreen = () => {
     const seen = new Set<string>();
     return items
       .filter((item: PickingListItem) => {
-        if (isLikelyBike(item.sku, skuMeta[item.sku]) || seen.has(item.sku)) return false;
+        if (isLikelyBike(item.sku, metaForItem(item)) || seen.has(item.sku)) return false;
         seen.add(item.sku);
         return true;
       })
       .map((item: PickingListItem) => ({
         sku: item.sku,
         qty: item.pickingQty || 0,
-        weight: skuMeta[item.sku]?.weight_lbs ?? 0,
+        weight: metaForItem(item).weight_lbs ?? 0,
       }));
-  }, [selectedOrder?.items, skuMeta]);
+  }, [selectedOrder?.items, metaForItem]);
 
   // Track the selected customer ID to link/unlink
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
@@ -2474,6 +2487,7 @@ export const ShipScreen = () => {
                       bikeCount={bikeCount}
                       partCount={partCount}
                       activeOrderFilter={selectedOrderFilter}
+                      lineMeta={metaForItem}
                     />
                   )}
                 </>

@@ -12,6 +12,12 @@ interface OrderItemsTableProps {
   /** When set (a combined order filtered to one sub-order), only that
    *  sub-order's items are shown — mirrors DoubleCheckView's pallets memo. */
   activeOrderFilter?: string | null;
+  /**
+   * Bike/part and unit weight per line (ShipScreen's metaForItem). Every line
+   * shows its weight — the operator asked to see, on every order, what each
+   * bike weighs, after a combined bike was priced as a part (bug-021).
+   */
+  lineMeta?: (item: PickingListItem) => { is_bike: boolean; weight_lbs: number | null };
 }
 
 export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
@@ -19,6 +25,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
   bikeCount,
   partCount,
   activeOrderFilter = null,
+  lineMeta,
 }) => {
   const items = React.useMemo(() => {
     if (!order || !Array.isArray(order.items)) return [];
@@ -88,12 +95,16 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
               <th className="py-2.5 px-4">Description</th>
               <th className="py-2.5 px-4 font-mono w-28">Location</th>
               <th className="py-2.5 px-4 font-mono w-24">Sublocation</th>
+              {lineMeta && <th className="py-2.5 px-4 font-mono w-20 text-right">Lbs</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-subtle/50 text-content">
             {items.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-6 text-center text-muted font-medium text-xs">
+                <td
+                  colSpan={lineMeta ? 6 : 5}
+                  className="py-6 text-center text-muted font-medium text-xs"
+                >
                   No items listed for this order
                 </td>
               </tr>
@@ -113,7 +124,9 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                 const sublocation = Array.isArray(sublocRaw)
                   ? sublocRaw.join('')
                   : sublocRaw || '—';
-
+                const meta = lineMeta?.(item);
+                const unitLbs = meta?.weight_lbs ?? null;
+                const lineLbs = unitLbs == null ? null : Math.round(unitLbs * qty * 10) / 10;
                 return (
                   <tr key={`${sku}-${idx}`} className="hover:bg-main/30 transition-colors">
                     <td className="py-2.5 px-4 font-mono font-bold text-right text-accent">
@@ -132,6 +145,26 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                     <td className="py-2.5 px-4 font-mono text-muted/80 font-semibold">
                       {sublocation}
                     </td>
+                    {lineMeta && (
+                      <td
+                        className={`py-2.5 px-4 font-mono font-semibold text-right ${
+                          lineLbs == null
+                            ? 'text-amber-500'
+                            : meta?.is_bike
+                              ? 'text-content'
+                              : 'text-muted/80'
+                        }`}
+                        title={
+                          lineLbs == null
+                            ? 'No weight on file'
+                            : qty > 1
+                              ? `${unitLbs} lb each × ${qty}`
+                              : `${unitLbs} lb`
+                        }
+                      >
+                        {lineLbs == null ? '?' : lineLbs}
+                      </td>
+                    )}
                   </tr>
                 );
               })
