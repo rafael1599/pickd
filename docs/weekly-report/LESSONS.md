@@ -96,3 +96,12 @@ reads this file before writing anything. Written as _wrong → right_.
   cancel" heading for the FedEx file.
 - Still invented, awaiting his word: combined order reopened from Shipped; pallet photo tiles;
   Recipient ID (address book duplicates); Ship-to on the watcher card; Maintenance backfill.
+
+### 2026-08-27 — Audit Source defined (Rafael)
+
+- "Audit Source es el sistema donde se hace la cotización, y luego se elige un carrier y se
+  genera un número de seguimiento para una orden." Regular orders only. It asks for: store /
+  customer, ship-to street number and name, zip, pallet count, total weight. E-bikes must be
+  declared, as a carton outside the pallet even when they ride inside it. → written into
+  `docs/warehouse-user-flows.md`, Flow 3. Say "pallets and total weight go to Audit Source",
+  not "the four numbers".

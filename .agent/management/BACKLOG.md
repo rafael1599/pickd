@@ -11,6 +11,20 @@
 
 ## P1 — Alto (operación diaria)
 
+### 99. Ship: la bici eléctrica resaltada y declarada aparte para Audit Source <!-- id: idea-167 --> — input: 2026-08-27 NY
+- **Pedido (Rafael):** Audit Source (cotización → carrier → tracking) pide declarar la bici a batería
+  como un cartón aparte, fuera del pallet aunque viaje dentro. "pickd podría mostrarnos la bicicleta
+  que es eléctrica resaltada en azul o con una animación… y necesita ser declarada como tal en la
+  vista Ship".
+- **Hoy:** un banner ámbar ("Lithium battery label — N e-bikes") dice cuántas, no cuál; la estación la
+  busca por nombre en Order Items. La detección existe (`isElectricBikeSku`: lista verificada + modelo
+  `E`+dígito).
+- **Propuesta:** línea azul + insignia E-BIKE + pulso hasta enviar; bajo los cuatro números, "1 e-bike
+  to declare as a separate carton — modelo · peso · medidas" con copiar; totales intactos.
+- **PRD:** `docs/prds/ship-ebike-declaration.md` — cinco ❓ con propuesta por defecto (Q1 qué pide
+  Audit Source del cartón; Q2 si la cuenta de pallets cambia; Q3 azul/animación; Q4 también en FedEx;
+  Q5 cómo se junta con idea-161). Un "ok" por fila basta.
+
 ### ~~98. Apartado "What's new" imprimible en PickD~~ <!-- id: idea-166 --> ✅ 2026-08-27 (input: 2026-08-27 NY)
 - **Pedido:** un apartado de lo nuevo de PickD que se pueda imprimir, con lo hecho desde el último informe,
   guiado por el informe del 26 ago.
@@ -37,6 +51,7 @@
 - **Origen:** operador, sesión 2026-08-27.
 
 ### 93. Ship: alertas (litio y otras) en un solo botón pulsante de una o dos palabras <!-- id: idea-161 --> — input: 2026-08-27 NY
+- **Ver idea-167:** el botón diría `E-BIKE ×N` y llevaría a la línea resaltada (PRD, Q5).
 - **Pedido:** "Juntemos lithium battery y otras alertas a un botón pulsante que diga en una palabra,
   máximo 2, lo que contiene".
 - **Hoy:** `ElectricBikeWarning` ("Lithium battery label — N e-bikes") dentro de `ShipOrderCard`,

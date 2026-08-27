@@ -7,14 +7,14 @@
 
 ## People and where they stand
 
-| Who          | Where                                 | Screens                                                                                                             |
-| ------------ | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Pickers      | the floor, phone in hand              | Board → Double Check (verification) → Stock (item detail, register)                                                 |
-| Ship station | the FedEx computer and the truck dock | Ship, FedEx Ship Manager (FSM), **Audit Source** ❓ (the paperwork system for non-FedEx loads — confirm what it is) |
-| Bay 2 Mac    | receiving desk                        | the watcher (order intake from AS400 PDFs), its Maintenance panel                                                   |
-| Rafael       | everywhere                            | builds PickD, reviews every report                                                                                  |
-| Roman        | operations lead                       | reads the weekly                                                                                                    |
-| Carine       | stakeholder                           | reads the daily progress update                                                                                     |
+| Who          | Where                                 | Screens                                                                                             |
+| ------------ | ------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Pickers      | the floor, phone in hand              | Board → Double Check (verification) → Stock (item detail, register)                                 |
+| Ship station | the FedEx computer and the truck dock | Ship, FedEx Ship Manager (FSM), **Audit Source** (regular loads: quote → carrier → tracking number) |
+| Bay 2 Mac    | receiving desk                        | the watcher (order intake from AS400 PDFs), its Maintenance panel                                   |
+| Rafael       | everywhere                            | builds PickD, reviews every report                                                                  |
+| Roman        | operations lead                       | reads the weekly                                                                                    |
+| Carine       | stakeholder                           | reads the daily progress update                                                                     |
 
 ## Flow 1 — An order arrives (AS400 → Board)
 
@@ -50,10 +50,11 @@
 
 ## Flow 3 — Ship (the ship station)
 
-The Ship card exists for **four numbers: pallets, bikes, parts, weight**. They are copied into
-**Audit Source** (non-FedEx loads) or into **FedEx Ship Manager**; a wrong number there is a wrong
-shipment, so the station adds it by hand on a calculator when PickD is wrong (27 Aug 2026,
-881303 combined into 881301). Everything else on the card serves those numbers:
+The Ship card exists for **four numbers: pallets, bikes, parts, weight**. Pallets and total
+weight are copied into **Audit Source** (regular loads) or the shipment goes through **FedEx Ship
+Manager**; bikes and parts are how the weight is built. A wrong number there is a wrong shipment,
+so the station adds it by hand on a calculator when PickD is wrong (27 Aug 2026, 881303 combined
+into 881301). Everything else on the card serves those numbers:
 
 - **Order Items** lists the SKUs with location and, since 27 Aug, **Lbs** per line. One click on a
   SKU opens its detail (stock, dimensions, weight, photo) without leaving Ship.
@@ -66,6 +67,18 @@ shipment, so the station adds it by hand on a calculator when PickD is wrong (27
   Recipient ID field and the address fills itself), **Reopen order** (with reason), **Picking
   summary**.
 - **Shipped today** keeps the day's shipped orders reachable, filtered by carrier.
+
+**Audit Source** (Rafael, 27 Aug 2026) is the system where a regular load is **quoted**, a
+**carrier chosen**, and a **tracking number** generated for the order. For a regular order it asks
+for: the store / customer, where the load ships to (**street number and name**, **zip code**),
+the **number of pallets**, and the **total weight**. That is why the Ship card has copy buttons on
+the customer, the address and the ZIP, and why pallets and weight are the big numbers.
+
+**Electric bikes in Audit Source:** when an order carries a battery bike, Audit Source asks for it
+to be declared, and the e-bike is declared as **its own carton outside the pallet** — even if it
+physically travels inside the pallet(s). The station has to know which line is electric before
+it types the load; today Ship shows one banner ("Lithium battery label — N e-bikes"), not the
+line. Planned: the electric line highlighted in Ship (idea-167).
 
 FedEx side: FSM imports PickD's **Dimensions** table (one carton per model + size, Replace mode)
 and, per shipment, takes the Recipient ID. Lithium (e-bike) shipments need the hazmat label —
@@ -87,7 +100,5 @@ count as space.
 
 ## Still to confirm with Rafael ❓
 
-- What **Audit Source** is exactly and which of the four numbers it takes (all four? weight and
-  pallets only?).
 - Whether the ship station and the pickers are the same people on a given day.
 - Whether Carine also reads What's new, or only the daily.
