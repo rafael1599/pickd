@@ -55,35 +55,35 @@ reliable than adding up room by room.
 
 | Measurement           | Value     | Up to where                                             |
 | --------------------- | --------- | ------------------------------------------------------- |
-| North wall → aisle    | 42' 3"    | **North** edge of the aisle                             |
-| North wall → showroom | 52' 5"    | **South** edge of the aisle (where the showroom starts) |
+| North wall → hall    | 42' 3"    | **North** edge of the hall                             |
+| North wall → showroom | 52' 5"    | **South** edge of the hall (where the showroom starts) |
 | North wall → offices  | 67' 6"    | North wall of the Mrs Z / Sales / CAFYT block           |
-| Aisle → offices (gap) | 14' 11.5" | Direct measurement of the gap                           |
+| Hall → offices (gap) | 14' 11.5" | Direct measurement of the gap                           |
 
-> **The 52' 5" reach the showroom, not the north edge of the aisle.**
+> **The 52' 5" reach the showroom, not the north edge of the hall.**
 > This was misread for a good part of the process. See §7.
 
 ### Bay 1 — off the south wall
 
 | Measurement      | Value  | What it measures                                 |
 | ---------------- | ------ | ------------------------------------------------ |
-| Shipping (depth) | 46' 0" | South wall → aisle                               |
+| Shipping (depth) | 46' 0" | South wall → hall                               |
 | Showroom (depth) | 45' 4" | South wall → north wall of the showroom          |
-| Cage (depth)     | 56' 0" | South wall → north edge of the aisle (46' + 10') |
+| Cage (depth)     | 56' 0" | South wall → north edge of the hall (46' + 10') |
 
 ### Bay 2
 
 | Measurement                       | Value  | What it measures               |
 | --------------------------------- | ------ | ------------------------------ |
-| South wall → aisle                | 44' 3" | Width of the south band        |
-| North wall → aisle                | 43' 9" | Width of the north band        |
+| South wall → hall                | 44' 3" | Width of the south band        |
+| North wall → hall                | 43' 9" | Width of the north band        |
 | Restroom #1 + Credit Dept (depth) | 44' 3" | They fill the whole south band |
 
 ### Bay 3
 
 | Measurement          | Value  | What it measures                             |
 | -------------------- | ------ | -------------------------------------------- |
-| Offices → north wall | 77' 0" | Includes the aisle (see §6)                  |
+| Offices → north wall | 77' 0" | Includes the hall (see §6)                  |
 | Office block (depth) | 38' 7" | North face of the restrooms → south wall     |
 | Kitchen recess       | 6' 1"  | The kitchen sits 6' 1" back from restroom #2 |
 
@@ -95,7 +95,7 @@ storage zone, which until then was only derived from the 77' chain.
 | Measurement                    | Value    | Up to where                               |
 | ------------------------------ | -------- | ----------------------------------------- |
 | North wall → start of the rows | 12' 2"   | Clearance against the north wall          |
-| North wall → end of the rows   | 62' 1.5" | Where the blocks end and the aisle starts |
+| North wall → end of the rows   | 62' 1.5" | Where the blocks end and the hall starts |
 | North wall → south wall        | 116' 0"  | Total depth of Bay 3                      |
 
 > The **12' 2" (146") clearance matches exactly** what the model already assumed. The
@@ -111,50 +111,50 @@ the office block. Total **52' 4" (628")**, of which only 33' 1" is open floor.
 | Segment                                | Width                  | What it is                                             |
 | -------------------------------------- | ---------------------- | ------------------------------------------------------ |
 | East wall → end of the existing rack   | 4' 3" – 4' 5" (51–53") | Rack already in place. Draw it in red                  |
-| N-S aisle                              | ≈ 6' 0" (71–73")       | Connects to the main aisle. Derived: 10' 4" − the rack |
-| _(cumulative to the end of the aisle)_ | _10' 4" (124")_        | Measured                                               |
+| N-S hall                              | ≈ 6' 0" (71–73")       | Connects to the main hall. Derived: 10' 4" − the rack |
+| _(cumulative to the end of the hall)_ | _10' 4" (124")_        | Measured                                               |
 | **Usable open floor**                  | **33' 1" (397")**      | What has to be filled with pallets                     |
-| N-S aisle, west end                    | 4' 0" (48")            | Runs north-south like the one opposite                 |
+| N-S hall, west end                    | 4' 0" (48")            | Runs north-south like the one opposite                 |
 | Rack against the west end              | 4' 11" (59")           | Already in place, eats space                           |
 
 ### Bay 3 South/East — north-south chain (12 Aug 2026)
 
 Measured off the **south wall**, the opposite end from every other Bay 3 figure. The
-two chains meet at the main aisle, which is what makes this the one measurement that
+two chains meet at the main hall, which is what makes this the one measurement that
 closes the 116' depth of the bay from both directions.
 
 | Segment                             | Depth              | What it is                                     |
 | ----------------------------------- | ------------------ | ---------------------------------------------- |
-| South wall → south edge of the aisle | **44' 2" (530")** | Measured. The whole band                       |
+| South wall → south edge of the hall | **44' 2" (530")** | Measured. The whole band                       |
 | Rack against the south wall          | 55"                | Already in place. 202" long E-W along that wall |
-| Aisle in front of that rack          | 54" minimum        | Required to reach it                            |
+| Hall in front of that rack          | 54" minimum        | Required to reach it                            |
 | **Usable open floor, N-S**          | **421" (35' 1")**  | 530 − 55 − 54                                   |
 
 Cross-check: the north chain derives this band as 43' 10.5" (116' − 62' 1.5" − 10' of
-aisle). Measured 44' 2". **Δ 3.5"** — the blueprint prints it as a passing check.
+hall). Measured 44' 2". **Δ 3.5"** — the blueprint prints it as a passing check.
 
 Note the rack is 202" wide against a zone 628" wide, so the 55" it eats does **not**
-run the full width; but the 54" aisle in front of it does have to, since that is how
+run the full width; but the 54" hall in front of it does have to, since that is how
 the rest of the wall is reached.
 
-Still to measure: whether the two north-south aisles and the two racks from the
+Still to measure: whether the two north-south halls and the two racks from the
 east-west chain run the full depth, and whether the existing racks stay and hold
 pallets that should be counted.
 
-### The aisle is not straight
+### The hall is not straight
 
-The aisle has a **1' 2" step** at the Bay 1 / Bay 2 divider: in Bay 1 it runs further
+The hall has a **1' 2" step** at the Bay 1 / Bay 2 divider: in Bay 1 it runs further
 north. Each stretch is anchored separately to the south wall (46' in Bay 1, 44' 3" in
 Bay 2/3), and the resulting step works out to 1' 9" — 7" off the 1' 2" measured,
 within tolerance.
 
 With the 11 Aug 2026 measurements a **second step appears, of 4.5", at the Bay 2 /
 Bay 3 divider**: the Bay 3 stretch hangs off its north-wall chain (rows end at
-62' 1.5" and the aisle starts there), while the Bay 2 one is anchored to the 44' 3"
+62' 1.5" and the hall starts there), while the Bay 2 one is anchored to the 44' 3"
 south band. That is under half an inch per foot of accepted tolerance — tape noise —
 but the plan draws it as it is instead of hiding it.
 
-Aisle width: **10' 0" constant** along its whole run, confirmed.
+Hall width: **10' 0" constant** along its whole run, confirmed.
 
 ---
 
@@ -207,7 +207,7 @@ The 52' 4" measured on site is 4' 2" less than that old 56' 6"; see §7.
 
 ### Explicitly confirmed
 
-- The aisle is 10' wide along its whole run
+- The hall is 10' wide along its whole run
 - The Cage touches the west wall
 - The south wall is straight across all three bays, no steps
 
@@ -216,9 +216,9 @@ The 52' 4" measured on site is 4' 2" less than that old 56' 6"; see §7.
 These were not confirmed one by one, but the drawing squares with them and no
 measurement contradicts them:
 
-- The Cage runs up from the south wall and **crosses the aisle**: its 56' = 46' of the
-  south band + 10' of aisle, so its north face lines up with the north edge of the aisle
-- The aisle **starts at the east face of the Cage** and reaches the outer east wall,
+- The Cage runs up from the south wall and **crosses the hall**: its 56' = 46' of the
+  south band + 10' of hall, so its north face lines up with the north edge of the hall
+- The hall **starts at the east face of the Cage** and reaches the outer east wall,
   crossing all three bays
 - The Bay 3 office block **touches the divider** with Bay 2. This used to be verified
   indirectly (56' 10" + 56' 6" = 113' 4" against the bay's 113' 10", 6"). That
@@ -227,10 +227,10 @@ measurement contradicts them:
 - The kitchen sits at the **west end** of the Bay 3 block
 - The 77' of Bay 3 are measured from the **north face of the restrooms**, which is the
   north face of the block (the kitchen is recessed and does not reach as far north)
-- The 43' 9" of Bay 2 are measured to the **north edge** of the aisle
+- The 43' 9" of Bay 2 are measured to the **north edge** of the hall
 - The Showroom touches the south wall
 - The Bay 3 office block reaches the south wall
-- Every dividing wall has an opening where the aisle passes through
+- Every dividing wall has an opening where the hall passes through
 
 ### Deliberately excluded
 
@@ -256,19 +256,19 @@ Calculated, not measured.
 | North walls Bay 1 vs Bay 2        | Aligned, 5" of difference                        |
 | Bay 1 offices: width × depth      | 63' 1.5" × 31' 0.5"                              |
 | Bay 3: east gap                   | 57' 0"                                           |
-| Bay 3: aisle → kitchen            | 11' 4.5"                                         |
-| Bay 3: aisle → restroom #2        | 5' 3.5"                                          |
+| Bay 3: hall → kitchen            | 11' 4.5"                                         |
+| Bay 3: hall → restroom #2        | 5' 3.5"                                          |
 | Bay 3: offices → north wall       | 77' 5" — derived from the measured 116'          |
 | Bay 3: office block width         | 61' 6" — derived from the measured east gap (§4) |
 
 > **The north-south split of Bay 3, with the 11 Aug 2026 measurements.** From the north
-> wall: 12' 2" of clearance, rows up to 62' 1.5", 10' of aisle up to 72' 1.5",
+> wall: 12' 2" of clearance, rows up to 62' 1.5", 10' of hall up to 72' 1.5",
 > 5' 3.5" of pre-restroom band, and the offices out to 116'. The 77' measured back then
 > up to the offices stay on as a cross-check: the chain puts them at 77' 5", 5" of
 > difference (§8).
 
-> The **11' 9"** figure from aisle to kitchen matched exactly a measurement that was
-> given and then withdrawn for not squaring. With the corrected aisle position it did
+> The **11' 9"** figure from hall to kitchen matched exactly a measurement that was
+> given and then withdrawn for not squaring. With the corrected hall position it did
 > square. It was right from the start. (It now reads 11' 4.5" after the Bay 3 re-measure.)
 
 ---
@@ -279,7 +279,7 @@ Documented so they do not creep back in.
 
 | Old figure                                               | Replaced by                 | Reason                                                                                                                                                              |
 | -------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 52' 5" to the north edge of the aisle                    | 52' 5" to the **showroom**  | The three-measurement Bay 1 chain settled it. It moved the north wall 10 feet                                                                                       |
+| 52' 5" to the north edge of the hall                    | 52' 5" to the **showroom**  | The three-measurement Bay 1 chain settled it. It moved the north wall 10 feet                                                                                       |
 | Office gap 13' 6"                                        | **14' 11.5"**               | Direct measurement. The old one was off by 1' 7", out of tolerance                                                                                                  |
 | Bay 2 = 70' (satellite)                                  | **84' 8"**                  | Never measured; it was an estimate off an aerial photo                                                                                                              |
 | Bay 3 = 80' (satellite)                                  | **113' 10"**                | Same. The largest error of all: 33' 10"                                                                                                                             |
@@ -291,7 +291,7 @@ Documented so they do not creep back in.
 | Restroom #1 + Credit depth = 46' (assumed)               | **44' 3"**                  | Measured                                                                                                                                                            |
 | Bay 3 east gap 56' 6"                                    | **52' 4"**                  | Measured on site 11 Aug 2026 from the east face of the offices to the east wall. 4' 2" less. The old figure never squared: with it the bay's pieces summed 6" short |
 | Bay 3 office block 56' 10"                               | **61' 6"**                  | No longer a figure of its own: it is the bay width minus the measured east gap. It grows 4' 8" and the pieces now sum exactly (§4)                                  |
-| Bay 3 North, storage depth 61' 4" (derived from the 77') | **62' 1.5"**                | Measured directly off the north wall on 11 Aug 2026. That is 9.5" more depth: the zone reaches further south than calculated and the aisle starts 9.5" later        |
+| Bay 3 North, storage depth 61' 4" (derived from the 77') | **62' 1.5"**                | Measured directly off the north wall on 11 Aug 2026. That is 9.5" more depth: the zone reaches further south than calculated and the hall starts 9.5" later        |
 
 ---
 
@@ -303,14 +303,14 @@ Recalculated live in the plan. All pass.
 | ---------------------------------------------------- | --------- | --------- | ------- |
 | Bays + dividers sum vs total length                  | 362' 6"   | 362' 0"   | 0' 6"   |
 | Bay 1: rooms sum vs bay width                        | 163' 0.5" | 162' 4"   | 0' 8.5" |
-| Bay 1: aisle width per the chain                     | 10' 2"    | 10' 0"    | 0' 2"   |
+| Bay 1: hall width per the chain                     | 10' 2"    | 10' 0"    | 0' 2"   |
 | Bay 1: depth via shipping vs via showroom            | 98' 5"    | 98' 5"    | 0' 0"   |
 | Bay 1: office wall via gap vs via chain              | 67' 4.5"  | 67' 6"    | 0' 1.5" |
 | North wall Bay 1 vs Bay 2 (alignment)                | 26' 7"    | 27' 0"    | 0' 5"   |
-| Aisle step: derived vs measured                      | 1' 9"     | 1' 2"     | 0' 7"   |
+| Hall step: derived vs measured                      | 1' 9"     | 1' 2"     | 0' 7"   |
 | Bay 3: depth via offices (77' + 38' 7") vs measured  | 115' 7"   | 116' 0"   | 0' 5"   |
 | Bay 3: north clearance assumed vs measured           | 12' 2"    | 12' 2"    | 0' 0"   |
-| Aisle from the south: Bay 2 stretch vs Bay 3 stretch | 54' 3"    | 53' 10.5" | 0' 4.5" |
+| Hall from the south: Bay 2 stretch vs Bay 3 stretch | 54' 3"    | 53' 10.5" | 0' 4.5" |
 
 None exceeds 8.5", well under the foot of tolerance.
 
@@ -341,7 +341,7 @@ Occupied spaces that do not count as free:
 
 | Space                       | Area        |
 | --------------------------- | ----------- |
-| Main aisle (not usable)     | 3,425 sq ft |
+| Main hall (not usable)     | 3,425 sq ft |
 | Shipping Area (operational) | 1,886 sq ft |
 | Cage (enclosed)             | 1,120 sq ft |
 
@@ -349,19 +349,19 @@ Total building area: **37,478 sq ft**, **63% free**.
 
 > **Bay 3 South / East is counted gross, and there it hurts.** Of its 52' 4" of width,
 > 4' 3" and 4' 11" are existing racks and 6' 0" and 4' 0" are the two north-south
-> aisles: **19' 2" of the 52' 4", 37% of the zone, is not open floor.** The 2,296 sq ft
+> halls: **19' 2" of the 52' 4", 37% of the zone, is not open floor.** The 2,296 sq ft
 > above is the whole zone; what can actually take pallets is the 33' 1" strip in the
 > middle. The same caveat applies in kind to every other zone, but nowhere else is it
 > this large.
 
-The three strips north of the aisle add up to **17,662 sq ft, 75% of everything
+The three strips north of the hall add up to **17,662 sq ft, 75% of everything
 available**. That is where the warehouse really is.
 
 > **What the Bay 3 re-measures moved.** Two separate corrections landed on 11 Aug 2026.
 > The depth one pushed total free space up 47 sq ft (23,669 → 23,716) and the building
 > area by the same amount (37,431 → 37,478), since Bay 3 is 5" deeper than calculated;
-> inside it, Bay 3 North gained 90 sq ft and the strips south of the aisle lost 42,
-> because the Bay 3 aisle drops 4.5". Then the east-gap one took 180 sq ft back out
+> inside it, Bay 3 North gained 90 sq ft and the strips south of the hall lost 42,
+> because the Bay 3 hall drops 4.5". Then the east-gap one took 180 sq ft back out
 > (23,716 → 23,536): Bay 3 South/East loses 205 as it shrinks from 57' 0" to 52' 4",
 > and pre-restroom #2 gains 24 as the office block widens past it. Net across both:
 > **23,669 → 23,536, 133 sq ft less free space than we thought.**
@@ -376,9 +376,9 @@ Nothing missing moves the free area. The envelope is closed.
   blocks. Applies to Mrs Z / Sales / CAFYT in Bay 1, to restroom #1 + Credit Dept in
   Bay 2, and to kitchen / restroom #2 / offices in Bay 3.
 - **N-S depth of the Bay 3 kitchen** inside its block.
-- **Bay 3 South / East: do the aisles and racks run the full depth?** Both chains are
+- **Bay 3 South / East: do the halls and racks run the full depth?** Both chains are
   now closed (§3), but the layout still needs to know whether the two north-south
-  aisles and the two racks of the east-west chain run the whole 421", and whether the
+  halls and the two racks of the east-west chain run the whole 421", and whether the
   existing racks stay and hold pallets that should be counted.
 - **Post thickness, and what each post figure was taken to.** The plan assumes 8"
   square and centre-to-centre. Only matters where a post lands near an edge (§12).
@@ -394,39 +394,45 @@ Nothing missing moves the free area. The envelope is closed.
 
 ### Orientation: north-south now, east-west long term
 
-| Option               | File                      | Status                                                                     |
-| -------------------- | ------------------------- | -------------------------------------------------------------------------- |
-| **North-south** rows | `bay3_pallet_layout.html` | **In progress.** The one being worked, and the only one linked from the UI |
-| **East-west** rows   | `bay3_layout_ew.html`     | **Long-term improvement.** Frozen and unlinked from `index.html`           |
+| Option               | Where it lives                    | Status                                                             |
+| -------------------- | --------------------------------- | ------------------------------------------------------------------ |
+| **North-south** rows | `zone.html?id=bay3_north`, default | **In progress.** The one being worked                              |
+| **East-west** rows   | the `E–W ROWS` toggle on that page | **Long-term improvement.** One click away, on the current measurements |
 
-The east-west version holds quite a bit more: aisles are what eat the floor, and there
-it is two blocks with a single aisle instead of five blocks with four. The price is
+Both were separate pages until 21 Aug 2026, and the east-west one had been frozen on
+the old 56" × 54" pallet since 11 Aug — which is the reason it was never worth opening.
+Now the two orientations are one toggle over the same zone data, so the comparison is
+always against today's numbers and there is no second file to keep in step.
+
+The east-west version holds quite a bit more: halls are what eat the floor, and there
+it is two blocks with a single hall instead of five blocks with four. The price is
 that the north block ends up five rows deep and its middle rows cannot be reached
 without moving what is in front of them. That is not a change of plan, it is a change
 in how the warehouse is operated — hence parked as a long-term improvement.
 
-**For now the whole effort goes to north-south.** The east-west file is kept exactly as
-it was, modelled with the old 56" × 54" pallet; if it is ever picked up again, it has
-to be re-run on the current measurements before anything is compared.
+**For now the whole effort goes to north-south.** What the toggle changes is the
+geometry, not the operating decision above — read the counts, then decide whether the
+warehouse can be run that way.
 
 ### Depth re-measured, 11 Aug 2026
 
 The hunch was right: there was space left over. The storage depth went from 61' 4"
 derived to **62' 1.5" measured**, 9.5" more (§3, §7). The model already uses it —
-`const NS = (62*12) + 1.5` in `bay3_pallet_layout.html` and in `warehouse_app.html`.
+the `height` of `bay3_north` in `zones.js` is `745.5 + 120` — 62' 1.5" of storage plus
+the 120" main hall.
 
 With that the usable depth came to 599.5" and the tenth pallet fell **half an inch**
 short. That half inch **comes out of the north wall clearance**, which goes from 146"
-to **145.5"**: `MARGIN_NORTH` in both files. The main aisle is not touched — eating
-into the aisle was discarded, and the UI no longer has that button.
+to **145.5"**: `margins.top` on the same zone. The main hall is not touched — eating
+into the hall was discarded, and the UI no longer has that button.
 
 Resulting usable depth: **exactly 600", 10 pallets deep with nothing left over.**
 
 ### Reference pallet
 
-**62" × 60"** (east-west × north-south). It is the UI default and what the Bay 3 model
-inside `warehouse_app.html` uses. In `bay3_pallet_layout.html` the field stays
-editable: the whole layout recalculates on the fly and the reset button goes back to
+**62" × 60"** (east-west × north-south). It is the default in every zone page and the
+field stays editable: the whole layout recalculates on the fly. Nothing downstream
+hard-codes it — the counts on `index.html` are simply what the engine prints at
 62 × 60.
 
 ### Rules of the north-south layout
@@ -434,11 +440,11 @@ editable: the whole layout recalculates on the fly and the reset button goes bac
 - Rows sit flush inside each block, no gap between them
 - Pallets sit flush too, inside the row
 - **All the leftover depth is pulled to the front of the row**, the south end against
-  the main aisle, as **one green block per row**. Its capacity is counted in lines of
+  the main hall, as **one green block per row**. Its capacity is counted in lines of
   10" at 5 bikes each, but it is drawn and counted as a block
 - With the 60"-deep pallet **the leftover is zero**, so right now there is no green
   block at all. The rule is still live: it comes back as soon as the size changes
-- Leftover across the bay widens the aisles
+- Leftover across the bay widens the halls
 - Fast picking = every pallet whose edge touches open floor
 
 ### Bikes
@@ -448,7 +454,7 @@ when there are any, count separately at 5 bikes per 10" line.
 
 ### Figures with the default pallet
 
-| Scenario                                   | Rows             | Depth | Pallets      | Bikes | Fast picking | Aisles        |
+| Scenario                                   | Rows             | Depth | Pallets      | Bikes | Fast picking | Halls        |
 | ------------------------------------------ | ---------------- | ----- | ------------ | ----- | ------------ | ------------- |
 | **CURRENT** — 13 ft kept clear at the west | 14 (4·4·2·2·2)   | 10    | **138** (−2) | 4,140 | 106          | 68.5" / 55.5" |
 | **WEST FREED** — strip reclaimed           | 15 (4·4·2·2·2·1) | 10    | **146** (−4) | 4,380 | 114          | 76.2" / 63.2" |
@@ -457,13 +463,13 @@ The deduction is the structural posts (§12), which came in on 12 Aug 2026 and c
 slots the earlier figures of 140 and 150 counted. They change on their own as soon as
 the pallet size is touched in the UI.
 
-### Why the aisle is not eaten into
+### Why the hall is not eaten into
 
-Taking a strip off the main aisle to gain that tenth pallet was modelled at one point.
+Taking a strip off the main hall to gain that tenth pallet was modelled at one point.
 With the old measurements it needed 30", with the pallet turned 10", and with the
 re-measured depth only 0.5" — at that scale it stopped being a decision about the plan
 and became one about the tape measure. It was settled by taking the half inch out of
-the north clearance, and **the aisle keeps its full 120"**. The aisle-eating feature
+the north clearance, and **the hall keeps its full 120"**. The hall-eating feature
 was removed from the UI.
 
 ---
@@ -475,7 +481,7 @@ they were measured in.
 
 ### North-south — each measured on its own
 
-| Post   | North of the main aisle |
+| Post   | North of the main hall |
 | ------ | ----------------------- |
 | **P1** | 23' 0" (276")           |
 | **P2** | 23' 2.5" (278.5")       |
@@ -484,7 +490,7 @@ they were measured in.
 
 They spread over 3.5", which is tape noise on a line of columns, not a jog in the
 structure. Every one of them lands in **slot E** — the fifth pallet back from the
-main aisle — and the nearest one is still 21.5" clear of a slot edge. No re-cutting
+main hall — and the nearest one is still 21.5" clear of a slot edge. No re-cutting
 of the grid saves those slots.
 
 ### East-west — one chain, anchored at the west wall
@@ -506,7 +512,7 @@ wall itself**. Nothing is drawn there: that strip is the 107" east clearance alr
 | Post   | CURRENT                              | WEST FREED                     |
 | ------ | ------------------------------------ | ------------------------------ |
 | **P1** | kills **30-E**, 14" into the row     | kills **30-E**                 |
-| **P2** | free — lands in a 55.5" aisle        | kills **26-E**, 0.2" into it   |
+| **P2** | free — lands in a 55.5" hall        | kills **26-E**, 0.2" into it   |
 | **P3** | kills **22-E**, 17.5" into the row   | kills **22-E**, 40.6" into it  |
 | **P4** | free — lands in the 13 ft west strip | kills **19-E**, 18" into it    |
 
@@ -516,8 +522,8 @@ gives 2 straight back to the columns.
 
 ### Cross-check from the tape
 
-P1 was also measured at **19" east of the centre aisle**, the one splitting the two
-blocks of four rows. The model puts that aisle's east edge at 1011", so the reading
+P1 was also measured at **19" east of the centre hall**, the one splitting the two
+blocks of four rows. The model puts that hall's east edge at 1011", so the reading
 lands P1 at 1030"; the chain off the west wall puts it at 1025". **Δ 5"**, well inside
 tolerance, and both readings fall in the same slot. The blueprint prints this check
 live.
@@ -531,15 +537,15 @@ real number can be dropped in later.
 
 It only changes the answer where a post sits near an edge, and the page names those
 cases as it draws them. There is one today: in WEST FREED, **P2 falls 0.2" inside row
-26** — for practical purposes, exactly on the line between the aisle and the row. If
+26** — for practical purposes, exactly on the line between the hall and the row. If
 that post is thicker than assumed, or the figure was taken to a face rather than a
-centre, P2 may sit in the aisle instead and WEST FREED costs 3 slots, not 4.
+centre, P2 may sit in the hall instead and WEST FREED costs 3 slots, not 4.
 
 ### Not yet placed: the south-east post
 
 A fifth post was measured, **38' 5" from P1**, described as the south-east post. If
 it lies on the same north-south line as P1 — the natural reading, and consistent with
-a column grid — it sits 461" south of P1, which is 65" south of the main aisle, in
+a column grid — it sits 461" south of P1, which is 65" south of the main hall, in
 the Bay 3 South/East zone. **Not drawn**, because whether it is on that line has not
 been confirmed and a diagonal cannot be decomposed. Confirm before modelling that
 zone; it lands in the middle of the floor being planned there.

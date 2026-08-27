@@ -7,16 +7,16 @@ export const ZONES = {
         margins: { top: 120, right: 100, bottom: 169, left: 131 }, // top=north(120), right=east(100), bottom=south(169 = 114" hall + 55" rack), left=west(131)
         rowRange: { start: 34, end: 40, origin: 'east' },
         obstacles: [
-            { id: "main_aisle", x: 0, y: 0, w: 628, h: 120, type: "aisle", label: "MAIN HALL (120\")" },
+            { id: "main_hall", x: 0, y: 0, w: 628, h: 120, type: "hall", label: "MAIN HALL (120\")" },
             { id: "west_rack", x: 0, y: 120, w: 59, h: 530, type: "rack", label: "WEST RACK (59\")" },
-            { id: "west_aisle", x: 59, y: 120, w: 72, h: 530, type: "aisle", label: "WEST HALL (72\")" },
-            { id: "east_aisle", x: 528, y: 120, w: 48, h: 530, type: "aisle", label: "EAST HALL (48\")" },
+            { id: "west_hall", x: 59, y: 120, w: 72, h: 530, type: "hall", label: "WEST HALL (72\")" },
+            { id: "east_hall", x: 528, y: 120, w: 48, h: 530, type: "hall", label: "EAST HALL (48\")" },
             { id: "east_rack", x: 576, y: 120, w: 52, h: 530, type: "rack", label: "EAST RACK (52\")" },
             { id: "south_rack", x: 213, y: 595, w: 202, h: 55, type: "rack", label: "SOUTH WALL RACK (55\" × 202\")" },
-            { id: "south_aisle", x: 59, y: 481, w: 469, h: 114, type: "aisle", label: "SOUTH HALL", showLabel: true, labelDy: 24 } // spans west hall to east hall; the side racks run past it to the wall
+            { id: "south_hall", x: 59, y: 481, w: 469, h: 114, type: "hall", label: "SOUTH HALL", showLabel: true, labelDy: 24 } // spans west hall to east hall; the side racks run past it to the wall
         ],
         posts: [
-            { id: "se_1", x: 287, y: 185, size: 8, note: "Poste Sureste (Bay 3)" } // 65" south of main aisle (120)
+            { id: "se_1", x: 287, y: 185, size: 8, note: "Poste Sureste (Bay 3)" } // 65" south of main hall (120)
         ],
         labels: [
             { text: "MAIN HALL · NORTH", x: 314, y: 60, anchor: "middle", rotate: 0 },
@@ -42,10 +42,10 @@ export const ZONES = {
         openBoundaries: { right: true },
         pushBlocksEastToPosts: true,
         obstacles: [
-            { id: "west_aisle", x: 0, y: 0, w: 156, h: 745.5, type: "aisle", label: "WEST HALL (156\")", toggleable: "west" },
+            { id: "west_hall", x: 0, y: 0, w: 156, h: 745.5, type: "hall", label: "WEST HALL (156\")", toggleable: "west" },
             { id: "east_rack", x: 1259, y: 0, w: 107, h: 745.5, type: "rack", label: "EAST CLEARANCE (107\")" },
             { id: "north_clearance", x: 0, y: 0, w: 1366, h: 145.5, type: "rack", label: "NORTH CLEARANCE (145.5\")" },
-            { id: "main_aisle", x: 0, y: 745.5, w: 1366, h: 120, type: "aisle", label: "MAIN HALL (120\")" }
+            { id: "main_hall", x: 0, y: 745.5, w: 1366, h: 120, type: "hall", label: "MAIN HALL (120\")" }
         ],
         posts: [
             { id: 4, x: 18, y: 470, size: 8, note: "P4" },
@@ -70,7 +70,7 @@ export const ZONES = {
         mainAccess: "south",
         allowedBlocks: [2, 1],
         obstacles: [
-            { id: "main_aisle", x: 0, y: 525, w: 1018, h: 120, type: "aisle", label: "MAIN HALL (120\")" }
+            { id: "main_hall", x: 0, y: 525, w: 1018, h: 120, type: "hall", label: "MAIN HALL (120\")" }
         ],
         posts: [
             { id: 5, x: 643, y: 394, size: 8, note: "P5 (Bay 2 North)" },
@@ -88,9 +88,9 @@ export const ZONES = {
         mainAccess: "north",
         allowedBlocks: [3, 2],
         obstacles: [
-            { id: "main_aisle", x: 0, y: 0, w: 603, h: 120, type: "aisle", label: "MAIN HALL (120\")" },
-            { id: "west_hall", x: 0, y: 120, w: 60, h: 531, type: "aisle", label: "WEST HALL (60\")", toggleable: "west" },
-            { id: "east_hall", x: 543, y: 120, w: 60, h: 531, type: "aisle", label: "EAST HALL (60\")", toggleable: "east" }
+            { id: "main_hall", x: 0, y: 0, w: 603, h: 120, type: "hall", label: "MAIN HALL (120\")" },
+            { id: "west_hall", x: 0, y: 120, w: 60, h: 531, type: "hall", label: "WEST HALL (60\")", toggleable: "west" },
+            { id: "east_hall", x: 543, y: 120, w: 60, h: 531, type: "hall", label: "EAST HALL (60\")", toggleable: "east" }
         ],
         posts: [
             { id: 7, x: 240, y: 385, size: 8, note: "Poste Sur (Bay 2)" } // 265 + 120
@@ -105,13 +105,13 @@ export const ZONES = {
         id: "bay1_north",
         name: "BAY 1 NORTH",
         width: 1948,
-        height: 629, // 507 storage + 122 aisle
+        height: 629, // 507 storage + 122 hall
         margins: { top: 0, right: 0, bottom: 122, left: 0 },
         rowRange: { start: 41, end: 100, origin: 'east' },
         mainAccess: "south",
         allowedBlocks: [2, 1],
         obstacles: [
-            { id: "main_aisle", x: 0, y: 507, w: 1948, h: 122, type: "aisle", label: "MAIN HALL (122\")" }
+            { id: "main_hall", x: 0, y: 507, w: 1948, h: 122, type: "hall", label: "MAIN HALL (122\")" }
         ],
         posts: [
             { id: 1, x: 92, y: 137, size: 8, note: "P1 Norte (Bay 1)" },
@@ -131,16 +131,16 @@ export const ZONES = {
         id: "bay1_office_gap",
         name: "BAY 1 OFFICE GAP",
         width: 757.5, // 63' 1.5"
-        height: 299.5, // 120 aisle + 179.5 storage
+        height: 299.5, // 120 hall + 179.5 storage
         margins: { top: 120, right: 0, bottom: 0, left: 0 },
         rowRange: { start: 41, end: 100, origin: 'east' },
         mainAccess: "north",
         allowedBlocks: [2, 1],
         obstacles: [
-            { id: "main_aisle", x: 0, y: 0, w: 757.5, h: 120, type: "aisle", label: "MAIN HALL (120\")" }
+            { id: "main_hall", x: 0, y: 0, w: 757.5, h: 120, type: "hall", label: "MAIN HALL (120\")" }
         ],
         posts: [
-            // P4 and P5 Sur extrapolated from 28' centers starting at x=92, y=23" south of aisle
+            // P4 and P5 Sur extrapolated from 28' centers starting at x=92, y=23" south of hall
             { id: "p4_sur", x: 17.6, y: 143, size: 8, note: "P4 Sur (Bay 1)" },
             { id: "p5_sur", x: 389.6, y: 143, size: 8, note: "P5 Sur (Bay 1)" }
         ],

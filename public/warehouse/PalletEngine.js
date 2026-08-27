@@ -5,7 +5,7 @@ export class PalletEngine {
         this.state = state;
 
         this.PALLET_W = state.pd || 60; // Default width of a pallet spot (depth of rack)
-        this.PALLET_H = state.pw || 62; // Default height of a pallet spot (width along the aisle)
+        this.PALLET_H = state.pw || 62; // Default height of a pallet spot (width along the hall)
         this.HALL_MIN = 54;
         this.BIKES_PALLET = 30;
         this.BIKES_LINE = 6;
@@ -32,7 +32,7 @@ export class PalletEngine {
         let margins = { ...c.margins };
         const dynamicObstacles = [];
         
-        // Apply toggles (like freed west aisle in North)
+        // Apply toggles (like freed west hall in North)
         if (c.obstacles) {
             c.obstacles.forEach(obs => {
                 if (obs.toggleable && s.toggles[obs.toggleable] === false) {
@@ -44,26 +44,26 @@ export class PalletEngine {
             });
         }
 
-        // Anti-trap logic: Ensure internal aisles can reach the main hall.
+        // Anti-trap logic: Ensure internal halls can reach the main hall.
         const isMainHorizontal = (c.mainAccess === 'south' || c.mainAccess === 'north');
         const isMainVertical = (c.mainAccess === 'east' || c.mainAccess === 'west');
         
         if (isMainHorizontal && s.isEW) {
-            // Rows are E-W (parallel to Main Hall). Need a N-S cross-aisle.
+            // Rows are E-W (parallel to Main Hall). Need a N-S cross-hall.
             if (margins.left < this.HALL_MIN && margins.right < this.HALL_MIN) {
                 margins.left = 120;
                 dynamicObstacles.push({
-                    id: "dynamic_cross_hall", x: 0, y: 0, w: 120, h: c.height, type: "aisle", label: "CROSS HALL (120\")"
+                    id: "dynamic_cross_hall", x: 0, y: 0, w: 120, h: c.height, type: "hall", label: "CROSS HALL (120\")"
                 });
             }
         }
         
         if (isMainVertical && !s.isEW) {
-            // Rows are N-S (parallel to Main Hall). Need an E-W cross-aisle.
+            // Rows are N-S (parallel to Main Hall). Need an E-W cross-hall.
             if (margins.top < this.HALL_MIN && margins.bottom < this.HALL_MIN) {
                 margins.top = 120;
                 dynamicObstacles.push({
-                    id: "dynamic_cross_hall", x: 0, y: 0, w: c.width, h: 120, type: "aisle", label: "CROSS HALL (120\")"
+                    id: "dynamic_cross_hall", x: 0, y: 0, w: c.width, h: 120, type: "hall", label: "CROSS HALL (120\")"
                 });
             }
         }
@@ -101,7 +101,7 @@ export class PalletEngine {
         }
 
         const build = () => {
-            let blocks, nRows, extra, wallAisleLeft, wallAisleRight, extraSpaces, hallWidths;
+            let blocks, nRows, extra, wallHallLeft, wallHallRight, extraSpaces, hallWidths;
 
             if (s.solidBlock || s.layoutPreset === 'solid') {
                 // SOLID MONOLITHIC MASS BLOCK: 1 continuous block filling the entire usable span with 0 internal halls!
@@ -109,8 +109,8 @@ export class PalletEngine {
                 if (nRows < 1) return null;
                 blocks = [nRows];
                 extra = rSpan - nRows * rW;
-                wallAisleLeft = false;
-                wallAisleRight = false;
+                wallHallLeft = false;
+                wallHallRight = false;
                 extraSpaces = [];
                 hallWidths = [];
             } else if (s.centerHall || s.layoutPreset === 'center_hall') {
@@ -123,54 +123,54 @@ export class PalletEngine {
                 blocks = [b1, b2];
                 const centerHallW = rSpan - nRows * rW;
                 extra = 0;
-                wallAisleLeft = false;
-                wallAisleRight = false;
+                wallHallLeft = false;
+                wallHallRight = false;
                 extraSpaces = [];
                 hallWidths = [centerHallW];
             } else {
                 const minW = rW * (Math.min(...(c.allowedBlocks || [2, 3]))) + this.HALL_MIN;
                 if (rSpan < minW) return null;
 
-                let startIsAisle = false;
-                let endIsAisle = false;
+                let startIsHall = false;
+                let endIsHall = false;
                 
                 if (c.openBoundaries) {
                     if (s.isEW) {
-                        if (c.openBoundaries.top) startIsAisle = true;
-                        if (c.openBoundaries.bottom) endIsAisle = true;
+                        if (c.openBoundaries.top) startIsHall = true;
+                        if (c.openBoundaries.bottom) endIsHall = true;
                     } else {
-                        if (c.openBoundaries.left) startIsAisle = true;
-                        if (c.openBoundaries.right) endIsAisle = true;
+                        if (c.openBoundaries.left) startIsHall = true;
+                        if (c.openBoundaries.right) endIsHall = true;
                     }
                 }
 
                 if (c.obstacles) {
                     for (const o of c.obstacles) {
                         if (o.toggleable && s.toggles[o.toggleable] === false) continue;
-                        if (o.type === 'aisle') {
+                        if (o.type === 'hall') {
                             if (s.isEW) {
                                 if (o.w >= (c.width - margins.left - margins.right) * 0.5) {
-                                    if (o.y <= margins.top && o.y + o.h >= margins.top) startIsAisle = true;
-                                    if (o.y <= c.height - margins.bottom && o.y + o.h >= c.height - margins.bottom) endIsAisle = true;
+                                    if (o.y <= margins.top && o.y + o.h >= margins.top) startIsHall = true;
+                                    if (o.y <= c.height - margins.bottom && o.y + o.h >= c.height - margins.bottom) endIsHall = true;
                                 }
                             } else {
                                 if (o.h >= (c.height - margins.top - margins.bottom) * 0.5) {
-                                    if (o.x <= margins.left && o.x + o.w >= margins.left) startIsAisle = true;
-                                    if (o.x <= c.width - margins.right && o.x + o.w >= c.width - margins.right) endIsAisle = true;
+                                    if (o.x <= margins.left && o.x + o.w >= margins.left) startIsHall = true;
+                                    if (o.x <= c.width - margins.right && o.x + o.w >= c.width - margins.right) endIsHall = true;
                                 }
                             }
                         }
                     }
                 }
 
-                const res = this.autoBlocks(rSpan, rW, startIsAisle, endIsAisle);
+                const res = this.autoBlocks(rSpan, rW, startIsHall, endIsHall);
                 if (!res) return null;
 
                 blocks = res.blocks;
                 nRows = res.nRows;
                 extra = res.extra;
-                wallAisleLeft = res.wallAisleLeft;
-                wallAisleRight = res.wallAisleRight;
+                wallHallLeft = res.wallHallLeft;
+                wallHallRight = res.wallHallRight;
                 extraSpaces = res.extraSpaces;
                 hallWidths = res.hallWidths || [];
             }
@@ -184,7 +184,7 @@ export class PalletEngine {
             let rowIndex = 0;
             let hallIndex = 0;
 
-            if (wallAisleLeft) {
+            if (wallHallLeft) {
                 strip.push({ type: 'hall', w: this.HALL_MIN, x: cx });
                 cx += this.HALL_MIN;
             }
@@ -224,7 +224,7 @@ export class PalletEngine {
                 }
             }
 
-            if (wallAisleRight) {
+            if (wallHallRight) {
                 strip.push({ type: 'hall', w: this.HALL_MIN, x: cx, isWall: true });
                 cx += this.HALL_MIN;
             }
@@ -246,13 +246,13 @@ export class PalletEngine {
                         const isFast = edgeRow || d === 0 || d === deep - 1;
                         
                         // Calculate Manhattan distance to Shipping (West Wall)
-                        // 1. Distance to Main Aisle (Y axis)
+                        // 1. Distance to Main Hall (Y axis)
                         let distY = 0;
-                        const mainAisle = (c.obstacles || []).find(o => o.id === 'main_aisle');
-                        if (mainAisle) {
-                            distY = Math.min(Math.abs(cySlot - mainAisle.y), Math.abs(cySlot - (mainAisle.y + mainAisle.h)));
+                        const mainHall = (c.obstacles || []).find(o => o.id === 'main_hall');
+                        if (mainHall) {
+                            distY = Math.min(Math.abs(cySlot - mainHall.y), Math.abs(cySlot - (mainHall.y + mainHall.h)));
                         } else {
-                            // Fallback if no main_aisle defined
+                            // Fallback if no main_hall defined
                             distY = c.mainAccess === 'south' ? (c.height - cySlot) : cySlot;
                         }
                         
@@ -325,45 +325,45 @@ export class PalletEngine {
         return build();
     }
 
-    autoBlocks(span, rW, startIsAisle, endIsAisle) {
+    autoBlocks(span, rW, startIsHall, endIsHall) {
         const c = this.config;
         const s = this.state || {};
         let best = null;
         let maxRows = 0;
         let minExtra = Infinity;
-        let bestWallAislesCount = Infinity;
+        let bestWallHallsCount = Infinity;
         const sizes = c.allowedBlocks || [2, 3];
         const minSize = Math.min(...sizes);
 
         const search = (bList, used) => {
-            let wallAisleLeft = false;
-            let wallAisleRight = false;
+            let wallHallLeft = false;
+            let wallHallRight = false;
 
-            if (!startIsAisle && bList[0] > 2) {
-                wallAisleLeft = true;
+            if (!startIsHall && bList[0] > 2) {
+                wallHallLeft = true;
             }
-            if (!endIsAisle && bList[bList.length - 1] > 2) {
-                wallAisleRight = true;
+            if (!endIsHall && bList[bList.length - 1] > 2) {
+                wallHallRight = true;
             }
 
             const hCount = bList.length > 0 ? bList.length - 1 : 0;
             const req = used + hCount * this.HALL_MIN 
-                        + (wallAisleLeft ? this.HALL_MIN : 0) 
-                        + (wallAisleRight ? this.HALL_MIN : 0);
+                        + (wallHallLeft ? this.HALL_MIN : 0) 
+                        + (wallHallRight ? this.HALL_MIN : 0);
             if (req > span) return;
             
             // Check pruning for start block at wall
             const maxW = (s.maxAtWall !== undefined) ? s.maxAtWall : (c.blockConstraints && c.blockConstraints.maxAtWall);
-            if (maxW !== undefined && !startIsAisle && bList[0] > maxW) {
+            if (maxW !== undefined && !startIsHall && bList[0] > maxW) {
                 return;
             }
 
-            // Check pruning for internal 1-row blocks that already have aisles on both sides
+            // Check pruning for internal 1-row blocks that already have halls on both sides
             for (let i = 0; i < bList.length - 1; i++) {
                 if (bList[i] === 1) {
-                    const hasAisleBefore = (i > 0) || startIsAisle || wallAisleLeft;
-                    const hasAisleAfter  = true;
-                    if (hasAisleBefore && hasAisleAfter) {
+                    const hasHallBefore = (i > 0) || startIsHall || wallHallLeft;
+                    const hasHallAfter  = true;
+                    if (hasHallBefore && hasHallAfter) {
                         return;
                     }
                 }
@@ -374,14 +374,14 @@ export class PalletEngine {
             // Candidate Validation for complete bList
             let valid = true;
             if (bList[bList.length - 1] === 1) {
-                const hasAisleBefore = (bList.length > 1) || startIsAisle || wallAisleLeft;
-                const hasAisleAfter  = endIsAisle || wallAisleRight;
-                if (hasAisleBefore && hasAisleAfter) {
+                const hasHallBefore = (bList.length > 1) || startIsHall || wallHallLeft;
+                const hasHallAfter  = endIsHall || wallHallRight;
+                if (hasHallBefore && hasHallAfter) {
                     valid = false;
                 }
             }
 
-            if (maxW !== undefined && !endIsAisle && bList[bList.length - 1] > maxW) {
+            if (maxW !== undefined && !endIsHall && bList[bList.length - 1] > maxW) {
                 valid = false;
             }
 
@@ -424,7 +424,7 @@ export class PalletEngine {
                     const checkHalls = (extraDist) => {
                         const halls = [];
                         let currX = 0;
-                        if (wallAisleLeft) {
+                        if (wallHallLeft) {
                             halls.push({ x: currX, w: this.HALL_MIN });
                             currX += this.HALL_MIN;
                         }
@@ -436,7 +436,7 @@ export class PalletEngine {
                                 currX += w;
                             }
                         }
-                        if (wallAisleRight) {
+                        if (wallHallRight) {
                             halls.push({ x: currX, w: this.HALL_MIN });
                             currX += this.HALL_MIN;
                         }
@@ -531,7 +531,7 @@ export class PalletEngine {
             if (valid) {
                 let extraSpaces = [];
                 if (c.pushBlocksEastToPosts) {
-                    let currX = wallAisleLeft ? this.HALL_MIN : 0;
+                    let currX = wallHallLeft ? this.HALL_MIN : 0;
                     for (let i = 0; i < bList.length - 1; i++) {
                         const blockW = bList[i] * rW;
                         currX += blockW;
@@ -568,7 +568,7 @@ export class PalletEngine {
                 }
 
                 const totalRows = bList.reduce((a, b) => a + b, 0);
-                const wallAislesCount = (wallAisleLeft ? 1 : 0) + (wallAisleRight ? 1 : 0);
+                const wallHallsCount = (wallHallLeft ? 1 : 0) + (wallHallRight ? 1 : 0);
 
                 let meetsMin = true;
                 if (c.blockConstraints && c.blockConstraints.minCount) {
@@ -590,9 +590,9 @@ export class PalletEngine {
                     if (totalRows > maxRows) {
                         isBetter = true;
                     } else if (totalRows === maxRows) {
-                        if (wallAislesCount < bestWallAislesCount) {
+                        if (wallHallsCount < bestWallHallsCount) {
                             isBetter = true;
-                        } else if (wallAislesCount === bestWallAislesCount && extra < minExtra) {
+                        } else if (wallHallsCount === bestWallHallsCount && extra < minExtra) {
                             isBetter = true;
                         }
                     }
@@ -601,8 +601,8 @@ export class PalletEngine {
                 if (isBetter) {
                     maxRows = totalRows;
                     minExtra = extra;
-                    bestWallAislesCount = wallAislesCount;
-                    best = { blocks: [...bList], nRows: totalRows, extra, wallAisleLeft, wallAisleRight, hallWidths: finalHallWidths, extraSpaces };
+                    bestWallHallsCount = wallHallsCount;
+                    best = { blocks: [...bList], nRows: totalRows, extra, wallHallLeft, wallHallRight, hallWidths: finalHallWidths, extraSpaces };
                 }
             }
             
@@ -711,7 +711,7 @@ export class PalletEngine {
                 // Opt-in name + live measurement for perimeter halls/racks.
                 // Opt-in because the west band already carries the A-F slot letters
                 // and the main hall carries a zone label; both would collide.
-                if (obs.showLabel && (obs.type === 'aisle' || obs.type === 'rack')) {
+                if (obs.showLabel && (obs.type === 'hall' || obs.type === 'rack')) {
                     const horiz = obs.w >= obs.h;
                     const thick = Math.round(horiz ? obs.h : obs.w);
                     const name = obs.name || (obs.label || '').replace(/\s*\(.*\)\s*$/, '') || 'HALL';
@@ -836,7 +836,7 @@ export class PalletEngine {
             }
         }
 
-        // Posts (Aisle rendering: red dot)
+        // Posts (Hall rendering: red dot)
         m.activePosts.forEach(p => {
             const isHit = m.hits.some(h => h.post.id === p.id);
             if (!isHit) {

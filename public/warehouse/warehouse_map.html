@@ -200,7 +200,7 @@ const bay3KitchenTop = bay3BathTop + M.bay3KitchenRecess;
 const bay3North      = SOUTH_Y - M.bay3Depth;            // medido, no derivado
 const kitchenR       = bay3West + M.bay3KitchenWidth;
 
-// In Bay 3 the aisle hangs off the north-wall chain: it starts where the rows
+// In Bay 3 the hall hangs off the north-wall chain: it starts where the rows
 // end, 4.5" further south than the Bay 2 stretch (within tolerance).
 const hall3Top = bay3North + M.bay3RowsEnd;
 const hall3Bot = hall3Top + M.hallwayWidth;
@@ -297,7 +297,7 @@ for (const b of BAYS) {
         h += `<text class="lbl" x="${b.usedLabel[1]}" y="${b.usedLabel[2]}" font-size="14" fill="#64748b">${esc(b.usedLabel[0])}</text>`;
     }
 
-    // main aisle
+    // main hall
     h += `<rect x="${b.x0}" y="${b.hallTop}" width="${w}" height="${M.hallwayWidth}"
                 fill="#0c1322" stroke="#1e293b" stroke-width="1.5"/>`;
     h += `<line x1="${b.x0 + 14}" y1="${b.hallTop + M.hallwayWidth / 2}" x2="${b.x1 - 14}" y2="${b.hallTop + M.hallwayWidth / 2}"
@@ -329,14 +329,14 @@ for (const b of BAYS) {
 
 /* ---------- rack relocation overlay (?move=rack) ----------------------------
    The west rack does not move in one piece: part of it stays in Bay 3, south of the
-   main hallway, and part goes to the south wall of Bay 2. Off by default - the map is
+   main hall, and part goes to the south wall of Bay 2. Off by default - the map is
    a survey of the building, and this is the one annotation that argues for something. */
 const MOVE = new URLSearchParams(location.search).get('move');
 
 // Where it stands now: a 4' strip on the west wall, running the depth of the north zone.
 const FROM = { x: bay3West, y: bay3North, w: ft(4), h: hall3Top - bay3North };
-// Part 1 stays in Bay 3, in the south-west corner past the main hallway. South of the
-// hallway means it is outside the storage grid, so rows 18-19 are unaffected.
+// Part 1 stays in Bay 3, in the south-west corner past the main hall. South of the
+// hall means it is outside the storage grid, so rows 18-19 are unaffected.
 const P1   = { x: bay3West, y: hall3Bot + ft(0, 8), w: ft(12), h: ft(9) };
 // Part 2 goes to Bay 2 south, laid along the south wall against the east end.
 const P2   = { x: bay2East - ft(23), y: SOUTH_Y - ft(4), w: ft(23), h: ft(4) };

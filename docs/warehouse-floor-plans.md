@@ -31,13 +31,27 @@ database and nothing keeps them in sync with it. They are a plan, not a live vie
 | `index.html`               | Entry point. Totals and links to the rest                                                                                                             |
 | `warehouse_blueprint.html` | **The source of truth for the geometry.** Every coordinate derives from one `M` table; the page recomputes free-space totals and cross-checks on load |
 | `warehouse_map.html`       | The three bays to scale, free space per zone, click through to a layout                                                                               |
-| `warehouse_app.html`       | Console view — overview plus Bay 2 and Bay 3 in tabs                                                                                                  |
-| `bay3_pallet_layout.html`  | Bay 3 North pallet layout. The one in progress                                                                                                        |
-| `bay3_layout_ew.html`      | Bay 3 North with east-west rows. Parked, see below                                                                                                    |
-| `bay2_pallet_layout.html`  | Bay 2 North, modelled before the real pallet size was known                                                                                           |
+| `zone.html?id=…`           | **Every pallet layout.** One page, six zones, driven by `zones.js` + `PalletEngine.js`                                                                |
+| `bay3_combined.html`       | Both halves of Bay 3 in one picture. A hand-drawn schematic — see below                                                                               |
+
+`zone.html` renders `bay3_north`, `bay3_se`, `bay2_north`, `bay2_south`, `bay1_north`
+and `bay1_office_gap`. There is no per-bay page any more: three of them
+(`bay2_pallet_layout.html`, `bay3_layout_ew.html`, `warehouse_app.html`) were deleted
+on 21 Aug 2026 once the generic page covered what they did, and their orientation
+variants became the `N–S` / `E–W` toggle. Forks were the actual failure mode here —
+each one froze the pallet size it was born with, so the east-west comparison was being
+made against a 56" × 54" pallet nine days after the real one was measured.
 
 To correct the plan, correct the `M` table in `warehouse_blueprint.html` and the
-matching constants in the layout pages. No coordinate is written by hand.
+matching zone in `zones.js`. No coordinate is written by hand.
+
+**`bay3_combined.html` is the exception, and is labelled as one on the index.** Its
+bands are hand-picked pixel heights at three different scales (97.5" → 55 px, 120" →
+90 px, 48" → 45 px) and its totals are string literals, not engine output — they read
+5,280 / 5,880 bikes where the zone pages compute 5,010 / 5,580. It survives because it
+answers a question no other page does: what the west rack costs, both halves at once,
+in one image you can show somebody. Redrawing it off `PalletEngine` would settle that,
+and is the obvious next piece of work here.
 
 ## The cross-checks are the feature
 
@@ -59,26 +73,27 @@ it.
 
 ## Current state of Bay 3 North
 
-138 pallets, 10 deep, in 5 blocks of 14 rows; 4,140 bikes at 30 per pallet; 106 of the
-138 touch open floor. Reclaiming the 13 ft strip along the west wall would take it to
-146 — that is the CURRENT / WEST FREED toggle in the page.
+138 pallets, 10 deep, in 4 blocks of 14 rows, 78" halls; 4,140 bikes at 30 per pallet;
+90 of the 138 touch open floor. Reclaiming the 13 ft strip along the west wall adds a
+fifth block and narrows every hall to 67": 157 pallets, 16 rows, 4,710 bikes, 109 of
+them fast. That is the WEST HALL toggle in the page.
 
-The grid is 140 and 150; the difference is the four structural posts measured on
-12 Aug 2026. All four sit on one line 23 ft north of the main aisle, which puts every
+The grid is 140 and 160; the difference is the four structural posts measured on
+12 Aug 2026. All four sit on one line 23 ft north of the main hall, which puts every
 one of them mid-slot in row E — too far from any slot edge for a re-cut of the grid to
-help. Two land in pallet slots today, four once the west strip is reclaimed. The page
-marks a dead slot with a red ✕ and a post that lands in an aisle with a red dot, and
+help. Two land in pallet slots today, three once the west strip is reclaimed. The page
+marks a dead slot with a red ✕ and a post that lands in a hall with a red dot, and
 prints what it assumes about them: 8" square, centre-to-centre, neither measured.
 
-Rows run north-south. The east-west variant holds more, because aisles are what eat
-the floor, but it buries the middle rows of a five-deep block, which changes how the
+Rows run north-south. The east-west variant holds more, because halls are what eat
+the floor, but it buries the middle rows of a deep block, which changes how the
 warehouse is operated rather than just where pallets go. It is parked as a long-term
-improvement and its page is frozen on the old pallet size — re-run it before comparing
-anything.
+improvement — but it is now the `E–W ROWS` toggle on the same page, so the comparison
+is always against current measurements instead of a frozen fork.
 
 Bay 3 South/East is next. Both chains are now measured — 628" wide, 421" of usable
-depth once the south-wall rack and its aisle come off. What is still open is whether
-the north-south aisles and racks run the full depth, and where the fifth post goes.
+depth once the south-wall rack and its hall come off. What is still open is whether
+the north-south halls and racks run the full depth, and where the fifth post goes.
 
 ## Relationship to `src/features/warehouse-management/`
 
@@ -98,7 +113,7 @@ built toward that.
 Two agent definitions ship with this, in `.claude/agents/`:
 
 - **`warehouse-space-planner`** — lays pallets out inside a free zone. Carries the
-  layout rules (flush rows, aisle minimums, leftover to the front, 30 bikes per
-  pallet) and the conventions for producing a new `bayN_pallet_layout.html`.
+  layout rules (flush rows, hall minimums, leftover to the front, 30 bikes per
+  pallet) and the conventions for adding a zone to `zones.js`.
 - **`warehouse-sku-placement`** — decides what goes in each slot. Still a draft: its
   open questions are written down rather than guessed at, and it says so when invoked.

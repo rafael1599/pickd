@@ -1,6 +1,6 @@
 # WAREHOUSE UI RULES (NON-NEGOTIABLES)
 
-This document contains the strict, mandatory UI and UX rules that must be present across all warehouse visualization screens (`zone.html`, `bay2_pallet_layout.html`, etc.). These are the non-negotiable features defined by the user.
+This document contains the strict, mandatory UI and UX rules that must be present across all warehouse visualization screens (`zone.html`, `bay3_combined.html`, etc.). These are the non-negotiable features defined by the user.
 
 ## 1. Dynamic Dimension Inputs (Always Present)
 - **Pallet Text Areas:** Every screen must feature input text areas to dynamically change pallet dimensions on the fly.
@@ -11,7 +11,7 @@ This document contains the strict, mandatory UI and UX rules that must be presen
 The following metrics must be permanently anchored in the header/top-section of every layout screen in large, highly visible typography:
 - **TOTAL PALLETS:** The total capacity of pallets in the current layout.
 - **TOTAL BIKES:** Total bike capacity (calculating pallets + loose bike blocks).
-- **FAST PICKING:** The number of accessible pallet slots that touch an open floor/aisle.
+- **FAST PICKING:** The number of accessible pallet slots that touch an open floor/hall.
 
 ## 3. Universal Toggles & Orientation
 - **Layout Switches:** Every bay must have a toggle (switch) allowing the user to view different structural versions (e.g., `E-W ROWS` vs `N-S ROWS`, or toggling an optional wall hall). This empowers space optimization testing without changing code.
@@ -22,7 +22,8 @@ The following metrics must be permanently anchored in the header/top-section of 
 
 ## 5. Navigation & Terminology
 - **Return to Map:** A prominent `← MAP` button must always be available to return the user to the master blueprint (`warehouse_map.html`).
-- **Nomenclature:** The UI and labels must strictly use the word **"Hall"** instead of "aisle" or "pasillo". Islands/racks are referred to as "blocks" or "rows" (never "islas"). Example: `MAIN HALL`, `EAST HALL`.
+- **Nomenclature:** The UI and labels must strictly use the word **"Hall"** instead of "aisle", "hallway" or "pasillo". Islands/racks are referred to as "blocks" or "rows" (never "islas"). Example: `MAIN HALL`, `EAST HALL`.
+- **The rule reaches the data and the code too.** It was written for the UI, and for a week the screens said `AISLE` anyway — because `zones.js` declared `type: "aisle"`, `PalletEngine.js` looked up `main_aisle`, and every new page copied the word from the file it was cloned from. Obstacle types, ids and variables are `hall` as of 21 Aug 2026, and the check is that `grep -ri aisle public/warehouse/*.html public/warehouse/*.js` returns nothing — this rule is the only place the word is still written. A label is only as consistent as the thing it is read off.
 
 ## 6. Structural Preferences (Engine Level UI)
 - **Wall Preference:** If there is a tie in capacity, the engine must prefer drawing a single row against the wall rather than wasting space on a wall-hugging hall.

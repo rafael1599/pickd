@@ -76,26 +76,26 @@ const M = {
     hallwayWidth:      ft(10),
 
     // Bay 1 north-south chain, all of it measured off the SAME north wall.
-    // The 52' 5" reach the SHOWROOM (south edge of the aisle), not the north
+    // The 52' 5" reach the SHOWROOM (south edge of the hall), not the north
     // edge: that settles the doubt we had been dragging along.
-    bay1NorthToHall:     ft(42, 3),   // -> north edge of the aisle
-    bay1NorthToShowroom: ft(52, 5),   // -> showroom = south edge of the aisle
+    bay1NorthToHall:     ft(42, 3),   // -> north edge of the hall
+    bay1NorthToShowroom: ft(52, 5),   // -> showroom = south edge of the hall
     bay1NorthToOffices:  ft(67, 6),   // -> north wall of the Bay 1 offices
 
-    // The aisle is NOT a straight line: in Bay 1 it runs 1' 2" further north
+    // The hall is NOT a straight line: in Bay 1 it runs 1' 2" further north
     // than in Bay 2/3. That figure is only used as a check, because each
     // stretch is anchored to the south wall by its own direct measurement.
     hallOffsetBay1:    ft(1, 2),
-    bay2SouthBand:     ft(44, 3),     // south wall -> aisle, in Bay 2
+    bay2SouthBand:     ft(44, 3),     // south wall -> hall, in Bay 2
     bathCreditDepth:   ft(44, 3),     // same depth: the block fills the whole band
 
     bay2NorthEmpty:    ft(43, 9),
-    officeGap:         ft(14, 11.5),  // aisle -> north wall of the Bay 1 offices
+    officeGap:         ft(14, 11.5),  // hall -> north wall of the Bay 1 offices
                                       // (replaces the old, wrong 13' 6")
     shippingWidth:     ft(41),
     shippingDepth:     ft(46),
     cageWidth:         ft(20),
-    cageDepth:         ft(56),        // = 46' + 10' of aisle
+    cageDepth:         ft(56),        // = 46' + 10' of hall
     showroomWidth:     ft(38.2),
     showroomDepth:     ft(45, 4),
     bathCreditWidth:   ft(34, 5),     // 413 in = restroom #1 + credit dept
@@ -107,7 +107,7 @@ const M = {
     // grounds as in Bay 1: a chain off one wall beats a sum of rooms.
     bay3Depth:         ft(116),       // north wall -> south wall
     bay3NorthClear:    ft(12, 2),     // north wall -> where the rows start
-    bay3RowsEnd:       ft(62, 1.5),   // north wall -> where they end = north edge of the aisle
+    bay3RowsEnd:       ft(62, 1.5),   // north wall -> where they end = north edge of the hall
     bay3EmptyEast:     ft(52, 4),     // measured 11 Aug 2026: east face of the offices
                                       // -> east wall. Replaces the old 56' 6"
     // DERIVED, not measured: bay width (113' 10") minus the measured east gap.
@@ -118,10 +118,10 @@ const M = {
 
     // Bay 3 SOUTH/EAST north-south chain, measured 12 Aug 2026 off the SOUTH wall.
     // Independent of the north chain, so the two together check the 116' depth.
-    bay3SEDepth:       ft(44, 2),     // south wall -> south edge of the main aisle
+    bay3SEDepth:       ft(44, 2),     // south wall -> south edge of the main hall
     bay3SERackDepth:   ft(0, 55),     // rack against the south wall, N-S
     bay3SERackWidth:   ft(0, 202),    // that same rack, E-W along the wall
-    bay3SERackAisle:   ft(0, 54),     // the aisle it needs before usable floor starts
+    bay3SERackHall:   ft(0, 54),     // the hall it needs before usable floor starts
 
     bay3KitchenWidth:  ft(14),        // given as 13' 12"
     bay3KitchenRecess: ft(6, 1),      // the kitchen is RECESSED 6' 1" -> more free space
@@ -152,13 +152,13 @@ const toFtIn = (px) => {
 
 /* ---------- derived geometry ---------- */
 // Anchor: the south wall, which is straight across all three bays.
-// The aisle runs at TWO heights: in Bay 1 it sits 1' 2" north of Bay 2/3.
+// The hall runs at TWO heights: in Bay 1 it sits 1' 2" north of Bay 2/3.
 const hall1Bot  = SOUTH_Y - M.shippingDepth;             // 790  (shipping: 46' from the south)
 const hall1Top  = hall1Bot - M.hallwayWidth;             // 690
 const hall23Bot = SOUTH_Y - M.bay2SouthBand;             // 44' 3" from the south
 const hall23Top = hall23Bot - M.hallwayWidth;
 
-const cageTop     = SOUTH_Y - M.cageDepth;               // = hall1Top: the cage crosses the aisle
+const cageTop     = SOUTH_Y - M.cageDepth;               // = hall1Top: the cage crosses the hall
 const showroomTop = SOUTH_Y - M.showroomDepth;
 
 // The whole Bay 1 chain hangs off its north wall
@@ -188,7 +188,7 @@ const bay3KitchenTop = bay3BathTop + M.bay3KitchenRecess;
 const bay3North      = SOUTH_Y - M.bay3Depth;            // measured, no longer derived from the 77'
 const kitchenR       = bay3West + M.bay3KitchenWidth;
 
-// The Bay 3 aisle hangs off its north-wall chain, not off the Bay 2 south band:
+// The Bay 3 hall hangs off its north-wall chain, not off the Bay 2 south band:
 // the rows end 62' 1.5" from the north wall and that is where it starts. It lands
 // 4.5" south of the Bay 2 stretch — within tolerance, see the cross-checks.
 const hall3Top = bay3North + M.bay3RowsEnd;
@@ -249,20 +249,20 @@ h += `<path d="M ${WEST_X},${bay1North}
                L ${WEST_X},${SOUTH_Y} Z" class="wall-outer" />`;
 
 /* DIVIDING WALLS — at their real thickness (8" and 1'). They are split at the
-   aisle, because the aisle crosses them without interruption. */
+   hall, because the hall crosses them without interruption. */
 const divider = (x1, x2, yTop, openTop, openBot) => {
     const w = x2 - x1;
     return rect(x1, yTop, w, openTop - yTop, 'room-hatch') + rect(x1, yTop, w, openTop - yTop, 'wall-inner')
          + rect(x1, openBot, w, SOUTH_Y - openBot, 'room-hatch') + rect(x1, openBot, w, SOUTH_Y - openBot, 'wall-inner');
 };
-// The aisle crosses the 1/2 divider at both heights, so the opening is the union
+// The hall crosses the 1/2 divider at both heights, so the opening is the union
 const DIVIDERS = [[bay1East, bay2West, Math.min(bay1North, bay2North), hall1Top,  hall23Bot],
                   [bay2East, bay3West, Math.min(bay2North, bay3North),
                    Math.min(hall23Top, hall3Top), Math.max(hall23Bot, hall3Bot)]];
 
 /* ================================================================
    REAL FREE SPACE — what is genuinely available.
-   Only areas with no assigned use: no aisle, no offices, no cage,
+   Only areas with no assigned use: no hall, no offices, no cage,
    no shipping (that one is counted apart, being operational).
    ================================================================ */
 const sqft = (w, hh) => (w / PX_PER_FT) * (hh / PX_PER_FT);
@@ -298,8 +298,8 @@ h += zone(WEST_X, bay1East, bay1North, 'BAY 1 — AREA #1 (FAST MOVING) — WHIT
 h += zone(bay2West, bay2East, bay2North, 'BAY 2 — MOVERS — WHITE ROOF');
 h += zone(bay3West, bay3East, bay3North, 'BAY 3 — AREA #2 (NON-MOVERS) — BLACK ROOF');
 
-/* MAIN AISLE — starts at the east face of the Cage and crosses all 3 bays */
-// The aisle is NOT straight: at the Bay 1 / Bay 2 divider it steps 1' 2",
+/* MAIN HALL — starts at the east face of the Cage and crosses all 3 bays */
+// The hall is NOT straight: at the Bay 1 / Bay 2 divider it steps 1' 2",
 // because in Bay 1 it runs further north. Drawn as one continuous polygon.
 const hallPath = `M ${cageR},${hall1Top}
                   L ${bay1East},${hall1Top}
@@ -318,11 +318,11 @@ h += `<path d="${hallPath}" class="wall-inner" />`;
 const hallMidX = (bay1East + bay3East) / 2;
 const hallLblY = (hallMidX >= bay3West ? hall3Top : hall23Top);   // the label falls in the Bay 3 stretch
 h += `<rect x="${hallMidX - 220}" y="${hallLblY + 32}" width="440" height="24" fill="#fff" />`;
-h += text(hallMidX, hallLblY + 50, `MAIN AISLE / HALLWAY — ${toFtIn(M.hallwayWidth)} (NOT USABLE)`, 'text-title');
+h += text(hallMidX, hallLblY + 50, `MAIN HALL — ${toFtIn(M.hallwayWidth)} (NOT USABLE)`, 'text-title');
 h += dimV(hall1Top, hall23Top, bay1East - 150, toFtIn(M.hallOffsetBay1), 'confirmed', 'end');
 
 /* BAY 1 — south band */
-h += room(WEST_X, cageTop, M.cageWidth, M.cageDepth, 'CAGE');   // crosses the aisle
+h += room(WEST_X, cageTop, M.cageWidth, M.cageDepth, 'CAGE');   // crosses the hall
 
 h += rect(cageR, hall1Bot, M.shippingWidth, M.shippingDepth, 'room-hatch');
 h += line(cageR, hall1Bot, cageR, SOUTH_Y, 'wall-inner');
@@ -339,7 +339,7 @@ h += room(showroomR, officeTop, bay1East - showroomR, officeH,
 h += rect(showroomR, hall1Bot, bay1East - showroomR, officeTop - hall1Bot, 'wall-inner');
 h += dimV(hall1Bot, officeTop, showroomR + 25, `${toFtIn(M.officeGap)} GAP`, 'confirmed');
 
-/* BAY 2 — restroom #1 and Credit Dept start at the aisle and at the divider */
+/* BAY 2 — restroom #1 and Credit Dept start at the hall and at the divider */
 h += room(bay2West, hall23Bot, M.bathCreditWidth, M.bathCreditDepth,
           'RESTROOM #1 + CREDIT DEPT', 'confirmed');
 
@@ -369,11 +369,11 @@ h += dimV(bay3BathTop, bay3KitchenTop, kitchenR + 12, toFtIn(M.bay3KitchenRecess
 for (const d of DIVIDERS) h += divider(...d);
 
 /* DIMENSIONS */
-h += dimV(bay1North, hall1Top, WEST_X + 55, `${toFtIn(M.bay1NorthToHall)} TO AISLE`, 'confirmed');
+h += dimV(bay1North, hall1Top, WEST_X + 55, `${toFtIn(M.bay1NorthToHall)} TO HALL`, 'confirmed');
 h += dimV(bay1North, hall1Bot, WEST_X + 300, `${toFtIn(M.bay1NorthToShowroom)} TO SHOWROOM`, 'confirmed');
 h += dimV(bay1North, officeTop, WEST_X + 620, `${toFtIn(M.bay1NorthToOffices)} TO OFFICES`, 'confirmed');
 h += dimV(bay2North, hall23Top, bay2West + 55, `${toFtIn(M.bay2NorthEmpty)} EMPTY`, 'confirmed');
-h += dimV(bay3North, bay3BathTop, bay3West + 55, `${toFtIn(bay3BathTop - bay3North)} (INCL. AISLE)`, 'derived');
+h += dimV(bay3North, bay3BathTop, bay3West + 55, `${toFtIn(bay3BathTop - bay3North)} (INCL. HALL)`, 'derived');
 h += dimV(bay3North, hall3Top, bay3West + 170, `${toFtIn(hall3Top - bay3North)} USABLE`, 'confirmed');
 h += dimV(hall3Bot, bay3KitchenTop, bay3West + 170, `${toFtIn(bay3KitchenTop - hall3Bot)} FREE`, 'derived');
 h += dimH(bay3OfficeR, bay3East, bay3BathTop - 45, `${toFtIn(bay3East - bay3OfficeR)} EMPTY SPACE`, 'derived');
@@ -424,7 +424,7 @@ h += row('TOTAL FREE', `${fmt(totalFree)} sq ft`, true);
 ty += 10;
 h += row('Shipping (operational, not free)', `${fmt(sqft(M.shippingWidth, M.shippingDepth))} sq ft`);
 h += row('Cage (enclosed)', `${fmt(sqft(M.cageWidth, M.cageDepth))} sq ft`);
-h += row('Main aisle (not usable)', `${fmt(sqft(bay3East - cageR, M.hallwayWidth))} sq ft`);
+h += row('Main hall (not usable)', `${fmt(sqft(bay3East - cageR, M.hallwayWidth))} sq ft`);
 ty += 12;
 /* CROSS-CHECKS — where the measurements disagree with each other */
 const note = (t, color = '#b45309') => {
@@ -450,21 +450,21 @@ h += `<text x="${tblX}" y="${ty}" font-size="14" font-weight="800" fill="#0f172a
 ty += 24;
 h += check('Bays + dividers sum vs total length', sumBays, M.totalWidth);
 h += check('Bay 1: rooms sum vs bay width', sumRooms, M.bay1Width);
-h += check('Bay 1: aisle width per the chain', M.bay1NorthToShowroom - M.bay1NorthToHall, M.hallwayWidth);
+h += check('Bay 1: hall width per the chain', M.bay1NorthToShowroom - M.bay1NorthToHall, M.hallwayWidth);
 h += check('Bay 1: depth via shipping vs via showroom',
            M.bay1NorthToShowroom + M.shippingDepth, M.bay1NorthToShowroom + M.showroomDepth + ft(0, 8));
 h += check('Bay 1: office wall via gap vs via chain',
            officeTop - bay1North, M.bay1NorthToOffices);
 h += check('North wall Bay 1 vs Bay 2 (alignment)', bay1North, bay2North);
-h += check('Aisle step: derived vs measured', hall23Bot - hall1Bot, M.hallOffsetBay1);
+h += check('Hall step: derived vs measured', hall23Bot - hall1Bot, M.hallOffsetBay1);
 h += check('Bay 3: depth via offices vs measured',
            M.bay3NorthToOffice + M.bay3OfficeDepth, M.bay3Depth);
-h += check('Bay 3: aisle from the south, Bay 2 stretch vs Bay 3 stretch',
+h += check('Bay 3: hall from the south, Bay 2 stretch vs Bay 3 stretch',
            SOUTH_Y - hall23Top, SOUTH_Y - hall3Top);
 // The south-east band was measured off the SOUTH wall on 12 Aug 2026, while
 // everything else in Bay 3 hangs off the NORTH wall. The two chains meet at the
-// main aisle, so this is the one check that closes the 116' depth from both ends.
-h += check('Bay 3 SE: band south of the aisle, measured vs the north chain',
+// main hall, so this is the one check that closes the 116' depth from both ends.
+h += check('Bay 3 SE: band south of the hall, measured vs the north chain',
            M.bay3SEDepth, SOUTH_Y - hall3Bot);
 // Not a check but a warning: the Bay 3 office width is the one figure in this
 // bay that nobody measured. It is whatever is left after the measured east gap,
