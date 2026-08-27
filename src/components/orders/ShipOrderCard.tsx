@@ -603,17 +603,20 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           {/* Status — order number now lives in the LivePrintPreview block above.
               When shipped, the shipped logo shows in the header row above (right
               side), so we skip it here to avoid duplicating it. */}
-          {!selectedOrder.is_shipped && (
-            <div className="flex items-start gap-4">
-              <div className="flex items-center gap-3 flex-wrap min-w-0 flex-1">
-                <OrderStatusPill
-                  status={selectedOrder.status}
-                  is_waiting_inventory={selectedOrder.is_waiting_inventory}
-                  is_shipped={selectedOrder.is_shipped}
-                />
+          {/* No "Verified" pill here (idea-160): every order in Ship is completed,
+              so the label distinguished nothing. Waiting / Editing still show. */}
+          {!selectedOrder.is_shipped &&
+            !(selectedOrder.status === 'completed' && !selectedOrder.is_waiting_inventory) && (
+              <div className="flex items-start gap-4">
+                <div className="flex items-center gap-3 flex-wrap min-w-0 flex-1">
+                  <OrderStatusPill
+                    status={selectedOrder.status}
+                    is_waiting_inventory={selectedOrder.is_waiting_inventory}
+                    is_shipped={selectedOrder.is_shipped}
+                  />
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* FedEx Recipient ID — what to paste in Ship Manager (idea-153). Only on
               FedEx orders: a freight carrier or PICK UP has no recipient book. */}

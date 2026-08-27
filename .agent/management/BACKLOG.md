@@ -17,7 +17,7 @@
   (unitario × cantidad) leído del `sku_metadata` sellado en el ítem, no de un mapa asíncrono.
 - **Origen:** operador, sesión 2026-08-27.
 
-### 92. Ship: quitar "Verified" de la vista <!-- id: idea-160 --> — input: 2026-08-27 NY
+### ~~92. Ship: quitar "Verified" de la vista~~ <!-- id: idea-160 --> ✅ 2026-08-27 (pill "Verified" fuera; el contador de ítems verificados se queda — ok de Rafael)
 - **Pedido:** "Quitemos verified de la vista ship".
 - **❓ Aclarar:** en Ship hay dos cosas que dicen "verified": el pill de estado de `OrderStatusPill`
   (`completed → 'Verified'`, en cada tarjeta del feed) y el contador de ítems verificados
