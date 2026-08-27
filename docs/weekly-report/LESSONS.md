@@ -22,8 +22,11 @@ reads this file before writing anything. Written as _wrong → right_.
   Never a Ship story about a location: "a location looked wrong" → never happened. The SKU tap
   exists because "to know a SKU's stock, dimensions, weight or any detail you had to leave Ship;
   now one click".
-- **Carrier row shows only what the order can use** (FedEx alone on FedEx orders; R+L / RIST on
-  regular ones, FedEx under "…").
+- **Carrier row shows only what the order can use**, and as many as fit on **one line** — not a
+  fixed top 3 (his first ask), not a top 4 (his second): "dinámico… en una sola línea sin que se
+  corte… responsive". FedEx alone on FedEx orders; never FedEx on a regular one; "…" for the rest.
+  Lesson under the lesson: when he refines a UI rule twice in a row, the third form is the one
+  he keeps — write the rule as the _principle_ (fit the screen), not the number.
 - **Small things get half a line**, not a Before / Now box: "el 5 de verified solo menciónalo en
   media línea".
 - **"In the FedEx system"**, not "at the FedEx station".

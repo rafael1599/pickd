@@ -57,8 +57,9 @@ shipment, so the station adds it by hand on a calculator when PickD is wrong (27
 
 - **Order Items** lists the SKUs with location and, since 27 Aug, **Lbs** per line. One click on a
   SKU opens its detail (stock, dimensions, weight, photo) without leaving Ship.
-- **Carrier**: only what this order can use — a FedEx order shows FedEx alone; a regular order
-  shows R+L and RIST and keeps FedEx under "…". The selected one always shows.
+- **Carrier**: one line of the carriers this order can use, most-used first, as many as fit
+  the screen without cutting or wrapping; a FedEx order shows FedEx alone, a regular order never
+  shows FedEx. The selected one always shows; "…" opens the rest.
 - **Combined orders**: two orders for the same customer ship as one; the card shows both under
   _Combined Order_ and the numbers are the group's, wherever it is opened from.
 - **Pallet photos** (two tiles + menu), **Recipient ID** chip on FedEx orders (paste into FSM's
