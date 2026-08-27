@@ -6,6 +6,7 @@ import Hash from 'lucide-react/dist/esm/icons/hash';
 import HandMetal from 'lucide-react/dist/esm/icons/hand-metal';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal';
+import { isCarrierVisible } from './carrierPicker';
 import Scissors from 'lucide-react/dist/esm/icons/scissors';
 import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
 import Truck from 'lucide-react/dist/esm/icons/truck';
@@ -75,11 +76,6 @@ const TRANSPORT_COMPANIES = [
   'FEDEX',
   'PICK UP',
 ] as const;
-
-// The three the picker shows before "…" (idea-162). By use, last 90 days to
-// 2026-08-27: R+L 128 orders, FEDEX 37, RIST 27 — then PICK UP 23, DAYLIGHT 22.
-// The selected carrier is always shown, whichever it is.
-const PRIMARY_CARRIERS: ReadonlySet<string> = new Set(['R+L', 'FEDEX', 'RIST']);
 
 interface SelectedOrder extends PickingList {
   user?: { full_name?: string } | null;
@@ -979,11 +975,12 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
               )}
 
               <div className="w-full flex flex-wrap items-center gap-2">
-                {TRANSPORT_COMPANIES.filter(
-                  (company) =>
-                    showAllCarriers ||
-                    PRIMARY_CARRIERS.has(company) ||
-                    formData.transportCompany === company
+                {TRANSPORT_COMPANIES.filter((company) =>
+                  isCarrierVisible(company, {
+                    isFedexOrder,
+                    selected: formData.transportCompany,
+                    showAll: showAllCarriers,
+                  })
                 ).map((company) => {
                   const isSelected = formData.transportCompany === company;
                   const hasSelection = Boolean(formData.transportCompany);
