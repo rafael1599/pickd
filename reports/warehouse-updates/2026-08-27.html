@@ -53,10 +53,15 @@
 
 <h3>1. Ship — a combined bike counts as a bike, and weights are on every line</h3>
 <div class="ba">
-  <div class="before"><span class="lbl">Before</span>Yesterday order 881303 (one Riptide, registered since February) was combined into completed order 881301. Ship counted it as a <i>part</i>, asked for its weight, and saved "8 bikes + 1 part" with a total that made no sense.</div>
-  <div class="after"><span class="lbl">Now</span>Ship reads each line's bike/part and weight from the order itself the moment it opens, so the count is right from the first second. The <b>Order Items</b> table has a new <b>Lbs</b> column: what each line weighs (unit × quantity). A <b>?</b> in orange means no weight is on file yet.</div>
+  <div class="before"><span class="lbl">Before</span>Today. Order 881303 — one Riptide, registered since February — was combined into completed order 881301. Ship counted it as a <i>part</i> and asked for its weight; the screen said <b>2 pallets, 8 bikes and 1 part</b> that did not exist, and a total weight that made no sense. The only way out was a calculator: the weight of every bike, added by hand. In the end everything fit on <b>one</b> pallet.</div>
+  <div class="after"><span class="lbl">Now</span>Ship reads each line's bike/part and weight from the order itself the moment it opens, so the count is right from the first second. The <b>Order Items</b> table has a new <b>Lbs</b> column — what each line weighs (unit × quantity) — so the calculator is on the screen. A <b>?</b> in orange means no weight is on file yet. (The 2 pallets were 1 + the new order's own estimate; that part is by design and adds up once the count is right.)</div>
 </div>
-<p><b>Also fixed today:</b> opening that same combined order from <i>Shipped today</i> showed only the first order's lines — the header said 9 units, the list had 8, and the Riptide from 881303 was nowhere. The whole group now shows, whether the order is still to ship or already shipped.</p>
+<p><b>Also fixed today — a combined order opened from <i>Shipped today</i>:</b></p>
+<!-- pain story: invented, to confirm with Rafael -->
+<div class="ba">
+  <div class="before"><span class="lbl">Before</span>Open 303 / 301 again after it shipped — to answer the driver, or a claim — and it listed 7 lines under a header that said 9 units, with the Riptide from 881303 nowhere. Checking a shipped order against its list meant counting the pallet photo instead.</div>
+  <div class="after"><span class="lbl">Now</span>The whole group shows, with both orders under <i>Combined Order</i>, whether the order is still to ship or already shipped.</div>
+</div>
 <figure class="shot pair">
   <img src="img/2026-08-27-ship-order-header.jpg" alt="Ship: the combined order 881303 / 881301 after the fix" />
   <img src="img/2026-08-27-ship-order-items-lbs.jpg" alt="Order Items table with the new Lbs column" />
@@ -64,12 +69,13 @@
 </figure>
 
 <h3>2. Ship — four small things you asked for</h3>
+<!-- pain stories in this table: all four invented, to confirm with Rafael -->
 <table>
-  <tr><th>Where</th><th>Now</th></tr>
-  <tr><td>Order Items</td><td><b>Tap a SKU</b> to open its item detail. If the SKU sits in more than one place, you get the same list of locations as the long-press in Double Check, with Edit on each row.</td></tr>
-  <tr><td>Carrier picker</td><td>Shows <b>R+L, FedEx, RIST</b> (the three most used) plus whichever is selected; <b>…</b> shows the rest.</td></tr>
-  <tr><td>Pallet photos</td><td>Two thumbnails at most; the <b>+N</b> tile opens <i>Take photo</i> / <i>View all</i>.</td></tr>
-  <tr><td>Order card</td><td>The green <b>Verified</b> label is gone — every order in Ship is already verified. <i>Waiting</i> and <i>Editing</i> still show.</td></tr>
+  <tr><th>Where</th><th>Before</th><th>Now</th></tr>
+  <tr><td>Order Items</td><td>A location on the list looked wrong. To check it you left Ship, went to Stock, typed the SKU, and came back to the order.</td><td><b>Tap a SKU</b> to open its item detail. If the SKU sits in more than one place, you get the same list of locations as the long-press in Double Check, with Edit on each row.</td></tr>
+  <tr><td>Carrier picker</td><td>Every carrier logo on every order, and R+L — the one used most — was one among many to find each time.</td><td>Shows <b>R+L, FedEx, RIST</b> (the three most used) plus whichever is selected; <b>…</b> shows the rest.</td></tr>
+  <tr><td>Pallet photos</td><td>Three or four thumbnails pushed the totals and the buttons below the fold on the phone.</td><td>Two thumbnails at most; the <b>+N</b> tile opens <i>Take photo</i> / <i>View all</i>.</td></tr>
+  <tr><td>Order card</td><td>Every card in Ship said <b>Verified</b>. A label that is always on says nothing, and it hid the two that matter.</td><td>The green label is gone — every order in Ship is already verified. <i>Waiting</i> and <i>Editing</i> still show.</td></tr>
 </table>
 <figure class="shot">
   <img src="img/2026-08-27-ship-sku-tap-item-detail.jpg" alt="Item detail opened by tapping a SKU in Ship" />
@@ -77,18 +83,27 @@
 </figure>
 
 <h3>3. FedEx Recipient ID, right where you ship</h3>
-<p>The number the ship station types into FedEx Ship Manager is the customer's AS400 account plus the two-digit ship-to (<span class="mono">0010495 00 → 1049500</span>). PickD now keeps it and shows it as a chip on the Ship card and in Double Check, <b>only on FedEx orders</b>, with a copy button and the one instruction for Ship Manager. Orders captured before this get their number filled in by the new <b>Maintenance</b> button on the Bay 2 watcher (preview first, then apply).</p>
+<!-- pain story: invented, to confirm with Rafael -->
+<div class="ba">
+  <div class="before"><span class="lbl">Before</span>At the FedEx station the destination was found in Ship Manager's address book by name, or typed again from the paper. A dealer saved twice — with and without the "LLC", an old street — is two records, and picking the wrong one is a bike delivered to last year's address.</div>
+  <div class="after"><span class="lbl">Now</span>The number Ship Manager wants is the customer's AS400 account plus the two-digit ship-to (<span class="mono">0010495 00 → 1049500</span>). PickD keeps it and shows it as a chip on the Ship card and in Double Check, <b>only on FedEx orders</b>, with a copy button and the one instruction for Ship Manager: paste it in <i>Recipient ID</i> and the address fills itself. Orders captured before this get their number from the new <b>Maintenance</b> button on the Bay 2 watcher (preview first, then apply).</div>
+</div>
 
 <h3>4. On the Bay 2 watcher</h3>
 <ul>
-  <li>Every card shows the <b>Ship-to</b> name next to the Bill-to — for a consumer-direct or warranty order the Bill-to is the channel, not the person.</li>
-  <li>New <b>… → Maintenance</b> panel: one card per action with a one-line explanation, <i>Preview</i> (nothing written) and <i>Apply</i>. First action: the AS400 account backfill.</li>
-  <li>A line the catalog does not know is now written the way the box says it (<span class="mono">03-3768BL</span>, not <span class="mono">03-3768BLD</span>), so registering it makes the order match right away.</li>
+  <!-- pain story (channel names as examples): invented, to confirm with Rafael -->
+  <li><b>Before:</b> a warranty or consumer-direct order showed the channel as the customer, and the person it was for was only on the paper. <b>Now:</b> every card shows the <b>Ship-to</b> name next to the Bill-to.</li>
+  <!-- pain story: invented, to confirm with Rafael -->
+  <li><b>Before:</b> filling the AS400 account on the orders captured before today was a script one person ran, with no way to see first what it would change. <b>Now:</b> a <b>… → Maintenance</b> panel — one card per action with a one-line explanation, <i>Preview</i> (nothing written) and <i>Apply</i>. First action: that backfill.</li>
+  <li><b>Before:</b> a line the catalog did not know was written with the AS400 spelling (<span class="mono">03-3768BLD</span>), so registering the bike under the name on the box (<span class="mono">03-3768BL</span>) did not cure the order — LOW STOCK stayed. <b>Now:</b> the line is written the way the box says it, and registering it makes the order match right away.</li>
 </ul>
 <p class="note">Already installed on the Bay 2 Mac (August 27).</p>
 
 <h3>5. Double Check — the LOW STOCK panel, tested on every case</h3>
-<p>Yesterday's update said Double Check would work out a LOW STOCK line by itself instead of waiting for Edit Order. No order on the floor had one today, so it was tested on a practice order with all four cases at once. What each line shows, and the buttons it offers:</p>
+<div class="ba">
+  <div class="before"><span class="lbl">Before</span>Yesterday morning, order 881288: both Riptides flagged LOW STOCK with no location, while 145 and 76 of them sat in ROW 43 and ROW 41 under their other names. Since June that happened on seven orders — 24 "Replaced" notes between the two names in two weeks, each one a person opening Edit Order to swap what PickD could have swapped itself. And when the fix was not a sibling, the badge did not say whether the bike was unregistered, gone, reserved by another order, or just short by a few.</div>
+  <div class="after"><span class="lbl">Now</span>Double Check works the line out by itself the moment it opens, names the case, and offers only the buttons that make sense for it. No order on the floor had one today, so it was tested on a practice order with all four cases at once:</div>
+</div>
 <figure class="shot">
   <img src="img/2026-08-27-double-check-swap-unregistered.jpg" alt="Double Check: a line swapped to its sibling name, and an unregistered SKU with Register / Replace / Remove" />
   <figcaption><b>Same bike, other name</b> (the AS400 "BLD" spelling): swapped on its own to <span class="mono">03-3768BL</span> in ROW 43 A, with <i>Undo</i> on the line. <b>Not in PickD</b>: <i>Register</i> opens the Bike-or-Part form already filled in; <i>Replace</i> and <i>Remove</i> ask for a reason.</figcaption>
@@ -101,8 +116,8 @@
 
 <h2>Mentioned only, so you know it happened</h2>
 <ul class="brief">
-  <li>Stock moves no longer glue notes onto item names ("… | auto-restore on cancel") — the note goes to the item's note field; the three names that still carried one were cleaned.</li>
-  <li>The AS400 "D" spellings (<span class="mono">03-3768BLD</span>, <span class="mono">03-3769BLD</span>, <span class="mono">03-3779RDD</span>) were merged into the 2-letter names the boxes use. Stock unchanged.</li>
+  <li>Fourteen catalog names had ended up as "ALLEGRO A1 23 THUNDER GREY | Auto-cancel verification timeout | auto-restore on cancel" — two of them were in the FedEx dimensions file, so that sentence would have gone to FedEx as the description of the carton. Stock moves no longer glue notes onto names; the note goes to the item's note field, and the three names still carrying one were cleaned.</li>
+  <li>The same bike had two names in the catalog and the stock moved between them with every rename (three times this year), so "which name has the stock" was a fact of the month. The AS400 "D" spellings (<span class="mono">03-3768BLD</span>, <span class="mono">03-3769BLD</span>, <span class="mono">03-3779RDD</span>) were merged into the 2-letter names the boxes use. Stock unchanged.</li>
   <li>Safeguards on the code side (tests run on every push) and a tidier backlog.</li>
 </ul>
 
