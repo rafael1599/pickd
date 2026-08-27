@@ -331,7 +331,7 @@
   como refresco; mostrar el peso de cada línea en la tabla (idea-159).
 - **Origen:** operador, sesión 2026-08-27.
 
-### 5. Ship: una orden combinada en la columna Shipped se muestra como su orden ancla sola <!-- id: bug-022 --> — input: 2026-08-27 NY
+### ~~5. Ship: una orden combinada en la columna Shipped se muestra como su orden ancla sola~~ <!-- id: bug-022 --> ✅ 2026-08-27 `70871f5` (verificado en prod: 303 / 301 → 9 unidades, 9 bicis, 480 lb)
 - **Síntoma:** al abrir `#881303 / 881301` desde **Shipped today**, la vista dice `ORDER #881301 · 9 UNITS`
   pero Order Items lista 7 líneas / 8 unidades, cuenta 8 bicis / 0 partes y 435 lb: la Riptide de 881303
   (`03-3845BR`) no aparece en ningún lado, mientras el `9` sale de `total_units` de la fila cruda.
