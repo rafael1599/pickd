@@ -121,11 +121,13 @@ describe('InventoryService', () => {
       );
 
       expect(result.action).toBe('consolidated');
-      // Verify quantity sum (10 + 5) and note overwrite
+      // Verify quantity sum (10 + 5); the row keeps its name and the other
+      // name becomes a note (bug-018's client-side twin)
       expect(mockSupabase.update).toHaveBeenCalledWith({
         quantity: 15,
         location_id: 'loc-2',
-        item_name: 'Original | NUEVA DESCRIPCIÓN',
+        item_name: 'Original',
+        internal_note: 'Added as "NUEVA DESCRIPCIÓN"',
         is_active: true,
         distribution: [],
       });

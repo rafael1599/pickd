@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { inventorySkuCandidates } from '../skuNormalize';
+import { inventorySkuCandidates, AS400_SKU_ALIASES } from '../skuNormalize';
 
 describe('inventorySkuCandidates', () => {
   // The reported case: the watcher reads "03 4664 BR" and can emit it collapsed,
@@ -24,8 +24,13 @@ describe('inventorySkuCandidates', () => {
     expect(candidates).toContain('03-3768BL');
   });
 
-  it('applies the AS400 alias', () => {
-    expect(inventorySkuCandidates('03-4070BL')).toContain('03-4070BK');
+  it('applies an AS400 alias when one is configured', () => {
+    AS400_SKU_ALIASES['03-9001BL'] = '03-9001BK';
+    try {
+      expect(inventorySkuCandidates('03-9001BL')).toContain('03-9001BK');
+    } finally {
+      delete AS400_SKU_ALIASES['03-9001BL'];
+    }
   });
 
   it('covers a SKU that is both collapsed and mangled', () => {

@@ -13,6 +13,30 @@ import { type Database } from '../../../integrations/supabase/types';
 import { type z } from 'zod';
 import { sanitizeItemName } from '../../../utils/sanitizeItemName';
 
+/**
+ * Two names for one row: the row keeps the name it already has, and a
+ * different incoming name is recorded in internal_note ("Added as …").
+ *
+ * This used to join them — 'Original | NUEVA DESCRIPCIÓN' — which is the
+ * client-side twin of bug-018: a stock move's note became part of the item's
+ * name, and everything that derives a model from the name (the New Item
+ * prefill, the FedEx dimensions export) carried it along. A name is a name;
+ * a note is a note.
+ */
+export function mergeItemNames(
+  existing: string | null | undefined,
+  incoming: string | null | undefined,
+  existingNote: string | null | undefined
+): { item_name: string | null; internal_note: string | undefined } {
+  const ex = existing?.trim() || '';
+  const inc = incoming?.trim() || '';
+  const item_name = sanitizeItemName(ex || inc);
+  if (!ex || !inc || ex === inc) return { item_name, internal_note: undefined };
+  const tag = `Added as "${inc}"`;
+  const note = existingNote?.trim() || '';
+  return { item_name, internal_note: note.includes(tag) ? note : note ? `${note} | ${tag}` : tag };
+}
+
 /** DB-level Update type for the inventory table */
 type InventoryUpdate = Database['public']['Tables']['inventory']['Update'];
 
@@ -275,12 +299,10 @@ class InventoryService extends BaseService<
       const newTotal = (existingItem.quantity || 0) + qty;
 
       // Concatenated Description Merge: Join with ' | ' if both exist
-      const incomingNote = validatedInput.item_name?.trim();
-      const existingNote = existingItem.item_name?.trim();
-      const updatedNote = sanitizeItemName(
-        incomingNote && existingNote && incomingNote !== existingNote
-          ? `${existingNote} | ${incomingNote}`
-          : incomingNote || existingNote
+      const merged = mergeItemNames(
+        existingItem.item_name,
+        validatedInput.item_name,
+        existingItem.internal_note
       );
 
       if (!existingItem.id || isNaN(Number(existingItem.id))) {
@@ -291,7 +313,8 @@ class InventoryService extends BaseService<
       await this.update(existingItem.id, {
         quantity: newTotal,
         location_id: destination.id,
-        item_name: updatedNote,
+        item_name: merged.item_name,
+        ...(merged.internal_note !== undefined ? { internal_note: merged.internal_note } : {}),
         is_active: newTotal > 0 ? true : existingItem.is_active, // Automatic Reactivation
       } as InventoryUpdate as InventoryItemInput);
 
@@ -493,12 +516,10 @@ class InventoryService extends BaseService<
         const consolidatedQty = (targetItem.quantity || 0) + originalItem.quantity;
 
         // Concatenated Description Merge: Join with ' | ' if both exist
-        const incomingNote = validatedInput.item_name?.trim();
-        const existingNote = targetItem.item_name?.trim();
-        const updatedNote = sanitizeItemName(
-          incomingNote && existingNote && incomingNote !== existingNote
-            ? `${existingNote} | ${incomingNote}`
-            : incomingNote || existingNote
+        const merged = mergeItemNames(
+          targetItem.item_name,
+          validatedInput.item_name,
+          targetItem.internal_note
         );
 
         if (!targetItem.id || isNaN(Number(targetItem.id))) {
@@ -510,7 +531,8 @@ class InventoryService extends BaseService<
         await this.update(targetItem.id, {
           quantity: consolidatedQty,
           location_id: targetLocationId,
-          item_name: updatedNote,
+          item_name: merged.item_name,
+          ...(merged.internal_note !== undefined ? { internal_note: merged.internal_note } : {}),
           is_active: consolidatedQty > 0 ? true : targetItem.is_active,
           distribution: validatedInput.distribution || [],
         } as InventoryUpdate as InventoryItemInput);

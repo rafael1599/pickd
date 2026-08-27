@@ -7,6 +7,7 @@ import {
   SKU_SUBSTITUTES,
   variantSiblingBase,
   isVariantSibling,
+  AS400_SKU_ALIASES,
 } from '../skuNormalize';
 
 describe('canonicalBikeSku', () => {
@@ -43,12 +44,25 @@ describe('canonicalBikeSku', () => {
 });
 
 describe('resolveInventorySku', () => {
-  it('applies the explicit AS400 alias (03-4070BL is stocked as 03-4070BK)', () => {
-    expect(resolveInventorySku('03-4070BL')).toBe('03-4070BK');
+  // The shipped alias map is empty (the 03-4070BL → BK entry went stale when
+  // the stock moved back under BL); seed one to exercise the mechanism.
+  beforeAll(() => {
+    AS400_SKU_ALIASES['03-9001BL'] = '03-9001BK';
+  });
+  afterAll(() => {
+    delete AS400_SKU_ALIASES['03-9001BL'];
+  });
+
+  it('applies an explicit AS400 alias (AS400 code stocked under another SKU)', () => {
+    expect(resolveInventorySku('03-9001BL')).toBe('03-9001BK');
   });
 
   it('de-mangles the trailing letter before applying the alias', () => {
-    expect(resolveInventorySku('03-4070BLD')).toBe('03-4070BK');
+    expect(resolveInventorySku('03-9001BLD')).toBe('03-9001BK');
+  });
+
+  it('ships with no alias: 03-4070BL is stocked as itself again', () => {
+    expect(resolveInventorySku('03-4070BL')).toBe('03-4070BL');
   });
 
   it('falls back to the canonical SKU when there is no alias', () => {
@@ -58,7 +72,7 @@ describe('resolveInventorySku', () => {
   });
 
   it('never maps the inventory-side SKU itself', () => {
-    expect(resolveInventorySku('03-4070BK')).toBe('03-4070BK');
+    expect(resolveInventorySku('03-9001BK')).toBe('03-9001BK');
   });
 });
 

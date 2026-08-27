@@ -64,7 +64,12 @@ export function isVariantSibling(
  * actually holds the stock, and the Double-Check view shows a warning chip.
  */
 export const AS400_SKU_ALIASES: Record<string, string> = {
-  '03-4070BL': '03-4070BK',
+  // Empty since 2026-08-27. The one entry (03-4070BL → 03-4070BK) went stale
+  // the day the stock moved back under 03-4070BL (199 units; 03-4070BK has no
+  // inventory row left): DoubleCheckView reads an aliased SKU's stock from the
+  // alias, so it would have shown LOW STOCK on a shelf full of bikes. An alias
+  // is a standing fact about where AS400's code is stocked — add one only
+  // with the shelf in front of you, and remove it the day the shelf changes.
 };
 
 /**
