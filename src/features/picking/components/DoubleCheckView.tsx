@@ -2948,6 +2948,11 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
                           const issue = stockIssues.get(item.sku);
                           if (!issue || issue.kind === 'ok' || issue.kind === 'auto_swap')
                             return null;
+                          // Stock for a registered SKU arrives asynchronously. Until
+                          // it does the diagnosis reads "0 units in any location"
+                          // for a bike that is on the shelf, with Remove one tap
+                          // away — the card above says "checking…", so does this.
+                          if (!item.sku_not_found && stockMap[item.sku] === undefined) return null;
                           return (
                             <StockIssuePanel
                               issue={issue}
