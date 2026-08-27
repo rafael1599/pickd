@@ -1,0 +1,6 @@
+# Local CI (Rafael, 2026-08-26): typecheck and the test suite run HERE, before
+# any push — not on GitHub. Deploys go straight to main, so this is the gate.
+# Emergency escape: `git push --no-verify`.
+echo "Local CI: typecheck + tests"
+npx tsc --noEmit || { echo "Type errors — push blocked (git push --no-verify to force)"; exit 1; }
+npx vitest run || { echo "Tests failed — push blocked (git push --no-verify to force)"; exit 1; }
