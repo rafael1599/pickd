@@ -441,7 +441,7 @@ tenía `03-3768BL → BLD` y amaneció al revés tras el rename. Una entrada ah�
 que prohíbe listar hermanos en él. La familia es estricta: misma base `dd-dddd` + color de dos letras
 y **una** letra más. `BK`/`BL` no son hermanos (eso es `AS400_SKU_ALIASES`), ni un part number con
 sufijo. **La caja dice `BL` (Rafael, 26 ago tarde):** la tercera letra que imprime AS400 (`BLD`,
-`RDD`) es un sufijo de acabado, no otra bici. `20260826230000` fusionó las tres familias que tenían
+`RDD`) es un sufijo de acabado, no otra bici. `20260826231500` fusionó las tres familias que tenían
 los dos nombres (`03-3768BLD→BL`, `03-3769BLD→BL`, `03-3779RDD→RD`) y el watchdog (`7d3ac91`)
 escribe las líneas no encontradas con el color de **dos letras** (`03-3768BL`, `01-0530`) — lo que
 registra el formulario y lo que la orden encuentra por igualdad exacta; `raw_sku` conserva lo que
