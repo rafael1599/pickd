@@ -53,7 +53,7 @@
 
 <h3>1. Ship — a combined bike counts as a bike, and weights are on every line</h3>
 <div class="ba">
-  <div class="before"><span class="lbl">Before</span>Today. Order 881303 — one Riptide, registered since February — was combined into completed order 881301. Ship counted it as a <i>part</i> and asked for its weight; the screen said <b>2 pallets, 8 bikes and 1 part</b> that did not exist, and a total weight that made no sense. The only way out was a calculator: the weight of every bike, added by hand. In the end everything fit on <b>one</b> pallet.</div>
+  <div class="before"><span class="lbl">Before</span>Today. Order 881303 — one Riptide, registered since February — was combined into completed order 881301. Ship counted it as a <i>part</i> and asked for its weight; the screen said <b>2 pallets, 8 bikes and 1 part</b> that did not exist, and a total weight that made no sense. Those four numbers — pallets, bikes, parts, weight — are what goes into <b>Audit Source</b> or FedEx for the shipment, so they have to be right. The only way out was a calculator: the weight of every bike, added by hand. In the end everything fit on <b>one</b> pallet.</div>
   <div class="after"><span class="lbl">Now</span>Ship reads each line's bike/part and weight from the order itself the moment it opens, so the count is right from the first second. The <b>Order Items</b> table has a new <b>Lbs</b> column — what each line weighs (unit × quantity) — so the calculator is on the screen. A <b>?</b> in orange means no weight is on file yet. (The 2 pallets were 1 + the new order's own estimate; that part is by design and adds up once the count is right.)</div>
 </div>
 <p><b>Also fixed today — a combined order opened from <i>Shipped today</i>:</b></p>
@@ -69,10 +69,10 @@
 </figure>
 
 <h3>2. Ship — four small things you asked for</h3>
-<!-- pain stories in this table: all four invented, to confirm with Rafael -->
+<!-- pain stories in this table: Order Items reworded from Rafael's 27 Aug note (the weight is what Ship is for); the other three invented, to confirm -->
 <table>
   <tr><th>Where</th><th>Before</th><th>Now</th></tr>
-  <tr><td>Order Items</td><td>A location on the list looked wrong. To check it you left Ship, went to Stock, typed the SKU, and came back to the order.</td><td><b>Tap a SKU</b> to open its item detail. If the SKU sits in more than one place, you get the same list of locations as the long-press in Double Check, with Edit on each row.</td></tr>
+  <tr><td>Order Items</td><td>The list already shows the SKUs. What Ship is for is the weight — the numbers that go to Audit Source or FedEx — and a bike with no weight on file meant leaving Ship to put it in.</td><td><b>Tap a SKU</b> to open its item detail and enter the weight right there (Dimensions &amp; Weight). If the SKU sits in more than one place, you get the same list of locations as the long-press in Double Check, with Edit on each row.</td></tr>
   <tr><td>Carrier picker</td><td>Every carrier logo on every order, and R+L — the one used most — was one among many to find each time.</td><td>Shows <b>R+L, FedEx, RIST</b> (the three most used) plus whichever is selected; <b>…</b> shows the rest.</td></tr>
   <tr><td>Pallet photos</td><td>Three or four thumbnails pushed the totals and the buttons below the fold on the phone.</td><td>Two thumbnails at most; the <b>+N</b> tile opens <i>Take photo</i> / <i>View all</i>.</td></tr>
   <tr><td>Order card</td><td>Every card in Ship said <b>Verified</b>. A label that is always on says nothing, and it hid the two that matter.</td><td>The green label is gone — every order in Ship is already verified. <i>Waiting</i> and <i>Editing</i> still show.</td></tr>
