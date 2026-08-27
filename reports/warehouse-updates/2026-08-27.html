@@ -45,7 +45,7 @@
 <div class="short">
   <p><b>The short version</b></p>
   <p>1. Ship: adding a bike to a completed order no longer turns it into a "part", every line now shows its <b>weight</b>, and a combined order opened from <i>Shipped today</i> shows the whole group.</p>
-  <p>2. Ship: tap a SKU to open it, carriers show 3 + "…", photos show 2 + a menu, and the "Verified" pill is gone.</p>
+  <p>2. Ship: one click on a SKU opens its detail without leaving Ship; the carrier row shows only what this order can use (FedEx alone, or R+L / RIST); photos show 2 + a menu.</p>
   <p>3. FedEx orders show the <b>Recipient ID</b> to paste into Ship Manager, in Ship and in Double Check.</p>
 </div>
 
@@ -69,14 +69,14 @@
 </figure>
 
 <h3>2. Ship — four small things you asked for</h3>
-<!-- pain stories in this table: Order Items reworded from Rafael's 27 Aug note (the weight is what Ship is for); the other three invented, to confirm -->
+<!-- pain stories: Order Items and Carrier picker are Rafael's (27 Aug); Pallet photos invented, to confirm -->
 <table>
   <tr><th>Where</th><th>Before</th><th>Now</th></tr>
-  <tr><td>Order Items</td><td>The list already shows the SKUs. What Ship is for is the weight — the numbers that go to Audit Source or FedEx — and a bike with no weight on file meant leaving Ship to put it in.</td><td><b>Tap a SKU</b> to open its item detail and enter the weight right there (Dimensions &amp; Weight). If the SKU sits in more than one place, you get the same list of locations as the long-press in Double Check, with Edit on each row.</td></tr>
-  <tr><td>Carrier picker</td><td>Every carrier logo on every order, and R+L — the one used most — was one among many to find each time.</td><td>Shows <b>R+L, FedEx, RIST</b> (the three most used) plus whichever is selected; <b>…</b> shows the rest.</td></tr>
+  <tr><td>Order Items</td><td>To know a SKU's stock, dimensions, weight or any other detail, you had to leave Ship.</td><td><b>One click on the SKU</b> opens its detail right there. If the SKU sits in more than one place, you get the same list of locations as the long-press in Double Check, with Edit on each row.</td></tr>
+  <tr><td>Carrier picker</td><td>Every carrier logo on every order, whether the order could use it or not — FedEx on a truck order, four truck lines on a FedEx order.</td><td>The row holds only what this order can use: a <b>FedEx order shows FedEx alone</b>; a <b>regular order shows R+L and RIST</b> and keeps FedEx under <b>…</b>. Whatever is selected always shows; <b>…</b> opens the rest.</td></tr>
   <tr><td>Pallet photos</td><td>Three or four thumbnails pushed the totals and the buttons below the fold on the phone.</td><td>Two thumbnails at most; the <b>+N</b> tile opens <i>Take photo</i> / <i>View all</i>.</td></tr>
-  <tr><td>Order card</td><td>Every card in Ship said <b>Verified</b>. A label that is always on says nothing, and it hid the two that matter.</td><td>The green label is gone — every order in Ship is already verified. <i>Waiting</i> and <i>Editing</i> still show.</td></tr>
 </table>
+<p class="note">And the green <b>Verified</b> label is gone from the Ship card — every order there is already verified.</p>
 <figure class="shot">
   <img src="img/2026-08-27-ship-sku-tap-item-detail.jpg" alt="Item detail opened by tapping a SKU in Ship" />
   <figcaption>Live on August 27: tapping <span class="mono">03-4041BL</span> in Order Items opens the item straight away — 26 on hand, ROW 3 F. The carrier picker (R+L selected, RIST, FedEx, …) and the two photo tiles with the … menu are in the order screenshot above.</figcaption>
@@ -85,7 +85,7 @@
 <h3>3. FedEx Recipient ID, right where you ship</h3>
 <!-- pain story: invented, to confirm with Rafael -->
 <div class="ba">
-  <div class="before"><span class="lbl">Before</span>At the FedEx station the destination was found in Ship Manager's address book by name, or typed again from the paper. A dealer saved twice — with and without the "LLC", an old street — is two records, and picking the wrong one is a bike delivered to last year's address.</div>
+  <div class="before"><span class="lbl">Before</span>In the FedEx system the destination was found in the address book by name, or typed again from the paper. A dealer saved twice — with and without the "LLC", an old street — is two records, and picking the wrong one is a bike delivered to last year's address.</div>
   <div class="after"><span class="lbl">Now</span>The number Ship Manager wants is the customer's AS400 account plus the two-digit ship-to (<span class="mono">0010495 00 → 1049500</span>). PickD keeps it and shows it as a chip on the Ship card and in Double Check, <b>only on FedEx orders</b>, with a copy button and the one instruction for Ship Manager: paste it in <i>Recipient ID</i> and the address fills itself. Orders captured before this get their number from the new <b>Maintenance</b> button on the Bay 2 watcher (preview first, then apply).</div>
 </div>
 
