@@ -135,6 +135,7 @@ function dayLabel(date: Date): string {
 
 import { isBikeSku } from '../../utils/bikeDetection';
 import { resolveLineMeta, stampedMeta, type LineMeta } from './ship/lib/lineMeta';
+import { useOpenSkuDetail } from '../inventory/hooks/useOpenSkuDetail';
 
 /**
  * Bike vs part classification for an item: `sku_metadata.is_bike === true` is the
@@ -336,6 +337,7 @@ interface OrderWithRelations {
 export const ShipScreen = () => {
   const { user } = useAuth();
   const { open: openModal } = useModal();
+  const openSkuDetail = useOpenSkuDetail();
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
   const { createGroup, addToGroup, removeFromGroup, dissolveGroup, resolveMixedShippingType } =
     useOrderGroups();
@@ -2488,6 +2490,14 @@ export const ShipScreen = () => {
                       partCount={partCount}
                       activeOrderFilter={selectedOrderFilter}
                       lineMeta={metaForItem}
+                      onSkuClick={(item) =>
+                        void openSkuDetail({
+                          sku: item.sku,
+                          itemName: item.item_name ?? null,
+                          pickLocation: item.location ?? null,
+                          pickWarehouse: item.warehouse ?? null,
+                        })
+                      }
                     />
                   )}
                 </>

@@ -57,7 +57,7 @@
   de la vista de verificación?
 - **Origen:** operador, sesión 2026-08-27.
 
-### 97. Ship: clickear un SKU abre siempre el detalle del ítem <!-- id: idea-165 --> — input: 2026-08-27 NY
+### ~~97. Ship: clickear un SKU abre siempre el detalle del ítem~~ <!-- id: idea-165 --> ✅ 2026-08-27 (`useOpenSkuDetail`)
 - **Pedido:** "En la vista ship, clickear un sku que siempre abra item detail". Hoy `OrderItemsTable`
   no tiene click. Con una sola fila de inventario abre `item-detail` directo; con varias, el mismo
   selector de ubicaciones que el long-press de Double Check (Editar por fila).

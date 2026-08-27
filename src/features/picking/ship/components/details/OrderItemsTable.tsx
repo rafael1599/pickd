@@ -18,6 +18,8 @@ interface OrderItemsTableProps {
    * bike weighs, after a combined bike was priced as a part (bug-021).
    */
   lineMeta?: (item: PickingListItem) => { is_bike: boolean; weight_lbs: number | null };
+  /** Tapping a SKU opens its Item Detail (idea-165). */
+  onSkuClick?: (item: PickingListItem) => void;
 }
 
 export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
@@ -26,6 +28,7 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
   partCount,
   activeOrderFilter = null,
   lineMeta,
+  onSkuClick,
 }) => {
   const items = React.useMemo(() => {
     if (!order || !Array.isArray(order.items)) return [];
@@ -132,7 +135,20 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                     <td className="py-2.5 px-4 font-mono font-bold text-right text-accent">
                       {qty}
                     </td>
-                    <td className="py-2.5 px-4 font-mono font-black tracking-tight">{sku}</td>
+                    <td className="py-2.5 px-4 font-mono font-black tracking-tight">
+                      {onSkuClick && item.sku ? (
+                        <button
+                          type="button"
+                          onClick={() => onSkuClick(item)}
+                          className="text-accent hover:underline underline-offset-2 active:opacity-70"
+                          title="Open item detail"
+                        >
+                          {sku}
+                        </button>
+                      ) : (
+                        sku
+                      )}
+                    </td>
                     <td
                       className="py-2.5 px-4 font-medium text-content/90 truncate max-w-xs"
                       title={desc}
