@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
 import { orderColorFor } from '../../utils/orderColors';
 import { CombinedOrderNumbers } from './CombinedOrderNumbers';
 import MapPin from 'lucide-react/dist/esm/icons/map-pin';
@@ -6,7 +6,7 @@ import Hash from 'lucide-react/dist/esm/icons/hash';
 import HandMetal from 'lucide-react/dist/esm/icons/hand-metal';
 import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal';
-import { isCarrierVisible } from './carrierPicker';
+import { carrierCandidates, fitCarriers } from './carrierPicker';
 import Scissors from 'lucide-react/dist/esm/icons/scissors';
 import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
 import Truck from 'lucide-react/dist/esm/icons/truck';
@@ -254,6 +254,42 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [isUpdatingCarrier, setIsUpdatingCarrier] = useState(false);
   const [showAllCarriers, setShowAllCarriers] = useState(false);
+  // The carrier row shows what fits on one line (carrierPicker.ts): every
+  // candidate chip is rendered once, hidden, and measured; the visible row is
+  // cut to the measured width and re-cut whenever the card resizes.
+  const carrierRowRef = useRef<HTMLDivElement>(null);
+  const carrierMeasureRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const moreMeasureRef = useRef<HTMLButtonElement>(null);
+  const [fittedCarriers, setFittedCarriers] = useState<string[] | null>(null);
+  const carrierCandidateList = useMemo(
+    () => carrierCandidates(TRANSPORT_COMPANIES, isFedexOrder, formData.transportCompany),
+    [isFedexOrder, formData.transportCompany]
+  );
+  useLayoutEffect(() => {
+    const row = carrierRowRef.current;
+    if (!row) return;
+    const CHIP_GAP = 8; // gap-2
+    const measure = () => {
+      const moreWidth = moreMeasureRef.current?.offsetWidth ?? 44;
+      const available = row.clientWidth - moreWidth - CHIP_GAP;
+      const next = fitCarriers(
+        carrierCandidateList,
+        (company) => carrierMeasureRefs.current[company]?.offsetWidth ?? 0,
+        available,
+        CHIP_GAP,
+        formData.transportCompany
+      );
+      setFittedCarriers((prev) => (prev && prev.join('|') === next.join('|') ? prev : next));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [carrierCandidateList, formData.transportCompany]);
+  const visibleCarriers: readonly string[] = showAllCarriers
+    ? TRANSPORT_COMPANIES
+    : (fittedCarriers ?? carrierCandidateList.slice(0, 3));
   const [justSavedField, setJustSavedField] = useState<string | null>(null);
   const [isPavBannerDismissed, setIsPavBannerDismissed] = useState(false);
   const [isEbikeBannerDismissed, setIsEbikeBannerDismissed] = useState(false);
@@ -974,71 +1010,97 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 </div>
               )}
 
-              <div className="w-full flex flex-wrap items-center gap-2">
-                {TRANSPORT_COMPANIES.filter((company) =>
-                  isCarrierVisible(company, {
-                    isFedexOrder,
-                    selected: formData.transportCompany,
-                    showAll: showAllCarriers,
-                  })
-                ).map((company) => {
-                  const isSelected = formData.transportCompany === company;
-                  const hasSelection = Boolean(formData.transportCompany);
-                  const brand = getCarrierBrandColors(company);
-
-                  let styleClasses = '';
-                  if (isSelected) {
-                    styleClasses = `bg-white ${brand.border} ring-2 ${brand.ring} ${brand.shadow} opacity-100 scale-105 z-10`;
-                  } else if (hasSelection) {
-                    styleClasses =
-                      'bg-main/60 border-subtle opacity-40 grayscale contrast-75 hover:opacity-100 hover:grayscale-0 hover:contrast-100 hover:border-content/30';
-                  } else {
-                    styleClasses =
-                      'bg-main border-subtle opacity-100 hover:border-content/30 hover:bg-surface';
-                  }
-
-                  return (
-                    <button
-                      key={company}
-                      type="button"
-                      disabled={isUpdatingCarrier}
-                      onClick={() => handleCarrierChange(company)}
-                      title={company}
-                      aria-label={`Select carrier ${company}`}
-                      className={`shrink-0 px-4 h-11 rounded-2xl border inline-flex items-center justify-center transition-all duration-200 active:scale-95 ${styleClasses} ${
-                        isUpdatingCarrier ? 'cursor-not-allowed' : ''
-                      }`}
-                    >
-                      <TransportLogo
-                        company={company}
-                        height={26}
-                        plain
-                        textColor={
-                          company === 'PICK UP'
-                            ? 'text-red-500 font-black tracking-wider'
-                            : isSelected
-                              ? 'text-content font-black'
-                              : 'text-muted font-bold'
-                        }
-                      />
-                    </button>
-                  );
-                })}
-                <button
-                  type="button"
-                  onClick={() => setShowAllCarriers((v) => !v)}
-                  title={showAllCarriers ? 'Fewer carriers' : 'More carriers'}
-                  aria-label={showAllCarriers ? 'Show fewer carriers' : 'Show all carriers'}
-                  aria-expanded={showAllCarriers}
-                  className="shrink-0 px-3 h-11 rounded-2xl border border-subtle bg-main text-muted hover:text-content hover:border-content/30 inline-flex items-center justify-center transition-all active:scale-95"
+              <div className="relative w-full">
+                {/* Hidden twin of every candidate chip, measured to decide what fits on one line. */}
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-x-0 top-0 h-0 overflow-hidden invisible pointer-events-none flex items-center gap-2 whitespace-nowrap"
                 >
-                  <MoreHorizontal size={18} />
-                  {showAllCarriers && (
-                    <span className="ml-1 text-[10px] font-black uppercase tracking-widest">
-                      Less
-                    </span>
-                  )}
-                </button>
+                  {carrierCandidateList.map((company) => (
+                    <button
+                      key={`measure-${company}`}
+                      ref={(el) => {
+                        carrierMeasureRefs.current[company] = el;
+                      }}
+                      type="button"
+                      tabIndex={-1}
+                      className="shrink-0 px-4 h-11 rounded-2xl border inline-flex items-center justify-center"
+                    >
+                      <TransportLogo company={company} height={26} plain textColor="font-black" />
+                    </button>
+                  ))}
+                  <button
+                    ref={moreMeasureRef}
+                    type="button"
+                    tabIndex={-1}
+                    className="shrink-0 px-3 h-11 rounded-2xl border inline-flex items-center justify-center"
+                  >
+                    <MoreHorizontal size={18} />
+                  </button>
+                </div>
+                <div
+                  ref={carrierRowRef}
+                  className={`w-full flex items-center gap-2 ${showAllCarriers ? 'flex-wrap' : 'flex-nowrap'}`}
+                >
+                  {visibleCarriers.map((company) => {
+                    const isSelected = formData.transportCompany === company;
+                    const hasSelection = Boolean(formData.transportCompany);
+                    const brand = getCarrierBrandColors(company);
+
+                    let styleClasses = '';
+                    if (isSelected) {
+                      styleClasses = `bg-white ${brand.border} ring-2 ${brand.ring} ${brand.shadow} opacity-100 scale-105 z-10`;
+                    } else if (hasSelection) {
+                      styleClasses =
+                        'bg-main/60 border-subtle opacity-40 grayscale contrast-75 hover:opacity-100 hover:grayscale-0 hover:contrast-100 hover:border-content/30';
+                    } else {
+                      styleClasses =
+                        'bg-main border-subtle opacity-100 hover:border-content/30 hover:bg-surface';
+                    }
+
+                    return (
+                      <button
+                        key={company}
+                        type="button"
+                        disabled={isUpdatingCarrier}
+                        onClick={() => handleCarrierChange(company)}
+                        title={company}
+                        aria-label={`Select carrier ${company}`}
+                        className={`shrink-0 px-4 h-11 rounded-2xl border inline-flex items-center justify-center transition-all duration-200 active:scale-95 ${styleClasses} ${
+                          isUpdatingCarrier ? 'cursor-not-allowed' : ''
+                        }`}
+                      >
+                        <TransportLogo
+                          company={company}
+                          height={26}
+                          plain
+                          textColor={
+                            company === 'PICK UP'
+                              ? 'text-red-500 font-black tracking-wider'
+                              : isSelected
+                                ? 'text-content font-black'
+                                : 'text-muted font-bold'
+                          }
+                        />
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => setShowAllCarriers((v) => !v)}
+                    title={showAllCarriers ? 'Fewer carriers' : 'More carriers'}
+                    aria-label={showAllCarriers ? 'Show fewer carriers' : 'Show all carriers'}
+                    aria-expanded={showAllCarriers}
+                    className="shrink-0 px-3 h-11 rounded-2xl border border-subtle bg-main text-muted hover:text-content hover:border-content/30 inline-flex items-center justify-center transition-all active:scale-95"
+                  >
+                    <MoreHorizontal size={18} />
+                    {showAllCarriers && (
+                      <span className="ml-1 text-[10px] font-black uppercase tracking-widest">
+                        Less
+                      </span>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

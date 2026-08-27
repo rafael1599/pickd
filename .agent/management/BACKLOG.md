@@ -49,7 +49,7 @@
 - **Origen:** operador, sesión 2026-08-27.
 
 ### ~~94. Ship: selector de carrier con 3 opciones + "…" para el resto~~ <!-- id: idea-162 --> ✅ 2026-08-27 (R+L · FEDEX · RIST + el elegido; "…" despliega el resto)
-- **Refinado (Rafael, 27 ago tarde):** la fila muestra solo lo que la orden puede usar — orden FedEx: solo FedEx; orden regular: R+L y RIST, FedEx bajo "…"; el elegido siempre visible. `carrierPicker.ts` + tests.
+- **Refinado (Rafael, 27 ago tarde, tres pasos: "3 + …" → "sin FedEx en el top" → "dinámico, una sola línea, responsive"):** la fila se llena con las compañías que caben en una línea sin cortarse (medición real, `ResizeObserver`), por uso (R+L, RIST, PICK UP, DAYLIGHT…); orden regular nunca muestra FedEx; orden FedEx solo FedEx; el elegido siempre visible. `carrierPicker.ts` (`carrierCandidates`, `fitCarriers`) + tests.
 - **Pedido:** "Cuando se elige el carrier reducir las opciones a 3 más tres puntitos para expandir".
 - **Propuesta con datos (90 d):** ver conteo de `transport_company` en la sesión 2026-08-27; los 3
   visibles serían los 3 más usados, el resto detrás de "…". Si el operador prefiere una terna fija
