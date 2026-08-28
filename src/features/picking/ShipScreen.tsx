@@ -415,6 +415,9 @@ export const ShipScreen = () => {
     setShippedIncludeUnassigned,
     includeShipped,
     setIncludeShipped,
+    searchHasMore,
+    loadMoreSearch,
+    searchPageSize,
     handlePendingCarrierToggle,
     handleShippedCarrierToggle,
     matchesPendingCarrierFilter,
@@ -1190,7 +1193,6 @@ export const ShipScreen = () => {
   // can show both at once without either one hiding orders from the other.
   const buildOrdersForTab = useCallback(
     (tab: 'to_ship' | 'shipped') => {
-      const todayStr = dayKey(new Date());
       const query = debouncedSearchQuery.toLowerCase().trim();
 
       let targetList: OrderWithRelations[];
@@ -1226,8 +1228,10 @@ export const ShipScreen = () => {
           return tab === 'shipped' ? !!o.is_shipped : !o.is_shipped;
         }
 
-        const shippedToday = !!o.is_shipped && dayKey(new Date(o.updated_at)) === todayStr;
-        const matchTab = tab === 'shipped' ? shippedToday : !o.is_shipped;
+        // The hook decides the shipped window (today's plus the most recent
+        // earlier ones, Rafael 2026-08-28); here only the status counts. The
+        // day groups below say TODAY / YESTERDAY / the date.
+        const matchTab = tab === 'shipped' ? !!o.is_shipped : !o.is_shipped;
         if (!matchTab) return false;
 
         return tab === 'shipped' ? matchesShippedCarrierFilter(o) : matchesPendingCarrierFilter(o);
@@ -1270,11 +1274,15 @@ export const ShipScreen = () => {
   // finished and wants to print/verify, not just the latest created row.
   // Sourced from filteredOrders (not raw `orders`) so a combined "general"
   // group auto-selects as the merged pseudo-order, not a lone sibling.
+  // With nothing pending, the most recently shipped order opens instead of
+  // an empty preview (Rafael, 2026-08-28) — shippedFilteredOrders is newest
+  // first, whether or not the Shipped column is shown.
   useEffect(() => {
-    if (filteredOrders.length === 0 || selectedOrderRef.current || externalOrderId) return;
+    if (selectedOrderRef.current || externalOrderId) return;
+    if (filteredOrders.length === 0 && shippedFilteredOrders.length === 0) return;
     const lastCompleted = filteredOrders.find((o) => o.status === 'completed');
-    setSelectedOrder(lastCompleted || filteredOrders[0]);
-  }, [filteredOrders, externalOrderId]);
+    setSelectedOrder(lastCompleted || filteredOrders[0] || shippedFilteredOrders[0]);
+  }, [filteredOrders, shippedFilteredOrders, externalOrderId]);
 
   // Self-heal: the realtime UPDATE handler (and any future/edge-case path)
   // re-fetches a single row via fetchOrderDetails/fetchSingleLightweightOrder
@@ -2757,88 +2765,97 @@ export const ShipScreen = () => {
                 );
 
                 return (
-                  <div className={`flex flex-col gap-3 ${includeShipped ? 'md:flex-row' : ''}`}>
-                    {/* Pending Ship — twin column 1 */}
-                    <div className={includeShipped ? 'md:flex-1 md:min-w-0' : 'w-full'}>
-                      <div className="px-2 mb-2 flex items-center justify-between min-h-[20px]">
-                        <span className="text-xs font-black uppercase tracking-wider text-content">
-                          Pending Ship ({toShipCount})
-                        </span>
-                        {searchQuery.trim() && (
-                          <span className="text-[10px] font-bold text-muted/80 truncate">
-                            search: "{searchQuery.trim()}"
-                          </span>
-                        )}
-                      </div>
-
-                      {(pendingCarrierStats.availableCarriers.length > 0 ||
-                        pendingCarrierStats.hasUnassignedOrders ||
-                        waitingCount > 0) && (
-                        <div className="px-2 mb-2">
-                          <CarrierFilter
-                            selectedCarriers={pendingSelectedCarriers}
-                            includeUnassigned={pendingIncludeUnassigned}
-                            hasUnassignedOrders={pendingCarrierStats.hasUnassignedOrders}
-                            availableCarriers={pendingCarrierStats.availableCarriers}
-                            carrierCounts={pendingCarrierStats.carrierCounts}
-                            unassignedCount={pendingCarrierStats.unassignedCount}
-                            onCarrierToggle={handlePendingCarrierToggle}
-                            onUnassignedToggle={setPendingIncludeUnassigned}
-                            showWaitingFilter={waitingCount > 0}
-                            isWaitingFilterActive={pendingShowWaiting}
-                            waitingCount={waitingCount}
-                            onWaitingToggle={() => setPendingShowWaiting((prev) => !prev)}
-                          />
-                        </div>
-                      )}
-
-                      {renderOrderColumn(
-                        ordersGroupedByDate,
-                        false,
-                        <div className="h-full flex flex-col items-center justify-center text-text-muted space-y-4 py-8">
-                          <p className="font-heading text-xl font-bold opacity-30">
-                            No orders found
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Shipped — twin column 2 */}
-                    {includeShipped && (
-                      <div className="md:flex-1 md:min-w-0 md:border-l md:border-subtle md:pl-3">
+                  <>
+                    <div className={`flex flex-col gap-3 ${includeShipped ? 'md:flex-row' : ''}`}>
+                      {/* Pending Ship — twin column 1 */}
+                      <div className={includeShipped ? 'md:flex-1 md:min-w-0' : 'w-full'}>
                         <div className="px-2 mb-2 flex items-center justify-between min-h-[20px]">
-                          <span className="text-xs font-black uppercase tracking-wider text-emerald-400">
-                            Shipped Today ({shippedCount})
+                          <span className="text-xs font-black uppercase tracking-wider text-content">
+                            Pending Ship ({toShipCount})
                           </span>
+                          {searchQuery.trim() && (
+                            <span className="text-[10px] font-bold text-muted/80 truncate">
+                              search: "{searchQuery.trim()}"
+                            </span>
+                          )}
                         </div>
 
-                        {shippedCarrierStats.availableCarriers.length > 0 && (
+                        {(pendingCarrierStats.availableCarriers.length > 0 ||
+                          pendingCarrierStats.hasUnassignedOrders ||
+                          waitingCount > 0) && (
                           <div className="px-2 mb-2">
                             <CarrierFilter
-                              selectedCarriers={shippedSelectedCarriers}
-                              includeUnassigned={shippedIncludeUnassigned}
-                              hasUnassignedOrders={shippedCarrierStats.hasUnassignedOrders}
-                              availableCarriers={shippedCarrierStats.availableCarriers}
-                              carrierCounts={shippedCarrierStats.carrierCounts}
-                              unassignedCount={shippedCarrierStats.unassignedCount}
-                              onCarrierToggle={handleShippedCarrierToggle}
-                              onUnassignedToggle={setShippedIncludeUnassigned}
+                              selectedCarriers={pendingSelectedCarriers}
+                              includeUnassigned={pendingIncludeUnassigned}
+                              hasUnassignedOrders={pendingCarrierStats.hasUnassignedOrders}
+                              availableCarriers={pendingCarrierStats.availableCarriers}
+                              carrierCounts={pendingCarrierStats.carrierCounts}
+                              unassignedCount={pendingCarrierStats.unassignedCount}
+                              onCarrierToggle={handlePendingCarrierToggle}
+                              onUnassignedToggle={setPendingIncludeUnassigned}
+                              showWaitingFilter={waitingCount > 0}
+                              isWaitingFilterActive={pendingShowWaiting}
+                              waitingCount={waitingCount}
+                              onWaitingToggle={() => setPendingShowWaiting((prev) => !prev)}
                             />
                           </div>
                         )}
 
                         {renderOrderColumn(
-                          shippedGroupedByDate,
-                          true,
-                          <div className="flex flex-col items-center justify-center text-center py-6 px-3 gap-3">
-                            <p className="text-xs text-muted">
-                              No orders were marked as shipped today.
+                          ordersGroupedByDate,
+                          false,
+                          <div className="h-full flex flex-col items-center justify-center text-text-muted space-y-4 py-8">
+                            <p className="font-heading text-xl font-bold opacity-30">
+                              No orders found
                             </p>
                           </div>
                         )}
                       </div>
+
+                      {/* Shipped — twin column 2 */}
+                      {includeShipped && (
+                        <div className="md:flex-1 md:min-w-0 md:border-l md:border-subtle md:pl-3">
+                          <div className="px-2 mb-2 flex items-center justify-between min-h-[20px]">
+                            <span className="text-xs font-black uppercase tracking-wider text-emerald-400">
+                              Shipped ({shippedCount})
+                            </span>
+                          </div>
+
+                          {shippedCarrierStats.availableCarriers.length > 0 && (
+                            <div className="px-2 mb-2">
+                              <CarrierFilter
+                                selectedCarriers={shippedSelectedCarriers}
+                                includeUnassigned={shippedIncludeUnassigned}
+                                hasUnassignedOrders={shippedCarrierStats.hasUnassignedOrders}
+                                availableCarriers={shippedCarrierStats.availableCarriers}
+                                carrierCounts={shippedCarrierStats.carrierCounts}
+                                unassignedCount={shippedCarrierStats.unassignedCount}
+                                onCarrierToggle={handleShippedCarrierToggle}
+                                onUnassignedToggle={setShippedIncludeUnassigned}
+                              />
+                            </div>
+                          )}
+
+                          {renderOrderColumn(
+                            shippedGroupedByDate,
+                            true,
+                            <div className="flex flex-col items-center justify-center text-center py-6 px-3 gap-3">
+                              <p className="text-xs text-muted">No shipped orders yet.</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {searchQuery.trim() && searchHasMore && (
+                      <button
+                        type="button"
+                        onClick={loadMoreSearch}
+                        className="mx-auto mt-3 px-4 h-9 rounded-full border border-subtle bg-card text-[10px] font-black uppercase tracking-widest text-muted hover:text-content hover:border-content/30 transition-all active:scale-95"
+                      >
+                        Show {searchPageSize} more
+                      </button>
                     )}
-                  </div>
+                  </>
                 );
               })()}
             </div>

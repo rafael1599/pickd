@@ -11,6 +11,11 @@ import {
 } from '../../../../utils/shippingClassification';
 import type { PickingListItem, CombineMeta } from '../../../../schemas/picking.schema';
 
+/** Search results come five at a time; "Show 5 more" asks for the next five. */
+const SEARCH_PAGE_SIZE = 5;
+/** The Shipped column always holds at least this many, today's or not. */
+const RECENT_SHIPPED = 10;
+
 export function dayKey(date: Date): string {
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/New_York',
@@ -179,6 +184,18 @@ export function useShipOrdersData() {
     return urlOrder ? urlOrder.trim() : '';
   });
   const debouncedSearchQuery = useDebounce(searchQuery, 200);
+  // Search is paged 5 at a time (Rafael, 2026-08-28): typing "8" must not pull
+  // 500 rows. Each page re-runs the query with a bigger limit — cheap, indexed
+  // on created_at — and one extra row tells us whether "Show 5 more" applies.
+  // An exact order number is fetched on its own so an old order is never
+  // hidden behind five newer ones that merely contain the digits (the cap
+  // that once made a registered order unfindable).
+  const [searchPage, setSearchPage] = useState(1);
+  const [searchHasMore, setSearchHasMore] = useState(false);
+  useEffect(() => {
+    setSearchPage(1);
+  }, [debouncedSearchQuery]);
+  const loadMoreSearch = useCallback(() => setSearchPage((p) => p + 1), []);
   // Pending Ship carrier filter state
   const [pendingSelectedCarriers, setPendingSelectedCarriers] = useState<Set<string>>(new Set());
   const [pendingIncludeUnassigned, setPendingIncludeUnassigned] = useState(false);
@@ -285,16 +302,15 @@ export function useShipOrdersData() {
         .neq('status', 'cancelled')
         .order('created_at', { ascending: false });
 
+      const pageLimit = SEARCH_PAGE_SIZE * searchPage;
       if (sq) {
         if (customerIds.length > 0) {
           query = query.or(`order_number.ilike.%${sq}%,customer_id.in.(${customerIds.join(',')})`);
         } else {
           query = query.ilike('order_number', `%${sq}%`);
         }
-        // Ordered by created_at desc, so a low cap here silently drops older
-        // matches for generic/short queries before the client even sees
-        // them. 500 gives a lot more headroom while still bounding payload size.
-        query = query.limit(500);
+        // Newest first, one page at a time, plus one row to know if more exist.
+        query = query.limit(pageLimit + 1);
       } else {
         query = query.or(
           `is_shipped.is.null,is_shipped.eq.false,and(is_shipped.eq.true,updated_at.gte.${nyMidnight})`
@@ -307,7 +323,51 @@ export function useShipOrdersData() {
 
       if (error) throw error;
 
-      let mappedData = ((data || []) as unknown as OrderWithRelations[]).map((order) => ({
+      let rows = (data || []) as unknown as OrderWithRelations[];
+      if (sq) {
+        setSearchHasMore(rows.length > pageLimit);
+        rows = rows.slice(0, pageLimit);
+        // The exact number, whatever its age, always makes the page.
+        if (/^\d{4,}$/.test(sq) && !rows.some((o) => o.order_number === sq)) {
+          const { data: exact } = await withSupabaseRetry(
+            () =>
+              supabase
+                .from('picking_lists')
+                .select(ORDER_LIST_SELECT)
+                .neq('status', 'cancelled')
+                .eq('order_number', sq)
+                .limit(SEARCH_PAGE_SIZE),
+            { label: 'OrdersScreen.fetchOrders.exact' }
+          );
+          if (exact && exact.length > 0) {
+            rows = [...(exact as unknown as OrderWithRelations[]), ...rows];
+          }
+        }
+      } else {
+        setSearchHasMore(false);
+        // The Shipped column is never empty at the start of a day: today's
+        // shipped orders, and the most recent earlier ones to make it at
+        // least RECENT_SHIPPED (Rafael, 2026-08-28). One small indexed query.
+        const { data: recent } = await withSupabaseRetry(
+          () =>
+            supabase
+              .from('picking_lists')
+              .select(ORDER_LIST_SELECT)
+              .neq('status', 'cancelled')
+              .eq('is_shipped', true)
+              .order('updated_at', { ascending: false })
+              .limit(RECENT_SHIPPED),
+          { label: 'OrdersScreen.fetchOrders.recentShipped' }
+        );
+        if (recent && recent.length > 0) {
+          const seen = new Set(rows.map((o) => o.id));
+          for (const o of recent as unknown as OrderWithRelations[]) {
+            if (!seen.has(o.id)) rows.push(o);
+          }
+        }
+      }
+
+      let mappedData = rows.map((order) => ({
         ...order,
         customer_details: order.customer || {},
       }));
@@ -381,7 +441,7 @@ export function useShipOrdersData() {
       hasLoadedOnceRef.current = true;
       setLoading(false);
     }
-  }, [user, debouncedSearchQuery]);
+  }, [user, debouncedSearchQuery, searchPage]);
 
   useEffect(() => {
     fetchOrders();
@@ -408,6 +468,9 @@ export function useShipOrdersData() {
     setShippedIncludeUnassigned,
     includeShipped,
     setIncludeShipped,
+    searchHasMore,
+    loadMoreSearch,
+    searchPageSize: SEARCH_PAGE_SIZE,
     handlePendingCarrierToggle,
     handleShippedCarrierToggle,
     matchesPendingCarrierFilter,
