@@ -43,8 +43,10 @@
 - **Datos (Rafael, 28 ago, "ok"):** Bay 3 Norte pasó a **una letra por cuadro** — migración
   `20260828161324`, aplicada en prod: 315 líneas reetiquetadas (A→A/B … F→K/L, alternando por
   unidades; G/H/K intactas), 651 filas y 2.881 u sin cambio, auditoría en `sublocation_relabels`.
-  ❓ Pendiente: ¿misma regla para Bay 1 y Bay 2 (siguen A–F)? Las líneas de la F vieja caen en K/L,
-  fuera del dibujo de 10 de fondo — el mapa las lista hasta que el piso las ubique.
+  Bay 2 igual ("ok bay 2", `20260828165700`: 285 reetiquetas, 583 filas / 2.287 u intactas). Las
+  líneas de la F vieja caen en K/L, fuera del dibujo — el mapa las lista hasta que el piso las ubique.
+  **❓ Bay 1 no se toca hasta que Rafael dé las medidas de espacio usable** ("todo el que se ve no es
+  el real"): ni las letras ni el área libre que dibuja el mapa para Bay 1 son de fiar todavía.
 
 ### ~~101. Ship: la columna Shipped nunca vacía (últimas 10) y búsqueda de 5 en 5~~ <!-- id: idea-169 --> ✅ 2026-08-28 `8cdb2f4` `e7a31d9` (input: 2026-08-28 NY)
 - **Reporte de Rafael:** "quitaste el filtro que dejaba visibles cierta cantidad de órdenes enviadas

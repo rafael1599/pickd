@@ -163,6 +163,10 @@ si la respuesta es React, arranca sin esperar las otras cuatro.
 
 ## 10) Riesgos
 
+- **Bay 1: el espacio usable dibujado no es el real** (Rafael, 28 ago 2026: "todo el que se ve no es
+  el real"). Hasta que entregue las medidas, Bay 1 Norte y el office gap son geometría de plano, no
+  del piso: sus contadores no se citan y sus sublocations no se reetiquetan.
+
 - **Dos motores durante F1–F3** (el JS en `public/` y el TS en `src/`). Se acepta porque el de
   `public/` está congelado (última medida: 20 ago); si alguien corrige una medida ahí en ese lapso,
   hay que copiarla. Se cierra en F4.

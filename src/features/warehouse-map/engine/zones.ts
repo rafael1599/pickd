@@ -175,6 +175,9 @@ export const ZONES: Record<ZoneId, ZoneConfig> = {
       { text: 'SOUTH EXTERIOR WALL', x: 301, y: 665, anchor: 'middle' },
     ],
   },
+  // Bay 1: the usable floor drawn here is NOT the real one (Rafael, 28 Aug 2026:
+  // "todo el que se ve no es el real"). Geometry of the blueprint until he
+  // measures it; no stock relabel and no counts quoted from these two zones.
   bay1_north: {
     id: 'bay1_north',
     name: 'BAY 1 NORTH',
