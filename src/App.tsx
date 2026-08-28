@@ -95,6 +95,12 @@ const ManualDetailScreen = lazyWithRetry(() =>
 );
 
 const WarehouseMapScreen = lazyWithRetry(() =>
+  import('./features/warehouse-map/WarehouseMapScreen.tsx').then((m) => ({
+    default: m.WarehouseMapScreen,
+  }))
+);
+// Plan / Live, the map being replaced (idea-170). Goes away in phase F4.
+const LegacyWarehouseMapScreen = lazyWithRetry(() =>
   import('./features/warehouse-management/WarehouseMapScreen.tsx').then((m) => ({
     default: m.WarehouseMapScreen,
   }))
@@ -191,6 +197,7 @@ const AuthenticatedContent = () => {
               <Route path="/manuals" element={<ManualsScreen />} />
               <Route path="/manuals/:slug" element={<ManualDetailScreen />} />
               <Route path="/warehouse-map" element={<WarehouseMapScreen />} />
+              <Route path="/warehouse-map/legacy" element={<LegacyWarehouseMapScreen />} />
               <Route path="/:orderNumber" element={<OrderParamRedirect />} />
               {/* Catch-all for unknown routes */}
               <Route path="*" element={<Navigate to="/" replace />} />

@@ -11,7 +11,7 @@
 
 ## P1 — Alto (operación diaria)
 
-### 102. Warehouse Map: el mapa con medidas reemplaza por completo la vista in-app <!-- id: idea-170 --> — input: 2026-08-28 NY · "ok todo" a las 5 ❓ · F1 ✅ 2026-08-28
+### 102. Warehouse Map: el mapa con medidas reemplaza por completo la vista in-app <!-- id: idea-170 --> — input: 2026-08-28 NY · "ok todo" a las 5 ❓ · F1 + F2 ✅ 2026-08-28
 - **Rafael:** "la vista warehouse map será reemplazada por completo por el mapa con las medidas que ya
   tenemos funcionando". PRD con las cinco ❓ y sus defaults: `docs/prds/warehouse-map-measured.md`.
 - **Estado verificado (28 ago):** el mapa medido (`public/warehouse/`, `PalletEngine` + `zones.js`)
@@ -30,7 +30,12 @@
   paridad celda a celda con el JS en 54 casos. Hallazgos del port: Bay 2 Norte cabe 12 filas donde la
   DB nombra 10 (el motor las llama `0` y `-1`); el office gap repite los números 41–48 de Bay 1 Norte;
   Bay 3 Norte en E–W no tiene layout con la regla "dos bloques de 4" (escrita para N–S); `zones.js`
-  dice 1018" donde el blueprint mide 1016" (Bay 2). Siguiente: F2, la pantalla.
+  dice 1018" donde el blueprint mide 1016" (Bay 2).
+- **F2 hecho:** `/warehouse-map` es el mapa medido (mapa maestro → zona, cuatro contadores, sliders,
+  toggles, presets, hall redimensionable, zoom, RACK MOVE; estado en la URL); `/public-warehouse-map`
+  lo muestra sin sesión; Plan/Live en `/warehouse-map/legacy` hasta F4. Fotografiado por CDP a 430,
+  932 y 1400 px. **Al hacer push cambia lo que abre "Map" en el menú.** Siguiente: F3, stock real
+  por slot.
 
 ### ~~101. Ship: la columna Shipped nunca vacía (últimas 10) y búsqueda de 5 en 5~~ <!-- id: idea-169 --> ✅ 2026-08-28 `8cdb2f4` `e7a31d9` (input: 2026-08-28 NY)
 - **Reporte de Rafael:** "quitaste el filtro que dejaba visibles cierta cantidad de órdenes enviadas

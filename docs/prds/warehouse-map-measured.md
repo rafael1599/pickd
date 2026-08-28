@@ -1,6 +1,6 @@
 # PRD: El mapa con medidas reemplaza por completo la vista Warehouse Map
 
-**Estado:** F1 construida 2026-08-28 — Rafael aprobó las cinco propuestas por defecto ("ok todo, arranca F1") · **Fecha:** 2026-08-28 · **Autor:**
+**Estado:** F1 y F2 construidas 2026-08-28 — Rafael aprobó las cinco propuestas por defecto ("ok todo, arranca F1") · **Fecha:** 2026-08-28 · **Autor:**
 Rafael + PickD · **Backlog:** idea-170 · **Relacionado:** `docs/warehouse-floor-plans.md` (la decisión
 del 11 ago de tenerlos separados, que este PRD revierte), `public/warehouse/` (el mapa que funciona),
 `src/features/warehouse-management/` (la vista que se va), PRD `warehouse-real-stock-map.md` (la
@@ -108,8 +108,17 @@ migración; mover inventario desde el mapa (eso sigue en Consolidation / Movemen
   54 casos (6 zonas × 9 estados) idénticos celda a celda (posición, letra, fast, distancia). Un
   cambio a propósito: el reparto aleatorio de halls alrededor de un poste corre con semilla fija.
   Cero UI; nada de lo que se usa se toca.
-- **F2 — Pantalla.** Mapa maestro → zona, contadores, toggles, sliders, hover, postes, ← MAP. Se revisa
-  a 430 px antes de seguir.
+- **F2 ✅ (28 ago) — Pantalla.** `src/features/warehouse-map/`: `WarehouseMapScreen` en
+  `/warehouse-map` (menú → Map) y en `/public-warehouse-map` (sin sesión, el enlace para Carine);
+  Plan/Live siguen en `/warehouse-map/legacy` hasta F4. `MasterMap` (tres bahías, HUD con los
+  números al pasar o tocar, tocar una zona abre su layout, RACK MOVE = el `?move=rack` de antes) y
+  `ZoneView` (los cuatro contadores arriba, línea de specs, sliders D × W, N–S / E–W, los halls que
+  la zona tiene como `toggleable`, HALLS / 1 CENTER / 0 HALLS, tocar un hall lo redimensiona, zoom,
+  leyenda) sobre `ZoneSvg` (el `renderSVG` del JS, colores explícitos, `<title>` + línea de medida
+  para el teléfono). **El estado va en la URL** (`?zone=bay3_north&west=0&pd=65`; los defaults no se
+  escriben) — un layout es un enlace. Revisado por CDP a 430 × 932, 932 × 430 y 1400: sin desbordes.
+  **Fuera de F2, a propósito:** el editor de piso y las configs guardadas de `zone.html` (vivían en
+  `localStorage` de un navegador) y el slotting (F5).
 - **F3 — Stock real.** RF-004/005/006 (V6–V8). Una consulta por zona (`location ILIKE 'ROW %'`).
 - **F4 — Retirar.** Plan, Live y sus hooks; `/public-warehouse-map` apunta a la pantalla nueva;
   `docs/warehouse-floor-plans.md` se reescribe (la decisión del 11 ago queda como historia).
