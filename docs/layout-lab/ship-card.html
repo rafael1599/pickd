@@ -1,0 +1,420 @@
+<title>Ship Card Layout Lab</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;900&family=Manrope:wght@500;700;800&family=IBM+Plex+Mono:wght@500;700&display=swap">
+<style>
+  :root {
+    --bg: #0b0c10; --card: #16181f; --surface: #1e2128; --line: #2a2e37; --line-soft: #22262e;
+    --text: #e8eaf0; --muted: #8b92a5; --dim: #5b6274;
+    --green: #22c55e; --blue: #60a5fa; --orange: #fb923c; --purple: #a78bfa; --sky: #38bdf8; --amber: #f59e0b; --rose: #f472b6;
+    --tool: #12141a; --tool-line: #262a33; --accent: #38bdf8;
+    --heading: 'Outfit', 'Manrope', system-ui, sans-serif;
+    --body: 'Manrope', system-ui, -apple-system, sans-serif;
+    --mono: 'IBM Plex Mono', Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--body); font-size: 14px; line-height: 1.4; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- tool chrome ---------- */
+  .lab { display: grid; grid-template-columns: 270px 1fr; min-height: 100vh; }
+  @media (max-width: 900px) { .lab { grid-template-columns: 1fr; } }
+  aside { background: var(--tool); border-right: 1px solid var(--tool-line); padding: 16px; display: flex; flex-direction: column; gap: 16px; position: sticky; top: 0; height: 100vh; overflow: auto; }
+  @media (max-width: 900px) { aside { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--tool-line); } }
+  h1 { font-family: var(--heading); font-size: 20px; font-weight: 900; letter-spacing: -0.01em; margin: 0; }
+  .sub { color: var(--muted); font-size: 12px; margin: 4px 0 0; }
+  .group { display: flex; flex-direction: column; gap: 8px; }
+  .label { font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { border: 1px solid var(--tool-line); border-radius: 999px; padding: 5px 10px; font-size: 12px; font-weight: 700; color: var(--muted); background: var(--card); }
+  .chip[aria-pressed="true"] { color: var(--text); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .chip:hover { color: var(--text); }
+  .chip:disabled { opacity: .35; cursor: default; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .readout { font-family: var(--mono); font-size: 12px; color: var(--text); }
+  .btn { border: 1px solid var(--tool-line); background: var(--card); border-radius: 10px; padding: 9px 12px; font-weight: 800; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text); text-align: left; }
+  .btn.primary { background: var(--accent); color: #06121a; border-color: var(--accent); }
+  .btn:hover { filter: brightness(1.08); }
+  textarea { width: 100%; min-height: 140px; background: var(--card); color: var(--text); border: 1px solid var(--tool-line); border-radius: 10px; padding: 10px; font-family: var(--mono); font-size: 11px; line-height: 1.45; resize: vertical; }
+  .hint { font-size: 11px; color: var(--dim); line-height: 1.45; margin: 0; }
+  .hint b { color: var(--muted); }
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px); background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 999px; font-weight: 800; font-size: 12px; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; z-index: 50; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ---------- canvas ---------- */
+  main { padding: 24px; overflow: auto; }
+  .ruler { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--dim); width: var(--w, 800px); margin-bottom: 8px; }
+  .card { position: relative; width: var(--w, 800px); min-height: var(--h, 600px); background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: var(--pad, 0); overflow: hidden; touch-action: none; }
+  .card.snap-on { background-image: radial-gradient(rgba(255,255,255,.07) 1px, transparent 1px); background-size: 8px 8px; }
+  .item { position: absolute; left: 0; top: 0; margin: 0; padding: 0; cursor: grab; user-select: none; -webkit-user-select: none; white-space: nowrap; }
+  .item:active { cursor: grabbing; }
+  .item.selected { outline: 1px solid var(--accent); outline-offset: 0; }
+  .item.hidden { display: none; }
+  .card.outlines .item { outline: 1px dashed rgba(139,146,165,.5); }
+  .card.outlines .item.selected { outline: 1px solid var(--accent); }
+  .grp { min-width: 8px; min-height: 8px; }
+  .grp .item { cursor: grab; }
+
+  /* ---------- PickD look (no margins, no padding beyond the element's own skin) ---------- */
+  .copy { display: inline-flex; width: 16px; height: 16px; color: var(--dim); align-items: center; justify-content: center; vertical-align: middle; }
+  .copy::before { content: "⧉"; font-size: 13px; }
+  .ordno { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-weight: 700; font-size: 15px; letter-spacing: 0.08em; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; background: var(--surface); }
+  .ordno .a { color: #38bdf8; } .ordno .b { color: var(--amber); } .ordno .s { color: var(--dim); }
+  .logo { width: 26px; height: 26px; border-radius: 50%; background: #1f6b3a; color: #fff; font-size: 8px; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; }
+  .date { font-size: 11px; color: var(--muted); font-weight: 700; }
+  .note { font-size: 11px; color: var(--rose); font-weight: 700; }
+  .pill { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 12px; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .pill .on { color: var(--text); } .pill .ok { color: var(--green); }
+  .cust { font-family: var(--heading); font-weight: 900; font-size: 22px; letter-spacing: -0.01em; }
+  .addr { font-weight: 700; font-size: 14px; }
+  .zip, .load { font-family: var(--mono); font-size: 13px; font-weight: 700; }
+  .thumb { display: inline-block; width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--line); background: linear-gradient(135deg, #6b5a3c, #3a2f1f 60%, #8a7a58); vertical-align: top; }
+  .thumb.t2 { background: linear-gradient(135deg, #3b3a44, #6e6c78 55%, #2a2930); }
+  .thumb.more { background: var(--surface); color: var(--muted); display: inline-flex; align-items: center; justify-content: center; font-weight: 900; }
+  .clabel { font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .cc { height: 40px; min-width: 64px; padding: 0 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg); color: var(--dim); font-size: 10px; font-weight: 900; letter-spacing: 0.06em; display: inline-flex; align-items: center; justify-content: center; }
+  .cc.sel { background: #fff; color: #1f6b3a; border-color: var(--green); box-shadow: 0 0 0 2px rgba(34,197,94,.45); }
+  .cc.more { min-width: 40px; }
+  .num { display: inline-flex; flex-direction: column; gap: 4px; }
+  .num .v { font-family: var(--heading); font-weight: 900; line-height: .95; font-size: 72px; font-variant-numeric: tabular-nums; }
+  .num.sm .v { font-size: 48px; }
+  .num .l { font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .g { color: var(--green); } .bl { color: var(--blue); } .o { color: var(--orange); } .p { color: var(--purple); } .sk { color: var(--sky); }
+  .cap { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--sky); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sky); }
+  .combined { width: 260px; background: rgba(59,130,246,.10); border: 1px solid rgba(59,130,246,.25); border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+  .combined .t { font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #60a5fa; }
+  .combined .big { font-family: var(--heading); font-weight: 900; font-size: 20px; }
+  .combined .big .a { color: var(--amber); } .combined .big .b { color: #38bdf8; }
+  .combined .u { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .combined .u .a { color: var(--amber); } .combined .u .b { color: #38bdf8; }
+  .alert { width: 300px; border-radius: 14px; padding: 9px 12px; font-size: 11px; font-weight: 800; display: flex; justify-content: space-between; gap: 8px; align-items: center; white-space: normal; }
+  .alert.amber { background: rgba(245,158,11,.10); border: 1px solid rgba(245,158,11,.4); color: var(--amber); }
+  .alert.red { background: rgba(239,68,68,.10); border: 1px solid rgba(239,68,68,.4); color: #f87171; }
+  .alert small { font-weight: 700; opacity: .8; }
+  .alert .act { border: 1px solid currentColor; border-radius: 10px; padding: 4px 8px; font-size: 10px; white-space: nowrap; }
+  .abtn { width: 170px; height: 44px; border-radius: 14px; font-size: 11px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; display: inline-flex; align-items: center; justify-content: center; }
+  .abtn.sum { background: rgba(59,130,246,.15); border: 1px solid rgba(59,130,246,.35); color: #93c5fd; }
+  .abtn.re { background: rgba(251,146,60,.12); border: 1px solid rgba(251,146,60,.4); color: #fdba74; }
+  .abtn.del { width: 350px; background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.35); color: #f87171; }
+  .notes { font-size: 12px; color: var(--muted); font-weight: 700; display: inline-flex; gap: 8px; align-items: baseline; }
+  .notes .who { font-family: var(--mono); font-size: 10px; color: var(--dim); }
+  .items { width: var(--items-w, 500px); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  .items .th { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.02); font-size: 11px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; }
+  .items .print { background: var(--green); color: #052e16; border-radius: 10px; padding: 5px 10px; font-size: 10px; font-weight: 900; letter-spacing: 0.06em; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { text-align: left; padding: 8px 12px; font-size: 9px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line-soft); }
+  td { padding: 9px 12px; border-bottom: 1px solid var(--line-soft); }
+  td.m { font-family: var(--mono); font-weight: 700; }
+  td.q { color: var(--green); font-family: var(--mono); font-weight: 700; text-align: right; }
+  td.r { text-align: right; font-family: var(--mono); }
+  tr.e td:first-child { box-shadow: inset 4px 0 0 var(--sky); }
+  .badge { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; padding: 1px 6px; border-radius: 6px; border: 1px solid rgba(56,189,248,.45); background: rgba(56,189,248,.15); color: var(--sky); font-size: 8px; font-weight: 900; letter-spacing: 0.08em; vertical-align: middle; }
+  @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+</style>
+
+<div class="lab">
+  <aside>
+    <div>
+      <h1>Ship Card Layout Lab</h1>
+      <p class="sub">Cada cosa es un átomo: arrástralo donde quieras. Sin padding ni separación por defecto.</p>
+    </div>
+
+    <div class="group">
+      <span class="label">Ancho del card</span>
+      <div class="chips">
+        <button class="chip" data-w="360">Teléfono 360</button>
+        <button class="chip" data-w="520">40 % · 520</button>
+        <button class="chip" data-w="800">60 % · 800</button>
+        <button class="chip" data-w="1000">Ancho · 1000</button>
+      </div>
+      <input id="width" type="range" min="320" max="1100" step="10" value="800" aria-label="Ancho del card">
+      <span class="readout" id="readout">800 px</span>
+    </div>
+
+    <div class="group">
+      <span class="label">Padding del card (0 por defecto)</span>
+      <input id="pad" type="range" min="0" max="32" step="2" value="0" aria-label="Padding del card">
+      <span class="readout" id="pad-readout">0 px</span>
+    </div>
+
+    <div class="group">
+      <span class="label">Selección</span>
+      <div class="chips">
+        <button class="chip" id="do-group" disabled>Agrupar</button>
+        <button class="chip" id="do-ungroup" disabled>✂ Separar</button>
+        <button class="chip" id="do-front" disabled>Al frente</button>
+        <button class="chip" id="do-hide" disabled>Ocultar</button>
+      </div>
+      <p class="hint">Toca para seleccionar, <b>Shift + toque</b> para varios. <b>Flechas</b> mueven 1 px (Shift: 10). <b>Supr</b> oculta.</p>
+    </div>
+
+    <div class="group">
+      <span class="label">Ayudas (apagadas por defecto)</span>
+      <div class="chips">
+        <button class="chip" id="toggle-snap" aria-pressed="false">Imán 8 px</button>
+        <button class="chip" id="toggle-outlines" aria-pressed="false">Contornos</button>
+        <button class="chip" id="show-hidden">Mostrar ocultos</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="label">Punto de partida</span>
+      <div class="chips">
+        <button class="chip" data-preset="today">Hoy</button>
+        <button class="chip" data-preset="proposal">Propuesta</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="label">Estructura resultante</span>
+      <button class="btn primary" id="copy">Copiar estructura</button>
+      <textarea id="out" readonly aria-label="Estructura resultante"></textarea>
+      <p class="hint">Pégamela en el chat y la construyo. Se guarda sola en este navegador.</p>
+    </div>
+  </aside>
+
+  <main>
+    <div class="ruler"><span>0</span><span id="ruler-w">800 px</span></div>
+    <div class="card" id="card" style="--w: 800px" tabindex="0" aria-label="Card de Ship — arrastra los elementos">
+      <div class="item" data-id="ordno" data-label="Nº de orden"><span class="ordno"><span class="a">881303</span><span class="s">/</span><span class="b">881301</span></span></div>
+      <div class="item" data-id="logo" data-label="Logo carrier"><span class="logo">R+L</span></div>
+      <div class="item" data-id="date" data-label="Fecha"><span class="date">Aug 27, 2026 · 4:01 PM</span></div>
+      <div class="item" data-id="note" data-label="Nota reapertura"><span class="note">[#881301] Order re-completed after reopen #1</span></div>
+      <div class="item" data-id="status" data-label="Estado"><span class="pill"><span class="on">Completed</span><span>·</span><span>1 pallets</span><span>·</span><span>9 units</span><span>·</span><span class="ok">saved ✓</span></span></div>
+      <div class="item" data-id="cust" data-label="Cliente"><span class="copy"></span> <span class="cust">ATHENS BIKE WORKS</span></div>
+      <div class="item" data-id="addr" data-label="Dirección"><span class="copy"></span> <span class="addr">📍 4 W STIMSON AVE, ATHENS, OH</span></div>
+      <div class="item" data-id="zip" data-label="ZIP"><span class="copy"></span> <span class="zip">ZIP 45701</span></div>
+      <div class="item" data-id="photo1" data-label="Foto 1"><span class="thumb"></span></div>
+      <div class="item" data-id="photo2" data-label="Foto 2"><span class="thumb t2"></span></div>
+      <div class="item" data-id="photomore" data-label="Fotos ⋯"><span class="thumb more">⋯</span></div>
+      <div class="item" data-id="load" data-label="Load / Recipient #"><span class="copy"></span> <span class="load"># 131301510</span></div>
+      <div class="item" data-id="clabel" data-label="Etiqueta carrier"><span class="clabel">🚚 Carrier</span></div>
+      <div class="item" data-id="c-rl" data-label="Carrier R+L"><span class="cc sel">R+L</span></div>
+      <div class="item" data-id="c-rist" data-label="Carrier RIST"><span class="cc">RIST</span></div>
+      <div class="item" data-id="c-pickup" data-label="Carrier PICK UP"><span class="cc">PICK UP</span></div>
+      <div class="item" data-id="c-daylight" data-label="Carrier DAYLIGHT"><span class="cc">DAYLIGHT</span></div>
+      <div class="item" data-id="c-pav" data-label="Carrier PAV"><span class="cc">PAV</span></div>
+      <div class="item" data-id="c-more" data-label="Carrier …"><span class="cc more">…</span></div>
+      <div class="item" data-id="n-pallets" data-label="Pallets"><span class="num"><span class="v g">1</span><span class="l">Pallets</span></span></div>
+      <div class="item" data-id="n-bikes" data-label="Bikes"><span class="num"><span class="v bl">8</span><span class="l">Bikes</span></span></div>
+      <div class="item" data-id="n-parts" data-label="Parts"><span class="num"><span class="v o">0</span><span class="l">Parts</span></span></div>
+      <div class="item" data-id="n-weight" data-label="Weight"><span class="num"><span class="v p">400</span><span class="l">⧉ Weight (lbs)</span></span></div>
+      <div class="item" data-id="e-cap" data-label="E-bike etiqueta"><span class="cap"><span class="dot"></span>E-bike — own carton</span></div>
+      <div class="item" data-id="e-carton" data-label="E-bike carton"><span class="num sm"><span class="v sk">1</span><span class="l">Carton</span></span></div>
+      <div class="item" data-id="e-model" data-label="E-bike modelo"><span class="num sm"><span class="v sk">1</span><span class="l">Hudson E2</span></span></div>
+      <div class="item" data-id="e-lbs" data-label="E-bike lbs"><span class="num sm"><span class="v sk">80</span><span class="l">Lbs ⧉</span></span></div>
+      <div class="item" data-id="combined" data-label="Combined order"><div class="combined"><span class="t">🔗 Combined order</span><span class="big"># <span class="a">301</span> / <span class="b">303</span></span><span class="u"><span class="a">#881301</span> — 8 units</span><span class="u"><span class="b">#881303</span> — 1 units</span></div></div>
+      <div class="item" data-id="alert-li" data-label="Aviso litio"><div class="alert amber"><span>⚠ Lithium battery label — 1 e-bike<br><small>Mark the cartons before the carrier takes them</small></span><span class="act">Manual</span></div></div>
+      <div class="item" data-id="alert-dl" data-label="Aviso Daylight"><div class="alert red"><span>Daylight — text the dispatcher</span><span class="act">I sent it</span></div></div>
+      <div class="item" data-id="b-sum" data-label="Picking summary"><span class="abtn sum">Picking summary</span></div>
+      <div class="item" data-id="b-re" data-label="Reopen"><span class="abtn re">↻ Reopen order</span></div>
+      <div class="item" data-id="b-del" data-label="Delete"><span class="abtn del">🗑 Delete order</span></div>
+      <div class="item" data-id="notes" data-label="Notas"><span class="notes"><span class="who">Rafael · 4:01 PM</span><span>DO NOT SHIP BEFORE 8/28 — customer asked to hold</span></span></div>
+      <div class="item" data-id="items" data-label="Order items"><div class="items"><div class="th"><span>Order items (8)</span><span class="print">🖨 Print</span></div><table><thead><tr><th style="text-align:right">Qty</th><th>SKU</th><th>Description</th><th>Location</th><th>Sub</th><th style="text-align:right">Lbs</th></tr></thead><tbody>
+        <tr><td class="q">2</td><td class="m bl">03-4041BL</td><td>HUDSON 21 2026 MIDNIGHT BLUE</td><td class="m">ROW 3</td><td class="m">F</td><td class="r">90</td></tr>
+        <tr><td class="q">1</td><td class="m bl">03-4589GY</td><td>KOMODO 29 19 2026 RHINO</td><td class="m">ROW 15</td><td class="m">CD</td><td class="r">45</td></tr>
+        <tr class="e"><td class="q">1</td><td class="m bl">03-3607GY<span class="badge">● E-BIKE</span></td><td>HUDSON E2 S/T 14 2026 THUNDER</td><td class="m">ROW 51</td><td class="m">—</td><td class="r">80</td></tr>
+      </tbody></table></div></div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast">Copiado</div>
+
+<script>
+(() => {
+  const card = document.getElementById('card');
+  const widthInput = document.getElementById('width');
+  const padInput = document.getElementById('pad');
+  const readout = document.getElementById('readout');
+  const padReadout = document.getElementById('pad-readout');
+  const rulerW = document.getElementById('ruler-w');
+  const out = document.getElementById('out');
+  const toast = document.getElementById('toast');
+  const KEY = 'ship-card-layout-lab:v2';
+  let snap = false, groupSeq = 0;
+
+  // Positions per preset: [id, x, y]. Groups: {g:'name', items:[...ids]} listed after.
+  const PRESETS = {
+    today: { width: 520, pad: 0, pos: [
+      ['ordno',0,0],['logo',162,4],['date',0,44],['note',140,44],['status',0,66],
+      ['cust',0,110],['photo1',376,100],['photo2',424,100],['photomore',472,100],
+      ['addr',0,150],['zip',0,178],['load',0,214],['clabel',0,246],
+      ['c-rl',0,264],['c-rist',74,264],['c-pickup',148,264],['c-daylight',236,264],['c-pav',336,264,true],['c-more',336,264],
+      ['n-pallets',0,330],['n-bikes',70,330],['n-parts',150,330],['n-weight',250,330],
+      ['e-cap',0,430],['e-carton',0,450],['e-model',70,450],['e-lbs',160,450],
+      ['combined',0,520],['alert-li',0,640,true],['alert-dl',0,690,true],
+      ['b-sum',0,650],['b-re',180,650],['b-del',0,704],['notes',0,760,true],['items',0,770]
+    ]},
+    proposal: { width: 800, pad: 0, pos: [
+      ['ordno',0,0],['logo',162,4],['date',200,10],['note',340,10],['status',0,44],
+      ['cust',0,82],['addr',0,120],['zip',420,120],
+      ['load',0,156],['clabel',200,146],['c-rl',200,160],['c-rist',274,160],['c-pickup',348,160],['c-daylight',436,160],['c-pav',536,160],['c-more',608,160],
+      ['n-pallets',0,220],['n-bikes',70,220],['n-parts',150,220],['n-weight',250,220],
+      ['e-cap',460,216],['e-carton',460,236],['e-model',530,236],['e-lbs',620,236],
+      ['combined',0,330],['b-sum',300,330],['b-re',480,330],['b-del',300,384],
+      ['photo1',660,330],['photo2',708,330],['photomore',660,378],
+      ['alert-li',0,460],['alert-dl',320,460],['notes',0,510,true],['items',0,520]
+    ]},
+  };
+
+  const items = () => [...card.querySelectorAll('.item')];
+  const topItems = () => [...card.children].filter((el) => el.classList.contains('item'));
+  const pos = (el) => ({ x: parseFloat(el.style.left) || 0, y: parseFloat(el.style.top) || 0 });
+  const place = (el, x, y) => { el.style.left = Math.round(x) + 'px'; el.style.top = Math.round(y) + 'px'; };
+  const sel = () => items().filter((el) => el.classList.contains('selected'));
+  const doSnap = (v) => (snap ? Math.round(v / 8) * 8 : v);
+
+  // ---------- selection ----------
+  function select(el, additive) {
+    if (!additive) for (const i of items()) i.classList.remove('selected');
+    if (el) el.classList.toggle('selected', additive ? !el.classList.contains('selected') : true);
+    updateButtons();
+  }
+  function updateButtons() {
+    const s = sel();
+    document.getElementById('do-group').disabled = s.length < 2;
+    document.getElementById('do-ungroup').disabled = !s.some((el) => el.classList.contains('grp'));
+    document.getElementById('do-front').disabled = s.length === 0;
+    document.getElementById('do-hide').disabled = s.length === 0;
+  }
+
+  // ---------- drag (pointer events: mouse, touch, pen) ----------
+  let drag = null;
+  card.addEventListener('pointerdown', (e) => {
+    card.focus({ preventScroll: true }); // keyboard nudges work after any tap
+    const el = e.target.closest('.item');
+    if (!el || !card.contains(el)) { select(null); return; }
+    // the outermost group under the pointer moves as one; Alt drags the inner atom
+    const target = e.altKey ? el : outermost(el);
+    if (!target.classList.contains('selected')) select(target, e.shiftKey);
+    const moving = sel().filter((s) => s.parentElement === target.parentElement);
+    drag = { moving: moving.length ? moving : [target], start: { x: e.clientX, y: e.clientY }, origin: (moving.length ? moving : [target]).map(pos), moved: false };
+    card.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  card.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.start.x, dy = e.clientY - drag.start.y;
+    if (Math.abs(dx) + Math.abs(dy) > 2) drag.moved = true;
+    drag.moving.forEach((el, i) => place(el, doSnap(Math.max(0, drag.origin[i].x + dx)), doSnap(Math.max(0, drag.origin[i].y + dy))));
+  });
+  const endDrag = () => { if (!drag) return; drag = null; refresh(); };
+  card.addEventListener('pointerup', endDrag);
+  card.addEventListener('pointercancel', endDrag);
+  window.addEventListener('pointerup', endDrag);
+  function outermost(el) { let cur = el; while (cur.parentElement && cur.parentElement !== card) { const p = cur.parentElement.closest('.item'); if (!p) break; cur = p; } return cur; }
+
+  // keyboard nudge / hide
+  card.addEventListener('keydown', (e) => {
+    const s = sel(); if (!s.length) return;
+    const step = e.shiftKey ? 10 : 1;
+    const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+    if (d) { e.preventDefault(); for (const el of s) { const p = pos(el); place(el, Math.max(0, p.x + d[0]), Math.max(0, p.y + d[1])); } refresh(); }
+    if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); hide(s); }
+  });
+
+  // ---------- group / ungroup / front / hide ----------
+  function group(els) {
+    els = els.filter((el) => el.parentElement === card); if (els.length < 2) return;
+    const rects = els.map((el) => ({ el, ...pos(el), w: el.offsetWidth, h: el.offsetHeight }));
+    const x0 = Math.min(...rects.map((r) => r.x)), y0 = Math.min(...rects.map((r) => r.y));
+    const x1 = Math.max(...rects.map((r) => r.x + r.w)), y1 = Math.max(...rects.map((r) => r.y + r.h));
+    const g = document.createElement('div');
+    g.className = 'item grp'; g.dataset.id = 'group-' + (++groupSeq); g.dataset.label = 'Grupo ' + groupSeq;
+    g.style.width = (x1 - x0) + 'px'; g.style.height = (y1 - y0) + 'px';
+    place(g, x0, y0); card.appendChild(g);
+    for (const r of rects) { g.appendChild(r.el); place(r.el, r.x - x0, r.y - y0); r.el.classList.remove('selected'); }
+    select(g); refresh();
+  }
+  function ungroup(gs) {
+    for (const g of gs) {
+      if (!g.classList.contains('grp')) continue;
+      const gp = pos(g);
+      for (const child of [...g.children]) { const p = pos(child); card.appendChild(child); place(child, gp.x + p.x, gp.y + p.y); child.classList.add('selected'); }
+      g.remove();
+    }
+    updateButtons(); refresh();
+  }
+  function hide(els) { for (const el of els) { el.classList.add('hidden'); el.classList.remove('selected'); } updateButtons(); refresh(); }
+  document.getElementById('do-group').addEventListener('click', () => group(sel()));
+  document.getElementById('do-ungroup').addEventListener('click', () => ungroup(sel()));
+  document.getElementById('do-front').addEventListener('click', () => { for (const el of sel()) el.parentElement.appendChild(el); refresh(); });
+  document.getElementById('do-hide').addEventListener('click', () => hide(sel()));
+  document.getElementById('show-hidden').addEventListener('click', () => { for (const el of items()) el.classList.remove('hidden'); refresh(); });
+  document.getElementById('toggle-snap').addEventListener('click', (e) => { snap = !snap; card.classList.toggle('snap-on', snap); e.currentTarget.setAttribute('aria-pressed', String(snap)); });
+  document.getElementById('toggle-outlines').addEventListener('click', (e) => { const on = card.classList.toggle('outlines'); e.currentTarget.setAttribute('aria-pressed', String(on)); });
+
+  // ---------- width / padding ----------
+  function setWidth(w) {
+    w = Math.max(320, Math.min(1100, +w || 800));
+    widthInput.value = w; readout.textContent = w + ' px'; rulerW.textContent = w + ' px';
+    card.style.setProperty('--w', w + 'px'); card.style.setProperty('--items-w', Math.max(300, w - 2 * (+padInput.value || 0)) + 'px');
+    for (const c of document.querySelectorAll('[data-w]')) c.setAttribute('aria-pressed', String(+c.dataset.w === w));
+  }
+  function setPad(p) { p = +p || 0; padInput.value = p; padReadout.textContent = p + ' px'; card.style.setProperty('--pad', p + 'px'); setWidth(widthInput.value); }
+  widthInput.addEventListener('input', () => { setWidth(widthInput.value); refresh(); });
+  padInput.addEventListener('input', () => { setPad(padInput.value); refresh(); });
+  for (const c of document.querySelectorAll('[data-w]')) c.addEventListener('click', () => { setWidth(c.dataset.w); refresh(); });
+
+  // ---------- presets / persistence ----------
+  function apply(p) {
+    // dissolve groups first
+    for (const g of items().filter((el) => el.classList.contains('grp'))) ungroup([g]);
+    const byId = Object.fromEntries(items().map((el) => [el.dataset.id, el]));
+    for (const [id, x, y, hidden] of p.pos) { const el = byId[id]; if (!el) continue; card.appendChild(el); place(el, x, y); el.classList.toggle('hidden', !!hidden); el.classList.remove('selected'); }
+    setPad(p.pad || 0); setWidth(p.width);
+    if (p.groups) for (const ids of p.groups) group(ids.map((id) => byId[id]).filter(Boolean));
+    select(null); refresh();
+  }
+  for (const c of document.querySelectorAll('[data-preset]')) c.addEventListener('click', () => apply(PRESETS[c.dataset.preset]));
+
+  function snapshot() {
+    const out = { width: +widthInput.value, pad: +padInput.value, pos: [], groups: [] };
+    for (const el of topItems()) {
+      if (el.classList.contains('grp')) {
+        const gp = pos(el); const ids = [];
+        for (const child of [...el.children]) { const p = pos(child); out.pos.push([child.dataset.id, gp.x + p.x, gp.y + p.y, child.classList.contains('hidden')]); ids.push(child.dataset.id); }
+        out.groups.push(ids);
+      } else { const p = pos(el); out.pos.push([el.dataset.id, p.x, p.y, el.classList.contains('hidden')]); }
+    }
+    return out;
+  }
+
+  // ---------- structure text ----------
+  function structure() {
+    const snap = snapshot();
+    const visible = snap.pos.filter((p) => !p[3]).sort((a, b) => a[2] - b[2] || a[1] - b[1]);
+    const byId = Object.fromEntries(items().map((el) => [el.dataset.id, el]));
+    const rows = []; let row = null;
+    for (const [id, x, y] of visible) {
+      if (!row || y - row.y > 14) { row = { y, parts: [] }; rows.push(row); }
+      row.parts.push(`${byId[id].dataset.label} @${Math.round(x)}`);
+    }
+    const lines = [`Card: ${snap.width} px · padding ${snap.pad} px`];
+    rows.forEach((r) => lines.push(`y=${Math.round(r.y)}: ${r.parts.join(' · ')}`));
+    if (snap.groups.length) lines.push(`Grupos: ${snap.groups.map((g) => '[' + g.map((id) => byId[id].dataset.label).join(' + ') + ']').join(' ')}`);
+    const hidden = snap.pos.filter((p) => p[3]).map((p) => byId[p[0]].dataset.label);
+    if (hidden.length) lines.push(`Ocultos: ${hidden.join(', ')}`);
+    return lines.join('\n') + '\n\n' + JSON.stringify(snap);
+  }
+  function refresh() {
+    // card grows with its content
+    let bottom = 0; for (const el of topItems()) if (!el.classList.contains('hidden')) bottom = Math.max(bottom, pos(el).y + el.offsetHeight);
+    card.style.setProperty('--h', Math.max(200, bottom + 2 * (+padInput.value || 0)) + 'px');
+    out.value = structure();
+    try { localStorage.setItem(KEY, JSON.stringify(snapshot())); } catch (_) {}
+  }
+  document.getElementById('copy').addEventListener('click', async () => {
+    const text = structure();
+    try { await navigator.clipboard.writeText(text); showToast('Copiado — pégalo en el chat'); }
+    catch (_) { out.focus(); out.select(); showToast('Selecciona el texto y cópialo'); }
+  });
+  let tt; function showToast(msg) { toast.textContent = msg; toast.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => toast.classList.remove('show'), 1600); }
+
+  // ---------- start ----------
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (_) {}
+  if (saved && Array.isArray(saved.pos)) apply(saved); else apply(PRESETS.proposal);
+  window.addEventListener('load', refresh);
+})();
+</script>

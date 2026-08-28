@@ -144,7 +144,7 @@ reads this file before writing anything. Written as _wrong → right_.
   default) at 360 / 520 / 800 / 1000 px; he dragged two layouts (phone and 60 %) and pasted the
   structure back. Build exactly that, ask the open questions **before** starting (done: Daylight
   reminder only when Daylight is chosen; lithium banner FedEx-only; photos grow; everything else
-  in ⋯, notes included). Keep the lab (`scratchpad/ship-card-layout-lab.html`) for the next screen.
+  in ⋯, notes included). Keep the lab (`docs/layout-lab/ship-card.html`, README beside it) for the next screen.
 - What he rejected on the way: a redundant "Audit Source strip" (the copy buttons already exist),
   a 12-column grid with gaps and markers ("no quiero marking ni padding ni espaciado de ningún
   tipo por defecto"). Tools for him: free drag, group / ungroup, no scaffolding.

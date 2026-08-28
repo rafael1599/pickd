@@ -36,7 +36,7 @@
   Delete / Split / Uncombine / Notas / manual hazmat / **Print pallet labels (primero) y packing
   slip** en el menú ⋯ (`OrderActionsMenu`); bloque Combined Order fuera (los números de la
   cabecera filtran).
-- **Lab:** `scratchpad/ship-card-layout-lab.html` (artefacto "Ship Card Layout Lab") — átomos
+- **Lab:** `docs/layout-lab/ship-card.html` (+ README; artefacto "Ship Card Layout Lab") — átomos
   reales, drag libre, agrupar/separar, sin padding por defecto, copia la estructura.
 
 ### ~~99. Ship: la bici eléctrica resaltada y declarada aparte para Audit Source~~ <!-- id: idea-167 --> ✅ 2026-08-27 `79f8270` ("ok todo" a las cinco ❓ del PRD; input: 2026-08-27 NY)

@@ -137,6 +137,41 @@ diagnóstico sin otra consulta.
 
 **Activity Report layout:** Editor panel on the left (desktop) with: selectable greeting toggle ("Hi Carine!"), Win of the Day, PickD Updates (collapsible dropdown, closed by default), On the Floor routine checklist (editable items via gear icon, persisted in localStorage), and Notes (multiline textarea, one per line). Preview on the right updates with green highlight flash on each edit. "Save & Copy Report" button at bottom saves + copies to clipboard in one action. Report section order: Win → PickD Updates → Done Today → On the Floor → In Progress → Coming Up Next → Inventory Accuracy → Waiting. Footer shows date only (no timestamp). `/pickd-report` public route shows the HTML daily report for the current date with date navigation.
 
+## Ship (la pantalla de la estación de envío)
+
+**Existe por cuatro números: pallets, bikes, parts, weight.** Pallets y peso total se teclean en
+**Audit Source** (Rafael, 27 ago 2026: el sistema donde una carga regular se cotiza, se elige el
+carrier y se genera el tracking; pide tienda/cliente, calle y número, zip, pallets y peso total) o
+el envío va por el sistema FedEx. Un total mal es un envío mal — el 27 ago la estación sumó cada
+bici en la calculadora (bug-021/022). Todo lo demás del card sirve a esos números; ver
+`docs/warehouse-user-flows.md` (Flow 3) para el proceso y `docs/weekly-report/LESSONS.md` para el
+vocabulario ("the FedEx system", nunca "Ship Manager", en informes).
+
+- **Cifras, no frases** (regla 7 de `ui-rules`): lo que la estación teclea se muestra como los
+  cuatro números (cifra grande + etiqueta corta), nunca como párrafo. `useFitFontSize` escala las
+  cifras al ancho y **nunca parten de línea**.
+- **E-bike = cartón aparte** (idea-167, PRD `docs/prds/ship-ebike-declaration.md`): Audit Source
+  la pide fuera del pallet aunque viaje dentro. Fila `1 CARTON · 1 HUDSON E2 · 80 LBS` (+ medidas
+  enteras redondeadas arriba en FedEx) con copiar, y **la e-bike sale de Bikes y Weight** — con
+  ambos, Audit Source la recibía dos veces. Detección: `utils/electricBikes.ts`. Si la orden es solo
+  e-bikes, los cuatro números se esconden.
+- **El card es el dibujo de Rafael** (28 ago, `docs/layout-lab/`): cabecera en una línea (números
+  completos · logo · nota · fecha · tile de fotos · ⋯), dirección y ZIP en una línea, fila de
+  carrier = etiqueta + los que caben (`carrierPicker.ts`: FedEx nunca en orden regular, FedEx sola
+  en orden FedEx, el elegido siempre) + aviso Daylight solo con Daylight elegido + load #, los
+  cuatro números, la fila e-bike, fotos en columna a la derecha que crece (`PalletPhotoRail`).
+  **Todo botón vive en el menú ⋯** (`OrderActionsMenu`: Print pallet labels primero, packing slip,
+  Picking Summary, Notes, Split/Uncombine, manual hazmat en FedEx, Reopen/Restore/Continue, Delete).
+  Las alertas de contenido (litio en FedEx, zona PAV) son **una píldora pulsante** (`ShipAlertsButton`,
+  idea-161); la sugerencia de combinar es una oferta y sigue aparte.
+- **Lista:** la columna Shipped trae hoy + las 10 enviadas más recientes (`useShipOrdersData`,
+  `RECENT_SHIPPED`), agrupadas por día de envío, y sin pendientes se abre la última enviada. Era
+  "solo hoy" desde el 14 jul (`2dad26b`). **Búsqueda de 5 en 5** (`SEARCH_PAGE_SIZE`, "Show 5 more")
+  y el número exacto se trae aparte: un tope ciego escondió una vez una orden registrada — no volver
+  a poner uno sin ese guardia.
+- **Revisar en teléfono apaisado (~430 px)** antes de dar por hecho un cambio de Ship: es donde
+  Rafael lo mira, y cada cosa que se parte, corta o trunca ahí es la siguiente corrección.
+
 ## Export de dimensiones a FedEx Ship Manager
 
 Botón en Settings → Exports (`FedexDimensionsExportCard`, gate por `isAdmin`). Genera la tabla
@@ -475,6 +510,11 @@ son sufijo D y se quedan. La regla de hermanos por stock sigue como red por si r
   contra prod (`sql.begin` + `throw`) y leer el estado resultante; es como se validaron las de idea-154.
 - **Banner de staging:** `StagingBanner.tsx` muestra un banner amarillo "STAGING" automáticamente cuando el hostname no es producción ni localhost.
 - **Reports prebuild:** `pnpm prebuild` copies `reports/daily/*.html` to `public/reports/daily/` for static serving. Runs automatically before `pnpm build`. The `/pickd-report` route serves these via iframe.
+- **What's new (27 ago 2026, idea-166):** `reports/warehouse-updates/YYYY-MM-DD.html` (+ `img/`, PDF
+  por Chrome headless) → `pnpm prebuild` los copia a `public/reports/warehouse-updates/` y escribe
+  `index.json`; la ruta `/whats-new` (menú → What's new) los muestra con navegación por fecha e
+  imprime. Los escribe el agente `warehouse-report-writer`; las reglas viven en
+  `docs/weekly-report/LESSONS.md` (historia de dolor por mejora, cifras, vocabulario, nada técnico).
 
 ## Desarrollo local (Supabase + OrbStack)
 
