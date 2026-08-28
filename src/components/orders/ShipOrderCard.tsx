@@ -1113,7 +1113,10 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
         </div>
 
         {/* Stats — click any figure to edit */}
-        <div className="flex flex-wrap gap-6 pt-4 border-t border-dashed border-subtle w-full">
+        {/* gap-x-4, not gap-6: at gap-6 "1 · 8 · 0 · 400" measured 458 px in a
+            456 px card and Weight wrapped to its own line — the "8" is two
+            pixels wider than the "9". The four numbers belong on one line. */}
+        <div className="flex flex-wrap gap-x-4 gap-y-6 pt-4 border-t border-dashed border-subtle w-full">
           <StatField
             label="Pallets"
             value={formData.pallets}
