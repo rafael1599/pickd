@@ -40,6 +40,11 @@
   pinta igual). Hallazgo: en Bay 3 Norte el stock de hoy vive en A–F de filas que el plan dibuja
   10 de fondo — el dibujo enseña el plan y la realidad a la vez, que es lo que se quería.
   Siguiente: F4, retirar Plan/Live y `public/warehouse/`.
+- **Datos (Rafael, 28 ago, "ok"):** Bay 3 Norte pasó a **una letra por cuadro** — migración
+  `20260828161324`, aplicada en prod: 315 líneas reetiquetadas (A→A/B … F→K/L, alternando por
+  unidades; G/H/K intactas), 651 filas y 2.881 u sin cambio, auditoría en `sublocation_relabels`.
+  ❓ Pendiente: ¿misma regla para Bay 1 y Bay 2 (siguen A–F)? Las líneas de la F vieja caen en K/L,
+  fuera del dibujo de 10 de fondo — el mapa las lista hasta que el piso las ubique.
 
 ### ~~101. Ship: la columna Shipped nunca vacía (últimas 10) y búsqueda de 5 en 5~~ <!-- id: idea-169 --> ✅ 2026-08-28 `8cdb2f4` `e7a31d9` (input: 2026-08-28 NY)
 - **Reporte de Rafael:** "quitaste el filtro que dejaba visibles cierta cantidad de órdenes enviadas

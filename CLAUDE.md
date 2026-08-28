@@ -315,7 +315,15 @@ Ya no hay que coordinar cambios de schema con nadie más.
 
 - **`sku_metadata` columns (prod):** `sku`, `length_in`, `width_in`, `height_in`, `length_ft`, `weight_lbs`, `image_url`, `is_bike`, `upc`, `created_at`, `dimensions_verified`, más las de Scratch & Dent (`20260417100000`): `is_scratch_dent`, `model`, `size`, `color`, `category`, `serial_number`, `condition`, `condition_description`, `sd_category`, `msrp`, `standard_price`, `sd_price`, `pdf_link`, y `sku_key` (`20260826220000`, generada: `upper(sku)` sin nada que no sea A-Z0-9, **índice único**, solo lectura) — NO tiene columna `name`
 - **`model` y `size` ya no son solo de Scratch & Dent.** Nacieron ahí, y hasta `20260717200000` (`register_new_sku` estructurado) nada más los llenaba, así que el catálogo viejo guardaba el item_name entero en `model` (`"DXT A3 19 BLUE"`) con `size` en NULL. `20260820160000` los separó para los 171 SKUs de bike con medida real. **Son la llave de agrupación del export a FedEx**, así que basura ahí sale del almacén — ver `bug-018`, que mete texto de notas de picking dentro de `model`. Los 531 SKUs sobre defaults siguen sin separar a propósito: no vale la pena partir un nombre cuyo número no es real.
-- **`inventory.sublocation`** (idea-024): posición dentro de un ROW (A-F). CHECK constraints: `^[A-Z]{1,3}$` y solo para `location ILIKE 'ROW%'`. Se auto-limpia a NULL al mover a non-ROW. UI: chips en ItemDetailView/MovementModal, badge en InventoryCard/DoubleCheckView.
+- **`inventory.sublocation`** (idea-024): posición dentro de un ROW, **una letra por cuadro** desde el
+  28 ago 2026 en Bay 3 Norte (ROW 18–33, migración `20260828161324`): la letra vieja cubría dos cuadros
+  (A–F = 12 cuadros) y se dobló A→A/B … F→K/L repartiendo las líneas alternadamente; G, H y K ya eran
+  por cuadro y no se tocaron. Cada reetiqueta está en **`sublocation_relabels`** (append-only, lectura
+  admin) con la letra vieja y la nueva: el piso va corrigiendo la posición real y ahí se ve qué
+  adivinó la regla. Las demás zonas siguen con el esquema viejo (A–F) hasta que Rafael lo pida. CHECK
+  constraints: una letra `^[A-Z]$` por elemento y solo para `location ILIKE 'ROW%'`. Se auto-limpia a
+  NULL al mover a non-ROW. UI: chips en ItemDetailView/MovementModal, badge en
+  InventoryCard/DoubleCheckView; el mapa (`/warehouse-map`) pinta cada `ROW n · letra`.
 - **Invariante qty=0 → is_active=false:** `adjust_inventory_quantity` y `undo_inventory_action` mantienen `is_active = (quantity > 0)` bidireccionalmente. **Excepción:** `register_new_sku` crea placeholders con `qty=0, is_active=true` para onboarding de bikes nuevos — NO modificar este comportamiento. Ghost trail en búsqueda usa `includeInactive: true` para seguir mostrando items sin stock con su último movimiento.
 
 ### `picking_list_notes`: no toda nota la escribió una persona
