@@ -96,6 +96,16 @@ arriba, las mismas que ya tiene FSM por el export de Dimensions). El botón de c
 exactamente `1 carton, 1 HUDSON E2, 78.6 lbs` (+ `, 57×37×10 in` en FedEx). La frase explicativa
 desapareció; queda la etiqueta "E-bike — own carton". R2 queda reemplazado por esto.
 
+## 11) Corrección de Rafael (27 ago, noche) — Q2 estaba mal
+
+Con la orden real 303 / 301 en pantalla: **9 bikes / 480 lb** en el pallet **y además** 1 cartón
+/ 80 lb de la Hudson E2 — "estamos inflando los números, tanto en cantidad de bikes como en
+peso": Audit Source recibiría la bici dos veces. La propuesta por defecto de Q2 ("totales
+intactos") queda **anulada**: los cuatro números son **el pallet**, y lo que se declara como
+cartón aparte **sale de ellos**. Bikes y Weight cuentan todo menos las e-bikes (1 · **8** · 0 ·
+**400**); la fila de e-bike las lleva (1 · 1 HUDSON E2 · 80). Pallets y Parts no cambian.
+R3 y el criterio de aceptación 5 quedan reemplazados por esto.
+
 ## 9) Riesgos y supuestos
 
 - La detección vive en una lista + un patrón de nombre; una eléctrica nueva con otro esquema de

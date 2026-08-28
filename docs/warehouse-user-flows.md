@@ -81,8 +81,11 @@ in Order Items (blue edge, **E-BIKE** badge, a dot that pulses until the order s
 the four numbers and in their same big-figure style, shows one row per e-bike — **1** carton ·
 **1** Hudson E2 · **80** lbs — with a copy button ("1 carton, 1 HUDSON E2, 80 lbs"). A regular
 order needs no size; a FedEx order adds **57×37×10** in on the same row. A missing weight or an
-unmeasured carton is an amber "?". The lithium banner ("mark the cartons") stays: that one is the
-label, this one is the data entry. Rule behind it: **Ship speaks in figures, not sentences.**
+unmeasured carton is an amber "?". **The e-bike leaves the pallet's numbers:** Bikes and Weight
+count everything but the e-bikes (303 / 301 reads 1 · 8 · 0 · 400 plus 1 carton · Hudson E2 ·
+80), so Audit Source never gets a bike twice. The lithium banner ("mark the cartons") stays: that
+one is the label, this one is the data entry. Rule behind it: **Ship speaks in figures, not
+sentences**, and **a carton declared apart is not on the pallet**.
 
 FedEx side: FSM imports PickD's **Dimensions** table (one carton per model + size, Replace mode)
 and, per shipment, takes the Recipient ID. Lithium (e-bike) shipments need the hazmat label —

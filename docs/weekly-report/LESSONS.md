@@ -31,6 +31,11 @@ reads this file before writing anything. Written as _wrong → right_.
   un texto largo, solo cosas puntuales — 1 cartón, 1 Hudson E1, 78.6 libras". Anything in Ship
   that tells the station what to type is a row of big figures like Pallets / Bikes / Parts /
   Weight, never a paragraph; and the report describes it the same way.
+- **What is declared apart is not on the pallet** (27 Aug): with the e-bike row added, the four
+  numbers still counted the Hudson E2 — "estamos inflando los números, tanto en cantidad de bikes
+  como en peso". A separate carton leaves Bikes and Weight; never describe or build totals that
+  count a thing twice. My default for the PRD's Q2 was wrong; when a rule is about numbers the
+  station copies, check it against a real order before defaulting.
 - **Small things get half a line**, not a Before / Now box: "el 5 de verified solo menciónalo en
   media línea".
 - **"In the FedEx system"**, not "at the FedEx station".
