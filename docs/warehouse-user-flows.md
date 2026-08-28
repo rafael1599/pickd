@@ -61,7 +61,8 @@ into 881301). Everything else on the card serves those numbers:
 - **Carrier**: one line — the label, the carriers this order can use (most-used first, as many
   as fit without cutting or wrapping), and, only while Daylight is the carrier, the "text the
   dispatcher" reminder on that same line. A FedEx order shows FedEx alone, a regular order never
-  shows FedEx. The selected one always shows; "…" opens the rest. The load # sits under it.
+  shows FedEx. The selected one always shows; "…" opens the rest. The **load #** sits at the end of
+  that same row, chip-high (Rafael, 28 Aug).
 - **The card's shape (Rafael, 28 Aug 2026):** header on one line (full order numbers · carrier
   logo · note · date · photo tile · ⋯), status pill, customer, **address and ZIP on one line**,
   carrier row, load #, the four numbers, the e-bike row. **Photos** are a strip down the right
