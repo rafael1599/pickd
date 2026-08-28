@@ -11,7 +11,7 @@
 
 ## P1 — Alto (operación diaria)
 
-### 99. Ship: la bici eléctrica resaltada y declarada aparte para Audit Source <!-- id: idea-167 --> — input: 2026-08-27 NY
+### ~~99. Ship: la bici eléctrica resaltada y declarada aparte para Audit Source~~ <!-- id: idea-167 --> ✅ 2026-08-27 `79f8270` ("ok todo" a las cinco ❓ del PRD; input: 2026-08-27 NY)
 - **Pedido (Rafael):** Audit Source (cotización → carrier → tracking) pide declarar la bici a batería
   como un cartón aparte, fuera del pallet aunque viaje dentro. "pickd podría mostrarnos la bicicleta
   que es eléctrica resaltada en azul o con una animación… y necesita ser declarada como tal en la

@@ -76,9 +76,11 @@ the customer, the address and the ZIP, and why pallets and weight are the big nu
 
 **Electric bikes in Audit Source:** when an order carries a battery bike, Audit Source asks for it
 to be declared, and the e-bike is declared as **its own carton outside the pallet** — even if it
-physically travels inside the pallet(s). The station has to know which line is electric before
-it types the load; today Ship shows one banner ("Lithium battery label — N e-bikes"), not the
-line. Planned: the electric line highlighted in Ship (idea-167).
+physically travels inside the pallet(s). Since 27 Aug (idea-167) Ship marks the electric line
+in Order Items (blue edge, **E-BIKE** badge, a dot that pulses until the order ships) and, under
+the four numbers, lists each e-bike as a carton — count · weight · measured size — with a copy
+button; an unmeasured carton or a missing weight shows an amber "?". The lithium banner ("mark
+the cartons") stays: that one is the label, this one is the data entry.
 
 FedEx side: FSM imports PickD's **Dimensions** table (one carton per model + size, Replace mode)
 and, per shipment, takes the Recipient ID. Lithium (e-bike) shipments need the hazmat label —

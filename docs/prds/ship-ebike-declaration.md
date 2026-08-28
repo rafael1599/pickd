@@ -1,6 +1,6 @@
 # PRD: Bici eléctrica resaltada en Ship y declarada aparte en Audit Source
 
-**Estado:** Draft — con ❓ abiertas y una propuesta por defecto para cada una · **Fecha:** 2026-08-27
+**Estado:** Construido 2026-08-27 (`79f8270`) — Rafael aprobó las cinco propuestas por defecto ("ok todo") · **Fecha:** 2026-08-27
 · **Autor:** Rafael + PickD · **Backlog:** idea-167 · **Relacionado:** idea-161 (alertas en un botón
 pulsante), `src/utils/electricBikes.ts`, `ElectricBikeWarning`
 
