@@ -254,5 +254,49 @@ describe('V6 / V7 — revalidation before executing', () => {
     expect(summarizeMoves([move, relabel])).toEqual({ count: 2, units: 195, rows: 3 });
     expect(describeMove(relabel)).toBe('ROW 33 A → ROW 33 C');
     expect(describeMove({ ...move, fromSublocation: null })).toBe('ROW 27 → ROW 30 E');
+    // A place the drawing has no squares for is named alone (Rafael, 28 Aug: the
+    // leftovers of block 30–33 go to the main hall).
+    expect(
+      describeMove({ ...move, fromSublocation: null, toLocation: 'MAIN HALL', toLetters: [] })
+    ).toBe('ROW 27 → MAIN HALL');
+  });
+});
+
+describe('a move to a place with no squares (MAIN HALL)', () => {
+  // Rafael, 28 Aug 2026: what does not fit in block 30–33 goes to the main hall. The
+  // drawing has no square for it: no ghost, and the line is gone from its square only
+  // when the whole of it goes.
+  const hallMove = (inventoryId: number, qty: number): PlanMove => ({
+    id: 9,
+    planId: 'p',
+    position: 1,
+    inventoryId,
+    sku: '06-4731BK',
+    qty,
+    itemName: null,
+    warehouse: 'LUDLOW',
+    fromLocation: 'ROW 33',
+    fromSublocation: ['B'],
+    toLocation: 'MAIN HALL',
+    toLetters: [],
+    kind: 'move',
+    status: 'planned',
+    error: null,
+  });
+
+  it('draws no ghost and keeps a partially moved line in its square', () => {
+    const rows = [line('ROW 33', '06-4731BK', 132, ['B'])];
+    const stock = zoneStock(ZONES.bay3_north, model, rows);
+    const st = plannedState(stock, [hallMove(rows[0].id, 12)]);
+    expect(st.ghosts.size).toBe(0);
+    expect(st.vacated.has(rows[0].id)).toBe(false);
+  });
+
+  it('vacates the square when the whole line goes', () => {
+    const rows = [line('ROW 32', '03-3885BK', 1, ['A'])];
+    const stock = zoneStock(ZONES.bay3_north, model, rows);
+    const st = plannedState(stock, [hallMove(rows[0].id, 1)]);
+    expect(st.ghosts.size).toBe(0);
+    expect(st.vacated.has(rows[0].id)).toBe(true);
   });
 });

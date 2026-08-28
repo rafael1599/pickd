@@ -17,8 +17,12 @@ import { PALLET_UNITS, squaresFor, type ZoneStock } from '../stock/rowStock';
 import { locationOfKey, type MoveDraft, type PlannedState } from './slotPlan';
 
 export interface Leftover {
+  inventoryId: number;
   sku: string;
+  itemName: string | null;
+  warehouse: string;
   location: string;
+  fromSublocation: string[] | null;
   /** Units that found no free square at all. */
   qty: number;
 }
@@ -230,7 +234,17 @@ export function distribute(
       if (found.fast) onFast++;
       overflow -= units;
     }
-    if (overflow > 0) leftovers.push({ sku: line.sku, location: line.location, qty: overflow });
+    if (overflow > 0) {
+      leftovers.push({
+        inventoryId: line.inventoryId,
+        sku: line.sku,
+        itemName: line.itemName,
+        warehouse: line.warehouse,
+        location: line.location,
+        fromSublocation: line.letters.length ? line.letters : line.sublocation,
+        qty: overflow,
+      });
+    }
   }
 
   return { drafts, leftovers, untouched, onFast };

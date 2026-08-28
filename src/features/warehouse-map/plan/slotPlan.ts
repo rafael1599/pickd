@@ -332,7 +332,11 @@ export function summarizeMoves(moves: PlanMove[]) {
   };
 }
 
-/** `ROW 33 A → ROW 33 C·D·E` — the move as the sheet lists it. */
+/**
+ * `ROW 33 A → ROW 33 C·D·E` — the move as the sheet lists it. A destination
+ * with no letters (`MAIN HALL`, a place the drawing has no squares for) is
+ * named alone.
+ */
 export function describeMove(m: {
   fromLocation: string;
   fromSublocation: string[] | null;
@@ -340,5 +344,6 @@ export function describeMove(m: {
   toLetters: string[];
 }): string {
   const from = `${norm(m.fromLocation)}${m.fromSublocation?.length ? ' ' + m.fromSublocation.join('') : ''}`;
-  return `${from} → ${norm(m.toLocation)} ${m.toLetters.join('·')}`;
+  const to = `${norm(m.toLocation)}${m.toLetters.length ? ' ' + m.toLetters.join('·') : ''}`;
+  return `${from} → ${to}`;
 }

@@ -61,7 +61,8 @@ export async function runMove(
         m.qty,
         undefined,
         null,
-        m.toLetters,
+        // A place with no squares (MAIN HALL) takes no letters.
+        m.toLetters.length ? m.toLetters : null,
         `${note} ${ZONES[zoneId].name}: ${describeMove(m)}`
       );
     }

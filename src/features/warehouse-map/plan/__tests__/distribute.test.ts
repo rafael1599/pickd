@@ -94,7 +94,7 @@ describe('a line with more units than squares', () => {
     all.push(line('ROW 33', '03-K', 50, []));
     const stock = zoneStock(ZONES.bay3_north, model, all);
     const d = distribute(stock, model, plannedState(stock, []));
-    expect(d.leftovers).toEqual([{ sku: '03-K', location: 'ROW 33', qty: 50 }]);
+    expect(d.leftovers).toMatchObject([{ sku: '03-K', location: 'ROW 33', qty: 50 }]);
   });
 
   it('gives a line with no letter a square in its own row, and leaves a line in K alone', () => {
