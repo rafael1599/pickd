@@ -42,6 +42,7 @@ import { OrderProgressBar } from '../../features/picking/components/OrderProgres
 import type { CustomerAddress } from '../../lib/customerAddresses';
 import type { CombineMeta, PickingList } from '../../schemas/picking.schema';
 import { ElectricBikeWarning } from './ElectricBikeWarning';
+import { ShipAlertsButton, ShipAlertsPanel, type ShipAlert } from './ShipAlertsButton';
 import { PalletPhotoRail } from './PalletPhotoRail';
 import type { Customer } from '../../types/schema';
 import type { User } from '@supabase/supabase-js';
@@ -292,6 +293,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   const [justSavedField, setJustSavedField] = useState<string | null>(null);
   const [isPavBannerDismissed, setIsPavBannerDismissed] = useState(false);
   const [isEbikeBannerDismissed, setIsEbikeBannerDismissed] = useState(false);
+  const [alertsOpen, setAlertsOpen] = useState(false);
   const [isConfirmingDaylight, setIsConfirmingDaylight] = useState(false);
   const editRef = useRef<HTMLDivElement>(null);
   const clearSaveRef = useRef<NodeJS.Timeout | null>(null);
@@ -345,6 +347,62 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
     !isEbikeBannerDismissed &&
     electricBikeLines.length > 0 &&
     !selectedOrder?.is_shipped;
+
+  // One pulsing button for the content alerts (idea-161): the lithium label
+  // on FedEx orders and the PAV zone warning. The Daylight reminder stays in
+  // the carrier row where Rafael put it; the combine suggestion is an offer.
+  const shipAlerts: ShipAlert[] = [];
+  if (showElectricBikeWarning) {
+    shipAlerts.push({
+      key: 'lithium',
+      label: 'Lithium',
+      tone: 'amber',
+      content: (
+        <ElectricBikeWarning
+          lines={electricBikeLines}
+          onDismiss={() => setIsEbikeBannerDismissed(true)}
+        />
+      ),
+    });
+  }
+  if (showPavWarningBanner) {
+    shipAlerts.push({
+      key: 'pav-zone',
+      label: 'PAV zone',
+      tone: 'red',
+      content: (
+        <div className="relative flex items-center justify-between gap-3 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-2xl w-full">
+          <div className="flex items-center gap-2.5 min-w-0">
+            {/* PAV Express Logo crossed out with a thick red line */}
+            <div className="relative shrink-0 w-12 h-6 bg-white rounded flex items-center justify-center p-0.5 overflow-hidden shadow-sm border border-subtle">
+              <img
+                src="/logos/transport/pav.png"
+                alt="PAV Express"
+                className="max-h-full max-w-full object-contain"
+              />
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-[140%] h-1 bg-red-600 rotate-[-25deg] shadow-sm rounded-full" />
+              </div>
+            </div>
+
+            <span className="text-xs font-bold text-red-500 truncate">
+              Outside PAV delivery zones
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsPavBannerDismissed(true)}
+            title="Close warning"
+            aria-label="Close warning"
+            className="shrink-0 p-1 rounded-lg text-muted hover:text-content hover:bg-subtle transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      ),
+    });
+  }
 
   // Daylight only rolls a truck once someone texts the dispatcher how many
   // pallets to come get, so the carrier picker nags until that's done. The
@@ -644,7 +702,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
               FedEx orders: a freight carrier or PICK UP has no recipient book. */}
           {isFedexOrder && <FedexRecipientChip listId={selectedOrder?.id ?? null} />}
 
-          {/* Customer name — click to edit */}
+          {/* Customer name — click to edit; the alerts pill sits at its right */}
           <div
             ref={editingField === 'customer' ? editRef : undefined}
             className="flex items-center gap-2"
@@ -695,7 +753,15 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 <SaveCheckmark show={justSavedField === 'customer'} />
               </div>
             )}
+            <ShipAlertsButton
+              alerts={shipAlerts}
+              pulse={!selectedOrder.is_shipped}
+              open={alertsOpen}
+              onToggle={() => setAlertsOpen((v) => !v)}
+              className="shrink-0 ml-auto"
+            />
           </div>
+          {alertsOpen && <ShipAlertsPanel alerts={shipAlerts} />}
 
           {/* Address — click to edit, joined when reading */}
           <div
@@ -860,45 +926,6 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
             <div className="w-full">
               {/* Carrier selector — always visible, expands 100% full width */}
               <div className="flex flex-col gap-2 w-full">
-                {showPavWarningBanner && (
-                  <div className="relative flex items-center justify-between gap-3 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-2xl w-full">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {/* PAV Express Logo crossed out with a thick red line */}
-                      <div className="relative shrink-0 w-12 h-6 bg-white rounded flex items-center justify-center p-0.5 overflow-hidden shadow-sm border border-subtle">
-                        <img
-                          src="/logos/transport/pav.png"
-                          alt="PAV Express"
-                          className="max-h-full max-w-full object-contain"
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="w-[140%] h-1 bg-red-600 rotate-[-25deg] shadow-sm rounded-full" />
-                        </div>
-                      </div>
-
-                      <span className="text-xs font-bold text-red-500 truncate">
-                        Outside PAV delivery zones
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setIsPavBannerDismissed(true)}
-                      title="Close warning"
-                      aria-label="Close warning"
-                      className="shrink-0 p-1 rounded-lg text-muted hover:text-content hover:bg-subtle transition-colors"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                )}
-
-                {showElectricBikeWarning && (
-                  <ElectricBikeWarning
-                    lines={electricBikeLines}
-                    onDismiss={() => setIsEbikeBannerDismissed(true)}
-                  />
-                )}
-
                 {/* One row: the label, the chips that fit, and — only while
                   Daylight is the carrier and the dispatcher has not been
                   texted — the reminder, on the same line (Rafael, 2026-08-28). */}
