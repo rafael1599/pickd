@@ -86,6 +86,16 @@ físico; una columna nueva en la base de datos (ver Riesgos).
 4. Con "reducir movimiento" activado no hay pulso; el azul y la insignia siguen.
 5. Pallets y peso total iguales antes y después (según Q2).
 
+## 10) Refinamiento de Rafael (27 ago, tarde) — cifras, no frases
+
+"El operario no quiere un texto largo, solo cosas puntuales": la declaración se muestra **con el
+mismo formato que los cuatro números grandes** (pallets, bikes, parts, weight), una fila por
+e-bike: **1** CARTON · **1** HUDSON E1 · **78.6** LBS. En órdenes **regulares no hacen falta
+medidas**; en **FedEx sí**, en la misma fila: **57×37×10** IN (pulgadas enteras redondeadas hacia
+arriba, las mismas que ya tiene FSM por el export de Dimensions). El botón de copiar entrega
+exactamente `1 carton, 1 HUDSON E2, 78.6 lbs` (+ `, 57×37×10 in` en FedEx). La frase explicativa
+desapareció; queda la etiqueta "E-bike — own carton". R2 queda reemplazado por esto.
+
 ## 9) Riesgos y supuestos
 
 - La detección vive en una lista + un patrón de nombre; una eléctrica nueva con otro esquema de

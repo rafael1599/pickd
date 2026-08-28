@@ -78,9 +78,11 @@ the customer, the address and the ZIP, and why pallets and weight are the big nu
 to be declared, and the e-bike is declared as **its own carton outside the pallet** — even if it
 physically travels inside the pallet(s). Since 27 Aug (idea-167) Ship marks the electric line
 in Order Items (blue edge, **E-BIKE** badge, a dot that pulses until the order ships) and, under
-the four numbers, lists each e-bike as a carton — count · weight · measured size — with a copy
-button; an unmeasured carton or a missing weight shows an amber "?". The lithium banner ("mark
-the cartons") stays: that one is the label, this one is the data entry.
+the four numbers and in their same big-figure style, shows one row per e-bike — **1** carton ·
+**1** Hudson E2 · **80** lbs — with a copy button ("1 carton, 1 HUDSON E2, 80 lbs"). A regular
+order needs no size; a FedEx order adds **57×37×10** in on the same row. A missing weight or an
+unmeasured carton is an amber "?". The lithium banner ("mark the cartons") stays: that one is the
+label, this one is the data entry. Rule behind it: **Ship speaks in figures, not sentences.**
 
 FedEx side: FSM imports PickD's **Dimensions** table (one carton per model + size, Replace mode)
 and, per shipment, takes the Recipient ID. Lithium (e-bike) shipments need the hazmat label —

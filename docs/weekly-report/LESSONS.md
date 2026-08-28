@@ -27,6 +27,10 @@ reads this file before writing anything. Written as _wrong → right_.
   corte… responsive". FedEx alone on FedEx orders; never FedEx on a regular one; "…" for the rest.
   Lesson under the lesson: when he refines a UI rule twice in a row, the third form is the one
   he keeps — write the rule as the _principle_ (fit the screen), not the number.
+- **Ship speaks in figures, not sentences** (27 Aug, on the e-bike carton): "el operario no quiere
+  un texto largo, solo cosas puntuales — 1 cartón, 1 Hudson E1, 78.6 libras". Anything in Ship
+  that tells the station what to type is a row of big figures like Pallets / Bikes / Parts /
+  Weight, never a paragraph; and the report describes it the same way.
 - **Small things get half a line**, not a Before / Now box: "el 5 de verified solo menciónalo en
   media línea".
 - **"In the FedEx system"**, not "at the FedEx station".

@@ -325,3 +325,11 @@ Poner el color en el contenedor y dejar que los hijos hereden **sí** es válido
 - [ ] Probado en viewport mobile (iPhone 13 Pro o más chico)
 
 Si tildaste todo, mergeá. Si no, ajustá antes.
+
+## 7. Ship: cifras, no frases
+
+Rafael, 27 ago 2026, sobre la declaración de e-bikes: "el operario no quiere un texto largo, solo
+cosas puntuales — 1 cartón, 1 Hudson E1, 78.6 libras". Todo lo que en Ship le dice a la estación
+qué teclear (en Audit Source, en FedEx Ship Manager) se muestra **como los cuatro números grandes**
+— cifra grande + etiqueta de 1-2 palabras (`StatField` / `Figure` en `ElectricCartonDeclaration`) —
+nunca como párrafo ni banner con explicación. Un dato que falta es un `?` ámbar, no una frase.
