@@ -4,17 +4,19 @@
 // more units than its squares hold, plan the squares it needs: first the
 // free squares of its own row (a relabel to a wider span), then, for what
 // still does not fit, free buried squares in the nearest rows (a move of just
-// those units). Fast squares are for picking; overflow goes buried.
+// those units); fast squares only when no buried square is left, and the
+// result says how many landed there. Lines the drawing had no square for
+// (letter K, no letter) get a square too — small ones share one.
 
 import type { LayoutModel } from '../engine';
 import { slotKey } from '../engine';
 import { PALLET_UNITS, squaresFor, type ZoneStock } from '../stock/rowStock';
-import { letterOfKey, locationOfKey, type MoveDraft, type PlannedState } from './slotPlan';
+import { locationOfKey, type MoveDraft, type PlannedState } from './slotPlan';
 
 export interface Leftover {
   sku: string;
   location: string;
-  /** Units that found no free buried square. */
+  /** Units that found no free square at all. */
   qty: number;
 }
 
@@ -23,6 +25,8 @@ export interface Distribution {
   leftovers: Leftover[];
   /** Lines that already fit and were left alone. */
   untouched: number;
+  /** Moves that had to use a fast square because no buried one was left. */
+  onFast: number;
 }
 
 interface Square {
@@ -42,8 +46,14 @@ interface Line {
   warehouse: string;
   location: string;
   rowNum: number;
+  /** The drawn squares it lives in today; empty for a line the drawing had no square for. */
   letters: string[];
+  /** What the DB says its letters are (K, or nothing). */
+  sublocation: string[] | null;
 }
+
+const sortLetters = (letters: string[]) => [...new Set(letters)].sort();
+const rowOf = (location: string) => Number(/\d+/.exec(location)?.[0] ?? NaN);
 
 export function distribute(
   stock: ZoneStock,
@@ -63,6 +73,7 @@ export function distribute(
       d: c.d,
     });
   }
+  const drawnRows = new Set(model.validCells.map((c) => Number(c.row.num)));
 
   // Each line once, with the squares it lives in.
   const lines = new Map<number, Line>();
@@ -78,38 +89,104 @@ export function distribute(
         location: locationOfKey(cell.key),
         rowNum: cell.rowNumber,
         letters: [],
+        sublocation: null,
       };
       line.letters.push(cell.letter);
       lines.set(e.rowId, line);
     }
   }
+  // Lines the drawing had no square for: a letter it does not draw, or none.
+  for (const u of stock.unplaced) {
+    if (u.reason !== 'letter' && u.reason !== 'no-letter') continue;
+    if (lines.has(u.row.id) || state.vacated.has(u.row.id)) continue;
+    const rowNum = rowOf(u.row.location);
+    if (!drawnRows.has(rowNum)) continue;
+    lines.set(u.row.id, {
+      inventoryId: u.row.id,
+      sku: u.row.sku,
+      qty: u.row.quantity,
+      itemName: u.row.itemName,
+      warehouse: u.row.warehouse,
+      location: u.row.location,
+      rowNum,
+      letters: [],
+      sublocation: u.row.sublocation,
+    });
+  }
 
   const drafts: MoveDraft[] = [];
   const leftovers: Leftover[] = [];
   let untouched = 0;
+  let onFast = 0;
   const take = (sq: Square) => squares.delete(sq.key);
+  /** Squares this pass started with a small line, with room to spare, by row. */
+  const shared = new Map<number, { key: string; letter: string; left: number }[]>();
+
+  const depthOf = (rowNum: number, letter: string) =>
+    model.validCells.find((c) => slotKey(c) === `${rowNum}-${letter}`)?.d ?? -1;
+
+  /** Free squares of a row, deeper than `afterD` first, then the rest by depth. */
+  const ownRowSquares = (rowNum: number, afterD: number) =>
+    [...squares.values()]
+      .filter((s) => s.rowNum === rowNum)
+      .sort((a, b) => Number(a.d <= afterD) - Number(b.d <= afterD) || a.d - b.d);
+
+  /** Free squares elsewhere for `units`: buried in the nearest row, fast only when none is left. */
+  const elsewhere = (rowNum: number, units: number): { taken: Square[]; fast: boolean } | null => {
+    const pool = [...squares.values()].filter((s) => !s.isFast);
+    const fast = pool.length === 0;
+    const candidates = fast ? [...squares.values()] : pool;
+    if (candidates.length === 0) return null;
+    const byRow = new Map<number, Square[]>();
+    for (const s of candidates) byRow.set(s.rowNum, [...(byRow.get(s.rowNum) ?? []), s]);
+    const rows = [...byRow.keys()].sort(
+      (a, b) => Math.abs(a - rowNum) - Math.abs(b - rowNum) || a - b
+    );
+    const here = byRow.get(rows[0])!.sort((a, b) => a.d - b.d);
+    return { taken: here.slice(0, squaresFor(units)), fast };
+  };
+
+  const draft = (line: Line, toLocation: string, toLetters: string[], qty: number): MoveDraft => ({
+    inventoryId: line.inventoryId,
+    sku: line.sku,
+    qty,
+    itemName: line.itemName,
+    warehouse: line.warehouse,
+    fromLocation: line.location,
+    fromSublocation: line.letters.length ? line.letters : line.sublocation,
+    toLocation,
+    toLetters: sortLetters(toLetters),
+    kind:
+      toLocation.trim().toUpperCase() === line.location.trim().toUpperCase() ? 'relabel' : 'move',
+  });
 
   // Biggest lines first: they have the fewest places to go.
   const ordered = [...lines.values()].sort((a, b) => b.qty - a.qty);
   for (const line of ordered) {
     const need = squaresFor(line.qty);
-    if (need <= line.letters.length) {
+    if (line.letters.length > 0 && need <= line.letters.length) {
       untouched++;
       continue;
     }
+
+    // A small line with no square can share one another small line started.
+    if (line.letters.length === 0 && line.qty <= PALLET_UNITS) {
+      const room = (shared.get(line.rowNum) ?? []).find((s) => s.left >= line.qty);
+      if (room) {
+        room.left -= line.qty;
+        drafts.push(draft(line, line.location, [room.letter], line.qty));
+        continue;
+      }
+    }
+
     let missing = need - line.letters.length;
 
     // 1. Its own row: the free squares deeper than its last letter first, then any.
-    const lastD = Math.max(
-      ...line.letters.map(
-        (l) => model.validCells.find((c) => slotKey(c) === `${line.rowNum}-${l}`)?.d ?? -1
-      )
-    );
-    const ownRow = [...squares.values()]
-      .filter((s) => s.rowNum === line.rowNum)
-      .sort((a, b) => Number(a.d <= lastD) - Number(b.d <= lastD) || a.d - b.d);
+    const lastD = line.letters.length
+      ? Math.max(...line.letters.map((l) => depthOf(line.rowNum, l)))
+      : -1;
     const extended: string[] = [];
-    for (const sq of ownRow) {
+    for (const sq of ownRowSquares(line.rowNum, lastD)) {
       if (missing === 0) break;
       extended.push(sq.letter);
       take(sq);
@@ -117,58 +194,41 @@ export function distribute(
     }
     const span = [...line.letters, ...extended];
     if (extended.length > 0) {
-      drafts.push({
-        inventoryId: line.inventoryId,
-        sku: line.sku,
-        qty: line.qty,
-        itemName: line.itemName,
-        warehouse: line.warehouse,
-        fromLocation: line.location,
-        fromSublocation: line.letters,
-        toLocation: line.location,
-        toLetters: sortLetters(span),
-        kind: 'relabel',
-      });
+      drafts.push(draft(line, line.location, span, line.qty));
+      if (line.letters.length === 0 && line.qty < PALLET_UNITS) {
+        shared.set(line.rowNum, [
+          ...(shared.get(line.rowNum) ?? []),
+          {
+            key: `${line.rowNum}-${extended[0]}`,
+            letter: extended[0],
+            left: PALLET_UNITS - line.qty,
+          },
+        ]);
+      }
     }
     if (missing === 0) continue;
 
-    // 2. What still does not fit goes to free buried squares, nearest rows first,
-    //    as many together in one row as that row can give.
+    // 2. What still does not fit goes elsewhere: buried squares in the nearest rows,
+    //    fast squares only when no buried one is left.
     let overflow = line.qty - PALLET_UNITS * span.length;
     while (overflow > 0) {
-      const buried = [...squares.values()].filter((s) => !s.isFast);
-      if (buried.length === 0) break;
-      const byRow = new Map<number, Square[]>();
-      for (const s of buried) byRow.set(s.rowNum, [...(byRow.get(s.rowNum) ?? []), s]);
-      const rows = [...byRow.keys()].sort(
-        (a, b) => Math.abs(a - line.rowNum) - Math.abs(b - line.rowNum) || a - b
+      const found = elsewhere(line.rowNum, overflow);
+      if (!found || found.taken.length === 0) break;
+      for (const sq of found.taken) take(sq);
+      const units = Math.min(overflow, PALLET_UNITS * found.taken.length);
+      drafts.push(
+        draft(
+          line,
+          `ROW ${found.taken[0].rowNum}`,
+          found.taken.map((s) => s.letter),
+          units
+        )
       );
-      const rowNum = rows[0];
-      const here = byRow.get(rowNum)!.sort((a, b) => a.d - b.d);
-      const wanted = squaresFor(overflow);
-      const taken = here.slice(0, wanted);
-      for (const sq of taken) take(sq);
-      const units = Math.min(overflow, PALLET_UNITS * taken.length);
-      drafts.push({
-        inventoryId: line.inventoryId,
-        sku: line.sku,
-        qty: units,
-        itemName: line.itemName,
-        warehouse: line.warehouse,
-        fromLocation: line.location,
-        fromSublocation: line.letters,
-        toLocation: `ROW ${rowNum}`,
-        toLetters: sortLetters(taken.map((s) => s.letter)),
-        kind: 'move',
-      });
+      if (found.fast) onFast++;
       overflow -= units;
     }
     if (overflow > 0) leftovers.push({ sku: line.sku, location: line.location, qty: overflow });
   }
 
-  return { drafts, leftovers, untouched };
+  return { drafts, leftovers, untouched, onFast };
 }
-
-const sortLetters = (letters: string[]) => [...new Set(letters)].sort();
-
-export { letterOfKey };

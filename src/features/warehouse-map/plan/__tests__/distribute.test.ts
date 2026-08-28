@@ -69,17 +69,52 @@ describe('a line with more units than squares', () => {
     expect(d.leftovers).toEqual([]);
   });
 
-  it('never uses a fast square of another row for overflow, and reports what found no room', () => {
+  it('uses a fast square only when no buried one is left, and says so', () => {
     // Fill every buried square of the zone. ROW 20 is an edge row (all ten squares fast
-    // and free), so the line widens across its own row first: 10 × 30 = 300 of 400.
+    // and free), so the line widens across its own row first: 10 × 30 = 300 of 400; the
+    // last 100 have only fast squares left to go to.
     const buried = model.validCells.filter((c) => !c.isFast);
     const rows = buried.map((c, i) => line(`ROW ${c.row.num}`, `FILL-${i}`, 30, [c.letter]));
     rows.push(line('ROW 20', '03-BIG', 400, ['A']));
     const stock = zoneStock(ZONES.bay3_north, model, rows);
     const d = distribute(stock, model, plannedState(stock, []));
-    expect(d.drafts.filter((m) => m.kind === 'move')).toEqual([]);
     expect(d.drafts[0].toLetters).toHaveLength(10);
-    expect(d.leftovers).toEqual([{ sku: '03-BIG', location: 'ROW 20', qty: 400 - 30 * 10 }]);
+    // Each move takes what one row can give (an inner row has two fast squares).
+    const moves = d.drafts.filter((m) => m.kind === 'move');
+    expect(moves.reduce((s, m) => s + m.qty, 0)).toBe(100);
+    expect(d.onFast).toBe(moves.length);
+    expect(d.leftovers).toEqual([]);
+  });
+
+  it('reports what found no square at all', () => {
+    const all = model.validCells.map((c, i) =>
+      line(`ROW ${c.row.num}`, `FILL-${i}`, 30, [c.letter])
+    );
+    // Every square taken; a line in K with 50 units has nowhere to go.
+    all.push(line('ROW 33', '03-K', 50, ['K']));
+    const stock = zoneStock(ZONES.bay3_north, model, all);
+    const d = distribute(stock, model, plannedState(stock, []));
+    expect(d.leftovers).toEqual([{ sku: '03-K', location: 'ROW 33', qty: 50 }]);
+  });
+
+  it('gives a line the drawing had no square for its squares — own row first', () => {
+    const rows = [line('ROW 33', '03-3777RD', 21, ['K']), line('ROW 32', '03-X', 27, ['K'])];
+    const stock = zoneStock(ZONES.bay3_north, model, rows);
+    const d = distribute(stock, model, plannedState(stock, []));
+    expect(d.drafts.map((m) => [m.sku, m.kind, m.toLocation, m.toLetters])).toEqual([
+      ['03-X', 'relabel', 'ROW 32', ['A']],
+      ['03-3777RD', 'relabel', 'ROW 33', ['A']],
+    ]);
+    expect(d.drafts[0].fromSublocation).toEqual(['K']);
+  });
+
+  it('packs small lines with no letter into one shared square', () => {
+    const rows = Array.from({ length: 10 }, (_, i) => line('ROW 32', `01-05${10 + i}`, 1, []));
+    const stock = zoneStock(ZONES.bay3_north, model, rows);
+    const d = distribute(stock, model, plannedState(stock, []));
+    expect(d.drafts).toHaveLength(10);
+    expect(new Set(d.drafts.map((m) => m.toLetters.join())).size).toBe(1);
+    expect(d.drafts.every((m) => m.kind === 'relabel' && m.toLocation === 'ROW 32')).toBe(true);
   });
 
   it('skips lines that already have a planned move', () => {
