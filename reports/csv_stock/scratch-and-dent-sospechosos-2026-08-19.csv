@@ -1,0 +1,3 @@
+SKU,Name,Model,Size,Color,Quantity,Location,Sublocation,Is Bike,Serial,Condition,S/D Price,MSRP,Standard Price,Last Updated,Why Suspicious,Decision
+06-4516KW,"TAXI 26 17 KIWI "" Kiwi","TAXI 26 17 KIWI                   """,,Kiwi,32,ROW 24,F,true,,new,,,,2026-07-29 17:10,same slot as a flagged S/D,
+06-4617RD,EC2 21 2025 BLOOD RED,EC2 21 2025 BLOOD RED,,Red,27,ROW 24,F,true,,new,,,,2026-07-01 11:59,same slot as a flagged S/D,
