@@ -30,7 +30,12 @@ import { skuDefaultsFor } from '../../utils/skuDefaults';
 import { fetchGroupSiblings } from './utils/fetchGroupSiblings';
 import { useCombinedOrderFilter } from '../../hooks/useCombinedOrderFilter';
 import { inventorySkuCandidates } from '../../utils/skuNormalize';
-import { collectElectricBikeLines } from '../../utils/electricBikes';
+import {
+  collectElectricBikeLines,
+  isElectricBikeItem,
+  isElectricBikeSku,
+} from '../../utils/electricBikes';
+import { buildElectricCartons } from '../../components/orders/electricCartons';
 import { ActiveFilterPill } from '../../components/orders/CombinedOrderNumbers';
 
 import { ShipHeader } from './ship/components/header/ShipHeader';
@@ -147,6 +152,26 @@ function isLikelyBike(
 ): boolean {
   if (meta && typeof meta.is_bike === 'boolean') return meta.is_bike;
   return isBikeSku(sku, meta);
+}
+
+/** The catalog row Ship keeps per SKU of the selected order. */
+interface ShipSkuMeta {
+  weight_lbs: number | null;
+  is_bike: boolean;
+  length_in: number | null;
+  width_in: number | null;
+  height_in: number | null;
+  dimensions_verified: boolean;
+}
+/** What sku_metadata answers, before the SKU-candidate match. */
+interface ShipSkuMetaRow {
+  sku: string;
+  weight_lbs: number | null;
+  is_bike: boolean | null;
+  length_in?: number | null;
+  width_in?: number | null;
+  height_in?: number | null;
+  dimensions_verified?: boolean | null;
 }
 
 /**
@@ -478,9 +503,7 @@ export const ShipScreen = () => {
   });
 
   // SKU metadata map fetched from sku_metadata (weight + bike classification)
-  const [skuMeta, setSkuMeta] = useState<
-    Record<string, { weight_lbs: number | null; is_bike: boolean }>
-  >({});
+  const [skuMeta, setSkuMeta] = useState<Record<string, ShipSkuMeta>>({});
   const [weightsReady, setWeightsReady] = useState(false);
 
   const selectedOrderSkusKey = useMemo(() => {
@@ -505,22 +528,18 @@ export const ShipScreen = () => {
 
     supabase
       .from('sku_metadata')
-      .select('sku, weight_lbs, is_bike')
+      .select('sku, weight_lbs, is_bike, length_in, width_in, height_in, dimensions_verified')
       .in('sku', allCandidates)
       .then(({ data }) => {
-        const metaBySku = new Map<string, { weight_lbs: number | null; is_bike: boolean | null }>();
-        (
-          data as unknown as
-            | { sku: string; weight_lbs: number | null; is_bike: boolean | null }[]
-            | null
-        )?.forEach((row) => {
+        const metaBySku = new Map<string, ShipSkuMetaRow>();
+        (data as unknown as ShipSkuMetaRow[] | null)?.forEach((row) => {
           metaBySku.set(row.sku, row);
         });
 
-        const map: Record<string, { weight_lbs: number | null; is_bike: boolean }> = {};
+        const map: Record<string, ShipSkuMeta> = {};
         skus.forEach((s) => {
           const candidates = inventorySkuCandidates(s);
-          let matchedMeta: { weight_lbs: number | null; is_bike: boolean | null } | undefined;
+          let matchedMeta: ShipSkuMetaRow | undefined;
           for (const cand of candidates) {
             if (metaBySku.has(cand)) {
               matchedMeta = metaBySku.get(cand);
@@ -530,6 +549,10 @@ export const ShipScreen = () => {
           map[s] = {
             weight_lbs: matchedMeta?.weight_lbs ?? null,
             is_bike: isBikeSku(s, matchedMeta),
+            length_in: matchedMeta?.length_in ?? null,
+            width_in: matchedMeta?.width_in ?? null,
+            height_in: matchedMeta?.height_in ?? null,
+            dimensions_verified: matchedMeta?.dimensions_verified ?? false,
           };
         });
         setSkuMeta(map);
@@ -727,6 +750,27 @@ export const ShipScreen = () => {
           )
         : [],
     [filteredItems, skuMeta, weightsReady]
+  );
+  // The same e-bikes as Audit Source wants them: own carton, with weight and
+  // measured size from the catalog (idea-167). Totals are untouched.
+  const electricCartons = useMemo(
+    () => buildElectricCartons(electricBikeLines, (sku) => skuMeta[sku]),
+    [electricBikeLines, skuMeta]
+  );
+  // Per line, for the E-BIKE mark in Order Items. Until the catalog answers,
+  // only the verified SKU list counts — the name pattern needs is_bike to keep
+  // the E2 diagnostic tool out, and a badge that flashes on a tool teaches the
+  // station to ignore the badge.
+  const isElectricItem = useCallback(
+    (item: PickingListItem) =>
+      weightsReady
+        ? isElectricBikeItem({
+            sku: item.sku,
+            item_name: item.item_name,
+            isBike: skuMeta[item.sku]?.is_bike,
+          })
+        : isElectricBikeSku(item.sku),
+    [weightsReady, skuMeta]
   );
 
   // Effective counts: manual override takes priority over auto-calculated,
@@ -2484,6 +2528,7 @@ export const ShipScreen = () => {
                     onToggleOrderFilter={toggleSelectedOrderFilter}
                     isFedexOrder={isFedexOrder}
                     electricBikeLines={electricBikeLines}
+                    electricCartons={electricCartons}
                   />
 
                   <PartsWeightEditor
@@ -2503,6 +2548,8 @@ export const ShipScreen = () => {
                       partCount={partCount}
                       activeOrderFilter={selectedOrderFilter}
                       lineMeta={metaForItem}
+                      isElectric={isElectricItem}
+                      electricPulse={!selectedOrder.is_shipped}
                       onSkuClick={(item) =>
                         void openSkuDetail({
                           sku: item.sku,

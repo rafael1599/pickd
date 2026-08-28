@@ -20,6 +20,13 @@ interface OrderItemsTableProps {
   lineMeta?: (item: PickingListItem) => { is_bike: boolean; weight_lbs: number | null };
   /** Tapping a SKU opens its Item Detail (idea-165). */
   onSkuClick?: (item: PickingListItem) => void;
+  /**
+   * An electric bike — Audit Source wants it declared as its own carton, so
+   * the line is marked where the station reads the order (idea-167).
+   */
+  isElectric?: (item: PickingListItem) => boolean;
+  /** The E-BIKE badge pulses while the order is still in the building. */
+  electricPulse?: boolean;
 }
 
 export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
@@ -29,6 +36,8 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
   activeOrderFilter = null,
   lineMeta,
   onSkuClick,
+  isElectric,
+  electricPulse = false,
 }) => {
   const items = React.useMemo(() => {
     if (!order || !Array.isArray(order.items)) return [];
@@ -130,12 +139,20 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                 const meta = lineMeta?.(item);
                 const unitLbs = meta?.weight_lbs ?? null;
                 const lineLbs = unitLbs == null ? null : Math.round(unitLbs * qty * 10) / 10;
+                const electric = isElectric?.(item) ?? false;
                 return (
-                  <tr key={`${sku}-${idx}`} className="hover:bg-main/30 transition-colors">
-                    <td className="py-2.5 px-4 font-mono font-bold text-right text-accent">
+                  <tr
+                    key={`${sku}-${idx}`}
+                    className={`hover:bg-main/30 transition-colors ${electric ? 'bg-sky-500/5' : ''}`}
+                  >
+                    <td
+                      className={`py-2.5 px-4 font-mono font-bold text-right text-accent ${
+                        electric ? 'border-l-4 border-l-sky-500' : ''
+                      }`}
+                    >
                       {qty}
                     </td>
-                    <td className="py-2.5 px-4 font-mono font-black tracking-tight">
+                    <td className="py-2.5 px-4 font-mono font-black tracking-tight whitespace-nowrap">
                       {onSkuClick && item.sku ? (
                         <button
                           type="button"
@@ -147,6 +164,20 @@ export const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                         </button>
                       ) : (
                         sku
+                      )}
+                      {electric && (
+                        <span
+                          className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-sky-500/40 bg-sky-500/15 text-sky-400 text-[9px] font-black tracking-wider align-middle"
+                          title="Electric bike — Audit Source wants it declared as its own carton"
+                        >
+                          <span className="relative flex h-1.5 w-1.5">
+                            {electricPulse && (
+                              <span className="absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75 motion-safe:animate-ping" />
+                            )}
+                            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-sky-500" />
+                          </span>
+                          E-BIKE
+                        </span>
                       )}
                     </td>
                     <td

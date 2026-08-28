@@ -25,6 +25,8 @@ import { parseUSAddress } from '../../utils/parseUSAddress';
 import { useCustomerAddresses } from '../../hooks/useCustomerAddresses';
 import { getPavExpressZone } from '../../utils/pavExpressZones';
 import type { ElectricBikeLine } from '../../utils/electricBikes';
+import { ElectricCartonDeclaration } from './ElectricCartonDeclaration';
+import type { ElectricCarton } from './electricCartons';
 import { OrderStatusPill } from './OrderStatusPill';
 import { CopyButton } from '../ui/CopyButton';
 import { FedexRecipientChip } from '../../features/picking/components/FedexRecipientChip';
@@ -131,10 +133,13 @@ interface ShipOrderCardProps {
    *  sub-order by ShipScreen. Non-empty means the cartons need a lithium-ion
    *  mark before the carrier takes them. */
   electricBikeLines?: ElectricBikeLine[];
+  /** The e-bikes as Audit Source wants them declared — own carton, outside the pallet (idea-167). */
+  electricCartons?: ElectricCarton[];
 }
 
 /** Stable default so the prop's identity doesn't change on every render. */
 const EMPTY_ELECTRIC_LINES: ElectricBikeLine[] = [];
+const EMPTY_ELECTRIC_CARTONS: ElectricCarton[] = [];
 
 type EditableField =
   | 'customer'
@@ -248,6 +253,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   onToggleOrderFilter,
   isFedexOrder = false,
   electricBikeLines = EMPTY_ELECTRIC_LINES,
+  electricCartons = EMPTY_ELECTRIC_CARTONS,
 }) => {
   const [editingField, setEditingField] = useState<EditableField>(null);
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
@@ -1176,6 +1182,9 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* The e-bike as its own carton for Audit Source — right under the numbers it is typed beside */}
+      <ElectricCartonDeclaration cartons={electricCartons} pulse={!selectedOrder.is_shipped} />
 
       {/* Combined Order Info */}
       {selectedOrder.combine_meta?.is_combined && (
