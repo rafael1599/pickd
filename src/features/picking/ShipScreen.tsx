@@ -1486,24 +1486,33 @@ export const ShipScreen = () => {
     if (firstResult) setSelectedOrder(firstResult);
   }, [debouncedSearchQuery, filteredOrders, shippedFilteredOrders]);
 
-  const groupOrdersByDate = useCallback((list: OrderWithRelations[]): DayGroup[] => {
-    const map = new Map<string, DayGroup>();
-    for (const o of list) {
-      const d = new Date(o.created_at);
-      const key = Number.isNaN(d.getTime()) ? 'unknown' : dayKey(d);
-      let group = map.get(key);
-      if (!group) {
-        group = {
-          key,
-          label: Number.isNaN(d.getTime()) ? 'Unknown date' : dayLabel(d),
-          orders: [],
-        };
-        map.set(key, group);
+  // Pending groups by the day the order was created; Shipped by the day it
+  // shipped (updated_at — every ship writes it). An order created on the 25th
+  // and shipped on the 26th belongs under "Aug 26" in the Shipped column.
+  const groupOrdersByDate = useCallback(
+    (
+      list: OrderWithRelations[],
+      dateField: 'created_at' | 'updated_at' = 'created_at'
+    ): DayGroup[] => {
+      const map = new Map<string, DayGroup>();
+      for (const o of list) {
+        const d = new Date(o[dateField]);
+        const key = Number.isNaN(d.getTime()) ? 'unknown' : dayKey(d);
+        let group = map.get(key);
+        if (!group) {
+          group = {
+            key,
+            label: Number.isNaN(d.getTime()) ? 'Unknown date' : dayLabel(d),
+            orders: [],
+          };
+          map.set(key, group);
+        }
+        group.orders.push(o);
       }
-      group.orders.push(o);
-    }
-    return Array.from(map.values());
-  }, []);
+      return Array.from(map.values());
+    },
+    []
+  );
 
   // Both columns render at once (split view), each grouped independently.
   const ordersGroupedByDate = useMemo(
@@ -1511,7 +1520,7 @@ export const ShipScreen = () => {
     [visibleOrders, groupOrdersByDate]
   );
   const shippedGroupedByDate = useMemo(
-    () => groupOrdersByDate(shippedFilteredOrders),
+    () => groupOrdersByDate(shippedFilteredOrders, 'updated_at'),
     [shippedFilteredOrders, groupOrdersByDate]
   );
 
