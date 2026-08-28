@@ -1,14 +1,9 @@
 import React, { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
-import { orderColorFor } from '../../utils/orderColors';
-import { CombinedOrderNumbers } from './CombinedOrderNumbers';
 import MapPin from 'lucide-react/dist/esm/icons/map-pin';
 import Hash from 'lucide-react/dist/esm/icons/hash';
 import HandMetal from 'lucide-react/dist/esm/icons/hand-metal';
-import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import MoreHorizontal from 'lucide-react/dist/esm/icons/more-horizontal';
 import { carrierCandidates, fitCarriers } from './carrierPicker';
-import Scissors from 'lucide-react/dist/esm/icons/scissors';
-import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
 import Truck from 'lucide-react/dist/esm/icons/truck';
 import Wand2 from 'lucide-react/dist/esm/icons/wand-2';
 import Check from 'lucide-react/dist/esm/icons/check';
@@ -19,7 +14,6 @@ import X from 'lucide-react/dist/esm/icons/x';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { CustomerAutocomplete } from '../../features/picking/components/CustomerAutocomplete';
-import { usePickingSession } from '../../context/PickingContext';
 import { useConfirmation } from '../../context/ConfirmationContext';
 import { parseUSAddress } from '../../utils/parseUSAddress';
 import { useCustomerAddresses } from '../../hooks/useCustomerAddresses';
@@ -46,9 +40,9 @@ import {
 import { usePickingNotes } from '../../features/picking/hooks/usePickingNotes';
 import { OrderProgressBar } from '../../features/picking/components/OrderProgressBar';
 import type { CustomerAddress } from '../../lib/customerAddresses';
-import type { CombineMeta, PickingList, PickingListItem } from '../../schemas/picking.schema';
-import { PalletPhotosBlock } from './PalletPhotosBlock';
+import type { CombineMeta, PickingList } from '../../schemas/picking.schema';
 import { ElectricBikeWarning } from './ElectricBikeWarning';
+import { PalletPhotoRail } from './PalletPhotoRail';
 import type { Customer } from '../../types/schema';
 import type { User } from '@supabase/supabase-js';
 import { isDeliberateCombineGroupType } from '../../utils/shippingClassification';
@@ -98,7 +92,6 @@ interface ShipOrderCardProps {
   selectedCustomerId: string | null;
   user: User | null;
   onRefresh: () => void;
-  onDelete: () => void;
   /** Persist the current form to the DB. Owned by ShipScreen so the auto-save
    *  writes to the exact same places as the print flow. `overrides` patches
    *  the form for values that were just set in the same tick (React state
@@ -108,24 +101,12 @@ interface ShipOrderCardProps {
     overrides?: Partial<OrderFormData>,
     pickedCustomerId?: string | null
   ) => Promise<boolean>;
-  onSplitOrder?: () => void;
-  onUncombineGroup?: (groupId: string) => void;
   onViewOrder?: () => void;
-  onShowPickingSummary?: () => void;
-  onReopenOrder?: () => void;
-  onRestoreOrder?: () => void;
-  onContinueEditing?: () => void;
-  onAddPhoto?: () => void;
-  isAddingPhoto?: boolean;
   autoBikeCount?: number;
   autoPartCount?: number;
   /** Auto-calculated weight (sum of sku_metadata.weight_lbs × qty + pallets).
    *  Shown as placeholder when the user hasn't entered a manual override. */
   autoWeight?: number;
-  /** Click-to-filter state for a combined order, shared with the rest of
-   *  this screen (ShipScreen owns one useCombinedOrderFilter instance). */
-  activeOrderFilter?: string | null;
-  onToggleOrderFilter?: (orderNumber: string) => void;
   /** Current FedEx classification (same isFedexOrder signal used for the
    *  purple/green board treatment) — gates the "you sure?" prompt when
    *  switching away from FedEx below. */
@@ -245,22 +226,11 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   selectedCustomerId,
   user,
   onRefresh,
-  onDelete,
   onAutoSave,
-  onSplitOrder,
-  onUncombineGroup,
   onViewOrder,
-  onShowPickingSummary,
-  onReopenOrder,
-  onRestoreOrder,
-  onContinueEditing,
-  onAddPhoto,
-  isAddingPhoto = false,
   autoBikeCount = 0,
   autoPartCount = 0,
   autoWeight = 0,
-  activeOrderFilter = null,
-  onToggleOrderFilter,
   isFedexOrder = false,
   electricBikeLines = EMPTY_ELECTRIC_LINES,
   electricCartons = EMPTY_ELECTRIC_CARTONS,
@@ -325,7 +295,6 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   const [isConfirmingDaylight, setIsConfirmingDaylight] = useState(false);
   const editRef = useRef<HTMLDivElement>(null);
   const clearSaveRef = useRef<NodeJS.Timeout | null>(null);
-  const { deleteList } = usePickingSession();
   const { showConfirmation } = useConfirmation();
 
   const { addresses } = useCustomerAddresses(selectedCustomerId);
@@ -369,8 +338,13 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   // Dismissal is deliberately session-only — it resets on the next order and on
   // reload, because the cost of showing it twice is a glance and the cost of
   // hiding it once is a carton refused at the dock.
+  // FedEx only (Rafael, 2026-08-28): the label is FedEx's hazmat rule; on a
+  // truck order the e-bike row under the numbers is the declaration.
   const showElectricBikeWarning =
-    !isEbikeBannerDismissed && electricBikeLines.length > 0 && !selectedOrder?.is_shipped;
+    isFedexOrder &&
+    !isEbikeBannerDismissed &&
+    electricBikeLines.length > 0 &&
+    !selectedOrder?.is_shipped;
 
   // Daylight only rolls a truck once someone texts the dispatcher how many
   // pallets to come get, so the carrier picker nags until that's done. The
@@ -504,21 +478,6 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
     setFormData({ ...formData, street: value });
   };
 
-  const handleDelete = () => {
-    showConfirmation(
-      'Delete Order',
-      'Mark this order as cancelled? Any picked units will be returned to inventory. Only do this if the order has NOT shipped.',
-      async () => {
-        onDelete();
-        await deleteList(selectedOrder.id);
-        onRefresh();
-      },
-      () => {},
-      'Delete',
-      'Cancel'
-    );
-  };
-
   const applyCarrierChange = (company: string) => {
     const newCompany = formData.transportCompany === company ? '' : company;
     setFormData({
@@ -625,42 +584,44 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   };
 
   return (
-    <div className="w-full bg-card border border-subtle rounded-3xl p-5 md:p-7 flex flex-col gap-5 relative overflow-hidden">
+    <div className="w-full bg-card border border-subtle rounded-3xl p-5 md:p-7 flex flex-row gap-3 relative overflow-hidden">
       <div className="absolute -top-24 -right-24 w-48 h-48 bg-accent/5 blur-[100px] pointer-events-none" />
+      {/* Rafael's layout (2026-08-28): one column of content, and the pallet
+          photos as a strip down the right edge that grows with the photos —
+          the header's photo tile sits right above it. */}
+      <div className="flex-1 min-w-0 flex flex-col gap-5">
+        {selectedOrder.user_id !== user?.id &&
+          ['active', 'ready_to_double_check', 'double_checking'].includes(selectedOrder.status) && (
+            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-4">
+              <div className="flex items-center gap-2 text-amber-600">
+                <HandMetal size={16} />
+                <p className="text-xs font-black uppercase tracking-tight">
+                  By {selectedOrder.user?.full_name || 'Another User'}
+                </p>
+              </div>
 
-      {selectedOrder.user_id !== user?.id &&
-        ['active', 'ready_to_double_check', 'double_checking'].includes(selectedOrder.status) && (
-          <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-4">
-            <div className="flex items-center gap-2 text-amber-600">
-              <HandMetal size={16} />
-              <p className="text-xs font-black uppercase tracking-tight">
-                By {selectedOrder.user?.full_name || 'Another User'}
-              </p>
+              <OrderProgressBar
+                status={selectedOrder.status}
+                isShipped={selectedOrder.is_shipped ?? false}
+                items={selectedOrder.items}
+                verifiedKeys={selectedOrder.verified_item_keys ?? null}
+                totalUnits={selectedOrder.total_units || 0}
+                className="w-full"
+              />
+
+              <button
+                type="button"
+                onClick={onViewOrder}
+                className="w-full py-3 bg-amber-500/15 text-amber-600 border border-amber-500/30 text-[10px] font-black uppercase tracking-widest rounded-lg shadow-sm hover:bg-amber-500 hover:text-white active:scale-95 transition-all flex items-center justify-center gap-2"
+              >
+                <Eye size={14} />
+                View Order
+              </button>
             </div>
+          )}
 
-            <OrderProgressBar
-              status={selectedOrder.status}
-              isShipped={selectedOrder.is_shipped ?? false}
-              items={selectedOrder.items}
-              verifiedKeys={selectedOrder.verified_item_keys ?? null}
-              totalUnits={selectedOrder.total_units || 0}
-              className="w-full"
-            />
-
-            <button
-              type="button"
-              onClick={onViewOrder}
-              className="w-full py-3 bg-amber-500/15 text-amber-600 border border-amber-500/30 text-[10px] font-black uppercase tracking-widest rounded-lg shadow-sm hover:bg-amber-500 hover:text-white active:scale-95 transition-all flex items-center justify-center gap-2"
-            >
-              <Eye size={14} />
-              View Order
-            </button>
-          </div>
-        )}
-
-      {/* Top Header Section: Status, Customer, Address on left + Pallet Photos on right */}
-      <div className="flex flex-col sm:flex-row gap-5 lg:gap-6 items-start justify-between w-full">
-        <div className="w-full lg:flex-1 min-w-0 flex flex-col gap-4">
+        {/* Status, customer, address · ZIP */}
+        <div className="w-full flex flex-col gap-4">
           {/* Status — order number now lives in the LivePrintPreview block above.
               When shipped, the shipped logo shows in the header row above (right
               side), so we skip it here to avoid duplicating it. */}
@@ -739,7 +700,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           {/* Address — click to edit, joined when reading */}
           <div
             ref={editingField === 'address' ? editRef : undefined}
-            className="flex items-start gap-2 pb-4 border-b border-dashed border-subtle"
+            className="flex items-start gap-2"
           >
             {editingField === 'address' ? (
               <div className="flex-1 flex flex-col gap-3">
@@ -837,16 +798,22 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col gap-1 flex-1 min-w-0">
-                <div className="flex items-start gap-2">
+              /* Address and ZIP on one line (Rafael, 2026-08-28) — the photos
+                 left this block so the address has the width; on a phone the
+                 ZIP wraps under it. */
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-1 flex-1 min-w-0">
+                <div className="flex items-center gap-2 min-w-0 flex-1 basis-[16rem]">
                   <CopyButton value={formData.street} label="Street" />
                   <button
                     type="button"
                     onClick={() => setEditingField('address')}
-                    className="text-left flex-1 min-w-0 flex items-start gap-2 hover:text-accent transition-colors"
+                    className="text-left flex-1 min-w-0 flex items-center gap-2 hover:text-accent transition-colors"
+                    title={[formData.street, formData.city, formData.state]
+                      .filter(Boolean)
+                      .join(', ')}
                   >
-                    <MapPin size={15} className="mt-0.5 shrink-0 text-muted" />
-                    <span className="text-sm text-content font-medium">
+                    <MapPin size={15} className="shrink-0 text-muted" />
+                    <span className="text-sm text-content font-medium md:whitespace-nowrap md:truncate">
                       {formData.street || formData.city ? (
                         [
                           formData.street,
@@ -870,12 +837,12 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                   />
                 </div>
                 {formData.zip && (
-                  <div className="flex items-center gap-2 pl-1">
+                  <div className="flex items-center gap-2 shrink-0">
                     <CopyButton value={formData.zip} label="Zip Code" />
                     <button
                       type="button"
                       onClick={() => setEditingField('address')}
-                      className="text-xs text-muted/70 font-mono hover:text-accent transition-colors"
+                      className="text-sm text-content font-mono font-bold hover:text-accent transition-colors"
                     >
                       ZIP {formData.zip}
                     </button>
@@ -886,472 +853,344 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
           </div>
         </div>
 
-        {/* Pallet Photos Block — sits next to Customer/Address only */}
-        {((selectedOrder.pallet_photos ?? []).length > 0 || onAddPhoto) && (
-          <div className="w-full sm:w-auto shrink-0 flex items-start justify-end ml-auto">
-            <PalletPhotosBlock
-              photos={selectedOrder.pallet_photos ?? []}
-              orderNumber={selectedOrder.order_number ?? undefined}
-              compact
-              className="w-auto"
-              onAddPhoto={onAddPhoto}
-              isAddingPhoto={isAddingPhoto}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Main Body Section (Load #, Carrier Selector, Stats) — FULL CARD WIDTH (100%) */}
-      <div className="flex flex-col gap-5 w-full">
-        {/* Load number + Transport — click to edit */}
-        <div className="flex flex-col gap-3.5 w-full">
-          <div ref={editingField === 'load' ? editRef : undefined}>
-            {editingField === 'load' ? (
-              <input
-                autoFocus
-                type="text"
-                value={formData.loadNumber}
-                onChange={(e) =>
-                  setFormData({ ...formData, loadNumber: e.target.value.toUpperCase() })
-                }
-                onBlur={() => {
-                  setEditingField(null);
-                  void saveField('load');
-                }}
-                placeholder="E.G. 127035968"
-                className="bg-main border border-subtle rounded-2xl px-4 py-2 text-sm font-bold text-content transition-colors duration-150 focus:border-accent focus:bg-surface shadow-sm w-48"
-              />
-            ) : (
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingField('load')}
-                  className="flex items-center gap-1.5 text-sm font-bold text-content hover:text-accent transition-colors duration-150"
-                >
-                  <Hash size={13} className="shrink-0 text-muted" />
-                  {formData.loadNumber || (
-                    <span className="text-muted/50 italic font-semibold">Add load #…</span>
-                  )}
-                </button>
-                <SaveCheckmark show={justSavedField === 'load'} />
-              </div>
-            )}
-          </div>
-
-          <div className="w-full">
-            {/* Carrier selector — always visible, expands 100% full width */}
-            <div className="flex flex-col gap-2 w-full">
-              <span className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-1.5">
-                <Truck size={11} className="text-muted" />
-                Carrier
-                {isUpdatingCarrier && (
-                  <span className="text-[9px] text-muted/50 font-semibold normal-case tracking-normal">
-                    saving…
-                  </span>
-                )}
-                <SaveCheckmark show={justSavedField === 'transport'} />
-              </span>
-
-              {showPavWarningBanner && (
-                <div className="relative flex items-center justify-between gap-3 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-2xl w-full">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    {/* PAV Express Logo crossed out with a thick red line */}
-                    <div className="relative shrink-0 w-12 h-6 bg-white rounded flex items-center justify-center p-0.5 overflow-hidden shadow-sm border border-subtle">
-                      <img
-                        src="/logos/transport/pav.png"
-                        alt="PAV Express"
-                        className="max-h-full max-w-full object-contain"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="w-[140%] h-1 bg-red-600 rotate-[-25deg] shadow-sm rounded-full" />
+        {/* Main Body Section (Load #, Carrier Selector, Stats) — FULL CARD WIDTH (100%) */}
+        <div className="flex flex-col gap-5 w-full">
+          {/* Carrier row, then load # — click to edit */}
+          <div className="flex flex-col gap-3.5 w-full">
+            <div className="w-full">
+              {/* Carrier selector — always visible, expands 100% full width */}
+              <div className="flex flex-col gap-2 w-full">
+                {showPavWarningBanner && (
+                  <div className="relative flex items-center justify-between gap-3 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-2xl w-full">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {/* PAV Express Logo crossed out with a thick red line */}
+                      <div className="relative shrink-0 w-12 h-6 bg-white rounded flex items-center justify-center p-0.5 overflow-hidden shadow-sm border border-subtle">
+                        <img
+                          src="/logos/transport/pav.png"
+                          alt="PAV Express"
+                          className="max-h-full max-w-full object-contain"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="w-[140%] h-1 bg-red-600 rotate-[-25deg] shadow-sm rounded-full" />
+                        </div>
                       </div>
+
+                      <span className="text-xs font-bold text-red-500 truncate">
+                        Outside PAV delivery zones
+                      </span>
                     </div>
 
-                    <span className="text-xs font-bold text-red-500 truncate">
-                      Outside PAV delivery zones
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsPavBannerDismissed(true)}
+                      title="Close warning"
+                      aria-label="Close warning"
+                      className="shrink-0 p-1 rounded-lg text-muted hover:text-content hover:bg-subtle transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
                   </div>
+                )}
 
-                  <button
-                    type="button"
-                    onClick={() => setIsPavBannerDismissed(true)}
-                    title="Close warning"
-                    aria-label="Close warning"
-                    className="shrink-0 p-1 rounded-lg text-muted hover:text-content hover:bg-subtle transition-colors"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              )}
+                {showElectricBikeWarning && (
+                  <ElectricBikeWarning
+                    lines={electricBikeLines}
+                    onDismiss={() => setIsEbikeBannerDismissed(true)}
+                  />
+                )}
 
-              {showElectricBikeWarning && (
-                <ElectricBikeWarning
-                  lines={electricBikeLines}
-                  onDismiss={() => setIsEbikeBannerDismissed(true)}
-                />
-              )}
+                {/* One row: the label, the chips that fit, and — only while
+                  Daylight is the carrier and the dispatcher has not been
+                  texted — the reminder, on the same line (Rafael, 2026-08-28). */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 w-full">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted flex items-center gap-1.5 shrink-0">
+                    <Truck size={11} className="text-muted" />
+                    Carrier
+                    {isUpdatingCarrier && (
+                      <span className="text-[9px] text-muted/50 font-semibold normal-case tracking-normal">
+                        saving…
+                      </span>
+                    )}
+                    <SaveCheckmark show={justSavedField === 'transport'} />
+                  </span>
+                  <div className="relative flex-1 min-w-[12rem]">
+                    {/* Hidden twin of every candidate chip, measured to decide what fits on one line. */}
+                    <div
+                      aria-hidden="true"
+                      className="absolute inset-x-0 top-0 h-0 overflow-hidden invisible pointer-events-none flex items-center gap-2 whitespace-nowrap"
+                    >
+                      {carrierCandidateList.map((company) => (
+                        <button
+                          key={`measure-${company}`}
+                          ref={(el) => {
+                            carrierMeasureRefs.current[company] = el;
+                          }}
+                          type="button"
+                          tabIndex={-1}
+                          className="shrink-0 px-4 h-11 rounded-2xl border inline-flex items-center justify-center"
+                        >
+                          <TransportLogo
+                            company={company}
+                            height={26}
+                            plain={!logoNeedsLightBackdrop(company)}
+                            textColor="font-black"
+                          />
+                        </button>
+                      ))}
+                      <button
+                        ref={moreMeasureRef}
+                        type="button"
+                        tabIndex={-1}
+                        className="shrink-0 px-3 h-11 rounded-2xl border inline-flex items-center justify-center"
+                      >
+                        <MoreHorizontal size={18} />
+                      </button>
+                    </div>
+                    <div
+                      ref={carrierRowRef}
+                      className={`w-full flex items-center gap-2 ${showAllCarriers ? 'flex-wrap' : 'flex-nowrap'}`}
+                    >
+                      {visibleCarriers.map((company) => {
+                        const isSelected = formData.transportCompany === company;
+                        const hasSelection = Boolean(formData.transportCompany);
+                        const brand = getCarrierBrandColors(company);
 
-              {showDaylightSmsReminder && (
-                <div
-                  role="alert"
-                  className="flex flex-col gap-3 px-3 py-2.5 bg-red-500/10 border border-red-500/40 rounded-2xl w-full sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="relative flex shrink-0 h-2.5 w-2.5">
-                      <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping" />
-                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-600" />
-                    </span>
-                    <MessageSquareWarning size={18} className="shrink-0 text-red-500" />
-                    <div className="min-w-0">
-                      {/* The pallet count IS the message, so it goes in the headline.
+                        let styleClasses = '';
+                        if (isSelected) {
+                          styleClasses = `bg-white ${brand.border} ring-2 ${brand.ring} ${brand.shadow} opacity-100 scale-105 z-10`;
+                        } else if (hasSelection) {
+                          styleClasses =
+                            'bg-main/60 border-subtle opacity-40 grayscale contrast-75 hover:opacity-100 hover:grayscale-0 hover:contrast-100 hover:border-content/30';
+                        } else {
+                          styleClasses =
+                            'bg-main border-subtle opacity-100 hover:border-content/30 hover:bg-surface';
+                        }
+
+                        return (
+                          <button
+                            key={company}
+                            type="button"
+                            disabled={isUpdatingCarrier}
+                            onClick={() => handleCarrierChange(company)}
+                            title={company}
+                            aria-label={`Select carrier ${company}`}
+                            className={`shrink-0 px-4 h-11 rounded-2xl border inline-flex items-center justify-center transition-all duration-200 active:scale-95 ${styleClasses} ${
+                              isUpdatingCarrier ? 'cursor-not-allowed' : ''
+                            }`}
+                          >
+                            <TransportLogo
+                              company={company}
+                              height={26}
+                              plain={!logoNeedsLightBackdrop(company)}
+                              textColor={
+                                company === 'PICK UP'
+                                  ? 'text-red-500 font-black tracking-wider'
+                                  : isSelected
+                                    ? 'text-content font-black'
+                                    : 'text-muted font-bold'
+                              }
+                            />
+                          </button>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        onClick={() => setShowAllCarriers((v) => !v)}
+                        title={showAllCarriers ? 'Fewer carriers' : 'More carriers'}
+                        aria-label={showAllCarriers ? 'Show fewer carriers' : 'Show all carriers'}
+                        aria-expanded={showAllCarriers}
+                        className="shrink-0 px-3 h-11 rounded-2xl border border-subtle bg-main text-muted hover:text-content hover:border-content/30 inline-flex items-center justify-center transition-all active:scale-95"
+                      >
+                        <MoreHorizontal size={18} />
+                        {showAllCarriers && (
+                          <span className="ml-1 text-[10px] font-black uppercase tracking-widest">
+                            Less
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  {showDaylightSmsReminder && (
+                    <div
+                      role="alert"
+                      className="flex flex-col gap-3 px-3 py-2.5 bg-red-500/10 border border-red-500/40 rounded-2xl flex-1 min-w-[17rem] sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="relative flex shrink-0 h-2.5 w-2.5">
+                          <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping" />
+                          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-600" />
+                        </span>
+                        <MessageSquareWarning size={18} className="shrink-0 text-red-500" />
+                        <div className="min-w-0">
+                          {/* The pallet count IS the message, so it goes in the headline.
                           Quoting the full sentence here truncated to "2 pallets to
                           pick u…" in the Ship panel's width — the Send button fills
                           the wording in anyway. */}
-                      <p className="text-xs font-black uppercase tracking-tight text-red-500">
-                        Text {DAYLIGHT_CONTACT_NAME} &mdash; {daylightPallets}{' '}
-                        {daylightPallets === 1 ? 'pallet' : 'pallets'}
-                      </p>
-                      <p className="text-[11px] font-semibold text-red-500/70">
-                        {DAYLIGHT_CONTACT_PHONE_DISPLAY}
-                      </p>
+                          <p className="text-xs font-black uppercase tracking-tight text-red-500">
+                            Text {DAYLIGHT_CONTACT_NAME} &mdash; {daylightPallets}{' '}
+                            {daylightPallets === 1 ? 'pallet' : 'pallets'}
+                          </p>
+                          <p className="text-[11px] font-semibold text-red-500/70">
+                            {DAYLIGHT_CONTACT_PHONE_DISPLAY}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={handleSendDaylightSms}
+                          className="px-3 h-9 inline-flex items-center gap-1.5 rounded-xl bg-red-600 text-white text-[10px] font-black uppercase tracking-widest shadow-sm hover:bg-red-500 active:scale-95 transition-all"
+                        >
+                          <Send size={12} />
+                          Send text
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleConfirmDaylightSms}
+                          disabled={isConfirmingDaylight}
+                          className="px-3 h-9 inline-flex items-center gap-1.5 rounded-xl border border-red-500/40 text-red-500 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Check size={12} />
+                          {isConfirmingDaylight ? 'Saving…' : 'I sent it'}
+                        </button>
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={handleSendDaylightSms}
-                      className="px-3 h-9 inline-flex items-center gap-1.5 rounded-xl bg-red-600 text-white text-[10px] font-black uppercase tracking-widest shadow-sm hover:bg-red-500 active:scale-95 transition-all"
-                    >
-                      <Send size={12} />
-                      Send text
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleConfirmDaylightSms}
-                      disabled={isConfirmingDaylight}
-                      className="px-3 h-9 inline-flex items-center gap-1.5 rounded-xl border border-red-500/40 text-red-500 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Check size={12} />
-                      {isConfirmingDaylight ? 'Saving…' : 'I sent it'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div className="relative w-full">
-                {/* Hidden twin of every candidate chip, measured to decide what fits on one line. */}
-                <div
-                  aria-hidden="true"
-                  className="absolute inset-x-0 top-0 h-0 overflow-hidden invisible pointer-events-none flex items-center gap-2 whitespace-nowrap"
-                >
-                  {carrierCandidateList.map((company) => (
-                    <button
-                      key={`measure-${company}`}
-                      ref={(el) => {
-                        carrierMeasureRefs.current[company] = el;
-                      }}
-                      type="button"
-                      tabIndex={-1}
-                      className="shrink-0 px-4 h-11 rounded-2xl border inline-flex items-center justify-center"
-                    >
-                      <TransportLogo
-                        company={company}
-                        height={26}
-                        plain={!logoNeedsLightBackdrop(company)}
-                        textColor="font-black"
-                      />
-                    </button>
-                  ))}
-                  <button
-                    ref={moreMeasureRef}
-                    type="button"
-                    tabIndex={-1}
-                    className="shrink-0 px-3 h-11 rounded-2xl border inline-flex items-center justify-center"
-                  >
-                    <MoreHorizontal size={18} />
-                  </button>
-                </div>
-                <div
-                  ref={carrierRowRef}
-                  className={`w-full flex items-center gap-2 ${showAllCarriers ? 'flex-wrap' : 'flex-nowrap'}`}
-                >
-                  {visibleCarriers.map((company) => {
-                    const isSelected = formData.transportCompany === company;
-                    const hasSelection = Boolean(formData.transportCompany);
-                    const brand = getCarrierBrandColors(company);
-
-                    let styleClasses = '';
-                    if (isSelected) {
-                      styleClasses = `bg-white ${brand.border} ring-2 ${brand.ring} ${brand.shadow} opacity-100 scale-105 z-10`;
-                    } else if (hasSelection) {
-                      styleClasses =
-                        'bg-main/60 border-subtle opacity-40 grayscale contrast-75 hover:opacity-100 hover:grayscale-0 hover:contrast-100 hover:border-content/30';
-                    } else {
-                      styleClasses =
-                        'bg-main border-subtle opacity-100 hover:border-content/30 hover:bg-surface';
-                    }
-
-                    return (
-                      <button
-                        key={company}
-                        type="button"
-                        disabled={isUpdatingCarrier}
-                        onClick={() => handleCarrierChange(company)}
-                        title={company}
-                        aria-label={`Select carrier ${company}`}
-                        className={`shrink-0 px-4 h-11 rounded-2xl border inline-flex items-center justify-center transition-all duration-200 active:scale-95 ${styleClasses} ${
-                          isUpdatingCarrier ? 'cursor-not-allowed' : ''
-                        }`}
-                      >
-                        <TransportLogo
-                          company={company}
-                          height={26}
-                          plain={!logoNeedsLightBackdrop(company)}
-                          textColor={
-                            company === 'PICK UP'
-                              ? 'text-red-500 font-black tracking-wider'
-                              : isSelected
-                                ? 'text-content font-black'
-                                : 'text-muted font-bold'
-                          }
-                        />
-                      </button>
-                    );
-                  })}
-                  <button
-                    type="button"
-                    onClick={() => setShowAllCarriers((v) => !v)}
-                    title={showAllCarriers ? 'Fewer carriers' : 'More carriers'}
-                    aria-label={showAllCarriers ? 'Show fewer carriers' : 'Show all carriers'}
-                    aria-expanded={showAllCarriers}
-                    className="shrink-0 px-3 h-11 rounded-2xl border border-subtle bg-main text-muted hover:text-content hover:border-content/30 inline-flex items-center justify-center transition-all active:scale-95"
-                  >
-                    <MoreHorizontal size={18} />
-                    {showAllCarriers && (
-                      <span className="ml-1 text-[10px] font-black uppercase tracking-widest">
-                        Less
-                      </span>
-                    )}
-                  </button>
+                  )}
                 </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Stats — click any figure to edit */}
-        {/* One line, always: the figures shrink to the width they have
+            {/* Load # — under the carrier row (Rafael, 2026-08-28) */}
+            <div ref={editingField === 'load' ? editRef : undefined}>
+              {editingField === 'load' ? (
+                <input
+                  autoFocus
+                  type="text"
+                  value={formData.loadNumber}
+                  onChange={(e) =>
+                    setFormData({ ...formData, loadNumber: e.target.value.toUpperCase() })
+                  }
+                  onBlur={() => {
+                    setEditingField(null);
+                    void saveField('load');
+                  }}
+                  placeholder="E.G. 127035968"
+                  className="bg-main border border-subtle rounded-2xl px-4 py-2 text-sm font-bold text-content transition-colors duration-150 focus:border-accent focus:bg-surface shadow-sm w-48"
+                />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingField('load')}
+                    className="flex items-center gap-1.5 text-sm font-bold text-content hover:text-accent transition-colors duration-150"
+                  >
+                    <Hash size={13} className="shrink-0 text-muted" />
+                    {formData.loadNumber || (
+                      <span className="text-muted/50 italic font-semibold">Add load #…</span>
+                    )}
+                  </button>
+                  <SaveCheckmark show={justSavedField === 'load'} />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Stats — click any figure to edit */}
+          {/* One line, always: the figures shrink to the width they have
             (useFitFontSize) instead of wrapping — at gap-6 "1 · 8 · 0 · 400"
             once measured 458 px in a 456 px card and Weight fell to a second
             line. When every line is an e-bike there is no pallet to describe. */}
-        {!hidePalletTotals && (
-          <div
-            ref={statsRowRef}
-            style={{ ['--stat-size' as string]: `${statSize}px` }}
-            className="flex flex-nowrap items-end gap-x-4 pt-4 border-t border-dashed border-subtle w-full"
-          >
-            <StatField
-              label="Pallets"
-              value={formData.pallets}
-              editing={editingField === 'pallets'}
-              onEdit={() => setEditingField('pallets')}
-              onChange={(v) => setFormData({ ...formData, pallets: v })}
-              onBlur={() => {
-                setEditingField(null);
-                void saveField('pallets');
-              }}
-              editRef={editingField === 'pallets' ? editRef : undefined}
-              colorClass="text-[#22c55e]"
-              min="1"
-              showSaveCheckmark={justSavedField === 'pallets'}
-            />
-            <StatField
-              label="Bikes"
-              value={formData.bikes}
-              placeholder={String(autoBikeCount)}
-              editing={editingField === 'bikes'}
-              onEdit={() => setEditingField('bikes')}
-              onChange={(v) => setFormData({ ...formData, bikes: v })}
-              onBlur={() => {
-                setEditingField(null);
-                void saveField('bikes');
-              }}
-              editRef={editingField === 'bikes' ? editRef : undefined}
-              colorClass="text-blue-400"
-              showSaveCheckmark={justSavedField === 'bikes'}
-            />
-            <StatField
-              label="Parts"
-              value={formData.parts}
-              placeholder={String(autoPartCount)}
-              editing={editingField === 'parts'}
-              onEdit={() => setEditingField('parts')}
-              onChange={(v) => setFormData({ ...formData, parts: v })}
-              onBlur={() => {
-                setEditingField(null);
-                void saveField('parts');
-              }}
-              editRef={editingField === 'parts' ? editRef : undefined}
-              colorClass="text-orange-400"
-              showSaveCheckmark={justSavedField === 'parts'}
-            />
-            <div className="flex items-end gap-2">
-              <CopyButton
-                value={String(formData.weight || (autoWeight > 0 ? autoWeight : 0))}
-                label="Weight"
-              />
+          {!hidePalletTotals && (
+            <div
+              ref={statsRowRef}
+              style={{ ['--stat-size' as string]: `${statSize}px` }}
+              className="flex flex-nowrap items-end gap-x-4 pt-4 border-t border-dashed border-subtle w-full"
+            >
               <StatField
-                label="Weight (lbs)"
-                value={formData.weight}
-                placeholder={autoWeight > 0 ? String(autoWeight) : '0'}
-                editing={editingField === 'weight'}
-                onEdit={() => setEditingField('weight')}
-                onChange={(v) => setFormData({ ...formData, weight: v })}
+                label="Pallets"
+                value={formData.pallets}
+                editing={editingField === 'pallets'}
+                onEdit={() => setEditingField('pallets')}
+                onChange={(v) => setFormData({ ...formData, pallets: v })}
                 onBlur={() => {
                   setEditingField(null);
-                  void saveField('weight');
+                  void saveField('pallets');
                 }}
-                editRef={editingField === 'weight' ? editRef : undefined}
-                colorClass="text-purple-400"
-                showSaveCheckmark={justSavedField === 'weight'}
+                editRef={editingField === 'pallets' ? editRef : undefined}
+                colorClass="text-[#22c55e]"
+                min="1"
+                showSaveCheckmark={justSavedField === 'pallets'}
               />
+              <StatField
+                label="Bikes"
+                value={formData.bikes}
+                placeholder={String(autoBikeCount)}
+                editing={editingField === 'bikes'}
+                onEdit={() => setEditingField('bikes')}
+                onChange={(v) => setFormData({ ...formData, bikes: v })}
+                onBlur={() => {
+                  setEditingField(null);
+                  void saveField('bikes');
+                }}
+                editRef={editingField === 'bikes' ? editRef : undefined}
+                colorClass="text-blue-400"
+                showSaveCheckmark={justSavedField === 'bikes'}
+              />
+              <StatField
+                label="Parts"
+                value={formData.parts}
+                placeholder={String(autoPartCount)}
+                editing={editingField === 'parts'}
+                onEdit={() => setEditingField('parts')}
+                onChange={(v) => setFormData({ ...formData, parts: v })}
+                onBlur={() => {
+                  setEditingField(null);
+                  void saveField('parts');
+                }}
+                editRef={editingField === 'parts' ? editRef : undefined}
+                colorClass="text-orange-400"
+                showSaveCheckmark={justSavedField === 'parts'}
+              />
+              <div className="flex items-end gap-2">
+                <CopyButton
+                  value={String(formData.weight || (autoWeight > 0 ? autoWeight : 0))}
+                  label="Weight"
+                />
+                <StatField
+                  label="Weight (lbs)"
+                  value={formData.weight}
+                  placeholder={autoWeight > 0 ? String(autoWeight) : '0'}
+                  editing={editingField === 'weight'}
+                  onEdit={() => setEditingField('weight')}
+                  onChange={(v) => setFormData({ ...formData, weight: v })}
+                  onBlur={() => {
+                    setEditingField(null);
+                    void saveField('weight');
+                  }}
+                  editRef={editingField === 'weight' ? editRef : undefined}
+                  colorClass="text-purple-400"
+                  showSaveCheckmark={justSavedField === 'weight'}
+                />
+              </div>
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* The e-bike as its own carton, in the language of the four numbers above it.
-          Audit Source (regular) wants carton + bike + weight; FedEx wants the size too. */}
-      <ElectricCartonDeclaration
-        cartons={electricCartons}
-        pulse={!selectedOrder.is_shipped}
-        showDims={isFedexOrder}
-      />
-
-      {/* Combined Order Info */}
-      {selectedOrder.combine_meta?.is_combined && (
-        <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl space-y-2">
-          <p className="text-[10px] font-black uppercase tracking-widest text-blue-400 flex items-center gap-1.5">
-            🔗 Combined Order
-          </p>
-          {onToggleOrderFilter && (
-            <CombinedOrderNumbers
-              numbers={selectedOrder.combine_meta?.source_orders?.map((s) => s.order_number) ?? []}
-              activeOrderFilter={activeOrderFilter}
-              onToggle={onToggleOrderFilter}
-              variant="inline"
-            />
-          )}
-          <div className="flex flex-col gap-1">
-            {selectedOrder.combine_meta?.source_orders?.map((src, i) => {
-              const allNumbers =
-                selectedOrder.combine_meta?.source_orders?.map((s) => s.order_number) ?? [];
-              const unitCount = (selectedOrder.items || [])
-                .filter(
-                  (item) =>
-                    (item as PickingListItem & { source_order?: string }).source_order ===
-                    src.order_number
-                )
-                .reduce((sum, item) => sum + (item.pickingQty || 0), 0);
-              return (
-                <span key={i} className="text-xs font-mono">
-                  <span style={{ color: orderColorFor(src.order_number, allNumbers).hex }}>
-                    #{src.order_number}
-                  </span>
-                  <span className="text-blue-300/70">
-                    {' '}
-                    — {unitCount || src.item_count || '?'} units
-                  </span>
-                </span>
-              );
-            })}
-          </div>
-          {/* Split Orders rebuilds each source into its own fresh row from
-              combine_meta.source_orders — only correct for a real single-row
-              DB-merge. A group_id merge's "order" here is a client-built
-              pseudo-order (its siblings are already separate rows); running
-              Split on it would insert duplicate rows AND leave the
-              non-anchor siblings active/uncancelled. Now that step 3 also
-              populates source_orders for group_id merges (for the info
-              panel above), this guard is what keeps that combination from
-              becoming reachable. */}
-          {onSplitOrder && selectedOrder.status !== 'completed' && !selectedOrder.group_id && (
-            <button
-              onClick={onSplitOrder}
-              className="w-full mt-2 flex items-center justify-center gap-2 h-10 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-xl text-[10px] font-black uppercase tracking-widest text-blue-400 transition-all active:scale-95"
-            >
-              <Scissors size={12} />
-              <span>Split Orders</span>
-            </button>
-          )}
-
-          {onUncombineGroup && selectedOrder.status !== 'completed' && selectedOrder.group_id && (
-            <button
-              onClick={() => onUncombineGroup(selectedOrder.group_id!)}
-              className="w-full mt-2 flex items-center justify-center gap-2 h-10 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-xl text-[10px] font-black uppercase tracking-widest text-amber-400 hover:text-amber-300 transition-all active:scale-95"
-              title="Uncombine group into separate orders"
-            >
-              <Scissors size={12} />
-              <span>Uncombine Group (Separar Órdenes)</span>
-            </button>
           )}
         </div>
-      )}
 
-      {/* Action buttons */}
-      <div className="flex flex-col sm:flex-row flex-wrap gap-3 pt-2">
-        <button
-          onClick={() => {
-            if (onShowPickingSummary) {
-              onShowPickingSummary();
-            }
-          }}
-          className="flex-1 min-w-[160px] flex items-center justify-center gap-2 h-12 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-2xl text-[10px] font-black uppercase tracking-widest text-blue-500 transition-all active:scale-95"
-        >
-          <span>Picking Summary</span>
-        </button>
-
-        {onReopenOrder && selectedOrder.status === 'completed' && (
-          <button
-            onClick={onReopenOrder}
-            className="flex-1 min-w-[160px] flex items-center justify-center gap-2 h-12 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 rounded-2xl text-[10px] font-black uppercase tracking-widest text-orange-400 transition-all active:scale-95"
-          >
-            <RotateCcw size={14} />
-            <span>Reopen Order</span>
-          </button>
-        )}
-
-        {onRestoreOrder && selectedOrder.status === 'cancelled' && (
-          <button
-            onClick={onRestoreOrder}
-            className="flex-1 min-w-[160px] flex items-center justify-center gap-2 h-12 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 rounded-2xl text-[10px] font-black uppercase tracking-widest text-orange-400 transition-all active:scale-95"
-          >
-            <RotateCcw size={14} />
-            <span>Restore Order</span>
-          </button>
-        )}
-
-        {onContinueEditing && selectedOrder.status === 'reopened' && (
-          <button
-            onClick={onContinueEditing}
-            className="flex-1 min-w-[160px] flex items-center justify-center gap-2 h-12 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 rounded-2xl text-[10px] font-black uppercase tracking-widest text-orange-400 transition-all active:scale-95"
-          >
-            <RotateCcw size={14} />
-            <span>
-              {selectedOrder.user_id !== user?.id ? 'Take Over & Edit' : 'Continue Editing'}
-            </span>
-          </button>
-        )}
-
-        <button
-          onClick={handleDelete}
-          className="flex-1 min-w-[160px] flex items-center justify-center gap-2 h-12 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded-2xl text-[10px] font-black uppercase tracking-widest text-red-500 transition-all active:scale-95"
-        >
-          <Trash2 size={14} />
-          <span>Delete Order</span>
-        </button>
+        {/* The e-bike as its own carton, in the language of the four numbers above it.
+          Audit Source (regular) wants carton + bike + weight; FedEx wants the size too. */}
+        <ElectricCartonDeclaration
+          cartons={electricCartons}
+          pulse={!selectedOrder.is_shipped}
+          showDims={isFedexOrder}
+        />
       </div>
+
+      <PalletPhotoRail
+        photos={selectedOrder.pallet_photos ?? []}
+        orderNumber={selectedOrder.order_number ?? undefined}
+        className="shrink-0"
+      />
     </div>
   );
 };

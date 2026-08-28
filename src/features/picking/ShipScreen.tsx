@@ -8,6 +8,11 @@ import { LivePrintPreview } from '../../components/orders/LivePrintPreview.tsx';
 
 import { generateShipLabel } from '../../components/orders/generateShipLabel';
 import { usePickingSession } from '../../context/PickingContext.tsx';
+import { useConfirmation } from '../../context/ConfirmationContext';
+import { printOrderDetail } from '../orders/lib/printOrderDetail';
+import type { OrderRow } from '../orders/hooks/useOrdersOfDay';
+import { manualRoute } from '../../content/manuals';
+import { PalletPhotoTile } from '../../components/orders/PalletPhotoRail';
 import { useViewMode as useViewModeCtx } from '../../context/ViewModeContext.tsx';
 
 import {
@@ -376,8 +381,14 @@ export const ShipScreen = () => {
   );
   const [isAcceptingCombineSuggestion, setIsAcceptingCombineSuggestion] = useState(false);
   const { isEnabled: isShipSmsEnabled, triggerForList: triggerShipOutSms } = useShipOutSms();
-  const { takeOverOrder, loadReopenedOrder, resumeReopenedOrder, restoreCancelledOrder } =
-    usePickingSession();
+  const {
+    takeOverOrder,
+    loadReopenedOrder,
+    resumeReopenedOrder,
+    restoreCancelledOrder,
+    deleteList,
+  } = usePickingSession();
+  const { showConfirmation } = useConfirmation();
   const {
     externalOrderId,
     setExternalOrderId,
@@ -1995,6 +2006,34 @@ export const ShipScreen = () => {
     handlePrintRef.current = handlePrint;
   });
 
+  // Delete lived in the card as a red button; it is a menu row now (Rafael,
+  // 2026-08-28). Same flow: confirm, move the selection on, cancel the list.
+  const handleDeleteOrder = () => {
+    if (!selectedOrder) return;
+    const doomed = selectedOrder;
+    showConfirmation(
+      'Delete Order',
+      'Mark this order as cancelled? Any picked units will be returned to inventory. Only do this if the order has NOT shipped.',
+      async () => {
+        if (filteredOrders.length <= 1) {
+          setSelectedOrder(null);
+        } else {
+          const currentIndex = filteredOrders.findIndex((o) => o.id === doomed.id);
+          setSelectedOrder(
+            currentIndex < filteredOrders.length - 1
+              ? filteredOrders[currentIndex + 1]
+              : filteredOrders[currentIndex - 1]
+          );
+        }
+        await deleteList(doomed.id);
+        fetchOrders();
+      },
+      () => {},
+      'Delete',
+      'Cancel'
+    );
+  };
+
   const handleReopenOrder = () => {
     if (!selectedOrder) return;
     setReopenReason('');
@@ -2427,6 +2466,14 @@ export const ShipScreen = () => {
                       combinedNumbers={selectedOrderCombinedNumbers}
                       activeOrderFilter={selectedOrderFilter}
                       onToggleOrderFilter={toggleSelectedOrderFilter}
+                      photoTile={
+                        <PalletPhotoTile
+                          photos={selectedOrder.pallet_photos ?? []}
+                          orderNumber={selectedOrder.order_number ?? undefined}
+                          onAddPhoto={() => shipCameraInputRef.current?.click()}
+                          isAddingPhoto={isUploadingPhoto}
+                        />
+                      }
                     />
 
                     <div className="-mt-2 px-1 pr-8 flex justify-between items-start">
@@ -2507,6 +2554,68 @@ export const ShipScreen = () => {
                             watcherNote: selectedOrder.notes,
                           });
                         }}
+                        onPrintLabels={() => {
+                          setIsActionsMenuOpen(false);
+                          void handlePrint();
+                        }}
+                        onPrintPackingSlip={() => {
+                          setIsActionsMenuOpen(false);
+                          void printOrderDetail(selectedOrder as unknown as OrderRow, {
+                            bikes: bikeCount || 0,
+                            parts: partCount || 0,
+                          });
+                        }}
+                        onPickingSummary={() => {
+                          setIsActionsMenuOpen(false);
+                          setIsShowingPickingSummary(true);
+                        }}
+                        onSplitOrders={
+                          selectedOrder.combine_meta?.is_combined &&
+                          selectedOrder.status !== 'completed' &&
+                          !selectedOrder.group_id
+                            ? () => {
+                                setIsActionsMenuOpen(false);
+                                setIsShowingSplitModal(true);
+                              }
+                            : undefined
+                        }
+                        onUncombineGroup={
+                          selectedOrder.group_id && selectedOrder.status !== 'completed'
+                            ? () => {
+                                setIsActionsMenuOpen(false);
+                                void handleUncombineGroup(selectedOrder.group_id as string);
+                              }
+                            : undefined
+                        }
+                        onLithiumManual={
+                          isFedexOrder && electricBikeLines.length > 0
+                            ? () => {
+                                setIsActionsMenuOpen(false);
+                                navigate(manualRoute('fedex-hazmat-ebikes'));
+                              }
+                            : undefined
+                        }
+                        onReopen={() => {
+                          setIsActionsMenuOpen(false);
+                          handleReopenOrder();
+                        }}
+                        onRestore={() => {
+                          setIsActionsMenuOpen(false);
+                          handleRestoreOrder();
+                        }}
+                        onContinueEditing={() => {
+                          setIsActionsMenuOpen(false);
+                          void handleContinueEditing();
+                        }}
+                        continueEditingLabel={
+                          selectedOrder.user_id !== user?.id
+                            ? 'Take Over & Edit'
+                            : 'Continue Editing'
+                        }
+                        onDelete={() => {
+                          setIsActionsMenuOpen(false);
+                          handleDeleteOrder();
+                        }}
                       />
                     )}
                   </div>
@@ -2522,33 +2631,9 @@ export const ShipScreen = () => {
                     onRefresh={fetchOrders}
                     onAutoSave={handleAutoSave}
                     onViewOrder={() => openOrderInDoubleCheck(selectedOrder)}
-                    onDelete={() => {
-                      if (filteredOrders.length <= 1) {
-                        setSelectedOrder(null);
-                        return;
-                      }
-                      const currentIndex = filteredOrders.findIndex(
-                        (o) => o.id === selectedOrder?.id
-                      );
-                      if (currentIndex < filteredOrders.length - 1) {
-                        setSelectedOrder(filteredOrders[currentIndex + 1]);
-                      } else {
-                        setSelectedOrder(filteredOrders[currentIndex - 1]);
-                      }
-                    }}
-                    onShowPickingSummary={() => setIsShowingPickingSummary(true)}
-                    onSplitOrder={() => setIsShowingSplitModal(true)}
-                    onUncombineGroup={handleUncombineGroup}
-                    onReopenOrder={handleReopenOrder}
-                    onRestoreOrder={handleRestoreOrder}
-                    onContinueEditing={handleContinueEditing}
-                    onAddPhoto={() => shipCameraInputRef.current?.click()}
-                    isAddingPhoto={isUploadingPhoto}
                     autoBikeCount={autoBikeCount}
                     autoPartCount={autoPartCount}
                     autoWeight={totalWeight}
-                    activeOrderFilter={selectedOrderFilter}
-                    onToggleOrderFilter={toggleSelectedOrderFilter}
                     isFedexOrder={isFedexOrder}
                     electricBikeLines={electricBikeLines}
                     electricCartons={electricCartons}

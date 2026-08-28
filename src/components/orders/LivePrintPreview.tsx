@@ -42,6 +42,9 @@ interface LivePrintPreviewProps {
   combinedNumbers?: string[];
   activeOrderFilter?: string | null;
   onToggleOrderFilter?: (orderNumber: string) => void;
+  /** Screen-only: the pallet-photo tile, at the right end of the header row
+   *  (Rafael's layout, 2026-08-28) — the photo column continues below it. */
+  photoTile?: React.ReactNode;
 }
 
 /** Build the BIKES/PARTS lines for labels */
@@ -62,6 +65,7 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
   combinedNumbers,
   activeOrderFilter,
   onToggleOrderFilter,
+  photoTile,
 }) => {
   const isClickableCombined = (combinedNumbers?.length ?? 0) > 1 && onToggleOrderFilter;
   return (
@@ -88,15 +92,18 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
             </h2>
           )}
           {transportCompany && (
-            <div className="shrink-0 animate-soft-in">
+            <div className="shrink-0 animate-soft-in hidden md:block">
               <TransportLogo company={transportCompany} height={28} plain />
             </div>
           )}
         </div>
-        {(completedAt || (watcherNote && watcherNote.trim()) || notesSlot) && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        {/* Order on a wide screen: note · date · photo tile. On a phone the
+            date stays beside the number and the note wraps to its own line
+            (Rafael's two layouts, 2026-08-28). */}
+        {(completedAt || (watcherNote && watcherNote.trim()) || notesSlot || photoTile) && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 min-w-0 flex-1 justify-end pr-8">
             {completedAt && (
-              <p className="text-muted text-xs font-bold tracking-wide whitespace-nowrap animate-soft-in">
+              <p className="order-1 md:order-2 text-muted text-xs font-bold tracking-wide whitespace-nowrap animate-soft-in">
                 {new Date(completedAt).toLocaleDateString('en-US', {
                   timeZone: 'America/New_York',
                   month: 'short',
@@ -116,11 +123,12 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
                 watcher note as a clickable preview — this static duplicate
                 would otherwise render the same text twice, once inert. */}
             {!notesSlot && watcherNote && watcherNote.trim() && (
-              <p className="text-red-500 text-xs font-bold tracking-wide animate-soft-in">
+              <p className="order-2 md:order-1 text-red-500 text-xs font-bold tracking-wide animate-soft-in">
                 {watcherNote.trim()}
               </p>
             )}
-            {notesSlot}
+            {notesSlot && <div className="order-2 md:order-1 min-w-0 md:mr-auto">{notesSlot}</div>}
+            {photoTile && <div className="order-3 shrink-0">{photoTile}</div>}
           </div>
         )}
       </div>

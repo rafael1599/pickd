@@ -14,6 +14,12 @@ import X from 'lucide-react/dist/esm/icons/x';
 import PackageCheck from 'lucide-react/dist/esm/icons/package-check';
 import MessageSquare from 'lucide-react/dist/esm/icons/message-square';
 import MessageSquarePlus from 'lucide-react/dist/esm/icons/message-square-plus';
+import Printer from 'lucide-react/dist/esm/icons/printer';
+import FileText from 'lucide-react/dist/esm/icons/file-text';
+import ClipboardList from 'lucide-react/dist/esm/icons/clipboard-list';
+import Scissors from 'lucide-react/dist/esm/icons/scissors';
+import BatteryWarning from 'lucide-react/dist/esm/icons/battery-warning';
+import RotateCcw from 'lucide-react/dist/esm/icons/rotate-ccw';
 
 export interface OrderActionsMenuProps {
   /** Header label — a single order number or a combined "a / b / c" string. */
@@ -50,6 +56,25 @@ export interface OrderActionsMenuProps {
   onAddNote?: () => void;
   /** Opens the full note history drill-down for this order. */
   onViewNotes?: () => void;
+  // ---- Ship (2026-08-28): every button that left the card lives here ----
+  /** Pallet labels — the most used, so it is the first row. Was Ctrl+P only. */
+  onPrintLabels?: () => void;
+  /** The packing slip with the QR code (Order Items' Print). */
+  onPrintPackingSlip?: () => void;
+  onPickingSummary?: () => void;
+  /** Split a DB-merged combined order back into its sources. */
+  onSplitOrders?: () => void;
+  /** Dissolve the whole group at once (Ship's old "Uncombine Group" button). */
+  onUncombineGroup?: () => void;
+  /** FedEx order carrying e-bikes: the hazmat label procedure. */
+  onLithiumManual?: () => void;
+  /** Cancelled order → back to active. */
+  onRestore?: () => void;
+  /** Reopened order → continue / take over the edit. */
+  onContinueEditing?: () => void;
+  continueEditingLabel?: string;
+  /** Ship's delete (cancel + release stock). Last row, red. */
+  onDelete?: () => void;
 }
 
 const ROW =
@@ -85,6 +110,16 @@ export const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
   onMarkPickup,
   onAddNote,
   onViewNotes,
+  onPrintLabels,
+  onPrintPackingSlip,
+  onPickingSummary,
+  onSplitOrders,
+  onUncombineGroup,
+  onLithiumManual,
+  onRestore,
+  onContinueEditing,
+  continueEditingLabel = 'Continue Editing',
+  onDelete,
 }) => {
   const [ungroupOpen, setUngroupOpen] = useState(false);
   const isPastOrder = status === 'completed' || status === 'cancelled' || status === 'shipped';
@@ -130,6 +165,42 @@ export const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
 
       {/* Options */}
       <div className="space-y-1.5">
+        {onPrintLabels && (
+          <button onClick={onPrintLabels} className={ROW}>
+            <Printer size={16} className="text-emerald-400" />
+            <div>
+              <div className="text-xs font-black uppercase tracking-wider text-content">
+                Print Pallet Labels
+              </div>
+              <div className="text-[9px] text-muted/70">One label per pallet · also Ctrl+P</div>
+            </div>
+          </button>
+        )}
+
+        {onPrintPackingSlip && (
+          <button onClick={onPrintPackingSlip} className={ROW}>
+            <FileText size={16} className="text-emerald-400" />
+            <div>
+              <div className="text-xs font-black uppercase tracking-wider text-content">
+                Print Packing Slip
+              </div>
+              <div className="text-[9px] text-muted/70">Order items with the QR code</div>
+            </div>
+          </button>
+        )}
+
+        {onPickingSummary && (
+          <button onClick={onPickingSummary} className={ROW}>
+            <ClipboardList size={16} className="text-blue-400" />
+            <div>
+              <div className="text-xs font-black uppercase tracking-wider text-content">
+                Picking Summary
+              </div>
+              <div className="text-[9px] text-muted/70">What was picked, by pallet</div>
+            </div>
+          </button>
+        )}
+
         {onEdit && !isPastOrder && (
           <button onClick={onEdit} className={ROW}>
             <Pencil size={16} className={problemCount > 0 ? 'text-red-400' : 'text-sky-400'} />
@@ -301,6 +372,66 @@ export const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
           </button>
         )}
 
+        {onSplitOrders && (
+          <button onClick={onSplitOrders} className={ROW}>
+            <Scissors size={16} className="text-blue-400" />
+            <div>
+              <div className="text-xs font-black uppercase tracking-wider text-content">
+                Split Orders
+              </div>
+              <div className="text-[9px] text-muted/70">Combined order back into its sources</div>
+            </div>
+          </button>
+        )}
+
+        {onUncombineGroup && isGrouped && (
+          <button onClick={onUncombineGroup} className={ROW}>
+            <Unlink size={16} className="text-amber-400" />
+            <div>
+              <div className="text-xs font-black uppercase tracking-wider text-content">
+                Uncombine Group
+              </div>
+              <div className="text-[9px] text-muted/70">Every order back on its own</div>
+            </div>
+          </button>
+        )}
+
+        {onLithiumManual && (
+          <button onClick={onLithiumManual} className={ROW}>
+            <BatteryWarning size={16} className="text-amber-400" />
+            <div>
+              <div className="text-xs font-black uppercase tracking-wider text-content">
+                Lithium Battery Label
+              </div>
+              <div className="text-[9px] text-muted/70">FedEx hazmat procedure for e-bikes</div>
+            </div>
+          </button>
+        )}
+
+        {onRestore && status === 'cancelled' && (
+          <button onClick={onRestore} className={ROW}>
+            <RotateCcw size={16} className="text-orange-400" />
+            <div>
+              <div className="text-xs font-black uppercase tracking-wider text-content">
+                Restore Order
+              </div>
+              <div className="text-[9px] text-muted/70">Back from cancelled</div>
+            </div>
+          </button>
+        )}
+
+        {onContinueEditing && status === 'reopened' && (
+          <button onClick={onContinueEditing} className={ROW}>
+            <RotateCcw size={16} className="text-orange-400" />
+            <div>
+              <div className="text-xs font-black uppercase tracking-wider text-content">
+                {continueEditingLabel}
+              </div>
+              <div className="text-[9px] text-muted/70">Pick up the reopened edit</div>
+            </div>
+          </button>
+        )}
+
         {onReopen && isPastOrder && status !== 'shipped' && (
           <button onClick={onReopen} className={ROW}>
             <Clock size={16} className="text-sky-400" />
@@ -324,6 +455,23 @@ export const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
                 Cancel Order
               </div>
               <div className="text-[9px] text-muted/70">Release items back to stock</div>
+            </div>
+          </button>
+        )}
+
+        {onDelete && (
+          <button
+            onClick={onDelete}
+            className="w-full flex items-center gap-3 px-4 py-3 bg-surface border border-subtle hover:bg-red-500/10 transition-colors text-left rounded-xl"
+          >
+            <Trash2 size={16} className="text-red-500" />
+            <div>
+              <div className="text-xs font-black uppercase tracking-wider text-red-400">
+                Delete Order
+              </div>
+              <div className="text-[9px] text-muted/70">
+                Cancel it and return picked units to stock
+              </div>
             </div>
           </button>
         )}
