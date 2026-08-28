@@ -1,6 +1,6 @@
 # PRD: El mapa con medidas reemplaza por completo la vista Warehouse Map
 
-**Estado:** F1 y F2 construidas 2026-08-28 — Rafael aprobó las cinco propuestas por defecto ("ok todo, arranca F1") · **Fecha:** 2026-08-28 · **Autor:**
+**Estado:** F1, F2 y F3 construidas 2026-08-28 — Rafael aprobó las cinco propuestas por defecto ("ok todo, arranca F1") · **Fecha:** 2026-08-28 · **Autor:**
 Rafael + PickD · **Backlog:** idea-170 · **Relacionado:** `docs/warehouse-floor-plans.md` (la decisión
 del 11 ago de tenerlos separados, que este PRD revierte), `public/warehouse/` (el mapa que funciona),
 `src/features/warehouse-management/` (la vista que se va), PRD `warehouse-real-stock-map.md` (la
@@ -119,7 +119,18 @@ migración; mover inventario desde el mapa (eso sigue en Consolidation / Movemen
   escriben) — un layout es un enlace. Revisado por CDP a 430 × 932, 932 × 430 y 1400: sin desbordes.
   **Fuera de F2, a propósito:** el editor de piso y las configs guardadas de `zone.html` (vivían en
   `localStorage` de un navegador) y el slotting (F5).
-- **F3 — Stock real.** RF-004/005/006 (V6–V8). Una consulta por zona (`location ILIKE 'ROW %'`).
+- **F3 ✅ (28 ago) — Stock real.** `stock/rowStock.ts` (puro, 16 tests con V6–V8): `parseRowLocation`
+  (`ROW 33` → 33; `ROW 20B` → 20 + `B`; `ROW X EP` → sin número), cada zona responde por los números
+  de su `rowRange` (el office gap por ninguno: `rowRange.unnamed`), `zoneStock` reparte cada línea
+  de `inventory` en su `ROW n · letra` y devuelve **unplaced** con motivo (`letter`, `suffix`,
+  `no-letter`, `row`). Una sola consulta para todo el mapa (`useWarehouseStock`, `location ILIKE
+'ROW%'`, stale al instante, botón de refresco). El slot pinta unidades + SKU sobre el color de
+  la familia (`skuColorDark`, `src/utils/skuColor.ts`); un slot tapado por un poste con stock se
+  pinta igual, con la X encima. Tocar un slot lista sus SKUs como chips; tocar un chip abre el
+  detalle que abre todo el mundo (`useOpenSkuDetail`). Bajo el dibujo, **NOT ON THIS PLAN**
+  agrupado por fila y motivo (36 líneas de 1 u en ROW 33 sin letra son un renglón que se
+  despliega). El mapa maestro muestra STOCK IN ROWS por bahía/zona y `NOT ON ANY PLAN · ROW X EP`.
+  Fotografiado con sesión local (magic link) a 1400 y 430 px.
 - **F4 — Retirar.** Plan, Live y sus hooks; `/public-warehouse-map` apunta a la pantalla nueva;
   `docs/warehouse-floor-plans.md` se reescribe (la decisión del 11 ago queda como historia).
 - **F5 — Propuesta (fase 2).** RF-010.

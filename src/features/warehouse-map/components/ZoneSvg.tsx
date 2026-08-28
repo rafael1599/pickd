@@ -9,6 +9,8 @@
 import React from 'react';
 import type { Cell, EngineState, LayoutModel, Obstacle, ZoneConfig } from '../engine';
 import { BIKES_PER_LINE, slotKey } from '../engine';
+import { describeCell, type CellStock } from '../stock/rowStock';
+import { skuColorDark } from '../../../utils/skuColor';
 
 /** Margin around the zone, inches of viewBox, for the wall labels. */
 export const SVG_MARGIN = 96;
@@ -44,8 +46,11 @@ interface Props {
   config: ZoneConfig;
   state: EngineState;
   model: LayoutModel;
+  /** What the DB says is in each slot, by `slotKey`. Absent = plan only. */
+  stock?: Map<string, CellStock>;
   onHover: (target: HoverTarget | null) => void;
   onHallClick?: (hallIdx: number, width: number) => void;
+  onCellTap?: (cell: Cell, stock: CellStock | undefined) => void;
 }
 
 function obstacleStyle(type: Obstacle['type']) {
@@ -63,7 +68,50 @@ function obstacleStyle(type: Obstacle['type']) {
   }
 }
 
-export const ZoneSvg: React.FC<Props> = ({ config, state, model: m, onHover, onHallClick }) => {
+/** The DB's units and SKU inside a slot — white on the SKU's own colour. */
+const StockLabel: React.FC<{ stock: CellStock; cl: Cell; m: number }> = ({ stock: st, cl, m }) => {
+  const side = Math.min(cl.cw, cl.ch);
+  const midX = m + cl.cx + cl.cw / 2;
+  const midY = m + cl.cy + cl.ch / 2;
+  return (
+    <>
+      <text
+        x={midX}
+        y={midY + side * 0.06}
+        fontSize={side * 0.34}
+        fill="#ffffff"
+        fontWeight="800"
+        textAnchor="middle"
+        fontFamily={MONO}
+        pointerEvents="none"
+      >
+        {st.units}
+      </text>
+      <text
+        x={midX}
+        y={midY + side * 0.34}
+        fontSize={side * 0.15}
+        fill="#ffffff"
+        fillOpacity="0.9"
+        textAnchor="middle"
+        fontFamily={MONO}
+        pointerEvents="none"
+      >
+        {st.entries.length > 1 ? `${st.entries.length} SKUs` : st.entries[0].sku}
+      </text>
+    </>
+  );
+};
+
+export const ZoneSvg: React.FC<Props> = ({
+  config,
+  state,
+  model: m,
+  stock,
+  onHover,
+  onHallClick,
+  onCellTap,
+}) => {
   const c = config;
   const s = state;
   const M = SVG_MARGIN;
@@ -471,29 +519,40 @@ export const ZoneSvg: React.FC<Props> = ({ config, state, model: m, onHover, onH
         );
       })}
 
-      {/* Pallet slots */}
+      {/* Pallet slots — and what the DB says is in them */}
       {m.validCells.map((cl) => {
         const col = cl.isFast ? COLOR.fast : COLOR.buried;
-        const text = `Row ${cl.row.num} · Slot ${cl.letter} · ${cl.cw}"×${cl.ch}" · ${cl.isFast ? 'Fast Picking' : 'Buried'}`;
+        const key = slotKey(cl);
+        const st = stock?.get(key);
+        const plan = `Row ${cl.row.num} · Slot ${cl.letter} · ${cl.cw}"×${cl.ch}" · ${cl.isFast ? 'Fast Picking' : 'Buried'}`;
+        const text = st ? describeCell(st) : plan;
+        const tone = st ? skuColorDark(st.entries[0].sku) : null;
         return (
-          <rect
-            key={slotKey(cl)}
-            className="wm-hit"
-            x={M + cl.cx}
-            y={M + cl.cy}
-            width={cl.cw}
-            height={cl.ch}
-            rx="3"
-            fill={col}
-            fillOpacity={cl.isFast ? 0.4 : 0.2}
-            stroke={col}
-            strokeOpacity="0.75"
-            strokeWidth="1.5"
-            data-slot={slotKey(cl)}
-            {...hover({ text, cell: cl })}
-          >
-            <title>{text}</title>
-          </rect>
+          <g key={key}>
+            <rect
+              className="wm-hit"
+              x={M + cl.cx}
+              y={M + cl.cy}
+              width={cl.cw}
+              height={cl.ch}
+              rx="3"
+              fill={tone ? tone.bg : col}
+              fillOpacity={tone ? 0.92 : cl.isFast ? 0.4 : 0.2}
+              stroke={col}
+              strokeOpacity="0.75"
+              strokeWidth="1.5"
+              data-slot={key}
+              onPointerEnter={() => onHover({ text, cell: cl })}
+              onPointerLeave={() => onHover(null)}
+              onClick={() => {
+                onHover({ text, cell: cl });
+                onCellTap?.(cl, st);
+              }}
+            >
+              <title>{text}</title>
+            </rect>
+            {st && <StockLabel stock={st} cl={cl} m={M} />}
+          </g>
         );
       })}
 
@@ -568,13 +627,18 @@ export const ZoneSvg: React.FC<Props> = ({ config, state, model: m, onHover, onH
           );
         })}
 
-      {/* Slots a post kills */}
+      {/* Slots a post kills — and what the DB says is in them anyway */}
       {m.lost.map((cl) => {
         const x = M + cl.cx;
         const y = M + cl.cy;
-        const text = `Row ${cl.row.num} · Slot ${cl.letter} (OBSTRUCTED)`;
+        const key = slotKey(cl);
+        const st = stock?.get(key);
+        const text = st
+          ? `${describeCell(st)} · OBSTRUCTED BY A POST`
+          : `Row ${cl.row.num} · Slot ${cl.letter} (OBSTRUCTED)`;
+        const tone = st ? skuColorDark(st.entries[0].sku) : null;
         return (
-          <g key={`lost-${slotKey(cl)}`}>
+          <g key={`lost-${key}`}>
             <rect
               className="wm-hit"
               x={x}
@@ -582,15 +646,22 @@ export const ZoneSvg: React.FC<Props> = ({ config, state, model: m, onHover, onH
               width={cl.cw}
               height={cl.ch}
               rx="3"
-              fill={COLOR.post}
-              fillOpacity="0.1"
+              fill={tone ? tone.bg : COLOR.post}
+              fillOpacity={tone ? 0.92 : 0.1}
               stroke={COLOR.post}
               strokeWidth="1.5"
               strokeDasharray="4 4"
-              {...hover({ text, cell: cl })}
+              data-slot={key}
+              onPointerEnter={() => onHover({ text, cell: cl })}
+              onPointerLeave={() => onHover(null)}
+              onClick={() => {
+                onHover({ text, cell: cl });
+                onCellTap?.(cl, st);
+              }}
             >
               <title>{text}</title>
             </rect>
+            {st && <StockLabel stock={st} cl={cl} m={M} />}
             <line
               x1={x}
               y1={y}

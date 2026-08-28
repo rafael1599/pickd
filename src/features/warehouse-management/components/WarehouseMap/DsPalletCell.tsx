@@ -1,7 +1,7 @@
 import React from 'react';
 import type { SlotUsage } from '../../../../utils/dsPalletPlanner';
 import { DS_PALLET_MAX } from '../../../../utils/dsPalletPlanner';
-import { skuColor } from '../../utils/skuColor';
+import { skuColor } from '../../../../utils/skuColor';
 import type { CellSelection } from './SkuDetailPanel';
 
 interface DsPalletCellProps {

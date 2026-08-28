@@ -19,7 +19,10 @@ import {
   warehouseAreas,
   freeZonesOf,
 } from '../engine';
+import { ZONES, ZONE_IDS } from '../engine';
 import type { Bay, BayId, FreeZone, ZoneId } from '../engine';
+import { useWarehouseStock } from '../hooks/useWarehouseStock';
+import { zoneRows, outsideAnyPlan } from '../stock/rowStock';
 
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
@@ -72,6 +75,35 @@ export const MasterMap: React.FC = () => {
     setParams(next, { replace: true });
   };
 
+  // What the DB puts in the rows of each zone — the map's link to the stock.
+  const stockQuery = useWarehouseStock();
+  const stockByZone = useMemo(() => {
+    if (!stockQuery.data) return null;
+    const units: Partial<Record<ZoneId, number>> = {};
+    for (const id of ZONE_IDS) {
+      units[id] = zoneRows(ZONES[id], stockQuery.data).reduce((s, r) => s + r.quantity, 0);
+    }
+    return units;
+  }, [stockQuery.data]);
+  const outside = useMemo(
+    () =>
+      stockQuery.data
+        ? outsideAnyPlan(
+            ZONE_IDS.map((id) => ZONES[id]),
+            stockQuery.data
+          )
+        : [],
+    [stockQuery.data]
+  );
+  const stockUnitsOf = (f: Focus): number | null => {
+    if (!stockByZone) return null;
+    if (f.kind === 'zone') return f.zone.zoneId ? (stockByZone[f.zone.zoneId] ?? 0) : 0;
+    return freeZonesOf(f.bay.id).reduce(
+      (s, z) => s + (z.zoneId ? (stockByZone[z.zoneId] ?? 0) : 0),
+      0
+    );
+  };
+
   const minNorth = Math.min(...BAYS.map((b) => b.north));
   const viewBox = rackMove
     ? `${G.bay2West - 26} ${Math.min(G.bay2North, G.bay3North) - 65} ${G.bay3East + 48 - (G.bay2West - 26)} ${SOUTH_Y + 41 - (Math.min(G.bay2North, G.bay3North) - 65)}`
@@ -114,6 +146,14 @@ export const MasterMap: React.FC = () => {
         <Total label="FREE SPACE" value={fmt(totals.freeArea)} unit="sq ft" />
         <Total label="UTILIZATION" value={String(Math.round(totals.pctFree))} unit="% free" />
       </div>
+      {outside.length > 0 && (
+        <p className="px-4 pb-3 font-mono text-[11px] tracking-[.05em] text-amber-400">
+          NOT ON ANY PLAN ·{' '}
+          {outside
+            .map((r) => `${r.location.trim().toUpperCase()} ${r.sku} ${r.quantity}u`)
+            .join(' · ')}
+        </p>
+      )}
 
       <div className="px-4 lg:grid lg:grid-cols-[1fr_290px] lg:gap-4 lg:items-start">
         <div className="rounded-xl border border-subtle bg-[#070b14] overflow-hidden">
@@ -384,7 +424,12 @@ export const MasterMap: React.FC = () => {
 
         <aside className="mt-4 lg:mt-0 lg:sticky lg:top-20 rounded-xl border border-subtle bg-card p-4">
           {focus ? (
-            <Hud focus={focus} areas={areas} pinned={pinned !== null} />
+            <Hud
+              focus={focus}
+              areas={areas}
+              pinned={pinned !== null}
+              stockUnits={stockUnitsOf(focus)}
+            />
           ) : (
             <p className="font-mono text-[11px] tracking-[.1em] text-muted leading-relaxed">
               HOVER A BAY · TAP A ZONE TO OPEN ITS LAYOUT
@@ -426,7 +471,9 @@ const Hud: React.FC<{
   focus: Focus;
   areas: Record<string, { freeArea: number; totalArea: number; pctFree: number }>;
   pinned: boolean;
-}> = ({ focus, areas, pinned }) => {
+  /** Units the DB puts in this bay's or zone's rows; null while unknown. */
+  stockUnits: number | null;
+}> = ({ focus, areas, pinned, stockUnits }) => {
   const b = focus.bay;
   const a = areas[b.id];
   const isZone = focus.kind === 'zone';
@@ -477,6 +524,14 @@ const Hud: React.FC<{
           </small>
         </div>
       </div>
+      {stockUnits !== null && (
+        <div className="mt-4">
+          <div className="font-mono text-[9.5px] tracking-[.15em] text-muted/70">STOCK IN ROWS</div>
+          <div className="font-mono text-2xl font-extrabold text-content mt-0.5">
+            {fmt(stockUnits)} <small className="text-[11px] text-muted font-semibold">units</small>
+          </div>
+        </div>
+      )}
       <p className="mt-4 pt-3 border-t border-subtle font-mono text-[10px] tracking-[.1em] text-muted/70">
         {hint}
       </p>

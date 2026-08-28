@@ -11,7 +11,7 @@ import {
   PinOff,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { skuColor } from '../../utils/skuColor';
+import { skuColor } from '../../../../utils/skuColor';
 import { BLOCKS } from '../../../../utils/dsPalletPlanner';
 import { EXCLUSION_REASONS, useExcludeSkus } from '../../hooks/useBikeCandidates';
 import { useNoMovers, useRemoveNoMovers, useSetNoMovers } from '../../hooks/useNoMoverList';

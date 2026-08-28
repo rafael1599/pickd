@@ -1,4 +1,5 @@
-// Deterministic per-SKU color for the Overstock put-away grid.
+// Deterministic per-SKU colour. Born in the Overstock put-away grid; now also
+// the warehouse map's stock layer (idea-170), which is why it lives in utils.
 //
 // The SKU count here is open-ended (as many as qualify for the plan), so this
 // isn't a bounded categorical palette — hue is hashed per SKU instead of
@@ -22,8 +23,23 @@ export interface SkuColor {
   border: string;
 }
 
+/** The hue a SKU always gets, 0–359. */
+export function skuHue(sku: string): number {
+  return hashString(sku) % 360;
+}
+
+/** The same hue on a dark floor: a saturated fill that white text reads on. */
+export function skuColorDark(sku: string): SkuColor {
+  const hue = skuHue(sku);
+  return {
+    text: '#ffffff',
+    bg: `hsl(${hue} 58% 42%)`,
+    border: `hsl(${hue} 70% 68%)`,
+  };
+}
+
 export function skuColor(sku: string): SkuColor {
-  const hue = hashString(sku) % 360;
+  const hue = skuHue(sku);
   return {
     text: `hsl(${hue} 65% 32%)`,
     bg: `hsl(${hue} 60% 94%)`,

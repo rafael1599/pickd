@@ -1,6 +1,6 @@
 import React from 'react';
 import type { SlotUsage } from '../../../../utils/overstockPutaway';
-import { skuColor } from '../../utils/skuColor';
+import { skuColor } from '../../../../utils/skuColor';
 import { counterRotateTextStyle } from '../../utils/counterRotateText';
 import type { SelectedSku } from './SkuDetailPanel';
 

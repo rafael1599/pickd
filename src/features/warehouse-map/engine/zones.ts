@@ -195,10 +195,12 @@ export const ZONES: Record<ZoneId, ZoneConfig> = {
       { id: 5, x: 1580, y: 137, size: 8, note: 'P5 Norte (Bay 1)' },
     ],
     labels: [
+      // No north/side margins here, so the wall names sit further out than in the
+      // other zones or they land on the row numbers and the slot letters.
       { text: 'MAIN HALL · SOUTH', x: 974, y: 568, anchor: 'middle', rotate: 0 },
-      { text: 'NORTH WALL', x: 974, y: -20, anchor: 'middle', rotate: 0 },
-      { text: 'EAST WALL', x: 1980, y: 253, anchor: 'start', rotate: 90 },
-      { text: 'WEST WALL', x: -20, y: 253, anchor: 'end', rotate: -90 },
+      { text: 'NORTH WALL', x: 974, y: -56, anchor: 'middle', rotate: 0 },
+      { text: 'EAST WALL', x: 2034, y: 253, anchor: 'start', rotate: 90 },
+      { text: 'WEST WALL', x: -88, y: 253, anchor: 'end', rotate: -90 },
     ],
   },
   bay1_office_gap: {
@@ -207,8 +209,9 @@ export const ZONES: Record<ZoneId, ZoneConfig> = {
     width: 757.5, // 63' 1.5"
     height: 299.5, // 120" hall + 179.5" storage (14' 11.5")
     margins: { top: 120, right: 0, bottom: 0, left: 0 },
-    // Same numbers as Bay 1 North: the gap's rows have no name of their own yet.
-    rowRange: { start: 41, end: 100, origin: 'east' },
+    // Same numbers as Bay 1 North: the gap's rows have no name of their own yet,
+    // so these labels name nothing in the DB and no stock is drawn here.
+    rowRange: { start: 41, end: 100, origin: 'east', unnamed: true },
     mainAccess: 'north',
     allowedBlocks: [2, 1],
     obstacles: [

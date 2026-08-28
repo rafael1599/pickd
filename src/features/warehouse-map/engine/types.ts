@@ -79,6 +79,11 @@ export interface RowRange {
   start: number;
   end: number;
   origin?: 'east' | 'west';
+  /**
+   * The labels are only labels: the DB has no `ROW n` by these numbers, so
+   * no stock is laid over this zone. The Bay 1 office gap reuses 41–48.
+   */
+  unnamed?: boolean;
 }
 
 export interface ZoneConfig {
