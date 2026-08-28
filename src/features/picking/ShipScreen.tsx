@@ -783,6 +783,13 @@ export const ShipScreen = () => {
     () => buildElectricCartons(electricBikeLines, (sku) => skuMeta[sku]),
     [electricBikeLines, skuMeta]
   );
+  // Every line an e-bike → nothing rides on a pallet; the card hides the
+  // four numbers and shows only the carton rows (Rafael, 27 Aug).
+  const onlyElectric = useMemo(
+    () => weightsReady && filteredItems.length > 0 && filteredItems.every(isElectricItem),
+    [weightsReady, filteredItems, isElectricItem]
+  );
+
   // Effective counts: manual override takes priority over auto-calculated,
   // but only when unfiltered — see filteredItems comment above.
   const bikeCount =
@@ -2369,7 +2376,13 @@ export const ShipScreen = () => {
       >
         <div className="w-full flex flex-col md:flex-row gap-4 md:gap-6 pt-1 md:pt-2 items-start">
           {/* Selected order — desktop 40% / mobile full width */}
-          <div className="w-full md:basis-[40%] md:max-w-[40%] min-w-0 flex flex-col gap-6 pb-8 order-first">
+          {/* Shipped column on: 40 / 60. Off, the feed is one list and the
+              card takes 60 % (Rafael, 27 Aug). */}
+          <div
+            className={`w-full min-w-0 flex flex-col gap-6 pb-8 order-first ${
+              includeShipped ? 'md:basis-[40%] md:max-w-[40%]' : 'md:basis-[60%] md:max-w-[60%]'
+            }`}
+          >
             <OrderDetailsContainer
               selectedOrderId={selectedOrder?.id ?? null}
               isLoadingDetails={isLoadingDetails || loading}
@@ -2539,6 +2552,7 @@ export const ShipScreen = () => {
                     isFedexOrder={isFedexOrder}
                     electricBikeLines={electricBikeLines}
                     electricCartons={electricCartons}
+                    hidePalletTotals={onlyElectric}
                   />
 
                   <PartsWeightEditor
@@ -2581,7 +2595,13 @@ export const ShipScreen = () => {
           </div>
 
           {/* Vertical order list — desktop 60% / mobile full width */}
-          <div className="w-full md:basis-[60%] md:max-w-[60%] md:min-w-[22rem] shrink-0 md:sticky md:top-0 order-last">
+          <div
+            className={`w-full shrink-0 md:sticky md:top-0 order-last ${
+              includeShipped
+                ? 'md:basis-[60%] md:max-w-[60%] md:min-w-[22rem]'
+                : 'md:basis-[40%] md:max-w-[40%]'
+            }`}
+          >
             <div className="bg-card border border-subtle rounded-3xl p-3 flex flex-col gap-2">
               <FeedHeaderToolbar
                 searchQuery={searchQuery}

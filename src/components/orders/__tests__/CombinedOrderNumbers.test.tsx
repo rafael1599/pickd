@@ -49,6 +49,47 @@ describe('CombinedOrderNumbers', () => {
   });
 });
 
+describe('CombinedOrderNumbers — full numbers', () => {
+  it('shows whole order numbers with `full`, last three digits without', () => {
+    const { rerender } = render(
+      <CombinedOrderNumbers
+        numbers={['881303', '881301']}
+        activeOrderFilter={null}
+        onToggle={() => {}}
+        variant="header"
+        full
+      />
+    );
+    expect(screen.getByText('881303')).toBeTruthy();
+    expect(screen.getByText('881301')).toBeTruthy();
+    rerender(
+      <CombinedOrderNumbers
+        numbers={['881303', '881301']}
+        activeOrderFilter={null}
+        onToggle={() => {}}
+        variant="header"
+      />
+    );
+    expect(screen.getByText('303')).toBeTruthy();
+    expect(screen.queryByText('881303')).toBeNull();
+  });
+
+  it('a full number still toggles the filter', () => {
+    const onToggle = vi.fn();
+    render(
+      <CombinedOrderNumbers
+        numbers={['881303', '881301']}
+        activeOrderFilter={null}
+        onToggle={onToggle}
+        variant="header"
+        full
+      />
+    );
+    fireEvent.click(screen.getByText('881301'));
+    expect(onToggle).toHaveBeenCalledWith('881301');
+  });
+});
+
 describe('ActiveFilterPill', () => {
   it('renders nothing when no filter is active', () => {
     const { container } = render(

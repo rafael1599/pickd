@@ -7,13 +7,15 @@
  * lbs" — so this is one row of figures per electric SKU, styled like Pallets
  * / Bikes / Parts / Weight above it and one size smaller so those four stay
  * the loudest. A FedEx order adds the carton size in the same shape; a
- * regular one does not need it. The dot pulses until the order ships
+ * regular one does not need it. Each row scales its figures to the width it
+ * has and never wraps (useFitFontSize). The dot pulses until the order ships
  * (motion-safe). A missing weight or an unmeasured carton is an amber "?",
  * the same mark the Lbs column uses.
  *
  * The amber ElectricBikeWarning above is the lithium label ("mark the
  * cartons"); this is the data entry. Both stay.
  */
+import { useRef } from 'react';
 import { CopyButton } from '../ui/CopyButton';
 import {
   electricCartonClipboard,
@@ -21,6 +23,7 @@ import {
   formatLbs,
   type ElectricCarton,
 } from './electricCartons';
+import { useFitFontSize } from './useFitFontSize';
 
 interface ElectricCartonDeclarationProps {
   cartons: ElectricCarton[];
@@ -37,19 +40,68 @@ const Figure: React.FC<{
   missing?: boolean;
   small?: boolean;
 }> = ({ value, label, title, missing = false, small = false }) => (
-  <div className="flex flex-col gap-1 min-w-0" title={title}>
+  <div className="flex flex-col gap-1 min-w-0 shrink-0" title={title}>
     <span
-      className={`font-heading font-bold leading-none ${small ? 'text-3xl' : 'text-5xl'} ${
+      data-fit-figure
+      style={{ fontSize: small ? 'calc(var(--stat-size) * 0.66)' : 'var(--stat-size)' }}
+      className={`font-heading font-bold leading-none whitespace-nowrap ${
         missing ? 'text-amber-500' : 'text-sky-400'
       }`}
     >
       {value}
     </span>
-    <span className="text-[10px] font-black uppercase tracking-widest text-muted truncate">
+    <span className="text-[10px] font-black uppercase tracking-widest text-muted whitespace-nowrap">
       {label}
     </span>
   </div>
 );
+
+const CartonRow: React.FC<{ carton: ElectricCarton; showDims: boolean }> = ({
+  carton,
+  showDims,
+}) => {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const size = useFitFontSize(rowRef, 48, 22, [
+    carton.units,
+    carton.model,
+    carton.weightLbs,
+    carton.dims,
+    showDims,
+  ]);
+  return (
+    <div
+      ref={rowRef}
+      style={{ ['--stat-size' as string]: `${size}px` }}
+      className="flex flex-nowrap items-end gap-x-4 w-full"
+    >
+      <Figure value={carton.units} label={carton.units === 1 ? 'Carton' : 'Cartons'} />
+      <Figure value={carton.units} label={carton.model} title={carton.name ?? carton.sku} />
+      <Figure
+        value={carton.weightLbs == null ? '?' : formatLbs(carton.weightLbs)}
+        label={carton.units === 1 ? 'Lbs' : 'Lbs each'}
+        missing={carton.weightLbs == null}
+        title={carton.weightLbs == null ? 'No weight on file for this bike' : undefined}
+      />
+      {showDims && (
+        <Figure
+          value={carton.dims ? formatCartonDims(carton.dims) : '?'}
+          label="In"
+          small
+          missing={!carton.dims}
+          title={
+            carton.dims ? 'Carton, whole inches rounded up (L × H × W)' : 'Carton not measured yet'
+          }
+        />
+      )}
+      <div className="pb-4 shrink-0">
+        <CopyButton
+          value={electricCartonClipboard(carton, showDims)}
+          label={`E-bike carton ${carton.sku}`}
+        />
+      </div>
+    </div>
+  );
+};
 
 export const ElectricCartonDeclaration: React.FC<ElectricCartonDeclarationProps> = ({
   cartons,
@@ -74,35 +126,7 @@ export const ElectricCartonDeclaration: React.FC<ElectricCartonDeclarationProps>
       </span>
 
       {cartons.map((carton) => (
-        <div key={carton.sku} className="flex flex-wrap items-end gap-x-6 gap-y-2">
-          <Figure value={carton.units} label={carton.units === 1 ? 'Carton' : 'Cartons'} />
-          <Figure value={carton.units} label={carton.model} title={carton.name ?? carton.sku} />
-          <Figure
-            value={carton.weightLbs == null ? '?' : formatLbs(carton.weightLbs)}
-            label={carton.units === 1 ? 'Lbs' : 'Lbs each'}
-            missing={carton.weightLbs == null}
-            title={carton.weightLbs == null ? 'No weight on file for this bike' : undefined}
-          />
-          {showDims && (
-            <Figure
-              value={carton.dims ? formatCartonDims(carton.dims) : '?'}
-              label="In"
-              small
-              missing={!carton.dims}
-              title={
-                carton.dims
-                  ? 'Carton, whole inches rounded up (L × H × W)'
-                  : 'Carton not measured yet'
-              }
-            />
-          )}
-          <div className="pb-4">
-            <CopyButton
-              value={electricCartonClipboard(carton, showDims)}
-              label={`E-bike carton ${carton.sku}`}
-            />
-          </div>
-        </div>
+        <CartonRow key={carton.sku} carton={carton} showDims={showDims} />
       ))}
     </div>
   );

@@ -79,6 +79,7 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
                 activeOrderFilter={activeOrderFilter ?? null}
                 onToggle={onToggleOrderFilter!}
                 variant="header"
+                full
               />
             </h2>
           ) : (

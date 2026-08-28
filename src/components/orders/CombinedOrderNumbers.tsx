@@ -21,6 +21,9 @@ export interface CombinedOrderNumbersProps {
   /** 'header' only: strips the bg chip + unit-count row for a smaller,
    *  flat-color-only rendering (Ship feed rail, Orders list row). */
   compact?: boolean;
+  /** Whole order numbers (881303 / 881301) instead of the last three digits —
+   *  the Ship card header (Rafael, 2026-08-27); the click-to-filter stays. */
+  full?: boolean;
   className?: string;
 }
 
@@ -35,9 +38,11 @@ export const CombinedOrderNumbers: React.FC<CombinedOrderNumbersProps> = ({
   unitsByOrder,
   variant,
   compact = false,
+  full = false,
   className = '',
 }) => {
   if (numbers.length < 2) return null;
+  const shown = (num: string) => (full ? num : num.slice(-3));
 
   if (variant === 'inline') {
     return (
@@ -67,7 +72,7 @@ export const CombinedOrderNumbers: React.FC<CombinedOrderNumbersProps> = ({
                   dimmed ? 'opacity-40' : ''
                 }`}
               >
-                {num.slice(-3)}
+                {shown(num)}
               </span>
             </React.Fragment>
           );
@@ -97,7 +102,7 @@ export const CombinedOrderNumbers: React.FC<CombinedOrderNumbersProps> = ({
                 style={{ color: orderColorFor(num, numbers).hex }}
                 className={`transition-opacity ${dimmed ? 'opacity-40' : 'hover:opacity-80'}`}
               >
-                {num.slice(-3)}
+                {shown(num)}
               </button>
             </React.Fragment>
           );
@@ -122,7 +127,7 @@ export const CombinedOrderNumbers: React.FC<CombinedOrderNumbersProps> = ({
               activeOrderFilter && activeOrderFilter !== num ? 'opacity-30' : 'hover:opacity-80'
             }`}
           >
-            <span className="leading-none">{num.slice(-3)}</span>
+            <span className="leading-none">{shown(num)}</span>
             {unitsByOrder && (
               <span className="leading-none opacity-80">{unitsByOrder[num] || 0}u</span>
             )}

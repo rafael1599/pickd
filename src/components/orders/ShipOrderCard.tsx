@@ -26,6 +26,7 @@ import { useCustomerAddresses } from '../../hooks/useCustomerAddresses';
 import { getPavExpressZone } from '../../utils/pavExpressZones';
 import type { ElectricBikeLine } from '../../utils/electricBikes';
 import { ElectricCartonDeclaration } from './ElectricCartonDeclaration';
+import { useFitFontSize } from './useFitFontSize';
 import type { ElectricCarton } from './electricCartons';
 import { OrderStatusPill } from './OrderStatusPill';
 import { CopyButton } from '../ui/CopyButton';
@@ -135,6 +136,9 @@ interface ShipOrderCardProps {
   electricBikeLines?: ElectricBikeLine[];
   /** The e-bikes as Audit Source wants them declared — own carton, outside the pallet (idea-167). */
   electricCartons?: ElectricCarton[];
+  /** Every line is an e-bike: nothing rides on a pallet, so Pallets / Bikes /
+   *  Parts / Weight say nothing — only the carton rows show (Rafael, 27 Aug). */
+  hidePalletTotals?: boolean;
 }
 
 /** Stable default so the prop's identity doesn't change on every render. */
@@ -200,7 +204,9 @@ const StatField: React.FC<{
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
         placeholder={placeholder}
-        className={`w-32 bg-main border border-subtle rounded-2xl py-2 text-center font-heading text-7xl font-bold ${colorClass} transition-colors duration-150 focus:border-current shadow-sm focus:bg-surface [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+        data-fit-figure
+        style={{ fontSize: 'var(--stat-size, 4.5rem)' }}
+        className={`w-32 bg-main border border-subtle rounded-2xl py-2 text-center font-heading font-bold ${colorClass} transition-colors duration-150 focus:border-current shadow-sm focus:bg-surface [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
       />
     ) : (
       <div className="flex items-center gap-2">
@@ -210,7 +216,9 @@ const StatField: React.FC<{
               promote the element to its own GPU layer and glitched as a
               black box over the field on some devices. */}
           <span
-            className={`font-heading text-7xl font-bold ${colorClass} group-hover:text-accent transition-colors duration-150`}
+            data-fit-figure
+            style={{ fontSize: 'var(--stat-size, 4.5rem)' }}
+            className={`font-heading font-bold leading-none whitespace-nowrap ${colorClass} group-hover:text-accent transition-colors duration-150`}
           >
             {value || placeholder || 0}
           </span>
@@ -218,7 +226,9 @@ const StatField: React.FC<{
         <SaveCheckmark show={showSaveCheckmark} />
       </div>
     )}
-    <span className="text-[10px] font-black uppercase tracking-widest text-muted">{label}</span>
+    <span className="text-[10px] font-black uppercase tracking-widest text-muted whitespace-nowrap">
+      {label}
+    </span>
   </div>
 );
 
@@ -254,12 +264,25 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
   isFedexOrder = false,
   electricBikeLines = EMPTY_ELECTRIC_LINES,
   electricCartons = EMPTY_ELECTRIC_CARTONS,
+  hidePalletTotals = false,
 }) => {
   const [editingField, setEditingField] = useState<EditableField>(null);
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [isUpdatingCarrier, setIsUpdatingCarrier] = useState(false);
   const [showAllCarriers, setShowAllCarriers] = useState(false);
+  // The four numbers scale to the card's width and never wrap (useFitFontSize).
+  const statsRowRef = useRef<HTMLDivElement>(null);
+  const statSize = useFitFontSize(statsRowRef, 72, 26, [
+    formData.pallets,
+    formData.bikes,
+    formData.parts,
+    formData.weight,
+    autoBikeCount,
+    autoPartCount,
+    autoWeight,
+    editingField,
+  ]);
   // The carrier row shows what fits on one line (carrierPicker.ts): every
   // candidate chip is rendered once, hidden, and measured; the visible row is
   // cut to the measured width and re-cut whenever the card resizes.
@@ -1113,77 +1136,84 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
         </div>
 
         {/* Stats — click any figure to edit */}
-        {/* gap-x-4, not gap-6: at gap-6 "1 · 8 · 0 · 400" measured 458 px in a
-            456 px card and Weight wrapped to its own line — the "8" is two
-            pixels wider than the "9". The four numbers belong on one line. */}
-        <div className="flex flex-wrap gap-x-4 gap-y-6 pt-4 border-t border-dashed border-subtle w-full">
-          <StatField
-            label="Pallets"
-            value={formData.pallets}
-            editing={editingField === 'pallets'}
-            onEdit={() => setEditingField('pallets')}
-            onChange={(v) => setFormData({ ...formData, pallets: v })}
-            onBlur={() => {
-              setEditingField(null);
-              void saveField('pallets');
-            }}
-            editRef={editingField === 'pallets' ? editRef : undefined}
-            colorClass="text-[#22c55e]"
-            min="1"
-            showSaveCheckmark={justSavedField === 'pallets'}
-          />
-          <StatField
-            label="Bikes"
-            value={formData.bikes}
-            placeholder={String(autoBikeCount)}
-            editing={editingField === 'bikes'}
-            onEdit={() => setEditingField('bikes')}
-            onChange={(v) => setFormData({ ...formData, bikes: v })}
-            onBlur={() => {
-              setEditingField(null);
-              void saveField('bikes');
-            }}
-            editRef={editingField === 'bikes' ? editRef : undefined}
-            colorClass="text-blue-400"
-            showSaveCheckmark={justSavedField === 'bikes'}
-          />
-          <StatField
-            label="Parts"
-            value={formData.parts}
-            placeholder={String(autoPartCount)}
-            editing={editingField === 'parts'}
-            onEdit={() => setEditingField('parts')}
-            onChange={(v) => setFormData({ ...formData, parts: v })}
-            onBlur={() => {
-              setEditingField(null);
-              void saveField('parts');
-            }}
-            editRef={editingField === 'parts' ? editRef : undefined}
-            colorClass="text-orange-400"
-            showSaveCheckmark={justSavedField === 'parts'}
-          />
-          <div className="flex items-end gap-2">
-            <CopyButton
-              value={String(formData.weight || (autoWeight > 0 ? autoWeight : 0))}
-              label="Weight"
-            />
+        {/* One line, always: the figures shrink to the width they have
+            (useFitFontSize) instead of wrapping — at gap-6 "1 · 8 · 0 · 400"
+            once measured 458 px in a 456 px card and Weight fell to a second
+            line. When every line is an e-bike there is no pallet to describe. */}
+        {!hidePalletTotals && (
+          <div
+            ref={statsRowRef}
+            style={{ ['--stat-size' as string]: `${statSize}px` }}
+            className="flex flex-nowrap items-end gap-x-4 pt-4 border-t border-dashed border-subtle w-full"
+          >
             <StatField
-              label="Weight (lbs)"
-              value={formData.weight}
-              placeholder={autoWeight > 0 ? String(autoWeight) : '0'}
-              editing={editingField === 'weight'}
-              onEdit={() => setEditingField('weight')}
-              onChange={(v) => setFormData({ ...formData, weight: v })}
+              label="Pallets"
+              value={formData.pallets}
+              editing={editingField === 'pallets'}
+              onEdit={() => setEditingField('pallets')}
+              onChange={(v) => setFormData({ ...formData, pallets: v })}
               onBlur={() => {
                 setEditingField(null);
-                void saveField('weight');
+                void saveField('pallets');
               }}
-              editRef={editingField === 'weight' ? editRef : undefined}
-              colorClass="text-purple-400"
-              showSaveCheckmark={justSavedField === 'weight'}
+              editRef={editingField === 'pallets' ? editRef : undefined}
+              colorClass="text-[#22c55e]"
+              min="1"
+              showSaveCheckmark={justSavedField === 'pallets'}
             />
+            <StatField
+              label="Bikes"
+              value={formData.bikes}
+              placeholder={String(autoBikeCount)}
+              editing={editingField === 'bikes'}
+              onEdit={() => setEditingField('bikes')}
+              onChange={(v) => setFormData({ ...formData, bikes: v })}
+              onBlur={() => {
+                setEditingField(null);
+                void saveField('bikes');
+              }}
+              editRef={editingField === 'bikes' ? editRef : undefined}
+              colorClass="text-blue-400"
+              showSaveCheckmark={justSavedField === 'bikes'}
+            />
+            <StatField
+              label="Parts"
+              value={formData.parts}
+              placeholder={String(autoPartCount)}
+              editing={editingField === 'parts'}
+              onEdit={() => setEditingField('parts')}
+              onChange={(v) => setFormData({ ...formData, parts: v })}
+              onBlur={() => {
+                setEditingField(null);
+                void saveField('parts');
+              }}
+              editRef={editingField === 'parts' ? editRef : undefined}
+              colorClass="text-orange-400"
+              showSaveCheckmark={justSavedField === 'parts'}
+            />
+            <div className="flex items-end gap-2">
+              <CopyButton
+                value={String(formData.weight || (autoWeight > 0 ? autoWeight : 0))}
+                label="Weight"
+              />
+              <StatField
+                label="Weight (lbs)"
+                value={formData.weight}
+                placeholder={autoWeight > 0 ? String(autoWeight) : '0'}
+                editing={editingField === 'weight'}
+                onEdit={() => setEditingField('weight')}
+                onChange={(v) => setFormData({ ...formData, weight: v })}
+                onBlur={() => {
+                  setEditingField(null);
+                  void saveField('weight');
+                }}
+                editRef={editingField === 'weight' ? editRef : undefined}
+                colorClass="text-purple-400"
+                showSaveCheckmark={justSavedField === 'weight'}
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* The e-bike as its own carton, in the language of the four numbers above it.
