@@ -11,6 +11,22 @@
 
 ## P1 — Alto (operación diaria)
 
+### 102. ❓ Warehouse Map: el mapa con medidas reemplaza por completo la vista in-app <!-- id: idea-170 --> — input: 2026-08-28 NY
+- **Rafael:** "la vista warehouse map será reemplazada por completo por el mapa con las medidas que ya
+  tenemos funcionando". PRD con las cinco ❓ y sus defaults: `docs/prds/warehouse-map-measured.md`.
+- **Estado verificado (28 ago):** el mapa medido (`public/warehouse/`, `PalletEngine` + `zones.js`)
+  ya nombra las filas con el número de la DB (33→18 Bay 3 N, 34→40 Bay 3 SE, 11→17 Bay 2 S, 10→1
+  Bay 2 N, 41+ Bay 1) y cada slot es `ROW n · letra` — la llave con `inventory` está puesta. El
+  SLOTTING VIEW de `zone.html` (`de574c5`) llena Bay 3 con SKUs reales pero apunta a
+  `127.0.0.1:54321` y a `get_bay3_fill_candidates`, que **solo existe en la DB local** (sin migración,
+  no en prod). La app: Plan (DS pallet, 3 planes / 36 no-movers en prod) y Live (una fila A–F).
+- **Plan:** F1 motor a TS con tests (V1–V5 del PRD) → F2 pantalla (mapa maestro → zona, 4 contadores,
+  toggles, sliders; revisar a 430 px) → F3 stock real por slot (reemplaza Live) → F4 retirar Plan/Live
+  y `public/warehouse/` → F5 propuesta (slotting con su migración).
+- **❓ Q1** React o iframe · **Q2** retirar `public/warehouse/` en F4 · **Q3** stock real antes que
+  propuesta · **Q4** borrar Plan/Live (tablas se quedan) · **Q5** la letra K y `ROW 20B` / `42 BURIED`
+  / `X EP` se listan junto a la fila, no se inventa slot. Defaults en el PRD; F1 solo depende de Q1.
+
 ### ~~101. Ship: la columna Shipped nunca vacía (últimas 10) y búsqueda de 5 en 5~~ <!-- id: idea-169 --> ✅ 2026-08-28 `8cdb2f4` `e7a31d9` (input: 2026-08-28 NY)
 - **Reporte de Rafael:** "quitaste el filtro que dejaba visibles cierta cantidad de órdenes enviadas
   aunque no fueran del día, con la última completada seleccionada". El diff dijo que no: la
