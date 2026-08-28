@@ -74,7 +74,12 @@ into 881301). Everything else on the card serves those numbers:
 - **Pallet photos** (two tiles + menu), **Recipient ID** chip on FedEx orders (paste into FSM's
   Recipient ID field and the address fills itself), **Reopen order** (with reason), **Picking
   summary**.
-- **Shipped today** keeps the day's shipped orders reachable, filtered by carrier.
+- **Shipped** is never empty: today's shipped orders plus the most recent earlier ones, at least
+  ten, grouped by day (TODAY / YESTERDAY / the date), filtered by carrier. With nothing pending,
+  the most recently shipped order opens by default (Rafael, 28 Aug — the column had been
+  "today only" since 14 Jul, so a morning opened on an empty screen).
+- **Search** brings the five newest matches and a _Show 5 more_ button; an exact order number is
+  always found whatever its age. It used to pull up to 500 rows on a single digit.
 
 **Audit Source** (Rafael, 27 Aug 2026) is the system where a regular load is **quoted**, a
 **carrier chosen**, and a **tracking number** generated for the order. For a regular order it asks

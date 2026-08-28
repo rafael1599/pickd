@@ -148,3 +148,15 @@ reads this file before writing anything. Written as _wrong → right_.
 - What he rejected on the way: a redundant "Audit Source strip" (the copy buttons already exist),
   a 12-column grid with gaps and markers ("no quiero marking ni padding ni espaciado de ningún
   tipo por defecto"). Tools for him: free drag, group / ungroup, no scaffolding.
+
+### 2026-08-28 — "you removed the shipped filter" (it was July's)
+
+- Rafael reported that my Ship changes removed the filter that kept some shipped orders visible
+  and auto-selected the last one. The diff said no: the column had been today-only since
+  2dad26b (14 Jul), and none of the 19 Ship commits touched the list, the window or the default
+  selection. **Answer with the diff, not from memory**, list what did change (moved / removed on
+  purpose / untouched), then fix the thing he actually wants. Built: last 10 shipped always
+  visible, most recent one selected by default.
+- **Search rule (his words):** page 5 at a time to spare the DB, but never lose a registered
+  order — the old 500-row cap once hid one. So: newest five + "Show 5 more", and an exact
+  order number fetched on its own so it is always on the first page.
