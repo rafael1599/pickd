@@ -802,7 +802,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                  left this block so the address has the width; on a phone the
                  ZIP wraps under it. */
               <div className="flex flex-wrap items-center gap-x-6 gap-y-1 flex-1 min-w-0">
-                <div className="flex items-center gap-2 min-w-0 flex-1 basis-[16rem]">
+                <div className="flex items-center gap-2 min-w-0 max-w-full">
                   <CopyButton value={formData.street} label="Street" />
                   <button
                     type="button"

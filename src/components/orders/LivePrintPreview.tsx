@@ -127,7 +127,11 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
                 {watcherNote.trim()}
               </p>
             )}
-            {notesSlot && <div className="order-2 md:order-1 min-w-0 md:mr-auto">{notesSlot}</div>}
+            {notesSlot && (
+              <div className="order-2 md:order-1 min-w-0 max-w-full overflow-hidden md:mr-auto">
+                {notesSlot}
+              </div>
+            )}
             {photoTile && <div className="order-3 shrink-0">{photoTile}</div>}
           </div>
         )}
