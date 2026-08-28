@@ -1010,6 +1010,42 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                       </button>
                     </div>
                   </div>
+                  {/* Load # in the carrier row, chip-high (Rafael, 2026-08-28) */}
+                  <div
+                    ref={editingField === 'load' ? editRef : undefined}
+                    className="shrink-0 h-11 flex items-center"
+                  >
+                    {editingField === 'load' ? (
+                      <input
+                        autoFocus
+                        type="text"
+                        value={formData.loadNumber}
+                        onChange={(e) =>
+                          setFormData({ ...formData, loadNumber: e.target.value.toUpperCase() })
+                        }
+                        onBlur={() => {
+                          setEditingField(null);
+                          void saveField('load');
+                        }}
+                        placeholder="E.G. 127035968"
+                        className="bg-main border border-subtle rounded-2xl px-4 py-2 text-sm font-bold text-content transition-colors duration-150 focus:border-accent focus:bg-surface shadow-sm w-48"
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditingField('load')}
+                          className="flex items-center gap-1.5 text-sm font-bold text-content hover:text-accent transition-colors duration-150"
+                        >
+                          <Hash size={13} className="shrink-0 text-muted" />
+                          {formData.loadNumber || (
+                            <span className="text-muted/50 italic font-semibold">Add load #…</span>
+                          )}
+                        </button>
+                        <SaveCheckmark show={justSavedField === 'load'} />
+                      </div>
+                    )}
+                  </div>
                   {showDaylightSmsReminder && (
                     <div
                       role="alert"
@@ -1059,40 +1095,6 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                   )}
                 </div>
               </div>
-            </div>
-
-            {/* Load # — under the carrier row (Rafael, 2026-08-28) */}
-            <div ref={editingField === 'load' ? editRef : undefined}>
-              {editingField === 'load' ? (
-                <input
-                  autoFocus
-                  type="text"
-                  value={formData.loadNumber}
-                  onChange={(e) =>
-                    setFormData({ ...formData, loadNumber: e.target.value.toUpperCase() })
-                  }
-                  onBlur={() => {
-                    setEditingField(null);
-                    void saveField('load');
-                  }}
-                  placeholder="E.G. 127035968"
-                  className="bg-main border border-subtle rounded-2xl px-4 py-2 text-sm font-bold text-content transition-colors duration-150 focus:border-accent focus:bg-surface shadow-sm w-48"
-                />
-              ) : (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditingField('load')}
-                    className="flex items-center gap-1.5 text-sm font-bold text-content hover:text-accent transition-colors duration-150"
-                  >
-                    <Hash size={13} className="shrink-0 text-muted" />
-                    {formData.loadNumber || (
-                      <span className="text-muted/50 italic font-semibold">Add load #…</span>
-                    )}
-                  </button>
-                  <SaveCheckmark show={justSavedField === 'load'} />
-                </div>
-              )}
             </div>
           </div>
 
