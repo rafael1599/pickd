@@ -23,16 +23,18 @@ PWA de gestión de inventario y warehouse operations. Multi-usuario con sync en 
 - `supabase/migrations/` — Migraciones PostgreSQL
 - `supabase/functions/` — Edge functions (snapshots, reportes, auto-cancel)
 - `.agent/management/BACKLOG.md` — Source of truth del backlog
-- `public/warehouse/` — Planos del almacén: HTML autónomos, sin build ni routing, se
-  sirven en `/warehouse/index.html`. Miden el edificio real; **no** son la vista in-app
-  (esa es `src/features/warehouse-management/`). Ver `docs/warehouse-floor-plans.md`.
-  **CRÍTICO:** Todos los layouts deben cumplir estrictamente las reglas en `public/warehouse/WAREHOUSE-UI-RULES.md` (ej. inputs de pallet dimensions `60x62` globales) y guiarse por `public/warehouse/WAREHOUSE-MEASUREMENTS.md`.
-  **Desde el 28 ago 2026 (idea-170) el motor, las zonas y el blueprint viven en
-  `src/features/warehouse-map/engine/`** (TS puro, 55 tests, paridad celda a celda con el JS): la
-  ruta `/warehouse-map` **ya es este mapa** (`src/features/warehouse-map/`, estado en la URL, stock
-  real por `ROW n · letra` desde `inventory`; Plan/Live siguen en `/warehouse-map/legacy` hasta F4) y las páginas de `public/warehouse/`
-  quedan congeladas hasta retirarse (fase F4). Una medida corregida en un lado se corrige en el otro.
-  PRD: `docs/prds/warehouse-map-measured.md`.
+- `src/features/warehouse-map/` — **El mapa del almacén** (menú → Map, `/warehouse-map`; sin sesión
+  en `/public-warehouse-map`). Mide el edificio real: `engine/blueprint.ts` (la tabla `M` en pulgadas,
+  la geometría, las 8 zonas libres, las 3 bahías y los **diez cross-checks, que son tests**),
+  `engine/zones.ts` (las seis zonas, cada cifra comentada con su medida), `engine/palletEngine.ts`
+  (filas, bloques, halls, slots, postes — puro, 54 casos de paridad con el JS original),
+  `stock/rowStock.ts` (el stock de `inventory` sobre cada `ROW n · letra`; lo que no cabe se lista,
+  nunca se esconde) y las pantallas (`MasterMap`, `ZoneView`, `ZoneSvg`; estado en la URL). Nació como
+  HTML estático en `public/warehouse/` (11 ago) y reemplazó por completo la vista Plan/Live el 28 ago
+  2026 (idea-170; historia en `docs/warehouse-floor-plans.md`). **CRÍTICO:** todo layout cumple
+  `docs/warehouse-ui-rules.md` (los cuatro contadores, sliders de pallet `60×62`, "hall" nunca
+  "aisle") y se guía por `docs/warehouse-measurements.md`. **Bay 1 no está medido** (Rafael, 28 ago:
+  "todo el que se ve no es el real"): sus contadores no se citan hasta tener las medidas.
 - `.claude/agents/` y `.claude/skills/` — Versionados en el repo desde el 11 ago 2026.
   Los skills eran symlinks a un repo central y se rompieron al moverse. Ver
   `docs/claude-agents-and-skills.md`
@@ -313,6 +315,11 @@ dashboard de visualizacion 2D/3D) que leía `inventory`, `sku_metadata` y `locat
 eliminó (confirmado 2026-08-14, ya no existe en disco) y con él el contrato `JAMIS/SHARED-DB-CONTRACT.md`.
 Ya no hay que coordinar cambios de schema con nadie más.
 
+- **Tablas y RPCs sin lector desde el 28 ago 2026 (F4 de idea-170):** `warehouse_overstock_plans`,
+  `warehouse_no_movers`, `warehouse_excluded_skus`, `warehouse_block_settings` y las RPCs
+  `get_block_classification_candidates` / `get_bike_block_candidates` eran del plan DS-pallet y la
+  vista Live, ya borrados. Se quedan por la regla aditiva; `get_sku_movement_stats_batch` sigue viva
+  (Consolidation). `get_bay3_fill_candidates` solo existe en la DB local — F5 la trae como migración.
 - **`sku_metadata` columns (prod):** `sku`, `length_in`, `width_in`, `height_in`, `length_ft`, `weight_lbs`, `image_url`, `is_bike`, `upc`, `created_at`, `dimensions_verified`, más las de Scratch & Dent (`20260417100000`): `is_scratch_dent`, `model`, `size`, `color`, `category`, `serial_number`, `condition`, `condition_description`, `sd_category`, `msrp`, `standard_price`, `sd_price`, `pdf_link`, y `sku_key` (`20260826220000`, generada: `upper(sku)` sin nada que no sea A-Z0-9, **índice único**, solo lectura) — NO tiene columna `name`
 - **`model` y `size` ya no son solo de Scratch & Dent.** Nacieron ahí, y hasta `20260717200000` (`register_new_sku` estructurado) nada más los llenaba, así que el catálogo viejo guardaba el item_name entero en `model` (`"DXT A3 19 BLUE"`) con `size` en NULL. `20260820160000` los separó para los 171 SKUs de bike con medida real. **Son la llave de agrupación del export a FedEx**, así que basura ahí sale del almacén — ver `bug-018`, que mete texto de notas de picking dentro de `model`. Los 531 SKUs sobre defaults siguen sin separar a propósito: no vale la pena partir un nombre cuyo número no es real.
 - **`inventory.sublocation`** (idea-024): posición dentro de un ROW, **una letra por cuadro** desde el

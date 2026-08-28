@@ -1,3 +1,6 @@
+> **Superseded 2026-08-28 (idea-170):** la impresión de la vista Plan/Live fue borrado con la fase F4; el mapa medido en
+> `src/features/warehouse-map/` lo reemplaza. Ver `docs/prds/warehouse-map-measured.md`.
+
 # PRD: WarehouseMap — Rotación de labels y layout de impresión A4
 
 ## 1. Contexto y problema

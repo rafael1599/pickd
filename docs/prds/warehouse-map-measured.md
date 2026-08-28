@@ -1,6 +1,6 @@
 # PRD: El mapa con medidas reemplaza por completo la vista Warehouse Map
 
-**Estado:** F1, F2 y F3 construidas 2026-08-28 — Rafael aprobó las cinco propuestas por defecto ("ok todo, arranca F1") · **Fecha:** 2026-08-28 · **Autor:**
+**Estado:** F1–F4 construidas 2026-08-28 (queda F5) — Rafael aprobó las cinco propuestas por defecto ("ok todo, arranca F1") · **Fecha:** 2026-08-28 · **Autor:**
 Rafael + PickD · **Backlog:** idea-170 · **Relacionado:** `docs/warehouse-floor-plans.md` (la decisión
 del 11 ago de tenerlos separados, que este PRD revierte), `public/warehouse/` (el mapa que funciona),
 `src/features/warehouse-management/` (la vista que se va), PRD `warehouse-real-stock-map.md` (la
@@ -131,8 +131,15 @@ migración; mover inventario desde el mapa (eso sigue en Consolidation / Movemen
   agrupado por fila y motivo (36 líneas de 1 u en ROW 33 sin letra son un renglón que se
   despliega). El mapa maestro muestra STOCK IN ROWS por bahía/zona y `NOT ON ANY PLAN · ROW X EP`.
   Fotografiado con sesión local (magic link) a 1400 y 430 px.
-- **F4 — Retirar.** Plan, Live y sus hooks; `/public-warehouse-map` apunta a la pantalla nueva;
-  `docs/warehouse-floor-plans.md` se reescribe (la decisión del 11 ago queda como historia).
+- **F4 ✅ (28 ago) — Retirar.** Borrados `WarehouseMapScreen` (Plan/Live), `components/WarehouseMap/`,
+  los 12 hooks, `dsPalletPlanner.ts` y `overstockPutaway.ts` con sus tests, cuatro paneles sin uso
+  (`ZoneManagementPanel`, `WarehouseFilter`, `NoMoverClassification`, `BringInPanel`) y la ruta
+  `/warehouse-map/legacy`; `public/warehouse/` entero, con `WAREHOUSE-MEASUREMENTS.md` y
+  `WAREHOUSE-UI-RULES.md` mudados a `docs/warehouse-measurements.md` y `docs/warehouse-ui-rules.md`.
+  Se queda lo de Settings (`IntegratedMapManager`, `LocationList`, `LocationEditorModal`,
+  `UserManagement`, `OptimizationReportCard`) y las tablas `warehouse_*`. Los agentes
+  `warehouse-space-planner` / `warehouse-sku-placement` apuntan al motor TS;
+  `docs/warehouse-floor-plans.md` reescrito como historia + índice.
 - **F5 — Propuesta (fase 2).** RF-010.
 
 ## 9) Preguntas — cerradas el 28 ago 2026 con la respuesta por defecto ("ok todo")

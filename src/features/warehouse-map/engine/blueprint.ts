@@ -3,8 +3,8 @@
 // two measurements that ought to agree do not. Nothing here is a magic
 // number: to correct the plan, correct `M`.
 //
-// Ported from public/warehouse/warehouse_blueprint.html + warehouse_map.html
-// on 2026-08-28 (idea-170). The HTML drew at 10 px = 1 ft; this module is in
+// Ported from the old public/warehouse/warehouse_blueprint.html + warehouse_map.html
+// on 2026-08-28 (idea-170); docs/warehouse-measurements.md is the record. The HTML drew at 10 px = 1 ft; this module is in
 // INCHES, with the same anchors (west wall at x = 10 ft, south wall at
 // y = 125 ft) so that a coordinate here is the HTML's × 1.2. The anchors
 // cancel in every check and every area.

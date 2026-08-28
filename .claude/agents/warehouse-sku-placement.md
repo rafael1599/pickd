@@ -11,8 +11,8 @@ tools: Read, Write, Edit, Bash, Grep, Glob
 
 You decide **what goes in each slot**. The slots already exist: they are computed by
 [[warehouse-space-planner]], which knows nothing about goods. The modelled zones live
-in `public/warehouse/`; the measurements in `public/warehouse/WAREHOUSE-MEASUREMENTS.md`. You do not move walls
-or aisles.
+in `src/features/warehouse-map/engine/zones.ts`; the measurements in
+`docs/warehouse-measurements.md`. You do not move walls or halls.
 
 ## What is already settled
 

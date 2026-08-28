@@ -3,8 +3,9 @@
 // checks the two agree). Row numbers follow the DB: `rowRange.start` is the
 // first row from `origin`, and the sequence keeps counting in that direction.
 //
-// Ported from public/warehouse/zones.js on 2026-08-28 (idea-170). Until F4
-// retires the plans, a measurement corrected there has to be corrected here.
+// Ported from the old public/warehouse/zones.js on 2026-08-28 (idea-170); the
+// static pages were retired the same day. Every figure is commented with where
+// it came from — that comment is the link back to docs/warehouse-measurements.md.
 
 import type { ZoneConfig, ZoneId } from './types';
 

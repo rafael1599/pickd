@@ -3,8 +3,8 @@
 // layout — so the totals a zone prints are testable numbers, not text under
 // a drawing.
 //
-// Ported from public/warehouse/PalletEngine.js (calculate + autoBlocks) on
-// 2026-08-28 (idea-170), behaviour for behaviour; the 54 reference cases the
+// Ported from the old public/warehouse/PalletEngine.js (calculate + autoBlocks)
+// on 2026-08-28 (idea-170), behaviour for behaviour; the 54 reference cases the
 // JS produced that day are what the port was checked against. One deliberate
 // change: the JS fell back to `Math.random()` when the halls had to be split
 // unevenly around a post. Here that fallback runs on a seeded generator, so

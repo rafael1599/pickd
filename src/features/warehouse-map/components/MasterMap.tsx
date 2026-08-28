@@ -1,6 +1,6 @@
 // The three bays to scale, free space per zone; tap a zone to open its
-// layout. Port of warehouse_map.html (2026-08-28, idea-170), drawn off the
-// blueprint in inches. The numbers panel is a card next to the drawing, not a
+// layout. Port of the old warehouse_map.html page (2026-08-28, idea-170), drawn
+// off the blueprint in inches. The numbers panel is a card next to the drawing, not a
 // fixed corner: on a phone the corner is the drawing.
 
 import React, { useMemo, useState } from 'react';
@@ -444,10 +444,7 @@ export const MasterMap: React.FC = () => {
       </div>
 
       <p className="px-4 pt-4 font-mono text-[10px] tracking-[.1em] text-muted/70 leading-relaxed">
-        MEASURED IN INCHES · GROSS AREA, COLUMNS NOT DEDUCTED ·{' '}
-        <Link to="/warehouse-map/legacy" className="underline hover:text-content">
-          PLAN / LIVE (LEGACY, UNTIL F4)
-        </Link>
+        MEASURED IN INCHES · GROSS AREA, COLUMNS NOT DEDUCTED
       </p>
     </div>
   );

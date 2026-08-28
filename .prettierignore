@@ -38,4 +38,3 @@ scripts/
 .claude/skills/
 
 # Warehouse floor plans: hand-tuned standalone HTML, see docs/warehouse-floor-plans.md
-public/warehouse/

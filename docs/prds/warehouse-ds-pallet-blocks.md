@@ -1,3 +1,6 @@
+> **Superseded 2026-08-28 (idea-170):** el plan DS-pallet (pestaña Plan) fue borrado con la fase F4; el mapa medido en
+> `src/features/warehouse-map/` lo reemplaza. Ver `docs/prds/warehouse-map-measured.md`.
+
 # PRD: Modelo DS-Pallet, Bloques de Rows y Área Pull First
 
 **Estado:** Draft · **Fecha:** 2026-07-28 · **Autor:** Rafael + PickD

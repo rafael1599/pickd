@@ -11,7 +11,19 @@
 
 ## P1 — Alto (operación diaria)
 
-### 102. Warehouse Map: el mapa con medidas reemplaza por completo la vista in-app <!-- id: idea-170 --> — input: 2026-08-28 NY · "ok todo" a las 5 ❓ · F1 + F2 + F3 ✅ 2026-08-28
+### 104. ❓ Bay 1: medidas reales de espacio usable → zonas + reetiqueta <!-- id: idea-172 --> — input: 2026-08-28 NY
+- **Rafael:** "bay 1 no se toca hasta que te dé las medidas de espacio usable, todo el que se ve no
+  es el real". Con las medidas: corregir `bay1_north` / `bay1_office_gap` en `zones.ts` y la tabla `M`
+  (los tests atrapan lo que no cierre), y correr la misma migración de letras por cuadro sobre ROW 41+.
+
+### 103. Mapa: capa "Propuesta" (slotting) — F5 de idea-170 <!-- id: idea-171 --> — input: 2026-08-28 NY
+- El SLOTTING VIEW de `zone.html` (borrado en F4; está en git, `de574c5`) llenaba Bay 3 con SKUs por
+  velocidad, con heatmap, pines y lista de movimientos, contra `127.0.0.1` y la RPC
+  `get_bay3_fill_candidates` que solo existe en la DB local. Traerlo como capa sobre el stock real:
+  la RPC como migración, la regla (velocidad 45 días sobre `inventory_logs`, bloques este → oeste,
+  ≥ 90 u al fondo) escrita antes de construir.
+
+### ~~102. Warehouse Map: el mapa con medidas reemplaza por completo la vista in-app~~ <!-- id: idea-170 --> ✅ 2026-08-28 (F1–F4; "ok todo" a las 5 ❓; input: 2026-08-28 NY)
 - **Rafael:** "la vista warehouse map será reemplazada por completo por el mapa con las medidas que ya
   tenemos funcionando". PRD con las cinco ❓ y sus defaults: `docs/prds/warehouse-map-measured.md`.
 - **Estado verificado (28 ago):** el mapa medido (`public/warehouse/`, `PalletEngine` + `zones.js`)
@@ -39,7 +51,8 @@
   SKU → `useOpenSkuDetail`, lista NOT ON THIS PLAN agrupada, slot tapado por poste con stock se
   pinta igual). Hallazgo: en Bay 3 Norte el stock de hoy vive en A–F de filas que el plan dibuja
   10 de fondo — el dibujo enseña el plan y la realidad a la vez, que es lo que se quería.
-  Siguiente: F4, retirar Plan/Live y `public/warehouse/`.
+  F4 hecho el mismo día: Plan/Live, sus hooks, `dsPalletPlanner`/`overstockPutaway` y
+  `public/warehouse/` borrados; medidas y UI-rules en `docs/`; tablas `warehouse_*` se quedan.
 - **Datos (Rafael, 28 ago, "ok"):** Bay 3 Norte pasó a **una letra por cuadro** — migración
   `20260828161324`, aplicada en prod: 315 líneas reetiquetadas (A→A/B … F→K/L, alternando por
   unidades; G/H/K intactas), 651 filas y 2.881 u sin cambio, auditoría en `sublocation_relabels`.

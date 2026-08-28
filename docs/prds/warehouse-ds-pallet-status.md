@@ -1,3 +1,6 @@
+> **Superseded 2026-08-28 (idea-170):** el plan DS-pallet (pestaña Plan) fue borrado con la fase F4; el mapa medido en
+> `src/features/warehouse-map/` lo reemplaza. Ver `docs/prds/warehouse-map-measured.md`.
+
 # DS-Pallet — Estado y traspaso
 
 **Actualizado:** 2026-07-29 · **Rama:** `main` (todo commiteado, **sin push**)

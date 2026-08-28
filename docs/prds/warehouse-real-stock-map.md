@@ -1,3 +1,6 @@
+> **Superseded 2026-08-28 (idea-170):** la pestaña Live (stock real por fila) fue borrado con la fase F4; el mapa medido en
+> `src/features/warehouse-map/` lo reemplaza. Ver `docs/prds/warehouse-map-measured.md`.
+
 # PRD: Mapa de Stock Real Físico & Selector de Rows (Warehouse Map)
 
 ## 1) Contexto y Problema

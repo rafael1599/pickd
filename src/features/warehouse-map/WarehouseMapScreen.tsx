@@ -1,6 +1,5 @@
-// The warehouse map: the measured building, then one zone of it. Replaces the
-// Plan / Live screen of warehouse-management (idea-170); until F4 that one is
-// still reachable at /warehouse-map/legacy.
+// The warehouse map: the measured building, then one zone of it. Replaced the
+// Plan / Live screen of warehouse-management on 2026-08-28 (idea-170).
 
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';

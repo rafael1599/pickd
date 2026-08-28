@@ -1,6 +1,6 @@
 // The measured warehouse as data. Every number here is INCHES, measured on the
-// floor (see docs/prds/warehouse-map-measured.md and, until F4 retires them,
-// public/warehouse/WAREHOUSE-MEASUREMENTS.md). Nothing in this folder knows
+// floor (docs/warehouse-measurements.md; the decision is
+// docs/prds/warehouse-map-measured.md). Nothing in this folder knows
 // about pixels, React or the database: the engine turns a zone and a state
 // into slots, and a slot is named `ROW n · letter` — the same name as
 // `inventory.location` + `sublocation`, which is what lets the stock be laid
