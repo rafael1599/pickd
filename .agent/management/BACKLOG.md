@@ -11,6 +11,19 @@
 
 ## P1 — Alto (operación diaria)
 
+### ~~101. Ship: la columna Shipped nunca vacía (últimas 10) y búsqueda de 5 en 5~~ <!-- id: idea-169 --> ✅ 2026-08-28 `8cdb2f4` `e7a31d9` (input: 2026-08-28 NY)
+- **Reporte de Rafael:** "quitaste el filtro que dejaba visibles cierta cantidad de órdenes enviadas
+  aunque no fueran del día, con la última completada seleccionada". El diff dijo que no: la
+  columna era "solo hoy" desde `2dad26b` (14 jul) y ningún commit de Ship de esta sesión tocó la
+  lista, la ventana ni la selección. Se construyó lo que quiere.
+- **Hecho:** el hook trae las de hoy + las 10 enviadas más recientes (una consulta indexable,
+  `limit 10`); la columna se agrupa por **día de envío** (`updated_at`); sin pendientes se abre la
+  última enviada. Búsqueda: 5 más recientes + "Show 5 more" (`limit n*5+1`), y el número exacto
+  se trae aparte para que una orden vieja nunca quede detrás de cinco nuevas (el tope de 500 que
+  una vez escondió una orden registrada). Con "8" pasó de 500 filas a 6.
+- **DB:** 1.776 filas / 3,7 MB; ambas consultas ~1,4 ms con seq scan — no hace falta índice hoy.
+  `pg_trgm` está instalado por si la tabla crece (índice trigram sobre `order_number`).
+
 ### ~~100. Ship: el card reestructurado según el layout de Rafael (60 % y móvil)~~ <!-- id: idea-168 --> ✅ 2026-08-28 (input: 2026-08-28 NY)
 - **Pedido:** con Shipped desmarcado el card ocupa el 60 %; "dame propuestas para aprovechar el
   espacio" → "no quiero redundancia; las fotos a otro lugar para que la dirección quepa en una
