@@ -123,3 +123,15 @@ reads this file before writing anything. Written as _wrong → right_.
   Shipped off; full order numbers in the header". Pattern: **he reviews on the phone in
   landscape** — anything that wraps, clips or truncates there is the next correction. Check the
   card at ~430 px before calling a Ship change done.
+
+### 2026-08-28 — Ship card restructured from Rafael's own layout
+
+- Method that worked: instead of proposing layouts in prose, a **Layout Lab** artifact with the
+  card's real atoms (every number, chip, photo, button as a draggable piece, zero padding by
+  default) at 360 / 520 / 800 / 1000 px; he dragged two layouts (phone and 60 %) and pasted the
+  structure back. Build exactly that, ask the open questions **before** starting (done: Daylight
+  reminder only when Daylight is chosen; lithium banner FedEx-only; photos grow; everything else
+  in ⋯, notes included). Keep the lab (`scratchpad/ship-card-layout-lab.html`) for the next screen.
+- What he rejected on the way: a redundant "Audit Source strip" (the copy buttons already exist),
+  a 12-column grid with gaps and markers ("no quiero marking ni padding ni espaciado de ningún
+  tipo por defecto"). Tools for him: free drag, group / ungroup, no scaffolding.

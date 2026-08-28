@@ -11,6 +11,21 @@
 
 ## P1 — Alto (operación diaria)
 
+### ~~100. Ship: el card reestructurado según el layout de Rafael (60 % y móvil)~~ <!-- id: idea-168 --> ✅ 2026-08-28 (input: 2026-08-28 NY)
+- **Pedido:** con Shipped desmarcado el card ocupa el 60 %; "dame propuestas para aprovechar el
+  espacio" → "no quiero redundancia; las fotos a otro lugar para que la dirección quepa en una
+  línea; hazme una cuadrícula HTML para mover las cosas". Rafael armó dos layouts en el Layout Lab
+  (800 px y 360 px) y pegó la estructura.
+- **Hecho:** cabecera en una línea (números completos · logo · nota · fecha · tile de fotos · ⋯);
+  dirección y ZIP en una línea; fila de carrier con la etiqueta inline y el aviso Daylight en la
+  misma línea solo con Daylight elegido; load # debajo; fotos en columna a la derecha que crece
+  (`PalletPhotoRail`); banner de litio solo FedEx; Picking Summary / Reopen / Restore / Continue /
+  Delete / Split / Uncombine / Notas / manual hazmat / **Print pallet labels (primero) y packing
+  slip** en el menú ⋯ (`OrderActionsMenu`); bloque Combined Order fuera (los números de la
+  cabecera filtran).
+- **Lab:** `scratchpad/ship-card-layout-lab.html` (artefacto "Ship Card Layout Lab") — átomos
+  reales, drag libre, agrupar/separar, sin padding por defecto, copia la estructura.
+
 ### ~~99. Ship: la bici eléctrica resaltada y declarada aparte para Audit Source~~ <!-- id: idea-167 --> ✅ 2026-08-27 `79f8270` ("ok todo" a las cinco ❓ del PRD; input: 2026-08-27 NY)
 - **Pedido (Rafael):** Audit Source (cotización → carrier → tracking) pide declarar la bici a batería
   como un cartón aparte, fuera del pallet aunque viaje dentro. "pickd podría mostrarnos la bicicleta

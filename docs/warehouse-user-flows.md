@@ -58,9 +58,17 @@ into 881301). Everything else on the card serves those numbers:
 
 - **Order Items** lists the SKUs with location and, since 27 Aug, **Lbs** per line. One click on a
   SKU opens its detail (stock, dimensions, weight, photo) without leaving Ship.
-- **Carrier**: one line of the carriers this order can use, most-used first, as many as fit
-  the screen without cutting or wrapping; a FedEx order shows FedEx alone, a regular order never
-  shows FedEx. The selected one always shows; "…" opens the rest.
+- **Carrier**: one line — the label, the carriers this order can use (most-used first, as many
+  as fit without cutting or wrapping), and, only while Daylight is the carrier, the "text the
+  dispatcher" reminder on that same line. A FedEx order shows FedEx alone, a regular order never
+  shows FedEx. The selected one always shows; "…" opens the rest. The load # sits under it.
+- **The card's shape (Rafael, 28 Aug 2026):** header on one line (full order numbers · carrier
+  logo · note · date · photo tile · ⋯), status pill, customer, **address and ZIP on one line**,
+  carrier row, load #, the four numbers, the e-bike row. **Photos** are a strip down the right
+  edge, one thumbnail per photo, growing with them. Everything that was a button — Picking
+  Summary, Reopen, Delete, Split / Uncombine, Notes, the hazmat manual, and both prints (pallet
+  labels first, then the packing slip) — is in the **⋯ menu**. Tapping the note in the header
+  opens the full note history.
 - **Combined orders**: two orders for the same customer ship as one; the card shows both under
   _Combined Order_ and the numbers are the group's, wherever it is opened from.
 - **Pallet photos** (two tiles + menu), **Recipient ID** chip on FedEx orders (paste into FSM's
