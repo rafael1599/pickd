@@ -3,9 +3,12 @@
 // looks like (ghosts on targets, origins vacated), and whether a move still
 // applies when it is about to be executed. Nothing here touches the DB.
 //
+// A move sends a line to one or more squares (`toLetters`): one when a hand
+// puts it down, several when DISTRIBUTE spreads it at a pallet per square.
 // PRD docs/prds/warehouse-map-plan-and-live.md, "ok todo" 2026-08-28.
 
 import {
+  allocate,
   parseRowLocation,
   type StockEntry,
   type StockRow,
@@ -21,6 +24,7 @@ export interface PlanMove {
   position: number;
   inventoryId: number;
   sku: string;
+  /** Units this move takes: the whole line by hand, part of it when spread. */
   qty: number;
   itemName: string | null;
   warehouse: string;
@@ -28,7 +32,7 @@ export interface PlanMove {
   fromLocation: string;
   fromSublocation: string[] | null;
   toLocation: string;
-  toLetter: string;
+  toLetters: string[];
   kind: MoveKind;
   status: MoveStatus;
   error: string | null;
@@ -64,9 +68,15 @@ export interface Occupant {
   liveKey: string | null;
 }
 
+/** A planned move as it lands in one square. */
+export interface GhostSlot {
+  move: PlanMove;
+  qtyHere: number;
+}
+
 export interface PlannedState {
-  /** Planned moves by the cell they land in. */
-  ghosts: Map<string, PlanMove[]>;
+  /** Planned moves by the square they land in, with the units landing there. */
+  ghosts: Map<string, GhostSlot[]>;
   /** Inventory ids with a planned move: their live cell shows them leaving. */
   vacated: Set<number>;
   /** Who is in a cell once the plan is applied. */
@@ -79,9 +89,14 @@ const norm = (s: string) => s.trim().toUpperCase();
 export const sameLocation = (a: string, b: string) => norm(a) === norm(b);
 
 /** `ROW 33` + `C` → `33-C`, the key the drawing uses. */
-export function targetKey(m: { toLocation: string; toLetter: string }): string {
-  const p = parseRowLocation(m.toLocation);
-  return `${p?.number ?? '?'}-${m.toLetter}`;
+export function cellKey(location: string, letter: string): string {
+  const p = parseRowLocation(location);
+  return `${p?.number ?? '?'}-${letter}`;
+}
+
+/** Every square a move lands in. */
+export function targetKeys(m: { toLocation: string; toLetters: string[] }): string[] {
+  return m.toLetters.map((l) => cellKey(m.toLocation, l));
 }
 
 /** `33-C` → `ROW 33`. */
@@ -89,14 +104,21 @@ export function locationOfKey(key: string): string {
   return `ROW ${key.slice(0, key.lastIndexOf('-'))}`;
 }
 
+export function letterOfKey(key: string): string {
+  return key.slice(key.lastIndexOf('-') + 1);
+}
+
 export function plannedState(stock: ZoneStock | null, moves: PlanMove[]): PlannedState {
   const planned = moves.filter((m) => m.status === 'planned');
-  const ghosts = new Map<string, PlanMove[]>();
+  const ghosts = new Map<string, GhostSlot[]>();
   const vacated = new Set<number>();
   for (const m of planned) {
-    const k = targetKey(m);
-    ghosts.set(k, [...(ghosts.get(k) ?? []), m]);
-    vacated.add(m.inventoryId);
+    const shares = allocate(m.qty, m.toLetters.length);
+    targetKeys(m).forEach((k, i) => {
+      ghosts.set(k, [...(ghosts.get(k) ?? []), { move: m, qtyHere: shares[i] }]);
+    });
+    // A partial move leaves the rest of the line where it is.
+    if (m.kind === 'relabel' || !isPartial(m, stock)) vacated.add(m.inventoryId);
   }
   const liveKeys = new Map<number, string>();
   if (stock) {
@@ -122,7 +144,8 @@ export function plannedState(stock: ZoneStock | null, moves: PlanMove[]): Planne
         liveKey: key,
       });
     }
-    for (const m of ghosts.get(key) ?? []) {
+    for (const g of ghosts.get(key) ?? []) {
+      const m = g.move;
       out.push({
         inventoryId: m.inventoryId,
         sku: m.sku,
@@ -138,6 +161,16 @@ export function plannedState(stock: ZoneStock | null, moves: PlanMove[]): Planne
     return out;
   };
   return { ghosts, vacated, occupancy, liveKeyOf };
+}
+
+/** A move that takes fewer units than the line has. */
+function isPartial(m: PlanMove, stock: ZoneStock | null): boolean {
+  if (!stock) return false;
+  for (const cell of stock.cells.values()) {
+    const e = cell.entries.find((x) => x.rowId === m.inventoryId);
+    if (e) return m.qty < e.qty;
+  }
+  return false;
 }
 
 export function holdEntry(entry: StockEntry, cellKey: string): Held {
@@ -179,10 +212,10 @@ export function holdOccupant(o: Occupant): Held {
   };
 }
 
-/** Where a line sits in the planned state: its ghost's cell if planned, else its live cell. */
+/** Where a line sits in the planned state: its ghost's first square if planned, else its live cell. */
 export function plannedPosition(inventoryId: number, liveKey: string | null, moves: PlanMove[]) {
   const m = moves.find((x) => x.inventoryId === inventoryId && x.status === 'planned');
-  return m ? targetKey(m) : liveKey;
+  return m ? targetKeys(m)[0] : liveKey;
 }
 
 export interface DropTarget {
@@ -205,7 +238,7 @@ function draftFor(line: Held | Occupant, to: DropTarget): MoveDraft {
     fromLocation: line.location,
     fromSublocation: line.sublocation,
     toLocation,
-    toLetter: to.letter,
+    toLetters: [to.letter],
     kind: sameLocation(line.location, toLocation) ? 'relabel' : 'move',
   };
 }
@@ -246,8 +279,11 @@ export function planDrop(
   if (occupants.length === 0) return { rule: 'move', drafts, removals };
   if (occupants.length === 1 && origin !== null) {
     const o = occupants[0];
-    const dash = origin.lastIndexOf('-');
-    send(o, { rowNum: origin.slice(0, dash), letter: origin.slice(dash + 1) }, o.ghost);
+    send(
+      o,
+      { rowNum: origin.slice(0, origin.lastIndexOf('-')), letter: letterOfKey(origin) },
+      o.ghost
+    );
     return { rule: 'swap', drafts, removals };
   }
   return { rule: 'join', drafts, removals };
@@ -272,13 +308,14 @@ export function validateMove(move: PlanMove, fresh: FreshLine | null): Validatio
   if (!sameLocation(fresh.location ?? '', move.fromLocation)) {
     return { ok: false, reason: `line no longer in ${norm(move.fromLocation)}` };
   }
-  if (move.kind === 'move' && fresh.quantity !== move.qty) {
+  if (move.kind === 'move' && (fresh.quantity ?? 0) < move.qty) {
     return { ok: false, reason: `changed since planned · ${fresh.quantity} u left` };
   }
   if (
     move.kind === 'relabel' &&
-    fresh.sublocation?.length === 1 &&
-    fresh.sublocation[0] === move.toLetter
+    fresh.sublocation &&
+    fresh.sublocation.length === move.toLetters.length &&
+    fresh.sublocation.every((l, i) => l === move.toLetters[i])
   ) {
     return { ok: false, reason: 'already there' };
   }
@@ -295,8 +332,13 @@ export function summarizeMoves(moves: PlanMove[]) {
   };
 }
 
-/** `ROW 33 A → ROW 33 C` — the move as the sheet lists it. */
-export function describeMove(m: PlanMove): string {
+/** `ROW 33 A → ROW 33 C·D·E` — the move as the sheet lists it. */
+export function describeMove(m: {
+  fromLocation: string;
+  fromSublocation: string[] | null;
+  toLocation: string;
+  toLetters: string[];
+}): string {
   const from = `${norm(m.fromLocation)}${m.fromSublocation?.length ? ' ' + m.fromSublocation.join('') : ''}`;
-  return `${from} → ${norm(m.toLocation)} ${m.toLetter}`;
+  return `${from} → ${norm(m.toLocation)} ${m.toLetters.join('·')}`;
 }

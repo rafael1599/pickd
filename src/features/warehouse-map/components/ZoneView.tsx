@@ -1,12 +1,12 @@
-// One zone: the four counters the floor plans always show (PALLETS · TOTAL
-// BIKES · FAST PICKING · HITS), the pallet sliders, the toggles, the drawing,
-// the DB's stock in each slot — and, when an editor is mounted, the PLAN
-// tools: pick a line up, put it down, see the ghosts, PLAN COMPLETED.
-// What the drawing has no place for is listed under it, never hidden.
+// One zone. On the floor it reads stock: how many squares hold something, a
+// capacity bar (units in stock against the bikes the layout holds), the
+// drawing with a pallet's worth per square, and what the drawing has no
+// place for — never hidden. Measures (sliders, halls, inches) live in
+// LAYOUT. PLAN draws moves as ghosts; LIVE moves now, after a confirmation.
 //
-// Presentational: `data` comes from useZoneData, `editor` (optional) from
+// Presentational: `data` from useZoneData, `editor` (optional) from
 // useZoneEditor, `onOpenLine` (optional) is the app's item detail. The public
-// map mounts it with `data` only.
+// map mounts it with `data` and `mode="layout"`.
 
 import React, { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -20,8 +20,8 @@ import { HALL_MIN, slotKey } from '../engine';
 import type { Cell, LayoutPreset } from '../engine';
 import { toggleKeys } from '../hooks/useZoneState';
 import type { ZoneData } from '../hooks/useZoneData';
-import type { ZoneEditor } from '../hooks/useZoneEditor';
-import { groupUnplaced, type StockRow, type Unplaced } from '../stock/rowStock';
+import type { EditMode, ZoneEditor } from '../hooks/useZoneEditor';
+import { groupUnplaced, PALLET_UNITS, type StockRow, type Unplaced } from '../stock/rowStock';
 import type { Occupant } from '../plan/slotPlan';
 import { skuColorDark } from '../../../utils/skuColor';
 import { ZoneSvg, COLOR, type HoverTarget } from './ZoneSvg';
@@ -35,7 +35,7 @@ export type OpenLine = (
   warehouse: string
 ) => void;
 
-/** The counters: a big figure and a short label, never a sentence. */
+/** A big figure and a short label, never a sentence. */
 const Figure: React.FC<{ label: string; value: string; small?: string; color: string }> = ({
   label,
   value,
@@ -60,25 +60,66 @@ const Figure: React.FC<{ label: string; value: string; small?: string; color: st
   </div>
 );
 
-const switchBtn = (on: boolean, tone: 'accent' | 'plan' = 'accent') =>
+/** Units in stock against the bikes the layout holds — the zone in one glance. */
+const CapacityBar: React.FC<{ units: number | null; capacity: number | null }> = ({
+  units,
+  capacity,
+}) => {
+  const pct = units !== null && capacity ? (units / capacity) * 100 : null;
+  const tone =
+    pct === null ? COLOR.depthMinor : pct > 100 ? '#f87171' : pct >= 85 ? COLOR.fast : COLOR.bikes;
+  return (
+    <div className="min-w-[260px] flex-1 max-w-xl">
+      <div className="flex items-baseline justify-between font-mono text-[9.5px] tracking-[.14em] text-muted/70">
+        <span>IN STOCK</span>
+        <span>TOTAL BIKES</span>
+      </div>
+      <div className="flex items-baseline justify-between font-mono font-extrabold tabular-nums mt-1.5">
+        <span className="text-[28px] leading-none text-content">
+          {units === null ? '—' : fmt(units)}
+          <small className="text-[13px] font-semibold text-muted ml-1">u</small>
+        </span>
+        <span className="text-[18px] leading-none" style={{ color: COLOR.bikes }}>
+          {capacity === null ? '—' : fmt(capacity)}
+        </span>
+      </div>
+      <div className="h-2 rounded-sm bg-[#111a2b] overflow-hidden mt-2">
+        <i
+          className="block h-full rounded-sm transition-[width] duration-300"
+          style={{ width: `${Math.min(100, pct ?? 0)}%`, background: tone }}
+        />
+      </div>
+      <div className="font-mono text-[10px] text-muted mt-1 tabular-nums">
+        {pct === null
+          ? 'capacity unknown'
+          : `${Math.round(pct)}% of capacity · ${PALLET_UNITS} a square`}
+      </div>
+    </div>
+  );
+};
+
+const MODE_TONE: Record<EditMode, string> = {
+  view: 'bg-accent text-black',
+  plan: 'bg-[#a78bfa] text-black',
+  live: 'bg-accent text-black',
+  layout: 'bg-cyan-400 text-black',
+};
+
+const switchBtn = (on: boolean, tone = 'bg-accent text-black') =>
   `px-3 py-2 font-mono text-[11px] tracking-[.1em] font-bold whitespace-nowrap transition-colors ${
-    on
-      ? tone === 'plan'
-        ? 'bg-[#a78bfa] text-black'
-        : 'bg-accent text-black'
-      : 'text-muted hover:text-content'
+    on ? tone : 'text-muted hover:text-content'
   }`;
 
 const SLIDER_MIN = 50;
 const SLIDER_MAX = 70;
 const ZOOM_STEP = 1.35;
-/** Below this width a slot is too small to tap; PLAN zooms in on entry. */
+/** Below this width a square is too small to tap; PLAN and LIVE zoom in on entry. */
 const PHONE_WIDTH = 640;
-const PHONE_PLAN_ZOOM = 2.5;
+const PHONE_EDIT_ZOOM = 2.5;
 const LONG_PRESS_MS = 500;
 
 const UNPLACED_REASON: Record<Unplaced['reason'], (u: Unplaced) => string> = {
-  letter: (u) => `no slot ${u.letters.join(', ')} on this plan`,
+  letter: (u) => `no square ${u.letters.join(', ')} on this plan`,
   suffix: (u) => `beside row ${u.parsed.number}`,
   'no-letter': () => 'no letter',
   row: (u) => `row ${u.parsed.number} not drawn in this layout`,
@@ -131,20 +172,26 @@ const PressButton: React.FC<{
   );
 };
 
-export const ZoneView: React.FC<{ data: ZoneData; editor?: ZoneEditor; onOpenLine?: OpenLine }> = ({
-  data,
-  editor,
-  onOpenLine,
-}) => {
+export const ZoneView: React.FC<{
+  data: ZoneData;
+  editor?: ZoneEditor;
+  onOpenLine?: OpenLine;
+  /** Without an editor, the mode the zone is shown in. */
+  mode?: EditMode;
+}> = ({ data, editor, onOpenLine, mode: modeProp }) => {
   const { config, state, update, model, stockQuery, stock } = data;
+  const mode: EditMode = editor?.mode ?? modeProp ?? 'view';
+  const layout = mode === 'layout';
+  const editing = !!editor && editor.editing;
+  const planMode = mode === 'plan';
+  const held = editor?.held ?? null;
+
   const [hover, setHover] = useState<HoverTarget | null>(null);
   const [hallEdit, setHallEdit] = useState<{ idx: number; w: number } | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const planMode = editor?.mode === 'plan';
-  const held = editor?.held ?? null;
-  // A phone cannot tap a 12 px slot: PLAN starts zoomed in.
-  const phoneZoom = () => (window.innerWidth < PHONE_WIDTH ? PHONE_PLAN_ZOOM : 1);
-  const [zoom, setZoom] = useState(() => (planMode ? phoneZoom() : 1));
+  // A phone cannot tap a 12 px square: PLAN and LIVE start zoomed in.
+  const phoneZoom = () => (window.innerWidth < PHONE_WIDTH ? PHONE_EDIT_ZOOM : 1);
+  const [zoom, setZoom] = useState(() => (editing ? phoneZoom() : 1));
 
   const openLine: OpenLine = (sku, itemName, location, warehouse) =>
     onOpenLine?.(sku, itemName, location, warehouse);
@@ -169,7 +216,7 @@ export const ZoneView: React.FC<{ data: ZoneData; editor?: ZoneEditor; onOpenLin
     : null;
 
   const stockLine = stockQuery.isError
-    ? 'Stock unavailable — sign in to see what is in each slot.'
+    ? 'Stock unavailable — sign in to see what is in each square.'
     : stockQuery.isLoading
       ? 'Loading stock…'
       : stock && stock.lines === 0
@@ -178,9 +225,17 @@ export const ZoneView: React.FC<{ data: ZoneData; editor?: ZoneEditor; onOpenLin
 
   const setPreset = (layoutPreset: LayoutPreset) => update({ layoutPreset });
 
-  // What a tapped slot holds: the DB's lines in VIEW, the planned state in PLAN.
+  const changeMode = (m: EditMode) => {
+    if (!editor) return;
+    editor.cancel();
+    editor.setMode(m);
+    setSelectedKey(null);
+    if (m === 'plan' || m === 'live') setZoom((z) => (z === 1 ? phoneZoom() : z));
+  };
+
+  // What a tapped square holds: the DB's lines, or the planned state in PLAN.
   const selectedOccupants: Occupant[] | null = selectedKey
-    ? planMode && editor
+    ? editor
       ? editor.state.occupancy(selectedKey)
       : (stock?.cells.get(selectedKey)?.entries ?? []).map((e) => ({
           inventoryId: e.rowId,
@@ -195,15 +250,24 @@ export const ZoneView: React.FC<{ data: ZoneData; editor?: ZoneEditor; onOpenLin
         }))
     : null;
 
+  // One tap picks a line up when the square has one; two taps put it down.
   const onCellTap = (cell: Cell) => {
-    if (editor?.drop(cell)) {
-      setSelectedKey(null);
+    const key = slotKey(cell);
+    if (editor && editing) {
+      if (editor.drop(cell)) {
+        setSelectedKey(null);
+        return;
+      }
+      const occ = editor.state.occupancy(key);
+      if (occ.length === 1) {
+        editor.pickOccupant(occ[0]);
+        setSelectedKey(null);
+        return;
+      }
+      setSelectedKey(occ.length > 1 ? key : null);
       return;
     }
-    const key = slotKey(cell);
-    const hasLive = !!stock?.cells.get(key);
-    const hasGhost = planMode && !!editor?.state.ghosts.get(key)?.length;
-    setSelectedKey(hasLive || hasGhost ? key : null);
+    setSelectedKey(stock?.cells.get(key) ? key : null);
   };
 
   const pickRow = (row: StockRow) => {
@@ -211,47 +275,41 @@ export const ZoneView: React.FC<{ data: ZoneData; editor?: ZoneEditor; onOpenLin
     setSelectedKey(null);
   };
 
+  const occupied = stock ? stock.cells.size : null;
+  const capacity = model ? model.pallets : null;
+
   return (
     <div className="flex flex-col">
-      <div className="sticky top-0 z-10 bg-surface border-b border-subtle px-4 py-3 flex items-center gap-3">
+      <div className="sticky top-0 z-10 bg-surface border-b border-subtle px-4 py-3 flex flex-wrap items-center gap-x-3 gap-y-2">
         <Link
           to={{ search: '' }}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-subtle bg-card font-mono text-[11px] tracking-[.1em] font-semibold text-content hover:border-muted transition-colors whitespace-nowrap"
         >
           <ArrowLeft size={14} /> MAP
         </Link>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[150px] flex-1">
           <h1 className="font-mono text-[13px] sm:text-[15px] font-extrabold tracking-[.18em] text-content truncate">
             {config.name}
           </h1>
           <p className="font-mono text-[10px] tracking-[.14em] text-muted truncate">
-            PALLET LAYOUT · {rowDir} ROWS
+            {layout ? `PALLET LAYOUT · ${rowDir} ROWS` : `${rowDir} ROWS`}
           </p>
         </div>
         {editor && (
-          <div className="flex rounded-lg border border-subtle overflow-hidden bg-card shrink-0">
-            <button
-              type="button"
-              className={switchBtn(!planMode)}
-              onClick={() => {
-                editor.cancel();
-                editor.setMode('view');
-                setSelectedKey(null);
-              }}
-            >
-              VIEW
-            </button>
-            <button
-              type="button"
-              className={switchBtn(planMode, 'plan')}
-              onClick={() => {
-                editor.setMode('plan');
-                setSelectedKey(null);
-                setZoom((z) => (z === 1 ? phoneZoom() : z));
-              }}
-            >
-              PLAN{!planMode && editor.summary.count > 0 ? ` · ${editor.summary.count}` : ''}
-            </button>
+          <div className="flex rounded-lg border border-subtle overflow-hidden bg-card shrink-0 ml-auto">
+            {(['view', 'plan', 'live', 'layout'] as EditMode[]).map((m) => (
+              <button
+                key={m}
+                type="button"
+                className={switchBtn(mode === m, MODE_TONE[m])}
+                onClick={() => changeMode(m)}
+              >
+                {m.toUpperCase()}
+                {m === 'plan' && mode !== 'plan' && editor.summary.count > 0
+                  ? ` · ${editor.summary.count}`
+                  : ''}
+              </button>
+            ))}
           </div>
         )}
         <button
@@ -266,187 +324,208 @@ export const ZoneView: React.FC<{ data: ZoneData; editor?: ZoneEditor; onOpenLin
         </button>
       </div>
 
-      {/* The four counters — anchored at the top, large, always — and the stock */}
-      <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-x-7 gap-y-4 px-4 pt-4 pb-3">
-        <Figure
-          label="PALLETS"
-          value={model ? String(model.pallets) : '—'}
-          small={
-            model && model.lost.length
-              ? `${model.gross} gross − ${model.lost.length} hit`
-              : undefined
-          }
-          color={COLOR.buried}
-        />
-        <Figure
-          label="TOTAL BIKES"
-          value={model ? fmt(model.totalBikes) : '—'}
-          small={
-            model && model.bikes > 0
-              ? `${fmt(model.palletBikes)} + ${fmt(model.bikes)} block`
-              : undefined
-          }
-          color={COLOR.bikes}
-        />
-        <Figure
-          label="FAST PICKING"
-          value={model ? String(model.accessible) : '—'}
-          small={model ? `of ${model.pallets}` : undefined}
-          color={COLOR.fast}
-        />
-        {hasPosts && (
-          <Figure
-            label="HITS"
-            value={model ? String(model.hits.length) : '—'}
-            small={model ? (model.hits.length > 0 ? 'slots' : 'clear') : undefined}
-            color={model && model.hits.length > 0 ? '#f87171' : COLOR.depthMajor}
-          />
-        )}
-        {stock && stock.lines > 0 && (
-          <Figure
-            label="IN STOCK"
-            value={fmt(stock.units)}
-            small={`${stock.rows} row${stock.rows === 1 ? '' : 's'} · ${stock.cells.size} slots`}
-            color="#e2e8f0"
-          />
-        )}
-      </div>
-      {specs && (
-        <p className="px-4 pb-3 font-mono text-[11px] tracking-[.05em] text-muted leading-relaxed">
-          {specs}
-        </p>
-      )}
-
-      {/* Controls: the pallet, the orientation, the halls, the preset */}
-      <div className="px-4 pb-3 flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-subtle bg-card font-mono text-[11px] text-muted">
-          <span className="tracking-[.1em] font-bold">PALLET</span>
-          <input
-            type="range"
-            min={SLIDER_MIN}
-            max={SLIDER_MAX}
-            value={state.pd}
-            onChange={(e) => update({ pd: Number(e.target.value) })}
-            className="w-16 accent-cyan-400"
-            aria-label="Pallet depth, inches"
-          />
-          <span className="text-cyan-400 font-bold tabular-nums">{state.pd}"</span>
-          <span>D ×</span>
-          <input
-            type="range"
-            min={SLIDER_MIN}
-            max={SLIDER_MAX}
-            value={state.pw}
-            onChange={(e) => update({ pw: Number(e.target.value) })}
-            className="w-16 accent-cyan-400"
-            aria-label="Pallet width, inches"
-          />
-          <span className="text-cyan-400 font-bold tabular-nums">{state.pw}"</span>
-          <span>W</span>
-        </label>
-
-        <div className="flex rounded-lg border border-subtle overflow-hidden bg-card">
-          <button
-            type="button"
-            className={switchBtn(!state.isEW)}
-            onClick={() => update({ isEW: false })}
-          >
-            N–S ROWS
-          </button>
-          <button
-            type="button"
-            className={switchBtn(state.isEW)}
-            onClick={() => update({ isEW: true })}
-          >
-            E–W ROWS
-          </button>
-        </div>
-
-        {halls.length > 0 && (
-          <div className="flex rounded-lg border border-subtle overflow-hidden bg-card">
-            {halls.map((key) => {
-              const on = state.toggles[key] !== false;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  className={switchBtn(on)}
-                  aria-pressed={on}
-                  onClick={() => update({ toggles: { [key]: !on } })}
-                >
-                  {on ? '☑' : '☐'} {key.toUpperCase()} HALL
-                </button>
-              );
-            })}
+      {layout ? (
+        <>
+          {/* The four counters of the plans — anchored at the top, large */}
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-x-7 gap-y-4 px-4 pt-4 pb-3">
+            <Figure
+              label="PALLETS"
+              value={model ? String(model.pallets) : '—'}
+              small={
+                model && model.lost.length
+                  ? `${model.gross} gross − ${model.lost.length} hit`
+                  : undefined
+              }
+              color={COLOR.buried}
+            />
+            <Figure
+              label="TOTAL BIKES"
+              value={model ? fmt(model.totalBikes) : '—'}
+              small={
+                model && model.bikes > 0
+                  ? `${fmt(model.palletBikes)} + ${fmt(model.bikes)} block`
+                  : undefined
+              }
+              color={COLOR.bikes}
+            />
+            <Figure
+              label="FAST PICKING"
+              value={model ? String(model.accessible) : '—'}
+              small={model ? `of ${model.pallets}` : undefined}
+              color={COLOR.fast}
+            />
+            {hasPosts && (
+              <Figure
+                label="HITS"
+                value={model ? String(model.hits.length) : '—'}
+                small={model ? (model.hits.length > 0 ? 'slots' : 'clear') : undefined}
+                color={model && model.hits.length > 0 ? '#f87171' : COLOR.depthMajor}
+              />
+            )}
+            {stock && stock.lines > 0 && (
+              <Figure
+                label="IN STOCK"
+                value={fmt(stock.units)}
+                small={`${stock.rows} row${stock.rows === 1 ? '' : 's'} · ${stock.cells.size} squares`}
+                color="#e2e8f0"
+              />
+            )}
           </div>
-        )}
+          {specs && (
+            <p className="px-4 pb-3 font-mono text-[11px] tracking-[.05em] text-muted leading-relaxed">
+              {specs}
+            </p>
+          )}
 
-        <div className="flex rounded-lg border border-subtle overflow-hidden bg-card">
-          <button
-            type="button"
-            className={switchBtn(state.layoutPreset === 'standard')}
-            onClick={() => setPreset('standard')}
-            title="Blocks with a hall between them"
-          >
-            HALLS
-          </button>
-          <button
-            type="button"
-            className={switchBtn(state.layoutPreset === 'center_hall')}
-            onClick={() => setPreset('center_hall')}
-            title="Two big blocks, one wide hall in the middle"
-          >
-            1 CENTER
-          </button>
-          <button
-            type="button"
-            className={switchBtn(state.layoutPreset === 'solid')}
-            onClick={() => setPreset('solid')}
-            title="One mass block, no halls"
-          >
-            0 HALLS
-          </button>
-        </div>
-      </div>
+          {/* The measures: the pallet, the orientation, the halls, the preset */}
+          <div className="px-4 pb-3 flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-subtle bg-card font-mono text-[11px] text-muted">
+              <span className="tracking-[.1em] font-bold">PALLET</span>
+              <input
+                type="range"
+                min={SLIDER_MIN}
+                max={SLIDER_MAX}
+                value={state.pd}
+                onChange={(e) => update({ pd: Number(e.target.value) })}
+                className="w-16 accent-cyan-400"
+                aria-label="Pallet depth, inches"
+              />
+              <span className="text-cyan-400 font-bold tabular-nums">{state.pd}"</span>
+              <span>D ×</span>
+              <input
+                type="range"
+                min={SLIDER_MIN}
+                max={SLIDER_MAX}
+                value={state.pw}
+                onChange={(e) => update({ pw: Number(e.target.value) })}
+                className="w-16 accent-cyan-400"
+                aria-label="Pallet width, inches"
+              />
+              <span className="text-cyan-400 font-bold tabular-nums">{state.pw}"</span>
+              <span>W</span>
+            </label>
 
-      {hallEdit && model && (
-        <div className="mx-4 mb-3 px-3 py-2 rounded-lg border border-cyan-400/40 bg-card flex flex-wrap items-center gap-3 font-mono text-[11px] text-muted">
-          <span className="font-bold text-content">HALL {hallEdit.idx + 1} WIDTH</span>
-          <input
-            type="range"
-            min={Math.max(HALL_MIN, hallEdit.w - 20)}
-            max={hallEdit.w + 20}
-            value={state.hallOverrides[hallEdit.idx] ?? hallEdit.w}
-            onChange={(e) =>
-              update({
-                hallOverrides: { ...state.hallOverrides, [hallEdit.idx]: Number(e.target.value) },
-              })
-            }
-            className="w-32 accent-cyan-400"
-            aria-label={`Hall ${hallEdit.idx + 1} width, inches`}
+            <div className="flex rounded-lg border border-subtle overflow-hidden bg-card">
+              <button
+                type="button"
+                className={switchBtn(!state.isEW)}
+                onClick={() => update({ isEW: false })}
+              >
+                N–S ROWS
+              </button>
+              <button
+                type="button"
+                className={switchBtn(state.isEW)}
+                onClick={() => update({ isEW: true })}
+              >
+                E–W ROWS
+              </button>
+            </div>
+
+            {halls.length > 0 && (
+              <div className="flex rounded-lg border border-subtle overflow-hidden bg-card">
+                {halls.map((key) => {
+                  const on = state.toggles[key] !== false;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      className={switchBtn(on)}
+                      aria-pressed={on}
+                      onClick={() => update({ toggles: { [key]: !on } })}
+                    >
+                      {on ? '☑' : '☐'} {key.toUpperCase()} HALL
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="flex rounded-lg border border-subtle overflow-hidden bg-card">
+              <button
+                type="button"
+                className={switchBtn(state.layoutPreset === 'standard')}
+                onClick={() => setPreset('standard')}
+                title="Blocks with a hall between them"
+              >
+                HALLS
+              </button>
+              <button
+                type="button"
+                className={switchBtn(state.layoutPreset === 'center_hall')}
+                onClick={() => setPreset('center_hall')}
+                title="Two big blocks, one wide hall in the middle"
+              >
+                1 CENTER
+              </button>
+              <button
+                type="button"
+                className={switchBtn(state.layoutPreset === 'solid')}
+                onClick={() => setPreset('solid')}
+                title="One mass block, no halls"
+              >
+                0 HALLS
+              </button>
+            </div>
+          </div>
+
+          {hallEdit && model && (
+            <div className="mx-4 mb-3 px-3 py-2 rounded-lg border border-cyan-400/40 bg-card flex flex-wrap items-center gap-3 font-mono text-[11px] text-muted">
+              <span className="font-bold text-content">HALL {hallEdit.idx + 1} WIDTH</span>
+              <input
+                type="range"
+                min={Math.max(HALL_MIN, hallEdit.w - 20)}
+                max={hallEdit.w + 20}
+                value={state.hallOverrides[hallEdit.idx] ?? hallEdit.w}
+                onChange={(e) =>
+                  update({
+                    hallOverrides: {
+                      ...state.hallOverrides,
+                      [hallEdit.idx]: Number(e.target.value),
+                    },
+                  })
+                }
+                className="w-32 accent-cyan-400"
+                aria-label={`Hall ${hallEdit.idx + 1} width, inches`}
+              />
+              <span className="text-cyan-400 font-bold tabular-nums">
+                {state.hallOverrides[hallEdit.idx] ?? hallEdit.w}"
+              </span>
+              <button
+                type="button"
+                className="text-red-400 font-bold tracking-[.1em]"
+                onClick={() => {
+                  const next = { ...state.hallOverrides };
+                  delete next[hallEdit.idx];
+                  update({ hallOverrides: next });
+                }}
+              >
+                RESET
+              </button>
+              <button
+                type="button"
+                className="ml-auto p-1 text-muted hover:text-content"
+                onClick={() => setHallEdit(null)}
+                aria-label="Close"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        /* The floor's two numbers: squares in use, and the capacity bar */
+        <div className="px-4 pt-4 pb-3 flex flex-wrap items-end gap-x-10 gap-y-4">
+          <Figure
+            label="PALLETS"
+            value={occupied === null ? '—' : String(occupied)}
+            small={capacity === null ? undefined : `/ ${capacity} squares`}
+            color={COLOR.buried}
           />
-          <span className="text-cyan-400 font-bold tabular-nums">
-            {state.hallOverrides[hallEdit.idx] ?? hallEdit.w}"
-          </span>
-          <button
-            type="button"
-            className="text-red-400 font-bold tracking-[.1em]"
-            onClick={() => {
-              const next = { ...state.hallOverrides };
-              delete next[hallEdit.idx];
-              update({ hallOverrides: next });
-            }}
-          >
-            RESET
-          </button>
-          <button
-            type="button"
-            className="ml-auto p-1 text-muted hover:text-content"
-            onClick={() => setHallEdit(null)}
-            aria-label="Close"
-          >
-            <X size={14} />
-          </button>
+          <CapacityBar
+            units={stock ? stock.units : null}
+            capacity={model ? model.totalBikes : null}
+          />
         </div>
       )}
 
@@ -457,7 +536,7 @@ export const ZoneView: React.FC<{ data: ZoneData; editor?: ZoneEditor; onOpenLin
         </div>
       )}
 
-      {/* The plan bar: what is planned, and the two things you can do with it */}
+      {/* The plan bar: what is planned, and what you can do with it */}
       {planMode && editor && (
         <div className="mx-4 mb-3 px-3 py-2 rounded-lg border border-dashed border-[#a78bfa]/60 bg-card flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[11px]">
           <span className="font-bold tracking-[.1em] text-[#a78bfa]">PLAN</span>
@@ -474,10 +553,19 @@ export const ZoneView: React.FC<{ data: ZoneData; editor?: ZoneEditor; onOpenLin
           </span>
           <span className="text-muted">
             {editor.summary.count === 0
-              ? 'Tap a SKU to pick it up, then tap a square.'
+              ? 'Tap a SKU, then the square it goes to.'
               : 'Nothing moves until PLAN COMPLETED.'}
           </span>
           <span className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={editor.distribute}
+              disabled={editor.busy || !stock}
+              className="px-3 py-1.5 rounded-lg border border-[#a78bfa]/60 text-[#a78bfa] hover:bg-[#a78bfa]/10 font-bold tracking-[.1em] disabled:opacity-40"
+              title={`Spread every line at ${PALLET_UNITS} a square: its own row first, then free buried squares`}
+            >
+              DISTRIBUTE
+            </button>
             {editor.summary.count > 0 && (
               <button
                 type="button"
@@ -497,10 +585,25 @@ export const ZoneView: React.FC<{ data: ZoneData; editor?: ZoneEditor; onOpenLin
               PLAN COMPLETED
             </button>
           </span>
+          {editor.leftovers.length > 0 && (
+            <p className="basis-full text-amber-400">
+              No free buried square for:{' '}
+              {editor.leftovers.map((l) => `${l.sku} ${l.qty}u (${l.location})`).join(' · ')}
+            </p>
+          )}
         </div>
       )}
 
-      {/* The line in hand, the tapped slot, or what the pointer is on */}
+      {mode === 'live' && editor && (
+        <div className="mx-4 mb-3 px-3 py-2 rounded-lg border border-accent/60 bg-card flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[11px]">
+          <span className="font-bold tracking-[.1em] text-accent">LIVE</span>
+          <span className="text-content">
+            Tap a SKU, tap where it goes, confirm — it moves now.
+          </span>
+        </div>
+      )}
+
+      {/* The line in hand, the tapped square, or what the pointer is on */}
       <div className="px-4 pb-2 flex items-center gap-3">
         {held && editor ? (
           <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2 font-mono text-[11px]">
@@ -514,8 +617,8 @@ export const ZoneView: React.FC<{ data: ZoneData; editor?: ZoneEditor; onOpenLin
               {held.sku} · {held.qty}u
             </span>
             <span className="text-content">
-              Moving from {held.location.trim().toUpperCase()}
-              {held.sublocation?.length ? ` ${held.sublocation.join('')}` : ''} — tap a square
+              from {held.location.trim().toUpperCase()}
+              {held.sublocation?.length ? ` ${held.sublocation.join('')}` : ''} — tap where it goes
             </span>
             <button
               type="button"
@@ -539,10 +642,13 @@ export const ZoneView: React.FC<{ data: ZoneData; editor?: ZoneEditor; onOpenLin
               const tone = skuColorDark(o.sku);
               const open = () => openLine(o.sku, o.itemName, o.location, o.warehouse);
               return (
-                <span key={o.inventoryId} className="inline-flex items-stretch">
+                <span
+                  key={`${o.inventoryId}-${o.ghost?.id ?? 'live'}`}
+                  className="inline-flex items-stretch"
+                >
                   <PressButton
-                    onTap={planMode && editor ? () => editor.pickOccupant(o) : open}
-                    onLong={planMode && onOpenLine ? open : undefined}
+                    onTap={editing && editor ? () => editor.pickOccupant(o) : open}
+                    onLong={editing && onOpenLine ? open : undefined}
                     className={`px-2 py-1 rounded-md font-mono text-[11px] font-bold text-white whitespace-nowrap hover:brightness-110 ${
                       o.ghost ? 'rounded-r-none opacity-80' : ''
                     }`}
@@ -552,9 +658,9 @@ export const ZoneView: React.FC<{ data: ZoneData; editor?: ZoneEditor; onOpenLin
                     }}
                     title={
                       o.ghost
-                        ? `Planned from ${o.ghost.fromLocation}${o.ghost.fromSublocation?.join('') ?? ''}${planMode ? ' · tap to move again · hold for detail' : ''}`
+                        ? `Planned from ${o.ghost.fromLocation}${o.ghost.fromSublocation?.join('') ?? ''}${editing ? ' · tap to move again · hold for detail' : ''}`
                         : (o.itemName ?? o.sku) +
-                          (planMode ? ' · tap to pick up · hold for detail' : '')
+                          (editing ? ' · tap to pick up · hold for detail' : '')
                     }
                   >
                     {o.ghost ? '→ ' : ''}
@@ -592,9 +698,11 @@ export const ZoneView: React.FC<{ data: ZoneData; editor?: ZoneEditor; onOpenLin
             {hover?.text ?? (
               <span className="text-muted">
                 {stockLine ??
-                  (planMode
-                    ? 'Tap a stocked slot, then a SKU to pick it up.'
-                    : 'Hover or tap a slot for its stock, a hall or a post for its measure.')}
+                  (editing
+                    ? 'Tap a SKU to pick it up.'
+                    : layout
+                      ? 'Hover or tap a square, a hall or a post for its measure.'
+                      : 'Tap a square for its SKUs.')}
               </span>
             )}
           </p>
@@ -630,7 +738,11 @@ export const ZoneView: React.FC<{ data: ZoneData; editor?: ZoneEditor; onOpenLin
       {model && (
         <div
           className={`mx-4 rounded-xl border bg-[#070b14] overflow-auto ${
-            planMode ? 'border-dashed border-[#a78bfa]/50' : 'border-subtle'
+            planMode
+              ? 'border-dashed border-[#a78bfa]/50'
+              : mode === 'live'
+                ? 'border-accent/50'
+                : 'border-subtle'
           } ${held ? 'cursor-crosshair' : ''}`}
         >
           <div style={{ width: `${zoom * 100}%` }}>
@@ -639,9 +751,10 @@ export const ZoneView: React.FC<{ data: ZoneData; editor?: ZoneEditor; onOpenLin
               state={state}
               model={model}
               stock={stock?.cells}
+              showMeasures={layout}
               ghosts={planMode ? editor?.state.ghosts : undefined}
               vacated={planMode ? editor?.state.vacated : undefined}
-              heldKey={planMode ? editor?.heldKey : null}
+              heldKey={editing ? editor?.heldKey : null}
               onHover={setHover}
               onHallClick={(idx, w) => setHallEdit({ idx, w: state.hallOverrides[idx] ?? w })}
               onCellTap={onCellTap}
@@ -655,7 +768,7 @@ export const ZoneView: React.FC<{ data: ZoneData; editor?: ZoneEditor; onOpenLin
           <p className="font-mono text-[11px] font-bold tracking-[.1em] text-amber-400">
             NOT ON THIS PLAN · {stock.unplaced.length} LINE{stock.unplaced.length === 1 ? '' : 'S'}{' '}
             · {fmt(stock.unplaced.reduce((s, u) => s + u.row.quantity, 0))} U
-            {planMode ? ' · TAP ONE TO PICK IT UP' : ''}
+            {editing ? ' · TAP ONE TO PICK IT UP' : ''}
           </p>
           <ul className="mt-2 flex flex-col gap-1">
             {groupUnplaced(stock.unplaced).map((g) =>
@@ -664,8 +777,8 @@ export const ZoneView: React.FC<{ data: ZoneData; editor?: ZoneEditor; onOpenLin
                   <UnplacedLine
                     u={g.items[0]}
                     onOpen={openLine}
-                    onPick={planMode ? pickRow : undefined}
-                    planned={!!editor?.state.vacated.has(g.items[0].row.id) && planMode}
+                    onPick={editing ? pickRow : undefined}
+                    planned={planMode && !!editor?.state.vacated.has(g.items[0].row.id)}
                   />
                 </li>
               ) : (
@@ -686,8 +799,8 @@ export const ZoneView: React.FC<{ data: ZoneData; editor?: ZoneEditor; onOpenLin
                           <UnplacedLine
                             u={u}
                             onOpen={openLine}
-                            onPick={planMode ? pickRow : undefined}
-                            planned={!!editor?.state.vacated.has(u.row.id) && planMode}
+                            onPick={editing ? pickRow : undefined}
+                            planned={planMode && !!editor?.state.vacated.has(u.row.id)}
                             compact
                           />
                         </li>
@@ -703,21 +816,24 @@ export const ZoneView: React.FC<{ data: ZoneData; editor?: ZoneEditor; onOpenLin
 
       <details className="mx-4 mt-4 rounded-lg border border-subtle bg-card px-4 py-3">
         <summary className="font-mono text-[11px] font-bold tracking-[.1em] text-muted cursor-pointer select-none">
-          LAYOUT RULES & LEGEND
+          LEGEND
         </summary>
         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 font-mono text-[10px] tracking-[.1em] text-muted">
-          <Legend color={COLOR.fast} alpha={0.4} text="FAST PICKING — TOUCHES OPEN FLOOR" />
-          <Legend color={COLOR.buried} alpha={0.2} text="BURIED — NEEDS THE FRONT MOVED" />
-          <Legend color={COLOR.bikes} alpha={0.3} text="BIKE BLOCK — LEFTOVER AT THE FRONT" />
-          {hasPosts && <Legend color={COLOR.post} alpha={1} text="STRUCTURAL POST (HITS SLOT)" />}
-          {hasPosts && <Legend color="#34d399" alpha={1} text="STRUCTURAL POST (IN HALL)" />}
-          <Legend color={COLOR.wall} alpha={1} fill={COLOR.hall} text="EXISTING RACK / DEAD ZONE" />
           <Legend
             color="#ffffff"
             alpha={0.7}
             fill="hsl(210 58% 42%)"
-            text="STOCKED SLOT — UNITS · SKU (ONE COLOUR PER SKU)"
+            text="UNITS IN THE SQUARE · SKU (ONE COLOUR PER SKU)"
           />
+          <Legend
+            color={COLOR.over}
+            alpha={0.2}
+            text={`! OVER CAPACITY — MORE THAN ${PALLET_UNITS} IN ONE SQUARE`}
+          />
+          <Legend color={COLOR.fast} alpha={0.4} text="FAST PICKING — TOUCHES OPEN FLOOR" />
+          <Legend color={COLOR.buried} alpha={0.2} text="BURIED — NEEDS THE FRONT MOVED" />
+          <Legend color={COLOR.bikes} alpha={0.3} text="BIKE BLOCK — LEFTOVER AT THE FRONT" />
+          {hasPosts && <Legend color={COLOR.post} alpha={1} text="STRUCTURAL POST (HITS SLOT)" />}
           {editor && (
             <>
               <Legend color={COLOR.buried} alpha={0.3} dashed text="PLAN — LANDS HERE (→)" />
@@ -726,13 +842,11 @@ export const ZoneView: React.FC<{ data: ZoneData; editor?: ZoneEditor; onOpenLin
           )}
         </div>
         <p className="mt-3 font-mono text-[10px] leading-relaxed text-muted">
-          Rows are flush. No hall under {HALL_MIN}". A block deeper than two rows against a wall
-          gets a wall hall. Leftover depth becomes loose bike lines at the front, on the main hall.
-          A post inside a hall needs {HALL_MIN}" clear on one side. Tap a hall to try another width.
-          A stocked slot shows the DB's units and SKU for `ROW n · letter`; a line the plan has no
-          slot for is listed above, never squeezed in.
+          A square holds one double-stacked pallet, {PALLET_UNITS} units; a line with more spans as
+          many squares as it needs and shows its share in each. A line the plan has no square for is
+          listed above, never squeezed in.
           {editor
-            ? ' In PLAN, tap a SKU to pick it up and a square to put it down: empty → it goes; one line there → they swap; several → it joins. Nothing moves until PLAN COMPLETED.'
+            ? ' PLAN: tap a SKU, tap a square — empty → it goes; one line there → they swap; several → it joins; DISTRIBUTE spreads every line at 30 a square, overflow to free buried squares; nothing moves until PLAN COMPLETED. LIVE: the same two taps, then a confirmation, and it moves now. LAYOUT: the measures.'
             : ''}
         </p>
       </details>

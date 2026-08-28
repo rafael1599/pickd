@@ -1,6 +1,6 @@
 # PRD: Mapa — editar en Plan y editar en Live, con el mismo gesto
 
-**Estado:** P1 (PLAN) construida 2026-08-28 — "ok todo" a las seis ❓ · **Fecha:** 2026-08-28 · **Autor:**
+**Estado:** P1 (PLAN) y P2 (LIVE) construidas 2026-08-28, más las cinco correcciones de Rafael sobre P1 · **Fecha:** 2026-08-28 · **Autor:**
 Rafael + PickD (`pickd-product-designer`) · **Backlog:** idea-173 · **Relacionado:** idea-170 (el mapa
 medido, F1–F4 hechas), idea-171 (la capa "Propuesta"), `docs/design/LESSONS.md`,
 `src/features/warehouse-map/`
@@ -165,7 +165,19 @@ skipped / failed`. **Una desviación del estudio:** el cambio de letra vía `upd
   430 px con zoom ×2.5 automático.
   **Hotfix de paso:** la ruta pública se caía en una zona desde F3 (`useOpenSkuDetail` sin
   proveedores); ahora la zona pública es de solo lectura por construcción (`onOpenLine` es una prop).
-- **P2 — LIVE.** El mismo gesto con hoja de confirmación e inmediato. Pequeña: reusa P1 sin el plan.
+- **P2 ✅ (28 ago) — LIVE.** El mismo gesto; al soltar, `LiveMoveSheet` (Modal Manager) enseña los
+  1–2 movimientos (un intercambio son dos) y MOVE los ejecuta ahora por `runMove` (el mismo camino
+  que PLAN COMPLETED). **Correcciones de Rafael el mismo día, ya hechas:** (1) VIEW sin medidas —
+  sliders, toggles, specs, anchos de hall y pulgadas en el hover pasaron a un modo **LAYOUT**; (2)
+  la cabecera de operación es **PALLETS en uso / cuadros** y una **barra de capacidad** (IN STOCK vs
+  TOTAL BIKES); (3) los pasillos no tienen hover ni click fuera de LAYOUT; (4) **30 unidades por
+  cuadro**: cada línea muestra su parte por cuadro (`allocate`), un cuadro con más de 30 lleva `!`, y
+  **DISTRIBUTE** (`plan/distribute.ts`, 5 tests) planifica para cada línea los cuadros que necesita —
+  su fila primero (relabel a un span más ancho), lo que no cabe a cuadros **buried** libres de la
+  fila más cercana (move parcial); lo que no encuentra sitio se lista; (5) **un toque levanta** cuando
+  el cuadro tiene una sola línea (los chips solo con varias), otro toque suelta, y en LIVE la
+  confirmación. Un movimiento puede aterrizar en varias letras (`toLetters`) y una línea puede tener
+  más de un movimiento en el plan (migración `20260828203000`).
 - **P3 — cantidades** (mover parte de una línea a otra fila) si tras P1/P2 hace falta (❓ Q3).
 - **P4 — reacomodo asistido** ("compactar esta fila", "juntar este modelo") solo si las cuatro reglas
   de P1 se quedan cortas en piso.

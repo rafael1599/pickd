@@ -11,7 +11,7 @@
 
 ## P1 — Alto (operación diaria)
 
-### 105. Mapa: editar en PLAN y en LIVE — mover un SKU a cualquier cuadro; PLAN COMPLETED lo ejecuta <!-- id: idea-173 --> — input: 2026-08-28 NY · "ok todo" · P1 ✅ 2026-08-28
+### 105. Mapa: editar en PLAN y en LIVE — mover un SKU a cualquier cuadro; PLAN COMPLETED lo ejecuta <!-- id: idea-173 --> — input: 2026-08-28 NY · "ok todo" · P1 + P2 ✅ 2026-08-28
 - **Rafael:** "herramientas de edición live separadas de herramientas de edición plan… seleccionar un
   SKU y después seleccionar un cuadro para moverlo, que rearrange todo si se necesita o si está
   vacío solo moverlo; un botón de plan completado para que se ejecute ese plan y se convierta en
@@ -23,9 +23,12 @@
   línea. Seis ❓ con default. Hecho por el agente nuevo `pickd-product-designer`.
 - **P1 hecho** (PLAN): tablas `slot_plans`/`slot_plan_moves` (migración `20260828183000`), VIEW | PLAN,
   levantar/soltar con las cuatro reglas, fantasmas, DISCARD, PLAN COMPLETED con revalidación.
-  Probado en local de punta a punta (relabel + move ejecutados). **Siguiente: P2 (LIVE)** — mismo
-  gesto, hoja de confirmación, inmediato. La desviación: el `EDIT` del cambio de letra no lleva
-  nota; la auditoría es `slot_plan_moves`.
+  Probado en local de punta a punta (relabel + move ejecutados). La desviación: el `EDIT` del
+  cambio de letra no lleva nota; la auditoría es `slot_plan_moves`.
+- **P2 + correcciones de Rafael (mismo día):** LIVE con confirmación; VIEW sin medidas (van a
+  LAYOUT); cabecera = PALLETS en uso / cuadros + barra de capacidad; sin hover en pasillos; **30 u
+  por cuadro** con `!` y DISTRIBUTE (fila propia primero, luego cuadros buried libres); un toque
+  levanta cuando hay una sola línea. Pendiente de su revisión en piso.
 
 ### 104. ❓ Bay 1: medidas reales de espacio usable → zonas + reetiqueta <!-- id: idea-172 --> — input: 2026-08-28 NY
 - **Rafael:** "bay 1 no se toca hasta que te dé las medidas de espacio usable, todo el que se ve no

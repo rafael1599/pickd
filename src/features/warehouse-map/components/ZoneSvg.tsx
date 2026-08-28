@@ -2,15 +2,16 @@
 // to whatever it is given — and every colour is explicit, because the floor
 // is dark whatever the app's theme is (a plan reads the same on paper).
 //
-// Port of PalletEngine.renderSVG (2026-08-28, idea-170). The colours are the
-// plans' own: amber = fast, violet = buried, green = loose bike lines, red =
-// a post or the slot it kills.
+// Port of the old PalletEngine.renderSVG (2026-08-28, idea-170). The colours
+// are the plans' own: amber = fast, violet = buried, green = loose bike
+// lines, red = a post or the slot it kills. Measures (hall widths, inches on
+// hover) are drawn only when asked: the floor reads stock, LAYOUT reads inches.
 
 import React from 'react';
 import type { Cell, EngineState, LayoutModel, Obstacle, ZoneConfig } from '../engine';
 import { BIKES_PER_LINE, slotKey } from '../engine';
-import { describeCell, type CellStock } from '../stock/rowStock';
-import type { PlanMove } from '../plan/slotPlan';
+import { describeCell, PALLET_UNITS, type CellStock } from '../stock/rowStock';
+import type { GhostSlot } from '../plan/slotPlan';
 import { skuColorDark } from '../../../utils/skuColor';
 
 /** Margin around the zone, inches of viewBox, for the wall labels. */
@@ -27,6 +28,7 @@ export const COLOR = {
   buried: '#a78bfa',
   bikes: '#39ff14',
   post: '#ef4444',
+  over: '#fb923c',
   gain: 'rgba(52,211,153,0.15)',
   label: '#475569',
   depthMajor: '#94a3b8',
@@ -37,7 +39,7 @@ const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 
 export interface HoverTarget {
   text: string;
-  /** Set when the target is a slot, for whoever wants to act on it (F3). */
+  /** Set when the target is a slot, for whoever wants to act on it. */
   cell?: Cell;
   /** Set when the target is a hall that can be resized. */
   hallIdx?: number;
@@ -49,11 +51,13 @@ interface Props {
   model: LayoutModel;
   /** What the DB says is in each slot, by `slotKey`. Absent = plan only. */
   stock?: Map<string, CellStock>;
+  /** Draw hall widths and inches; make halls hoverable and resizable. */
+  showMeasures?: boolean;
   onHover: (target: HoverTarget | null) => void;
   onHallClick?: (hallIdx: number, width: number) => void;
   onCellTap?: (cell: Cell, stock: CellStock | undefined) => void;
   /** Planned moves landing in each slot (PLAN mode): drawn as ghosts. */
-  ghosts?: Map<string, PlanMove[]>;
+  ghosts?: Map<string, GhostSlot[]>;
   /** Inventory ids with a planned move: their live slot shows them leaving. */
   vacated?: Set<number>;
   /** The slot of the line in hand, marked so the eye finds it. */
@@ -75,7 +79,7 @@ function obstacleStyle(type: Obstacle['type']) {
   }
 }
 
-/** The DB's units and SKU inside a slot — white on the SKU's own colour. */
+/** The units and SKU inside a square — white on the SKU's own colour. */
 const StockLabel: React.FC<{ stock: CellStock; cl: Cell; m: number; opacity?: number }> = ({
   stock: st,
   cl,
@@ -113,30 +117,32 @@ const StockLabel: React.FC<{ stock: CellStock; cl: Cell; m: number; opacity?: nu
   );
 };
 
-/** What PLAN paints on a slot: a ghost of what will land, a mark on what leaves. */
-function ghostStockOf(key: string, cl: Cell, gh: PlanMove[]): CellStock {
+/** What PLAN paints on a square: a ghost of what will land there. */
+function ghostStockOf(key: string, cl: Cell, gh: GhostSlot[]): CellStock {
   return {
     key,
     rowNumber: Number(cl.row.num),
     letter: cl.letter,
-    units: gh.reduce((s, m) => s + m.qty, 0),
-    entries: gh.map((m) => ({
-      sku: m.sku,
-      qty: m.qty,
-      itemName: m.itemName,
-      rowId: m.inventoryId,
-      warehouse: m.warehouse,
-      span: 1,
+    units: gh.reduce((s, g) => s + g.qtyHere, 0),
+    entries: gh.map((g) => ({
+      sku: g.move.sku,
+      qty: g.move.qty,
+      qtyHere: g.qtyHere,
+      itemName: g.move.itemName,
+      rowId: g.move.inventoryId,
+      warehouse: g.move.warehouse,
+      span: g.move.toLetters.length,
     })),
   };
 }
 
-const PlanMarks: React.FC<{ cl: Cell; m: number; landing: boolean; leaving: boolean }> = ({
-  cl,
-  m,
-  landing,
-  leaving,
-}) => {
+const Marks: React.FC<{
+  cl: Cell;
+  m: number;
+  landing: boolean;
+  leaving: boolean;
+  over: boolean;
+}> = ({ cl, m, landing, leaving, over }) => {
   const side = Math.min(cl.cw, cl.ch);
   const fs = side * 0.24;
   return (
@@ -144,6 +150,11 @@ const PlanMarks: React.FC<{ cl: Cell; m: number; landing: boolean; leaving: bool
       {leaving && (
         <text x={m + cl.cx + fs * 0.35} y={m + cl.cy + fs} fill={COLOR.fast}>
           ↗
+        </text>
+      )}
+      {over && !leaving && (
+        <text x={m + cl.cx + fs * 0.35} y={m + cl.cy + fs} fill={COLOR.over}>
+          !
         </text>
       )}
       {landing && (
@@ -165,6 +176,7 @@ export const ZoneSvg: React.FC<Props> = ({
   state,
   model: m,
   stock,
+  showMeasures = false,
   onHover,
   onHallClick,
   onCellTap,
@@ -191,6 +203,33 @@ export const ZoneSvg: React.FC<Props> = ({
 
   const bikesInBlock = m.lines * BIKES_PER_LINE;
   const hitPostIds = new Set(m.hits.map((h) => h.source.id));
+
+  /** A square: its stock, its ghosts, what leaves it, what it holds over a pallet. */
+  const square = (cl: Cell, obstructed: boolean) => {
+    const key = slotKey(cl);
+    const st = stock?.get(key);
+    const gh = ghosts?.get(key) ?? [];
+    const leaving = st ? st.entries.filter((e) => vacated?.has(e.rowId)).length : 0;
+    const allLeaving = !!st && leaving === st.entries.length;
+    const ghostOnly = !st && gh.length > 0 ? ghostStockOf(key, cl, gh) : null;
+    const over = !!st && st.units > PALLET_UNITS;
+    const where = `ROW ${cl.row.num} · ${cl.letter}`;
+    const plain = showMeasures
+      ? `${where} · ${cl.cw}"×${cl.ch}" · ${cl.isFast ? 'Fast Picking' : 'Buried'}${obstructed ? ' · OBSTRUCTED' : ''}`
+      : `${where} · empty${obstructed ? ' · OBSTRUCTED BY A POST' : ''}`;
+    const text =
+      (st ? `${describeCell(st)}${obstructed ? ' · OBSTRUCTED BY A POST' : ''}` : plain) +
+      (gh.length
+        ? ` · planned here: ${gh.map((g) => `${g.move.sku} ${g.qtyHere}u`).join(', ')}`
+        : '');
+    const tone = st
+      ? skuColorDark(st.entries[0].sku)
+      : ghostOnly
+        ? skuColorDark(gh[0].move.sku)
+        : null;
+    const isHeld = heldKey === key;
+    return { key, st, gh, leaving, allLeaving, ghostOnly, over, text, tone, isHeld };
+  };
 
   return (
     <svg
@@ -237,17 +276,20 @@ export const ZoneSvg: React.FC<Props> = ({
       {/* Halls, racks, clearances — and anything drawn on top */}
       {m.obstacles.map((obs) => {
         const st = obstacleStyle(obs.type);
-        const text = `${obs.label ?? 'Obstacle'} (${Math.round(obs.w)}" × ${Math.round(obs.h)}")`;
+        const name = (obs.label ?? '').replace(/\s*\(.*\)\s*$/, '') || 'HALL';
+        const text = showMeasures
+          ? `${obs.label ?? 'Obstacle'} (${Math.round(obs.w)}" × ${Math.round(obs.h)}")`
+          : name;
         const horiz = obs.w >= obs.h;
         const thick = Math.round(horiz ? obs.h : obs.w);
-        const name = (obs.label ?? '').replace(/\s*\(.*\)\s*$/, '') || 'HALL';
         const lx = M + obs.x + obs.w / 2;
         const ly = M + obs.y + obs.h / 2 + (obs.labelDy ?? 0);
         const fs = Math.max(11, Math.min(17, Math.min(obs.w, obs.h) * 0.22));
+        const inert = !showMeasures;
         return (
           <g key={obs.id}>
             <rect
-              className="wm-hit"
+              className={inert ? undefined : 'wm-hit'}
               x={M + obs.x}
               y={M + obs.y}
               width={obs.w}
@@ -256,9 +298,10 @@ export const ZoneSvg: React.FC<Props> = ({
               stroke={st.stroke}
               strokeWidth={st.strokeWidth}
               strokeDasharray={st.dash}
-              {...hover({ text })}
+              pointerEvents={inert ? 'none' : undefined}
+              {...(inert ? {} : hover({ text }))}
             >
-              <title>{text}</title>
+              {!inert && <title>{text}</title>}
             </rect>
             {obs.showLabel && (obs.type === 'hall' || obs.type === 'rack') && (
               <text
@@ -273,7 +316,7 @@ export const ZoneSvg: React.FC<Props> = ({
                 fontFamily={MONO}
                 pointerEvents="none"
               >
-                {name} · {thick}"
+                {showMeasures ? `${name} · ${thick}"` : name}
               </text>
             )}
           </g>
@@ -285,6 +328,7 @@ export const ZoneSvg: React.FC<Props> = ({
         if (seg.type === 'hall') {
           if (seg.isExtraOnly) {
             const text = `EXTRA WEST SPACE: ${Math.round(seg.extra ?? 0)}"`;
+            const props = showMeasures ? hover({ text }) : { pointerEvents: 'none' as const };
             return s.isEW ? (
               <rect
                 key={i}
@@ -293,7 +337,7 @@ export const ZoneSvg: React.FC<Props> = ({
                 width={usableEW}
                 height={seg.extra}
                 fill={COLOR.gain}
-                {...hover({ text })}
+                {...props}
               />
             ) : (
               <rect
@@ -303,12 +347,12 @@ export const ZoneSvg: React.FC<Props> = ({
                 width={seg.extra}
                 height={usableNS}
                 fill={COLOR.gain}
-                {...hover({ text })}
+                {...props}
               />
             );
           }
           const w = Math.round(seg.w);
-          const resizable = seg.idx !== undefined;
+          const resizable = showMeasures && seg.idx !== undefined;
           const text = s.isEW
             ? `HALL · ${Math.round(usableEW)}" × ${w}"${resizable ? ' (tap to resize)' : ''}`
             : `HALL · ${w}" × ${Math.round(usableNS)}"${resizable ? ' (tap to resize)' : ''}`;
@@ -317,112 +361,94 @@ export const ZoneSvg: React.FC<Props> = ({
             onHover({ text, hallIdx: seg.idx });
             if (resizable && onHallClick) onHallClick(seg.idx!, w);
           };
-          if (s.isEW) {
-            const ay = northY + seg.x;
-            return (
-              <g key={i}>
+          const hallProps = showMeasures
+            ? {
+                className: `wm-hit${resizable ? ' wm-hall' : ''}`,
+                onPointerEnter: () => onHover({ text, hallIdx: seg.idx }),
+                onPointerLeave: () => onHover(null),
+                onClick,
+              }
+            : { pointerEvents: 'none' as const };
+          const rectX = s.isEW ? usableX0 : usableX0 + seg.x;
+          const rectY = s.isEW ? northY + seg.x : northY;
+          const rectW = s.isEW ? usableEW : seg.w;
+          const rectH = s.isEW ? seg.w : usableNS;
+          return (
+            <g key={i}>
+              <rect
+                x={rectX}
+                y={rectY}
+                width={rectW}
+                height={rectH}
+                fill={COLOR.hall}
+                stroke={COLOR.hallLine}
+                strokeWidth="1.2"
+                {...hallProps}
+              >
+                {showMeasures && <title>{text}</title>}
+              </rect>
+              {extra > 0 && (
                 <rect
-                  className={`wm-hit${resizable ? ' wm-hall' : ''}`}
-                  x={usableX0}
-                  y={ay}
-                  width={usableEW}
-                  height={seg.w}
-                  fill={COLOR.hall}
-                  stroke={COLOR.hallLine}
-                  strokeWidth="1.2"
-                  onPointerEnter={() => onHover({ text, hallIdx: seg.idx })}
-                  onPointerLeave={() => onHover(null)}
-                  onClick={onClick}
-                >
-                  <title>{text}</title>
-                </rect>
-                {extra > 0 && (
-                  <rect
-                    x={usableX0}
-                    y={ay + seg.w - extra}
-                    width={usableEW}
-                    height={extra}
-                    fill={COLOR.gain}
-                    pointerEvents="none"
-                  />
-                )}
+                  x={s.isEW ? rectX : rectX + seg.w - extra}
+                  y={s.isEW ? rectY + seg.w - extra : rectY}
+                  width={s.isEW ? rectW : extra}
+                  height={s.isEW ? extra : rectH}
+                  fill={COLOR.gain}
+                  pointerEvents="none"
+                />
+              )}
+              {s.isEW ? (
                 <line
                   x1={usableX0 + 10}
-                  y1={ay + seg.w / 2}
+                  y1={rectY + seg.w / 2}
                   x2={usableX0 + usableEW - 10}
-                  y2={ay + seg.w / 2}
+                  y2={rectY + seg.w / 2}
                   stroke={COLOR.hallDash}
                   strokeWidth="2"
                   strokeDasharray="14 12"
                   pointerEvents="none"
                 />
-                <text
-                  x={usableX0 + usableEW / 2}
-                  y={ay + seg.w / 2 + 6}
-                  fontSize="24"
-                  fill={COLOR.hallText}
-                  textAnchor="middle"
-                  fontWeight="800"
-                  fontFamily={MONO}
-                  pointerEvents="none"
-                >
-                  {w}"
-                </text>
-              </g>
-            );
-          }
-          const sx = usableX0 + seg.x;
-          const midY = northY + usableNS / 2;
-          return (
-            <g key={i}>
-              <rect
-                className={`wm-hit${resizable ? ' wm-hall' : ''}`}
-                x={sx}
-                y={northY}
-                width={seg.w}
-                height={usableNS}
-                fill={COLOR.hall}
-                stroke={COLOR.hallLine}
-                strokeWidth="1.2"
-                onPointerEnter={() => onHover({ text, hallIdx: seg.idx })}
-                onPointerLeave={() => onHover(null)}
-                onClick={onClick}
-              >
-                <title>{text}</title>
-              </rect>
-              {extra > 0 && (
-                <rect
-                  x={sx + seg.w - extra}
-                  y={northY}
-                  width={extra}
-                  height={usableNS}
-                  fill={COLOR.gain}
+              ) : (
+                <line
+                  x1={rectX + seg.w / 2}
+                  y1={northY + 10}
+                  x2={rectX + seg.w / 2}
+                  y2={southY - 10}
+                  stroke={COLOR.hallDash}
+                  strokeWidth="2"
+                  strokeDasharray="14 12"
                   pointerEvents="none"
                 />
               )}
-              <line
-                x1={sx + seg.w / 2}
-                y1={northY + 10}
-                x2={sx + seg.w / 2}
-                y2={southY - 10}
-                stroke={COLOR.hallDash}
-                strokeWidth="2"
-                strokeDasharray="14 12"
-                pointerEvents="none"
-              />
-              <text
-                x={sx + seg.w / 2 + 7}
-                y={midY}
-                fontSize="24"
-                fill={COLOR.hallText}
-                textAnchor="middle"
-                fontWeight="800"
-                fontFamily={MONO}
-                pointerEvents="none"
-                transform={`rotate(-90 ${sx + seg.w / 2} ${midY})`}
-              >
-                {w}"
-              </text>
+              {showMeasures &&
+                (s.isEW ? (
+                  <text
+                    x={usableX0 + usableEW / 2}
+                    y={rectY + seg.w / 2 + 6}
+                    fontSize="24"
+                    fill={COLOR.hallText}
+                    textAnchor="middle"
+                    fontWeight="800"
+                    fontFamily={MONO}
+                    pointerEvents="none"
+                  >
+                    {w}"
+                  </text>
+                ) : (
+                  <text
+                    x={rectX + seg.w / 2 + 7}
+                    y={northY + usableNS / 2}
+                    fontSize="24"
+                    fill={COLOR.hallText}
+                    textAnchor="middle"
+                    fontWeight="800"
+                    fontFamily={MONO}
+                    pointerEvents="none"
+                    transform={`rotate(-90 ${rectX + seg.w / 2} ${northY + usableNS / 2})`}
+                  >
+                    {w}"
+                  </text>
+                ))}
             </g>
           );
         }
@@ -579,27 +605,12 @@ export const ZoneSvg: React.FC<Props> = ({
         );
       })}
 
-      {/* Pallet slots — what the DB says is in them, and what the plan says will be */}
+      {/* Pallet squares — what the DB says is in them, what the plan says will be */}
       {m.validCells.map((cl) => {
+        const q = square(cl, false);
         const col = cl.isFast ? COLOR.fast : COLOR.buried;
-        const key = slotKey(cl);
-        const st = stock?.get(key);
-        const gh = ghosts?.get(key) ?? [];
-        const leaving = st ? st.entries.filter((e) => vacated?.has(e.rowId)).length : 0;
-        const allLeaving = !!st && leaving === st.entries.length;
-        const ghostOnly = !st && gh.length > 0 ? ghostStockOf(key, cl, gh) : null;
-        const plan = `Row ${cl.row.num} · Slot ${cl.letter} · ${cl.cw}"×${cl.ch}" · ${cl.isFast ? 'Fast Picking' : 'Buried'}`;
-        const text =
-          (st ? describeCell(st) : plan) +
-          (gh.length ? ` · planned here: ${gh.map((g) => `${g.sku} ${g.qty}u`).join(', ')}` : '');
-        const tone = st
-          ? skuColorDark(st.entries[0].sku)
-          : ghostOnly
-            ? skuColorDark(gh[0].sku)
-            : null;
-        const isHeld = heldKey === key;
         return (
-          <g key={key}>
+          <g key={q.key}>
             <rect
               className="wm-hit"
               x={M + cl.cx}
@@ -607,26 +618,34 @@ export const ZoneSvg: React.FC<Props> = ({
               width={cl.cw}
               height={cl.ch}
               rx="3"
-              fill={tone ? tone.bg : col}
-              fillOpacity={tone ? (st ? (allLeaving ? 0.35 : 0.92) : 0.5) : cl.isFast ? 0.4 : 0.2}
-              stroke={isHeld ? '#00eeff' : gh.length ? COLOR.buried : col}
-              strokeOpacity={isHeld || gh.length ? 1 : 0.75}
-              strokeWidth={isHeld || gh.length ? 2.5 : 1.5}
-              strokeDasharray={gh.length ? '6 4' : undefined}
-              data-slot={key}
-              onPointerEnter={() => onHover({ text, cell: cl })}
+              fill={q.tone ? q.tone.bg : col}
+              fillOpacity={
+                q.tone ? (q.st ? (q.allLeaving ? 0.35 : 0.92) : 0.5) : cl.isFast ? 0.4 : 0.2
+              }
+              stroke={q.isHeld ? '#00eeff' : q.gh.length ? COLOR.buried : q.over ? COLOR.over : col}
+              strokeOpacity={q.isHeld || q.gh.length || q.over ? 1 : 0.75}
+              strokeWidth={q.isHeld || q.gh.length || q.over ? 2.5 : 1.5}
+              strokeDasharray={q.gh.length ? '6 4' : undefined}
+              data-slot={q.key}
+              onPointerEnter={() => onHover({ text: q.text, cell: cl })}
               onPointerLeave={() => onHover(null)}
               onClick={() => {
-                onHover({ text, cell: cl });
-                onCellTap?.(cl, st);
+                onHover({ text: q.text, cell: cl });
+                onCellTap?.(cl, q.st);
               }}
             >
-              <title>{text}</title>
+              <title>{q.text}</title>
             </rect>
-            {st && <StockLabel stock={st} cl={cl} m={M} opacity={allLeaving ? 0.35 : 1} />}
-            {ghostOnly && <StockLabel stock={ghostOnly} cl={cl} m={M} opacity={0.75} />}
-            {(gh.length > 0 || leaving > 0) && (
-              <PlanMarks cl={cl} m={M} landing={gh.length > 0} leaving={leaving > 0} />
+            {q.st && <StockLabel stock={q.st} cl={cl} m={M} opacity={q.allLeaving ? 0.35 : 1} />}
+            {q.ghostOnly && <StockLabel stock={q.ghostOnly} cl={cl} m={M} opacity={0.75} />}
+            {(q.gh.length > 0 || q.leaving > 0 || q.over) && (
+              <Marks
+                cl={cl}
+                m={M}
+                landing={q.gh.length > 0}
+                leaving={q.leaving > 0}
+                over={q.over}
+              />
             )}
           </g>
         );
@@ -645,7 +664,9 @@ export const ZoneSvg: React.FC<Props> = ({
               if (s.isEW) bx += usableEW - m.front;
               else by += usableNS - m.front;
             }
-            const text = `Bike block · ${Math.round(bw)}"×${Math.round(bh)}" · ${bikesInBlock} bikes`;
+            const text = showMeasures
+              ? `Bike block · ${Math.round(bw)}"×${Math.round(bh)}" · ${bikesInBlock} bikes`
+              : `Bike block · ${bikesInBlock} bikes`;
             const fs = Math.min(bw, bh) * 0.3;
             return (
               <g key={`${i}-${row.num}`}>
@@ -703,29 +724,13 @@ export const ZoneSvg: React.FC<Props> = ({
           );
         })}
 
-      {/* Slots a post kills — and what the DB says is in them anyway */}
+      {/* Squares a post kills — and what the DB says is in them anyway */}
       {m.lost.map((cl) => {
+        const q = square(cl, true);
         const x = M + cl.cx;
         const y = M + cl.cy;
-        const key = slotKey(cl);
-        const st = stock?.get(key);
-        const gh = ghosts?.get(key) ?? [];
-        const leaving = st ? st.entries.filter((e) => vacated?.has(e.rowId)).length : 0;
-        const allLeaving = !!st && leaving === st.entries.length;
-        const ghostOnly = !st && gh.length > 0 ? ghostStockOf(key, cl, gh) : null;
-        const text =
-          (st
-            ? `${describeCell(st)} · OBSTRUCTED BY A POST`
-            : `Row ${cl.row.num} · Slot ${cl.letter} (OBSTRUCTED)`) +
-          (gh.length ? ` · planned here: ${gh.map((g) => `${g.sku} ${g.qty}u`).join(', ')}` : '');
-        const tone = st
-          ? skuColorDark(st.entries[0].sku)
-          : ghostOnly
-            ? skuColorDark(gh[0].sku)
-            : null;
-        const isHeld = heldKey === key;
         return (
-          <g key={`lost-${key}`}>
+          <g key={`lost-${q.key}`}>
             <rect
               className="wm-hit"
               x={x}
@@ -733,25 +738,31 @@ export const ZoneSvg: React.FC<Props> = ({
               width={cl.cw}
               height={cl.ch}
               rx="3"
-              fill={tone ? tone.bg : COLOR.post}
-              fillOpacity={tone ? (st ? (allLeaving ? 0.35 : 0.92) : 0.5) : 0.1}
-              stroke={isHeld ? '#00eeff' : COLOR.post}
-              strokeWidth={isHeld || gh.length ? 2.5 : 1.5}
+              fill={q.tone ? q.tone.bg : COLOR.post}
+              fillOpacity={q.tone ? (q.st ? (q.allLeaving ? 0.35 : 0.92) : 0.5) : 0.1}
+              stroke={q.isHeld ? '#00eeff' : COLOR.post}
+              strokeWidth={q.isHeld || q.gh.length ? 2.5 : 1.5}
               strokeDasharray="4 4"
-              data-slot={key}
-              onPointerEnter={() => onHover({ text, cell: cl })}
+              data-slot={q.key}
+              onPointerEnter={() => onHover({ text: q.text, cell: cl })}
               onPointerLeave={() => onHover(null)}
               onClick={() => {
-                onHover({ text, cell: cl });
-                onCellTap?.(cl, st);
+                onHover({ text: q.text, cell: cl });
+                onCellTap?.(cl, q.st);
               }}
             >
-              <title>{text}</title>
+              <title>{q.text}</title>
             </rect>
-            {st && <StockLabel stock={st} cl={cl} m={M} opacity={allLeaving ? 0.35 : 1} />}
-            {ghostOnly && <StockLabel stock={ghostOnly} cl={cl} m={M} opacity={0.75} />}
-            {(gh.length > 0 || leaving > 0) && (
-              <PlanMarks cl={cl} m={M} landing={gh.length > 0} leaving={leaving > 0} />
+            {q.st && <StockLabel stock={q.st} cl={cl} m={M} opacity={q.allLeaving ? 0.35 : 1} />}
+            {q.ghostOnly && <StockLabel stock={q.ghostOnly} cl={cl} m={M} opacity={0.75} />}
+            {(q.gh.length > 0 || q.leaving > 0 || q.over) && (
+              <Marks
+                cl={cl}
+                m={M}
+                landing={q.gh.length > 0}
+                leaving={q.leaving > 0}
+                over={q.over}
+              />
             )}
             <line
               x1={x}

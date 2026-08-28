@@ -39,9 +39,26 @@ one place: a rule that contradicts an older one replaces it.
 - **Words.** English on screen; "hall", never "aisle"; "the FedEx system", "Audit Source"; the
   DB's names for things (`ROW 33 · A`). Spanish with him.
 
+- **The floor reads stock, not inches** (28 Aug, first look at the map with stock): "no quiero ver
+  medidas en modo view". Measures — sliders, halls, inches on hover, hall widths — live in a
+  **LAYOUT** mode; VIEW / PLAN / LIVE show stock only. "No tiene sentido el hover en los pasillos":
+  a hall is not a thing you tap.
+- **One header figure and one bar.** "De todos los datos en el encabezado solo quiero ver cantidad
+  de pallets… una barra de capacidad donde se ven total bikes y en stock": PALLETS in use / squares,
+  and a bar of units in stock against the bikes the layout holds. The four plan counters are LAYOUT.
+- **A square is one pallet: 30 units, no more.** "En cada cuadro entra un pallet double stacked de
+  30 unidades nomás, reparte" — a line shows its share per square, a square over 30 is marked, and
+  DISTRIBUTE spreads lines: own row first, "los que no caben… en el espacio disponible buried".
+- **Two taps and a confirmation.** "Hacer click en un SKU para moverlo a otro sitio solo haciendo
+  otro click y aceptando la confirmación. INTUITIVO." Tapping a square with one line picks it up —
+  no chip step; the chips appear only when a square holds several SKUs.
+
 ## Log
 
 - **2026-08-28 — warehouse map, editing tools.** First study written under this agent:
   `docs/prds/warehouse-map-plan-and-live.md`. Rafael: "ok todo" to all six defaults; P1 (PLAN)
   built the same day. Lesson kept: **a control for a mode that is not built yet is a dead button** —
   the study drew VIEW | PLAN | LIVE, P1 shows VIEW | PLAN and LIVE appears with P2.
+- **2026-08-28 — first corrections on P1** (five in one message): measures out of VIEW into a
+  LAYOUT mode; header = pallets in use + capacity bar; no hover on halls; 30 a square with
+  DISTRIBUTE; one-tap pick and LIVE with confirmation. All four became standing rules above.

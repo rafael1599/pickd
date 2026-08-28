@@ -1,10 +1,11 @@
 // The warehouse map: the measured building, then one zone of it. Replaced the
 // Plan / Live screen of warehouse-management on 2026-08-28 (idea-170).
 //
-// Two doors into the same zone: signed in, the zone has its editor (PLAN,
-// idea-173) and a SKU opens the app's item detail — both need the Modal
-// Manager and the inventory provider, which only exist inside the app; on
-// /public-warehouse-map there is neither, so the zone is read-only.
+// Two doors into the same zone: signed in, the zone has its editor (VIEW ·
+// PLAN · LIVE · LAYOUT, idea-173) and a SKU opens the app's item detail —
+// both need the Modal Manager and the inventory provider, which only exist
+// inside the app; on /public-warehouse-map there is neither, so the zone is
+// the layout, read-only.
 
 import React from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
@@ -22,13 +23,13 @@ const PUBLIC_PATH = '/public-warehouse-map';
 
 const PublicZone: React.FC<{ zoneId: ZoneId }> = ({ zoneId }) => {
   const data = useZoneData(zoneId);
-  return <ZoneView data={data} />;
+  return <ZoneView data={data} mode="layout" />;
 };
 
 const SignedInZone: React.FC<{ zoneId: ZoneId }> = ({ zoneId }) => {
   const queryClient = useQueryClient();
   const data = useZoneData(zoneId);
-  const editor = useZoneEditor(zoneId, data.stock);
+  const editor = useZoneEditor(zoneId, data.stock, data.model);
   const openSkuDetail = useOpenSkuDetail({
     afterChange: () => queryClient.invalidateQueries({ queryKey: WAREHOUSE_STOCK_KEY }),
   });

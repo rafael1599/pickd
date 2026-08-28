@@ -10,15 +10,11 @@ import toast from 'react-hot-toast';
 import X from 'lucide-react/dist/esm/icons/x';
 import Check from 'lucide-react/dist/esm/icons/check';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
-import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
 import { useInventory } from '../../inventory/hooks/useInventoryData';
-import {
-  InventoryItemInputSchema,
-  type InventoryItemWithMetadata,
-} from '../../../schemas/inventory.schema';
 import { ZONES, type ZoneId } from '../engine';
-import { describeMove, validateMove, type MoveStatus, type PlanMove } from '../plan/slotPlan';
+import { describeMove, type PlanMove } from '../plan/slotPlan';
+import { runMove, type Outcome } from './runMove';
 import { fetchPlanMoves, finishPlan, markMove, slotPlanKey } from '../hooks/useSlotPlan';
 import { WAREHOUSE_STOCK_KEY } from '../hooks/useWarehouseStock';
 import { skuColorDark } from '../../../utils/skuColor';
@@ -28,8 +24,6 @@ interface Props {
   planId: string;
   onClose: () => void;
 }
-
-type Outcome = { status: MoveStatus; error: string | null };
 
 export const SlotPlanExecuteSheet: React.FC<Props> = ({ zoneId, planId, onClose }) => {
   const queryClient = useQueryClient();
@@ -62,7 +56,7 @@ export const SlotPlanExecuteSheet: React.FC<Props> = ({ zoneId, planId, onClose 
     let failed = 0;
     for (const m of moves) {
       setRunning(m.id);
-      const outcome = await runMove(m, updateItem, moveItem, zoneId);
+      const outcome = await runMove(m, updateItem, moveItem, zoneId, 'Plan');
       setOutcomes((o) => ({ ...o, [m.id]: outcome }));
       try {
         await markMove(m.id, outcome.status, outcome.error);
@@ -202,56 +196,3 @@ export const SlotPlanExecuteSheet: React.FC<Props> = ({ zoneId, planId, onClose 
     </div>
   );
 };
-
-type UpdateItem = ReturnType<typeof useInventory>['updateItem'];
-type MoveItem = ReturnType<typeof useInventory>['moveItem'];
-
-/** One move, the way a hand would do it, after checking the line is still what was planned. */
-async function runMove(
-  m: PlanMove,
-  updateItem: UpdateItem,
-  moveItem: MoveItem,
-  zoneId: ZoneId
-): Promise<Outcome> {
-  const { data, error } = await supabase
-    .from('inventory')
-    .select('*, sku_metadata(*)')
-    .eq('id', m.inventoryId)
-    .maybeSingle();
-  if (error) return { status: 'failed', error: error.message };
-  const fresh = (data ?? null) as InventoryItemWithMetadata | null;
-  const v = validateMove(m, fresh);
-  if (!v.ok) return { status: 'skipped', error: v.reason };
-  if (!fresh) return { status: 'skipped', error: 'line no longer in stock' };
-
-  try {
-    if (m.kind === 'relabel') {
-      const input = InventoryItemInputSchema.parse({
-        sku: fresh.sku,
-        quantity: fresh.quantity ?? 0,
-        location: fresh.location ?? m.fromLocation,
-        location_id: fresh.location_id ?? null,
-        sublocation: [m.toLetter],
-        item_name: fresh.item_name ?? null,
-        warehouse: fresh.warehouse,
-        status: fresh.status ?? null,
-        distribution: fresh.distribution ?? [],
-      });
-      await updateItem(fresh, input);
-    } else {
-      await moveItem(
-        fresh,
-        fresh.warehouse,
-        m.toLocation,
-        fresh.quantity ?? 0,
-        undefined,
-        null,
-        [m.toLetter],
-        `Plan ${ZONES[zoneId].name}: ${describeMove(m)}`
-      );
-    }
-    return { status: 'done', error: null };
-  } catch (e) {
-    return { status: 'failed', error: (e as Error).message };
-  }
-}

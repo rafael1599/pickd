@@ -10,6 +10,8 @@ import {
   outsideAnyPlan,
   describeCell,
   groupUnplaced,
+  allocate,
+  squaresFor,
   type StockRow,
 } from '../rowStock';
 import { ZONES, ZONE_IDS, calculateLayout, defaultEngineState } from '../../engine';
@@ -182,11 +184,25 @@ describe('a line across two letters', () => {
   const rows = [line('ROW 33', '03-4085BK', 60, ['A', 'B'])];
   const stock = zoneStock(ZONES.bay3_north, bay3North, rows);
 
-  it('is drawn in both slots, marked as spanning, and counted once', () => {
-    expect(stock.cells.get('33-A')!.entries[0].span).toBe(2);
-    expect(stock.cells.get('33-B')!.entries[0].span).toBe(2);
+  it('is drawn in both squares, a pallet in each, and counted once', () => {
+    expect(stock.cells.get('33-A')!.entries[0]).toMatchObject({ span: 2, qty: 60, qtyHere: 30 });
+    expect(stock.cells.get('33-B')!.entries[0]).toMatchObject({ span: 2, qty: 60, qtyHere: 30 });
+    expect(stock.cells.get('33-A')!.units).toBe(30);
     expect(stock.units).toBe(60);
-    expect(describeCell(stock.cells.get('33-A')!)).toBe('ROW 33 · A · 03-4085BK 60u (2 slots)');
+    expect(describeCell(stock.cells.get('33-A')!)).toBe(
+      'ROW 33 · A · 03-4085BK 30 of 60u (2 squares)'
+    );
+  });
+
+  it('a line with too few squares shows the overflow in its last square, over capacity', () => {
+    const big = zoneStock(ZONES.bay3_north, bay3North, [line('ROW 33', '03-3983GY', 230, ['C'])]);
+    const cell = big.cells.get('33-C')!;
+    expect(cell.units).toBe(230);
+    expect(describeCell(cell)).toContain('OVER CAPACITY');
+    expect(allocate(132, 5)).toEqual([30, 30, 30, 30, 12]);
+    expect(squaresFor(132)).toBe(5);
+    expect(squaresFor(30)).toBe(1);
+    expect(squaresFor(0)).toBe(1);
   });
 });
 

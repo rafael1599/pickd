@@ -20,6 +20,8 @@ import { OrderNotesModal } from '../features/picking/components/OrderNotesModal'
 import { SkuLocationsModal } from '../features/inventory/components/SkuLocationsModal';
 import type { InventoryItemWithMetadata, InventoryItemInput } from '../schemas/inventory.schema';
 import { SlotPlanExecuteSheet } from '../features/warehouse-map/components/SlotPlanExecuteSheet';
+import { LiveMoveSheet } from '../features/warehouse-map/components/LiveMoveSheet';
+import type { MoveDraft } from '../features/warehouse-map/plan/slotPlan';
 import type { ZoneId } from '../features/warehouse-map/engine';
 
 type ItemDetailSavePayload = InventoryItemInput & {
@@ -56,6 +58,13 @@ export type ModalState =
       type: 'slot-plan-execute';
       zoneId: ZoneId;
       planId: string;
+    }
+  | {
+      /** LIVE on the warehouse map: one drop, confirmed, moved now (idea-173, P2). */
+      type: 'slot-live-move';
+      zoneId: ZoneId;
+      drafts: MoveDraft[];
+      rule: 'move' | 'swap' | 'join';
     }
   | {
       type: 'order-notes';
@@ -108,6 +117,15 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
 
       {modal?.type === 'slot-plan-execute' && (
         <SlotPlanExecuteSheet zoneId={modal.zoneId} planId={modal.planId} onClose={close} />
+      )}
+
+      {modal?.type === 'slot-live-move' && (
+        <LiveMoveSheet
+          zoneId={modal.zoneId}
+          drafts={modal.drafts}
+          rule={modal.rule}
+          onClose={close}
+        />
       )}
 
       {modal?.type === 'order-notes' && (

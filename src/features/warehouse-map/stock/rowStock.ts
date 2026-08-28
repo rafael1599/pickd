@@ -44,13 +44,38 @@ export function zoneOwnsRow(config: ZoneConfig, rowNumber: number): boolean {
   return rowNumber >= Math.min(r.start, r.end) && rowNumber <= Math.max(r.start, r.end);
 }
 
+/** A square holds one double-stacked pallet: 30 units, no more (Rafael, 28 Aug 2026). */
+export const PALLET_UNITS = 30;
+
+/** Squares a quantity needs at PALLET_UNITS per square. */
+export const squaresFor = (qty: number) => Math.max(1, Math.ceil(qty / PALLET_UNITS));
+
+/**
+ * How a line's units sit across its squares: a pallet's worth in each,
+ * whatever is left in the last one — which is where a line that has too
+ * few squares shows it, as a square over capacity.
+ */
+export function allocate(qty: number, squares: number): number[] {
+  const out: number[] = [];
+  let left = qty;
+  for (let i = 0; i < squares; i++) {
+    const here = i < squares - 1 ? Math.min(left, PALLET_UNITS) : left;
+    out.push(here);
+    left -= here;
+  }
+  return out;
+}
+
 export interface StockEntry {
   sku: string;
+  /** The line's whole quantity. */
   qty: number;
+  /** The part of it that sits in this square. */
+  qtyHere: number;
   itemName: string | null;
   rowId: number;
   warehouse: string;
-  /** The line sits in more than one letter; it is drawn in each and counted once. */
+  /** How many squares the line spans. */
   span: number;
 }
 
@@ -59,7 +84,7 @@ export interface CellStock {
   rowNumber: number;
   letter: string;
   entries: StockEntry[];
-  /** Units named in this cell — a spanning line counts fully in each of its cells. */
+  /** Units in this square — each line's share of it, not its whole quantity. */
   units: number;
 }
 
@@ -156,29 +181,28 @@ export function zoneStock(
       unplaced.push({ reason: 'no-letter', row, parsed, letters: [] });
       continue;
     }
-    const missing: string[] = [];
-    for (const letter of letters) {
+    const missing = letters.filter((letter) => !drawnKeys.has(`${n}-${letter}`));
+    const drawn = letters.filter((letter) => drawnKeys.has(`${n}-${letter}`));
+    const shares = allocate(row.quantity, drawn.length);
+    drawn.forEach((letter, i) => {
       const key = `${n}-${letter}`;
-      if (!drawnKeys.has(key)) {
-        missing.push(letter);
-        continue;
-      }
       const cell = cells.get(key) ?? { key, rowNumber: n, letter, entries: [], units: 0 };
       cell.entries.push({
         sku: row.sku,
         qty: row.quantity,
+        qtyHere: shares[i],
         itemName: row.itemName,
         rowId: row.id,
         warehouse: row.warehouse,
-        span: letters.length,
+        span: drawn.length,
       });
-      cell.units += row.quantity;
+      cell.units += shares[i];
       cells.set(key, cell);
-    }
+    });
     if (missing.length > 0) unplaced.push({ reason: 'letter', row, parsed, letters: missing });
   }
 
-  for (const cell of cells.values()) cell.entries.sort((a, b) => b.qty - a.qty);
+  for (const cell of cells.values()) cell.entries.sort((a, b) => b.qtyHere - a.qtyHere);
   unplaced.sort(
     (a, b) =>
       a.parsed.number! - b.parsed.number! ||
@@ -189,12 +213,13 @@ export function zoneStock(
   return { cells, unplaced, lines: own.length, units, rows: locations.size };
 }
 
-/** One line for the tooltip: `ROW 33 · A · 03-4085BK 41u · 03-3931BK 12u`. */
+/** One line for the tooltip: `ROW 33 · A · 03-4085BK 41u · 03-3931BK 30 of 132u (5 squares)`. */
 export function describeCell(cell: CellStock): string {
-  const parts = cell.entries.map(
-    (e) => `${e.sku} ${e.qty}u${e.span > 1 ? ` (${e.span} slots)` : ''}`
+  const parts = cell.entries.map((e) =>
+    e.span > 1 ? `${e.sku} ${e.qtyHere} of ${e.qty}u (${e.span} squares)` : `${e.sku} ${e.qty}u`
   );
-  return `ROW ${cell.rowNumber} · ${cell.letter} · ${parts.join(' · ')}`;
+  const over = cell.units > PALLET_UNITS ? ` · OVER CAPACITY (${PALLET_UNITS} per square)` : '';
+  return `ROW ${cell.rowNumber} · ${cell.letter} · ${parts.join(' · ')}${over}`;
 }
 
 export interface UnplacedGroup {

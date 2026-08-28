@@ -53,7 +53,7 @@ const toMove = (r: MoveRow): PlanMove => ({
   fromLocation: r.from_location,
   fromSublocation: r.from_sublocation,
   toLocation: r.to_location,
-  toLetter: r.to_sublocation[0] ?? '',
+  toLetters: r.to_sublocation,
   kind: r.kind === 'move' ? 'move' : 'relabel',
   status: (['planned', 'done', 'skipped', 'failed'] as const).includes(r.status as MoveStatus)
     ? (r.status as MoveStatus)
@@ -159,6 +159,26 @@ export function useSlotPlan(zoneId: ZoneId, enabled = true) {
     onSettled: invalidate,
   });
 
+  /** DISTRIBUTE's moves, all at once; a line may get more than one. */
+  const addMoves = useMutation({
+    mutationFn: async (drafts: MoveDraft[]) => {
+      if (drafts.length === 0) return;
+      const planId = await ensurePlan();
+      const existing = queryClient.getQueryData<PlanData>(key)?.moves ?? [];
+      let position = existing.reduce((m, x) => Math.max(m, x.position), 0);
+      const rows = drafts.map((d) => ({
+        ...draftToRow(d),
+        plan_id: planId,
+        position: ++position,
+        status: 'planned',
+        error: null,
+      }));
+      const { error } = await supabase.from('slot_plan_moves').insert(rows);
+      if (error) throw new Error(error.message);
+    },
+    onSettled: invalidate,
+  });
+
   const removeMove = useMutation({
     mutationFn: async (id: number) => {
       const { error } = await supabase.from('slot_plan_moves').delete().eq('id', id);
@@ -184,10 +204,11 @@ export function useSlotPlan(zoneId: ZoneId, enabled = true) {
     isLoading: query.isLoading,
     isError: query.isError,
     applyDrop,
+    addMoves,
     removeMove,
     discard,
     invalidate,
-    busy: applyDrop.isPending || removeMove.isPending || discard.isPending,
+    busy: applyDrop.isPending || addMoves.isPending || removeMove.isPending || discard.isPending,
   };
 }
 
@@ -201,7 +222,7 @@ function draftToRow(d: MoveDraft) {
     from_location: d.fromLocation,
     from_sublocation: d.fromSublocation,
     to_location: d.toLocation,
-    to_sublocation: [d.toLetter],
+    to_sublocation: d.toLetters,
     kind: d.kind,
   };
 }

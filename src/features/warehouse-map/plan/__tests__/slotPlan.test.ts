@@ -11,7 +11,7 @@ import {
   validateMove,
   summarizeMoves,
   describeMove,
-  targetKey,
+  targetKeys,
   type PlanMove,
 } from '../slotPlan';
 import { zoneStock, type StockRow } from '../../stock/rowStock';
@@ -63,7 +63,7 @@ describe('V1 — 33-A dropped on 33-C, one line there: a swap', () => {
   it('plans two relabels, A→C and C→A', () => {
     expect(r.rule).toBe('swap');
     if (r.rule === 'noop') throw new Error('unreachable');
-    expect(r.drafts.map((d) => [d.sku, d.toLetter, d.kind])).toEqual([
+    expect(r.drafts.map((d) => [d.sku, d.toLetters[0], d.kind])).toEqual([
       ['06-4735BK', 'C', 'relabel'],
       ['03-3983GY', 'A', 'relabel'],
     ]);
@@ -74,8 +74,8 @@ describe('V1 — 33-A dropped on 33-C, one line there: a swap', () => {
     if (r.rule === 'noop') throw new Error('unreachable');
     const moves = r.drafts.map((d, i) => asMove(d, i + 1));
     const st = plannedState(stock, moves);
-    expect(st.ghosts.get('33-C')!.map((m) => m.sku)).toEqual(['06-4735BK']);
-    expect(st.ghosts.get('33-A')!.map((m) => m.sku)).toEqual(['03-3983GY']);
+    expect(st.ghosts.get('33-C')!.map((g) => g.move.sku)).toEqual(['06-4735BK']);
+    expect(st.ghosts.get('33-A')!.map((g) => g.move.sku)).toEqual(['03-3983GY']);
     expect(st.vacated).toEqual(new Set([1, 2]));
     expect(st.occupancy('33-C').map((o) => [o.sku, o.ghost !== null])).toEqual([
       ['06-4735BK', true],
@@ -94,10 +94,10 @@ describe('V2 — an unplaced line (33-K) dropped on an empty square', () => {
       sku: '03-3777RD',
       fromSublocation: ['K'],
       toLocation: 'ROW 33',
-      toLetter: 'D',
+      toLetters: ['D'],
       kind: 'relabel',
     });
-    expect(targetKey(r.drafts[0])).toBe('33-D');
+    expect(targetKeys(r.drafts[0])).toEqual(['33-D']);
   });
 
   it('dropped on a taken square it joins, because it has no square to swap with', () => {
@@ -117,7 +117,7 @@ describe('V3 — 27-K to 30-E is a move across rows', () => {
       qty: 53,
       fromLocation: 'ROW 27',
       toLocation: 'ROW 30',
-      toLetter: 'E',
+      toLetters: ['E'],
     });
   });
 });
@@ -167,7 +167,7 @@ describe('V6 / V7 — revalidation before executing', () => {
     fromLocation: 'ROW 27',
     fromSublocation: ['K'],
     toLocation: 'ROW 30',
-    toLetter: 'E',
+    toLetters: ['E'],
     kind: 'move',
   });
   const relabel = asMove({
@@ -179,7 +179,7 @@ describe('V6 / V7 — revalidation before executing', () => {
     fromLocation: 'ROW 33',
     fromSublocation: ['A'],
     toLocation: 'ROW 33',
-    toLetter: 'C',
+    toLetters: ['C'],
     kind: 'relabel',
   });
 
@@ -193,6 +193,18 @@ describe('V6 / V7 — revalidation before executing', () => {
         sublocation: ['K'],
       })
     ).toEqual({ ok: false, reason: 'changed since planned · 40 u left' });
+  });
+
+  it('a move survives a line that grew — it takes the planned units and leaves the rest', () => {
+    expect(
+      validateMove(move, {
+        id: 4,
+        is_active: true,
+        quantity: 80,
+        location: 'ROW 27',
+        sublocation: ['K'],
+      })
+    ).toEqual({ ok: true });
   });
 
   it('a line that left its row is skipped, never executed against another row', () => {

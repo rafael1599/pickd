@@ -32,8 +32,10 @@ PWA de gestión de inventario y warehouse operations. Multi-usuario con sync en 
   nunca se esconde), `plan/slotPlan.ts` + `hooks/useZoneEditor.ts` (**PLAN**, idea-173: levantar un
   SKU y soltarlo en un cuadro — vacío va, una línea intercambia, varias se une; `PLAN COMPLETED` lo
   ejecuta con `updateItem` en la misma fila / `moveItem` a otra, revalidando cada línea; tablas
-  `slot_plans` / `slot_plan_moves`, un borrador por zona; LIVE llega en P2) y las pantallas
-  (`MasterMap`, `ZoneView`, `ZoneSvg`; estado y modo en la URL). Nació como
+  `slot_plans` / `slot_plan_moves`, un borrador por zona; **LIVE** = mismo gesto + confirmación;
+  **LAYOUT** = las medidas; **30 u por cuadro** — `PALLET_UNITS`, `allocate`, `!` sobre 30 y
+  DISTRIBUTE en `plan/distribute.ts`) y las pantallas (`MasterMap`, `ZoneView`, `ZoneSvg`; estado y
+  modo en la URL). Nació como
   HTML estático en `public/warehouse/` (11 ago) y reemplazó por completo la vista Plan/Live el 28 ago
   2026 (idea-170; historia en `docs/warehouse-floor-plans.md`). **CRÍTICO:** todo layout cumple
   `docs/warehouse-ui-rules.md` (los cuatro contadores, sliders de pallet `60×62`, "hall" nunca
