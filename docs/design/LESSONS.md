@@ -42,4 +42,6 @@ one place: a rule that contradicts an older one replaces it.
 ## Log
 
 - **2026-08-28 — warehouse map, editing tools.** First study written under this agent:
-  `docs/prds/warehouse-map-plan-and-live.md`. Open ❓ there.
+  `docs/prds/warehouse-map-plan-and-live.md`. Rafael: "ok todo" to all six defaults; P1 (PLAN)
+  built the same day. Lesson kept: **a control for a mode that is not built yet is a dead button** —
+  the study drew VIEW | PLAN | LIVE, P1 shows VIEW | PLAN and LIVE appears with P2.

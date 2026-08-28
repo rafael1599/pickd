@@ -19,6 +19,8 @@ import { NotificationHistoryModal } from '../components/ui/NotificationHistoryMo
 import { OrderNotesModal } from '../features/picking/components/OrderNotesModal';
 import { SkuLocationsModal } from '../features/inventory/components/SkuLocationsModal';
 import type { InventoryItemWithMetadata, InventoryItemInput } from '../schemas/inventory.schema';
+import { SlotPlanExecuteSheet } from '../features/warehouse-map/components/SlotPlanExecuteSheet';
+import type { ZoneId } from '../features/warehouse-map/engine';
 
 type ItemDetailSavePayload = InventoryItemInput & {
   length_in?: number;
@@ -48,6 +50,12 @@ export type ModalState =
       onEdit: (row: InventoryItemWithMetadata) => void;
       /** The SKU is not in inventory: the operator chose bike/part and this is the prefilled item to add. */
       onRegister: (prefill: InventoryItemWithMetadata) => void;
+    }
+  | {
+      /** PLAN COMPLETED on the warehouse map: executes a zone's draft plan (idea-173). */
+      type: 'slot-plan-execute';
+      zoneId: ZoneId;
+      planId: string;
     }
   | {
       type: 'order-notes';
@@ -96,6 +104,10 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
           onRegister={modal.onRegister}
           onClose={close}
         />
+      )}
+
+      {modal?.type === 'slot-plan-execute' && (
+        <SlotPlanExecuteSheet zoneId={modal.zoneId} planId={modal.planId} onClose={close} />
       )}
 
       {modal?.type === 'order-notes' && (

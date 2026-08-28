@@ -10,6 +10,7 @@ import React from 'react';
 import type { Cell, EngineState, LayoutModel, Obstacle, ZoneConfig } from '../engine';
 import { BIKES_PER_LINE, slotKey } from '../engine';
 import { describeCell, type CellStock } from '../stock/rowStock';
+import type { PlanMove } from '../plan/slotPlan';
 import { skuColorDark } from '../../../utils/skuColor';
 
 /** Margin around the zone, inches of viewBox, for the wall labels. */
@@ -51,6 +52,12 @@ interface Props {
   onHover: (target: HoverTarget | null) => void;
   onHallClick?: (hallIdx: number, width: number) => void;
   onCellTap?: (cell: Cell, stock: CellStock | undefined) => void;
+  /** Planned moves landing in each slot (PLAN mode): drawn as ghosts. */
+  ghosts?: Map<string, PlanMove[]>;
+  /** Inventory ids with a planned move: their live slot shows them leaving. */
+  vacated?: Set<number>;
+  /** The slot of the line in hand, marked so the eye finds it. */
+  heldKey?: string | null;
 }
 
 function obstacleStyle(type: Obstacle['type']) {
@@ -69,12 +76,17 @@ function obstacleStyle(type: Obstacle['type']) {
 }
 
 /** The DB's units and SKU inside a slot — white on the SKU's own colour. */
-const StockLabel: React.FC<{ stock: CellStock; cl: Cell; m: number }> = ({ stock: st, cl, m }) => {
+const StockLabel: React.FC<{ stock: CellStock; cl: Cell; m: number; opacity?: number }> = ({
+  stock: st,
+  cl,
+  m,
+  opacity = 1,
+}) => {
   const side = Math.min(cl.cw, cl.ch);
   const midX = m + cl.cx + cl.cw / 2;
   const midY = m + cl.cy + cl.ch / 2;
   return (
-    <>
+    <g opacity={opacity} pointerEvents="none">
       <text
         x={midX}
         y={midY + side * 0.06}
@@ -83,7 +95,6 @@ const StockLabel: React.FC<{ stock: CellStock; cl: Cell; m: number }> = ({ stock
         fontWeight="800"
         textAnchor="middle"
         fontFamily={MONO}
-        pointerEvents="none"
       >
         {st.units}
       </text>
@@ -95,11 +106,57 @@ const StockLabel: React.FC<{ stock: CellStock; cl: Cell; m: number }> = ({ stock
         fillOpacity="0.9"
         textAnchor="middle"
         fontFamily={MONO}
-        pointerEvents="none"
       >
         {st.entries.length > 1 ? `${st.entries.length} SKUs` : st.entries[0].sku}
       </text>
-    </>
+    </g>
+  );
+};
+
+/** What PLAN paints on a slot: a ghost of what will land, a mark on what leaves. */
+function ghostStockOf(key: string, cl: Cell, gh: PlanMove[]): CellStock {
+  return {
+    key,
+    rowNumber: Number(cl.row.num),
+    letter: cl.letter,
+    units: gh.reduce((s, m) => s + m.qty, 0),
+    entries: gh.map((m) => ({
+      sku: m.sku,
+      qty: m.qty,
+      itemName: m.itemName,
+      rowId: m.inventoryId,
+      warehouse: m.warehouse,
+      span: 1,
+    })),
+  };
+}
+
+const PlanMarks: React.FC<{ cl: Cell; m: number; landing: boolean; leaving: boolean }> = ({
+  cl,
+  m,
+  landing,
+  leaving,
+}) => {
+  const side = Math.min(cl.cw, cl.ch);
+  const fs = side * 0.24;
+  return (
+    <g pointerEvents="none" fontFamily={MONO} fontWeight="800" fontSize={fs}>
+      {leaving && (
+        <text x={m + cl.cx + fs * 0.35} y={m + cl.cy + fs} fill={COLOR.fast}>
+          ↗
+        </text>
+      )}
+      {landing && (
+        <text
+          x={m + cl.cx + cl.cw - fs * 0.35}
+          y={m + cl.cy + fs}
+          fill={COLOR.buried}
+          textAnchor="end"
+        >
+          →
+        </text>
+      )}
+    </g>
   );
 };
 
@@ -111,6 +168,9 @@ export const ZoneSvg: React.FC<Props> = ({
   onHover,
   onHallClick,
   onCellTap,
+  ghosts,
+  vacated,
+  heldKey,
 }) => {
   const c = config;
   const s = state;
@@ -519,14 +579,25 @@ export const ZoneSvg: React.FC<Props> = ({
         );
       })}
 
-      {/* Pallet slots — and what the DB says is in them */}
+      {/* Pallet slots — what the DB says is in them, and what the plan says will be */}
       {m.validCells.map((cl) => {
         const col = cl.isFast ? COLOR.fast : COLOR.buried;
         const key = slotKey(cl);
         const st = stock?.get(key);
+        const gh = ghosts?.get(key) ?? [];
+        const leaving = st ? st.entries.filter((e) => vacated?.has(e.rowId)).length : 0;
+        const allLeaving = !!st && leaving === st.entries.length;
+        const ghostOnly = !st && gh.length > 0 ? ghostStockOf(key, cl, gh) : null;
         const plan = `Row ${cl.row.num} · Slot ${cl.letter} · ${cl.cw}"×${cl.ch}" · ${cl.isFast ? 'Fast Picking' : 'Buried'}`;
-        const text = st ? describeCell(st) : plan;
-        const tone = st ? skuColorDark(st.entries[0].sku) : null;
+        const text =
+          (st ? describeCell(st) : plan) +
+          (gh.length ? ` · planned here: ${gh.map((g) => `${g.sku} ${g.qty}u`).join(', ')}` : '');
+        const tone = st
+          ? skuColorDark(st.entries[0].sku)
+          : ghostOnly
+            ? skuColorDark(gh[0].sku)
+            : null;
+        const isHeld = heldKey === key;
         return (
           <g key={key}>
             <rect
@@ -537,10 +608,11 @@ export const ZoneSvg: React.FC<Props> = ({
               height={cl.ch}
               rx="3"
               fill={tone ? tone.bg : col}
-              fillOpacity={tone ? 0.92 : cl.isFast ? 0.4 : 0.2}
-              stroke={col}
-              strokeOpacity="0.75"
-              strokeWidth="1.5"
+              fillOpacity={tone ? (st ? (allLeaving ? 0.35 : 0.92) : 0.5) : cl.isFast ? 0.4 : 0.2}
+              stroke={isHeld ? '#00eeff' : gh.length ? COLOR.buried : col}
+              strokeOpacity={isHeld || gh.length ? 1 : 0.75}
+              strokeWidth={isHeld || gh.length ? 2.5 : 1.5}
+              strokeDasharray={gh.length ? '6 4' : undefined}
               data-slot={key}
               onPointerEnter={() => onHover({ text, cell: cl })}
               onPointerLeave={() => onHover(null)}
@@ -551,7 +623,11 @@ export const ZoneSvg: React.FC<Props> = ({
             >
               <title>{text}</title>
             </rect>
-            {st && <StockLabel stock={st} cl={cl} m={M} />}
+            {st && <StockLabel stock={st} cl={cl} m={M} opacity={allLeaving ? 0.35 : 1} />}
+            {ghostOnly && <StockLabel stock={ghostOnly} cl={cl} m={M} opacity={0.75} />}
+            {(gh.length > 0 || leaving > 0) && (
+              <PlanMarks cl={cl} m={M} landing={gh.length > 0} leaving={leaving > 0} />
+            )}
           </g>
         );
       })}
@@ -633,10 +709,21 @@ export const ZoneSvg: React.FC<Props> = ({
         const y = M + cl.cy;
         const key = slotKey(cl);
         const st = stock?.get(key);
-        const text = st
-          ? `${describeCell(st)} · OBSTRUCTED BY A POST`
-          : `Row ${cl.row.num} · Slot ${cl.letter} (OBSTRUCTED)`;
-        const tone = st ? skuColorDark(st.entries[0].sku) : null;
+        const gh = ghosts?.get(key) ?? [];
+        const leaving = st ? st.entries.filter((e) => vacated?.has(e.rowId)).length : 0;
+        const allLeaving = !!st && leaving === st.entries.length;
+        const ghostOnly = !st && gh.length > 0 ? ghostStockOf(key, cl, gh) : null;
+        const text =
+          (st
+            ? `${describeCell(st)} · OBSTRUCTED BY A POST`
+            : `Row ${cl.row.num} · Slot ${cl.letter} (OBSTRUCTED)`) +
+          (gh.length ? ` · planned here: ${gh.map((g) => `${g.sku} ${g.qty}u`).join(', ')}` : '');
+        const tone = st
+          ? skuColorDark(st.entries[0].sku)
+          : ghostOnly
+            ? skuColorDark(gh[0].sku)
+            : null;
+        const isHeld = heldKey === key;
         return (
           <g key={`lost-${key}`}>
             <rect
@@ -647,9 +734,9 @@ export const ZoneSvg: React.FC<Props> = ({
               height={cl.ch}
               rx="3"
               fill={tone ? tone.bg : COLOR.post}
-              fillOpacity={tone ? 0.92 : 0.1}
-              stroke={COLOR.post}
-              strokeWidth="1.5"
+              fillOpacity={tone ? (st ? (allLeaving ? 0.35 : 0.92) : 0.5) : 0.1}
+              stroke={isHeld ? '#00eeff' : COLOR.post}
+              strokeWidth={isHeld || gh.length ? 2.5 : 1.5}
               strokeDasharray="4 4"
               data-slot={key}
               onPointerEnter={() => onHover({ text, cell: cl })}
@@ -661,7 +748,11 @@ export const ZoneSvg: React.FC<Props> = ({
             >
               <title>{text}</title>
             </rect>
-            {st && <StockLabel stock={st} cl={cl} m={M} />}
+            {st && <StockLabel stock={st} cl={cl} m={M} opacity={allLeaving ? 0.35 : 1} />}
+            {ghostOnly && <StockLabel stock={ghostOnly} cl={cl} m={M} opacity={0.75} />}
+            {(gh.length > 0 || leaving > 0) && (
+              <PlanMarks cl={cl} m={M} landing={gh.length > 0} leaving={leaving > 0} />
+            )}
             <line
               x1={x}
               y1={y}

@@ -1,6 +1,6 @@
 # PRD: Mapa — editar en Plan y editar en Live, con el mismo gesto
 
-**Estado:** Estudio, esperando las ❓ de Rafael — nada construido · **Fecha:** 2026-08-28 · **Autor:**
+**Estado:** P1 (PLAN) construida 2026-08-28 — "ok todo" a las seis ❓ · **Fecha:** 2026-08-28 · **Autor:**
 Rafael + PickD (`pickd-product-designer`) · **Backlog:** idea-173 · **Relacionado:** idea-170 (el mapa
 medido, F1–F4 hechas), idea-171 (la capa "Propuesta"), `docs/design/LESSONS.md`,
 `src/features/warehouse-map/`
@@ -149,8 +149,22 @@ chips y la lista NOT ON THIS PLAN ya son botones de tamaño de dedo.
 
 ## 8) Fases
 
-- **P1 — PLAN.** Tablas, modo, levantar/soltar con las cuatro reglas, fantasmas, DISCARD, PLAN
-  COMPLETED con revalidación y resultado. Es lo que pidió.
+- **P1 ✅ (28 ago) — PLAN.** Migración `20260828183000` (`slot_plans` + `slot_plan_moves`, un
+  borrador por zona, RLS para cualquiera con sesión, descartar ≠ borrar). Reglas puras en
+  `plan/slotPlan.ts` (12 tests: V1–V4, V6, V7, deshacer soltando en casa, `noop`). `useSlotPlan`
+  (lectura/escritura), `useZoneEditor` (modo en la URL `&mode=plan`, línea en mano, `drop`),
+  `ZoneSvg` pinta fantasmas (punteado violeta, `→`) y orígenes (atenuados, `↗`), `ZoneView` tiene
+  el control **VIEW | PLAN** (LIVE llega en P2 — un botón muerto no se enseña), la barra
+  `PLAN · n moves · u · rows` con DISCARD y PLAN COMPLETED, chips que levantan (long-press abre el
+  detalle) y la lista NOT ON THIS PLAN que también levanta. `SlotPlanExecuteSheet` en el Modal
+  Manager ejecuta en orden con `updateItem` / `moveItem`, revalida cada línea y marca `done /
+skipped / failed`. **Una desviación del estudio:** el cambio de letra vía `updateItem` deja un log
+  `EDIT` sin nota (esa ruta no la admite); la auditoría del plan es `slot_plan_moves` (qué, de dónde,
+  adónde, cuándo, resultado). El `move` sí lleva `Plan <zona>: A → B` en su log `MOVE`. Probado en
+  local con sesión: 33-A → 33-C y ROW 27 K → 33-D, ejecutados, logs y filas como V1–V3; teléfono a
+  430 px con zoom ×2.5 automático.
+  **Hotfix de paso:** la ruta pública se caía en una zona desde F3 (`useOpenSkuDetail` sin
+  proveedores); ahora la zona pública es de solo lectura por construcción (`onOpenLine` es una prop).
 - **P2 — LIVE.** El mismo gesto con hoja de confirmación e inmediato. Pequeña: reusa P1 sin el plan.
 - **P3 — cantidades** (mover parte de una línea a otra fila) si tras P1/P2 hace falta (❓ Q3).
 - **P4 — reacomodo asistido** ("compactar esta fila", "juntar este modelo") solo si las cuatro reglas

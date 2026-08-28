@@ -1055,6 +1055,113 @@ export type Database = {
           },
         ];
       };
+      slot_plan_moves: {
+        Row: {
+          created_at: string;
+          error: string | null;
+          executed_at: string | null;
+          from_location: string;
+          from_sublocation: string[] | null;
+          id: number;
+          inventory_id: number;
+          item_name: string | null;
+          kind: string;
+          plan_id: string;
+          position: number;
+          qty: number;
+          sku: string;
+          status: string;
+          to_location: string;
+          to_sublocation: string[];
+          warehouse: string;
+        };
+        Insert: {
+          created_at?: string;
+          error?: string | null;
+          executed_at?: string | null;
+          from_location: string;
+          from_sublocation?: string[] | null;
+          id?: number;
+          inventory_id: number;
+          item_name?: string | null;
+          kind: string;
+          plan_id: string;
+          position: number;
+          qty: number;
+          sku: string;
+          status?: string;
+          to_location: string;
+          to_sublocation: string[];
+          warehouse: string;
+        };
+        Update: {
+          created_at?: string;
+          error?: string | null;
+          executed_at?: string | null;
+          from_location?: string;
+          from_sublocation?: string[] | null;
+          id?: number;
+          inventory_id?: number;
+          item_name?: string | null;
+          kind?: string;
+          plan_id?: string;
+          position?: number;
+          qty?: number;
+          sku?: string;
+          status?: string;
+          to_location?: string;
+          to_sublocation?: string[];
+          warehouse?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'slot_plan_moves_plan_id_fkey';
+            columns: ['plan_id'];
+            isOneToOne: false;
+            referencedRelation: 'slot_plans';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      slot_plans: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          executed_at: string | null;
+          executed_by: string | null;
+          id: string;
+          note: string | null;
+          status: string;
+          updated_at: string;
+          warehouse: string;
+          zone_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          executed_at?: string | null;
+          executed_by?: string | null;
+          id?: string;
+          note?: string | null;
+          status?: string;
+          updated_at?: string;
+          warehouse?: string;
+          zone_id: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          executed_at?: string | null;
+          executed_by?: string | null;
+          id?: string;
+          note?: string | null;
+          status?: string;
+          updated_at?: string;
+          warehouse?: string;
+          zone_id?: string;
+        };
+        Relationships: [];
+      };
       picking_lists: {
         Row: {
           as400_account_number: string | null;
