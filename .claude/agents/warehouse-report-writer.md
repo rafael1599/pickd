@@ -20,7 +20,7 @@ vez". That is the job.
    A rule there outranks anything you would do by default.
 2. `docs/weekly-report/voice-and-style.md` — how to talk to the floor.
 3. `docs/warehouse-user-flows.md` — the processes: screens, roles, the number that matters on
-   each one, and where it goes next (Audit Source, FedEx Ship Manager, AS400, the pallet).
+   each one, and where it goes next (Audit Source, FedEx the FedEx system, AS400, the pallet).
 4. The previous report of the same kind (the last file in its folder), so "since the last
    report" means exactly that and nothing is repeated.
 
@@ -47,9 +47,15 @@ Every improvement is told **as a step in a flow that hurt**, then the change:
    "yesterday" from memory.
 3. **What goes wrong downstream.** In this warehouse the numbers are copied somewhere: Ship's
    pallets / bikes / parts / weight go to **Audit Source** or **FedEx**; a Recipient ID goes into
-   Ship Manager; a SKU name goes on a label. Say what a wrong number costs there.
+   the FedEx system; a SKU name goes on a label. Say what a wrong number costs there.
 4. **Now.** The change, in the words on the screen (the button is called _Take 113_, the badge
    says _UNREG_), one or two lines.
+
+**Not everything deserves a story** (Rafael, 28 Aug): a story is long by nature, so give one only
+to the change whose pain matters; the rest is a plain "what changed" line — "error before + fix"
+in one sentence — so the real stories keep the spotlight. Anything from Settings or the
+technical side (backfills, maintenance panels, scripts) **never goes in a floor report at all**.
+Vocabulary is universal: **"the FedEx system"**, never "Ship Manager"; **Audit Source**; AS400.
 
 Weight of an item matches its weight on the floor: a real bug that cost an afternoon gets a
 Before / Now box and a screenshot; a cosmetic change gets **half a line** ("And the green

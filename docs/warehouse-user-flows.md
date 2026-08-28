@@ -7,14 +7,14 @@
 
 ## People and where they stand
 
-| Who          | Where                                 | Screens                                                                                             |
-| ------------ | ------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Pickers      | the floor, phone in hand              | Board → Double Check (verification) → Stock (item detail, register)                                 |
-| Ship station | the FedEx computer and the truck dock | Ship, FedEx Ship Manager (FSM), **Audit Source** (regular loads: quote → carrier → tracking number) |
-| Bay 2 Mac    | receiving desk                        | the watcher (order intake from AS400 PDFs), its Maintenance panel                                   |
-| Rafael       | everywhere                            | builds PickD, reviews every report                                                                  |
-| Roman        | operations lead                       | reads the weekly                                                                                    |
-| Carine       | stakeholder                           | reads the daily progress update                                                                     |
+| Who          | Where                                 | Screens                                                                                                                                                                 |
+| ------------ | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pickers      | the floor, phone in hand              | Board → Double Check (verification) → Stock (item detail, register)                                                                                                     |
+| Ship station | the FedEx computer and the truck dock | Ship, the **FedEx system** (its product name is Ship Manager — the reports say "the FedEx system"), **Audit Source** (regular loads: quote → carrier → tracking number) |
+| Bay 2 Mac    | receiving desk                        | the watcher (order intake from AS400 PDFs), its Maintenance panel                                                                                                       |
+| Rafael       | everywhere                            | builds PickD, reviews every report                                                                                                                                      |
+| Roman        | operations lead                       | reads the weekly                                                                                                                                                        |
+| Carine       | stakeholder                           | reads the daily progress update                                                                                                                                         |
 
 ## Flow 1 — An order arrives (AS400 → Board)
 
@@ -51,8 +51,7 @@
 ## Flow 3 — Ship (the ship station)
 
 The Ship card exists for **four numbers: pallets, bikes, parts, weight**. Pallets and total
-weight are copied into **Audit Source** (regular loads) or the shipment goes through **FedEx Ship
-Manager**; bikes and parts are how the weight is built. A wrong number there is a wrong shipment,
+weight are copied into **Audit Source** (regular loads) or the shipment goes through the **FedEx system**; bikes and parts are how the weight is built. A wrong number there is a wrong shipment,
 so the station adds it by hand on a calculator when PickD is wrong (27 Aug 2026, 881303 combined
 into 881301). Everything else on the card serves those numbers:
 

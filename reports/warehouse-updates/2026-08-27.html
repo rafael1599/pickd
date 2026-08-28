@@ -46,7 +46,7 @@
   <p><b>The short version</b></p>
   <p>1. Ship: adding a bike to a completed order no longer turns it into a "part", every line now shows its <b>weight</b>, and a combined order opened from <i>Shipped today</i> shows the whole group.</p>
   <p>2. Ship: one click on a SKU opens its detail without leaving Ship; the carrier row fills one line with the carriers this order can use — never FedEx on a truck order — and "…" holds the rest; photos show 2 + a menu.</p>
-  <p>3. FedEx orders show the <b>Recipient ID</b> to paste into Ship Manager, in Ship and in Double Check.</p>
+  <p>3. FedEx orders show the <b>Recipient ID</b> to paste into the FedEx system, in Ship and in Double Check.</p>
   <p>4. Ship: an <b>e-bike</b> is marked on its line and shown as its own carton in big figures — <b>1</b> carton · <b>1</b> Hudson E2 · <b>80</b> lbs — for Audit Source (FedEx orders add the size).</p>
 </div>
 
@@ -57,12 +57,7 @@
   <div class="before"><span class="lbl">Before</span>Today. Order 881303 — one Riptide, registered since February — was combined into completed order 881301. Ship counted it as a <i>part</i> and asked for its weight; the screen said <b>2 pallets, 8 bikes and 1 part</b> that did not exist, and a total weight that made no sense. Pallets and total weight are what goes into <b>Audit Source</b> — where the load is quoted, the carrier chosen and the tracking number made — and bikes and parts are how that weight is built, so they have to be right. The only way out was a calculator: the weight of every bike, added by hand. In the end everything fit on <b>one</b> pallet.</div>
   <div class="after"><span class="lbl">Now</span>Ship reads each line's bike/part and weight from the order itself the moment it opens, so the count is right from the first second. The <b>Order Items</b> table has a new <b>Lbs</b> column — what each line weighs (unit × quantity) — so the calculator is on the screen. A <b>?</b> in orange means no weight is on file yet. (The 2 pallets were 1 + the new order's own estimate; that part is by design and adds up once the count is right.)</div>
 </div>
-<p><b>Also fixed today — a combined order opened from <i>Shipped today</i>:</b></p>
-<!-- pain story: invented, to confirm with Rafael -->
-<div class="ba">
-  <div class="before"><span class="lbl">Before</span>Open 303 / 301 again after it shipped — to answer the driver, or a claim — and it listed 7 lines under a header that said 9 units, with the Riptide from 881303 nowhere. Checking a shipped order against its list meant counting the pallet photo instead.</div>
-  <div class="after"><span class="lbl">Now</span>The whole group shows, with both orders under <i>Combined Order</i>, whether the order is still to ship or already shipped.</div>
-</div>
+<p><b>Also fixed the same day:</b> that same combined order, opened from <i>Shipped today</i>, showed only the first order's 8 lines under a header that said 9 — the numbers for Audit Source were wrong again. The whole group shows now, wherever the order is opened from.</p>
 <figure class="shot pair">
   <img src="img/2026-08-27-ship-order-header.jpg" alt="Ship: the combined order 881303 / 881301 after the fix" />
   <img src="img/2026-08-27-ship-order-items-lbs.jpg" alt="Order Items table with the new Lbs column" />
@@ -70,12 +65,12 @@
 </figure>
 
 <h3>2. Ship — four small things you asked for</h3>
-<!-- pain stories: Order Items and Carrier picker are Rafael's (27 Aug); Pallet photos invented, to confirm -->
+<!-- pain stories: Order Items and Carrier picker are Rafael's (27 Aug); Pallet photos: plain change, no story (Rafael, 28 Aug) -->
 <table>
   <tr><th>Where</th><th>Before</th><th>Now</th></tr>
   <tr><td>Order Items</td><td>To know a SKU's stock, dimensions, weight or any other detail, you had to leave Ship.</td><td><b>One click on the SKU</b> opens its detail right there. If the SKU sits in more than one place, you get the same list of locations as the long-press in Double Check, with Edit on each row.</td></tr>
   <tr><td>Carrier picker</td><td>Every carrier logo on every order, whether the order could use it or not — FedEx on a truck order, four truck lines on a FedEx order.</td><td>The row fills <b>one line</b> with the carriers this order can use, most-used first (R+L, RIST, Pick up, Daylight…), and stops before anything would be cut or wrap — a phone shows two, a desktop five. A <b>regular order never shows FedEx</b> there; a <b>FedEx order shows FedEx alone</b>. Whatever is selected always shows; <b>…</b> opens the rest.</td></tr>
-  <tr><td>Pallet photos</td><td>Three or four thumbnails pushed the totals and the buttons below the fold on the phone.</td><td>Two thumbnails at most; the <b>+N</b> tile opens <i>Take photo</i> / <i>View all</i>.</td></tr>
+  <tr><td>Pallet photos</td><td>—</td><td>Two thumbnails at most; the <b>+N</b> tile opens <i>Take photo</i> / <i>View all</i>.</td></tr>
 </table>
 <p class="note">And the green <b>Verified</b> label is gone from the Ship card — every order there is already verified.</p>
 <figure class="shot">
@@ -84,23 +79,19 @@
 </figure>
 
 <h3>3. FedEx Recipient ID, right where you ship</h3>
-<!-- pain story: invented, to confirm with Rafael -->
 <div class="ba">
-  <div class="before"><span class="lbl">Before</span>In the FedEx system the destination was found in the address book by name, or typed again from the paper. A dealer saved twice — with and without the "LLC", an old street — is two records, and picking the wrong one is a bike delivered to last year's address.</div>
-  <div class="after"><span class="lbl">Now</span>The number Ship Manager wants is the customer's AS400 account plus the two-digit ship-to (<span class="mono">0010495 00 → 1049500</span>). PickD keeps it and shows it as a chip on the Ship card and in Double Check, <b>only on FedEx orders</b>, with a copy button and the one instruction for Ship Manager: paste it in <i>Recipient ID</i> and the address fills itself. Orders captured before this get their number from the new <b>Maintenance</b> button on the Bay 2 watcher (preview first, then apply).</div>
+  <div class="before"><span class="lbl">Before</span>The FedEx system asks for a Recipient ID on every shipment, and PickD did not have one to give — the station worked it out on its own each time.</div>
+  <div class="after"><span class="lbl">Now</span>Digging into the data the FedEx system already handles with AS400 showed the number is simply the customer's AS400 account plus the two-digit ship-to (<span class="mono">0010495 00 → 1049500</span>). PickD handles it too from now on: a chip on the Ship card and in Double Check, <b>only on FedEx orders</b>, with a copy button and the one instruction — paste it in <i>Recipient ID</i> and the address fills itself. Orders captured before this got their number filled in on August 27.</div>
 </div>
 <figure class="shot">
   <img src="img/2026-08-27-ship-fedex-card.jpg" alt="Ship card of a FedEx order: the Check in FedEx chip with the Recipient ID, and FedEx alone in the carrier row" />
-  <figcaption>Live on August 27, order 881304 (FedEx): the <b>Check in FedEx · 1190100</b> chip with the one instruction for Ship Manager, and the carrier row holding <b>FedEx alone</b> — everything else waits under "…".</figcaption>
+  <figcaption>Live on August 27, order 881304 (FedEx): the <b>Check in FedEx · 1190100</b> chip with the one instruction for the FedEx system, and the carrier row holding <b>FedEx alone</b> — everything else waits under "…".</figcaption>
 </figure>
 
 <h3>4. On the Bay 2 watcher</h3>
 <ul>
-  <!-- pain story (channel names as examples): invented, to confirm with Rafael -->
-  <li><b>Before:</b> a warranty or consumer-direct order showed the channel as the customer, and the person it was for was only on the paper. <b>Now:</b> every card shows the <b>Ship-to</b> name next to the Bill-to.</li>
-  <!-- pain story: invented, to confirm with Rafael -->
-  <li><b>Before:</b> filling the AS400 account on the orders captured before today was a script one person ran, with no way to see first what it would change. <b>Now:</b> a <b>… → Maintenance</b> panel — one card per action with a one-line explanation, <i>Preview</i> (nothing written) and <i>Apply</i>. First action: that backfill.</li>
-  <li><b>Before:</b> a line the catalog did not know was written with the AS400 spelling (<span class="mono">03-3768BLD</span>), so registering the bike under the name on the box (<span class="mono">03-3768BL</span>) did not cure the order — LOW STOCK stayed. <b>Now:</b> the line is written the way the box says it, and registering it makes the order match right away.</li>
+  <li><b>Ship-to on every card.</b> Cards showed only the Bill-to; the person or store the order goes to now shows next to it.</li>
+  <li><b>Unknown SKUs written the way the box says it.</b> A line the catalog did not know was written with the AS400 spelling (<span class="mono">03-3768BLD</span>), so registering the bike as <span class="mono">03-3768BL</span> did not cure the order — LOW STOCK stayed. Now the line is written <span class="mono">03-3768BL</span> and registering it makes the order match right away.</li>
 </ul>
 <p class="note">Already installed on the Bay 2 Mac (August 27).</p>
 

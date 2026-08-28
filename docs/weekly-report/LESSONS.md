@@ -36,6 +36,19 @@ reads this file before writing anything. Written as _wrong → right_.
   como en peso". A separate carton leaves Bikes and Weight; never describe or build totals that
   count a thing twice. My default for the PRD's Q2 was wrong; when a rule is about numbers the
   station copies, check it against a real order before defaulting.
+- **Not everything deserves a story** (28 Aug): "solo las historias pueden tener mucho texto y no
+  todo merece una historia" — a story only where the pain matters; the rest is "what changed" in
+  one line, so the deserving ones keep the spotlight. Ship-to on the watcher = "error before +
+  fix", no story. The photo-tile story ("no sé de qué me hablas") was invented for a cosmetic
+  change — never invent a pain for a cosmetic change; just say what changed.
+- **Settings / technical things never go in the floor report** (28 Aug): the watcher's
+  Maintenance panel, backfills, scripts. Out, not shortened.
+- **Universal vocabulary:** "the **FedEx system**", never "Ship Manager"; **Audit Source**; AS400.
+- **The Recipient ID story, as it happened:** the improvement came from digging into the data the
+  FedEx system already handles with AS400 (account + ship-to = the ID); PickD handles it too now.
+  Not an address-book story.
+- **A combined order reopened from Shipped** is the same pain as 881303: the numbers for Audit
+  Source were wrong — not "the driver or a claim".
 - **Small things get half a line**, not a Before / Now box: "el 5 de verified solo menciónalo en
   media línea".
 - **"In the FedEx system"**, not "at the FedEx station".
