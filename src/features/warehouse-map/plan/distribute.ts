@@ -5,8 +5,11 @@
 // free squares of its own row (a relabel to a wider span), then, for what
 // still does not fit, free buried squares in the nearest rows (a move of just
 // those units); fast squares only when no buried square is left, and the
-// result says how many landed there. Lines the drawing had no square for
-// (letter K, no letter) get a square too — small ones share one.
+// result says how many landed there. Lines with no letter at all get a
+// square too — small ones share one. A letter the drawing does not have (K:
+// on the floor it is a real position past J, valid for now — Rafael, 28 Aug
+// 2026, "momentáneamente") is a place, not a gap: those lines stay put and
+// the map keeps listing them as not drawn.
 
 import type { LayoutModel } from '../engine';
 import { slotKey } from '../engine';
@@ -48,7 +51,7 @@ interface Line {
   rowNum: number;
   /** The drawn squares it lives in today; empty for a line the drawing had no square for. */
   letters: string[];
-  /** What the DB says its letters are (K, or nothing). */
+  /** What the DB says (nothing, for a line with no letter). */
   sublocation: string[] | null;
 }
 
@@ -95,9 +98,9 @@ export function distribute(
       lines.set(e.rowId, line);
     }
   }
-  // Lines the drawing had no square for: a letter it does not draw, or none.
+  // Lines with no letter at all. A letter the drawing does not have (K) is left alone.
   for (const u of stock.unplaced) {
-    if (u.reason !== 'letter' && u.reason !== 'no-letter') continue;
+    if (u.reason !== 'no-letter') continue;
     if (lines.has(u.row.id) || state.vacated.has(u.row.id)) continue;
     const rowNum = rowOf(u.row.location);
     if (!drawnRows.has(rowNum)) continue;

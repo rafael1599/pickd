@@ -90,22 +90,23 @@ describe('a line with more units than squares', () => {
     const all = model.validCells.map((c, i) =>
       line(`ROW ${c.row.num}`, `FILL-${i}`, 30, [c.letter])
     );
-    // Every square taken; a line in K with 50 units has nowhere to go.
-    all.push(line('ROW 33', '03-K', 50, ['K']));
+    // Every square taken; a line with no letter and 50 units has nowhere to go.
+    all.push(line('ROW 33', '03-K', 50, []));
     const stock = zoneStock(ZONES.bay3_north, model, all);
     const d = distribute(stock, model, plannedState(stock, []));
     expect(d.leftovers).toEqual([{ sku: '03-K', location: 'ROW 33', qty: 50 }]);
   });
 
-  it('gives a line the drawing had no square for its squares — own row first', () => {
-    const rows = [line('ROW 33', '03-3777RD', 21, ['K']), line('ROW 32', '03-X', 27, ['K'])];
+  it('gives a line with no letter a square in its own row, and leaves a line in K alone', () => {
+    // K is a real position past J on the floor, valid for now (Rafael, 28 Aug 2026):
+    // not drawn, not distributed.
+    const rows = [line('ROW 33', '03-3777RD', 21, ['K']), line('ROW 32', '03-X', 27, [])];
     const stock = zoneStock(ZONES.bay3_north, model, rows);
     const d = distribute(stock, model, plannedState(stock, []));
     expect(d.drafts.map((m) => [m.sku, m.kind, m.toLocation, m.toLetters])).toEqual([
       ['03-X', 'relabel', 'ROW 32', ['A']],
-      ['03-3777RD', 'relabel', 'ROW 33', ['A']],
     ]);
-    expect(d.drafts[0].fromSublocation).toEqual(['K']);
+    expect(d.drafts[0].fromSublocation).toEqual([]);
   });
 
   it('packs small lines with no letter into one shared square', () => {

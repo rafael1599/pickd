@@ -84,7 +84,9 @@ run the full depth, and where the fifth post goes.
   numbers as tests (54 cases identical cell by cell to the JS); the screens follow; the
   stock is laid over the slots; Plan/Live and `public/warehouse/` are retired. Bay 3 North
   and Bay 2 sublocations move to one letter per square (`sublocation_relabels` keeps the
-  old and the new).
+  old and the new). **K is valid for now** (Rafael, same day, "momentáneamente"): a real
+  position past J on the floor (ROW 30, 32, 33 today), not drawn on the map and left alone
+  by DISTRIBUTE — documented here, not built into the UI, until it is measured.
 - **Next** — F5, the proposal layer: the slotting view back in the app, with
   `get_bay3_fill_candidates` as a migration instead of a URL to `127.0.0.1`.
 

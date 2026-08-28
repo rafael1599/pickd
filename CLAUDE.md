@@ -338,6 +338,9 @@ Ya no hay que coordinar cambios de schema con nadie más.
   constraints: una letra `^[A-Z]$` por elemento y solo para `location ILIKE 'ROW%'`. Se auto-limpia a
   NULL al mover a non-ROW. UI: chips en ItemDetailView/MovementModal, badge en
   InventoryCard/DoubleCheckView; el mapa (`/warehouse-map`) pinta cada `ROW n · letra`.
+  **K es válida momentáneamente (Rafael, 28 ago 2026):** es una posición real después de J
+  (hoy en ROW 30, 32 y 33); el mapa **no la dibuja** (se lista como "not drawn") y DISTRIBUTE
+  **no la reparte** — solo vive en esta documentación, no en la UI, hasta que se mida.
 - **Invariante qty=0 → is_active=false:** `adjust_inventory_quantity` y `undo_inventory_action` mantienen `is_active = (quantity > 0)` bidireccionalmente. **Excepción:** `register_new_sku` crea placeholders con `qty=0, is_active=true` para onboarding de bikes nuevos — NO modificar este comportamiento. Ghost trail en búsqueda usa `includeInactive: true` para seguir mostrando items sin stock con su último movimiento.
 
 ### `picking_list_notes`: no toda nota la escribió una persona
