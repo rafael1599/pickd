@@ -78,7 +78,7 @@
   están completadas, así que el pill no distingue nada.
 - **Origen:** operador, sesión 2026-08-27.
 
-### 93. Ship: alertas (litio y otras) en un solo botón pulsante de una o dos palabras <!-- id: idea-161 --> — input: 2026-08-27 NY
+### ~~93. Ship: alertas (litio y otras) en un solo botón pulsante de una o dos palabras~~ <!-- id: idea-161 --> ✅ 2026-08-28 ("ok" a la propuesta: litio + zona PAV en la píldora; Daylight se queda en la fila del carrier; la sugerencia de combinar aparte; input: 2026-08-27 NY)
 - **Ver idea-167:** el botón diría `E-BIKE ×N` y llevaría a la línea resaltada (PRD, Q5).
 - **Pedido:** "Juntemos lithium battery y otras alertas a un botón pulsante que diga en una palabra,
   máximo 2, lo que contiene".

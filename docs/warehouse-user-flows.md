@@ -71,6 +71,9 @@ into 881301). Everything else on the card serves those numbers:
   opens the full note history.
 - **Combined orders**: two orders for the same customer ship as one; the card shows both under
   _Combined Order_ and the numbers are the group's, wherever it is opened from.
+- **Alerts** are one pulsing pill at the right of the customer name — _Lithium_, _PAV zone_, or
+  _2 alerts_ — that opens the alerts' own banners on a tap (28 Aug, idea-161). The Daylight
+  reminder is not in it: it lives in the carrier row.
 - **Pallet photos** (two tiles + menu), **Recipient ID** chip on FedEx orders (paste into FSM's
   Recipient ID field and the address fills itself), **Reopen order** (with reason), **Picking
   summary**.
