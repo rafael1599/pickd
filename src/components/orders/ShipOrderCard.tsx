@@ -1183,8 +1183,13 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
         </div>
       </div>
 
-      {/* The e-bike as its own carton for Audit Source — right under the numbers it is typed beside */}
-      <ElectricCartonDeclaration cartons={electricCartons} pulse={!selectedOrder.is_shipped} />
+      {/* The e-bike as its own carton, in the language of the four numbers above it.
+          Audit Source (regular) wants carton + bike + weight; FedEx wants the size too. */}
+      <ElectricCartonDeclaration
+        cartons={electricCartons}
+        pulse={!selectedOrder.is_shipped}
+        showDims={isFedexOrder}
+      />
 
       {/* Combined Order Info */}
       {selectedOrder.combine_meta?.is_combined && (

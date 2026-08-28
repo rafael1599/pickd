@@ -162,6 +162,7 @@ interface ShipSkuMeta {
   width_in: number | null;
   height_in: number | null;
   dimensions_verified: boolean;
+  model: string | null;
 }
 /** What sku_metadata answers, before the SKU-candidate match. */
 interface ShipSkuMetaRow {
@@ -172,6 +173,7 @@ interface ShipSkuMetaRow {
   width_in?: number | null;
   height_in?: number | null;
   dimensions_verified?: boolean | null;
+  model?: string | null;
 }
 
 /**
@@ -528,7 +530,9 @@ export const ShipScreen = () => {
 
     supabase
       .from('sku_metadata')
-      .select('sku, weight_lbs, is_bike, length_in, width_in, height_in, dimensions_verified')
+      .select(
+        'sku, weight_lbs, is_bike, length_in, width_in, height_in, dimensions_verified, model'
+      )
       .in('sku', allCandidates)
       .then(({ data }) => {
         const metaBySku = new Map<string, ShipSkuMetaRow>();
@@ -553,6 +557,7 @@ export const ShipScreen = () => {
             width_in: matchedMeta?.width_in ?? null,
             height_in: matchedMeta?.height_in ?? null,
             dimensions_verified: matchedMeta?.dimensions_verified ?? false,
+            model: matchedMeta?.model ?? null,
           };
         });
         setSkuMeta(map);

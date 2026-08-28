@@ -1,13 +1,14 @@
 /**
- * The e-bike as Audit Source wants it: its own carton, outside the pallet.
+ * The e-bike as Audit Source (or FedEx) wants it: its own carton, outside the
+ * pallet — shown in Ship the way the four big numbers are shown.
  *
  * Audit Source — where a regular load is quoted, the carrier chosen and the
  * tracking number made — asks for a battery bike to be declared as a separate
  * carton even when it physically rides inside the pallet (Rafael, 2026-08-27,
- * idea-167). The station needs, per electric SKU on the order: what it is,
- * how many, what one weighs, and the carton size. This module turns the
- * electric lines the Ship screen already finds (utils/electricBikes.ts) plus
- * the catalog row into that, and into the text the copy button hands over.
+ * idea-167). The station wants figures, not a sentence: "1 carton, 1 Hudson
+ * E1, 78.6 lbs" — and on a FedEx order the carton size too, same shape. This
+ * module turns the electric lines Ship already finds (utils/electricBikes.ts)
+ * plus the catalog row into those figures and into the copy-button text.
  *
  * Pallets and total weight are NOT touched: the carton is declared in
  * addition to the pallet, the load's totals stay the load's totals (PRD Q2).
@@ -20,6 +21,8 @@ export interface ElectricCartonMeta {
   width_in?: number | null;
   height_in?: number | null;
   dimensions_verified?: boolean | null;
+  /** sku_metadata.model — "HUDSON E2 S/T" when split, the whole name when not. */
+  model?: string | null;
 }
 
 export interface CartonDims {
@@ -34,11 +37,35 @@ export interface CartonDims {
 export interface ElectricCarton {
   sku: string;
   name: string | null;
+  /** "HUDSON E2" — what the station calls the bike, nothing more. */
+  model: string;
   units: number;
   /** One bike's weight, or null when nothing is on file. */
   weightLbs: number | null;
   /** Only a measured carton (dimensions_verified) — a default is not a size. */
   dims: CartonDims | null;
+}
+
+/**
+ * "HUDSON E2" out of "HUDSON E2 S/T 14 2026 THUNDER" or "Hudson E1 Step-Over
+ * 18 Vanilla": the model up to its generation token, which is how JAMIS names
+ * the electric line and how the floor says it. Falls back to the catalog model,
+ * then the first two words of the name, then the SKU.
+ */
+export function shortElectricModel(
+  name: string | null | undefined,
+  model: string | null | undefined,
+  sku: string
+): string {
+  for (const source of [model, name]) {
+    const text = (source ?? '').trim();
+    if (!text) continue;
+    const m = /^(.*?\bE-?\d)(?![A-Z0-9])/i.exec(text);
+    if (m) return m[1].toUpperCase();
+  }
+  const fallback = (model ?? name ?? '').trim();
+  if (fallback) return fallback.split(/\s+/).slice(0, 2).join(' ').toUpperCase();
+  return sku;
 }
 
 export function buildElectricCartons(
@@ -57,6 +84,7 @@ export function buildElectricCartons(
     return {
       sku: line.sku,
       name: line.name,
+      model: shortElectricModel(line.name, meta?.model, line.sku),
       units: line.units,
       weightLbs: meta?.weight_lbs ?? null,
       dims,
@@ -64,30 +92,29 @@ export function buildElectricCartons(
   });
 }
 
-/** `55×30×8` — the way the floor sheets write a carton (L × H × W). */
+/** 80 → "80", 78.6 → "78.6", 54.23 → "54.2". */
+export function formatLbs(weight: number): string {
+  return Number.isInteger(weight) ? String(weight) : String(Math.round(weight * 10) / 10);
+}
+
+/**
+ * "57×37×10" — whole inches, rounded UP, the same carton FedEx already holds
+ * from the Dimensions export (buildFedexDimensions ceils too): a carton is
+ * never declared smaller than it is. L × H × W, the way the floor writes it.
+ */
 export function formatCartonDims(dims: CartonDims): string {
-  const n = (v: number) => (Number.isInteger(v) ? String(v) : String(Math.round(v * 10) / 10));
-  return `${n(dims.length)}×${n(dims.height)}×${n(dims.width)}`;
+  return `${Math.ceil(dims.length)}×${Math.ceil(dims.height)}×${Math.ceil(dims.width)}`;
 }
 
-/** What the station reads on screen, one part per field so a missing one can glow amber. */
-export function electricCartonParts(c: ElectricCarton): {
-  what: string;
-  weight: string | null;
-  dims: string | null;
-} {
-  return {
-    what: `${c.units} × ${c.name ?? c.sku}`,
-    weight: c.weightLbs == null ? null : `${c.weightLbs} lb`,
-    dims: c.dims ? `${formatCartonDims(c.dims)} in` : null,
-  };
-}
-
-/** What the copy button hands to Audit Source — everything it could ask, in one line. */
-export function electricCartonClipboard(c: ElectricCarton): string {
-  const weight = c.weightLbs == null ? 'weight ?' : `${c.weightLbs} lb each`;
-  const dims = c.dims ? `${formatCartonDims(c.dims)} in` : 'size ?';
-  return `E-BIKE (lithium battery) — separate carton: ${c.name ?? c.sku} ${c.sku} × ${c.units}, ${weight}, ${dims}`;
+/** "1 carton, 1 HUDSON E2, 80 lbs" — plus ", 57×37×10 in" when the carrier wants the size. */
+export function electricCartonClipboard(c: ElectricCarton, withDims: boolean): string {
+  const cartons = `${c.units} ${c.units === 1 ? 'carton' : 'cartons'}`;
+  const what = `${c.units} ${c.model}`;
+  const weight =
+    c.weightLbs == null ? 'weight ?' : `${formatLbs(c.weightLbs)} lbs${c.units > 1 ? ' each' : ''}`;
+  const parts = [cartons, what, weight];
+  if (withDims) parts.push(c.dims ? `${formatCartonDims(c.dims)} in` : 'size ?');
+  return parts.join(', ');
 }
 
 export function totalElectricCartonUnits(cartons: readonly ElectricCarton[]): number {
