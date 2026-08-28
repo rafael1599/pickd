@@ -114,3 +114,12 @@ reads this file before writing anything. Written as _wrong → right_.
   declared, as a carton outside the pallet even when they ride inside it. → written into
   `docs/warehouse-user-flows.md`, Flow 3. Say "pallets and total weight go to Audit Source",
   not "the four numbers".
+
+### 2026-08-27 — evening round on Ship (from the phone)
+
+- Three corrections on the e-bike carton in a row: sentence → figures; totals inflated (the
+  bike counted on the pallet and as a carton) → it leaves Bikes / Weight; then "if only
+  e-bikes, hide the other totals; figures scale to the space, one line always; card at 60 % with
+  Shipped off; full order numbers in the header". Pattern: **he reviews on the phone in
+  landscape** — anything that wraps, clips or truncates there is the next correction. Check the
+  card at ~430 px before calling a Ship change done.
