@@ -102,6 +102,18 @@ export const CARRIER_BRAND_COLORS: Record<string, CarrierBrandColor> = {
   },
 };
 
+/**
+ * Logos drawn dark on transparent — PAV Express (green/black), 2-Day (navy),
+ * TForce (blue) — vanish on the Ship carrier chips, which are dark and dim the
+ * unselected ones further. Those get the white pill under the logo; the light
+ * ones (R+L, RIST, Daylight, Estes, FedEx) stay flat on the chip.
+ */
+const DARK_ON_TRANSPARENT = new Set(['2-DAY', 'PAV EXPRESS', 'TFORCE']);
+
+export function logoNeedsLightBackdrop(company: string | null | undefined): boolean {
+  return DARK_ON_TRANSPARENT.has(normalizeCompany(company));
+}
+
 export function getCarrierBrandColors(company: string | null | undefined): CarrierBrandColor {
   const norm = normalizeCompany(company);
   return (

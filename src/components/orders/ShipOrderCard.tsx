@@ -32,7 +32,7 @@ import { OrderStatusPill } from './OrderStatusPill';
 import { CopyButton } from '../ui/CopyButton';
 import { FedexRecipientChip } from '../../features/picking/components/FedexRecipientChip';
 import { TransportLogo } from './TransportLogo';
-import { getCarrierBrandColors } from './transportLogos';
+import { getCarrierBrandColors, logoNeedsLightBackdrop } from './transportLogos';
 import { detectSmsPlatform } from '../../utils/shipOutSms';
 import {
   DAYLIGHT_CONTACT_NAME,
@@ -1055,7 +1055,12 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                       tabIndex={-1}
                       className="shrink-0 px-4 h-11 rounded-2xl border inline-flex items-center justify-center"
                     >
-                      <TransportLogo company={company} height={26} plain textColor="font-black" />
+                      <TransportLogo
+                        company={company}
+                        height={26}
+                        plain={!logoNeedsLightBackdrop(company)}
+                        textColor="font-black"
+                      />
                     </button>
                   ))}
                   <button
@@ -1102,7 +1107,7 @@ export const ShipOrderCard: React.FC<ShipOrderCardProps> = ({
                         <TransportLogo
                           company={company}
                           height={26}
-                          plain
+                          plain={!logoNeedsLightBackdrop(company)}
                           textColor={
                             company === 'PICK UP'
                               ? 'text-red-500 font-black tracking-wider'
