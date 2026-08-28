@@ -7,7 +7,6 @@
 
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
 import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left';
 import Minus from 'lucide-react/dist/esm/icons/minus';
 import Plus from 'lucide-react/dist/esm/icons/plus';
@@ -17,9 +16,8 @@ import X from 'lucide-react/dist/esm/icons/x';
 import { ZONES, calculateLayout, HALL_MIN } from '../engine';
 import type { Cell, LayoutPreset, ZoneId } from '../engine';
 import { useZoneState, toggleKeys } from '../hooks/useZoneState';
-import { useWarehouseStock, WAREHOUSE_STOCK_KEY } from '../hooks/useWarehouseStock';
+import { useWarehouseStock } from '../hooks/useWarehouseStock';
 import { zoneStock, groupUnplaced, type CellStock, type Unplaced } from '../stock/rowStock';
-import { useOpenSkuDetail } from '../../inventory/hooks/useOpenSkuDetail';
 import { skuColorDark } from '../../../utils/skuColor';
 import { ZoneSvg, COLOR, type HoverTarget } from './ZoneSvg';
 
@@ -66,7 +64,22 @@ const UNPLACED_REASON: Record<Unplaced['reason'], (u: Unplaced) => string> = {
   row: (u) => `row ${u.parsed.number} not drawn in this layout`,
 };
 
-export const ZoneView: React.FC<{ zoneId: ZoneId }> = ({ zoneId }) => {
+export type OpenLine = (
+  sku: string,
+  itemName: string | null,
+  location: string,
+  warehouse: string
+) => void;
+
+/**
+ * `onOpenLine` is what a tap on a SKU does. The signed-in map passes the
+ * app's item detail (it needs the Modal Manager and the inventory provider);
+ * the public map passes nothing and the SKUs are labels.
+ */
+export const ZoneView: React.FC<{ zoneId: ZoneId; onOpenLine?: OpenLine }> = ({
+  zoneId,
+  onOpenLine,
+}) => {
   const config = ZONES[zoneId];
   const [state, update] = useZoneState(config);
   const model = useMemo(() => calculateLayout(config, state), [config, state]);
@@ -75,17 +88,13 @@ export const ZoneView: React.FC<{ zoneId: ZoneId }> = ({ zoneId }) => {
   const [selected, setSelected] = useState<{ cell: Cell; stock: CellStock } | null>(null);
   const [zoom, setZoom] = useState(1);
 
-  const queryClient = useQueryClient();
   const stockQuery = useWarehouseStock();
   const stock = useMemo(
     () => (stockQuery.data ? zoneStock(config, model, stockQuery.data) : null),
     [config, model, stockQuery.data]
   );
-  const openSkuDetail = useOpenSkuDetail({
-    afterChange: () => queryClient.invalidateQueries({ queryKey: WAREHOUSE_STOCK_KEY }),
-  });
-  const openLine = (sku: string, itemName: string | null, location: string, warehouse: string) =>
-    openSkuDetail({ sku, itemName, pickLocation: location, pickWarehouse: warehouse });
+  const openLine: OpenLine = (sku, itemName, location, warehouse) =>
+    onOpenLine?.(sku, itemName, location, warehouse);
 
   const halls = toggleKeys(config);
   const hasPosts = (config.posts ?? []).some((p) => p.size > 0);
