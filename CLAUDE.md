@@ -27,6 +27,11 @@ PWA de gestión de inventario y warehouse operations. Multi-usuario con sync en 
   sirven en `/warehouse/index.html`. Miden el edificio real; **no** son la vista in-app
   (esa es `src/features/warehouse-management/`). Ver `docs/warehouse-floor-plans.md`.
   **CRÍTICO:** Todos los layouts deben cumplir estrictamente las reglas en `public/warehouse/WAREHOUSE-UI-RULES.md` (ej. inputs de pallet dimensions `60x62` globales) y guiarse por `public/warehouse/WAREHOUSE-MEASUREMENTS.md`.
+  **Desde el 28 ago 2026 (idea-170) el motor, las zonas y el blueprint viven en
+  `src/features/warehouse-map/engine/`** (TS puro, 55 tests, paridad celda a celda con el JS): la
+  app va a reemplazar la vista `/warehouse-map` por este mapa y las páginas de `public/warehouse/`
+  quedan congeladas hasta retirarse (fase F4). Una medida corregida en un lado se corrige en el otro.
+  PRD: `docs/prds/warehouse-map-measured.md`.
 - `.claude/agents/` y `.claude/skills/` — Versionados en el repo desde el 11 ago 2026.
   Los skills eran symlinks a un repo central y se rompieron al moverse. Ver
   `docs/claude-agents-and-skills.md`

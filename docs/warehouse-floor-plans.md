@@ -1,6 +1,10 @@
 # Warehouse Floor Plans — Architecture Decision
 
-> **Status:** Adopted 2026-08-11
+> **Status:** Adopted 2026-08-11 · **Superseded in part 2026-08-28:** the plans are becoming the
+> app's warehouse map (idea-170, `docs/prds/warehouse-map-measured.md`). The engine, the zones and
+> the blueprint now live in `src/features/warehouse-map/engine/` as TypeScript with tests; these
+> pages are frozen and go away in phase F4. Until then a measurement corrected here must be
+> corrected there too.
 > **Lives in:** `public/warehouse/` — opens at `/warehouse/index.html`
 > **Source of truth for every figure:** `public/warehouse/WAREHOUSE-MEASUREMENTS.md`
 > **NOT the same thing as:** `src/features/warehouse-management/`
@@ -104,9 +108,8 @@ Different things, and they should stay that way unless someone decides otherwise
 - **`public/warehouse/`** is the plan. It knows about walls and inches and nothing
   else, and it is edited when someone walks the floor with a tape measure.
 
-If they are ever to be joined, the natural shape is a third tab in `WarehouseMapScreen`
-alongside _plan_ and _live_, pointing at `/warehouse/index.html`. Nothing has been
-built toward that.
+They are being joined the other way round (decided 2026-08-28): the measured map becomes
+the only map in the app, and _plan_ and _live_ become layers on it. See the PRD.
 
 ## Agents
 

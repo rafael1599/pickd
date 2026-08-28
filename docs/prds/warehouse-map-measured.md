@@ -1,6 +1,6 @@
 # PRD: El mapa con medidas reemplaza por completo la vista Warehouse Map
 
-**Estado:** Borrador con ❓ — esperando las respuestas de Rafael · **Fecha:** 2026-08-28 · **Autor:**
+**Estado:** F1 construida 2026-08-28 — Rafael aprobó las cinco propuestas por defecto ("ok todo, arranca F1") · **Fecha:** 2026-08-28 · **Autor:**
 Rafael + PickD · **Backlog:** idea-170 · **Relacionado:** `docs/warehouse-floor-plans.md` (la decisión
 del 11 ago de tenerlos separados, que este PRD revierte), `public/warehouse/` (el mapa que funciona),
 `src/features/warehouse-management/` (la vista que se va), PRD `warehouse-real-stock-map.md` (la
@@ -100,10 +100,14 @@ migración; mover inventario desde el mapa (eso sigue en Consolidation / Movemen
 
 ## 8) Fases
 
-- **F0 (hoy):** este PRD + idea-170. Respuestas a las ❓.
-- **F1 — Motor a TS con tests.** `src/features/warehouse-map/engine/` (`zones.ts`, `palletEngine.ts`,
-  `blueprint.ts` con la tabla `M` y los diez checks). `pnpm vitest` prueba V1–V5 contra los números de
-  hoy. Cero UI. Sin riesgo: no toca nada que se use.
+- **F0 ✅ (28 ago):** este PRD + idea-170. "ok todo" a las cinco ❓.
+- **F1 ✅ (28 ago) — Motor a TS con tests.** `src/features/warehouse-map/engine/`: `zones.ts`,
+  `palletEngine.ts` (`calculateLayout`, puro), `blueprint.ts` (la tabla `M` en pulgadas, la geometría,
+  las 8 zonas libres, las 3 bahías y los diez checks) y `types.ts`. 55 tests: V1–V5 y V9 con los
+  números exactos, los toggles de cada página, qué es un slot. **Paridad verificada** contra el JS:
+  54 casos (6 zonas × 9 estados) idénticos celda a celda (posición, letra, fast, distancia). Un
+  cambio a propósito: el reparto aleatorio de halls alrededor de un poste corre con semilla fija.
+  Cero UI; nada de lo que se usa se toca.
 - **F2 — Pantalla.** Mapa maestro → zona, contadores, toggles, sliders, hover, postes, ← MAP. Se revisa
   a 430 px antes de seguir.
 - **F3 — Stock real.** RF-004/005/006 (V6–V8). Una consulta por zona (`location ILIKE 'ROW %'`).
@@ -111,7 +115,7 @@ migración; mover inventario desde el mapa (eso sigue en Consolidation / Movemen
   `docs/warehouse-floor-plans.md` se reescribe (la decisión del 11 ago queda como historia).
 - **F5 — Propuesta (fase 2).** RF-010.
 
-## 9) ❓ Preguntas para Rafael — cada una con la respuesta por defecto (un "ok todo" las cierra)
+## 9) Preguntas — cerradas el 28 ago 2026 con la respuesta por defecto ("ok todo")
 
 - **Q1 — ¿Dónde vive el mapa nuevo?** _Default:_ **se porta a React** (`src/features/warehouse-map/`),
   motor y zonas en TypeScript puro con tests; `/warehouse-map` lo abre. La alternativa rápida —un
