@@ -32,11 +32,11 @@ exchange for a repo that works on any machine and for anyone who clones it.
 
 Vendored on 11 Aug 2026:
 
-| From                    | Skills                                                                                                                                     |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `project-skills/pickd/` | `catalog-images`, `daily-report`, `supabase`, `ui-rules`                                                                                   |
-| `global-skills/`        | `commit-craft`, `compact-backlog`, `fabrica-de-skills`, `image-cors-cache-bust`, `prod-data`, `project-setup`, `report-gen`, `web-scraper` |
-| `external-skills/`      | `supabase-postgres-best-practices`                                                                                                         |
+| From                    | Skills                                                                                                                                                                 |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `project-skills/pickd/` | `catalog-images`, `daily-report`, `supabase`, `ui-rules`                                                                                                               |
+| `global-skills/`        | `commit-craft`, `compact-backlog`, `fabrica-de-skills`, `image-cors-cache-bust`, `layout-lab` (28 ago 2026), `prod-data`, `project-setup`, `report-gen`, `web-scraper` |
+| `external-skills/`      | `supabase-postgres-best-practices`                                                                                                                                     |
 
 ### The trade-off, stated
 
@@ -46,8 +46,10 @@ is no automation for that, on purpose, because automation is what broke last tim
 
 Worth pruning at some point: `.claude/hooks/link-skills.sh` carries a curated list of
 six skills with the note that _every skill description costs context in every session_.
-The vendored set is thirteen, inherited from whatever had been symlinked locally over
-time. If a skill here is not being used, delete it.
+The vendored set is fourteen: thirteen inherited from whatever had been symlinked locally
+over time, plus `layout-lab` (28 Aug 2026). Global copies were last re-synced from the central
+repo on 28 Aug 2026 (`project-setup`, `report-gen`: path fixes; `ui-rules`, `daily-report`: the
+27 Aug edits made here were ported back to central). If a skill here is not being used, delete it.
 
 ### The hook still works
 

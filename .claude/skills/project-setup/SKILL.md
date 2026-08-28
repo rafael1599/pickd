@@ -36,14 +36,14 @@ Seguir este orden exacto. Detenerse en el primer exito:
 
 1. **Cache** — leer `~/.config/skills-hub.json` → campo `central_repo`. Validar que existe y es un repo de skills (tiene `.git/`, `global-skills/`, `external-skills/`).
 2. **Variable de entorno** — leer `$SKILLS_PATH`. Validar igual que cache.
-3. **Busqueda en disco** — buscar en `~/Documents/Projects/*` y `~/Documents/*` un directorio que sea repo de skills valido.
+3. **Busqueda en disco** — buscar en `~/dev/*`, `~/Documents/Projects/*` y `~/Documents/*` un directorio que sea repo de skills valido.
 4. **Preguntar al usuario** — si ningun paso anterior funciono, usar AskUserQuestion:
    - "No encontre tu repo de skills. Ya tienes uno clonado?"
    - Si responde que si: pedir la ruta, validar, y registrar con `project-setup.py central --set "<ruta>"`
    - Si responde que no o no sabe: sugerir clonarlo:
      - Preguntar la URL del repo git (o sugerir la URL por defecto si se conoce)
      - Ejecutar: `python <project-setup.py> clone "<url>"`
-     - Confirmar que se clono en `~/Documents/Projects/skills` y quedo registrado
+     - Confirmar que se clono en `~/dev/skills` y quedo registrado
 
 Cuando se resuelva por pasos 2 o 3, guardar en cache automaticamente para que la proxima vez se resuelva por paso 1.
 
@@ -64,7 +64,7 @@ El script que ejecuta las operaciones de gestion esta en `scripts/project-setup.
 
 ## Parte 2 — Vigilancia de la carpeta Projects
 
-La carpeta raiz `~/Documents/Projects/` tiene un `CLAUDE.md` que documenta la estructura conocida de workspaces y proyectos. Esta parte se activa automaticamente cuando el usuario pide estandarizar un proyecto o cuando se detecta que se esta trabajando dentro de Projects.
+La carpeta raiz `~/dev/` tiene un `CLAUDE.md` que documenta la estructura conocida de workspaces y proyectos. Esta parte se activa automaticamente cuando el usuario pide estandarizar un proyecto o cuando se detecta que se esta trabajando dentro de Projects.
 
 ### Estructura conocida
 
@@ -86,7 +86,7 @@ Projects/
 
 ### Flujo de vigilancia
 
-1. **Verificar CLAUDE.md raiz.** Si `~/Documents/Projects/CLAUDE.md` no existe, crearlo con la estructura conocida documentada arriba y las convenciones del proyecto.
+1. **Verificar CLAUDE.md raiz.** Si `~/dev/CLAUDE.md` no existe, crearlo con la estructura conocida documentada arriba y las convenciones del proyecto.
 
 2. **Escanear carpetas.** Listar los directorios de primer nivel en Projects y compararlos con la estructura conocida.
 
@@ -188,42 +188,54 @@ Si el usuario no especifica ruta, usar el directorio de trabajo actual.
 
 **Antes de ejecutar project-setup.py**, verificar el estado actual de `.claude/skills`:
 
-Existen **dos esquemas validos** de conexion de skills. Ambos funcionan y deben ser reconocidos:
+Hay dos esquemas en circulacion, pero **solo el de symlinks individuales funciona**: Claude Code
+descubre `SKILL.md` a un solo nivel (`.claude/skills/<nombre>/SKILL.md`), asi que un symlink al
+repo completo no expone `global-skills/*`, `project-skills/*` ni `external-skills/*`. Verificado
+el 2026-08-28 con `claude -p` en un proyecto de prueba: con el symlink al repo solo aparecio
+`find-skills`, el unico que esta a un nivel. drivly y taxi-app estuvieron asi meses sin que se notara.
 
-| Esquema | Que es | Como se ve |
+| Esquema | Que es | Estado |
 |---|---|---|
-| **Symlink al repo** | `.claude/skills` es un symlink que apunta al repo central completo | `ls -la` muestra `skills -> /ruta/al/repo/skills` |
-| **Symlinks individuales** | `.claude/skills/` es un directorio con symlinks a cada skill individual | `ls -la skills/` muestra `commit-craft -> /ruta/.../commit-craft`, etc. |
+| **Symlink al repo** | `.claude/skills` es un symlink al repo central completo | ❌ No descubre nada anidado. Migrar con `link-skills.sh --local` |
+| **Symlinks individuales** | `.claude/skills/` es un directorio con un symlink por skill (`commit-craft -> $SKILLS_PATH/global-skills/commit-craft`) | ✅ Esquema vigente |
+
+El mecanismo vigente es `.claude/hooks/link-skills.sh` (canonico en `scripts/link-skills.sh` de
+esta skill; cada proyecto lleva una copia con su propia lista `SKILLS`): como hook SessionStart crea
+los symlinks en Claude Code web; con `--local` los regenera en esta maquina apuntando a
+`$SKILLS_PATH` y borra los muertos. Para conectar un proyecto nuevo: copiar el script a
+`.claude/hooks/`, registrar el hook SessionStart en `.claude/settings.json`, editar `SKILLS` y correr
+`bash .claude/hooks/link-skills.sh --local`. Excepciones documentadas: `pickd` vendoriza copias
+(decision 2026-08-11 en su CLAUDE.md) y `personal-ops` no usa skills locales (2026-06-13).
+
+`project-setup.py setup` todavia crea el symlink al repo completo — **no usarlo para conectar
+skills** hasta que se actualice (pendiente 2026-08-28); el resto de subcomandos sigue vigente.
 
 **Logica de deteccion:**
 ```bash
-# 1. Es symlink al repo central → esquema repo completo → OK, no tocar
+# 1. Es symlink al repo central → esquema roto (no descubre nada) → link-skills.sh --local lo reemplaza
 if [ -L ".claude/skills" ]; then
-  echo "CONNECTED (symlink al repo)"
+  echo "BROKEN (symlink al repo: migrar a symlinks individuales)"
 
 # 2. Es directorio con symlinks dentro → esquema individual → OK, no tocar
 elif [ -d ".claude/skills" ] && ls -la .claude/skills/ | grep -q "^l"; then
   echo "CONNECTED (symlinks individuales)"
 
-# 3. Es directorio vacio → reemplazar con symlink al repo
+# 3. Es directorio vacio → instalar el hook y correr link-skills.sh --local
 elif [ -d ".claude/skills" ] && [ -z "$(ls -A .claude/skills 2>/dev/null)" ]; then
-  rmdir .claude/skills
-  ln -s "<ruta-repo-central>" .claude/skills
-  echo "FIXED (dir vacio → symlink)"
+  echo "EMPTY (instalar hook + link-skills.sh --local)"
 
 # 4. Es directorio con archivos reales (no symlinks) → conflicto real
 elif [ -d ".claude/skills" ]; then
   echo "CONFLICT (directorio con archivos reales)"
 
-# 5. No existe → crear symlink
+# 5. No existe → instalar el hook y correr link-skills.sh --local
 else
-  mkdir -p .claude
-  ln -s "<ruta-repo-central>" .claude/skills
-  echo "CREATED (symlink nuevo)"
+  echo "MISSING (instalar hook + link-skills.sh --local)"
 fi
 ```
 
-**Solo actuar en los casos 3, 4 y 5.** Los casos 1 y 2 estan correctamente conectados — no modificarlos.
+**Solo el caso 2 esta bien conectado.** En 1, 3 y 5 instalar el hook y correr `--local`; en 4
+preguntar (puede ser una decision deliberada, como en pickd).
 
 En caso de conflicto (caso 4), preguntar al usuario si quiere respaldarlo y reemplazar con symlink.
 
@@ -238,10 +250,10 @@ Interpretar el resultado de project-setup.py:
 | `skipped` | No aplica (ej: cursor-rules no existe en el central) |
 | `error` | Mostrar error en lenguaje simple |
 
-Si project-setup.py falla o no esta disponible, crear el symlink manualmente:
+Si hay que hacerlo a mano (sin el hook), un symlink **por skill**:
 ```bash
-mkdir -p .claude
-ln -s "<ruta-repo-central>" .claude/skills
+mkdir -p .claude/skills
+ln -sfn "$SKILLS_PATH/global-skills/commit-craft" .claude/skills/commit-craft
 ```
 
 ### Paso 3: `.gitattributes`
@@ -306,14 +318,14 @@ Si existe `CLAUDE.md` en la raiz del proyecto, buscar la seccion `## Skills` y a
 ```markdown
 ## Skills
 
-Este proyecto usa skills de `.claude/skills/` (symlink a repo central). Para actualizar: `cd .claude/skills && git pull`
+Las skills viven en el repo central `rafael1599/skills` (`$SKILLS_PATH`) y se conectan con un symlink **por skill** en `.claude/skills/<nombre>/` (Claude Code solo descubre SKILL.md a un nivel). Para actualizar: `git pull` en ese repo. Para (re)generar los symlinks o habilitar una skill nueva: editar la lista `SKILLS` de `.claude/hooks/link-skills.sh` y correr `bash .claude/hooks/link-skills.sh --local`. En Claude Code web el mismo hook los crea al iniciar la sesion.
 
 ### Preferencias de conexion
 - Siempre usar **symlink** para conectar skills (nunca git clone dentro del proyecto)
 ```
 
 Si no existe la seccion, agregarla al final del archivo.
-Si ya existe pero menciona `git clone`, actualizarla para reflejar symlink.
+Si ya existe pero menciona `git clone` o `cd .claude/skills && git pull` (symlink al repo completo), actualizarla a este texto.
 Si no existe `CLAUDE.md` en un proyecto individual, crear uno basico con el nombre del proyecto y la seccion de skills.
 Si no existe `CLAUDE.md` en la raiz de Projects, crearlo siguiendo la Parte 2.
 
@@ -507,7 +519,7 @@ python <project-setup.py> central --set "<ruta-absoluta>"
 python <project-setup.py> clone "<git_url>" [--dest "<ruta>"]
 ```
 
-Clona en `~/Documents/Projects/skills` por defecto y registra en cache.
+Clona en `~/dev/skills` por defecto y registra en cache.
 
 ### Sincronizar skills en un worktree
 

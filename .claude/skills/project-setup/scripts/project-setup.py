@@ -66,7 +66,7 @@ def find_central_repo() -> "Path | None":
     Busca el repo central de skills en este orden:
     1. Cache (~/.config/skills-hub.json)
     2. Variable de entorno $SKILLS_PATH
-    3. Busqueda en ~/Documents/Projects/* y ~/Documents/*
+    3. Busqueda en ~/dev/*, ~/Documents/Projects/* y ~/Documents/*
     """
     # 1. Cache
     cached = load_cache()
@@ -82,7 +82,10 @@ def find_central_repo() -> "Path | None":
             return p
 
     # 3. Busqueda dinamica
+    # ~/dev es la raiz real de proyectos. Las rutas de Documents se mantienen
+    # como respaldo para maquinas donde el repo aun no se movio.
     search_roots = [
+        HOME / "dev",
         HOME / "Documents" / "Projects",
         HOME / "Documents",
     ]

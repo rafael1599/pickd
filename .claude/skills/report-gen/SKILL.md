@@ -62,7 +62,7 @@ Pregunta lo que necesites (usa `AskUserQuestion`). Si el usuario ya proporciono 
 
 **Localizar archivos de referencia:** Antes de crear la estructura, busca la carpeta de este skill ejecutando:
 ```bash
-find ~/Documents/Projects/skills -type d -name "report-gen" 2>/dev/null
+find "${SKILLS_PATH:-$HOME/dev/skills}" -type d -name "report-gen" 2>/dev/null
 ```
 Guarda esa ruta como `SKILL_DIR`. Todos los archivos de referencia estan ahi.
 

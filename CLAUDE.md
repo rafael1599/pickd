@@ -574,10 +574,11 @@ ve igual que un skill ausente. Por eso ahora son copias reales (11 ago 2026).
 
 Project: `catalog-images`, `daily-report`, `supabase`, `ui-rules`.
 Global: `commit-craft`, `compact-backlog`, `fabrica-de-skills`, `image-cors-cache-bust`,
-`prod-data`, `project-setup`, `report-gen`, `web-scraper`.
+`layout-lab`, `prod-data`, `project-setup`, `report-gen`, `web-scraper`.
 External: `supabase-postgres-best-practices`.
 
-Son trece, heredados de lo que había enlazado localmente. La lista curada del hook son
+Son catorce: trece heredados de lo que había enlazado localmente, más `layout-lab`
+(28 ago 2026, laboratorio visual de layout — nació del Ship Card). La lista curada del hook son
 seis, con la nota de que **cada descripción de skill ocupa contexto en cada sesión**.
 Si alguno no se usa, borrarlo.
 
