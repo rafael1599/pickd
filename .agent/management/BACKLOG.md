@@ -11,6 +11,17 @@
 
 ## P1 — Alto (operación diaria)
 
+### 105. ❓ Mapa: editar en PLAN y en LIVE — mover un SKU a cualquier cuadro; PLAN COMPLETED lo ejecuta <!-- id: idea-173 --> — input: 2026-08-28 NY
+- **Rafael:** "herramientas de edición live separadas de herramientas de edición plan… seleccionar un
+  SKU y después seleccionar un cuadro para moverlo, que rearrange todo si se necesita o si está
+  vacío solo moverlo; un botón de plan completado para que se ejecute ese plan y se convierta en
+  live… minimalism, intuitivo". Era lo que le gustaba del mapa viejo.
+- **Estudio (no código):** `docs/prds/warehouse-map-plan-and-live.md` — VIEW | PLAN | LIVE, un gesto
+  (levantar un chip, tocar un cuadro), cuatro reglas (vacío / una línea → intercambio / varias →
+  unirse / otra fila), plan por zona en la DB (`slot_plans` + `slot_plan_moves`), PLAN COMPLETED que
+  ejecuta con `updateItem` (misma fila, `EDIT`) y `moveItem` (otra fila, `MOVE`) revalidando cada
+  línea. Seis ❓ con default. Hecho por el agente nuevo `pickd-product-designer`.
+
 ### 104. ❓ Bay 1: medidas reales de espacio usable → zonas + reetiqueta <!-- id: idea-172 --> — input: 2026-08-28 NY
 - **Rafael:** "bay 1 no se toca hasta que te dé las medidas de espacio usable, todo el que se ve no
   es el real". Con las medidas: corregir `bay1_north` / `bay1_office_gap` en `zones.ts` y la tabla `M`

@@ -614,3 +614,8 @@ Si alguno no se usa, borrarlo.
   `docs/warehouse-floor-plans.md`
 - `warehouse-sku-placement` — decide qué va en cada hueco. Borrador: sus reglas siguen
   siendo preguntas abiertas
+- `pickd-product-designer` — diseña pantallas, flujos y funcionalidad **como estudio antes de
+  código** (PRD con ❓ y default, un gesto / un switch / un botón, cifras no frases, revisado a
+  430 px); cada corrección de Rafael se vuelve regla en `docs/design/LESSONS.md`. Creado el 28 ago
+  2026 a petición suya ("designa un agente específico o créalo… para diseño de interfaz, flujo y
+  funcionalidad de PickD"). Primer estudio: `docs/prds/warehouse-map-plan-and-live.md`.

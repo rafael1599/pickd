@@ -123,5 +123,9 @@ count as space.
 
 ## Still to confirm with Rafael ❓
 
+- **Map editing (designed 28 Aug, not built):** who moves stock on the map day to day — Rafael,
+  Jed, Roman (the three who log MOVEs today) or the pickers too? Whether a plan is "the plan of the
+  zone" anyone executes, or has an owner. See `docs/prds/warehouse-map-plan-and-live.md` ❓ Q4.
+
 - Whether the ship station and the pickers are the same people on a given day.
 - Whether Carine also reads What's new, or only the daily.
