@@ -572,6 +572,24 @@ export const ShipScreen = () => {
       resolveLineMeta(item.sku, skuMeta[item.sku], stampedMeta(item)),
     [skuMeta]
   );
+  // An electric bike is declared as its own carton, outside the pallet
+  // (idea-167), so it leaves the pallet's numbers: Bikes and Weight below
+  // count everything BUT the e-bikes, and the e-bike row carries them. With
+  // both, Audit Source got the Hudson E2 twice — 9 bikes / 480 lb on the
+  // pallet plus 1 carton / 80 lb (Rafael, 27 Aug, order 303 / 301). Until the
+  // catalog answers, only the verified SKU list counts — the name pattern
+  // needs is_bike to keep the E2 diagnostic tool out.
+  const isElectricItem = useCallback(
+    (item: PickingListItem) =>
+      weightsReady
+        ? isElectricBikeItem({
+            sku: item.sku,
+            item_name: item.item_name,
+            isBike: skuMeta[item.sku]?.is_bike,
+          })
+        : isElectricBikeSku(item.sku),
+    [weightsReady, skuMeta]
+  );
   // Items missing weight
   const itemsMissingWeight = useMemo(() => {
     const items = selectedOrder?.items;
@@ -668,6 +686,7 @@ export const ShipScreen = () => {
     let partUnits = 0;
     let partWeightTotal = 0;
     items.forEach((item: PickingListItem) => {
+      if (isElectricItem(item)) return; // its own carton — not on the pallet
       const qty = item.pickingQty || 0;
       const meta = metaForItem(item);
       const weight = meta.weight_lbs ?? 0;
@@ -693,6 +712,7 @@ export const ShipScreen = () => {
   }, [
     filteredItems,
     metaForItem,
+    isElectricItem,
     formData.pallets,
     formData.bikes,
     formData.parts,
@@ -720,12 +740,13 @@ export const ShipScreen = () => {
     let bikes = 0,
       parts = 0;
     filteredItems.forEach((item: PickingListItem) => {
+      if (isElectricItem(item)) return; // its own carton — not on the pallet
       const qty = item.pickingQty || 0;
       if (isLikelyBike(item.sku, metaForItem(item))) bikes += qty;
       else parts += qty;
     });
     return { autoBikeCount: bikes, autoPartCount: parts };
-  }, [filteredItems, metaForItem]);
+  }, [filteredItems, metaForItem, isElectricItem]);
 
   // Electric bikes on this order. Same `filteredItems` the counts above use, so
   // it follows the active sub-order filter: an operator shipping only the half
@@ -762,22 +783,6 @@ export const ShipScreen = () => {
     () => buildElectricCartons(electricBikeLines, (sku) => skuMeta[sku]),
     [electricBikeLines, skuMeta]
   );
-  // Per line, for the E-BIKE mark in Order Items. Until the catalog answers,
-  // only the verified SKU list counts — the name pattern needs is_bike to keep
-  // the E2 diagnostic tool out, and a badge that flashes on a tool teaches the
-  // station to ignore the badge.
-  const isElectricItem = useCallback(
-    (item: PickingListItem) =>
-      weightsReady
-        ? isElectricBikeItem({
-            sku: item.sku,
-            item_name: item.item_name,
-            isBike: skuMeta[item.sku]?.is_bike,
-          })
-        : isElectricBikeSku(item.sku),
-    [weightsReady, skuMeta]
-  );
-
   // Effective counts: manual override takes priority over auto-calculated,
   // but only when unfiltered — see filteredItems comment above.
   const bikeCount =
