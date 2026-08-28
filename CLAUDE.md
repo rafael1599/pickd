@@ -38,7 +38,7 @@ PWA de gestión de inventario y warehouse operations. Multi-usuario con sync en 
   modo en la URL). Nació como
   HTML estático en `public/warehouse/` (11 ago) y reemplazó por completo la vista Plan/Live el 28 ago
   2026 (idea-170; historia en `docs/warehouse-floor-plans.md`). **CRÍTICO:** todo layout cumple
-  `docs/warehouse-ui-rules.md` (los cuatro contadores, sliders de pallet `60×62`, "hall" nunca
+  `docs/warehouse-ui-rules.md` (los cuatro contadores, pallet `60×62` fijo — **sin sliders** desde el 28 ago —, "hall" nunca
   "aisle") y se guía por `docs/warehouse-measurements.md`. **Bay 1 no está medido** (Rafael, 28 ago:
   "todo el que se ve no es el real"): sus contadores no se citan hasta tener las medidas.
 - `.claude/agents/` y `.claude/skills/` — Versionados en el repo desde el 11 ago 2026.

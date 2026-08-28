@@ -4,8 +4,7 @@ This document contains the strict, mandatory UI and UX rules that must be presen
 
 ## 1. Dynamic Dimension Inputs (Always Present)
 
-- **Pallet Text Areas:** Every screen must feature input text areas to dynamically change pallet dimensions on the fly.
-- **Default Sizes:** Pallets default to **60" Depth (D) × 62" Width (W)**.
+- **Pallet size is a fact, not a control (Rafael, 28 Aug 2026: "no quiero que estén expuestos los cambiadores de tamaño de una pallet").** Pallets are **60" Depth (D) × 62" Width (W)**; no screen shows sliders or inputs to change them. The engine still takes `pd`/`pw` (a link can carry `?pd=65` for the space planner), but the UI does not expose them. Until that day the rule was the opposite — "every screen must feature input text areas to change pallet dimensions on the fly" — and the sliders sat in LAYOUT.
 - **Real-time Engine:** Changing these inputs must instantly trigger the engine (`calculateLayout`) to recalculate the physics and re-render the SVG map.
 
 ## 2. Global Metric Counters

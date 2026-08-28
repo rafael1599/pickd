@@ -181,3 +181,14 @@ si la respuesta es React, arranca sin esperar las otras cuatro.
   Si Carine necesita ver stock, es una decisión aparte (una vista pública recortada), no un bypass.
 - **La letra K y las filas fuera del motor** (Q5) son datos que el dibujo no puede representar sin
   otra medida; ocultarlos sería mentir con el mapa.
+
+## 11) Decisiones posteriores (se agregan al final, nunca reescribiendo el cuerpo)
+
+- **2026-08-28 (noche) — sin sliders de pallet.** Rafael: "no quiero que estén expuestos los
+  cambiadores de tamaño de una pallet". RF-002 decía sliders `60" D × 62" W` en cada zona (era la
+  regla 7 de `warehouse-ui-rules.md`); desde hoy el pallet es un hecho fijo y ninguna pantalla lo
+  cambia. `pd`/`pw` siguen en el motor y en el enlace (`?pd=65`) para el planificador; V9 pasa a
+  probarse por URL, no por slider. Regla 7 reescrita el mismo día.
+- **2026-08-28 — K vale momentáneamente.** "Solo para la documentación, no en la UI": posición real
+  después de J (ROW 30, 32, 33); el mapa no la dibuja, la lista como _not drawn_, y DISTRIBUTE la
+  deja en paz (Q5 sigue igual).

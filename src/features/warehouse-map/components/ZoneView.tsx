@@ -1,8 +1,8 @@
 // One zone. On the floor it reads stock: how many squares hold something, a
 // capacity bar (units in stock against the bikes the layout holds), the
 // drawing with a pallet's worth per square, and what the drawing has no
-// place for — never hidden. Measures (sliders, halls, inches) live in
-// LAYOUT. PLAN draws moves as ghosts; LIVE moves now, after a confirmation.
+// place for — never hidden. Measures (halls, inches, orientation) live in
+// LAYOUT; the pallet itself is 60 × 62 and not a control. PLAN draws moves as ghosts; LIVE moves now, after a confirmation.
 //
 // Presentational: `data` from useZoneData, `editor` (optional) from
 // useZoneEditor, `onOpenLine` (optional) is the app's item detail. The public
@@ -110,8 +110,6 @@ const switchBtn = (on: boolean, tone = 'bg-accent text-black') =>
     on ? tone : 'text-muted hover:text-content'
   }`;
 
-const SLIDER_MIN = 50;
-const SLIDER_MAX = 70;
 const ZOOM_STEP = 1.35;
 /** Below this width a square is too small to tap; PLAN and LIVE zoom in on entry. */
 const PHONE_WIDTH = 640;
@@ -377,34 +375,10 @@ export const ZoneView: React.FC<{
             </p>
           )}
 
-          {/* The measures: the pallet, the orientation, the halls, the preset */}
+          {/* The measures: the orientation, the halls, the preset. The pallet is 60 × 62 and
+              not a control (Rafael, 28 Aug 2026: "no quiero que estén expuestos los cambiadores
+              de tamaño de una pallet"); a link can still carry `pd`/`pw` for the planner. */}
           <div className="px-4 pb-3 flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-subtle bg-card font-mono text-[11px] text-muted">
-              <span className="tracking-[.1em] font-bold">PALLET</span>
-              <input
-                type="range"
-                min={SLIDER_MIN}
-                max={SLIDER_MAX}
-                value={state.pd}
-                onChange={(e) => update({ pd: Number(e.target.value) })}
-                className="w-16 accent-cyan-400"
-                aria-label="Pallet depth, inches"
-              />
-              <span className="text-cyan-400 font-bold tabular-nums">{state.pd}"</span>
-              <span>D ×</span>
-              <input
-                type="range"
-                min={SLIDER_MIN}
-                max={SLIDER_MAX}
-                value={state.pw}
-                onChange={(e) => update({ pw: Number(e.target.value) })}
-                className="w-16 accent-cyan-400"
-                aria-label="Pallet width, inches"
-              />
-              <span className="text-cyan-400 font-bold tabular-nums">{state.pw}"</span>
-              <span>W</span>
-            </label>
-
             <div className="flex rounded-lg border border-subtle overflow-hidden bg-card">
               <button
                 type="button"

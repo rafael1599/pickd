@@ -52,6 +52,13 @@ one place: a rule that contradicts an older one replaces it.
 - **Two taps and a confirmation.** "Hacer click en un SKU para moverlo a otro sitio solo haciendo
   otro click y aceptando la confirmación. INTUITIVO." Tapping a square with one line picks it up —
   no chip step; the chips appear only when a square holds several SKUs.
+- **The pallet is a fact, not a control** (28 Aug, evening): "no quiero que estén expuestos los
+  cambiadores de tamaño de una pallet". 60 × 62 is what the floor has; a slider for it invites
+  play, not work. What changes on the floor is rows, halls and posts — those stay in LAYOUT. The
+  engine keeps `pd`/`pw` for the space planner's links; no screen shows them.
+- **A draft is a draft** (28 Aug): "yo no confirmé nada, solo estaba probando, borrador no quiere
+  decir nada". Ghosts in PLAN are not a decision; only PLAN COMPLETED is. Replace a draft without
+  ceremony when he asks for another one.
 
 ## Log
 
@@ -62,3 +69,8 @@ one place: a rule that contradicts an older one replaces it.
 - **2026-08-28 — first corrections on P1** (five in one message): measures out of VIEW into a
   LAYOUT mode; header = pallets in use + capacity bar; no hover on halls; 30 a square with
   DISTRIBUTE; one-tap pick and LIVE with confirmation. All four became standing rules above.
+- **2026-08-28 — block DISTRIBUTE and the pallet sliders.** Running DISTRIBUTE on ROW 30–33 alone
+  showed the engine skipped lines with no square and left units homeless with fast squares free;
+  fixed. Then "K es válido momentáneamente… solo para la documentación, no en la UI" and "no quiero
+  que estén expuestos los cambiadores de tamaño de una pallet" — both rules above; the sliders
+  left LAYOUT the same evening.
