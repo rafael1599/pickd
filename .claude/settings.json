@@ -10,17 +10,16 @@
     ],
     "additionalDirectories": []
   },
-  "enabledPlugins": {},
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/link-skills.sh"
-          }
-        ]
+  "enabledPlugins": {
+    "globals@rafael-skills": true,
+    "external@rafael-skills": true
+  },
+  "extraKnownMarketplaces": {
+    "rafael-skills": {
+      "source": {
+        "source": "github",
+        "repo": "rafael1599/skills"
       }
-    ]
+    }
   }
 }

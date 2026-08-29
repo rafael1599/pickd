@@ -1,7 +1,20 @@
 # Claude Agents and Skills — where they live
 
-> **Status:** Changed 2026-08-11 — skills are now vendored into this repo
-> **Applies to:** `.claude/agents/`, `.claude/skills/`, `.claude/hooks/link-skills.sh`
+> **Status:** Changed 2026-08-29 — global skills come from the `rafael-skills` plugin marketplace; only the four project skills stay in this repo
+> **Applies to:** `.claude/agents/`, `.claude/skills/`, `.claude/settings.json`
+
+## 2026-08-29 — global skills are a plugin now
+
+`.claude/settings.json` declares the marketplace `rafael1599/skills` (`extraKnownMarketplaces`) and enables
+`globals@rafael-skills` + `external@rafael-skills` (`enabledPlugins`). Claude Code installs them when the
+project opens — locally, on the web, on any machine — so a fresh clone still works, which was the whole
+point of vendoring. The vendored copies of the nine global skills and `supabase-postgres-best-practices`
+were removed (they had two homes and drifted, e.g. `project-setup` still carried `~/Documents/Projects`
+paths); `.claude/hooks/link-skills.sh` is gone. Project skills (`catalog-images`, `daily-report`,
+`supabase`, `ui-rules`) stay here, versioned — their only home. Global skills are invoked as
+`/globals:<name>`; after pushing the skills repo: `claude plugin marketplace update rafael-skills && claude plugin update globals@rafael-skills`.
+
+Everything below this line is the 2026-08-11 state, kept as history.
 
 Both agents and skills live **inside this repo**. A fresh clone has everything it
 needs; nothing depends on another directory existing on the machine.

@@ -586,33 +586,23 @@ El edge function valida el JWT internamente con `supabase.auth.getUser(token)`. 
 
 ## Skills y agentes
 
-**Viven en este repo, versionados** (`.claude/skills/`, `.claude/agents/`). Un clone
-recién hecho los tiene todos; no dependen de que exista otro directorio en la máquina.
-Ver `docs/claude-agents-and-skills.md`.
+**Agentes:** `.claude/agents/`, versionados, siempre lo fueron.
 
-Eran symlinks al repo central `rafael1599/skills` y se rompieron los once de golpe el
-día que ese repo se movió de sitio en disco — en silencio, porque un symlink muerto se
-ve igual que un skill ausente. Por eso ahora son copias reales (11 ago 2026).
+**Skills de proyecto** (`catalog-images`, `daily-report`, `supabase`, `ui-rules`): versionadas en
+`.claude/skills/`, su único hogar (desde el 29 ago 2026 ya no están en el repo central; una skill de
+proyecto cambia con el código). `.claude/skills/` está en `.prettierignore`.
 
-- **Actualizar un skill global:** copiarlo otra vez desde el repo central. No hay
-  automatización a propósito: la automatización es lo que falló.
-- **Claude Code web:** el hook SessionStart `.claude/hooks/link-skills.sh` sigue ahí,
-  pero solo rellena huecos — si el destino ya es un directorio real, lo respeta.
-- **Formato:** `.claude/skills/` está en `.prettierignore`. Formatearlos los haría
-  divergir de su origen.
+**Skills globales:** vienen del plugin `globals@rafael-skills` (marketplace `rafael1599/skills`),
+declarado en `.claude/settings.json` junto con `external@rafael-skills`: Claude Code los instala solo
+al abrir el proyecto, también en Claude Code web y en otra máquina. Se invocan como `/globals:<skill>`
+(p. ej. `/globals:commit-craft`, `/globals:layout-lab`). Tras un push al repo de skills:
+`claude plugin marketplace update rafael-skills && claude plugin update globals@rafael-skills`.
+Inventario y costo de contexto: `claude plugin details globals@rafael-skills`.
 
-### Skills en el repo
-
-Project: `catalog-images`, `daily-report`, `supabase`, `ui-rules` — su único hogar es este repo
-(desde el 29 ago 2026 ya no están en el central; una skill de proyecto cambia con el código).
-Global: `commit-craft`, `compact-backlog`, `fabrica-de-skills`, `image-cors-cache-bust`,
-`layout-lab`, `prod-data`, `project-setup`, `report-gen`, `web-scraper`.
-External: `supabase-postgres-best-practices`.
-
-Son catorce: trece heredados de lo que había enlazado localmente, más `layout-lab`
-(28 ago 2026, laboratorio visual de layout — nació del Ship Card). La lista curada del hook son
-seis, con la nota de que **cada descripción de skill ocupa contexto en cada sesión**.
-Si alguno no se usa, borrarlo.
+Historia: eran symlinks al repo central y se rompieron los once de golpe cuando ese repo se movió de
+sitio (11 ago 2026 → copias vendorizadas). El 29 ago 2026 las copias de globales se retiraron a favor
+del plugin, que resuelve lo mismo (un clone funciona en cualquier máquina) sin dos hogares que
+divergen; el hook `link-skills.sh` se eliminó. Ver `docs/claude-agents-and-skills.md`.
 
 ### Agentes
 
