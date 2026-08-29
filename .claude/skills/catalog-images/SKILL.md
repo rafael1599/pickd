@@ -32,7 +32,7 @@ Migrar imagenes del catalogo JAMIS Bikes desde jamisbikes.com a Cloudflare R2 y 
 
 ```bash
 # Desde el directorio del proyecto pickd:
-SKILL_DIR=".claude/skills/project-skills/pickd/catalog-images"
+SKILL_DIR=".claude/skills/catalog-images"
 
 # Descargar imagenes y subir a R2
 node $SKILL_DIR/scripts/migrate.mjs --download

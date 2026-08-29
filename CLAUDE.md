@@ -603,7 +603,8 @@ ve igual que un skill ausente. Por eso ahora son copias reales (11 ago 2026).
 
 ### Skills en el repo
 
-Project: `catalog-images`, `daily-report`, `supabase`, `ui-rules`.
+Project: `catalog-images`, `daily-report`, `supabase`, `ui-rules` — su único hogar es este repo
+(desde el 29 ago 2026 ya no están en el central; una skill de proyecto cambia con el código).
 Global: `commit-craft`, `compact-backlog`, `fabrica-de-skills`, `image-cors-cache-bust`,
 `layout-lab`, `prod-data`, `project-setup`, `report-gen`, `web-scraper`.
 External: `supabase-postgres-best-practices`.

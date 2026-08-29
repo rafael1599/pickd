@@ -12,6 +12,10 @@
 # Desde el 11 ago 2026 los skills están VERSIONADOS en .claude/skills (ver
 # docs/claude-agents-and-skills.md). Este hook solo rellena huecos: si el destino
 # ya es un directorio real, lo respeta y no lo pisa.
+#
+# Desde el 29 ago 2026 las skills DE PROYECTO (catalog-images, daily-report, supabase,
+# ui-rules) viven solo aquí: se retiraron de project-skills/ del repo central. La lista
+# de abajo solo contiene globales y externas.
 set -euo pipefail
 
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
@@ -40,10 +44,6 @@ mkdir -p "$DEST"
 # Skills habilitados para este repo (rutas relativas dentro del repo skills).
 # Cada descripción de skill ocupa contexto en cada sesión: agregar solo los necesarios.
 SKILLS="
-project-skills/pickd/catalog-images
-project-skills/pickd/daily-report
-project-skills/pickd/supabase
-project-skills/pickd/ui-rules
 global-skills/commit-craft
 external-skills/supabase-postgres-best-practices
 "

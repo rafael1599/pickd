@@ -32,15 +32,17 @@ exchange for a repo that works on any machine and for anyone who clones it.
 
 Vendored on 11 Aug 2026:
 
-| From                    | Skills                                                                                                                                                                 |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `project-skills/pickd/` | `catalog-images`, `daily-report`, `supabase`, `ui-rules`                                                                                                               |
-| `global-skills/`        | `commit-craft`, `compact-backlog`, `fabrica-de-skills`, `image-cors-cache-bust`, `layout-lab` (28 ago 2026), `prod-data`, `project-setup`, `report-gen`, `web-scraper` |
-| `external-skills/`      | `supabase-postgres-best-practices`                                                                                                                                     |
+| From                                                                                  | Skills                                                                                                                                                                 |
+| ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| _(de proyecto — nativas de este repo desde 29 ago 2026; ya no existen en el central)_ | `catalog-images`, `daily-report`, `supabase`, `ui-rules`                                                                                                               |
+| `global-skills/`                                                                      | `commit-craft`, `compact-backlog`, `fabrica-de-skills`, `image-cors-cache-bust`, `layout-lab` (28 ago 2026), `prod-data`, `project-setup`, `report-gen`, `web-scraper` |
+| `external-skills/`                                                                    | `supabase-postgres-best-practices`                                                                                                                                     |
 
 ### The trade-off, stated
 
-A global skill now has two homes: the central `skills` repo and a copy here. They can
+A **global** skill has two homes: the central `skills` repo and a copy here. The four
+**project** skills have one home only — this repo — since 29 Aug 2026, when `project-skills/`
+was retired from the central repo (a project skill changes with the code, so it versions with it). They can
 drift. The fix when a global skill is improved centrally is to copy it in again — there
 is no automation for that, on purpose, because automation is what broke last time.
 
