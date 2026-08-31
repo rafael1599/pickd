@@ -124,3 +124,8 @@ one place: a rule that contradicts an older one replaces it.
   spread kept seeing offenders that were already fixed. `plannedState` now subtracts what each
   move takes from each square (`remainingAt`, `unitsAt`); the drawing, the counters and the
   auto-spread all read that.
+- **2026-08-31 — the cap applies to the landing too.** "Todavía tengo algunos con 69 y 90
+  unidades." The squares still over 45 were the plan's own: a hand drop carries the square's whole
+  pallet, so dropping 240 units planned 240 into one square. `repairOverCap` re-plans any landing
+  over the cap across the squares it needs — the row it was dropped on first, then the nearest
+  rows, then the MAIN HALL. A rule about squares has to hold wherever the units come from.

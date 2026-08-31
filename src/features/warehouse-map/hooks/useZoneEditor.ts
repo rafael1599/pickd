@@ -30,7 +30,7 @@ import {
   type PlanMove,
   type PlannedState,
 } from '../plan/slotPlan';
-import { distribute as distributeLines } from '../plan/distribute';
+import { distribute as distributeLines, repairOverCap } from '../plan/distribute';
 import { useSlotPlan } from './useSlotPlan';
 
 export type EditMode = 'view' | 'plan' | 'live' | 'layout';
@@ -139,14 +139,36 @@ export function useZoneEditor(
   }, [plan]);
 
   // Rafael, 31 Aug 2026: "no puede haber un cuadro con 46 o más… quiero que
-  // se redistribuya automáticamente". In PLAN, any square the planned state
-  // leaves over SQUARE_MAX gets its live lines spread on their own — as
-  // ghosts in the draft: nothing moves until PLAN COMPLETED. The stamp stops
-  // it retrying the same offenders when spreading cannot fix them (several
-  // small lines summed in one square stay alarmed instead).
+  // se redistribuya automáticamente". In PLAN two things can put too much in
+  // one square, and both are repaired here as ghosts in the draft — nothing
+  // moves until PLAN COMPLETED: a landing that carries a whole pallet into
+  // one square (a hand drop) and a live line that never fitted. The stamp
+  // stops it retrying what spreading cannot fix (several small lines summed
+  // in one square stay alarmed instead).
   const autoSpread = useRef('');
   useEffect(() => {
     if (mode !== 'plan' || !stock || !model || plan.busy || plan.isLoading) return;
+
+    // 1. The plan's own landings: re-plan a move over the squares it needs.
+    const repair = repairOverCap(model, planState, plan.moves);
+    if (repair.drafts.length > 0) {
+      const stamp = `repair:${repair.removals.join(',')}`;
+      if (autoSpread.current === stamp) return;
+      autoSpread.current = stamp;
+      plan.applyDrop.mutate(
+        { rule: 'move', drafts: repair.drafts, removals: repair.removals },
+        {
+          onSuccess: () =>
+            toast(
+              `Over ${SQUARE_MAX} in a square — spread over ${repair.drafts.length} square${repair.drafts.length === 1 ? '' : 's'}`
+            ),
+          onError: (e) => toast.error(e.message),
+        }
+      );
+      return;
+    }
+
+    // 2. Live lines that never fitted in the squares they hold.
     const offenders = new Set<number>();
     for (const cell of model.validCells) {
       const key = slotKey(cell);
@@ -160,7 +182,7 @@ export function useZoneEditor(
       }
     }
     if (offenders.size === 0) return;
-    const stamp = [...offenders].sort((a, b) => a - b).join(',');
+    const stamp = `lines:${[...offenders].sort((a, b) => a - b).join(',')}`;
     if (autoSpread.current === stamp) return;
     autoSpread.current = stamp;
     const d = distributeLines(stock, model, planState, (l) => offenders.has(l.inventoryId));

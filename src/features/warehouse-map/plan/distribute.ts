@@ -18,7 +18,13 @@
 import type { LayoutModel } from '../engine';
 import { slotKey } from '../engine';
 import { PALLET_UNITS, squaresFor, type ZoneStock } from '../stock/rowStock';
-import { locationOfKey, type MoveDraft, type PlannedState } from './slotPlan';
+import {
+  locationOfKey,
+  sameLocation,
+  type MoveDraft,
+  type PlanMove,
+  type PlannedState,
+} from './slotPlan';
 
 export interface Distribution {
   drafts: MoveDraft[];
@@ -56,19 +62,12 @@ interface Line {
 const sortLetters = (letters: string[]) => [...new Set(letters)].sort();
 const rowOf = (location: string) => Number(/\d+/.exec(location)?.[0] ?? NaN);
 
-export function distribute(
-  stock: ZoneStock,
-  model: LayoutModel,
-  state: PlannedState,
-  /** Plan only these lines; the rest still hold their squares. The automatic
-      over-the-cap spread uses it to touch just the offenders. */
-  lineFilter: (line: { inventoryId: number }) => boolean = () => true
-): Distribution {
-  // The squares that can take something: drawn, no live line, no ghost.
+/** The squares that can take something: drawn, and empty once the plan runs. */
+function freeSquares(model: LayoutModel, state: PlannedState): Map<string, Square> {
   const squares = new Map<string, Square>();
   for (const c of model.validCells) {
     const key = slotKey(c);
-    if (stock.cells.has(key) || (state.ghosts.get(key)?.length ?? 0) > 0) continue;
+    if (state.unitsAt(key) > 0) continue;
     squares.set(key, {
       key,
       rowNum: Number(c.row.num),
@@ -77,6 +76,18 @@ export function distribute(
       d: c.d,
     });
   }
+  return squares;
+}
+
+export function distribute(
+  stock: ZoneStock,
+  model: LayoutModel,
+  state: PlannedState,
+  /** Plan only these lines; the rest still hold their squares. The automatic
+      over-the-cap spread uses it to touch just the offenders. */
+  lineFilter: (line: { inventoryId: number }) => boolean = () => true
+): Distribution {
+  const squares = freeSquares(model, state);
   const drawnRows = new Set(model.validCells.map((c) => Number(c.row.num)));
 
   // Each line once, with the squares it lives in.
@@ -240,3 +251,103 @@ export function distribute(
 
   return { drafts, untouched, onFast, toHall };
 }
+
+export interface Repair {
+  drafts: MoveDraft[];
+  removals: number[];
+}
+
+/**
+ * No square over the cap, whatever put it there. DISTRIBUTE spreads live
+ * lines; this spreads the PLAN'S OWN landings — a hand drop carries a whole
+ * pallet and puts it in one square, so a move of 240 units lands 240 in one
+ * square (Rafael, 31 Aug 2026: "todavía tengo algunos con 69 y 90 unidades").
+ * The move is re-planned over as many squares as it needs at the 30 norm: the
+ * free squares of the row it aims at first, then the nearest rows, then the
+ * MAIN HALL — the same order DISTRIBUTE uses, because it is the same rule.
+ */
+export function repairOverCap(model: LayoutModel, state: PlannedState, moves: PlanMove[]): Repair {
+  const pool = freeSquares(model, state);
+  const drafts: MoveDraft[] = [];
+  const removals: number[] = [];
+
+  for (const m of moves) {
+    if (m.status !== 'planned' || m.toLetters.length === 0) continue;
+    const need = squaresFor(m.qty);
+    if (need <= m.toLetters.length) continue; // its shares already fit
+    const rowNum = rowOf(m.toLocation);
+    if (!Number.isFinite(rowNum)) continue;
+
+    // Its own row first: it is the row the hand pointed at.
+    const own = [...pool.values()]
+      .filter((s) => s.rowNum === rowNum)
+      .sort((a, b) => Number(a.isFast) - Number(b.isFast) || a.d - b.d)
+      .slice(0, need - m.toLetters.length);
+    for (const s of own) pool.delete(s.key);
+
+    const letters = sortLetters([...m.toLetters, ...own.map((s) => s.letter)]);
+    const here = Math.min(m.qty, PALLET_UNITS * letters.length);
+    let left = m.qty - here;
+    const chunks: { rowNum: number; letters: string[]; units: number }[] = [];
+    while (left > 0) {
+      const taken = nearestFree(pool, rowNum, squaresFor(left));
+      if (taken.length === 0) break;
+      for (const s of taken) pool.delete(s.key);
+      const units = Math.min(left, PALLET_UNITS * taken.length);
+      chunks.push({ rowNum: taken[0].rowNum, letters: taken.map((s) => s.letter), units });
+      left -= units;
+    }
+    // Nothing to gain: no square anywhere, and no hall split to make.
+    if (letters.length === m.toLetters.length && chunks.length === 0 && left === m.qty) continue;
+
+    removals.push(m.id);
+    drafts.push({ ...asDraft(m), qty: here, toLetters: letters });
+    for (const c of chunks) {
+      drafts.push({
+        ...asDraft(m),
+        qty: c.units,
+        toLocation: `ROW ${c.rowNum}`,
+        toLetters: sortLetters(c.letters),
+        kind: sameLocation(m.fromLocation, `ROW ${c.rowNum}`) ? 'relabel' : 'move',
+      });
+    }
+    if (left > 0) {
+      drafts.push({
+        ...asDraft(m),
+        qty: left,
+        toLocation: 'MAIN HALL',
+        toLetters: [],
+        kind: 'move',
+      });
+    }
+  }
+
+  return { drafts, removals };
+}
+
+/** Free squares for a landing: buried in the nearest row, fast only when no buried one is left. */
+function nearestFree(pool: Map<string, Square>, rowNum: number, need: number): Square[] {
+  const buried = [...pool.values()].filter((s) => !s.isFast);
+  const candidates = buried.length > 0 ? buried : [...pool.values()];
+  if (candidates.length === 0) return [];
+  const rows = [...new Set(candidates.map((s) => s.rowNum))].sort(
+    (a, b) => Math.abs(a - rowNum) - Math.abs(b - rowNum) || a - b
+  );
+  return candidates
+    .filter((s) => s.rowNum === rows[0])
+    .sort((a, b) => a.d - b.d)
+    .slice(0, need);
+}
+
+const asDraft = (m: PlanMove): MoveDraft => ({
+  inventoryId: m.inventoryId,
+  sku: m.sku,
+  qty: m.qty,
+  itemName: m.itemName,
+  warehouse: m.warehouse,
+  fromLocation: m.fromLocation,
+  fromSublocation: m.fromSublocation,
+  toLocation: m.toLocation,
+  toLetters: m.toLetters,
+  kind: m.kind,
+});

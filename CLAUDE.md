@@ -39,7 +39,10 @@ PWA de gestión de inventario y warehouse operations. Multi-usuario con sync en 
   **30 u por cuadro es la norma y 45 el tope duro** — `PALLET_UNITS` = 30 (DISTRIBUTE reparte a 30,
   la capacidad cuenta 30), `SQUARE_MAX` = 45 (Rafael, 31 ago 2026: "no puede haber un cuadro con 46
   o más"): entre 31 y 45 un cuadro pesa pero no alarma; **sobre 45 sale la `!` y PLAN lo reparte
-  solo** (efecto en `useZoneEditor` — ghosts en el draft, nada se mueve hasta PLAN COMPLETED);
+  solo** (efecto en `useZoneEditor` — ghosts en el draft, nada se mueve hasta PLAN COMPLETED), por
+  dos caminos: `distribute` reparte una línea viva que nunca cupo, y **`repairOverCap` re-planea un
+  aterrizaje** — soltar a mano lleva el pallet entero a un cuadro, así que un move de 240 aterrizaba
+  240 en uno solo;
   **lo que no encuentra cuadro va al MAIN HALL sur, delante de
   su bloque** (Rafael, 31 ago 2026) — nunca un segundo SKU apretado en un cuadro ocupado) y las
   pantallas (`MasterMap`, `ZoneView`, `ZoneSvg`; estado y

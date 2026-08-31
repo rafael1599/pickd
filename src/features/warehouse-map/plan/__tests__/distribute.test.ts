@@ -3,8 +3,8 @@
 // goes to the MAIN HALL in front of its block — never over 30 in a square.
 
 import { describe, it, expect } from 'vitest';
-import { distribute } from '../distribute';
-import { plannedState } from '../slotPlan';
+import { distribute, repairOverCap } from '../distribute';
+import { plannedState, type PlanMove } from '../slotPlan';
 import { zoneStock, type StockRow } from '../../stock/rowStock';
 import { ZONES, calculateLayout, defaultEngineState } from '../../engine';
 
@@ -145,5 +145,68 @@ describe('a line with more units than squares', () => {
       },
     ]);
     expect(distribute(stock, model, state).drafts).toEqual([]);
+  });
+});
+
+describe("repairOverCap — the plan's own landings (31 Aug 2026)", () => {
+  // Rafael: "todavía tengo algunos con 69 y 90 unidades". A hand drop carries
+  // the square's whole pallet, so a move of 240 landed 240 in one square.
+  const asMove = (over: Partial<PlanMove> = {}): PlanMove => ({
+    id: 7,
+    planId: 'p',
+    position: 1,
+    inventoryId: 1,
+    sku: '03-3978BL',
+    qty: 240,
+    itemName: null,
+    warehouse: 'LUDLOW',
+    fromLocation: 'ROW 30',
+    fromSublocation: ['H'],
+    toLocation: 'ROW 32',
+    toLetters: ['H'],
+    kind: 'move',
+    status: 'planned',
+    error: null,
+    ...over,
+  });
+
+  it('spreads a landing over the squares it needs, its own row first', () => {
+    const rows = [line('ROW 30', '03-3978BL', 240, ['H'])];
+    const stock = zoneStock(ZONES.bay3_north, model, rows);
+    const move = asMove();
+    const r = repairOverCap(model, plannedState(stock, [move]), [move]);
+    expect(r.removals).toEqual([move.id]);
+    const first = r.drafts[0];
+    expect(first.toLocation).toBe('ROW 32');
+    expect(first.toLetters).toHaveLength(8); // 240 at 30 a square
+    expect(first.toLetters).toContain('H');
+    expect(first.qty).toBe(240);
+    expect(r.drafts).toHaveLength(1);
+  });
+
+  it('leaves a landing that already fits alone', () => {
+    const rows = [line('ROW 30', '03-3978BL', 60, ['H'])];
+    const stock = zoneStock(ZONES.bay3_north, model, rows);
+    const move = asMove({ qty: 60, toLetters: ['H', 'I'] });
+    expect(repairOverCap(model, plannedState(stock, [move]), [move]).drafts).toEqual([]);
+  });
+
+  it('spills to the nearest rows and then the MAIN HALL when its row is full', () => {
+    // Every square taken but four in ROW 32: a 400-unit landing needs 14.
+    const rows = model.validCells
+      .filter((c) => !(String(c.row.num) === '32' && ['H', 'I', 'J', 'K'].includes(c.letter)))
+      .map((c, i) => line(`ROW ${c.row.num}`, `FILL-${i}`, 30, [c.letter]));
+    rows.push(line('ROW 30', '03-BIG', 400, ['A']));
+    const stock = zoneStock(ZONES.bay3_north, model, rows);
+    const move = asMove({ inventoryId: rows[rows.length - 1].id, qty: 400, toLetters: ['H'] });
+    const r = repairOverCap(model, plannedState(stock, [move]), [move]);
+    const hall = r.drafts.find((d) => d.toLocation === 'MAIN HALL')!;
+    expect(hall.qty).toBe(400 - 4 * 30);
+    expect(r.drafts.filter((d) => d.toLocation === 'ROW 32')[0].toLetters).toEqual([
+      'H',
+      'I',
+      'J',
+      'K',
+    ]);
   });
 });
