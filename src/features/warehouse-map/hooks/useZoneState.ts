@@ -19,6 +19,12 @@ const PRESET_PARAM: Record<LayoutPreset, string | null> = {
   solid: 'solid',
 };
 
+/** What a toggle is when the URL says nothing; absent = on. The WEST HALL is
+    off by default since 31 Aug 2026 (Rafael: "ya no lo necesitamos") — the
+    switches left the interface, so the default IS the map; `west=1` in a URL
+    brings the hall back. */
+const TOGGLE_DEFAULT: Record<string, boolean> = { west: false };
+
 /** The hall toggles a zone offers, from its own obstacles — never a list by zone id. */
 export function toggleKeys(config: ZoneConfig): string[] {
   const keys: string[] = [];
@@ -43,7 +49,10 @@ export function parseEngineState(params: URLSearchParams, config: ZoneConfig): E
   state.layoutPreset =
     preset === 'center' ? 'center_hall' : preset === 'solid' ? 'solid' : 'standard';
   state.toggles = {};
-  for (const key of toggleKeys(config)) state.toggles[key] = params.get(key) !== '0';
+  for (const key of toggleKeys(config)) {
+    const raw = params.get(key);
+    state.toggles[key] = raw === null ? (TOGGLE_DEFAULT[key] ?? true) : raw !== '0';
+  }
   return state;
 }
 
@@ -63,7 +72,11 @@ export function writeEngineState(
   set('pw', state.pw === defaults.pw ? null : String(state.pw));
   set('rows', state.isEW ? 'ew' : null);
   set('preset', PRESET_PARAM[state.layoutPreset]);
-  for (const key of toggleKeys(config)) set(key, state.toggles[key] === false ? '0' : null);
+  for (const key of toggleKeys(config)) {
+    const def = TOGGLE_DEFAULT[key] ?? true;
+    const on = state.toggles[key] ?? def;
+    set(key, on === def ? null : on ? '1' : '0');
+  }
   return next;
 }
 

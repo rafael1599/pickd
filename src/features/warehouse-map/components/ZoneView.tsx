@@ -1,8 +1,11 @@
 // One zone. On the floor it reads stock: how many squares hold something, a
 // capacity bar (units in stock against the bikes the layout holds), the
 // drawing with a pallet's worth per square, and what the drawing has no
-// place for — never hidden. Measures (halls, inches, orientation) live in
-// LAYOUT; the pallet itself is 60 × 62 and not a control. PLAN draws moves as ghosts; LIVE moves now, after a confirmation.
+// place for — never hidden. PLAN draws moves as ghosts; LIVE moves now, after
+// a confirmation — the only two buttons (Rafael, 31 Aug 2026: "lo menos
+// compleja posible la interfaz"); tapping the active one rests back to the
+// stock. Measures live in LAYOUT, reached only by `?mode=layout`; the pallet
+// itself is 60 × 62 and not a control.
 //
 // Presentational: `data` from useZoneData, `editor` (optional) from
 // useZoneEditor, `onOpenLine` (optional) is the app's item detail. The public
@@ -17,8 +20,7 @@ import Maximize2 from 'lucide-react/dist/esm/icons/maximize-2';
 import RefreshCw from 'lucide-react/dist/esm/icons/refresh-cw';
 import X from 'lucide-react/dist/esm/icons/x';
 import { HALL_MIN, slotKey } from '../engine';
-import type { Cell, LayoutPreset } from '../engine';
-import { toggleKeys } from '../hooks/useZoneState';
+import type { Cell } from '../engine';
 import type { ZoneData } from '../hooks/useZoneData';
 import type { EditMode, ZoneEditor } from '../hooks/useZoneEditor';
 import { groupUnplaced, PALLET_UNITS, type StockRow, type Unplaced } from '../stock/rowStock';
@@ -98,11 +100,9 @@ const CapacityBar: React.FC<{ units: number | null; capacity: number | null }> =
   );
 };
 
-const MODE_TONE: Record<EditMode, string> = {
-  view: 'bg-accent text-black',
+const MODE_TONE: Record<'plan' | 'live', string> = {
   plan: 'bg-[#a78bfa] text-black',
   live: 'bg-accent text-black',
-  layout: 'bg-cyan-400 text-black',
 };
 
 const switchBtn = (on: boolean, tone = 'bg-accent text-black') =>
@@ -194,7 +194,6 @@ export const ZoneView: React.FC<{
   const openLine: OpenLine = (sku, itemName, location, warehouse) =>
     onOpenLine?.(sku, itemName, location, warehouse);
 
-  const halls = toggleKeys(config);
   const hasPosts = (config.posts ?? []).some((p) => p.size > 0);
   const rowDir = state.isEW ? 'EAST–WEST' : 'NORTH–SOUTH';
 
@@ -220,8 +219,6 @@ export const ZoneView: React.FC<{
       : stock && stock.lines === 0
         ? 'No stock recorded in these rows.'
         : null;
-
-  const setPreset = (layoutPreset: LayoutPreset) => update({ layoutPreset });
 
   const changeMode = (m: EditMode) => {
     if (!editor) return;
@@ -293,14 +290,16 @@ export const ZoneView: React.FC<{
             {layout ? `PALLET LAYOUT · ${rowDir} ROWS` : `${rowDir} ROWS`}
           </p>
         </div>
+        {/* The two buttons; at rest the zone is the stock. Tapping the active
+            one puts the tools away. */}
         {editor && (
           <div className="flex rounded-lg border border-subtle overflow-hidden bg-card shrink-0 ml-auto">
-            {(['view', 'plan', 'live', 'layout'] as EditMode[]).map((m) => (
+            {(['plan', 'live'] as const).map((m) => (
               <button
                 key={m}
                 type="button"
                 className={switchBtn(mode === m, MODE_TONE[m])}
-                onClick={() => changeMode(m)}
+                onClick={() => changeMode(mode === m ? 'view' : m)}
               >
                 {m.toUpperCase()}
                 {m === 'plan' && mode !== 'plan' && editor.summary.count > 0
@@ -375,73 +374,10 @@ export const ZoneView: React.FC<{
             </p>
           )}
 
-          {/* The measures: the orientation, the halls, the preset. The pallet is 60 × 62 and
-              not a control (Rafael, 28 Aug 2026: "no quiero que estén expuestos los cambiadores
-              de tamaño de una pallet"); a link can still carry `pd`/`pw` for the planner. */}
-          <div className="px-4 pb-3 flex flex-wrap items-center gap-2">
-            <div className="flex rounded-lg border border-subtle overflow-hidden bg-card">
-              <button
-                type="button"
-                className={switchBtn(!state.isEW)}
-                onClick={() => update({ isEW: false })}
-              >
-                N–S ROWS
-              </button>
-              <button
-                type="button"
-                className={switchBtn(state.isEW)}
-                onClick={() => update({ isEW: true })}
-              >
-                E–W ROWS
-              </button>
-            </div>
-
-            {halls.length > 0 && (
-              <div className="flex rounded-lg border border-subtle overflow-hidden bg-card">
-                {halls.map((key) => {
-                  const on = state.toggles[key] !== false;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      className={switchBtn(on)}
-                      aria-pressed={on}
-                      onClick={() => update({ toggles: { [key]: !on } })}
-                    >
-                      {on ? '☑' : '☐'} {key.toUpperCase()} HALL
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            <div className="flex rounded-lg border border-subtle overflow-hidden bg-card">
-              <button
-                type="button"
-                className={switchBtn(state.layoutPreset === 'standard')}
-                onClick={() => setPreset('standard')}
-                title="Blocks with a hall between them"
-              >
-                HALLS
-              </button>
-              <button
-                type="button"
-                className={switchBtn(state.layoutPreset === 'center_hall')}
-                onClick={() => setPreset('center_hall')}
-                title="Two big blocks, one wide hall in the middle"
-              >
-                1 CENTER
-              </button>
-              <button
-                type="button"
-                className={switchBtn(state.layoutPreset === 'solid')}
-                onClick={() => setPreset('solid')}
-                title="One mass block, no halls"
-              >
-                0 HALLS
-              </button>
-            </div>
-          </div>
+          {/* No switches: the orientation, the hall toggles and the presets left
+              the interface (Rafael, 31 Aug 2026: "ya no lo necesitamos") — like
+              the pallet size before them, a link still carries them for the
+              planner: `rows=ew`, `west=1`, `preset=center|solid`, `pd`/`pw`. */}
 
           {hallEdit && model && (
             <div className="mx-4 mb-3 px-3 py-2 rounded-lg border border-cyan-400/40 bg-card flex flex-wrap items-center gap-3 font-mono text-[11px] text-muted">
@@ -820,7 +756,7 @@ export const ZoneView: React.FC<{
           many squares as it needs and shows its share in each. A line the plan has no square for is
           listed above, never squeezed in.
           {editor
-            ? ' PLAN: tap a SKU, tap a square — empty → it goes; one line there → they swap; several → it joins; DISTRIBUTE spreads every line at 30 a square, overflow to free buried squares; nothing moves until PLAN COMPLETED. LIVE: the same two taps, then a confirmation, and it moves now. LAYOUT: the measures.'
+            ? ' PLAN: tap a SKU, tap a square — empty → it goes; one line there → they swap; several → it joins; DISTRIBUTE spreads every line at 30 a square, overflow to free buried squares; nothing moves until PLAN COMPLETED. LIVE: the same two taps, then a confirmation, and it moves now.'
             : ''}
         </p>
       </details>

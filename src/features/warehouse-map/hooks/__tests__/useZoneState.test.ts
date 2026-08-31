@@ -14,12 +14,17 @@ describe('toggleKeys', () => {
 });
 
 describe('parseEngineState', () => {
-  it('an empty query is the default state', () => {
+  it('an empty query is the default state — N–S rows, WEST HALL off', () => {
     const s = parseEngineState(new URLSearchParams(''), ZONES.bay3_north);
     expect(s.pd).toBe(60);
     expect(s.pw).toBe(62);
     expect(s.isEW).toBe(false);
     expect(s.layoutPreset).toBe('standard');
+    expect(s.toggles).toEqual({ west: false });
+  });
+
+  it('west=1 brings the WEST HALL back — the switch left the interface, not the code', () => {
+    const s = parseEngineState(new URLSearchParams('west=1'), ZONES.bay3_north);
     expect(s.toggles).toEqual({ west: true });
   });
 
@@ -46,10 +51,19 @@ describe('writeEngineState', () => {
   it('writes nothing for the default state and keeps the other keys', () => {
     const next = writeEngineState(
       new URLSearchParams('zone=bay3_north&pd=65'),
-      defaultEngineState({ toggles: { west: true } }),
+      defaultEngineState({ toggles: { west: false } }),
       ZONES.bay3_north
     );
     expect(next.toString()).toBe('zone=bay3_north');
+  });
+
+  it('a WEST HALL turned on is the exception, so it goes to the URL', () => {
+    const next = writeEngineState(
+      new URLSearchParams('zone=bay3_north'),
+      defaultEngineState({ toggles: { west: true } }),
+      ZONES.bay3_north
+    );
+    expect(next.toString()).toBe('zone=bay3_north&west=1');
   });
 
   it('writes only what differs, and reads it back', () => {
@@ -60,7 +74,7 @@ describe('writeEngineState', () => {
       toggles: { west: false, east: true },
     });
     const next = writeEngineState(new URLSearchParams('zone=bay2_south'), state, ZONES.bay2_south);
-    expect(next.toString()).toBe('zone=bay2_south&pd=65&rows=ew&preset=solid&west=0');
+    expect(next.toString()).toBe('zone=bay2_south&pd=65&rows=ew&preset=solid');
     const back = parseEngineState(next, ZONES.bay2_south);
     expect(back).toEqual({ ...state, hallOverrides: {} });
   });

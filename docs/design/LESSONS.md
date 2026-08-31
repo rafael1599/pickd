@@ -59,6 +59,13 @@ one place: a rule that contradicts an older one replaces it.
 - **A draft is a draft** (28 Aug): "yo no confirmé nada, solo estaba probando, borrador no quiere
   decir nada". Ghosts in PLAN are not a decision; only PLAN COMPLETED is. Replace a draft without
   ceremony when he asks for another one.
+- **A settled question loses its switch** (31 Aug): "son muchas opciones… ya no lo necesitamos,
+  debe estar escondido para cuando lo necesitemos pero que se recupere en código". Once he answers
+  a configuration question (pallet 60×62, N–S rows, west hall gone), the answer becomes the default
+  and the control leaves the interface — recovery is a URL param or code, never a button. The
+  pallet sliders went first; the orientation, hall and preset switches followed.
+- **The resting state needs no button** (31 Aug): "compactar a 2 solamente". VIEW is just the zone;
+  PLAN and LIVE are the only two buttons, and tapping the active one puts the tools away.
 
 ## Log
 
@@ -74,3 +81,8 @@ one place: a rule that contradicts an older one replaces it.
   fixed. Then "K es válido momentáneamente… solo para la documentación, no en la UI" and "no quiero
   que estén expuestos los cambiadores de tamaño de una pallet" — both rules above; the sliders
   left LAYOUT the same evening.
+- **2026-08-31 — mode bar compacted to two.** "No me gusta que tenemos view, plan, live y layout.
+  Son muchas opciones… compactar a 2 solamente." PLAN | LIVE are the buttons; VIEW is the rest
+  state; LAYOUT and the orientation / WEST HALL / preset switches live only in the URL
+  (`?mode=layout`, `rows=ew`, `west=1`, `preset=…`), with N–S rows and west hall off as defaults.
+  Two rules above.

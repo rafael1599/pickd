@@ -33,9 +33,14 @@ PWA de gestión de inventario y warehouse operations. Multi-usuario con sync en 
   SKU y soltarlo en un cuadro — vacío va, una línea intercambia, varias se une; `PLAN COMPLETED` lo
   ejecuta con `updateItem` en la misma fila / `moveItem` a otra, revalidando cada línea; tablas
   `slot_plans` / `slot_plan_moves`, un borrador por zona; **LIVE** = mismo gesto + confirmación;
-  **LAYOUT** = las medidas; **30 u por cuadro** — `PALLET_UNITS`, `allocate`, `!` sobre 30 y
+  **30 u por cuadro** — `PALLET_UNITS`, `allocate`, `!` sobre 30 y
   DISTRIBUTE en `plan/distribute.ts`) y las pantallas (`MasterMap`, `ZoneView`, `ZoneSvg`; estado y
-  modo en la URL). Nació como
+  modo en la URL). **Dos botones solamente desde el 31 ago 2026: PLAN y LIVE** (Rafael: "compactar a
+  2… lo menos compleja posible la interfaz"); el reposo es VIEW (el stock, sin botón — tocar el modo
+  activo lo apaga) y **LAYOUT** (las medidas) solo se alcanza con `?mode=layout`. La orientación, el
+  WEST HALL y los presets salieron de la interfaz igual que los sliders del pallet: viven en la URL
+  (`rows=ew`, `west=1`, `preset=center|solid`) con default N–S y **west hall apagado**
+  (`TOGGLE_DEFAULT` en `hooks/useZoneState.ts`). Nació como
   HTML estático en `public/warehouse/` (11 ago) y reemplazó por completo la vista Plan/Live el 28 ago
   2026 (idea-170; historia en `docs/warehouse-floor-plans.md`). **CRÍTICO:** todo layout cumple
   `docs/warehouse-ui-rules.md` (los cuatro contadores, pallet `60×62` fijo — **sin sliders** desde el 28 ago —, "hall" nunca

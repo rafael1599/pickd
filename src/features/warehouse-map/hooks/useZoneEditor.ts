@@ -1,11 +1,13 @@
 // The editing tools of a zone, separate from the drawing: the mode, the line
 // in hand, what a drop does, and the planned state the drawing paints.
 //
-//   VIEW    — operation: the stock, no measures, tap a SKU for its detail.
+//   VIEW    — the resting state, no button: the stock, no measures, tap a SKU
+//             for its detail.
 //   PLAN    — draw moves as ghosts; PLAN COMPLETED executes them; DISTRIBUTE
 //             spreads every line at a pallet (30) per square.
 //   LIVE    — tap a SKU, tap where it goes, confirm: moved now.
-//   LAYOUT  — the measures: sliders, halls, presets, inches.
+//   LAYOUT  — the measures. No button since 31 Aug 2026 ("compactar a 2
+//             solamente"): only `?mode=layout` reaches it.
 //
 // Only the signed-in screen mounts this — it needs the plan tables and the
 // Modal Manager.
