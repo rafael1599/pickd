@@ -53,18 +53,19 @@ describe('a line with more units than squares', () => {
   });
 
   it('sends what its row cannot hold to free buried squares in the nearest row, as a partial move', () => {
-    // ROW 33 is ten deep; 230 units need 8 squares and there are only 7 free after C.
+    // ROW 33 is ten deep plus K; 260 units need 9 squares and after C the row
+    // itself has 7 free (D–I and K, J taken).
     const rows = [
-      line('ROW 33', '03-3983GY', 230, ['C']),
+      line('ROW 33', '03-3983GY', 260, ['C']),
       ...['A', 'B'].map((l) => line('ROW 33', `03-4000${l}`, 10, [l])),
       line('ROW 33', '03-4212GY', 17, ['J']),
     ];
     const stock = zoneStock(ZONES.bay3_north, model, rows);
     const d = distribute(stock, model, plannedState(stock, []));
     const relabel = d.drafts.find((m) => m.kind === 'relabel')!;
-    expect(relabel.toLetters).toEqual(['C', 'D', 'E', 'F', 'G', 'H', 'I']);
+    expect(relabel.toLetters).toEqual(['C', 'D', 'E', 'F', 'G', 'H', 'I', 'K']);
     const move = d.drafts.find((m) => m.kind === 'move')!;
-    // 230 − 7 × 30 = 20 units to one buried square in ROW 32 (the nearest row).
+    // 260 − 8 × 30 = 20 units to one buried square in ROW 32 (the nearest row).
     expect(move).toMatchObject({ qty: 20, toLocation: 'ROW 32', toLetters: ['B'] });
     expect(d.leftovers).toEqual([]);
   });
@@ -98,8 +99,8 @@ describe('a line with more units than squares', () => {
   });
 
   it('gives a line with no letter a square in its own row, and leaves a line in K alone', () => {
-    // K is a real position past J on the floor, valid for now (Rafael, 28 Aug 2026):
-    // not drawn, not distributed.
+    // 33-K is a drawn square since 31 Aug 2026: a line living there already
+    // fits, so DISTRIBUTE has nothing to do with it.
     const rows = [line('ROW 33', '03-3777RD', 21, ['K']), line('ROW 32', '03-X', 27, [])];
     const stock = zoneStock(ZONES.bay3_north, model, rows);
     const d = distribute(stock, model, plannedState(stock, []));

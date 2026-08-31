@@ -6,10 +6,10 @@
 // still does not fit, free buried squares in the nearest rows (a move of just
 // those units); fast squares only when no buried square is left, and the
 // result says how many landed there. Lines with no letter at all get a
-// square too — small ones share one. A letter the drawing does not have (K:
-// on the floor it is a real position past J, valid for now — Rafael, 28 Aug
-// 2026, "momentáneamente") is a place, not a gap: those lines stay put and
-// the map keeps listing them as not drawn.
+// square too — small ones share one. A letter the drawing does not have is a
+// place, not a gap: those lines stay put and the map keeps listing them as
+// not drawn. (K stopped being one on 31 Aug 2026: rows 30–33 draw it as the
+// 11th square — `extraSlotRows` — so its lines place and its squares deal.)
 
 import type { LayoutModel } from '../engine';
 import { slotKey } from '../engine';

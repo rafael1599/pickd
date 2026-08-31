@@ -86,3 +86,8 @@ one place: a rule that contradicts an older one replaces it.
   state; LAYOUT and the orientation / WEST HALL / preset switches live only in the URL
   (`?mode=layout`, `rows=ew`, `west=1`, `preset=…`), with N–S rows and west hall off as defaults.
   Two rules above.
+- **2026-08-31 — the K becomes the block's 11th square.** "Agrega la K, el cuadro 11, para que
+  quepa todo lo que está legítimamente en ese bloque, en el mismo… la K se va a pasar un poco
+  sobre el hall + rack del norte." Rows 30–33 draw K past J, 60" into the north strip
+  (`extraSlotRows`); the `11-K` label sits only beside the rows that have it, and DISTRIBUTE
+  deals it. The 28-Aug rule ("not drawn, not distributed") stays for a K anywhere else.

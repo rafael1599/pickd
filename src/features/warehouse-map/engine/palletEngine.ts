@@ -579,16 +579,24 @@ export function calculateLayout(config: ZoneConfig, state: EngineState): LayoutM
   const blockBikes = nRows * nLines * BIKES_PER_LINE;
   const mainHall = (c.obstacles ?? []).find((o) => o.id === 'main_hall');
 
+  // Rows with one square more than the zone is deep (bay3_north 30–33: the K,
+  // Rafael 31 Aug 2026). It sits one step past the far end, a little over the
+  // clearance strip, and it is the row's far face — fast where the square
+  // behind it stops being so.
+  const extraRows = new Set((c.extraSlotRows ?? []).map(String));
+  const extraOff = isReverse ? dSpan - gapW - (deep + 1) * sD : gapW + deep * sD;
+
   for (const seg of strip) {
     if (seg.type !== 'block') continue;
     for (const r of seg.rows) {
-      for (let d = 0; d < deep; d++) {
-        const cxSlot = s.isEW ? margins.left + offs[d] : margins.left + r.x;
-        const cySlot = s.isEW ? margins.top + r.x : margins.top + offs[d];
+      const rowDeep = extraRows.has(String(r.num)) ? deep + 1 : deep;
+      for (let d = 0; d < rowDeep; d++) {
+        const cxSlot = s.isEW ? margins.left + (d < deep ? offs[d] : extraOff) : margins.left + r.x;
+        const cySlot = s.isEW ? margins.top + r.x : margins.top + (d < deep ? offs[d] : extraOff);
         const cwSlot = s.isEW ? sD : rW;
         const chSlot = s.isEW ? rW : sD;
         const edgeRow = r.idx === 0 || r.idx === r.of - 1;
-        const isFast = edgeRow || d === 0 || d === deep - 1;
+        const isFast = edgeRow || d === 0 || d === rowDeep - 1;
 
         // Manhattan distance to the main hall, then to the west wall (x = 0).
         let distY: number;

@@ -104,6 +104,11 @@ export interface ZoneConfig {
   openBoundaries?: Partial<Record<'top' | 'bottom' | 'left' | 'right', boolean>>;
   /** Shrink halls so blocks sit right against the posts (Bay 3 North). */
   pushBlocksEastToPosts?: boolean;
+  /** Rows (by number) that hold one square more than the zone is deep: the
+      extra square sits past the far end, a little over the clearance strip,
+      and takes the next letter (K after J). It faces the open floor, so it is
+      the fast one and the square behind it stops being fast. */
+  extraSlotRows?: number[];
   obstacles?: Obstacle[];
   posts?: Post[];
   labels?: ZoneLabel[];

@@ -605,6 +605,48 @@ export const ZoneSvg: React.FC<Props> = ({
         );
       })}
 
+      {/* The extra square's label (11-K), only beside the rows that hold it */}
+      {(() => {
+        const extras = m.validCells.filter((cl) => cl.d >= m.deep);
+        if (extras.length === 0 || s.isEW) return null;
+        const label = `${m.deep + 1}-${String.fromCharCode(65 + m.deep)}`;
+        const cy = M + extras[0].cy + extras[0].ch / 2 + 8;
+        const maxX = Math.max(...m.validCells.map((cl) => cl.cx));
+        const minX = Math.min(...m.validCells.map((cl) => cl.cx));
+        const atEast = extras.some((cl) => cl.cx === maxX);
+        const atWest = extras.some((cl) => cl.cx === minX);
+        return (
+          <g>
+            {atWest && (
+              <text
+                x={usableX0 - 45}
+                y={cy}
+                fontSize={22}
+                fill={COLOR.depthMajor}
+                textAnchor="end"
+                fontWeight="800"
+                fontFamily={MONO}
+              >
+                {label}
+              </text>
+            )}
+            {atEast && (
+              <text
+                x={usableX0 + usableEW + 45}
+                y={cy}
+                fontSize={22}
+                fill={COLOR.depthMajor}
+                textAnchor="start"
+                fontWeight="800"
+                fontFamily={MONO}
+              >
+                {label}
+              </text>
+            )}
+          </g>
+        );
+      })()}
+
       {/* Pallet squares — what the DB says is in them, what the plan says will be */}
       {m.validCells.map((cl) => {
         const q = square(cl, false);

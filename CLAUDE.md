@@ -343,9 +343,12 @@ Ya no hay que coordinar cambios de schema con nadie más.
   constraints: una letra `^[A-Z]$` por elemento y solo para `location ILIKE 'ROW%'`. Se auto-limpia a
   NULL al mover a non-ROW. UI: chips en ItemDetailView/MovementModal, badge en
   InventoryCard/DoubleCheckView; el mapa (`/warehouse-map`) pinta cada `ROW n · letra`.
-  **K es válida momentáneamente (Rafael, 28 ago 2026):** es una posición real después de J
-  (hoy en ROW 30, 32 y 33); el mapa **no la dibuja** (se lista como "not drawn") y DISTRIBUTE
-  **no la reparte** — solo vive en esta documentación, no en la UI, hasta que se mida.
+  **K es el cuadro 11 del bloque 30–33 (Rafael, 31 ago 2026: "agrega la K… para que quepa todo lo
+  que está legítimamente en ese bloque, en el mismo"):** una posición real después de J que
+  sobresale 60" sobre la franja norte de 145.5" (hall + rack). El mapa la dibuja solo en ROW 30–33
+  (`extraSlotRows` en `engine/zones.ts`; etiqueta `11-K` solo del lado este) y DISTRIBUTE la usa;
+  es la cara al piso abierto, así que **K es fast y la J de las filas interiores pasa a buried**.
+  Una K en cualquier otra fila sigue listándose como "not drawn", nunca se aprieta en el dibujo.
 - **Invariante qty=0 → is_active=false:** `adjust_inventory_quantity` y `undo_inventory_action` mantienen `is_active = (quantity > 0)` bidireccionalmente. **Excepción:** `register_new_sku` crea placeholders con `qty=0, is_active=true` para onboarding de bikes nuevos — NO modificar este comportamiento. Ghost trail en búsqueda usa `includeInactive: true` para seguir mostrando items sin stock con su último movimiento.
 
 ### `picking_list_notes`: no toda nota la escribió una persona
