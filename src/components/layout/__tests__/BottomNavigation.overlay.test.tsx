@@ -110,3 +110,16 @@ describe('BottomNavigation — hides under overlays', () => {
     expect(navPill().className).toContain('opacity-100');
   });
 });
+
+describe('BottomNavigation — the MAP button', () => {
+  it('is in the bar, goes to the measured map, and is desktop only', () => {
+    renderNav();
+    const map = screen.getByLabelText('MAP');
+    expect(map.className).toContain('hidden');
+    expect(map.className).toContain('md:flex');
+    // The three a phone holds are not hidden.
+    for (const label of ['STOCK', 'SHIP', 'BOARD']) {
+      expect(screen.getByLabelText(label).className).not.toContain('hidden');
+    }
+  });
+});

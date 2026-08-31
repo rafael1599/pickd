@@ -23,7 +23,8 @@ PWA de gestión de inventario y warehouse operations. Multi-usuario con sync en 
 - `supabase/migrations/` — Migraciones PostgreSQL
 - `supabase/functions/` — Edge functions (snapshots, reportes, auto-cancel)
 - `.agent/management/BACKLOG.md` — Source of truth del backlog
-- `src/features/warehouse-map/` — **El mapa del almacén** (menú → Map, `/warehouse-map`; sin sesión
+- `src/features/warehouse-map/` — **El mapa del almacén** (MAP en la barra de navegación —solo
+  escritorio, 31 ago 2026— y menú → Map, `/warehouse-map`; sin sesión
   en `/public-warehouse-map`). Mide el edificio real: `engine/blueprint.ts` (la tabla `M` en pulgadas,
   la geometría, las 8 zonas libres, las 3 bahías y los **diez cross-checks, que son tests**),
   `engine/zones.ts` (las seis zonas, cada cifra comentada con su medida), `engine/palletEngine.ts`

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import Box from 'lucide-react/dist/esm/icons/box';
 import Printer from 'lucide-react/dist/esm/icons/printer';
 import ClipboardCheck from 'lucide-react/dist/esm/icons/clipboard-check';
+import Map from 'lucide-react/dist/esm/icons/map';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useViewMode } from '../../context/ViewModeContext';
 import { useDoubleCheckList } from '../../features/picking/hooks/useDoubleCheckList';
@@ -16,13 +17,23 @@ interface NavItemProps {
   onClick: () => void;
   isCompact?: boolean;
   badge?: number;
+  /** On a phone the bar holds three; a fourth is only for the desktop pill. */
+  desktopOnly?: boolean;
 }
 
-const NavItem = ({ icon: Icon, label, isActive, onClick, isCompact, badge }: NavItemProps) => (
+const NavItem = ({
+  icon: Icon,
+  label,
+  isActive,
+  onClick,
+  isCompact,
+  badge,
+  desktopOnly,
+}: NavItemProps) => (
   <button
     onClick={onClick}
     aria-label={label}
-    className={`flex flex-col md:flex-row items-center justify-center flex-1 md:flex-none h-full md:h-auto md:px-3.5 md:py-1.5 md:rounded-full transition-all duration-300 active:scale-95 md:gap-2 ${
+    className={`${desktopOnly ? 'hidden md:flex' : 'flex'} flex-col md:flex-row items-center justify-center flex-1 md:flex-none h-full md:h-auto md:px-3.5 md:py-1.5 md:rounded-full transition-all duration-300 active:scale-95 md:gap-2 ${
       isActive
         ? 'text-accent md:bg-accent/15 md:border md:border-accent/30'
         : 'text-muted hover:text-content'
@@ -112,6 +123,17 @@ export const BottomNavigation = () => {
               isActive={location.pathname === '/ship'}
               onClick={() => navigate('/ship')}
               isCompact={isSearching}
+            />
+            {/* The map earns a place in the bar on a desktop (Rafael, 31 Aug
+                2026); on a phone the three that fit stay, and it is still one
+                tap away in the menu. */}
+            <NavItem
+              icon={Map}
+              label="MAP"
+              isActive={location.pathname === '/warehouse-map'}
+              onClick={() => navigate('/warehouse-map')}
+              isCompact={isSearching}
+              desktopOnly
             />
             <NavItem
               icon={ClipboardCheck}
