@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { distribute, repairOverCap } from '../distribute';
-import { plannedState, type PlanMove } from '../slotPlan';
+import { OVERFLOW_LOCATION, plannedState, type PlanMove } from '../slotPlan';
 import { zoneStock, type StockRow } from '../../stock/rowStock';
 import { ZONES, calculateLayout, defaultEngineState } from '../../engine';
 
@@ -88,7 +88,7 @@ describe('a line with more units than squares', () => {
     expect(d.toHall).toBe(0);
   });
 
-  it('what finds no square at all goes to the MAIN HALL, in front of its block', () => {
+  it('what finds no square at all goes to MAS, in front of its block', () => {
     const all = model.validCells.map((c, i) =>
       line(`ROW ${c.row.num}`, `FILL-${i}`, 30, [c.letter])
     );
@@ -96,7 +96,7 @@ describe('a line with more units than squares', () => {
     all.push(line('ROW 33', '03-K', 50, []));
     const stock = zoneStock(ZONES.bay3_north, model, all);
     const d = distribute(stock, model, plannedState(stock, []));
-    const hall = d.drafts.find((m) => m.toLocation === 'MAIN HALL')!;
+    const hall = d.drafts.find((m) => m.toLocation === OVERFLOW_LOCATION)!;
     expect(hall).toMatchObject({ sku: '03-K', qty: 50, kind: 'move', toLetters: [] });
     expect(d.toHall).toBe(1);
   });
@@ -200,7 +200,7 @@ describe("repairOverCap — the plan's own landings (31 Aug 2026)", () => {
     const stock = zoneStock(ZONES.bay3_north, model, rows);
     const move = asMove({ inventoryId: rows[rows.length - 1].id, qty: 400, toLetters: ['H'] });
     const r = repairOverCap(model, plannedState(stock, [move]), [move]);
-    const hall = r.drafts.find((d) => d.toLocation === 'MAIN HALL')!;
+    const hall = r.drafts.find((d) => d.toLocation === OVERFLOW_LOCATION)!;
     expect(hall.qty).toBe(400 - 4 * 30);
     expect(r.drafts.filter((d) => d.toLocation === 'ROW 32')[0].toLetters).toEqual([
       'H',
@@ -208,5 +208,63 @@ describe("repairOverCap — the plan's own landings (31 Aug 2026)", () => {
       'J',
       'K',
     ]);
+  });
+});
+
+describe('the space comes first — MAS is the last resort (31 Aug 2026)', () => {
+  // Rafael: "aún hay espacio, y el algoritmo debería priorizar llenar el
+  // espacio primero, y cuando no haya espacio el extra va en MAS".
+  const parked = (id: number, qty: number): PlanMove => ({
+    id,
+    planId: 'p',
+    position: id,
+    inventoryId: id,
+    sku: `03-000${id}`,
+    qty,
+    itemName: null,
+    warehouse: 'LUDLOW',
+    fromLocation: 'ROW 32',
+    fromSublocation: null,
+    toLocation: OVERFLOW_LOCATION,
+    toLetters: [],
+    kind: 'move',
+    status: 'planned',
+    error: null,
+  });
+
+  it('brings units parked in MAS back into free squares, small lines sharing one', () => {
+    const stock = zoneStock(ZONES.bay3_north, model, []);
+    const moves = [1, 2, 3, 4].map((i) => parked(i, 1));
+    const r = repairOverCap(model, plannedState(stock, moves), moves);
+    expect(r.removals.sort()).toEqual([1, 2, 3, 4]);
+    expect(r.drafts).toHaveLength(4);
+    // One square for the four of them, in their own row.
+    expect(new Set(r.drafts.map((d) => `${d.toLocation} ${d.toLetters.join()}`)).size).toBe(1);
+    expect(r.drafts[0].toLocation).toBe('ROW 32');
+    expect(r.drafts.every((d) => d.kind === 'relabel')).toBe(true);
+  });
+
+  it('leaves in MAS only what no square can take', () => {
+    // Every square full but one: 60 units come back 30, and 30 stay in MAS.
+    const rows = model.validCells
+      .filter((c) => !(String(c.row.num) === '32' && c.letter === 'K'))
+      .map((c, i) => line(`ROW ${c.row.num}`, `FILL-${i}`, 30, [c.letter]));
+    const stock = zoneStock(ZONES.bay3_north, model, rows);
+    const moves = [parked(99, 60)];
+    const r = repairOverCap(model, plannedState(stock, moves), moves);
+    expect(r.removals).toEqual([99]);
+    expect(r.drafts.map((d) => [d.toLocation, d.qty])).toEqual([
+      ['ROW 32', 30],
+      [OVERFLOW_LOCATION, 30],
+    ]);
+  });
+
+  it('leaves it alone when there is no square at all', () => {
+    const rows = model.validCells.map((c, i) =>
+      line(`ROW ${c.row.num}`, `FILL-${i}`, 30, [c.letter])
+    );
+    const stock = zoneStock(ZONES.bay3_north, model, rows);
+    const moves = [parked(99, 5)];
+    expect(repairOverCap(model, plannedState(stock, moves), moves).drafts).toEqual([]);
   });
 });

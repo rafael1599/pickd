@@ -3,6 +3,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  OVERFLOW_LOCATION,
   plannedState,
   planDrop,
   holdEntry,
@@ -360,14 +361,14 @@ describe('V6 / V7 — revalidation before executing', () => {
     expect(describeMove(relabel)).toBe('ROW 33 A → ROW 33 C');
     expect(describeMove({ ...move, fromSublocation: null })).toBe('ROW 27 → ROW 30 E');
     // A place the drawing has no squares for is named alone (Rafael, 28 Aug: the
-    // leftovers of block 30–33 go to the main hall).
+    // leftovers of block 30–33 go to the south main hall, booked as MAS).
     expect(
-      describeMove({ ...move, fromSublocation: null, toLocation: 'MAIN HALL', toLetters: [] })
-    ).toBe('ROW 27 → MAIN HALL');
+      describeMove({ ...move, fromSublocation: null, toLocation: OVERFLOW_LOCATION, toLetters: [] })
+    ).toBe('ROW 27 → MAS');
   });
 });
 
-describe('a move to a place with no squares (MAIN HALL)', () => {
+describe('a move to a place with no squares (MAS)', () => {
   // Rafael, 28 Aug 2026: what does not fit in block 30–33 goes to the main hall. The
   // drawing has no square for it: no ghost, and the line is gone from its square only
   // when the whole of it goes.
@@ -382,7 +383,7 @@ describe('a move to a place with no squares (MAIN HALL)', () => {
     warehouse: 'LUDLOW',
     fromLocation: 'ROW 33',
     fromSublocation: ['B'],
-    toLocation: 'MAIN HALL',
+    toLocation: OVERFLOW_LOCATION,
     toLetters: [],
     kind: 'move',
     status: 'planned',

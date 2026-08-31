@@ -72,10 +72,11 @@ one place: a rule that contradicts an older one replaces it.
   pallet sliders went first; the orientation, hall and preset switches followed.
 - **The resting state needs no button** (31 Aug): "compactar a 2 solamente". VIEW is just the zone;
   PLAN and LIVE are the only two buttons, and tapping the active one puts the tools away.
-- **Overflow goes to the south main hall, in front of its block** (31 Aug): "no pueden haber
-  cantidades en un cuadro de más de 30 unidades, lo que sobre se pone en el main hall sur, delante
-  de su bloque correspondiente." Never a second SKU squeezed into an occupied square to make the
-  numbers close — the floor in front of the block is the overflow's place, and the plan says so.
+- **The space comes first; MAS is the last resort** (31 Aug): "lo que sobre se pone en el main
+  hall sur, delante de su bloque correspondiente", then "el algoritmo debería priorizar llenar el
+  espacio primero, y cuando no haya espacio el extra va en MAS". Never a second SKU squeezed into
+  an occupied square, and never a unit parked in the aisle while a square stands empty — the plan
+  fills the drawing first and brings back anything parked as soon as room appears.
 
 ## Log
 
@@ -129,3 +130,8 @@ one place: a rule that contradicts an older one replaces it.
   pallet, so dropping 240 units planned 240 into one square. `repairOverCap` re-plans any landing
   over the cap across the squares it needs — the row it was dropped on first, then the nearest
   rows, then the MAIN HALL. A rule about squares has to hold wherever the units come from.
+- **2026-08-31 — MAS, and the space before the aisle.** "Aún hay espacio, y el algoritmo debería
+  priorizar llenar el espacio primero; cuando no haya espacio el extra va en pasillo main hall
+  south llamándolo MAS." The overflow destination got its floor name (`OVERFLOW_LOCATION = 'MAS'`,
+  the `MAIN HALL` location renamed in `20260831165650`, `counts_as_storage = false`) and a second
+  repair pass that pulls parked units back into free squares, small lines sharing one.

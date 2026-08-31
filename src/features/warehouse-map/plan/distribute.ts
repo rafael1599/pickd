@@ -5,10 +5,12 @@
 // free squares of its own row (a relabel to a wider span), then, for what
 // still does not fit, free buried squares in the nearest rows (a move of just
 // those units); fast squares only when no buried square is left, and the
-// result says how many landed there. What finds no square at all goes to the
-// MAIN HALL, on the floor in front of its block (Rafael, 31 Aug 2026: "lo que
-// sobre se pone en el main hall sur, delante de su bloque correspondiente") —
-// never a second SKU squeezed into an occupied square. Lines with no letter
+// result says how many landed there. What finds no square at all goes to
+// MAS, the floor of the south main hall in front of its block (Rafael, 31 Aug
+// 2026: "lo que sobre se pone en el main hall sur, delante de su bloque
+// correspondiente… el algoritmo debería priorizar llenar el espacio primero")
+// — never a second SKU squeezed into an occupied square, and never MAS while
+// a square is free. Lines with no letter
 // at all get a square too — small ones share one. A letter the drawing does
 // not have is a place, not a gap: those lines stay put and the map keeps
 // listing them as not drawn. (K stopped being one on 31 Aug 2026: rows 30–33
@@ -20,6 +22,7 @@ import { slotKey } from '../engine';
 import { PALLET_UNITS, squaresFor, type ZoneStock } from '../stock/rowStock';
 import {
   locationOfKey,
+  OVERFLOW_LOCATION,
   sameLocation,
   type MoveDraft,
   type PlanMove,
@@ -32,7 +35,7 @@ export interface Distribution {
   untouched: number;
   /** Moves that had to use a fast square because no buried one was left. */
   onFast: number;
-  /** Moves whose units found no square at all: to the MAIN HALL, in front of their block. */
+  /** Moves whose units found no square at all: to MAS, in front of their block. */
   toHall: number;
 }
 
@@ -242,9 +245,9 @@ export function distribute(
       if (found.fast) onFast++;
       overflow -= units;
     }
-    // No square anywhere: the floor of the MAIN HALL, in front of its block.
+    // No square anywhere: the floor of the south main hall, in front of its block.
     if (overflow > 0) {
-      drafts.push(draft(line, 'MAIN HALL', [], overflow));
+      drafts.push(draft(line, OVERFLOW_LOCATION, [], overflow));
       toHall++;
     }
   }
@@ -258,13 +261,19 @@ export interface Repair {
 }
 
 /**
- * No square over the cap, whatever put it there. DISTRIBUTE spreads live
- * lines; this spreads the PLAN'S OWN landings — a hand drop carries a whole
- * pallet and puts it in one square, so a move of 240 units lands 240 in one
- * square (Rafael, 31 Aug 2026: "todavía tengo algunos con 69 y 90 unidades").
- * The move is re-planned over as many squares as it needs at the 30 norm: the
- * free squares of the row it aims at first, then the nearest rows, then the
- * MAIN HALL — the same order DISTRIBUTE uses, because it is the same rule.
+ * The plan's own moves, kept honest. Two passes, both as ghosts in the draft:
+ *
+ *  A. No square over the cap, whatever put it there. DISTRIBUTE spreads live
+ *     lines; this spreads the PLAN'S OWN landings — a hand drop carries a
+ *     whole pallet into one square, so a move of 240 units landed 240 in one
+ *     (Rafael, 31 Aug 2026: "todavía tengo algunos con 69 y 90 unidades").
+ *     The move is re-planned over the squares it needs at the 30 norm: the
+ *     free squares of the row it aims at first, then the nearest rows.
+ *  B. The space comes first. Units parked in MAS while squares are still free
+ *     come back into them, small lines sharing a square.
+ *
+ * MAS is what is left over after both — never a choice made while a square
+ * was free.
  */
 export function repairOverCap(model: LayoutModel, state: PlannedState, moves: PlanMove[]): Repair {
   const pool = freeSquares(model, state);
@@ -315,11 +324,55 @@ export function repairOverCap(model: LayoutModel, state: PlannedState, moves: Pl
       drafts.push({
         ...asDraft(m),
         qty: left,
-        toLocation: 'MAIN HALL',
+        toLocation: OVERFLOW_LOCATION,
         toLetters: [],
         kind: 'move',
       });
     }
+  }
+
+  // Pass B — the space comes first: what is parked in MAS while squares are
+  // free comes back into them (Rafael, 31 Aug 2026: "el algoritmo debería
+  // priorizar llenar el espacio primero, y cuando no haya espacio el extra va
+  // en MAS"). Small lines share a square, as DISTRIBUTE does.
+  const parked = moves.filter(
+    (m) =>
+      m.status === 'planned' &&
+      m.toLetters.length === 0 &&
+      sameLocation(m.toLocation, OVERFLOW_LOCATION) &&
+      !removals.includes(m.id)
+  );
+  /** The square this pass opened last, with the room it has left. */
+  let open: { rowNum: number; letter: string; room: number } | null = null;
+  for (const m of [...parked].sort((a, b) => b.qty - a.qty)) {
+    const near = rowOf(m.fromLocation);
+    const chunks: { rowNum: number; letters: string[]; units: number }[] = [];
+    let left = m.qty;
+    while (left > 0) {
+      if (!open || open.room === 0) {
+        const taken = nearestFree(pool, Number.isFinite(near) ? near : 0, 1);
+        if (taken.length === 0) break;
+        pool.delete(taken[0].key);
+        open = { rowNum: taken[0].rowNum, letter: taken[0].letter, room: PALLET_UNITS };
+      }
+      const units = Math.min(left, open.room);
+      chunks.push({ rowNum: open.rowNum, letters: [open.letter], units });
+      open.room -= units;
+      left -= units;
+    }
+    if (chunks.length === 0) continue; // nowhere to go: MAS is the right place
+    removals.push(m.id);
+    for (const c of chunks) {
+      const toLocation = `ROW ${c.rowNum}`;
+      drafts.push({
+        ...asDraft(m),
+        qty: c.units,
+        toLocation,
+        toLetters: c.letters,
+        kind: sameLocation(m.fromLocation, toLocation) ? 'relabel' : 'move',
+      });
+    }
+    if (left > 0) drafts.push({ ...asDraft(m), qty: left, toLetters: [] });
   }
 
   return { drafts, removals };

@@ -110,6 +110,15 @@ export interface PlannedState {
 const norm = (s: string) => s.trim().toUpperCase();
 export const sameLocation = (a: string, b: string) => norm(a) === norm(b);
 
+/**
+ * Where units go when the drawing has no square left: the floor of the south
+ * main hall, in front of the block. On the tag it is **MAS** (Rafael, 31 Aug
+ * 2026) — the drawing keeps calling the aisle MAIN HALL, because that is the
+ * building; MAS is the place stock is booked to. Last resort only: the plan
+ * fills the empty squares first.
+ */
+export const OVERFLOW_LOCATION = 'MAS';
+
 /** `ROW 33` + `C` → `33-C`, the key the drawing uses. */
 export function cellKey(location: string, letter: string): string {
   const p = parseRowLocation(location);
