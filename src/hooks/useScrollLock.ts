@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 
 /**
  * Locks body scroll when active. Supports nested modals via a ref counter
@@ -8,6 +8,28 @@ import { useEffect, useRef } from 'react';
  * preventing users from getting stuck when the X button is not visible.
  */
 let lockCount = 0;
+const lockListeners = new Set<() => void>();
+
+const notifyLockListeners = () => {
+  for (const listener of lockListeners) listener();
+};
+
+const subscribeToLocks = (cb: () => void): (() => void) => {
+  lockListeners.add(cb);
+  return () => {
+    lockListeners.delete(cb);
+  };
+};
+
+const isAnyLockActive = () => lockCount > 0;
+
+/**
+ * True while anything holds a body scroll lock — i.e. a modal, sheet, menu or
+ * drawer is sitting on top of the view. The bottom nav reads this to get out
+ * of the way (it lives at z-150 and would otherwise poke through overlays).
+ */
+export const useOverlayOpen = (): boolean =>
+  useSyncExternalStore(subscribeToLocks, isAnyLockActive, isAnyLockActive);
 
 export const useScrollLock = (isLocked: boolean, onBack?: () => void) => {
   const onBackRef = useRef(onBack);
@@ -18,6 +40,7 @@ export const useScrollLock = (isLocked: boolean, onBack?: () => void) => {
 
     lockCount++;
     document.body.style.overflow = 'hidden';
+    notifyLockListeners();
 
     return () => {
       lockCount--;
@@ -25,6 +48,7 @@ export const useScrollLock = (isLocked: boolean, onBack?: () => void) => {
         lockCount = 0;
         document.body.style.overflow = '';
       }
+      notifyLockListeners();
     };
   }, [isLocked]);
 

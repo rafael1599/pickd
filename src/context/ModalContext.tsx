@@ -12,6 +12,7 @@
  */
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { useScrollLock } from '../hooks/useScrollLock';
 import { InventorySnapshotModal } from '../features/inventory/components/InventorySnapshotModal';
 import { ItemDetailView } from '../features/inventory/components/ItemDetailView';
 import { PickingSummaryModalById } from '../components/orders/PickingSummaryModalById';
@@ -87,6 +88,11 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
 
   const open = useCallback((m: NonNullable<ModalState>) => setModal(m), []);
   const close = useCallback(() => setModal(null), []);
+
+  // Any open manager modal locks body scroll — which is also the signal the
+  // bottom nav listens to for hiding itself under overlays (useOverlayOpen).
+  // Modals that already lock via ModalOverlay just nest; the counter handles it.
+  useScrollLock(modal !== null);
 
   const value = useMemo(() => ({ open, close }), [open, close]);
 
