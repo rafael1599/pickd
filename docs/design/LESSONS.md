@@ -29,8 +29,11 @@ one place: a rule that contradicts an older one replaces it.
 - **Honest beats tidy.** The map lists what it cannot place ("NOT ON THIS PLAN") instead of
   hiding it or forcing it in — "divídelo de modo que tenga un poco de sentido, en el piso ya los
   iremos actualizando": a reasonable rule, audited, is accepted; a silent one is not.
-- **Separate real from planned.** "Quiero herramientas de edición live separadas de herramientas
-  de edición plan." Two modes, visibly different, never one tool with a hidden switch.
+- **Separate real from planned — and PLAN must show the plan.** "Quiero herramientas de edición
+  live separadas de herramientas de edición plan." Two modes, visibly different, never one tool
+  with a hidden switch. And in PLAN every number is the planned one: "sigo viendo 209 en 3982bl"
+  — a square that gives 179 units away has to read 30, or the plan is invisible and its alarms
+  are lies.
 - **Bugs before quick wins; the request before its interpretation.** Build what was asked; put
   what might come next in a later phase, written down.
 - **A view is a link.** Zone, toggles, mode in the URL; per-device conveniences in
@@ -115,3 +118,9 @@ one place: a rule that contradicts an older one replaces it.
   automáticamente." Every Bay 3 North row draws the 11th square; `SQUARE_MAX` (45) is the alarm
   and the auto-spread trigger, `PALLET_UNITS` (30) stays the working number. The rule above was
   refined in place.
+- **2026-08-31 — a square is what it will hold.** "Sigo viendo 209 en 3982bl y otros números
+  grandes más." PLAN painted live stock and drew ghosts only on empty squares, so an origin that
+  had given units away still showed its old number, still alarmed over the cap, and the automatic
+  spread kept seeing offenders that were already fixed. `plannedState` now subtracts what each
+  move takes from each square (`remainingAt`, `unitsAt`); the drawing, the counters and the
+  auto-spread all read that.

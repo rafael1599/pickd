@@ -278,7 +278,12 @@ export const ZoneView: React.FC<{
     setSelectedKey(null);
   };
 
-  const occupied = stock ? stock.cells.size : null;
+  // In PLAN the header counts the plan's squares, like the drawing.
+  const occupied = !stock
+    ? null
+    : planMode && editor && model
+      ? model.validCells.filter((cell) => editor.state.unitsAt(slotKey(cell)) > 0).length
+      : stock.cells.size;
   const capacity = model ? model.pallets : null;
 
   return (
@@ -665,7 +670,7 @@ export const ZoneView: React.FC<{
               stock={stock?.cells}
               showMeasures={layout}
               ghosts={planMode ? editor?.state.ghosts : undefined}
-              gone={planMode ? editor?.state.gone : undefined}
+              planned={planMode ? editor?.state : undefined}
               heldKey={editing ? editor?.heldKey : null}
               onHover={setHover}
               onHallClick={(idx, w) => setHallEdit({ idx, w: state.hallOverrides[idx] ?? w })}

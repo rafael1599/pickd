@@ -11,8 +11,11 @@ import React, { useState } from 'react';
 import type { Cell, EngineState, LayoutModel, Obstacle, ZoneConfig } from '../engine';
 import { BIKES_PER_LINE, slotKey } from '../engine';
 import { describeCell, SQUARE_MAX, type CellStock } from '../stock/rowStock';
-import type { GhostSlot } from '../plan/slotPlan';
+import type { GhostSlot, PlannedState } from '../plan/slotPlan';
 import { skuColorDark } from '../../../utils/skuColor';
+
+/** The part of the planned state the drawing needs. */
+type PlannedCell = Pick<PlannedState, 'remainingAt'>;
 
 /** Margin around the zone, inches of viewBox, for the wall labels. */
 export const SVG_MARGIN = 96;
@@ -58,8 +61,8 @@ interface Props {
   onCellTap?: (cell: Cell, stock: CellStock | undefined) => void;
   /** Planned moves landing in each slot (PLAN mode): drawn as ghosts. */
   ghosts?: Map<string, GhostSlot[]>;
-  /** Is this line's share gone from this square once the plan runs? */
-  gone?: (inventoryId: number, letter: string) => boolean;
+  /** PLAN only: what each line still has in a square once the plan runs. */
+  planned?: PlannedCell;
   /** The slot of the line in hand, marked so the eye finds it. */
   heldKey?: string | null;
 }
@@ -117,14 +120,25 @@ const StockLabel: React.FC<{ stock: CellStock; cl: Cell; m: number; opacity?: nu
   );
 };
 
-/** What PLAN paints on a square: a ghost of what will land there. */
-function ghostStockOf(key: string, cl: Cell, gh: GhostSlot[]): CellStock {
-  return {
-    key,
-    rowNumber: Number(cl.row.num),
-    letter: cl.letter,
-    units: gh.reduce((s, g) => s + g.qtyHere, 0),
-    entries: gh.map((g) => ({
+/**
+ * What PLAN paints on a square: what is left of the live lines once the plan
+ * runs, plus what lands there. Never the stock of today — a move of 179 of a
+ * 209 line leaves 30 behind, and the square has to say 30.
+ */
+function afterCell(
+  key: string,
+  cl: Cell,
+  live: CellStock | undefined,
+  gh: GhostSlot[],
+  planned: PlannedCell
+): CellStock | null {
+  const entries: CellStock['entries'] = [];
+  for (const e of live?.entries ?? []) {
+    const left = planned.remainingAt(key, e.rowId);
+    if (left > 0) entries.push({ ...e, qtyHere: left });
+  }
+  for (const g of gh) {
+    entries.push({
       sku: g.move.sku,
       qty: g.move.qty,
       qtyHere: g.qtyHere,
@@ -132,7 +146,15 @@ function ghostStockOf(key: string, cl: Cell, gh: GhostSlot[]): CellStock {
       rowId: g.move.inventoryId,
       warehouse: g.move.warehouse,
       span: g.move.toLetters.length,
-    })),
+    });
+  }
+  if (entries.length === 0) return null;
+  return {
+    key,
+    rowNumber: Number(cl.row.num),
+    letter: cl.letter,
+    units: entries.reduce((s, e) => s + e.qtyHere, 0),
+    entries,
   };
 }
 
@@ -181,7 +203,7 @@ export const ZoneSvg: React.FC<Props> = ({
   onHallClick,
   onCellTap,
   ghosts,
-  gone,
+  planned,
   heldKey,
 }) => {
   const c = config;
@@ -204,14 +226,16 @@ export const ZoneSvg: React.FC<Props> = ({
   const bikesInBlock = m.lines * BIKES_PER_LINE;
   const hitPostIds = new Set(m.hits.map((h) => h.source.id));
 
-  /** A square: its stock, its ghosts, what leaves it, what it holds over a pallet. */
+  /** A square: what it will hold, what leaves it, what it holds over the cap. */
   const square = (cl: Cell, obstructed: boolean) => {
     const key = slotKey(cl);
-    const st = stock?.get(key);
+    const live = stock?.get(key);
     const gh = ghosts?.get(key) ?? [];
-    const leaving = st ? st.entries.filter((e) => gone?.(e.rowId, st.letter) ?? false).length : 0;
-    const allLeaving = !!st && leaving === st.entries.length;
-    const ghostOnly = !st && gh.length > 0 ? ghostStockOf(key, cl, gh) : null;
+    // In PLAN the square is its planned self; elsewhere it is the live stock.
+    const st = planned ? afterCell(key, cl, live, gh, planned) : (live ?? null);
+    const leaving = planned
+      ? (live?.entries ?? []).filter((e) => planned.remainingAt(key, e.rowId) < e.qtyHere).length
+      : 0;
     const over = !!st && st.units > SQUARE_MAX;
     const where = `ROW ${cl.row.num} · ${cl.letter}`;
     const plain = showMeasures
@@ -222,13 +246,9 @@ export const ZoneSvg: React.FC<Props> = ({
       (gh.length
         ? ` · planned here: ${gh.map((g) => `${g.move.sku} ${g.qtyHere}u`).join(', ')}`
         : '');
-    const tone = st
-      ? skuColorDark(st.entries[0].sku)
-      : ghostOnly
-        ? skuColorDark(gh[0].move.sku)
-        : null;
+    const tone = st ? skuColorDark(st.entries[0].sku) : null;
     const isHeld = heldKey === key;
-    return { key, st, gh, leaving, allLeaving, ghostOnly, over, text, tone, isHeld };
+    return { key, st, gh, leaving, over, text, tone, isHeld };
   };
 
   // Hovering (or tapping) a square lights every square holding one of its
@@ -678,19 +698,7 @@ export const ZoneSvg: React.FC<Props> = ({
               height={cl.ch}
               rx="3"
               fill={q.tone ? q.tone.bg : col}
-              fillOpacity={
-                hot
-                  ? 1
-                  : q.tone
-                    ? q.st
-                      ? q.allLeaving
-                        ? 0.35
-                        : 0.92
-                      : 0.5
-                    : cl.isFast
-                      ? 0.4
-                      : 0.2
-              }
+              fillOpacity={hot ? 1 : q.tone ? 0.92 : cl.isFast ? 0.4 : 0.2}
               style={hot ? { filter: 'brightness(1.6) saturate(1.3)' } : undefined}
               stroke={
                 q.isHeld
@@ -718,13 +726,12 @@ export const ZoneSvg: React.FC<Props> = ({
               onClick={() => {
                 onHover({ text: q.text, cell: cl });
                 setHotSkus(skusOf(q));
-                onCellTap?.(cl, q.st);
+                onCellTap?.(cl, q.st ?? undefined);
               }}
             >
               <title>{q.text}</title>
             </rect>
-            {q.st && <StockLabel stock={q.st} cl={cl} m={M} opacity={q.allLeaving ? 0.35 : 1} />}
-            {q.ghostOnly && <StockLabel stock={q.ghostOnly} cl={cl} m={M} opacity={0.75} />}
+            {q.st && <StockLabel stock={q.st} cl={cl} m={M} />}
             {(q.gh.length > 0 || q.leaving > 0 || q.over) && (
               <Marks
                 cl={cl}
@@ -827,7 +834,7 @@ export const ZoneSvg: React.FC<Props> = ({
               height={cl.ch}
               rx="3"
               fill={q.tone ? q.tone.bg : COLOR.post}
-              fillOpacity={hot ? 1 : q.tone ? (q.st ? (q.allLeaving ? 0.35 : 0.92) : 0.5) : 0.1}
+              fillOpacity={hot ? 1 : q.tone ? 0.92 : 0.1}
               style={hot ? { filter: 'brightness(1.6) saturate(1.3)' } : undefined}
               stroke={q.isHeld ? '#00eeff' : hot ? '#ffffff' : COLOR.post}
               strokeWidth={q.isHeld || hot || q.gh.length ? 2.5 : 1.5}
@@ -844,13 +851,12 @@ export const ZoneSvg: React.FC<Props> = ({
               onClick={() => {
                 onHover({ text: q.text, cell: cl });
                 setHotSkus(skusOf(q));
-                onCellTap?.(cl, q.st);
+                onCellTap?.(cl, q.st ?? undefined);
               }}
             >
               <title>{q.text}</title>
             </rect>
-            {q.st && <StockLabel stock={q.st} cl={cl} m={M} opacity={q.allLeaving ? 0.35 : 1} />}
-            {q.ghostOnly && <StockLabel stock={q.ghostOnly} cl={cl} m={M} opacity={0.75} />}
+            {q.st && <StockLabel stock={q.st} cl={cl} m={M} />}
             {(q.gh.length > 0 || q.leaving > 0 || q.over) && (
               <Marks
                 cl={cl}

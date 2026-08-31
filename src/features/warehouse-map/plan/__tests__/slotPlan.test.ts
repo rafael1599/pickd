@@ -182,8 +182,10 @@ describe('V8 — the same SKU picked twice moves square by square (31 Aug 2026)'
 
     const st1 = plannedState(sStock, moves);
     // B empties once the plan runs; A still holds its pallet.
-    expect(st1.gone(id, 'B')).toBe(true);
-    expect(st1.gone(id, 'A')).toBe(false);
+    expect(st1.gone('31-B', id)).toBe(true);
+    expect(st1.gone('31-A', id)).toBe(false);
+    expect(st1.unitsAt('31-A')).toBe(30);
+    expect(st1.unitsAt('31-D')).toBe(30);
     expect(st1.occupancy('31-B')).toEqual([]);
     expect(st1.occupancy('31-A')).toHaveLength(1);
 
@@ -222,6 +224,41 @@ describe('V8 — the same SKU picked twice moves square by square (31 Aug 2026)'
     expect(redirected.drafts).toEqual([
       expect.objectContaining({ qty: 30, toLetters: ['F'], kind: 'relabel' }),
     ]);
+  });
+});
+
+describe('a square is what it will hold, not the stock of today (31 Aug 2026)', () => {
+  // Rafael: "sigo viendo 209 en 3982bl" — ROW 30 G held 209 with 179 planned
+  // out, and the square still painted 209 (over the cap, alarmed) because the
+  // drawing read live stock and only dimmed it.
+  const big = [line('ROW 30', '03-3982BL', 209, ['G'])];
+  const bStock = zoneStock(ZONES.bay3_north, model, big);
+  const partial = asMove({
+    inventoryId: big[0].id,
+    sku: '03-3982BL',
+    qty: 179,
+    itemName: null,
+    warehouse: 'LUDLOW',
+    fromLocation: 'ROW 30',
+    fromSublocation: ['G'],
+    toLocation: 'ROW 31',
+    toLetters: ['B', 'C', 'D', 'E', 'F', 'G'],
+    kind: 'move',
+  });
+
+  it('the origin keeps only what the move leaves, and the targets show their share', () => {
+    const st = plannedState(bStock, [partial]);
+    expect(st.unitsAt('30-G')).toBe(30);
+    expect(st.remainingAt('30-G', big[0].id)).toBe(30);
+    expect(st.unitsAt('31-B')).toBe(30);
+    expect(st.occupancy('30-G').map((o) => o.qtyHere)).toEqual([30]);
+  });
+
+  it('a move of the whole square empties it', () => {
+    const whole = { ...partial, qty: 209, toLetters: ['B', 'C', 'D', 'E', 'F', 'G', 'H'] };
+    const st = plannedState(bStock, [whole]);
+    expect(st.unitsAt('30-G')).toBe(0);
+    expect(st.occupancy('30-G')).toEqual([]);
   });
 });
 

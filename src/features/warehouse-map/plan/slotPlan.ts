@@ -95,8 +95,12 @@ export interface PlannedState {
   vacated: Set<number>;
   /** Inventory ids with any planned move at all — DISTRIBUTE leaves them alone. */
   hasMove: Set<number>;
-  /** Is this line's share gone from this square once the plan runs? */
-  gone: (inventoryId: number, letter: string) => boolean;
+  /** Units of this line still in this square once the plan runs. */
+  remainingAt: (key: string, inventoryId: number) => number;
+  /** Nothing of this line is left in this square. */
+  gone: (key: string, inventoryId: number) => boolean;
+  /** What the square holds once the plan runs: what stays plus what lands. */
+  unitsAt: (key: string) => number;
   /** Who is in a cell once the plan is applied. */
   occupancy: (key: string) => Occupant[];
   /** The drawn cell a line lives in today, or null. */
@@ -130,35 +134,48 @@ export function plannedState(stock: ZoneStock | null, moves: PlanMove[]): Planne
   const planned = moves.filter((m) => m.status === 'planned');
   const ghosts = new Map<string, GhostSlot[]>();
   const vacated = new Set<number>();
-  // `id|letter` — squares a partial move empties (the hand took that square's
-  // whole share). A tail smaller than the share (units to the hall) leaves
-  // the line where it is.
-  const partialGone = new Set<string>();
+  const shareAt = (key: string, id: number) =>
+    stock?.cells.get(key)?.entries.find((e) => e.rowId === id)?.qtyHere ?? 0;
+  // `cellKey|id` → units a planned move takes OUT of that square. A square is
+  // what stays plus what lands, never the stock of today: a move of 179 of a
+  // 209 line leaves 30 behind, and the drawing has to say 30 (Rafael, 31 Aug
+  // 2026: "sigo viendo 209 en 3982bl").
+  const takenFrom = new Map<string, number>();
+  const takeKey = (key: string, id: number) => `${key}|${id}`;
   for (const m of planned) {
     const shares = allocate(m.qty, m.toLetters.length);
     targetKeys(m).forEach((k, i) => {
       ghosts.set(k, [...(ghosts.get(k) ?? []), { move: m, qtyHere: shares[i] }]);
     });
-    if (!isPartial(m, stock)) {
-      vacated.add(m.inventoryId);
-    } else {
-      for (const l of m.fromSublocation ?? []) {
-        // A relabel re-letters what it names, so its source squares empty; a
-        // partial MOVE empties its square only when it takes the whole share.
-        if (m.kind === 'relabel') {
-          partialGone.add(`${m.inventoryId}|${l}`);
-          continue;
-        }
-        const entry = stock?.cells
-          .get(cellKey(m.fromLocation, l))
-          ?.entries.find((e) => e.rowId === m.inventoryId);
-        if (entry && m.qty >= entry.qtyHere) partialGone.add(`${m.inventoryId}|${l}`);
-      }
+    if (!isPartial(m, stock)) vacated.add(m.inventoryId);
+    const sources = (m.fromSublocation ?? []).map((l) => cellKey(m.fromLocation, l));
+    if (m.kind === 'relabel') {
+      // A relabel re-letters the whole line: every square it names empties,
+      // and its targets receive the shares.
+      for (const k of sources) takenFrom.set(takeKey(k, m.inventoryId), shareAt(k, m.inventoryId));
+      continue;
+    }
+    // A move takes its units from the squares it names, in order.
+    let left = m.qty;
+    for (const k of sources) {
+      if (left <= 0) break;
+      const kk = takeKey(k, m.inventoryId);
+      const already = takenFrom.get(kk) ?? 0;
+      const take = Math.min(left, Math.max(0, shareAt(k, m.inventoryId) - already));
+      takenFrom.set(kk, already + take);
+      left -= take;
     }
   }
   const hasMove = new Set(planned.map((m) => m.inventoryId));
-  const gone = (inventoryId: number, letter: string) =>
-    vacated.has(inventoryId) || partialGone.has(`${inventoryId}|${letter}`);
+  const remainingAt = (key: string, id: number) =>
+    Math.max(0, shareAt(key, id) - (takenFrom.get(takeKey(key, id)) ?? 0));
+  const gone = (key: string, id: number) => remainingAt(key, id) === 0;
+  const unitsAt = (key: string) => {
+    let units = 0;
+    for (const e of stock?.cells.get(key)?.entries ?? []) units += remainingAt(key, e.rowId);
+    for (const g of ghosts.get(key) ?? []) units += g.qtyHere;
+    return units;
+  };
   const liveKeys = new Map<number, string>();
   if (stock) {
     for (const [key, cell] of stock.cells) {
@@ -170,12 +187,13 @@ export function plannedState(stock: ZoneStock | null, moves: PlanMove[]): Planne
     const out: Occupant[] = [];
     const cell = stock?.cells.get(key);
     for (const e of cell?.entries ?? []) {
-      if (gone(e.rowId, cell!.letter)) continue;
+      const left = remainingAt(key, e.rowId);
+      if (left === 0) continue;
       out.push({
         inventoryId: e.rowId,
         sku: e.sku,
         qty: e.qty,
-        qtyHere: e.qtyHere,
+        qtyHere: left,
         itemName: e.itemName,
         warehouse: e.warehouse,
         location: locationOfKey(key),
@@ -203,7 +221,7 @@ export function plannedState(stock: ZoneStock | null, moves: PlanMove[]): Planne
     }
     return out;
   };
-  return { ghosts, vacated, hasMove, gone, occupancy, liveKeyOf };
+  return { ghosts, vacated, hasMove, remainingAt, gone, unitsAt, occupancy, liveKeyOf };
 }
 
 /** A move that takes fewer units than the line has. */

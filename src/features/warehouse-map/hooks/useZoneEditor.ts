@@ -148,16 +148,16 @@ export function useZoneEditor(
   useEffect(() => {
     if (mode !== 'plan' || !stock || !model || plan.busy || plan.isLoading) return;
     const offenders = new Set<number>();
-    for (const [key, cell] of stock.cells) {
-      let units = 0;
-      const live: number[] = [];
-      for (const e of cell.entries) {
-        if (planState.gone(e.rowId, cell.letter)) continue;
-        units += e.qtyHere;
-        live.push(e.rowId);
+    for (const cell of model.validCells) {
+      const key = slotKey(cell);
+      if (planState.unitsAt(key) <= SQUARE_MAX) continue;
+      for (const e of stock.cells.get(key)?.entries ?? []) {
+        // A line already in the plan keeps the moves it has; DISTRIBUTE
+        // would skip it anyway.
+        if (planState.remainingAt(key, e.rowId) > 0 && !planState.hasMove.has(e.rowId)) {
+          offenders.add(e.rowId);
+        }
       }
-      for (const g of planState.ghosts.get(key) ?? []) units += g.qtyHere;
-      if (units > SQUARE_MAX) for (const id of live) offenders.add(id);
     }
     if (offenders.size === 0) return;
     const stamp = [...offenders].sort((a, b) => a - b).join(',');
