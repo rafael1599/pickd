@@ -102,3 +102,34 @@ export function noteMetadataString(note: NoteLike, key: string): string | null {
   const value = metadataValue(note, key);
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
+
+/**
+ * `inventory_logs.note` — the other place PickD writes about itself, and a
+ * different mechanism from the one above: no `kind` column and no trigger,
+ * because the two authors that write there leave different fingerprints.
+ *
+ *  - **The map's LIVE and PLAN moves** compose theirs in
+ *    `warehouse-map/components/runMove.ts`: `Live BAY 3 NORTH: ROW 30 A → ROW
+ *    33 A`. A person confirmed that move, so `performed_by` is their name —
+ *    only the shape gives the writer away. It also says nothing the log's own
+ *    from/to columns do not already say.
+ *  - **Data migrations** write theirs under `performed_by = 'system: …'`
+ *    (`system: canonical-sku` left 137 of them). There the author is the signal
+ *    and the text never needs parsing.
+ *
+ * Neither is prose a person typed, so a report meant for a person leaves them
+ * out. Readers ask this, never match the prefix themselves.
+ */
+export interface InventoryLogNoteLike {
+  note?: string | null;
+  performed_by?: string | null;
+}
+
+/** `Live|Plan <ZONE>: <from> → <to>` — the map's own words (`runMove.ts`). */
+const MAP_MOVE_NOTE = /^(?:live|plan)\s+\S.*:\s*.*→/i;
+
+/** True when PickD wrote this log's note, not a person. */
+export function isSystemInventoryLogNote(log: InventoryLogNoteLike): boolean {
+  if ((log.performed_by ?? '').trim().toLowerCase().startsWith('system:')) return true;
+  return MAP_MOVE_NOTE.test((log.note ?? '').trim());
+}

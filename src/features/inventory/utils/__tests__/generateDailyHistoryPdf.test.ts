@@ -186,6 +186,53 @@ describe('generateDailyHistoryDoc', () => {
     expectOrderedText(rec, ['AS400 Sync', '22 UNITS IN STOCK', 'Multiple locations'], 2);
   });
 
+  it('leaves out the notes PickD wrote itself, in both modes', async () => {
+    // The map's LIVE/PLAN note repeats what from/to already say, and a data
+    // migration's note is not prose anyone typed. A person's note stays.
+    const systemNoteLogs: HistoryLog[] = [
+      {
+        sku: '03-2',
+        action_type: 'MOVE',
+        from_location: 'ROW 30',
+        to_location: 'ROW 33',
+        performed_by: 'Rafael Lopez',
+        note: 'Live BAY 3 NORTH: ROW 30 A → ROW 33 A',
+      },
+      {
+        sku: '03-1',
+        action_type: 'EDIT',
+        to_location: 'ROW 1',
+        performed_by: 'system: canonical-sku',
+        note: 'Canonical SKU (idea-154) renamed 01-288 to 01-0288',
+      },
+      {
+        sku: '03-3',
+        action_type: 'MOVE',
+        from_location: 'ROW 2',
+        to_location: 'ROW 4',
+        performed_by: 'Rafael Lopez',
+        note: 'Damaged box, verify count',
+      },
+    ];
+    for (const mode of ['as400', 'full'] as const) {
+      rec.restore();
+      rec = createRecorder();
+      generateDailyHistoryDoc(jsPDF, autoTable, {
+        logs: systemNoteLogs,
+        filter: 'ALL',
+        userFilter: 'ALL',
+        timeFilter: 'TODAY',
+        getDisplayQty: () => 2,
+        mode,
+        stock,
+      });
+      const all = rec.allText();
+      expect(all, mode).not.toContain('Live BAY 3 NORTH');
+      expect(all, mode).not.toContain('Canonical SKU');
+      expect(all, mode).toContain('Damaged box, verify count');
+    }
+  });
+
   it('AS400 mode still renders every moved SKU when no stock is supplied', async () => {
     generateDailyHistoryDoc(jsPDF, autoTable, {
       logs,

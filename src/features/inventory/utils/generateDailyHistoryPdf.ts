@@ -14,6 +14,8 @@
  * Extracted from HistoryScreen so the layout is unit-testable. Black & white only.
  */
 
+import { isSystemInventoryLogNote } from '../../../utils/systemNotes';
+
 // Minimal structural shape of a log row this PDF reads. HistoryScreen's
 // InventoryLog satisfies it; the generic keeps getDisplayQty's type exact.
 export interface HistoryLog {
@@ -26,6 +28,8 @@ export interface HistoryLog {
   note?: string | null;
   /** Drives the date separator rows in multi-day 'full' reports. */
   created_at?: string | Date | null;
+  /** Who the log says did it: `system: …` marks a note PickD wrote itself. */
+  performed_by?: string | null;
 }
 
 // A current inventory row for one of the report's SKUs. Quantities are summed per
@@ -125,7 +129,7 @@ function renderAs400<TLog extends HistoryLog>(
       seenSku.add(log.sku);
       skuOrder.push(log.sku);
     }
-    const rawNote = (log.note ?? '').trim();
+    const rawNote = isSystemInventoryLogNote(log) ? '' : (log.note ?? '').trim();
     if (rawNote) {
       const cleaned = rawNote.replace(/^FedEx Return\s+/i, '');
       const existing = notesBySku.get(log.sku) ?? [];
@@ -513,7 +517,8 @@ function renderFull<TLog extends HistoryLog>(
       activity = `Reversed: ${activity}`;
     }
 
-    const noteLine = rawNote ? rawNote.replace(/^FedEx Return\s+/i, '') : null;
+    const noteLine =
+      rawNote && !isSystemInventoryLogNote(log) ? rawNote.replace(/^FedEx Return\s+/i, '') : null;
     const extraLines = [chainHops, noteLine].filter(Boolean) as string[];
     const cellText = extraLines.length > 0 ? `${activity}\n${extraLines.join('\n')}` : activity;
 
