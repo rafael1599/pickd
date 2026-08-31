@@ -169,6 +169,23 @@ describe('generateDailyHistoryDoc', () => {
     expect(rec.allText()).not.toContain('ROW 32');
   });
 
+  it('AS400 mode heads every section with the report-wide units in stock', async () => {
+    // The figure the station reconciles against AS400: the CURRENT STOCK column
+    // summed over the whole report (12 + 3 + 7 = 22), the same on both sections,
+    // never the section's own subtotal.
+    generateDailyHistoryDoc(jsPDF, autoTable, {
+      logs,
+      filter: 'ALL',
+      userFilter: 'ALL',
+      timeFilter: 'TODAY',
+      getDisplayQty: () => 2,
+      mode: 'as400',
+      stock,
+    });
+    expectOrderedText(rec, ['AS400 Sync', '22 UNITS IN STOCK']);
+    expectOrderedText(rec, ['AS400 Sync', '22 UNITS IN STOCK', 'Multiple locations'], 2);
+  });
+
   it('AS400 mode still renders every moved SKU when no stock is supplied', async () => {
     generateDailyHistoryDoc(jsPDF, autoTable, {
       logs,

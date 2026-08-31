@@ -199,6 +199,15 @@ function renderAs400<TLog extends HistoryLog>(
     (tos.length >= 2 ? multis : singles).push({ sku, from: fromText(sku), tos });
   }
 
+  // Every unit the report accounts for: the CURRENT STOCK column summed over
+  // all of it, blocks included. It is the figure the station reconciles against
+  // AS400 once the lines are typed in, so it is report-wide — the same number on
+  // both sections — not the section's own subtotal (Rafael, 31 Aug 2026).
+  const stockUnits = [...singles, ...multis].reduce(
+    (sum, e) => sum + e.tos.reduce((acc, t) => acc + t.qty, 0),
+    0
+  );
+
   // Largest type that fits (FROM may wrap) on the 6×4 label. 14/15 ≥ 90%.
   const BIG = 15;
   const REG = 14;
@@ -228,6 +237,9 @@ function renderAs400<TLog extends HistoryLog>(
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(BIG);
     doc.text('AS400 Sync', MARGIN, MARGIN + 4.5);
+    doc.text(`${stockUnits.toLocaleString()} UNITS IN STOCK`, PAGE_W - MARGIN, MARGIN + 4.5, {
+      align: 'right',
+    });
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(REG);
     doc.text(subtitle, MARGIN, MARGIN + 9.5);
