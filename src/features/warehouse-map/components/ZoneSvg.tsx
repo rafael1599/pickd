@@ -248,7 +248,9 @@ export const ZoneSvg: React.FC<Props> = ({
         : '');
     const tone = st ? skuColorDark(st.entries[0].sku) : null;
     const isHeld = heldKey === key;
-    return { key, st, gh, leaving, over, text, tone, isHeld };
+    // A landing of his own is drawn solid: it is fixed, not a suggestion.
+    const byHand = gh.some((g) => g.move.origin === 'hand');
+    return { key, st, gh, byHand, leaving, over, text, tone, isHeld };
   };
 
   // Hovering (or tapping) a square lights every square holding one of its
@@ -713,7 +715,7 @@ export const ZoneSvg: React.FC<Props> = ({
               }
               strokeOpacity={q.isHeld || hot || q.gh.length || q.over ? 1 : 0.75}
               strokeWidth={q.isHeld || hot || q.gh.length || q.over ? 2.5 : 1.5}
-              strokeDasharray={q.gh.length ? '6 4' : undefined}
+              strokeDasharray={q.gh.length && !q.byHand ? '6 4' : undefined}
               data-slot={q.key}
               onPointerEnter={() => {
                 onHover({ text: q.text, cell: cl });

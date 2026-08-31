@@ -37,6 +37,7 @@ type MoveRow = {
   to_location: string;
   to_sublocation: string[];
   kind: string;
+  origin: string | null;
   status: string;
   error: string | null;
 };
@@ -55,6 +56,9 @@ const toMove = (r: MoveRow): PlanMove => ({
   toLocation: r.to_location,
   toLetters: r.to_sublocation,
   kind: r.kind === 'move' ? 'move' : 'relabel',
+  // Rows written before the column existed are the operator's: they are what
+  // he is already looking at, and nothing may rewrite them behind his back.
+  origin: r.origin === 'auto' ? 'auto' : 'hand',
   status: (['planned', 'done', 'skipped', 'failed'] as const).includes(r.status as MoveStatus)
     ? (r.status as MoveStatus)
     : 'planned',
@@ -219,6 +223,7 @@ function draftToRow(d: MoveDraft) {
     to_location: d.toLocation,
     to_sublocation: d.toLetters,
     kind: d.kind,
+    origin: d.origin,
   };
 }
 

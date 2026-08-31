@@ -3,7 +3,7 @@
 // goes to the MAIN HALL in front of its block — never over 30 in a square.
 
 import { describe, it, expect } from 'vitest';
-import { distribute, repairOverCap } from '../distribute';
+import { distribute, repairOverCap, spreadDrop } from '../distribute';
 import { OVERFLOW_LOCATION, plannedState, type PlanMove } from '../slotPlan';
 import { zoneStock, type StockRow } from '../../stock/rowStock';
 import { ZONES, calculateLayout, defaultEngineState, slotKey } from '../../engine';
@@ -34,6 +34,7 @@ describe('a line with more units than squares', () => {
     expect(d.drafts).toHaveLength(1);
     expect(d.drafts[0]).toMatchObject({
       kind: 'relabel',
+      origin: 'auto' as const,
       qty: 132,
       fromSublocation: ['C'],
       toLocation: 'ROW 33',
@@ -140,6 +141,7 @@ describe('a line with more units than squares', () => {
         toLocation: 'ROW 30',
         toLetters: ['A'],
         kind: 'move',
+        origin: 'auto' as const,
         status: 'planned',
         error: null,
       },
@@ -165,6 +167,7 @@ describe("repairOverCap — the plan's own landings (31 Aug 2026)", () => {
     toLocation: 'ROW 32',
     toLetters: ['H'],
     kind: 'move',
+    origin: 'auto' as const,
     status: 'planned',
     error: null,
     ...over,
@@ -228,6 +231,7 @@ describe('the space comes first — MAS is the last resort (31 Aug 2026)', () =>
     toLocation: OVERFLOW_LOCATION,
     toLetters: [],
     kind: 'move',
+    origin: 'auto' as const,
     status: 'planned',
     error: null,
   });
@@ -291,6 +295,7 @@ describe('a square shared by two lines (31 Aug 2026)', () => {
       toLocation: 'ROW 31',
       toLetters: ['C'],
       kind: 'move',
+      origin: 'auto' as const,
       status: 'planned',
       error: null,
     };
@@ -322,5 +327,92 @@ describe('a square shared by two lines (31 Aug 2026)', () => {
     const stock = zoneStock(ZONES.bay3_north, model, rows);
     expect([...'GHIJ'].map((l) => stock.cells.get(`33-${l}`)!.units)).toEqual([40, 40, 40, 39]);
     expect(repairOverCap(model, plannedState(stock, []), []).drafts).toEqual([]);
+  });
+});
+
+describe('a hand move is fixed (31 Aug 2026)', () => {
+  // Rafael: "quiero que los movimientos que se hacen a un sku queden fijos a
+  // menos que yo lo vuelva a mover". Siebel's Lock Assignment, Tetris's lock
+  // delay: the optimizer plans AROUND it, the person is the only one who
+  // changes it.
+  const move = (over: Partial<PlanMove>): PlanMove => ({
+    id: 1,
+    planId: 'p',
+    position: 1,
+    inventoryId: 1,
+    sku: '03-3978BL',
+    qty: 240,
+    itemName: null,
+    warehouse: 'LUDLOW',
+    fromLocation: 'ROW 30',
+    fromSublocation: ['H'],
+    toLocation: 'ROW 32',
+    toLetters: ['H'],
+    kind: 'move',
+    origin: 'hand',
+    status: 'planned',
+    error: null,
+    ...over,
+  });
+
+  it('no pass rewrites it, however badly it lands', () => {
+    const rows = [line('ROW 30', '03-3978BL', 240, ['H'])];
+    const stock = zoneStock(ZONES.bay3_north, model, rows);
+    const hand = move({});
+    const r = repairOverCap(model, plannedState(stock, [hand]), [hand]);
+    expect(r.removals).toEqual([]);
+    expect(r.drafts).toEqual([]);
+    // The same landing made by the plan itself IS re-planned.
+    const auto = move({ origin: 'auto' });
+    expect(repairOverCap(model, plannedState(stock, [auto]), [auto]).removals).toEqual([auto.id]);
+  });
+
+  it('a hand move parked in MAS stays there; the plan only brings back its own', () => {
+    const stock = zoneStock(ZONES.bay3_north, model, []);
+    const parked = move({ qty: 5, toLocation: OVERFLOW_LOCATION, toLetters: [] });
+    expect(repairOverCap(model, plannedState(stock, [parked]), [parked]).drafts).toEqual([]);
+    const auto = { ...parked, origin: 'auto' as const };
+    expect(repairOverCap(model, plannedState(stock, [auto]), [auto]).drafts).toHaveLength(1);
+  });
+
+  it('the drop itself fans a big pallet out, so it is settled before it locks', () => {
+    const rows = [line('ROW 30', '03-3978BL', 240, ['H'])];
+    const stock = zoneStock(ZONES.bay3_north, model, rows);
+    const state = plannedState(stock, []);
+    const dropped = spreadDrop(model, state, [
+      {
+        origin: 'hand',
+        inventoryId: rows[0].id,
+        sku: '03-3978BL',
+        qty: 240,
+        itemName: null,
+        warehouse: 'LUDLOW',
+        fromLocation: 'ROW 30',
+        fromSublocation: ['H'],
+        toLocation: 'ROW 32',
+        toLetters: ['H'],
+        kind: 'move',
+      },
+    ]);
+    // One gesture, one move — over the eight squares 240 units need.
+    expect(dropped).toHaveLength(1);
+    expect(dropped[0].toLetters).toHaveLength(8);
+    expect(dropped.every((d) => d.origin === 'hand')).toBe(true);
+    expect(dropped[0].toLetters).toContain('H'); // the square he pointed at
+    expect(dropped[0].toLocation).toBe('ROW 32'); // the row he pointed at
+    expect(dropped.reduce((s, d) => s + d.qty, 0)).toBe(240);
+    // And nothing lands over the cap.
+    const after = plannedState(
+      stock,
+      dropped.map((d, i) => ({
+        ...d,
+        id: 50 + i,
+        planId: 'p',
+        position: i,
+        status: 'planned' as const,
+        error: null,
+      }))
+    );
+    for (const c of model.validCells) expect(after.unitsAt(slotKey(c))).toBeLessThanOrEqual(45);
   });
 });

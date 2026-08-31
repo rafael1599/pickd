@@ -21,6 +21,7 @@ import type { LayoutModel } from '../engine';
 import { slotKey } from '../engine';
 import { PALLET_UNITS, SQUARE_MAX, squaresFor, type ZoneStock } from '../stock/rowStock';
 import {
+  cellKey,
   locationOfKey,
   OVERFLOW_LOCATION,
   sameLocation,
@@ -172,6 +173,7 @@ export function distribute(
   };
 
   const draft = (line: Line, toLocation: string, toLetters: string[], qty: number): MoveDraft => ({
+    origin: 'auto',
     inventoryId: line.inventoryId,
     sku: line.sku,
     qty,
@@ -294,61 +296,81 @@ export function repairOverCap(model: LayoutModel, state: PlannedState, moves: Pl
   return parkedInMas(model, state, moves);
 }
 
-/** Pass A — a landing that needs more squares than it names. */
+/**
+ * One landing, over the squares it needs at the 30 norm: the free squares of
+ * the row it aims at first (the row the hand pointed at), then the nearest
+ * rows, then MAS. Returns the drafts that replace it — one per row it reaches.
+ * The squares it takes leave the pool.
+ */
+function spreadOne(pool: Map<string, Square>, d: MoveDraft): MoveDraft[] | null {
+  const need = squaresFor(d.qty);
+  if (d.toLetters.length === 0 || need <= d.toLetters.length) return null;
+  const rowNum = rowOf(d.toLocation);
+  if (!Number.isFinite(rowNum)) return null;
+
+  const own = [...pool.values()]
+    .filter((s) => s.rowNum === rowNum)
+    .sort((a, b) => Number(a.isFast) - Number(b.isFast) || a.d - b.d)
+    .slice(0, need - d.toLetters.length);
+  for (const s of own) pool.delete(s.key);
+
+  const letters = sortLetters([...d.toLetters, ...own.map((s) => s.letter)]);
+  const here = Math.min(d.qty, PALLET_UNITS * letters.length);
+  let left = d.qty - here;
+  const out: MoveDraft[] = [{ ...d, qty: here, toLetters: letters }];
+  while (left > 0) {
+    const taken = nearestFree(pool, rowNum, squaresFor(left));
+    if (taken.length === 0) break;
+    for (const s of taken) pool.delete(s.key);
+    const units = Math.min(left, PALLET_UNITS * taken.length);
+    const toLocation = `ROW ${taken[0].rowNum}`;
+    out.push({
+      ...d,
+      qty: units,
+      toLocation,
+      toLetters: sortLetters(taken.map((s) => s.letter)),
+      kind: sameLocation(d.fromLocation, toLocation) ? 'relabel' : 'move',
+    });
+    left -= units;
+  }
+  if (left > 0) {
+    out.push({ ...d, qty: left, toLocation: OVERFLOW_LOCATION, toLetters: [], kind: 'move' });
+  }
+  // Nothing was gained: no square anywhere and no hall split to make.
+  if (out.length === 1 && out[0].toLetters.length === d.toLetters.length) return null;
+  return out;
+}
+
+/**
+ * A hand drop settles in one gesture. A pallet that needs more than one
+ * square fans out at the drop — the row he pointed at first — because after
+ * the drop it is locked, and nothing re-computes it later. That is Tetris's
+ * lock delay: while the piece falls it can still be nudged; once it locks it
+ * is part of the field.
+ */
+export function spreadDrop(
+  model: LayoutModel,
+  state: PlannedState,
+  drafts: MoveDraft[]
+): MoveDraft[] {
+  const pool = freeSquares(model, state);
+  // Its own landings are not free floor for the rest of the gesture.
+  for (const d of drafts) for (const l of d.toLetters) pool.delete(cellKey(d.toLocation, l));
+  return drafts.flatMap((d) => spreadOne(pool, d) ?? [d]);
+}
+
+/** Pass A — a landing of the plan's own that needs more squares than it names. */
 function bigLandings(model: LayoutModel, state: PlannedState, moves: PlanMove[]): Repair {
   const pool = freeSquares(model, state);
   const drafts: MoveDraft[] = [];
   const removals: number[] = [];
 
   for (const m of moves) {
-    if (m.status !== 'planned' || m.toLetters.length === 0) continue;
-    const need = squaresFor(m.qty);
-    if (need <= m.toLetters.length) continue; // its shares already fit
-    const rowNum = rowOf(m.toLocation);
-    if (!Number.isFinite(rowNum)) continue;
-
-    // Its own row first: it is the row the hand pointed at.
-    const own = [...pool.values()]
-      .filter((s) => s.rowNum === rowNum)
-      .sort((a, b) => Number(a.isFast) - Number(b.isFast) || a.d - b.d)
-      .slice(0, need - m.toLetters.length);
-    for (const s of own) pool.delete(s.key);
-
-    const letters = sortLetters([...m.toLetters, ...own.map((s) => s.letter)]);
-    const here = Math.min(m.qty, PALLET_UNITS * letters.length);
-    let left = m.qty - here;
-    const chunks: { rowNum: number; letters: string[]; units: number }[] = [];
-    while (left > 0) {
-      const taken = nearestFree(pool, rowNum, squaresFor(left));
-      if (taken.length === 0) break;
-      for (const s of taken) pool.delete(s.key);
-      const units = Math.min(left, PALLET_UNITS * taken.length);
-      chunks.push({ rowNum: taken[0].rowNum, letters: taken.map((s) => s.letter), units });
-      left -= units;
-    }
-    // Nothing to gain: no square anywhere, and no hall split to make.
-    if (letters.length === m.toLetters.length && chunks.length === 0 && left === m.qty) continue;
-
+    if (m.status !== 'planned' || m.origin !== 'auto') continue;
+    const spread = spreadOne(pool, asDraft(m));
+    if (!spread) continue;
     removals.push(m.id);
-    drafts.push({ ...asDraft(m), qty: here, toLetters: letters });
-    for (const c of chunks) {
-      drafts.push({
-        ...asDraft(m),
-        qty: c.units,
-        toLocation: `ROW ${c.rowNum}`,
-        toLetters: sortLetters(c.letters),
-        kind: sameLocation(m.fromLocation, `ROW ${c.rowNum}`) ? 'relabel' : 'move',
-      });
-    }
-    if (left > 0) {
-      drafts.push({
-        ...asDraft(m),
-        qty: left,
-        toLocation: OVERFLOW_LOCATION,
-        toLetters: [],
-        kind: 'move',
-      });
-    }
+    drafts.push(...spread);
   }
 
   return { drafts, removals };
@@ -376,7 +398,8 @@ function sharedSquares(model: LayoutModel, state: PlannedState): Repair {
 
     for (const o of here) {
       if (units <= SQUARE_MAX) break;
-      if (o.ghost && removals.includes(o.ghost.id)) continue;
+      // A landing the operator made is fixed: the plan works around it.
+      if (o.ghost && (o.ghost.origin !== 'auto' || removals.includes(o.ghost.id))) continue;
       // A free square for it: its own row first, so the gesture keeps its place.
       const own = [...pool.values()]
         .filter((s) => s.rowNum === rowNum)
@@ -405,6 +428,7 @@ function sharedSquares(model: LayoutModel, state: PlannedState): Repair {
         // A live line: it swaps this square for the free one.
         const toLocation = `ROW ${target.rowNum}`;
         drafts.push({
+          origin: 'auto',
           inventoryId: o.inventoryId,
           sku: o.sku,
           qty: o.qtyHere,
@@ -435,6 +459,7 @@ function parkedInMas(model: LayoutModel, state: PlannedState, moves: PlanMove[])
   const parked = moves.filter(
     (m) =>
       m.status === 'planned' &&
+      m.origin === 'auto' &&
       m.toLetters.length === 0 &&
       sameLocation(m.toLocation, OVERFLOW_LOCATION)
   );
@@ -489,6 +514,7 @@ function nearestFree(pool: Map<string, Square>, rowNum: number, need: number): S
 }
 
 const asDraft = (m: PlanMove): MoveDraft => ({
+  origin: m.origin,
   inventoryId: m.inventoryId,
   sku: m.sku,
   qty: m.qty,

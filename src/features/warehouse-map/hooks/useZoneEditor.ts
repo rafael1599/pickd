@@ -30,7 +30,7 @@ import {
   type PlanMove,
   type PlannedState,
 } from '../plan/slotPlan';
-import { distribute as distributeLines, repairOverCap } from '../plan/distribute';
+import { distribute as distributeLines, repairOverCap, spreadDrop } from '../plan/distribute';
 import { useSlotPlan } from './useSlotPlan';
 
 export type EditMode = 'view' | 'plan' | 'live' | 'layout';
@@ -98,7 +98,10 @@ export function useZoneEditor(
       if (mode === 'live') {
         const r = planDrop(held, target, liveState, []);
         if (r.rule === 'noop') toast(`${held.sku} — ${r.reason}`);
-        else openModal({ type: 'slot-live-move', zoneId, drafts: r.drafts, rule: r.rule });
+        else {
+          const drafts = model ? spreadDrop(model, liveState, r.drafts) : r.drafts;
+          openModal({ type: 'slot-live-move', zoneId, drafts, rule: r.rule });
+        }
         setHeld(null);
         return true;
       }
@@ -108,7 +111,12 @@ export function useZoneEditor(
         setHeld(null);
         return true;
       }
-      plan.applyDrop.mutate(result, {
+      // The gesture settles here and now: a pallet too big for one square
+      // fans out at the drop, and after that the plan never re-computes it.
+      const settled = model
+        ? { ...result, drafts: spreadDrop(model, planState, result.drafts) }
+        : result;
+      plan.applyDrop.mutate(settled, {
         onError: (e) => toast.error(e.message),
         onSuccess: () => {
           const what =
@@ -121,7 +129,7 @@ export function useZoneEditor(
       setHeld(null);
       return true;
     },
-    [held, editing, mode, liveState, planState, plan, openModal, zoneId]
+    [held, editing, mode, liveState, planState, plan, openModal, zoneId, model]
   );
 
   const complete = useCallback(() => {

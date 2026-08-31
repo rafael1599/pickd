@@ -1074,6 +1074,7 @@ export type Database = {
           inventory_id: number;
           item_name: string | null;
           kind: string;
+          origin: string;
           plan_id: string;
           position: number;
           qty: number;
@@ -1093,6 +1094,7 @@ export type Database = {
           inventory_id: number;
           item_name?: string | null;
           kind: string;
+          origin: string;
           plan_id: string;
           position: number;
           qty: number;
@@ -1112,6 +1114,7 @@ export type Database = {
           inventory_id?: number;
           item_name?: string | null;
           kind?: string;
+          origin?: string;
           plan_id?: string;
           position?: number;
           qty?: number;

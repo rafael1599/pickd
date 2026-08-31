@@ -753,7 +753,8 @@ export const ZoneView: React.FC<{
           {hasPosts && <Legend color={COLOR.post} alpha={1} text="STRUCTURAL POST (HITS SLOT)" />}
           {editor && (
             <>
-              <Legend color={COLOR.buried} alpha={0.3} dashed text="PLAN — LANDS HERE (→)" />
+              <Legend color={COLOR.buried} alpha={0.3} text="PLAN — YOURS, FIXED (SOLID)" />
+              <Legend color={COLOR.buried} alpha={0.3} dashed text="PLAN — CALCULATED (DASHED)" />
               <Legend color={COLOR.fast} alpha={0.15} text="PLAN — LEAVES (↗, DIMMED)" />
             </>
           )}

@@ -36,7 +36,14 @@ PWA de gestión de inventario y warehouse operations. Multi-usuario con sync en 
   tocado y un ghost se re-identifica por el id de su move — nunca por `inventoryId`, que era el bug
   del 31 ago donde el segundo move del mismo SKU redirigía al primero); `PLAN COMPLETED` lo
   ejecuta con `updateItem` en la misma fila / `moveItem` a otra, revalidando cada línea; tablas
-  `slot_plans` / `slot_plan_moves`, un borrador por zona; **LIVE** = mismo gesto + confirmación;
+  `slot_plans` / `slot_plan_moves`, un borrador por zona; **cada move tiene autor**
+  (`origin`, migración `20260831194416`): **`hand`** es un gesto de Rafael y queda **fijo** —los
+  pases planean _alrededor_, solo él lo cambia volviéndolo a mover— y **`auto`** (DISTRIBUTE y las
+  reparaciones) es lo único que el plan puede reescribir; un pallet grande **se despliega al
+  soltarlo** (`spreadDrop`, la fila que señaló primero) porque después queda bloqueado, y el dibujo
+  pinta lo suyo con borde sólido y lo calculado punteado. Precedente: _lock delay_ de Tetris,
+  `Lock Assignment` de Siebel y el booking lock de Dynamics —el optimizador incluye lo bloqueado en
+  el horario, no lo ignora—; **LIVE** = mismo gesto + confirmación;
   **30 u por cuadro es la norma y 45 el tope duro** — `PALLET_UNITS` = 30 (DISTRIBUTE reparte a 30,
   la capacidad cuenta 30), `SQUARE_MAX` = 45 (Rafael, 31 ago 2026: "no puede haber un cuadro con 46
   o más"): entre 31 y 45 un cuadro pesa pero no alarma; **sobre 45 sale la `!` y PLAN lo reparte

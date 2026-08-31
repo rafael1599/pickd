@@ -18,6 +18,22 @@ import {
 export type MoveKind = 'relabel' | 'move';
 export type MoveStatus = 'planned' | 'done' | 'skipped' | 'failed';
 
+/**
+ * Who decided this move. `hand` is a gesture of the operator's: once it is
+ * made it is FIXED, and only another gesture of his changes it (Rafael,
+ * 31 Aug 2026: "quiero que los movimientos que se hacen a un sku queden fijos
+ * a menos que yo lo vuelva a mover"). `auto` is the plan's own arithmetic —
+ * DISTRIBUTE and the repair passes — and only those may be rewritten.
+ *
+ * The prior art says the same thing three ways: a Tetris piece can be nudged
+ * while it falls and is part of the field the instant it locks; Siebel's
+ * "Lock Assignment" stops the optimizer from changing an assignment while the
+ * person still can; Dynamics keeps locked bookings IN the schedule and
+ * optimises around them. So a hand move is not skipped by the passes — it is
+ * a hard constraint they plan around.
+ */
+export type MoveOrigin = 'hand' | 'auto';
+
 export interface PlanMove {
   id: number;
   planId: string;
@@ -34,6 +50,7 @@ export interface PlanMove {
   toLocation: string;
   toLetters: string[];
   kind: MoveKind;
+  origin: MoveOrigin;
   status: MoveStatus;
   error: string | null;
 }
@@ -301,6 +318,9 @@ export type DropResult =
 function draftFor(line: Held | Occupant, to: DropTarget, qty: number): MoveDraft {
   const toLocation = `ROW ${to.rowNum}`;
   return {
+    // Everything a drop decides is the operator's, the displaced line
+    // included: it moved because he moved something onto it.
+    origin: 'hand',
     inventoryId: line.inventoryId,
     sku: line.sku,
     qty,

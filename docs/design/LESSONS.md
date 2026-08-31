@@ -62,6 +62,13 @@ one place: a rule that contradicts an older one replaces it.
   cambiadores de tamaño de una pallet". 60 × 62 is what the floor has; a slider for it invites
   play, not work. What changes on the floor is rows, halls and posts — those stay in LAYOUT. The
   engine keeps `pd`/`pw` for the space planner's links; no screen shows them.
+- **A move has an author, and his is fixed** (31 Aug): "quiero que los movimientos que se hacen a
+  un sku queden fijos a menos que yo lo vuelva a mover." Anything the algorithm may rewrite has to
+  be marked as the algorithm's; a gesture of his is a hard constraint the algorithm plans AROUND,
+  never removes. Everything one gesture implies is settled at the drop (a big pallet fans out
+  there), because after it the move is locked. Prior art he asked for and it agrees: Tetris's lock
+  delay, Siebel's Lock Assignment ("the Optimizer cannot change it… you can"), Dynamics' booking
+  lock (locked bookings stay in the optimized schedule), sudoku givens.
 - **A draft is a draft** (28 Aug): "yo no confirmé nada, solo estaba probando, borrador no quiere
   decir nada". Ghosts in PLAN are not a decision; only PLAN COMPLETED is. Replace a draft without
   ceremony when he asks for another one.
@@ -144,3 +151,8 @@ one place: a rule that contradicts an older one replaces it.
   plans on the remainder. (3) Nothing compared the square's TOTAL across lines, so `30 + 30` of two
   SKUs passed unseen; a pass now relocates the smallest. The model did not need a redesign — three
   rules did. **Measure the real data before deciding what to rebuild.**
+- **2026-08-31 — the plan learned who decided what.** "Cuando muevo un sku a una locación no se
+  queda bloqueado ahí… el movimiento inicial se invalida y se recalcula todo. Investiga [tetris,
+  ajedrez] sistemas que ya han superado esto." They had: `slot_plan_moves.origin` (`hand` | `auto`)
+  is the lock, the repair passes only touch `auto`, and `spreadDrop` settles a gesture at the drop
+  the way a tetromino settles when it locks.

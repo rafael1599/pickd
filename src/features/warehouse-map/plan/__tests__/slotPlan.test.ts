@@ -97,6 +97,7 @@ describe('V2 — an unplaced line (33-K) dropped on an empty square', () => {
       toLocation: 'ROW 33',
       toLetters: ['D'],
       kind: 'relabel',
+      origin: 'hand',
     });
     expect(targetKeys(r.drafts[0])).toEqual(['33-D']);
   });
@@ -115,6 +116,7 @@ describe('V3 — 27-K to 30-E is a move across rows', () => {
     if (r.rule === 'noop') throw new Error('unreachable');
     expect(r.drafts[0]).toMatchObject({
       kind: 'move',
+      origin: 'hand',
       qty: 53,
       fromLocation: 'ROW 27',
       toLocation: 'ROW 30',
@@ -245,6 +247,7 @@ describe('a square is what it will hold, not the stock of today (31 Aug 2026)', 
     toLocation: 'ROW 31',
     toLetters: ['B', 'C', 'D', 'E', 'F', 'G'],
     kind: 'move',
+    origin: 'auto',
   });
 
   it('the origin keeps only what the move leaves, and the targets show their share', () => {
@@ -275,6 +278,7 @@ describe('V6 / V7 — revalidation before executing', () => {
     toLocation: 'ROW 30',
     toLetters: ['E'],
     kind: 'move',
+    origin: 'auto',
   });
   const relabel = asMove({
     inventoryId: 1,
@@ -287,6 +291,7 @@ describe('V6 / V7 — revalidation before executing', () => {
     toLocation: 'ROW 33',
     toLetters: ['C'],
     kind: 'relabel',
+    origin: 'auto',
   });
 
   it('a move whose quantity changed is skipped with the units left', () => {
@@ -386,6 +391,7 @@ describe('a move to a place with no squares (MAS)', () => {
     toLocation: OVERFLOW_LOCATION,
     toLetters: [],
     kind: 'move',
+    origin: 'auto' as const,
     status: 'planned',
     error: null,
   });
