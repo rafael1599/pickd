@@ -118,6 +118,57 @@ describe('generateDailyHistoryDoc', () => {
     expectContains(rec, ['Multiple locations', 'Damaged box, verify count']);
   });
 
+  it('AS400 mode: rows of one storage block collapse to a single location + block total', async () => {
+    // AS400 admits one location per SKU: 30/15/12 across ROW 31/32/33 (all
+    // BLOCK 30-33) reads as the row holding most of it, with the block's total.
+    const blockLogs: HistoryLog[] = [
+      { sku: '03-7', action_type: 'MOVE', from_location: 'ROW 18', to_location: 'ROW 31' },
+    ];
+    const blockStock: StockLocation[] = [
+      { sku: '03-7', location: 'ROW 31', quantity: 30, storage_block: 'BLOCK 30-33' },
+      { sku: '03-7', location: 'ROW 32', quantity: 15, storage_block: 'BLOCK 30-33' },
+      { sku: '03-7', location: 'ROW 33', quantity: 12, storage_block: 'BLOCK 30-33' },
+    ];
+    generateDailyHistoryDoc(jsPDF, autoTable, {
+      logs: blockLogs,
+      filter: 'ALL',
+      userFilter: 'ALL',
+      timeFilter: 'TODAY',
+      getDisplayQty: () => 2,
+      mode: 'as400',
+      stock: blockStock,
+    });
+    expectContains(rec, ['03-7', 'ROW 18', 'ROW 31', '57']);
+    const all = rec.allText();
+    expect(all).not.toContain('Multiple locations'); // one place → the singles table
+    expect(all).not.toContain('ROW 32'); // the block's other rows stay out of AS400
+    expect(all).not.toContain('ROW 33');
+  });
+
+  it('AS400 mode: a block plus stock elsewhere is still Multiple locations, block collapsed', async () => {
+    const blockLogs: HistoryLog[] = [
+      { sku: '03-7', action_type: 'MOVE', from_location: 'GEN', to_location: 'ROW 31' },
+    ];
+    const blockStock: StockLocation[] = [
+      { sku: '03-7', location: 'ROW 31', quantity: 30, storage_block: 'BLOCK 30-33' },
+      { sku: '03-7', location: 'ROW 32', quantity: 15, storage_block: 'BLOCK 30-33' },
+      { sku: '03-7', location: 'GEN', quantity: 3 }, // outside the block → a second place
+    ];
+    generateDailyHistoryDoc(jsPDF, autoTable, {
+      logs: blockLogs,
+      filter: 'ALL',
+      userFilter: 'ALL',
+      timeFilter: 'TODAY',
+      getDisplayQty: () => 2,
+      mode: 'as400',
+      stock: blockStock,
+    });
+    // Top line = the block (the move landed in one of its rows), 45 = 30 + 15;
+    // TOTAL = 48 with GEN; the note names the place outside the block only.
+    expectContains(rec, ['Multiple locations', '03-7', 'ROW 31', '45', '48', 'Still at GEN = 3']);
+    expect(rec.allText()).not.toContain('ROW 32');
+  });
+
   it('AS400 mode still renders every moved SKU when no stock is supplied', async () => {
     generateDailyHistoryDoc(jsPDF, autoTable, {
       logs,

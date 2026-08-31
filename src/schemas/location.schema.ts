@@ -18,6 +18,13 @@ export const LocationSchema = z.object({
    * stat: shipping lanes, staging bays, container names, cages, test rows.
    */
   counts_as_storage: z.boolean().default(true),
+  /**
+   * Physical block of 3+ adjacent rows this location belongs to (e.g.
+   * `BLOCK 30-33`). NULL = regular storage. The AS400 sync report collapses a
+   * SKU's stock across one block into a single location. Set once from the
+   * measured warehouse map, not edited from the app.
+   */
+  storage_block: z.string().nullable().optional(),
   created_at: z.string().datetime(),
   length_ft: z.coerce.number().positive().nullable(),
   bike_line: z.coerce.number().int().positive().nullable(),

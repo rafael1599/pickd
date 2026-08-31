@@ -882,6 +882,7 @@ export type Database = {
           max_capacity: number | null;
           notes: string | null;
           picking_order: number | null;
+          storage_block: string | null;
           total_bikes: number | null;
           updated_at: string | null;
           warehouse: string;
@@ -899,6 +900,7 @@ export type Database = {
           max_capacity?: number | null;
           notes?: string | null;
           picking_order?: number | null;
+          storage_block?: string | null;
           total_bikes?: number | null;
           updated_at?: string | null;
           warehouse: string;
@@ -916,6 +918,7 @@ export type Database = {
           max_capacity?: number | null;
           notes?: string | null;
           picking_order?: number | null;
+          storage_block?: string | null;
           total_bikes?: number | null;
           updated_at?: string | null;
           warehouse?: string;

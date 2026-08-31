@@ -5,7 +5,10 @@
  *  - 'full'   — the detailed SKU / ACTIVITY / QTY table (every action with notes).
  *  - 'as400'  — a stock snapshot for AS400 reconciliation: per SKU that moved, where
  *               it was MOVED FROM today (sources + qty) and its CURRENT STOCK now
- *               (location = total). SKUs now split across 2+ locations get a per-SKU
+ *               (location = total). AS400 admits ONE location per SKU (no letter),
+ *               so rows sharing a `locations.storage_block` (a block of 3+ adjacent
+ *               rows) count as ONE place: the row holding most of the SKU, with the
+ *               block's total. SKUs still split across 2+ places get a per-SKU
  *               TOTAL column in a separate table. No move-by-move detail.
  *
  * Extracted from HistoryScreen so the layout is unit-testable. Black & white only.
@@ -33,6 +36,8 @@ export interface StockLocation {
   sublocation?: string | null;
   quantity: number;
   warehouse?: string | null;
+  /** `locations.storage_block` for this row's location, when it has one. */
+  storage_block?: string | null;
 }
 
 export interface DailyHistoryParams<TLog extends HistoryLog> {
@@ -91,9 +96,10 @@ function drawHeader(
 }
 
 // AS400 sync view: per moved SKU, where it was MOVED FROM today (the move sources,
-// summed per origin) and its CURRENT STOCK now ("LOCATION = total"). SKUs now split
-// across 2+ current locations go in a separate "Multiple locations" table with a
-// per-SKU TOTAL column; single-location SKUs need no TOTAL. No move-by-move detail.
+// summed per origin) and its CURRENT STOCK now ("LOCATION = total"). Rows of one
+// `storage_block` count as ONE place. SKUs still split across 2+ current places go
+// in a separate "Multiple locations" table with a per-SKU TOTAL column;
+// single-place SKUs need no TOTAL. No move-by-move detail.
 function renderAs400<TLog extends HistoryLog>(
   doc: Doc,
   autoTable: AutoTable,
@@ -141,16 +147,29 @@ function renderAs400<TLog extends HistoryLog>(
     }
   }
 
-  // Current stock per SKU → location → summed quantity.
-  const stockBySku = new Map<string, Map<string, number>>();
+  // Current stock per SKU → place → summed quantity. A place is one location —
+  // or one BLOCK of 3+ adjacent rows (`locations.storage_block`): AS400 admits a
+  // single location per SKU, so stock spread across the rows of a block is one
+  // place, cited as the member row that holds most of the SKU (ties: lowest row
+  // number) with the whole block's quantity.
+  type PlaceAcc = { qty: number; perLoc: Map<string, number> };
+  const stockBySku = new Map<string, Map<string, PlaceAcc>>();
   for (const row of params.stock ?? []) {
     if (!row.sku) continue;
     const loc = (row.location || '').toUpperCase();
     if (!loc) continue;
-    const byLoc = stockBySku.get(row.sku) ?? new Map<string, number>();
-    byLoc.set(loc, (byLoc.get(loc) ?? 0) + Number(row.quantity || 0));
-    stockBySku.set(row.sku, byLoc);
+    const place = (row.storage_block || '').trim().toUpperCase() || loc;
+    const byPlace = stockBySku.get(row.sku) ?? new Map<string, PlaceAcc>();
+    const acc = byPlace.get(place) ?? { qty: 0, perLoc: new Map<string, number>() };
+    acc.qty += Number(row.quantity || 0);
+    acc.perLoc.set(loc, (acc.perLoc.get(loc) ?? 0) + Number(row.quantity || 0));
+    byPlace.set(place, acc);
+    stockBySku.set(row.sku, byPlace);
   }
+  const rowNumber = (loc: string): number => {
+    const m = /(\d+)/.exec(loc);
+    return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER;
+  };
 
   // MOVED FROM cell: just the source location(s), one per line (biggest origin first).
   // The per-source qty is intentionally omitted — it invited a misleading sum that
@@ -161,14 +180,21 @@ function renderAs400<TLog extends HistoryLog>(
       .map(([loc]) => loc)
       .join('\n');
 
-  // Classify each moved SKU by its number of current-stock (qty > 0) locations.
-  type Entry = { sku: string; from: string; tos: { loc: string; qty: number }[] };
+  // Classify each moved SKU by its number of current-stock (qty > 0) places —
+  // a whole block counts as one, so a SKU split across ROW 31/32/33 is a single.
+  type PlaceStock = { loc: string; qty: number; members: Set<string> };
+  type Entry = { sku: string; from: string; tos: PlaceStock[] };
   const singles: Entry[] = [];
   const multis: Entry[] = [];
   for (const sku of [...skuOrder].sort((a, b) => a.localeCompare(b))) {
-    const tos = [...(stockBySku.get(sku) ?? new Map<string, number>()).entries()]
-      .filter(([, qty]) => qty > 0)
-      .map(([loc, qty]) => ({ loc, qty }))
+    const tos = [...(stockBySku.get(sku) ?? new Map<string, PlaceAcc>()).values()]
+      .filter((acc) => acc.qty > 0)
+      .map((acc) => {
+        const [loc] = [...acc.perLoc.entries()].sort(
+          (a, b) => b[1] - a[1] || rowNumber(a[0]) - rowNumber(b[0]) || a[0].localeCompare(b[0])
+        )[0];
+        return { loc, qty: acc.qty, members: new Set(acc.perLoc.keys()) };
+      })
       .sort((a, b) => b.qty - a.qty || a.loc.localeCompare(b.loc));
     (tos.length >= 2 ? multis : singles).push({ sku, from: fromText(sku), tos });
   }
@@ -314,18 +340,22 @@ function renderAs400<TLog extends HistoryLog>(
       const total = s.tos.reduce((sum, t) => sum + t.qty, 0);
       const sources = fromBySku.get(s.sku);
       const dests = toBySku.get(s.sku);
-      // Top = where the move landed (a destination that still holds stock); fall back
-      // to the largest current location (s.tos is sorted by qty desc).
-      const dest = s.tos.find((t) => dests?.has(t.loc)) ?? s.tos[0];
+      // A place is touched by today's move when ANY of its member locations is —
+      // a block counts as moved-to when the move landed in any of its rows.
+      const touchesAny = (t: PlaceStock, set?: { has(loc: string): boolean }): boolean =>
+        set !== undefined && [...t.members].some((m) => set.has(m));
+      // Top = where the move landed (a place that still holds stock); fall back
+      // to the largest current place (s.tos is sorted by qty desc).
+      const dest = s.tos.find((t) => touchesAny(t, dests)) ?? s.tos[0];
       if (!dest) continue;
-      // Note: every OTHER current location, phrased by how it relates to today's move,
+      // Note: every OTHER current place, phrased by how it relates to today's move,
       // plus whatever was written on this SKU's own movements today.
       const locationLines = s.tos
         .filter((t) => t !== dest)
         .map((t) => {
-          const prefix = sources?.has(t.loc)
+          const prefix = touchesAny(t, sources)
             ? 'Still at ' // a move source that wasn't emptied
-            : dests?.has(t.loc)
+            : touchesAny(t, dests)
               ? 'Also moved to ' // a second destination of today's move
               : 'Also in stock: '; // pre-existing stock, untouched today
           return `${prefix}${t.loc} = ${t.qty}`;

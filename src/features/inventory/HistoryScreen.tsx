@@ -923,19 +923,44 @@ export const HistoryScreen = () => {
       if (reportMode === 'as400') {
         const skus = Array.from(new Set(filteredLogs.map((l) => l.sku).filter(Boolean)));
         if (skus.length > 0) {
-          const { data, error } = await supabase
-            .from('inventory')
-            .select('sku, location, quantity')
-            .in('sku', skus)
-            .gt('quantity', 0)
-            // Raise past the default 1000-row ceiling: many SKUs × their locations can
-            // exceed it, silently dropping a SKU's second location and mis-classifying
-            // a multi-location SKU as single in the report.
-            .limit(50_000);
-          if (error) {
-            console.warn('[History] Could not load current stock for AS400 report:', error.message);
+          const [inv, blocks] = await Promise.all([
+            supabase
+              .from('inventory')
+              .select('sku, location, quantity, warehouse')
+              .in('sku', skus)
+              .gt('quantity', 0)
+              // Raise past the default 1000-row ceiling: many SKUs × their locations can
+              // exceed it, silently dropping a SKU's second location and mis-classifying
+              // a multi-location SKU as single in the report.
+              .limit(50_000),
+            // The rows that belong to a block of 3+ adjacent rows: the report cites
+            // one location per block, so each stock row needs its block label. A
+            // location is (warehouse, location), never the name alone.
+            supabase
+              .from('locations')
+              .select('warehouse, location, storage_block')
+              .not('storage_block', 'is', null),
+          ]);
+          if (inv.error) {
+            console.warn(
+              '[History] Could not load current stock for AS400 report:',
+              inv.error.message
+            );
           }
-          stock = (data ?? []) as StockLocation[];
+          if (blocks.error) {
+            console.warn('[History] Could not load storage blocks:', blocks.error.message);
+          }
+          const blockByLoc = new Map(
+            (blocks.data ?? []).map((b) => [
+              `${b.warehouse}|${(b.location ?? '').toUpperCase()}`,
+              b.storage_block,
+            ])
+          );
+          stock = ((inv.data ?? []) as StockLocation[]).map((row) => ({
+            ...row,
+            storage_block:
+              blockByLoc.get(`${row.warehouse}|${(row.location ?? '').toUpperCase()}`) ?? null,
+          }));
         } else {
           stock = [];
         }
