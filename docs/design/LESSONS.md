@@ -46,9 +46,12 @@ one place: a rule that contradicts an older one replaces it.
 - **One header figure and one bar.** "De todos los datos en el encabezado solo quiero ver cantidad
   de pallets… una barra de capacidad donde se ven total bikes y en stock": PALLETS in use / squares,
   and a bar of units in stock against the bikes the layout holds. The four plan counters are LAYOUT.
-- **A square is one pallet: 30 units, no more.** "En cada cuadro entra un pallet double stacked de
-  30 unidades nomás, reparte" — a line shows its share per square, a square over 30 is marked, and
-  DISTRIBUTE spreads lines: own row first, "los que no caben… en el espacio disponible buried".
+- **A square is one pallet: 30 the norm, 45 the hard cap.** "En cada cuadro entra un pallet double
+  stacked de 30 unidades nomás, reparte" — DISTRIBUTE spreads at 30, own row first, "los que no
+  caben… en el espacio disponible buried". Refined 31 Aug: "no puede haber un cuadro con 46 o más"
+  — between 31 and 45 a square is heavy but legal; over 45 it alarms and PLAN spreads its lines
+  automatically as ghosts ("quiero que se redistribuya automáticamente"), executed only by PLAN
+  COMPLETED. The user can always set quantities by hand.
 - **Two taps and a confirmation.** "Hacer click en un SKU para moverlo a otro sitio solo haciendo
   otro click y aceptando la confirmación. INTUITIVO." Tapping a square with one line picks it up —
   no chip step; the chips appear only when a square holds several SKUs.
@@ -107,3 +110,8 @@ one place: a rule that contradicts an older one replaces it.
   a line's moves into one — the id already existed (the move row); the bug was matching by
   inventory id. Same message: the SKU highlight must glow the background ("fosforescente"), not
   just the stroke — matching squares brighten, the rest dim while the light is on.
+- **2026-08-31 — the K reaches ROW 18, and 45 becomes the cap.** "Extiende la K hasta la row 18,
+  no quiero que ningún cuadro tenga más de 45 bikes… el pallet sigue en 30; que se redistribuya
+  automáticamente." Every Bay 3 North row draws the 11th square; `SQUARE_MAX` (45) is the alarm
+  and the auto-spread trigger, `PALLET_UNITS` (30) stays the working number. The rule above was
+  refined in place.

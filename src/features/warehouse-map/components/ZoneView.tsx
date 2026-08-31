@@ -23,7 +23,13 @@ import { HALL_MIN, slotKey } from '../engine';
 import type { Cell } from '../engine';
 import type { ZoneData } from '../hooks/useZoneData';
 import type { EditMode, ZoneEditor } from '../hooks/useZoneEditor';
-import { groupUnplaced, PALLET_UNITS, type StockRow, type Unplaced } from '../stock/rowStock';
+import {
+  groupUnplaced,
+  PALLET_UNITS,
+  SQUARE_MAX,
+  type StockRow,
+  type Unplaced,
+} from '../stock/rowStock';
 import type { Occupant } from '../plan/slotPlan';
 import { skuColorDark } from '../../../utils/skuColor';
 import { ZoneSvg, COLOR, type HoverTarget } from './ZoneSvg';
@@ -734,7 +740,7 @@ export const ZoneView: React.FC<{
           <Legend
             color={COLOR.over}
             alpha={0.2}
-            text={`! OVER CAPACITY — MORE THAN ${PALLET_UNITS} IN ONE SQUARE`}
+            text={`! OVER THE CAP — MORE THAN ${SQUARE_MAX} IN ONE SQUARE`}
           />
           <Legend color={COLOR.fast} alpha={0.4} text="FAST PICKING — TOUCHES OPEN FLOOR" />
           <Legend color={COLOR.buried} alpha={0.2} text="BURIED — NEEDS THE FRONT MOVED" />
@@ -748,8 +754,9 @@ export const ZoneView: React.FC<{
           )}
         </div>
         <p className="mt-3 font-mono text-[10px] leading-relaxed text-muted">
-          A square holds one double-stacked pallet, {PALLET_UNITS} units; a line with more spans as
-          many squares as it needs and shows its share in each. A line the plan has no square for is
+          A square holds one double-stacked pallet, {PALLET_UNITS} units — {SQUARE_MAX} is the hard
+          cap, and PLAN spreads any square over it automatically; a line with more spans as many
+          squares as it needs and shows its share in each. A line the plan has no square for is
           listed above, never squeezed in.
           {editor
             ? ' PLAN: tap a square to pick up its pallet (a line spread over squares moves one square at a time), tap where it goes — empty → it goes; one line there → they swap; several → it joins; DISTRIBUTE spreads every line at 30 a square, overflow to free buried squares and then the MAIN HALL in front of its block; nothing moves until PLAN COMPLETED. LIVE: the same two taps, then a confirmation, and it moves now.'

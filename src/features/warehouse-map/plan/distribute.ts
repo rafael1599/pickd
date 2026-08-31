@@ -59,7 +59,10 @@ const rowOf = (location: string) => Number(/\d+/.exec(location)?.[0] ?? NaN);
 export function distribute(
   stock: ZoneStock,
   model: LayoutModel,
-  state: PlannedState
+  state: PlannedState,
+  /** Plan only these lines; the rest still hold their squares. The automatic
+      over-the-cap spread uses it to touch just the offenders. */
+  lineFilter: (line: { inventoryId: number }) => boolean = () => true
 ): Distribution {
   // The squares that can take something: drawn, no live line, no ghost.
   const squares = new Map<string, Square>();
@@ -162,7 +165,7 @@ export function distribute(
   });
 
   // Biggest lines first: they have the fewest places to go.
-  const ordered = [...lines.values()].sort((a, b) => b.qty - a.qty);
+  const ordered = [...lines.values()].filter(lineFilter).sort((a, b) => b.qty - a.qty);
   for (const line of ordered) {
     const need = squaresFor(line.qty);
     if (line.letters.length > 0 && need <= line.letters.length) {

@@ -64,10 +64,11 @@ export const ZONES: Record<ZoneId, ZoneConfig> = {
     margins: { top: 145.5, right: 107, bottom: 120, left: 156 },
     rowRange: { start: 33, end: 18, origin: 'east' },
     mainAccess: 'south',
-    // The K square (Rafael, 31 Aug 2026): rows 30–33 hold an 11th pallet past
-    // J, sticking 60" into the 145.5" north hall + rack strip, so everything
-    // legitimately in that block fits in the block.
-    extraSlotRows: [30, 31, 32, 33],
+    // The K square (Rafael, 31 Aug 2026): every row holds an 11th pallet past
+    // J, sticking 60" into the 145.5" north hall + rack strip. Born on rows
+    // 30–33 so that block held its own stock; extended to ROW 18 the same day
+    // ("extiende la K hasta la row 18").
+    extraSlotRows: [18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33],
     allowedBlocks: [4, 3, 2],
     blockConstraints: {
       minCount: { 4: 2 },

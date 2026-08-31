@@ -1,9 +1,9 @@
 // The numbers each zone printed on 28 Aug 2026 — the ones on the floor plans'
 // index page and in the Bay 3 proposal — are the spec. If a change here moves
 // them, it changes a count somebody has already been shown. One deliberate
-// move since: 31 Aug 2026, rows 30–33 of Bay 3 North gained the K square
-// (`extraSlotRows`), so every bay3_north count is 4 pallets up from the
-// printed plans.
+// move since: 31 Aug 2026, every Bay 3 North row (18–33) gained the K square
+// (`extraSlotRows` — born on 30–33, extended to 18 the same day), so every
+// bay3_north count is one pallet per drawn row up from the printed plans.
 
 import { describe, it, expect } from 'vitest';
 import {
@@ -32,28 +32,27 @@ const hallsOf = (m: LayoutModel) =>
 describe('V1 — Bay 3 North, rows N–S, west hall kept, pallet 60 × 62', () => {
   const m = layout('bay3_north');
 
-  it('142 pallets, 4,260 bikes, 92 fast, 2 posts in slots', () => {
-    expect(m.pallets).toBe(142);
-    expect(m.gross).toBe(144);
-    expect(m.totalBikes).toBe(4260);
-    expect(m.accessible).toBe(92);
+  it('152 pallets, 4,560 bikes, 98 fast, 2 posts in slots', () => {
+    expect(m.pallets).toBe(152);
+    expect(m.gross).toBe(154);
+    expect(m.totalBikes).toBe(4560);
+    expect(m.accessible).toBe(98);
     expect(m.hits).toHaveLength(2);
     expect(m.lost).toHaveLength(2);
   });
 
-  it('rows 30–33 hold a K past J, over the north strip; J behind it stops being fast', () => {
+  it('every row holds a K past J, over the north strip; J behind it stops being fast', () => {
     const ks = m.validCells.filter((c) => c.letter === 'K');
-    expect(ks.map((c) => c.row.num).sort()).toEqual(['30', '31', '32', '33']);
+    expect(ks).toHaveLength(14); // one per drawn row, 20–33
     const clearance = ZONES.bay3_north.obstacles!.find((o) => o.id === 'north_clearance')!;
     for (const k of ks) {
       expect(k.isFast).toBe(true);
       expect(k.cy).toBeLessThan(clearance.h); // it sticks into the strip
       expect(k.cy + k.ch).toBeCloseTo(clearance.h, 6); // and ends where J begins
     }
-    // Interior rows of the block: the far face is K now, not J.
+    // The far face of every row is K now: J is fast only on a block's edge rows.
     for (const j of m.validCells.filter((c) => c.letter === 'J')) {
-      const inBlock = ['31', '32'].includes(String(j.row.num));
-      expect(j.isFast).toBe(!inBlock);
+      expect(j.isFast).toBe(j.row.idx === 0 || j.row.idx === j.row.of - 1);
     }
   });
 
@@ -94,11 +93,11 @@ describe('V1 — Bay 3 North, rows N–S, west hall kept, pallet 60 × 62', () =
 describe('V2 — Bay 3 North with the west strip reclaimed', () => {
   const m = layout('bay3_north', { toggles: { west: false } });
 
-  it('161 pallets, 4,830 bikes, 111 fast, 3 hits; halls narrow to 67"', () => {
-    expect(m.pallets).toBe(161);
-    expect(m.gross).toBe(164);
-    expect(m.totalBikes).toBe(4830);
-    expect(m.accessible).toBe(111);
+  it('173 pallets, 5,190 bikes, 119 fast, 3 hits; halls narrow to 67"', () => {
+    expect(m.pallets).toBe(173);
+    expect(m.gross).toBe(176);
+    expect(m.totalBikes).toBe(5190);
+    expect(m.accessible).toBe(119);
     expect(m.hits).toHaveLength(3);
     expect(m.hall).toBeCloseTo(66.75, 2);
     expect(hallsOf(m)).toEqual([66.75, 66.75, 66.75, 66.75]);
@@ -174,19 +173,19 @@ describe('V4 — Bay 2 North', () => {
 describe('V9 — the sliders move the counts, not the names', () => {
   it('a 65" deep pallet loses a tier in Bay 3 North and gains a bike line', () => {
     const m = layout('bay3_north', { pd: 65 });
-    expect(m.pallets).toBe(128);
-    expect(m.gross).toBe(130);
+    expect(m.pallets).toBe(138);
+    expect(m.gross).toBe(140);
     expect(m.deep).toBe(9);
     expect(m.lines).toBe(1);
-    expect(m.totalBikes).toBe(3840 + 84);
-    expect(m.accessible).toBe(84);
+    expect(m.totalBikes).toBe(4140 + 84);
+    expect(m.accessible).toBe(90);
     expect(rowsOf(m)).toEqual(rowsOf(layout('bay3_north')));
   });
 
   it('a 57" wide pallet fits the same 14 rows in Bay 3 North but redraws the blocks', () => {
     const m = layout('bay3_north', { pw: 57 });
     expect(m.blocks).toEqual([2, 2, 2, 4, 4]);
-    expect(m.pallets).toBe(143);
+    expect(m.pallets).toBe(153);
     expect(m.hits).toHaveLength(1);
   });
 });
@@ -196,7 +195,7 @@ describe("today's numbers, every zone, default state", () => {
     ZoneId,
     { blocks: number[]; pallets: number; gross: number; bikes: number; fast: number; hits: number }
   > = {
-    bay3_north: { blocks: [3, 3, 4, 4], pallets: 142, gross: 144, bikes: 4260, fast: 92, hits: 2 },
+    bay3_north: { blocks: [3, 3, 4, 4], pallets: 152, gross: 154, bikes: 4560, fast: 98, hits: 2 },
     bay3_se: { blocks: [3, 2], pallets: 29, gross: 30, bikes: 870, fast: 25, hits: 1 },
     bay2_north: {
       blocks: [2, 2, 2, 2, 2, 2],
@@ -268,8 +267,8 @@ describe('the toggles the pages offer', () => {
   it('one centre hall: two big blocks, the leftover all in the middle', () => {
     const m = layout('bay3_north', { layoutPreset: 'center_hall' });
     expect(m.blocks).toEqual([8, 8]);
-    expect(m.pallets).toBe(162);
-    expect(m.accessible).toBe(65);
+    expect(m.pallets).toBe(174);
+    expect(m.accessible).toBe(68);
     expect(hallsOf(m)).toEqual([111]);
     expect(rowsOf(m)[0]).toEqual(['18', '19', '20', '21', '22', '23', '24', '25']);
   });
@@ -278,7 +277,7 @@ describe('the toggles the pages offer', () => {
     const m = layout('bay3_north', { layoutPreset: 'solid' });
     expect(m.blocks).toEqual([17]);
     expect(m.nHalls).toBe(0);
-    expect(m.pallets).toBe(170);
+    expect(m.pallets).toBe(182);
     expect(m.accessible).toBe(51);
   });
 
@@ -326,7 +325,7 @@ describe('what a slot is', () => {
     if (block4.type !== 'block') throw new Error('unreachable');
     const inner = block4.rows[1];
     const cells = m.validCells.filter((c) => c.row === inner);
-    expect(cells.filter((c) => c.isFast).map((c) => c.letter)).toEqual(['A', 'J']);
+    expect(cells.filter((c) => c.isFast).map((c) => c.letter)).toEqual(['A', 'K']);
     const edge = block4.rows[0];
     expect(m.validCells.filter((c) => c.row === edge).every((c) => c.isFast)).toBe(true);
   });

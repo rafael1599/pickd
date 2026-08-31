@@ -96,10 +96,10 @@ describe('V6 — ROW 33: 845 u in A, B, D, E and K', () => {
     expect(stock.unplaced).toHaveLength(0);
   });
 
-  it('a K outside rows 30–33 still has no square: listed, never squeezed in', () => {
-    const s = zoneStock(ZONES.bay3_north, bay3North, [line('ROW 20', '03-3768BL', 25, ['K'])]);
+  it('a letter past K (L) still has no square: listed, never squeezed in', () => {
+    const s = zoneStock(ZONES.bay3_north, bay3North, [line('ROW 20', '03-3768BL', 25, ['L'])]);
     expect(s.cells.size).toBe(0);
-    expect(s.unplaced[0]).toMatchObject({ reason: 'letter', letters: ['K'] });
+    expect(s.unplaced[0]).toMatchObject({ reason: 'letter', letters: ['L'] });
   });
 
   it('counts all 845 units and one row', () => {
@@ -213,7 +213,7 @@ describe('groupUnplaced', () => {
     const rows = [
       line('ROW 20B', '06-4652BK', 16, ['A']),
       ...Array.from({ length: 36 }, (_, i) => line('ROW 33', `01-04${10 + i}`, 1, null)),
-      line('ROW 20', '03-3768BL', 25, ['K']),
+      line('ROW 20', '03-3768BL', 25, ['L']),
     ];
     const groups = groupUnplaced(zoneStock(ZONES.bay3_north, bay3North, rows).unplaced);
     expect(groups.map((g) => [g.location, g.reason, g.items.length, g.units])).toEqual([

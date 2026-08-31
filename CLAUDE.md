@@ -36,8 +36,11 @@ PWA de gestión de inventario y warehouse operations. Multi-usuario con sync en 
   del 31 ago donde el segundo move del mismo SKU redirigía al primero); `PLAN COMPLETED` lo
   ejecuta con `updateItem` en la misma fila / `moveItem` a otra, revalidando cada línea; tablas
   `slot_plans` / `slot_plan_moves`, un borrador por zona; **LIVE** = mismo gesto + confirmación;
-  **30 u por cuadro, sin excepción** — `PALLET_UNITS`, `allocate`, `!` sobre 30 y
-  DISTRIBUTE en `plan/distribute.ts`; **lo que no encuentra cuadro va al MAIN HALL sur, delante de
+  **30 u por cuadro es la norma y 45 el tope duro** — `PALLET_UNITS` = 30 (DISTRIBUTE reparte a 30,
+  la capacidad cuenta 30), `SQUARE_MAX` = 45 (Rafael, 31 ago 2026: "no puede haber un cuadro con 46
+  o más"): entre 31 y 45 un cuadro pesa pero no alarma; **sobre 45 sale la `!` y PLAN lo reparte
+  solo** (efecto en `useZoneEditor` — ghosts en el draft, nada se mueve hasta PLAN COMPLETED);
+  **lo que no encuentra cuadro va al MAIN HALL sur, delante de
   su bloque** (Rafael, 31 ago 2026) — nunca un segundo SKU apretado en un cuadro ocupado) y las
   pantallas (`MasterMap`, `ZoneView`, `ZoneSvg`; estado y
   modo en la URL; hover o tap en un cuadro ilumina todos los cuadros de ese SKU, vivos y planeados). **Dos botones solamente desde el 31 ago 2026: PLAN y LIVE** (Rafael: "compactar a
@@ -348,12 +351,13 @@ Ya no hay que coordinar cambios de schema con nadie más.
   constraints: una letra `^[A-Z]$` por elemento y solo para `location ILIKE 'ROW%'`. Se auto-limpia a
   NULL al mover a non-ROW. UI: chips en ItemDetailView/MovementModal, badge en
   InventoryCard/DoubleCheckView; el mapa (`/warehouse-map`) pinta cada `ROW n · letra`.
-  **K es el cuadro 11 del bloque 30–33 (Rafael, 31 ago 2026: "agrega la K… para que quepa todo lo
-  que está legítimamente en ese bloque, en el mismo"):** una posición real después de J que
-  sobresale 60" sobre la franja norte de 145.5" (hall + rack). El mapa la dibuja solo en ROW 30–33
-  (`extraSlotRows` en `engine/zones.ts`; etiqueta `11-K` solo del lado este) y DISTRIBUTE la usa;
-  es la cara al piso abierto, así que **K es fast y la J de las filas interiores pasa a buried**.
-  Una K en cualquier otra fila sigue listándose como "not drawn", nunca se aprieta en el dibujo.
+  **K es el cuadro 11 de TODAS las filas de Bay 3 North (Rafael, 31 ago 2026):** una posición real
+  después de J que sobresale 60" sobre la franja norte de 145.5" (hall + rack). Nació en el bloque
+  30–33 ("para que quepa todo lo que está legítimamente en ese bloque, en el mismo") y el mismo día
+  se extendió a ROW 18 ("extiende la k hasta la row 18") — `extraSlotRows` en `engine/zones.ts`,
+  etiqueta `11-K` solo junto a las filas que la tienen; DISTRIBUTE la usa. Es la cara al piso
+  abierto, así que **K es fast y la J de las filas interiores pasa a buried**. Una letra sin cuadro
+  (L, o K fuera de estas filas) sigue listándose como "not drawn", nunca se aprieta en el dibujo.
 - **Invariante qty=0 → is_active=false:** `adjust_inventory_quantity` y `undo_inventory_action` mantienen `is_active = (quantity > 0)` bidireccionalmente. **Excepción:** `register_new_sku` crea placeholders con `qty=0, is_active=true` para onboarding de bikes nuevos — NO modificar este comportamiento. Ghost trail en búsqueda usa `includeInactive: true` para seguir mostrando items sin stock con su último movimiento.
 
 ### `picking_list_notes`: no toda nota la escribió una persona

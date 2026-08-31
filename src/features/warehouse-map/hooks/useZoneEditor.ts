@@ -12,13 +12,13 @@
 // Only the signed-in screen mounts this — it needs the plan tables and the
 // Modal Manager.
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useModal } from '../../../context/ModalContext';
 import type { Cell, LayoutModel, ZoneId } from '../engine';
 import { slotKey } from '../engine';
-import type { StockRow, ZoneStock } from '../stock/rowStock';
+import { SQUARE_MAX, type StockRow, type ZoneStock } from '../stock/rowStock';
 import {
   holdOccupant,
   holdRow,
@@ -137,6 +137,42 @@ export function useZoneEditor(
     });
     setHeld(null);
   }, [plan]);
+
+  // Rafael, 31 Aug 2026: "no puede haber un cuadro con 46 o más… quiero que
+  // se redistribuya automáticamente". In PLAN, any square the planned state
+  // leaves over SQUARE_MAX gets its live lines spread on their own — as
+  // ghosts in the draft: nothing moves until PLAN COMPLETED. The stamp stops
+  // it retrying the same offenders when spreading cannot fix them (several
+  // small lines summed in one square stay alarmed instead).
+  const autoSpread = useRef('');
+  useEffect(() => {
+    if (mode !== 'plan' || !stock || !model || plan.busy || plan.isLoading) return;
+    const offenders = new Set<number>();
+    for (const [key, cell] of stock.cells) {
+      let units = 0;
+      const live: number[] = [];
+      for (const e of cell.entries) {
+        if (planState.gone(e.rowId, cell.letter)) continue;
+        units += e.qtyHere;
+        live.push(e.rowId);
+      }
+      for (const g of planState.ghosts.get(key) ?? []) units += g.qtyHere;
+      if (units > SQUARE_MAX) for (const id of live) offenders.add(id);
+    }
+    if (offenders.size === 0) return;
+    const stamp = [...offenders].sort((a, b) => a - b).join(',');
+    if (autoSpread.current === stamp) return;
+    autoSpread.current = stamp;
+    const d = distributeLines(stock, model, planState, (l) => offenders.has(l.inventoryId));
+    if (d.drafts.length === 0) return;
+    plan.addMoves.mutate(d.drafts, {
+      onSuccess: () =>
+        toast(
+          `Over ${SQUARE_MAX} in a square — spread in the plan (${d.drafts.length} move${d.drafts.length === 1 ? '' : 's'})`
+        ),
+      onError: (e) => toast.error(e.message),
+    });
+  }, [mode, stock, model, plan, planState]);
 
   const distribute = useCallback(() => {
     if (!stock || !model) return;

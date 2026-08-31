@@ -47,6 +47,12 @@ export function zoneOwnsRow(config: ZoneConfig, rowNumber: number): boolean {
 /** A square holds one double-stacked pallet: 30 units, no more (Rafael, 28 Aug 2026). */
 export const PALLET_UNITS = 30;
 
+/** The hard cap of a square (Rafael, 31 Aug 2026: "no puede haber un cuadro
+    con 46 o más"). The working pallet stays PALLET_UNITS — DISTRIBUTE spreads
+    at 30 and capacity counts 30 — a square between 31 and 45 is heavy but
+    legal; over 45 it alarms and PLAN spreads its lines automatically. */
+export const SQUARE_MAX = 45;
+
 /** Squares a quantity needs at PALLET_UNITS per square. */
 export const squaresFor = (qty: number) => Math.max(1, Math.ceil(qty / PALLET_UNITS));
 
@@ -218,7 +224,7 @@ export function describeCell(cell: CellStock): string {
   const parts = cell.entries.map((e) =>
     e.span > 1 ? `${e.sku} ${e.qtyHere} of ${e.qty}u (${e.span} squares)` : `${e.sku} ${e.qty}u`
   );
-  const over = cell.units > PALLET_UNITS ? ` · OVER CAPACITY (${PALLET_UNITS} per square)` : '';
+  const over = cell.units > SQUARE_MAX ? ` · OVER CAPACITY (${SQUARE_MAX} max a square)` : '';
   return `ROW ${cell.rowNumber} · ${cell.letter} · ${parts.join(' · ')}${over}`;
 }
 

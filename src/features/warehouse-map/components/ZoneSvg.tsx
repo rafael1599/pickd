@@ -10,7 +10,7 @@
 import React, { useState } from 'react';
 import type { Cell, EngineState, LayoutModel, Obstacle, ZoneConfig } from '../engine';
 import { BIKES_PER_LINE, slotKey } from '../engine';
-import { describeCell, PALLET_UNITS, type CellStock } from '../stock/rowStock';
+import { describeCell, SQUARE_MAX, type CellStock } from '../stock/rowStock';
 import type { GhostSlot } from '../plan/slotPlan';
 import { skuColorDark } from '../../../utils/skuColor';
 
@@ -212,7 +212,7 @@ export const ZoneSvg: React.FC<Props> = ({
     const leaving = st ? st.entries.filter((e) => gone?.(e.rowId, st.letter) ?? false).length : 0;
     const allLeaving = !!st && leaving === st.entries.length;
     const ghostOnly = !st && gh.length > 0 ? ghostStockOf(key, cl, gh) : null;
-    const over = !!st && st.units > PALLET_UNITS;
+    const over = !!st && st.units > SQUARE_MAX;
     const where = `ROW ${cl.row.num} · ${cl.letter}`;
     const plain = showMeasures
       ? `${where} · ${cl.cw}"×${cl.ch}" · ${cl.isFast ? 'Fast Picking' : 'Buried'}${obstructed ? ' · OBSTRUCTED' : ''}`

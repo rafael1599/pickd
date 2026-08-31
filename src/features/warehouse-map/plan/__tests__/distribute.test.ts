@@ -72,18 +72,18 @@ describe('a line with more units than squares', () => {
   });
 
   it('uses a fast square only when no buried one is left, and says so', () => {
-    // Fill every buried square of the zone. ROW 20 is an edge row (all ten squares fast
-    // and free), so the line widens across its own row first: 10 × 30 = 300 of 400; the
-    // last 100 have only fast squares left to go to.
+    // Fill every buried square of the zone. ROW 20 is an edge row (all eleven squares,
+    // K included, fast and free), so the line widens across its own row first:
+    // 11 × 30 = 330 of 400; the last 70 have only fast squares left to go to.
     const buried = model.validCells.filter((c) => !c.isFast);
     const rows = buried.map((c, i) => line(`ROW ${c.row.num}`, `FILL-${i}`, 30, [c.letter]));
     rows.push(line('ROW 20', '03-BIG', 400, ['A']));
     const stock = zoneStock(ZONES.bay3_north, model, rows);
     const d = distribute(stock, model, plannedState(stock, []));
-    expect(d.drafts[0].toLetters).toHaveLength(10);
+    expect(d.drafts[0].toLetters).toHaveLength(11);
     // Each move takes what one row can give (an inner row has two fast squares).
     const moves = d.drafts.filter((m) => m.kind === 'move');
-    expect(moves.reduce((s, m) => s + m.qty, 0)).toBe(100);
+    expect(moves.reduce((s, m) => s + m.qty, 0)).toBe(70);
     expect(d.onFast).toBe(moves.length);
     expect(d.toHall).toBe(0);
   });
