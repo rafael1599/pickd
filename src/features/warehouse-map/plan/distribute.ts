@@ -5,35 +5,29 @@
 // free squares of its own row (a relabel to a wider span), then, for what
 // still does not fit, free buried squares in the nearest rows (a move of just
 // those units); fast squares only when no buried square is left, and the
-// result says how many landed there. Lines with no letter at all get a
-// square too — small ones share one. A letter the drawing does not have is a
-// place, not a gap: those lines stay put and the map keeps listing them as
-// not drawn. (K stopped being one on 31 Aug 2026: rows 30–33 draw it as the
-// 11th square — `extraSlotRows` — so its lines place and its squares deal.)
+// result says how many landed there. What finds no square at all goes to the
+// MAIN HALL, on the floor in front of its block (Rafael, 31 Aug 2026: "lo que
+// sobre se pone en el main hall sur, delante de su bloque correspondiente") —
+// never a second SKU squeezed into an occupied square. Lines with no letter
+// at all get a square too — small ones share one. A letter the drawing does
+// not have is a place, not a gap: those lines stay put and the map keeps
+// listing them as not drawn. (K stopped being one on 31 Aug 2026: rows 30–33
+// draw it as the 11th square — `extraSlotRows` — so its lines place and its
+// squares deal.)
 
 import type { LayoutModel } from '../engine';
 import { slotKey } from '../engine';
 import { PALLET_UNITS, squaresFor, type ZoneStock } from '../stock/rowStock';
 import { locationOfKey, type MoveDraft, type PlannedState } from './slotPlan';
 
-export interface Leftover {
-  inventoryId: number;
-  sku: string;
-  itemName: string | null;
-  warehouse: string;
-  location: string;
-  fromSublocation: string[] | null;
-  /** Units that found no free square at all. */
-  qty: number;
-}
-
 export interface Distribution {
   drafts: MoveDraft[];
-  leftovers: Leftover[];
   /** Lines that already fit and were left alone. */
   untouched: number;
   /** Moves that had to use a fast square because no buried one was left. */
   onFast: number;
+  /** Moves whose units found no square at all: to the MAIN HALL, in front of their block. */
+  toHall: number;
 }
 
 interface Square {
@@ -122,9 +116,9 @@ export function distribute(
   }
 
   const drafts: MoveDraft[] = [];
-  const leftovers: Leftover[] = [];
   let untouched = 0;
   let onFast = 0;
+  let toHall = 0;
   const take = (sq: Square) => squares.delete(sq.key);
   /** Squares this pass started with a small line, with room to spare, by row. */
   const shared = new Map<number, { key: string; letter: string; left: number }[]>();
@@ -234,18 +228,12 @@ export function distribute(
       if (found.fast) onFast++;
       overflow -= units;
     }
+    // No square anywhere: the floor of the MAIN HALL, in front of its block.
     if (overflow > 0) {
-      leftovers.push({
-        inventoryId: line.inventoryId,
-        sku: line.sku,
-        itemName: line.itemName,
-        warehouse: line.warehouse,
-        location: line.location,
-        fromSublocation: line.letters.length ? line.letters : line.sublocation,
-        qty: overflow,
-      });
+      drafts.push(draft(line, 'MAIN HALL', [], overflow));
+      toHall++;
     }
   }
 
-  return { drafts, leftovers, untouched, onFast };
+  return { drafts, untouched, onFast, toHall };
 }

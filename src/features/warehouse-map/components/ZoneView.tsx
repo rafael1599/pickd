@@ -472,7 +472,7 @@ export const ZoneView: React.FC<{
               onClick={editor.distribute}
               disabled={editor.busy || !stock}
               className="px-3 py-1.5 rounded-lg border border-[#a78bfa]/60 text-[#a78bfa] hover:bg-[#a78bfa]/10 font-bold tracking-[.1em] disabled:opacity-40"
-              title={`Spread every line at ${PALLET_UNITS} a square: its own row first, then free buried squares`}
+              title={`Spread every line at ${PALLET_UNITS} a square: its own row first, then free buried squares; what finds no square goes to the MAIN HALL in front of its block`}
             >
               DISTRIBUTE
             </button>
@@ -495,12 +495,6 @@ export const ZoneView: React.FC<{
               PLAN COMPLETED
             </button>
           </span>
-          {editor.leftovers.length > 0 && (
-            <p className="basis-full text-amber-400">
-              No free buried square for:{' '}
-              {editor.leftovers.map((l) => `${l.sku} ${l.qty}u (${l.location})`).join(' · ')}
-            </p>
-          )}
         </div>
       )}
 
@@ -756,7 +750,7 @@ export const ZoneView: React.FC<{
           many squares as it needs and shows its share in each. A line the plan has no square for is
           listed above, never squeezed in.
           {editor
-            ? ' PLAN: tap a SKU, tap a square — empty → it goes; one line there → they swap; several → it joins; DISTRIBUTE spreads every line at 30 a square, overflow to free buried squares; nothing moves until PLAN COMPLETED. LIVE: the same two taps, then a confirmation, and it moves now.'
+            ? ' PLAN: tap a SKU, tap a square — empty → it goes; one line there → they swap; several → it joins; DISTRIBUTE spreads every line at 30 a square, overflow to free buried squares and then the MAIN HALL in front of its block; nothing moves until PLAN COMPLETED. LIVE: the same two taps, then a confirmation, and it moves now.'
             : ''}
         </p>
       </details>

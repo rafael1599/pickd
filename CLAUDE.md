@@ -33,9 +33,11 @@ PWA de gestión de inventario y warehouse operations. Multi-usuario con sync en 
   SKU y soltarlo en un cuadro — vacío va, una línea intercambia, varias se une; `PLAN COMPLETED` lo
   ejecuta con `updateItem` en la misma fila / `moveItem` a otra, revalidando cada línea; tablas
   `slot_plans` / `slot_plan_moves`, un borrador por zona; **LIVE** = mismo gesto + confirmación;
-  **30 u por cuadro** — `PALLET_UNITS`, `allocate`, `!` sobre 30 y
-  DISTRIBUTE en `plan/distribute.ts`) y las pantallas (`MasterMap`, `ZoneView`, `ZoneSvg`; estado y
-  modo en la URL). **Dos botones solamente desde el 31 ago 2026: PLAN y LIVE** (Rafael: "compactar a
+  **30 u por cuadro, sin excepción** — `PALLET_UNITS`, `allocate`, `!` sobre 30 y
+  DISTRIBUTE en `plan/distribute.ts`; **lo que no encuentra cuadro va al MAIN HALL sur, delante de
+  su bloque** (Rafael, 31 ago 2026) — nunca un segundo SKU apretado en un cuadro ocupado) y las
+  pantallas (`MasterMap`, `ZoneView`, `ZoneSvg`; estado y
+  modo en la URL; hover o tap en un cuadro ilumina todos los cuadros de ese SKU, vivos y planeados). **Dos botones solamente desde el 31 ago 2026: PLAN y LIVE** (Rafael: "compactar a
   2… lo menos compleja posible la interfaz"); el reposo es VIEW (el stock, sin botón — tocar el modo
   activo lo apaga) y **LAYOUT** (las medidas) solo se alcanza con `?mode=layout`. La orientación, el
   WEST HALL y los presets salieron de la interfaz igual que los sliders del pallet: viven en la URL

@@ -1,5 +1,6 @@
 // DISTRIBUTE: 30 a square; a row's own free squares first, then free buried
-// squares in the nearest rows for what does not fit; nothing forced.
+// squares in the nearest rows for what does not fit; what finds no square
+// goes to the MAIN HALL in front of its block — never over 30 in a square.
 
 import { describe, it, expect } from 'vitest';
 import { distribute } from '../distribute';
@@ -38,7 +39,7 @@ describe('a line with more units than squares', () => {
       toLocation: 'ROW 33',
       toLetters: ['C', 'D', 'E', 'F', 'G'],
     });
-    expect(d.leftovers).toEqual([]);
+    expect(d.toHall).toBe(0);
   });
 
   it('leaves a line alone when its squares already hold it', () => {
@@ -67,7 +68,7 @@ describe('a line with more units than squares', () => {
     const move = d.drafts.find((m) => m.kind === 'move')!;
     // 260 − 8 × 30 = 20 units to one buried square in ROW 32 (the nearest row).
     expect(move).toMatchObject({ qty: 20, toLocation: 'ROW 32', toLetters: ['B'] });
-    expect(d.leftovers).toEqual([]);
+    expect(d.toHall).toBe(0);
   });
 
   it('uses a fast square only when no buried one is left, and says so', () => {
@@ -84,18 +85,20 @@ describe('a line with more units than squares', () => {
     const moves = d.drafts.filter((m) => m.kind === 'move');
     expect(moves.reduce((s, m) => s + m.qty, 0)).toBe(100);
     expect(d.onFast).toBe(moves.length);
-    expect(d.leftovers).toEqual([]);
+    expect(d.toHall).toBe(0);
   });
 
-  it('reports what found no square at all', () => {
+  it('what finds no square at all goes to the MAIN HALL, in front of its block', () => {
     const all = model.validCells.map((c, i) =>
       line(`ROW ${c.row.num}`, `FILL-${i}`, 30, [c.letter])
     );
-    // Every square taken; a line with no letter and 50 units has nowhere to go.
+    // Every square taken; a line with no letter and 50 units has only the hall.
     all.push(line('ROW 33', '03-K', 50, []));
     const stock = zoneStock(ZONES.bay3_north, model, all);
     const d = distribute(stock, model, plannedState(stock, []));
-    expect(d.leftovers).toMatchObject([{ sku: '03-K', location: 'ROW 33', qty: 50 }]);
+    const hall = d.drafts.find((m) => m.toLocation === 'MAIN HALL')!;
+    expect(hall).toMatchObject({ sku: '03-K', qty: 50, kind: 'move', toLetters: [] });
+    expect(d.toHall).toBe(1);
   });
 
   it('gives a line with no letter a square in its own row, and leaves a line in K alone', () => {

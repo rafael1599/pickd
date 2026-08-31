@@ -66,6 +66,10 @@ one place: a rule that contradicts an older one replaces it.
   pallet sliders went first; the orientation, hall and preset switches followed.
 - **The resting state needs no button** (31 Aug): "compactar a 2 solamente". VIEW is just the zone;
   PLAN and LIVE are the only two buttons, and tapping the active one puts the tools away.
+- **Overflow goes to the south main hall, in front of its block** (31 Aug): "no pueden haber
+  cantidades en un cuadro de más de 30 unidades, lo que sobre se pone en el main hall sur, delante
+  de su bloque correspondiente." Never a second SKU squeezed into an occupied square to make the
+  numbers close — the floor in front of the block is the overflow's place, and the plan says so.
 
 ## Log
 
@@ -91,3 +95,8 @@ one place: a rule that contradicts an older one replaces it.
   sobre el hall + rack del norte." Rows 30–33 draw K past J, 60" into the north strip
   (`extraSlotRows`); the `11-K` label sits only beside the rows that have it, and DISTRIBUTE
   deals it. The 28-Aug rule ("not drawn, not distributed") stays for a K anywhere else.
+- **2026-08-31 — overflow to the hall, and the SKU lights up everywhere.** The 9u tail that had
+  been squeezed into 33-K beside another SKU became the rule above: overflow → MAIN HALL, in front
+  of its block (DISTRIBUTE now plans it there instead of listing leftovers). Same session:
+  hovering or tapping a square lights every square holding that SKU, live or planned — "no solo
+  el cuadro seleccionado".

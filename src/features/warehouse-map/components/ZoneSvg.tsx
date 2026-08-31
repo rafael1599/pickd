@@ -7,7 +7,7 @@
 // lines, red = a post or the slot it kills. Measures (hall widths, inches on
 // hover) are drawn only when asked: the floor reads stock, LAYOUT reads inches.
 
-import React from 'react';
+import React, { useState } from 'react';
 import type { Cell, EngineState, LayoutModel, Obstacle, ZoneConfig } from '../engine';
 import { BIKES_PER_LINE, slotKey } from '../engine';
 import { describeCell, PALLET_UNITS, type CellStock } from '../stock/rowStock';
@@ -230,6 +230,21 @@ export const ZoneSvg: React.FC<Props> = ({
     const isHeld = heldKey === key;
     return { key, st, gh, leaving, allLeaving, ghostOnly, over, text, tone, isHeld };
   };
+
+  // Hovering (or tapping) a square lights every square holding one of its
+  // SKUs, live or planned — not just the one under the pointer (Rafael,
+  // 31 Aug 2026).
+  const [hotSkus, setHotSkus] = useState<Set<string> | null>(null);
+  const skusOf = (q: ReturnType<typeof square>): Set<string> | null => {
+    const skus = new Set<string>();
+    for (const e of q.st?.entries ?? []) skus.add(e.sku);
+    for (const g of q.gh) skus.add(g.move.sku);
+    return skus.size > 0 ? skus : null;
+  };
+  const isHot = (q: ReturnType<typeof square>) =>
+    !!hotSkus &&
+    ((q.st?.entries.some((e) => hotSkus.has(e.sku)) ?? false) ||
+      q.gh.some((g) => hotSkus.has(g.move.sku)));
 
   return (
     <svg
@@ -651,6 +666,7 @@ export const ZoneSvg: React.FC<Props> = ({
       {m.validCells.map((cl) => {
         const q = square(cl, false);
         const col = cl.isFast ? COLOR.fast : COLOR.buried;
+        const hot = isHot(q);
         return (
           <g key={q.key}>
             <rect
@@ -664,15 +680,32 @@ export const ZoneSvg: React.FC<Props> = ({
               fillOpacity={
                 q.tone ? (q.st ? (q.allLeaving ? 0.35 : 0.92) : 0.5) : cl.isFast ? 0.4 : 0.2
               }
-              stroke={q.isHeld ? '#00eeff' : q.gh.length ? COLOR.buried : q.over ? COLOR.over : col}
-              strokeOpacity={q.isHeld || q.gh.length || q.over ? 1 : 0.75}
-              strokeWidth={q.isHeld || q.gh.length || q.over ? 2.5 : 1.5}
+              stroke={
+                q.isHeld
+                  ? '#00eeff'
+                  : hot
+                    ? '#ffffff'
+                    : q.gh.length
+                      ? COLOR.buried
+                      : q.over
+                        ? COLOR.over
+                        : col
+              }
+              strokeOpacity={q.isHeld || hot || q.gh.length || q.over ? 1 : 0.75}
+              strokeWidth={q.isHeld || hot || q.gh.length || q.over ? 2.5 : 1.5}
               strokeDasharray={q.gh.length ? '6 4' : undefined}
               data-slot={q.key}
-              onPointerEnter={() => onHover({ text: q.text, cell: cl })}
-              onPointerLeave={() => onHover(null)}
+              onPointerEnter={() => {
+                onHover({ text: q.text, cell: cl });
+                setHotSkus(skusOf(q));
+              }}
+              onPointerLeave={() => {
+                onHover(null);
+                setHotSkus(null);
+              }}
               onClick={() => {
                 onHover({ text: q.text, cell: cl });
+                setHotSkus(skusOf(q));
                 onCellTap?.(cl, q.st);
               }}
             >
@@ -771,6 +804,7 @@ export const ZoneSvg: React.FC<Props> = ({
         const q = square(cl, true);
         const x = M + cl.cx;
         const y = M + cl.cy;
+        const hot = isHot(q);
         return (
           <g key={`lost-${q.key}`}>
             <rect
@@ -782,14 +816,21 @@ export const ZoneSvg: React.FC<Props> = ({
               rx="3"
               fill={q.tone ? q.tone.bg : COLOR.post}
               fillOpacity={q.tone ? (q.st ? (q.allLeaving ? 0.35 : 0.92) : 0.5) : 0.1}
-              stroke={q.isHeld ? '#00eeff' : COLOR.post}
-              strokeWidth={q.isHeld || q.gh.length ? 2.5 : 1.5}
+              stroke={q.isHeld ? '#00eeff' : hot ? '#ffffff' : COLOR.post}
+              strokeWidth={q.isHeld || hot || q.gh.length ? 2.5 : 1.5}
               strokeDasharray="4 4"
               data-slot={q.key}
-              onPointerEnter={() => onHover({ text: q.text, cell: cl })}
-              onPointerLeave={() => onHover(null)}
+              onPointerEnter={() => {
+                onHover({ text: q.text, cell: cl });
+                setHotSkus(skusOf(q));
+              }}
+              onPointerLeave={() => {
+                onHover(null);
+                setHotSkus(null);
+              }}
               onClick={() => {
                 onHover({ text: q.text, cell: cl });
+                setHotSkus(skusOf(q));
                 onCellTap?.(cl, q.st);
               }}
             >

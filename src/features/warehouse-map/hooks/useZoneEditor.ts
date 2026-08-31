@@ -30,7 +30,7 @@ import {
   type PlanMove,
   type PlannedState,
 } from '../plan/slotPlan';
-import { distribute as distributeLines, type Leftover } from '../plan/distribute';
+import { distribute as distributeLines } from '../plan/distribute';
 import { useSlotPlan } from './useSlotPlan';
 
 export type EditMode = 'view' | 'plan' | 'live' | 'layout';
@@ -55,7 +55,6 @@ export interface ZoneEditor {
   discard: () => void;
   complete: () => void;
   distribute: () => void;
-  leftovers: Leftover[];
   busy: boolean;
   /** The drawn cell the held line sits in (live or ghost), for the drawing to mark. */
   heldKey: string | null;
@@ -82,7 +81,6 @@ export function useZoneEditor(
   const plan = useSlotPlan(zoneId);
   const { open: openModal } = useModal();
   const [held, setHeld] = useState<Held | null>(null);
-  const [leftovers, setLeftovers] = useState<Leftover[]>([]);
 
   const planState = useMemo(() => plannedState(stock, plan.moves), [stock, plan.moves]);
   const liveState = useMemo(() => plannedState(stock, []), [stock]);
@@ -146,23 +144,21 @@ export function useZoneEditor(
       onError: (e) => toast.error(e.message),
     });
     setHeld(null);
-    setLeftovers([]);
   }, [plan]);
 
   const distribute = useCallback(() => {
     if (!stock || !model) return;
     const d = distributeLines(stock, model, planState);
-    setLeftovers(d.leftovers);
     if (d.drafts.length === 0) {
-      toast(
-        d.leftovers.length
-          ? `Nothing to spread — ${d.leftovers.length} line${d.leftovers.length === 1 ? '' : 's'} found no free buried square`
-          : 'Everything already fits at 30 a square'
-      );
+      toast('Everything already fits at 30 a square');
       return;
     }
     plan.addMoves.mutate(d.drafts, {
-      onSuccess: () => toast.success(`Planned ${d.drafts.length} moves — 30 a square`),
+      onSuccess: () =>
+        toast.success(
+          `Planned ${d.drafts.length} moves — 30 a square` +
+            (d.toHall > 0 ? ` · ${d.toHall} to the MAIN HALL` : '')
+        ),
       onError: (e) => toast.error(e.message),
     });
   }, [stock, model, planState, plan]);
@@ -183,7 +179,6 @@ export function useZoneEditor(
     discard,
     complete,
     distribute,
-    leftovers,
     busy: plan.busy,
     heldKey,
   };
