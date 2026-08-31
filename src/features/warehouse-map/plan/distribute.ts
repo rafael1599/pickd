@@ -19,7 +19,7 @@
 
 import type { LayoutModel } from '../engine';
 import { slotKey } from '../engine';
-import { PALLET_UNITS, squaresFor, type ZoneStock } from '../stock/rowStock';
+import { PALLET_UNITS, SQUARE_MAX, squaresFor, type ZoneStock } from '../stock/rowStock';
 import {
   locationOfKey,
   OVERFLOW_LOCATION,
@@ -93,15 +93,21 @@ export function distribute(
   const squares = freeSquares(model, state);
   const drawnRows = new Set(model.validCells.map((c) => Number(c.row.num)));
 
-  // Each line once, with the squares it lives in.
+  // Each line once, as the plan leaves it: the units it still has and the
+  // squares it still holds. A line with a planned move is not immune — its
+  // remainder has to fit too (Rafael, 31 Aug 2026: the 69 belonged to a line
+  // that already had a move, so nothing ever looked at it again). A line
+  // whose squares the plan empties has no remainder and drops out, which is
+  // what makes running this twice a no-op.
   const lines = new Map<number, Line>();
   for (const cell of stock.cells.values()) {
     for (const e of cell.entries) {
-      if (state.hasMove.has(e.rowId)) continue;
+      const left = state.remainingAt(cell.key, e.rowId);
+      if (left === 0) continue;
       const line = lines.get(e.rowId) ?? {
         inventoryId: e.rowId,
         sku: e.sku,
-        qty: e.qty,
+        qty: 0,
         itemName: e.itemName,
         warehouse: e.warehouse,
         location: locationOfKey(cell.key),
@@ -109,6 +115,7 @@ export function distribute(
         letters: [],
         sublocation: null,
       };
+      line.qty += left;
       line.letters.push(cell.letter);
       lines.set(e.rowId, line);
     }
@@ -261,21 +268,34 @@ export interface Repair {
 }
 
 /**
- * The plan's own moves, kept honest. Two passes, both as ghosts in the draft:
+ * The plan's own moves, kept honest: no square over the cap, and no unit in
+ * the aisle while a square stands empty. Three passes, each a settled step —
+ * the first one with something to say returns, and the next render sees the
+ * result, so no two passes ever edit the same square at once.
  *
- *  A. No square over the cap, whatever put it there. DISTRIBUTE spreads live
- *     lines; this spreads the PLAN'S OWN landings — a hand drop carries a
- *     whole pallet into one square, so a move of 240 units landed 240 in one
- *     (Rafael, 31 Aug 2026: "todavía tengo algunos con 69 y 90 unidades").
- *     The move is re-planned over the squares it needs at the 30 norm: the
- *     free squares of the row it aims at first, then the nearest rows.
- *  B. The space comes first. Units parked in MAS while squares are still free
- *     come back into them, small lines sharing a square.
+ *  A. A landing too big for the squares it names. The hand carries a whole
+ *     pallet, so dropping it planned 240 units into one square. Re-planned
+ *     over the squares it needs at the 30 norm: the row it aims at first,
+ *     then the nearest rows, then MAS.
+ *  B. A square over the cap because SEVERAL lines share it — neither too big
+ *     on its own, which is why looking line by line never saw it (Rafael,
+ *     31 Aug 2026: `31-C = 30 + 30`). The smallest ones are sent elsewhere
+ *     until the square fits.
+ *  C. The space comes first: units parked in MAS while squares are free come
+ *     back into them, small lines sharing one.
  *
- * MAS is what is left over after both — never a choice made while a square
- * was free.
+ * Everything is a ghost in the draft; nothing moves until PLAN COMPLETED.
  */
 export function repairOverCap(model: LayoutModel, state: PlannedState, moves: PlanMove[]): Repair {
+  const a = bigLandings(model, state, moves);
+  if (a.drafts.length > 0) return a;
+  const b = sharedSquares(model, state);
+  if (b.drafts.length > 0) return b;
+  return parkedInMas(model, state, moves);
+}
+
+/** Pass A — a landing that needs more squares than it names. */
+function bigLandings(model: LayoutModel, state: PlannedState, moves: PlanMove[]): Repair {
   const pool = freeSquares(model, state);
   const drafts: MoveDraft[] = [];
   const removals: number[] = [];
@@ -331,16 +351,92 @@ export function repairOverCap(model: LayoutModel, state: PlannedState, moves: Pl
     }
   }
 
-  // Pass B — the space comes first: what is parked in MAS while squares are
-  // free comes back into them (Rafael, 31 Aug 2026: "el algoritmo debería
-  // priorizar llenar el espacio primero, y cuando no haya espacio el extra va
-  // en MAS"). Small lines share a square, as DISTRIBUTE does.
+  return { drafts, removals };
+}
+
+/**
+ * Pass B — a square over the cap because several lines share it. Nobody is
+ * too big alone, so the fix is to send the smallest ones somewhere else: a
+ * landing is re-aimed, a live line swaps its letter for a free square in its
+ * own row, or moves to the nearest free square elsewhere.
+ */
+function sharedSquares(model: LayoutModel, state: PlannedState): Repair {
+  const pool = freeSquares(model, state);
+  const drafts: MoveDraft[] = [];
+  const removals: number[] = [];
+
+  for (const cell of model.validCells) {
+    const key = slotKey(cell);
+    let units = state.unitsAt(key);
+    if (units <= SQUARE_MAX) continue;
+    const rowNum = Number(cell.row.num);
+    // The smallest first: the least disruption that brings the square down.
+    const here = [...state.occupancy(key)].sort((a, b) => a.qtyHere - b.qtyHere);
+    if (here.length < 2) continue; // one line alone is pass A's or DISTRIBUTE's
+
+    for (const o of here) {
+      if (units <= SQUARE_MAX) break;
+      if (o.ghost && removals.includes(o.ghost.id)) continue;
+      // A free square for it: its own row first, so the gesture keeps its place.
+      const own = [...pool.values()]
+        .filter((s) => s.rowNum === rowNum)
+        .sort((a, b) => Number(a.isFast) - Number(b.isFast) || a.d - b.d);
+      const target = own[0] ?? nearestFree(pool, rowNum, 1)[0];
+      if (!target) break;
+      pool.delete(target.key);
+
+      if (o.ghost) {
+        // Re-aim the landing: drop the offending square, take the free one.
+        const m = o.ghost;
+        const rest = m.toLetters.filter((l) => l !== cell.letter);
+        removals.push(m.id);
+        if (rest.length > 0) {
+          drafts.push({ ...asDraft(m), qty: m.qty - o.qtyHere, toLetters: rest });
+        }
+        const toLocation = `ROW ${target.rowNum}`;
+        drafts.push({
+          ...asDraft(m),
+          qty: o.qtyHere,
+          toLocation,
+          toLetters: [target.letter],
+          kind: sameLocation(m.fromLocation, toLocation) ? 'relabel' : 'move',
+        });
+      } else {
+        // A live line: it swaps this square for the free one.
+        const toLocation = `ROW ${target.rowNum}`;
+        drafts.push({
+          inventoryId: o.inventoryId,
+          sku: o.sku,
+          qty: o.qtyHere,
+          itemName: o.itemName,
+          warehouse: o.warehouse,
+          fromLocation: o.location,
+          fromSublocation: [cell.letter],
+          toLocation,
+          toLetters: [target.letter],
+          kind: sameLocation(o.location, toLocation) ? 'relabel' : 'move',
+        });
+      }
+      units -= o.qtyHere;
+    }
+  }
+
+  return { drafts, removals };
+}
+
+/** Pass C — units parked in MAS while the drawing still has room. */
+function parkedInMas(model: LayoutModel, state: PlannedState, moves: PlanMove[]): Repair {
+  const pool = freeSquares(model, state);
+  const drafts: MoveDraft[] = [];
+  const removals: number[] = [];
+  // What is parked in MAS while squares are free comes back into them
+  // (Rafael, 31 Aug 2026: "el algoritmo debería priorizar llenar el espacio
+  // primero"). Small lines share a square, as DISTRIBUTE does.
   const parked = moves.filter(
     (m) =>
       m.status === 'planned' &&
       m.toLetters.length === 0 &&
-      sameLocation(m.toLocation, OVERFLOW_LOCATION) &&
-      !removals.includes(m.id)
+      sameLocation(m.toLocation, OVERFLOW_LOCATION)
   );
   /** The square this pass opened last, with the room it has left. */
   let open: { rowNum: number; letter: string; room: number } | null = null;

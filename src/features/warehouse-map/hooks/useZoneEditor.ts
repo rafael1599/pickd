@@ -152,7 +152,11 @@ export function useZoneEditor(
     // 1. The plan's own landings: re-plan a move over the squares it needs.
     const repair = repairOverCap(model, planState, plan.moves);
     if (repair.drafts.length > 0) {
-      const stamp = `repair:${repair.removals.join(',')}`;
+      // The repair itself is the stamp: proposing the same one twice means it
+      // did not stick, and the loop stops instead of spinning.
+      const stamp = `repair:${repair.removals.join(',')}|${repair.drafts
+        .map((d) => `${d.inventoryId}>${d.toLocation}${d.toLetters.join('')}:${d.qty}`)
+        .join(',')}`;
       if (autoSpread.current === stamp) return;
       autoSpread.current = stamp;
       plan.applyDrop.mutate(
@@ -173,12 +177,10 @@ export function useZoneEditor(
     for (const cell of model.validCells) {
       const key = slotKey(cell);
       if (planState.unitsAt(key) <= SQUARE_MAX) continue;
+      // Whoever still has units here gets spread — a planned move of its own
+      // does not excuse it.
       for (const e of stock.cells.get(key)?.entries ?? []) {
-        // A line already in the plan keeps the moves it has; DISTRIBUTE
-        // would skip it anyway.
-        if (planState.remainingAt(key, e.rowId) > 0 && !planState.hasMove.has(e.rowId)) {
-          offenders.add(e.rowId);
-        }
+        if (planState.remainingAt(key, e.rowId) > 0) offenders.add(e.rowId);
       }
     }
     if (offenders.size === 0) return;

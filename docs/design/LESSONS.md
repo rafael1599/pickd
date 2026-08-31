@@ -135,3 +135,12 @@ one place: a rule that contradicts an older one replaces it.
   south llamándolo MAS." The overflow destination got its floor name (`OVERFLOW_LOCATION = 'MAS'`,
   the `MAIN HALL` location renamed in `20260831165650`, `counts_as_storage = false`) and a second
   repair pass that pulls parked units back into free squares, small lines sharing one.
+- **2026-08-31 — the 69, and the root cause hunt.** "Aún tenemos ese 69 cuando todavía quedan
+  espacios vacíos, busca cuál es la raíz del problema y ve si hay que rediseñar el motor." Measured
+  on his own plan instead of the screenshot: two squares over the cap, two different causes, and 19
+  free squares beside them. (1) `allocate` filled 30 per square and dumped the rest in the last —
+  159 units over four squares read `30/30/30/69`, a square nobody could see; it now spreads evenly.
+  (2) The repair skipped any line that already had a move, and that 69 belonged to one; it now
+  plans on the remainder. (3) Nothing compared the square's TOTAL across lines, so `30 + 30` of two
+  SKUs passed unseen; a pass now relocates the smallest. The model did not need a redesign — three
+  rules did. **Measure the real data before deciding what to rebuild.**

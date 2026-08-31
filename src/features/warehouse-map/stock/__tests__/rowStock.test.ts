@@ -196,12 +196,17 @@ describe('a line across two letters', () => {
     );
   });
 
-  it('a line with too few squares shows the overflow in its last square, over capacity', () => {
+  it('a line with too few squares is over capacity in every one of them', () => {
     const big = zoneStock(ZONES.bay3_north, bay3North, [line('ROW 33', '03-3983GY', 230, ['C'])]);
     const cell = big.cells.get('33-C')!;
     expect(cell.units).toBe(230);
     expect(describeCell(cell)).toContain('OVER CAPACITY');
-    expect(allocate(132, 5)).toEqual([30, 30, 30, 30, 12]);
+    // Even, the first squares taking the odd unit — never 30, 30, 30 and the
+    // rest dumped in the last one, which invented squares nobody could see.
+    expect(allocate(132, 5)).toEqual([27, 27, 26, 26, 26]);
+    expect(allocate(159, 4)).toEqual([40, 40, 40, 39]);
+    expect(allocate(60, 2)).toEqual([30, 30]);
+    expect(allocate(132, 5).reduce((s, n) => s + n, 0)).toBe(132);
     expect(squaresFor(132)).toBe(5);
     expect(squaresFor(30)).toBe(1);
     expect(squaresFor(0)).toBe(1);

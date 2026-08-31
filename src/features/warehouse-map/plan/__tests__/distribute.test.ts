@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { distribute, repairOverCap } from '../distribute';
 import { OVERFLOW_LOCATION, plannedState, type PlanMove } from '../slotPlan';
 import { zoneStock, type StockRow } from '../../stock/rowStock';
-import { ZONES, calculateLayout, defaultEngineState } from '../../engine';
+import { ZONES, calculateLayout, defaultEngineState, slotKey } from '../../engine';
 
 let nextId = 1;
 const line = (
@@ -266,5 +266,61 @@ describe('the space comes first — MAS is the last resort (31 Aug 2026)', () =>
     const stock = zoneStock(ZONES.bay3_north, model, rows);
     const moves = [parked(99, 5)];
     expect(repairOverCap(model, plannedState(stock, moves), moves).drafts).toEqual([]);
+  });
+});
+
+describe('a square shared by two lines (31 Aug 2026)', () => {
+  // Rafael: "aún tenemos ese 69… cuando todavía quedan espacios vacíos".
+  // On his own plan two squares were over the cap for two different reasons:
+  // one line reading 69 because allocate dumped the remainder in the last
+  // square, and 31-C = 30 + 30, where nobody is too big alone.
+  it('sends the smallest one to a free square, and nobody is over the cap', () => {
+    const rows = [line('ROW 31', '03-3983GY', 30, ['C']), line('ROW 30', '03-3982BL', 30, ['A'])];
+    const stock = zoneStock(ZONES.bay3_north, model, rows);
+    const landing: PlanMove = {
+      id: 5,
+      planId: 'p',
+      position: 1,
+      inventoryId: rows[1].id,
+      sku: '03-3982BL',
+      qty: 30,
+      itemName: null,
+      warehouse: 'LUDLOW',
+      fromLocation: 'ROW 30',
+      fromSublocation: ['A'],
+      toLocation: 'ROW 31',
+      toLetters: ['C'],
+      kind: 'move',
+      status: 'planned',
+      error: null,
+    };
+    const before = plannedState(stock, [landing]);
+    expect(before.unitsAt('31-C')).toBe(60);
+
+    const r = repairOverCap(model, before, [landing]);
+    expect(r.drafts).toHaveLength(1);
+    const moves = [
+      ...[landing].filter((m) => !r.removals.includes(m.id)),
+      ...r.drafts.map((d, i) => ({
+        ...d,
+        id: 90 + i,
+        planId: 'p',
+        position: 9,
+        status: 'planned' as const,
+        error: null,
+      })),
+    ];
+    const after = plannedState(stock, moves);
+    expect(after.unitsAt('31-C')).toBeLessThanOrEqual(45);
+    // Nothing anywhere is over the cap, and nothing was sent to MAS.
+    for (const c of model.validCells) expect(after.unitsAt(slotKey(c))).toBeLessThanOrEqual(45);
+    expect(moves.every((m) => m.toLetters.length > 0)).toBe(true);
+  });
+
+  it('a line spread over its squares reads evenly — no invented square over the cap', () => {
+    const rows = [line('ROW 33', '03-4038BL', 159, ['G', 'H', 'I', 'J'])];
+    const stock = zoneStock(ZONES.bay3_north, model, rows);
+    expect([...'GHIJ'].map((l) => stock.cells.get(`33-${l}`)!.units)).toEqual([40, 40, 40, 39]);
+    expect(repairOverCap(model, plannedState(stock, []), []).drafts).toEqual([]);
   });
 });

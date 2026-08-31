@@ -57,19 +57,24 @@ export const SQUARE_MAX = 45;
 export const squaresFor = (qty: number) => Math.max(1, Math.ceil(qty / PALLET_UNITS));
 
 /**
- * How a line's units sit across its squares: a pallet's worth in each,
- * whatever is left in the last one — which is where a line that has too
- * few squares shows it, as a square over capacity.
+ * How a line's units sit across its squares: **evenly**, the first squares
+ * taking the odd unit. The DB stores the line's letters and its total, never
+ * how many are in each, so an even split is the honest reading — and the only
+ * one that matches the floor.
+ *
+ * It used to fill 30 into each square and dump the rest in the LAST one, to
+ * make a line with too few squares visible as one over capacity. That fiction
+ * invented squares nobody could see: 159 units over G–J read `30/30/30/69`
+ * and alarmed, when the four squares really hold about 40 each (Rafael,
+ * 31 Aug 2026: "aún tenemos ese 69… busca cuál es la raíz"). A line that is
+ * genuinely too tight now shows it in every one of its squares, which is
+ * where the repair looks.
  */
 export function allocate(qty: number, squares: number): number[] {
-  const out: number[] = [];
-  let left = qty;
-  for (let i = 0; i < squares; i++) {
-    const here = i < squares - 1 ? Math.min(left, PALLET_UNITS) : left;
-    out.push(here);
-    left -= here;
-  }
-  return out;
+  if (squares <= 0) return [];
+  const base = Math.floor(qty / squares);
+  const odd = qty - base * squares;
+  return Array.from({ length: squares }, (_, i) => base + (i < odd ? 1 : 0));
 }
 
 export interface StockEntry {
