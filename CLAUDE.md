@@ -29,8 +29,11 @@ PWA de gestión de inventario y warehouse operations. Multi-usuario con sync en 
   `engine/zones.ts` (las seis zonas, cada cifra comentada con su medida), `engine/palletEngine.ts`
   (filas, bloques, halls, slots, postes — puro, 54 casos de paridad con el JS original),
   `stock/rowStock.ts` (el stock de `inventory` sobre cada `ROW n · letra`; lo que no cabe se lista,
-  nunca se esconde), `plan/slotPlan.ts` + `hooks/useZoneEditor.ts` (**PLAN**, idea-173: levantar un
-  SKU y soltarlo en un cuadro — vacío va, una línea intercambia, varias se une; `PLAN COMPLETED` lo
+  nunca se esconde), `plan/slotPlan.ts` + `hooks/useZoneEditor.ts` (**PLAN**, idea-173: levantar **el
+  pallet de un cuadro** y soltarlo en otro — vacío va, una línea intercambia, varias se une; una
+  línea repartida en varios cuadros se mueve cuadro a cuadro (la mano lleva el `qtyHere` del cuadro
+  tocado y un ghost se re-identifica por el id de su move — nunca por `inventoryId`, que era el bug
+  del 31 ago donde el segundo move del mismo SKU redirigía al primero); `PLAN COMPLETED` lo
   ejecuta con `updateItem` en la misma fila / `moveItem` a otra, revalidando cada línea; tablas
   `slot_plans` / `slot_plan_moves`, un borrador por zona; **LIVE** = mismo gesto + confirmación;
   **30 u por cuadro, sin excepción** — `PALLET_UNITS`, `allocate`, `!` sobre 30 y

@@ -100,3 +100,10 @@ one place: a rule that contradicts an older one replaces it.
   of its block (DISTRIBUTE now plans it there instead of listing leftovers). Same session:
   hovering or tapping a square lights every square holding that SKU, live or planned — "no solo
   el cuadro seleccionado".
+- **2026-08-31 — the hand holds a square, not a line.** "Cuando intento mover por segunda vez el
+  mismo sku… se vuelve a mover el que estaba en b, no el que yo quiero mover; falta un id temporal
+  para que se sepa cuál clickeo y ese sea el cuadro que se deja libre." Picking a square takes that
+  square's pallet (its share), a ghost re-pick carries its own move id, and a plan never collapses
+  a line's moves into one — the id already existed (the move row); the bug was matching by
+  inventory id. Same message: the SKU highlight must glow the background ("fosforescente"), not
+  just the stroke — matching squares brighten, the rest dim while the light is on.

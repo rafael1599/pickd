@@ -236,12 +236,14 @@ export const ZoneView: React.FC<{
           inventoryId: e.rowId,
           sku: e.sku,
           qty: e.qty,
+          qtyHere: e.qtyHere,
           itemName: e.itemName,
           warehouse: e.warehouse,
           location: `ROW ${selectedKey.slice(0, selectedKey.lastIndexOf('-'))}`,
           sublocation: [selectedKey.slice(selectedKey.lastIndexOf('-') + 1)],
           ghost: null,
           liveKey: selectedKey,
+          atKey: selectedKey,
         }))
     : null;
 
@@ -568,7 +570,7 @@ export const ZoneView: React.FC<{
                     }
                   >
                     {o.ghost ? '→ ' : ''}
-                    {o.sku} · {o.qty}u
+                    {o.sku} · {o.qtyHere}u{o.qtyHere < o.qty ? ` of ${o.qty}` : ''}
                   </PressButton>
                   {o.ghost && editor && (
                     <button
@@ -657,7 +659,7 @@ export const ZoneView: React.FC<{
               stock={stock?.cells}
               showMeasures={layout}
               ghosts={planMode ? editor?.state.ghosts : undefined}
-              vacated={planMode ? editor?.state.vacated : undefined}
+              gone={planMode ? editor?.state.gone : undefined}
               heldKey={editing ? editor?.heldKey : null}
               onHover={setHover}
               onHallClick={(idx, w) => setHallEdit({ idx, w: state.hallOverrides[idx] ?? w })}
@@ -750,7 +752,7 @@ export const ZoneView: React.FC<{
           many squares as it needs and shows its share in each. A line the plan has no square for is
           listed above, never squeezed in.
           {editor
-            ? ' PLAN: tap a SKU, tap a square — empty → it goes; one line there → they swap; several → it joins; DISTRIBUTE spreads every line at 30 a square, overflow to free buried squares and then the MAIN HALL in front of its block; nothing moves until PLAN COMPLETED. LIVE: the same two taps, then a confirmation, and it moves now.'
+            ? ' PLAN: tap a square to pick up its pallet (a line spread over squares moves one square at a time), tap where it goes — empty → it goes; one line there → they swap; several → it joins; DISTRIBUTE spreads every line at 30 a square, overflow to free buried squares and then the MAIN HALL in front of its block; nothing moves until PLAN COMPLETED. LIVE: the same two taps, then a confirmation, and it moves now.'
             : ''}
         </p>
       </details>

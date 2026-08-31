@@ -157,6 +157,74 @@ describe('undoing by dropping back home', () => {
   });
 });
 
+describe('V8 — the same SKU picked twice moves square by square (31 Aug 2026)', () => {
+  // Rafael: moving the SKU a second time (C→D, then F→G) redirected the first
+  // move — "se vuelve a mover el que estaba en b, no el que yo quiero mover".
+  // The hand holds one square's pallet; a second pick adds a move, and only
+  // re-picking a ghost redirects that ghost's own move.
+  const spread = [line('ROW 31', '03-4038BL', 60, ['A', 'B'])];
+  const sStock = zoneStock(ZONES.bay3_north, model, spread);
+  const id = spread[0].id;
+
+  it("the hand takes one square's share; a second drop adds a move instead of redirecting", () => {
+    const st0 = plannedState(sStock, []);
+    const first = planDrop(
+      holdOccupant(st0.occupancy('31-B')[0]),
+      { rowNum: '31', letter: 'D' },
+      st0,
+      []
+    );
+    if (first.rule === 'noop') throw new Error('unreachable');
+    expect(first.drafts).toEqual([
+      expect.objectContaining({ qty: 30, fromSublocation: ['B'], toLetters: ['D'] }),
+    ]);
+    const moves = [asMove(first.drafts[0])];
+
+    const st1 = plannedState(sStock, moves);
+    // B empties once the plan runs; A still holds its pallet.
+    expect(st1.gone(id, 'B')).toBe(true);
+    expect(st1.gone(id, 'A')).toBe(false);
+    expect(st1.occupancy('31-B')).toEqual([]);
+    expect(st1.occupancy('31-A')).toHaveLength(1);
+
+    const second = planDrop(
+      holdOccupant(st1.occupancy('31-A')[0]),
+      { rowNum: '31', letter: 'E' },
+      st1,
+      moves
+    );
+    if (second.rule === 'noop') throw new Error('unreachable');
+    expect(second.removals).toEqual([]); // the first move stays as planned
+    expect(second.drafts).toEqual([
+      expect.objectContaining({ qty: 30, fromSublocation: ['A'], toLetters: ['E'] }),
+    ]);
+  });
+
+  it("re-picking a ghost redirects only that ghost's move", () => {
+    const st0 = plannedState(sStock, []);
+    const first = planDrop(
+      holdOccupant(st0.occupancy('31-B')[0]),
+      { rowNum: '31', letter: 'D' },
+      st0,
+      []
+    );
+    if (first.rule === 'noop') throw new Error('unreachable');
+    const moves = [asMove(first.drafts[0])];
+    const st1 = plannedState(sStock, moves);
+    const redirected = planDrop(
+      holdOccupant(st1.occupancy('31-D')[0]),
+      { rowNum: '31', letter: 'F' },
+      st1,
+      moves
+    );
+    if (redirected.rule === 'noop') throw new Error('unreachable');
+    expect(redirected.removals).toEqual([moves[0].id]);
+    expect(redirected.drafts).toEqual([
+      expect.objectContaining({ qty: 30, toLetters: ['F'], kind: 'relabel' }),
+    ]);
+  });
+});
+
 describe('V6 / V7 — revalidation before executing', () => {
   const move = asMove({
     inventoryId: 4,

@@ -40,18 +40,28 @@ export interface PlanMove {
 
 export type MoveDraft = Omit<PlanMove, 'id' | 'planId' | 'position' | 'status' | 'error'>;
 
-/** A line in hand: picked from a slot, from a ghost, or from the unplaced list. */
+/**
+ * A line in hand. The hand holds ONE SQUARE's pallet, not the whole line: a
+ * line spread over squares moves one square at a time (Rafael, 31 Aug 2026:
+ * picking the same SKU a second time must not redirect the first move —
+ * "que se sepa cuál clickeo y ese sea el cuadro que se deja libre").
+ */
 export interface Held {
   inventoryId: number;
   sku: string;
+  /** Units in hand: the picked square's share, or the whole line off the list. */
   qty: number;
   itemName: string | null;
   warehouse: string;
   /** Live position. */
   location: string;
   sublocation: string[] | null;
-  /** The drawn cell its live position is in, or null (letter K, no letter, ROW 20B). */
+  /** The drawn cell its live position is in, or null (no letter, ROW 20B). */
   liveKey: string | null;
+  /** The square it was picked from — live or ghost — or null (the unplaced list). */
+  fromKey: string | null;
+  /** When picked from a ghost: the planned move being redirected. */
+  ghostId: number | null;
 }
 
 /** Someone in a cell of the planned state: a live line, or a ghost of a planned move. */
@@ -59,6 +69,8 @@ export interface Occupant {
   inventoryId: number;
   sku: string;
   qty: number;
+  /** The units in THIS square: the line's share here, or the ghost's landing. */
+  qtyHere: number;
   itemName: string | null;
   warehouse: string;
   location: string;
@@ -66,6 +78,8 @@ export interface Occupant {
   ghost: PlanMove | null;
   /** The drawn cell of its live position, or null. */
   liveKey: string | null;
+  /** The square this occupant entry sits in. */
+  atKey: string;
 }
 
 /** A planned move as it lands in one square. */
@@ -77,8 +91,12 @@ export interface GhostSlot {
 export interface PlannedState {
   /** Planned moves by the square they land in, with the units landing there. */
   ghosts: Map<string, GhostSlot[]>;
-  /** Inventory ids with a planned move: their live cell shows them leaving. */
+  /** Inventory ids whose WHOLE line leaves (full move or relabel). */
   vacated: Set<number>;
+  /** Inventory ids with any planned move at all — DISTRIBUTE leaves them alone. */
+  hasMove: Set<number>;
+  /** Is this line's share gone from this square once the plan runs? */
+  gone: (inventoryId: number, letter: string) => boolean;
   /** Who is in a cell once the plan is applied. */
   occupancy: (key: string) => Occupant[];
   /** The drawn cell a line lives in today, or null. */
@@ -112,14 +130,35 @@ export function plannedState(stock: ZoneStock | null, moves: PlanMove[]): Planne
   const planned = moves.filter((m) => m.status === 'planned');
   const ghosts = new Map<string, GhostSlot[]>();
   const vacated = new Set<number>();
+  // `id|letter` — squares a partial move empties (the hand took that square's
+  // whole share). A tail smaller than the share (units to the hall) leaves
+  // the line where it is.
+  const partialGone = new Set<string>();
   for (const m of planned) {
     const shares = allocate(m.qty, m.toLetters.length);
     targetKeys(m).forEach((k, i) => {
       ghosts.set(k, [...(ghosts.get(k) ?? []), { move: m, qtyHere: shares[i] }]);
     });
-    // A partial move leaves the rest of the line where it is.
-    if (m.kind === 'relabel' || !isPartial(m, stock)) vacated.add(m.inventoryId);
+    if (!isPartial(m, stock)) {
+      vacated.add(m.inventoryId);
+    } else {
+      for (const l of m.fromSublocation ?? []) {
+        // A relabel re-letters what it names, so its source squares empty; a
+        // partial MOVE empties its square only when it takes the whole share.
+        if (m.kind === 'relabel') {
+          partialGone.add(`${m.inventoryId}|${l}`);
+          continue;
+        }
+        const entry = stock?.cells
+          .get(cellKey(m.fromLocation, l))
+          ?.entries.find((e) => e.rowId === m.inventoryId);
+        if (entry && m.qty >= entry.qtyHere) partialGone.add(`${m.inventoryId}|${l}`);
+      }
+    }
   }
+  const hasMove = new Set(planned.map((m) => m.inventoryId));
+  const gone = (inventoryId: number, letter: string) =>
+    vacated.has(inventoryId) || partialGone.has(`${inventoryId}|${letter}`);
   const liveKeys = new Map<number, string>();
   if (stock) {
     for (const [key, cell] of stock.cells) {
@@ -131,17 +170,19 @@ export function plannedState(stock: ZoneStock | null, moves: PlanMove[]): Planne
     const out: Occupant[] = [];
     const cell = stock?.cells.get(key);
     for (const e of cell?.entries ?? []) {
-      if (vacated.has(e.rowId)) continue;
+      if (gone(e.rowId, cell!.letter)) continue;
       out.push({
         inventoryId: e.rowId,
         sku: e.sku,
         qty: e.qty,
+        qtyHere: e.qtyHere,
         itemName: e.itemName,
         warehouse: e.warehouse,
         location: locationOfKey(key),
         sublocation: [cell!.letter],
         ghost: null,
         liveKey: key,
+        atKey: key,
       });
     }
     for (const g of ghosts.get(key) ?? []) {
@@ -150,17 +191,19 @@ export function plannedState(stock: ZoneStock | null, moves: PlanMove[]): Planne
         inventoryId: m.inventoryId,
         sku: m.sku,
         qty: m.qty,
+        qtyHere: g.qtyHere,
         itemName: m.itemName,
         warehouse: m.warehouse,
         location: m.fromLocation,
         sublocation: m.fromSublocation,
         ghost: m,
         liveKey: liveKeyOf(m.inventoryId),
+        atKey: key,
       });
     }
     return out;
   };
-  return { ghosts, vacated, occupancy, liveKeyOf };
+  return { ghosts, vacated, hasMove, gone, occupancy, liveKeyOf };
 }
 
 /** A move that takes fewer units than the line has. */
@@ -173,16 +216,18 @@ function isPartial(m: PlanMove, stock: ZoneStock | null): boolean {
   return false;
 }
 
-export function holdEntry(entry: StockEntry, cellKey: string): Held {
+export function holdEntry(entry: StockEntry, key: string): Held {
   return {
     inventoryId: entry.rowId,
     sku: entry.sku,
-    qty: entry.qty,
+    qty: entry.qtyHere,
     itemName: entry.itemName,
     warehouse: entry.warehouse,
-    location: locationOfKey(cellKey),
-    sublocation: null,
-    liveKey: cellKey,
+    location: locationOfKey(key),
+    sublocation: [letterOfKey(key)],
+    liveKey: key,
+    fromKey: key,
+    ghostId: null,
   };
 }
 
@@ -196,6 +241,8 @@ export function holdRow(row: StockRow): Held {
     location: row.location,
     sublocation: row.sublocation,
     liveKey: null,
+    fromKey: null,
+    ghostId: null,
   };
 }
 
@@ -203,19 +250,16 @@ export function holdOccupant(o: Occupant): Held {
   return {
     inventoryId: o.inventoryId,
     sku: o.sku,
-    qty: o.qty,
+    // A live pick takes the square's share; a ghost pick takes its whole move.
+    qty: o.ghost ? o.qty : o.qtyHere,
     itemName: o.itemName,
     warehouse: o.warehouse,
     location: o.location,
     sublocation: o.sublocation,
     liveKey: o.liveKey,
+    fromKey: o.atKey,
+    ghostId: o.ghost?.id ?? null,
   };
-}
-
-/** Where a line sits in the planned state: its ghost's first square if planned, else its live cell. */
-export function plannedPosition(inventoryId: number, liveKey: string | null, moves: PlanMove[]) {
-  const m = moves.find((x) => x.inventoryId === inventoryId && x.status === 'planned');
-  return m ? targetKeys(m)[0] : liveKey;
 }
 
 export interface DropTarget {
@@ -227,12 +271,12 @@ export type DropResult =
   | { rule: 'move' | 'swap' | 'join'; drafts: MoveDraft[]; removals: number[] }
   | { rule: 'noop'; reason: string };
 
-function draftFor(line: Held | Occupant, to: DropTarget): MoveDraft {
+function draftFor(line: Held | Occupant, to: DropTarget, qty: number): MoveDraft {
   const toLocation = `ROW ${to.rowNum}`;
   return {
     inventoryId: line.inventoryId,
     sku: line.sku,
-    qty: line.qty,
+    qty,
     itemName: line.itemName,
     warehouse: line.warehouse,
     fromLocation: line.location,
@@ -243,11 +287,17 @@ function draftFor(line: Held | Occupant, to: DropTarget): MoveDraft {
   };
 }
 
+/** The square a planned move was picked from, if it names one. */
+const sourceKeyOf = (m: PlanMove): string | null =>
+  m.fromSublocation?.length ? cellKey(m.fromLocation, m.fromSublocation[0]) : null;
+
 /**
- * The four rules. Empty → the line goes there. One line → they swap (the
- * occupant takes the held line's planned square). Several → the line joins
- * them. A line sent back to where it lives loses its move instead of
- * gaining one.
+ * The four rules. Empty → the pallet goes there. One line → they swap (the
+ * occupant takes the square the hand freed). Several → the pallet joins
+ * them. A pallet sent back to where it came from loses its move instead of
+ * gaining one. The hand carries ONE SQUARE's pallet and, when it re-picks a
+ * ghost, that ghost's move id — so a second move of the same SKU never
+ * redirects the first (Rafael, 31 Aug 2026).
  */
 export function planDrop(
   held: Held,
@@ -256,24 +306,35 @@ export function planDrop(
   moves: PlanMove[]
 ): DropResult {
   const key = `${to.rowNum}-${to.letter}`;
-  const origin = plannedPosition(held.inventoryId, held.liveKey, moves);
+  const origin = held.fromKey;
   if (key === origin) return { rule: 'noop', reason: 'already there' };
 
   const drafts: MoveDraft[] = [];
   const removals: number[] = [];
-  const heldMove = moves.find((m) => m.inventoryId === held.inventoryId && m.status === 'planned');
+  const heldMove =
+    held.ghostId === null
+      ? null
+      : (moves.find((m) => m.id === held.ghostId && m.status === 'planned') ?? null);
 
-  const send = (line: Held | Occupant, target: DropTarget, existing: PlanMove | null) => {
+  const send = (
+    line: Held | Occupant,
+    target: DropTarget,
+    existing: PlanMove | null,
+    qty: number
+  ) => {
     const tKey = `${target.rowNum}-${target.letter}`;
-    if (line.liveKey === tKey) {
-      // Back home: the planned move is undone, nothing new is planned.
-      if (existing) removals.push(existing.id);
+    if (existing) {
+      // Redirecting a ghost: its move goes; back to its own source square or
+      // its live home, nothing replaces it.
+      removals.push(existing.id);
+      if (tKey === sourceKeyOf(existing) || tKey === line.liveKey) return;
+    } else if (tKey === line.liveKey) {
       return;
     }
-    drafts.push(draftFor(line, target));
+    drafts.push(draftFor(line, target, qty));
   };
 
-  send(held, to, heldMove ?? null);
+  send(held, to, heldMove, held.qty);
 
   const occupants = state.occupancy(key).filter((o) => o.inventoryId !== held.inventoryId);
   if (occupants.length === 0) return { rule: 'move', drafts, removals };
@@ -282,7 +343,8 @@ export function planDrop(
     send(
       o,
       { rowNum: origin.slice(0, origin.lastIndexOf('-')), letter: letterOfKey(origin) },
-      o.ghost
+      o.ghost,
+      o.ghost ? o.qty : o.qtyHere
     );
     return { rule: 'swap', drafts, removals };
   }

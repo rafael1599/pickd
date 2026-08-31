@@ -88,16 +88,8 @@ export function useZoneEditor(
   const summary = useMemo(() => summarizeMoves(plan.moves), [plan.moves]);
   const editing = mode === 'plan' || mode === 'live';
 
-  const heldKey = useMemo(() => {
-    if (!held) return null;
-    if (mode === 'plan') {
-      const m = plan.moves.find(
-        (x) => x.inventoryId === held.inventoryId && x.status === 'planned'
-      );
-      if (m) return `${m.toLocation.replace(/^ROW\s*/i, '')}-${m.toLetters[0]}`;
-    }
-    return held.liveKey;
-  }, [held, plan.moves, mode]);
+  // The square the hand picked from — live or ghost — for the drawing to mark.
+  const heldKey = held?.fromKey ?? null;
 
   const drop = useCallback(
     (cell: Cell): boolean => {

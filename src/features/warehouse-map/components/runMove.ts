@@ -41,12 +41,17 @@ export async function runMove(
 
   try {
     if (m.kind === 'relabel') {
+      // The move re-letters what it names: its source letters leave, its
+      // targets join, and letters it never touched stay — a one-square move
+      // of a line spread over squares must not erase the other squares.
+      const kept = (fresh.sublocation ?? []).filter((l) => !(m.fromSublocation ?? []).includes(l));
+      const letters = [...new Set([...kept, ...m.toLetters])].sort();
       const input = InventoryItemInputSchema.parse({
         sku: fresh.sku,
         quantity: fresh.quantity ?? 0,
         location: fresh.location ?? m.fromLocation,
         location_id: fresh.location_id ?? null,
-        sublocation: m.toLetters,
+        sublocation: letters,
         item_name: fresh.item_name ?? null,
         warehouse: fresh.warehouse,
         status: fresh.status ?? null,

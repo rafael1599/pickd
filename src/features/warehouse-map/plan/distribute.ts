@@ -80,7 +80,7 @@ export function distribute(
   const lines = new Map<number, Line>();
   for (const cell of stock.cells.values()) {
     for (const e of cell.entries) {
-      if (state.vacated.has(e.rowId)) continue;
+      if (state.hasMove.has(e.rowId)) continue;
       const line = lines.get(e.rowId) ?? {
         inventoryId: e.rowId,
         sku: e.sku,
@@ -99,7 +99,7 @@ export function distribute(
   // Lines with no letter at all. A letter the drawing does not have (K) is left alone.
   for (const u of stock.unplaced) {
     if (u.reason !== 'no-letter') continue;
-    if (lines.has(u.row.id) || state.vacated.has(u.row.id)) continue;
+    if (lines.has(u.row.id) || state.hasMove.has(u.row.id)) continue;
     const rowNum = rowOf(u.row.location);
     if (!drawnRows.has(rowNum)) continue;
     lines.set(u.row.id, {

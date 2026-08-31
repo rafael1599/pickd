@@ -58,8 +58,8 @@ interface Props {
   onCellTap?: (cell: Cell, stock: CellStock | undefined) => void;
   /** Planned moves landing in each slot (PLAN mode): drawn as ghosts. */
   ghosts?: Map<string, GhostSlot[]>;
-  /** Inventory ids with a planned move: their live slot shows them leaving. */
-  vacated?: Set<number>;
+  /** Is this line's share gone from this square once the plan runs? */
+  gone?: (inventoryId: number, letter: string) => boolean;
   /** The slot of the line in hand, marked so the eye finds it. */
   heldKey?: string | null;
 }
@@ -181,7 +181,7 @@ export const ZoneSvg: React.FC<Props> = ({
   onHallClick,
   onCellTap,
   ghosts,
-  vacated,
+  gone,
   heldKey,
 }) => {
   const c = config;
@@ -209,7 +209,7 @@ export const ZoneSvg: React.FC<Props> = ({
     const key = slotKey(cl);
     const st = stock?.get(key);
     const gh = ghosts?.get(key) ?? [];
-    const leaving = st ? st.entries.filter((e) => vacated?.has(e.rowId)).length : 0;
+    const leaving = st ? st.entries.filter((e) => gone?.(e.rowId, st.letter) ?? false).length : 0;
     const allLeaving = !!st && leaving === st.entries.length;
     const ghostOnly = !st && gh.length > 0 ? ghostStockOf(key, cl, gh) : null;
     const over = !!st && st.units > PALLET_UNITS;
@@ -668,7 +668,8 @@ export const ZoneSvg: React.FC<Props> = ({
         const col = cl.isFast ? COLOR.fast : COLOR.buried;
         const hot = isHot(q);
         return (
-          <g key={q.key}>
+          // While a SKU is lit, its squares glow and every other square dims.
+          <g key={q.key} opacity={hotSkus && !hot ? 0.3 : 1}>
             <rect
               className="wm-hit"
               x={M + cl.cx}
@@ -678,8 +679,19 @@ export const ZoneSvg: React.FC<Props> = ({
               rx="3"
               fill={q.tone ? q.tone.bg : col}
               fillOpacity={
-                q.tone ? (q.st ? (q.allLeaving ? 0.35 : 0.92) : 0.5) : cl.isFast ? 0.4 : 0.2
+                hot
+                  ? 1
+                  : q.tone
+                    ? q.st
+                      ? q.allLeaving
+                        ? 0.35
+                        : 0.92
+                      : 0.5
+                    : cl.isFast
+                      ? 0.4
+                      : 0.2
               }
+              style={hot ? { filter: 'brightness(1.6) saturate(1.3)' } : undefined}
               stroke={
                 q.isHeld
                   ? '#00eeff'
@@ -806,7 +818,7 @@ export const ZoneSvg: React.FC<Props> = ({
         const y = M + cl.cy;
         const hot = isHot(q);
         return (
-          <g key={`lost-${q.key}`}>
+          <g key={`lost-${q.key}`} opacity={hotSkus && !hot ? 0.3 : 1}>
             <rect
               className="wm-hit"
               x={x}
@@ -815,7 +827,8 @@ export const ZoneSvg: React.FC<Props> = ({
               height={cl.ch}
               rx="3"
               fill={q.tone ? q.tone.bg : COLOR.post}
-              fillOpacity={q.tone ? (q.st ? (q.allLeaving ? 0.35 : 0.92) : 0.5) : 0.1}
+              fillOpacity={hot ? 1 : q.tone ? (q.st ? (q.allLeaving ? 0.35 : 0.92) : 0.5) : 0.1}
+              style={hot ? { filter: 'brightness(1.6) saturate(1.3)' } : undefined}
               stroke={q.isHeld ? '#00eeff' : hot ? '#ffffff' : COLOR.post}
               strokeWidth={q.isHeld || hot || q.gh.length ? 2.5 : 1.5}
               strokeDasharray="4 4"

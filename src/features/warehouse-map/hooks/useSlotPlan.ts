@@ -129,7 +129,11 @@ export function useSlotPlan(zoneId: ZoneId, enabled = true) {
     return data.id;
   }, [queryClient, key, zoneId]);
 
-  /** Writes what a drop decided: new or changed moves, and moves undone. */
+  /** Writes what a drop decided: new moves, and moves undone. A line may hold
+      several moves (one per picked square); redirecting one arrives as a
+      removal plus a fresh draft, never as an update by inventory id — that
+      was the bug where a second pick of the same SKU redirected the first
+      move (31 Aug 2026). */
   const applyDrop = useMutation({
     mutationFn: async (result: Exclude<DropResult, { rule: 'noop' }>) => {
       const planId = await ensurePlan();
@@ -140,20 +144,11 @@ export function useSlotPlan(zoneId: ZoneId, enabled = true) {
       }
       let position = existing.reduce((m, x) => Math.max(m, x.position), 0);
       for (const d of result.drafts) {
-        const row = draftToRow(d);
-        const prior = existing.find(
-          (m) => m.inventoryId === d.inventoryId && m.status === 'planned'
-        );
-        if (prior) {
-          const { error } = await supabase.from('slot_plan_moves').update(row).eq('id', prior.id);
-          if (error) throw new Error(error.message);
-        } else {
-          position += 1;
-          const { error } = await supabase
-            .from('slot_plan_moves')
-            .insert({ ...row, plan_id: planId, position, status: 'planned', error: null });
-          if (error) throw new Error(error.message);
-        }
+        position += 1;
+        const { error } = await supabase
+          .from('slot_plan_moves')
+          .insert({ ...draftToRow(d), plan_id: planId, position, status: 'planned', error: null });
+        if (error) throw new Error(error.message);
       }
     },
     onSettled: invalidate,
