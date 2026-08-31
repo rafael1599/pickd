@@ -196,6 +196,17 @@ export const ZoneView: React.FC<{
   // A phone cannot tap a 12 px square: PLAN and LIVE start zoomed in.
   const phoneZoom = () => (window.innerWidth < PHONE_WIDTH ? PHONE_EDIT_ZOOM : 1);
   const [zoom, setZoom] = useState(() => (editing ? phoneZoom() : 1));
+  // The line in hand follows the pointer, the way a picked-up piece does.
+  const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null);
+  React.useEffect(() => {
+    if (!held) {
+      setPointer(null);
+      return;
+    }
+    const move = (e: PointerEvent) => setPointer({ x: e.clientX, y: e.clientY });
+    window.addEventListener('pointermove', move);
+    return () => window.removeEventListener('pointermove', move);
+  }, [held]);
 
   const openLine: OpenLine = (sku, itemName, location, warehouse) =>
     onOpenLine?.(sku, itemName, location, warehouse);
@@ -671,6 +682,9 @@ export const ZoneView: React.FC<{
               showMeasures={layout}
               ghosts={planMode ? editor?.state.ghosts : undefined}
               planned={planMode ? editor?.state : undefined}
+              masMoves={editor?.masMoves}
+              holding={!!held}
+              onHallDrop={editing ? editor?.dropInHall : undefined}
               heldKey={editing ? editor?.heldKey : null}
               onHover={setHover}
               onHallClick={(idx, w) => setHallEdit({ idx, w: state.hallOverrides[idx] ?? w })}
@@ -728,6 +742,20 @@ export const ZoneView: React.FC<{
               )
             )}
           </ul>
+        </div>
+      )}
+
+      {held && pointer && (
+        <div
+          className="fixed z-[300] pointer-events-none font-mono text-[11px] font-bold text-white px-2 py-1 rounded-md shadow-lg"
+          style={{
+            left: pointer.x + 14,
+            top: pointer.y + 14,
+            background: skuColorDark(held.sku).bg,
+            border: `1.5px solid ${skuColorDark(held.sku).border}`,
+          }}
+        >
+          {held.sku} · {held.qty}u
         </div>
       )}
 

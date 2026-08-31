@@ -11,7 +11,8 @@ import React, { useState } from 'react';
 import type { Cell, EngineState, LayoutModel, Obstacle, ZoneConfig } from '../engine';
 import { BIKES_PER_LINE, slotKey } from '../engine';
 import { describeCell, SQUARE_MAX, type CellStock } from '../stock/rowStock';
-import type { GhostSlot, PlannedState } from '../plan/slotPlan';
+import type { GhostSlot, PlanMove, PlannedState } from '../plan/slotPlan';
+import { layoutMas } from '../plan/masLayout';
 import { skuColorDark } from '../../../utils/skuColor';
 
 /** The part of the planned state the drawing needs. */
@@ -63,6 +64,12 @@ interface Props {
   ghosts?: Map<string, GhostSlot[]>;
   /** PLAN only: what each line still has in a square once the plan runs. */
   planned?: PlannedCell;
+  /** Lines parked in MAS, drawn side by side on the floor of the south hall. */
+  masMoves?: PlanMove[];
+  /** A line is in hand: the drawing dims and only the square under the pointer lights. */
+  holding?: boolean;
+  /** Dropping the line in hand on the hall floor (MAS). */
+  onHallDrop?: () => void;
   /** The slot of the line in hand, marked so the eye finds it. */
   heldKey?: string | null;
 }
@@ -204,6 +211,9 @@ export const ZoneSvg: React.FC<Props> = ({
   onCellTap,
   ghosts,
   planned,
+  masMoves,
+  holding = false,
+  onHallDrop,
   heldKey,
 }) => {
   const c = config;
@@ -257,6 +267,11 @@ export const ZoneSvg: React.FC<Props> = ({
   // SKUs, live or planned — not just the one under the pointer (Rafael,
   // 31 Aug 2026).
   const [hotSkus, setHotSkus] = useState<Set<string> | null>(null);
+  // With a line in hand the drawing goes quiet: everything dims and only the
+  // square under the pointer lights up. The SKU-family highlight steps aside
+  // so the two never talk over each other (Rafael, 31 Aug 2026).
+  const [hoverKey, setHoverKey] = useState<string | null>(null);
+  const lit = holding ? hoverKey : null;
   const skusOf = (q: ReturnType<typeof square>): Set<string> | null => {
     const skus = new Set<string>();
     for (const e of q.st?.entries ?? []) skus.add(e.sku);
@@ -264,6 +279,7 @@ export const ZoneSvg: React.FC<Props> = ({
     return skus.size > 0 ? skus : null;
   };
   const isHot = (q: ReturnType<typeof square>) =>
+    !holding &&
     !!hotSkus &&
     ((q.st?.entries.some((e) => hotSkus.has(e.sku)) ?? false) ||
       q.gh.some((g) => hotSkus.has(g.move.sku)));
@@ -684,6 +700,97 @@ export const ZoneSvg: React.FC<Props> = ({
         );
       })()}
 
+      {/* MAS — the floor of the south hall, each parked line its own tile, side
+          by side and as wide as the pallets it needs. Dropping a line here
+          parks it: the hall is a place, not a list. */}
+      {(() => {
+        const hall = m.obstacles.find((o) => o.id === 'main_hall');
+        if (!hall) return null;
+        const dropping = holding && !!onHallDrop;
+        const tiles = layoutMas(masMoves ?? [], {
+          hall: { x: hall.x, y: hall.y, w: hall.w, h: hall.h },
+          palletW: m.rW,
+          palletD: m.sD,
+          preferredX: (mv) => {
+            const row = /\d+/.exec(mv.fromLocation)?.[0];
+            const cell = m.validCells.find((cl) => String(cl.row.num) === row);
+            return cell ? cell.cx : null;
+          },
+        });
+        return (
+          <g>
+            {dropping && (
+              <rect
+                className="wm-hit"
+                x={M + hall.x}
+                y={M + hall.y}
+                width={hall.w}
+                height={hall.h}
+                fill={COLOR.fast}
+                fillOpacity={lit === 'MAS' ? 0.18 : 0.07}
+                stroke={COLOR.fast}
+                strokeWidth={lit === 'MAS' ? 4 : 2}
+                strokeDasharray="10 6"
+                rx="6"
+                onPointerEnter={() => {
+                  setHoverKey('MAS');
+                  onHover({ text: 'MAS · the hall floor — drop to park it here' });
+                }}
+                onPointerLeave={() => {
+                  setHoverKey((k) => (k === 'MAS' ? null : k));
+                  onHover(null);
+                }}
+                onClick={() => onHallDrop?.()}
+              >
+                <title>MAS · park it on the hall floor</title>
+              </rect>
+            )}
+            {tiles.map((tile) => {
+              const tone = skuColorDark(tile.move.sku);
+              const side = Math.min(tile.w, tile.h);
+              return (
+                <g key={`mas-${tile.move.id}`} pointerEvents="none">
+                  <rect
+                    x={M + tile.x}
+                    y={M + tile.y}
+                    width={tile.w}
+                    height={tile.h}
+                    rx="3"
+                    fill={tone.bg}
+                    fillOpacity={0.92}
+                    stroke={tile.move.origin === 'hand' ? tone.border : COLOR.buried}
+                    strokeWidth={2}
+                    strokeDasharray={tile.move.origin === 'hand' ? undefined : '6 4'}
+                  />
+                  <text
+                    x={M + tile.x + tile.w / 2}
+                    y={M + tile.y + tile.h / 2 + side * 0.06}
+                    fontSize={side * 0.34}
+                    fill="#ffffff"
+                    fontWeight="800"
+                    textAnchor="middle"
+                    fontFamily={MONO}
+                  >
+                    {tile.move.qty}
+                  </text>
+                  <text
+                    x={M + tile.x + tile.w / 2}
+                    y={M + tile.y + tile.h / 2 + side * 0.34}
+                    fontSize={side * 0.15}
+                    fill="#ffffff"
+                    fillOpacity="0.9"
+                    textAnchor="middle"
+                    fontFamily={MONO}
+                  >
+                    {tile.move.sku}
+                  </text>
+                </g>
+              );
+            })}
+          </g>
+        );
+      })()}
+
       {/* Pallet squares — what the DB says is in them, what the plan says will be */}
       {m.validCells.map((cl) => {
         const q = square(cl, false);
@@ -691,7 +798,7 @@ export const ZoneSvg: React.FC<Props> = ({
         const hot = isHot(q);
         return (
           // While a SKU is lit, its squares glow and every other square dims.
-          <g key={q.key} opacity={hotSkus && !hot ? 0.3 : 1}>
+          <g key={q.key} opacity={holding ? (lit === q.key ? 1 : 0.3) : hotSkus && !hot ? 0.3 : 1}>
             <rect
               className="wm-hit"
               x={M + cl.cx}
@@ -703,15 +810,17 @@ export const ZoneSvg: React.FC<Props> = ({
               fillOpacity={hot ? 1 : q.tone ? 0.92 : cl.isFast ? 0.4 : 0.2}
               style={hot ? { filter: 'brightness(1.6) saturate(1.3)' } : undefined}
               stroke={
-                q.isHeld
+                lit === q.key
                   ? '#00eeff'
-                  : hot
-                    ? '#ffffff'
-                    : q.gh.length
-                      ? COLOR.buried
-                      : q.over
-                        ? COLOR.over
-                        : col
+                  : q.isHeld
+                    ? '#00eeff'
+                    : hot
+                      ? '#ffffff'
+                      : q.gh.length
+                        ? COLOR.buried
+                        : q.over
+                          ? COLOR.over
+                          : col
               }
               strokeOpacity={q.isHeld || hot || q.gh.length || q.over ? 1 : 0.75}
               strokeWidth={q.isHeld || hot || q.gh.length || q.over ? 2.5 : 1.5}
@@ -719,10 +828,12 @@ export const ZoneSvg: React.FC<Props> = ({
               data-slot={q.key}
               onPointerEnter={() => {
                 onHover({ text: q.text, cell: cl });
+                setHoverKey(q.key);
                 setHotSkus(skusOf(q));
               }}
               onPointerLeave={() => {
                 onHover(null);
+                setHoverKey((k) => (k === q.key ? null : k));
                 setHotSkus(null);
               }}
               onClick={() => {
@@ -827,7 +938,10 @@ export const ZoneSvg: React.FC<Props> = ({
         const y = M + cl.cy;
         const hot = isHot(q);
         return (
-          <g key={`lost-${q.key}`} opacity={hotSkus && !hot ? 0.3 : 1}>
+          <g
+            key={`lost-${q.key}`}
+            opacity={holding ? (lit === q.key ? 1 : 0.3) : hotSkus && !hot ? 0.3 : 1}
+          >
             <rect
               className="wm-hit"
               x={x}
@@ -844,10 +958,12 @@ export const ZoneSvg: React.FC<Props> = ({
               data-slot={q.key}
               onPointerEnter={() => {
                 onHover({ text: q.text, cell: cl });
+                setHoverKey(q.key);
                 setHotSkus(skusOf(q));
               }}
               onPointerLeave={() => {
                 onHover(null);
+                setHoverKey((k) => (k === q.key ? null : k));
                 setHotSkus(null);
               }}
               onClick={() => {

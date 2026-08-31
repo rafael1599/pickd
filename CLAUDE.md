@@ -41,7 +41,12 @@ PWA de gestión de inventario y warehouse operations. Multi-usuario con sync en 
   pases planean _alrededor_, solo él lo cambia volviéndolo a mover— y **`auto`** (DISTRIBUTE y las
   reparaciones) es lo único que el plan puede reescribir; un pallet grande **se despliega al
   soltarlo** (`spreadDrop`, la fila que señaló primero) porque después queda bloqueado, y el dibujo
-  pinta lo suyo con borde sólido y lo calculado punteado. Precedente: _lock delay_ de Tetris,
+  pinta lo suyo con borde sólido y lo calculado punteado. **MAS se dibuja**: el pasillo sur es un
+  sitio, no una lista — soltar ahí aparca la línea y cada una tiene su propia pieza, del ancho de
+  los pallets que necesita, una al lado de otra y delante de su bloque (`plan/masLayout.ts`, dos
+  carriles de 60" en los 120" del pasillo; nunca se mezclan). **Con una línea en la mano** el
+  dibujo se apaga al 30 %, solo se ilumina el cuadro bajo el puntero y la pieza sigue al cursor;
+  el resaltado por SKU se retira mientras tanto para que los dos gestos no se pisen. Precedente: _lock delay_ de Tetris,
   `Lock Assignment` de Siebel y el booking lock de Dynamics —el optimizador incluye lo bloqueado en
   el horario, no lo ignora—; **LIVE** = mismo gesto + confirmación;
   **30 u por cuadro es la norma y 45 el tope duro** — `PALLET_UNITS` = 30 (DISTRIBUTE reparte a 30,

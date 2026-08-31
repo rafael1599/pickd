@@ -22,10 +22,13 @@ import { SQUARE_MAX, type StockRow, type ZoneStock } from '../stock/rowStock';
 import {
   holdOccupant,
   holdRow,
+  OVERFLOW_LOCATION,
   planDrop,
   plannedState,
+  sameLocation,
   summarizeMoves,
   type Held,
+  type MoveDraft,
   type Occupant,
   type PlanMove,
   type PlannedState,
@@ -47,6 +50,10 @@ export interface ZoneEditor {
   cancel: () => void;
   /** Drops the held line on a drawn cell. Returns false when nothing was in hand. */
   drop: (cell: Cell) => boolean;
+  /** Parks the held line on the hall floor (MAS), beside whatever is there. */
+  dropInHall: () => boolean;
+  /** The moves parked in MAS, for the drawing to lay out along the hall. */
+  masMoves: PlanMove[];
   /** The planned state in PLAN, the live state elsewhere. */
   state: PlannedState;
   moves: PlanMove[];
@@ -130,6 +137,56 @@ export function useZoneEditor(
       return true;
     },
     [held, editing, mode, liveState, planState, plan, openModal, zoneId, model]
+  );
+
+  // The hall is a place: parking a line there is the same gesture as any
+  // other drop, and it lands beside what is already on the floor, never on
+  // top of it (Rafael, 31 Aug 2026: "sin que se mezclen").
+  const dropInHall = useCallback((): boolean => {
+    if (!held || !editing) return false;
+    const draft: MoveDraft = {
+      origin: 'hand',
+      inventoryId: held.inventoryId,
+      sku: held.sku,
+      qty: held.qty,
+      itemName: held.itemName,
+      warehouse: held.warehouse,
+      fromLocation: held.location,
+      fromSublocation: held.sublocation,
+      toLocation: OVERFLOW_LOCATION,
+      toLetters: [],
+      kind: 'move',
+    };
+    if (sameLocation(held.location, OVERFLOW_LOCATION)) {
+      toast(`${held.sku} — already on the hall floor`);
+      setHeld(null);
+      return true;
+    }
+    if (mode === 'live') {
+      openModal({ type: 'slot-live-move', zoneId, drafts: [draft], rule: 'move' });
+      setHeld(null);
+      return true;
+    }
+    plan.applyDrop.mutate(
+      { rule: 'move', drafts: [draft], removals: held.ghostId === null ? [] : [held.ghostId] },
+      {
+        onError: (e) => toast.error(e.message),
+        onSuccess: () => toast.success(`Parked: ${held.sku} → ${OVERFLOW_LOCATION}`),
+      }
+    );
+    setHeld(null);
+    return true;
+  }, [held, editing, mode, plan, openModal, zoneId]);
+
+  const masMoves = useMemo(
+    () =>
+      plan.moves.filter(
+        (m) =>
+          m.status === 'planned' &&
+          m.toLetters.length === 0 &&
+          sameLocation(m.toLocation, OVERFLOW_LOCATION)
+      ),
+    [plan.moves]
   );
 
   const complete = useCallback(() => {
@@ -232,6 +289,8 @@ export function useZoneEditor(
     pickRow: (row) => setHeld(holdRow(row)),
     cancel: () => setHeld(null),
     drop,
+    dropInHall,
+    masMoves,
     state,
     moves: plan.moves,
     summary,

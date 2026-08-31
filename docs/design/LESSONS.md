@@ -156,3 +156,11 @@ one place: a rule that contradicts an older one replaces it.
   ajedrez] sistemas que ya han superado esto." They had: `slot_plan_moves.origin` (`hand` | `auto`)
   is the lock, the repair passes only touch `auto`, and `spreadDrop` settles a gesture at the drop
   the way a tetromino settles when it locks.
+- **2026-08-31 — the aisle is a place, and the hand is a hand.** "Quiero tener la libertad de
+  poner todos los SKU que quiera en el pasillo, sin que se mezclen, que estén uno al costado del
+  otro, respetando sus tamaños" — MAS stopped being a list and became floor: a tile per line, as
+  wide as its pallets, packed in front of its block. And "cuando se hace el primer click en un sku
+  este se quede pegado al puntero y todo se haga un poquito más gris, iluminando el cuadro en el
+  que se hace hover… que no se cruce con la otra funcionalidad": while a line is held the drawing
+  dims, only the square under the pointer lights, and the SKU-family highlight steps aside. **Two
+  highlights that can be on at once are one too many** — decide which gesture owns the screen.
