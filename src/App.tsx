@@ -24,6 +24,11 @@ const Settings = lazyWithRetry(() => import('./features/settings/Settings.tsx'))
 const ExportScreen = lazyWithRetry(() =>
   import('./features/reports/ExportScreen.tsx').then((m) => ({ default: m.ExportScreen }))
 );
+const MeasureCartonsScreen = lazyWithRetry(() =>
+  import('./features/reports/MeasureCartonsScreen.tsx').then((m) => ({
+    default: m.MeasureCartonsScreen,
+  }))
+);
 const LoginScreen = lazyWithRetry(() =>
   import('./features/auth/LoginScreen.tsx').then((m) => ({ default: m.LoginScreen }))
 );
@@ -162,6 +167,10 @@ const AuthenticatedContent = () => {
               <Route
                 path="/export"
                 element={isAdmin ? <ExportScreen /> : <Navigate to="/" replace />}
+              />
+              <Route
+                path="/export/measure"
+                element={isAdmin ? <MeasureCartonsScreen /> : <Navigate to="/" replace />}
               />
               <Route path="/stock-count" element={<StockCountScreen />} />
               <Route path="/shopping-list" element={<ShoppingListScreen />} />

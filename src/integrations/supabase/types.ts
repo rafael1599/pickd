@@ -2246,6 +2246,26 @@ export type Database = {
         Args: { item_id: string };
         Returns: undefined;
       };
+      get_bike_demand_ranking: {
+        Args: { p_min_stock?: number; p_months?: number };
+        Returns: {
+          dimensions_measured_at: string;
+          dimensions_verified: boolean;
+          height_in: number;
+          image_url: string;
+          last_ordered: string;
+          length_in: number;
+          location: string;
+          model: string;
+          orders: number;
+          size: string;
+          sku: string;
+          stock: number;
+          sublocation: string[];
+          units: number;
+          width_in: number;
+        }[];
+      };
       get_sku_movement_stats_batch: {
         Args: { p_since?: string; p_skus: string[] };
         Returns: {

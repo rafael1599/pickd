@@ -7,13 +7,17 @@
 // for whoever has the tape measure.
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Download from 'lucide-react/dist/esm/icons/download';
+import Ruler from 'lucide-react/dist/esm/icons/ruler';
+import ChevronRight from 'lucide-react/dist/esm/icons/chevron-right';
 import Package from 'lucide-react/dist/esm/icons/package';
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import toast from 'react-hot-toast';
 import MapPin from 'lucide-react/dist/esm/icons/map-pin';
 import { useFedexDimensionsExport } from '../hooks/useFedexDimensionsExport';
+import { useMeasureQueue } from '../hooks/useMeasureQueue';
 import {
   EXCEPTION_LABELS,
   toExceptionsCsv,
@@ -152,7 +156,9 @@ function ExceptionRow({ e, onUpdated }: { e: FedexDimensionException; onUpdated:
 }
 
 export function FedexDimensionsExportCard() {
+  const navigate = useNavigate();
   const exportCsv = useFedexDimensionsExport();
+  const queue = useMeasureQueue();
   const [showExceptions, setShowExceptions] = useState(false);
   const result = exportCsv.data;
   const stamp = result?.filename.replace(/^DIMENSIONS_FEDEX_|\.csv$/g, '') ?? '';
@@ -193,6 +199,35 @@ export function FedexDimensionsExportCard() {
         <span className="font-semibold text-content">Replace current data</span>. Replace empties
         the table first, so always import the whole file — never a partial one.
       </p>
+
+      {/*
+        The exceptions list below says which SKUs are missing. It cannot say
+        which one to walk to first, and 154 unmeasured boxes look identical in a
+        table -- so the queue that ranks them by how often they were ordered
+        gets its own way in, with the count on it.
+      */}
+      <button
+        onClick={() => navigate('/export/measure')}
+        disabled={queue.isLoading || queue.data?.entries.length === 0}
+        className="mt-4 w-full flex items-center gap-4 px-4 py-3 rounded-2xl bg-surface border border-subtle
+                   hover:border-accent/40 active:scale-[0.99] transition-all text-left
+                   disabled:opacity-50 disabled:cursor-default disabled:hover:border-subtle
+                   focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      >
+        <Ruler size={18} className="text-accent shrink-0" />
+        <span className="text-2xl font-black text-content tabular-nums leading-none">
+          {queue.isLoading ? '—' : (queue.data?.entries.length ?? 0)}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-xs font-bold text-content">boxes FedEx cannot rate</span>
+          <span className="block text-[11px] text-muted font-medium">
+            {queue.data?.entries.length === 0
+              ? 'Every bike on hand that shipped this year is measured'
+              : 'Measure them most-ordered first'}
+          </span>
+        </span>
+        <ChevronRight size={16} className="text-muted shrink-0" />
+      </button>
 
       {result && (
         <div className="mt-5 pt-5 border-t border-subtle">

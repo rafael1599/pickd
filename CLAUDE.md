@@ -312,6 +312,31 @@ mismo cartón y RENEGADE S1 56 dejó de viajar en el de 58. Verificado en prod c
 `buildFedexDimensions`. **Nadie lo ha importado todavía en FSM** — ese es el único criterio de
 aceptación sin comprobar.
 
+**Cuál medir primero: `/export/measure` (1 sep 2026).** El export ya dice _qué_ SKUs no tiene
+FedEx —154 al escribir esto—; lo que no decía es _cuál_. Una bici pedida 90 veces desde enero se
+cotiza mal cada semana; una pedida una vez es un viaje con la cinta métrica que no compra nada. El
+botón del card de Export abre una cola con la forma de Double Check: tarjeta por caja, el número de
+órdenes como cifra grande, la fila donde está el montón más grande, y los tres lados + SAVE en la
+misma tarjeta. **El orden es órdenes en 12 meses, desempate por la más reciente** (Rafael, 1 sep
+2026, eligiendo entre eso y un peso por recencia): la lista tiene que leerse igual que el número
+impreso en cada tarjeta, o se le pide al operario que confíe en una fórmula que no puede comprobar
+contra la fila que tiene delante. **Stock ≥ 3** y solo bicis non-S&D, como el export.
+
+- `get_bike_demand_ranking(p_months, p_min_stock)` (`20260901182520`) hace **solo la agregación**:
+  órdenes `completed` por `created_at` (no `updated_at`, que se mueve cada vez que alguien edita una
+  orden; `source_order_date` sería más cierto pero es NULL en 1035 de 1748), renames plegados hacia
+  adelante desde `inventory_logs.previous_sku` —lo mismo que `resolve_sku_chain` camina hacia atrás
+  para un SKU, aquí hacia adelante para todos de una vez— y la fila con más stock como dirección.
+  Devuelve **las 264 filas, medidas o no**: quién puede exportarse lo decide `fedexCartonGap`, que ya
+  comparten el export y el aviso de Double Check, y repetir esa regla en SQL sería una tercera
+  respuesta que se desincroniza. La cola vive en `features/reports/utils/measureQueue.ts` (puro, con
+  tests) y la pinta `MeasureCartonsScreen`.
+- **Medido no es que FedEx lo sepa.** Una tarjeta guardada se queda en su sitio en verde —sacarla
+  movería todo bajo el pulgar y se llevaría la única confirmación de que los tres números
+  entraron— y la barra inferior recuerda que hay que correr el export. Una fila **sin `model`** se
+  guarda en ámbar diciendo `still held back: no model on the record`, porque medirla no la vuelve
+  exportable (2 SKUs en prod, pero es la clase lo que importa).
+
 **Clientes ↔ FSM (idea-153, 24 ago 2026):** el Recipient ID numérico de FSM es la cuenta AS400 +
 sufijo ship-to (`0010495 00` → `1049500`); Pickd todavía no la persiste. Análisis en
 `docs/fedex-recipients-analysis.md`, diseño y fases en `docs/fedex-customer-id-integration.md`.
