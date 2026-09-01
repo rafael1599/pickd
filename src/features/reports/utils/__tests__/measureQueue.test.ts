@@ -16,6 +16,8 @@ const row = (over: Partial<BikeDemandRow> = {}): BikeDemandRow => ({
   length_in: 55,
   width_in: 8.75,
   height_in: 29,
+  weight_lbs: 45,
+  weight_verified: false,
   dimensions_verified: true,
   dimensions_measured_at: '2026-08-21T12:00:00Z',
   orders: 90,

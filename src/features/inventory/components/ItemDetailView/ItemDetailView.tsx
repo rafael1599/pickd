@@ -641,6 +641,16 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
       const dimsUntouched =
         mode === 'add' &&
         (isDefaultBox(skuDefaultsFor(true)) || isDefaultBox(skuDefaultsFor(false)));
+      // Same contract for the scale as for the tape (20260901204403): a weight
+      // sent on insert is one somebody read, so the trigger stamps
+      // weight_verified. The form starts on the type's default, and sending it
+      // back would file 45 lbs as a real reading — Ship totals that number into
+      // what the station types into Audit Source. Left out, the trigger writes
+      // the same 45 and the flag stays false until a scale says otherwise.
+      const weightUntouched =
+        mode === 'add' &&
+        (Number(data.weight_lbs) === skuDefaultsFor(true).weight_lbs ||
+          Number(data.weight_lbs) === skuDefaultsFor(false).weight_lbs);
       const metadata = {
         sku: data.sku,
         is_bike: typeIsBike,
@@ -648,7 +658,7 @@ export const ItemDetailView: React.FC<ItemDetailViewProps> = ({
         length_in: dimsUntouched ? undefined : data.length_in,
         width_in: dimsUntouched ? undefined : data.width_in,
         height_in: dimsUntouched ? undefined : data.height_in,
-        weight_lbs: data.weight_lbs,
+        weight_lbs: weightUntouched ? undefined : data.weight_lbs,
         model: data.model || null,
         size: data.size || null,
         serial_number: data.serial_number || null,

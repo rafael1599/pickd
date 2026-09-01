@@ -17,6 +17,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left';
+import ArrowLeftRight from 'lucide-react/dist/esm/icons/arrow-left-right';
 import Check from 'lucide-react/dist/esm/icons/check';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import MapPin from 'lucide-react/dist/esm/icons/map-pin';
@@ -25,12 +26,14 @@ import Upload from 'lucide-react/dist/esm/icons/upload';
 import toast from 'react-hot-toast';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { useDebounce } from '../../hooks/useDebounce';
-import { fedexCartonGap, FEDEX_CARTON_GAP_LABELS } from '../../utils/fedexCarton';
+import {
+  fedexCartonGap,
+  FEDEX_CARTON_GAP_LABELS,
+  sidesToColumns,
+} from '../../utils/fedexCarton';
 import { useUpdateCartonDimensions } from '../picking/hooks/useUpdateCartonDimensions';
 import {
   draftColumns,
-  draftProblem,
-  draftSides,
   DRAFT_SIDES,
   EMPTY_CARTON_DRAFT,
   type CartonDraft,
@@ -41,13 +44,27 @@ import {
   useMeasureQueue,
 } from './hooks/useMeasureQueue';
 import { describeBike, formatAddress, matchesQuery, type MeasureQueueEntry } from './utils/measureQueue';
+import { lbsToUnit, planBoxSave, weightToLbs, type WeightUnit } from './utils/boxDraft';
 
-/** What a card holds once it has been measured on this screen. */
+/** The three columns a save writes when a tape measure was involved. */
 interface SavedSides {
   length_in: number;
   width_in: number;
   height_in: number;
 }
+
+/**
+ * What this screen has written for a SKU so far.
+ *
+ * Sides and weight are separate because either can be taken without the other:
+ * a scale and no tape measure is still a trip worth making, and the queue's
+ * "to measure" count means cartons FedEx can rate -- which is the sides.
+ */
+interface SavedBox {
+  sides?: SavedSides;
+  weightLbs?: number;
+}
+
 
 /** Longest × middle × edge -- the order a person reads a box in. */
 const readOut = (s: { length_in: number | null; width_in: number | null; height_in: number | null }) =>
@@ -64,44 +81,88 @@ function thumbUrl(url: string): string {
   return url;
 }
 
+/**
+ * The weight unit is one choice for the whole screen, not one per card: it is a
+ * property of the scale on the bench, and somebody working a queue of 154 boxes
+ * should not re-pick it 154 times. Remembered, because the scale does not change
+ * between visits either.
+ */
+const WEIGHT_UNIT_KEY = 'pickd.measure.weightUnit';
+
+function readStoredUnit(): WeightUnit {
+  try {
+    return localStorage.getItem(WEIGHT_UNIT_KEY) === 'kg' ? 'kg' : 'lbs';
+  } catch {
+    return 'lbs';
+  }
+}
+
 const shortDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null;
 
 function MeasureCard({
   entry,
   saved,
+  unit,
+  onToggleUnit,
   onSaved,
 }: {
   entry: MeasureQueueEntry;
-  saved: SavedSides | undefined;
-  onSaved: (sku: string, sides: SavedSides) => void;
+  saved: SavedBox | undefined;
+  unit: WeightUnit;
+  onToggleUnit: () => void;
+  onSaved: (sku: string, saved: SavedBox) => void;
 }) {
   const [draft, setDraft] = useState<CartonDraft>(EMPTY_CARTON_DRAFT);
+  const [weightInput, setWeightInput] = useState('');
   const update = useUpdateCartonDimensions();
   const busy = update.isPending && update.variables?.sku === entry.sku;
 
-  const problem = draftProblem(draft);
   const preview = draftColumns(draft);
   const stored = readOut(entry);
   const address = formatAddress(entry);
-  const isDone = saved !== undefined;
+
+  const savedSides = saved?.sides;
+  const savedWeight = saved?.weightLbs;
+  // Only the sides settle whether FedEx can rate this box, so only they close
+  // the card. A weight taken on its own is confirmed in place and the form
+  // stays open for the tape measure.
+  const isDone = savedSides !== undefined;
+
+  const currentLbs = savedWeight ?? entry.weight_lbs;
+  // A fact off the row, not a guess from the number: `weight_verified` is false
+  // on 241 of the 264 bikes on hand, which is the trigger's 45 lbs and not
+  // anything a scale said.
+  const weightIsDefault = savedWeight === undefined && !entry.weight_verified;
+  const typedLbs = weightToLbs(weightInput, unit);
+  const plan = planBoxSave(draft, weightInput, unit, currentLbs);
 
   // Three numbers are not always enough. A row with no model still cannot be
   // named in the FSM record, so measuring it leaves it held back -- and telling
   // the operator "FedEx gets it on the next export" would be the same quiet lie
   // the export's exceptions list exists to prevent. Two SKUs in prod, but it is
   // the class that matters: the same rule decides, after the save as before it.
-  const remainingGap = saved
-    ? fedexCartonGap({ model: entry.model, ...saved, dimensions_verified: true })
+  const remainingGap = savedSides
+    ? fedexCartonGap({ model: entry.model, ...savedSides, dimensions_verified: true })
     : null;
 
   const save = async () => {
-    const sides = draftSides(draft);
-    if (!sides || problem) return;
+    if (plan.blocked) return;
     try {
-      const columns = await update.mutateAsync({ sku: entry.sku, sides });
-      toast.success(`${entry.sku} measured`);
-      onSaved(entry.sku, columns);
+      await update.mutateAsync({
+        sku: entry.sku,
+        ...(plan.sides ? { sides: plan.sides } : {}),
+        ...(plan.weightLbs !== null ? { weightLbs: plan.weightLbs } : {}),
+      });
+      const sides = plan.sides ? sidesToColumns(plan.sides) : undefined;
+      toast.success(
+        sides ? `${entry.sku} measured` : `${entry.sku} weighed — ${plan.weightLbs} lbs`
+      );
+      onSaved(entry.sku, {
+        ...(sides ? { sides } : {}),
+        ...(plan.weightLbs !== null ? { weightLbs: plan.weightLbs } : {}),
+      });
+      setWeightInput('');
     } catch {
       // useUpdateCartonDimensions already surfaced it, and the draft stays put
       // so the numbers just read off the tape are not thrown away.
@@ -175,76 +236,146 @@ function MeasureCard({
         </div>
       </div>
 
-      {isDone ? (
-        remainingGap ? (
-          <p className="text-xs font-medium text-amber-400/90 mt-2.5 pt-2.5 border-t border-amber-500/20">
-            Saved as <span className="font-mono font-black">{readOut(saved)}</span> — still held
-            back: {FEDEX_CARTON_GAP_LABELS[remainingGap].toLowerCase()}.
-          </p>
+      <div className="mt-2.5 pt-2.5 border-t border-subtle">
+        {isDone ? (
+          remainingGap ? (
+            <p className="text-xs font-medium text-amber-400/90">
+              Saved as <span className="font-mono font-black">{readOut(savedSides)}</span>
+              {savedWeight !== undefined && (
+                <span className="font-mono font-black"> · {savedWeight} lbs</span>
+              )}{' '}
+              — still held back: {FEDEX_CARTON_GAP_LABELS[remainingGap].toLowerCase()}.
+            </p>
+          ) : (
+            <p className="text-xs font-medium text-green-400/90">
+              Saved as <span className="font-mono font-black">{readOut(savedSides)}</span>
+              {savedWeight !== undefined && (
+                <span className="font-mono font-black"> · {savedWeight} lbs</span>
+              )}{' '}
+              — FedEx gets it on the next export.
+            </p>
+          )
         ) : (
-          <p className="text-xs font-medium text-green-400/90 mt-2.5 pt-2.5 border-t border-green-500/20">
-            Saved as <span className="font-mono font-black">{readOut(saved)}</span> — FedEx gets it
-            on the next export.
-          </p>
-        )
-      ) : (
-        <div className="mt-2.5 pt-2.5 border-t border-subtle">
-          <p className="text-[11px] font-medium text-muted mb-2">
-            {entry.gap === 'unverified' && stored ? (
-              <>
-                Now <span className="font-mono text-muted/80">{stored}</span> — the default nobody
-                measured.
-              </>
-            ) : (
-              FEDEX_CARTON_GAP_LABELS[entry.gap]
+          <>
+            <p className="text-[11px] font-medium text-muted mb-2">
+              {entry.gap === 'unverified' && stored ? (
+                <>
+                  Now <span className="font-mono text-muted/80">{stored}</span>
+                </>
+              ) : (
+                FEDEX_CARTON_GAP_LABELS[entry.gap]
+              )}
+              {currentLbs !== null && (
+                <>
+                  {' · '}
+                  <span className="font-mono text-muted/80">{currentLbs} lbs</span>
+                </>
+              )}
+              {weightIsDefault && entry.gap === 'unverified'
+                ? ' — neither was taken off the box.'
+                : weightIsDefault
+                  ? ' — the weight is the default nobody took.'
+                  : ''}
+            </p>
+
+            {/* The tape measure. Any order — sidesToColumns decides which side
+                is which, so nobody kneeling next to a pallet has to sort them. */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {DRAFT_SIDES.map((key, i) => (
+                <div key={key} className="flex items-center gap-2">
+                  {i > 0 && <span className="text-muted text-xs">×</span>}
+                  <input
+                    type="number"
+                    step="0.25"
+                    min="0"
+                    inputMode="decimal"
+                    value={draft[key]}
+                    onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
+                    disabled={busy}
+                    aria-label={`Side ${i + 1} of ${entry.sku}, in inches`}
+                    className="w-[4.5rem] py-2 rounded-lg bg-surface border border-subtle text-center text-base font-mono font-bold text-content focus:outline-none focus:border-accent disabled:opacity-50"
+                  />
+                </div>
+              ))}
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted/50">
+                in
+              </span>
+            </div>
+
+            {/* The scale. The unit is a property of the scale, not of the box,
+                so the chip switches the whole screen and is remembered. */}
+            <div className="flex items-center gap-2 flex-wrap mt-2">
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                inputMode="decimal"
+                value={weightInput}
+                onChange={(e) => setWeightInput(e.target.value)}
+                disabled={busy}
+                placeholder={currentLbs !== null ? String(lbsToUnit(currentLbs, unit)) : '—'}
+                aria-label={`Weight of ${entry.sku}, in ${unit === 'kg' ? 'kilograms' : 'pounds'}`}
+                className="w-[4.5rem] py-2 rounded-lg bg-surface border border-subtle text-center text-base font-mono font-bold text-content placeholder:text-muted/30 placeholder:font-normal focus:outline-none focus:border-accent disabled:opacity-50"
+              />
+              <button
+                type="button"
+                onClick={onToggleUnit}
+                disabled={busy}
+                aria-label={`Weight unit: ${unit}. Switch to ${unit === 'kg' ? 'pounds' : 'kilograms'}`}
+                className="h-[40px] px-2.5 rounded-lg border border-subtle bg-surface text-[10px] font-black uppercase tracking-widest text-muted hover:text-content hover:border-accent/40 active:scale-95 transition-all inline-flex items-center gap-1 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                {unit}
+                <ArrowLeftRight size={11} className="opacity-50" />
+              </button>
+
+              {/* What the pound column will hold. Pickd stores pounds, so a
+                  kilogram reading has to show its landing place before it is
+                  saved — the same reason the sides echo their columns. */}
+              {unit === 'kg' && typedLbs !== null && (
+                <span className="text-[11px] font-medium text-muted">
+                  = <span className="font-mono font-bold text-content">{typedLbs}</span> lbs
+                </span>
+              )}
+
+              <button
+                type="button"
+                onClick={save}
+                disabled={plan.blocked !== null || busy}
+                className="ml-auto h-[40px] px-4 rounded-lg bg-accent text-white text-[11px] font-black uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                {busy && <Loader2 size={12} className="animate-spin" />}
+                Save
+              </button>
+            </div>
+
+            {/* The echo that catches a typo: "875 long" is visibly not a bike box,
+                where a silently sorted 875 would not be. */}
+            {preview && (
+              <p className="text-[11px] font-medium text-muted mt-2">
+                Saves as{' '}
+                <span className="font-mono font-bold text-content">{preview.length_in}</span> long ×{' '}
+                <span className="font-mono font-bold text-content">{preview.height_in}</span> ×{' '}
+                <span className="font-mono font-bold text-content">{preview.width_in}</span> edge
+              </p>
             )}
-          </p>
+            {plan.blocked === 'bad_sides' && (
+              <p className="text-[11px] font-bold text-rose-400 mt-2">
+                A side is missing or too large for FedEx&rsquo;s three-character field.
+              </p>
+            )}
 
-          <div className="flex items-center gap-2 flex-wrap">
-            {DRAFT_SIDES.map((key, i) => (
-              <div key={key} className="flex items-center gap-2">
-                {i > 0 && <span className="text-muted text-xs">×</span>}
-                <input
-                  type="number"
-                  step="0.25"
-                  min="0"
-                  inputMode="decimal"
-                  value={draft[key]}
-                  onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
-                  disabled={busy}
-                  aria-label={`Side ${i + 1} of ${entry.sku}, in inches`}
-                  className="w-[4.5rem] py-2 rounded-lg bg-surface border border-subtle text-center text-base font-mono font-bold text-content focus:outline-none focus:border-accent disabled:opacity-50"
-                />
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={save}
-              disabled={problem !== null || busy}
-              className="h-[40px] px-4 rounded-lg bg-accent text-white text-[11px] font-black uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              {busy && <Loader2 size={12} className="animate-spin" />}
-              Save
-            </button>
-          </div>
-
-          {/* The echo that catches a typo: "875 long" is visibly not a bike box,
-              where a silently sorted 875 would not be. */}
-          {preview && !problem && (
-            <p className="text-[11px] font-medium text-muted mt-2">
-              Saves as{' '}
-              <span className="font-mono font-bold text-content">{preview.length_in}</span> long ×{' '}
-              <span className="font-mono font-bold text-content">{preview.height_in}</span> ×{' '}
-              <span className="font-mono font-bold text-content">{preview.width_in}</span> edge
-            </p>
-          )}
-          {problem && problem !== 'incomplete' && (
-            <p className="text-[11px] font-bold text-rose-400 mt-2">
-              {FEDEX_CARTON_GAP_LABELS[problem]}
-            </p>
-          )}
-        </div>
-      )}
+            {/* A weight taken without a tape measure. The box still needs
+                measuring, so the form stays open and this just confirms. */}
+            {savedWeight !== undefined && (
+              <p className="text-[11px] font-medium text-green-400/90 mt-2 inline-flex items-center gap-1">
+                <Check size={12} />
+                <span className="font-mono font-black">{savedWeight} lbs</span> saved — the box
+                still needs measuring.
+              </p>
+            )}
+          </>
+        )}
+      </div>
     </li>
   );
 }
@@ -254,7 +385,19 @@ export function MeasureCartonsScreen() {
   const { data, isLoading, error } = useMeasureQueue();
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounce(query, 200);
-  const [saved, setSaved] = useState<Record<string, SavedSides>>({});
+  const [saved, setSaved] = useState<Record<string, SavedBox>>({});
+  const [unit, setUnit] = useState<WeightUnit>(readStoredUnit);
+
+  const toggleUnit = () =>
+    setUnit((u) => {
+      const next: WeightUnit = u === 'kg' ? 'lbs' : 'kg';
+      try {
+        localStorage.setItem(WEIGHT_UNIT_KEY, next);
+      } catch {
+        // A locked-down browser just means the choice lasts this visit.
+      }
+      return next;
+    });
 
   const entries = data?.entries ?? [];
   const visible = useMemo(
@@ -262,7 +405,9 @@ export function MeasureCartonsScreen() {
     [entries, debouncedQuery]
   );
 
-  const doneCount = Object.keys(saved).length;
+  // "To measure" counts cartons FedEx cannot rate, so only a saved set of sides
+  // takes one off the list — a weight on its own leaves the box still unmeasured.
+  const doneCount = Object.values(saved).filter((b) => b.sides !== undefined).length;
   const left = entries.length - doneCount;
 
   // How many of those will actually reach FedEx. A box measured on a row with
@@ -271,7 +416,7 @@ export function MeasureCartonsScreen() {
   const readyCount = useMemo(
     () =>
       entries.filter((e) => {
-        const sides = saved[e.sku];
+        const sides = saved[e.sku]?.sides;
         return (
           sides !== undefined &&
           fedexCartonGap({ model: e.model, ...sides, dimensions_verified: true }) === null
@@ -378,7 +523,11 @@ export function MeasureCartonsScreen() {
                 key={entry.sku}
                 entry={entry}
                 saved={saved[entry.sku]}
-                onSaved={(sku, sides) => setSaved((s) => ({ ...s, [sku]: sides }))}
+                unit={unit}
+                onToggleUnit={toggleUnit}
+                onSaved={(sku, box) =>
+                  setSaved((s) => ({ ...s, [sku]: { ...(s[sku] ?? {}), ...box } }))
+                }
               />
             ))}
           </ul>

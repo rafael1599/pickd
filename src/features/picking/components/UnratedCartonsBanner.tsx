@@ -22,6 +22,7 @@ import toast from 'react-hot-toast';
 import { ManualLinkButton } from '../../../components/manuals/ManualLinkButton';
 import {
   FEDEX_CARTON_GAP_LABELS,
+  sidesToColumns,
   type FedexCartonGap,
   type FedexCartonState,
 } from '../../../utils/fedexCarton';
@@ -92,13 +93,16 @@ export const UnratedCartonsBanner: React.FC<UnratedCartonsBannerProps> = ({
     const sides = draftSides(draft);
     if (!sides || draftProblem(draft)) return;
     setPendingSku(carton.sku);
+    // Same pure sort the mutation applies, so the row shows the columns the
+    // save wrote rather than the order the tape happened to go round.
+    const columns = sidesToColumns(sides);
     try {
-      const saved = await update.mutateAsync({ sku: carton.sku, sides });
+      await update.mutateAsync({ sku: carton.sku, sides });
       toast.success(`${carton.sku} measured`);
       onMeasured(carton.sku, {
-        length: saved.length_in,
-        width: saved.width_in,
-        height: saved.height_in,
+        length: columns.length_in,
+        width: columns.width_in,
+        height: columns.height_in,
       });
     } catch {
       // useUpdateCartonDimensions already surfaced it; the row stays editable so

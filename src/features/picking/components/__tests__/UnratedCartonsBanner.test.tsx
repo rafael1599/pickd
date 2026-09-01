@@ -106,10 +106,15 @@ describe('UnratedCartonsBanner', () => {
     fireEvent.click(screen.getByRole('button', { name: /update/i }));
 
     await waitFor(() => expect(mockSupabase.update).toHaveBeenCalled());
+    // dimensions_verified goes with them. The trigger used to deduce "somebody
+    // measured this" from a value changing, so a box that turned out to be
+    // exactly the default saved nothing and stayed unmeasured forever. This
+    // form only ever runs when a tape was involved, so it says so.
     expect(mockSupabase.update).toHaveBeenCalledWith({
       length_in: 56,
       width_in: 8,
       height_in: 28.5,
+      dimensions_verified: true,
     });
     expect(mockSupabase.eq).toHaveBeenCalledWith('sku', '03-3848BK');
     // With the sides, not just the SKU: the parent renders the measurement back

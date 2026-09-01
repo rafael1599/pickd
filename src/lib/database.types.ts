@@ -1585,6 +1585,7 @@ export type Database = {
           standard_price: number | null;
           upc: string | null;
           weight_lbs: number | null;
+          weight_verified: boolean;
           width_in: number | null;
         };
         Insert: {
@@ -1612,6 +1613,7 @@ export type Database = {
           standard_price?: number | null;
           upc?: string | null;
           weight_lbs?: number | null;
+          weight_verified?: boolean;
           width_in?: number | null;
         };
         Update: {
@@ -1639,6 +1641,7 @@ export type Database = {
           standard_price?: number | null;
           upc?: string | null;
           weight_lbs?: number | null;
+          weight_verified?: boolean;
           width_in?: number | null;
         };
         Relationships: [];
@@ -2247,6 +2250,8 @@ export type Database = {
           stock: number;
           sublocation: string[];
           units: number;
+          weight_lbs: number;
+          weight_verified: boolean;
           width_in: number;
         }[];
       };

@@ -331,11 +331,53 @@ contra la fila que tiene delante. **Stock ≥ 3** y solo bicis non-S&D, como el 
   comparten el export y el aviso de Double Check, y repetir esa regla en SQL sería una tercera
   respuesta que se desincroniza. La cola vive en `features/reports/utils/measureQueue.ts` (puro, con
   tests) y la pinta `MeasureCartonsScreen`.
+- **El peso se toma en el mismo viaje (1 sep 2026).** La tarjeta lleva una segunda fila con la
+  báscula: un campo y un **chip de unidad LBS/KG** que cambia **toda la pantalla** y se recuerda
+  (`localStorage`, `pickd.measure.weightUnit`) — la unidad es una propiedad de la báscula, no de la
+  caja, y quien recorre 154 cajas no la elige 154 veces. En kg el campo enseña **a qué libras
+  aterriza** antes de guardar, igual que los lados enseñan sus columnas. **Lo que se guarda siempre
+  es `weight_lbs`**: es lo que suma Ship para el número que la estación teclea en Audit Source y por
+  lo que rutea `classify_picking_list_fedex`; una columna de kg al lado sería un segundo número para
+  un solo hecho. **Cada mitad va sola** (`planBoxSave`, puro y con tests): una báscula sin cinta
+  métrica es un viaje que vale igual, y al revés. Lo que se rechaza son lados a medio teclear.
+  Guardar solo el peso **no** baja el contador «to measure» —la caja sigue sin medir— y la tarjeta se
+  queda abierta diciendo `45.2 lbs saved — the box still needs measuring`. El peso tiene su propia
+  bandera, `weight_verified`, con las mismas reglas que `dimensions_verified` (ver abajo): 241 de las
+  264 filas en cola llevan 45 lb, que es lo que escribe el trigger, no lo que dijo una báscula.
 - **Medido no es que FedEx lo sepa.** Una tarjeta guardada se queda en su sitio en verde —sacarla
   movería todo bajo el pulgar y se llevaría la única confirmación de que los tres números
   entraron— y la barra inferior recuerda que hay que correr el export. Una fila **sin `model`** se
   guarda en ámbar diciendo `still held back: no model on the record`, porque medirla no la vuelve
   exportable (2 SKUs en prod, pero es la clase lo que importa).
+
+**«Lo midieron» lo dice quien mide, no el valor que cambió (`20260901204403`, 1 sep 2026).**
+`set_dimensions_verified` deducía la medición de que un número cambiara (`IS DISTINCT FROM`), que
+acierta casi siempre y falla justo en el caso para el que existe la bandera: medir un cartón y que
+salga **exactamente el default** (55 × 8.5 × 30.5, o el legacy 54 × 8 × 30 que llevan 474 SKUs —
+números redondos, la cinta cae ahí) escribía un UPDATE sin cambios, dejaba la bandera en `false` y
+`dimensions_measured_at` en NULL, y la caja volvía a la cola y se quedaba fuera del archivo de FedEx.
+El operario hizo el trabajo y PickD tiró el dato. Comprobado en prod antes de tocarlo: reguardar los
+propios números de una fila la dejaba en `false`; cambiar un dígito la ponía en `true`.
+
+- **Tres reglas, en orden:** (1) cambió un valor → verificado, como siempre; (2) **el que escribe
+  mandó `verified = true`** → verificado y estampado; (3) **nunca se baja** — `ItemDetailView`
+  reescribe la fila entera en cada guardado y sin esto un `false` viejo pisaría una medición real.
+  Quien no manda la bandera no cambia en nada: `ItemDetailView` no la manda.
+- **El único que la manda es `useUpdateCartonDimensions`**, porque sus tres llamadores (el aviso de
+  Double Check, la fila de excepciones del export y la cola de Measure) son formularios que solo
+  existen cuando alguien acaba de poner la cinta o la báscula. `dimensions_measured_at` sigue siendo
+  del trigger: el reloj tiene un dueño.
+- **`weight_verified`** (misma migración) hace por el peso lo que la otra por las medidas — antes no
+  había ninguna, así que 45 lb de verdad y 45 lb de «nadie la pesó» eran el mismo dato, y ese número
+  es el que Ship suma para lo que la estación teclea en Audit Source. En INSERT se sella igual que las
+  medidas (`set_is_bike_on_insert`), con el mismo contrato con el formulario: **el alta manda
+  `weight_lbs: undefined` si sigue siendo el default del tipo** (`ItemDetailView`, modo `add`), o
+  registrar un SKU archivaría 45 lb como lectura real. **Backfill:** 53 filas cuyo peso no era el
+  default del tipo quedaron en `true` — la misma comparación por valor, corrida una vez, para no
+  pedir que vuelvan a pesar lo que ya tiene lectura. Un peso real que cayera justo en el default se
+  queda sin marcar y se vuelve a pesar, que es la dirección segura.
+- **El export no cambió:** 144 registros / 460 excepciones antes y después (la última corrida
+  registrada, 31 ago, fueron 141/463 — subió por tres cajas medidas desde entonces).
 
 **Clientes ↔ FSM (idea-153, 24 ago 2026):** el Recipient ID numérico de FSM es la cuenta AS400 +
 sufijo ship-to (`0010495 00` → `1049500`); Pickd todavía no la persiste. Análisis en

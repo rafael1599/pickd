@@ -30,6 +30,8 @@ export interface BikeDemandRow {
   length_in: number | null;
   width_in: number | null;
   height_in: number | null;
+  weight_lbs: number | null;
+  weight_verified: boolean | null;
   dimensions_verified: boolean | null;
   dimensions_measured_at: string | null;
   orders: number;
