@@ -11,6 +11,22 @@
 
 ## P1 — Alto (operación diaria)
 
+### 107. Watcher: los huecos del escáner llenan el teléfono y el email del dealer <!-- id: idea-175 --> — input: 2026-09-01 NY
+- **Rafael:** "cuando no hay órdenes para tomar, se comienza a analizar los detalles de los clientes
+  de las órdenes que se fueron a PickD ese día y se envían, y luego de terminar se deja en la
+  pantalla de búsqueda de órdenes".
+- **Encaja porque el escáner no hace nada:** el log de Bay 2 del 1 sep lo muestra hora y media
+  clavado en el mismo `not_found`. Con ~10 órdenes/día y capturas de 6 s, el terminal trabaja un
+  minuto por jornada. Y `customers.phone` / `customers.email` están **vacías en las 628 filas**
+  mientras el dato vive a cuatro teclas, en CUSTOMER DISPLAY (opción 01 del menú SALESN).
+- **Estudio escrito, sin código:** `watchdog-pickd/docs/customer-enrichment.md` — recorrido tecla a
+  tecla, un cliente por hueco (mismo `capture_lock` y mismo gate de 60 s que una captura), sólo se
+  escribe sobre NULL, no se escribe nada si la cuenta en pantalla no es la pedida, y el paso no
+  termina hasta que una lectura confirma que el terminal volvió a la búsqueda de órdenes. Fases
+  E1 (leer y loguear, cero escrituras) → E2 (escribir) → E3 (los 628 en los huecos), y cuatro ❓ con
+  su default.
+- Las pantallas y las teclas están verificadas en `watchdog-pickd/docs/as400-screen-map.md` §2.4 y §2.11.
+
 ### 106. Cancelar una orden completada devuelve sus unidades a RETURN TO STOCK <!-- id: idea-174 --> — input: 2026-08-31 NY ✅ 2026-09-01
 - **Rafael:** "una orden completada que se cancela manualmente se separe en la location RETURN TO
   STOCK… una orden sin completar regresa automáticamente sus items a sus locations originales sin
