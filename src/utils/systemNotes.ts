@@ -14,14 +14,15 @@
  * mirrors the is_bike trigger — it exists so the UI can branch without a round
  * trip, and it must stay in sync with that migration.
  *
- * Readers should ask `isSystemNote()`, never match a prefix themselves. Adding a
- * seventh kind is one line here and one branch in `classify_picking_note`.
+ * Readers should ask `isSystemNote()`, never match a prefix themselves. Adding an
+ * eighth kind is one line here and one branch in `classify_picking_note`.
  */
 
 export type SystemNoteKind =
   | 'waiting'
   | 'resumed_from_waiting'
   | 'cancelled_from_waiting'
+  | 'cancelled_order'
   | 'parked'
   | 'auto_stale_location'
   | 'daylight_pickup_sms';
@@ -35,6 +36,7 @@ export const SYSTEM_NOTE_TAGS: Record<SystemNoteKind, string> = {
   waiting: '[Waiting]:',
   resumed_from_waiting: '[Resumed from waiting]',
   cancelled_from_waiting: '[Cancelled from waiting]',
+  cancelled_order: '[Cancelled]:',
   parked: '[Parked]:',
   auto_stale_location: '[AUTO]',
   daylight_pickup_sms: '[Daylight]:',

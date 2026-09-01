@@ -2023,7 +2023,7 @@ export type Database = {
         Returns: Json;
       };
       cancel_completed_order: {
-        Args: { p_list_id: string; p_user_id: string };
+        Args: { p_list_id: string; p_unship?: boolean; p_user_id: string };
         Returns: Json;
       };
       cancel_reopen: {

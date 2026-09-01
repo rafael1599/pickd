@@ -14,6 +14,7 @@ const REAL_MESSAGES: Array<[string, string]> = [
   ['[Waiting]: Waiting for james — 01-560 missing', 'waiting'],
   ['[Resumed from waiting]', 'resumed_from_waiting'],
   ['[Cancelled from waiting]', 'cancelled_from_waiting'],
+  ['[Cancelled]: 19 units returned to RETURN TO STOCK across 7 line(s).', 'cancelled_order'],
   ['[Parked]: 14D', 'parked'],
   ['[AUTO] Stale pick location: 12-0509 @ D17 (0) → D17 (9)', 'auto_stale_location'],
   ['[Daylight]: Texted Luis — 4 pallets to pick up', 'daylight_pickup_sms'],
@@ -24,6 +25,14 @@ describe('deriveSystemNoteKind', () => {
     for (const [message, kind] of REAL_MESSAGES) {
       expect(deriveSystemNoteKind(message)).toBe(kind);
     }
+  });
+
+  it('keeps the two cancel tags apart', () => {
+    // `[Cancelled]:` is a completed order sent back to stock; `[Cancelled from
+    // waiting]` is an order that died waiting for inventory. Same word, two
+    // different events — a reader that matched on `[Cancelled` would merge them.
+    expect(deriveSystemNoteKind('[Cancelled from waiting]')).toBe('cancelled_from_waiting');
+    expect(deriveSystemNoteKind('[Cancelled]: 3 units returned')).toBe('cancelled_order');
   });
 
   it('leaves human notes unclassified', () => {

@@ -110,6 +110,25 @@ completed → reopened (via Reopen Order — requires reason)
 
 7 estados DB: `active`, `ready_to_double_check`, `double_checking`, `needs_correction`, `completed`, `cancelled`, `reopened`. Órdenes completadas tienen triple protección contra reversión. Órdenes `reopened` tienen snapshot para delta calculation y auto-cancel a 2h si se abandonan.
 
+**Cancelar: de dónde salieron las unidades no es a dónde vuelven (idea-174, 1 sep 2026).** Una orden
+**sin completar** que se cancela devuelve cada línea a **su propia ubicación** — lo hace el trigger
+`compensate_picking_list_changes` (`system: cancel-restore`) y está bien: nadie movió esas bicis. Una
+orden **completada** que se cancela las manda a **`RETURN TO STOCK`** (`LUDLOW`, `picking_order` 420
+— entre ROW 43 y ROW 44, donde Rafael la quiere en la ruta; `counts_as_storage = false`): al
+completarse ya salieron del estante y están en un pallet junto a la puerta, así que devolverlas a ROW
+8 sería afirmar stock que no está ahí. `cancel_completed_order` (`20260901123958`) **reproduce en
+reversa los DEDUCT que la lista escribió de verdad** en `inventory_logs` — saltando los de
+`system: auto-zero out-of-stock`, que significan "el estante estaba vacío"— y marca cada uno
+`is_reversed`; por eso correrlo dos veces no duplica y el History los pinta como deshechos. **No lee
+`items`**: 658 de 1746 órdenes completadas no dedujeron nada (todas sus líneas eran
+`insufficient_stock` con `location: null`) y recorrer el array ahí inventaría stock. Antes leía la
+bandera `picked`, que murió con el toggle de pick en mayo de 2026 — **la restauración nunca corrió**:
+cero logs `system: order-deleted` en toda la base, y #881310 devolvía 0 de 19 unidades. Una orden ya
+marcada como enviada no se bloquea ni se cancela sola: la RPC devuelve `requires_unship` sin escribir
+nada y Ship pregunta **"¿nunca se llegó a enviar?"** — al confirmar (`p_unship`) desmarca el envío y
+sigue el flujo normal. La nota va a `picking_list_notes` con el tag `[Cancelled]:`, nunca al campo
+`notes` (que es la nota de AS400 que se imprime).
+
 `building` mode fue eliminado (idea-032). `OrderBuilderMode.tsx`, `PickingSessionView.tsx`, y `returnToBuilding()` fueron eliminados. Edit Order mode (CorrectionModeView) reemplaza sus funciones. InventoryCards muestran +/- inline en picking mode.
 
 **Correcciones con razón (idea-043):** Todas las acciones de corrección (remove, swap, adjust_qty, add) requieren una razón via `ReasonPicker`. Las notas se generan con formato rico: "Removed SKU: Out of stock" en vez de genérico. `CorrectionAction` tiene campo `reason?: string`. Si el item tiene `insufficient_stock`, la razón "Out of stock" se pre-selecciona.

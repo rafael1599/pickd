@@ -470,7 +470,7 @@ export const OrderActionsMenu: React.FC<OrderActionsMenuProps> = ({
                 Delete Order
               </div>
               <div className="text-[9px] text-muted/70">
-                Cancel it and return picked units to stock
+                Cancel it; its units go to RETURN TO STOCK
               </div>
             </div>
           </button>

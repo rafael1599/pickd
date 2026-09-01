@@ -40,6 +40,30 @@ interface PickingListRow {
   order_number: string | null;
 }
 
+/** What `cancel_completed_order` answers. */
+interface CancelCompletedResult {
+  restored_units?: number;
+  items_restored?: number;
+  already_cancelled?: boolean;
+  /** True when the order is marked shipped and nothing was written yet. */
+  requires_unship?: boolean;
+  /** Where the units landed — 'RETURN TO STOCK'. */
+  location?: string | null;
+}
+
+/**
+ * How the caller answers the one question cancelling can raise.
+ *
+ * `confirmNeverShipped` is asked only for an order marked as shipped, and only
+ * after the RPC has refused to write anything: the units of a shipped order are
+ * on a truck, so returning them to stock is a claim someone has to make out
+ * loud. A caller with no way to ask (a board card, a drawer) just gets told to
+ * do it from Ship.
+ */
+export interface DeleteListOptions {
+  confirmNeverShipped?: () => Promise<boolean>;
+}
+
 /** Shape returned by picking_list status query */
 interface PickingListStatusRow {
   status: string | null;
@@ -664,7 +688,7 @@ export const usePickingActions = ({
   }, [activeListId, user, setListStatus, setCheckedBy, setSessionMode, setIsSaving]);
 
   const deleteList = useCallback(
-    async (listId: string | null, keepLocalState = false) => {
+    async (listId: string | null, keepLocalState = false, options?: DeleteListOptions) => {
       if (!listId) {
         if (!keepLocalState) resetSession();
         toast.success('Local session reset');
@@ -685,28 +709,47 @@ export const usePickingActions = ({
             toast.error('You must be signed in to cancel this order');
             return;
           }
-          const { data, error: rpcError } = await supabase.rpc('cancel_completed_order', {
-            p_list_id: listId,
-            p_user_id: user.id,
-          });
+          const cancel = async (unship: boolean): Promise<CancelCompletedResult> => {
+            const { data, error: rpcError } = await supabase.rpc('cancel_completed_order', {
+              p_list_id: listId,
+              p_user_id: user.id,
+              p_unship: unship,
+            });
 
-          if (rpcError) {
-            console.error('cancel_completed_order failed:', rpcError);
-            toast.error('Failed to cancel order: ' + rpcError.message);
-            throw rpcError;
+            if (rpcError) {
+              console.error('cancel_completed_order failed:', rpcError);
+              toast.error('Failed to cancel order: ' + rpcError.message);
+              throw rpcError;
+            }
+            return (data as CancelCompletedResult | null) ?? {};
+          };
+
+          let result = await cancel(false);
+
+          // A shipped order is a question, not a wall: the RPC writes nothing
+          // and asks whether the truck ever took it. Answering yes un-marks the
+          // shipment and runs the same cancel (Rafael, 1 Sep 2026).
+          if (result.requires_unship) {
+            const neverShipped = options?.confirmNeverShipped
+              ? await options.confirmNeverShipped()
+              : false;
+            if (!neverShipped) {
+              if (!options?.confirmNeverShipped) {
+                toast.error('This order is marked as shipped — cancel it from the Ship screen.');
+              }
+              return;
+            }
+            result = await cancel(true);
           }
 
-          const result =
-            (data as {
-              restored_units?: number;
-              items_restored?: number;
-              already_cancelled?: boolean;
-            } | null) ?? {};
           if (result.already_cancelled) {
             toast('Order was already cancelled', { icon: 'ℹ️' });
           } else {
+            const units = result.restored_units ?? 0;
             toast.success(
-              `Order cancelled — ${result.restored_units ?? 0} units restored to inventory`
+              units > 0
+                ? `Order cancelled — ${units} units to ${result.location ?? 'RETURN TO STOCK'}`
+                : 'Order cancelled — no units had been deducted'
             );
           }
 

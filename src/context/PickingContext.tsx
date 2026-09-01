@@ -14,6 +14,7 @@ import { useError } from './ErrorContext';
 import { usePickingCart, CartItem } from '../features/picking/hooks/usePickingCart';
 import { usePickingSync } from '../features/picking/hooks/usePickingSync';
 import { usePickingActions } from '../features/picking/hooks/usePickingActions';
+import type { DeleteListOptions } from '../features/picking/hooks/usePickingActions';
 import { usePickingNotes, PickingNote } from '../features/picking/hooks/usePickingNotes';
 import type { Customer } from '../types/schema';
 import type { InventoryItem } from '../schemas/inventory.schema';
@@ -78,7 +79,11 @@ interface PickingContextType {
   parkOrder: (id: string) => Promise<void>;
   returnToPicker: (id: string, notes: string) => Promise<void>;
   revertToPicking: () => Promise<void>;
-  deleteList: (id: string | null, keepLocalState?: boolean) => Promise<void>;
+  deleteList: (
+    id: string | null,
+    keepLocalState?: boolean,
+    options?: DeleteListOptions
+  ) => Promise<void>;
   takeOverOrder: (id: string) => Promise<void>;
   claimAsPicker: (listId?: string) => Promise<void>;
 

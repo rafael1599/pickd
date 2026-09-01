@@ -11,6 +11,23 @@
 
 ## P1 — Alto (operación diaria)
 
+### 106. Cancelar una orden completada devuelve sus unidades a RETURN TO STOCK <!-- id: idea-174 --> — input: 2026-08-31 NY ✅ 2026-09-01
+- **Rafael:** "una orden completada que se cancela manualmente se separe en la location RETURN TO
+  STOCK… una orden sin completar regresa automáticamente sus items a sus locations originales sin
+  ponerles nombres raros" · "esa sea la locación que se recoge después de recoger en la row 43".
+- **Bug encontrado al mirarlo:** la restauración nunca corría. `cancel_completed_order` solo
+  restauraba las líneas con `picked: true` y esa bandera murió con el toggle de pick en mayo (último
+  log `system: pick`: 2026-05-22); cero logs `system: order-deleted` en toda la base. Simulado contra
+  prod sobre #881310: `{"restored_units":0}` — 19 unidades se evaporaban.
+- **Hecho** (`20260901123958`): ubicación `LUDLOW / RETURN TO STOCK` con `picking_order` 420 (entre
+  ROW 43 = 410 y ROW 44 = 660) y `counts_as_storage = false`; la RPC reproduce en reversa los DEDUCT
+  reales de la lista (`inventory_logs`, saltando `system: auto-zero`) hacia esa ubicación, marca cada
+  DEDUCT `is_reversed` y escribe la nota `[Cancelled]:` (séptimo tag de `classify_picking_note`).
+  Una orden marcada como enviada no se bloquea: la RPC devuelve `requires_unship` y Ship pregunta
+  "¿nunca se llegó a enviar?" — al confirmar, desmarca el envío y sigue el flujo normal.
+- **Sin cambios en la orden no completada:** el trigger `compensate_picking_list_changes` la sigue
+  devolviendo a sus propias ubicaciones.
+
 ### 105. Mapa: editar en PLAN y en LIVE — mover un SKU a cualquier cuadro; PLAN COMPLETED lo ejecuta <!-- id: idea-173 --> — input: 2026-08-28 NY · "ok todo" · P1 + P2 ✅ 2026-08-28
 - **Rafael:** "herramientas de edición live separadas de herramientas de edición plan… seleccionar un
   SKU y después seleccionar un cuadro para moverlo, que rearrange todo si se necesita o si está
