@@ -54,24 +54,53 @@ export function isLastResort(
   return isLastResortOrder(order.get(addressKey(address.warehouse, address.location)));
 }
 
+/**
+ * The floor spot where a cancelled order's units wait for someone to walk them
+ * back to their shelf. Written by `cancel_completed_order` (migration
+ * 20260901123958); the name is the contract — `locations` holds one row for it.
+ */
+export const RETURN_TO_STOCK_LOCATION = 'RETURN TO STOCK';
+
+/**
+ * Whether this address is the returns floor, which outranks every shelf.
+ *
+ * A unit here is loose on the floor and still owes somebody a put-away trip.
+ * Sending the next order to a shelf instead leaves it there, and the pile grows
+ * — so an order that needs the SKU empties this first and only then walks the
+ * rows (Rafael, 1 Sep 2026: "cualquier orden nueva quiero que prefiera items
+ * que están en return to stock por encima de los otros").
+ *
+ * It is matched by name rather than by `picking_order` on purpose: 420 says
+ * *when* on the walk, right after ROW 43 — not that it wins. Ranking it first
+ * by number would mean ranking ROW 1 above ROW 2 everywhere.
+ */
+export function isReturnToStock(address: Address | null | undefined): boolean {
+  return norm(address?.location) === RETURN_TO_STOCK_LOCATION;
+}
+
 /** The subset of an inventory row this comparison needs. */
 interface LocatedRow extends Address {
   quantity?: number | null;
 }
 
 /**
- * Orders candidate rows best-first: normal shelves before last-resort ones,
- * deepest stock first within each group.
+ * Orders candidate rows best-first: the returns floor, then normal shelves,
+ * then last-resort ones, deepest stock first within each group.
  *
- * Two groups rather than one blended score, because the intent is a hard
- * precedence — a buried pallet is not "worth less", it is where you go once
- * nothing else has the bike. Without the map this is exactly the old
- * quantity sort, so every caller that has no locations loaded behaves as before.
+ * Groups rather than one blended score, because each step is a hard precedence.
+ * A buried pallet is not "worth less", it is where you go once nothing else has
+ * the bike; RETURN TO STOCK is not "worth more", it is stock that has to move
+ * anyway. Without the map this is the old quantity sort plus the returns floor,
+ * which needs no map to be recognised — so a caller with no locations loaded
+ * still empties the returns first.
  */
 export function byPickPreference<T extends LocatedRow>(
   order?: PickingOrderMap
 ): (a: T, b: T) => number {
   return (a, b) => {
+    const returnA = Number(isReturnToStock(a));
+    const returnB = Number(isReturnToStock(b));
+    if (returnA !== returnB) return returnB - returnA;
     const lastA = Number(isLastResort(a, order));
     const lastB = Number(isLastResort(b, order));
     if (lastA !== lastB) return lastA - lastB;
@@ -193,7 +222,8 @@ export function collapseSplitForSku<T extends CollapsibleItem>(items: T[], sku: 
  * One stop still beats two whenever a reachable shelf can do the entire job,
  * and `frozenLocation` breaks that tie in favour of staying put: the pick is
  * already pointed there, so moving it for nothing just costs the picker a
- * re-read of the card.
+ * re-read of the card. The one thing that shortcut never skips is RETURN TO
+ * STOCK — see `isReturnToStock`.
  *
  * A buried shelf that could cover the pick alone deliberately does *not* win
  * that shortcut. Emptying the reachable row first is the point — the units that
@@ -220,25 +250,45 @@ export function planPickAcrossLocations<T extends PlannableRow>(
     isLastResort: isLastResort(row, order),
   });
 
-  const reachable = available.filter((r) => !isLastResort(r, order)).sort(byPickPreference(order));
+  const legs: PickLeg[] = [];
+  let remaining = needed;
+
+  const take = (row: T): void => {
+    const qty = Math.min(remaining, Number(row.quantity || 0));
+    if (qty <= 0) return;
+    legs.push(toLeg(row, qty));
+    remaining -= qty;
+  };
+
+  // The returns floor goes first, and it is not subject to the one-stop
+  // shortcut below: a shelf that could cover the whole line does not get to
+  // leave those units on the floor, because they owe a put-away trip either
+  // way. Taking them here is the trip.
+  const returns = available.filter(isReturnToStock).sort(byPickPreference(order));
+  for (const row of returns) {
+    if (remaining <= 0) break;
+    take(row);
+  }
+  if (remaining <= 0) return { legs, shortfall: 0 };
+
+  const shelves = available.filter((r) => !isReturnToStock(r));
+  const reachable = shelves.filter((r) => !isLastResort(r, order)).sort(byPickPreference(order));
 
   const frozen = frozenLocation ? norm(frozenLocation) : null;
-  const coversAlone = (r: T): boolean => Number(r.quantity || 0) >= needed;
+  const coversAlone = (r: T): boolean => Number(r.quantity || 0) >= remaining;
   const solo =
     reachable.find((r) => norm(r.location) === frozen && coversAlone(r)) ??
     reachable.find(coversAlone);
-  if (solo) return { legs: [toLeg(solo, needed)], shortfall: 0 };
+  if (solo) {
+    take(solo);
+    return { legs, shortfall: 0 };
+  }
 
-  const buried = available.filter((r) => isLastResort(r, order)).sort(byPickPreference(order));
+  const buried = shelves.filter((r) => isLastResort(r, order)).sort(byPickPreference(order));
 
-  const legs: PickLeg[] = [];
-  let remaining = needed;
   for (const row of [...reachable, ...buried]) {
     if (remaining <= 0) break;
-    const take = Math.min(remaining, Number(row.quantity || 0));
-    if (take <= 0) continue;
-    legs.push(toLeg(row, take));
-    remaining -= take;
+    take(row);
   }
 
   return { legs, shortfall: remaining };

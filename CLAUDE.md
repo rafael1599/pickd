@@ -129,6 +129,20 @@ nada y Ship pregunta **"¿nunca se llegó a enviar?"** — al confirmar (`p_unsh
 sigue el flujo normal. La nota va a `picking_list_notes` con el tag `[Cancelled]:`, nunca al campo
 `notes` (que es la nota de AS400 que se imprime).
 
+**Y lo que está en RETURN TO STOCK se recoge antes que cualquier estante** (Rafael, 1 sep 2026:
+"cualquier orden nueva quiero que prefiera items que están en return to stock por encima de los
+otros"). Esas unidades están sueltas en el piso y le deben un viaje a alguien: la siguiente orden que
+necesite el SKU **es** ese viaje, y mandar al picker a una fila llena solo hace crecer el montón. Se
+reconoce **por nombre**, no por `picking_order` — 420 dice _cuándo_ en el recorrido (después de ROW
+43), no que gane. Vive en `isReturnToStock` / `byPickPreference` (`utils/pickLocation.ts`), así que lo
+heredan la ruta (`rebaseToActualStock`), Double Check, el diagnóstico de stock y los hermanos de
+variante; `planPickAcrossLocations` lo saca **antes** del atajo de una sola parada, o un estante que
+cubriera la línea entero dejaría el piso intacto (por eso una línea puede partirse en RETURN TO STOCK
+
+- la fila). El **espejo** está en el watchdog (`_is_return_to_stock` en `supabase_client.py`, la
+  primera clave del orden de candidatos), que es quien escribe la ubicación al crear la orden — los dos
+  tienen que decir lo mismo, y **el watchdog solo cambia cuando se redespliega en la MacBook de Bay 2**.
+
 `building` mode fue eliminado (idea-032). `OrderBuilderMode.tsx`, `PickingSessionView.tsx`, y `returnToBuilding()` fueron eliminados. Edit Order mode (CorrectionModeView) reemplaza sus funciones. InventoryCards muestran +/- inline en picking mode.
 
 **Correcciones con razón (idea-043):** Todas las acciones de corrección (remove, swap, adjust_qty, add) requieren una razón via `ReasonPicker`. Las notas se generan con formato rico: "Removed SKU: Out of stock" en vez de genérico. `CorrectionAction` tiene campo `reason?: string`. Si el item tiene `insufficient_stock`, la razón "Out of stock" se pre-selecciona.

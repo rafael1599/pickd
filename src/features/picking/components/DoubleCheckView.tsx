@@ -60,7 +60,7 @@ import { fedexCartonGap, fedexCartonState } from '../../../utils/fedexCarton';
 import { UnratedCartonsBanner, type UnratedCarton } from './UnratedCartonsBanner';
 import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingConflicts';
 import { StockIssuePanel } from './StockIssuePanel';
-import { toPickingOrderMap, type PickingOrderMap } from '../utils/pickLocation';
+import { byPickPreference, toPickingOrderMap, type PickingOrderMap } from '../utils/pickLocation';
 import { diagnoseStockIssue, type StockIssue } from '../utils/stockIssue';
 import { findSimilarSkus } from '../utils/findSimilarSkus';
 import { variantSiblingBase } from '../../../utils/skuNormalize';
@@ -1140,11 +1140,15 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     });
 
     const locMap: Record<string, string> = {};
+    // RETURN TO STOCK first, then quantity desc, then location name asc. The
+    // returns floor outranks the fullest shelf on purpose: those units are
+    // loose and owe a put-away trip, so the next order that needs the SKU is
+    // that trip (Rafael, 1 Sep 2026). No locations map is needed for that tier
+    // — it is recognised by name — and this map only ever fills in a location
+    // the line is missing, so the buried-shelf tier never applied here.
+    const preferred = byPickPreference<{ location: string; quantity: number }>();
     Object.entries(locRows).forEach(([sku, rows]) => {
-      // Sort by quantity desc, then location name asc
-      const sorted = rows.sort(
-        (a, b) => b.quantity - a.quantity || a.location.localeCompare(b.location)
-      );
+      const sorted = rows.sort((a, b) => preferred(a, b) || a.location.localeCompare(b.location));
       if (sorted[0]) {
         locMap[sku] = sorted[0].location;
       }

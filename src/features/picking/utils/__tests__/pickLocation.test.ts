@@ -200,6 +200,73 @@ describe('planPickAcrossLocations', () => {
   });
 });
 
+describe('RETURN TO STOCK comes before every shelf', () => {
+  // Units cancelled off an order sit on the floor until somebody walks them
+  // back. The next order that needs the SKU is that walk (Rafael, 1 Sep 2026).
+  it('sorts the returns floor first, however little it holds', () => {
+    const rows = [row('ROW 28', 40), row('RETURN TO STOCK', 1), row('ROW 15', 9)];
+    expect([...rows].sort(byPickPreference(order)).map((r) => r.location)).toEqual([
+      'RETURN TO STOCK',
+      'ROW 28',
+      'ROW 15',
+    ]);
+  });
+
+  it('needs no locations map to recognise it', () => {
+    const rows = [row('ROW 28', 40), row('RETURN TO STOCK', 1)];
+    expect([...rows].sort(byPickPreference()).map((r) => r.location)).toEqual([
+      'RETURN TO STOCK',
+      'ROW 28',
+    ]);
+  });
+
+  it('takes it first and covers the rest from a shelf', () => {
+    const plan = planPickAcrossLocations([row('ROW 28', 40), row('RETURN TO STOCK', 2)], 5, order);
+    expect(plan.legs.map((l) => [l.location, l.qty])).toEqual([
+      ['RETURN TO STOCK', 2],
+      ['ROW 28', 3],
+    ]);
+    expect(plan.shortfall).toBe(0);
+  });
+
+  // The one-stop shortcut is what used to leave the floor untouched: a shelf
+  // that covers the whole line alone won before anything else was considered.
+  it('does not let a shelf that covers the line alone skip the floor', () => {
+    const plan = planPickAcrossLocations([row('ROW 28', 40), row('RETURN TO STOCK', 1)], 3, order);
+    expect(plan.legs.map((l) => l.location)).toEqual(['RETURN TO STOCK', 'ROW 28']);
+  });
+
+  it('is one stop when the floor covers the whole line', () => {
+    const plan = planPickAcrossLocations([row('ROW 28', 40), row('RETURN TO STOCK', 6)], 4, order);
+    expect(plan.legs.map((l) => [l.location, l.qty])).toEqual([['RETURN TO STOCK', 4]]);
+  });
+
+  // Staying put is a tie-break between shelves, not a way around the floor.
+  it('beats frozenLocation', () => {
+    const plan = planPickAcrossLocations(
+      [row('ROW 28', 40), row('RETURN TO STOCK', 2)],
+      5,
+      order,
+      'ROW 28'
+    );
+    expect(plan.legs[0].location).toBe('RETURN TO STOCK');
+  });
+
+  it('still falls back to the buried pallet for what is left', () => {
+    const plan = planPickAcrossLocations(
+      [row('RETURN TO STOCK', 1), row('ROW 15', 2), row('42 BURIED', 30)],
+      10,
+      order
+    );
+    expect(plan.legs.map((l) => [l.location, l.qty])).toEqual([
+      ['RETURN TO STOCK', 1],
+      ['ROW 15', 2],
+      ['42 BURIED', 7],
+    ]);
+    expect(plan.shortfall).toBe(0);
+  });
+});
+
 describe('collapseSplitForSku', () => {
   const split = (part: number, of: number, isLastResort = false) => ({
     part,

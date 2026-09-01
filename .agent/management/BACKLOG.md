@@ -27,6 +27,11 @@
   "¿nunca se llegó a enviar?" — al confirmar, desmarca el envío y sigue el flujo normal.
 - **Sin cambios en la orden no completada:** el trigger `compensate_picking_list_changes` la sigue
   devolviendo a sus propias ubicaciones.
+- **P2, 1 sep:** "cualquier orden nueva quiero que prefiera items que están en return to stock por
+  encima de los otros". Hecho en los dos sitios que eligen ubicación: `byPickPreference` /
+  `planPickAcrossLocations` (`utils/pickLocation.ts`, con el atajo de una parada saltado a propósito)
+  y el orden de candidatos del watchdog (`_is_return_to_stock`). **Pendiente: redesplegar el watchdog
+  en la MacBook de Bay 2** — hasta entonces la preferencia solo actúa al recalcular la ruta en la app.
 
 ### 105. Mapa: editar en PLAN y en LIVE — mover un SKU a cualquier cuadro; PLAN COMPLETED lo ejecuta <!-- id: idea-173 --> — input: 2026-08-28 NY · "ok todo" · P1 + P2 ✅ 2026-08-28
 - **Rafael:** "herramientas de edición live separadas de herramientas de edición plan… seleccionar un
