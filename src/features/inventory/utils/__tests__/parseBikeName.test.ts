@@ -40,6 +40,49 @@ describe('parseBikeName', () => {
     expect(r17.model).toBe(r19.model);
   });
 
+  // The low-step frame sizes. `renderSize` in the FedEx export already knew how
+  // to format these; this is the half that had to learn to read them.
+  it('parses a low-step L size', () => {
+    const r = parseBikeName('CODA S2 L16 2026 GLOSS BLACK');
+    expect(r.model).toBe('CODA S2');
+    expect(r.size).toBe('L16');
+    expect(r.year).toBe('2026');
+    expect(r.color).toBe('GLOSS BLACK');
+  });
+
+  it('parses a two-digit L size', () => {
+    const r = parseBikeName('VENTURA A2 L48 2026 BLUE VAPOR');
+    expect(r.model).toBe('VENTURA A2');
+    expect(r.size).toBe('L48');
+    expect(r.color).toBe('BLUE VAPOR');
+  });
+
+  // Everything below stays a fallback ON PURPOSE. Each one is a shape a human
+  // types by hand, because guessing lands in `model`/`size` — the FedEx
+  // Dimensions grouping key — and a wrong box ships from the warehouse.
+  it('refuses a compound size rather than guessing which half is the wheel', () => {
+    // AS400 writes frame X wheel; the rows stored in sku_metadata are wheel X
+    // frame (27.5X19, 700CX16). Splitting this would invert the two.
+    const r = parseBikeName('DIVIDE 13X27 2025 GLOSS BLACK');
+    expect(r.size).toBe('');
+    expect(r.model).toBe('DIVIDE 13X27 2025 GLOSS BLACK');
+  });
+
+  it('refuses a bare-letter size', () => {
+    expect(parseBikeName('KROMO L 2026 MASH').size).toBe('');
+  });
+
+  it('refuses centimetres', () => {
+    expect(parseBikeName('RENEGADE A1 LTD 54CM 2025 MASH').size).toBe('');
+  });
+
+  it('falls back when the bike has no frame size at all', () => {
+    // A trike has none, so there is nothing to split. Not a failure.
+    const r = parseBikeName('TAXI TRIKE 2026 GLOSS BLACK');
+    expect(r.size).toBe('');
+    expect(r.model).toBe('TAXI TRIKE 2026 GLOSS BLACK');
+  });
+
   it('returns raw fallback for empty string', () => {
     const r = parseBikeName('');
     expect(r.model).toBe('');
