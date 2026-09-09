@@ -1,32 +1,33 @@
 /**
  * The door: AS400 captures Bay 2 has published, brought into Pickd with a tap.
  *
- * Each row is drawn with the same rule as the board's own cards — FedEx or
- * regular from `autoClassifyShippingType`, pallets from
- * `calculatePalletsWithBikeAwareness`, bikes and parts from the flags the
- * watchdog embedded — so what the operator sees here is what they will see on
- * the board a few seconds after tapping. Rafael, 2026-09-08: the data must
- * already be in Pickd; the tap only validates it.
+ * Each row carries the same facts a board card carries — FedEx or regular from
+ * autoClassifyShippingType, pallets from calculatePalletsWithBikeAwareness,
+ * bikes and parts from the is_bike flags the watchdog embedded — so what the
+ * operator sees here is what they will see on the board a few seconds after
+ * tapping. Rafael, 2026-09-08: the data must already be in Pickd; the tap only
+ * validates it.
  *
- * A held row says why and, when the reason is one a person can clear (stale,
- * waiting for inventory), still offers the tap. A lost page (total_mismatch)
- * does not: sending it would create a wrong picking list, and the only fix is a
- * re-capture on Bay 2.
+ * ── Why this screen ignores the app's theme ─────────────────────────────────
+ * It is a window onto the AS400, so it looks like the AS400: phosphor green on
+ * black, monospace, uppercase field labels, in light mode and dark alike
+ * (Rafael, 2026-09-09). Same reasoning as ManualFigure, which paints FedEx Ship
+ * Manager in FSM's own colours because it is a picture of somebody else's
+ * software. That carries ManualFigure's rule with it: **every colour here is
+ * explicit**, never inherited — a token would repaint half of it white on white.
  *
- * When Bay 2 has not been heard from in a minute the tap is disabled, because a
- * request nobody is there to execute should not look like it is being worked
- * on.
+ * Green is the terminal. **Purple is the only other colour a capture can be,
+ * and it means FedEx** — no badge, no label, just the colour, because on a
+ * screen where everything is green the one purple row is unmissable and a badge
+ * would be a second way of saying it. Amber is a hold, red is the way out.
+ *
+ * The order number keeps the board's treatment: the last three digits big and
+ * bright, the prefix dim. It is what anybody reads a number by around here.
  */
-import { useMemo, useState } from 'react';
-import { SearchInput } from '../../../../components/ui/SearchInput';
-import { useDebounce } from '../../../../hooks/useDebounce';
+import { useEffect, useMemo, useState } from 'react';
 import X from 'lucide-react/dist/esm/icons/x';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
-import ArrowDownToLine from 'lucide-react/dist/esm/icons/arrow-down-to-line';
-import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
-import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
-import WifiOff from 'lucide-react/dist/esm/icons/wifi-off';
-import toast from 'react-hot-toast';
+import { useDebounce } from '../../../../hooks/useDebounce';
 import {
   heldCaptures,
   inFlightCaptures,
@@ -42,44 +43,95 @@ import {
   useWatcherHeartbeat,
   type DoorCapture,
 } from '../../hooks/useAs400Door';
+import toast from 'react-hot-toast';
+
+/** P1 phosphor, and the three colours allowed to interrupt it. */
+const C = {
+  bg: '#050a06',
+  panel: '#0a1410',
+  line: '#1c3325',
+  green: '#5ef08a',
+  dim: '#3f8f5f',
+  faint: '#2b5c3d',
+  purple: '#c084fc',
+  amber: '#e8a04a',
+  red: '#f87171',
+} as const;
+
+const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 
 /** What a searched row is, when it is not one of the four the list shows. */
 const STATE_LABELS: Record<string, string> = {
-  archived: 'Aged out of the list',
-  junk: 'Dismissed',
-  sent: 'Already in Pickd',
+  archived: 'AGED OUT OF THE LIST',
+  junk: 'DISMISSED',
+  sent: 'ALREADY IN PICKD',
 };
 
 const HOLD_LABELS: Record<string, string> = {
-  total_mismatch: 'Lost page — re-capture on Bay 2',
-  waiting_locked: 'Waiting for inventory in Pickd',
-  no_customer: 'No customer on the capture',
-  stale: 'Nobody brought it in',
-  error: 'Send failed',
+  total_mismatch: 'LOST PAGE — RE-CAPTURE ON BAY 2',
+  waiting_locked: 'WAITING FOR INVENTORY IN PICKD',
+  no_customer: 'NO CUSTOMER ON THE CAPTURE',
+  stale: 'NOBODY BROUGHT IT IN',
+  error: 'SEND FAILED',
 };
-
-const LANE = {
-  fedex: { stripe: 'bg-purple-500/70', badge: 'bg-purple-500', text: 'FDX' },
-  regular: { stripe: 'bg-emerald-500/70', badge: 'bg-emerald-500', text: 'TRK' },
-} as const;
 
 function age(iso: string | null | undefined, now = Date.now()): string {
   if (!iso) return '';
   const min = Math.max(0, Math.round((now - new Date(iso).getTime()) / 60_000));
-  if (min < 60) return `${min} min`;
+  if (min < 60) return `${min}M`;
   const h = Math.round(min / 60);
-  if (h < 48) return `${h} h`;
-  return `${Math.round(h / 24)} d`;
+  if (h < 48) return `${h}H`;
+  return `${Math.round(h / 24)}D`;
 }
 
-function OrderNumber({ n }: { n: string }) {
-  const head = n.slice(0, -3);
-  const tail = n.slice(-3);
+/** `CUSTOMER  SHREWSBURY BICYCLES` — a 5250 screen is label + value, in columns. */
+function Field({
+  label,
+  value,
+  color = C.green,
+}: {
+  label: string;
+  value: string;
+  color?: string;
+}) {
   return (
-    <span className="font-mono tabular-nums">
-      <span className="text-muted">{head}</span>
-      <span className="text-content font-black text-lg">{tail}</span>
+    <span className="inline-flex items-baseline gap-1.5 whitespace-nowrap">
+      <span style={{ color: C.faint }} className="text-[10px] tracking-widest">
+        {label}
+      </span>
+      <b style={{ color }} className="text-sm font-bold tabular-nums">
+        {value}
+      </b>
     </span>
+  );
+}
+
+function TermButton({
+  children,
+  onClick,
+  disabled,
+  color = C.green,
+  title,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  color?: string;
+  title?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      style={{ color, borderColor: color, fontFamily: MONO }}
+      className="px-3 py-1 text-xs font-bold tracking-widest border rounded-sm
+                 hover:brightness-150 active:scale-[0.98] transition-all
+                 disabled:opacity-30 disabled:cursor-not-allowed
+                 focus:outline-none focus-visible:ring-1 focus-visible:ring-current"
+    >
+      {children}
+    </button>
   );
 }
 
@@ -99,113 +151,115 @@ function CaptureCard({
   busy: boolean;
 }) {
   const s = useMemo(() => summarize(row), [row]);
-  const lane = LANE[s.lane];
+  // The whole row takes the carrier's colour. On a green screen the purple ones
+  // are the FedEx ones, and that is the entire legend.
+  const tone = s.lane === 'fedex' ? C.purple : C.green;
   const inFlight = row.status === 'requested' || row.status === 'sending';
   const done = row.status === 'sent';
   const held = row.status === 'held';
   const requestable = isRequestable(row);
+  const head = row.order_number.slice(0, -3);
+  const tail = row.order_number.slice(-3);
 
   return (
-    <div className="relative flex gap-3 rounded-2xl bg-surface border border-subtle overflow-hidden">
-      <div className={`w-1.5 shrink-0 ${lane.stripe}`} />
-      <div className="flex-1 min-w-0 py-3 pr-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <OrderNumber n={row.order_number} />
-              <span
-                className={`px-1.5 py-0.5 rounded text-[10px] font-black text-white ${lane.badge}`}
-              >
-                {lane.text}
-              </span>
-              {row.total_mismatch && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-500 text-white">
-                  ⚠ TOTAL
-                </span>
-              )}
-            </div>
-            <div className="text-sm font-bold text-content truncate">{row.customer ?? '—'}</div>
-            {row.ship_to && row.ship_to !== row.customer && (
-              <div className="text-xs text-muted truncate">→ {row.ship_to}</div>
-            )}
-          </div>
-          <div className="text-[11px] text-muted whitespace-nowrap">{age(row.captured_at)} ago</div>
-        </div>
-
-        <div className="mt-2 flex items-baseline gap-3 text-xs text-muted tabular-nums">
-          <span>
-            <b className="text-content">{s.pallets}</b> {s.pallets === 1 ? 'pallet' : 'pallets'}
+    <div
+      style={{ background: C.panel, borderColor: C.line, borderLeftColor: tone, fontFamily: MONO }}
+      className="border border-l-4 rounded-sm px-3 py-2.5"
+    >
+      <div className="flex items-baseline gap-2">
+        <span className="leading-none">
+          <span style={{ color: C.faint }} className="text-base">
+            {head}
           </span>
-          <span>
-            <b className="text-content">{s.bikes}</b> bikes
+          <span style={{ color: tone }} className="text-2xl font-black">
+            {tail}
           </span>
-          <span>
-            <b className="text-content">{s.parts}</b> parts
+        </span>
+        {row.total_mismatch && (
+          <span style={{ color: C.amber }} className="text-[10px] font-black tracking-widest">
+            ⚠ TOTAL
           </span>
-          <span className="ml-auto">{s.units} units</span>
-        </div>
-
-        {STATE_LABELS[row.status] && (
-          <div className="mt-2 text-xs text-muted font-semibold">{STATE_LABELS[row.status]}</div>
         )}
+        <span style={{ color: C.faint }} className="ml-auto text-xs tabular-nums">
+          {age(row.captured_at)}
+        </span>
+      </div>
 
-        {held && (
-          <div className="mt-2 text-xs text-amber-500 font-semibold">
-            {HOLD_LABELS[row.hold_reason ?? ''] ?? row.hold_reason}
-            {row.last_error && (
-              <span className="block text-muted font-normal truncate">{row.last_error}</span>
-            )}
-          </div>
-        )}
+      <div style={{ color: C.green }} className="mt-1 text-sm font-bold truncate">
+        {row.customer ?? '—'}
+      </div>
+      {row.ship_to && row.ship_to !== row.customer && (
+        <div style={{ color: C.dim }} className="text-xs truncate">
+          &gt; {row.ship_to}
+        </div>
+      )}
 
-        <div className="mt-3 flex items-center gap-2">
-          {done ? (
-            <span className="text-xs text-emerald-500 font-bold">✓ on the board already</span>
-          ) : inFlight ? (
-            <>
-              <span className="inline-flex items-center gap-1.5 text-xs text-sky-500 font-bold">
-                <Loader2 size={14} className="animate-spin" />
-                {row.status === 'sending' ? 'Sending…' : 'Requested'} · {age(row.requested_at)}
-              </span>
-              <button
-                onClick={onCancel}
-                disabled={busy}
-                className="ml-auto text-xs px-2.5 py-1 rounded-lg border border-subtle text-muted hover:text-content disabled:opacity-50"
-              >
-                Cancel
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={onBring}
-                disabled={!canAct || !requestable || busy}
-                title={
-                  !canAct
-                    ? 'Bay 2 is offline'
-                    : !requestable
-                      ? 'Needs a re-capture on Bay 2'
-                      : 'Bring this order onto the board'
-                }
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent text-white text-xs font-bold
-                           disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] transition-all
-                           focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                <ArrowDownToLine size={14} />
-                Bring in
-              </button>
-              <button
-                onClick={onDismiss}
-                disabled={busy}
-                title="Never offer this capture again"
-                className="ml-auto inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border border-subtle text-muted hover:text-red-500 hover:border-red-500/40 disabled:opacity-50"
-              >
-                <Trash2 size={13} />
-                Dismiss
-              </button>
-            </>
+      <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <Field label="PLT" value={String(s.pallets)} color={tone} />
+        <Field label="BIKE" value={String(s.bikes)} color={tone} />
+        <Field label="PART" value={String(s.parts)} color={tone} />
+        <Field label="UNIT" value={String(s.units)} color={C.dim} />
+      </div>
+
+      {STATE_LABELS[row.status] && (
+        <div style={{ color: C.faint }} className="mt-2 text-[10px] tracking-widest">
+          {STATE_LABELS[row.status]}
+        </div>
+      )}
+      {held && (
+        <div style={{ color: C.amber }} className="mt-2 text-[10px] tracking-widest">
+          {HOLD_LABELS[row.hold_reason ?? ''] ?? row.hold_reason}
+          {row.last_error && (
+            <span style={{ color: C.faint }} className="block tracking-normal truncate">
+              {row.last_error}
+            </span>
           )}
         </div>
+      )}
+
+      <div className="mt-2.5 flex items-center gap-2">
+        {done ? (
+          <span style={{ color: C.green }} className="text-xs font-bold tracking-widest">
+            ✓ ON THE BOARD
+          </span>
+        ) : inFlight ? (
+          <>
+            <span
+              style={{ color: C.green }}
+              className="inline-flex items-center gap-1.5 text-xs font-bold tracking-widest"
+            >
+              <Loader2 size={13} className="animate-spin" />
+              {row.status === 'sending' ? 'SENDING' : 'REQUESTED'} {age(row.requested_at)}
+            </span>
+            <span className="ml-auto">
+              <TermButton onClick={onCancel} disabled={busy} color={C.dim}>
+                CANCEL
+              </TermButton>
+            </span>
+          </>
+        ) : (
+          <>
+            <TermButton
+              onClick={onBring}
+              disabled={!canAct || !requestable || busy}
+              color={tone}
+              title={
+                !canAct
+                  ? 'Bay 2 is offline'
+                  : !requestable
+                    ? 'Needs a re-capture on Bay 2'
+                    : 'Bring this order onto the board'
+              }
+            >
+              ▸ BRING IN
+            </TermButton>
+            <span className="ml-auto">
+              <TermButton onClick={onDismiss} disabled={busy} color={C.faint} title="Hide it">
+                DISMISS
+              </TermButton>
+            </span>
+          </>
+        )}
       </div>
     </div>
   );
@@ -222,6 +276,15 @@ export function As400DoorModal({ onClose }: { onClose: () => void }) {
   const debounced = useDebounce(query, 250);
   const search = useAs400CaptureSearch(debounced);
   const searching = debounced.trim().length >= 2;
+
+  // A full takeover has no backdrop left to tap, so Escape is the other way out.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   const rows = door.data ?? [];
   const pending = pendingCaptures(rows);
@@ -263,33 +326,64 @@ export function As400DoorModal({ onClose }: { onClose: () => void }) {
       })
     : null;
 
+  const card = (row: DoorCapture) => (
+    <CaptureCard
+      key={row.order_number}
+      row={row}
+      canAct={alive}
+      busy={busy}
+      onBring={() => bring(row.order_number)}
+      onCancel={() => takeBack(row.order_number)}
+      onDismiss={() => drop(row.order_number)}
+    />
+  );
+
   return (
-    // A full takeover on solid `bg-main`, like the board underneath it — not a
-    // sheet over a dimmed backdrop. Rafael, 2026-09-09: the board behind must
-    // not show through.
     <div
-      className="fixed inset-0 z-[120] flex flex-col bg-main"
+      style={{ background: C.bg, fontFamily: MONO }}
+      className="fixed inset-0 z-[120] flex flex-col"
       role="dialog"
       aria-label="AS400 captures"
     >
-      <div className="flex-1 min-h-0 flex flex-col w-full md:max-w-2xl md:mx-auto">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-subtle">
-          <div>
-            <h2 className="text-base font-black text-content uppercase tracking-tight">
-              From the AS400
+      {/* Scanlines. Barely there — enough to read as a screen, not enough to
+          fight the text. pointer-events-none so it never eats a tap. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.18]"
+        style={{
+          backgroundImage:
+            'repeating-linear-gradient(0deg, rgba(0,0,0,.6) 0px, rgba(0,0,0,.6) 1px, transparent 1px, transparent 3px)',
+        }}
+      />
+
+      <div className="relative flex-1 min-h-0 flex flex-col w-full md:max-w-2xl md:mx-auto">
+        <div
+          style={{ borderColor: C.line }}
+          className="flex items-center justify-between gap-3 px-4 py-3 border-b"
+        >
+          <div className="min-w-0">
+            {/* The 5250 spaces its titles out; so does this one. */}
+            <h2
+              style={{ color: C.green }}
+              className="text-xs md:text-sm font-black tracking-[0.35em] whitespace-nowrap"
+            >
+              A S 4 0 0 &nbsp; C A P T U R E S
             </h2>
-            <p className="text-[11px] text-muted">
-              {pending.length} waiting
-              {inFlight.length > 0 && ` · ${inFlight.length} on the way`}
-              {held.length > 0 && ` · ${held.length} held`}
+            <p style={{ color: C.faint }} className="mt-1 text-[10px] tracking-widest">
+              {pending.length} WAITING
+              {inFlight.length > 0 && ` · ${inFlight.length} ON THE WAY`}
+              {held.length > 0 && ` · ${held.length} HELD`}
+              {' · '}
+              <span style={{ color: alive ? C.green : C.amber }}>
+                {alive ? 'BAY 2 ONLINE' : seen ? `BAY 2 LAST SEEN ${seen}` : 'BAY 2 OFFLINE'}
+              </span>
             </p>
           </div>
-          {/* Big and red on purpose: this is a full takeover, so the way out
-              has to be the most obvious thing on screen. */}
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-red-500 hover:bg-red-500/10 active:scale-95 transition-all
-                       focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+            style={{ color: C.red }}
+            className="shrink-0 p-2 rounded-sm hover:bg-red-500/10 active:scale-95 transition-all
+                       focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
             aria-label="Close"
           >
             <X size={32} strokeWidth={3} />
@@ -297,116 +391,109 @@ export function As400DoorModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {!alive && !heartbeat.isLoading && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-500 text-xs font-semibold border-b border-amber-500/20">
-            <WifiOff size={14} />
-            {seen
-              ? `Bay 2 has not been heard from since ${seen}`
-              : 'Bay 2 has not been heard from yet'}{' '}
-            — requests will wait until it is back.
+          <div
+            style={{ color: C.amber, borderColor: C.line }}
+            className="px-4 py-2 text-[11px] tracking-wide border-b"
+          >
+            ⚠ BAY 2 IS NOT ANSWERING — requests will wait until it is back.
           </div>
         )}
 
-        <div className="px-3 pt-3">
-          <SearchInput
+        {/* The terminal's own prompt, not the app's search bar. */}
+        <div
+          style={{ borderColor: C.line }}
+          className="flex items-center gap-2 px-4 py-2.5 border-b"
+        >
+          <span style={{ color: C.dim }} className="text-sm font-black">
+            &gt;
+          </span>
+          <input
             value={query}
-            onChange={setQuery}
-            variant="inline"
-            placeholder="Order number — last 3 digits is enough"
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="ORDER NUMBER — LAST 3 DIGITS IS ENOUGH"
+            inputMode="numeric"
+            autoFocus
+            spellCheck={false}
+            style={{ color: C.green, fontFamily: MONO, caretColor: C.green }}
+            className="flex-1 min-w-0 bg-transparent border-0 outline-none text-sm tracking-widest
+                       placeholder:text-[10px] placeholder:tracking-widest"
           />
+          {query && (
+            <TermButton onClick={() => setQuery('')} color={C.faint}>
+              CLR
+            </TermButton>
+          )}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3 space-y-3">
-          {searching && (
+        <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+          {searching ? (
             <>
               {search.isLoading && (
-                <p className="text-sm text-muted text-center py-6">Searching…</p>
-              )}
-              {!search.isLoading && (search.data ?? []).length === 0 && (
-                <p className="text-sm text-muted text-center py-6">
-                  No capture matching “{debounced}”. The scanner may not have reached it yet.
+                <p style={{ color: C.dim }} className="text-xs tracking-widest text-center py-6">
+                  SEARCHING…
                 </p>
               )}
-              {(search.data ?? []).map((row) => (
-                <CaptureCard
-                  key={row.order_number}
-                  row={row}
-                  canAct={alive}
-                  busy={busy}
-                  onBring={() => bring(row.order_number)}
-                  onCancel={() => takeBack(row.order_number)}
-                  onDismiss={() => drop(row.order_number)}
-                />
-              ))}
+              {!search.isLoading && (search.data ?? []).length === 0 && (
+                <p style={{ color: C.dim }} className="text-xs tracking-wide text-center py-6">
+                  NO CAPTURE MATCHING “{debounced}”.
+                  <span style={{ color: C.faint }} className="block mt-1">
+                    The scanner may not have reached it yet.
+                  </span>
+                </p>
+              )}
+              {(search.data ?? []).map(card)}
             </>
-          )}
+          ) : (
+            <>
+              {door.isLoading && (
+                <p style={{ color: C.dim }} className="text-xs tracking-widest text-center py-6">
+                  LOADING…
+                </p>
+              )}
+              {door.isError && (
+                <p style={{ color: C.red }} className="text-xs tracking-wide text-center py-6">
+                  COULD NOT LOAD THE CAPTURES.
+                </p>
+              )}
+              {!door.isLoading && pending.length === 0 && inFlight.length === 0 && (
+                <p style={{ color: C.dim }} className="text-xs tracking-wide text-center py-6">
+                  NOTHING WAITING.
+                  <span style={{ color: C.faint }} className="block mt-1">
+                    New captures appear here as the scanner finds them.
+                  </span>
+                </p>
+              )}
+              {inFlight.map(card)}
+              {pending.map(card)}
 
-          {!searching && door.isLoading && (
-            <p className="text-sm text-muted text-center py-6">Loading…</p>
-          )}
-          {!searching && door.isError && (
-            <p className="text-sm text-red-500 text-center py-6">Could not load the captures.</p>
-          )}
-
-          {!searching && !door.isLoading && pending.length === 0 && inFlight.length === 0 && (
-            <p className="text-sm text-muted text-center py-6">
-              Nothing waiting. New captures show up here as the scanner finds them.
-            </p>
-          )}
-
-          {!searching &&
-            inFlight.map((row) => (
-              <CaptureCard
-                key={row.order_number}
-                row={row}
-                canAct={alive}
-                busy={busy}
-                onBring={() => bring(row.order_number)}
-                onCancel={() => takeBack(row.order_number)}
-                onDismiss={() => drop(row.order_number)}
-              />
-            ))}
-          {!searching &&
-            pending.map((row) => (
-              <CaptureCard
-                key={row.order_number}
-                row={row}
-                canAct={alive}
-                busy={busy}
-                onBring={() => bring(row.order_number)}
-                onCancel={() => takeBack(row.order_number)}
-                onDismiss={() => drop(row.order_number)}
-              />
-            ))}
-
-          {!searching && held.length > 0 && (
-            <div className="pt-2">
-              <button
-                onClick={() => setShowHeld((v) => !v)}
-                className="w-full flex items-center gap-2 text-xs font-bold text-amber-500 uppercase tracking-wide py-1"
-              >
-                <ChevronDown
-                  size={14}
-                  className={`transition-transform ${showHeld ? '' : '-rotate-90'}`}
-                />
-                Held ({held.length})
-              </button>
-              {showHeld && (
-                <div className="space-y-3 mt-2">
-                  {held.map((row) => (
-                    <CaptureCard
-                      key={row.order_number}
-                      row={row}
-                      canAct={alive}
-                      busy={busy}
-                      onBring={() => bring(row.order_number)}
-                      onCancel={() => takeBack(row.order_number)}
-                      onDismiss={() => drop(row.order_number)}
-                    />
-                  ))}
+              {held.length > 0 && (
+                <div className="pt-2">
+                  <button
+                    onClick={() => setShowHeld((v) => !v)}
+                    style={{ color: C.amber }}
+                    className="w-full text-left text-[10px] font-black tracking-widest py-1"
+                  >
+                    {showHeld ? '▾' : '▸'} HELD ({held.length})
+                  </button>
+                  {showHeld && <div className="space-y-2.5 mt-2">{held.map(card)}</div>}
                 </div>
               )}
-            </div>
+            </>
           )}
+        </div>
+
+        {/* The legend every 5250 screen carries at the foot. */}
+        <div
+          style={{ color: C.faint, borderColor: C.line }}
+          className="px-4 py-2 border-t text-[10px] tracking-widest flex items-center gap-4"
+        >
+          <span>
+            <span style={{ color: C.purple }}>■</span> FEDEX
+          </span>
+          <span>
+            <span style={{ color: C.green }}>■</span> TRUCK
+          </span>
+          <span className="ml-auto">ESC EXIT</span>
         </div>
       </div>
     </div>
