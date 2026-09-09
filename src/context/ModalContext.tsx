@@ -18,6 +18,7 @@ import { ItemDetailView } from '../features/inventory/components/ItemDetailView'
 import { PickingSummaryModalById } from '../components/orders/PickingSummaryModalById';
 import { NotificationHistoryModal } from '../components/ui/NotificationHistoryModal';
 import { OrderNotesModal } from '../features/picking/components/OrderNotesModal';
+import { As400DoorModal } from '../features/picking/components/board/As400DoorModal';
 import { SkuLocationsModal } from '../features/inventory/components/SkuLocationsModal';
 import type { InventoryItemWithMetadata, InventoryItemInput } from '../schemas/inventory.schema';
 import { SlotPlanExecuteSheet } from '../features/warehouse-map/components/SlotPlanExecuteSheet';
@@ -43,6 +44,10 @@ export type ModalState =
     }
   | { type: 'picking-summary'; listId: string }
   | { type: 'notification-history' }
+  | {
+      /** AS400 captures Bay 2 has published; "Bring in" requests one (the door). */
+      type: 'as400-door';
+    }
   | {
       /** Every row a SKU is stocked in, the order's own address marked. */
       type: 'sku-locations';
@@ -108,6 +113,7 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
       )}
 
       {modal?.type === 'notification-history' && <NotificationHistoryModal onClose={close} />}
+      {modal?.type === 'as400-door' && <As400DoorModal onClose={close} />}
 
       {modal?.type === 'sku-locations' && (
         <SkuLocationsModal

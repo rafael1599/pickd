@@ -33,6 +33,105 @@ export type Database = {
   };
   public: {
     Tables: {
+      as400_captures: {
+        Row: {
+          as400_account_number: string | null;
+          captured_at: string;
+          customer: string | null;
+          dismissed_at: string | null;
+          dismissed_by: string | null;
+          hold_reason: string | null;
+          item_count: number | null;
+          items: Json;
+          last_error: string | null;
+          order_date: string | null;
+          order_number: string;
+          picking_list_id: string | null;
+          raw_text: string | null;
+          requested_at: string | null;
+          requested_by: string | null;
+          result: Json | null;
+          sent_at: string | null;
+          ship_to: string | null;
+          source: string | null;
+          status: string;
+          subtotal: number | null;
+          total_mismatch: boolean;
+          total_units: number | null;
+          updated_at: string;
+        };
+        Insert: {
+          as400_account_number?: string | null;
+          captured_at: string;
+          customer?: string | null;
+          dismissed_at?: string | null;
+          dismissed_by?: string | null;
+          hold_reason?: string | null;
+          item_count?: number | null;
+          items?: Json;
+          last_error?: string | null;
+          order_date?: string | null;
+          order_number: string;
+          picking_list_id?: string | null;
+          raw_text?: string | null;
+          requested_at?: string | null;
+          requested_by?: string | null;
+          result?: Json | null;
+          sent_at?: string | null;
+          ship_to?: string | null;
+          source?: string | null;
+          status?: string;
+          subtotal?: number | null;
+          total_mismatch?: boolean;
+          total_units?: number | null;
+          updated_at?: string;
+        };
+        Update: {
+          as400_account_number?: string | null;
+          captured_at?: string;
+          customer?: string | null;
+          dismissed_at?: string | null;
+          dismissed_by?: string | null;
+          hold_reason?: string | null;
+          item_count?: number | null;
+          items?: Json;
+          last_error?: string | null;
+          order_date?: string | null;
+          order_number?: string;
+          picking_list_id?: string | null;
+          raw_text?: string | null;
+          requested_at?: string | null;
+          requested_by?: string | null;
+          result?: Json | null;
+          sent_at?: string | null;
+          ship_to?: string | null;
+          source?: string | null;
+          status?: string;
+          subtotal?: number | null;
+          total_mismatch?: boolean;
+          total_units?: number | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      as400_watcher_heartbeat: {
+        Row: {
+          id: number;
+          seen_at: string;
+          version: string | null;
+        };
+        Insert: {
+          id?: number;
+          seen_at?: string;
+          version?: string | null;
+        };
+        Update: {
+          id?: number;
+          seen_at?: string;
+          version?: string | null;
+        };
+        Relationships: [];
+      };
       app_users: {
         Row: {
           age: number | null;
@@ -1950,6 +2049,29 @@ export type Database = {
       };
     };
     Views: {
+      v_as400_door: {
+        Row: {
+          as400_account_number: string | null;
+          captured_at: string | null;
+          customer: string | null;
+          hold_reason: string | null;
+          item_count: number | null;
+          items: Json | null;
+          last_error: string | null;
+          order_date: string | null;
+          order_number: string | null;
+          requested_at: string | null;
+          requested_by: string | null;
+          ship_to: string | null;
+          source: string | null;
+          status: string | null;
+          subtotal: number | null;
+          total_mismatch: boolean | null;
+          total_units: number | null;
+          updated_at: string | null;
+        };
+        Relationships: [];
+      };
       v_inventory_location_drift: {
         Row: {
           fk_location: string | null;
@@ -1981,6 +2103,22 @@ export type Database = {
       };
     };
     Functions: {
+      cancel_as400_request: {
+        Args: { p_order_number: string };
+        Returns: boolean;
+      };
+      dismiss_as400_capture: {
+        Args: { p_order_number: string };
+        Returns: boolean;
+      };
+      publish_as400_capture: {
+        Args: { p_order_number: string; p_status: string; p_hold_reason: string; p_payload: Json };
+        Returns: string;
+      };
+      request_as400_capture: {
+        Args: { p_order_number: string };
+        Returns: boolean;
+      };
       fedex_dimensions_exported_at: {
         Args: Record<PropertyKey, never>;
         Returns: string | null;

@@ -7,6 +7,11 @@ import Map from 'lucide-react/dist/esm/icons/map';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useViewMode } from '../../context/ViewModeContext';
 import { useDoubleCheckList } from '../../features/picking/hooks/useDoubleCheckList';
+import {
+  pendingCaptures,
+  useAs400Door,
+  useAs400DoorRealtime,
+} from '../../features/picking/hooks/useAs400Door';
 import { useOverlayOpen, useScrollLock } from '../../hooks/useScrollLock';
 import { VerificationBoard } from '../../features/picking/components/VerificationBoard';
 
@@ -69,6 +74,12 @@ export const BottomNavigation = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { readyCount, correctionCount, waitingCount, refresh } = useDoubleCheckList();
+  // The door's one realtime channel lives here, not in the board: the board
+  // unmounts when closed, and the nav badge has to count waiting captures
+  // whether it is open or not.
+  useAs400DoorRealtime();
+  const door = useAs400Door();
+  const doorCount = pendingCaptures(door.data).length;
   const [isBoardOpen, setIsBoardOpen] = useState(false);
   useScrollLock(isBoardOpen, () => setIsBoardOpen(false));
   // Any modal/sheet/menu over the view (anything holding a scroll lock) slides
@@ -88,7 +99,7 @@ export const BottomNavigation = () => {
     if (location.pathname !== '/') navigate('/');
   };
 
-  const totalActions = readyCount + correctionCount + waitingCount;
+  const totalActions = readyCount + correctionCount + waitingCount + doorCount;
 
   return (
     <>

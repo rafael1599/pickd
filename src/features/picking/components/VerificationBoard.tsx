@@ -10,6 +10,9 @@ import { useViewMode } from '../../../context/ViewModeContext';
 import { usePickingSession } from '../../../context/PickingContext';
 import { useConfirmation } from '../../../context/ConfirmationContext';
 import { useAuth } from '../../../context/AuthContext';
+import { useModal } from '../../../context/ModalContext';
+import { pendingCaptures, useAs400Door } from '../hooks/useAs400Door';
+import ArrowDownToLine from 'lucide-react/dist/esm/icons/arrow-down-to-line';
 import {
   isFedexOrder as isFedexOrderShared,
   isDeliberateCombineGroupType,
@@ -90,6 +93,10 @@ interface VerificationBoardProps {
 
 export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose }) => {
   const { orders, completedOrders, refresh } = useDoubleCheckList();
+  // The door: AS400 captures Bay 2 published, not yet on the board. Same
+  // query key as the nav badge, so this is a cache read, not a second fetch.
+  const { open: openModal } = useModal();
+  const doorCaptures = pendingCaptures(useAs400Door().data);
   const { createGroup, addToGroup, removeFromGroup, resolveMixedShippingType } = useOrderGroups();
   const { setExternalDoubleCheckId, setExternalOrderId, setViewMode, setExternalActionTrigger } =
     useViewMode();
@@ -765,7 +772,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             {(priorityOrders.length > 0 ||
               pullingOrders.length > 0 ||
               completedCount > 0 ||
-              waitingOrders.length > 0) && (
+              waitingOrders.length > 0 ||
+              doorCaptures.length > 0) && (
               <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-[10px] md:text-xs">
                 {priorityOrders.length > 0 && (
                   <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 font-bold whitespace-nowrap">
@@ -798,6 +806,20 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                       {waitingOrders.length}
                     </span>
                   </label>
+                )}
+                {doorCaptures.length > 0 && (
+                  <button
+                    onClick={() => openModal({ type: 'as400-door' })}
+                    title="Orders the watchdog captured from the AS400 — bring them onto the board"
+                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 font-bold whitespace-nowrap hover:bg-indigo-500/20 transition-all
+                               focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                  >
+                    <ArrowDownToLine size={12} />
+                    <span>From AS400</span>
+                    <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-indigo-500 text-white text-[10px] font-black leading-none ml-0.5">
+                      {doorCaptures.length}
+                    </span>
+                  </button>
                 )}
               </div>
             )}
