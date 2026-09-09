@@ -21,11 +21,19 @@
  */
 
 import {
+  cartonGroupKey,
   fedexCartonGap,
+  renderSize,
   toAscii,
   FEDEX_CARTON_GAP_LABELS,
   type FedexCartonGap,
 } from '../../../utils/fedexCarton';
+
+// Re-exported because it moved to utils/fedexCarton on 2026-09-09, where the
+// measuring queue and the Double Check warning can read it too: whether a
+// carton is already in the file is the same question as which record it lands
+// in, and the two must not answer it with different keys.
+export { renderSize };
 
 /** A SKU as the export reads it. Mirrors the selected columns, nothing more. */
 export interface DimensionSourceRow {
@@ -76,50 +84,8 @@ export interface FedexDimensionsResult {
   exceptions: FedexDimensionException[];
 }
 
-/**
- * Key separator. A model or a size can contain a space, so "ALLEGRO A3" + "" and
- * "ALLEGRO" + "A3" would land on the same bucket with any printable delimiter.
- * NUL cannot occur in either, which makes the key unambiguous — written as an
- * escape so the file stays plain text.
- */
-const KEY_SEP = '\u0000';
-
 const MAX_DESCRIPTION = 140;
 const MAX_ID = 30;
-
-/**
- * How a stored size is written in a description.
- *
- * Sizes live in the column bare and uppercase — `17`, `L16`, `27.5X14`, `51` —
- * because one column holds both a 17" frame and a 51 cm road size. The unit is
- * decided here: at or under 29 is inches and takes the `''` mark, 44 and above
- * is centimetres and stays bare. `''` rather than `"` because the format
- * forbids a double quote anywhere in the data.
- */
-export function renderSize(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const t = String(raw)
-    .toUpperCase()
-    .replace(/["‘’“”']/g, '')
-    .replace(/\s+/g, '')
-    .replace(/\*/g, 'X')
-    .replace(/CM$/, '');
-  if (!t) return null;
-
-  // Wheel × frame, e.g. 27.5X14 — the frame half carries no mark of its own.
-  const compound = t.match(/^(\d+(?:\.\d+)?)X(\d+(?:\.\d+)?)$/);
-  if (compound) return `${compound[1]}''X${compound[2]}`;
-
-  if (/^700CX\d+(?:\.\d+)?$/.test(t)) return `${t}''`;
-  if (/^700C$/.test(t)) return t;
-
-  const plain = t.match(/^(L?)(\d+(?:\.\d+)?)$/);
-  if (plain) {
-    const n = Number.parseFloat(plain[2]);
-    return n <= 29 ? `${plain[1]}${plain[2]}''` : `${plain[1]}${plain[2]}`;
-  }
-  return t;
-}
 
 /** Sort key for sizes so `15''-23''` never comes out as `15''-9''`. */
 function sizeOrder(size: string): number {
@@ -194,7 +160,7 @@ export function buildFedexDimensions(rows: DimensionSourceRow[]): FedexDimension
     const height = Math.ceil(row.width_in as number);
 
     const size = renderSize(row.size);
-    const key = `${model}${KEY_SEP}${size ?? ''}`;
+    const key = cartonGroupKey(row) as string; // non-null: the gap check passed
     const bucket = bySize.get(key);
     if (!bucket) {
       bySize.set(key, { model, size, length, width, height, minL: length, minW: width, minH: height, skus: [row.sku] });
@@ -230,7 +196,7 @@ export function buildFedexDimensions(rows: DimensionSourceRow[]): FedexDimension
   const byBox = new Map<string, BoxBucket>();
 
   for (const b of bySize.values()) {
-    const key = `${b.model}${KEY_SEP}${b.length}x${b.width}x${b.height}`;
+    const key = `${b.model}\u0000${b.length}x${b.width}x${b.height}`;
     const bucket = byBox.get(key);
     if (!bucket) {
       byBox.set(key, {

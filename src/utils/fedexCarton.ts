@@ -161,3 +161,157 @@ export function sidesToColumns(sides: [number, number, number]): {
   const [thinnest, middle, longest] = [...sides].sort((x, y) => x - y);
   return { length_in: longest, width_in: thinnest, height_in: middle };
 }
+
+/**
+ * Key separator. A model or a size can contain a space, so "ALLEGRO A3" + "" and
+ * "ALLEGRO" + "A3" would land on the same bucket with any printable delimiter.
+ * NUL cannot occur in either, which makes the key unambiguous — written as an
+ * escape so the file stays plain text.
+ */
+const KEY_SEP = '\u0000';
+
+/**
+ * How a stored size is written in a description.
+ *
+ * Sizes live in the column bare and uppercase — `17`, `L16`, `27.5X14`, `51` —
+ * because one column holds both a 17" frame and a 51 cm road size. The unit is
+ * decided here: at or under 29 is inches and takes the `''` mark, 44 and above
+ * is centimetres and stays bare. `''` rather than `"` because the format
+ * forbids a double quote anywhere in the data.
+ */
+export function renderSize(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const t = String(raw)
+    .toUpperCase()
+    .replace(/["‘’“”']/g, '')
+    .replace(/\s+/g, '')
+    .replace(/\*/g, 'X')
+    .replace(/CM$/, '');
+  if (!t) return null;
+
+  // Wheel × frame, e.g. 27.5X14 — the frame half carries no mark of its own.
+  const compound = t.match(/^(\d+(?:\.\d+)?)X(\d+(?:\.\d+)?)$/);
+  if (compound) return `${compound[1]}''X${compound[2]}`;
+
+  if (/^700CX\d+(?:\.\d+)?$/.test(t)) return `${t}''`;
+  if (/^700C$/.test(t)) return t;
+
+  const plain = t.match(/^(L?)(\d+(?:\.\d+)?)$/);
+  if (plain) {
+    const n = Number.parseFloat(plain[2]);
+    return n <= 29 ? `${plain[1]}${plain[2]}''` : `${plain[1]}${plain[2]}`;
+  }
+  return t;
+}
+
+/**
+ * The bucket a SKU lands in inside the FedEx file: model + rendered size.
+ *
+ * `null` when there is no model, which is the same condition
+ * {@link fedexCartonGap} reports as `no_model` -- a row with no name cannot be
+ * grouped with anything, including itself.
+ */
+export function cartonGroupKey(row: { model: string | null; size: string | null }): string | null {
+  const model = toAscii(row.model ?? '').toUpperCase();
+  if (!model) return null;
+  return `${model}${KEY_SEP}${renderSize(row.size) ?? ''}`;
+}
+
+/** A measured row, as the coverage index reads it. */
+export interface MeasuredCartonRow extends FedexCartonSyncRow {
+  sku: string;
+  size: string | null;
+  weight_lbs: number | null;
+  weight_verified: boolean | null;
+}
+
+/** What the file already holds for one model+size. */
+export interface CoveringCarton {
+  /** The SKUs somebody actually measured, sorted. */
+  skus: string[];
+  /** Pickd's column order (longest / thinnest / middle), largest per axis. */
+  length_in: number;
+  width_in: number;
+  height_in: number;
+  /** The most recent measurement in the group, for the export-state question. */
+  dimensions_measured_at: string | null;
+  /** The heaviest verified weight in the group, when one was ever put on a scale. */
+  weight_lbs: number | null;
+}
+
+export type CartonCoverageIndex = Map<string, CoveringCarton>;
+
+/**
+ * What FedEx already has, by model+size rather than by SKU.
+ *
+ * FSM imports one carton per model + size (`docs/warehouse-user-flows.md`), and
+ * the file carries no SKU at all -- the station picks the record by name. So a
+ * colour whose model+size is already in the file is already rated, and asking
+ * somebody to measure it is asking for a number that changes nothing.
+ *
+ * Rafael, 9 Sep 2026: "las cajas de los modelos que solo cambian por color
+ * pesan lo mismo y miden lo mismo". The catalog agrees where it can be checked
+ * -- of the 34 model+size groups with more than one colour measured, 31 land
+ * within an inch of each other, which is the same tolerance
+ * `buildFedexDimensions` already accepts before it calls a group a conflict.
+ * It does NOT hold across sizes: 27 of 47 models with two measured sizes differ
+ * by more than an inch (DIVIDE spans 7"), because a bigger frame is a bigger
+ * box. So the key is model AND size, never model alone.
+ *
+ * Largest per axis, like the export's own merge: a carton declared too small is
+ * what gets back-billed.
+ */
+export function buildCartonCoverage(rows: MeasuredCartonRow[]): CartonCoverageIndex {
+  const index: CartonCoverageIndex = new Map();
+  for (const row of rows) {
+    // Only what could actually be exported counts as coverage.
+    if (fedexCartonGap(row) !== null) continue;
+    const key = cartonGroupKey(row);
+    if (!key) continue;
+    const current = index.get(key);
+    const weight = row.weight_verified && row.weight_lbs != null ? row.weight_lbs : null;
+    if (!current) {
+      index.set(key, {
+        skus: [row.sku],
+        length_in: row.length_in as number,
+        width_in: row.width_in as number,
+        height_in: row.height_in as number,
+        dimensions_measured_at: row.dimensions_measured_at,
+        weight_lbs: weight,
+      });
+      continue;
+    }
+    current.skus.push(row.sku);
+    current.skus.sort();
+    current.length_in = Math.max(current.length_in, row.length_in as number);
+    current.width_in = Math.max(current.width_in, row.width_in as number);
+    current.height_in = Math.max(current.height_in, row.height_in as number);
+    if (
+      row.dimensions_measured_at &&
+      (!current.dimensions_measured_at ||
+        row.dimensions_measured_at > current.dimensions_measured_at)
+    ) {
+      current.dimensions_measured_at = row.dimensions_measured_at;
+    }
+    if (weight != null) current.weight_lbs = Math.max(current.weight_lbs ?? 0, weight);
+  }
+  return index;
+}
+
+/**
+ * The carton FedEx already has for this SKU's model and size, measured on a
+ * different SKU. `null` when there is none -- including for a row that is the
+ * only measured one in its own group, which is covered by itself and needs no
+ * second opinion.
+ */
+export function coveringCarton(
+  row: { sku: string; model: string | null; size: string | null },
+  index: CartonCoverageIndex
+): CoveringCarton | null {
+  const key = cartonGroupKey(row);
+  if (!key) return null;
+  const found = index.get(key);
+  if (!found) return null;
+  const others = found.skus.filter((s) => s !== row.sku);
+  return others.length > 0 ? { ...found, skus: others } : null;
+}

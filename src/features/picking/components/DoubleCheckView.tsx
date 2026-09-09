@@ -56,7 +56,8 @@ import { useAuth } from '../../../context/AuthContext';
 import { useUnmarkWaiting, useTakeOverSku } from '../hooks/useWaitingOrders';
 import { withSupabaseRetry } from '../../../lib/supabaseRetry';
 import { autoClassifyShippingType } from '../../../utils/shippingClassification';
-import { fedexCartonGap, fedexCartonState } from '../../../utils/fedexCarton';
+import { coveringCarton, fedexCartonGap, fedexCartonState } from '../../../utils/fedexCarton';
+import { useCartonCoverage } from '../../../hooks/useCartonCoverage';
 import { UnratedCartonsBanner, type UnratedCarton } from './UnratedCartonsBanner';
 import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingConflicts';
 import { StockIssuePanel } from './StockIssuePanel';
@@ -622,6 +623,9 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   // newer than this has not reached Ship Manager, however verified it looks --
   // which is the difference the warning below exists to show. Read through an
   // RPC because fedex_dimension_exports is admin-only and this screen is not.
+  // What FedEx already holds by model + size, so a colour whose twin is
+  // measured is not sent back to the shelf with a tape measure.
+  const { data: coverage } = useCartonCoverage();
   const { data: exportedAt = null } = useQuery({
     queryKey: ['fedex-dimensions', 'exported-at'],
     queryFn: async () => {
@@ -684,6 +688,42 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         };
         const state = fedexCartonState(carton, exportedAt);
         if (state === 'synced') return;
+
+        // FedEx holds one carton per model + size and the file carries no SKU,
+        // so a colour whose twin is measured is already rated: the station
+        // picks the record measured on the blue one for the black one. Asking
+        // for a tape here is asking for a number that changes nothing.
+        const twin =
+          coverage && !row.dimensions_verified
+            ? coveringCarton({ sku: row.sku, model: row.model, size: row.size }, coverage)
+            : null;
+        if (twin) {
+          const twinState = fedexCartonState(
+            {
+              model: row.model,
+              length_in: twin.length_in,
+              width_in: twin.width_in,
+              height_in: twin.height_in,
+              dimensions_verified: true,
+              dimensions_measured_at: twin.dimensions_measured_at,
+            },
+            exportedAt
+          );
+          // Measured on the twin but not exported yet: still worth saying, and
+          // the numbers shown are the ones the record will carry.
+          if (twinState === 'synced') return;
+          gaps.push({
+            sku: row.sku,
+            model: row.model,
+            size: row.size,
+            state: 'pending_export',
+            gap: null,
+            coveredBy: twin.skus.join(', '),
+            stored: { length: twin.length_in, width: twin.width_in, height: twin.height_in },
+          });
+          return;
+        }
+
         gaps.push({
           sku: row.sku,
           model: row.model,
@@ -700,7 +740,7 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [cartSkusKey, exportedAt]);
+  }, [cartSkusKey, exportedAt, coverage]);
 
   // Effective shipping type: persisted override, else auto-classify from the
   // cart (count-only — no weight map here, mirroring VerificationBoard). Drives

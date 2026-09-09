@@ -1,10 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
+  buildCartonCoverage,
+  coveringCarton,
   fedexCartonGap,
   fedexCartonState,
   sidesToColumns,
   toAscii,
   type FedexCartonRow,
+  type MeasuredCartonRow,
 } from '../fedexCarton';
 
 /** A carton that passes every check, so each test can break exactly one thing. */
@@ -188,5 +191,93 @@ describe('fedexCartonState', () => {
 
   it('is pending rather than synced when a timestamp is unreadable', () => {
     expect(fedexCartonState(measured('not a date'), '2026-08-20T20:22:29Z')).toBe('pending_export');
+  });
+});
+
+describe('carton coverage — one record per model + size, no SKU in the file', () => {
+  const measured = (over: Partial<MeasuredCartonRow> = {}): MeasuredCartonRow => ({
+    sku: '03-3922BL',
+    model: 'CODA S2',
+    size: '15',
+    length_in: 53.75,
+    width_in: 9,
+    height_in: 29,
+    dimensions_verified: true,
+    dimensions_measured_at: '2026-08-20T12:00:00Z',
+    weight_lbs: 33.6,
+    weight_verified: true,
+    ...over,
+  });
+  const black = { sku: '03-3921BK', model: 'CODA S2', size: '15' };
+
+  it('covers a colour whose twin was measured', () => {
+    const index = buildCartonCoverage([measured()]);
+    const twin = coveringCarton(black, index);
+    expect(twin?.skus).toEqual(['03-3922BL']);
+    expect(twin?.length_in).toBe(53.75);
+    expect(twin?.weight_lbs).toBe(33.6);
+  });
+
+  it('does not cover another size of the same model', () => {
+    // 27 of 47 models with two measured sizes differ by more than an inch; a
+    // bigger frame is a bigger box, and a carton declared too small is the one
+    // that gets back-billed.
+    const index = buildCartonCoverage([measured()]);
+    expect(coveringCarton({ ...black, size: '23' }, index)).toBeNull();
+  });
+
+  it('reads the size the way the export writes it, so 56 and 56cm are one group', () => {
+    const index = buildCartonCoverage([measured({ size: '56cm', sku: '03-3957GN' })]);
+    expect(
+      coveringCarton({ sku: '03-3958GY', model: 'CODA S2', size: '56' }, index)
+    ).not.toBeNull();
+  });
+
+  it('never covers a SKU with itself', () => {
+    const index = buildCartonCoverage([measured({ sku: '03-3921BK', model: 'CODA S2' })]);
+    expect(coveringCarton(black, index)).toBeNull();
+  });
+
+  it('takes the largest of every axis, like the export does', () => {
+    const index = buildCartonCoverage([
+      measured({ sku: '03-3922BL', length_in: 53.75, width_in: 9, height_in: 29 }),
+      measured({ sku: '03-3923GY', length_in: 54.5, width_in: 8.75, height_in: 29.5 }),
+    ]);
+    const twin = coveringCarton(black, index);
+    expect(twin).toMatchObject({ length_in: 54.5, width_in: 9, height_in: 29.5 });
+    expect(twin?.skus).toEqual(['03-3922BL', '03-3923GY']);
+  });
+
+  it('carries the most recent measurement, so the export state is the group is', () => {
+    const index = buildCartonCoverage([
+      measured({ sku: '03-3922BL', dimensions_measured_at: '2026-08-20T12:00:00Z' }),
+      measured({ sku: '03-3923GY', dimensions_measured_at: '2026-09-09T12:00:00Z' }),
+    ]);
+    expect(coveringCarton(black, index)?.dimensions_measured_at).toBe('2026-09-09T12:00:00Z');
+  });
+
+  it('ignores a twin the export would hold back anyway', () => {
+    // Unmeasured, no model, and a lost decimal: none of them is in the file, so
+    // none of them covers anything.
+    const index = buildCartonCoverage([
+      measured({ sku: '03-1000BL', dimensions_verified: false }),
+      measured({ sku: '03-1001BL', model: null }),
+      measured({ sku: '03-1002BL', width_in: 875 }),
+    ]);
+    expect(index.size).toBe(0);
+  });
+
+  it('takes a weight only from a scale, and the heaviest of them', () => {
+    const index = buildCartonCoverage([
+      measured({ sku: '03-3922BL', weight_lbs: 33.6, weight_verified: true }),
+      measured({ sku: '03-3923GY', weight_lbs: 45, weight_verified: false }),
+      measured({ sku: '03-3924RD', weight_lbs: 34.2, weight_verified: true }),
+    ]);
+    expect(coveringCarton(black, index)?.weight_lbs).toBe(34.2);
+  });
+
+  it('has nothing to say about a row with no model', () => {
+    const index = buildCartonCoverage([measured()]);
+    expect(coveringCarton({ sku: '07-3742BK', model: null, size: null }, index)).toBeNull();
   });
 });

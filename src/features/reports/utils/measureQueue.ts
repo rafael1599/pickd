@@ -19,7 +19,13 @@
  * being asked to trust a formula they cannot check against the row in front of
  * them.
  */
-import { fedexCartonGap, type FedexCartonGap } from '../../../utils/fedexCarton';
+import {
+  coveringCarton,
+  fedexCartonGap,
+  type CartonCoverageIndex,
+  type CoveringCarton,
+  type FedexCartonGap,
+} from '../../../utils/fedexCarton';
 
 /** One row of `get_bike_demand_ranking`, as PostgREST returns it. */
 export interface BikeDemandRow {
@@ -96,4 +102,38 @@ export function matchesQuery(entry: MeasureQueueEntry, query: string): boolean {
     .join(' ')
     .toLowerCase();
   return q.split(/\s+/).every((term) => haystack.includes(term));
+}
+
+/** A box already in the FedEx file, measured on another colour of the same bike. */
+export interface CoveredEntry {
+  entry: MeasureQueueEntry;
+  twin: CoveringCarton;
+}
+
+/**
+ * Splits the queue into the boxes that still need a tape and the ones FedEx
+ * already has under another colour.
+ *
+ * FSM holds one carton per model + size and the file carries no SKU at all
+ * (`docs/warehouse-user-flows.md`), so the record measured on the blue one is
+ * the record the station picks for the black one. Walking to it with a tape
+ * measure produces a number that changes nothing in the file -- which is the
+ * whole reason the queue exists.
+ *
+ * Only `unverified` rows can be covered. A row whose own numbers are broken --
+ * a lost decimal, a missing side -- is a defect on the record itself, and the
+ * group being covered is no reason to leave it wrong.
+ */
+export function splitByCoverage(
+  entries: MeasureQueueEntry[],
+  index: CartonCoverageIndex | undefined
+): { queue: MeasureQueueEntry[]; covered: CoveredEntry[] } {
+  const queue: MeasureQueueEntry[] = [];
+  const covered: CoveredEntry[] = [];
+  for (const entry of entries) {
+    const twin = index && entry.gap === 'unverified' ? coveringCarton(entry, index) : null;
+    if (twin) covered.push({ entry, twin });
+    else queue.push(entry);
+  }
+  return { queue, covered };
 }

@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left';
 import ArrowLeftRight from 'lucide-react/dist/esm/icons/arrow-left-right';
 import Check from 'lucide-react/dist/esm/icons/check';
+import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import MapPin from 'lucide-react/dist/esm/icons/map-pin';
 import Ruler from 'lucide-react/dist/esm/icons/ruler';
@@ -30,7 +31,9 @@ import {
   fedexCartonGap,
   FEDEX_CARTON_GAP_LABELS,
   sidesToColumns,
+  type CoveringCarton,
 } from '../../utils/fedexCarton';
+import { useCartonCoverage } from '../../hooks/useCartonCoverage';
 import { useUpdateCartonDimensions } from '../picking/hooks/useUpdateCartonDimensions';
 import {
   draftColumns,
@@ -43,8 +46,78 @@ import {
   MEASURE_QUEUE_MONTHS,
   useMeasureQueue,
 } from './hooks/useMeasureQueue';
-import { describeBike, formatAddress, matchesQuery, type MeasureQueueEntry } from './utils/measureQueue';
+import {
+  describeBike,
+  formatAddress,
+  matchesQuery,
+  splitByCoverage,
+  type MeasureQueueEntry,
+} from './utils/measureQueue';
 import { lbsToUnit, planBoxSave, weightToLbs, type WeightUnit } from './utils/boxDraft';
+
+/**
+ * A box FedEx already has, because a different colour of the same model and
+ * size was measured. There is no trip to make -- and one tap writes the twin's
+ * carton onto this row anyway, which is worth doing for everything that reads
+ * the row rather than the file: Ship totals `weight_lbs` for the number the
+ * station types into Audit Source, and a Laser 1.6 sitting on the trigger's
+ * 45 lb default when its twin weighed 28.6 is 16 lb of invention per bike.
+ *
+ * The tap is the provenance. Nobody put a tape on this box, so the label says
+ * exactly whose measurement it is copying and what the numbers are; what makes
+ * it a measurement of this SKU is a person reading that and saying yes.
+ */
+const CoveredRow: React.FC<{
+  entry: MeasureQueueEntry;
+  twin: CoveringCarton;
+  saved?: SavedBox;
+  onSaved: (sku: string, box: SavedBox) => void;
+}> = ({ entry, twin, saved, onSaved }) => {
+  const update = useUpdateCartonDimensions();
+  const done = saved?.sides !== undefined;
+
+  const copy = async () => {
+    try {
+      await update.mutateAsync({
+        sku: entry.sku,
+        sides: [twin.length_in, twin.width_in, twin.height_in],
+        ...(twin.weight_lbs != null ? { weightLbs: twin.weight_lbs } : {}),
+      });
+      toast.success(`${entry.sku} takes ${twin.skus[0]}'s carton`);
+      onSaved(entry.sku, {
+        sides: sidesToColumns([twin.length_in, twin.width_in, twin.height_in]),
+        ...(twin.weight_lbs != null ? { weightLbs: twin.weight_lbs } : {}),
+      });
+    } catch {
+      // useUpdateCartonDimensions already said so.
+    }
+  };
+
+  return (
+    <li className="flex items-start gap-2 text-xs text-muted leading-relaxed">
+      <div className="min-w-0 flex-1">
+        <span className="font-black text-content">{entry.sku}</span> {describeBike(entry)} — same
+        carton as <span className="font-black text-content">{twin.skus.join(', ')}</span>:{' '}
+        <span className="font-mono text-content">{readOut(twin)}</span>
+        {twin.weight_lbs != null && <span className="font-mono"> · {twin.weight_lbs} lbs</span>}
+      </div>
+      {done ? (
+        <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-green-400">
+          <Check size={12} /> Copied
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={copy}
+          disabled={update.isPending}
+          className="shrink-0 px-2 py-1 rounded-lg border border-subtle text-[10px] font-black uppercase tracking-widest text-muted hover:text-content hover:border-accent/40 active:scale-95 transition-all disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          {update.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Copy'}
+        </button>
+      )}
+    </li>
+  );
+};
 
 /** The three columns a save writes when a tape measure was involved. */
 interface SavedSides {
@@ -399,16 +472,29 @@ export function MeasureCartonsScreen() {
       return next;
     });
 
-  const entries = data?.entries ?? [];
+  const { data: coverage } = useCartonCoverage();
+  const [showCovered, setShowCovered] = useState(true);
+
+  const entries = useMemo(() => data?.entries ?? [], [data]);
+
+  const { queue, covered } = useMemo(() => splitByCoverage(entries, coverage), [entries, coverage]);
+
   const visible = useMemo(
-    () => entries.filter((e) => matchesQuery(e, debouncedQuery)),
-    [entries, debouncedQuery]
+    () => queue.filter((e) => matchesQuery(e, debouncedQuery)),
+    [queue, debouncedQuery]
+  );
+  const visibleCovered = useMemo(
+    () => covered.filter((c) => matchesQuery(c.entry, debouncedQuery)),
+    [covered, debouncedQuery]
   );
 
   // "To measure" counts cartons FedEx cannot rate, so only a saved set of sides
   // takes one off the list — a weight on its own leaves the box still unmeasured.
-  const doneCount = Object.values(saved).filter((b) => b.sides !== undefined).length;
-  const left = entries.length - doneCount;
+  // Scoped to the queue: a carton copied from its colour twin was never one of
+  // the boxes to walk to, so counting it here would take one off "to measure"
+  // that nobody had to measure.
+  const doneCount = queue.filter((e) => saved[e.sku]?.sides !== undefined).length;
+  const left = queue.length - doneCount;
 
   // How many of those will actually reach FedEx. A box measured on a row with
   // no model is still held back by the export, so pointing at it and saying
@@ -460,6 +546,16 @@ export function MeasureCartonsScreen() {
                   To measure
                 </div>
               </div>
+              {covered.length > 0 && (
+                <div className="text-right">
+                  <div className="text-2xl font-black text-content/60 tabular-nums leading-none">
+                    {covered.length}
+                  </div>
+                  <div className="text-[9px] font-black uppercase tracking-widest text-muted/70">
+                    Covered
+                  </div>
+                </div>
+              )}
               {doneCount > 0 && (
                 <div className="text-right">
                   <div className="text-2xl font-black text-green-400 tabular-nums leading-none">
@@ -531,6 +627,45 @@ export function MeasureCartonsScreen() {
               />
             ))}
           </ul>
+        )}
+
+        {/* Not work, but not hidden either: the walk got shorter and this says
+            by how much and on whose measurement. */}
+        {visibleCovered.length > 0 && (
+          <div className="mt-6 pt-4 border-t border-subtle">
+            <button
+              type="button"
+              onClick={() => setShowCovered((v) => !v)}
+              aria-expanded={showCovered}
+              className="w-full flex items-center gap-2 text-left text-[11px] font-black uppercase tracking-widest text-muted hover:text-content transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+            >
+              <span className="tabular-nums text-content">{visibleCovered.length}</span>
+              already covered by another colour
+              <ChevronDown
+                size={14}
+                className={`ml-auto transition-transform ${showCovered ? 'rotate-180' : ''}`}
+              />
+            </button>
+            <p className="text-[11px] text-muted leading-relaxed mt-1.5">
+              FedEx keeps one carton per model and size, and the file carries no SKU — the box
+              measured on one colour is the record the station picks for the rest. No trip to make.
+            </p>
+            {showCovered && (
+              <ul className="mt-3 space-y-1.5">
+                {visibleCovered.map(({ entry, twin }) => (
+                  <CoveredRow
+                    key={entry.sku}
+                    entry={entry}
+                    twin={twin}
+                    saved={saved[entry.sku]}
+                    onSaved={(sku, box) =>
+                      setSaved((s) => ({ ...s, [sku]: { ...(s[sku] ?? {}), ...box } }))
+                    }
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
         )}
       </div>
 

@@ -52,6 +52,11 @@ export interface UnratedCarton {
   state: Exclude<FedexCartonState, 'synced'>;
   /** Why it cannot be exported, when that is the problem. */
   gap: FedexCartonGap | null;
+  /**
+   * The SKU whose measurement covers this one, when the carton on file was
+   * taken off a different colour of the same model and size.
+   */
+  coveredBy?: string;
   /** What the row holds today, so the operator can see what they are replacing. */
   stored: { length: number | null; width: number | null; height: number | null };
 }
@@ -272,6 +277,9 @@ export const UnratedCartonsBanner: React.FC<UnratedCartonsBannerProps> = ({
                   <span className="font-black">{carton.sku}</span>{' '}
                   <span className="text-muted">{describeCarton(carton)}</span>{' '}
                   <span className="font-mono text-muted/80">{formatStored(carton.stored)}</span>
+                  {carton.coveredBy && (
+                    <span className="text-muted/80"> · same carton as {carton.coveredBy}</span>
+                  )}
                 </li>
               ))}
             </ul>

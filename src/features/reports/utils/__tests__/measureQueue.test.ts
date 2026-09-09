@@ -4,8 +4,10 @@ import {
   formatAddress,
   describeBike,
   matchesQuery,
+  splitByCoverage,
   type BikeDemandRow,
 } from '../measureQueue';
+import { buildCartonCoverage, type MeasuredCartonRow } from '../../../../utils/fedexCarton';
 
 /** A measured, exportable carton. Overrides make the interesting cases. */
 const row = (over: Partial<BikeDemandRow> = {}): BikeDemandRow => ({
@@ -114,5 +116,56 @@ describe('matchesQuery', () => {
   it('requires every term, so two words narrow rather than widen', () => {
     expect(matchesQuery(entry, 'citizen 17')).toBe(true);
     expect(matchesQuery(entry, 'citizen 19')).toBe(false);
+  });
+});
+
+describe('splitByCoverage — the trip that measures nothing', () => {
+  const twin = (over: Partial<MeasuredCartonRow> = {}): MeasuredCartonRow => ({
+    sku: '03-3922BL',
+    model: 'CODA S2',
+    size: '15',
+    length_in: 53.75,
+    width_in: 9,
+    height_in: 29,
+    dimensions_verified: true,
+    dimensions_measured_at: '2026-08-20T12:00:00Z',
+    weight_lbs: 33.6,
+    weight_verified: true,
+    ...over,
+  });
+  const black = row({ sku: '03-3921BK', model: 'CODA S2', size: '15', dimensions_verified: false });
+
+  it('takes a colour out of the queue when its twin is measured', () => {
+    const { queue, covered } = splitByCoverage(
+      toMeasureQueue([black]),
+      buildCartonCoverage([twin()])
+    );
+    expect(queue).toEqual([]);
+    expect(covered[0].entry.sku).toBe('03-3921BK');
+    expect(covered[0].twin.skus).toEqual(['03-3922BL']);
+  });
+
+  it('leaves everything in the queue while the index has not loaded', () => {
+    const { queue, covered } = splitByCoverage(toMeasureQueue([black]), undefined);
+    expect(queue.map((e) => e.sku)).toEqual(['03-3921BK']);
+    expect(covered).toEqual([]);
+  });
+
+  it('still asks for a row whose own numbers are broken, covered or not', () => {
+    // A lost decimal is a defect on this record; the group being in the file is
+    // no reason to leave 875 sitting in a column.
+    const broken = row({ sku: '03-3921BK', model: 'CODA S2', size: '15', width_in: 875 });
+    const { queue, covered } = splitByCoverage(
+      toMeasureQueue([broken]),
+      buildCartonCoverage([twin()])
+    );
+    expect(queue.map((e) => e.sku)).toEqual(['03-3921BK']);
+    expect(covered).toEqual([]);
+  });
+
+  it('does not take a different size out of the queue', () => {
+    const other = row({ sku: '03-3929BK', model: 'CODA S2', size: '23', dimensions_verified: false });
+    const { queue } = splitByCoverage(toMeasureQueue([other]), buildCartonCoverage([twin()]));
+    expect(queue.map((e) => e.sku)).toEqual(['03-3929BK']);
   });
 });
