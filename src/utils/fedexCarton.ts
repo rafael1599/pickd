@@ -237,6 +237,13 @@ export interface CoveringCarton {
   dimensions_measured_at: string | null;
   /** The heaviest verified weight in the group, when one was ever put on a scale. */
   weight_lbs: number | null;
+  /**
+   * The colours of this model+size disagree by more than an inch, so
+   * `buildFedexDimensions` drops the whole group as a `dimension_conflict` and
+   * the file holds no record for it. Not coverage — the opposite: two people
+   * measured the same box and got different answers.
+   */
+  conflicted: boolean;
 }
 
 export type CartonCoverageIndex = Map<string, CoveringCarton>;
@@ -263,6 +270,8 @@ export type CartonCoverageIndex = Map<string, CoveringCarton>;
  */
 export function buildCartonCoverage(rows: MeasuredCartonRow[]): CartonCoverageIndex {
   const index: CartonCoverageIndex = new Map();
+  /** Per key, the ceiled [min, max] of each axis — the export's conflict test. */
+  const spans = new Map<string, [number, number][]>();
   for (const row of rows) {
     // Only what could actually be exported counts as coverage.
     if (fedexCartonGap(row) !== null) continue;
@@ -278,11 +287,27 @@ export function buildCartonCoverage(rows: MeasuredCartonRow[]): CartonCoverageIn
         height_in: row.height_in as number,
         dimensions_measured_at: row.dimensions_measured_at,
         weight_lbs: weight,
+        conflicted: false,
       });
+      spans.set(key, [
+        [Math.ceil(row.length_in as number), Math.ceil(row.length_in as number)],
+        [Math.ceil(row.width_in as number), Math.ceil(row.width_in as number)],
+        [Math.ceil(row.height_in as number), Math.ceil(row.height_in as number)],
+      ]);
       continue;
     }
     current.skus.push(row.sku);
     current.skus.sort();
+    // Whole inches, the way the export compares them: 54.5 and 55 are one
+    // carton, 53 and 55 are two people measuring different boxes.
+    const span = spans.get(key) as [number, number][];
+    const axes = [row.length_in, row.width_in, row.height_in] as number[];
+    axes.forEach((value, i) => {
+      const v = Math.ceil(value);
+      span[i][0] = Math.min(span[i][0], v);
+      span[i][1] = Math.max(span[i][1], v);
+    });
+    if (span.some(([lo, hi]) => hi - lo > 1)) current.conflicted = true;
     current.length_in = Math.max(current.length_in, row.length_in as number);
     current.width_in = Math.max(current.width_in, row.width_in as number);
     current.height_in = Math.max(current.height_in, row.height_in as number);
@@ -311,7 +336,9 @@ export function coveringCarton(
   const key = cartonGroupKey(row);
   if (!key) return null;
   const found = index.get(key);
-  if (!found) return null;
+  // A conflicted group produces no record at all, so there is nothing to be
+  // covered by: the export drops every row in it.
+  if (!found || found.conflicted) return null;
   const others = found.skus.filter((s) => s !== row.sku);
   return others.length > 0 ? { ...found, skus: others } : null;
 }

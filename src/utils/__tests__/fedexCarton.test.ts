@@ -281,3 +281,40 @@ describe('carton coverage — one record per model + size, no SKU in the file', 
     expect(coveringCarton({ sku: '07-3742BK', model: null, size: null }, index)).toBeNull();
   });
 });
+
+describe('a group the export drops covers nothing', () => {
+  const at = (sku: string, l: number, w: number, h: number): MeasuredCartonRow => ({
+    sku,
+    model: 'ALLEGRO A2',
+    size: '15',
+    length_in: l,
+    width_in: w,
+    height_in: h,
+    dimensions_verified: true,
+    dimensions_measured_at: '2026-08-20T12:00:00Z',
+    weight_lbs: null,
+    weight_verified: false,
+  });
+
+  it('two colours more than an inch apart are a conflict, not a carton', () => {
+    // 03-3885BK and 03-4536BL, in prod: 29 and 31 once ceiled on the middle
+    // axis. buildFedexDimensions drops both, so the file has no ALLEGRO A2 15
+    // and the grey one still has to be measured.
+    const index = buildCartonCoverage([
+      at('03-3885BK', 54.5, 8.25, 29),
+      at('03-4536BL', 55, 8.25, 30.25),
+    ]);
+    expect(index.get([...index.keys()][0])?.conflicted).toBe(true);
+    expect(coveringCarton({ sku: '03-4537GY', model: 'ALLEGRO A2', size: '15' }, index)).toBeNull();
+  });
+
+  it('within an inch is one carton, which is what the export merges', () => {
+    const index = buildCartonCoverage([
+      at('03-3885BK', 54.5, 8.25, 29),
+      at('03-4536BL', 55, 8.25, 29.5),
+    ]);
+    expect(
+      coveringCarton({ sku: '03-4537GY', model: 'ALLEGRO A2', size: '15' }, index)
+    ).not.toBeNull();
+  });
+});
