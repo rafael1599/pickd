@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>PickD — What's new (September 9, 2026)</title>
+<style>
+  @page { size: Letter; margin: 0.7in 0.75in; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: #1a1a1a; font-size: 11.5pt; line-height: 1.45; margin: 0; padding: 0 0 24px; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  h1 { font-size: 22pt; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: #555; margin: 0 0 18px; font-size: 10.5pt; }
+  h2 { font-size: 14pt; margin: 22px 0 8px; padding-bottom: 4px; border-bottom: 2px solid #1a1a1a; page-break-after: avoid; }
+  h3 { font-size: 12pt; margin: 16px 0 4px; page-break-after: avoid; }
+  p { margin: 6px 0; }
+  ul { margin: 4px 0 8px 20px; padding: 0; }
+  li { margin: 3px 0; }
+  .short { background: #f3f4f6; border-left: 5px solid #16a34a; padding: 10px 14px; margin: 10px 0 6px; }
+  .short p { margin: 4px 0; }
+  .big { background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 7px 12px; margin: 8px 0; font-size: 11pt; }
+  .note { color: #555; font-size: 10pt; }
+  .brief li { color: #333; }
+  .foot { margin-top: 26px; color: #777; font-size: 9.5pt; border-top: 1px solid #ddd; padding-top: 8px; }
+
+  /* A real screenshot with the orange numbered callouts the manuals use. */
+  .shot { margin: 10px 0 14px; page-break-inside: avoid; }
+  .ann { position: relative; display: block; line-height: 0; }
+  .ann img { width: 100%; border: 1px solid #ddd; border-radius: 8px; display: block; }
+  .ring { position: absolute; border: 2.5px solid #f97316; border-radius: 7px; box-shadow: 0 0 0 2px rgba(255,255,255,0.45); }
+  .num { position: absolute; width: 21px; height: 21px; margin: 0; border-radius: 50%; background: #f97316; color: #fff; font: 700 12px/21px -apple-system, Helvetica, Arial, sans-serif; text-align: center; transform: translate(-50%, -50%); box-shadow: 0 0 0 2px #fff; }
+  .legend { list-style: none; margin: 7px 0 0; padding: 0; font-size: 10pt; line-height: 1.35; }
+  .legend li { margin: 3px 0; padding-left: 25px; position: relative; color: #333; }
+  .legend .k { position: absolute; left: 0; top: 1px; width: 18px; height: 18px; border-radius: 50%; background: #f97316; color: #fff; font: 700 10.5px/18px -apple-system, Helvetica, Arial, sans-serif; text-align: center; }
+  .cap { font-size: 10pt; color: #555; padding-top: 6px; line-height: 1.35; }
+  @media screen { body { max-width: 860px; margin: 0 auto; padding: 24px 20px 40px; } }
+</style>
+</head>
+<body>
+
+<h1>PickD — What's new</h1>
+<p class="sub">Tuesday, September 9, 2026 · everything since August 28 · for everyone on the Ludlow floor</p>
+
+<div class="short">
+  <p><b>The short version</b></p>
+  <p>1. The orders the scanner captures from the AS400 <b>show up in PickD</b>. Nobody walks to Bay 2 to send them.</p>
+  <p>2. A cancelled order <b>finally gives its units back</b> — and a completed one gives them back to <b>RETURN TO STOCK</b>, not to the shelf.</p>
+  <p>3. What sits in RETURN TO STOCK is <b>picked before any shelf</b>.</p>
+</div>
+
+<h2>What you will notice</h2>
+
+<h3>1. Orders from the AS400 show up in PickD. Nobody walks to Bay 2.</h3>
+<p>To see what the scanner had captured, somebody went to the MacBook in Bay 2 and pressed Send there, one order at a time. Whatever nobody pressed just stayed there.</p>
+<p>Now the Live Board has a <b>From AS400</b> button with a count, and every capture is listed with its customer, its pallets, bikes and parts. One tap brings it in, and it lands on the board a few seconds later.</p>
+
+<figure class="shot">
+  <span class="ann">
+    <img src="img/2026-09-09-board-from-as400.jpg" alt="The Live Board header with the Completed, Waiting for Inventory and From AS400 pills; From AS400 shows 22" />
+    <span class="ring" style="left:61.3%; top:47%; width:22.2%; height:37%"></span>
+    <span class="num" style="left:60.3%; top:44%">1</span>
+  </span>
+  <ul class="legend">
+    <li><span class="k">1</span>The new button, next to the pills that were already there. The number is how many orders are waiting in the AS400 — here, 22.</li>
+  </ul>
+</figure>
+
+<figure class="shot">
+  <span class="ann">
+    <img src="img/2026-09-09-door-captures.jpg" alt="The AS400 CAPTURES screen: a green terminal listing orders 881418, 881417, 881416 and 881415, each with customer, pallets, bikes, parts and units, a BRING IN button and a DISMISS button" />
+    <span class="ring" style="left:26.4%; top:3.9%; width:18.6%; height:3.4%"></span>
+    <span class="num" style="left:24.8%; top:5.6%">1</span>
+    <span class="ring" style="left:26.4%; top:9.3%; width:21.3%; height:3.4%"></span>
+    <span class="num" style="left:24.8%; top:11.0%">2</span>
+    <span class="ring" style="left:26.9%; top:23.6%; width:18.2%; height:3.5%"></span>
+    <span class="num" style="left:25.6%; top:25.3%">3</span>
+    <span class="ring" style="left:27.2%; top:27.4%; width:8.8%; height:3.7%"></span>
+    <span class="num" style="left:25.6%; top:29.2%">4</span>
+    <span class="ring" style="left:26.0%; top:72.6%; width:8.0%; height:6.4%"></span>
+    <span class="num" style="left:24.4%; top:75.8%">5</span>
+  </span>
+  <ul class="legend">
+    <li><span class="k">1</span>How many are waiting, how many are held back, and whether Bay 2 is answering. If it says the scanner is not there, nothing can be brought in and the screen says so.</li>
+    <li><span class="k">2</span>The same search as the scanner in Bay 2 — <b>the last three digits are enough</b>. It also finds the older ones that already dropped off the list.</li>
+    <li><span class="k">3</span>What the order is, before anybody touches it: pallets, bikes, parts, units. The same count the board makes.</li>
+    <li><span class="k">4</span><b>BRING IN.</b> The order appears on the Live Board a few seconds later, in its lane.</li>
+    <li><span class="k">5</span><b>Purple means FedEx</b>, green means truck — the board's own colours. Nothing to read: 881415 is a FedEx order.</li>
+  </ul>
+  <p class="cap">Live on September 9. <b>DISMISS</b> takes an order off the list — eBay orders and the like never get picked. Nothing is lost: searching its number brings it back.</p>
+</figure>
+
+<h3>2. A cancelled order finally gives its units back.</h3>
+<p>It never did. There are <b>zero</b> restore records in the entire database, and order 881310 gave back <b>0 of its 19 units</b> when it was cancelled.</p>
+<p>Fixed — and where the units go changed with it. An order cancelled <i>after</i> it was completed lands in <b>RETURN TO STOCK</b>, not back on its shelf. Those bikes are already off the shelf and on a pallet by the door; putting them back in ROW 8 claims stock that is not there.</p>
+
+<figure class="shot">
+  <span class="ann">
+    <img src="img/2026-09-09-restore-881310.jpg" alt="The activity log of 03-3732BL: a Restock into RETURN TO STOCK on September 1, and below it the August 28 deduction by order 881310 struck through and marked REVERSED" />
+    <span class="ring" style="left:1.2%; top:30.5%; width:97.6%; height:10.6%"></span>
+    <span class="num" style="left:2.4%; top:30.5%">1</span>
+    <span class="ring" style="left:1.2%; top:72.8%; width:97.6%; height:10.8%"></span>
+    <span class="num" style="left:2.4%; top:72.8%">2</span>
+  </span>
+  <ul class="legend">
+    <li><span class="k">1</span>The unit comes back — into <b>RETURN TO STOCK</b>, where it physically is.</li>
+    <li><span class="k">2</span>The pick that order <b>881310</b> made on August 28, greyed out and marked <b>REVERSED</b>. Every line the order really took is undone one by one, and marked, so running it twice cannot double anything.</li>
+  </ul>
+  <p class="cap">One bike, 03-3732BL, read from its own history in PickD.</p>
+</figure>
+
+<h3>3. What sits in RETURN TO STOCK gets picked before any shelf.</h3>
+<p>Those loose units owe somebody a trip. The next order that needs the SKU <b>is</b> that trip. Before, the picker was sent to a full shelf instead and the pile by the door only grew.</p>
+
+<figure class="shot">
+  <span class="ann">
+    <img src="img/2026-09-09-return-to-stock.jpg" alt="Searching RETURN TO STOCK in PickD: the location header reads 17 / 550 with 533 free, and the bikes sitting there are listed" />
+    <span class="ring" style="left:25.6%; top:17.9%; width:49.0%; height:6.0%"></span>
+    <span class="num" style="left:24.0%; top:20.9%">1</span>
+  </span>
+  <ul class="legend">
+    <li><span class="k">1</span>Type <b>RETURN TO STOCK</b> in the search and it is a place like any other: <b>17 units</b>, listed one by one, and every order that needs one of them will be sent here first.</li>
+  </ul>
+</figure>
+
+<h3>4. The warehouse map is a screen in the app — measured, with the real stock in it.</h3>
+<p>The plans used to be drawings in a folder. To know what was in ROW 30 · H you asked somebody, or you walked over. Now every square carries its units and its SKU, drawn from the building's real measurements. Tap a SKU and every square holding it lights up.</p>
+
+<h3>5. PLAN and LIVE: move a pallet on the drawing, and it becomes real.</h3>
+<p>Rearranging a zone meant moving the bikes first and updating PickD afterwards — or never. Now you pick a square's pallet up, drop it where it goes, and <b>PLAN COMPLETED</b> writes it. Two buttons on the screen and nothing else.</p>
+
+<figure class="shot">
+  <span class="ann">
+    <img src="img/2026-09-09-map-bay3-north.jpg" alt="Bay 3 North in the warehouse map: rows drawn square by square, each square showing its units and its SKU, with the counters above and the PLAN and LIVE buttons at the top right" />
+    <span class="ring" style="left:0.8%; top:16.5%; width:20.6%; height:11.2%"></span>
+    <span class="num" style="left:3.0%; top:14.6%">1</span>
+    <span class="ring" style="left:81.8%; top:58.6%; width:4.8%; height:6.8%"></span>
+    <span class="num" style="left:80.2%; top:62.0%">2</span>
+    <span class="ring" style="left:84.4%; top:8.6%; width:11.8%; height:4.6%"></span>
+    <span class="num" style="left:82.8%; top:10.9%">3</span>
+  </span>
+  <ul class="legend">
+    <li><span class="k">1</span>The zone counted: <b>80 pallets in 173 squares</b>, <b>2,855 units</b> in stock, 55 % of capacity. Measured from the building, not estimated.</li>
+    <li><span class="k">2</span>One square — its units and its SKU. Tap it and it lists what is in it; an <b>!</b> is a square carrying more than 45.</li>
+    <li><span class="k">3</span>The only two buttons: <b>PLAN</b> (58 moves drawn and waiting) and <b>LIVE</b>. Everything else is just looking.</li>
+  </ul>
+</figure>
+
+<h3>6. Which box to measure first — and the scale on the same trip.</h3>
+<p>The export said 154 boxes FedEx could not rate. What it could not say was which one mattered: a bike ordered ninety times is mis-rated every week, one ordered once is a walk with a tape measure for nothing.</p>
+<p>The list is now ordered by how often the bike was actually ordered, it shows the row with the biggest pile of it, and the three sides <i>and</i> the weight are entered on the card itself.</p>
+<div class="big"><b>154 → 94 in eight days: 63 boxes measured, 57 weighed.</b></div>
+
+<figure class="shot">
+  <span class="ann">
+    <img src="img/2026-09-09-measure-queue.jpg" alt="The MEASURE screen: 94 boxes to measure, the first card is 03-4039BR with 15 orders, ROW 24 D, 12 in stock, three side fields, a weight field with a KG chip and a SAVE button" />
+    <span class="ring" style="left:73.6%; top:8.4%; width:6.6%; height:5.8%"></span>
+    <span class="num" style="left:72.0%; top:11.3%">1</span>
+    <span class="ring" style="left:24.0%; top:31.0%; width:4.6%; height:9.0%"></span>
+    <span class="num" style="left:22.4%; top:35.5%">2</span>
+    <span class="ring" style="left:29.0%; top:36.7%; width:21.4%; height:3.4%"></span>
+    <span class="num" style="left:51.5%; top:38.4%">3</span>
+    <span class="ring" style="left:24.0%; top:44.6%; width:52.0%; height:12.4%"></span>
+    <span class="num" style="left:22.4%; top:50.8%">4</span>
+  </span>
+  <ul class="legend">
+    <li><span class="k">1</span>What is left: <b>94 boxes FedEx cannot rate</b>. It was 154 eight days ago.</li>
+    <li><span class="k">2</span>Why this one is first: <b>15 orders</b> in the last twelve months. The list is in that order, so it reads the same as the number on the card.</li>
+    <li><span class="k">3</span>Where to go — the row with the biggest pile of it — and how many are there.</li>
+    <li><span class="k">4</span>The three sides <b>in any order</b>, and the scale on the same card. The <b>KG</b> chip switches the whole screen and is remembered, so nobody picks it 94 times.</li>
+  </ul>
+  <p class="cap">A card that is saved stays where it is, in green, so you can see the numbers went in.</p>
+</figure>
+
+<h3>7. The scanner digs itself out, and stops sleeping through the day.</h3>
+<p>On September 8 a VOID order left the terminal on the screen where <b>no key works</b>. The scanner sat dead for <b>36 minutes</b>, repeating one line nobody was reading, until a person opened a new session by hand. It now opens one itself.</p>
+<p>And it used to sleep twenty minutes between checks. It now checks every five, and spends the rest of that time reading the bike catalogue off the AS400.</p>
+
+<h2>Mentioned only, so you know it happened</h2>
+<ul class="brief">
+  <li><b>A blank page is not an empty order.</b> The scanner could read a real order as empty and skip its number for good — on order 880996 that would have silently thrown away <b>$3,965.50</b>.</li>
+  <li>Every ROW letter is one square now instead of two — <b>600 positions relabelled</b> across Bay 2 and Bay 3 North.</li>
+  <li>A square's hard cap is 45 units; over it, PLAN spreads the pallet on its own.</li>
+  <li>What has no square goes to <b>MAS</b>, the south hall floor, in front of its own block.</li>
+  <li>The AS400 sync report counts a storage block as one location, heads each section with its units in stock, and no longer prints the notes PickD wrote to itself.</li>
+  <li>An empty <i>Ship Via</i> reads as empty instead of borrowing the column next to it.</li>
+  <li><b>MAP</b> is in the navigation bar on desktop.</li>
+</ul>
+
+<h2>Coming up</h2>
+<ul>
+  <li><b>Comparing our catalogue against the AS400.</b> The AS400 holds the full name, a weight and its own stock for every bike, and PickD had never read any of it. The scanner now looks a bike up in the gaps between orders. Nothing to show yet — the first numbers arrive as it works through the list.</li>
+</ul>
+
+<p class="foot">PickD · September 9, 2026 · Questions: Rafael · Menu → What's new to print this page</p>
+</body>
+</html>
