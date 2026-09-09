@@ -246,7 +246,22 @@ export interface CoveringCarton {
   conflicted: boolean;
 }
 
-export type CartonCoverageIndex = Map<string, CoveringCarton>;
+export interface CartonCoverageIndex {
+  /** One entry per model+size the file holds a record for. */
+  groups: Map<string, CoveringCarton>;
+  /**
+   * The models the catalog gives a size to somewhere.
+   *
+   * Rafael, 9 sep 2026: "la talla si importa y cambia el tamaño de la caja".
+   * An empty size means two different things and they cannot be told apart from
+   * the row alone -- a JUV CAPRI 2.4 has one frame and no size to write, while
+   * a DIVIDE with an empty size is a size nobody filled in. Treating the second
+   * as the first would let a 13X27 inherit a 21X29's carton, and DIVIDE spans
+   * seven inches across its sizes. So a model that carries sizes anywhere
+   * covers nothing through a blank one: 11 models in prod are in that state.
+   */
+  sizedModels: Set<string>;
+}
 
 /**
  * What FedEx already has, by model+size rather than by SKU.
@@ -269,18 +284,31 @@ export type CartonCoverageIndex = Map<string, CoveringCarton>;
  * what gets back-billed.
  */
 export function buildCartonCoverage(rows: MeasuredCartonRow[]): CartonCoverageIndex {
-  const index: CartonCoverageIndex = new Map();
+  const index: CartonCoverageIndex = { groups: new Map(), sizedModels: new Set() };
   /** Per key, the ceiled [min, max] of each axis — the export's conflict test. */
   const spans = new Map<string, [number, number][]>();
+
+  // Learned from every row, measured or not: whether this model is one the
+  // catalog writes sizes for. An unmeasured sibling still knows that.
+  for (const row of rows) {
+    const model = toAscii(row.model ?? '').toUpperCase();
+    if (model && renderSize(row.size)) index.sizedModels.add(model);
+  }
+
   for (const row of rows) {
     // Only what could actually be exported counts as coverage.
     if (fedexCartonGap(row) !== null) continue;
     const key = cartonGroupKey(row);
     if (!key) continue;
-    const current = index.get(key);
+    // A size nobody filled in is not a size, and the group it would land in is
+    // every unsized colour of a model that has several.
+    if (!renderSize(row.size) && index.sizedModels.has(toAscii(row.model ?? '').toUpperCase())) {
+      continue;
+    }
+    const current = index.groups.get(key);
     const weight = row.weight_verified && row.weight_lbs != null ? row.weight_lbs : null;
     if (!current) {
-      index.set(key, {
+      index.groups.set(key, {
         skus: [row.sku],
         length_in: row.length_in as number,
         width_in: row.width_in as number,
@@ -335,7 +363,12 @@ export function coveringCarton(
 ): CoveringCarton | null {
   const key = cartonGroupKey(row);
   if (!key) return null;
-  const found = index.get(key);
+  // Same guard as the index: without a size, a model that has sizes cannot say
+  // which carton this is.
+  if (!renderSize(row.size) && index.sizedModels.has(toAscii(row.model ?? '').toUpperCase())) {
+    return null;
+  }
+  const found = index.groups.get(key);
   // A conflicted group produces no record at all, so there is nothing to be
   // covered by: the export drops every row in it.
   if (!found || found.conflicted) return null;

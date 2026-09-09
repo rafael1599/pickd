@@ -264,7 +264,7 @@ describe('carton coverage — one record per model + size, no SKU in the file', 
       measured({ sku: '03-1001BL', model: null }),
       measured({ sku: '03-1002BL', width_in: 875 }),
     ]);
-    expect(index.size).toBe(0);
+    expect(index.groups.size).toBe(0);
   });
 
   it('takes a weight only from a scale, and the heaviest of them', () => {
@@ -304,7 +304,7 @@ describe('a group the export drops covers nothing', () => {
       at('03-3885BK', 54.5, 8.25, 29),
       at('03-4536BL', 55, 8.25, 30.25),
     ]);
-    expect(index.get([...index.keys()][0])?.conflicted).toBe(true);
+    expect(index.groups.get([...index.groups.keys()][0])?.conflicted).toBe(true);
     expect(coveringCarton({ sku: '03-4537GY', model: 'ALLEGRO A2', size: '15' }, index)).toBeNull();
   });
 
@@ -316,5 +316,52 @@ describe('a group the export drops covers nothing', () => {
     expect(
       coveringCarton({ sku: '03-4537GY', model: 'ALLEGRO A2', size: '15' }, index)
     ).not.toBeNull();
+  });
+});
+
+describe('a size nobody filled in is not a size', () => {
+  const divide = (sku: string, size: string | null, length: number): MeasuredCartonRow => ({
+    sku,
+    model: 'DIVIDE',
+    size,
+    length_in: length,
+    width_in: 9,
+    height_in: 31,
+    dimensions_verified: true,
+    dimensions_measured_at: '2026-08-20T12:00:00Z',
+    weight_lbs: null,
+    weight_verified: false,
+  });
+
+  it('does not let one blank-size row cover another of a model that has sizes', () => {
+    // DIVIDE spans seven inches across its sizes (13X27 at 56, 19X29 at 61), so
+    // two rows whose size nobody entered are not the same box just because the
+    // column is empty on both.
+    const index = buildCartonCoverage([
+      divide('03-3770BL', '19X29', 61),
+      divide('03-3779RD', null, 61),
+    ]);
+    expect(coveringCarton({ sku: '03-3780BL', model: 'DIVIDE', size: null }, index)).toBeNull();
+  });
+
+  it('still covers a model the catalog writes no size for', () => {
+    // JUV CAPRI 2.4: one frame, nothing to write in the column, both colours on
+    // the same 48 x 26 x 9.
+    const capri = (sku: string): MeasuredCartonRow => ({
+      ...divide(sku, null, 48),
+      model: 'JUV CAPRI 2.4',
+    });
+    const index = buildCartonCoverage([capri('07-3689WH'), capri('07-3690BL')]);
+    expect(
+      coveringCarton({ sku: '07-3691GY', model: 'JUV CAPRI 2.4', size: null }, index)?.skus
+    ).toEqual(['07-3689WH', '07-3690BL']);
+  });
+
+  it('learns that a model has sizes from a row nobody measured', () => {
+    const index = buildCartonCoverage([
+      divide('03-3770BL', null, 61),
+      { ...divide('03-3771BL', '13X27', 56), dimensions_verified: false },
+    ]);
+    expect(coveringCarton({ sku: '03-3779RD', model: 'DIVIDE', size: null }, index)).toBeNull();
   });
 });

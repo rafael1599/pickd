@@ -12,10 +12,15 @@
  * Lives in `src/hooks` rather than in either feature because picking may not
  * import from reports.
  *
- * One query, no pagination beyond the explicit cap: 262 measured bike rows
- * today. A truncated read here can only under-report coverage -- somebody
- * measures a box that was already covered -- which is the safe direction, and
- * the opposite of the export's own read, where a missing row deletes a carton.
+ * The read is every bike row with a model, not only the measured ones: an
+ * unmeasured sibling is what tells the rule that this model carries sizes, and
+ * therefore that a blank size on another row is a missing value rather than a
+ * bike with one frame. 618 rows today.
+ *
+ * One query, no pagination beyond the explicit cap. A truncated read here can
+ * only under-report coverage -- somebody measures a box that was already
+ * covered -- which is the safe direction, and the opposite of the export's own
+ * read, where a missing row deletes a carton.
  */
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
@@ -27,8 +32,8 @@ import {
 
 export const cartonCoverageKey = ['fedex-dimensions', 'carton-coverage'] as const;
 
-/** Well above the 262 rows that qualify today, and below PostgREST's own cap. */
-const COVERAGE_LIMIT = 2000;
+/** Well above the 618 rows that qualify today, and below PostgREST's own cap. */
+const COVERAGE_LIMIT = 3000;
 
 export function useCartonCoverage() {
   return useQuery<CartonCoverageIndex>({
@@ -42,7 +47,6 @@ export function useCartonCoverage() {
         )
         .eq('is_bike', true)
         .not('is_scratch_dent', 'is', true)
-        .eq('dimensions_verified', true)
         .not('model', 'is', null)
         .limit(COVERAGE_LIMIT);
       if (error) throw error;
