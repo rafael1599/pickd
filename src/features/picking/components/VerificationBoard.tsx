@@ -807,6 +807,9 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                     </span>
                   </label>
                 )}
+                {/* The door, not a counter (Rafael, 9 sep 2026): a capture on
+                    Bay 2 is not work on the floor — it may never be picked —
+                    so it sits next to the numbers without adding to them. */}
                 {doorCaptures.length > 0 && (
                   <button
                     onClick={() => openModal({ type: 'as400-door' })}
@@ -816,9 +819,6 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                   >
                     <ArrowDownToLine size={12} />
                     <span>From AS400</span>
-                    <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-indigo-500 text-white text-[10px] font-black leading-none ml-0.5">
-                      {doorCaptures.length}
-                    </span>
                   </button>
                 )}
               </div>

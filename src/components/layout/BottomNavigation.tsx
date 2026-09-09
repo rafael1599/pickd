@@ -7,11 +7,7 @@ import Map from 'lucide-react/dist/esm/icons/map';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useViewMode } from '../../context/ViewModeContext';
 import { useDoubleCheckList } from '../../features/picking/hooks/useDoubleCheckList';
-import {
-  pendingCaptures,
-  useAs400Door,
-  useAs400DoorRealtime,
-} from '../../features/picking/hooks/useAs400Door';
+import { useAs400DoorRealtime } from '../../features/picking/hooks/useAs400Door';
 import { useOverlayOpen, useScrollLock } from '../../hooks/useScrollLock';
 import { VerificationBoard } from '../../features/picking/components/VerificationBoard';
 
@@ -73,13 +69,11 @@ export const BottomNavigation = () => {
   const { viewMode, isSearching, requestStockView } = useViewMode();
   const navigate = useNavigate();
   const location = useLocation();
-  const { readyCount, correctionCount, waitingCount, refresh } = useDoubleCheckList();
+  const { pullingCount, correctionCount, waitingCount, refresh } = useDoubleCheckList();
   // The door's one realtime channel lives here, not in the board: the board
-  // unmounts when closed, and the nav badge has to count waiting captures
-  // whether it is open or not.
+  // unmounts when closed, and the door list has to stay fresh so the modal
+  // opens on today's captures instead of whatever was cached last.
   useAs400DoorRealtime();
-  const door = useAs400Door();
-  const doorCount = pendingCaptures(door.data).length;
   const [isBoardOpen, setIsBoardOpen] = useState(false);
   useScrollLock(isBoardOpen, () => setIsBoardOpen(false));
   // Any modal/sheet/menu over the view (anything holding a scroll lock) slides
@@ -99,7 +93,10 @@ export const BottomNavigation = () => {
     if (location.pathname !== '/') navigate('/');
   };
 
-  const totalActions = readyCount + correctionCount + waitingCount + doorCount;
+  // Work that is actually in the building: pulling + corrections + waiting.
+  // AS400 captures are deliberately NOT here (Rafael, 9 sep 2026) — an order
+  // published on Bay 2 is not on the floor yet, and may never be.
+  const totalActions = pullingCount + correctionCount + waitingCount;
 
   return (
     <>

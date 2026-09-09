@@ -15,18 +15,16 @@ import { ModalOverlay } from '../../ui/ModalOverlay';
 import { BottomNavigation } from '../BottomNavigation';
 import { ViewModeProvider } from '../../../context/ViewModeContext';
 
-// The door hook is react-query; with no QueryClient in this render it is
-// mocked out like useDoubleCheckList below. The badge sum is covered by the
-// hook's own tests.
+// The door's realtime hook is react-query; with no QueryClient in this render
+// it is mocked out like useDoubleCheckList below. The door no longer feeds the
+// badge — the sum is pulling + corrections + waiting.
 vi.mock('../../../features/picking/hooks/useAs400Door', () => ({
-  useAs400Door: () => ({ data: [] }),
   useAs400DoorRealtime: () => {},
-  pendingCaptures: () => [],
 }));
 
 vi.mock('../../../features/picking/hooks/useDoubleCheckList', () => ({
   useDoubleCheckList: () => ({
-    readyCount: 0,
+    pullingCount: 0,
     correctionCount: 0,
     waitingCount: 0,
     refresh: vi.fn(),

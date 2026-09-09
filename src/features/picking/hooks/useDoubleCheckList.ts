@@ -163,10 +163,14 @@ export const useDoubleCheckList = () => {
 
   const orders = useMemo(() => rawOrders ?? [], [rawOrders]);
 
-  const { readyCount, correctionCount, checkingCount, waitingCount } = useMemo(
+  const { pullingCount, correctionCount, checkingCount, waitingCount } = useMemo(
     () => ({
-      readyCount: orders.filter(
-        (o) => o.status === 'ready_to_double_check' && !o.is_waiting_inventory
+      // The board's Pulling zone, whole: orders still being picked ('active')
+      // and orders that finished picking and await verification. Counting only
+      // the second half left everything on the floor invisible to the badge.
+      pullingCount: orders.filter(
+        (o) =>
+          (o.status === 'active' || o.status === 'ready_to_double_check') && !o.is_waiting_inventory
       ).length,
       correctionCount: orders.filter(
         (o) => o.status === 'needs_correction' && !o.is_waiting_inventory
@@ -186,7 +190,7 @@ export const useDoubleCheckList = () => {
   return {
     orders,
     completedOrders: completedOrders ?? [],
-    readyCount,
+    pullingCount,
     correctionCount,
     checkingCount,
     waitingCount,
