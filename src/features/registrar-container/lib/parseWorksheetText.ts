@@ -41,7 +41,19 @@ export function parseWorksheetText(text: string, sheetName = 'PO worksheet'): Pa
     const [, qtyStr, prefix, number, color, name] = m;
     const qty = Number(qtyStr);
     if (!Number.isFinite(qty) || qty <= 0) continue; // skip the totals/notes row (qty 0)
-    items.push({ po, sku: buildSku(prefix, number, color), qty, itemName: name.trim() });
+    // No model/size/color: the worksheet writes one description per part
+    // ("Taxi Part Chainguard 24''"), not the three columns the xlsx breakdown
+    // keeps apart. Splitting that sentence would be invention, and these are
+    // parts -- the FedEx carton record only names bikes.
+    items.push({
+      po,
+      sku: buildSku(prefix, number, color),
+      qty,
+      itemName: name.trim(),
+      model: null,
+      size: null,
+      color: null,
+    });
   }
 
   return {

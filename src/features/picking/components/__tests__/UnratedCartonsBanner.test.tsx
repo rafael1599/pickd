@@ -41,6 +41,19 @@ const pending: UnratedCarton = {
   stored: { length: 56, width: 8, height: 28.5 },
 };
 
+/**
+ * Measured, weighed, and still held back -- because there is no model to name
+ * the FSM record after. The two Lasers of 9 Sep 2026, in miniature.
+ */
+const noModel: UnratedCarton = {
+  sku: '07-3743PK',
+  model: null,
+  size: null,
+  state: 'unmeasured',
+  gap: 'no_model',
+  stored: { length: 37, width: 8, height: 18 },
+};
+
 const sides = () => screen.getAllByRole('spinbutton') as HTMLInputElement[];
 
 const typeSides = (a: string, b: string, c: string) => {
@@ -138,6 +151,23 @@ describe('UnratedCartonsBanner', () => {
     await waitFor(() => expect(mockSupabase.update).toHaveBeenCalled());
     expect(onMeasured).not.toHaveBeenCalled();
     expect(sides()[0]).toHaveValue(56);
+  });
+
+  it('does not ask for a tape when the tape is not what is missing', () => {
+    renderBanner([noModel]);
+    // No form: measuring it again would write the same three numbers and leave
+    // it exactly as held back as before.
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+    expect(screen.getByText('07-3743PK')).toBeInTheDocument();
+    expect(screen.getByText('37 × 18 × 8')).toBeInTheDocument();
+    expect(screen.getByText(/no model on the record/i)).toBeInTheDocument();
+  });
+
+  it('still asks for the boxes a tape can fix, alongside one it cannot', () => {
+    renderBanner([unmeasured, noModel]);
+    expect(sides()).toHaveLength(3); // the unmeasured one only
+    expect(screen.getByText('03-3848BK')).toBeInTheDocument();
+    expect(screen.getByText('07-3743PK')).toBeInTheDocument();
   });
 
   it('shows a measured carton as waiting on the export, with no form', () => {

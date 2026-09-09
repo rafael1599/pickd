@@ -13,8 +13,19 @@ type Step = 'upload' | 'classify' | 'preview' | 'done';
 // Stock from these container imports always lands in the LUDLOW warehouse.
 const WAREHOUSE = 'LUDLOW';
 
+// Model / size / color travel beside the joined name: `register_new_sku` has a
+// column for each, and the sheet already knows which is which. A bike that
+// reaches sku_metadata without a model is held out of the FedEx carton file
+// for good, however many times somebody measures the box.
 function toInputItems(sheet: ParsedSheet): ContainerInputItem[] {
-  return sheet.items.map((i) => ({ sku: i.sku, qty: i.qty, item_name: i.itemName }));
+  return sheet.items.map((i) => ({
+    sku: i.sku,
+    qty: i.qty,
+    item_name: i.itemName,
+    model: i.model,
+    size: i.size,
+    color: i.color,
+  }));
 }
 
 function locLabel(t?: ResolvedItem['existing_locations'][number]): string {

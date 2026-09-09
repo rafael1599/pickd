@@ -7,17 +7,25 @@
  * item screen to type three numbers means putting the box down, losing the
  * order, and usually not coming back. The measuring tape is already in hand.
  *
- * Two states, because they need two different people. `unmeasured` is work for
- * whoever is standing here. `pending_export` is measured already and waiting on
- * an admin to run the Dimensions export and import it -- nothing the operator
- * can do, but still a carton FedEx is quoting wrong, so it says so quietly
- * rather than disappearing.
+ * Three groups, because they need three different people. `unmeasured` is work
+ * for whoever is standing here. `pending_export` is measured already and
+ * waiting on an admin to run the Dimensions export and import it -- nothing the
+ * operator can do, but still a carton FedEx is quoting wrong, so it says so
+ * quietly rather than disappearing.
+ *
+ * And `no_model`, which is neither. Those boxes are measured; what they lack is
+ * a name for the FSM record, and a tape measure cannot supply one. Handing them
+ * the same three empty fields is what this banner did until 9 Sep 2026 -- Rafael
+ * measured and weighed two Lasers on the floor and was asked for the same two
+ * boxes on the next order, with nothing on screen to say why. They are listed
+ * apart now, saying what is actually missing.
  */
 import { useState } from 'react';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import Check from 'lucide-react/dist/esm/icons/check';
 import Clock from 'lucide-react/dist/esm/icons/clock';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
+import Ruler from 'lucide-react/dist/esm/icons/ruler';
 import toast from 'react-hot-toast';
 import { ManualLinkButton } from '../../../components/manuals/ManualLinkButton';
 import {
@@ -80,7 +88,10 @@ export const UnratedCartonsBanner: React.FC<UnratedCartonsBannerProps> = ({
 
   if (cartons.length === 0) return null;
 
-  const toMeasure = cartons.filter((c) => c.state === 'unmeasured');
+  // `no_model` implies measured: fedexCartonGap reports 'unverified' first, so a
+  // row only reaches this reason once the dimensions are real.
+  const needsModel = cartons.filter((c) => c.gap === 'no_model');
+  const toMeasure = cartons.filter((c) => c.state === 'unmeasured' && c.gap !== 'no_model');
   const waiting = cartons.filter((c) => c.state === 'pending_export');
 
   const draftFor = (sku: string) => drafts[sku] ?? EMPTY_CARTON_DRAFT;
@@ -217,8 +228,36 @@ export const UnratedCartonsBanner: React.FC<UnratedCartonsBannerProps> = ({
           </>
         )}
 
-        {waiting.length > 0 && (
+        {needsModel.length > 0 && (
           <div className={toMeasure.length > 0 ? 'mt-3 pt-3 border-t border-subtle' : ''}>
+            <p className="text-[11px] font-medium text-muted mb-2 leading-relaxed flex items-start gap-1.5">
+              <Ruler size={13} className="text-muted/70 shrink-0 mt-0.5" />
+              <span>
+                {needsModel.length > 1 ? 'These boxes are' : 'This box is'} measured already. What
+                the FedEx record has no name for is the model, and the catalog carries none — a tape
+                measure cannot fix this one. Add the model on the item record.
+              </span>
+            </p>
+            <ul className="space-y-1 mb-1">
+              {needsModel.map((carton) => (
+                <li key={carton.sku} className="text-sm font-medium text-content">
+                  <span className="font-black">{carton.sku}</span>{' '}
+                  <span className="font-mono text-muted/80">{formatStored(carton.stored)}</span>{' '}
+                  <span className="text-amber-500/80">· no model on the record</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {waiting.length > 0 && (
+          <div
+            className={
+              toMeasure.length > 0 || needsModel.length > 0
+                ? 'mt-3 pt-3 border-t border-subtle'
+                : ''
+            }
+          >
             <p className="text-[11px] font-medium text-muted mb-2 leading-relaxed flex items-start gap-1.5">
               <Clock size={13} className="text-muted/70 shrink-0 mt-0.5" />
               <span>
