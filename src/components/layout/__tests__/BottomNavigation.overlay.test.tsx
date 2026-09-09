@@ -17,16 +17,14 @@ import { ViewModeProvider } from '../../../context/ViewModeContext';
 
 // The door's realtime hook is react-query; with no QueryClient in this render
 // it is mocked out like useDoubleCheckList below. The door no longer feeds the
-// badge — the sum is pulling + corrections + waiting.
+// badge — the badge is every order on the board.
 vi.mock('../../../features/picking/hooks/useAs400Door', () => ({
   useAs400DoorRealtime: () => {},
 }));
 
 vi.mock('../../../features/picking/hooks/useDoubleCheckList', () => ({
   useDoubleCheckList: () => ({
-    pullingCount: 0,
-    correctionCount: 0,
-    waitingCount: 0,
+    boardCount: 0,
     refresh: vi.fn(),
   }),
 }));

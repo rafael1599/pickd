@@ -69,7 +69,10 @@ export const BottomNavigation = () => {
   const { viewMode, isSearching, requestStockView } = useViewMode();
   const navigate = useNavigate();
   const location = useLocation();
-  const { pullingCount, correctionCount, waitingCount, refresh } = useDoubleCheckList();
+  // Every order on the Live Board, no bucket left out. AS400 captures are
+  // deliberately absent (Rafael, 9 sep 2026) — an order published on Bay 2 is
+  // not on the floor yet, and may never be.
+  const { boardCount, refresh } = useDoubleCheckList();
   // The door's one realtime channel lives here, not in the board: the board
   // unmounts when closed, and the door list has to stay fresh so the modal
   // opens on today's captures instead of whatever was cached last.
@@ -92,11 +95,6 @@ export const BottomNavigation = () => {
     requestStockView();
     if (location.pathname !== '/') navigate('/');
   };
-
-  // Work that is actually in the building: pulling + corrections + waiting.
-  // AS400 captures are deliberately NOT here (Rafael, 9 sep 2026) — an order
-  // published on Bay 2 is not on the floor yet, and may never be.
-  const totalActions = pullingCount + correctionCount + waitingCount;
 
   return (
     <>
@@ -153,7 +151,7 @@ export const BottomNavigation = () => {
                 if (next) refresh();
               }}
               isCompact={isSearching}
-              badge={totalActions}
+              badge={boardCount}
             />
           </div>
         </div>

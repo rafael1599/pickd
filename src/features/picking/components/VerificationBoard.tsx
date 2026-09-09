@@ -769,7 +769,12 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             <h2 className="text-base md:text-xl lg:text-xl font-black text-content uppercase tracking-tight text-center leading-none mt-1">
               Live Board
             </h2>
+            {/* One chip per zone of the board below, in the same order, so
+                every order on screen is accounted for in a number (Rafael,
+                9 sep 2026). Chip colors match each zone's own color. */}
             {(priorityOrders.length > 0 ||
+              fedexOrders.length > 0 ||
+              regularOrders.length > 0 ||
               pullingOrders.length > 0 ||
               completedCount > 0 ||
               waitingOrders.length > 0 ||
@@ -781,6 +786,18 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                     <span>Available: {priorityOrders.length}</span>
                   </div>
                 )}
+                {fedexOrders.length > 0 && (
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 font-bold whitespace-nowrap">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                    <span>FedEx: {fedexOrders.length}</span>
+                  </div>
+                )}
+                {regularOrders.length > 0 && (
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold whitespace-nowrap">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <span>Regular: {regularOrders.length}</span>
+                  </div>
+                )}
                 {pullingOrders.length > 0 && (
                   <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-500 font-bold whitespace-nowrap">
                     <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
@@ -788,8 +805,8 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
                   </div>
                 )}
                 {completedCount > 0 && (
-                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 font-bold whitespace-nowrap">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-content/5 text-content/60 font-bold whitespace-nowrap">
+                    <span className="w-1.5 h-1.5 rounded-full bg-content/40" />
                     <span>Completed: {completedCount}</span>
                   </div>
                 )}

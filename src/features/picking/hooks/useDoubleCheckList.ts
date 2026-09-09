@@ -163,24 +163,14 @@ export const useDoubleCheckList = () => {
 
   const orders = useMemo(() => rawOrders ?? [], [rawOrders]);
 
-  const { pullingCount, correctionCount, checkingCount, waitingCount } = useMemo(
-    () => ({
-      // The board's Pulling zone, whole: orders still being picked ('active')
-      // and orders that finished picking and await verification. Counting only
-      // the second half left everything on the floor invisible to the badge.
-      pullingCount: orders.filter(
-        (o) =>
-          (o.status === 'active' || o.status === 'ready_to_double_check') && !o.is_waiting_inventory
-      ).length,
-      correctionCount: orders.filter(
-        (o) => o.status === 'needs_correction' && !o.is_waiting_inventory
-      ).length,
-      checkingCount: orders.filter((o) => o.status === 'double_checking' && !o.is_waiting_inventory)
-        .length,
-      waitingCount: orders.filter((o) => o.is_waiting_inventory).length,
-    }),
-    [orders]
-  );
+  // Every order on the Live Board (Rafael, 9 sep 2026: "cada orden que esta en
+  // live board debe ser contada"). The query above already IS the board's
+  // non-completed set, and the board files each row into exactly one zone —
+  // Available, Pulling, FedEx, Regular, Waiting — so its length is the whole
+  // board and no zone can be left out of the total by forgetting a status.
+  // Summing per-status buckets is what let 'active' and 'double_checking' fall
+  // through twice.
+  const boardCount = orders.length;
 
   const refresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: VERIFICATION_QUEUE_KEY });
@@ -190,10 +180,7 @@ export const useDoubleCheckList = () => {
   return {
     orders,
     completedOrders: completedOrders ?? [],
-    pullingCount,
-    correctionCount,
-    checkingCount,
-    waitingCount,
+    boardCount,
     loading: ordersLoading || completedLoading,
     refresh,
   };
