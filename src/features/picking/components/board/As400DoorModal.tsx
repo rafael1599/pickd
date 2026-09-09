@@ -243,16 +243,15 @@ export function As400DoorModal({ onClose }: { onClose: () => void }) {
     : null;
 
   return (
+    // A full takeover on solid `bg-main`, like the board underneath it — not a
+    // sheet over a dimmed backdrop. Rafael, 2026-09-09: the board behind must
+    // not show through.
     <div
-      className="fixed inset-0 z-[120] flex items-end md:items-center justify-center bg-black/50"
-      onClick={onClose}
+      className="fixed inset-0 z-[120] flex flex-col bg-main"
+      role="dialog"
+      aria-label="AS400 captures"
     >
-      <div
-        className="w-full md:max-w-2xl max-h-[92vh] md:max-h-[85vh] flex flex-col rounded-t-3xl md:rounded-3xl bg-app border border-subtle shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-label="AS400 captures"
-      >
+      <div className="flex-1 min-h-0 flex flex-col w-full md:max-w-2xl md:mx-auto">
         <div className="flex items-center justify-between px-4 py-3 border-b border-subtle">
           <div>
             <h2 className="text-base font-black text-content uppercase tracking-tight">
@@ -264,12 +263,15 @@ export function As400DoorModal({ onClose }: { onClose: () => void }) {
               {held.length > 0 && ` · ${held.length} held`}
             </p>
           </div>
+          {/* Big and red on purpose: this is a full takeover, so the way out
+              has to be the most obvious thing on screen. */}
           <button
             onClick={onClose}
-            className="p-2 rounded-xl hover:bg-surface text-muted hover:text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="p-2 rounded-xl text-red-500 hover:bg-red-500/10 active:scale-95 transition-all
+                       focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
             aria-label="Close"
           >
-            <X size={18} />
+            <X size={32} strokeWidth={3} />
           </button>
         </div>
 
