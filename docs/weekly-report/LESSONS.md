@@ -160,3 +160,24 @@ reads this file before writing anything. Written as _wrong → right_.
 - **Search rule (his words):** page 5 at a time to spare the DB, but never lose a registered
   order — the old 500-row cap once hid one. So: newest five + "Show 5 more", and an exact
   order number fetched on its own so it is always on the first page.
+
+### 2026-09-09 — What's new, twelve days in one report
+
+- **The window was bigger than it looked.** The 28 Aug report covered only Ship (three items), so
+  everything from the measured map onward — PLAN/LIVE, sublocations, RETURN TO STOCK — was still
+  unpresented. **Read the last report's own headings before deciding the window**, not the date.
+- **Numbers pulled from prod, not from the commit messages**, and two of them carried the report:
+  `154 → 94` boxes still unrated by FedEx (63 measured, 57 weighed in eight days), and **zero**
+  restore records in the whole database, which is what made "a cancelled order never gave its
+  units back" a fact instead of a claim.
+- **Rafael's calls on the leftovers** (he asked for a ranking session rather than my ordering):
+  - The near-miss — a real order readable as empty and skipped for good, $3,965.50 on order
+    880996 — **stays in "mentioned only" with its figure**. My proposal was to promote it over the
+    map. Lesson: a bug that can no longer happen does not need the spotlight; the figure is enough.
+  - **Nothing else gets promoted.** "Seven stories is already a lot for two pages" — the rest earns
+    half a line, which is the 28 Aug rule holding.
+  - Groundwork with no numbers yet (the AS400 catalogue comparison) goes to **Coming up**, never a
+    story: it also prepares the floor for the questions it will cause.
+- **Markdown only this round**, no PDF. The draft lives beside the published ones as
+  `reports/warehouse-updates/2026-09-09.md` so the HTML/PDF step reads from something signed off.
+- Language stays **English** (the 28 Aug default held).
