@@ -36,7 +36,19 @@ export interface DoorItem {
   sku_metadata?: { is_bike?: boolean | null } | null;
 }
 
-export type DoorStatus = 'pending' | 'held' | 'requested' | 'sending';
+/**
+ * `v_as400_door` only ever returns the first four. The last three come from
+ * SEARCH, which reads the table directly — the list is today's work, the search
+ * is the whole ledger.
+ */
+export type DoorStatus =
+  | 'pending'
+  | 'held'
+  | 'requested'
+  | 'sending'
+  | 'archived'
+  | 'sent'
+  | 'junk';
 
 export interface DoorCapture {
   order_number: string;
@@ -135,6 +147,9 @@ export function inFlightCaptures(rows: DoorCapture[] | undefined): DoorCapture[]
  */
 export function isRequestable(row: Pick<DoorCapture, 'status' | 'hold_reason'>): boolean {
   if (row.status === 'pending') return true;
+  // Found by search after the list let it go, or after somebody dismissed it.
+  // Asking for it is also how a dismissal is undone.
+  if (row.status === 'archived' || row.status === 'junk') return true;
   if (row.status === 'held')
     return row.hold_reason === 'stale' || row.hold_reason === 'waiting_locked';
   return false;
@@ -171,6 +186,41 @@ export function summarize(row: DoorCapture) {
   return { lane, pallets, bikes, parts, units: bikes + parts };
 }
 
+/**
+ * Search the whole ledger, not the list.
+ *
+ * `v_as400_door` hides what is archived, dismissed or already in Pickd, which
+ * is right for a board that should offer today's work. But the case Rafael
+ * described when the door was designed — "una orden no elegida hoy que se busca
+ * para jalar mañana" — lives precisely in what the list hides, so the search
+ * goes to the table.
+ *
+ * Substring, because the watchdog's own box searches by the last three digits
+ * and the muscle memory is worth keeping.
+ */
+export function useAs400CaptureSearch(query: string) {
+  const q = query.trim();
+  return useQuery<DoorCapture[]>({
+    queryKey: ['as400-door', 'search', q],
+    enabled: q.length >= 2,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('as400_captures')
+        .select(
+          'order_number, status, hold_reason, source, captured_at, updated_at, customer, ' +
+            'ship_to, as400_account_number, order_date, item_count, total_units, subtotal, ' +
+            'total_mismatch, items, requested_by, requested_at, last_error'
+        )
+        .ilike('order_number', `%${q}%`)
+        .order('captured_at', { ascending: false })
+        .limit(25);
+      if (error) throw error;
+      return (data ?? []) as unknown as DoorCapture[];
+    },
+    staleTime: 10_000,
+  });
+}
+
 // ── Mutations ──────────────────────────────────────────────────────
 
 function useDoorMutation(fn: string) {
@@ -185,6 +235,8 @@ function useDoorMutation(fn: string) {
       return data as unknown as boolean;
     },
     onSettled: () => {
+      // DOOR_KEY is the prefix of the search keys too, so one invalidation
+      // refreshes the list and whatever the operator is searching.
       queryClient.invalidateQueries({ queryKey: DOOR_KEY });
     },
   });

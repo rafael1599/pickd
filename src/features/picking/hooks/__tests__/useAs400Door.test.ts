@@ -47,6 +47,19 @@ describe('isRequestable — mirrors request_as400_capture so the button never li
     expect(isRequestable(row({ status: 'requested' }))).toBe(false);
     expect(isRequestable(row({ status: 'sending' }))).toBe(false);
   });
+
+  it('offers what only SEARCH can find', () => {
+    // The list hides these on purpose; the search is how "una orden no elegida
+    // hoy que se busca para jalar mañana" is reached, so finding one and not
+    // being able to act on it would be worse than not finding it. Dismissed is
+    // included because bringing the order in IS the undo of a dismissal.
+    expect(isRequestable(row({ status: 'archived' }))).toBe(true);
+    expect(isRequestable(row({ status: 'junk' }))).toBe(true);
+  });
+
+  it('offers nothing for a capture already on the board', () => {
+    expect(isRequestable(row({ status: 'sent' }))).toBe(false);
+  });
 });
 
 describe('isWatcherAlive', () => {

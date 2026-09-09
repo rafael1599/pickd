@@ -18,6 +18,8 @@
  * on.
  */
 import { useMemo, useState } from 'react';
+import { SearchInput } from '../../../../components/ui/SearchInput';
+import { useDebounce } from '../../../../hooks/useDebounce';
 import X from 'lucide-react/dist/esm/icons/x';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import ArrowDownToLine from 'lucide-react/dist/esm/icons/arrow-down-to-line';
@@ -32,6 +34,7 @@ import {
   isWatcherAlive,
   pendingCaptures,
   summarize,
+  useAs400CaptureSearch,
   useAs400Door,
   useCancelRequest,
   useDismissCapture,
@@ -39,6 +42,13 @@ import {
   useWatcherHeartbeat,
   type DoorCapture,
 } from '../../hooks/useAs400Door';
+
+/** What a searched row is, when it is not one of the four the list shows. */
+const STATE_LABELS: Record<string, string> = {
+  archived: 'Aged out of the list',
+  junk: 'Dismissed',
+  sent: 'Already in Pickd',
+};
 
 const HOLD_LABELS: Record<string, string> = {
   total_mismatch: 'Lost page — re-capture on Bay 2',
@@ -91,6 +101,7 @@ function CaptureCard({
   const s = useMemo(() => summarize(row), [row]);
   const lane = LANE[s.lane];
   const inFlight = row.status === 'requested' || row.status === 'sending';
+  const done = row.status === 'sent';
   const held = row.status === 'held';
   const requestable = isRequestable(row);
 
@@ -134,6 +145,10 @@ function CaptureCard({
           <span className="ml-auto">{s.units} units</span>
         </div>
 
+        {STATE_LABELS[row.status] && (
+          <div className="mt-2 text-xs text-muted font-semibold">{STATE_LABELS[row.status]}</div>
+        )}
+
         {held && (
           <div className="mt-2 text-xs text-amber-500 font-semibold">
             {HOLD_LABELS[row.hold_reason ?? ''] ?? row.hold_reason}
@@ -144,7 +159,9 @@ function CaptureCard({
         )}
 
         <div className="mt-3 flex items-center gap-2">
-          {inFlight ? (
+          {done ? (
+            <span className="text-xs text-emerald-500 font-bold">✓ on the board already</span>
+          ) : inFlight ? (
             <>
               <span className="inline-flex items-center gap-1.5 text-xs text-sky-500 font-bold">
                 <Loader2 size={14} className="animate-spin" />
@@ -201,6 +218,10 @@ export function As400DoorModal({ onClose }: { onClose: () => void }) {
   const cancel = useCancelRequest();
   const dismiss = useDismissCapture();
   const [showHeld, setShowHeld] = useState(false);
+  const [query, setQuery] = useState('');
+  const debounced = useDebounce(query, 250);
+  const search = useAs400CaptureSearch(debounced);
+  const searching = debounced.trim().length >= 2;
 
   const rows = door.data ?? [];
   const pending = pendingCaptures(rows);
@@ -285,42 +306,79 @@ export function As400DoorModal({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
+        <div className="px-3 pt-3">
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            variant="inline"
+            placeholder="Order number — last 3 digits is enough"
+          />
+        </div>
+
         <div className="flex-1 overflow-y-auto p-3 space-y-3">
-          {door.isLoading && <p className="text-sm text-muted text-center py-6">Loading…</p>}
-          {door.isError && (
+          {searching && (
+            <>
+              {search.isLoading && (
+                <p className="text-sm text-muted text-center py-6">Searching…</p>
+              )}
+              {!search.isLoading && (search.data ?? []).length === 0 && (
+                <p className="text-sm text-muted text-center py-6">
+                  No capture matching “{debounced}”. The scanner may not have reached it yet.
+                </p>
+              )}
+              {(search.data ?? []).map((row) => (
+                <CaptureCard
+                  key={row.order_number}
+                  row={row}
+                  canAct={alive}
+                  busy={busy}
+                  onBring={() => bring(row.order_number)}
+                  onCancel={() => takeBack(row.order_number)}
+                  onDismiss={() => drop(row.order_number)}
+                />
+              ))}
+            </>
+          )}
+
+          {!searching && door.isLoading && (
+            <p className="text-sm text-muted text-center py-6">Loading…</p>
+          )}
+          {!searching && door.isError && (
             <p className="text-sm text-red-500 text-center py-6">Could not load the captures.</p>
           )}
 
-          {!door.isLoading && pending.length === 0 && inFlight.length === 0 && (
+          {!searching && !door.isLoading && pending.length === 0 && inFlight.length === 0 && (
             <p className="text-sm text-muted text-center py-6">
               Nothing waiting. New captures show up here as the scanner finds them.
             </p>
           )}
 
-          {inFlight.map((row) => (
-            <CaptureCard
-              key={row.order_number}
-              row={row}
-              canAct={alive}
-              busy={busy}
-              onBring={() => bring(row.order_number)}
-              onCancel={() => takeBack(row.order_number)}
-              onDismiss={() => drop(row.order_number)}
-            />
-          ))}
-          {pending.map((row) => (
-            <CaptureCard
-              key={row.order_number}
-              row={row}
-              canAct={alive}
-              busy={busy}
-              onBring={() => bring(row.order_number)}
-              onCancel={() => takeBack(row.order_number)}
-              onDismiss={() => drop(row.order_number)}
-            />
-          ))}
+          {!searching &&
+            inFlight.map((row) => (
+              <CaptureCard
+                key={row.order_number}
+                row={row}
+                canAct={alive}
+                busy={busy}
+                onBring={() => bring(row.order_number)}
+                onCancel={() => takeBack(row.order_number)}
+                onDismiss={() => drop(row.order_number)}
+              />
+            ))}
+          {!searching &&
+            pending.map((row) => (
+              <CaptureCard
+                key={row.order_number}
+                row={row}
+                canAct={alive}
+                busy={busy}
+                onBring={() => bring(row.order_number)}
+                onCancel={() => takeBack(row.order_number)}
+                onDismiss={() => drop(row.order_number)}
+              />
+            ))}
 
-          {held.length > 0 && (
+          {!searching && held.length > 0 && (
             <div className="pt-2">
               <button
                 onClick={() => setShowHeld((v) => !v)}
