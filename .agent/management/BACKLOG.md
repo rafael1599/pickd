@@ -11,6 +11,27 @@
 
 ## P1 — Alto (operación diaria)
 
+### 108. PickD decide de dónde sale el pick, no el watchdog <!-- id: idea-176 --> — input: 2026-09-09 NY ✅ 2026-09-10 `de45285`
+- **Rafael:** "pickd tiene que encargarse solo, específicamente doublecheck view, de lo que watchdog va
+  a dejar de hacer".
+- **El hueco:** `rebaseToActualStock` —la función que replanifica contra stock vivo, escrita y con
+  tests— vive dentro de `markAsReady`, y `markAsReady` solo se alcanza desde `active`/`needs_correction`.
+  Las órdenes del AS400 nacen en `ready_to_double_check`. **Nunca corría ni una vez.** Lo único que las
+  vigilaba era `useStaleLocationCheck`, que es un guardia de deriva: solo habla cuando el estante
+  congelado ya no cubre el pedido (21 notas `[AUTO]` desde junio, del tipo `ROW 8 (0) → ROW 13 (20)`).
+  Ciego por diseño al caso de la bici de #881394: el estante cubría, y la unidad estaba en RETURN TO
+  STOCK. Hoy hay **17 unidades en 6 SKUs** en el piso, algunas desde el 1 sep.
+- **Hecho:** `planPickForList` (`utils/planPick.ts`) replanifica al tomar la orden — el «start picking»
+  real de PickD. Opción `claimReturnsFloor` separa los dos contratos (guardia vs planificador);
+  descuenta lo apartado por otras órdenes abiertas; planifica los hermanos de una combinada por turnos.
+  Calla ante `reopened`/parkeada con checks/waiting, y solo escribe si algo se movió.
+- **Lo que habilita:** una línea sin dirección ya no se salta, está **sin planificar** — así el watchdog
+  puede dejar de calcular ubicación por completo. Ese es el siguiente corte, y no depende de un
+  despliegue coordinado: PickD ya tolera las dos formas.
+- **Pendiente:** `_to_cart_items` del watchdog sigue escribiendo `location`/`sublocation`/`distribution`
+  /`available_qty`; cuando se quiten, `_is_return_to_stock` y su espejo mueren con ellos.
+
+
 ### 107. Watcher: los huecos del escáner llenan el teléfono y el email del dealer <!-- id: idea-175 --> — input: 2026-09-01 NY
 - **Rafael:** "cuando no hay órdenes para tomar, se comienza a analizar los detalles de los clientes
   de las órdenes que se fueron a PickD ese día y se envían, y luego de terminar se deja en la

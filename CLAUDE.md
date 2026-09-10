@@ -139,9 +139,29 @@ heredan la ruta (`rebaseToActualStock`), Double Check, el diagnóstico de stock 
 variante; `planPickAcrossLocations` lo saca **antes** del atajo de una sola parada, o un estante que
 cubriera la línea entero dejaría el piso intacto (por eso una línea puede partirse en RETURN TO STOCK
 
-- la fila). El **espejo** está en el watchdog (`_is_return_to_stock` en `supabase_client.py`, la
-  primera clave del orden de candidatos), que es quien escribe la ubicación al crear la orden — los dos
-  tienen que decir lo mismo, y **el watchdog solo cambia cuando se redespliega en la MacBook de Bay 2**.
+- la fila). El watchdog tiene su propio `_is_return_to_stock` porque hoy sigue escribiendo la
+  ubicación al crear la orden, pero **ya no es la fuente**: desde el 10 sep 2026 PickD replanifica al
+  tomar la orden (abajo), así que si los dos discrepan gana PickD, y el espejo muere cuando Bay 2 se
+  redespliegue sin él.
+
+**PickD decide de dónde sale el pick, al tomar la orden (10 sep 2026).** `planPickForList`
+(`utils/planPick.ts`, llamado desde el `lockForCheck` de `PickingCartDrawer`) replanifica contra el
+stock vivo en el momento en que alguien abre la orden para trabajarla — que es el «start picking» real
+de PickD. Antes no lo hacía **nadie**: `rebaseToActualStock` vive dentro de `markAsReady`, y
+`markAsReady` solo se alcanza desde `active`/`needs_correction`, mientras que las órdenes del AS400
+nacen en `ready_to_double_check`. Nunca corría ni una vez. Lo único que vigilaba era
+`useStaleLocationCheck`, que es un **guardia de deriva**, no un planificador: solo habla cuando el
+estante congelado ya no cubre el pedido (21 notas `[AUTO]` desde junio). El caso que no puede ver es el
+estante que sí cubre mientras hay unidades en RETURN TO STOCK — la bici de #881394.
+
+Los dos contratos están separados a propósito con la opción **`claimReturnsFloor`**: el guardia calla
+ante un arreglo que se sostiene; el planificador lo rehace si está pasando de largo por el piso. Y el
+planificador hace dos cosas más que un rebase pelado: descuenta lo que **otras** órdenes abiertas ya
+tienen apartado (si no, manda a dos personas a la misma bici) y planifica los hermanos de una
+combinada **por turnos**, consumiendo cada uno lo que toma. Calla ante cualquier cosa en marcha
+(`reopened`, parkeada con checks, waiting) y solo escribe si una dirección se movió de verdad — un
+write vuelve por realtime a todos los carritos abiertos. Una línea **sin** dirección ya no se salta:
+está **sin planificar**, que es lo que permitirá que el watchdog deje de mandar ubicación.
 
 `building` mode fue eliminado (idea-032). `OrderBuilderMode.tsx`, `PickingSessionView.tsx`, y `returnToBuilding()` fueron eliminados. Edit Order mode (CorrectionModeView) reemplaza sus funciones. InventoryCards muestran +/- inline en picking mode.
 
