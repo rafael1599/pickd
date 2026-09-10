@@ -1,5 +1,11 @@
 import { supabase } from '../../../lib/supabase';
-import type { ContainerInputItem, RegisterSummary, ResolvedItem } from '../lib/types';
+import { summarizeIntakes } from '../lib/containers';
+import type {
+  ContainerInputItem,
+  ContainerIntake,
+  RegisterSummary,
+  ResolvedItem,
+} from '../lib/types';
 
 // These RPCs are newer than the generated Supabase types, so we call them
 // through a narrow, locally-typed wrapper instead of `any`.
@@ -19,6 +25,35 @@ export async function resolveContainerSkus(
   });
   if (error) throw new Error(error.message);
   return (data as ResolvedItem[] | null) ?? [];
+}
+
+/**
+ * The containers among `locations` that PickD already has -- the rule is
+ * summarizeIntakes'. Two reads: the ADDs that ever went into those names, and
+ * the stock they hold now.
+ */
+export async function fetchContainerIntakes(
+  locations: string[],
+  warehouse: string
+): Promise<Map<string, ContainerIntake>> {
+  if (locations.length === 0) return new Map();
+  const [logs, stock] = await Promise.all([
+    supabase
+      .from('inventory_logs')
+      .select('to_location, action_type, quantity_change, performed_by, created_at, is_reversed')
+      .in('to_location', locations)
+      .eq('action_type', 'ADD')
+      .gt('quantity_change', 0),
+    supabase
+      .from('inventory')
+      .select('location, quantity')
+      .eq('warehouse', warehouse)
+      .in('location', locations)
+      .gt('quantity', 0),
+  ]);
+  if (logs.error) throw new Error(logs.error.message);
+  if (stock.error) throw new Error(stock.error.message);
+  return summarizeIntakes(locations, logs.data ?? [], stock.data ?? []);
 }
 
 export interface RegisterContainerArgs {

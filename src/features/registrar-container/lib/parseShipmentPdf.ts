@@ -1,5 +1,5 @@
-// Parse a JAMIS "Purchase Order Worksheet" PDF into the same ParsedSheet shape
-// the xlsx path produces, so the Registrar Container flow can accept PDFs too.
+// Parse a JAMIS "Purchase Order Worksheet" PDF into the same ParsedContainer
+// shape the xlsx path produces, so the Registrar Container flow can accept PDFs too.
 //
 // pdfjs extracts positioned text items; we reassemble them into visual lines
 // (group by Y, sort by X) and hand the newline-joined text to the pure
@@ -9,7 +9,8 @@ import * as pdfjsLib from 'pdfjs-dist';
 // Vite resolves this to a hashed URL; pdfjs runs its parser in that worker.
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { parseWorksheetText } from './parseWorksheetText';
-import type { ParsedSheet } from './types';
+import { worksheetContainer } from './containers';
+import type { ParsedContainer } from './types';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -43,7 +44,7 @@ function itemsToText(items: TextItem[]): string {
     .join('\n');
 }
 
-export async function parseShipmentPdf(file: File): Promise<ParsedSheet[]> {
+export async function parseShipmentPdf(file: File): Promise<ParsedContainer[]> {
   const data = new Uint8Array(await file.arrayBuffer());
   const loadingTask = pdfjsLib.getDocument({ data });
   const doc = await loadingTask.promise;
@@ -54,7 +55,8 @@ export async function parseShipmentPdf(file: File): Promise<ParsedSheet[]> {
       const content = await page.getTextContent();
       pageTexts.push(itemsToText(content.items as TextItem[]));
     }
-    return [parseWorksheetText(pageTexts.join('\n'), file.name)];
+    const sheet = parseWorksheetText(pageTexts.join('\n'), file.name);
+    return sheet.items.length > 0 ? [worksheetContainer(file.name, sheet.items, sheet.total)] : [];
   } finally {
     void loadingTask.destroy(); // frees the worker
   }
