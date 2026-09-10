@@ -3,6 +3,7 @@ import { SYSTEM_NOTE_TAGS, noteKind, type NoteLike } from '../../../utils/system
 import { supabase } from '../../../lib/supabase';
 import {
   byPickPreference,
+  isReturnToStock,
   planPickAcrossLocations,
   toPickingOrderMap,
   type PickingOrderMap,
@@ -67,16 +68,33 @@ const norm = (s: string | null | undefined): string => (s || '').trim().toUpperC
  * so register_new_sku placeholders / ghost rows never qualify as a suggestion.
  * Exported separately so it can be unit-tested without Supabase.
  *
- * Two things put an item in the result. The shelf went empty — someone
+ * Three things put an item in the result. The shelf went empty — someone
  * consolidated the row out from under the order — or it still holds units but
  * fewer than the pick needs, which used to surface as a bare `insufficient_stock`
- * flag even when the rest of the bikes were one row over. Both are the same
- * question: where does this pick actually come from now.
+ * flag even when the rest of the bikes were one row over, or the line never had
+ * an address at all. All three are the same question: where does this pick
+ * actually come from now.
  */
+export interface PlanOptions {
+  /**
+   * Also replan an arrangement that holds on its own but leaves RETURN TO STOCK
+   * units on the floor.
+   *
+   * Off by default, because this function's other caller is a drift GUARD: it
+   * speaks when an address stopped working, and a shelf that still covers the
+   * pick has not stopped working. On, it becomes a PLANNER, which is a
+   * different question — where should this pick come from, given everything on
+   * the floor right now — and there the returns floor is not optional: those
+   * units owe a put-away trip, and the next pick of that SKU is the trip.
+   */
+  claimReturnsFloor?: boolean;
+}
+
 export function detectStaleLocations(
   cartItems: StaleCheckItem[],
   rows: StaleInventoryRow[],
-  pickingOrder?: PickingOrderMap
+  pickingOrder?: PickingOrderMap,
+  opts?: PlanOptions
 ): StaleLocationItem[] {
   const result: StaleLocationItem[] = [];
 
@@ -87,7 +105,12 @@ export function detectStaleLocations(
   // One SKU is one question, asked once, against the stock as a whole.
   const groups = new Map<string, StaleCheckItem[]>();
   for (const item of cartItems) {
-    if (item.sku_not_found || !item.location) continue;
+    // A line with no address is not skipped, it is UNPLANNED: it joins its SKU's
+    // group with `stockAt('') === 0`, so the arrangement never holds and the
+    // planner below gives it a real shelf. That is what lets PickD own the
+    // decision the watcher froze at import — and it already covers the
+    // `insufficient_stock` lines that carry `location: null` today.
+    if (item.sku_not_found) continue;
     const key = `${item.sku}|${norm(item.warehouse)}`;
     const group = groups.get(key) ?? [];
     group.push(item);
@@ -126,7 +149,15 @@ export function detectStaleLocations(
     const arrangementHolds = [...claimed.entries()].every(([location, qty]) =>
       required > 0 ? stockAt(location) >= qty : stockAt(location) > 0
     );
-    if (arrangementHolds) continue;
+    // An arrangement that holds still gets replanned when it is ignoring the
+    // returns floor — see PlanOptions.claimReturnsFloor.
+    const ignoresReturnsFloor =
+      !!opts?.claimReturnsFloor &&
+      skuRows.some(
+        (r) => isReturnToStock(r) && Number(r.quantity || 0) > 0 && r.is_active !== false
+      ) &&
+      ![...claimed.keys()].some((location) => isReturnToStock({ location }));
+    if (arrangementHolds && !ignoresReturnsFloor) continue;
 
     const stocked = skuRows.filter((r) => Number(r.quantity || 0) > 0 && r.is_active !== false);
     if (stocked.length === 0) continue; // no stock anywhere → genuine out-of-stock, not stale
@@ -140,7 +171,7 @@ export function detectStaleLocations(
 
       result.push({
         sku: first.sku,
-        frozenLocation: first.location as string,
+        frozenLocation: first.location ?? '',
         warehouse: first.warehouse ?? null,
         suggestedLocation: elsewhere[0].location,
         suggestedSublocation: elsewhere[0].sublocation ?? null,
@@ -165,7 +196,7 @@ export function detectStaleLocations(
 
     result.push({
       sku: first.sku,
-      frozenLocation: first.location as string,
+      frozenLocation: first.location ?? '',
       warehouse: first.warehouse ?? null,
       suggestedLocation: plan.legs[0].location,
       suggestedSublocation: plan.legs[0].sublocation,
@@ -204,12 +235,14 @@ export function detectStaleLocations(
 export function rebaseToActualStock<T extends StaleCheckItem>(
   items: T[],
   rows: StaleInventoryRow[],
-  pickingOrder?: PickingOrderMap
+  pickingOrder?: PickingOrderMap,
+  opts?: PlanOptions
 ): { items: T[]; moves: StaleLocationItem[] } {
   const moves = detectStaleLocations(
     items.filter((i) => !i.picked),
     rows,
-    pickingOrder
+    pickingOrder,
+    opts
   ).filter((m) => !!m.suggestedLocation);
 
   if (moves.length === 0) return { items, moves };
@@ -349,8 +382,10 @@ export function useStaleLocationCheck(
       ) {
         loggedRef.current = listKey;
         const summary = result
-          .map(
-            (r) => `${r.sku} @ ${r.frozenLocation} (0) → ${r.suggestedLocation} (${r.suggestedQty})`
+          .map((r) =>
+            r.frozenLocation
+              ? `${r.sku} @ ${r.frozenLocation} (0) → ${r.suggestedLocation} (${r.suggestedQty})`
+              : `${r.sku} (no address) → ${r.suggestedLocation} (${r.suggestedQty})`
           )
           .join('; ');
         try {

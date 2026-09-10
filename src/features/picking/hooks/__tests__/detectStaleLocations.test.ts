@@ -69,14 +69,24 @@ describe('detectStaleLocations', () => {
     expect(detectStaleLocations(items, rows)).toHaveLength(1);
   });
 
-  it('skips items without a frozen location or marked sku_not_found', () => {
-    const items = [
-      { sku: 'A', location: null, warehouse: 'LUDLOW' },
-      { sku: 'B', location: 'ROW 1', warehouse: 'LUDLOW', sku_not_found: true },
-    ];
-    const rows = [row('A', 'ROW 9', 5), row('B', 'ROW 9', 5)];
+  it('skips an item marked sku_not_found — there is nothing to place', () => {
+    const items = [{ sku: 'B', location: 'ROW 1', warehouse: 'LUDLOW', sku_not_found: true }];
+    const rows = [row('B', 'ROW 9', 5)];
 
     expect(detectStaleLocations(items, rows)).toHaveLength(0);
+  });
+
+  // A line with no address is UNPLANNED, not exempt: PickD owns the decision the
+  // watcher used to freeze at import, and it also covers the insufficient_stock
+  // lines that carry location: null today.
+  it('plans an item that arrived without a frozen location', () => {
+    const items = [{ sku: 'A', location: null, warehouse: 'LUDLOW' }];
+    const rows = [row('A', 'ROW 9', 5)];
+
+    const result = detectStaleLocations(items, rows);
+    expect(result).toHaveLength(1);
+    expect(result[0].frozenLocation).toBe('');
+    expect(result[0].suggestedLocation).toBe('ROW 9');
   });
 
   it('does not match stock from a different warehouse', () => {

@@ -53,6 +53,7 @@ export const PickingCartDrawer: React.FC = () => {
     correctionNotes,
     loadExternalList,
     lockForCheck,
+    planPickForList,
     releaseCheck,
     parkOrder,
     returnToPicker,
@@ -282,6 +283,14 @@ export const PickingCartDrawer: React.FC = () => {
 
               console.log('🔒 [PickingCartDrawer] Locking list for user...');
               await lockForCheck(String(externalDoubleCheckId));
+              // Taking the order up IS "start picking", and it is the moment to
+              // ask where the stock actually is — the addresses in the line were
+              // chosen by the watcher when it imported the order and nothing had
+              // looked at them since. Only re-read the cart if something moved;
+              // a write echoes through realtime into every open cart.
+              if (await planPickForList(String(externalDoubleCheckId))) {
+                await loadExternalList(String(externalDoubleCheckId));
+              }
               if (resumeWaiting && listData.is_waiting_inventory) {
                 await supabase
                   .from('picking_lists')
@@ -340,6 +349,7 @@ export const PickingCartDrawer: React.FC = () => {
     user,
     loadExternalList,
     lockForCheck,
+    planPickForList,
     setExternalDoubleCheckId,
     showConfirmation,
     hydrateVerifiedItems,

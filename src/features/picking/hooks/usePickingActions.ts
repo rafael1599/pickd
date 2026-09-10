@@ -10,8 +10,9 @@ import {
 } from '../../../utils/pickingLogic';
 import { resolveBikeSkuSet } from '../../../utils/bikeDetection';
 import { isCombinedOrderNumber, isUnsafeToWriteItems } from '../utils/mergedGroupState';
-import { rebaseToActualStock } from './useStaleLocationCheck';
+import { rebaseToActualStock, type StaleInventoryRow } from './useStaleLocationCheck';
 import { toPickingOrderMap } from '../utils/pickLocation';
+import { planListsInTurn, stockMinusClaims, type PlannableItem } from '../utils/planPick';
 import type { User } from '@supabase/supabase-js';
 import type { Json } from '../../../integrations/supabase/types';
 import type { Location } from '../../../schemas/location.schema';
@@ -521,6 +522,133 @@ export const usePickingActions = ({
   // verifier wants to leave a half-checked order back in its lane (FedEx /
   // Regular) so any teammate can pick it up — distinct from releaseCheck,
   // which sends the order to the Ready-to-Double-Check queue.
+  /**
+   * Plan this order's pick against the stock as it is RIGHT NOW, at the moment
+   * somebody takes it up. Returns true if any address changed.
+   *
+   * The watcher chose those addresses when it imported the order and froze them
+   * into the lines. Nothing in PickD ever looked at them again for an AS400
+   * order: `rebaseToActualStock` lives inside markAsReady, and markAsReady is
+   * only reachable from `active`/`needs_correction`, while those orders are born
+   * at `ready_to_double_check`. So a shelf consolidated an hour earlier, or a
+   * unit sitting in RETURN TO STOCK that should be picked before any shelf, went
+   * unnoticed until the picker stood in front of the wrong row. Twenty-one
+   * `[AUTO] Stale pick location` notes since June are the ones that got far
+   * enough to be caught; the RETURN TO STOCK case never was, because the guard
+   * only speaks when the frozen shelf cannot cover the pick at all.
+   *
+   * Deliberately silent for anything already under way: a `reopened` order is on
+   * a pallet and its addresses are spent history the delta is computed against,
+   * a parked one keeps the checks the operator already made, and a waiting one
+   * is parked by an operator rule (the DB guards that write anyway).
+   */
+  const planPickForList = useCallback(async (listId: string): Promise<boolean> => {
+    const PLANNABLE = ['active', 'needs_correction', 'ready_to_double_check', 'double_checking'];
+    try {
+      const { data: anchor } = await supabase
+        .from('picking_lists')
+        .select('id, status, group_id, items, verified_item_keys, is_waiting_inventory')
+        .eq('id', listId)
+        .maybeSingle();
+      if (!anchor || !PLANNABLE.includes(anchor.status ?? '') || anchor.is_waiting_inventory) {
+        return false;
+      }
+      // Somebody has already read part of this list. Moving a shelf under them
+      // is worse than a stale address they can see and correct.
+      if (Array.isArray(anchor.verified_item_keys) && anchor.verified_item_keys.length > 0) {
+        return false;
+      }
+
+      // A combined order is N rows picked as one trip: plan them together, each
+      // against its OWN items read from the DB, so no merged cart is ever
+      // written back to the wrong row.
+      let rows: Array<{ id: string; items: PlannableItem[] }> = [
+        { id: anchor.id as string, items: (anchor.items as unknown as PlannableItem[]) ?? [] },
+      ];
+      if (anchor.group_id) {
+        const { data: siblings } = await supabase
+          .from('picking_lists')
+          .select('id, items')
+          .eq('group_id', anchor.group_id)
+          .neq('id', anchor.id)
+          .in('status', PLANNABLE);
+        for (const sib of siblings ?? []) {
+          rows.push({
+            id: sib.id as string,
+            items: (sib.items as unknown as PlannableItem[]) ?? [],
+          });
+        }
+      }
+      rows = rows.filter((r) => r.items.length > 0);
+      if (rows.length === 0) return false;
+
+      const skuList = Array.from(
+        new Set(rows.flatMap((r) => r.items.map((i) => i.sku)).filter(Boolean))
+      );
+      if (skuList.length === 0) return false;
+
+      const ownIds = new Set(rows.map((r) => r.id));
+      const [stockRes, locsRes, othersRes] = await Promise.all([
+        supabase
+          .from('inventory')
+          .select('sku, quantity, warehouse, location, is_active, sublocation')
+          .in('sku', skuList),
+        supabase.from('locations').select('warehouse, location, picking_order'),
+        supabase
+          .from('picking_lists')
+          .select('id, items')
+          .in('status', PLANNABLE)
+          .not('id', 'in', `(${[...ownIds].join(',')})`),
+      ]);
+      if (stockRes.error) throw stockRes.error;
+
+      // What another open order has already reserved at an address is not stock
+      // this pick can be sent to — without this, two people are walked to the
+      // same bike.
+      const claims = (othersRes.data ?? []).flatMap((l) =>
+        Array.isArray(l.items) ? (l.items as unknown as PlannableItem[]) : []
+      );
+      const available = stockMinusClaims(
+        ((stockRes.data as StaleInventoryRow[] | null) ?? []) as StaleInventoryRow[],
+        claims
+      );
+
+      const planned = planListsInTurn(rows, available, toPickingOrderMap(locsRes.data));
+      const changedRows = planned.filter((p) => p.changed);
+      if (changedRows.length === 0) return false;
+
+      for (const row of changedRows) {
+        const { error } = await supabase
+          .from('picking_lists')
+          .update({ items: row.items as unknown as Json })
+          .eq('id', row.id);
+        if (error) throw error;
+      }
+
+      const moves = planned.flatMap((p) => p.moves);
+      if (moves.length > 0) {
+        const summary = moves
+          .map((m) => {
+            const spot = m.suggestedSublocation?.length
+              ? `${m.suggestedLocation} · ${m.suggestedSublocation.join('/')}`
+              : m.suggestedLocation;
+            return m.frozenLocation
+              ? `${m.sku}: ${m.frozenLocation} → ${spot}`
+              : `${m.sku}: ${spot}`;
+          })
+          .join('\n');
+        toast(`Picking from:\n${summary}`, { duration: 8000, icon: '📍' });
+      }
+      return true;
+    } catch (err) {
+      // Planning is an improvement on the address already in the line, never a
+      // gate on opening the order. A failure leaves the watcher's choice in
+      // place, which is exactly where we were yesterday.
+      console.error('planPickForList failed:', err);
+      return false;
+    }
+  }, []);
+
   const parkOrder = useCallback(
     async (listId: string) => {
       const { data: order } = await supabase
@@ -1310,6 +1438,7 @@ export const usePickingActions = ({
     completeList,
     markAsReady,
     lockForCheck,
+    planPickForList,
     releaseCheck,
     parkOrder,
     returnToPicker,

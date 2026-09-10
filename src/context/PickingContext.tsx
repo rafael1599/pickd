@@ -75,6 +75,8 @@ interface PickingContextType {
   ) => Promise<void>;
   markAsReady: (items?: CartItem[], orderNum?: string) => Promise<string | null>;
   lockForCheck: (id: string) => Promise<void>;
+  /** Plan the pick against live stock when the order is taken up. True if any address moved. */
+  planPickForList: (id: string) => Promise<boolean>;
   releaseCheck: (id: string) => Promise<void>;
   parkOrder: (id: string) => Promise<void>;
   returnToPicker: (id: string, notes: string) => Promise<void>;
@@ -285,6 +287,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
     completeList,
     markAsReady,
     lockForCheck,
+    planPickForList,
     releaseCheck,
     parkOrder,
     returnToPicker,
@@ -494,6 +497,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       completeList,
       markAsReady,
       lockForCheck,
+      planPickForList,
       releaseCheck,
       parkOrder,
       returnToPicker,
@@ -559,6 +563,7 @@ export const PickingProvider = ({ children }: { children: ReactNode }) => {
       completeList,
       markAsReady,
       lockForCheck,
+      planPickForList,
       releaseCheck,
       parkOrder,
       returnToPicker,
