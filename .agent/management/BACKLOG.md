@@ -28,6 +28,12 @@
 - **Lo que habilita:** una línea sin dirección ya no se salta, está **sin planificar** — así el watchdog
   puede dejar de calcular ubicación por completo. Ese es el siguiente corte, y no depende de un
   despliegue coordinado: PickD ya tolera las dos formas.
+- **Ojo al desplegar (10 sep 2026):** un push al watchdog **es** su deploy (`auto_update.py`, Bay 2
+  sondea `origin` cada 5 min), pero comprobado hoy, **Bay 2 lleva ~18 h en `812012d`** con dos commits
+  esperando. El build que corre sí trae el hilo, el probe de idle falla abierto y el arreglo del
+  deadlock del `capture_lock` también está — así que el motivo es uno de los pegajosos (árbol sucio,
+  `AUTO_UPDATE=0`, o un `update.sh` que falló y disparó el guard de "no repetir commit"), y solo se lee
+  en `logs/app-stderr.log` de Bay 2. Nada se rompe mientras tanto: PickD replanifica igual.
 - **Cerrado el mismo día** (watchdog `462b94b`): `_to_cart_items` dejó de asignar ubicación; murieron
   `_is_return_to_stock`, `RETURN_TO_STOCK_LOCATION`, la tabla `PRIORITY`, el `reserved_map` por
   ubicación y `effective_qty`. Queda transcripción y resolución de SKU (`_pick_by_stock` y
@@ -73,8 +79,9 @@
 - **P2, 1 sep:** "cualquier orden nueva quiero que prefiera items que están en return to stock por
   encima de los otros". Hecho en los dos sitios que eligen ubicación: `byPickPreference` /
   `planPickAcrossLocations` (`utils/pickLocation.ts`, con el atajo de una parada saltado a propósito)
-  y el orden de candidatos del watchdog (`_is_return_to_stock`). **Pendiente: redesplegar el watchdog
-  en la MacBook de Bay 2** — hasta entonces la preferencia solo actúa al recalcular la ruta en la app.
+  y el orden de candidatos del watchdog (`_is_return_to_stock`). **Cerrado el 10 sep 2026**: el
+  watchdog dejó de elegir ubicación y ese `_is_return_to_stock` se borró, así que la preferencia vive
+  en un solo sitio y actúa al planificar la orden en la app (idea-176).
 
 ### 105. Mapa: editar en PLAN y en LIVE — mover un SKU a cualquier cuadro; PLAN COMPLETED lo ejecuta <!-- id: idea-173 --> — input: 2026-08-28 NY · "ok todo" · P1 + P2 ✅ 2026-08-28
 - **Rafael:** "herramientas de edición live separadas de herramientas de edición plan… seleccionar un

@@ -141,9 +141,11 @@ cubriera la línea entero dejaría el piso intacto (por eso una línea puede par
 
 - la fila). **El espejo ya no existe** (10 sep 2026): el watchdog dejó de asignar ubicación, así que
   `_is_return_to_stock` y su ranking PALLET > LINE > TOWER se borraron de `supabase_client.py`. La
-  línea llega con `location: None` y esta es la única implementación. **Vive en el repo pero no en la
-  máquina hasta redesplegar en Bay 2**; mientras tanto el watchdog sigue mandando ubicación y PickD la
-  replanifica igual, así que ningún despliegue depende del otro.
+  línea llega con `location: None` y esta es la única implementación. **Un push al watchdog es su deploy**
+  (`auto_update.py`, 8 sep 2026: Bay 2 sondea `origin` cada 5 min y corre `update.sh` cuando es
+  seguro), así que llega solo — pero el heartbeat dice qué build corre de verdad
+  (`as400_watcher_heartbeat.version`), y **conviene mirarlo**: si se atasca, sigue mandando ubicación y
+  PickD la replanifica igual, así que ningún despliegue depende del otro.
 
 **PickD decide de dónde sale el pick, al tomar la orden (10 sep 2026).** `planPickForList`
 (`utils/planPick.ts`, llamado desde el `lockForCheck` de `PickingCartDrawer`) replanifica contra el
@@ -268,7 +270,7 @@ que rechaza nace sin grupo y se combina a mano con Combine. **El espejo del watc
 2026): su auto-combine por cliente en 24 h se quitó entero en vez de guardarlo — decidir que dos
 órdenes son un envío es una decisión de negocio y la toma una persona con Combine. Del código solo
 sobrevive `STOCK_HOLDING_STATUSES` (antes `COMBINABLE_STATUSES`), que es el planificador de
-ubicaciones. **Vive en el repo pero no en la máquina hasta redesplegar en la MacBook de Bay 2.** Segunda capa en el
+ubicaciones. **El watchdog se despliega solo con el push** (`auto_update.py`); para saber qué build corre de verdad, `select version from as400_watcher_heartbeat` — el valor se sella al arrancar el proceso, así que si no se mueve es que no se ha reiniciado. Segunda capa en el
 cliente: el lote de `PickingCartDrawer` completa **lo que el carrito tenía cargado** (`source_list_id`
 por línea), no lo que comparta `group_id` en ese instante (`utils/groupSweep.ts`).
 
