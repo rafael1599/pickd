@@ -31,9 +31,12 @@
 - **Ojo al desplegar (10 sep 2026):** un push al watchdog **es** su deploy (`auto_update.py`, Bay 2
   sondea `origin` cada 5 min), pero comprobado hoy, **Bay 2 lleva ~18 h en `812012d`** con dos commits
   esperando. El build que corre sí trae el hilo, el probe de idle falla abierto y el arreglo del
-  deadlock del `capture_lock` también está — así que el motivo es uno de los pegajosos (árbol sucio,
-  `AUTO_UPDATE=0`, o un `update.sh` que falló y disparó el guard de "no repetir commit"), y solo se lee
-  en `logs/app-stderr.log` de Bay 2. Nada se rompe mientras tanto: PickD replanifica igual.
+  deadlock del `capture_lock` también está. **Causa encontrada** (watchdog `39552ee`): `update.sh` hace
+  `mkdir -p logs`, `logs/` no estaba en `.gitignore` y el gate leía `git status --porcelain`, que
+  cuenta lo no trackeado — el primer auto-update exitoso creó el directorio que bloqueó todos los
+  siguientes. Arreglado en los dos sitios (`logs/` ignorado + `--untracked-files=no`). Bay 2 necesita
+  **un ⟳ manual** para tomarlo: ese botón corre `update.sh` directo, y su `git pull --ff-only` nunca
+  estuvo bloqueado. Nada se rompió mientras tanto: PickD replanifica igual.
 - **Cerrado el mismo día** (watchdog `462b94b`): `_to_cart_items` dejó de asignar ubicación; murieron
   `_is_return_to_stock`, `RETURN_TO_STOCK_LOCATION`, la tabla `PRIORITY`, el `reserved_map` por
   ubicación y `effective_qty`. Queda transcripción y resolución de SKU (`_pick_by_stock` y
