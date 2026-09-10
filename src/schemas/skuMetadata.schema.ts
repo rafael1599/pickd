@@ -36,6 +36,10 @@ export const SKUMetadataSchema = z.object({
   // true from a form that just weighed the box, and never lowered. Tells a real
   // 45 lbs apart from the 45 the defaults trigger writes. See 20260901204403.
   weight_verified: z.boolean().optional(),
+  // The year the SKU came in: register_container stamps it; before that it was
+  // backfilled from container intakes, then from the model year in a bike's
+  // name. NULL when neither says. See 20260910181656.
+  received_year: z.number().int().nullish(),
   // S/D extension columns (all NULL for non-S/D items)
   model: z.string().nullable().optional(),
   size: z.string().nullable().optional(),

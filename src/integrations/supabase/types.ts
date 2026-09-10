@@ -1684,6 +1684,7 @@ export type Database = {
           model: string | null;
           msrp: number | null;
           pdf_link: string | null;
+          received_year: number | null;
           sd_category: string | null;
           sd_price: number | null;
           serial_number: string | null;
@@ -1712,6 +1713,7 @@ export type Database = {
           model?: string | null;
           msrp?: number | null;
           pdf_link?: string | null;
+          received_year?: number | null;
           sd_category?: string | null;
           sd_price?: number | null;
           serial_number?: string | null;
@@ -1740,6 +1742,7 @@ export type Database = {
           model?: string | null;
           msrp?: number | null;
           pdf_link?: string | null;
+          received_year?: number | null;
           sd_category?: string | null;
           sd_price?: number | null;
           serial_number?: string | null;
