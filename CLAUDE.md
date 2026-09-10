@@ -248,6 +248,13 @@ tiene el guard — pendiente, y solo cambia al redesplegar en la MacBook de Bay 
 cliente: el lote de `PickingCartDrawer` completa **lo que el carrito tenía cargado** (`source_list_id`
 por línea), no lo que comparta `group_id` en ese instante (`utils/groupSweep.ts`).
 
+**Y el movimiento inverso (`20260910003817`):** cuando una orden nueva lleva al cliente a ≥5 bicis, el
+mismo trigger reclasifica sus órdenes FedEx abiertas a REGULAR. Las dos mitades de ese `UPDATE` no
+valen lo mismo: el `shipping_type` **se aplica siempre** (es cómo se envía; si se saltara, media orden
+iría por FedEx y su hermana en camión), pero vaciar el `group_id` es limpieza y **espera** a que nadie
+sostenga el grupo — antes le partía la tarjeta combinada al picker a mitad de verificación. Un grupo
+tomado queda `regular` con su `group_id` intacto.
+
 **Qué miembro representa una tarjeta combinada:** `mergeGroupOrders` ancla en `groupOrders[0]`, por
 posición, y un grupo `general` fusiona a través de la frontera activo/completado — así que el ancla es
 con frecuencia el miembro completado, y abrirlo era un callejón (DoubleCheckView carga, lee

@@ -492,9 +492,13 @@
   `.eq('group_id', …)`), no por orden. Un miembro en 0 con hermanos en 6 no significa "sin verificar"
   en general — significa "entró después del último flush". Es lo que delató a #881394, y aparece 20+
   veces desde julio: vale la pena auditarlas.
-- **Queda fuera a propósito:** el `UPDATE` de reclasificación a REGULAR del mismo trigger también puede
-  arrancarle el `group_id` a una orden en verificación. Mismo principio, pero solo parte un grupo a la
-  vista y no completa nada sin verificar — merece su propia decisión. Comentado en la migración.
+- **El movimiento inverso, también cerrado** (`20260910003817`): el `UPDATE` de reclasificación a
+  REGULAR del mismo trigger arrancaba el `group_id` de golpe, partiéndole la tarjeta al picker a mitad
+  de verificación. Las dos mitades de ese UPDATE no valen lo mismo: el `shipping_type` es la decisión
+  operativa y se aplica **siempre** (si no, media orden saldría por FedEx y su hermana en camión);
+  vaciar el `group_id` es limpieza y **espera a que la suelten**. Un grupo tomado queda `regular` con
+  su grupo intacto, que es lo que `resolveMixedShippingType` y el ungroup manual ya saben tratar.
+  Validada contra prod con rollback, 4/4.
 
 ### ~~7. Una tarjeta combinada abre DoubleCheckView y se cierra sola~~ <!-- id: bug-024 --> ✅ 2026-09-09 `783af91` `8e23079` (input: 2026-09-09 NY)
 - **Síntoma (operador):** "cuando daba click en la orden combinada que mostraba los 2 números de orden
