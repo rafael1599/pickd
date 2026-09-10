@@ -23,6 +23,7 @@ import { SortableOrderCard, StaticOrderCard } from './board/SortableOrderCard';
 import { CompletedZone } from './board/CompletedZone';
 import { WaitingZone } from './board/WaitingZone';
 import { mergeGroupOrders } from './board/mergeGroupOrders';
+import { openableGroupMemberId } from '../utils/groupSweep';
 import { FedexGroupCard } from './board/FedexGroupCard';
 import { WaitingReasonModal } from './WaitingReasonModal';
 import { ReasonPicker } from './ReasonPicker';
@@ -572,10 +573,22 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
 
   // ─── Render ────────────────────────────────────────────────────────
   // ─── Helpers ──────────────────────────────────────────────────────
+  // A combined card carries mergeGroupOrders' anchor — `groupOrders[0]`, picked
+  // by array position — and that anchor is regularly the completed member. The
+  // card stands for the whole group, so open the half that can still be worked.
+  // Raw rows, deliberately: the bucketing below stamps the GROUP's aggregate
+  // status onto every member, so a completed row reaches a lane reading
+  // `ready_to_double_check`. Only these still say what each one is.
+  const openableIdFor = useCallback(
+    (order: PickingList): string =>
+      openableGroupMemberId(order.id, order.group_id, [...orders, ...completedOrders]),
+    [orders, completedOrders]
+  );
+
   const handleOrderSelect = useCallback(
     (order: PickingList) => {
       const proceed = () => {
-        setExternalDoubleCheckId(order.id);
+        setExternalDoubleCheckId(openableIdFor(order));
         setViewMode('picking');
         onClose();
       };
@@ -605,6 +618,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       activeListId,
       cartItems.length,
       sessionMode,
+      openableIdFor,
       setExternalDoubleCheckId,
       setViewMode,
       onClose,

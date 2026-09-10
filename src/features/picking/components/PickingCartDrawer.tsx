@@ -19,6 +19,7 @@ import {
 } from '../../../utils/pickingLogic';
 import { resolveBikeSkuSet } from '../../../utils/bikeDetection';
 import { collapseSplitForSku } from '../utils/pickLocation';
+import { partitionGroupSweep } from '../utils/groupSweep';
 import { useBikeSkuSet } from '../../../hooks/useBikeSkuSet';
 import { supabase } from '../../../lib/supabase';
 import type { Json } from '../../../lib/database.types';
@@ -194,13 +195,33 @@ export const PickingCartDrawer: React.FC = () => {
     }
   }, [viewMode, pathname, externalDoubleCheckId, isOpen, sessionMode]);
 
-  // 1. Auto-close if completed or session reset (idle with no items)
+  // 1. Auto-close when the order REACHES completed — not when it already was.
+  //    Keyed on the transition, because the plain `=== 'completed'` read also
+  //    fired on load: anything opened that was already complete drew itself and
+  //    shut again in the same breath. That is Ship's Cart button on a finished
+  //    order, and the Live Board's combined card whose anchor happens to be the
+  //    completed member — it looked like the tap did nothing.
+  //    The previous status is remembered per list: without the id, closing an
+  //    order mid-check and then opening a finished one would read as that one
+  //    "just completing".
+  const prevListStatusRef = useRef<{ listId: string | null; status: string | null }>({
+    listId: null,
+    status: null,
+  });
   useEffect(() => {
-    if (listStatus === 'completed' && isOpen && !isRecompletingRef.current) {
+    const prev = prevListStatusRef.current;
+    const listId = activeListId ? String(activeListId) : null;
+    prevListStatusRef.current = { listId, status: listStatus };
+    const justCompleted =
+      prev.listId === listId &&
+      prev.status !== null &&
+      prev.status !== 'completed' &&
+      listStatus === 'completed';
+    if (justCompleted && isOpen && !isRecompletingRef.current) {
       setIsOpen(false);
       resetSession();
     }
-  }, [listStatus, isOpen, resetSession]);
+  }, [listStatus, activeListId, isOpen, resetSession]);
 
   // Auto-close drawer when session is reset (e.g. after delete/cancel)
   useEffect(() => {
@@ -771,12 +792,38 @@ export const PickingCartDrawer: React.FC = () => {
             'needs_correction',
             'reopened',
           ];
-          const { data: siblings } = await supabase
+          const { data: groupRows } = await supabase
             .from('picking_lists')
-            .select('id, items, status')
+            .select('id, items, status, order_number')
             .eq('group_id', mainOrder.group_id)
             .neq('id', activeListId!)
             .in('status', COMPLETABLE_STATUSES);
+
+          // Complete what the verifier actually had in front of them, not
+          // whatever shares the group_id at this instant. An order can join the
+          // group mid-check — the FedEx auto-grouper glues new arrivals to the
+          // oldest open sibling — and then ride out on a completion nobody
+          // pointed at it. #881394 went out that way on 9 sep 2026: five
+          // seconds old, zero lines verified, one bike deducted off a shelf
+          // nobody had walked to. The cart's items carry `source_list_id`
+          // (loadExternalList tags every line with its owning row), so the set
+          // of orders on screen is already known — anything outside it stays
+          // on the board and gets combined by hand if it belongs here.
+          const loadedListIds = new Set(
+            cartItems
+              .map((i) => i.source_list_id)
+              .filter((id): id is string => typeof id === 'string')
+          );
+          const { siblings, gatecrashers } = partitionGroupSweep(groupRows ?? [], loadedListIds);
+
+          if (gatecrashers.length > 0) {
+            toast(
+              `Left on the board: ${gatecrashers
+                .map((s) => `#${s.order_number ?? s.id.slice(-6)}`)
+                .join(', ')} — joined this group after you started`,
+              { duration: 7000, icon: '👀' }
+            );
+          }
 
           if (siblings && siblings.length > 0) {
             // Copy pallet photos from main order to all siblings
