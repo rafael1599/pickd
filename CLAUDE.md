@@ -349,6 +349,11 @@ Dimensions que FSM v3313 importa en `Databases → File Maintenance → Import`,
 - **La lectura pagina explícitamente** en vez de confiar en el tope de filas de PostgREST: una query
   truncada en silencio no falla, borra los cartones que faltaron.
 - **Solo filas con `dimensions_verified`**, o se pisa una medida real con una que nadie tomó.
+- **Bicis, y cuadros medidos** (Rafael, 10 sep 2026: "incluye los cuadros medidos en el export"): los
+  cuadros son partes pero viajan en un cartón que FedEx tiene registrado, así que el export lee
+  `is_bike` **o** `category = 'frame'` con `dimensions_verified`. Nunca "cualquier parte medida": 67
+  partes llevan la caja de bici por defecto que el formulario viejo marcaba como verificada, y un
+  espaciador de dirección saldría declarado como caja de bici.
 - **Se registra cada corrida** en `fedex_dimension_exports` (append-only, sin políticas de UPDATE ni
   DELETE, RLS por `is_admin()`). Se guardan los conteos y no el archivo, porque el conteo es lo que
   después identifica un catálogo parcial.
@@ -633,7 +638,7 @@ Además hay **86 SKUs cuyo `is_bike` contradice la regla viva** — corregidos a
 
 **⚠️ La ubicación NO determina si algo es bike.** Suena razonable ("si no está en un ROW no es bike") y es falso en las dos direcciones — verificado contra prod:
 
-- **Bikes legítimas fuera de un ROW numerado:** `ROW X EP` (03-4085BK ×41), `ROW 42 BURIED` (03-3931BK ×39) y las bicis completas de las jaulas `CAGE*` (casi todas Scratch & Dent, en `CAGE 7` y `CAGE 8`). Reclasificarlas por ubicación rompería el cálculo de pallets, labels y la clasificación FedEx. **Los cuadros y framekits de las jaulas no son bikes** (Rafael, 10 sep 2026: "los frames son partes"): los 12 — Portal C2 `03-3666BL`…`03-3669BL`, los `09-48xx` y `00-0000` — pasaron a `is_bike = false` en `20260910155112`; el prefijo `03-` los había hecho bici al registrarlos.
+- **Bikes legítimas fuera de un ROW numerado:** `ROW X EP` (03-4085BK ×41), `ROW 42 BURIED` (03-3931BK ×39) y las bicis completas de las jaulas `CAGE*` (casi todas Scratch & Dent, en `CAGE 7` y `CAGE 8`). Reclasificarlas por ubicación rompería el cálculo de pallets, labels y la clasificación FedEx. **Los cuadros y framekits de las jaulas no son bikes** (Rafael, 10 sep 2026: "los frames son partes"): los 12 — Portal C2 `03-3666BL`…`03-3669BL`, los `09-48xx` y `00-0000` — pasaron a `is_bike = false` en `20260910155112`; el prefijo `03-` los había hecho bici al registrarlos. Llevan `category = 'frame'` (`20260910210219`), que es lo que mantiene en el export de FedEx a los medidos; un cuadro nuevo la necesita a mano.
 - **⚠️ Un `item_name` que nombra un modelo de bici NO significa que el ítem sea una bici.** En este almacén las partes se nombran por la bici a la que pertenecen. `E47` tenía 5 SKUs marcados bike llamados "LASER 1.6 2017", "TAXI 2020 GLOSS BLACK", "CUSTOM COMMUTER 2020 BLUE" — y son **pedales**. Ninguna señal del registro los contradecía: `weight_lbs 45` / `length_in 55` son los defaults de registro, no medidas. Corregido en `20260731170000` (`is_bike = false` + prefijo `PEDAL ` en el nombre, para que no vuelva a pasar). **Esta confusión es exactamente lo que motiva pedir el tipo obligatoriamente al registrar.**
 - **`01-` y `02-` son prefijos de bike legítimos:** 139 y 20 SKUs, de los cuales 107 y 13 estuvieron en un ROW. Sacarlos del trigger misclasificaría ~120 bikes.
 - **Los tracking numbers de FedEx son `is_bike = true` a propósito** (`useFedExReturns.ts`): "returns are always bikes (per ops policy)", y se fuerza para que el placeholder aparezca en el carril de bikes donde el operador lo procesa. Son 34 SKUs / 34 unidades. Físicamente son bikes, pero inflan `total_skus` con números de tracking que no son modelos.

@@ -28,9 +28,17 @@ const COLUMNS = 'sku, model, size, length_in, width_in, height_in, dimensions_ve
 const PAGE = 500;
 
 /**
- * Every bike SKU, in pages. Scratch & Dent is excluded: each of those rows is a
- * single used bike with its own SKU, so they would swamp the table with
- * one-offs — and they all sit on default dimensions anyway.
+ * Every bike SKU, and every measured frame, in pages. Scratch & Dent is
+ * excluded: each of those rows is a single used bike with its own SKU, so they
+ * would swamp the table with one-offs — and they all sit on default dimensions
+ * anyway.
+ *
+ * Frames are parts since 20260910155112 but still ship in a carton FedEx has on
+ * file, so they stay in the file when measured (Rafael, 10 Sep 2026: "incluye
+ * los cuadros medidos en el export"). Only measured ones: an unmeasured frame is
+ * not a bike the queue owes a tape to. And never "any measured part" — dozens
+ * carry the bike default the old registration form stamped as verified
+ * (20260910210219).
  */
 async function fetchBikeDimensions(): Promise<DimensionSourceRow[]> {
   const rows: DimensionSourceRow[] = [];
@@ -38,7 +46,7 @@ async function fetchBikeDimensions(): Promise<DimensionSourceRow[]> {
     const { data, error } = await supabase
       .from('sku_metadata')
       .select(COLUMNS)
-      .eq('is_bike', true)
+      .or('is_bike.eq.true,and(category.eq.frame,dimensions_verified.eq.true)')
       .eq('is_scratch_dent', false)
       .order('sku', { ascending: true })
       .range(from, from + PAGE - 1);
