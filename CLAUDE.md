@@ -290,6 +290,16 @@ carril leyendo `ready_to_double_check` y su propio `status` no sirve para distin
 
 **Activity Report layout:** Editor panel on the left (desktop) with: selectable greeting toggle ("Hi Carine!"), Win of the Day, PickD Updates (collapsible dropdown, closed by default), On the Floor routine checklist (editable items via gear icon, persisted in localStorage), and Notes (multiline textarea, one per line). Preview on the right updates with green highlight flash on each edit. "Save & Copy Report" button at bottom saves + copies to clipboard in one action. Report section order: Win → PickD Updates → Done Today → On the Floor → In Progress → Coming Up Next → Inventory Accuracy → Waiting. Footer shows date only (no timestamp). `/pickd-report` public route shows the HTML daily report for the current date with date navigation.
 
+**Inventario PickD vs AS400 (10 sep 2026).** `v_inventory_vs_as400` compara, **por SKU**, la suma de
+LUDLOW contra el `On Hand` que AS400 enseña en `02. Stock File Inquiry`. **LUDLOW es la columna NJ**
+(Rafael, 10 sep 2026) — es la única correspondencia que hace falta saber, no se deduce de los datos, y
+vive escrita en la propia vista para que no se separe de la comparación que la usa. Compara **totales**,
+no ubicaciones: contesta «me faltan 3 CODA S2», nunca «están en ROW 13 y no en ROW 8» (para eso está el
+cycle count). La suma no filtra por `is_active` a propósito — unidades escondidas en una fila inactiva
+son justo lo que debe delatar, y salen aparte en `pickd_en_filas_inactivas`. **Está vacía** hasta que el
+enriquecimiento del watchdog entre en fase F3 (`SKU_ENRICH_WRITE=1`): hoy lee la pantalla y solo loguea.
+Uso: `select * from v_inventory_vs_as400 where diferencia <> 0 order by abs(diferencia) desc`.
+
 ## Ship (la pantalla de la estación de envío)
 
 **Existe por cuatro números: pallets, bikes, parts, weight.** Pallets y peso total se teclean en
