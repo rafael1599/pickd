@@ -2187,12 +2187,20 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
           problemCount={problemItems.length}
           photo={{ count: palletPhotosCount, total: physicalPalletCount, isScanning }}
           canWait={isAdmin && status !== 'cancelled'}
+          // 'reopened' belongs here more than any other status: complete_addon_group
+          // REFUSES a source that is anything else ("Source order % must be
+          // reopened"). Leaving it out hid Combine in the one state the RPC was
+          // written for, so reopening a completed order to merge it — the whole
+          // point of the Add-On flow — dead-ended at the menu. Four of the five
+          // times someone reopened an order with a merge reason (5 may, 9 jul,
+          // twice on 9 sep) they backed straight out again.
           canMerge={
             !isCombined &&
             (status === 'active' ||
               status === 'ready_to_double_check' ||
               status === 'double_checking' ||
-              status === 'needs_correction')
+              status === 'needs_correction' ||
+              status === 'reopened')
           }
           onClose={() => setActionsMenuOpen(false)}
           onEdit={
