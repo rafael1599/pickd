@@ -1255,7 +1255,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
             }
             onClose={() => setSelectedMenuOrder(null)}
             onEdit={() => {
-              const orderId = selectedMenuOrder.id;
+              const orderId = openableIdFor(selectedMenuOrder);
               setSelectedMenuOrder(null);
               setExternalActionTrigger('edit');
               setExternalDoubleCheckId(orderId);
@@ -1263,7 +1263,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               onClose();
             }}
             onTakePhoto={() => {
-              const orderId = selectedMenuOrder.id;
+              const orderId = openableIdFor(selectedMenuOrder);
               setSelectedMenuOrder(null);
               setExternalActionTrigger('photo');
               setExternalDoubleCheckId(orderId);
@@ -1301,8 +1301,12 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
               setPendingReopenOrder(selectedMenuOrder);
               setSelectedMenuOrder(null);
             }}
+            // Cancel above all: on a combined card the anchor is regularly the
+            // completed member, and cancelling THAT runs cancel_completed_order,
+            // which sends its units to RETURN TO STOCK — the phantom stock that
+            // started bug-023. Act on the half that is actually open.
             onCancel={() => {
-              const orderId = selectedMenuOrder.id;
+              const orderId = openableIdFor(selectedMenuOrder);
               setSelectedMenuOrder(null);
               setExternalActionTrigger('cancel');
               setExternalDoubleCheckId(orderId);

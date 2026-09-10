@@ -1006,9 +1006,9 @@ export const PickingCartDrawer: React.FC = () => {
                       .single();
 
                     if (group?.group_type === 'general') {
-                      const { data: siblings } = await supabase
+                      const { data: groupRows } = await supabase
                         .from('picking_lists')
-                        .select('id, items')
+                        .select('id, items, order_number')
                         .eq('group_id', src.group_id)
                         .neq('id', activeListId)
                         .in('status', [
@@ -1017,6 +1017,30 @@ export const PickingCartDrawer: React.FC = () => {
                           'double_checking',
                           'needs_correction',
                         ]);
+
+                      // Same rule as the batch path above: the Add-On finishes
+                      // the order that was on screen, never whatever shares the
+                      // group by the time the button is pressed. A 'general'
+                      // group is exactly what the watchdog's same-customer
+                      // auto-combine writes into, so this door needs the guard
+                      // as much as the FedEx one.
+                      const loadedListIds = new Set(
+                        cartItems
+                          .map((i) => i.source_list_id)
+                          .filter((id): id is string => typeof id === 'string')
+                      );
+                      const { siblings, gatecrashers } = partitionGroupSweep(
+                        groupRows ?? [],
+                        loadedListIds
+                      );
+                      if (gatecrashers.length > 0) {
+                        toast(
+                          `Left on the board: ${gatecrashers
+                            .map((s) => `#${s.order_number ?? s.id.slice(-6)}`)
+                            .join(', ')} — joined this group after you started`,
+                          { duration: 7000, icon: '👀' }
+                        );
+                      }
 
                       if (siblings && siblings.length >= 1) {
                         const target = siblings[0];
