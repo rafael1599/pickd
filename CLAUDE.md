@@ -242,9 +242,11 @@ así que enganchaba órdenes a un grupo que alguien estaba verificando y el lote
 llevaba sin que nadie las viera (#881394: creada 18:11:48, completada 18:11:54, cero líneas
 verificadas). Ahora consulta **`group_is_held(group_id)`** (`20260909233836`), que es la fuente única
 de la regla: algún miembro con `checked_by`, en `double_checking`, o con progreso de verificación. Lo
-que rechaza nace sin grupo y se combina a mano con Combine. **El espejo está en el watchdog**
-(`find_combinable_order_by_customer`, `COMBINABLE_STATUSES` incluye `double_checking`): todavía **no**
-tiene el guard — pendiente, y solo cambia al redesplegar en la MacBook de Bay 2. Segunda capa en el
+que rechaza nace sin grupo y se combina a mano con Combine. **El espejo del watchdog ya no existe** (9 sep
+2026): su auto-combine por cliente en 24 h se quitó entero en vez de guardarlo — decidir que dos
+órdenes son un envío es una decisión de negocio y la toma una persona con Combine. Del código solo
+sobrevive `STOCK_HOLDING_STATUSES` (antes `COMBINABLE_STATUSES`), que es el planificador de
+ubicaciones. **Vive en el repo pero no en la máquina hasta redesplegar en la MacBook de Bay 2.** Segunda capa en el
 cliente: el lote de `PickingCartDrawer` completa **lo que el carrito tenía cargado** (`source_list_id`
 por línea), no lo que comparta `group_id` en ese instante (`utils/groupSweep.ts`).
 
