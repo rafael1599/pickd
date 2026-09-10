@@ -465,6 +465,70 @@
 
 ## Bugs pendientes
 
+### ~~6. Una orden que llega a mitad de verificación se completa sin que nadie la vea~~ <!-- id: bug-023 --> ✅ 2026-09-09 `6953bad` `783af91` (input: 2026-09-09 NY)
+- **Síntoma (operador):** "al aparecer y combinarse esa a un grupo que ya se había recogido, el picker
+  solo seleccionó todo a ojos cerrados y completó sin darse cuenta que hace 2 segundos se unió una
+  orden intrusa". Caso: **#881394**, creada 18:11:48, completada **18:11:54** — cinco segundos, y con
+  `verified_item_keys` en **0** mientras sus dos hermanas del grupo tenían 6 cada una. Nadie recogió esa
+  bici: siguió en ROW 1 toda la tarde con el inventario diciendo lo contrario.
+- **Causa (dos puertas, ninguna cerrada):** `auto_group_fedex_orders` pega toda orden FedEx nueva al
+  grupo FedEx abierto más viejo — sin mirar cliente y sin mirar si alguien lo tiene en las manos: la
+  búsqueda de hermano solo excluía `completed`/`cancelled`/`reopened` (`20260422120000`), y
+  `double_checking` (que es literalmente "lo tengo abierto") era candidato válido. Después el lote de
+  completado de `PickingCartDrawer` barre **todo lo que comparta `group_id`** en `COMPLETABLE_STATUSES`,
+  que incluye `ready_to_double_check` — el estado en el que la intrusa nació, porque `lockForCheck`
+  había corrido antes de que existiera.
+- **Fix — la puerta** (`20260909233836`): `group_is_held(group_id)` como regla única (algún miembro con
+  `checked_by`, en `double_checking`, o con progreso de verificación) y el trigger no agrupa contra
+  nada que la cumpla. Lo que rechaza no se pierde: nace sin grupo, sale como su propia tarjeta y se
+  combina a mano. Validada contra prod en transacción con rollback, 4/4.
+- **Fix — la red:** el lote completa **lo que el verificador tenía cargado**, no lo que comparta
+  `group_id` en ese instante. El carrito ya lo sabe: `loadExternalList` etiqueta cada línea con su
+  `source_list_id`. Lo que queda fuera se nombra en un toast y se queda en el board. Dos escapes para
+  que nunca se niegue a completar trabajo legítimo: carrito sin etiquetas (orden sola) barre todo como
+  antes, y una fila sin líneas no descuenta de ningún estante, así que va incluida.
+  `utils/groupSweep.ts` + 13 tests con los números del día.
+- **Ojo al leer `verified_item_keys`:** se escribe al **grupo entero** (`flushVerifiedItems` hace
+  `.eq('group_id', …)`), no por orden. Un miembro en 0 con hermanos en 6 no significa "sin verificar"
+  en general — significa "entró después del último flush". Es lo que delató a #881394, y aparece 20+
+  veces desde julio: vale la pena auditarlas.
+- **Queda fuera a propósito:** el `UPDATE` de reclasificación a REGULAR del mismo trigger también puede
+  arrancarle el `group_id` a una orden en verificación. Mismo principio, pero solo parte un grupo a la
+  vista y no completa nada sin verificar — merece su propia decisión. Comentado en la migración.
+
+### ~~7. Una tarjeta combinada abre DoubleCheckView y se cierra sola~~ <!-- id: bug-024 --> ✅ 2026-09-09 `783af91` `8e23079` (input: 2026-09-09 NY)
+- **Síntoma (operador):** "cuando daba click en la orden combinada que mostraba los 2 números de orden
+  juntos me intentaba abrir la dcview, pero se cerraba sola, la misma manera en la que actúa cualquier
+  otra orden combinada cuando doy click en el carrito de ship".
+- **Causa 1 — la tarjeta apunta a la mitad muerta:** `mergeGroupOrders` ancla en `groupOrders[0]`,
+  elegido por posición. Un grupo `general` sigue fusionando a través de la frontera activo/completado
+  (`joinsGroupAggregate`) y los carriles ordenan por `updated_at`, así que el ancla es con frecuencia
+  el miembro **completado**. El `status` de la tarjeta no ayuda a detectarlo: el board estampa el
+  agregado del grupo sobre cada miembro, así que una fila completada llega a un carril leyendo
+  `ready_to_double_check`.
+- **Causa 2 — el auto-close no distingue transición de estado inicial:** `listStatus === 'completed'`
+  cerraba el drawer también **al cargar**, así que cualquier orden ya terminada que se abriera se
+  dibujaba y se cerraba en el mismo respiro. Afecta igual al botón **Cart** de Ship.
+- **Fix:** `openableGroupMemberId` (sobre las filas crudas) decide qué miembro abrir; el auto-close se
+  fija en la **transición** hacia `completed`, recordada por lista. Y `handleMergeSelect` ahora
+  despierta **las dos** mitades (reopen/restore), no solo el destino — antes dejaba la fuente completada
+  dentro del grupo y `loadExternalList`, que descarta hermanos completados, mostraba encabezado de dos
+  órdenes sobre los ítems de una.
+
+### ~~8. Combine desaparece justo al reabrir una orden, que es el único estado que la RPC acepta~~ <!-- id: bug-025 --> ✅ 2026-09-09 `2e27bb2` (input: 2026-09-09 NY)
+- **Síntoma (operador):** "cuando reabro una orden no veo la opción que en algún momento tuve de
+  combinar a otra".
+- **Causa:** `complete_addon_group` **exige** que la fuente esté en `reopened` ("Source order % must be
+  reopened"). El `canMerge` de `DoubleCheckView` listaba `active`, `ready_to_double_check`,
+  `double_checking` y `needs_correction` — todos menos ese. Reabrir una orden para combinarla, que es
+  justo para lo que se escribió la RPC, terminaba en un menú sin salida.
+- **Evidencia:** de las cinco veces que alguien reabrió con una razón de merge escrita a mano (5 may,
+  9 jul, dos el 9 sep), **cuatro** terminaron en "Reopen cancelled" y la quinta simplemente
+  re-completó. La última lo dejó escrito: "we need to combine this order to 436 and is not working
+  because somehow this order was completed already".
+- **Fix:** `reopened` entra en `canMerge`. El flujo queda: completada → Reopen (con razón) → Combine →
+  Re-Complete, y `complete_addon_group` cierra las dos en una transacción.
+
 ### ~~4. Ship: al combinar una orden con una bici en una orden completada, la bici cuenta como parte y pide peso~~ <!-- id: bug-021 --> ✅ 2026-08-27 `9886206` (input: 2026-08-27 NY)
 - **Síntoma (operador):** "al agregar una nueva orden con una bicicleta a una orden completada en ship me
   pide peso para la supuesta nueva parte agregada, aunque sea una bicicleta que ya tenía peso

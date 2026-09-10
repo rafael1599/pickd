@@ -149,6 +149,15 @@ cubriera la línea entero dejaría el piso intacto (por eso una línea puede par
 
 **Órdenes stuck en reopened:** Si una orden queda en `reopened` (browser cerrado, sesión perdida), OrderSidebar muestra "Continue Editing" (mismo usuario) o "Take Over & Edit" (otro usuario). `resumeReopenedOrder` carga sin llamar al RPC reopen de nuevo.
 
+**Combinar una completada con una abierta = el flujo Add-On, y `reopened` es su estado obligatorio
+(bug-025, 9 sep 2026).** `complete_addon_group` **rechaza** cualquier fuente que no esté en `reopened`
+("Source order % must be reopened") y exige el destino en un estado abierto: recompleta la fuente por
+delta contra `completed_snapshot`, completa el destino y disuelve el grupo, todo en una transacción.
+Por eso `canMerge` (DoubleCheckView) **tiene que incluir `reopened`** — sin él, Combine desaparecía
+justo en el único estado que la RPC acepta y reabrir para combinar terminaba en un menú sin salida.
+Camino completo: completada → Reopen (con razón) → Combine → Re-Complete. Al revés (estando en la
+abierta) también sirve: `AddOnTargetPickerModal` reabre la completada por ti.
+
 **Long-Waiting Orders (idea-053):** Órdenes que esperan inventario (días, semanas, meses) viven en `needs_correction` con `is_waiting_inventory = true`. Admin marca/desmarca via RPCs `mark_picking_list_waiting` / `unmark_picking_list_waiting`. Verification queue las oculta por defecto (toggle "Waiting for Inventory"). Cross-customer SKU conflicts se detectan al abrir DoubleCheckView (`useWaitingConflicts`) y se resuelven via `take_over_sku_from_waiting` RPC o editando la orden. La rama `auto_cancel_stale_orders` verification 24h fue **eliminada** (era conceptualmente equivocada, bug-017). El cómputo de reservas client-side (`usePickingActions.ts`) ya itera `needs_correction`, así que waiting orders son respetadas automáticamente.
 
 **Progreso de verificación (`verified_item_keys`, 25 ago 2026):** el Set `checkedItems` vive en
@@ -160,6 +169,12 @@ lectura (tras `lockForCheck`) leía ese `[]` como verdad y una orden parkeada vo
 Dos cosas siguen siendo a propósito y no son este bug: la **X** (`parkOrder`) conserva las llaves, y
 **Ready to DC** (`releaseCheck` → `ready_to_double_check`) las **vacía** — es un flujo posterior al
 recogido que no toca inventario ni la barra de avance.
+
+**Y la bandera es del GRUPO, no de la orden (9 sep 2026):** `flushVerifiedItems` escribe el mismo Set
+fusionado en **todos** los miembros (`.eq('group_id', …)`). Así que `verified_item_keys` vacío **no**
+significa "sin verificar": significa "esta fila no estaba en el grupo durante el último flush". Es
+exactamente lo que delató a #881394 (0 llaves con dos hermanas en 6, bug-023), pero no sirve como
+señal per-order — para "¿alguien tocó esto?" la señal es `checked_by`.
 
 **Pulsación larga en DoubleCheckView = "¿dónde está de verdad?"**: abre `sku-locations` (Modal Manager,
 `SkuLocationsModal`) con **todas** las filas de inventario del SKU, la dirección de la orden primero y
@@ -219,6 +234,26 @@ nada. `fetchDistributions` guarda ahora `location`/`warehouse` por fila, que es 
 diagnóstico sin otra consulta.
 
 **Verification Board (idea-055):** La Verification Queue es un overlay full-screen con zonas: Priority (auto-populated por status), FedEx/Regular lanes (drag-reclasificar `shipping_type`), In Progress Projects (read-only), Recently Completed (drag=reopen), Waiting (colapsable). Auto-clasificación: item >50 lbs o ≥5 BIKES (prefijo 03-) → Regular, else → FedEx; las partes nunca fuerzan Regular (50 partes = FedEx). Regla duplicada en DB (`classify_picking_list_fedex`) — mantener ambas en sync. La regla de bikes depende de `sku_metadata.is_bike`, que el item no trae por sí solo: el trigger `a_stamp_item_sku_metadata` (migración `20260820150000`) lo sella dentro de cada elemento de `picking_lists.items` en cada write, así que **todo consumidor lee la misma verdad sin buscarla**. Antes cada pantalla traía su propio lookup y pasarlo era opcional — DoubleCheckView no lo pasaba y pintaba de FedEx órdenes de 13 bicis. El parámetro `bikeSkus` de `autoClassifyShippingType`/`isFedexOrder` es ahora **obligatorio** (pasar un Set vacío para renunciar a él a propósito): cubre el ítem que aún no se ha escrito y el SKU cuyo `is_bike` cambió después del sellado. `shipping_type` columna en `picking_lists` (NULL = auto). DnD usa `@dnd-kit/sortable` con `useBoardDnD` hook. Componentes en `src/features/picking/components/board/`.
+
+**Un grupo que alguien tiene en las manos no recibe órdenes nuevas (bug-023, 9 sep 2026).** El
+auto-agrupado FedEx (`auto_group_fedex_orders`, BEFORE INSERT) pega toda orden FedEx nueva al grupo
+FedEx abierto más viejo — **sin mirar cliente**. Antes solo excluía `completed`/`cancelled`/`reopened`,
+así que enganchaba órdenes a un grupo que alguien estaba verificando y el lote de completado se las
+llevaba sin que nadie las viera (#881394: creada 18:11:48, completada 18:11:54, cero líneas
+verificadas). Ahora consulta **`group_is_held(group_id)`** (`20260909233836`), que es la fuente única
+de la regla: algún miembro con `checked_by`, en `double_checking`, o con progreso de verificación. Lo
+que rechaza nace sin grupo y se combina a mano con Combine. **El espejo está en el watchdog**
+(`find_combinable_order_by_customer`, `COMBINABLE_STATUSES` incluye `double_checking`): todavía **no**
+tiene el guard — pendiente, y solo cambia al redesplegar en la MacBook de Bay 2. Segunda capa en el
+cliente: el lote de `PickingCartDrawer` completa **lo que el carrito tenía cargado** (`source_list_id`
+por línea), no lo que comparta `group_id` en ese instante (`utils/groupSweep.ts`).
+
+**Qué miembro representa una tarjeta combinada:** `mergeGroupOrders` ancla en `groupOrders[0]`, por
+posición, y un grupo `general` fusiona a través de la frontera activo/completado — así que el ancla es
+con frecuencia el miembro completado, y abrirlo era un callejón (DoubleCheckView carga, lee
+`completed` y el drawer se cierra solo). `openableGroupMemberId` decide sobre las **filas crudas**: el
+board estampa el status agregado del grupo sobre cada miembro, así que una fila completada llega a un
+carril leyendo `ready_to_double_check` y su propio `status` no sirve para distinguirla (bug-024).
 
 **Activity Report layout:** Editor panel on the left (desktop) with: selectable greeting toggle ("Hi Carine!"), Win of the Day, PickD Updates (collapsible dropdown, closed by default), On the Floor routine checklist (editable items via gear icon, persisted in localStorage), and Notes (multiline textarea, one per line). Preview on the right updates with green highlight flash on each edit. "Save & Copy Report" button at bottom saves + copies to clipboard in one action. Report section order: Win → PickD Updates → Done Today → On the Floor → In Progress → Coming Up Next → Inventory Accuracy → Waiting. Footer shows date only (no timestamp). `/pickd-report` public route shows the HTML daily report for the current date with date navigation.
 
