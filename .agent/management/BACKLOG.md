@@ -11,6 +11,29 @@
 
 ## P1 — Alto (operación diaria)
 
+### 109. Catálogo de containers (10 sep): lo que quedó para el piso, para Rafael y para Bay 2 <!-- id: idea-177 --> — input: 2026-09-10 NY
+- **Hecho el 10 sep** (`20260910151722` … `20260910210219`): nombres de 7004N y del container de
+  Florida separados en modelo/talla/color, Laser → `JUV LASER`, pesos de gemelas de color, containers y
+  jaulas fuera del espacio de almacén, cuadros = partes con `category = 'frame'` (en el export si están
+  medidos) y `sku_metadata.received_year`.
+- [ ] **Rafael — export a FedEx otra vez y cargarlo en FSM (Replace).** El de las 12:56 del 10 sep salió
+  **sin los 3 registros de cuadros** (Portal C2 SM, Renegade S1 UDH framekit 54 y 56–58): si se cargó,
+  FSM los borró. El siguiente ya los trae.
+- [ ] **Piso — Y21K010490 (Citizen 1 17" Palladium) está en CAGE y en CAGE 8.** Es un serial, una sola
+  bici: ver en cuál está y dejar la otra fila en 0.
+- [ ] **Piso — pesar y medir:** una caja de cuadro/framekit (los 12 siguen con las 45 lb de una bici);
+  remedir el Portal C2 SM `03-3666BL` (54×30×8 es la caja por defecto vieja); pesar Renegade S4 48/51/61
+  (37.5 lb estimado de la etiqueta de la 54, sin verificar).
+- [ ] ❓ **`received_year` no se ve en ninguna pantalla.** Default: en el detalle del ítem.
+- [ ] ❓ **Cuadros nuevos:** hoy `category = 'frame'` solo se pone por SQL. Default: selector en el detalle
+  del ítem junto al tipo Bici/Parte.
+- [ ] ❓ **Partes sin container: ¿toman el año de su nombre?** Default: no — es el año de la bici a la que
+  van ("HEADSET 2009 VENTURA SPORT").
+- [ ] **Bay 2 — redesplegar el watchdog:** `as400_snapshot` lleva 0 de 2197 SKUs leídos, así que no hay
+  año de modelo ni nombre AS400 contra qué comparar el catálogo.
+- Menor: 4 tarjetas sin stock con el color repetido (`03-3766BK` ROW 8, `03-3727BK` ROW 37, `03-3777RD`
+  ROW 30, `03-3848BL` ROW 27); la familia TAXI 26 antigua sigue esperando su decisión (`20260909205906`).
+
 ### 108. PickD decide de dónde sale el pick, no el watchdog <!-- id: idea-176 --> — input: 2026-09-09 NY ✅ 2026-09-10 `de45285`
 - **Rafael:** "pickd tiene que encargarse solo, específicamente doublecheck view, de lo que watchdog va
   a dejar de hacer".
