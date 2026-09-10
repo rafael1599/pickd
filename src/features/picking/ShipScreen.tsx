@@ -1351,7 +1351,7 @@ export const ShipScreen = () => {
     );
   }, [selectedOrder, orders, dismissedCombineSuggestionIds]);
 
-  const handleAcceptCombineSuggestion = useCallback(async () => {
+  const runCombineSuggestion = useCallback(async () => {
     if (!selectedOrder || !combineSuggestionCandidate) return;
     setIsAcceptingCombineSuggestion(true);
     try {
@@ -1394,6 +1394,25 @@ export const ShipScreen = () => {
     resolveMixedShippingType,
     fetchOrders,
   ]);
+
+  // The banner's Combine is one tap away from the order it is sitting on, so it
+  // asks before binding anything — same rule as the board's suggestion. Naming
+  // both orders is the point: the answer is obvious once you read which two.
+  const handleAcceptCombineSuggestion = useCallback(() => {
+    if (!selectedOrder || !combineSuggestionCandidate) return;
+    showConfirmation(
+      'Combine these two orders?',
+      `#${selectedOrder.order_number ?? selectedOrder.id} and #${
+        combineSuggestionCandidate.order_number ?? combineSuggestionCandidate.id
+      } would go out as ONE shipment${
+        selectedOrder.customer?.name ? ` for ${selectedOrder.customer.name}` : ''
+      }. You can undo it later with Ungroup.`,
+      () => void runCombineSuggestion(),
+      () => {},
+      'Combine',
+      'Cancel'
+    );
+  }, [selectedOrder, combineSuggestionCandidate, showConfirmation, runCombineSuggestion]);
 
   // Members of the selected order's group, for the kebab menu's Ungroup
   // picker — combining is always reversible manually, whether it was

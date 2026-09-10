@@ -552,7 +552,7 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
     return map;
   }, [completedOrders]);
 
-  const handleAcceptCombineSuggestion = useCallback(
+  const runCombineSuggestion = useCallback(
     async (order: PickingList, candidate: PickingList) => {
       // Only join an EXISTING group if it's already a deliberate combine
       // (general/pickup) — a 'fedex' group_id is a shared operational bucket
@@ -581,6 +581,26 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
       }
     },
     [addToGroup, createGroup, resolveMixedShippingType, refresh]
+  );
+
+  // The suggestion sits under the card as a one-tap button, so a stray tap used
+  // to bind two orders into a single shipment on the spot. Combining changes
+  // what leaves the building, so it asks first — naming both orders and the
+  // customer they were matched on, and saying it can be undone.
+  const handleAcceptCombineSuggestion = useCallback(
+    (order: PickingList, candidate: PickingList) => {
+      showConfirmation(
+        'Combine these two orders?',
+        `#${order.order_number ?? order.id} and #${candidate.order_number ?? candidate.id} would go out as ONE shipment${
+          order.customer?.name ? ` for ${order.customer.name}` : ''
+        }. You can undo it later with Ungroup.`,
+        () => void runCombineSuggestion(order, candidate),
+        () => {},
+        'Combine',
+        'Cancel'
+      );
+    },
+    [showConfirmation, runCombineSuggestion]
   );
 
   // ─── Render ────────────────────────────────────────────────────────
