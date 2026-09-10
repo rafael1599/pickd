@@ -216,22 +216,34 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
   const handleMergeSelect = async (target: MergeTargetCandidate) => {
     if (!orderToMerge || !user?.id) return;
     try {
-      // 1. Reopen or restore the target order if completed or cancelled
-      if (target.status === 'completed') {
-        const { error } = await supabase.rpc('reopen_picking_list', {
-          p_list_id: target.id,
-          p_reopened_by: user?.id,
-          p_reason: `Combined with #${orderToMerge.order_number || 'unknown'}`,
-        });
-        if (error) throw error;
-      } else if (target.status === 'cancelled') {
-        const { error } = await supabase.rpc('restore_cancelled_order', {
-          p_list_id: target.id,
-          p_restored_by: user?.id,
-          p_reason: `Combined with #${orderToMerge.order_number || 'unknown'}`,
-        });
-        if (error) throw error;
-      }
+      // 1. Wake whichever side is asleep. This used to run on the target only,
+      //    so combining a COMPLETED order into an open one left it completed
+      //    inside the group — and loadExternalList drops completed siblings,
+      //    so the card announced two order numbers over one order's items.
+      //    A reopened member is merged like any other, and both completion
+      //    paths already know what to do with it (complete_addon_group takes
+      //    it as the source; the batch loop recompletes it as a sibling).
+      const wake = async (id: string, status: string, pairedWith: string | null | undefined) => {
+        const reason = `Combined with #${pairedWith || 'unknown'}`;
+        if (status === 'completed') {
+          const { error } = await supabase.rpc('reopen_picking_list', {
+            p_list_id: id,
+            p_reopened_by: user.id,
+            p_reason: reason,
+          });
+          if (error) throw error;
+        } else if (status === 'cancelled') {
+          const { error } = await supabase.rpc('restore_cancelled_order', {
+            p_list_id: id,
+            p_restored_by: user.id,
+            p_reason: reason,
+          });
+          if (error) throw error;
+        }
+      };
+
+      await wake(target.id, target.status, orderToMerge.order_number);
+      await wake(orderToMerge.id, orderToMerge.status, target.order_number);
 
       // 2. Perform the group binding
       let newGroupId = target.group_id;
