@@ -28,8 +28,14 @@
 - **Lo que habilita:** una línea sin dirección ya no se salta, está **sin planificar** — así el watchdog
   puede dejar de calcular ubicación por completo. Ese es el siguiente corte, y no depende de un
   despliegue coordinado: PickD ya tolera las dos formas.
-- **Pendiente:** `_to_cart_items` del watchdog sigue escribiendo `location`/`sublocation`/`distribution`
-  /`available_qty`; cuando se quiten, `_is_return_to_stock` y su espejo mueren con ellos.
+- **Cerrado el mismo día** (watchdog `462b94b`): `_to_cart_items` dejó de asignar ubicación; murieron
+  `_is_return_to_stock`, `RETURN_TO_STOCK_LOCATION`, la tabla `PRIORITY`, el `reserved_map` por
+  ubicación y `effective_qty`. Queda transcripción y resolución de SKU (`_pick_by_stock` y
+  `insufficient_stock`, que nunca dependieron de una ubicación). Un cabo que apareció al cortar: la
+  reserva por SKU exigía que la línea tuviera ubicación, así que una orden sin planificar habría sido
+  invisible para la disponibilidad del siguiente import — corregido en el mismo commit. La cobertura de
+  los 3 tests de RETURN TO STOCK que se borraron allá se movió a `pickLocation.test.ts`, que no tenía
+  test de casing ni de piso vacío.
 
 
 ### 107. Watcher: los huecos del escáner llenan el teléfono y el email del dealer <!-- id: idea-175 --> — input: 2026-09-01 NY

@@ -3,6 +3,7 @@ import {
   byPickPreference,
   collapseSplitForSku,
   isLastResort,
+  isReturnToStock,
   planPickAcrossLocations,
   toPickingOrderMap,
 } from '../pickLocation';
@@ -250,6 +251,26 @@ describe('RETURN TO STOCK comes before every shelf', () => {
       'ROW 28'
     );
     expect(plan.legs[0].location).toBe('RETURN TO STOCK');
+  });
+
+  // Moved here from the watcher's test_intake_sku_matching.py, which used to
+  // make this decision at import time. The rule did not change owners quietly:
+  // it changed owners, and its tests came with it.
+  it('is matched by name, whatever the case and spacing', () => {
+    expect(isReturnToStock({ location: ' return to stock ', warehouse: 'LUDLOW' })).toBe(true);
+    expect(isReturnToStock({ location: 'RETURN TO STOCK', warehouse: 'LUDLOW' })).toBe(true);
+    expect(isReturnToStock({ location: 'ROW 28', warehouse: 'LUDLOW' })).toBe(false);
+    expect(isReturnToStock(null)).toBe(false);
+  });
+
+  it('sorts a lowercase returns row first, same as any other spelling', () => {
+    const rows = [row('ROW 28', 40), row(' return to stock ', 1)];
+    expect([...rows].sort(byPickPreference(order))[0].location).toBe(' return to stock ');
+  });
+
+  it('an empty returns row is not a stop — zero on the floor is not a trip', () => {
+    const plan = planPickAcrossLocations([row('ROW 28', 40), row('RETURN TO STOCK', 0)], 3, order);
+    expect(plan.legs.map((l) => l.location)).toEqual(['ROW 28']);
   });
 
   it('still falls back to the buried pallet for what is left', () => {

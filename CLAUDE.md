@@ -139,10 +139,11 @@ heredan la ruta (`rebaseToActualStock`), Double Check, el diagnóstico de stock 
 variante; `planPickAcrossLocations` lo saca **antes** del atajo de una sola parada, o un estante que
 cubriera la línea entero dejaría el piso intacto (por eso una línea puede partirse en RETURN TO STOCK
 
-- la fila). El watchdog tiene su propio `_is_return_to_stock` porque hoy sigue escribiendo la
-  ubicación al crear la orden, pero **ya no es la fuente**: desde el 10 sep 2026 PickD replanifica al
-  tomar la orden (abajo), así que si los dos discrepan gana PickD, y el espejo muere cuando Bay 2 se
-  redespliegue sin él.
+- la fila). **El espejo ya no existe** (10 sep 2026): el watchdog dejó de asignar ubicación, así que
+  `_is_return_to_stock` y su ranking PALLET > LINE > TOWER se borraron de `supabase_client.py`. La
+  línea llega con `location: None` y esta es la única implementación. **Vive en el repo pero no en la
+  máquina hasta redesplegar en Bay 2**; mientras tanto el watchdog sigue mandando ubicación y PickD la
+  replanifica igual, así que ningún despliegue depende del otro.
 
 **PickD decide de dónde sale el pick, al tomar la orden (10 sep 2026).** `planPickForList`
 (`utils/planPick.ts`, llamado desde el `lockForCheck` de `PickingCartDrawer`) replanifica contra el
@@ -161,7 +162,8 @@ tienen apartado (si no, manda a dos personas a la misma bici) y planifica los he
 combinada **por turnos**, consumiendo cada uno lo que toma. Calla ante cualquier cosa en marcha
 (`reopened`, parkeada con checks, waiting) y solo escribe si una dirección se movió de verdad — un
 write vuelve por realtime a todos los carritos abiertos. Una línea **sin** dirección ya no se salta:
-está **sin planificar**, que es lo que permitirá que el watchdog deje de mandar ubicación.
+está **sin planificar** — y eso es lo que dejó al watchdog soltar la ubicación el mismo día
+(`462b94b` allá). De su intake solo queda transcripción y resolución de SKU.
 
 `building` mode fue eliminado (idea-032). `OrderBuilderMode.tsx`, `PickingSessionView.tsx`, y `returnToBuilding()` fueron eliminados. Edit Order mode (CorrectionModeView) reemplaza sus funciones. InventoryCards muestran +/- inline en picking mode.
 
