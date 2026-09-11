@@ -13,6 +13,8 @@ import {
   ledSafeText,
   nextLedMode,
   rotateRuns,
+  stillGlyphs,
+  stillRuns,
   visibleGlyphs,
 } from '../ledText';
 
@@ -229,5 +231,52 @@ describe('rotateRuns and the modes', () => {
   it('holding the sign steps through the modes and comes back to ROTATE', () => {
     expect(nextLedMode('rotate')).toBe('hold');
     expect(nextLedMode('wipe')).toBe('rotate');
+  });
+});
+
+describe('a still sign — a finished order on the board', () => {
+  const board = { stripWidth: 300, pageCount: 3, boardCols: 90, boardRows: 9, colsPerSecond: 30 };
+
+  it('is the same frame at any time, so it is drawn once', () => {
+    expect(ledFrame('still', 0, board)).toEqual({ kind: 'still' });
+    expect(ledFrameKey(ledFrame('still', 5000, board))).toBe(
+      ledFrameKey(ledFrame('still', 0, board))
+    );
+    expect(ledFrame('still', 0, { ...board, stripWidth: 0 })).toEqual({ kind: 'blank' });
+  });
+
+  it('shows the notes from their start, and only the letters that fit whole', () => {
+    const layout = layoutRuns([{ text: 'AB', color: RED }], F5);
+    expect(stillGlyphs(layout, 9, 5).map((v) => [v.glyph.ch, v.x])).toEqual([
+      ['A', 0],
+      ['B', 5],
+    ]);
+    // B would lose its last lit column to the frame. A single word wider than the
+    // board is the one thing cut — an empty sign would say there is no note.
+    expect(stillGlyphs(layout, 8, 5).map((v) => v.glyph.ch)).toEqual(['A']);
+  });
+
+  it('ends on the last whole word, never on half a word or a separator', () => {
+    // Seen on the first build: 'HOLD · WAITING FOR JAMES TO LOCA'.
+    const words = layoutRuns([{ text: 'HOLD FOR ADDS', color: RED }], F5);
+    expect(
+      stillGlyphs(words, 52, 5)
+        .map((v) => v.glyph.ch)
+        .join('')
+    ).toBe('HOLDFOR');
+    const label = layoutRuns([{ text: 'HOLD · ADDS', color: RED }], F5);
+    expect(
+      stillGlyphs(label, 47, 5)
+        .map((v) => v.glyph.ch)
+        .join('')
+    ).toBe('HOLD');
+  });
+
+  it('puts a diamond between the notes and none after the last', () => {
+    const runs = stillRuns(
+      [[{ text: 'PICK UP', color: RED }], [{ text: 'NOTE', color: WHITE }]],
+      DIM
+    );
+    expect(runs.map((r) => r.text)).toEqual(['PICK UP', '  ◆  ', 'NOTE']);
   });
 });

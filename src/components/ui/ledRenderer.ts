@@ -19,11 +19,13 @@ import {
   ledFrameKey,
   ledPages,
   rotateRuns,
+  stillGlyphs,
+  stillRuns,
   visibleGlyphs,
   type LedGlyph,
   type LedLayout,
-  type LedMode,
   type LedNote,
+  type LedShowMode,
 } from '../../utils/led/ledText';
 
 export interface LedBoardSpec {
@@ -37,7 +39,7 @@ export interface LedBoardSpec {
 export interface LedScene {
   notes: readonly LedNote[];
   spec: LedBoardSpec;
-  mode: LedMode;
+  mode: LedShowMode;
   separatorColor: string;
   /** Reading pace in characters, so every font reads at the same speed. */
   lettersPerSecond: number;
@@ -129,6 +131,7 @@ export class LedRenderer {
   private fontName: LedFontName = '5x7';
   private off: HTMLCanvasElement | null = null;
   private strip: LedLayout = { glyphs: [], width: 0 };
+  private still: LedLayout = { glyphs: [], width: 0 };
   private pages: LedLayout[] = [];
   private t0 = 0;
   private lastKey = '';
@@ -194,6 +197,7 @@ export class LedRenderer {
     this.fontName = spec.font;
     this.top = glyphTop(font, spec.rows);
     this.strip = layoutRuns(rotateRuns(scene.notes, scene.separatorColor), font);
+    this.still = layoutRuns(stillRuns(scene.notes, scene.separatorColor), font);
     this.pages = ledPages(scene.notes, font, cols).map((runs) => layoutRuns(runs, font));
     this.t0 = performance.now();
     this.lastKey = '';
@@ -244,7 +248,12 @@ export class LedRenderer {
     if (key === this.lastKey) return;
     this.lastKey = key;
 
-    if (frame.kind === 'strip') {
+    if (frame.kind === 'still') {
+      this.clear();
+      for (const { glyph, x } of stillGlyphs(this.still, this.cols, this.font.w)) {
+        this.drawGlyph(glyph, x, 0);
+      }
+    } else if (frame.kind === 'strip') {
       this.clear();
       for (const { glyph, x } of visibleGlyphs(this.strip, frame.offset, this.cols, this.font.w)) {
         this.drawGlyph(glyph, x, 0);

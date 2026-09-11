@@ -21,6 +21,13 @@ export const LED_MODE_LABEL: Readonly<Record<LedMode, string>> = {
   wipe: 'WIPE',
 };
 
+/**
+ * What a sign is told to do: one of the modes, or stand still — a finished order
+ * on the Live Board (Rafael, 11 Sep 2026: "en completed orders no se mueve la
+ * nota, se mantiene firme"). 'still' is not a mode a person steps through.
+ */
+export type LedShowMode = LedMode | 'still';
+
 export function nextLedMode(mode: LedMode): LedMode {
   return LED_MODES[(LED_MODES.indexOf(mode) + 1) % LED_MODES.length];
 }
@@ -161,6 +168,8 @@ export function ledPages(notes: readonly LedNote[], font: LedFont, boardCols: nu
 
 export type LedFrame =
   | { kind: 'blank' }
+  /** The notes from their start, not moving; what does not fit is left for the history. */
+  | { kind: 'still' }
   /** The strip's column at the board's left edge; negative while it enters from the right. */
   | { kind: 'strip'; offset: number }
   /**
@@ -178,8 +187,9 @@ export interface LedFrameInput {
 }
 
 /** The frame `elapsedMs` after the sign started showing its content. */
-export function ledFrame(mode: LedMode, elapsedMs: number, input: LedFrameInput): LedFrame {
+export function ledFrame(mode: LedShowMode, elapsedMs: number, input: LedFrameInput): LedFrame {
   const t = Math.max(0, elapsedMs);
+  if (mode === 'still') return input.stripWidth > 0 ? { kind: 'still' } : { kind: 'blank' };
   if (mode === 'rotate') {
     if (input.stripWidth <= 0) return { kind: 'blank' };
     // It enters at the right edge once and then loops with no blank gap: an
@@ -202,7 +212,7 @@ export function ledFrame(mode: LedMode, elapsedMs: number, input: LedFrameInput)
 
 /** Two frames that would draw the same pixels get the same key, so nothing redraws. */
 export function ledFrameKey(frame: LedFrame): string {
-  if (frame.kind === 'blank') return 'blank';
+  if (frame.kind === 'blank' || frame.kind === 'still') return frame.kind;
   if (frame.kind === 'strip') return `s${frame.offset}`;
   return `p${frame.index}:${frame.lit ? 1 : 0}:${frame.rise}:${frame.reveal}`;
 }
@@ -233,6 +243,32 @@ export function visibleGlyphs(
 }
 
 /**
+ * A still sign's glyphs: the notes from their start, up to the last word that
+ * fits whole — a cut letter or half a word reads as a fault, not as "there is
+ * more" (the tap opens the rest). A single word wider than the board is cut,
+ * because showing nothing would say there is no note.
+ */
+export function stillGlyphs(
+  layout: LedLayout,
+  boardCols: number,
+  fontW: number
+): Array<{ glyph: LedGlyph; x: number }> {
+  const glyphs = layout.glyphs;
+  let end = glyphs.findIndex((g) => g.col + fontW - 1 > boardCols);
+  if (end === -1) end = glyphs.length;
+  // The next glyph sits in the very next cell: the last word is only half in.
+  const adjacent = (i: number) => glyphs[i].col - glyphs[i - 1].col === fontW;
+  if (end > 0 && end < glyphs.length && adjacent(end)) {
+    let start = end - 1;
+    while (start > 0 && adjacent(start)) start--;
+    if (start > 0) end = start;
+  }
+  // Nor end on a separator.
+  while (end > 0 && (glyphs[end - 1].ch === '·' || glyphs[end - 1].ch === '◆')) end--;
+  return glyphs.slice(0, end).map((glyph) => ({ glyph, x: glyph.col }));
+}
+
+/**
  * The rotating strip: every note followed by a dim diamond, so where one ends and
  * the next begins reads at a glance, and so does the loop's seam.
  */
@@ -242,4 +278,9 @@ export function rotateRuns(notes: readonly LedNote[], separatorColor: string): L
     runs.push(...note, { text: '  ◆  ', color: separatorColor });
   }
   return runs;
+}
+
+/** The same notes for a still sign: a diamond between them, none after the last. */
+export function stillRuns(notes: readonly LedNote[], separatorColor: string): LedRun[] {
+  return rotateRuns(notes, separatorColor).slice(0, -1);
 }

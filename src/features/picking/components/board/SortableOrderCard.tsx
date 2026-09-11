@@ -11,10 +11,6 @@ import MoreVertical from 'lucide-react/dist/esm/icons/more-vertical';
 import type { PickingList } from '../../hooks/useDoubleCheckList';
 
 import { TransportLogo } from '../../../../components/orders/TransportLogo';
-import {
-  calculatePalletsWithBikeAwareness,
-  type PickingItem,
-} from '../../../../utils/pickingLogic';
 import { SINGLE_ORDER_COLOR } from '../../../../utils/orderColors';
 import { CombinedOrderNumbers } from '../../../../components/orders/CombinedOrderNumbers';
 import { OrderNotesInline } from '../OrderNotesInline';
@@ -23,6 +19,8 @@ import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../lib/supabase';
 import toast from 'react-hot-toast';
 import { useParkedLocations } from '../../hooks/useParkedLocations';
+import { verificationProgress } from './verificationProgress';
+import { VerificationBar } from './VerificationBar';
 import { isBikeSku } from '../../../../utils/bikeDetection';
 
 type ShippingType = 'fedex' | 'regular' | 'pickup';
@@ -270,82 +268,10 @@ const OrderCardShell: React.FC<CardProps> = ({
     };
   }, [order.order_number, order.id]);
 
-  const progressPercent = React.useMemo(() => {
-    // Only completed or shipped orders are guaranteed 100% finished
-    if (order.status === 'completed' || order.is_shipped) {
-      return 100;
-    }
-    // Un-checked queue orders (ready_to_double_check or active) have 0% double-check progress
-    if (order.status === 'ready_to_double_check' || order.status === 'active') {
-      return 0;
-    }
-    if (!Array.isArray(order.items) || order.items.length === 0) return 0;
-
-    const verifiedKeys = new Set(order.verified_item_keys ?? []);
-    if (verifiedKeys.size === 0) return 0;
-
-    const currentBikeSkuSet = new Set<string>();
-    for (const item of order.items) {
-      const sku = typeof item.sku === 'string' ? item.sku : '';
-      const isBike =
-        (bikeSkuSet && bikeSkuSet.has(sku)) ||
-        isBikeSku(sku, item.sku_metadata as { is_bike?: boolean | null } | null);
-      if (isBike && sku) {
-        currentBikeSkuSet.add(sku);
-      }
-    }
-    const allItems = (order.items ?? []).map((i) => {
-      const rawQty =
-        (i as { pickingQty?: number }).pickingQty ??
-        (i as { qty?: number }).qty ??
-        (i as { quantity?: number | string }).quantity;
-      return {
-        ...i,
-        sku: typeof i.sku === 'string' ? i.sku : '',
-        pickingQty: typeof rawQty === 'string' ? Number(rawQty) || 0 : rawQty || 0,
-        location: i.location ?? null,
-      };
-    }) as unknown as PickingItem[];
-    const pallets = calculatePalletsWithBikeAwareness(allItems, currentBikeSkuSet);
-
-    const verifiedSuffixCounts = new Map<string, number>();
-    for (const vk of verifiedKeys) {
-      const dashIdx = vk.indexOf('-');
-      if (dashIdx !== -1) {
-        const suffix = vk.slice(dashIdx);
-        verifiedSuffixCounts.set(suffix, (verifiedSuffixCounts.get(suffix) ?? 0) + 1);
-      }
-    }
-
-    let totalUnits = 0;
-    let verifiedUnits = 0;
-
-    for (const pallet of pallets) {
-      for (const item of pallet.items) {
-        const qty = item.pickingQty || 0;
-        totalUnits += qty;
-        const key = `${pallet.id}-${item.sku}-${item.location}`;
-        const suffix = `-${item.sku}-${item.location}`;
-
-        let isMatched = verifiedKeys.has(key);
-        if (!isMatched) {
-          const count = verifiedSuffixCounts.get(suffix) ?? 0;
-          if (count > 0) {
-            isMatched = true;
-            verifiedSuffixCounts.set(suffix, count - 1);
-          }
-        }
-
-        if (isMatched) {
-          verifiedUnits += qty;
-        }
-      }
-    }
-
-    if (totalUnits === 0) return 0;
-    if (verifiedUnits >= totalUnits) return 100;
-    return Math.min(95, Math.round((verifiedUnits / totalUnits) * 100));
-  }, [order.status, order.is_shipped, order.items, order.verified_item_keys, bikeSkuSet]);
+  const progressPercent = React.useMemo(
+    () => verificationProgress(order, bikeSkuSet),
+    [order, bikeSkuSet]
+  );
 
   return (
     <div
@@ -465,22 +391,14 @@ const OrderCardShell: React.FC<CardProps> = ({
               ) : null}
             </div>
             {progressPercent > 0 && order.status !== 'completed' && (
-              <div className="mt-2 h-2 w-full bg-surface rounded-full overflow-hidden border border-subtle">
-                <div
-                  className="h-full transition-all duration-500 ease-out"
-                  style={{
-                    width: `${progressPercent}%`,
-                    background:
-                      'linear-gradient(to right, rgb(59, 130, 246), rgb(6, 182, 212), rgb(16, 185, 129)) 0% 0% / 162.242% 100%',
-                  }}
-                />
-              </div>
+              <VerificationBar percent={progressPercent} className="mt-2" />
             )}
           </button>
 
           {/* Notes live outside the select button — they open their own modal
               on a tap, and nested <button>s aren't valid HTML. The small LED
-              sign, with every member's notes on a combined card. */}
+              sign, with every member's notes on a combined card; still once the
+              order is finished (Rafael, 11 Sep 2026). */}
           <OrderNotesInline
             listId={order.members?.map((m) => m.id) ?? order.id}
             watcherNote={order.notes}
@@ -490,6 +408,7 @@ const OrderCardShell: React.FC<CardProps> = ({
             }))}
             combinedNumbers={order.members?.map((m) => m.order_number)}
             size="small"
+            still={order.status === 'completed'}
             className="block w-full px-3 md:px-4 pb-2 pt-1"
           />
         </div>

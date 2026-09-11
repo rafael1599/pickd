@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { LedRenderer, subscribeLedTick, type LedBoardSpec } from './ledRenderer';
-import { LED_MODE_LABEL, type LedMode, type LedNote } from '../../utils/led/ledText';
+import {
+  LED_MODE_LABEL,
+  type LedMode,
+  type LedNote,
+  type LedShowMode,
+} from '../../utils/led/ledText';
 
 export type LedSignSize = 'large' | 'small';
 
@@ -26,6 +31,8 @@ interface LedSignProps {
   notes: readonly LedNote[];
   size: LedSignSize;
   mode: LedMode;
+  /** Hold the notes still from their start, whatever the mode — a finished order. */
+  still?: boolean;
   /** What a screen reader says instead of the dots. */
   label: string;
 }
@@ -36,7 +43,7 @@ interface LedSignProps {
  * scrolled out of view. With reduced motion it holds still pages instead of
  * scrolling.
  */
-export function LedSign({ notes, size, mode, label }: LedSignProps) {
+export function LedSign({ notes, size, mode, still = false, label }: LedSignProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<LedRenderer | null>(null);
@@ -46,7 +53,7 @@ export function LedSign({ notes, size, mode, label }: LedSignProps) {
       window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true,
     []
   );
-  const shownMode: LedMode = reducedMotion ? 'hold' : mode;
+  const shownMode: LedShowMode = still ? 'still' : reducedMotion ? 'hold' : mode;
   const notesKey = JSON.stringify(notes);
   const spec = SPECS[size];
 
@@ -99,11 +106,13 @@ export function LedSign({ notes, size, mode, label }: LedSignProps) {
     });
   }, [notesKey, size, shownMode]);
 
-  // A new mode says its name for a moment, the way a sign confirms a setting.
+  // A new mode says its name for a moment, the way a sign confirms a setting. A
+  // still sign has no mode to confirm.
   const lastMode = useRef(shownMode);
   useEffect(() => {
     if (lastMode.current === shownMode) return;
     lastMode.current = shownMode;
+    if (shownMode === 'still') return;
     rendererRef.current?.announce(LED_MODE_LABEL[shownMode], ANNOUNCE_COLOR, ANNOUNCE_MS);
   }, [shownMode]);
 

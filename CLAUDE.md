@@ -209,6 +209,16 @@ significa "sin verificar": significa "esta fila no estaba en el grupo durante el
 exactamente lo que delató a #881394 (0 llaves con dos hermanas en 6, bug-023), pero no sirve como
 señal per-order — para "¿alguien tocó esto?" la señal es `checked_by`.
 
+**La barra de avance del board es una sola lectura (`board/verificationProgress.ts`, 11 sep 2026).**
+La usan la tarjeta normal, la combinada y la del grupo FedEx (`VerificationBar`). **`FedexGroupCard`
+no tenía barra**, y los grupos FedEx son casi todo lo que se verifica en un día: mientras el picker
+marcaba, el board decía «Checking» y nada más (Rafael: «la barra de avance no se está viendo a medida
+que el picker selecciona los items en dcv»). Es **una barra por grupo**, porque Double Check verifica
+el grupo como un carrito y escribe las mismas llaves en todos los miembros. Una llave cuenta por su
+cola `-sku-location`, **una vez** (el número de pallet es del carrito, no de la tarjeta), y una llave
+`…-null` cuenta para una línea de su SKU: la línea se marcó antes de tener dirección y Double Check
+escribió después la que resolvió (bug-026) — #881529 se quedaba en 62 % terminada.
+
 **Pulsación larga en DoubleCheckView = "¿dónde está de verdad?"**: abre `sku-locations` (Modal Manager,
 `SkuLocationsModal`) con **todas** las filas de inventario del SKU, la dirección de la orden primero y
 marcada, y un botón Editar por fila que abre `item-detail` sobre esa fila concreta. Antes abría el
@@ -678,8 +688,13 @@ cambio de datos que espera el ok de Rafael. Mientras tanto, «humana» es `isHum
   cada instante es puro y con tests (`utils/led/ledText.ts`); `components/ui/LedSign.tsx` +
   `ledRenderer.ts` solo pintan — un atlas de letras y **un solo** requestAnimationFrame para toda la
   página, y un letrero fuera de la vista no dibuja (cada letrero son ~20 copias de imagen por
-  cuadro, y solo cuando el texto avanza un LED). Con _reduced motion_, HOLD. **La tarjeta combinada del board lleva `members`** (lo pone
-  `mergeGroupOrders`), así que su letrero lee las notas de todos los miembros, no solo del ancla.
+  cuadro, y solo cuando el texto avanza un LED). Con _reduced motion_, HOLD. **En COMPLETED del board
+  se queda quieto** (Rafael, 11 sep 2026: «en completed orders no se mueve la nota, se mantiene
+  firme; en el resto de actividades de la orden se muestra moviéndose»): las notas desde su inicio
+  hasta la última palabra entera, dibujadas una vez (`still`, que no es un modo de los que se
+  recorren). Ship corre siempre — ahí es donde se lee la nota entera. **La tarjeta combinada del board
+  lleva `members`** (lo pone `mergeGroupOrders`), así que su letrero lee las notas de todos los
+  miembros, no solo del ancla; la del grupo FedEx (`FedexGroupCard`) lleva el mismo letrero.
 - **`usePickingNotes` es TanStack Query**, una entrada de caché por `list_id`, y el realtime es
   **una sola** suscripción montada en `LayoutMain` (`usePickingNotesRealtime`). Antes abría un canal
   **por instancia** — y el hook se monta por card, así que un board lleno abría un canal por card,

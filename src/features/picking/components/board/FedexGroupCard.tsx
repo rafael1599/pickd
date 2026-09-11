@@ -7,6 +7,10 @@ import Trash2 from 'lucide-react/dist/esm/icons/trash-2';
 import type { PickingList } from '../../hooks/useDoubleCheckList';
 import { getWorkerLabel, isActivelyChecking } from './SortableOrderCard';
 import { orderColorFor } from '../../../../utils/orderColors';
+import { OrderNotesInline } from '../OrderNotesInline';
+import { mergeGroupOrders } from './mergeGroupOrders';
+import { verificationProgress } from './verificationProgress';
+import { VerificationBar } from './VerificationBar';
 
 interface FedexGroupCardProps {
   orders: PickingList[];
@@ -22,10 +26,22 @@ interface FedexGroupCardProps {
  * so each order needs its own quick Ungroup/Delete/menu buttons. Tapping any
  * row opens the combined double-check view with every order in the group.
  * The purple dashed container marks the FedEx group boundary.
+ *
+ * Under the rows, what the standard card shows for one order: the verification
+ * bar — one for the group, because Double Check checks the group as one cart and
+ * writes the same keys to every member — and the small LED sign with every
+ * member's notes. Without them, most of what the floor checks in a day (FedEx
+ * groups) never showed progress on the board (Rafael, 11 Sep 2026).
  */
 export const FedexGroupCard = React.memo<FedexGroupCardProps>(
   ({ orders, onSelect, onDelete, onUngroup, onMerge }) => {
     if (orders.length === 0) return null;
+
+    const merged = mergeGroupOrders(orders);
+    const progress = verificationProgress(merged);
+    const members = merged.members ?? [
+      { id: merged.id, order_number: merged.order_number, notes: merged.notes ?? null },
+    ];
 
     const hasCorrection = orders.some((o) => o.status === 'needs_correction');
     const hasDoubleChecking = orders.some(isActivelyChecking);
@@ -151,6 +167,20 @@ export const FedexGroupCard = React.memo<FedexGroupCardProps>(
             );
           })}
         </div>
+
+        {progress > 0 && (
+          <div className="px-2.5 pb-2">
+            <VerificationBar percent={progress} />
+          </div>
+        )}
+
+        <OrderNotesInline
+          listId={members.map((m) => m.id)}
+          watcherNotes={members.map((m) => ({ orderNumber: m.order_number, notes: m.notes }))}
+          combinedNumbers={members.map((m) => m.order_number)}
+          size="small"
+          className="block w-full px-2.5 pb-2"
+        />
       </div>
     );
   }

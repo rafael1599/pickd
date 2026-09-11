@@ -26,6 +26,8 @@ interface OrderNotesInlineProps {
    * 'small' — each Live Board card. Both open the same full history on a tap.
    */
   size?: LedSignSize;
+  /** The notes stand still — a finished order on the board (Rafael, 11 Sep 2026). */
+  still?: boolean;
 }
 
 /** The newest two (Rafael, 11 Sep 2026). */
@@ -78,6 +80,7 @@ export const OrderNotesInline: React.FC<OrderNotesInlineProps> = ({
   combinedNumbers,
   className,
   size = 'large',
+  still = false,
 }) => {
   const { open } = useModal();
   const [mode, cycleMode] = useLedMode();
@@ -95,7 +98,7 @@ export const OrderNotesInline: React.FC<OrderNotesInlineProps> = ({
 
   const notes = latest.map((entry) => toLedNote(entry, isCombined));
   const spoken = latest.map(noteLine).join('. ');
-  const canCycle = size === 'large';
+  const canCycle = size === 'large' && !still;
 
   const endPress = () => {
     if (pressTimer.current !== null) window.clearTimeout(pressTimer.current);
@@ -134,7 +137,7 @@ export const OrderNotesInline: React.FC<OrderNotesInlineProps> = ({
       aria-label={`Notes: ${spoken}`}
       className={`${className ?? 'block w-full'} select-none [-webkit-touch-callout:none] hover:opacity-90 transition-opacity`}
     >
-      <LedSign notes={notes} size={size} mode={mode} label={spoken} />
+      <LedSign notes={notes} size={size} mode={mode} still={still} label={spoken} />
     </button>
   );
 };
