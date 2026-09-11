@@ -886,7 +886,7 @@
 - **Fix:** `reopened` entra en `canMerge`. El flujo queda: completada → Reopen (con razón) → Combine →
   Re-Complete, y `complete_addon_group` cierra las dos en una transacción.
 
-### 9. Añadir stock desde una tarjeta combinada mete las líneas de las hermanas en la orden ancla <!-- id: bug-026 --> (input: 2026-09-11 NY)
+### ~~9. Añadir stock desde una tarjeta combinada mete las líneas de las hermanas en la orden ancla~~ <!-- id: bug-026 --> ✅ 2026-09-11 `11aecf4` `142d53f` (input: 2026-09-11 NY)
 - **Síntoma (operador):** en **#881513** "se sigue mostrando la parte que no pertenece a esta orden…
   al intentar editar para eliminarla solo veo la bicicleta"; en **#881514** "pickd dont show us the item
   in edit order… we dont have location where it was pickd" y "al completar no se ha descontado nada".
@@ -909,9 +909,21 @@
   `planPickForList`), con llaves de lo ya escrito que cortan el eco, y sin esperar reservas que no
   existen. Completar espera esa escritura. Edit Order: normales = todo lo que no es problema, y una
   orden sin grupo enseña todas sus líneas. `handleCorrectItem` lee de la DB si el carrito abarca filas.
-- **Pendiente:** publicar, y la reparación de datos (ensayada con rollback): #881513 sin la parte,
-  #881514 a 1 u en FDX STATION, #881393 sin las ajenas, #881392 con dirección, DEDUCTs reatribuidos, y
-  +1 en ROW 10 para las dos bicis descontadas dos veces.
+- **Reparación en prod (11 sep, ensayada con rollback y aplicada):** #881513 solo con su bici, #881514
+  a 1 × `12-9833` en FDX STATION, #881393 solo con su bici, #881392 con dirección; los DEDUCT de
+  `12-9833` y `86-0027BK` reatribuidos a la orden que envió la unidad; ROW 10 +1 `03-3647OR` (J → 2) y +1
+  `03-3677BL` (K → 6), con el duplicado `is_reversed` y el ADD como `system: data-repair`. #881156 y
+  #881076 conservan líneas ajenas (sin doble descuento) y no se tocaron.
+- **Verificado en prod tras el deploy:** ninguna fila nueva con líneas de otra orden, y ninguna ráfaga de
+  escrituras de `items` (en #881518, la orden más activa, hubo una sola). Las ráfagas de esa tarde son
+  `verified_item_keys`: checks re-marcados cada pocos minutos, lo que arregla `37bd187`.
+- **Mejoras propuestas y decididas por Rafael (11 sep):** descartadas mover una línea entre órdenes ("si no
+  se resolvía mal nunca iba a ser necesario mover un item"), avisar al completar si una línea no
+  descuenta ("es molesto, ya tenemos suficientes mensajes; si un operario decide enviar una orden sin un
+  item es porque él mismo tomó la decisión") y deshacer tras Remove/Adjust ("no por ahora"). La
+  ubicación en un toque la cubre la resolución de Double Check, que no necesita entrar a Edit Order. Dos
+  reglas: **arreglar la causa en vez de dar una herramienta para el síntoma**, y **no añadir avisos a
+  decisiones que ya toma el operario**.
 
 ### 10. Una dirección por cuenta AS400: cada orden nueva la pisa y Ship enseña la de otra tienda <!-- id: bug-027 --> (input: 2026-09-10 23:20 NY)
 - **Rafael:** "Revisar orden 412 y 414 porque esta confuso sus direcciones" · "hoy que tuve problemas
