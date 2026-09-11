@@ -654,6 +654,33 @@
 - **Fix:** `reopened` entra en `canMerge`. El flujo queda: completada → Reopen (con razón) → Combine →
   Re-Complete, y `complete_addon_group` cierra las dos en una transacción.
 
+### 9. Añadir stock desde una tarjeta combinada mete las líneas de las hermanas en la orden ancla <!-- id: bug-026 --> (input: 2026-09-11 NY)
+- **Síntoma (operador):** en **#881513** "se sigue mostrando la parte que no pertenece a esta orden…
+  al intentar editar para eliminarla solo veo la bicicleta"; en **#881514** "pickd dont show us the item
+  in edit order… we dont have location where it was pickd" y "al completar no se ha descontado nada".
+- **Causa:** el efecto de auto-resolución de `DoubleCheckView` (desde `a31ce7d`, 21 jul) escribía
+  **el carrito entero en `activeListId`** — y un carrito combinado son las líneas de todas las
+  hermanas. Se disparó al añadir 18 × `12-9833` en FDX STATION (13:52:35) con la tarjeta anclada en
+  #881513: la parte de #881514 entró a #881513 y #881514 conservó la suya sin dirección. Como el efecto
+  nunca tocaba el carrito local, cada eco realtime (`useStockReservations` refetch con cualquier cambio
+  de `picking_lists`) volvía a escribir: **120 PATCH en 62 s** (edge logs). Ya separadas, #881514 no se
+  resolvía porque el efecto esperaba `reservationsMap`, una query que no corre si ninguna línea tiene
+  dirección; se completó 3 veces con la línea en `insufficient_stock` y `process_picking_list` la saltó.
+  Edit Order la escondía porque sus dos listas usaban reglas distintas (problemas por stock vivo,
+  normales por la bandera guardada) y la línea no cabía en ninguna; en #881513 filtraba por
+  `source_order` una orden que ya no tenía grupo. #881513 se completó con la parte ajena y la descontó.
+- **Mismo bug el 9 sep:** 105 × `86-0027BK` añadidas desde la tarjeta de #881393 → tomó las líneas de
+  #881392, #881395 y #881397; al completarse las hermanas, **03-3647OR y 03-3677BL salieron dos veces de
+  ROW 10**. Filas contaminadas en toda la base: 4 (también #881156 y #881076, sin doble descuento).
+- **Fix:** `utils/liveResolution.ts` (puro, con tests) + el efecto escribe **cada fila con sus propias
+  líneas leídas de la DB**, solo filas planificables (`PLANNABLE_STATUSES`, compartido con
+  `planPickForList`), con llaves de lo ya escrito que cortan el eco, y sin esperar reservas que no
+  existen. Completar espera esa escritura. Edit Order: normales = todo lo que no es problema, y una
+  orden sin grupo enseña todas sus líneas. `handleCorrectItem` lee de la DB si el carrito abarca filas.
+- **Pendiente:** publicar, y la reparación de datos (ensayada con rollback): #881513 sin la parte,
+  #881514 a 1 u en FDX STATION, #881393 sin las ajenas, #881392 con dirección, DEDUCTs reatribuidos, y
+  +1 en ROW 10 para las dos bicis descontadas dos veces.
+
 ### ~~4. Ship: al combinar una orden con una bici en una orden completada, la bici cuenta como parte y pide peso~~ <!-- id: bug-021 --> ✅ 2026-08-27 `9886206` (input: 2026-08-27 NY)
 - **Síntoma (operador):** "al agregar una nueva orden con una bicicleta a una orden completada en ship me
   pide peso para la supuesta nueva parte agregada, aunque sea una bicicleta que ya tenía peso

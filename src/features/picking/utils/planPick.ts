@@ -26,6 +26,19 @@ import {
 } from '../hooks/useStaleLocationCheck';
 import type { PickingOrderMap } from './pickLocation';
 
+/**
+ * The statuses whose addresses PickD may still rewrite on its own. Everything
+ * else is under way or finished: a `reopened` order is on a pallet and
+ * recomplete prices it against its snapshot, so a line re-addressed there
+ * would deduct a unit nobody sent.
+ */
+export const PLANNABLE_STATUSES: readonly string[] = [
+  'active',
+  'needs_correction',
+  'ready_to_double_check',
+  'double_checking',
+];
+
 const norm = (s: string | null | undefined): string => (s || '').trim().toUpperCase();
 
 const addressKey = (

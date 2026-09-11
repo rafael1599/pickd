@@ -288,6 +288,16 @@ con frecuencia el miembro completado, y abrirlo era un callejón (DoubleCheckVie
 board estampa el status agregado del grupo sobre cada miembro, así que una fila completada llega a un
 carril leyendo `ready_to_double_check` y su propio `status` no sirve para distinguirla (bug-024).
 
+**Lo que Double Check resuelve con el stock vivo se escribe fila por fila (bug-026, 11 sep 2026).** La
+vista persiste tres cosas de una línea —dirección si no tiene, LOW STOCK que el stock ya cubre, UNREG
+registrado a media sesión— porque `process_picking_list` **salta en silencio** toda línea con
+`insufficient_stock`: si la fila no se entera, la orden sale sin descontar. La escritura lee **cada
+fila de la DB y resuelve sus propias líneas** (`utils/liveResolution.ts`), solo en
+`PLANNABLE_STATUSES`, y completar espera a que termine. Escribía el carrito en `activeListId`, y un
+carrito combinado son las líneas de todas las hermanas: la ancla se las quedaba y las descontaba
+(#881393 el 9 sep —dos bicis salieron dos veces de ROW 10—, #881513 el 11 sep), y sin llaves de lo ya
+escrito cada eco realtime volvía a escribir (120 PATCH en 62 s).
+
 **Activity Report layout:** Editor panel on the left (desktop) with: selectable greeting toggle ("Hi Carine!"), Win of the Day, PickD Updates (collapsible dropdown, closed by default), On the Floor routine checklist (editable items via gear icon, persisted in localStorage), and Notes (multiline textarea, one per line). Preview on the right updates with green highlight flash on each edit. "Save & Copy Report" button at bottom saves + copies to clipboard in one action. Report section order: Win → PickD Updates → Done Today → On the Floor → In Progress → Coming Up Next → Inventory Accuracy → Waiting. Footer shows date only (no timestamp). `/pickd-report` public route shows the HTML daily report for the current date with date navigation.
 
 **Rellenar el catálogo desde AS400 (11 sep 2026).** `scripts/backfill-catalog-from-as400.mjs`

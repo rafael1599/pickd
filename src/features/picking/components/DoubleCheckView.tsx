@@ -62,6 +62,9 @@ import { UnratedCartonsBanner, type UnratedCarton } from './UnratedCartonsBanner
 import { useWaitingConflicts, type WaitingConflict } from '../hooks/useWaitingConflicts';
 import { StockIssuePanel } from './StockIssuePanel';
 import { byPickPreference, toPickingOrderMap, type PickingOrderMap } from '../utils/pickLocation';
+import { pendingResolutions, resolveRowItems, type LiveStock } from '../utils/liveResolution';
+import { PLANNABLE_STATUSES } from '../utils/planPick';
+import type { Json } from '../../../lib/database.types';
 import { diagnoseStockIssue, type StockIssue } from '../utils/stockIssue';
 import { findSimilarSkus } from '../utils/findSimilarSkus';
 import { variantSiblingBase } from '../../../utils/skuNormalize';
@@ -1208,100 +1211,95 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cartSkuKey]);
 
-  // Auto-resolve null locations and static low-stock flags in the database
-  useEffect(() => {
-    if (!activeListId || isReadOnly) return;
-    if (Object.keys(skuLocationsMap).length === 0) return;
-    if (!reservationsMap) return;
+  // Persist what the live stock settles — an address for a line with none, a
+  // LOW STOCK the stock now covers, UNREG on a SKU registered mid-session — so
+  // the row agrees with the screen before anyone completes it. See
+  // utils/liveResolution.
+  //
+  // Each row gets its OWN lines, read from the DB, like planPickForList and
+  // handleCorrectItem do. This used to write the cart into activeListId, and a
+  // combined cart is every sibling's lines: #881393 (9 sep) and #881513 (11
+  // sep) took their siblings' lines in and deducted them. It also never
+  // touched the cart itself, so every realtime echo — useStockReservations
+  // refetches on any picking_lists change — found the same unresolved line and
+  // wrote again: 120 PATCHes in 62 s on 11 sep. And it waited on
+  // reservationsMap, a query that never runs while no line has an address, so
+  // an order made only of unaddressed lines was never resolved and completed
+  // deducting nothing (#881514).
+  const liveStock = useMemo<LiveStock>(
+    () => ({
+      preferredLocation: skuLocationsMap,
+      sublocations: sublocationMap,
+      // stockMap is only fetched for items that were not UNREG; a SKU
+      // registered mid-session reads its stock from the rows just loaded.
+      totalStock: (sku, skuNotFound) =>
+        stockMap[sku] ?? (skuNotFound ? registeredStock(sku) : undefined),
+      reservedElsewhere: (sku, warehouse) =>
+        Array.from(reservationsMap?.entries() || [])
+          .filter(([key]) => key.startsWith(`${sku}::${warehouse}::`))
+          .reduce((sum, [, info]) => sum + info.reserved, 0),
+      isRegistered: (sku) => registeredStock(sku) !== undefined,
+    }),
+    [skuLocationsMap, sublocationMap, stockMap, reservationsMap, registeredStock]
+  );
+  const liveStockReady =
+    Object.keys(skuLocationsMap).length > 0 && (reservationKeys.length === 0 || !!reservationsMap);
 
-    let needsUpdate = false;
-    const updated = cartItems.map((item) => {
-      const newItem = { ...item };
-      let changed = false;
+  // What has already been written, per list on screen (see pendingResolutions),
+  // and a chain so the completion can wait for a write still in flight.
+  const settledResolutionsRef = useRef<{ listId: string | null; keys: Set<string> }>({
+    listId: null,
+    keys: new Set(),
+  });
+  const resolutionChainRef = useRef<Promise<void>>(Promise.resolve());
 
-      // 0. Registered since intake. The DB derives this on every write of
-      // items, but the local copy only learns it from the round-trip — and
-      // this effect's own write is a round-trip.
-      if (newItem.sku_not_found && registeredStock(newItem.sku) !== undefined) {
-        newItem.sku_not_found = false;
-        changed = true;
+  const persistLiveResolution = useCallback((): Promise<void> => {
+    const run = async () => {
+      if (!activeListId || isReadOnly || !liveStockReady) return;
+      if (settledResolutionsRef.current.listId !== activeListId) {
+        settledResolutionsRef.current = { listId: activeListId, keys: new Set() };
       }
+      const settled = settledResolutionsRef.current.keys;
+      const pending = pendingResolutions(cartItems, activeListId, liveStock, settled);
 
-      // 1. If location is null but we resolved it dynamically
-      if (!newItem.location && skuLocationsMap[newItem.sku]) {
-        newItem.location = skuLocationsMap[newItem.sku];
-
-        // Resolve sublocation
-        const subKey = `${newItem.sku}-${newItem.location.toUpperCase()}`;
-        if (sublocationMap[subKey] && sublocationMap[subKey].length > 0) {
-          newItem.sublocation = sublocationMap[subKey];
-        }
-        changed = true;
-      }
-
-      // 2. If insufficient_stock is true but we now have enough stock in vivo
-      if (newItem.insufficient_stock) {
-        // stockMap is only fetched for items that were not UNREG; a SKU
-        // registered mid-session reads its stock from the rows just loaded.
-        const totalStock =
-          stockMap[newItem.sku] ??
-          (item.sku_not_found ? registeredStock(newItem.sku) : undefined) ??
-          0;
-        const totalReservedElsewhere = Array.from(reservationsMap?.entries() || [])
-          .filter(([key]) => key.startsWith(`${newItem.sku}::${newItem.warehouse || 'LUDLOW'}::`))
-          .reduce((sum, [, info]) => sum + info.reserved, 0);
-
-        const liveInsufficient = totalStock - totalReservedElsewhere < (newItem.pickingQty || 0);
-        if (!liveInsufficient) {
-          newItem.insufficient_stock = false;
-          changed = true;
-        }
-      }
-
-      if (changed) {
-        needsUpdate = true;
-      }
-      return newItem;
-    });
-
-    if (needsUpdate) {
-      // Sort the updated items alphanumerically by location so they display in order
-      const sorted = [...updated].sort((a, b) => {
-        const locA = a.location || '';
-        const locB = b.location || '';
-        if (locA !== locB) {
-          return locA.localeCompare(locB, undefined, { numeric: true, sensitivity: 'base' });
-        }
-        const subA =
-          Array.isArray(a.sublocation) && a.sublocation.length > 0 ? a.sublocation[0] : '';
-        const subB =
-          Array.isArray(b.sublocation) && b.sublocation.length > 0 ? b.sublocation[0] : '';
-        return subA.localeCompare(subB);
-      });
-
-      // Write back to the database
-      void supabase
-        .from('picking_lists')
-        .update({ items: sorted })
-        .eq('id', activeListId)
-        .then(({ error }) => {
-          if (error) {
-            console.error('Error auto-resolving locations/stock in DB:', error);
-          } else {
-            console.log('Successfully auto-resolved locations and stock in database!');
+      for (const [rowId, keys] of pending) {
+        const { data: row, error } = await supabase
+          .from('picking_lists')
+          .select('items, status')
+          .eq('id', rowId)
+          .maybeSingle();
+        if (error || !row) continue;
+        // Only rows PickD may still re-address: a reopened order is priced
+        // against its snapshot, and a flag cleared there deducts on recomplete.
+        if (PLANNABLE_STATUSES.includes(row.status ?? '') && Array.isArray(row.items)) {
+          const { items, changed } = resolveRowItems(
+            row.items as unknown as PickingItem[],
+            liveStock
+          );
+          if (changed) {
+            const { error: writeError } = await supabase
+              .from('picking_lists')
+              .update({ items: items as unknown as Json })
+              .eq('id', rowId);
+            if (writeError) {
+              console.error('Error auto-resolving locations/stock in DB:', writeError);
+              continue;
+            }
           }
-        });
-    }
-  }, [
-    cartItems,
-    skuLocationsMap,
-    stockMap,
-    reservationsMap,
-    sublocationMap,
-    activeListId,
-    isReadOnly,
-    registeredStock,
-  ]);
+        }
+        for (const key of keys) settled.add(key);
+      }
+    };
+    const next = resolutionChainRef.current.then(run, run);
+    resolutionChainRef.current = next.catch(() => undefined);
+    return next;
+  }, [activeListId, isReadOnly, liveStockReady, cartItems, liveStock]);
+
+  useEffect(() => {
+    persistLiveResolution().catch((err) =>
+      console.error('Error auto-resolving locations/stock in DB:', err)
+    );
+  }, [persistLiveResolution]);
 
   // Keep edit-callbacks ref fresh — see editCallbacksRef declaration above
   useEffect(() => {
@@ -1433,13 +1431,19 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   // For grouped orders: show ALL items (the user edits the merged view, same as
   // double check). Each item has a source_order tag for routing corrections to
   // the correct picking_list. For single sub-order editing (picker modal), filter.
+  //
+  // A row that is not in a group shows every line it holds. `isCombined` reads
+  // the source_order tags, and a tag can outlive the group it came from — once
+  // #881513 was split from #881514 it still held a line tagged 881514, and
+  // filtering by its own number hid exactly the line that had to be removed.
   const editingCartItems = useMemo(() => {
+    if (!activeGroupId) return cartItems;
     if (!isCombined || !editingOrderNumber) return cartItems;
     // If editingOrderNumber contains ' / ', it's the combined group — show all
     if (editingOrderNumber.includes(' / ')) return cartItems;
     // Single sub-order selected via picker
     return cartItems.filter((i) => i.source_order === editingOrderNumber);
-  }, [cartItems, editingOrderNumber, isCombined]);
+  }, [cartItems, editingOrderNumber, isCombined, activeGroupId]);
 
   const editingProblemItems = useMemo(
     () => editingCartItems.filter(isUnresolvedProblem),
@@ -2034,6 +2038,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
         // Small delay for DB status to propagate before deduction
         await new Promise((r) => setTimeout(r, 300));
       }
+      // The deduction reads the rows, not this screen: a line shown here as
+      // covered but still stored as LOW STOCK with no address is skipped by
+      // process_picking_list, and the order goes out deducting nothing.
+      await persistLiveResolution();
       await onDeduct(cartItems, isFullyVerified);
       // Ship-Out SMS auto-prompt removed by request — it popped up on every
       // completion and was intrusive. The SMS can still be sent on demand via

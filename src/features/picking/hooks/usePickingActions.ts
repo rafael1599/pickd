@@ -12,7 +12,12 @@ import { resolveBikeSkuSet } from '../../../utils/bikeDetection';
 import { isCombinedOrderNumber, isUnsafeToWriteItems } from '../utils/mergedGroupState';
 import { rebaseToActualStock, type StaleInventoryRow } from './useStaleLocationCheck';
 import { toPickingOrderMap } from '../utils/pickLocation';
-import { planListsInTurn, stockMinusClaims, type PlannableItem } from '../utils/planPick';
+import {
+  PLANNABLE_STATUSES,
+  planListsInTurn,
+  stockMinusClaims,
+  type PlannableItem,
+} from '../utils/planPick';
 import type { User } from '@supabase/supabase-js';
 import type { Json } from '../../../integrations/supabase/types';
 import type { Location } from '../../../schemas/location.schema';
@@ -543,7 +548,7 @@ export const usePickingActions = ({
    * is parked by an operator rule (the DB guards that write anyway).
    */
   const planPickForList = useCallback(async (listId: string): Promise<boolean> => {
-    const PLANNABLE = ['active', 'needs_correction', 'ready_to_double_check', 'double_checking'];
+    const PLANNABLE = [...PLANNABLE_STATUSES];
     try {
       const { data: anchor } = await supabase
         .from('picking_lists')

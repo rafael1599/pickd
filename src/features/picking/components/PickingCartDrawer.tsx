@@ -20,6 +20,7 @@ import {
 import { resolveBikeSkuSet } from '../../../utils/bikeDetection';
 import { collapseSplitForSku } from '../utils/pickLocation';
 import { partitionGroupSweep } from '../utils/groupSweep';
+import { holdsMergedGroupItems } from '../utils/mergedGroupState';
 import { useBikeSkuSet } from '../../../hooks/useBikeSkuSet';
 import { supabase } from '../../../lib/supabase';
 import type { Json } from '../../../lib/database.types';
@@ -587,8 +588,10 @@ export const PickingCartDrawer: React.FC = () => {
     const writeListId = targetListId ?? activeListId;
     // When a targetListId is provided, this is a sub-order edit inside a combined
     // group. Read that specific list's items from DB so we only mutate its row
-    // (prevents the cross-sub-order duplication bug — see idea-057).
-    const useDbSource = !!targetListId;
+    // (prevents the cross-sub-order duplication bug — see idea-057). A cart that
+    // spans siblings is never the row's own contents either, target or not:
+    // writing it copies their lines in (see mergedGroupState).
+    const useDbSource = !!targetListId || holdsMergedGroupItems(cartItems, activeListId);
     try {
       let sourceItems: PickingItem[];
       if (useDbSource) {

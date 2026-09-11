@@ -299,10 +299,16 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
   const [selectedReason, setSelectedReason] = useState('');
   const [recentlyRemoved, setRecentlyRemoved] = useState<string[]>([]);
 
-  const normalItems = useMemo(
-    () => allItems.filter((i) => !i.sku_not_found && !i.insufficient_stock),
-    [allItems]
-  );
+  // Everything the problem list did not take. The two lists used to be decided
+  // by different tests — problems by the LIVE stock (Double Check's
+  // isUnresolvedProblem), normals by the STORED flags — so a line whose flag
+  // still said LOW STOCK while the stock already covered it was in neither, and
+  // Edit Order never showed it: #881514's part, reopened twice with nothing on
+  // screen to correct.
+  const normalItems = useMemo(() => {
+    const problems = new Set(problemItems);
+    return allItems.filter((i) => !problems.has(i));
+  }, [allItems, problemItems]);
 
   const similarSkus = useMemo(() => {
     if (activePanel?.type !== 'replace') return [];
