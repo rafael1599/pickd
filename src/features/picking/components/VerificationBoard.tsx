@@ -82,7 +82,6 @@ function classifyOrderCarrier(order: PickingList, bikeSkus: ReadonlySet<string>)
       order_group: order.order_group,
       items: toClassifiableItems(order.items),
     },
-    {},
     bikeSkus
   );
   return getCarrierLabelShared(order.transport_company, fedex);
@@ -344,7 +343,6 @@ export const VerificationBoard: React.FC<VerificationBoardProps> = ({ onClose })
           order_group: order.order_group,
           items: toClassifiableItems(order.items),
         },
-        {},
         bikeSkuSet
       );
       orderShippingTypes.set(order.id, fedex ? 'fedex' : 'regular');

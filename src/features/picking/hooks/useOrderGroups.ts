@@ -133,34 +133,26 @@ export const useOrderGroups = () => {
         allSkus.size > 0
           ? await supabase
               .from('sku_metadata')
-              .select('sku, is_bike, weight_lbs')
+              .select('sku, is_bike')
               .in('sku', Array.from(allSkus))
-          : { data: [] as { sku: string; is_bike: boolean | null; weight_lbs: number | null }[] };
+          : { data: [] as { sku: string; is_bike: boolean | null }[] };
       const bikeSkus = new Set((metaRows ?? []).filter((m) => m.is_bike).map((m) => m.sku));
-      const weightBySku = new Map((metaRows ?? []).map((m) => [m.sku, m.weight_lbs ?? 0]));
 
-      const classifyOne = (
-        o: (typeof groupOrders)[number]
-      ): { hasHeavy: boolean; bikes: number } => {
-        let hasHeavy = false;
+      // Weight is not part of this any more (Rafael, 11 sep 2026: "FedEx puede
+      // llevar cualquier peso"). Five bikes is a pallet's worth — that is about
+      // space, and space is why a truck. See utils/shippingClassification.ts.
+      const bikesIn = (o: (typeof groupOrders)[number]): number => {
         let bikes = 0;
         for (const item of (o.items as Array<{ sku?: string; pickingQty?: number }> | null) ?? []) {
-          if (!item?.sku) continue;
-          if ((weightBySku.get(item.sku) ?? 0) > 50) hasHeavy = true;
-          if (bikeSkus.has(item.sku)) bikes += Number(item.pickingQty) || 0;
+          if (item?.sku && bikeSkus.has(item.sku)) bikes += Number(item.pickingQty) || 0;
         }
-        return { hasHeavy, bikes };
+        return bikes;
       };
 
-      // Rule 1: a heavy item or >= 5 combined bikes → force regular.
+      // Rule 1: >= 5 combined bikes → force regular.
       let totalBikes = 0;
-      let anyHeavy = false;
-      for (const o of groupOrders) {
-        const c = classifyOne(o);
-        totalBikes += c.bikes;
-        if (c.hasHeavy) anyHeavy = true;
-      }
-      if (anyHeavy || totalBikes >= 5) {
+      for (const o of groupOrders) totalBikes += bikesIn(o);
+      if (totalBikes >= 5) {
         await supabase
           .from('picking_lists')
           .update({ shipping_type: 'regular' })
@@ -173,8 +165,7 @@ export const useOrderGroups = () => {
       // treating "no explicit tag" as "regular".
       const effectiveType = (o: (typeof groupOrders)[number]): 'fedex' | 'regular' => {
         if (o.shipping_type === 'fedex' || o.shipping_type === 'regular') return o.shipping_type;
-        const c = classifyOne(o);
-        return c.hasHeavy || c.bikes >= 5 ? 'regular' : 'fedex';
+        return bikesIn(o) >= 5 ? 'regular' : 'fedex';
       };
       const hasFedex = groupOrders.some((o) => effectiveType(o) === 'fedex');
       const hasRegular = groupOrders.some((o) => effectiveType(o) === 'regular');

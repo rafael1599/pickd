@@ -74,7 +74,7 @@ export function dayLabel(date: Date): string {
 }
 
 export function isFedexLane(order: OrderWithRelations, bikeSkus: ReadonlySet<string>): boolean {
-  return isFedexOrderShared(order, {}, bikeSkus);
+  return isFedexOrderShared(order, bikeSkus);
 }
 
 export function getCarrierLabel(

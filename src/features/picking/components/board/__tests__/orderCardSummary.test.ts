@@ -64,7 +64,7 @@ function effectiveShippingType(
 ): 'fedex' | 'regular' {
   return override === 'fedex' || override === 'regular'
     ? override
-    : autoClassifyShippingType(items, {}, EMPTY_LOOKUP);
+    : autoClassifyShippingType(items, EMPTY_LOOKUP);
 }
 
 describe('effectiveShippingType (purple FedEx accent)', () => {

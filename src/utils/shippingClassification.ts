@@ -38,24 +38,27 @@ function isBikeItem(item: ClassifiableItem, bikeSkus: BikeSkuLookup): boolean {
 /**
  * Auto-classify shipping type for an order.
  * Rules (evaluated in order):
- *   1. Any item with weight > 50 lbs → 'regular'
- *   2. Total BIKES (is_bike, sum of pickingQty) >= 5 → 'regular'
- *   3. Otherwise → 'fedex'
+ *   1. Total BIKES (is_bike, sum of pickingQty) >= 5 → 'regular'
+ *   2. Otherwise → 'fedex'
  *
- * Parts never make an order 'regular' on their own: an order of 50 small
- * parts still ships FedEx. Only bike volume (or a heavy item) forces a truck.
+ * **Weight does not decide this** (Rafael, 11 sep 2026: "FedEx puede llevar
+ * cualquier peso"). There used to be a rule above this one sending any order
+ * with an item over 50 lbs to a truck; it was answering a limit FedEx does not
+ * have. Since August it moved 19 orders onto a truck that could have gone by
+ * parcel — a real cost, paid for nothing.
+ *
+ * What remains is about VOLUME, not weight: five bikes or more is a pallet's
+ * worth, and that is a truck for reasons of space and handling. Parts never
+ * make an order 'regular' on their own — an order of 50 small parts still
+ * ships FedEx.
+ *
  * Mirrored in DB by classify_picking_list_fedex — keep both in sync.
  */
 function classifySingleOrder(
   items: ClassifiableItem[],
-  skuWeights: Record<string, number>,
   bikeSkus: BikeSkuLookup
 ): 'fedex' | 'regular' {
-  // Rule 1: any item > 50 lbs
-  const hasHeavyItem = items.some((item) => (skuWeights[item.sku] ?? 0) > 50);
-  if (hasHeavyItem) return 'regular';
-
-  // Rule 2: >= 5 bikes (parts don't count toward the threshold)
+  // >= 5 bikes (parts don't count toward the threshold)
   const totalBikes = items.reduce(
     (sum, i) => sum + (isBikeItem(i, bikeSkus) ? i.pickingQty || 0 : 0),
     0
@@ -67,7 +70,6 @@ function classifySingleOrder(
 
 export function autoClassifyShippingType(
   items: ClassifiableItem[],
-  skuWeights: Record<string, number>, // sku → weight_lbs
   bikeSkus: BikeSkuLookup
 ): 'fedex' | 'regular' {
   // Combined orders: a group of FedEx orders is still a FedEx order. Classify
@@ -84,12 +86,12 @@ export function autoClassifyShippingType(
       bySource.set(key, arr);
     }
     for (const group of bySource.values()) {
-      if (classifySingleOrder(group, skuWeights, bikeSkus) === 'regular') return 'regular';
+      if (classifySingleOrder(group, bikeSkus) === 'regular') return 'regular';
     }
     return 'fedex';
   }
 
-  return classifySingleOrder(items, skuWeights, bikeSkus);
+  return classifySingleOrder(items, bikeSkus);
 }
 
 /**
@@ -122,11 +124,7 @@ export interface FedexClassifiableOrder {
  *   4. Auto-classify from items — only when shipping_type is unset. An
  *      explicit shipping_type of 'regular' always wins over the guess.
  */
-export function isFedexOrder(
-  order: FedexClassifiableOrder,
-  skuWeights: Record<string, number>,
-  bikeSkus: BikeSkuLookup
-): boolean {
+export function isFedexOrder(order: FedexClassifiableOrder, bikeSkus: BikeSkuLookup): boolean {
   const transport = String(order.transport_company ?? '')
     .trim()
     .toUpperCase();
@@ -137,7 +135,7 @@ export function isFedexOrder(
   if (order.order_group?.group_type === 'fedex') return true;
   if (order.shipping_type === 'fedex') return true;
   if (order.shipping_type) return false;
-  return autoClassifyShippingType(order.items ?? [], skuWeights, bikeSkus) === 'fedex';
+  return autoClassifyShippingType(order.items ?? [], bikeSkus) === 'fedex';
 }
 
 /**

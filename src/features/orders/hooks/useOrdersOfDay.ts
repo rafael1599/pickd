@@ -75,7 +75,6 @@ export function isFedexOrder(o: OrderRow, skuIsBike: Record<string, boolean>): b
       order_group: o.order_group,
       items: (o.items ?? []).map((i) => ({ sku: i.sku ?? '', pickingQty: i.pickingQty ?? 0 })),
     },
-    {},
     skuIsBike
   );
 }

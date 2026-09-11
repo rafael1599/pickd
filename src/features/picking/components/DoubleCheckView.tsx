@@ -766,7 +766,6 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
             source_order: i.source_order,
             sku_metadata: i.sku_metadata,
           })),
-          {},
           bikeSkuSet
         );
   const isFedexOrder = effectiveShippingType === 'fedex';

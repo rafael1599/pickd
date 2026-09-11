@@ -170,7 +170,6 @@ export function summarize(row: DoorCapture) {
   const bikeSkus = bikeSkusOf(items);
   const lane = autoClassifyShippingType(
     items.map((i) => ({ sku: i.sku, pickingQty: i.pickingQty, sku_metadata: i.sku_metadata })),
-    {},
     bikeSkus
   );
   const pallets = calculatePalletsWithBikeAwareness(

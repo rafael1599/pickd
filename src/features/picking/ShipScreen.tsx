@@ -189,7 +189,7 @@ interface ShipSkuMetaRow {
  * auto-classify signals the Live Board already used to decide FedEx).
  */
 function isFedexLane(order: OrderWithRelations, bikeSkus: ReadonlySet<string>): boolean {
-  return isFedexOrderShared(order, {}, bikeSkus);
+  return isFedexOrderShared(order, bikeSkus);
 }
 
 /**
