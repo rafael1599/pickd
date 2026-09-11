@@ -804,6 +804,23 @@
 
 ---
 
+### 117. Limpieza que dejó el 11 sep <!-- id: idea-185 --> — input: 2026-09-11 NY
+- **`OrderProgressBar.test.ts` prueba una copia, no el código.** Define su propio
+  `computeProgressPercent` (copia de la lógica vieja) y lo prueba a él; por eso siguió en verde cuando
+  la regla real cambió (`active` ya no es 0). Reescribirlo contra `utils/verificationProgress` —que ya
+  tiene sus casos en `utils/__tests__/verificationProgress.test.ts`— o borrarlo.
+- **`tsconfig.tsbuildinfo` y `tsconfig.node.tsbuildinfo` están versionados**: artefactos que cambian con
+  cada `tsc` y ensucian el árbol de quien lo corra (pasó hoy). Sacarlos del repo y del git con
+  `.gitignore`, igual que se hizo con `vite.config.js` (`8b99a01`).
+- **`usePickItemMutation.ts` no tiene llamadores** (el toggle de pick murió en mayo; las RPC
+  `pick_item`/`unpick_item` se quedan por la regla aditiva). idea-112 lo cita como plantilla de
+  `useMutation` optimista: o se muda el patrón a `docs/` y se borra el hook, o se deja con un comentario
+  que diga que es solo plantilla.
+- **`mergeGroupOrders.ts` repite `isActivelyChecking`**, que ya exporta `SortableOrderCard`; importar el
+  de allí o moverlo a `utils/`.
+- **`#TEST` sigue `active` en prod** (orden manual de prueba de Rafael, 11 sep): cancelarla desde la app
+  cuando ya no haga falta, para que no ocupe PULLING.
+
 ## P1 — Refinados pendientes
 
 ### ~~40. Notas de proyecto siempre visibles (quitar line-clamp)~~ — COMPLETADO `2026-04-27` `feaf688` (PR #43) <!-- id: idea-062 -->
@@ -886,7 +903,7 @@
 - **Fix:** `reopened` entra en `canMerge`. El flujo queda: completada → Reopen (con razón) → Combine →
   Re-Complete, y `complete_addon_group` cierra las dos en una transacción.
 
-### ~~9. Añadir stock desde una tarjeta combinada mete las líneas de las hermanas en la orden ancla~~ <!-- id: bug-026 --> ✅ 2026-09-11 `11aecf4` `142d53f` (input: 2026-09-11 NY)
+### 9. Añadir stock desde una tarjeta combinada mete las líneas de las hermanas en la orden ancla <!-- id: bug-026 --> (input: 2026-09-11 NY)
 - **Síntoma (operador):** en **#881513** "se sigue mostrando la parte que no pertenece a esta orden…
   al intentar editar para eliminarla solo veo la bicicleta"; en **#881514** "pickd dont show us the item
   in edit order… we dont have location where it was pickd" y "al completar no se ha descontado nada".
@@ -909,21 +926,9 @@
   `planPickForList`), con llaves de lo ya escrito que cortan el eco, y sin esperar reservas que no
   existen. Completar espera esa escritura. Edit Order: normales = todo lo que no es problema, y una
   orden sin grupo enseña todas sus líneas. `handleCorrectItem` lee de la DB si el carrito abarca filas.
-- **Reparación en prod (11 sep, ensayada con rollback y aplicada):** #881513 solo con su bici, #881514
-  a 1 × `12-9833` en FDX STATION, #881393 solo con su bici, #881392 con dirección; los DEDUCT de
-  `12-9833` y `86-0027BK` reatribuidos a la orden que envió la unidad; ROW 10 +1 `03-3647OR` (J → 2) y +1
-  `03-3677BL` (K → 6), con el duplicado `is_reversed` y el ADD como `system: data-repair`. #881156 y
-  #881076 conservan líneas ajenas (sin doble descuento) y no se tocaron.
-- **Verificado en prod tras el deploy:** ninguna fila nueva con líneas de otra orden, y ninguna ráfaga de
-  escrituras de `items` (en #881518, la orden más activa, hubo una sola). Las ráfagas de esa tarde son
-  `verified_item_keys`: checks re-marcados cada pocos minutos, lo que arregla `37bd187`.
-- **Mejoras propuestas y decididas por Rafael (11 sep):** descartadas mover una línea entre órdenes ("si no
-  se resolvía mal nunca iba a ser necesario mover un item"), avisar al completar si una línea no
-  descuenta ("es molesto, ya tenemos suficientes mensajes; si un operario decide enviar una orden sin un
-  item es porque él mismo tomó la decisión") y deshacer tras Remove/Adjust ("no por ahora"). La
-  ubicación en un toque la cubre la resolución de Double Check, que no necesita entrar a Edit Order. Dos
-  reglas: **arreglar la causa en vez de dar una herramienta para el síntoma**, y **no añadir avisos a
-  decisiones que ya toma el operario**.
+- **Pendiente:** publicar, y la reparación de datos (ensayada con rollback): #881513 sin la parte,
+  #881514 a 1 u en FDX STATION, #881393 sin las ajenas, #881392 con dirección, DEDUCTs reatribuidos, y
+  +1 en ROW 10 para las dos bicis descontadas dos veces.
 
 ### 10. Una dirección por cuenta AS400: cada orden nueva la pisa y Ship enseña la de otra tienda <!-- id: bug-027 --> (input: 2026-09-10 23:20 NY)
 - **Rafael:** "Revisar orden 412 y 414 porque esta confuso sus direcciones" · "hoy que tuve problemas
@@ -1054,6 +1059,26 @@
   rechazado. Solo se arregla recargando.
 - **Fix:** restaurar el estado previo, reabrir el campo con lo tecleado y que el toast diga qué orden
   lo tiene (`BOL 130636156 → #880996`). Va antes que SPLIT (idea-180); mismo cambio que idea-182.
+
+### 16. Una nota nueva no llega en vivo a los demás dispositivos <!-- id: bug-033 --> (input: 2026-09-11 NY)
+- `picking_list_notes` **no está en la publicación `supabase_realtime`** — ni en prod ni en local, y
+  ninguna migración la añadió nunca (`pg_publication_tables` solo lista `picking_lists` entre las dos).
+  `usePickingNotesRealtime` (la única suscripción, en `LayoutMain`) escucha una tabla que no emite
+  nada: una nota escrita en un teléfono no aparece en el letrero LED ni en el historial de otro hasta
+  que se recarga o se vuelve a pedir la query.
+- **Fix:** migración de una línea, `alter publication supabase_realtime add table picking_list_notes;`
+  (aditiva; la tabla ya tiene RLS). Verificar después con una nota escrita en un dispositivo y el
+  letrero del board abierto en otro.
+
+### 17. Abrir otra orden deja la anterior en la cola con sus marcas, y el board la pinta en 0 <!-- id: bug-034 --> (input: 2026-09-11 NY)
+- `lockForCheck` (`usePickingActions.ts`) libera las órdenes que el mismo usuario tenía en
+  `double_checking` pasándolas a `ready_to_double_check` **sin vaciar `verified_item_keys`**. La orden
+  vuelve a PULLING con su avance guardado, pero `verificationProgress` lee 0 para toda
+  `ready_to_double_check` (Ready to DC sí las vacía) — así que el board dice «sin empezar» de una orden a
+  medio verificar, y al reabrirla reaparecen las marcas.
+- **Decidir una de dos:** que la liberación deje la orden en `double_checking` sin `checked_by` (como
+  «Park & Close»), o que la barra lea las llaves de una orden en la cola cuando las tenga. La primera es
+  la que ya usa la X.
 
 ### ~~4. Ship: al combinar una orden con una bici en una orden completada, la bici cuenta como parte y pide peso~~ <!-- id: bug-021 --> ✅ 2026-08-27 `9886206` (input: 2026-08-27 NY)
 - **Síntoma (operador):** "al agregar una nueva orden con una bicicleta a una orden completada en ship me

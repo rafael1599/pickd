@@ -164,3 +164,19 @@ one place: a rule that contradicts an older one replaces it.
   que se hace hover… que no se cruce con la otra funcionalidad": while a line is held the drawing
   dims, only the square under the pointer lights, and the SKU-family highlight steps aside. **Two
   highlights that can be on at once are one too many** — decide which gesture owns the screen.
+- **2026-09-11 — a sign is a sign, not an evocation of one.** The first build of the notes sign was a
+  black strip in the Ship header: text with a glow, two lines and "+N". "El led no es como lo quería,
+  va a cambiar a la posición marcada en esta captura. La idea es hacerlo así como en la imagen y que
+  se mueva así como los letreros led regulares con diferentes tipos de modos… ya alguien más lo hizo
+  por nosotros, busca." Right: a dot-matrix sign where he marked it (under the four numbers), running
+  right to left by default, with the classic sign modes; the hard parts reused, not invented (the
+  public-domain X11 fonts real LED panels run, the Alpha protocol's modes); and a bench in front of
+  him before any app code — four resolutions × five modes on his own notes — which he closed in two
+  words ("grande está bien", and the smallest for the board). **When he names a physical thing ("así
+  como en la imagen"), build the thing, and let him choose it on a bench first.**
+- **2026-09-11 — which notes, and when the sign moves.** "Quiero que muestre las dos últimas notas" —
+  the newest two, by time, not the strongest; what stops a shipment still reads every note. "En
+  completed orders no se mueve la nota, se mantiene firme. En el resto de actividades de la orden se
+  muestra moviéndose." And "en cada card de orden que tenga notas" meant every card component: the
+  FedEx group stack was missed, and it turned out to have no progress bar either. **"Every card" is a
+  list to enumerate (single, combined, FedEx group, completed), not a phrase to trust.**
