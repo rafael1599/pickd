@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   bikeSkusOf,
   heldCaptures,
+  holdCaptures,
   inFlightCaptures,
   isRequestable,
   isWatcherAlive,
@@ -84,6 +85,30 @@ describe('the three lists', () => {
     expect(pendingCaptures(rows).map((r) => r.order_number)).toEqual(['1']);
     expect(heldCaptures(rows).map((r) => r.order_number)).toEqual(['2']);
     expect(inFlightCaptures(rows).map((r) => r.order_number)).toEqual(['3', '4']);
+  });
+
+  it('puts the office holds in their own list, whatever the aging did to them', () => {
+    // 11 Sep: 27 of 65 captures were holds, and the aging meant for junk would
+    // have archived them between 16 and 18 Sep. #881382 had already gone stale.
+    const withHolds = [
+      ...rows,
+      row({ order_number: '881402', status: 'pending', hold: 'ADDS' }),
+      row({ order_number: '881382', status: 'held', hold_reason: 'stale', hold: 'CONF' }),
+      row({ order_number: '881449', status: 'archived', hold: 'REN' }),
+      row({ order_number: '881504', status: 'pending', hold: null }),
+    ];
+    expect(holdCaptures(withHolds).map((r) => r.order_number)).toEqual([
+      '881402',
+      '881382',
+      '881449',
+    ]);
+    // Not counted as waiting, and not mixed with the pipeline's stuck rows.
+    expect(pendingCaptures(withHolds).map((r) => r.order_number)).toEqual(['1', '881504']);
+    expect(heldCaptures(withHolds).map((r) => r.order_number)).toEqual(['2']);
+  });
+
+  it('never lists a hold that is already on its way', () => {
+    expect(holdCaptures([row({ status: 'requested', hold: 'ADDS' })])).toEqual([]);
   });
 });
 

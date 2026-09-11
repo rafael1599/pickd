@@ -70,6 +70,18 @@ export interface DoorCapture {
   requested_by: string | null;
   requested_at: string | null;
   last_error: string | null;
+  /**
+   * The AS400 Order Comments, read out of the capture by the view
+   * (`as400_order_comments`, 20260911161528). Absent on a row SEARCH read
+   * straight from the table.
+   */
+  order_comments?: string | null;
+  /**
+   * What the office holds the order for — 'ADDS' | 'REN' | 'CONF' | 'PAY' |
+   * a model | 'HOLD' — or null (`order_note_hold`). A hold never ages out of the
+   * list: waiting is the point of it (idea-179).
+   */
+  hold?: string | null;
 }
 
 export interface WatcherHeartbeat {
@@ -127,13 +139,29 @@ export function isWatcherAlive(hb: WatcherHeartbeat | null | undefined, now = Da
 
 // ── Pure helpers the modal and the badge share ─────────────────────
 
-/** The rows a person is waiting on: not held, not yet sent. */
+/**
+ * The rows a person is waiting on: not stuck, not yet sent, and not on hold —
+ * an order the office holds is not work to pick yet, so it is not counted with
+ * the waiting ones (Rafael, 9 Sep: "no necesitamos ensuciar los números con
+ * órdenes que no están para recoger todavía").
+ */
 export function pendingCaptures(rows: DoorCapture[] | undefined): DoorCapture[] {
-  return (rows ?? []).filter((r) => r.status === 'pending');
+  return (rows ?? []).filter((r) => r.status === 'pending' && !r.hold);
 }
 
+/** The office's holds, whatever the watchdog's aging did to them. */
+export function holdCaptures(rows: DoorCapture[] | undefined): DoorCapture[] {
+  return (rows ?? []).filter(
+    (r) => !!r.hold && (r.status === 'pending' || r.status === 'held' || r.status === 'archived')
+  );
+}
+
+/**
+ * Stuck: held by the pipeline for a reason of its own — a lost page, waiting
+ * for inventory, no customer, nobody brought it in. Not the office's holds.
+ */
 export function heldCaptures(rows: DoorCapture[] | undefined): DoorCapture[] {
-  return (rows ?? []).filter((r) => r.status === 'held');
+  return (rows ?? []).filter((r) => r.status === 'held' && !r.hold);
 }
 
 export function inFlightCaptures(rows: DoorCapture[] | undefined): DoorCapture[] {

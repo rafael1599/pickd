@@ -268,6 +268,19 @@ diagnóstico sin otra consulta.
 
 **Verification Board (idea-055):** La Verification Queue es un overlay full-screen con zonas: Priority (auto-populated por status), FedEx/Regular lanes (drag-reclasificar `shipping_type`), In Progress Projects (read-only), Recently Completed (drag=reopen), Waiting (colapsable). Auto-clasificación: **≥5 BIKES → Regular, else → FedEx**; las partes nunca fuerzan Regular (50 partes = FedEx). **El peso no decide** (Rafael, 11 sep 2026: «FedEx puede llevar cualquier peso»): hasta el 11 sep un artículo de >50 lb mandaba la orden a camión, contestando a un límite que FedEx no tiene — desde agosto puso 19 órdenes en camión por nada. Lo que queda es de volumen: 5 bicis son un pallet. Con la regla se fue el parámetro `skuWeights` de `autoClassifyShippingType`/`isFedexOrder`, porque un argumento que ya no decide nada es una mentira (y varios sitios ya le pasaban `{}`). Regla duplicada en DB (`classify_picking_list_fedex`) — mantener ambas en sync. La regla de bikes depende de `sku_metadata.is_bike`, que el item no trae por sí solo: el trigger `a_stamp_item_sku_metadata` (migración `20260820150000`) lo sella dentro de cada elemento de `picking_lists.items` en cada write, así que **todo consumidor lee la misma verdad sin buscarla**. Antes cada pantalla traía su propio lookup y pasarlo era opcional — DoubleCheckView no lo pasaba y pintaba de FedEx órdenes de 13 bicis. El parámetro `bikeSkus` de `autoClassifyShippingType`/`isFedexOrder` es ahora **obligatorio** (pasar un Set vacío para renunciar a él a propósito): cubre el ítem que aún no se ha escrito y el SKU cuyo `is_bike` cambió después del sellado. `shipping_type` columna en `picking_lists` (NULL = auto). DnD usa `@dnd-kit/sortable` con `useBoardDnD` hook. Componentes en `src/features/picking/components/board/`.
 
+**La puerta del AS400 (`As400DoorModal`, `v_as400_door`) guarda los holds (11 sep 2026,
+idea-179).** Las capturas que nadie trae envejecen en el watchdog: `held:stale` a los 3 días y
+`archived` a los 8, fuera de la lista. Esa regla es para basura y se estaba comiendo los holds de la
+oficina (27 de 65 capturas el 11 sep, los REN/ADDS salían del 16 al 18). Desde `20260911161528` la
+vista expone `order_comments` (`as400_order_comments(raw_text)`) y `hold` (`order_note_hold`, espejo
+SQL de `readOrderNote().hold`, validado con la misma tabla de casos que el test TS), y **una captura
+archivada que es un hold sigue en la lista**. En pantalla: sección plegada **HOLD (n)** que no cuenta
+como WAITING (regla del 9 sep, idea-178), la etiqueta `HOLD · ADDS` en ámbar con el comentario, y lo
+que el pipeline retiene por su cuenta (página perdida, sin cliente, nadie la trajo) se llama
+**STUCK**, para que «hold» signifique una sola cosa. Ojo, hay tres «held» distintos:
+`as400_captures.hold_reason` (el pipeline), `group_is_held()` (alguien tiene el grupo) y el HOLD de la
+oficina.
+
 **Un grupo que alguien tiene en las manos no recibe órdenes nuevas (bug-023, 9 sep 2026).** El
 auto-agrupado FedEx (`auto_group_fedex_orders`, BEFORE INSERT) pega toda orden FedEx nueva al grupo
 FedEx abierto más viejo — **sin mirar cliente**. Antes solo excluía `completed`/`cancelled`/`reopened`,

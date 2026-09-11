@@ -89,10 +89,16 @@
     El Live Board usa la variante `line`: la nota más fuerte, en su color.
   - d) chip del motivo en `ShipFeedCard`, confirmación del camión que empieza por lo que frena, y Start
     Shipping que no preselecciona esas órdenes (`ship/utils/shipNotes.ts`).
-- **Pendiente:** a) mitad DB (`classify_picking_note` + relleno de `kind`, con ensayo y ok); SQL espejo
-  del clasificador; e) columna `hold` + switch + pastilla; f) la puerta (**antes del 16 sep**); fase 2
-  (PICK UP automático); el Live Board de una combinada solo ve el id y la nota del ancla
-  (`SortableOrderCard` pasa `listId={order.id}`).
+- **Hecho 11 sep — tramo 2, la puerta (f):** `20260911161528` — `as400_order_comments`,
+  `order_note_hold` (espejo SQL de la etiqueta de hold, validado con la misma tabla que el test TS) y
+  `v_as400_door` con `order_comments` + `hold`, que ya no suelta un hold archivado. Ensayada con rollback
+  en prod: 29 holds con su etiqueta (28 pendientes + #881382, ya en «nobody brought it in»). En pantalla:
+  sección HOLD (n) fuera de WAITING, etiqueta ámbar con el comentario, y el «HELD» técnico pasa a STUCK.
+  Arreglo de paso (`f9f3736`): «SHIP WITH 881418» salía «HOLD · ITH».
+- **Pendiente:** a) mitad DB (`classify_picking_note` + relleno de `kind`, con ensayo y ok); el resto del
+  clasificador en SQL (pickup, ship-with); e) columna `hold` + switch + pastilla en el board y Ship;
+  fase 2 (PICK UP automático); el Live Board de una combinada solo ve el id y la nota del ancla
+  (`SortableOrderCard` pasa `listId={order.id}`); descartar en la puerta 881404–881407 (bug-027).
 - Detalle: research §9 y §8.
 
 ### 112. Combinada con varias direcciones: elegir una o separar, y Combine pregunta antes <!-- id: idea-180 --> — input: 2026-09-10 23:20 NY

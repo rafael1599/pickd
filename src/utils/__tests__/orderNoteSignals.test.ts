@@ -77,6 +77,59 @@ const TONES: Array<[string, ReturnType<typeof noteTone>]> = [
   ['', null],
 ];
 
+/**
+ * The hold label, row for row the table that validates `order_note_hold` in
+ * supabase/migrations/20260911161528_door_keeps_holds.sql. Change both or neither.
+ */
+const HOLD_CASES: Array<[string, string | null]> = [
+  ['HOLD FOR ADDS', 'ADDS'],
+  ['HOLD FOR ADDS MONDAY', 'ADDS'],
+  ['DO NOT SHIP. HOLD FOR ADD', 'ADDS'],
+  ['PLEASE HOLD FOR PREORDER ADDS', 'ADDS'],
+  ['WAITING FOR ADDS', 'ADDS'],
+  ['HOLD FOR ADDS PICK-UP ORDER', 'ADDS'],
+  ['HOLD FOR ADDS [User Cancelled]', 'ADDS'],
+  ['SHIP WITH REN', 'REN'],
+  ['SHIP WITH REN PO# JAM61A', 'REN'],
+  ['Ship with Renegades', 'REN'],
+  ['HOLD FOR CONFIRM', 'CONF'],
+  ['HOLD FOR CONFIRMATION', 'CONF'],
+  ['ORDER HOLD PENDING PAYMENT', 'PAY'],
+  ['EP 20% OFF HOLD FOR CC INFO', 'PAY'],
+  ['HOLD WITH CITIZEN 2 STS', 'CITIZEN'],
+  ['HOLD FOR CITIZEN 2 S/T', 'CITIZEN'],
+  ['SHIP W/CITIZEN 2 S/T', 'CITIZEN'],
+  ['SHIP W/ HUDSON E1 HOLD', 'HUDSON'],
+  ['SHIP W/LASERS', 'LASER'],
+  ['SAMPLE BIKES ----SHIP WITH VENTURA!', 'VENTURA'],
+  ['SHIP W/ ALL ACCESS BIKE', 'ALL ACCESS'],
+  ['HOLD FOR DIVIDES', 'DIVIDES'],
+  ['HOLD TO SHIP WITH ALLOCATIONS', 'HOLD'],
+  ['HOLD', 'HOLD'],
+  ['PLEASE BUILD AND HOLD FORMICHELE THX', 'HOLD'],
+  ['Hold for missing bike', 'HOLD'],
+  ['DO NOT SHIP BEFORE 8/25', 'HOLD'],
+  ['DO NOT SHIP DEALER PICK UP', null],
+  ['DO NOT SHIP HAMISH DROP OFF', null],
+  ['SHIP W/ 881424', null],
+  ['SHIP WITH 881418', null],
+  ['SHIP W/ 881416,881348', null],
+  ['SHIP WITH ORDER 457414', null],
+  ['NET 30 SHIP WITH PARTS ORDER', null],
+  ['OKAY TO SHIP', null],
+  ['FREE FREIGHT', null],
+  ['CLOSED MONDAYS', null],
+  ['this order is not a pick up, wrong notes were inputed here.', null],
+  ['User Cancelled', null],
+  ['', null],
+];
+
+describe('hold — the table the SQL mirror is validated against', () => {
+  it.each(HOLD_CASES)('%s → %s', (note, hold) => {
+    expect(readOrderNote(note).hold).toBe(hold);
+  });
+});
+
 describe('noteTone — the case table', () => {
   it.each(TONES)('%s → %s', (note, tone) => {
     expect(noteTone(readOrderNote(note))).toBe(tone);

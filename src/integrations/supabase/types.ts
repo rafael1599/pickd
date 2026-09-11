@@ -2057,10 +2057,12 @@ export type Database = {
           as400_account_number: string | null;
           captured_at: string | null;
           customer: string | null;
+          hold: string | null;
           hold_reason: string | null;
           item_count: number | null;
           items: Json | null;
           last_error: string | null;
+          order_comments: string | null;
           order_date: string | null;
           order_number: string | null;
           requested_at: string | null;

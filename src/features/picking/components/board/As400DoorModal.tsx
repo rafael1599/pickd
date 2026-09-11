@@ -28,8 +28,10 @@ import { useEffect, useMemo, useState } from 'react';
 import X from 'lucide-react/dist/esm/icons/x';
 import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import { useDebounce } from '../../../../hooks/useDebounce';
+import { noteTone, readOrderNote } from '../../../../utils/orderNoteSignals';
 import {
   heldCaptures,
+  holdCaptures,
   inFlightCaptures,
   isRequestable,
   isWatcherAlive,
@@ -156,10 +158,16 @@ function CaptureCard({
   const tone = s.lane === 'fedex' ? C.purple : C.green;
   const inFlight = row.status === 'requested' || row.status === 'sending';
   const done = row.status === 'sent';
-  const held = row.status === 'held';
+  // An office hold is waiting on purpose: the pipeline's "nobody brought it in"
+  // and "aged out" say nothing true about it, so they give way to its label.
+  const officeHold = row.hold ?? null;
+  const held = row.status === 'held' && !officeHold;
   const requestable = isRequestable(row);
   const head = row.order_number.slice(0, -3);
   const tail = row.order_number.slice(-3);
+  // The Order Comments, unless they are only billing ("FF NET 60").
+  const comment =
+    row.order_comments && noteTone(readOrderNote(row.order_comments)) ? row.order_comments : null;
 
   return (
     <div
@@ -193,6 +201,21 @@ function CaptureCard({
           &gt; {row.ship_to}
         </div>
       )}
+      {(officeHold || comment) && (
+        <div
+          style={{ color: officeHold ? C.amber : C.dim }}
+          className="mt-1 text-xs truncate"
+          title={row.order_comments ?? undefined}
+        >
+          {officeHold && (
+            <b className="font-black tracking-widest">
+              {officeHold === 'HOLD' ? 'HOLD' : `HOLD · ${officeHold}`}
+              {comment ? ' · ' : ''}
+            </b>
+          )}
+          {comment}
+        </div>
+      )}
 
       <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
         <Field label="PLT" value={String(s.pallets)} color={tone} />
@@ -201,7 +224,7 @@ function CaptureCard({
         <Field label="UNIT" value={String(s.units)} color={C.dim} />
       </div>
 
-      {STATE_LABELS[row.status] && (
+      {STATE_LABELS[row.status] && !(officeHold && row.status === 'archived') && (
         <div style={{ color: C.faint }} className="mt-2 text-[10px] tracking-widest">
           {STATE_LABELS[row.status]}
         </div>
@@ -272,6 +295,7 @@ export function As400DoorModal({ onClose }: { onClose: () => void }) {
   const cancel = useCancelRequest();
   const dismiss = useDismissCapture();
   const [showHeld, setShowHeld] = useState(false);
+  const [showHolds, setShowHolds] = useState(false);
   const [query, setQuery] = useState('');
   const debounced = useDebounce(query, 250);
   const search = useAs400CaptureSearch(debounced);
@@ -289,6 +313,7 @@ export function As400DoorModal({ onClose }: { onClose: () => void }) {
   const rows = door.data ?? [];
   const pending = pendingCaptures(rows);
   const inFlight = inFlightCaptures(rows);
+  const holds = holdCaptures(rows);
   const held = heldCaptures(rows);
   const alive = isWatcherAlive(heartbeat.data);
   const busy = request.isPending || cancel.isPending || dismiss.isPending;
@@ -371,8 +396,9 @@ export function As400DoorModal({ onClose }: { onClose: () => void }) {
             </h2>
             <p style={{ color: C.faint }} className="mt-1 text-[10px] tracking-widest">
               {pending.length} WAITING
+              {holds.length > 0 && ` · ${holds.length} HOLD`}
               {inFlight.length > 0 && ` · ${inFlight.length} ON THE WAY`}
-              {held.length > 0 && ` · ${held.length} HELD`}
+              {held.length > 0 && ` · ${held.length} STUCK`}
               {' · '}
               <span style={{ color: alive ? C.green : C.amber }}>
                 {alive ? 'BAY 2 ONLINE' : seen ? `BAY 2 LAST SEEN ${seen}` : 'BAY 2 OFFLINE'}
@@ -466,14 +492,31 @@ export function As400DoorModal({ onClose }: { onClose: () => void }) {
               {inFlight.map(card)}
               {pending.map(card)}
 
+              {/* The office's holds: waiting on purpose (adds, Renegades, a
+                  confirmation), so they never age out and never count as waiting. */}
+              {holds.length > 0 && (
+                <div className="pt-2">
+                  <button
+                    onClick={() => setShowHolds((v) => !v)}
+                    style={{ color: C.amber }}
+                    className="w-full text-left text-[10px] font-black tracking-widest py-1"
+                  >
+                    {showHolds ? '▾' : '▸'} HOLD ({holds.length})
+                  </button>
+                  {showHolds && <div className="space-y-2.5 mt-2">{holds.map(card)}</div>}
+                </div>
+              )}
+
+              {/* Stuck in the pipeline — a lost page, no customer, nobody brought
+                  it in. Named apart so "hold" means one thing on this screen. */}
               {held.length > 0 && (
                 <div className="pt-2">
                   <button
                     onClick={() => setShowHeld((v) => !v)}
-                    style={{ color: C.amber }}
+                    style={{ color: C.dim }}
                     className="w-full text-left text-[10px] font-black tracking-widest py-1"
                   >
-                    {showHeld ? '▾' : '▸'} HELD ({held.length})
+                    {showHeld ? '▾' : '▸'} STUCK ({held.length})
                   </button>
                   {showHeld && <div className="space-y-2.5 mt-2">{held.map(card)}</div>}
                 </div>
