@@ -38,6 +38,8 @@ const TONES: Array<[string, ReturnType<typeof noteTone>]> = [
   ['Hold for missing bike', 'hold'],
   // SHIP WITH (another order)
   ['SHIP W/ 881424', 'ship_with'],
+  ['SHIP WITH 881418', 'ship_with'],
+  ['SHIP WPS#881210 FF', 'ship_with'],
   ['SHIP W/880108 & 880110 FF', 'ship_with'],
   ['SHIP WITH ORDER 457414', 'ship_with'],
   ['W/ 880173', 'ship_with'],
@@ -107,6 +109,8 @@ describe('readOrderNote', () => {
   it('takes a model after SHIP WITH as a hold, an order number as a partner', () => {
     expect(readOrderNote('SHIP WITH REN')).toMatchObject({ hold: 'REN', shipWith: [] });
     expect(readOrderNote('SHIP W/ 881424')).toMatchObject({ hold: null, shipWith: ['881424'] });
+    // The first build read the ITH of WITH as a model: HOLD · ITH.
+    expect(readOrderNote('SHIP WITH 881418')).toMatchObject({ hold: null, shipWith: ['881418'] });
   });
 
   it('collects every partner a note names, once', () => {

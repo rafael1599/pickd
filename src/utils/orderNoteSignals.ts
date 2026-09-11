@@ -95,7 +95,9 @@ const NOT_A_MODEL = new Set([
 /** Model words a note may name without "SHIP" in front ("WITH HUDSON E1S"). */
 const WITH_MODEL =
   /\b(?:with|w\/)\s*(hudson|cit(?:izen)?\s*\d?|renegades?|ren|allegro|lasers?|ventura|divides?|helix|komodo|all\s+access)\b/i;
-const SHIP_WITH_WORD = /\bship\s*(?:with|w\s*\/?)\s*([a-z][a-z0-9]*(?:\s+access)?)/i;
+// "with" whole, or "w/" with its slash: a bare "w" alternative read the "ITH" of
+// "SHIP WITH 881418" as a model (the first build did, 11 Sep).
+const SHIP_WITH_WORD = /\bship\s*(?:with\b|w\s*\/)\s*([a-z][a-z0-9]*(?:\s+access)?)/i;
 const HOLD_FOR_WORD = /\bhold\s+(?:for|with)\s+([a-z][a-z0-9]*)/i;
 
 function modelLabel(word: string): string | null {
@@ -153,7 +155,7 @@ export function readOrderNote(raw: string | null | undefined): NoteSignals {
   const context = SHIP_WITH_CONTEXT.exec(text);
   const shipWith = context ? [...new Set(text.slice(context.index).match(/\b\d{6}\b/g) ?? [])] : [];
   const shipsTogether =
-    shipWith.length > 0 || /\bship\s*(?:with|w\s*\/?)\s*(?!fla?\b)[a-z]/i.test(text);
+    shipWith.length > 0 || /\bship\s*(?:with\b|w\s*\/)\s*(?!fla?\b)[a-z]/i.test(text);
 
   return { text, pickup, hold, shipWith, shipsTogether, delivery: DELIVERY.test(text) };
 }
