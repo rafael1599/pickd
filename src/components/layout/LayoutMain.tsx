@@ -13,6 +13,7 @@ import { PickingCartDrawer } from '../../features/picking/components/PickingCart
 import { PullToRefresh } from '../ui/PullToRefresh';
 import { usePickingOverlayOpen } from '../../lib/pickingOverlayStore';
 import { usePickingNotesRealtime } from '../../features/picking/hooks/usePickingNotesRealtime';
+import { useAppUpdate } from '../../hooks/useAppUpdate';
 
 interface LayoutMainProps {
   children: ReactNode;
@@ -32,6 +33,8 @@ export const LayoutMain = ({ children }: LayoutMainProps) => {
   // The app's single subscription to order notes — see the hook for why it
   // lives here and not inside usePickingNotes.
   usePickingNotesRealtime();
+  // A page left open all day still hears about a new build (see the hook).
+  useAppUpdate();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const pbClass = isStockCountPage ? 'pb-0' : isSearching ? 'pb-12' : 'pb-24';

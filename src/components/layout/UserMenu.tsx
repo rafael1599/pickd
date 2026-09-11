@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { buildCommit } from '../../hooks/useAppUpdate';
 import { useAuth } from '../../context/AuthContext';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../context/ThemeContext';
@@ -85,11 +86,14 @@ export const UserMenu = ({ isOpen, onClose, navigate }: UserMenuProps) => {
     }
   };
 
-  const versionLabel = import.meta.env.PROD
+  // The channel and the commit this page runs — what to ask a device for when a
+  // fix "doesn't work" on it (a page keeps the build it loaded; hooks/useAppUpdate).
+  const channel = import.meta.env.PROD
     ? window.location.hostname === 'pickd.pages.dev'
       ? 'stable'
       : 'latest'
     : 'dev';
+  const versionLabel = `${channel} · ${buildCommit(__BUILD_ID__)}`;
 
   // ─── Profile Sub-Panel ───
   if (effectiveShowProfile) {

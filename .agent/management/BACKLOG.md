@@ -108,7 +108,8 @@
   quieto («se mantiene firme»), y la tarjeta del grupo FedEx gana letrero **y la barra de avance que
   nunca tuvo** — el board no enseñaba el progreso de casi nada de lo que se verifica en un día. Y una
   orden abierta para recoger (`active` manual, `needs_correction`) ya guarda sus marcas: antes solo
-  vivían en el teléfono (#TEST: 3/7 allí, nada en el board).
+  vivían en el teléfono (#TEST: 3/7 allí, nada en el board). Y como un teléfono sigue con el build que
+  cargó, cada build publica su versión y la app ofrece recargar cuando hay otra.
 - **Pendiente:** a) mitad DB (`classify_picking_note` + relleno de `kind`, con ensayo y ok); el resto del
   clasificador en SQL (pickup, ship-with); e) columna `hold` + switch + pastilla en el board y Ship;
   fase 2 (PICK UP automático); descartar en la puerta 881404–881407 (bug-027).

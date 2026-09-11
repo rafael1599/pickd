@@ -68,3 +68,9 @@ scripts/.sync-progress
 # Per-machine Claude Code permissions/hooks — paths and container names are
 # local to one checkout, so this file must not travel with the repo.
 .claude/settings.local.json
+
+# Compiled from vite.config.ts by a `tsc -b`; Vite loads a vite.config.js BEFORE the .ts, so a stale
+# one silently replaces the real config (it did from Jul to 11 Sep 2026). tsconfig.node.json now
+# emits into node_modules/.tmp, never next to the source.
+vite.config.js
+vite.config.d.ts

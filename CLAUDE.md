@@ -867,6 +867,18 @@ son sufijo D y se quedan. La regla de hermanos por stock sigue como red por si r
   2. `npx supabase db push --linked --yes` — aplica todas las pending.
   3. Verifica con una query directa (`PROD_DB_URL` + `postgres`, o `npx supabase db query --linked`).
   4. Refrescar la app en prod (Ctrl+R) — los 404 desaparecen.
+- **Una página abierta sigue con el build que cargó (11 sep 2026).** Nada le avisaba de uno nuevo: un
+  arreglo llegó a prod a las 16:15 y un teléfono siguió perdiendo las marcas a las 16:17 porque corría
+  el anterior. Cada build publica `version.json` (`vite.config.ts`: commit de Cloudflare
+  `CF_PAGES_COMMIT_SHA` + hora) y `useAppUpdate` (montado en `LayoutMain`) lo compara al minuto, cada
+  5 min y cada vez que la página vuelve a la pantalla; si es otro, un toast «New PickD version ·
+  Reload». **Nunca recarga solo** (alguien puede estar escribiendo). El menú de usuario enseña el
+  commit que corre (`STABLE · 37BD187`): es lo primero que preguntar cuando un arreglo «no funciona» en
+  un dispositivo.
+- **`vite.config.js` no existe a propósito.** Vite carga un `vite.config.js` antes que el `.ts`, y uno
+  compilado por un `tsc -b` y commiteado en julio **sustituía la config real en silencio**: todo cambio
+  a `vite.config.ts` se ignoraba, en local y en Cloudflare. `tsconfig.node.json` emite ahora en
+  `node_modules/.tmp` y `.gitignore` lo prohíbe.
 - **Validar antes de aplicar:** correr el cuerpo de la migración dentro de una transacción con rollback
   contra prod (`sql.begin` + `throw`) y leer el estado resultante; es como se validaron las de idea-154.
 - **Banner de staging:** `StagingBanner.tsx` muestra un banner amarillo "STAGING" automáticamente cuando el hostname no es producción ni localhost.
