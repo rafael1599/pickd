@@ -11,6 +11,36 @@
 
 ## P1 — Alto (operación diaria)
 
+### 110. Los contadores del Live Board no cuentan todos la misma unidad <!-- id: idea-178 --> — input: 2026-09-09 NY
+- **De dónde viene:** el 9 sep se cerraron dos huecos (`c06bade`, `3472ca0`). El badge de BOARD
+  contaba solo `ready_to_double_check` —fuera lo que se está recogiendo (`active`) y lo que alguien
+  está verificando (`double_checking`)— y encima sumaba las capturas pendientes del AS400: **24
+  capturas contra 2 órdenes reales, el badge decía 26**. Ahora el badge es la longitud de la propia
+  query del board (`boardCount`, `useDoubleCheckList.ts:173`) y cada zona tiene su chip. Rafael: "cada
+  orden que está en live board debe ser contada y mostrada en los contadores". **Lo que sigue abierto
+  es qué unidad cuenta cada número.**
+- **Una combinada de N órdenes es UNA tarjeta y suma N.** Available, FedEx, Regular, Pulling y
+  Waiting cuentan filas de `picking_lists`, pero el board pinta cada grupo como una sola tarjeta
+  (`mergeGroupOrders` para un combine deliberado, `FedexGroupCard` para el auto-grupo). Quien cuente
+  tarjetas en pantalla no llega al número del chip.
+- **Y Completed ya cuenta al revés:** se construye *después* de fusionar los grupos, así que cuenta
+  **tarjetas**, no órdenes (`VerificationBoard.tsx:751`). Dos chips de la misma fila miden dos cosas
+  distintas. Hoy en prod: 2 grupos `general` con 5 órdenes completadas dentro — 2 tarjetas, 5 filas.
+- ❓ **¿Órdenes o tarjetas?** Default: **tarjetas** en los chips (es lo que la persona ve y puede
+  señalar con el dedo) y **órdenes** en el badge (es trabajo pendiente: una combinada de 4 sigue
+  siendo cuatro pedidos que despachar). Con ese default, Completed ya está bien y hay que fusionar
+  por grupo antes de contar en las otras cinco zonas.
+- **El chip de Completed tiene tope 12 por construcción.** `COMPLETED_SIDE_LIMIT = 6` por lado y el
+  contador cuenta lo que sobrevive al `slice` (`VerificationBoard.tsx:49,507`). Coincide con las
+  tarjetas que se muestran, pero se lee como "hoy se completaron 12" y la query trae hasta 30.
+- **El buscador encoge los chips y no el badge.** Con búsqueda activa los buckets se filtran
+  (`searchPredicate`), así que los chips describen la vista filtrada mientras el badge sigue diciendo
+  el total. Probablemente correcto —el chip describe la pantalla— pero nadie lo decidió.
+- ❓ **Dónde vive la puerta del AS400.** Al chip "From AS400" se le quitó el número ("no necesitamos
+  ensuciar los números con órdenes que no están para recoger todavía o quizá nunca lo lleguen a
+  estar") pero el botón se quedó en la fila de contadores porque **es la única entrada al modal en
+  toda la app**. Default: sacarlo de la fila y colgarlo del menú ⋯, para que esa fila sea solo cifras.
+
 ### 109. Catálogo de containers (10 sep): lo que quedó para el piso, para Rafael y para Bay 2 <!-- id: idea-177 --> — input: 2026-09-10 NY
 - **Hecho el 10 sep** (`20260910151722` … `20260910210219`): nombres de 7004N y del container de
   Florida separados en modelo/talla/color, Laser → `JUV LASER`, pesos de gemelas de color, containers y
