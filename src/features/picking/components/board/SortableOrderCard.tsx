@@ -478,12 +478,19 @@ const OrderCardShell: React.FC<CardProps> = ({
             )}
           </button>
 
-          {/* Notes preview lives outside the select button — it opens its
-              own modal on click, and nested <button>s aren't valid HTML. */}
+          {/* Notes live outside the select button — they open their own modal
+              on a tap, and nested <button>s aren't valid HTML. The small LED
+              sign, with every member's notes on a combined card. */}
           <OrderNotesInline
-            listId={order.id}
+            listId={order.members?.map((m) => m.id) ?? order.id}
             watcherNote={order.notes}
-            className="px-3 md:px-4 pb-2 pt-1 text-left"
+            watcherNotes={order.members?.map((m) => ({
+              orderNumber: m.order_number,
+              notes: m.notes,
+            }))}
+            combinedNumbers={order.members?.map((m) => m.order_number)}
+            size="small"
+            className="block w-full px-3 md:px-4 pb-2 pt-1"
           />
         </div>
 

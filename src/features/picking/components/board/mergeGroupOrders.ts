@@ -58,5 +58,10 @@ export function mergeGroupOrders(groupOrders: PickingList[]): PickingList {
     profiles: workerSource.profiles,
     checker_profile: workerSource.checker_profile,
     is_addon: groupOrders.some((o) => o.is_addon),
+    members: groupOrders.map((o) => ({
+      id: o.id,
+      order_number: o.order_number,
+      notes: o.notes ?? null,
+    })),
   };
 }

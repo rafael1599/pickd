@@ -2529,7 +2529,6 @@ export const ShipScreen = () => {
 
                     <LivePrintPreview
                       orderNumber={selectedOrder.order_number ?? undefined}
-                      watcherNote={selectedOrder.notes}
                       customerName={formData.customerName}
                       street={formData.street}
                       city={formData.city}
@@ -2542,15 +2541,6 @@ export const ShipScreen = () => {
                       totalWeight={effectiveWeight}
                       completedAt={selectedOrder.updated_at}
                       transportCompany={formData.transportCompany}
-                      notesSlot={
-                        <OrderNotesInline
-                          listId={selectedOrder.combined_member_ids ?? selectedOrder.id}
-                          watcherNote={selectedOrder.notes}
-                          watcherNotes={selectedOrder.member_notes}
-                          combinedNumbers={selectedOrderCombinedNumbers}
-                          variant="sign"
-                        />
-                      }
                       screenOnly
                       combinedNumbers={selectedOrderCombinedNumbers}
                       activeOrderFilter={selectedOrderFilter}
@@ -2729,6 +2719,15 @@ export const ShipScreen = () => {
                     electricBikeLines={electricBikeLines}
                     electricCartons={electricCartons}
                     hidePalletTotals={onlyElectric}
+                  />
+
+                  {/* The LED sign, under the four numbers (Rafael, 11 Sep 2026). */}
+                  <OrderNotesInline
+                    listId={selectedOrder.combined_member_ids ?? selectedOrder.id}
+                    watcherNote={selectedOrder.notes}
+                    watcherNotes={selectedOrder.member_notes}
+                    combinedNumbers={selectedOrderCombinedNumbers}
+                    size="large"
                   />
 
                   <PartsWeightEditor

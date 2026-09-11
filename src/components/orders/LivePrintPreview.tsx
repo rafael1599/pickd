@@ -15,8 +15,6 @@ export const TRANSPORT_COLORS: Record<string, { bg: string; text: string }> = {
 
 interface LivePrintPreviewProps {
   orderNumber?: string;
-  /** Watcher-origin order note (AS400 Order Comments); shown in red, screen-only. */
-  watcherNote?: string | null;
   customerName: string;
   street: string;
   city: string;
@@ -34,9 +32,6 @@ interface LivePrintPreviewProps {
    *  OrdersScreen — operationally there's no value seeing the same label
    *  repeated N times. The PDF print path keeps the full multi-page output. */
   screenOnly?: boolean;
-  /** Screen-only slot rendered next to the watcher note (e.g. in-app notes
-   *  preview). Caller-composed so this component stays print/PDF-agnostic. */
-  notesSlot?: React.ReactNode;
   /** Click-to-filter for a combined order — only meaningful when screenOnly;
    *  the print/PDF path never passes these, so the header stays plain text there. */
   combinedNumbers?: string[];
@@ -58,10 +53,8 @@ function unitsLines(bikes: number, parts: number): string[] {
 
 export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
   orderNumber,
-  watcherNote,
   completedAt,
   transportCompany,
-  notesSlot,
   combinedNumbers,
   activeOrderFilter,
   onToggleOrderFilter,
@@ -97,10 +90,9 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
             </div>
           )}
         </div>
-        {/* Order on a wide screen: note · date · photo tile. On a phone the
-            date stays beside the number and the note wraps to its own line
-            (Rafael's two layouts, 2026-08-28). */}
-        {(completedAt || (watcherNote && watcherNote.trim()) || notesSlot || photoTile) && (
+        {/* Date · photo tile. The notes left this row for the LED sign under
+            the four numbers (Rafael, 11 Sep 2026). */}
+        {(completedAt || photoTile) && (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 min-w-0 flex-1 justify-end pr-8">
             {completedAt && (
               <p className="order-1 md:order-2 text-muted text-xs font-bold tracking-wide whitespace-nowrap animate-soft-in">
@@ -118,19 +110,6 @@ export const LivePrintPreview: React.FC<LivePrintPreviewProps> = ({
                   hour12: true,
                 })}
               </p>
-            )}
-            {/* When notesSlot is provided (screen-only), it already covers the
-                watcher note as a clickable preview — this static duplicate
-                would otherwise render the same text twice, once inert. */}
-            {!notesSlot && watcherNote && watcherNote.trim() && (
-              <p className="order-2 md:order-1 text-red-500 text-xs font-bold tracking-wide animate-soft-in">
-                {watcherNote.trim()}
-              </p>
-            )}
-            {notesSlot && (
-              <div className="order-2 md:order-1 min-w-0 max-w-full overflow-hidden md:mr-auto">
-                {notesSlot}
-              </div>
             )}
             {photoTile && <div className="order-3 shrink-0">{photoTile}</div>}
           </div>

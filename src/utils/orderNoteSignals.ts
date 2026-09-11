@@ -330,3 +330,26 @@ export function orderNoteEntries(
     return 0;
   });
 }
+
+/**
+ * The newest `count` notes, newest first — what the LED sign shows (Rafael, 11 Sep
+ * 2026: "las dos últimas notas"). A typed note carries its time; the AS400 note
+ * came with the order, so it is older than anything typed on it and goes after.
+ * What stops a shipment does not depend on this: the ship chip and the truck
+ * confirm read `blockingLines` over every note.
+ */
+export function latestNoteEntries(
+  entries: readonly OrderNoteEntry[],
+  count: number
+): OrderNoteEntry[] {
+  return entries
+    .map((entry, i) => ({ entry, i }))
+    .sort((a, b) => {
+      if (a.entry.at && b.entry.at) return b.entry.at.localeCompare(a.entry.at) || a.i - b.i;
+      if (a.entry.at) return -1;
+      if (b.entry.at) return 1;
+      return a.i - b.i;
+    })
+    .slice(0, count)
+    .map(({ entry }) => entry);
+}

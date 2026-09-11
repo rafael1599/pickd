@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   blockingLines,
   blockingReason,
+  latestNoteEntries,
   noteLabel,
   noteTone,
   orderNoteEntries,
@@ -324,5 +325,45 @@ describe('orderNoteEntries', () => {
       'Couldnt find S/D, ask James Friday',
       'JAMES TO ASSEMBLE',
     ]);
+  });
+});
+
+describe('latestNoteEntries — the sign shows the two newest (Rafael, 11 Sep 2026)', () => {
+  const entries = orderNoteEntries(
+    [{ orderNumber: '881400', notes: 'HOLD FOR ADDS PICK-UP ORDER' }],
+    [
+      { message: 'JAMES TO ASSEMBLE', author: 'Rafael', at: '2026-09-10T15:00:00Z' },
+      { message: 'CALL BEFORE DELIVERY', author: 'Carine', at: '2026-09-11T13:00:00Z' },
+      { message: 'Label the S/D box', author: 'James', at: '2026-09-09T18:00:00Z' },
+    ]
+  );
+
+  it('newest first, whatever the tone', () => {
+    // orderNoteEntries puts the pickup first; the sign goes by time.
+    expect(entries[0].tone).toBe('pickup');
+    expect(latestNoteEntries(entries, 2).map((e) => e.text)).toEqual([
+      'CALL BEFORE DELIVERY',
+      'JAMES TO ASSEMBLE',
+    ]);
+  });
+
+  it('the AS400 note came with the order, so it is the oldest', () => {
+    expect(latestNoteEntries(entries, 4).map((e) => e.text)).toEqual([
+      'CALL BEFORE DELIVERY',
+      'JAMES TO ASSEMBLE',
+      'Label the S/D box',
+      'HOLD FOR ADDS PICK-UP ORDER',
+    ]);
+  });
+
+  it('an order with only its AS400 notes keeps their order', () => {
+    const only = orderNoteEntries(
+      [
+        { orderNumber: '881347', notes: 'CLOSED MONDAYS NO DELIVERIES' },
+        { orderNumber: '881348', notes: 'JAMES TO ASSEMBLE' },
+      ],
+      []
+    );
+    expect(latestNoteEntries(only, 2).map((e) => e.orderNumber)).toEqual(['881347', '881348']);
   });
 });

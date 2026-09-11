@@ -654,20 +654,32 @@ cambio de datos que espera el ok de Rafael. Mientras tanto, «humana» es `isHum
   de prefijos a mano.** `noteKind` lee la columna y cae al prefijo solo para filas anteriores a la
   migración. Si te encuentras escribiendo `.ilike('message', '[Algo]:%')` o `startsWith('[…')`, es
   el bug que esta sección existe para evitar.
-- **Regla del preview (`OrderNotesInline`), desde el 11 sep 2026 (idea-179):** gana la nota **más
-  fuerte**, no la más reciente — PICK UP > HOLD > SHIP WITH > DELIVERY > NOTE, cada una en su color —
-  entre la nota AS400 de **cada miembro** y lo que escribieron personas. Lo que escribió PickD (tags
-  y plantillas) vive en el historial, y la facturación («FREE FREIGHT», «NET 60», «FF N30 W/FLA») no
-  se enciende. La lectura es `utils/orderNoteSignals.ts` (señales, no un tipo: #881400 «HOLD FOR ADDS
-  PICK-UP ORDER» es pickup y hold; «SHIP W/ 881424» es un compañero que deja de frenar al combinarse;
-  «SHIP WITH REN» es un HOLD · REN), con la tabla de casos de notas reales en su test;
-  `meaningfulNote` (Double Check) delega en ella. Antes ganaba la humana más reciente y, como las
-  plantillas de PickD tenían `kind` NULL, «Replaced …» tapó la nota AS400 en 54 órdenes. Variantes:
-  `line` (Live Board, una línea) y `sign` (cabecera de Ship: franja negra estilo LED, 2 líneas +
-  «+N»). En Ship la nota además llega a donde se envía: chip en `ShipFeedCard`, la confirmación del
-  camión empieza por lo que frena y Start Shipping no preselecciona esas órdenes
-  (`ship/utils/shipNotes.ts`). **Pendiente:** el Live Board pasa solo el id y la nota del ancla de
-  una combinada (`SortableOrderCard`), así que ahí siguen sin verse los demás miembros.
+- **Qué se enciende (`OrderNotesInline`), desde el 11 sep 2026 (idea-179):** la nota AS400 de
+  **cada miembro** y lo que escribieron personas. Lo que escribió PickD (tags y plantillas) vive en el
+  historial, y la facturación («FREE FREIGHT», «NET 60», «FF N30 W/FLA») no se enciende. La lectura es
+  `utils/orderNoteSignals.ts` (señales, no un tipo: #881400 «HOLD FOR ADDS PICK-UP ORDER» es pickup y
+  hold; «SHIP W/ 881424» es un compañero que deja de frenar al combinarse; «SHIP WITH REN» es un
+  HOLD · REN), con la tabla de casos de notas reales en su test; `meaningfulNote` (Double Check)
+  delega en ella. Antes ganaba la humana más reciente y, como las plantillas de PickD tenían `kind`
+  NULL, «Replaced …» tapó la nota AS400 en 54 órdenes.
+- **Es un letrero LED con las dos notas más nuevas** (Rafael, 11 sep 2026: «las dos últimas notas»;
+  `latestNoteEntries` — la AS400 vino con la orden, así que es la más vieja), cada una en el color de
+  su señal más fuerte (PICK UP rojo > HOLD ámbar > SHIP WITH azul > DELIVERY cian > NOTE blanco). **Lo
+  que frena un envío no depende de cuáles se ven:** el chip de `ShipFeedCard`, la confirmación del
+  camión y Start Shipping leen `blockingLines` sobre **todas** (`ship/utils/shipNotes.ts`). Dos
+  tamaños, elegidos por Rafael en un banco de pruebas: **large** en Ship, bajo los cuatro números
+  (fuente 6×10 en 12 filas, un LED cada 4 px = 48 px de alto) y **small** en cada tarjeta del Live
+  Board (5×7 en 9 filas, 3 px = 27 px). Por defecto **ROTATE**, el texto corre de derecha a izquierda
+  para que una nota larga se lea entera; **mantener presionado** el de Ship pasa a HOLD / FLASH /
+  ROLL UP / WIPE (los modos del protocolo de letreros Alpha) y el letrero dice el nombre; el modo es
+  del dispositivo (`hooks/useLedMode.ts`), así que el board lo sigue. Tocar abre el historial. No
+  reinventa lo difícil: las fuentes son las X11 misc-fixed de dominio público que usan los paneles
+  de `hzeller/rpi-rgb-led-matrix` (`utils/led/ledFonts.ts`, generado de las BDF) y lo que se ve en
+  cada instante es puro y con tests (`utils/led/ledText.ts`); `components/ui/LedSign.tsx` +
+  `ledRenderer.ts` solo pintan — un atlas de letras y **un solo** requestAnimationFrame para toda la
+  página, y un letrero fuera de la vista no dibuja (cada letrero son ~20 copias de imagen por
+  cuadro, y solo cuando el texto avanza un LED). Con _reduced motion_, HOLD. **La tarjeta combinada del board lleva `members`** (lo pone
+  `mergeGroupOrders`), así que su letrero lee las notas de todos los miembros, no solo del ancla.
 - **`usePickingNotes` es TanStack Query**, una entrada de caché por `list_id`, y el realtime es
   **una sola** suscripción montada en `LayoutMain` (`usePickingNotesRealtime`). Antes abría un canal
   **por instancia** — y el hook se monta por card, así que un board lleno abría un canal por card,

@@ -53,6 +53,9 @@ export interface PickingList {
   is_shipped?: boolean;
   verified_item_keys?: string[] | null;
   notes?: string | null;
+  /** Client-only, set by `mergeGroupOrders` on a combined card: every member, so
+   *  the card reads each one's notes and not just the anchor's. */
+  members?: { id: string; order_number: string; notes: string | null }[];
 }
 
 const PICKING_LIST_SELECT = `

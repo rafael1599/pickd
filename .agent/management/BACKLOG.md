@@ -95,10 +95,19 @@
   en prod: 29 holds con su etiqueta (28 pendientes + #881382, ya en «nobody brought it in»). En pantalla:
   sección HOLD (n) fuera de WAITING, etiqueta ámbar con el comentario, y el «HELD» técnico pasa a STUCK.
   Arreglo de paso (`f9f3736`): «SHIP WITH 881418» salía «HOLD · ITH».
+- **Hecho 11 sep — tramo 3, el letrero LED:** Rafael vio la franja de la cabecera («el led no es como
+  lo quería») y marcó el sitio: entre los cuatro números y ORDER ITEMS. Eligió en un banco de pruebas
+  (4 resoluciones × 5 modos, con notas reales): **grande** en Ship (fuente 6×10, 12 filas, LED cada
+  4 px = 48 px) y **la más pequeña** en cada tarjeta del Live Board (5×7, 9 filas, 3 px = 27 px). Enseña
+  **las dos notas más nuevas** («las dos últimas notas»), cada una en su color, y corre de derecha a
+  izquierda (ROTATE); mantener presionado el de Ship pasa a HOLD / FLASH / ROLL UP / WIPE, recordado
+  por dispositivo. Fuentes X11 de dominio público (las de `rpi-rgb-led-matrix`), modos del protocolo
+  Alpha; ninguna librería web junta texto multicolor con varios modos (dylanTicker, Dot Matrix Text de
+  shadcn y ledding, revisadas). Cierra de paso el pendiente del board: la tarjeta combinada lleva
+  `members` y su letrero lee todas las notas.
 - **Pendiente:** a) mitad DB (`classify_picking_note` + relleno de `kind`, con ensayo y ok); el resto del
   clasificador en SQL (pickup, ship-with); e) columna `hold` + switch + pastilla en el board y Ship;
-  fase 2 (PICK UP automático); el Live Board de una combinada solo ve el id y la nota del ancla
-  (`SortableOrderCard` pasa `listId={order.id}`); descartar en la puerta 881404–881407 (bug-027).
+  fase 2 (PICK UP automático); descartar en la puerta 881404–881407 (bug-027).
 - Detalle: research §9 y §8.
 
 ### 112. Combinada con varias direcciones: elegir una o separar, y Combine pregunta antes <!-- id: idea-180 --> — input: 2026-09-10 23:20 NY
