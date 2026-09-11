@@ -11,6 +11,105 @@
 
 ## P1 — Alto (operación diaria)
 
+> **Dictado del 10 sep 23:20 NY (11 puntos):** idea-179…184 y bug-027…032. La investigación completa
+> —evidencia, file:line, cifras de prod, lo decidido sin preguntar y los docs desactualizados que
+> encontró— está en `.agent/management/research/2026-09-10-dictado.md` (§ = número de su punto).
+> Orden acordado: idea-179 → bug-027 → bug-028 → bug-029 → bug-030 → bug-031 → idea-181 → bug-032 +
+> idea-182 → idea-180 → idea-183 → idea-184. bug-026 (doble descuento) ya lo lleva otra sesión.
+
+### 111. Ship: las notas como cartel por tipo, y HOLD como dato — prioridad 1 <!-- id: idea-179 --> — input: 2026-09-10 23:20 NY
+- **Rafael:** "Cartel led para mostrar las notas en ship (cada tipo de nota con su codigo de color
+  especifico), por ejemplo pick up automaticamente cambia carrier a pickup pero la nota es roja, etc." ·
+  "Un board similar al fisico que tenemos para las ordenes pero en virtual con una etiqueta para los
+  holds." · "necesito poner las notas como prioridad 1".
+- **Es un bug, no un adorno (prod, 4 meses):**
+  - La línea de nota de Ship (`OrderNotesInline`) enseña la última nota con `kind` NULL, y 265 de esas
+    333 las escribe PickD (195 correcciones, 70 de ciclo de vida): **la nota AS400 quedó tapada en 54
+    órdenes**. #881448 «DO NOT SHIP. HP PICKUP FRI» se leía «Replaced 03-3768BL → 03-3768BL [REBOX →
+    ROW 43]: Location».
+  - Las combinadas solo ven la nota del ancla (`combineGeneralGroupSiblings` hace `...anchor`): **24 de
+    35 grupos** perdían alguna. Igual el modal de notas y el packing slip.
+  - Solo se envía desde la lista (camión de `ShipFeedCard` + `window.confirm` genérico) o por lote
+    (Start Shipping preselecciona todo), y **ninguno enseña la nota**. El 10 sep, 12 de 13 órdenes sin
+    enviar tenían una nota que frena.
+  - «Hold» no existe como dato. La puerta del AS400 no expone el Order Comments, pasa las capturas a
+    «NOBODY BROUGHT IT IN» a los 3 días y las archiva a los 8: **los REN/ADDS salen de la lista entre el
+    16 y el 18 sep**. Septiembre: 42 holds en 10 días, ~3× el ritmo de jun–ago.
+- **Tipos, sacados de 477 notas reales:** PICK UP rojo · HOLD ámbar · SHIP WITH azul · DELIVERY cian ·
+  NOTE blanco · facturación (FREIGHT, NET 30, W/FLA…) no se enciende. **Un clasificador que devuelve
+  banderas, no un tipo**: #881400 «HOLD FOR ADDS PICK-UP ORDER» es las dos cosas. «SHIP WITH REN / un
+  modelo» es HOLD; «SHIP W/ <nº de orden>» no frena, sugiere Combine (881473/881475 salieron el mismo
+  día que su pareja).
+- **Fase 1 — lo que tapa y lo que se pierde:**
+  - a) Las notas de PickD son de sistema: `classify_picking_note` + `systemNotes.ts` reconocen las
+    plantillas (Replaced/Swapped/Removed/Adjusted/Added…, Order reopened/re-completed/restored/…) y los
+    tags hoy sin clasificar `[Add-On]` y `[Take Over SKU]`. Rellenar `kind` en las filas viejas es un
+    cambio de datos: ensayo con rollback y ok de Rafael.
+  - b) **Un clasificador** (SQL autoridad + espejo TS con la misma tabla de casos, patrón
+    canonical_sku). Quita los sufijos que PickD le pega a `notes` ([System: …], User Cancelled: 52
+    filas). `meaningfulNote` delega en él para que Ship y Double Check no apliquen reglas distintas.
+  - c) **Cartel** en el sitio de la nota de hoy: una línea por nota en el color de su tipo, autor en
+    gris (los colores de autor chocan con la paleta), orden PICK UP > HOLD > SHIP WITH > DELIVERY >
+    NOTE, 2 líneas + «+N». Combinadas con `#nnn` por miembro, desde una proyección `members[]` en
+    `combineGeneralGroupSiblings` que leen cartel, modal y packing slip. Estático; solo se desplaza si
+    no cabe.
+  - d) **La nota llega a donde se envía:** chip del tipo que frena en `ShipFeedCard`; el confirm del
+    camión empieza por esas líneas; Start Shipping no preselecciona lo que frena.
+  - e) **`picking_lists.hold`** (NULL = sin hold; regla de los 4 lugares): se siembra al INSERT desde el
+    Order Comments y es un switch (⋯ Hold con ReasonPicker ↔ Release; Release también a un toque en la
+    pastilla, porque 5 de 15 holds de septiembre ya venían liberados). Nota `[Hold]: ADDS` / `[Hold
+    released]` con kind nuevo. Pastilla `HOLD · ADDS` en el Live Board (el sitio de ADD-ON, muerta:
+    1/1882), en la combinada si cualquier miembro, en la puerta y en Ship. Completed siempre muestra
+    los HOLD (fuera del tope de 6 por lado). No bloquea el picking; «Mark shipped» pide confirmar una
+    vez. **Los cubos FedEx quedan fuera del hold de grupo:** cada orden es su envío (#881488).
+  - f) **Puerta:** `v_as400_door` expone el Order Comments y el HOLD; un HOLD no envejece ni se archiva;
+    sección plegada «HOLD (n)» que no cuenta como pendientes (regla del 9 sep); marca `⊂ 881412` en
+    capturas contenidas en una orden ya traída. La sección técnica «HELD» se renombra: hold significa
+    una sola cosa en pantalla.
+- **Fase 2 — PICK UP automático:** trigger BEFORE INSERT `a_carrier_from_order_note`: nota AS400 de
+  pickup + carrier NULL → 'PICK UP' (54 de 54 órdenes con esa nota terminaron en PICK UP o sin carrier).
+  Por nombre corre antes de `auto_group_fedex_orders_trigger`, así que la pickup no cae a un cubo FedEx.
+  Nunca desde una nota de persona («this order is not a pick up», #881353). UPDATE vigilado de las
+  abiertas con carrier NULL (#881520). Ensayo de triggers con rollback junto con bug-029.
+- **Fase 3 (opcional):** el watchdog manda Ship Via crudo — cambiaría 1 de 133 capturas.
+- ❓ **Board físico:** no aparece en ninguna fuente. **Default:** la etiqueta HOLD en Live Board,
+  puerta y Ship; lo que se parezca a la pared (columnas, una TV) cuando llegue **una foto del board**.
+  No bloquea.
+- **Posición:** un solo Layout Lab del card de Ship con los átomos nuevos (cartel, ⋯ de fotos de
+  idea-181, chevron del BOL de idea-182, selector de direcciones de idea-180) antes de mover nada de
+  sitio. La fase 1 usa el sitio actual de la nota.
+- Detalle: research §9 y §8.
+
+### 112. Combinada con varias direcciones: elegir una o separar, y Combine pregunta antes <!-- id: idea-180 --> — input: 2026-09-10 23:20 NY
+- **Rafael:** "Cuando hay varias ordenes para un solo cliente y estan combinadas pero cada una tiene una
+  direccion diferente se me debe dar varias opciones, dime que mas no estoy viendo que se podria
+  mejorar".
+- **Depende de bug-027 F2:** mientras PickD guarde una dirección por cuenta, no hay nada que elegir
+  (las 7 órdenes JAX apuntan a la misma fila). Una combinada es un envío: una dirección, una carga en
+  Audit Source y un BOL.
+- **F3 · la tarjeta:** en la línea de dirección (donde están las copias para Audit Source) sale
+  `3 ADDRESSES ▾` en ámbar hasta que alguien elija. Una fila por destino: CIUDAD ZIP · calle · órdenes ·
+  bikes/parts/lbs. Tocar = «ship all here» (`order_groups.ship_to_address_id`, 4 lugares) y lo usan
+  copias, etiqueta y packing slip. **SPLIT** = Ungroup por destino: cada destino su tarjeta, sus 4
+  números y su BOL (bug-032 va antes). Imprimir sin elegir pregunta a qué dirección.
+- **F4 · Combine pregunta:** `destinations(members)` puro en las **5** puertas vivas (sugerencia del
+  Board, BoardMergeModal, QuickGroupModal, AddOnTargetPicker de Double Check, sugerencia de Ship; el
+  arrastre del Board es código muerto desde `b224133` y se borra). Confirmación en cifras: `881415 →
+  FORT COLLINS 80524 · 881373 → LAPORTE 80535`. Las sugerencias solo emparejan el mismo destino. Double
+  Check de una combinada con más de un destino dice `2 ADDRESSES` y filtra por orden.
+- **F5 · puerta:** `SHIP-TO · CIUDAD ZIP` y el comentario del AS400; «SHIP W/ nnnnnn» sugiere Combine.
+- **Cubos FedEx fuera:** cada orden es su propio envío. Tras F2, la regla de ≥5 bicis por cliente
+  cuenta por (cliente, ship-to): hoy bicis de Loveland pueden pasar a REGULAR una FedEx de Fort Collins.
+- **Lo que no estabas viendo:** (1) la prueba de que un pallet tiene 3 destinos se borra al escribir;
+  (2) tarjeta, copias, etiqueta y packing slip leen el cliente, no la orden; (3) corregir un campo en la
+  tarjeta crea un cliente y renombrar renombra todas sus órdenes; (4) el desplegable de direcciones ya
+  existe (idea-012) pero estaba vacío de tiendas; (5) el pallet se arma en Double Check antes de que
+  Ship lo vea; (6) la puerta enseña «JAX INC» para dos tiendas, sin ciudad; (7) el AS400 ya dice qué va
+  junto («SHIP W/…») y PickD solo lo guarda como nota; (8) canal consumer → posible FedEx a otra tienda;
+  (9) 25 de 133 calles llevan la razón social delante; (10) 6 de 57 órdenes sin su pantalla del AS400.
+- Estudio del pickd-product-designer (PRD con ❓ y default) antes de codificar F3/F4. Detalle: research
+  §6–7.
+
 ### 109. Enriquecer el catálogo desde AS400: lo confuso <!-- id: idea-177 --> — input: 2026-09-11 NY ❓
 - **Rafael:** "comencemos con los campos seguros de actualizar y los confusos déjalo en backlog para
   discussion cuando haya más tiempo".
@@ -551,6 +650,94 @@
 
 ## P2 — Medio (conveniencia)
 
+### 113. Ship: la ubicación como una sola cifra («1D») y el ⋯ de las fotos dentro de su columna <!-- id: idea-181 --> — input: 2026-09-10 23:20 NY
+- **Rafael:** "En ship mostrar location y sublocation como uno solo en la tabla. Ej. Location 1D o cage1
+  o return to stock." · "Los 3 puntos de las fotos deben estar en el espacio de las fotos logicamente,
+  ahora esta afuera y es confuso."
+- **La tabla** es Order Items (`OrderItemsTable.tsx:105-110`), con su papel (packing slip,
+  `printOrderDetail.ts`) y la página del QR (`PublicOrderView.tsx`, que hoy ni enseña la letra). Una
+  columna **Location** con un formateador puro nuevo, `src/utils/locationLabel.ts`: `ROW` + número →
+  número + letras ordenadas y pegadas (ROW 1+D → **1D**, ROW 15+ABCD → **15ABCD**, ROW 42+M,G → **42GM**,
+  ROW 41 → **41**); `ROW` + número con sufijo → sin ROW y la letra tras un espacio (ROW 20B+A → **20B A**,
+  ROW 42 BURIED → **42 BURIED**); lo demás tal cual (**CAGE 1**, **RETURN TO STOCK**, **D17**, **ROW X
+  EP**; BAY 3 ≠ BAY3). Orden: location → primera letra → SKU.
+- **Tiene un bug dentro:** con Shipped encendido (el defecto, card al 40 %) y a 430 px, Location y Lbs
+  quedan detrás de un scroll horizontal oculto (tabla de 679 px; se ven 396/467). SKU y Location sin
+  ancho fijo, `px-2` bajo `md`, Description cede.
+- **El ⋯** es el tile de fotos (Take another photo / View all), no el ⋮ de la orden: vive en la cabecera
+  (`LivePrintPreview`), fuera del card, a ~20 px del ⋮. Rafael lo dibujó arriba de la columna de fotos
+  en su Layout Lab del 28 ago; esa fila del lab, en la app, está fuera del card. Pasa a ser la **primera
+  celda de `PalletPhotoRail`**, dentro del card; su menú se cierra al tocar fuera (hoy no).
+- Fase 2 no pedida (el mismo formateador): Double Check (corta «RETURN TO ST»), Picking Summary, detalle
+  del SKU. Coordinar `printOrderDetail.ts` con idea-179/182. Detalle: research §1 y 3.
+
+### 114. Ship: el BOL sale de la fila de carrier y se abre tocando el carrier <!-- id: idea-182 --> — input: 2026-09-10 23:20 NY
+- **Rafael:** "Quiero que el bol sea una opcion que solo se ve en el reporte order items pdf y abriendo
+  un acordion a la derecha de carrier para que nos de espacio para que se vean mas cartiers. Y que para
+  registrarlo sea espacio que reemplaza la lista de carriers al clickar en el carrier correspondiente."
+  Revierte su decisión del 28 ago («carrier y load number va en un bloque del tamaño de la altura del
+  logo», `e05356f`).
+- **BOL = `picking_lists.load_number`** (el 130636156 de 880996 es el `BOL# 130636156` del AS400). Solo
+  lo usan los carriers de camión (R+L 123/130, RIST 29/31, DAYLIGHT 24/24…); FEDEX 0/38, PICK UP 0/37.
+- **Diseño:** en reposo la fila es `CARRIER · [chips que caben] · [⋯]`; el chip elegido lleva un
+  chevron `›` dentro de su padding (verde con BOL, gris sin él). Tocar el chip elegido abre el campo del
+  BOL en el lugar de los demás chips (misma altura); ya no lo desmarca. Tocar un carrier de camión no
+  elegido lo elige y abre el BOL. Enter guarda, Esc descarta, vacío borra; 16 px (sin zoom de iOS).
+  `NO_BOL_CARRIERS = FEDEX, PICK UP` en `carrierPicker.ts`.
+- **Papel:** el PDF de Order Items y la página del QR dicen `BOL #:`; la etiqueta de pallet 6×4
+  conserva `LOAD:`; «Missing: BOL» solo con carrier de camión.
+- **Dónde se gana (medido en la app):** un carrier más desde ~1512 px con Shipped encendido, o desde
+  1280 con Shipped apagado. En el teléfono se gana **una línea**, no carriers: 1 carrier + ⋯ es su
+  diseño de 360 px del 28 ago. Remedir tras idea-181 (la columna de fotos existirá también sin fotos).
+- Paso 0: bug-032. Detalle: research §2.
+
+### 115. FedEx Dimensions: unificar cajas parecidas a la más grande <!-- id: idea-183 --> — input: 2026-09-10 23:20 NY ❓
+- **Rafael:** "Las medidas similares en modelos similares o iguales se deben unificar a las medidas mas
+  grandes para disminuir las opciones en fedex dimentions, estudiemoslos y despues decidimos nuestros
+  rangos maximos de unificacion."
+- **Estudio hecho** (tabla completa en research §10): hoy 186 registros; sin cajas falsas ni S/D
+  (bug-030) y con los nombres limpios, 169. Se une dentro de una **familia** (DXT, RENEGADE, CITIZEN…),
+  declarando el máximo por eje, **sin cruzar nunca los 130"** que activan Oversize; e-bikes solo con
+  caja idéntica (la fila e-bike de Ship promete la caja de FSM); cuadros e infantiles aparte.
+- ❓ **¿Cuánto puede crecer como mucho una caja?**
+
+  | Opción | Registros | Peor caja | Peso FedEx |
+  |---|---|---|---|
+  | A · largo +1", ancho +1" | 91 | +7 lb | +0.8 % |
+  | **B · largo +2", ancho +1"** | **82** | **+10 lb** | **+1.5 %** |
+  | C · largo +3", ancho +1" | 76 | +12 lb | +2.1 % |
+  | D · 1" parejo | 86 | +19 lb | +1.4 % |
+  | E · 2" parejo | 69 | +24 lb | +5.0 % |
+  | F · solo idénticas | 132 | 0 | 0 |
+
+  **Default B.** Es una constante: el siguiente export (Replace) la corrige.
+- ID nuevo = FAMILIA+LxWxH (≤30); si la descripción pasa de 140 caracteres, el grupo se parte. Log del
+  export con `sku_count` (record_count deja de delatar un catálogo parcial). Va después de bug-030.
+
+### 116. Strapped pallets (18 + 12 = DS) reemplazan torres y líneas <!-- id: idea-184 --> — input: 2026-09-10 23:20 NY ❓
+- **Rafael:** "A PARTIR DE AHORA YA NO QUEREMOS USAR LA LOGICA DE LINEAS Y TORRES, AHORA SOLO VAN A SER
+  STRAPPED PALLETS, HAY DE DOS TIPOS, UNA DE 18 UNIDADES Y UNA DE 12 QUE SE UNEN PARA FORMAR UNA DS
+  PALLET O TORRE COMO ANTES SE LLAMABA. A PARTIR DE AHI HASME LAS PREGUNTAS QUE MAS DUDAS RESUELVEN
+  PARA COMENZAR UNA REFACTORIZACION EN PICKD."
+- **Hoy:** seis definiciones de torre/línea que no coinciden (DB 30/5; Register Container y Overstock
+  cuentan un resto ≥18 como torre; Quick Stack 3u/1u; Consolidation 3–15/16–30; partes «1 TOWER ×
+  qty»). La forma guardada (`inventory.distribution`) no la mantiene nadie: cinco caminos cambian la
+  cantidad sin tocarla, y **miente en 101 de 618 filas de bici**. El piso dejó de registrarla (Jed, por
+  última vez el 20 ago).
+- ❓ **¿Cómo sabe PickD qué strapped hay?** a) **Calculado** de la cantidad, nadie registra nada ·
+  b) Registrado: el piso indica cuántas DS / 18 / 12 hay en cada ubicación · c) Objeto: cada strapped
+  con su etiqueta y escaneo. **Default a.** Decide si queda editor, si se descuenta al recoger, si hay
+  backfill, qué hace el undo, si hay etiquetas y si se modelan pallets de varios SKUs.
+- **Con el default (vetable):** DS = 18 abajo + 12 arriba = 30 = torre = un cuadro del mapa (su
+  capacidad no cambia). Sobrante: DS completas, luego una de 18 y luego una de 12, la última incompleta
+  (37 = DS + 7, 25 = 18 + 7: las ediciones de Rafael del 3 y 4 sep). Se recoge de arriba primero. 18/12
+  para toda bici, solo en filas ROW de almacén (sin S&D, REBOX ni RETURN TO STOCK). Los pallets de Ship
+  (8/10/12, `pallets_qty`) no cambian. Las «BIKE LINES FRONT» del mapa dejan de sumar capacidad (Bay 2
+  −468); SQUARE_MAX 45 se queda. `inventory.distribution` se congela (la leen el undo y el historial).
+- Fases: bug-031 primero (no depende de la ❓); F1 regla única `src/utils/strappedPallets.ts` y
+  pantallas (Stock, Double Check, Register Container «2 DS + 18 + 7», Overstock y su PDF, Consolidation
+  `<12 · 12–29 · DS · DS+`); F2 el mapa, con su checkpoint. Detalle: research §11 (A y B).
+
 - [x] ~~**Orders PDF preview full-width mobile**~~ ✅ 2026-05-27 `5584273` `aea31b5` <!-- id: idea-113 -->
 
 - [x] ~~**SMS Ship-Out — quitar dirección + ocultar Parts/Bikes con qty=0**~~ ✅ 2026-05-27 `aea31b5` <!-- id: idea-114 -->
@@ -690,6 +877,136 @@
 - **Pendiente:** publicar, y la reparación de datos (ensayada con rollback): #881513 sin la parte,
   #881514 a 1 u en FDX STATION, #881393 sin las ajenas, #881392 con dirección, DEDUCTs reatribuidos, y
   +1 en ROW 10 para las dos bicis descontadas dos veces.
+
+### 10. Una dirección por cuenta AS400: cada orden nueva la pisa y Ship enseña la de otra tienda <!-- id: bug-027 --> (input: 2026-09-10 23:20 NY)
+- **Rafael:** "Revisar orden 412 y 414 porque esta confuso sus direcciones" · "hoy que tuve problemas
+  con jax. Inc. que enviaba para diferentes lugares … las que llegamos a enviar son las buenas pero nos
+  costó identificarlas".
+- **412 = #881412. #881414 no existe** en ninguna tabla (el escáner saltó el número; la vecina es
+  #881413, y «414» aparece en «SHIP WITH ORDER 457414» de #881373). El análisis cubre las 12 JAX.
+- **Causa:** `_save_shipping_address` (watchdog `supabase_client.py:907-1018`) pisa siempre
+  `customers.street/city/state/zip` y reescribe la fila de `customer_addresses` cuya llave
+  cuenta+sufijo busca en **toda** la tabla («el dealer se mudó»). El sufijo vale `00` en 133/133
+  capturas: identifica la cuenta, no la tienda. Ship, las copias para Audit Source, la etiqueta del
+  pallet, el packing slip y la página del QR leen `customers`, no la orden.
+- **JAX (0003315 00):** 9 órdenes a 5 tiendas; las 7 de PickD apuntan a una fila reescrita 7 veces (hoy
+  Loveland). #881412 salió bien porque la estación la tecleó (creó 3 clientes en 35 s); #881413 dice
+  «BROOMFIELD» con la calle de Loveland; el pallet 881415/881373/881347 dice «LOVELAND 80537» y según
+  el AS400 va a Fort Collins 80524 + Laporte 80535 + ? (#881347 no guardó su pantalla).
+- **Canal consumer, mismo mecanismo:** 7 órdenes en 10 días sobre la fila 767400. **#881511
+  (FREEDOM BIKES, Liberty Hill TX 78642) salió enviada con la tarjeta de 501 Jefferson St, Lafayette
+  LA** y el ID FedEx 767400 (verificado en prod el 11 sep).
+- **Operación, sin código:**
+  - [ ] Ver en el FedEx system a dónde fue #881511 (y #881351).
+  - [ ] ❓ **Pallet 881415/881373/881347** (carga 131561089 ya cotizada): A) separar por tienda y que
+    881415 espere sus Renegade («SHIP WITH REN») · B) separar y enviar ya · C) todo a Loveland si JAX
+    consolida allí. **Default A**, que es lo que dice el AS400.
+  - [ ] Leer en el AS400 el ship-to de #881347.
+  - [ ] Traer #881485 («SHIP W/ 881416,881348») y combinarla; re-teclear el peso y re-cotizar 131561448.
+  - [ ] Descartar en la puerta 881404–881407: versiones viejas; traerlas duplicaría 14 bicis.
+- **F1 · watchdog** (un push es su deploy): nunca cambiar la dirección de una fila que ya existe; mismo
+  destino = ZIP5 + número de calle; una llave ya usada por otra dirección → fila nueva del mismo
+  cliente, sin ID de FedEx; el slot se busca solo dentro de la cuenta; parser: las líneas entre el
+  nombre y la primera con número son nombre (25 de 133 calles llevan la razón social); el Send de Bay 2
+  marca la captura como 'sent' (hoy 6 de 57 órdenes sin su pantalla). Después, un trigger que impide
+  editar la calle de una dirección enlazada a una orden.
+- **F2 · la orden enseña SU ship-to:** migración de datos (ensayo con rollback, auditoría append-only,
+  ok de Rafael): una fila por tienda JAX con re-enlace; consumer con `ship_to_varies`. Ship, copias,
+  etiqueta, packing slip y QR leen `ship_to` con fallback a `customers` (solo 115 de 1881 órdenes tienen
+  enlace). Editar elige o crea una fila de ESA orden en el desplegable que ya existe (idea-012); nunca
+  clona ni renombra el cliente. El watchdog deja de pisar `customers.street` (idea-157 §1), junto con F2.
+- **Orden de despliegue:** push del watchdog → heartbeat → migración del trigger. «Elegir o separar» es
+  idea-180. Detalle: research §6–7.
+
+### 11. REBOX se recomienda antes que un estante con stock <!-- id: bug-028 --> (input: 2026-09-10 23:20 NY)
+- **Rafael:** "El sistema nunca me debe recomendar pick de rebox por encima de otra location donde hay
+  el mismo sku con cantidad mayor a 0. Rebox debe ser la ultima instancia cuando ya no hay mas porque
+  son cajas dañadas que se tienen que cambiar antes de enviar."
+- **Qué es:** LUDLOW/REBOX, creada sola el 28 ago por un MOVE («Together with all the bikes that need
+  to be reboxed»). `picking_order` NULL (= estante normal), `counts_as_storage` true, 550 de capacidad
+  por default. Tenía 9 bicis en 5 SKUs, las cinco con stock en ROW 43 o ROW 6.
+- **Pasó:** 3 de 5 órdenes con un SKU en REBOX salieron apuntando a REBOX y se corrigieron a mano a
+  ROW 43 (#881377 Rafael 8 sep; #881444 y #881448 Jed 10 sep). Origen: el ranking del watchdog
+  (PALLET > LINE > TOWER), muerto en `462b94b`. **PickD no lo arregló:** con el código real,
+  `planListsInTurn` deja #881444/#881448 en REBOX porque la disposición «se sostiene».
+- **Caminos que aún pueden recomendarlo:** `planPickAcrossLocations` (REBOX más profundo o empatado;
+  hoy le gana a ROW 42 BURIED), `detectStaleLocations` (no replanifica una línea congelada en REBOX),
+  el relleno de Double Check (revisar tras `11aecf4`/`liveResolution`), el glifo de distribución (pinta
+  el LINE de REBOX en tarjetas de ROW 43; bug-031), `pickBestStockRow`/`pickVariantSiblingRow`,
+  `findSimilarSkus` y `useCanonicalSkuResolution`.
+- **Fix:** regla con nombre, como RETURN TO STOCK (`83b5b45`): `REBOX_LOCATION` + `isRebox()`. En
+  `byPickPreference`: RETURN TO STOCK → normales → último recurso (≥9000) → **REBOX**. En
+  `planPickAcrossLocations` REBOX sale de los estantes y se recorre al final con `isLastResort` (ámbar);
+  se permite partir el pick. El planificador (no el guardia: la bandera picked murió en mayo)
+  replanifica una disposición en REBOX si otra dirección tiene más de lo que el grupo ya toma ahí
+  (idempotente). `pickBestStockRow` solo toma REBOX si ninguna otra fila tiene stock. «Cantidad > 0» =
+  disponible, neto de lo apartado. Migración: REBOX `counts_as_storage = false` (capacidad −550), antes
+  de cualquier migración de strapped. Sin backfill.
+- Detalle: research §4.
+
+### 12. Una bici de más de 50 lb nace fuera del cubo FedEx, y Combine lo deja en 'regular' <!-- id: bug-029 --> (input: 2026-09-10 23:20 NY)
+- **Rafael:** "He tenido que combinar una orden fedex a las demas ordenes fedex porque esa la mande desde
+  la mac en bay 2 y las otras que si se combinaron solas desde la vista as400 captures."
+- **No fue el camino:** Bay 2 y la puerta llaman al mismo `process_order_text` y hacen el mismo INSERT.
+  El 9 sep la de Bay 2 (#881393) sí se agrupó; la que quedó fuera fue **#881397**, de la puerta: su
+  Portal C4 21 pesa 50.5 lb desde que se pesó.
+- **Causa — dos respuestas a «¿es FedEx?»:** `classify_picking_list_fedex` (la DB, la usa el
+  auto-agrupado) manda a Regular todo ítem de más de 50 lb; las 7 pantallas clasifican con pesos `{}`
+  (a propósito desde `e238cac`). Desde que Measure pesa (1 sep) hay 21 bicis de más de 50 lb: la orden
+  sale FedEx en pantalla y nace sin cubo. El Combine manual (`resolveMixedShippingType`, que sí lee
+  pesos y suma las bicis de **todos los clientes** del cubo) escribe 'regular' a las 4 órdenes, y la
+  siguiente FedEx también nace suelta. ~6–17 órdenes al mes, y crece: 730 bicis por pesar.
+- **✅ El peso — `796bcb7` (11 sep, Rafael: «FedEx puede llevar cualquier peso»).** El peso dejó de
+  decidir en los tres sitios (TS, `resolveMixedShippingType`, `classify_picking_list_fedex`,
+  `20260911154111`); queda la regla de volumen (≥5 bicis).
+- **Pendiente — la suma entre clientes:** la regla 1 de `resolveMixedShippingType`
+  (`useOrderGroups.ts`) sigue sumando las bicis de **todos** los miembros. En un cubo `fedex`, que es
+  multi-cliente por diseño, 5 órdenes de 1 bici de 5 clientes (af3b3369) dan 5 → 'regular' a todas, y
+  el trigger las deja de ver como hermanas FedEx. Fix: en un cubo `fedex` cada orden se clasifica sola;
+  en `general`/`pickup` (un solo envío) se suma.
+- Menor: el buscador de la puerta ofrece BRING IN sobre capturas que ya están en PickD (60 de 133;
+  responde 'duplicate'). Detalle: research §5.
+
+### 13. El archivo de FedEx declara cajas que nadie midió <!-- id: bug-030 --> (input: 2026-09-11 NY)
+- **Causa:** `rename_sku_everywhere` copia la fila entera con un INSERT, y `set_is_bike_on_insert`
+  marca `dimensions_verified` (y `weight_verified`) en todo alta que trae los tres lados. La pasada de
+  idea-154 (26 ago 20:15:44 UTC) dejó así **82 filas nunca medidas**; 7 están en el export, con cajas
+  por defecto (54×30×8, 55×30.5×8.5). Entran además 5 S/D sin `is_scratch_dent`
+  (01-0169/0513/0529/0530/0539).
+- **Efecto:** BEATNIK 56, EXPLORER A2 S/T 14'' y PORTAL C2 FRAME son registros falsos; VENTURA A1 48
+  se declara 1" más larga; EXPLORER A2 19 (58 órdenes en 12 meses) queda sin registro; la BEATNIK 56
+  real (03-3960GY) sale «cubierta» y fuera de la cola de Measure.
+- **Además:** `CITIZEN 2 15''-23''` esconde las tallas 17/19/21, que están en otros registros; 6
+  lecturas se guardaron redondeadas hacia abajo (`20260821120000:105-115`) y FedEx sube toda fracción
+  desde el 18 ago 2025.
+- **Fix:** migración que desmarca las 82 (measured_at = hora del rename) y marca las 5 S/D;
+  `rename_sku_everywhere` conserva banderas y fechas, medidas **y peso**; un rango solo si ninguna talla
+  intermedia queda fuera; restaurar las 6 lecturas, con la regla «la columna guarda la cinta; el export
+  redondea hacia arriba». Datos en prod: ensayo con rollback y ok. 186 → 182 registros. La
+  limpieza de `model` va por idea-177 (en parte hecha: `1d8f638`, `f20ab27`). La unificación es idea-183.
+- Detalle: research §10.
+
+### 14. Quick Stack pisa todas las ubicaciones del SKU, y Double Check pinta filas de otras ubicaciones <!-- id: bug-031 --> (input: 2026-09-11 NY)
+- **Quick Stack** (`DistributionJengaViz.tsx:48-72, 222-250`): Tower = 3u, Line = 1u; escribe con
+  `.eq('sku', sku)`, así que pisa todas las filas del SKU, sin log (la RLS deja UPDATE a cualquiera).
+- **Double Check** (`fetchDistributions` + `pickPlanMap`): trae todas las filas del SKU sin filtrar
+  `is_active`, cantidad ni ubicación y las aplana; pinta el tamaño del grupo, no lo que se saca, y
+  mezcla estantes (el LINE de REBOX, bug-028). `useCanonicalSkuResolution` hace lo mismo.
+- `ItemDetailView` dice «All units accounted for» siempre (:1483-1500). `MovementModal` promete una
+  «Auto Distribution» que la RPC no aplica.
+- **Fix:** quitar Quick Stack; el glifo de Double Check usa solo filas activas con qty > 0 de la
+  dirección planificada (función pura con tests, compartida con bug-028); ItemDetailView muestra la suma
+  real frente a la cantidad. No depende del modelo de strapped (idea-184).
+- ⚠ `DoubleCheckView.tsx` lo está tocando otra sesión (bug-026): coordinar. Detalle: research §11.
+
+### 15. Un BOL repetido deja la orden sin guardar ni imprimir etiquetas hasta recargar <!-- id: bug-032 --> (input: 2026-09-11 NY)
+- `picking_lists.load_number` es UNIQUE. En un 23505, `persistOrderDetails` (`ShipScreen.tsx:1870-1874`)
+  avisa y hace `return false` sin deshacer el estado optimista (el rollback solo vive en el `catch`). El
+  número rechazado se queda en el formulario y en `selectedOrder`: cada guardado siguiente (carrier,
+  pallets, peso, dirección) falla igual, Print Pallet Labels no imprime y el PDF imprime el BOL
+  rechazado. Solo se arregla recargando.
+- **Fix:** restaurar el estado previo, reabrir el campo con lo tecleado y que el toast diga qué orden
+  lo tiene (`BOL 130636156 → #880996`). Va antes que SPLIT (idea-180); mismo cambio que idea-182.
 
 ### ~~4. Ship: al combinar una orden con una bici en una orden completada, la bici cuenta como parte y pide peso~~ <!-- id: bug-021 --> ✅ 2026-08-27 `9886206` (input: 2026-08-27 NY)
 - **Síntoma (operador):** "al agregar una nueva orden con una bicicleta a una orden completada en ship me
