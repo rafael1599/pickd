@@ -30,11 +30,25 @@ describe('meaningfulNote', () => {
     expect(meaningfulNote('   ')).toBeNull();
   });
 
-  it('uses a word boundary for the ambiguous word "not"', () => {
-    // "notation" must NOT trigger the "not" KEEP rule, so a freight note with it
-    // stays noise (dropped) — proving \bnot\b doesn't match inside another word.
-    expect(meaningfulNote('FREE FREIGHT notation')).toBeNull();
-    // But the standalone word "not" keeps the note.
+  it('keeps a freight note that says anything else', () => {
     expect(meaningfulNote('FREE FREIGHT, not ready')).toBe('FREE FREIGHT, not ready');
+    // An unknown word is information too — the rule never drops it.
+    expect(meaningfulNote('FREE FREIGHT notation')).toBe('FREE FREIGHT notation');
+  });
+
+  it('drops the billing codes of real AS400 notes', () => {
+    // One rule with the Ship sign (utils/orderNoteSignals): these used to show
+    // in Double Check's red line because the old filter only knew "freight".
+    expect(meaningfulNote('NET 60 - FREE FREIGHT')).toBeNull();
+    expect(meaningfulNote('FF N30 W/FLA')).toBeNull();
+    expect(meaningfulNote('ACH')).toBeNull();
+    expect(meaningfulNote('EP PURCHASE')).toBeNull();
+    expect(meaningfulNote('FREIGH $75.00')).toBeNull();
+  });
+
+  it('keeps a PO number, and removes what PickD appended', () => {
+    expect(meaningfulNote('PO# 4501236083')).toBe('PO# 4501236083');
+    expect(meaningfulNote('HOLD FOR ADDS [User Cancelled]')).toBe('HOLD FOR ADDS');
+    expect(meaningfulNote('User Cancelled')).toBeNull();
   });
 });

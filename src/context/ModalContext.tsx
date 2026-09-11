@@ -77,6 +77,8 @@ export type ModalState =
       listId: string | string[];
       autoFocusComposer?: boolean;
       watcherNote?: string | null;
+      /** The AS400 note of each member of a combined order. */
+      watcherNotes?: { orderNumber: string | null; notes: string | null }[];
       combinedNumbers?: string[];
     }
   | null;
@@ -145,6 +147,7 @@ export const ModalProvider = ({ children }: { children: ReactNode }) => {
           listId={modal.listId}
           autoFocusComposer={modal.autoFocusComposer}
           watcherNote={modal.watcherNote}
+          watcherNotes={modal.watcherNotes}
           combinedNumbers={modal.combinedNumbers}
           onClose={close}
         />

@@ -129,6 +129,8 @@ export interface OrderWithRelations {
   is_shipped?: boolean | null;
   verified_item_keys?: string[] | null;
   combined_member_ids?: string[];
+  /** Every member's AS400 note, on a combined card (see ShipScreen). */
+  member_notes?: { orderNumber: string | null; notes: string | null }[];
 }
 
 export const ORDER_LIST_SELECT = `

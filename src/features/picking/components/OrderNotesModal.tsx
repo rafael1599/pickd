@@ -16,6 +16,9 @@ interface OrderNotesModalProps {
    *  history, ahead of every user note, labeled distinctly since it has no
    *  author. */
   watcherNote?: string | null;
+  /** On a combined order, every member's AS400 note — one entry each, labeled
+   *  with its order. Wins over `watcherNote` (only the anchor's). */
+  watcherNotes?: { orderNumber: string | null; notes: string | null }[];
   combinedNumbers?: string[];
   onClose: () => void;
 }
@@ -39,12 +42,18 @@ export const OrderNotesModal: React.FC<OrderNotesModalProps> = ({
   listId,
   autoFocusComposer,
   watcherNote,
+  watcherNotes,
   combinedNumbers,
   onClose,
 }) => {
   const { notes, isLoading, addNote } = usePickingNotes(listId);
   const isCombined = Array.isArray(listId) && listId.length > 1;
-  const totalCount = notes.length + (watcherNote ? 1 : 0);
+  const as400Notes = (
+    watcherNotes && watcherNotes.length > 0
+      ? watcherNotes
+      : [{ orderNumber: null, notes: watcherNote ?? null }]
+  ).filter((n): n is { orderNumber: string | null; notes: string } => !!n.notes?.trim());
+  const totalCount = notes.length + as400Notes.length;
   const { user } = useAuth();
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -110,18 +119,20 @@ export const OrderNotesModal: React.FC<OrderNotesModalProps> = ({
             </div>
           ) : (
             <ul className="space-y-2">
-              {watcherNote && (
-                <li className="p-3 bg-red-500/5 border border-red-500/20 rounded-2xl">
+              {as400Notes.map((n, i) => (
+                <li
+                  key={`as400-${n.orderNumber ?? i}`}
+                  className="p-3 bg-red-500/5 border border-red-500/20 rounded-2xl"
+                >
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <span className="text-[10px] font-black uppercase tracking-widest truncate text-red-400">
                       System (AS400)
+                      {isCombined && n.orderNumber ? ` · #${n.orderNumber}` : ''}
                     </span>
                   </div>
-                  <p className="text-sm text-content whitespace-pre-wrap break-words">
-                    {watcherNote}
-                  </p>
+                  <p className="text-sm text-content whitespace-pre-wrap break-words">{n.notes}</p>
                 </li>
-              )}
+              ))}
               {notes.map((note) => {
                 const showBadge = isCombined && note.order_number;
                 const colorHex =

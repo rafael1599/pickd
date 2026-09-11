@@ -18,21 +18,41 @@
  * eighth kind is one line here and one branch in `classify_picking_note`.
  */
 
-export type SystemNoteKind =
+/** Kinds PickD writes with a bracketed prefix. */
+export type TaggedSystemNoteKind =
   | 'waiting'
   | 'resumed_from_waiting'
   | 'cancelled_from_waiting'
   | 'cancelled_order'
   | 'parked'
   | 'auto_stale_location'
-  | 'daylight_pickup_sms';
+  | 'daylight_pickup_sms'
+  | 'addon'
+  | 'take_over_sku';
+
+/**
+ * Kinds PickD writes as a sentence, with no prefix — the corrections of Edit
+ * Order ("Replaced 03-3768BL → 03-3768BL [REBOX → ROW 43]: Location") and the
+ * lifecycle RPCs ("Order reopened for editing. Reason: …"). They were 265 of the
+ * 333 notes with `kind` NULL in September, so "NULL = a person wrote it" was
+ * false, and one of them covered the AS400 note in the one-line preview of 54
+ * orders (#881448 «DO NOT SHIP. HP PICKUP FRI»; backlog idea-179).
+ */
+export type TemplateSystemNoteKind = 'correction' | 'order_event';
+
+export type SystemNoteKind = TaggedSystemNoteKind | TemplateSystemNoteKind;
 
 /**
  * The message prefix each kind is written with. Kept because `kind` is NULL on
  * any row written before the migration landed, and because a client running
  * older code can still be inserting bare messages.
+ *
+ * `[Add-On]` (`complete_addon_group`) and `[Take Over SKU]`
+ * (`take_over_sku_from_waiting`) are recognized here ahead of the DB:
+ * `classify_picking_note` does not know them yet, so the column stays NULL and
+ * this fallback is what classifies them.
  */
-export const SYSTEM_NOTE_TAGS: Record<SystemNoteKind, string> = {
+export const SYSTEM_NOTE_TAGS: Record<TaggedSystemNoteKind, string> = {
   waiting: '[Waiting]:',
   resumed_from_waiting: '[Resumed from waiting]',
   cancelled_from_waiting: '[Cancelled from waiting]',
@@ -40,6 +60,22 @@ export const SYSTEM_NOTE_TAGS: Record<SystemNoteKind, string> = {
   parked: '[Parked]:',
   auto_stale_location: '[AUTO]',
   daylight_pickup_sms: '[Daylight]:',
+  addon: '[Add-On]',
+  take_over_sku: '[Take Over SKU]',
+};
+
+/**
+ * The sentences each template kind is written with — anchored and shaped enough
+ * that a person starting a note with "Removed" or "Added" is not taken for one:
+ * a template always names a SKU and a quantity or a reason. The writers are
+ * `PickingCartDrawer` (corrections) and the reopen / re-complete / restore /
+ * delete RPCs. Like the tags above, the DB does not classify these yet.
+ */
+export const SYSTEM_NOTE_TEMPLATES: Record<TemplateSystemNoteKind, RegExp> = {
+  correction:
+    /^(?:(?:Replaced|Swapped SKU) \S+ → \S+|Removed (?:SKU )?\S+(?:: | from order$)|Adjusted (?:qty for )?\S+ (?:qty )?to \d+|Added \S+ \(qty \d+|Extra item: \S+, qty \d+)/,
+  order_event:
+    /^(?:Order reopened for editing\.|Order re-completed after reopen\b|Reopen cancelled —|Order restored from cancelled\b|Order deleted from completed\b)/,
 };
 
 /** Anything note-shaped: the full row, or just a message during a write. */
@@ -58,13 +94,20 @@ function metadataValue(note: NoteLike, key: string): unknown {
 
 /**
  * TS mirror of `classify_picking_note`'s prefix matching — the fallback for rows
- * the trigger never saw. Order matters only in that every tag is distinct.
+ * the trigger never saw — plus the template sentences it does not match yet.
+ * Order matters only in that every tag is distinct.
  */
 export function deriveSystemNoteKind(message: string | null | undefined): SystemNoteKind | null {
   const text = (message ?? '').trimStart();
   if (!text) return null;
-  for (const [kind, tag] of Object.entries(SYSTEM_NOTE_TAGS) as [SystemNoteKind, string][]) {
+  for (const [kind, tag] of Object.entries(SYSTEM_NOTE_TAGS) as [TaggedSystemNoteKind, string][]) {
     if (text.startsWith(tag)) return kind;
+  }
+  for (const [kind, re] of Object.entries(SYSTEM_NOTE_TEMPLATES) as [
+    TemplateSystemNoteKind,
+    RegExp,
+  ][]) {
+    if (re.test(text)) return kind;
   }
   return null;
 }

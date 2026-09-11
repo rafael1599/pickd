@@ -617,7 +617,14 @@ los dos puntos que usan los demás) y cada lector se hacía su propio parser.
 **`20260820190000` cerró eso.** `kind` (text) y `metadata` (jsonb) los rellena el trigger
 `tr_picking_list_notes_set_kind` desde el mensaje, vía `classify_picking_note(text)`. Igual que
 `tr_sku_metadata_set_is_bike`: **solo rellena lo que viene NULL, así que un valor explícito siempre
-gana**. `kind IS NULL` ⇒ lo escribió una persona.
+gana**. ~~`kind IS NULL` ⇒ lo escribió una persona~~ — **falso (11 sep 2026, idea-179):** 271 de las
+343 notas con `kind` NULL las escribió PickD sin prefijo: las correcciones de Edit Order («Replaced
+03-3768BL → … [REBOX → ROW 43]: Location») y las RPC de ciclo de vida («Order reopened for editing.
+Reason: …»), más dos tags que el trigger no conoce (`[Add-On]`, `[Take Over SKU]`). El TS las reconoce
+ya (`SYSTEM_NOTE_TEMPLATES`, kinds `correction` / `order_event` / `addon` / `take_over_sku`); la DB
+todavía no — va con la migración de la fase 2 de idea-179, y rellenar `kind` en las filas viejas es un
+cambio de datos que espera el ok de Rafael. Mientras tanto, «humana» es `isHumanNote()`, nunca
+`kind IS NULL` en SQL.
 
 - **El trigger clasifica, no los RPCs.** Las cuatro funciones SQL que escriben notas
   (`mark_picking_list_waiting`, `unmark_picking_list_waiting`, `add_parked_location_note` y las de
@@ -634,10 +641,20 @@ gana**. `kind IS NULL` ⇒ lo escribió una persona.
   de prefijos a mano.** `noteKind` lee la columna y cae al prefijo solo para filas anteriores a la
   migración. Si te encuentras escribiendo `.ilike('message', '[Algo]:%')` o `startsWith('[…')`, es
   el bug que esta sección existe para evitar.
-- **Regla del preview de una línea (`OrderNotesInline`):** gana la nota **humana** más reciente. Lo
-  que escribió PickD vive en el historial. Antes ganaba la más reciente a secas, así que un pedido
-  con `DO NOT SHIP BEFORE 8/25` podía previsualizarse como `[Waiting]: waiting for james`. Ese
-  componente es compartido con el Live Board (`SortableOrderCard`).
+- **Regla del preview (`OrderNotesInline`), desde el 11 sep 2026 (idea-179):** gana la nota **más
+  fuerte**, no la más reciente — PICK UP > HOLD > SHIP WITH > DELIVERY > NOTE, cada una en su color —
+  entre la nota AS400 de **cada miembro** y lo que escribieron personas. Lo que escribió PickD (tags
+  y plantillas) vive en el historial, y la facturación («FREE FREIGHT», «NET 60», «FF N30 W/FLA») no
+  se enciende. La lectura es `utils/orderNoteSignals.ts` (señales, no un tipo: #881400 «HOLD FOR ADDS
+  PICK-UP ORDER» es pickup y hold; «SHIP W/ 881424» es un compañero que deja de frenar al combinarse;
+  «SHIP WITH REN» es un HOLD · REN), con la tabla de casos de notas reales en su test;
+  `meaningfulNote` (Double Check) delega en ella. Antes ganaba la humana más reciente y, como las
+  plantillas de PickD tenían `kind` NULL, «Replaced …» tapó la nota AS400 en 54 órdenes. Variantes:
+  `line` (Live Board, una línea) y `sign` (cabecera de Ship: franja negra estilo LED, 2 líneas +
+  «+N»). En Ship la nota además llega a donde se envía: chip en `ShipFeedCard`, la confirmación del
+  camión empieza por lo que frena y Start Shipping no preselecciona esas órdenes
+  (`ship/utils/shipNotes.ts`). **Pendiente:** el Live Board pasa solo el id y la nota del ancla de
+  una combinada (`SortableOrderCard`), así que ahí siguen sin verse los demás miembros.
 - **`usePickingNotes` es TanStack Query**, una entrada de caché por `list_id`, y el realtime es
   **una sola** suscripción montada en `LayoutMain` (`usePickingNotesRealtime`). Antes abría un canal
   **por instancia** — y el hook se monta por card, así que un board lleno abría un canal por card,

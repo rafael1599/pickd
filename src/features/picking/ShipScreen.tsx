@@ -56,6 +56,21 @@ import { useUnmarkWaiting } from './hooks/useWaitingOrders';
 import { CarrierFilter } from './components/board/CarrierFilter';
 import { OrderNotesInline } from './components/OrderNotesInline';
 import { OrderActionsMenu } from './components/OrderActionsMenu';
+import { useQueryClient } from '@tanstack/react-query';
+import { pickingNotesKey, type PickingNote } from './hooks/usePickingNotes';
+import { typedNoteSources } from './hooks/useOrderNoteEntries';
+import {
+  blockingLines,
+  orderNoteEntries,
+  type AS400NoteSource,
+  type BlockingLine,
+} from '../../utils/orderNoteSignals';
+import {
+  blockersConfirmPrefix,
+  cardAs400Notes,
+  cardOrderNumbers,
+  withoutKnownPickup,
+} from './ship/utils/shipNotes';
 import { useModal } from '../../context/ModalContext';
 import {
   isFedexOrder as isFedexOrderShared,
@@ -273,6 +288,9 @@ function combineGeneralGroupSiblings(siblings: OrderWithRelations[]): OrderWithR
     verified_item_keys: combinedVerifiedKeys,
     is_shipped: allShipped,
     combined_member_ids: sorted.map((s) => s.id),
+    // `...anchor` above carries only the anchor's AS400 note; 24 of 35 combined
+    // groups lost a member's note that way (idea-179).
+    member_notes: sorted.map((s) => ({ orderNumber: s.order_number ?? null, notes: s.notes })),
     combine_meta: { is_combined: true, source_orders: sourceOrders } as CombineMeta,
   };
 }
@@ -364,11 +382,15 @@ interface OrderWithRelations {
    *  FedEx cluster) — every raw member id, used to expand ship actions and
    *  to re-resolve the merged view on realtime updates. */
   combined_member_ids?: string[];
+  /** Set only on a client-merged pseudo-order: every member's AS400 note, so the
+   *  sign reads all of them and not only the anchor's (`...anchor` below). */
+  member_notes?: AS400NoteSource[];
 }
 
 export const ShipScreen = () => {
   const { user } = useAuth();
   const { open: openModal } = useModal();
+  const queryClient = useQueryClient();
   const openSkuDetail = useOpenSkuDetail();
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
   const { createGroup, addToGroup, removeFromGroup, dissolveGroup, resolveMixedShippingType } =
@@ -1555,9 +1577,22 @@ export const ShipScreen = () => {
     [visibleOrders]
   );
 
+  // Start Shipping preselects every card. One whose notes say it should not go
+  // now (a hold, a partner not combined yet) starts unticked and says why. The
+  // typed notes come from the cache the list cards already filled, read when the
+  // preview opens — so nothing is computed while it is closed.
   const shippingPreviewOrders = useMemo(
     () =>
-      eligibleShippingOrders.map((order) => {
+      (showShippingPreview ? eligibleShippingOrders : []).map((order) => {
+        const typed = typedNoteSources(
+          (order.combined_member_ids ?? [order.id]).flatMap(
+            (id) => queryClient.getQueryData<PickingNote[]>(pickingNotesKey(id)) ?? []
+          )
+        );
+        const blockers = withoutKnownPickup(
+          blockingLines(orderNoteEntries(cardAs400Notes(order), typed), cardOrderNumbers(order)),
+          order.transport_company
+        );
         const created = new Date(order.created_at);
         const today = new Date();
         const createdDay = new Date(created.getFullYear(), created.getMonth(), created.getDate());
@@ -1577,9 +1612,10 @@ export const ShipScreen = () => {
           totalUnits: order.total_units,
           createdAt: order.created_at,
           delayedDays,
+          blocking: blockers[0] ? { reason: blockers[0].reason, tone: blockers[0].tone } : null,
         };
       }),
-    [eligibleShippingOrders, bikeSkuSet]
+    [eligibleShippingOrders, bikeSkuSet, showShippingPreview, queryClient]
   );
 
   const handleBatchShip = async (idsToShip: string[]) => {
@@ -2133,17 +2169,22 @@ export const ShipScreen = () => {
     [openOrderInDoubleCheck, unmarkWaiting]
   );
 
-  const handleShipOrderClick = async (order: OrderWithRelations) => {
+  // `blockers` are what the card's notes say against sending it now (a hold, a
+  // pickup, a partner not yet combined). The list card reads them and passes them
+  // here; the confirm opens with them, because the truck button is the one place
+  // an order is sent from and it never showed the note (idea-179).
+  const handleShipOrderClick = async (order: OrderWithRelations, blockers: BlockingLine[] = []) => {
     if (order.status !== 'completed' && !order.is_waiting_inventory) {
       toast.error(
         `Order #${order.order_number} must be verified on the Live Board before shipping.`
       );
       return;
     }
+    const notesPrefix = blockersConfirmPrefix(blockers, !!order.combined_member_ids);
 
     if (order.is_waiting_inventory) {
       const confirmWaiting = window.confirm(
-        `⚠️ WARNING: Order #${order.order_number} is "Waiting for Inventory".\n\nDo you want to take it out of waiting, take a proof photo, and mark it as Shipped?`
+        `${notesPrefix}⚠️ WARNING: Order #${order.order_number} is "Waiting for Inventory".\n\nDo you want to take it out of waiting, take a proof photo, and mark it as Shipped?`
       );
       if (confirmWaiting) {
         setPendingShipmentOrder(order);
@@ -2153,7 +2194,7 @@ export const ShipScreen = () => {
       }
     } else {
       const confirmShip = window.confirm(
-        `Mark order #${order.order_number} as Shipped? This completes the order and removes it from the Live Board.`
+        `${notesPrefix}Mark order #${order.order_number} as Shipped? This completes the order and removes it from the Live Board.`
       );
       if (confirmShip) {
         const previousOrders = [...orders];
@@ -2505,7 +2546,9 @@ export const ShipScreen = () => {
                         <OrderNotesInline
                           listId={selectedOrder.combined_member_ids ?? selectedOrder.id}
                           watcherNote={selectedOrder.notes}
+                          watcherNotes={selectedOrder.member_notes}
                           combinedNumbers={selectedOrderCombinedNumbers}
+                          variant="sign"
                         />
                       }
                       screenOnly
@@ -2590,6 +2633,7 @@ export const ShipScreen = () => {
                             listId: selectedOrder.combined_member_ids ?? selectedOrder.id,
                             autoFocusComposer: true,
                             watcherNote: selectedOrder.notes,
+                            watcherNotes: selectedOrder.member_notes,
                           });
                         }}
                         onViewNotes={() => {
@@ -2598,6 +2642,7 @@ export const ShipScreen = () => {
                             type: 'order-notes',
                             listId: selectedOrder.combined_member_ids ?? selectedOrder.id,
                             watcherNote: selectedOrder.notes,
+                            watcherNotes: selectedOrder.member_notes,
                           });
                         }}
                         onPrintLabels={() => {

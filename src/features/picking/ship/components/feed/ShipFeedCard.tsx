@@ -8,6 +8,21 @@ import Truck from 'lucide-react/dist/esm/icons/truck';
 import { OrderProgressBar } from '../../../components/OrderProgressBar';
 import { TransportLogo } from '../../../../../components/orders/TransportLogo';
 import type { OrderWithRelations } from '../../hooks/useShipOrdersData';
+import { useOrderNoteEntries } from '../../../hooks/useOrderNoteEntries';
+import {
+  blockingLines,
+  type BlockingLine,
+  type NoteTone,
+} from '../../../../../utils/orderNoteSignals';
+import { cardAs400Notes, cardOrderNumbers, withoutKnownPickup } from '../../utils/shipNotes';
+
+const BLOCKING_CHIP: Record<NoteTone, string> = {
+  pickup: 'bg-red-500/15 border-red-500/30 text-red-500',
+  hold: 'bg-amber-500/15 border-amber-500/30 text-amber-500',
+  ship_with: 'bg-blue-500/15 border-blue-500/30 text-blue-500',
+  delivery: 'bg-cyan-500/15 border-cyan-500/30 text-cyan-600',
+  note: 'bg-muted/10 border-subtle text-muted',
+};
 
 interface ShipFeedCardProps {
   order: OrderWithRelations;
@@ -20,7 +35,8 @@ interface ShipFeedCardProps {
    *  combined-number click. Falls back to plain onSelect when omitted. */
   onSelectSubOrder?: (order: OrderWithRelations, subOrderNumber: string) => void;
   onUndoShip?: (order: OrderWithRelations) => void;
-  onShipClick?: (order: OrderWithRelations) => void;
+  /** `blockers`: what the notes say against sending it now — the confirm opens with them. */
+  onShipClick?: (order: OrderWithRelations, blockers: BlockingLine[]) => void;
   onResumeWaiting?: (order: OrderWithRelations) => void;
   onOpenDoubleCheck?: (order: OrderWithRelations, action?: 'edit' | 'photo' | null) => void;
   onResumeReopened?: (order: OrderWithRelations) => void;
@@ -46,6 +62,20 @@ export const ShipFeedCard: React.FC<ShipFeedCardProps> = ({
       : isFedex
         ? 'bg-purple-500/70'
         : 'bg-emerald-500/70';
+
+  // The truck button below is where an order is sent from, and it never showed
+  // the note: 12 of 13 orders waiting on 10 Sep had one that holds them (idea-179).
+  // A shipped card needs no chip, so it fetches nothing.
+  const noteEntries = useOrderNoteEntries(
+    isShippedColumn ? null : (order.combined_member_ids ?? order.id),
+    cardAs400Notes(order)
+  );
+  const blockers = isShippedColumn
+    ? []
+    : withoutKnownPickup(
+        blockingLines(noteEntries, cardOrderNumbers(order)),
+        order.transport_company
+      );
 
   return (
     <div
@@ -78,6 +108,15 @@ export const ShipFeedCard: React.FC<ShipFeedCardProps> = ({
           </span>
 
           <span className="text-[11px] text-muted truncate">{order.customer?.name || '—'}</span>
+          {blockers.length > 0 && (
+            <span
+              title={blockers.map((b) => `${b.reason} — ${b.text}`).join('\n')}
+              className={`mt-1 self-start max-w-full truncate rounded border px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${BLOCKING_CHIP[blockers[0].tone]}`}
+            >
+              {blockers[0].reason}
+              {blockers.length > 1 ? ` +${blockers.length - 1}` : ''}
+            </span>
+          )}
           <div className="flex flex-col gap-0.5 mt-1 text-[9px] text-muted">
             {!order.is_shipped && (
               <span>
@@ -131,7 +170,7 @@ export const ShipFeedCard: React.FC<ShipFeedCardProps> = ({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onShipClick?.(order);
+                    onShipClick?.(order, blockers);
                   }}
                   className="px-2 py-1 rounded-lg bg-accent/15 border border-accent/30 text-accent hover:bg-accent hover:text-white transition-all active:scale-95 flex items-center justify-center text-[9px] font-black uppercase tracking-wider"
                   title="Mark as Shipped"

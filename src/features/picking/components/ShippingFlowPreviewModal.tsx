@@ -8,6 +8,7 @@ import Loader2 from 'lucide-react/dist/esm/icons/loader-2';
 import AlertCircle from 'lucide-react/dist/esm/icons/alert-circle';
 import { TransportLogo } from '../../../components/orders/TransportLogo';
 import { supabase } from '../../../lib/supabase';
+import type { NoteTone } from '../../../utils/orderNoteSignals';
 
 export interface ShippingPreviewOrder {
   id: string;
@@ -18,7 +19,17 @@ export interface ShippingPreviewOrder {
   totalUnits: number | null;
   createdAt: string;
   delayedDays: number;
+  /** What the order's notes say against sending it now ('HOLD · ADDS'), or null. */
+  blocking?: { reason: string; tone: NoteTone } | null;
 }
+
+const BLOCKING_CHIP: Record<NoteTone, string> = {
+  pickup: 'bg-red-500/15 border-red-500/30 text-red-500',
+  hold: 'bg-amber-500/15 border-amber-500/30 text-amber-500',
+  ship_with: 'bg-blue-500/15 border-blue-500/30 text-blue-500',
+  delivery: 'bg-cyan-500/15 border-cyan-500/30 text-cyan-600',
+  note: 'bg-muted/10 border-subtle text-muted',
+};
 
 interface ShippingFlowPreviewModalProps {
   orders: ShippingPreviewOrder[];
@@ -44,7 +55,11 @@ export const ShippingFlowPreviewModal: React.FC<ShippingFlowPreviewModalProps> =
   onConfirm,
   isSubmitting = false,
 }) => {
-  const [activeIds, setActiveIds] = useState<Set<string>>(new Set(orders.map((o) => o.id)));
+  // Everything starts ticked except what its notes hold back — a hold, a pickup,
+  // a partner not combined yet. Ticking one of those stays one tap away.
+  const [activeIds, setActiveIds] = useState<Set<string>>(
+    () => new Set(orders.filter((o) => !o.blocking).map((o) => o.id))
+  );
   const [searchQuery, setSearchQuery] = useState('');
 
   const todayOrders = useMemo(() => orders.filter((o) => byDay(o) === 'today'), [orders]);
@@ -78,11 +93,19 @@ export const ShippingFlowPreviewModal: React.FC<ShippingFlowPreviewModalProps> =
               <span className="font-mono text-lg md:text-xl font-black text-content">
                 #{order.orderNumber || '—'}
               </span>
-              {order.delayedDays > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-400">
-                  <Clock3 size={10} />
-                  Delayed {order.delayedDays}d
+              {order.blocking ? (
+                <span
+                  className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${BLOCKING_CHIP[order.blocking.tone]}`}
+                >
+                  {order.blocking.reason}
                 </span>
+              ) : (
+                order.delayedDays > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-400">
+                    <Clock3 size={10} />
+                    Delayed {order.delayedDays}d
+                  </span>
+                )
               )}
               {!isActive && (
                 <span className="inline-flex items-center rounded-full bg-muted/10 border border-subtle px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-muted">

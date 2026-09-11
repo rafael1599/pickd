@@ -78,6 +78,21 @@
 - **Posición:** un solo Layout Lab del card de Ship con los átomos nuevos (cartel, ⋯ de fotos de
   idea-181, chevron del BOL de idea-182, selector de direcciones de idea-180) antes de mover nada de
   sitio. La fase 1 usa el sitio actual de la nota.
+- **Hecho 11 sep — tramo 1, solo frontend (sin migraciones):**
+  - b) `utils/orderNoteSignals.ts` + tabla de casos de notas reales (70 tests). Las 422 notas AS400 de
+    jun–sep dan PICK UP 53 · HOLD 74 · SHIP WITH 44 · DELIVERY 9 · NOTE 73 · sin mostrar 169.
+    `meaningfulNote` (Double Check) delega en él.
+  - a) solo la mitad TS: `systemNotes.ts` reconoce las plantillas (`correction`, `order_event`) y
+    `[Add-On]` / `[Take Over SKU]`: las 271 plantillas de prod dejan de ser «humanas».
+  - c) cartel (variante `sign` de `OrderNotesInline`) en la cabecera de Ship, con la nota AS400 de cada
+    miembro (`member_notes` en `combineGeneralGroupSiblings`); el modal de notas enseña una por miembro.
+    El Live Board usa la variante `line`: la nota más fuerte, en su color.
+  - d) chip del motivo en `ShipFeedCard`, confirmación del camión que empieza por lo que frena, y Start
+    Shipping que no preselecciona esas órdenes (`ship/utils/shipNotes.ts`).
+- **Pendiente:** a) mitad DB (`classify_picking_note` + relleno de `kind`, con ensayo y ok); SQL espejo
+  del clasificador; e) columna `hold` + switch + pastilla; f) la puerta (**antes del 16 sep**); fase 2
+  (PICK UP automático); el Live Board de una combinada solo ve el id y la nota del ancla
+  (`SortableOrderCard` pasa `listId={order.id}`).
 - Detalle: research §9 y §8.
 
 ### 112. Combinada con varias direcciones: elegir una o separar, y Combine pregunta antes <!-- id: idea-180 --> — input: 2026-09-10 23:20 NY
