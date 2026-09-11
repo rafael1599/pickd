@@ -171,6 +171,15 @@ está **sin planificar** — y eso es lo que dejó al watchdog soltar la ubicaci
 
 **Correcciones con razón (idea-043):** Todas las acciones de corrección (remove, swap, adjust_qty, add) requieren una razón via `ReasonPicker`. Las notas se generan con formato rico: "Removed SKU: Out of stock" en vez de genérico. `CorrectionAction` tiene campo `reason?: string`. Si el item tiene `insufficient_stock`, la razón "Out of stock" se pre-selecciona.
 
+**Edit Order en una combinada: una pestaña por orden (Rafael, 11 sep 2026).** `ALL · #881514 · #881513`,
+cada una con sus líneas y un punto ámbar si tiene problemas; la pestaña filtra la lista y el resumen.
+Replace, Adjust y Remove van **a la orden de la línea**, sin preguntar ("para no ponerle muchas trabas
+al usuario, solo las justas"); Add es lo único que pregunta: viene preseleccionada la pestaña abierta
+y desde ALL hay que elegir. La orden de una línea sale de **la línea** (`rowOfLine`,
+`utils/editOrderTargets.ts`), nunca del SKU: se buscaba con `allItems.find(sku)` y en los 25 grupos
+de seis meses con un SKU en dos órdenes la corrección caía en la primera. Por eso cada panel lleva su
+`rowId`.
+
 **Órdenes stuck en reopened:** Si una orden queda en `reopened` (browser cerrado, sesión perdida), OrderSidebar muestra "Continue Editing" (mismo usuario) o "Take Over & Edit" (otro usuario). `resumeReopenedOrder` carga sin llamar al RPC reopen de nuevo.
 
 **Combinar una completada con una abierta = el flujo Add-On, y `reopened` es su estado obligatorio

@@ -20,6 +20,7 @@ import type { InventoryItem } from '../../../schemas/inventory.schema';
 import { useAutoSelect } from '../../../hooks/useAutoSelect';
 import { ReasonPicker } from './ReasonPicker';
 import { useSkuSuggestion } from '../hooks/useSkuSuggestion';
+import { buildOrderTabs, defaultAddTarget, rowOfLine } from '../utils/editOrderTargets';
 
 interface CorrectionModeViewProps {
   problemItems: PickingItem[];
@@ -49,11 +50,14 @@ interface CorrectionModeViewProps {
   initialPanel?: ActivePanel;
 }
 
+// `rowId` names the order the line belongs to. A combined group can hold the
+// same SKU in two orders, so the SKU alone does not say which line was tapped.
+// Absent, the first line with that SKU is meant (a single order).
 export type ActivePanel =
-  | { type: 'replace'; sku: string }
-  | { type: 'adjust_qty'; sku: string; availableStock: number }
-  | { type: 'remove'; sku: string }
-  | { type: 'confirm_replace'; sku: string; replacement: InventoryItem }
+  | { type: 'replace'; sku: string; rowId?: string }
+  | { type: 'adjust_qty'; sku: string; availableStock: number; rowId?: string }
+  | { type: 'remove'; sku: string; rowId?: string }
+  | { type: 'confirm_replace'; sku: string; replacement: InventoryItem; rowId?: string }
   | { type: 'add_item' }
   | { type: 'confirm_add'; item: InventoryItem }
   | null;
@@ -249,6 +253,35 @@ const ActionButtons: React.FC<{
   </div>
 );
 
+/* ── One order of a combined group: its number, its lines, a dot if it has issues ── */
+const OrderTabButton: React.FC<{
+  label: string;
+  lines: number;
+  issues: number;
+  selected: boolean;
+  onSelect: () => void;
+}> = ({ label, lines, issues, selected, onSelect }) => (
+  <button
+    role="tab"
+    aria-selected={selected}
+    onClick={onSelect}
+    className={`min-h-11 px-3.5 rounded-xl border flex items-center gap-2 transition-all active:scale-[0.97] touch-manipulation ${
+      selected
+        ? 'bg-accent text-main border-accent'
+        : 'bg-card text-content border-subtle hover:border-accent/30'
+    }`}
+  >
+    <span className="text-sm font-black tracking-tight">{label}</span>
+    <span className="text-[11px] font-black opacity-70">{lines}</span>
+    {issues > 0 && (
+      <span
+        className="w-2 h-2 rounded-full bg-amber-400"
+        aria-label={`${issues} issue${issues !== 1 ? 's' : ''}`}
+      />
+    )}
+  </button>
+);
+
 /* ── Main component ── */
 export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
   problemItems,
@@ -264,7 +297,6 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
   initialPanel,
 }) => {
   const isGroupEdit = sourceOrderMap.size > 0;
-  const [addTargetOrder, setAddTargetOrder] = useState<string | null>(null);
   const targetListId = editingListId ?? undefined;
   // Track original items to detect changes for reopened orders
   const [initialSnapshot] = useState(() =>
@@ -281,41 +313,82 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
   const [adjustQty, setAdjustQty] = useState(1);
   const [addQty, setAddQty] = useState(1);
 
-  /** Resolve the correct picking_list_id for a given item's correction. */
-  const getTargetListId = useCallback(
-    (sku: string): string | undefined => {
-      if (!isGroupEdit) return editingListId ?? undefined;
-      // Find which order this item belongs to via source_order
-      const item = allItems.find((i) => i.sku === sku);
-      if (item?.source_order) {
-        return sourceOrderMap.get(item.source_order) ?? editingListId ?? undefined;
-      }
-      return editingListId ?? undefined;
+  /** The order a line belongs to — where every correction on it is written. */
+  const rowOf = useCallback(
+    (item: PickingItem): string | undefined =>
+      isGroupEdit ? rowOfLine(item, sourceOrderMap, editingListId) : targetListId,
+    [isGroupEdit, sourceOrderMap, editingListId, targetListId]
+  );
+  /**
+   * The line a panel is about: that SKU in that order. Without an order — or
+   * with one no line here belongs to, as when Double Check names the row a
+   * single order's leftover tag points at — the first line with the SKU.
+   */
+  const findLine = useCallback(
+    (sku: string, rowId?: string): PickingItem | undefined =>
+      (rowId ? allItems.find((i) => i.sku === sku && rowOf(i) === rowId) : undefined) ??
+      allItems.find((i) => i.sku === sku),
+    [allItems, rowOf]
+  );
+  /** Replace, adjust and remove go to the line's own order — nothing to ask. */
+  const targetOf = useCallback(
+    (sku: string, rowId?: string): string | undefined => {
+      const line = findLine(sku, rowId);
+      return line ? rowOf(line) : (rowId ?? targetListId);
     },
-    [isGroupEdit, sourceOrderMap, allItems, editingListId]
+    [findLine, rowOf, targetListId]
   );
   const autoSelect = useAutoSelect();
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedReason, setSelectedReason] = useState('');
   const [recentlyRemoved, setRecentlyRemoved] = useState<string[]>([]);
 
+  // ── One order at a time (combined groups) ──
+  // The group's orders as tabs; null shows all of them. The list, the summary
+  // and the Add Item default all follow the tab.
+  const [orderFilter, setOrderFilter] = useState<string | null>(null);
+  const [addTarget, setAddTarget] = useState<string | null>(null);
+  const problemSet = useMemo(() => new Set(problemItems), [problemItems]);
+  const orderTabs = useMemo(
+    () => (isGroupEdit ? buildOrderTabs(allItems, problemSet, sourceOrderMap, editingListId) : []),
+    [isGroupEdit, allItems, problemSet, sourceOrderMap, editingListId]
+  );
+  const showOrderTabs = orderTabs.length > 1;
+  const orderNumberOf = useMemo(
+    () => new Map(orderTabs.map((tab) => [tab.rowId, tab.orderNumber])),
+    [orderTabs]
+  );
+  const visibleItems = useMemo(
+    () => (orderFilter ? allItems.filter((i) => rowOf(i) === orderFilter) : allItems),
+    [allItems, orderFilter, rowOf]
+  );
+  const visibleProblems = useMemo(
+    () => visibleItems.filter((i) => problemSet.has(i)),
+    [visibleItems, problemSet]
+  );
   // Everything the problem list did not take. The two lists used to be decided
   // by different tests — problems by the LIVE stock (Double Check's
   // isUnresolvedProblem), normals by the STORED flags — so a line whose flag
   // still said LOW STOCK while the stock already covered it was in neither, and
   // Edit Order never showed it: #881514's part, reopened twice with nothing on
   // screen to correct.
-  const normalItems = useMemo(() => {
-    const problems = new Set(problemItems);
-    return allItems.filter((i) => !problems.has(i));
-  }, [allItems, problemItems]);
+  const normalItems = useMemo(
+    () => visibleItems.filter((i) => !problemSet.has(i)),
+    [visibleItems, problemSet]
+  );
+
+  const selectOrder = (rowId: string | null) => {
+    setOrderFilter(rowId);
+    setActivePanel(null);
+    setSearchQuery('');
+  };
 
   const similarSkus = useMemo(() => {
     if (activePanel?.type !== 'replace') return [];
-    const item = allItems.find((i) => i.sku === activePanel.sku);
+    const item = findLine(activePanel.sku, activePanel.rowId);
     if (!item) return [];
     return findSimilarSkus(item.sku, item.warehouse || 'LUDLOW', inventoryData, 5);
-  }, [activePanel, allItems, inventoryData]);
+  }, [activePanel, findLine, inventoryData]);
 
   // ── Tier 1: auto-resolve out-of-stock items that have an equivalent ──
   // On open, any insufficient_stock problem item is swapped automatically —
@@ -330,6 +403,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
     {
       from: string;
       to: string;
+      rowId?: string;
       original: { location: string | null; warehouse: string; item_name: string | null };
     }[]
   >([]);
@@ -343,17 +417,20 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
   }, []);
 
   useEffect(() => {
+    // Once per line per mount — a line is its SKU in its order, since two
+    // orders of a group can both be short of the same SKU.
+    const triedKey = (i: PickingItem) => `${rowOf(i) ?? ''}|${i.sku}`;
     const candidates = problemItems.filter(
       (i) =>
         i.insufficient_stock &&
         !i.sku_not_found &&
         (getSubstituteSku(i.sku) || variantSiblingBase(i.sku)) &&
-        !autoTriedRef.current.has(i.sku)
+        !autoTriedRef.current.has(triedKey(i))
     );
     if (candidates.length === 0) return;
 
     candidates.forEach(async (item) => {
-      autoTriedRef.current.add(item.sku); // process each SKU once per mount
+      autoTriedRef.current.add(triedKey(item));
       const subSku = getSubstituteSku(item.sku);
       // Searching by the family base ("03-3768BL") returns every sibling's rows
       // in one query — the search RPC matches on the normalized SKU.
@@ -386,6 +463,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
         // Only auto-swap when the substitute fully covers the order. Partial
         // stock is a judgment call — leave it flagged for the picker.
         if (!best || best.quantity < item.pickingQty) return;
+        const rowId = rowOf(item);
         await onCorrectItem(
           {
             type: 'swap',
@@ -398,17 +476,18 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
             },
             reason: 'Auto-resolved: out-of-stock equivalent',
           },
-          getTargetListId(item.sku)
+          rowId
         );
         if (mountedRef.current) {
           setAutoResolved((prev) =>
-            prev.some((e) => e.from === item.sku && e.to === best.sku)
+            prev.some((e) => e.from === item.sku && e.to === best.sku && e.rowId === rowId)
               ? prev
               : [
                   ...prev,
                   {
                     from: item.sku,
                     to: best.sku,
+                    rowId,
                     original: {
                       location: item.location,
                       warehouse,
@@ -422,11 +501,12 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
         // Live stock lookup failed — leave the item flagged for manual handling.
       }
     });
-  }, [problemItems, onCorrectItem, getTargetListId]);
+  }, [problemItems, onCorrectItem, rowOf]);
 
   const handleUndoAutoResolve = async (entry: {
     from: string;
     to: string;
+    rowId?: string;
     original: { location: string | null; warehouse: string; item_name: string | null };
   }) => {
     if (undoingSku) return;
@@ -448,9 +528,13 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
           flags: { insufficient_stock: true },
           reason: 'Undo auto-resolve',
         },
-        getTargetListId(entry.to)
+        targetOf(entry.to, entry.rowId)
       );
-      if (mountedRef.current) setAutoResolved((prev) => prev.filter((e) => e.to !== entry.to));
+      if (mountedRef.current) {
+        setAutoResolved((prev) =>
+          prev.filter((e) => !(e.to === entry.to && e.rowId === entry.rowId))
+        );
+      }
     } finally {
       if (mountedRef.current) setUndoingSku(null);
     }
@@ -522,26 +606,29 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
 
   // ── Handlers ──
 
-  const handleOpenRemove = (sku: string) => {
-    setActivePanel({ type: 'remove', sku });
+  // Every panel carries the order of the line it was opened on (see ActivePanel).
+
+  const handleOpenRemove = (item: PickingItem) => {
+    setActivePanel({ type: 'remove', sku: item.sku, rowId: rowOf(item) });
   };
 
-  const handleOpenReplace = (sku: string) => {
+  const handleOpenReplace = (item: PickingItem) => {
     setSearchQuery('');
-    setActivePanel({ type: 'replace', sku });
+    setActivePanel({ type: 'replace', sku: item.sku, rowId: rowOf(item) });
   };
 
   // idea-092: open the replace panel with the canonical SKU pre-filled in
   // the search. The picker still confirms (one click on the result row),
   // which preserves the audit trail through the existing swap flow.
-  const handleUseCanonicalSku = (originalSku: string, canonicalSku: string) => {
+  const handleUseCanonicalSku = (item: PickingItem, canonicalSku: string) => {
     setSearchQuery(canonicalSku);
-    setActivePanel({ type: 'replace', sku: originalSku });
+    setActivePanel({ type: 'replace', sku: item.sku, rowId: rowOf(item) });
   };
 
   const handleOpenAdjustQty = async (item: PickingItem) => {
+    const rowId = rowOf(item);
     setAdjustQty(item.pickingQty);
-    setActivePanel({ type: 'adjust_qty', sku: item.sku, availableStock: -1 });
+    setActivePanel({ type: 'adjust_qty', sku: item.sku, availableStock: -1, rowId });
     try {
       const [bikesRes, partsRes] = await Promise.all([
         inventoryApi.fetchInventoryWithMetadata({ search: item.sku, showParts: false, limit: 10 }),
@@ -550,23 +637,27 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
       const totalStock = [...bikesRes.data, ...partsRes.data]
         .filter((inv) => inv.sku === item.sku && inv.warehouse === (item.warehouse || 'LUDLOW'))
         .reduce((sum, inv) => sum + (inv.quantity || 0), 0);
-      setActivePanel({ type: 'adjust_qty', sku: item.sku, availableStock: totalStock });
+      setActivePanel({ type: 'adjust_qty', sku: item.sku, availableStock: totalStock, rowId });
     } catch {
-      setActivePanel({ type: 'adjust_qty', sku: item.sku, availableStock: 0 });
+      setActivePanel({ type: 'adjust_qty', sku: item.sku, availableStock: 0, rowId });
     }
   };
 
-  const handleSelectReplacement = (originalSku: string, replacement: InventoryItem) => {
-    const originalItem = allItems.find((i) => i.sku === originalSku);
+  const handleSelectReplacement = (
+    originalSku: string,
+    rowId: string | undefined,
+    replacement: InventoryItem
+  ) => {
+    const originalItem = findLine(originalSku, rowId);
     setReplaceQty(originalItem?.pickingQty ?? 1);
-    setActivePanel({ type: 'confirm_replace', sku: originalSku, replacement });
+    setActivePanel({ type: 'confirm_replace', sku: originalSku, replacement, rowId });
   };
 
-  const handleSuggestionSelect = (itemSku: string, alt: SimilarSku, warehouse: string) => {
-    handleSelectReplacement(itemSku, {
+  const handleSuggestionSelect = (item: PickingItem, alt: SimilarSku) => {
+    handleSelectReplacement(item.sku, rowOf(item), {
       sku: alt.sku,
       location: alt.location,
-      warehouse,
+      warehouse: item.warehouse || 'LUDLOW',
       item_name: alt.item_name,
       quantity: alt.quantity,
     } as InventoryItem);
@@ -576,7 +667,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
     if (activePanel?.type !== 'confirm_replace' || isProcessing) return;
     setIsProcessing(true);
     try {
-      const originalItem = allItems.find((i) => i.sku === activePanel.sku);
+      const originalItem = findLine(activePanel.sku, activePanel.rowId);
       const qtyChanged = !!originalItem && replaceQty !== originalItem.pickingQty;
       await onCorrectItem(
         {
@@ -591,7 +682,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
           newQty: qtyChanged ? replaceQty : undefined,
           reason: selectedReason || undefined,
         },
-        getTargetListId(activePanel.sku)
+        targetOf(activePanel.sku, activePanel.rowId)
       );
       setActivePanel(null);
     } finally {
@@ -610,7 +701,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
           newQty: adjustQty,
           reason: selectedReason || undefined,
         },
-        getTargetListId(activePanel.sku)
+        targetOf(activePanel.sku, activePanel.rowId)
       );
       setActivePanel(null);
     } finally {
@@ -628,7 +719,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
           sku: activePanel.sku,
           reason: selectedReason || undefined,
         },
-        getTargetListId(activePanel.sku)
+        targetOf(activePanel.sku, activePanel.rowId)
       );
       setRecentlyRemoved((prev) => [...prev, activePanel.sku]);
       setActivePanel(null);
@@ -637,15 +728,20 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
     }
   };
 
+  // A new line has no order of its own: it goes where the operator confirms.
+  // The tab on screen is the default; with every order on screen they choose.
+  const openAddConfirm = (item: InventoryItem) => {
+    setAddQty(1);
+    setAddTarget(defaultAddTarget(orderFilter, orderTabs));
+    setActivePanel({ type: 'confirm_add', item });
+  };
+  const addNeedsTarget = showOrderTabs && !addTarget;
+
   const handleConfirmAdd = async () => {
-    if (activePanel?.type !== 'confirm_add' || isProcessing) return;
+    if (activePanel?.type !== 'confirm_add' || isProcessing || addNeedsTarget) return;
     setIsProcessing(true);
     try {
-      // For group edit: use the selected target order; for single: use editingListId
-      const addTargetListId =
-        isGroupEdit && addTargetOrder
-          ? (sourceOrderMap.get(addTargetOrder) ?? targetListId)
-          : targetListId;
+      const addTargetListId = (isGroupEdit && addTarget) || targetListId;
       await onCorrectItem(
         {
           type: 'add',
@@ -669,9 +765,19 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
 
   // ── Render a single item card + expandable panels ──
 
+  // The one card an open panel belongs to: that SKU in that order — the first
+  // such line, so a line split across shelves does not open two panels.
+  const activeLine =
+    activePanel && 'sku' in activePanel ? findLine(activePanel.sku, activePanel.rowId) : undefined;
+
   const renderItemCard = (item: PickingItem) => {
-    const isActive = activePanel !== null && 'sku' in activePanel && activePanel.sku === item.sku;
+    const isActive = !!activeLine && item === activeLine;
     const isProblem = item.sku_not_found || item.insufficient_stock;
+    const lineRowId = rowOf(item);
+    // With every order on screen each card says whose it is; with one order
+    // picked, the tab already does.
+    const lineOrderNumber =
+      showOrderTabs && !orderFilter ? orderNumberOf.get(lineRowId ?? '') : undefined;
     const errorType = item.sku_not_found
       ? 'sku_not_found'
       : item.insufficient_stock
@@ -679,7 +785,10 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
         : null;
 
     return (
-      <div key={item.sku} className="flex flex-col gap-0">
+      <div
+        key={`${lineRowId ?? ''}|${item.sku}|${item.location ?? ''}`}
+        className="flex flex-col gap-0"
+      >
         {/* Card */}
         <div
           className={`bg-card border rounded-2xl p-4 transition-all duration-200 ${
@@ -727,9 +836,9 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
                     LOW STOCK
                   </span>
                 )}
-                {isGroupEdit && item.source_order && (
-                  <span className="text-[8px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded font-black uppercase tracking-tighter">
-                    #{item.source_order}
+                {lineOrderNumber && (
+                  <span className="text-[11px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-md font-black tracking-tight">
+                    #{lineOrderNumber}
                   </span>
                 )}
               </div>
@@ -741,7 +850,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
               <SkuFormatSuggestion
                 rawSku={item.sku}
                 enabled={!!item.sku_not_found}
-                onUseCanonical={(canonical) => handleUseCanonicalSku(item.sku, canonical)}
+                onUseCanonical={(canonical) => handleUseCanonicalSku(item, canonical)}
               />
             </div>
 
@@ -761,7 +870,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
               onClick={() =>
                 isActive && activePanel?.type === 'replace'
                   ? setActivePanel(null)
-                  : handleOpenReplace(item.sku)
+                  : handleOpenReplace(item)
               }
               className="flex-1 min-h-12 rounded-xl font-black uppercase tracking-widest text-[10px] bg-accent/15 text-accent border border-accent/20 transition-all hover:bg-accent/25 active:scale-[0.97]"
             >
@@ -787,7 +896,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
               onClick={() =>
                 isActive && activePanel?.type === 'remove'
                   ? setActivePanel(null)
-                  : handleOpenRemove(item.sku)
+                  : handleOpenRemove(item)
               }
               className="min-h-12 px-4 rounded-xl font-black uppercase tracking-widest text-[10px] bg-red-500/15 text-red-400 border border-red-500/20 transition-all hover:bg-red-500/25 active:scale-[0.97]"
             >
@@ -800,16 +909,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
               picker still confirms with a reason. */}
           {!isActive && cardSuggestions.get(item.sku) && (
             <button
-              onClick={() => {
-                const alt = cardSuggestions.get(item.sku)!;
-                handleSelectReplacement(item.sku, {
-                  sku: alt.sku,
-                  location: alt.location,
-                  warehouse: item.warehouse || 'LUDLOW',
-                  item_name: alt.item_name,
-                  quantity: alt.quantity,
-                } as InventoryItem);
-              }}
+              onClick={() => handleSuggestionSelect(item, cardSuggestions.get(item.sku)!)}
               className="mt-2 w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 active:scale-[0.98] transition-all"
             >
               <span className="flex items-center gap-1.5 min-w-0">
@@ -834,11 +934,9 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
               onQueryChange={setSearchQuery}
               results={searchResults}
               isSearching={isSearching}
-              onSelectResult={(r) => handleSelectReplacement(item.sku, r)}
+              onSelectResult={(r) => handleSelectReplacement(item.sku, lineRowId, r)}
               suggestions={similarSkus}
-              onSelectSuggestion={(alt) =>
-                handleSuggestionSelect(item.sku, alt, item.warehouse || 'LUDLOW')
-              }
+              onSelectSuggestion={(alt) => handleSuggestionSelect(item, alt)}
             />
           </div>
         )}
@@ -875,7 +973,9 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
               onReasonChange={setSelectedReason}
             />
             <ActionButtons
-              onCancel={() => setActivePanel({ type: 'replace', sku: activePanel.sku })}
+              onCancel={() =>
+                setActivePanel({ type: 'replace', sku: activePanel.sku, rowId: activePanel.rowId })
+              }
               onConfirm={handleConfirmReplace}
               isProcessing={isProcessing}
               confirmLabel="Confirm Replace"
@@ -923,7 +1023,15 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
         {isActive && activePanel?.type === 'remove' && (
           <div className="bg-card border border-subtle border-t-0 rounded-b-2xl p-4 animate-in fade-in slide-in-from-top-2 duration-200">
             <p className="text-sm text-content/70 text-center mb-4">
-              Remove <span className="font-black text-red-400">{item.sku}</span> from order?
+              Remove <span className="font-black text-red-400">{item.sku}</span> from{' '}
+              {showOrderTabs && orderNumberOf.get(lineRowId ?? '') ? (
+                <span className="font-black text-content">
+                  #{orderNumberOf.get(lineRowId ?? '')}
+                </span>
+              ) : (
+                'order'
+              )}
+              ?
             </p>
             <ReasonPicker
               actionType="remove"
@@ -963,7 +1071,8 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
           >
             {isReopened ? 'Reopen Order' : 'Edit Order'}
           </h1>
-          {orderNumber && (
+          {/* The order tabs below name every order; the combined number would repeat them. */}
+          {orderNumber && !showOrderTabs && (
             <span
               className={`text-[9px] font-black uppercase tracking-tighter px-2 py-0.5 rounded border ${
                 isReopened
@@ -977,28 +1086,55 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
         </div>
       </div>
 
+      {/* Order tabs — a combined group, one order at a time */}
+      {showOrderTabs && (
+        <div
+          role="tablist"
+          aria-label="Orders in this group"
+          className="px-4 pt-3 flex flex-wrap gap-2"
+        >
+          <OrderTabButton
+            label="ALL"
+            lines={allItems.length}
+            issues={problemItems.length}
+            selected={orderFilter === null}
+            onSelect={() => selectOrder(null)}
+          />
+          {orderTabs.map((tab) => (
+            <OrderTabButton
+              key={tab.rowId}
+              label={`#${tab.orderNumber}`}
+              lines={tab.lines}
+              issues={tab.issues}
+              selected={orderFilter === tab.rowId}
+              onSelect={() => selectOrder(tab.rowId)}
+            />
+          ))}
+        </div>
+      )}
+
       {/* Summary badge */}
       <div className="px-4 py-3">
         <div
           className={`flex items-center gap-2 rounded-xl px-4 py-2 ${
-            problemItems.length > 0
+            visibleProblems.length > 0
               ? 'bg-amber-500/10 border border-amber-500/20'
               : 'bg-card border border-subtle'
           }`}
         >
-          {problemItems.length > 0 ? (
+          {visibleProblems.length > 0 ? (
             <AlertTriangle className="text-amber-500 flex-shrink-0" size={16} />
           ) : (
             <Check className="text-green-400 flex-shrink-0" size={16} />
           )}
           <span
-            className={`text-[11px] font-black uppercase tracking-widest ${problemItems.length > 0 ? 'text-amber-400' : 'text-muted'}`}
+            className={`text-[11px] font-black uppercase tracking-widest ${visibleProblems.length > 0 ? 'text-amber-400' : 'text-muted'}`}
           >
-            {problemItems.length > 0
-              ? `${problemItems.length} issue${problemItems.length !== 1 ? 's' : ''}`
+            {visibleProblems.length > 0
+              ? `${visibleProblems.length} issue${visibleProblems.length !== 1 ? 's' : ''}`
               : 'No issues'}
             {' · '}
-            {allItems.length} item{allItems.length !== 1 ? 's' : ''} total
+            {visibleItems.length} item{visibleItems.length !== 1 ? 's' : ''} total
           </span>
         </div>
       </div>
@@ -1009,7 +1145,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
         <div className="px-4 pb-1 flex flex-col gap-2">
           {autoResolved.map((entry) => (
             <div
-              key={`${entry.from}->${entry.to}`}
+              key={`${entry.rowId ?? ''}|${entry.from}->${entry.to}`}
               className="flex items-center gap-2 rounded-xl px-4 py-2 bg-emerald-500/10 border border-emerald-500/25"
             >
               <Check className="text-emerald-400 flex-shrink-0" size={14} strokeWidth={3} />
@@ -1017,6 +1153,9 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
                 Auto-resolved · <span className="text-emerald-400">{entry.from}</span>
                 {' → '}
                 <span className="text-emerald-400">{entry.to}</span>
+                {showOrderTabs && orderNumberOf.get(entry.rowId ?? '') && (
+                  <> · #{orderNumberOf.get(entry.rowId ?? '')}</>
+                )}
               </span>
               <button
                 onClick={() => handleUndoAutoResolve(entry)}
@@ -1034,10 +1173,10 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
       <div className="flex-1 overflow-y-auto px-4 pb-32 min-h-0">
         <div className="flex flex-col gap-3">
           {/* Problem items first */}
-          {problemItems.map(renderItemCard)}
+          {visibleProblems.map(renderItemCard)}
 
           {/* Divider */}
-          {problemItems.length > 0 && normalItems.length > 0 && (
+          {visibleProblems.length > 0 && normalItems.length > 0 && (
             <div className="flex items-center gap-3 mt-6 mb-2">
               <div className="h-[1px] flex-1 bg-card" />
               <span className="text-[9px] font-black text-muted/60 uppercase tracking-widest">
@@ -1081,10 +1220,7 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
                   onQueryChange={setSearchQuery}
                   results={searchResults}
                   isSearching={isSearching}
-                  onSelectResult={(item) => {
-                    setAddQty(1);
-                    setActivePanel({ type: 'confirm_add', item });
-                  }}
+                  onSelectResult={openAddConfirm}
                 />
               </div>
             ) : activePanel?.type === 'confirm_add' ? (
@@ -1100,33 +1236,37 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
                     </span>
                   )}
                 </div>
-                <QtyInput value={addQty} onChange={setAddQty} autoSelect={autoSelect} />
-                <p className="text-[9px] text-muted/60 text-center mb-4 font-black uppercase tracking-widest">
-                  {activePanel.item.location?.replace(/row/i, 'ROW') || 'No location'} ·{' '}
-                  {activePanel.item.quantity} available
-                </p>
-                {isGroupEdit && (
-                  <div className="mb-3">
-                    <p className="text-[9px] font-black text-muted/70 uppercase tracking-widest mb-1.5 text-center">
-                      Add to which order?
+                {/* Which order gets the new line — first, since it is the one
+                    thing a combined group cannot guess when every order is on
+                    screen. The tab on screen comes pre-selected. */}
+                {showOrderTabs && (
+                  <div className="mb-4">
+                    <p className="text-[10px] font-black text-muted/70 uppercase tracking-widest mb-2 text-center">
+                      Add to
                     </p>
-                    <div className="flex flex-wrap gap-1.5 justify-center">
-                      {[...sourceOrderMap.keys()].map((orderNum) => (
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {orderTabs.map((tab) => (
                         <button
-                          key={orderNum}
-                          onClick={() => setAddTargetOrder(orderNum)}
-                          className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 ${
-                            addTargetOrder === orderNum
-                              ? 'bg-accent text-white border border-accent'
-                              : 'bg-surface text-muted border border-subtle'
+                          key={tab.rowId}
+                          onClick={() => setAddTarget(tab.rowId)}
+                          aria-pressed={addTarget === tab.rowId}
+                          className={`min-h-11 px-4 rounded-xl text-sm font-black tracking-tight border transition-all active:scale-[0.97] touch-manipulation ${
+                            addTarget === tab.rowId
+                              ? 'bg-accent text-main border-accent'
+                              : 'bg-surface text-content border-subtle hover:border-accent/30'
                           }`}
                         >
-                          #{orderNum}
+                          #{tab.orderNumber}
                         </button>
                       ))}
                     </div>
                   </div>
                 )}
+                <QtyInput value={addQty} onChange={setAddQty} autoSelect={autoSelect} />
+                <p className="text-[9px] text-muted/60 text-center mb-4 font-black uppercase tracking-widest">
+                  {activePanel.item.location?.replace(/row/i, 'ROW') || 'No location'} ·{' '}
+                  {activePanel.item.quantity} available
+                </p>
                 <ReasonPicker
                   actionType="add"
                   preselect={
@@ -1143,9 +1283,13 @@ export const CorrectionModeView: React.FC<CorrectionModeViewProps> = ({
                   onConfirm={handleConfirmAdd}
                   isProcessing={isProcessing}
                   confirmLabel={
-                    isGroupEdit && addTargetOrder ? `Add to #${addTargetOrder}` : 'Add to Order'
+                    showOrderTabs && addTarget
+                      ? `Add to #${orderNumberOf.get(addTarget) ?? ''}`
+                      : addNeedsTarget
+                        ? 'Pick an order'
+                        : 'Add to Order'
                   }
-                  disabled={!selectedReason || (isGroupEdit && !addTargetOrder)}
+                  disabled={!selectedReason || addNeedsTarget}
                 />
               </div>
             ) : (

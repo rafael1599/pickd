@@ -1775,10 +1775,10 @@ export const DoubleCheckView: React.FC<DoubleCheckViewProps> = ({
   const [correctionInitialPanel, setCorrectionInitialPanel] = useState<CorrectionPanel>(null);
   const handleIssueReplace = useCallback(
     (item: PickingItem) => {
-      setCorrectionInitialPanel({ type: 'replace', sku: item.sku });
+      setCorrectionInitialPanel({ type: 'replace', sku: item.sku, rowId: targetListFor(item) });
       void openEditFlow();
     },
-    [openEditFlow]
+    [openEditFlow, targetListFor]
   );
 
   const confirmCancelOrder = useCallback(
