@@ -290,6 +290,16 @@ carril leyendo `ready_to_double_check` y su propio `status` no sirve para distin
 
 **Activity Report layout:** Editor panel on the left (desktop) with: selectable greeting toggle ("Hi Carine!"), Win of the Day, PickD Updates (collapsible dropdown, closed by default), On the Floor routine checklist (editable items via gear icon, persisted in localStorage), and Notes (multiline textarea, one per line). Preview on the right updates with green highlight flash on each edit. "Save & Copy Report" button at bottom saves + copies to clipboard in one action. Report section order: Win → PickD Updates → Done Today → On the Floor → In Progress → Coming Up Next → Inventory Accuracy → Waiting. Footer shows date only (no timestamp). `/pickd-report` public route shows the HTML daily report for the current date with date navigation.
 
+**Rellenar el catálogo desde AS400 (11 sep 2026).** `scripts/backfill-catalog-from-as400.mjs`
+(preview por defecto, `--apply` para escribir) llena `model` y `size` desde `as400_description`.
+**Solo rellena huecos vacíos** — pisar lo que alguien escribió es otra decisión, y vive en idea-177
+junto al `color` (PickD tiene el cubo `Blue`, AS400 el nombre `INK`). Importa **el parser de la app**
+(`parseBikeName`) en vez de copiarlo: node lo corre con `--experimental-strip-types`, así que no hay
+espejo que mantener. Y su **fallback es la señal de no escribir**: sin un año `20xx` con talla delante
+devuelve el string entero como `model`, lo cual es detectable — así se niega sola ante
+`TRAIL X1 2009 14` (año y talla al revés) en vez de inventar. El `Model Year` de AS400 **no es el año
+de la bici** (dice 2025 en una descripción de 2009): el año sale de la descripción.
+
 **Inventario PickD vs AS400 (10 sep 2026).** `v_inventory_vs_as400` compara, **por SKU**, la suma de
 LUDLOW contra el `On Hand` que AS400 enseña en `02. Stock File Inquiry`. **LUDLOW es la columna NJ**
 (Rafael, 10 sep 2026) — es la única correspondencia que hace falta saber, no se deduce de los datos, y

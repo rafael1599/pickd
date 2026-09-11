@@ -11,6 +11,37 @@
 
 ## P1 — Alto (operación diaria)
 
+### 109. Enriquecer el catálogo desde AS400: lo confuso <!-- id: idea-177 --> — input: 2026-09-11 NY ❓
+- **Rafael:** "comencemos con los campos seguros de actualizar y los confusos déjalo en backlog para
+  discussion cuando haya más tiempo".
+- **Lo seguro ya está hecho** (`scripts/backfill-catalog-from-as400.mjs`, preview/apply): rellena
+  `model` y `size` **solo donde están vacíos** y solo cuando `parseBikeName` sacó un resultado real.
+  De las 10 primeras descripciones, 8 limpias. Criterio: rellenar un hueco es seguro, pisar lo que
+  alguien escribió no.
+- **❓1 · `color`, el cubo contra el nombre comercial.** PickD guarda `Blue`, `Black`, `Brown`; AS400
+  trae `INK`, `NAVY PEARL`, `DEEP BLUE`, `SUGAR BLUE`, `CHARCOAL`, `SANDSTONE`. **No es un hueco, es
+  un reemplazo**, así que no se tocó. Tres salidas: (a) pisar el cubo, (b) columna nueva
+  (`color_name`) y el cubo se queda para filtrar, (c) el cubo se deriva del nombre. La (b) parece la
+  buena —se filtra por «azul» y se lee «SUGAR BLUE»— pero cuesta una columna y sus consumidores.
+- **❓2 · `model` ocupado pero sucio.** `03-4039BR` tiene **«T»** donde AS400 dice **HUDSON**; el
+  `03-3971MN` tiene `CITIZEN 3 S/T 14 VANILLA`, con la talla y medio color dentro del nombre. Son los
+  227 que ya conocíamos. ¿Se pisa un modelo que claramente no es un modelo, y con qué regla — una
+  sola letra, o «contiene la talla»?
+- **❓3 · Descripciones que el parser rechaza.** `TRAIL X1 2009 14 GLOSS BLACK` trae **año y talla al
+  revés**; `S/D ALLEGRO A3 S/O 14" MING   G220310857` no trae año y sí número de serie. Hoy se niegan
+  solas, que es lo correcto. ¿Se le enseña esa forma a `parseBikeName`, o esas quedan a mano?
+- **Resuelto de paso — el `Model Year` de AS400 no es el año de la bici.** Dice `2025` en el TRAIL X1
+  cuya descripción dice `2009` y en el CITIZEN que dice `2026`. Parece el año de catálogo vigente. **El
+  año sale de la descripción**, que es lo que `parseBikeName` ya hacía: no cambiar nada.
+- **Pendiente aparte — el peso (F4).** `weight_lbs` lleva **45 de relleno** en 8 de 10 (lo escribe el
+  trigger, no es medida de nadie) y AS400 da pesos reales. La regla ya está escrita y probada en el
+  watchdog (solo si `weight_verified` es false y AS400 > 0), apagada tras `SKU_ENRICH_WEIGHT`. **No se
+  encendió a propósito:** el peso mueve la clasificación de envío (>50 lb fuerza Regular) y la
+  matemática de pallets, así que no es del mismo tipo que `size`. Primer dato de calibración (Q3):
+  `03-4039BR` con báscula **37,91** contra AS400 **37** — casi clavado, lo que apunta a peso de bici
+  y no de caja.
+
+
 ### 110. Los contadores del Live Board no cuentan todos la misma unidad <!-- id: idea-178 --> — input: 2026-09-09 NY
 - **De dónde viene:** el 9 sep se cerraron dos huecos (`c06bade`, `3472ca0`). El badge de BOARD
   contaba solo `ready_to_double_check` —fuera lo que se está recogiendo (`active`) y lo que alguien
