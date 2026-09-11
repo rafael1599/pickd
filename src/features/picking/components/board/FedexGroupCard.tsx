@@ -9,7 +9,7 @@ import { getWorkerLabel, isActivelyChecking } from './SortableOrderCard';
 import { orderColorFor } from '../../../../utils/orderColors';
 import { OrderNotesInline } from '../OrderNotesInline';
 import { mergeGroupOrders } from './mergeGroupOrders';
-import { verificationProgress } from './verificationProgress';
+import { verificationProgress } from '../../utils/verificationProgress';
 import { VerificationBar } from './VerificationBar';
 
 interface FedexGroupCardProps {

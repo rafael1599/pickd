@@ -38,11 +38,18 @@ export function mergeGroupOrders(groupOrders: PickingList[]): PickingList {
 
   const workerSource = activeChecker ?? groupOrders.find((o) => o.profiles?.full_name) ?? first;
 
-  // Un-checked orders (ready_to_double_check / active) must NOT inherit verified keys from completed/sibling orders
-  const isUncheckedStatus = status === 'ready_to_double_check' || status === 'active';
-  const verified_item_keys = isUncheckedStatus
-    ? []
-    : Array.from(new Set(groupOrders.flatMap((o) => o.verified_item_keys ?? [])));
+  // A group waiting in the queue shows no progress (Ready to DC empties its keys).
+  // One being picked (active) reads what its open members carry — Double Check
+  // writes the cart's keys to them as the picker ticks — but never what a
+  // completed member kept from its own, earlier check.
+  const keysOf = (orders: PickingList[]) =>
+    Array.from(new Set(orders.flatMap((o) => o.verified_item_keys ?? [])));
+  const verified_item_keys =
+    status === 'ready_to_double_check'
+      ? []
+      : status === 'active'
+        ? keysOf(groupOrders.filter((o) => o.status !== 'completed'))
+        : keysOf(groupOrders);
 
   return {
     ...first,

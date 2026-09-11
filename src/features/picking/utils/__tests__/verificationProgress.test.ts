@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { verificationProgress } from '../verificationProgress';
-import { mergeGroupOrders } from '../mergeGroupOrders';
-import type { PickingList } from '../../../hooks/useDoubleCheckList';
+import { mergeGroupOrders } from '../../components/board/mergeGroupOrders';
+import type { PickingList } from '../../hooks/useDoubleCheckList';
 
 const line = (sku: string, location: string | null, qty: number, isBike: boolean) => ({
   sku,
@@ -28,15 +28,35 @@ function order(over: Partial<Record<keyof PickingList, unknown>> = {}): PickingL
   } as unknown as PickingList;
 }
 
-describe('verificationProgress — the bar every board card draws', () => {
-  it('a finished order is full; one nobody has taken up is empty, whatever keys it carries', () => {
+describe('verificationProgress — the bar every progress bar draws', () => {
+  it('a finished order is full; one waiting in the queue is empty, whatever keys it carries', () => {
     expect(verificationProgress(order({ status: 'completed' }))).toBe(100);
     expect(verificationProgress(order({ is_shipped: true }))).toBe(100);
-    const keys = ['1-03-4805RD-ROW 11'];
     expect(
-      verificationProgress(order({ status: 'ready_to_double_check', verified_item_keys: keys }))
+      verificationProgress(
+        order({ status: 'ready_to_double_check', verified_item_keys: ['1-03-4805RD-ROW 11'] })
+      )
     ).toBe(0);
-    expect(verificationProgress(order({ status: 'active', verified_item_keys: keys }))).toBe(0);
+  });
+
+  it('an order opened to pick counts its ticks like one opened to check', () => {
+    // #TEST, 11 Sep: a manual order stays `active` while it is worked, and the
+    // phone read 3/7 while the board, which zeroed every active order, read nothing.
+    const items = [
+      bike('03-4637MN', 'ROW 2'),
+      bike('03-3965BL', 'ROW 6', 2),
+      bike('03-3960GY', 'ROW 6'),
+      bike('03-4066BK', 'ROW 6'),
+      bike('03-3755BL', 'ROW 5'),
+      bike('03-3754GY', 'ROW 5'),
+    ];
+    const keys = ['1-03-4066BK-ROW 6', '1-03-3965BL-ROW 6'];
+    expect(verificationProgress(order({ status: 'active', items, verified_item_keys: keys }))).toBe(
+      43
+    );
+    expect(verificationProgress(order({ status: 'active', items, verified_item_keys: [] }))).toBe(
+      0
+    );
   });
 
   it('counts the units ticked while the check is on', () => {
@@ -94,5 +114,28 @@ describe('verificationProgress — the bar every board card draws', () => {
   it('stops at 95 until every unit is ticked', () => {
     const items = [part('12-0511', 'D34', 99), part('70-0108', 'H19', 1)];
     expect(verificationProgress(order({ items, verified_item_keys: ['1-12-0511-D34'] }))).toBe(95);
+  });
+});
+
+describe('mergeGroupOrders — which keys a combined card reads', () => {
+  const keys = ['1-03-4805RD-ROW 11'];
+  const member = (id: string, status: string, verified: string[]) =>
+    order({ id, order_number: id, group_id: 'g', status, verified_item_keys: verified });
+
+  it('a group waiting in the queue shows no progress', () => {
+    const merged = mergeGroupOrders([
+      member('1', 'ready_to_double_check', keys),
+      member('2', 'ready_to_double_check', keys),
+    ]);
+    expect(merged.verified_item_keys).toEqual([]);
+  });
+
+  it('a group being picked reads its open members, never what a completed member kept', () => {
+    const merged = mergeGroupOrders([
+      member('1', 'active', ['1-03-4808BK-ROW 4']),
+      member('2', 'completed', keys),
+    ]);
+    expect(merged.status).toBe('active');
+    expect(merged.verified_item_keys).toEqual(['1-03-4808BK-ROW 4']);
   });
 });

@@ -209,8 +209,9 @@ significa "sin verificar": significa "esta fila no estaba en el grupo durante el
 exactamente lo que delató a #881394 (0 llaves con dos hermanas en 6, bug-023), pero no sirve como
 señal per-order — para "¿alguien tocó esto?" la señal es `checked_by`.
 
-**La barra de avance del board es una sola lectura (`board/verificationProgress.ts`, 11 sep 2026).**
-La usan la tarjeta normal, la combinada y la del grupo FedEx (`VerificationBar`). **`FedexGroupCard`
+**La barra de avance es una sola lectura (`utils/verificationProgress.ts`, 11 sep 2026).** La usan
+las tarjetas del board —normal, combinada y la del grupo FedEx (`VerificationBar`)— y
+`OrderProgressBar` en Ship y Orders. **`FedexGroupCard`
 no tenía barra**, y los grupos FedEx son casi todo lo que se verifica en un día: mientras el picker
 marcaba, el board decía «Checking» y nada más (Rafael: «la barra de avance no se está viendo a medida
 que el picker selecciona los items en dcv»). Es **una barra por grupo**, porque Double Check verifica
@@ -218,6 +219,15 @@ el grupo como un carrito y escribe las mismas llaves en todos los miembros. Una 
 cola `-sku-location`, **una vez** (el número de pallet es del carrito, no de la tarjeta), y una llave
 `…-null` cuenta para una línea de su SKU: la línea se marcó antes de tener dirección y Double Check
 escribió después la que resolvió (bug-026) — #881529 se quedaba en 62 % terminada.
+
+**Y las marcas se guardan también al abrir para recoger, no solo para verificar.** Una orden
+`active` (manual, New Order) o `needs_correction` se carga en modo `picking`, y ahí se marcan las
+líneas igual; `PickingCartDrawer` solo guardaba y recuperaba `verified_item_keys` en
+`double_checking`, así que esas marcas vivían en el teléfono, se perdían al cerrar y el board las
+leía como 0 (#TEST, 11 sep: 3/7 en el teléfono, nada en el board). Ahora lo decide
+`keepsVerificationProgress` para las dos. Sigue valiendo 0 una orden `ready_to_double_check` (Ready to
+DC le vacía las llaves), y un grupo `active` lee las de sus miembros abiertos, nunca las que guardó
+uno completado (`mergeGroupOrders`).
 
 **Pulsación larga en DoubleCheckView = "¿dónde está de verdad?"**: abre `sku-locations` (Modal Manager,
 `SkuLocationsModal`) con **todas** las filas de inventario del SKU, la dirección de la orden primero y

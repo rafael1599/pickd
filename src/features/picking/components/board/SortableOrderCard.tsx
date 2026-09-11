@@ -19,7 +19,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import { supabase } from '../../../../lib/supabase';
 import toast from 'react-hot-toast';
 import { useParkedLocations } from '../../hooks/useParkedLocations';
-import { verificationProgress } from './verificationProgress';
+import { verificationProgress } from '../../utils/verificationProgress';
 import { VerificationBar } from './VerificationBar';
 import { isBikeSku } from '../../../../utils/bikeDetection';
 

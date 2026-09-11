@@ -28,6 +28,16 @@ import toast from 'react-hot-toast';
 import { useScrollLock } from '../../../hooks/useScrollLock';
 import { feedbackService } from '../../../services/feedback.service';
 
+/**
+ * Whether a session's ticks are the order's verification progress, kept in
+ * `verified_item_keys` for the next device and the Live Board's bar. Both ways
+ * an order is opened tick lines the same way: to check (ready →
+ * double_checking) and to pick (active, needs_correction → 'picking').
+ */
+function keepsVerificationProgress(mode: string): boolean {
+  return mode === 'double_checking' || mode === 'picking';
+}
+
 export const PickingCartDrawer: React.FC = () => {
   const { user } = useAuth();
   const { showConfirmation } = useConfirmation();
@@ -167,9 +177,13 @@ export const PickingCartDrawer: React.FC = () => {
     apply([], false);
   }, []);
 
-  // 0. Restore checked items on load if in double-check session.
+  // 0. Restore checked items on load — for an order opened to check AND one
+  //    opened to pick: an active (manual) or needs_correction order loads in
+  //    'picking', its lines are ticked the same way, and until 11 Sep those
+  //    ticks lived only in this phone — gone on close, and never on the board
+  //    (#TEST: 3/7 here, nothing there).
   useEffect(() => {
-    if (sessionMode === 'double_checking' && activeListId) {
+    if (keepsVerificationProgress(sessionMode) && activeListId) {
       void hydrateVerifiedItems(activeListId);
     } else {
       dirtyListIdRef.current = null;
@@ -396,7 +410,7 @@ export const PickingCartDrawer: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (sessionMode !== 'double_checking' || !activeListId) return;
+    if (!keepsVerificationProgress(sessionMode) || !activeListId) return;
     // Only edits made here go out (see dirtyListIdRef). Returning before the
     // cleanup is registered also means the cleanup below can only ever flush
     // keys the operator actually changed, for the list they belong to.
@@ -548,7 +562,7 @@ export const PickingCartDrawer: React.FC = () => {
   const handleReleaseOrder = async () => {
     if (activeListId) {
       try {
-        if (sessionMode === 'double_checking') {
+        if (keepsVerificationProgress(sessionMode)) {
           if (dbWriteTimer.current) {
             clearTimeout(dbWriteTimer.current);
             dbWriteTimer.current = null;

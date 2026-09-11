@@ -106,7 +106,9 @@
   shadcn y ledding, revisadas). Cierra de paso el pendiente del board: la tarjeta combinada lleva
   `members` y su letrero lee todas las notas. Mismo día, tras verlo: en COMPLETED el letrero se queda
   quieto («se mantiene firme»), y la tarjeta del grupo FedEx gana letrero **y la barra de avance que
-  nunca tuvo** — el board no enseñaba el progreso de casi nada de lo que se verifica en un día.
+  nunca tuvo** — el board no enseñaba el progreso de casi nada de lo que se verifica en un día. Y una
+  orden abierta para recoger (`active` manual, `needs_correction`) ya guarda sus marcas: antes solo
+  vivían en el teléfono (#TEST: 3/7 allí, nada en el board).
 - **Pendiente:** a) mitad DB (`classify_picking_note` + relleno de `kind`, con ensayo y ok); el resto del
   clasificador en SQL (pickup, ship-with); e) columna `hold` + switch + pastilla en el board y Ship;
   fase 2 (PICK UP automático); descartar en la puerta 881404–881407 (bug-027).
