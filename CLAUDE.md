@@ -300,10 +300,19 @@ escrito cada eco realtime volvía a escribir (120 PATCH en 62 s).
 
 **Activity Report layout:** Editor panel on the left (desktop) with: selectable greeting toggle ("Hi Carine!"), Win of the Day, PickD Updates (collapsible dropdown, closed by default), On the Floor routine checklist (editable items via gear icon, persisted in localStorage), and Notes (multiline textarea, one per line). Preview on the right updates with green highlight flash on each edit. "Save & Copy Report" button at bottom saves + copies to clipboard in one action. Report section order: Win → PickD Updates → Done Today → On the Floor → In Progress → Coming Up Next → Inventory Accuracy → Waiting. Footer shows date only (no timestamp). `/pickd-report` public route shows the HTML daily report for the current date with date navigation.
 
+**Un color, una grafía (11 sep 2026).** `sku_metadata.color` alimenta un filtro de coincidencia
+**exacta** en Scratch & Dent (`.eq('color', …)`) y un desplegable armado con los valores distintos.
+Tenía **163 valores para 113 colores**: `Blue`/`BLUE` (90 filas), cuatro grafías de `gloss black` (71
+filas, una con espacio al final). El trigger `normalize_sku_color` (`20260911152510`) guarda siempre
+MAYÚSCULAS sin espacios de sobra, y vacío se guarda como NULL. **Si se quiere bonito, es Title Case al
+pintarlo, no al guardarlo.**
+
 **Rellenar el catálogo desde AS400 (11 sep 2026).** `scripts/backfill-catalog-from-as400.mjs`
 (preview por defecto, `--apply` para escribir) llena `model` y `size` desde `as400_description`.
-**Solo rellena huecos vacíos** — pisar lo que alguien escribió es otra decisión, y vive en idea-177
-junto al `color` (PickD tiene el cubo `Blue`, AS400 el nombre `INK`). Importa **el parser de la app**
+Rellena huecos vacíos, y pisa en **tres casos acotados**: un `color` que sea un cubo genérico
+(`BLUE` → `INK`; `THUNDER GREY` nunca), un `model` de ≤2 letras (5 en todo el catálogo) y un `model`
+que sea prefijo estricto por palabras del de AS400 (`QUEST` → `QUEST SPORT`). Sigue fuera, en
+idea-177, el `model` con la talla dentro — 202 filas. Importa **el parser de la app**
 (`parseBikeName`) en vez de copiarlo: node lo corre con `--experimental-strip-types`, así que no hay
 espejo que mantener. Y su **fallback es la señal de no escribir**: sin un año `20xx` con talla delante
 devuelve el string entero como `model`, lo cual es detectable — así se niega sola ante

@@ -18,22 +18,32 @@
   `model` y `size` **solo donde están vacíos** y solo cuando `parseBikeName` sacó un resultado real.
   De las 10 primeras descripciones, 8 limpias. Criterio: rellenar un hueco es seguro, pisar lo que
   alguien escribió no.
-- **❓1 · `color`, el cubo contra el nombre comercial.** PickD guarda `Blue`, `Black`, `Brown`; AS400
-  trae `INK`, `NAVY PEARL`, `DEEP BLUE`, `SUGAR BLUE`, `CHARCOAL`, `SANDSTONE`. **No es un hueco, es
-  un reemplazo**, así que no se tocó. Tres salidas: (a) pisar el cubo, (b) columna nueva
-  (`color_name`) y el cubo se queda para filtrar, (c) el cubo se deriva del nombre. La (b) parece la
-  buena —se filtra por «azul» y se lee «SUGAR BLUE»— pero cuesta una columna y sus consumidores.
-- **❓2 · `model` ocupado pero sucio.** `03-4039BR` tiene **«T»** donde AS400 dice **HUDSON**; el
-  `03-3971MN` tiene `CITIZEN 3 S/T 14 VANILLA`, con la talla y medio color dentro del nombre. Son los
-  227 que ya conocíamos. ¿Se pisa un modelo que claramente no es un modelo, y con qué regla — una
-  sola letra, o «contiene la talla»?
-- **❓3 · Descripciones que el parser rechaza.** `TRAIL X1 2009 14 GLOSS BLACK` trae **año y talla al
-  revés**; `S/D ALLEGRO A3 S/O 14" MING   G220310857` no trae año y sí número de serie. Hoy se niegan
-  solas, que es lo correcto. ¿Se le enseña esa forma a `parseBikeName`, o esas quedan a mano?
+- **✅1 · `color`** — resuelto al mirar la columna: **ya estaba medio migrada** al nombre comercial
+  (`GLOSS BLACK` 41, `THUNDER GREY` 18, `INK` 14) contra los cubos (`Blue` 62, `Black` 33). El cubo no
+  era una convención, era lo que quedó sin enriquecer, así que la columna nueva que propuse sobraba.
+  **Hecho:** (a) `20260911152510` normaliza a MAYÚSCULAS con trigger — el filtro de S&D compara
+  **exacto** y había 4 grafías de `gloss black` en 71 filas, una con espacio al final: **163 valores
+  distintos → 113**; (b) el backfill pisa el color **solo si es un cubo genérico** de una lista de 16.
+  `THUNDER GREY` no se toca jamás.
+- **✅2 · `model` ocupado pero sucio** — partido en dos por tamaño. **Hecho:** ≤2 letras (**5 filas** en
+  todo el catálogo — «T» donde AS400 dice HUDSON) y prefijo estricto por palabras
+  (`QUEST` → `QUEST SPORT`, estrictamente más información). **Sigue fuera:** el modelo con la talla
+  dentro (`CITIZEN 3 S/T 14 VANILLA`), que son **202 filas**, el 25% de las bicis. Esa merece una
+  pasada revisada y no ir de polizón. ❓ ¿la regla es «contiene el size que acabamos de escribir»?
+- **❓3 · Descripciones que el parser rechaza** — **decidido: esperar, no tocar.** `TRAIL X1 2009 14`
+  trae año y talla al revés y `S/D … G220310857` no trae año. Hoy se niegan solas, que es correcto.
+  `parseBikeName` **lo usa también el inventario normal**, no solo AS400, así que cambiarlo por 1 caso
+  de 10 es la clase de decisión que sale mal. Revisar a los **~100 leídos**: el preview del script
+  lista los rechazados, así que el número sale de correrlo.
 - **Resuelto de paso — el `Model Year` de AS400 no es el año de la bici.** Dice `2025` en el TRAIL X1
   cuya descripción dice `2009` y en el CITIZEN que dice `2026`. Parece el año de catálogo vigente. **El
   año sale de la descripción**, que es lo que `parseBikeName` ya hacía: no cambiar nada.
-- **Pendiente aparte — el peso (F4).** `weight_lbs` lleva **45 de relleno** en 8 de 10 (lo escribe el
+- **El peso (F4) — preview hecho, falta encenderlo.** De los 10 leídos: **4 cambiarían** (45 → 42, 42,
+  42, 43), 5 los rechaza la regla porque AS400 da 0, y 1 es báscula intocable. **Ninguno cruza el
+  umbral de 50**, así que el riesgo que frenaba esto —un peso que cambie la clasificación de envío— no
+  aparece en la muestra: todos los cambios van hacia abajo desde el relleno. Se enciende con
+  `SKU_ENRICH_WEIGHT=1` en el `.env` de Bay 2.
+- **Contexto del peso.** `weight_lbs` lleva **45 de relleno** en 8 de 10 (lo escribe el
   trigger, no es medida de nadie) y AS400 da pesos reales. La regla ya está escrita y probada en el
   watchdog (solo si `weight_verified` es false y AS400 > 0), apagada tras `SKU_ENRICH_WEIGHT`. **No se
   encendió a propósito:** el peso mueve la clasificación de envío (>50 lb fuerza Regular) y la

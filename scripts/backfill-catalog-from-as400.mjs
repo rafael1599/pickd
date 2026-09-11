@@ -1,6 +1,6 @@
 /**
- * backfill-catalog-from-as400.mjs — llena `model` y `size` desde lo que el
- * AS400 dijo, y solo donde PickD no tiene nada.
+ * backfill-catalog-from-as400.mjs — pasa a PickD lo que el AS400 sabe del
+ * catálogo: `model`, `size` y `color`.
  *
  *   node --experimental-strip-types scripts/backfill-catalog-from-as400.mjs
  *   node --experimental-strip-types scripts/backfill-catalog-from-as400.mjs --apply
@@ -14,11 +14,23 @@
  * Así que esto toca EXCLUSIVAMENTE `model` y `size` cuando están en NULL o
  * vacíos, y solo cuando el parser sacó un resultado de verdad.
  *
- * Lo confuso se queda fuera a propósito y vive en el backlog:
- *   · `color` — PickD tiene un cubo genérico ("Blue") y AS400 el nombre
- *     comercial ("INK"). Eso no es un hueco, es un reemplazo.
- *   · `model` ya ocupado pero sucio — «T» donde AS400 dice HUDSON. Pisarlo
- *     sigue siendo pisarlo, y merece su regla.
+ * Y tres reemplazos acotados, decididos con los datos delante (11 sep 2026):
+ *
+ *   · `color` solo si lo que hay es un CUBO GENÉRICO. La columna ya estaba
+ *     medio migrada al nombre comercial —`GLOSS BLACK` (41), `THUNDER GREY`
+ *     (18), `INK` (14)— contra los cubos `Blue` (62) y `Black` (33). El cubo no
+ *     es una convención, es lo que quedó sin enriquecer. Así que `BLUE` → `INK`
+ *     sí; `THUNDER GREY` no se toca jamás.
+ *
+ *   · `model` de dos letras o menos. Son 5 en todo el catálogo, y «T» no es un
+ *     modelo: AS400 dice HUDSON.
+ *
+ *   · `model` que es PREFIJO ESTRICTO del de AS400: `QUEST` → `QUEST SPORT`.
+ *     Estrictamente más información, imposible que empeore.
+ *
+ * Lo que sigue fuera, en idea-177: un `model` con la talla dentro
+ * (`CITIZEN 3 S/T 14 VANILLA`). Son 202 filas, el 25% de las bicis, y merecen
+ * una pasada revisada y no ir de polizón aquí.
  *
  * ── Por qué el parser decide, y no una heurística de aquí ───────────────────
  *
@@ -51,6 +63,26 @@ function dbUrl() {
 }
 
 const empty = (v) => v === null || v === undefined || String(v).trim() === '';
+const norm = (v) => String(v ?? '').trim().replace(/\s+/g, ' ').toUpperCase();
+
+/** Los cubos: el color que alguien puso cuando no tenía el nombre de verdad. */
+const BUCKETS = new Set([
+  'BLUE', 'BLACK', 'GREY', 'GRAY', 'RED', 'WHITE', 'GREEN', 'SILVER',
+  'BROWN', 'ORANGE', 'YELLOW', 'PURPLE', 'PINK', 'TAN', 'BEIGE', 'GOLD',
+]);
+
+/** ¿El modelo que hay es claramente no-un-modelo, o una versión corta del real? */
+export function modelIsSafeToReplace(current, as400Model) {
+  const a = norm(current);
+  const b = norm(as400Model);
+  if (!a || !b || a === b) return false;
+  if (a.length <= 2) return true; // «T» donde AS400 dice HUDSON
+  // Prefijo estricto por palabras: QUEST ⊂ QUEST SPORT. Por palabras y no por
+  // caracteres, o «CITIZEN 1» se comería «CITIZEN 12».
+  const aw = a.split(' ');
+  const bw = b.split(' ');
+  return aw.length < bw.length && aw.every((w, i) => w === bw[i]);
+}
 
 /** Lo que esta fila ganaría, o null si no hay nada seguro que darle. Pura. */
 export function planRow(row) {
@@ -61,7 +93,16 @@ export function planRow(row) {
 
   const plan = {};
   if (empty(row.model)) plan.model = parsed.model;
+  else if (modelIsSafeToReplace(row.model, parsed.model)) plan.model = parsed.model;
+
   if (empty(row.size)) plan.size = parsed.size;
+
+  // El color solo pisa un cubo. Lo específico que ya esté escrito se respeta,
+  // venga de donde venga.
+  if (parsed.color && (empty(row.color) || BUCKETS.has(norm(row.color)))) {
+    if (norm(row.color) !== norm(parsed.color)) plan.color = parsed.color;
+  }
+
   return Object.keys(plan).length ? plan : null;
 }
 
@@ -104,16 +145,18 @@ try {
   } else {
     let done = 0;
     for (const { row, plan } of write) {
-      // Por clave primaria y solo sobre el hueco: el WHERE repite la condición
-      // de vacío para que una edición hecha entre el preview y el apply gane.
+      // Contra lo que se vio en el preview, no contra «sigue vacío»: ahora hay
+      // campos que se reemplazan a propósito. Si alguien lo editó en medio,
+      // gana esa persona y esta fila se salta.
       const res = await sql`
         UPDATE sku_metadata SET ${sql(plan)}
         WHERE sku = ${row.sku}
-          AND (${'model' in plan ? sql`(model IS NULL OR btrim(model) = '')` : sql`TRUE`})
-          AND (${'size' in plan ? sql`(size IS NULL OR btrim(size) = '')` : sql`TRUE`})
+          AND model IS NOT DISTINCT FROM ${row.model}
+          AND size IS NOT DISTINCT FROM ${row.size}
+          AND color IS NOT DISTINCT FROM ${row.color}
         RETURNING sku`;
       if (res.length) done += 1;
-      else console.log(`  ${row.sku}: alguien lo llenó entre el preview y ahora — no tocado`);
+      else console.log(`  ${row.sku}: cambió entre el preview y ahora — no tocado`);
     }
     console.log(`\n  ${done} fila(s) escritas.\n`);
   }
