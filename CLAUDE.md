@@ -395,8 +395,15 @@ watcher, dejo a tu criterio qué registrar en pickd y qué mejor dejar en report
 actualízame las ubicaciones y cantidades, en los pesos sí regístralos también».
 
 **El peso** lo decide `apply_as400_weight` (`20260912040619`), y la regla vive en SQL, no en el
-script: gana AS400 **salvo** que sea una **bici** cuyo peso no sea el default de 45 y además pese
-**más** que el del AS400 — ese de más es casi siempre una pesada de verdad, porque el número del
+script. **Una pesada real no la pisa nadie** (`20260912054645`): el `< 45` de la regla original era
+la manera de Rafael de decir «esto es el default del trigger», y acierta en las bicis normales —
+pero **las e-bikes nunca tuvieron 45**. `03-3604BL` y `03-3607GY` (HUDSON E2) llevaban **80 lb con
+`weight_verified = true`** y el AS400 dice 66, su habitual neto; la regla literal las bajó, y ese
+número es justo el que la estación teclea en el cartón aparte de una e-bike
+(`docs/prds/ship-ebike-declaration.md`). Catorce libras de menos es la dirección que FedEx
+re-factura. Así que el umbral se sustituye por la pregunta exacta que la tabla ya sabe contestar
+desde el 1 sep: `weight_verified`. Para todo lo demás sigue la regla de Rafael: gana AS400 **salvo**
+que sea una **bici** cuyo peso no sea el default de 45 y además pese **más** que el del AS400 — ese de más es casi siempre una pesada de verdad, porque el número del
 AS400 es neto y siempre sale por debajo (36 donde la báscula dijo 33,6; 37 donde dijo 37,91). **Las
 partes no tienen 45 que proteger** y ahí gana AS400 siempre que traiga número (Rafael: «eso solo
 para bikes»). Un `Weight: 0` del AS400 no es un peso — 9 de los primeros 17 bikes leídos lo traen
