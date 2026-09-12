@@ -361,6 +361,44 @@ devuelve el string entero como `model`, lo cual es detectable — así se niega 
 `TRAIL X1 2009 14` (año y talla al revés) en vez de inventar. El `Model Year` de AS400 **no es el año
 de la bici** (dice 2025 en una descripción de 2009): el año sale de la descripción.
 
+**Un SKU que AS400 conoce y PickD no se registra igual, en `UNKNOWN` (11 sep 2026).** Rafael: «hay
+que preguntar incluso por sku que aun no existen en pickd y registrarlos en pickd con ubicación
+unknown, para que el usuario cuando lo encuentre solo mueva su ubicación a la real». Hoy sale `UNREG`
+en Double Check y alguien lo registra a mano con la orden abierta; si la fila ya existe con el nombre
+real del AS400, en el piso queda **un gesto**: mover la ubicación y contar. `register_sku_from_as400`
+(`20260912032748`) escribe metadata + una fila de inventario en **qty 0** —la forma de placeholder
+que `register_new_sku` ya usa— y **nunca** cantidad: ni la del AS400 ni la de una hoja. **`UNKNOWN`
+no es `UNASSIGNED`**: aquella significa «llegó y no se ha guardado» y vive en la ruta normal
+(`picking_order` 996); ésta significa «el catálogo lo conoce, el piso no lo ha encontrado», va en la
+banda de último recurso (9999) y `counts_as_storage = false`. Filtrar por ella **es** la lista de
+cajas que buscar. `is_bike` sale del `B-Bike/P-Part` del AS400, que es la respuesta autoritativa a lo
+que el trigger adivina por prefijo: una parte del departamento 03 registrada a ciegas nacería bici,
+con 45 lb y caja de bici, y esa caja acaba en el export de FedEx. **El peso del AS400 no se escribe y
+nunca podrá**: `set_is_bike_on_insert` sella `weight_verified` si el INSERT trae peso y
+`set_dimensions_verified` lo sella en cualquier UPDATE que lo cambie, y es monótono — guardarlo sería
+afirmar una báscula que nadie usó (dice 36 donde PickD pesó 33,6). Vive en `as400_snapshot.weight_lbs`,
+donde dice de quién es; por eso el watchdog **retiró F4** (`SKU_ENRICH_WEIGHT`).
+
+La cola del watchdog es **`v_as400_skus_unregistered`**: los números que el AS400 imprimió en un papel
+(órdenes y capturas) y el catálogo no tiene — 109 al escribir esto. Trae `looks_like` porque no todo
+lo que el AS400 imprime es una caja en un estante: `merchandise` (55, se registra), `scratch_dent`
+(39 — una unidad vendida una vez; buscarla es buscar una bici que salió en marzo), `variant_sibling`
+(8 — `03-3768BLT` **es** `03-3768BL`, y registrarlo parte en dos lo que idea-154 unió) y `not_stock`
+(7 — `BILLING FOR STATE SALES TAX`, `BICYCLE BUILD FEE`). Se clasifica, **no se descarta**: las cuatro
+siguen en la vista. Y esa cola va **antes** que las bicis y las partes: son 6 minutos de terminal
+contra 1.800 SKUs de ordenar el catálogo, y es la única que desbloquea una orden que existe hoy — el
+alta las cura sin que nadie las abra (`zz_touch_open_orders_for_sku`).
+
+**Un mapa de piso en CSV entra por `scripts/import-parts-map.mjs`** (preview por defecto, `--apply`).
+El 11 sep 2026 Rafael mandó `PA_Inventory_Map.csv`, 354 partes: **196 no estaban en el catálogo** y se
+dieron de alta — 88 en su estante real, 108 en `UNKNOWN`. La cantidad del mapa **no se escribe**: para
+`66-0131BK` decía 204 donde PickD tiene 94, así que es un mapa, no un conteo; va en `internal_note`
+(`PA map: J10 · 204 u`) para que quien vaya al estante sepa qué esperaba encontrar. Un `Bin Location`
+que nombra **un** sitio (`J12`) es la ubicación; vacío o con varios (`D19/D20`, `H12-H28`) va a
+`UNKNOWN` — un rango no es una dirección. 27 de los 37 estantes citados no existían y los creó
+`resolve_location`; los otros 10 ya tenían inventario real, o sea que la nomenclatura del mapa es la
+de PickD.
+
 **Inventario PickD vs AS400 (10 sep 2026).** `v_inventory_vs_as400` compara, **por SKU**, la suma de
 LUDLOW contra el `On Hand` que AS400 enseña en `02. Stock File Inquiry`. **LUDLOW es la columna NJ**
 (Rafael, 10 sep 2026) — es la única correspondencia que hace falta saber, no se deduce de los datos, y
